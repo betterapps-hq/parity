@@ -2,10 +2,18 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { RendererAdapter } from "@parity-app/core"
+import type { JsonValue } from "@parity-app/core/schema"
+import { isText } from "@parity-app/core/values/evaluate"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { findLibraries } from "./libraries.ts"
 
-const renderer = {
+const renderer: RendererAdapter = {
+  id: "test",
+  name: "Test",
+  detect: () => true,
+  guestModule: "",
+  runtimePackages: [],
+  runtimeImports: [],
   componentExtensions: [".tsx", ".ts"],
   findComponents: (source: string) =>
     [...source.matchAll(/export function ([A-Z]\w*)/g)].map((match) => ({
@@ -13,16 +21,16 @@ const renderer = {
       export: match[1]!,
       as: "function"
     }))
-} as unknown as RendererAdapter
+}
 
 let root: string
 
-async function write(path: string, content: unknown) {
+async function write(path: string, content: JsonValue) {
   await mkdir(dirname(join(root, path)), { recursive: true })
-  await writeFile(join(root, path), typeof content === "string" ? content : JSON.stringify(content))
+  await writeFile(join(root, path), isText(content) ? content : JSON.stringify(content))
 }
 
-const component = (fields: Record<string, unknown> = {}) => ({ as: "function", ...fields })
+const component = (fields: Record<string, JsonValue> = {}) => ({ as: "function", ...fields })
 
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "canvas-library-files-"))

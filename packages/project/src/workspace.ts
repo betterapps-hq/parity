@@ -94,7 +94,7 @@ export async function workspaceSection(
     description: "A package in this workspace",
     package: entry.name,
     importName: entry.name,
-    ...(entry.manifest.version ? { version: entry.manifest.version } : {}),
+    version: entry.manifest.version || undefined,
     stylesImported: true,
     workspace: slashes(relative(root, entry.dir))
   }
@@ -107,7 +107,7 @@ export async function workspaceSection(
       export: name,
       library: id,
       declaration: slashes(relative(root, found.file)),
-      ...(found.as ? { as: found.as } : {})
+      as: found.as
     }
   }
 
@@ -183,11 +183,11 @@ async function expand(root: string, patterns: string[]): Promise<string[]> {
 }
 
 async function match(folder: string, parts: string[], depth = 0): Promise<string[]> {
-  if (parts.length === 0) {
+  const [part, ...rest] = parts
+
+  if (part === undefined) {
     return existsSync(join(folder, "package.json")) ? [folder] : []
   }
-
-  const [part, ...rest] = parts as [string, ...string[]]
 
   if (part === "**") {
     if (depth > 4) {

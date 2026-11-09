@@ -8,6 +8,7 @@ import {
   parseManifest,
   type RendererAdapter
 } from "@parity-app/core"
+import { isComposite, isText } from "@parity-app/core/values/evaluate"
 
 /**
  * The one reader of installed packages (PAR-573): where a package is installed, its manifest and version, the file
@@ -60,8 +61,14 @@ export async function readPackage(dir: string): Promise<PackageFolder | undefine
   return text === undefined ? undefined : { dir, manifest: parseManifest(text, file) }
 }
 
+/** A bare specifier's package and the entry point in it. */
+export interface SplitSpecifier {
+  name: string
+  subpath: string
+}
+
 /** A bare specifier's package and the entry point in it: `@acme/ui/button` is `@acme/ui` and `./button`. */
-export function splitSpecifier(specifier: string): { name: string; subpath: string } {
+export function splitSpecifier(specifier: string): SplitSpecifier {
   const parts = specifier.split("/")
   const length = specifier.startsWith("@") ? 2 : 1
   const rest = parts.slice(length).join("/")
@@ -169,9 +176,14 @@ export function packageStylesheet(pkg: PackageFolder): string | undefined {
     return style
   }
 
-  const css = Object.keys(exports === undefined ? {} : subpaths(exports))
-    .filter((key) => key.endsWith(".css") && !key.includes("*"))
-    .map((key) => key.slice(2))
+  const css =
+    exports === undefined
+      ? []
+      : subpaths(exports)
+          .keys()
+          .filter((key) => key.endsWith(".css") && !key.includes("*"))
+          .map((key) => key.slice(2))
+          .toArray()
 
   const pick = stylesheetNames.find((name) => css.includes(name)) ?? css[0]
 
@@ -179,12 +191,12 @@ export function packageStylesheet(pkg: PackageFolder): string | undefined {
 }
 
 /** `exports` by subpath: a map as written, or the package's one entry point, which is `.`. */
-function subpaths(exports: ExportsTarget): Record<string, ExportsTarget> {
-  if (typeof exports !== "object" || exports === null || Array.isArray(exports)) {
-    return { ".": exports }
+function subpaths(exports: ExportsTarget): Map<string, ExportsTarget> {
+  if (!isComposite(exports) || Array.isArray(exports) || !Object.keys(exports).some((key) => key.startsWith("."))) {
+    return new Map([[".", exports]])
   }
 
-  return Object.keys(exports).some((key) => key.startsWith(".")) ? exports : { ".": exports }
+  return new Map(Object.entries(exports))
 }
 
 /**
@@ -203,13 +215,15 @@ function exportTarget(
 
   const map = subpaths(exports)
 
-  if (Object.hasOwn(map, entry)) {
-    return resolveTarget(map[entry]!, wanted, accept)
+  const exact = map.get(entry)
+
+  if (exact !== undefined) {
+    return resolveTarget(exact, wanted, accept)
   }
 
   let best: { key: string; prefix: string; match: string } | undefined
 
-  for (const key of Object.keys(map)) {
+  for (const key of map.keys()) {
     const star = key.indexOf("*")
 
     if (star === -1) {
@@ -234,7 +248,7 @@ function exportTarget(
 
   const { key, match } = best
 
-  return resolveTarget(map[key]!, wanted, (file) => accept(file.replaceAll("*", match)))?.replaceAll("*", match)
+  return resolveTarget(map.get(key)!, wanted, (file) => accept(file.replaceAll("*", match)))?.replaceAll("*", match)
 }
 
 /** The first file a target leads to under the wanted conditions, taken in the order they're wanted. */
@@ -243,7 +257,7 @@ function resolveTarget(
   wanted: readonly string[],
   accept: (file: string) => boolean
 ): string | undefined {
-  if (typeof target === "string") {
+  if (isText(target)) {
     return accept(target) ? target : undefined
   }
 
@@ -361,7 +375,7 @@ async function exportsOf(
   }
 
   for (const component of renderer.findComponents(source, file)) {
-    found.set(component.export, { name: component.name, file, ...(component.as ? { as: component.as } : {}) })
+    found.set(component.export, { name: component.name, file, as: component.as })
   }
 
   for (const reexport of reexportsOf(source)) {

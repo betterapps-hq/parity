@@ -78,7 +78,7 @@ export function planEdit(edit: ProjectEdit, current: ReadonlyMap<string, FileCon
       return []
     }
 
-    return [{ path, ...(was === undefined ? {} : { before: was }), ...(after === undefined ? {} : { after }) }]
+    return [{ path, before: was, after }]
   })
 }
 
@@ -137,7 +137,7 @@ function applyFile(file: FileEdit, now: FileContent | undefined): { content: Fil
     case "delete":
       return now !== undefined && sameContent(now, file.expected) ? { content: undefined } : undefined
     case "patch": {
-      if (typeof now !== "string" || file.find === "") {
+      if (now === undefined || now instanceof Uint8Array || file.find === "") {
         return undefined
       }
 
@@ -153,7 +153,7 @@ function applyFile(file: FileEdit, now: FileContent | undefined): { content: Fil
 }
 
 function sameContent(a: FileContent, b: FileContent): boolean {
-  if (typeof a === "string" && typeof b === "string") {
+  if (!(a instanceof Uint8Array) && !(b instanceof Uint8Array)) {
     return a === b
   }
 
@@ -164,7 +164,7 @@ function sameContent(a: FileContent, b: FileContent): boolean {
 }
 
 function bytes(content: FileContent): Uint8Array {
-  return typeof content === "string" ? new TextEncoder().encode(content) : content
+  return content instanceof Uint8Array ? content : new TextEncoder().encode(content)
 }
 
 function describeSize(length: number): string {

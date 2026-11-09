@@ -4127,15 +4127,22 @@ was tried in a debug copy on `examples/shadcn-vite`: zooming in steadily from th
 board, the board was still blurry 8 seconds after the camera stopped; with the redraw, it was sharp once the zoom
 settled. Its cost wasn't timed, as the copy's window was minimized; it's one paint of the layer for each zoom.
 
-### Titles and labels zoomed far out (PAR-151, PAR-155)
+### Titles and labels zoomed far out (PAR-151, PAR-155, PAR-787)
 
 A board's labels are its design's title above it, the state labels beside its rows when it shows every state, and the
 captions naming each frame's mode. Up close they keep their screen size. Past 40% they shrink with the canvas, so they
 stay beside what they label instead of growing over the boards around it.
 
-- **Titles and state labels are names, so they stay.** They shrink to 60% of their screen size and no smaller. A title
-  is as wide on screen as its board: a long name truncates, and the design's icon is clipped with it, so nothing runs
-  past the board's edge.
+- **Titles and state labels are names, so they stay.** They shrink to 60% of their screen size and no smaller. Up close,
+  a title is as wide on screen as its board, so its controls sit at the board's right edge, and a long name truncates
+  there.
+- **Zoomed out, a title runs into the free canvas beside its board (PAR-787).** Once a board is too narrow on screen for
+  the title's controls (352 pixels at the title's drawn size), its name may run past the board's right edge, up to 8
+  screen pixels short of the next thing on the page whose top or title is level with it: a board, a frame or a note.
+  With nothing level to its right, it's as wide as the controls would need. It's never narrower than the board, and the
+  controls stay hidden while it runs past. So a narrow component's name reads in full instead of as "A…", where the
+  canvas beside it is empty. What's level depends on the zoom, since a title is the same height on screen and so covers
+  more of the canvas further out. The title follows as things beside it move, without its board drawing again.
 - **Captions are detail, and go first.** They shrink as titles do, but fade as they shrink and are gone by 25%.
 - **Too small to read, a label hides.** Once a board is narrower than 24 screen pixels, its title hides, and its state
   labels with it. A caption hides once its frame is that narrow. So at 1% a board 2,400 pixels wide or more keeps its
@@ -4151,16 +4158,23 @@ stay beside what they label instead of growing over the boards around it.
 Code: `labelLook` in `packages/editor/src/canvas-labels.ts`, the rule for every label; `useCanvasLabel` in
 `apps/desktop/src/renderer/canvas/labels.ts`, which applies it to a label's style as the zoom changes; `TitleBar`,
 `StateLabel` and `FrameCaption` in `canvas/ContainerView.tsx`, which pass each the board's or the frame's width, and a
-state's label the space beside its row (`useLabelSpace`, from `stateLabelSpace` in the package).
+state's label the space beside its row (`useLabelSpace`, from `stateLabelSpace` in the package). How far a title runs is
+`titleReach` in the package, applied by `useTitleReach` in `ContainerView.tsx`, with what else is on the page read from
+the canvas in `ContainerShapeUtil.tsx`.
 
-Tests: `packages/editor/src/canvas-labels.test.ts` (8: every label at screen size up close; names shrinking to 60% and
-showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by 25%; a label hiding
-once what it labels is under 24 screen pixels, and showing again closer in; a narrow board's detail hiding with its
-title at 30%, where it would otherwise still show; a state's label shrinking as a title does beside a tall row; its
-space measured from its top to the next row's label; and hiding without that space on screen, or on a board too narrow
-for its title). Gaps: applying the look to the DOM (the transform, the width it fits, the clipped icon and the row's
-measured height) has no automated test. It was checked in Storybook on the example's boards at 100%, 25%, 5% and 1%, and
-for PAR-155 on a row of component boards showing every state.
+Tests: `packages/editor/src/canvas-labels.test.ts` (14. `labelLook`, 8: every label at screen size up close; names
+shrinking to 60% and showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by
+25%; a label hiding once what it labels is under 24 screen pixels, and showing again closer in; a narrow board's detail
+hiding with its title at 30%, where it would otherwise still show; a state's label shrinking as a title does beside a
+tall row; its space measured from its top to the next row's label; and hiding without that space on screen, or on a
+board too narrow for its title. `titleReach`, 6: to the next board level with it, short of 8 screen pixels; the nearest
+of several; a board lower down whose title is level; boards to its left, above or below ignored; never narrower than the
+board; and the band of the canvas a title covers growing further out). Gaps: applying the look to the DOM (the
+transform, the width it fits, the clipped icon and the row's measured height) has no automated test. It was checked in
+Storybook on the example's boards at 100%, 25%, 5% and 1%, and for PAR-155 on a row of component boards showing every
+state. For PAR-787 it was checked in Storybook's zoomed-out boards at 4% and 10%: screen names and "Plan card" and "Stat
+card" read in full, and a name with a board close beside it still truncates. A title running past its board can still
+cross a state label beside the next board's rows; that has no test.
 
 ### A board's gutter keeps its screen size up close (PAR-602)
 
