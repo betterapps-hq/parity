@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 03:07:10 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 03:41:24 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.40.2
+
+Mon, 09 Nov 2026 03:41:24 GMT
+
+### Patches
+
+- Record gesture.ended and document.saved in the trace of the drag or edit they belong to (ajcraswell@gmail.com)
 
 ## 0.40.1
 
