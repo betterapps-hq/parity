@@ -3,7 +3,6 @@ import type { ReactNode } from "react"
 import {
   A11yPanel,
   A11yTag,
-  A11yToolbar,
   type A11yKind,
   type A11yNote,
   a11yKindOrder,
@@ -61,17 +60,6 @@ export const Kinds: Story = {
           </div>
         ))}
       </div>
-    </Stage>
-  )
-}
-
-/** Picking a kind to place, like a stamp. Suggest has an agent draft annotations from the render for you to confirm. */
-export const Toolbar: Story = {
-  render: () => (
-    <Stage className="flex flex-col gap-6">
-      <A11yToolbar />
-      <A11yToolbar active="name" />
-      <A11yToolbar active="focus" />
     </Stage>
   )
 }

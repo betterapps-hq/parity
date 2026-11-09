@@ -1848,9 +1848,9 @@ Code: the rules are `packages/editor/src/frames.ts` (`drawnFrame`, `nextFrameNam
 In the app, `canvas/frame-tool.ts` draws and places frames, `canvas/ContainerView.tsx` draws a frame without a board
 (`FrameView`) and keeps a hugging one fitted (`useFitToContent`), `canvas/CanvasOverlay.tsx` takes the frame tool's
 press, draws the frame being dragged and the selected frame's size, `canvas/new-screen.ts` adds a text frame
-(`addFrameOfText`), `chrome/Toolbar.tsx` has the tool and its menu, `chrome/designs.ts` converts (`setDesignKind`),
-`chrome/convert-to-frame.ts` says what a conversion drops and `chrome/ConvertToFrameDialog.tsx` asks, and
-`chrome/style-editor.ts` maps a frame's root size to its own.
+(`addFrameOfText`), `chrome/FloatingToolbar/FrameMenu.tsx` has the tool's menu, `chrome/designs.ts` converts
+(`setDesignKind`), `chrome/convert-to-frame.ts` says what a conversion drops and `chrome/ConvertToFrameDialog.tsx` asks,
+and `chrome/style-editor.ts` maps a frame's root size to its own.
 
 Tests:
 
@@ -1881,6 +1881,70 @@ Gaps: a hugging frame's root is measured at its content's width, so text that wr
 doesn't; give it a width. Text edited in the inspector's Content field doesn't rename a text frame, only editing in
 place does. The end-to-end tests run only in CI.
 
+## Tools
+
+What the floating controls on the canvas hold, and how a review tool takes over the toolbar.
+
+### The toolbar, review tools and Zoom (PAR-780, PAR-795)
+
+- **The toolbar floats at the bottom of the canvas,** in the middle: what the pointer does, Frame (F), Text (T) and
+  Insert, then the review button, then Search actions. Move and select (V), Hand (H) and Interact (I) share one button,
+  which shows the one picked last; the arrow beside it switches, and says Space and a drag pans with any tool. Frame's
+  icon is in the layer blue and Text's in text's green, as everywhere they show (PAR-792), and Insert's stays plain. A
+  picked tool is white on the selection blue. Frame's arrow holds its sizes, then New screen in screen blue and New
+  component in component purple.
+- **The review button** shows the review tool picked last, Comment at first, in its color when it isn't picked. Its
+  arrow lists Comment, with C, then, under Annotate with Shift+T, each kind of annotation: Behaviour, Content,
+  Accessibility and Development. C picks Comment, and Shift+T annotates in the kind picked last, Behaviour at first.
+- **A review tool warps the toolbar into its bar.** A kind of annotation's bar has its options as stamps, the picked one
+  showing its name, then Suggest and Done; Comment's says Commenting and what a click does, then Done. The canvas goes
+  to Move and select, so a click selects rather than adding text.
+- **Putting it down:** Done or Esc warps the toolbar back, onto the tool picked before. Esc first stops editing, as
+  before, and only then puts the review tool down; with none picked it goes to Move and select, the parent, then
+  nothing. Picking a tool by its key or button puts the review tool down and picks that tool. Picking another review
+  tool while one is picked keeps the tool to go back to.
+- **The warp.** The bar's width springs to the side that's showing. The leaving side's parts fly out, and the entering
+  side's land in a ripple outward from the review button, with a flash and a ring in the kind's color, or the layer blue
+  for Comment and going home. With reduced motion the sides cross-fade. Focus moves to the side showing, to its picked
+  control or its first; the hidden side can't be reached by pointer, keyboard or screen reader. The toolbar is named for
+  its side ("Toolbar", "Comments", "Behaviour annotations"). A focused button's ring shows whole at either end of the
+  bar.
+- **Zoom floats at the top right:** Zoom out, the level, Zoom in and Zoom to fit, each with its keys in its tooltip. The
+  level is a button that goes to 100%, named "Zoom to 100%, now 64%". Each acts on its own tab's canvas. Undo and Redo
+  left the canvas for the Edit menu and their keys.
+
+Code: the review rules are `packages/editor/src/review.ts` (`startReview`, `pickReview`, `stopReview`, `reviewToolFor`
+and `isReviewTool`). In the app, `renderer/selection.ts` keeps each tab's review (`startReviewing`, `stopReviewing`,
+`useReview`, and `setTool` putting it down); `chrome/keymap.ts` and `chrome/actions.ts` have Comment and Annotate, and
+`stepBack` in `chrome/commands.ts` puts the review tool down on Esc. `chrome/FloatingToolbar/` has the toolbar:
+`FloatingToolbar.tsx`, `Tools.tsx`, `MoveMenu.tsx`, `FrameMenu.tsx`, `ReviewButton.tsx` and `tool-details.ts`, with the
+warp in `Warp.tsx` (the bar and its two sides), `useWarp.ts` (widths, focus) and `warp-motion.ts` (the choreography).
+`chrome/toolbar-parts.tsx` has the parts the floating bars share, and `chrome/ZoomControls.tsx` is Zoom.
+`collaboration/annotations/` has the review tools' bars: `annotation-kinds.ts` names and colors each review tool,
+`annotation-options.ts` lists each kind's options, and `ReviewToolBar.tsx` shows `KindBar.tsx` or `CommentBar.tsx`, with
+`DoneButton.tsx`. `ReviewBar.tsx`, a bar for a review tool beside the toolbar rather than in it, is kept for later.
+`renderer/springs.ts` has the spring the warp and the stamps move on.
+
+Tests:
+
+- `packages/editor/src/review.test.ts` (5): the tool picked before is kept to go back to, also when another review tool
+  is picked; putting it down leaves the button showing it; C comments and Shift+T annotates in the kind picked last; and
+  only Comment and the kinds are review tools.
+- `apps/desktop/src/renderer/springs.test.ts` (5): a spring starts at 0 and settles on 1, overshoots only when it's
+  loose, settles later the less it's damped, and makes a `linear()` easing and keyframes.
+- `chrome/record-actions.test.ts`: Zoom's buttons run through the action list.
+- Stories, Parity / Chrome / Toolbar: SelectTool, HandTool, TextTool, InteractTool, ToolTooltip, Annotating and
+  Commenting; AnnotateAndBack picks Behaviour from the review menu, with the canvas on Move and select, and Esc goes
+  back to Text; ReviewKeys checks C, Shift+T, and F putting the review tool down. Parity / Chrome / Zoom controls:
+  ZoomedToFit, and ActualSize, which clicks the level to 100%. Parity / Collaboration / Annotations / Toolbar: each
+  kind's bar and Comment's, PickedStamp, and WhileReviewing for the bars kept for later.
+- End to end (PAR-202), `apps/desktop/e2e/frames.e2e.ts` opens Frame's menu by its name.
+
+Gaps: a click with a review tool only selects, until annotations (PAR-184) and comments can be placed, and Suggest does
+nothing yet. No test plays the warp's motion, which was judged by eye in Storybook as it was designed. The stories open
+the review menu with Enter: user-event's simulated press doesn't open a menu inside the canvas's right-click area,
+though a real click does.
+
 ## Keyboard
 
 What the keys do on the canvas, and when they belong to a design or a field instead.
@@ -1902,9 +1966,9 @@ through `formatKeys` so it reads as one chord:
 
 Code: `formatKeys` in `apps/desktop/src/renderer/chrome/keys.ts`. The kit's `Kbd` and its menus' and Search actions'
 `*Shortcut` parts show what they're given, so each place that shows keys passes them through `formatKeys` itself, as
-`AppMenu.tsx`, `CanvasMenu.tsx`, `ActionsSearch.tsx`, `Toolbar.tsx` and `ShortcutsDialog.tsx` do. The Layers row's menu,
-the toolbar's tools, history and zoom, and the Wrap in layout button for several layers take their labels and keys from
-the keymap too, so none types a shortcut by hand (PAR-571).
+`AppMenu.tsx`, `CanvasMenu.tsx`, `ActionsSearch.tsx`, `toolbar-parts.tsx` (`CommandTip`) and `ShortcutsDialog.tsx` do.
+The Layers row's menu, the toolbar's tools and review tools, Zoom, and the Wrap in layout button for several layers take
+their labels and keys from the keymap too, so none types a shortcut by hand (PAR-571).
 
 Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `-`, the Mac's symbols, text left alone,
 and every key in the keymap showing as one chord off a Mac. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2)
