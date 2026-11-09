@@ -1,5 +1,7 @@
 import {
   ArrowUpRight,
+  Braces,
+  ChartColumn,
   Component,
   Database,
   Film,
@@ -16,9 +18,7 @@ import {
   Quote,
   Route,
   Ruler,
-  Shuffle,
-  Sigma,
-  Webhook
+  ToggleRight
 } from "lucide-react"
 import { a11yKinds } from "../collaboration/a11y.tsx"
 import type { AnnotationKind } from "./options.tsx"
@@ -73,7 +73,7 @@ const behaviour = {
     title: "Changes state",
     hint: "Which of the design's states it leads to, and when",
     check: "Compared with the design's states: the one it names must exist",
-    icon: Shuffle,
+    icon: ToggleRight,
     ...tone(185)
   },
   navigate: {
@@ -167,7 +167,7 @@ const development = {
     title: "Data",
     hint: "The API or query that feeds it, and the shape it returns",
     check: "Compared with the props the design gives it; the API isn't called",
-    icon: Webhook,
+    icon: Braces,
     ...tone(150)
   },
   route: {
@@ -181,7 +181,7 @@ const development = {
     title: "Analytics",
     hint: "The event it sends, when, and its properties",
     check: "Read by people and agents, not checked",
-    icon: Sigma,
+    icon: ChartColumn,
     ...tone(30)
   },
   flag: {
