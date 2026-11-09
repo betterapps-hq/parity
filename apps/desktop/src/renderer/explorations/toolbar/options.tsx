@@ -50,15 +50,14 @@ import { useContainerEntry, useModeSettings } from "../../design-store.ts"
 import { type Tool, useSelection, useTool } from "../../selection.ts"
 
 /*
- * Options for the floating toolbar (PAR-780). Each one runs the app's own commands on the real canvas, so tools pick,
- * Insert opens the picker, and zoom and history act on the example.
+ * The chosen design for the floating toolbar (PAR-780), option C of the three explored, with zoom in the canvas's top
+ * right corner. It runs the app's own commands on the real canvas, so tools pick, Insert opens the picker, and zoom
+ * acts on the example.
  *
- * What's fixed in all of them: the separators run the bar's full height (the app's set `h-5` over the kit's
- * `self-stretch`), the picked tool keeps its rounded corners (the app's `spacing={0}` squares the inner ones) and is
- * picked out in the selection blue rather than a solid white block, and Hand shares a button with Move and select.
+ * What it fixes: the separators run the bar's full height (the app's set `h-5` over the kit's `self-stretch`), the
+ * picked tool keeps its rounded corners (the app's `spacing={0}` squares the inner ones) and is picked out in the
+ * selection blue rather than a solid white block, and Hand shares a button with Move and select.
  */
-
-export type ToolbarOption = "tidied" | "one-bar" | "review"
 
 const toolIcons: Record<Tool, typeof Hand> = {
   select: MousePointer2,
@@ -114,7 +113,7 @@ function Bar({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div
       role="toolbar"
-      data-option
+      data-proposed
       aria-label={label}
       className="absolute bottom-4 left-1/2 z-[400] flex -translate-x-1/2 items-stretch gap-0.5 rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg"
     >
@@ -127,7 +126,7 @@ function Bar({ label, children }: { label: string; children: ReactNode }) {
  * The tools as one group you move through with the arrow keys: Frame with its menu beside it, and Insert after Text,
  * since it makes things too.
  */
-function Tools({ review = false }: { review?: boolean }) {
+function Tools() {
   const { selection } = useProject()
   const tool = useTool(selection)
   const [reviewing, setReviewing] = useState<ReviewTool>()
@@ -166,12 +165,8 @@ function Tools({ review = false }: { review?: boolean }) {
     setBefore(undefined)
   }
 
-  // C comments and Shift+T annotates, while this bar has the review tools.
+  // C comments and Shift+T annotates, while the bar is showing.
   useEffect(() => {
-    if (!review) {
-      return undefined
-    }
-
     reviewKey = (key) => pickReview(key === "comment" ? "comment" : lastKind)
 
     return () => {
@@ -230,12 +225,8 @@ function Tools({ review = false }: { review?: boolean }) {
           })}
         </Fragment>
       ))}
-      {review && (
-        <>
-          <Divider />
-          <ReviewTools current={lastReview} picked={reviewing} onPick={pickReview} onDone={stopReview} />
-        </>
-      )}
+      <Divider />
+      <ReviewTools current={lastReview} picked={reviewing} onPick={pickReview} onDone={stopReview} />
     </ToggleGroup>
   )
 }
@@ -370,7 +361,7 @@ function ReviewTools({
 /** What Esc does while a review tool is picked, if one is. */
 let escapeReview: (() => void) | undefined
 
-/** What C and Shift+T do while a bar with the review tools is showing, if one is. */
+/** What C and Shift+T do while the toolbar is showing. */
 let reviewKey: ((key: "comment" | "annotate") => void) | undefined
 
 /** Whether a pointer is down, so a drag in progress keeps Esc to cancel it, as the canvas's shortcuts let it. */
@@ -595,7 +586,7 @@ function ZoomCorner() {
 
   return (
     <div
-      data-option
+      data-proposed
       className="absolute top-3 right-3 z-[400] flex items-center gap-0.5 rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg"
     >
       {button("zoomOut", <Minus />)}
@@ -617,46 +608,6 @@ function ZoomCorner() {
   )
 }
 
-const zoomCommands: Command[] = ["zoomIn", "zoomOut", "zoomToFit", "zoomToSelection", "zoomTo100"]
-
-/** The zoom level, opening every way to zoom, as Figma's and Penpot's do. */
-function ZoomMenu() {
-  const { editor, selection } = useProject()
-  const zoom = useValue("zoom", () => editor?.getZoomLevel() ?? 1, [editor])
-  const selected = useSelection(selection)
-
-  return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            aria-label={`Zoom, ${Math.round(zoom * 100)}%`}
-            className="h-8 min-w-16 gap-1 px-2 tabular-nums"
-            disabled={!editor}
-          />
-        }
-      >
-        {Math.round(zoom * 100)}%
-        <ChevronDown className="text-muted-foreground" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="end" sideOffset={10} className="w-56">
-        {zoomCommands.map((command) => (
-          <DropdownMenuItem
-            key={command}
-            disabled={command === "zoomToSelection" && !selected.design && !selected.note}
-            onClick={() => void actions[command].run("toolbar")}
-          >
-            {keymap[command].label}
-            <DropdownMenuShortcut>{formatKeys(keymap[command].keys[0])}</DropdownMenuShortcut>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-/** Search actions, the way to every command the bar leaves out. */
 function SearchActions() {
   return (
     <Tip command="actions">
@@ -672,48 +623,18 @@ function SearchActions() {
   )
 }
 
-/** A: the toolbar as it is, fixed, with Insert beside the tools that make things. Zoom stays at the top right. */
-export function TidiedToolbar() {
-  return (
-    <Bar label="Toolbar">
-      <Tools />
-    </Bar>
-  )
-}
-
 /**
- * B: one bar for everything on the canvas. The zoom level joins the tools and opens a menu of every way to zoom, so
- * the top right of the canvas is clear.
- */
-export function OneBarToolbar() {
-  return (
-    <Bar label="Toolbar">
-      <Tools />
-      <Divider />
-      <ZoomMenu />
-    </Bar>
-  )
-}
-
-/**
- * C: A, with the review tools at the end, Annotate and Comment in one button from PAR-184's annotations design, then
- * Search actions for every command the bar leaves out. Zoom stays at the top right.
+ * The tools, then the review tools, Annotate and Comment in one button from PAR-184's annotations design, then Search
+ * actions for every command the bar leaves out. Zoom stays at the top right, in ZoomCorner.
  */
 export function ReviewToolbar() {
   return (
     <Bar label="Toolbar">
-      <Tools review />
+      <Tools />
       <Divider />
       <SearchActions />
     </Bar>
   )
 }
 
-/** Each option's bar, and whether zoom stays at the top right of the canvas. */
-export const options: Record<ToolbarOption, { Toolbar: () => ReactNode; zoomInCorner: boolean }> = {
-  tidied: { Toolbar: TidiedToolbar, zoomInCorner: true },
-  "one-bar": { Toolbar: OneBarToolbar, zoomInCorner: false },
-  review: { Toolbar: ReviewToolbar, zoomInCorner: true }
-}
-
-export { ReviewBarLook, ZoomCorner, ZoomMenu }
+export { ReviewBarLook, ZoomCorner }

@@ -3,36 +3,35 @@ import { createPortal } from "react-dom"
 import { AppWindow } from "../../App.tsx"
 import { ProjectContext } from "../../canvas/context.ts"
 import { useActiveTabId, useTabs } from "../../workspace.ts"
-import { options, type ToolbarOption, ZoomCorner } from "./options.tsx"
+import { ReviewToolbar, ZoomCorner } from "./options.tsx"
 
 /**
- * The whole app window with one toolbar option in place of the app's own, on the real canvas: designs select, tools
- * pick, the canvas zooms and pans, and the option's buttons run the app's commands. Without an option it's the app as
- * it is today.
+ * The whole app window with the proposed toolbar and zoom corner in place of the app's own, on the real canvas: designs
+ * select, tools pick, the canvas zooms and pans, and the buttons run the app's commands. Without `proposed` it's the
+ * app as it is today.
  */
-export function ToolbarStage({ option }: { option?: ToolbarOption }) {
+export function ToolbarStage({ proposed = false }: { proposed?: boolean }) {
   const tabs = useTabs()
   const activeId = useActiveTabId()
   const session = tabs.find((tab) => tab.id === activeId)?.session
   const canvas = useCanvasArea()
-  const chosen = option ? options[option] : undefined
 
   return (
     <>
-      {chosen && (
+      {proposed && (
         <style>{`
-          .canvas-area > div:not([data-option]):has(> [role="group"][aria-label="Tools"]) { display: none }
-          .canvas-area > div.top-3.right-3:not([data-option]) { display: none }
+          .canvas-area > div:not([data-proposed]):has(> [role="group"][aria-label="Tools"]) { display: none }
+          .canvas-area > div.top-3.right-3:not([data-proposed]) { display: none }
         `}</style>
       )}
       <AppWindow />
-      {chosen &&
+      {proposed &&
         session &&
         canvas &&
         createPortal(
           <ProjectContext value={session}>
-            <chosen.Toolbar />
-            {chosen.zoomInCorner && <ZoomCorner />}
+            <ReviewToolbar />
+            <ZoomCorner />
           </ProjectContext>,
           canvas
         )}

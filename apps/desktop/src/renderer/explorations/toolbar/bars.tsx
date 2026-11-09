@@ -25,13 +25,10 @@ import tldrawToolbar from "./competitors/tldraw-toolbar.png?url"
 import {
   type AnnotationKind,
   annotationKinds,
-  OneBarToolbar,
   ReviewToolbar,
   ReviewBarLook,
   reviewSpec,
-  TidiedToolbar,
-  ZoomCorner,
-  ZoomMenu
+  ZoomCorner
 } from "./options.tsx"
 import { Par184Bar } from "./par-184-bar.tsx"
 
@@ -76,26 +73,11 @@ const ours: Entry[] = [
     )
   },
   {
-    name: "A. Tidied",
-    notes: ["Today's tools, fixed, with Hand and Interact in a menu beside Move and select, and Insert after Text."],
-    live: (
-      <Live>
-        <TidiedToolbar />
-      </Live>
-    )
-  },
-  {
-    name: "B. One bar",
-    notes: ["A zoom menu joins the tools, and the top right of the canvas is clear."],
-    live: (
-      <Live>
-        <OneBarToolbar />
-      </Live>
-    )
-  },
-  {
-    name: "C. With review",
-    notes: ["A, with Annotate and Comment in one button, then Search actions."],
+    name: "Proposed",
+    notes: [
+      "Option C, chosen: today's tools, fixed, with Hand and Interact in a menu beside Move and select, and Insert after Text.",
+      "Then Comment and each kind of annotation in one button, and Search actions."
+    ],
     live: (
       <Live>
         <ReviewToolbar />
@@ -131,7 +113,7 @@ const others: Entry[] = [
     name: "Framer",
     notes: [
       "Split in two. The tools that make things (Insert, Frame, Text, Vector) are at the top left.",
-      "The bar at the bottom holds Select, Hand, Comment, the theme and a zoom menu, much like B.",
+      "The bar at the bottom holds Select, Hand, Comment, the theme and a zoom menu, and a zoom menu from the level.",
       "The zoom menu groups zooming in and out, the fixed levels, then settings."
     ],
     shots: [
@@ -168,15 +150,15 @@ const others: Entry[] = [
 
 /** What the others have in common, and what it means for ours. */
 const takeaways = [
-  "Every other tool shows the picked tool in a strong color, so A, B and C now use the canvas's selection blue.",
-  "Figma, Penpot and Framer open a zoom menu from the level, as B does.",
-  "Figma keeps Comment, Annotation and Measurement under one button, as C does with Annotate and Comment.",
-  "tldraw folds tools into a menu when the bar runs out of room. None of ours do yet.",
-  "Figma folds Hand under Move, as A, B and C now do with Hand and Interact. Framer and tldraw keep Hand as its own button."
+  "Every other tool shows the picked tool in a strong color, so ours now uses the canvas's selection blue.",
+  "Figma, Penpot and Framer open a zoom menu from the level. Ours keeps zoom's buttons in the corner instead.",
+  "Figma keeps Comment, Annotation and Measurement under one button, as ours does with Comment and the kinds of annotation.",
+  "tldraw folds tools into a menu when the bar runs out of room. Ours doesn't yet.",
+  "Figma folds Hand under Move, as ours now does with Hand and Interact. Framer and tldraw keep Hand as its own button."
 ]
 
 /**
- * What Comment and each kind of annotation in C's review menu are for, as PAR-184's annotations design defines them,
+ * What Comment and each kind of annotation in the review menu are for, as PAR-184's annotations design defines them,
  * with an example from its annotated Pricing screen.
  */
 const reviewKinds: { id: "comment" | AnnotationKind; purpose: string; example: string }[] = [
@@ -208,16 +190,16 @@ const reviewKinds: { id: "comment" | AnnotationKind; purpose: string; example: s
   }
 ]
 
-/** Comment and the kinds of annotation, as C's review menu lists them. */
+/** Comment and the kinds of annotation, as the review menu lists them. */
 function ReviewKinds() {
   return (
     <section className="border-t py-6">
       <h2 className="font-medium">Comment and the kinds of annotation</h2>
       <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-        C&rsquo;s review menu, from PAR-184&rsquo;s annotations design, which isn&rsquo;t approved yet. Annotations are
-        the spec a design can&rsquo;t show by itself, attached to a layer, or to a layer in one state or mode, and
-        agents read and write them. Comments are talk about the design. Content&rsquo;s icon is a T because it&rsquo;s
-        about words and data; it isn&rsquo;t the Text tool.
+        Our review menu, from PAR-184&rsquo;s annotations design, which isn&rsquo;t approved yet. Annotations are the
+        spec a design can&rsquo;t show by itself, attached to a layer, or to a layer in one state or mode, and agents
+        read and write them. Comments are talk about the design. Content&rsquo;s icon is a T because it&rsquo;s about
+        words and data; it isn&rsquo;t the Text tool.
       </p>
       <Table className="mt-4 max-w-5xl">
         <TableHeader>
@@ -277,10 +259,10 @@ function SecondBars() {
     <section className="border-t py-6">
       <h2 className="font-medium">The second bars</h2>
       <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-        While Comment or an annotation is picked, C shows a bar just above the toolbar: what a click does, and Done. The
-        kinds have no options inside them; each is a name, an icon and a color.
+        While Comment or an annotation is picked, ours shows a bar just above the toolbar: what a click does, and Done.
+        The kinds have no options inside them; each is a name, an icon and a color.
       </p>
-      <h3 className="mt-6 text-sm font-medium">C&rsquo;s bar, one for each pick</h3>
+      <h3 className="mt-6 text-sm font-medium">Our bar, one for each pick</h3>
       <div className="mt-4 grid w-fit gap-3">
         {(["comment", ...Object.keys(annotationKinds)] as ("comment" | AnnotationKind)[]).map((tool) => (
           <Live key={tool}>
@@ -302,7 +284,7 @@ function SecondBars() {
       <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
         An older exploration, Accessibility annotations, splits accessibility into kinds of its own. Its bar picks which
         one to place, like a stamp, and Suggest has an agent draft them from the render to confirm. PAR-184&rsquo;s
-        design doesn&rsquo;t use them yet. In C, this bar could take the place of the hint while annotating
+        design doesn&rsquo;t use them yet. In ours, this bar could take the place of the hint while annotating
         accessibility.
       </p>
       <div className="mt-4">
@@ -344,25 +326,19 @@ function SecondBars() {
   )
 }
 
-/** Zoom as A and C have it, in the canvas's top-right corner, and as B has it, a menu at the end of the toolbar. */
+/** Zoom, in the canvas's top right corner. */
 function ZoomBars() {
   return (
     <section className="grid gap-3 border-t py-6 md:grid-cols-[14rem_1fr]">
       <div>
         <h2 className="font-medium">Zoom</h2>
         <ul className="mt-2 grid gap-1.5 text-sm text-muted-foreground">
-          <li>A and C: a bar in the top-right corner. The level goes to 100%, and the last button fits the page.</li>
-          <li>B: the level at the end of the toolbar, with the zoom commands in its menu.</li>
+          <li>A bar of its own in the top right corner. The level goes to 100%, and the last button fits the page.</li>
         </ul>
       </div>
       <div className="flex min-w-0 flex-wrap items-end gap-4">
         <Live>
           <ZoomCorner />
-        </Live>
-        <Live>
-          <div className="flex rounded-xl border bg-popover p-1 shadow-lg">
-            <ZoomMenu />
-          </div>
         </Live>
       </div>
     </section>
