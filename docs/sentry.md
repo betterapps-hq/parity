@@ -35,7 +35,8 @@ so there's nothing to set up ahead of the SDKs.
 `ci` sends only errors and reports, with their breadcrumbs: no spans, logs or replays (PAR-777). Those stay in the run's
 local copy, which the end-to-end suite checks. CI sent 718,000 of `parity-desktop`'s 794,000 spans in the week to
 2026-11-09, which would have run past every plan's 5 million spans a month. So a CI test pass shows in Sentry only
-through its errors.
+through its errors. Its spans and logs are in the `telemetry-github-<run>-<attempt>` artifact of its App tests run, kept
+for 7 days; [telemetry.md](telemetry.md#checking-it-in-the-end-to-end-tests) says how to read it (PAR-785).
 
 ## Releases and source maps
 
