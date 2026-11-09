@@ -58,12 +58,14 @@ describe("where the padding and gap handles go", () => {
 
   it("centres a padding's bar in it, with its press target clear of the resize strip on the edge", () => {
     const top = find(spacingHandles(stats), "top")
-    // The top padding runs between the sides' padding, 16 deep.
-    expect(top.area).toEqual({ x: 24, y: 0, w: 360, h: 16 })
+    // The top padding is shaded along the whole edge, 16 deep, its bar centred between the sides' padding.
+    expect(top.area).toEqual({ x: 0, y: 0, w: 408, h: 16 })
     expect(top.bar).toEqual({ x: 196, y: 7, w: 16, h: 2 })
     // From 4px inside the edge, past the resize strip, to the padding's inside, 24 along.
     expect(top.hit).toEqual({ x: 192, y: 4, w: 24, h: 12 })
     const right = find(spacingHandles(stats), "right")
+    // Corner to corner too, so a side shaded alone reads as Figma's does.
+    expect(right.area).toEqual({ x: 384, y: 0, w: 24, h: 88 })
     expect(right.bar).toEqual({ x: 395, y: 36, w: 2, h: 16 })
     expect(right.hit).toEqual({ x: 384, y: 32, w: 20, h: 24 })
   })
@@ -126,7 +128,7 @@ describe("where the padding and gap handles go", () => {
 
   it("measures inside the border", () => {
     const bordered = { ...stats, border: sides(2) }
-    expect(find(spacingHandles(bordered), "top").area).toEqual({ x: 26, y: 2, w: 356, h: 16 })
+    expect(find(spacingHandles(bordered), "top").area).toEqual({ x: 2, y: 2, w: 404, h: 16 })
   })
 })
 

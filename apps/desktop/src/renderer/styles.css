@@ -376,18 +376,23 @@ body,
   --canvas-agent: oklch(0.78 0.16 70);
 
   /*
+   * Margin's pink, as the Design panel's box model draws it (PAR-186). Padding and gaps take modes' green; which color
+   * each kind of spacing takes is set in canvas/spacing-colors.ts.
+   */
+  --canvas-margin: oklch(0.66 0.22 350);
+
+  /*
    * Chips over the canvas (a selection's label and size, a spacing value, the inspect label) hold 11px text, which
    * reads only at 4.5:1 on its fill (docs/typography.md, Canvas chip). White on the selection colors is about 3.4:1, so
-   * the darker hues' chips take a step of their color at L 0.55 (white on screen and layer 4.9:1, on component 5.5:1,
-   * on spacing 5.5:1) while their strokes keep 0.64. Text's green is lighter for its lightness, so its step is at L 0.52
-   * for white at 5.2:1. The light hues keep their fill and take near-black text: 7.9:1 on mode green, 8.8:1 on agent
-   * amber, 6.5:1 on tab order's orange.
+   * the darker hues' chips take a step of their color at L 0.55 (white on screen and layer 4.9:1, on component 5.5:1)
+   * while their strokes keep 0.64. Text's green is lighter for its lightness, so its step is at L 0.52 for white at
+   * 5.2:1. The light hues keep their fill and take near-black text: 7.9:1 on mode green, which padding and gap values
+   * share, 8.8:1 on agent amber, 6.5:1 on tab order's orange.
    */
   --canvas-screen-chip: oklch(0.55 0.18 256);
   --canvas-component-chip: oklch(0.55 0.23 304);
   --canvas-layer-chip: oklch(0.55 0.18 256);
   --canvas-text-chip: oklch(0.52 0.15 142);
-  --canvas-spacing-chip: oklch(0.55 0.22 350);
   --canvas-chip-ink: oklch(0.2 0 0);
 
   /*

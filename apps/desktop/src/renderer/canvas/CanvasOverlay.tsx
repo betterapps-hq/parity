@@ -99,13 +99,6 @@ interface Handles {
   nodes?: string[]
 }
 
-/** Space inside a selected layout: its padding, and the gaps between its children. */
-interface Spacing {
-  key: string
-  box: Box
-  kind: "padding" | "gap"
-}
-
 interface Model {
   outlines: { key: string; box: Box; color: string; dashed: boolean; thick: boolean }[]
   /** The selection's name over it and its size under it; several layers are counted rather than named. */
@@ -113,7 +106,6 @@ interface Model {
   redlines: Redline[]
   handles: Handles[]
   drag?: DragView
-  spacing?: Spacing[]
   /** The selected layout's padding and gap handles (PAR-169). */
   spacingHandles?: { target: SpacingTarget; measure: SpacingMeasure }
   /** Column grids over frames, from View > Layout grid. */
@@ -655,22 +647,6 @@ export function CanvasOverlay() {
           style={{ left: column.box.x, top: column.box.y, width: column.box.w, height: column.box.h }}
         />
       ))}
-      {model.spacing?.map((area) => (
-        <div
-          key={area.key}
-          className="absolute"
-          style={{
-            left: area.box.x,
-            top: area.box.y,
-            width: area.box.w,
-            height: area.box.h,
-            background:
-              area.kind === "padding"
-                ? "repeating-linear-gradient(-45deg, oklch(0.7 0.2 350 / 0.28) 0 1px, oklch(0.7 0.2 350 / 0.1) 1px 5px)"
-                : "repeating-linear-gradient(45deg, oklch(0.7 0.2 350 / 0.35) 0 1px, oklch(0.7 0.2 350 / 0.14) 1px 5px)"
-          }}
-        />
-      ))}
       {model.redlines.map((line, index) => (
         <RedlineView key={index} line={line} />
       ))}
@@ -1039,7 +1015,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     )
   }
 
-  // A selected layout shows the space inside it: padding along its edges, gaps between its children.
+  // A selected layout's padding and gaps take handles, which hatch the space they change only while they're in use.
   const single = layers.length === 1 ? layers[0] : undefined
   const layout = entry && single ? findLayer(store, entry.container, single) : undefined
 
@@ -1048,10 +1024,6 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
     // Inside an instance, the children's ids carry the same prefix as the layout's.
     const prefix = single.slice(0, single.lastIndexOf("/") + 1)
     const children = layout.children.map((child) => findNodeElement(picked, `${prefix}${child.id}`))
-
-    if (element) {
-      model.spacing = layoutSpacing(element, children, toBox)
-    }
 
     // Its padding and gaps take handles, except inside an instance, where they're the component's (PAR-169).
     if (element && selection.getTool() === "select" && !isInnerPath(single) && !locked) {
@@ -1077,117 +1049,6 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
   }
 
   return model
-}
-
-/** The padding and gap areas of a laid out element, in screen pixels, for the children that render. */
-function layoutSpacing(
-  element: HTMLElement,
-  children: (HTMLElement | undefined)[],
-  toBox: (rect: DOMRect) => Box
-): Spacing[] {
-  const rect = element.getBoundingClientRect()
-  const style = getComputedStyle(element)
-  const scale = rect.width / Math.max(1, element.offsetWidth)
-  const side = (name: string) => (parseFloat(style.getPropertyValue(name)) || 0) * scale
-
-  const border = {
-    top: side("border-top-width"),
-    right: side("border-right-width"),
-    bottom: side("border-bottom-width"),
-    left: side("border-left-width")
-  }
-
-  const padding = {
-    top: side("padding-top"),
-    right: side("padding-right"),
-    bottom: side("padding-bottom"),
-    left: side("padding-left")
-  }
-
-  const inner = {
-    left: rect.left + border.left,
-    right: rect.right - border.right,
-    top: rect.top + border.top,
-    bottom: rect.bottom - border.bottom
-  }
-
-  const box = (left: number, top: number, right: number, bottom: number) =>
-    toBox(new DOMRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top)))
-
-  const areas: Spacing[] = []
-
-  if (padding.top > 0.5) {
-    areas.push({
-      key: "pad-top",
-      kind: "padding",
-      box: box(inner.left, inner.top, inner.right, inner.top + padding.top)
-    })
-  }
-
-  if (padding.bottom > 0.5) {
-    areas.push({
-      key: "pad-bottom",
-      kind: "padding",
-      box: box(inner.left, inner.bottom - padding.bottom, inner.right, inner.bottom)
-    })
-  }
-
-  if (padding.left > 0.5) {
-    areas.push({
-      key: "pad-left",
-      kind: "padding",
-      box: box(inner.left, inner.top + padding.top, inner.left + padding.left, inner.bottom - padding.bottom)
-    })
-  }
-
-  if (padding.right > 0.5) {
-    areas.push({
-      key: "pad-right",
-      kind: "padding",
-      box: box(inner.right - padding.right, inner.top + padding.top, inner.right, inner.bottom - padding.bottom)
-    })
-  }
-
-  // Gaps only make sense in a single line of children; a wrapping layout or a grid has them in two directions.
-  if (!style.display.includes("flex") || style.flexWrap !== "nowrap") {
-    return areas
-  }
-
-  const row = style.flexDirection.startsWith("row")
-
-  const content = {
-    left: inner.left + padding.left,
-    right: inner.right - padding.right,
-    top: inner.top + padding.top,
-    bottom: inner.bottom - padding.bottom
-  }
-
-  const rects = children
-    .flatMap((child) =>
-      child && getComputedStyle(child).position !== "absolute" ? [child.getBoundingClientRect()] : []
-    )
-    .filter((child) => child.width > 0 || child.height > 0)
-    .sort((a, b) => (row ? a.left - b.left : a.top - b.top))
-
-  for (let index = 1; index < rects.length; index++) {
-    const previous = rects[index - 1]!
-    const next = rects[index]!
-    const gap = row ? next.left - previous.right : next.top - previous.bottom
-
-    if (gap < 0.5) {
-      continue
-    }
-
-    areas.push({
-      key: `gap-${index}`,
-      kind: "gap",
-      box: row
-        ? box(previous.right, content.top, next.left, content.bottom)
-        : box(content.left, previous.bottom, content.right, next.top)
-    })
-  }
-
-  return areas
 }
 
 /**
