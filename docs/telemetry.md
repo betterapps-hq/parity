@@ -195,6 +195,9 @@ Storybook or the CLI.
   `apps/desktop/src/renderer/replay.ts`, 1 for now; lower it when replay volume or Sentry's quota says so.
 - **While they're off, nothing is recorded,** and the recorder isn't loaded. Turning them off in Settings stops it at
   once, and turning them on starts it.
+- **While a project's canvas mounts, the page isn't recorded,** from the tab being ready until its first frame shows, or
+  5 seconds at most. The replay keeps the page as it was before, then a snapshot of the canvas once the frame shows, in
+  the same replay. Clicks and requests are still recorded meanwhile.
 
 A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
 shadow roots: it kept every one it saw, and with a frame's the closed project's canvas. The offscreen windows that draw

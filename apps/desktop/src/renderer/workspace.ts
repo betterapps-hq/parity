@@ -22,6 +22,7 @@ import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
+import { holdRecording } from "./replay.ts"
 import { errorCode, errorMessage, reportError, track } from "./report-error.ts"
 import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
@@ -835,11 +836,16 @@ async function createSession(
   return { session, recordLoaded }
 }
 
-/** Gives the session what records its canvas's first frame, which it lets go of once it has. */
+/**
+ * Gives the session what records its canvas's first frame, which it lets go of once it has. Session Replay waits for it
+ * too, so recording the canvas as it mounts doesn't hold the frame up (PAR-758).
+ */
 function firstFrameOf(session: ProjectSession, record: (from: FirstFrame) => void): void {
+  const release = holdRecording()
   session.firstFrame = watchFirstFrame((from) => {
     session.firstFrame = undefined
     record(from)
+    release()
   })
 }
 

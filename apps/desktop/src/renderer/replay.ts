@@ -15,6 +15,65 @@ export const replaySampling = { replaysSessionSampleRate: replaySessionRate, rep
 let added = false
 let recording = false
 
+/** What a hold pauses: the part of Replay that records the page, which goes on with the same replay when it resumes. */
+export interface PageRecorder {
+  isEnabled(): boolean
+  isPaused(): boolean
+  pause(): void
+  resume(): void
+}
+
+/** The longest a hold lasts, for a canvas whose first frame never comes, as in a project with no designs. */
+export const longestHoldMs = 5000
+
+/**
+ * Makes holds on recording the page. The first hold pauses the recorder, if it's recording, and it resumes once every
+ * hold is let go of, or has lasted `longestMs`. Resuming takes a fresh snapshot of the page, so what changed while it
+ * was paused shows from then on, all at once, in the same replay. It resumes in a task of its own, so a frame drawn as
+ * the last hold is let go of is painted before the snapshot is taken.
+ */
+export function pageHolds(
+  recorder: () => PageRecorder | undefined,
+  { longestMs = longestHoldMs, later = setTimeout, cancel = clearTimeout } = {}
+): () => () => void {
+  let holds = 0
+  let paused: PageRecorder | undefined
+  const resume = () => {
+    if (holds > 0 || !paused) return
+    // Replay resumes on its own when someone clicks, and stops for good if diagnostics are turned off.
+    if (paused.isPaused() && paused === recorder()) paused.resume()
+    paused = undefined
+  }
+  return () => {
+    if (holds++ === 0 && !paused) {
+      const current = recorder()
+      if (current?.isEnabled() && !current.isPaused()) {
+        current.pause()
+        paused = current
+      }
+    }
+    let held = true
+    const release = () => {
+      if (!held) return
+      held = false
+      cancel(timer)
+      if (--holds === 0) later(resume, 0)
+    }
+    const timer = later(release, longestMs)
+    return release
+  }
+}
+
+/**
+ * Holds Session Replay's recording of the page while a project's canvas mounts, until its first frame shows (PAR-758).
+ * Recording every board, title and layer tldraw adds took up to a third of the task that mounts them, before anything
+ * showed; a snapshot once the frame shows costs the same, after. Replay keeps its page recorder to itself, so it's
+ * reached through `_replay`; while diagnostics are off there's none.
+ */
+export const holdRecording = pageHolds(() =>
+  recording ? (Sentry.getReplay() as unknown as { _replay?: PageRecorder } | undefined)?._replay : undefined
+)
+
 /**
  * What the recorder shows of the window: everything as written, its secrets scrubbed (PAR-679), as in every other
  * event (PAR-621). Masking all text through `maskFn` is how Replay lets text pass through a function, so each text node
