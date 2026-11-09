@@ -132,6 +132,8 @@ function Tools({ review = false }: { review?: boolean }) {
   const tool = useTool(selection)
   const [reviewing, setReviewing] = useState<ReviewTool>()
   const [lastReview, setLastReview] = useState<ReviewTool>("comment")
+  // The kind of annotation picked last, which Shift+T annotates in.
+  const [lastKind, setLastKind] = useState<AnnotationKind>("behaviour")
 
   // The tool picked before reviewing, which Done brings back.
   const [before, setBefore] = useState<Tool>()
@@ -144,6 +146,10 @@ function Tools({ review = false }: { review?: boolean }) {
 
     setReviewing(id)
     setLastReview(id)
+
+    if (id !== "comment") {
+      setLastKind(id)
+    }
 
     if (tool !== "select") {
       void actions.select.run("toolbar")
@@ -159,6 +165,19 @@ function Tools({ review = false }: { review?: boolean }) {
 
     setBefore(undefined)
   }
+
+  // C comments and Shift+T annotates, while this bar has the review tools.
+  useEffect(() => {
+    if (!review) {
+      return undefined
+    }
+
+    reviewKey = (key) => pickReview(key === "comment" ? "comment" : lastKind)
+
+    return () => {
+      reviewKey = undefined
+    }
+  })
 
   // The pointer tool picked last, kept while another tool is picked so the button still shows it.
   const [move, setMove] = useState<PointerTool>(isPointerTool(tool) ? tool : "select")
@@ -352,10 +371,13 @@ function ReviewTools({
 /** What Esc does while a review tool is picked, if one is. */
 let escapeReview: (() => void) | undefined
 
+/** What C and Shift+T do while a bar with the review tools is showing, if one is. */
+let reviewKey: ((key: "comment" | "annotate") => void) | undefined
+
 /*
- * The canvas's shortcuts take Esc on the window while it's captured, and stop it there. Listening from when this module
- * loads, before the app's window draws, puts this ahead of them, so Esc puts a review tool down rather than stepping
- * back through the selection.
+ * The canvas's shortcuts take keys on the window while they're captured, and stop them there. Listening from when this
+ * module loads, before the app's window draws, puts this ahead of them, so Esc puts a review tool down rather than
+ * stepping back through the selection, and C and Shift+T pick the review tools, which aren't in the keymap yet.
  */
 window.addEventListener(
   "keydown",
@@ -367,6 +389,25 @@ window.addEventListener(
     if (event.key === "Escape" && escapeReview && !inOverlay) {
       event.stopImmediatePropagation()
       escapeReview()
+
+      return
+    }
+
+    // Typing, and Interact, where keys are the designs', keep C and T.
+    const typing = !!target?.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
+    const interacting = !!document.querySelector(".canvas-area[data-tool=interact]")
+
+    if (!reviewKey || inOverlay || typing || interacting || event.ctrlKey || event.metaKey || event.altKey) {
+      return
+    }
+
+    const comment = event.code === "KeyC" && !event.shiftKey
+    const annotate = event.code === "KeyT" && event.shiftKey
+
+    if (comment || annotate) {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      reviewKey(comment ? "comment" : "annotate")
     }
   },
   { capture: true }
