@@ -164,6 +164,9 @@ export function useTyped<T>({
   }
   const error = failed
   const named = backTo ?? (shown || "unset")
+  // What's put back, said under the field: the value kept, with the field's name where fields share a line.
+  let kept = named === "unset" ? "Still unset." : `Kept ${named}.`
+  if (line) kept = named === "unset" ? `${label} is still unset.` : `Kept ${label} at ${named}.`
   const commit = (leaving: boolean): boolean => {
     if (typed === undefined) return true
     const outcome = read(typed)
@@ -173,7 +176,7 @@ export function useTyped<T>({
     } else if (leaving) {
       setMessage({
         tone: "note",
-        text: `${label} is back to ${named}. ${sentence(outcome.reason)}`,
+        text: `${kept} ${sentence(outcome.reason)}`,
         action: outcome.action
       })
     } else {
@@ -208,7 +211,7 @@ export function useTyped<T>({
         if (event.key === "Escape" && typed !== undefined) {
           event.stopPropagation()
           setTyped(undefined)
-          setMessage(error ? { tone: "note", text: `${label} is back to ${named}.` } : undefined)
+          setMessage(error ? { tone: "note", text: kept } : undefined)
         }
         if (onStep && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
           event.preventDefault()
@@ -2141,11 +2144,8 @@ export function PercentField({
   const from = value ?? held?.percent ?? unsetIs ?? (Number(placeholder) || 0)
   const settle = (number: number) => clamp(Number(formatNumber(number, places)), min, max)
   const words = Object.keys(keywords ?? {})
-  let takes =
-    words.length > 0
-      ? `${label} takes a percentage, or ${words.slice(0, -1).join(", ")} or ${words.at(-1)}`
-      : `${label} takes a percentage, such as 50`
-  if (tokens) takes = `${takes}, or an opacity token`
+  let takes = words.length > 0 ? `Type a percentage, ${words.join(", ")}` : "Type a percentage, such as 50"
+  if (tokens) takes = words.length > 0 ? `${takes} or a token` : "Type a percentage or an opacity token"
   // A token steps to the next in the list's order, Shift to the first or last, as every token does.
   const stepToken = (up: boolean, { shift }: ScrubKeys) => {
     if (!tokens || !held) return false
@@ -2199,10 +2199,8 @@ export function PercentField({
           return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
         }
         const kept = Number(formatNumber(reading.value, places))
-        if (kept > max)
-          return { value: max, message: { tone: "note", text: `${label} goes up to ${max}%, so it's ${max}%.` } }
-        if (kept < min)
-          return { value: min, message: { tone: "note", text: `${label} goes down to ${min}%, so it's ${min}%.` } }
+        if (kept > max) return { value: max, message: { tone: "note", text: `The most is ${max}%.` } }
+        if (kept < min) return { value: min, message: { tone: "note", text: `The least is ${min}%.` } }
         return { value: kept }
       }}
       onCommit={(next) => {

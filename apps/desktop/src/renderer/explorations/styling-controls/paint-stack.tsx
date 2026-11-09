@@ -121,7 +121,7 @@ function changeKind(paint: Paint, kind: PaintKind): Paint {
 
 /** Why a gradient is written as one value rather than from, via and to, naming what makes it so. */
 function longReason(paint: GradientPaint): string {
-  if (paint.repeat) return "A repeating gradient has no utility, so it's written as an arbitrary value."
+  if (paint.repeat) return "No utility for repeating gradients, so it's an arbitrary value."
   const prefix = { linear: "bg-linear", radial: "bg-radial", angular: "bg-conic" }[paint.kind]
   const parts = [
     paint.stops.length > 3 && `${paint.stops.length} stops`,
@@ -133,7 +133,7 @@ function longReason(paint: GradientPaint): string {
       "a center off the middle"
   ].filter((part): part is string => typeof part === "string")
   const listed = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0]
-  return `From, via and to can't hold ${listed}, so it's written inside the utility: ${prefix}-[…].`
+  return `Written as ${prefix}-[…]: from, via and to can't hold ${listed}.`
 }
 
 /** A gradient as a preview draws it, with the project's colors. */
@@ -216,7 +216,7 @@ export function PaintStack({
             <MessageLine
               message={{
                 tone: "note",
-                text: "Tailwind's utilities hold one gradient or image over the fill color, so these fills are written as one arbitrary value."
+                text: "Too many layers for Tailwind's utilities, so it's one arbitrary value."
               }}
             />
           )}
@@ -482,9 +482,7 @@ export function GradientEditor({
         <MessageLine message={{ tone: "note", text: `Uses ${paint.token}. Editing a stop detaches it.` }} />
       )}
       {detached !== undefined && paint.token === undefined && (
-        <MessageLine
-          message={{ tone: "note", text: `Detached from ${detached}: these stops are the fill's own now.` }}
-        />
+        <MessageLine message={{ tone: "note", text: `Detached from ${detached}.` }} />
       )}
       <StopsBar paint={resolved} selected={selected} onSelect={setSelected} onChange={setStops} />
       {(resolved.kind === "linear" || resolved.kind === "angular") && (

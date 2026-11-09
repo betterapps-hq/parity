@@ -251,7 +251,7 @@ export function SizeField({
   let comesTo: string | undefined
   if (setBy) comesTo = `set by ${setBy}`
   else if (!fixed && measured !== undefined) comesTo = String(measured)
-  const reason = `${axis} takes a length, Hug or Fill`
+  const reason = `Type a length, Hug or Fill`
   /**
    * What's typed: Hug or Fill by name; a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`),
    * where a bare number is in the unit shown; or a percentage, CSS's (call 10). Nothing typed keeps the size.
@@ -440,7 +440,7 @@ export function RatioField({ aspect, onChange }: { aspect: string; onChange: (as
       }
       read={(text): Reading<string> => {
         const ratio = readRatio(text)
-        return ratio ? { value: ratio } : { reason: "Type a ratio, such as 16:9, 16/9 or 1.78" }
+        return ratio ? { value: ratio } : { reason: "Type a ratio, such as 16:9" }
       }}
       onCommit={onChange}
     />
@@ -894,7 +894,7 @@ function LengthField({
     const reading = readLength(trimmed, { label, current: own?.px ?? token?.px, takesPercent })
     if ("reason" in reading && reading.reason.startsWith("Can't read")) {
       const example = takesPercent ? "6px or 50%" : "6px"
-      return { reason: `${label} takes a length, such as ${example}, or a ${kind} token` }
+      return { reason: `Type a length, such as ${example}, or a ${kind} token` }
     }
     if ("reason" in reading) return reading
     if ("percent" in reading) {
@@ -1301,13 +1301,11 @@ export function Num({
       const reading = readLength(inRem && bare ? `${text}rem` : text, { label, current: value })
       if ("clear" in reading) return { value: undefined }
       if ("px" in reading) return { value: Math.max(min, reading.px) }
-      return { reason: "reason" in reading ? reading.reason : `${label} takes a length` }
+      return { reason: "reason" in reading ? reading.reason : "Type a length" }
     }
     if (text.trim() === "") return { value: undefined }
     const number = Number(text)
-    return Number.isFinite(number)
-      ? { value: Math.max(min, Math.round(number)) }
-      : { reason: `${label} takes a whole number` }
+    return Number.isFinite(number) ? { value: Math.max(min, Math.round(number)) } : { reason: "Type a whole number" }
   }
   const from = () => value ?? Math.max(min, 0)
   let unitPart: ReactNode = suffix

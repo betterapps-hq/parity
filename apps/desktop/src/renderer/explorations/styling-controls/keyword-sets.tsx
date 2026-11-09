@@ -34,6 +34,8 @@ export interface KeywordChoice extends KeywordOption {
   browsers?: string
   /** Listed under the menu's More, as Stroke's Groove, Ridge, Inset and Outset are. */
   more?: boolean
+  /** What a token comes to, shown where the other options show the value they write. */
+  comesTo?: string
 }
 
 /** Keywords every field takes, shown in words. */
@@ -292,10 +294,10 @@ export function KeywordMenu({
       onFocus={() => onPreview?.(choice.value)}
     >
       {draw?.(choice)}
-      <span className="flex-1">{choice.label}</span>
+      <span className="min-w-0 flex-1 truncate">{choice.label}</span>
       {choice.browsers && <NotBaseline what={choice.label} browsers={choice.browsers} />}
-      <span className="font-mono text-2xs text-muted-foreground">
-        {choice.token ? `--${property}-${choice.value}` : choice.css.split(": ")[1]}
+      <span className="shrink-0 font-mono text-2xs whitespace-nowrap text-muted-foreground">
+        {choice.comesTo ?? (choice.token ? `--${property}-${choice.value}` : choice.css.split(": ")[1])}
       </span>
     </DropdownMenuRadioItem>
   )
@@ -447,21 +449,28 @@ const cursor = (value: string, label: string): KeywordChoice => ({
   tailwind: `cursor-${value}`
 })
 
-/** Interaction's Cursor: the project's cursor tokens, then each cursor, drawn and shown as the pointer on hover. */
+const cursorTokenValue = (name: string) => cursorTokens.find((token) => token.name === `cursor-${name}`)?.value
+
+/**
+ * Interaction's Cursor: the project's cursor tokens, each with the cursor it comes to, then each cursor, drawn and
+ * shown as the pointer on hover.
+ */
 export const cursorChoices: KeywordChoice[] = [
   {
     value: "interactive",
     label: "Interactive",
     css: "cursor: var(--cursor-interactive)",
     tailwind: "cursor-(--cursor-interactive)",
-    token: true
+    token: true,
+    comesTo: cursorTokenValue("interactive")
   },
   {
     value: "busy",
     label: "Busy",
     css: "cursor: var(--cursor-busy)",
     tailwind: "cursor-(--cursor-busy)",
-    token: true
+    token: true,
+    comesTo: cursorTokenValue("busy")
   },
   cursor("default", "Default"),
   cursor("pointer", "Pointer"),

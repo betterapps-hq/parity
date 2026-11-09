@@ -23,15 +23,13 @@ export function readLength(
     const px = Number(step) * spacingPx
     return Number.isInteger(px)
       ? { px }
-      : { reason: `spacing-${step} isn't a step. Steps go in quarters, as spacing-3.25 does` }
+      : { reason: `spacing-${step} isn't a step. Steps go in quarters, such as 3.25` }
   }
   if (trimmed.includes("%")) {
     const percent = /^(-?\d*\.?\d+)\s*%$/.exec(trimmed)?.[1]
     if (takesPercent && percent !== undefined) return { percent: Number(percent) }
     return {
-      reason: takesPercent
-        ? "Type a percentage on its own, such as 50%"
-        : `${label} doesn't take a percentage. Type *0.5 for half of it`
+      reason: takesPercent ? "Type a percentage on its own, such as 50%" : `No percentages here. Type *0.5 for half`
     }
   }
   const rules = rulesFor(label)

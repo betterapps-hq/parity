@@ -48,7 +48,7 @@ export function AngleField({
       units: angleUnits,
       current: degrees,
       label,
-      takes: `${label} takes an angle, such as 45, 0.25turn or 1rad`
+      takes: `Type an angle, such as 45 or 0.25turn`
     })
     if ("reason" in reading) return reading
     return { value: angle(reading.value) }

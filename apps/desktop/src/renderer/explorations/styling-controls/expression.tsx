@@ -450,7 +450,8 @@ export function ExpressionField({
       setMessage({ tone: "error", text: reason })
       return false
     }
-    if (reason) setMessage({ tone: "note", text: `${label} is back to ${value ?? "unset"}. ${reason}.` })
+    if (reason)
+      setMessage({ tone: "note", text: `${value === undefined ? "Still unset." : `Kept ${value}.`} ${reason}.` })
     else {
       onChange(text)
       setMessage(undefined)
@@ -500,7 +501,9 @@ export function ExpressionField({
       event.stopPropagation()
       setEditing(undefined)
       setMessage(
-        message?.tone === "error" ? { tone: "note", text: `${label} is back to ${value ?? "unset"}.` } : undefined
+        message?.tone === "error"
+          ? { tone: "note", text: value === undefined ? "Still unset." : `Kept ${value}.` }
+          : undefined
       )
       backToField()
     }

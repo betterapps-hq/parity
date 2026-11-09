@@ -353,13 +353,13 @@ export function CenteredSlider({
     if (number > max) {
       return {
         value: max,
-        message: { tone: "note", text: `${label} goes up to ${max}${unit}, so it's ${max}${unit}.` }
+        message: { tone: "note", text: `The most is ${max}${unit}.` }
       }
     }
     if (number < min) {
       return {
         value: min,
-        message: { tone: "note", text: `${label} goes down to ${min}${unit}, so it's ${min}${unit}.` }
+        message: { tone: "note", text: `The least is ${min}${unit}.` }
       }
     }
     return { value: number }

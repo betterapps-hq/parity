@@ -360,11 +360,11 @@ const percentOf = (args: string) => {
  */
 export function putInOrder(text: string, behind: boolean): { entries: FilterEntry[] } | { reason: string } {
   const functions = functionsOf(text)
-  if (!functions) return { reason: "It can't be read as a list of filter functions" }
+  if (!functions) return { reason: "Not a list of filter functions" }
   const names = functions.map((part) => part.name)
   const twice = names.find((name, index) => names.indexOf(name) !== index)
-  if (twice) return { reason: `${twice}() is there twice, which one entry can't hold` }
-  if (names.includes("drop-shadow")) return { reason: "A drop shadow inside a custom filter stays as text" }
+  if (twice) return { reason: `${twice}() appears twice` }
+  if (names.includes("drop-shadow")) return { reason: "Drop shadows here stay as text" }
   const unknown = names.find((name) => name !== "blur" && !(name in adjustmentFor))
   if (unknown) return { reason: `${unknown}() has no slider` }
   const colors = names.filter((name) => name !== "blur")
@@ -373,7 +373,7 @@ export function putInOrder(text: string, behind: boolean): { entries: FilterEntr
   const outOfPlace = colors.findIndex((name, index) => name !== sorted[index])
   if (outOfPlace >= 0) {
     return {
-      reason: `Putting ${sorted[outOfPlace]}() before ${colors[outOfPlace]}() changes what's drawn, so it stays as text`
+      reason: `Its order changes what's drawn, so it stays as text`
     }
   }
   const entries: FilterEntry[] = []

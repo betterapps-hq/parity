@@ -335,7 +335,7 @@ function ChannelField({
       const number = Number(text)
       return text.trim() !== "" && Number.isFinite(number)
         ? { value: clamp(number, 0, max) }
-        : { reason: `${label} takes a number from 0 to ${max}` }
+        : { reason: `${label} goes from 0 to ${max}` }
     },
     onCommit: onChange,
     onStep: (up, shift) => onChange(clamp(value + (up ? step : -step) * (shift ? 10 : 1), 0, max)),

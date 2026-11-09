@@ -156,7 +156,7 @@ export function FontFamilyField({
       )
       if (named) return { value: valueOf(named) }
       return {
-        reason: `No font called ${typed} here. Type it with a fallback, such as ${typed}, sans-serif, to keep it as typed`
+        reason: `No font called ${typed}. To keep it, add a fallback: ${typed}, sans-serif`
       }
     }
     const near = tokensOnly ? nearestFontToken(typed, tokens) : undefined
@@ -185,7 +185,7 @@ export function FontFamilyField({
             run: () =>
               setNote({
                 tone: "note",
-                text: `Put ${resolved.name}'s font files in public/fonts, and Parity adds its @font-face.`
+                text: `Add ${resolved.name}'s files to public/fonts to load it.`
               })
           }
         ]}
@@ -419,7 +419,7 @@ export function WeightField({
                   read={(text): Reading<number> => {
                     const reading = readNumber(text, shown, "Weight")
                     if ("reason" in reading) return { reason: reading.reason }
-                    if ("clear" in reading) return { reason: "Type a weight from 1 to 1000" }
+                    if ("clear" in reading) return { reason: "Type a weight, 1 to 1000" }
                     if (reading.value < 1 || reading.value > 1000) return { reason: "Weight goes from 1 to 1000" }
                     return { value: Math.round(reading.value) }
                   }}
@@ -532,7 +532,7 @@ export function LineHeightField({
       typedUnit = typedUnits[suffix] ?? unit
     }
     const reading = readNumber(number, currentIn(value, typedUnit === "em" ? "×" : typedUnit), "Line height")
-    if ("reason" in reading) return { reason: `Line height takes a multiple (1.5), pixels (24px), a % or Auto` }
+    if ("reason" in reading) return { reason: `Type 1.5, 24px, a % or Auto` }
     if ("clear" in reading) return { value: undefined }
     if (reading.value < 0) return { reason: "Line height can't be negative" }
     if (typedUnit === "px") {
@@ -711,9 +711,9 @@ export function FontSizeField({
     const name = trimmed.replace(/^text-/, "")
     if (tokens.some((each) => each.name === name)) return { value: { token: name } }
     const reading = readNumber(trimmed.replace(/px$/, ""), px, "Size")
-    if ("reason" in reading) return { reason: "Size takes pixels, such as 20, or a text size token" }
+    if ("reason" in reading) return { reason: "Type pixels, such as 20, or a text size token" }
     if ("clear" in reading) return { value: undefined }
-    if (reading.value <= 0) return { reason: "Size takes a number above 0" }
+    if (reading.value <= 0) return { reason: "Type a number above 0" }
     return { value: { px: Math.round(reading.value * 100) / 100 } }
   }
   const nearest = px === undefined ? undefined : nearestToken(tokens, (each) => each.px, px)
@@ -841,7 +841,7 @@ export function LetterSpacingField({
       typedUnit = suffix
     }
     const reading = readNumber(number.replaceAll("−", "-"), currentIn(value, typedUnit), "Letter spacing")
-    if ("reason" in reading) return { reason: "Letter spacing takes a % of the font size, em, px or a tracking token" }
+    if ("reason" in reading) return { reason: "Type a %, em, px or a tracking token" }
     if ("clear" in reading) return { value: undefined }
     if (typedUnit === "px") setUnit("px")
     else if (unit === "px") setUnit(typedUnit)

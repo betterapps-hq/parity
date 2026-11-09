@@ -176,8 +176,7 @@ export function EasingField({
   const read = (text: string): Reading<Easing | undefined> => {
     if (text.trim() === "") return { value: undefined }
     const easing = readEasing(text, tokens)
-    if (!easing)
-      return { reason: `${label} takes a preset such as Ease out, a token's name, cubic-bezier() or steps()` }
+    if (!easing) return { reason: `Type a preset, a token, cubic-bezier() or steps()` }
     return { value: easing }
   }
   const isTaken = (taken: string) => tokens.some((other) => other.name === taken || other.name === namespace + taken)
