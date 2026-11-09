@@ -38,28 +38,53 @@ export function renderQueue(windows = 1): RenderQueue {
   const queued: QueuedJob[] = []
   const busy = new Set<number>()
   let previewing = false
+
   const pump = () => {
     while (busy.size < windows) {
       let next = -1
+
       for (let index = 0; index < queued.length; index++) {
         const job = queued[index]!
-        if (job.priority !== rank.render && previewing) continue
-        if (next === -1 || job.priority < queued[next]!.priority) next = index
+
+        if (job.priority !== rank.render && previewing) {
+          continue
+        }
+
+        if (next === -1 || job.priority < queued[next]!.priority) {
+          next = index
+        }
       }
-      if (next === -1) return
+
+      if (next === -1) {
+        return
+      }
+
       const [job] = queued.splice(next, 1)
       let window = 0
-      while (busy.has(window)) window++
+
+      while (busy.has(window)) {
+        window++
+      }
+
       busy.add(window)
       const preview = job!.priority !== rank.render
-      if (preview) previewing = true
+
+      if (preview) {
+        previewing = true
+      }
+
       void job!.start(window).finally(() => {
         busy.delete(window)
-        if (preview) previewing = false
+
+        if (preview) {
+          previewing = false
+        }
+
         pump()
       })
     }
   }
+
   return {
     add(priority, run) {
       return new Promise((resolve, reject) => {
@@ -79,6 +104,7 @@ export function renderQueue(windows = 1): RenderQueue {
 
 /** How long the person must leave Parity alone before previews nobody can see are made. */
 export const previewIdleMs = 2000
+
 /** How often previews check again while the canvas is still taking its own bitmaps. */
 export const previewSettleMs = 1000
 
@@ -111,11 +137,24 @@ export type PreviewStep = { make: string; priority: "visible" | "idle" } | { wai
  * each one, so the idle pass stops before its next preview as soon as the person works.
  */
 export function nextPreview({ canvasSettled, idleFor, needed }: PreviewMoment): PreviewStep {
-  if (needed.length === 0) return undefined
-  if (!canvasSettled) return { wait: previewSettleMs }
+  if (needed.length === 0) {
+    return undefined
+  }
+
+  if (!canvasSettled) {
+    return { wait: previewSettleMs }
+  }
+
   const visible = needed.find((need) => need.visible)
-  if (visible) return { make: visible.component, priority: "visible" }
-  if (idleFor >= previewIdleMs) return { make: needed[0]!.component, priority: "idle" }
+
+  if (visible) {
+    return { make: visible.component, priority: "visible" }
+  }
+
+  if (idleFor >= previewIdleMs) {
+    return { make: needed[0]!.component, priority: "idle" }
+  }
+
   return { wait: previewIdleMs - idleFor }
 }
 
@@ -135,6 +174,7 @@ export function fitInside(
   box: { width: number; height: number }
 ): { width: number; height: number } {
   const scale = Math.min(1, box.width / Math.max(1, width), box.height / Math.max(1, height))
+
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) }
 }
 
@@ -144,7 +184,12 @@ export function fitInside(
  */
 export function drawsNothing(pixels: Uint8Array): boolean {
   for (let at = 4; at + 3 < pixels.length; at += 4) {
-    for (let channel = 0; channel < 4; channel++) if (pixels[at + channel] !== pixels[channel]) return false
+    for (let channel = 0; channel < 4; channel++) {
+      if (pixels[at + channel] !== pixels[channel]) {
+        return false
+      }
+    }
   }
+
   return true
 }

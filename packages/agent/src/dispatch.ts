@@ -100,6 +100,7 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
   open: (params, { host }) => host.open(params.root),
   async state(params, { host, presence }) {
     const snapshot = await host.snapshot(params.tab)
+
     return showing(presence(snapshot.tab.id), { kind: "board", label: "Look over the board" }, async () =>
       state(snapshot)
     )
@@ -107,15 +108,18 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
   exec: (params, { host, presence }) => exec(host, presence, params.tab, params),
   async screenshot(params, call) {
     const options = { state: params.state, mode: params.mode, scale: params.scale }
+
     // The snippet is Parity's own, so a failure has nothing for the agent to retry by editId.
     const { editId: _editId, ...result } = await exec(call.host, call.presence, params.tab, {
       label: `Screenshot ${params.design}`,
       code: `Print(await Screenshot(${JSON.stringify(params.design)}, ${JSON.stringify(options)}))`
     })
+
     return result
   },
   async accessibility(params, { host, presence }) {
     const snapshot = await host.snapshot(params.tab)
+
     const result = await accessibility(
       host,
       snapshot,
@@ -123,11 +127,13 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
       { state: params.state ?? "all", mode: params.mode ?? "shown" },
       presence(snapshot.tab.id)
     )
+
     return { tab: tabRef(snapshot), ...result }
   },
   async problems(params, { host, presence }) {
     const snapshot = await host.snapshot(params.tab)
     const options = { state: params.state ?? "all", mode: params.mode ?? "shown" }
+
     const { found, ...result } = await checkDesign(
       host,
       snapshot,
@@ -136,40 +142,49 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
       presence(snapshot.tab.id),
       (api, design) => api.Problems(design, options)
     )
+
     return { tab: tabRef(snapshot), ...result, problems: found }
   },
   async console(params, { host, presence }) {
     const snapshot = await host.snapshot(params.tab)
+
     const entries = await showing(presence(snapshot.tab.id), { kind: "console", label: "Read the console" }, () =>
       host.console(snapshot, params.clear)
     )
+
     return { tab: tabRef(snapshot), entries }
   },
   async status(params, { host }) {
     const { tab, ...status } = await host.status(params)
+
     return { tab: { id: tab.id, name: tab.name }, ...status }
   },
   async modes(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
     const { settings: _settings, ...report } = readOnly(snapshot).GetModes(params.design)
+
     return { tab: tabRef(snapshot), ...report }
   },
   // Reads for a terminal, which agents do in a snippet.
   async tokens(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
+
     const filter = {
       ...(params.category === undefined ? {} : { category: params.category }),
       ...(params.source === undefined ? {} : { source: params.source }),
       ...(params.search === undefined ? {} : { search: params.search })
     }
+
     return readOnly(snapshot).GetTokens(filter)
   },
   async components(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
+
     return componentsReport(snapshot, readOnly(snapshot).Components())
   },
   async props(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
+
     return readOnly(snapshot).Props(params.component, { all: params.all }) as Answer<"props">
   },
   report: (params, { host }) => report(host, params)
@@ -190,7 +205,11 @@ export async function answerRequest(
 ): Promise<unknown> {
   const { method, params, agent, agentId, client } = readRequest(rpcRequest, body)
   const caller = callerIdentity(agent, agentId, client)
-  if (caller) called?.(caller)
+
+  if (caller) {
+    called?.(caller)
+  }
+
   return dispatch(method, params, host, caller)
 }
 
@@ -206,14 +225,18 @@ export async function dispatch(method: string, params: unknown, host: AgentHost,
       field: "method"
     })
   }
+
   const request = readRequest(paramSchemas[method], params ?? {})
+
   const presence =
     (tab: string): AgentHooks["presence"] =>
     (events) =>
       host.presence(
         events.map((event) => ({ tab, ...(caller ? { agent: caller.name, agentId: caller.id } : {}), ...event }))
       )
+
   const run = methods[method] as (params: unknown, call: Call) => Promise<unknown>
+
   return run(request, { host, presence })
 }
 
@@ -227,17 +250,21 @@ function tabRef(snapshot: TabSnapshot): { id: string; name: string } {
  */
 function componentsReport(snapshot: TabSnapshot, components: string[]): Answer<"components"> {
   const statuses = Object.entries(snapshot.renderStatus ?? {})
+
   const failing = statuses.flatMap(([id, status]) =>
     "error" in status ? [{ id, problem: renderProblem(status.error), reason: describeRenderStatus(status) }] : []
   )
+
   const main = snapshot.documents.find((entry) => entry.path === snapshot.mainDocument)?.document
   const listed = main?.detection?.include ?? []
+
   return {
     components,
     // Where the project's own are written; a library's component is named by its package instead (PAR-167).
     files: Object.fromEntries(
       components.flatMap((id) => {
         const source = snapshot.sources?.[id]
+
         return source && !source.library ? [[id, source.path]] : []
       })
     ),
@@ -262,9 +289,11 @@ async function showing<T>(
   run: () => Promise<T>
 ): Promise<T> {
   presence([{ kind: "start", label: event.label }, event])
+
   try {
     const result = await run()
     presence([{ kind: "end", label: event.label }])
+
     return result
   } catch (error) {
     presence([{ kind: "end", label: event.label, error: error instanceof Error ? error.message : String(error) }])
@@ -282,6 +311,7 @@ function state(snapshot: TabSnapshot): Answer<"state"> {
   const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
   const api = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state").api()
   const semantic = snapshot.tokens.filter((token) => token.source === "semantic")
+
   return {
     tab: snapshot.tab,
     // Changes with every change to the tab's designs, modes or token edits; `status` says what's saved.
@@ -327,6 +357,7 @@ async function exec(
   const snapshot = await host.snapshot(tab)
   const tabId = snapshot.tab.id
   const label = request.label || "Agent edit"
+
   const result = await execute(
     {
       label,
@@ -343,9 +374,11 @@ async function exec(
       supports: (queries) => host.supports(queries)
     }
   )
+
   const { changes, screenshots, ...rest } = result
   const hasChanges = changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0
   const paths = screenshots.length > 0 ? await host.saveScreenshots(screenshots) : []
+
   return {
     ...rest,
     applied: result.ok && hasChanges,
@@ -371,31 +404,53 @@ export async function exportPictures(
   scale: number
 ): Promise<{ files: { name: string; png: string }[]; warnings: string[] }> {
   const options = JSON.stringify({ state: "all", mode: "shown", scale })
+
   const result = await execute(
     { label: "Export", code: `for (const design of ${JSON.stringify(designs)}) await Screenshot(design, ${options})` },
     workspaceSnapshot(snapshot),
     { presence: () => undefined, render: renderFor(host, snapshot) }
   )
-  if (!result.ok) throw new Error(result.error ?? "The designs couldn't be rendered")
+
+  if (!result.ok) {
+    throw new Error(result.error ?? "The designs couldn't be rendered")
+  }
+
   const containers = new Map(
     snapshot.documents.flatMap(({ document }) => document.containers.map((container) => [container.id, container]))
   )
+
   const modes = new Map(resolveModes(snapshot.modes).map((mode) => [mode.id, mode.name]))
+
   const perDesign = (design: string, field: "state" | "mode") =>
     new Set(result.screenshots.filter((shot) => shot.design === design).map((shot) => shot[field])).size
+
   const used = new Set<string>()
+
   const files = result.screenshots.map((shot) => {
     const container = containers.get(shot.design)
     const state = container?.states.find((candidate) => candidate.id === shot.state)
     const parts = [container?.name ?? shot.design]
-    if (perDesign(shot.design, "state") > 1) parts.push(state?.name ?? shot.state)
-    if (perDesign(shot.design, "mode") > 1) parts.push(modes.get(shot.mode) ?? shot.mode)
+
+    if (perDesign(shot.design, "state") > 1) {
+      parts.push(state?.name ?? shot.state)
+    }
+
+    if (perDesign(shot.design, "mode") > 1) {
+      parts.push(modes.get(shot.mode) ?? shot.mode)
+    }
+
     const base = fileName(parts.join(" ")) + (scale === 1 ? "" : `@${scale}x`)
     let name = `${base}.png`
-    for (let copy = 2; used.has(name.toLowerCase()); copy++) name = `${base} ${copy}.png`
+
+    for (let copy = 2; used.has(name.toLowerCase()); copy++) {
+      name = `${base} ${copy}.png`
+    }
+
     used.add(name.toLowerCase())
+
     return { name, png: shot.png }
   })
+
   return { files, warnings: result.warnings }
 }
 
@@ -405,9 +460,17 @@ export async function exportPictures(
  */
 async function reportedTab(host: AgentHost, reference: string | undefined): Promise<string | undefined> {
   const tabs = await host.tabs()
-  if (reference === undefined || reference === activeTab) return tabs.find((tab) => tab.active)?.name
+
+  if (reference === undefined || reference === activeTab) {
+    return tabs.find((tab) => tab.active)?.name
+  }
+
   const tab = matchTab(tabs, reference)
-  if (tab) return tab.name
+
+  if (tab) {
+    return tab.name
+  }
+
   const ids = tabs.map((candidate) => candidate.id)
   throw unknownReference("unknown_tab", `No open tab matches "${reference}"`, reference, ids, "tab")
 }
@@ -428,22 +491,27 @@ async function report(host: AgentHost, params: Params<"report">): Promise<Answer
   const frames: AgentReport["frames"] = []
   let design: string | undefined
   let state = params.state
+
   if (snapshot && params.design !== undefined) {
     const options = { mode: "shown", ...(params.state === undefined ? {} : { state: params.state }) }
+
     const result = await execute(
       { label: "Report", code: `await Screenshot(${JSON.stringify(params.design)}, ${JSON.stringify(options)})` },
       workspaceSnapshot(snapshot),
       { presence: () => undefined, render: renderFor(host, snapshot) }
     )
+
     if (!result.ok) {
       throw new CodedError(result.error ?? "The design couldn't be drawn", result.details ?? { code: "app_error" })
     }
+
     for (const shot of result.screenshots) {
       design = shot.design
       state ??= shot.state
       frames.push({ name: fileName(`${shot.design} ${shot.state} ${shot.mode}`) + ".png", png: shot.png })
     }
   }
+
   const named: Record<string, string | undefined> = {
     tab: tabName,
     design: design ?? params.design,
@@ -451,9 +519,17 @@ async function report(host: AgentHost, params: Params<"report">): Promise<Answer
     node: params.node,
     test_run: params.testRun
   }
+
   const tags: Record<string, string> = {}
-  for (const [key, value] of Object.entries(named)) if (value !== undefined) tags[key] = value.slice(0, tagLength)
+
+  for (const [key, value] of Object.entries(named)) {
+    if (value !== undefined) {
+      tags[key] = value.slice(0, tagLength)
+    }
+  }
+
   const sent = await host.report({ message: params.message, tags, frames })
+
   return { ...sent, tags }
 }
 
@@ -470,6 +546,7 @@ export async function framePictures(
 ): Promise<{ frames: (Screenshot & { scale: number })[]; warnings: string[] }> {
   const frames: (Screenshot & { scale: number })[] = []
   const warnings: string[] = []
+
   for (const scale of scales) {
     const result = await execute(
       {
@@ -479,10 +556,15 @@ export async function framePictures(
       workspaceSnapshot(snapshot),
       { presence: () => undefined, render: renderFor(host, snapshot) }
     )
-    if (!result.ok) throw new Error(result.error ?? "The designs couldn't be rendered")
+
+    if (!result.ok) {
+      throw new Error(result.error ?? "The designs couldn't be rendered")
+    }
+
     frames.push(...result.screenshots.map((shot) => ({ ...shot, scale })))
     warnings.push(...result.warnings)
   }
+
   return { frames, warnings }
 }
 
@@ -510,6 +592,7 @@ export async function accessibility(
     presence,
     (api, reference) => api.Accessibility(reference, options)
   )
+
   return { ...result, findings: found }
 }
 
@@ -527,23 +610,28 @@ async function checkDesign<T>(
 ): Promise<{ design: { id: string; name: string }; found: T; frames: number; warnings: string[] }> {
   let frames = 0
   const render = renderFor(host, snapshot)
+
   const workspace = new AgentWorkspace(
     workspaceSnapshot(snapshot),
     {
       presence,
       render: (request) => {
         frames++
+
         return render(request)
       }
     },
     label
   )
+
   const api = workspace.api()
   workspace.emit({ kind: "start" })
+
   try {
     const found = await check(api, design)
     const { id, name } = api.GetDesign(design)
     workspace.emit({ kind: "end" })
+
     return { design: { id, name }, found, frames, warnings: workspace.result().warnings }
   } catch (error) {
     workspace.emit({ kind: "end", error: error instanceof Error ? error.message : String(error) })
@@ -556,6 +644,7 @@ async function checkDesign<T>(
 /** The agent API, for calls that only read. */
 function readOnly(snapshot: TabSnapshot): AgentApi {
   const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
+
   return new AgentWorkspace(workspaceSnapshot(snapshot), noop, "Read").api()
 }
 
@@ -565,6 +654,7 @@ export function fileName(name: string): string {
     .split("")
     .filter((character) => character >= " " && !'<>:"/\\|?*'.includes(character))
     .join("")
+
   return (
     kept
       .replaceAll(/\s+/g, " ")

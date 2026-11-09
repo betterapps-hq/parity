@@ -11,6 +11,7 @@ import { designSlots } from "./slots.ts"
 
 /** The kinds of value prop Props' Add makes. */
 export const valuePropTypes = ["text", "number", "boolean"] as const
+
 export type ValuePropType = (typeof valuePropTypes)[number]
 
 /** The default a new prop of each kind starts with. */
@@ -18,6 +19,7 @@ const startingValues: Record<ValuePropType, unknown> = { text: "Text", number: 0
 
 /** The layer fields a prop can drive, and the kind of prop each takes. */
 export type BindableField = "text" | "visible"
+
 const fieldTypes: Record<BindableField, ParamSpec["type"]> = { text: "text", visible: "boolean" }
 
 /**
@@ -26,26 +28,47 @@ const fieldTypes: Record<BindableField, ParamSpec["type"]> = { text: "text", vis
  */
 export function propNameProblem(container: ContainerSpec, name: string): string | undefined {
   const unusable = slotNameProblem(name)
-  if (unusable) return `A prop's name ${unusable}.`
-  if (container.params?.[name] || designSlots(container).some((slot) => slot.name === name))
+
+  if (unusable) {
+    return `A prop's name ${unusable}.`
+  }
+
+  if (container.params?.[name] || designSlots(container).some((slot) => slot.name === name)) {
     return `There's already a prop called ${name}.`
+  }
+
   return undefined
 }
 
 /** A name no prop or slot has, from `preferred`, numbered as needed. */
 export function freePropName(container: ContainerSpec, preferred: string): string {
   const base = slotName(preferred) || "prop"
-  if (!propNameProblem(container, base)) return base
+
+  if (!propNameProblem(container, base)) {
+    return base
+  }
+
   let counter = 2
-  while (propNameProblem(container, `${base}${counter}`)) counter++
+
+  while (propNameProblem(container, `${base}${counter}`)) {
+    counter++
+  }
+
   return `${base}${counter}`
 }
 
 /** Adds a value prop to a component design, with a default for its kind. Throws when the name can't be used. */
 export function addValueProp(container: ContainerSpec, name: string, type: ValuePropType): ContainerSpec {
-  if (container.kind !== "component") throw new Error("Only a component design has props")
+  if (container.kind !== "component") {
+    throw new Error("Only a component design has props")
+  }
+
   const problem = propNameProblem(container, name)
-  if (problem) throw new Error(problem)
+
+  if (problem) {
+    throw new Error(problem)
+  }
+
   return { ...container, params: { ...container.params, [name]: { type, default: startingValues[type] } } }
 }
 
@@ -66,27 +89,54 @@ export function bindField(
   field: BindableField,
   param: string | undefined
 ): ContainerSpec {
-  if (container.kind !== "component") throw new Error("Only a component design's layers use props")
+  if (container.kind !== "component") {
+    throw new Error("Only a component design's layers use props")
+  }
+
   const node = locateNode(container.root, nodeId)?.node
-  if (!node) throw new Error(`No node "${nodeId}" in this design`)
-  if (field === "text" && node.type !== "text") throw new Error("Only a text layer's text can use a prop")
-  if (param !== undefined && container.params?.[param]?.type !== fieldTypes[field])
+
+  if (!node) {
+    throw new Error(`No node "${nodeId}" in this design`)
+  }
+
+  if (field === "text" && node.type !== "text") {
+    throw new Error("Only a text layer's text can use a prop")
+  }
+
+  if (param !== undefined && container.params?.[param]?.type !== fieldTypes[field]) {
     throw new Error(`${container.name} has no ${fieldTypes[field]} prop called ${param}`)
+  }
+
   const root = mapNode(container.root, nodeId, (current) => {
     const next = { ...current, bind: { ...current.bind } } as DesignNode
     const was = current.bind?.[field]
+
     if (param === undefined) {
       delete next.bind![field]
       const shown = was === undefined ? undefined : container.params?.[was]?.default
-      if (field === "text" && next.type === "text" && typeof shown === "string") next.text = shown
-      if (field === "visible" && typeof shown === "boolean") {
-        if (shown) delete next.hidden
-        else next.hidden = true
+
+      if (field === "text" && next.type === "text" && typeof shown === "string") {
+        next.text = shown
       }
-    } else next.bind![field] = param
-    if (Object.keys(next.bind!).length === 0) delete next.bind
+
+      if (field === "visible" && typeof shown === "boolean") {
+        if (shown) {
+          delete next.hidden
+        } else {
+          next.hidden = true
+        }
+      }
+    } else {
+      next.bind![field] = param
+    }
+
+    if (Object.keys(next.bind!).length === 0) {
+      delete next.bind
+    }
+
     return next
   })
+
   return { ...container, root }
 }
 
@@ -100,15 +150,21 @@ export function propFromField(
   field: BindableField
 ): { container: ContainerSpec; name: string } {
   const node = locateNode(container.root, nodeId)?.node
-  if (!node) throw new Error(`No node "${nodeId}" in this design`)
+
+  if (!node) {
+    throw new Error(`No node "${nodeId}" in this design`)
+  }
+
   const label = node.name ?? (node.type === "text" ? node.text : "")
   const name = freePropName(container, field === "visible" ? `show ${label}` : label)
   const type = fieldTypes[field] as ValuePropType
   const added = addValueProp(container, name, type)
   const value = field === "text" && node.type === "text" ? node.text : !node.hidden
+
   const withDefault: ContainerSpec = {
     ...added,
     params: { ...added.params, [name]: { type, default: value } }
   }
+
   return { container: bindField(withDefault, nodeId, field, name), name }
 }

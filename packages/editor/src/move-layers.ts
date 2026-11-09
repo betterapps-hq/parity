@@ -39,11 +39,13 @@ export type MovePlace = Pick<MoveTarget, "parent" | "index" | "slot">
  */
 export function moveLayersWithin(container: ContainerSpec, ids: readonly string[], place: MovePlace): ContainerSpec {
   let root = container.root
+
   try {
     root = moveNodes(container.root, ids, place.parent, { index: place.index, slot: place.slot })
   } catch {
     return container
   }
+
   return JSON.stringify(root) === JSON.stringify(container.root) ? container : { ...container, root }
 }
 
@@ -62,14 +64,21 @@ export function moveLayersAcross(
   viewport?: string
 ): { source: ContainerSpec; destination: ContainerSpec; copies: string[] } {
   const taken = nodeIds(destination.root)
+
   const copies = topmostNodes(source.root, ids).map((node) =>
     withFreshIds(fitBindings(asShown(source, node, state, viewport), destination), taken)
   )
-  if (copies.length === 0) return { source, destination, copies: [] }
+
+  if (copies.length === 0) {
+    return { source, destination, copies: [] }
+  }
+
   let root = destination.root
+
   for (const [offset, copy] of copies.entries()) {
     root = insertNode(root, place.parent, copy, { index: place.index + offset, slot: place.slot })
   }
+
   return {
     source: ids.reduce((next, id) => (findNode(next.root, id) ? deleteNode(next, id) : next), source),
     destination: { ...destination, root },

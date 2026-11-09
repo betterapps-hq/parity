@@ -70,8 +70,14 @@ export function componentLabel(component: string): string {
 
 /** The undo step's label for inserting an item: "Add Button", "Add component", "Add copy" or "Add image". */
 export function insertLabel(item: InsertItem): string {
-  if (item.kind === "component") return `Add ${componentLabel(item.component)}`
-  if (item.kind === "instance") return item.detached ? "Add copy" : "Add component"
+  if (item.kind === "component") {
+    return `Add ${componentLabel(item.component)}`
+  }
+
+  if (item.kind === "instance") {
+    return item.detached ? "Add copy" : "Add component"
+  }
+
   return "Add image"
 }
 
@@ -81,9 +87,13 @@ export function insertLabel(item: InsertItem): string {
  * `componentNode`).
  */
 export function nodeForItem(item: InsertItem, info: ComponentInfo | undefined, taken: Set<string>): DesignNode {
-  if (item.kind === "instance") return { type: "instance", id: generateId(taken), design: item.design }
+  if (item.kind === "instance") {
+    return { type: "instance", id: generateId(taken), design: item.design }
+  }
+
   if (item.kind === "image") {
     const height = Math.max(1, Math.round((imageSteps * item.height) / Math.max(1, item.width)))
+
     return {
       type: "image",
       id: generateId(taken),
@@ -93,6 +103,7 @@ export function nodeForItem(item: InsertItem, info: ComponentInfo | undefined, t
       style: { width: imageSteps, height }
     }
   }
+
   return componentNode(item.component, info, taken, item.props)
 }
 
@@ -133,15 +144,19 @@ export function insertIntoDesign(
   const taken = nodeIds(container.root)
   const part = nodeForItem(item, context.info, taken)
   const location = locateNode(container.root, at.parent)
+
   const around = location
     ? [...location.ancestors, location.node].flatMap((node) => (node.type === "component" ? [node.component] : []))
     : []
+
   const inContext = withLibraryContext(part, context.sources, around, taken)
   const node = at.at ? placedAt(inContext, at.at) : inContext
+
   const placed = {
     ...container,
     root: insertNode(container.root, at.parent, node, { index: at.index, slot: at.slot })
   }
+
   return {
     container: item.kind === "instance" && item.detached ? detachInstance(placed, part.id, context.library) : placed,
     node: part.id
@@ -156,14 +171,30 @@ export function insertIntoDesign(
  */
 export function whereToInsert(root: DesignNode, node?: string, library?: ComponentLibrary): InsertAt | undefined {
   const slot = node && library ? slotAtPath(root, node, library) : undefined
-  if (slot) return { parent: slot.instance.id, slot: slot.slot.name }
+
+  if (slot) {
+    return { parent: slot.instance.id, slot: slot.slot.name }
+  }
+
   if (node) {
     const location = locateNode(root, node)
-    if (!location) return undefined
-    if (location.node.type === "layout") return { parent: location.node.id }
+
+    if (!location) {
+      return undefined
+    }
+
+    if (location.node.type === "layout") {
+      return { parent: location.node.id }
+    }
+
     const parent = location.ancestors.at(-1)
-    if (!parent) return undefined
+
+    if (!parent) {
+      return undefined
+    }
+
     return { parent: parent.id, index: location.index + 1, ...(location.slot ? { slot: location.slot } : {}) }
   }
+
   return root.type === "layout" ? { parent: root.id } : undefined
 }

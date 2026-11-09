@@ -57,12 +57,14 @@ describe("agent cursor motion", () => {
       expect(Math.abs(at.x)).toBeLessThanOrEqual(10)
       expect(Math.abs(at.y)).toBeLessThanOrEqual(10)
     }
+
     expect(breathe(1, 10)).not.toEqual(breathe(2, 10))
   })
 
   it("glances near the focus and inside the target", () => {
     const box = { x: 0, y: 0, w: 400, h: 300 }
     const focus = focusOffset(box)
+
     for (const [a, b] of [
       [0, 1],
       [0.25, 1],
@@ -73,7 +75,9 @@ describe("agent cursor motion", () => {
       const glance = glanceOffset(box, () => values.shift()!)
       expect(Math.hypot(glance.x - focus.x, glance.y - focus.y)).toBeLessThanOrEqual(44.0001)
     }
+
     const tiny = { x: 0, y: 0, w: 6, h: 6 }
+
     for (let i = 0; i < 20; i++) {
       const glance = glanceOffset(tiny)
       expect(glance.x).toBeGreaterThanOrEqual(2)

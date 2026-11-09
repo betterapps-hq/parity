@@ -73,6 +73,7 @@ function Heading({ dialog, className, children }: { dialog?: boolean; className:
 
 function Description({ dialog, children }: { dialog?: boolean; children: ReactNode }) {
   const className = "type-body text-muted-foreground"
+
   return dialog ? (
     <DialogDescription className={className}>{children}</DialogDescription>
   ) : (
@@ -83,6 +84,7 @@ function Description({ dialog, children }: { dialog?: boolean; children: ReactNo
 /** Provider buttons, then a work email for single sign-on or a code. */
 function SignInForm({ onSignIn }: { onSignIn: (request: SignInRequest) => void }) {
   const [email, setEmail] = useState("")
+
   return (
     <div className="flex flex-col gap-3">
       {providers.map(({ provider, name, mark }) => (
@@ -226,11 +228,14 @@ export function WaitingPanel({
   onCancel: () => void
 }) {
   const as = attempt.email ? ` as ${attempt.email}` : ""
+
   const opened =
     attempt.provider === "authkit"
       ? `We opened your browser to sign you in${as}.`
       : `We opened ${providerName(attempt.provider)} in your browser to sign you in${as}.`
+
   const copyLink = () => copy(attempt.url, "Copied the link", "copied-link")
+
   return (
     <div className="flex flex-col items-center gap-8">
       <MarkRing turning />
@@ -346,12 +351,15 @@ export function ProblemPanel({
 }) {
   const { provider, email, details } = attempt
   const retry = () => onSignIn(attempt.email === undefined ? { provider } : { provider, email: attempt.email })
+
   const other = (
     <Button variant="outline" onClick={onOther}>
       Choose another way
     </Button>
   )
+
   const account = email ? <span className="text-foreground">{email}</span> : "This account"
+
   const content: Record<ShownProblem, { title: string; text: ReactNode; actions: ReactNode }> = {
     canceled: {
       title: "Canceled in your browser",
@@ -402,7 +410,9 @@ export function ProblemPanel({
       )
     }
   }
+
   const shown = content[attempt.problem]
+
   return (
     <div className="flex flex-col items-center gap-8">
       <MarkRing badge={badges[attempt.problem]} />
@@ -439,6 +449,7 @@ export function ChooseOrganizationPanel({
   onOther: () => void
 }) {
   const { email, organizations = [] } = attempt
+
   return (
     <div className="flex w-full flex-col gap-6">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -503,6 +514,7 @@ export function SessionEndedPanel({
   onOther: () => void
 }) {
   const { person, provider } = ended
+
   return (
     <div className="flex w-full flex-col gap-6">
       <div className="flex flex-col items-center gap-4 text-center">

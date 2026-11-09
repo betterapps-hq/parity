@@ -10,6 +10,7 @@ function entry(name: string, body: string, type = "0"): Buffer {
   header.write("ustar\0", 257)
   const padded = Buffer.alloc(Math.ceil(Buffer.byteLength(body) / 512) * 512)
   padded.write(body)
+
   return Buffer.concat([header, padded])
 }
 
@@ -17,7 +18,11 @@ function entry(name: string, body: string, type = "0"): Buffer {
 function pax(path: string): Buffer {
   const record = (length: number) => `${length} path=${path}\n`
   let length = record(0).length
-  while (record(length).length !== length) length = record(length).length
+
+  while (record(length).length !== length) {
+    length = record(length).length
+  }
+
   return entry("PaxHeader", record(length), "x")
 }
 
@@ -28,6 +33,7 @@ describe("tarEntry", () => {
       entry("package/tags.json", '{"x":["close"]}'),
       Buffer.alloc(1024)
     ])
+
     expect(tarEntry(archive, "package/tags.json")?.toString()).toBe('{"x":["close"]}')
     expect(tarEntry(archive, "package/missing.json")).toBeUndefined()
   })
@@ -55,6 +61,7 @@ describe("publishedVersion", () => {
     const usual = globalThis.fetch
     globalThis.fetch = (async () =>
       Response.json({ versions: { "1.62.0": {}, "1.63.0": {} }, "dist-tags": { latest: "1.63.0" } })) as typeof fetch
+
     try {
       expect(await publishedVersion("lucide-react", "1.62.0")).toBe("1.62.0")
       expect(await publishedVersion("lucide-react", "latest")).toBe("1.63.0")
@@ -67,6 +74,7 @@ describe("publishedVersion", () => {
   it("names the field of a malformed npm document", async () => {
     const usual = globalThis.fetch
     globalThis.fetch = (async () => Response.json({ "dist-tags": { latest: 1 } })) as typeof fetch
+
     try {
       await expect(publishedVersion("lucide-react", "latest")).rejects.toThrow(
         "npm's document for lucide-react: /dist-tags/latest: expected a string"
@@ -83,6 +91,7 @@ describe("installedVersion", () => {
     const { tmpdir } = await import("node:os")
     const path = await import("node:path")
     const cache = await mkdtemp(path.join(tmpdir(), "parity-packages-"))
+
     try {
       const dir = path.join(cache, "@tabler+icons-react@3.50.0")
       await mkdir(dir, { recursive: true })

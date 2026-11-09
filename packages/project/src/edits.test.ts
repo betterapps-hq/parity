@@ -18,6 +18,7 @@ describe("planEdit", () => {
       },
       files({ "src/index.css": ":root {}\n", "src/app.tsx": "the old line", "notes.txt": "bye" })
     )
+
     expect(changes).toEqual([
       { path: "public/a.png", after: new Uint8Array([1, 2]) },
       { path: "src/index.css", before: ":root {}\n", after: ":root { --x: 1; }\n" },
@@ -39,6 +40,7 @@ describe("planEdit", () => {
       },
       files({ "a.css": "color: red", "b.css": "x" })
     )
+
     expect(changes).toEqual([{ path: "a.css", before: "color: red", after: "color: green" }])
   })
 
@@ -54,6 +56,7 @@ describe("planEdit", () => {
         { kind: "replace" as const, path: "fine.css", expected: "ok", content: "fine" }
       ]
     }
+
     const current = files({
       "exists.css": "",
       "changed.css": "edited by someone",
@@ -61,14 +64,17 @@ describe("planEdit", () => {
       "missing.css": "nothing here",
       "fine.css": "ok"
     })
+
     const thrown = (() => {
       try {
         planEdit(edit, current)
       } catch (error) {
         return error
       }
+
       return undefined
     })()
+
     expect(thrown).toBeInstanceOf(EditConflict)
     expect(thrown).toHaveProperty("paths", ["exists.css", "changed.css", "twice.css", "missing.css", "gone.css"])
   })
@@ -80,6 +86,7 @@ describe("planEdit", () => {
         { kind: "replace" as const, path: "a.png", expected: new Uint8Array([1, 2]), content: new Uint8Array([3]) }
       ]
     }
+
     expect(planEdit(edit, files({ "a.png": new Uint8Array([1, 2]) }))).toHaveLength(1)
     expect(() => planEdit(edit, files({ "a.png": new Uint8Array([1, 9]) }))).toThrow(EditConflict)
   })
@@ -88,6 +95,7 @@ describe("planEdit", () => {
 describe("reverseEdit", () => {
   it("takes every change back, expecting what the edit wrote", () => {
     const before = files({ "a.css": "one", "b.css": "two" })
+
     const changes = planEdit(
       {
         label: "Edit",
@@ -99,6 +107,7 @@ describe("reverseEdit", () => {
       },
       before
     )
+
     const after = files({ "a.css": "uno", "c.css": "three" })
     const undo = reverseEdit("Undo edit", changes)
     expect(undo.files).toEqual([
@@ -140,9 +149,11 @@ describe("diffFile", () => {
   it("puts changes far apart in hunks of their own, and near ones in one", () => {
     const before = numbered(20)
     const apart = before.replace("line 2\n", "two\n").replace("line 18\n", "eighteen\n")
+
     const hunks = diffFile({ path: "a.txt", before, after: apart })
       .split("\n")
       .filter((line) => line.startsWith("@@"))
+
     expect(hunks).toEqual(["@@ -1,5 +1,5 @@", "@@ -15,6 +15,6 @@"])
     const near = before.replace("line 2\n", "two\n").replace("line 8\n", "eight\n")
     expect(

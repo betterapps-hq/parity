@@ -44,8 +44,11 @@ export interface ComponentProp {
 
 /** Every kind of prop, so a schema can check one (PAR-590). */
 export const propKinds = ["string", "number", "boolean", "enum", "node", "function", "object", "unknown"] as const
+
 export type PropKind = (typeof propKinds)[number]
+
 export const propGroups = ["variant", "own", "html", "aria", "event"] as const
+
 export type PropGroup = (typeof propGroups)[number]
 
 /** The props a person sets on the canvas: variants and own props first, then the element's attributes. */
@@ -64,7 +67,10 @@ export interface PropsHolder {
  * `text` for text or no value; `value` for anything else (a number, `null`), edited as a typed value.
  */
 export function nodePropInput(value: unknown, inSlot: boolean): "layers" | "text" | "value" {
-  if (inSlot) return "layers"
+  if (inSlot) {
+    return "layers"
+  }
+
   return typeof value === "string" || value === undefined ? "text" : "value"
 }
 
@@ -88,20 +94,26 @@ export interface PropsPanel {
 export function propsPanel(info: ComponentInfo | undefined, node: PropsHolder): PropsPanel {
   const values = node.props ?? {}
   const props = info?.props ?? []
+
   const inSlot = new Set(
     props.filter((prop) => prop.kind === "node" && (node.slots?.[prop.name]?.length ?? 0) > 0).map((prop) => prop.name)
   )
+
   const isLabel = (name: string) => name === "children" && typeof values.children === "string"
+
   const main = props.filter(
     (prop) => (prop.group === "variant" || prop.group === "own") && prop.kind !== "function" && !isLabel(prop.name)
   )
+
   const shown = new Set(main.map((prop) => prop.name))
   // A library's children in layers stay in the Layers panel alone, as they always have.
   const slotted = [...inSlot].filter((name) => name !== "children")
   const extra = [...new Set([...Object.keys(values), ...slotted])].filter((name) => !shown.has(name) && !isLabel(name))
+
   const addable = props.filter(
     (prop) =>
       !shown.has(prop.name) && !Object.hasOwn(values, prop.name) && !inSlot.has(prop.name) && prop.kind !== "function"
   )
+
   return { main, extra, addable, inSlot }
 }

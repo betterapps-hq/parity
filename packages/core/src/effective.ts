@@ -34,20 +34,32 @@ export function locateEffective(
   let design = container
   const chain: InstanceNode[] = []
   const segments = path.split("/")
+
   for (const [index, segment] of segments.entries()) {
     const location = locateNode(design.root, segment)
-    if (!location) return undefined
+
+    if (!location) {
+      return undefined
+    }
+
     const node = location.node
     const patch = nodePatch(scope.layers, node, context.viewport)
+
     if (index === segments.length - 1) {
       return { design, node, location, chain, scope, patch, shown: applyPatch(node, patch, scope.args) }
     }
+
     const component = node.type === "instance" ? library.get(node.design) : undefined
-    if (node.type !== "instance" || !component || containsItself(chain, component)) return undefined
+
+    if (node.type !== "instance" || !component || containsItself(chain, component)) {
+      return undefined
+    }
+
     scope = instanceScope(node, component, patch, scope.layers)
     design = component
     chain.push(node)
   }
+
   return undefined
 }
 
@@ -97,8 +109,13 @@ export function effectiveTree(
   context: EvalContext = {}
 ): EffectiveTree | undefined {
   const found = locateEffective(container, id, context)
-  if (!found) return undefined
+
+  if (!found) {
+    return undefined
+  }
+
   const library = context.library ?? new Map<string, ContainerSpec>()
+
   const build = (
     node: DesignNode,
     path: string,
@@ -108,13 +125,18 @@ export function effectiveTree(
     slot?: string
   ): EffectiveTree => {
     const prefix = path.slice(0, path.length - node.id.length)
+
     const inside = (child: DesignNode, childSlot?: string) => {
       const childPatch = nodePatch(scope.layers, child, context.viewport)
+
       return build(child, `${prefix}${child.id}`, scope, chain, childPatch, childSlot)
     }
+
     let children: EffectiveTree[] = []
+
     if (node.type === "instance") {
       const component = library.get(node.design)
+
       if (component && !containsItself(chain, component)) {
         const inner = instanceScope(node, component, patch, scope.layers)
         const root = component.root
@@ -124,6 +146,7 @@ export function effectiveTree(
     } else {
       children = childEntries(node).flatMap((entry) => entry.nodes.map((child) => inside(child, entry.slot)))
     }
+
     return {
       path,
       node: applyPatch(node, patch, scope.args),
@@ -131,5 +154,6 @@ export function effectiveTree(
       children
     }
   }
+
   return build(found.node, id, found.scope, found.chain, found.patch, found.location.slot)
 }

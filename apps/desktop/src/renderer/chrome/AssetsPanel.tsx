@@ -96,7 +96,9 @@ import { hasStories, openInStorybook } from "./storybook.ts"
  * what to select when the selected design has nowhere for it.
  */
 function addAtSelection(session: ProjectSession, item: InsertItem): void {
-  if (!insertAtSelection(session, item)) toast.info("Select a layout, or a layer to add it after")
+  if (!insertAtSelection(session, item)) {
+    toast.info("Select a layout, or a layer to add it after")
+  }
 }
 
 const noStatus: Record<string, ComponentRenderStatus> = {}
@@ -105,6 +107,7 @@ const noSubscription = () => () => undefined
 /** How each component drawn so far fares on the canvas, as the guest's boundaries saw it. */
 function useRenderStatus(session: ProjectSession): Record<string, ComponentRenderStatus> {
   const status = session.loaded.guest.renderStatus
+
   return useSyncExternalStore(status?.subscribe ?? noSubscription, status?.get ?? (() => noStatus))
 }
 
@@ -115,10 +118,12 @@ function useRenderStatus(session: ProjectSession): Record<string, ComponentRende
 function listByHand(session: ProjectSession, target: ComponentRef, name: string): void {
   const { store } = session
   const ref = { path: target.path, export: target.export }
+
   const main: CanvasDocument = store.getDocuments().find((entry) => entry.path === store.mainPath)?.document ?? {
     version: 3,
     containers: []
   }
+
   const { detection: _, ...rest } = main
   const detection = includeComponent(main.detection, ref)
   store.applyDocuments(`List ${name} as a component`, [{ path: store.mainPath, document: { ...rest, detection } }])
@@ -194,7 +199,9 @@ function families(sources: [string, ComponentSource][], by: "file" | "folder" | 
     // Why detection counts it says nothing a person needs, so only one they listed themselves says so.
     sources.map(([key, source]) => [key, source.included ? "listed by hand" : undefined])
   )
+
   const hidden = new Map(sources.map(([key, source]) => [key, hiddenReason(key, { internal: source.internal })]))
+
   const grouped: Family[] = groupComponents(sources, by).map((group) => ({
     name: group.name,
     items: group.ids.map((key) => ({
@@ -206,11 +213,17 @@ function families(sources: [string, ComponentSource][], by: "file" | "folder" | 
     })),
     ...(by === "file" ? {} : { heading: true as const })
   }))
+
   const apart = grouped.flatMap((family) => family.items.filter((entry) => entry.hidden))
-  if (apart.length === 0) return grouped
+
+  if (apart.length === 0) {
+    return grouped
+  }
+
   const shown = grouped
     .map((family) => ({ ...family, items: family.items.filter((entry) => !entry.hidden) }))
     .filter((family) => family.items.length > 0)
+
   return [...shown, { name: hiddenHeading(apart.flatMap((entry) => entry.hidden ?? [])), heading: true, items: apart }]
 }
 
@@ -220,6 +233,7 @@ function ownSources(info: ProjectInfo, all: [string, ComponentSource][]): Source
   const withRole = (role: ComponentRole) => all.filter(([, source]) => componentRole(source) === role)
   const kit = withRole("kit")
   const pages = withRole("page")
+
   return [
     ...(kit.length > 0
       ? [{ id: "project:kit", title: "UI kit", icon, origin: "kit" as const, families: families(kit) }]
@@ -244,6 +258,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
   const all = Object.entries(info.sources).filter(([, source]) => source.visual !== false)
   const designs = entries.filter((entry) => entry.container.kind === "component")
   const list: Source[] = []
+
   if (designs.length > 0) {
     list.push({
       id: "designs",
@@ -262,13 +277,16 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
       ]
     })
   }
+
   list.push(...ownSources(info, all))
+
   for (const library of info.libraries.filter((candidate) => candidate.kind !== "icons")) {
     const own = all.filter(([, source]) => source.library === library.id)
     // Its ready-made compositions come first, placed as linked instances, or as copies from their menu. One a project
     // design has the id of is left out, since placing it would place the project's.
     const ownIds = new Set(entries.map((entry) => entry.container.id))
     const offered = (library.designs ?? []).filter((design) => !ownIds.has(design.id))
+
     const designed: Family[] = offered.length
       ? [
           {
@@ -282,6 +300,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
           }
         ]
       : []
+
     list.push({
       id: library.id,
       title: library.name,
@@ -293,6 +312,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
       library
     })
   }
+
   return list
 }
 
@@ -316,15 +336,22 @@ function searchFamilies(source: Source, query: string): Family[] {
         },
         query
       )
+
       // As in the picker, a hidden one the search only partly names comes after the rest.
       return match ? [{ entry, tier: match.tier, late: isLate(entry, match), index }] : []
     })
-    if (items.length === 0) return []
+
+    if (items.length === 0) {
+      return []
+    }
+
     items.sort((a, b) => compareRanked(a, b) || a.index - b.index)
     // The family ranks as its best match, which comes first, and keeps its place among families that rank the same.
     const { tier, late } = items[0]!
+
     return [{ family: { ...family, items: items.map(({ entry }) => entry) }, tier, late, index: place }]
   })
+
   return found.sort((a, b) => compareRanked(a, b) || a.index - b.index).map(({ family }) => family)
 }
 
@@ -353,11 +380,13 @@ export function ComponentsPanel() {
   const uses = useMemo(() => componentUses(entries.map((entry) => entry.container.root)), [entries])
 
   const needle = query.trim().toLowerCase()
+
   const shown = needle
     ? sources
         .map((source) => ({ ...source, families: searchFamilies(source, needle) }))
         .filter((source) => source.families.length > 0)
     : sources.filter((source) => source.families.length > 0 || source.library)
+
   const leftOut = needle ? notListed(info).filter((entry) => entry.name.toLowerCase().includes(needle)) : []
 
   return (
@@ -375,7 +404,9 @@ export function ComponentsPanel() {
           spacing={0}
           value={[view]}
           onValueChange={([value]) => {
-            if (value) setPreferences({ componentsView: value as ComponentsView })
+            if (value) {
+              setPreferences({ componentsView: value as ComponentsView })
+            }
           }}
           aria-label="Show components as"
         >
@@ -413,6 +444,7 @@ export function ComponentsPanel() {
 function notListed(info: ProjectInfo): LeftOutExport[] {
   const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
   const listed = new Set(Object.values(info.sources).map(key))
+
   return (info.leftOut ?? []).filter((entry) => !listed.has(key(entry)))
 }
 
@@ -422,6 +454,7 @@ function notListed(info: ProjectInfo): LeftOutExport[] {
  */
 function NotListed({ entries }: { entries: LeftOutExport[] }) {
   const session = useProject()
+
   return (
     <section className="mt-2 border-t pt-2" aria-label="Not listed as components">
       <GroupLabel as="div" className="flex h-7 items-center px-4">
@@ -475,12 +508,15 @@ function SourceSection({
 }) {
   const session = useProject()
   const statuses = useRenderStatus(session)
+
   const storybookRunning = useProcesses(false).some(
     (process) => process.kind === "storybook" && process.projectId === session.id && process.status === "running"
   )
+
   const [expanded, setExpanded] = useState<boolean>()
   const count = source.families.reduce((total, family) => total + family.items.length, 0)
   const isOpen = expanded ?? open
+
   return (
     <section className="mb-1">
       <button
@@ -559,15 +595,18 @@ function AssetEntry({
   const file = about.onOpenFile !== undefined
   // Pressing it, to add or drag it, or right-clicking it puts the card away.
   const putAway = () => card.setOpen(false)
+
   const icon =
     item.kind === "instance" ? (
       <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
     ) : (
       <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
     )
+
   const failingMark = failing && (
     <CircleAlert className="size-3.5 shrink-0 text-destructive" aria-label="Fails to draw" />
   )
+
   // A component design has no picture of its own yet, so its kind's icon stands in for one.
   const picture = (size: { width: number; height: number }, fill = false) =>
     component ? (
@@ -581,8 +620,10 @@ function AssetEntry({
         {icon}
       </span>
     )
+
   let content: ReactNode
   let layout: string
+
   if (view === "grid") {
     layout = "flex w-full min-w-0 flex-col gap-1 rounded-md p-1"
     content = (
@@ -621,6 +662,7 @@ function AssetEntry({
       </>
     )
   }
+
   const button = (
     <button
       type="button"
@@ -633,7 +675,10 @@ function AssetEntry({
             onPointerDown: putAway,
             onContextMenu: putAway,
             onKeyDown: (event: KeyboardEvent) => {
-              if (event.key !== "ArrowRight") return
+              if (event.key !== "ArrowRight") {
+                return
+              }
+
               event.preventDefault()
               card.openWithKeyboard()
             },
@@ -646,7 +691,9 @@ function AssetEntry({
       {content}
     </button>
   )
+
   const instance = source.library && item.kind === "instance"
+
   const menu = (component || instance) && (
     <ComponentMenu
       storybook={
@@ -667,7 +714,9 @@ function AssetEntry({
       )}
     </ComponentMenu>
   )
+
   const trigger = menu ? <ContextMenuTrigger render={button} /> : button
+
   const row = component ? (
     <ComponentPopover
       card={card}
@@ -694,6 +743,7 @@ function AssetEntry({
       {trigger}
     </Hint>
   )
+
   return (
     <AssetRow component={component}>
       {menu ? (
@@ -740,18 +790,27 @@ export function useComponentCard(
   const info = component ? session.components.get()[component] : undefined
   // Only one that failed or drew nothing is asked which props it lacks, as that's when it says.
   const lacking = preview?.state === "failed" || preview?.state === "empty"
+
   const missing = useMemo(
     () => (component && lacking ? missingProps(component, info, session.info.sources) : []),
     [component, lacking, info, session.info.sources]
   )
+
   const variants = useMemo(() => previewVariants(info), [info])
+
   const options = useMemo(
     () => (component && variants ? variants.options.map((value) => ({ prop: variants.prop, value })) : []),
     [component, variants]
   )
+
   const variantPreviews = useVariantPreviews(session.id, component ?? "", options, shown)
-  if (!component) return { pictured: previewStatus(undefined), about: { preview: undefined } }
+
+  if (!component) {
+    return { pictured: previewStatus(undefined), about: { preview: undefined } }
+  }
+
   const stories = session.info.storybook?.stories[component]?.length ?? 0
+
   return {
     pictured: previewStatus(preview, missing),
     about: {
@@ -779,6 +838,7 @@ export function useComponentCard(
 function AssetRow({ component, children }: { component: string | undefined; children: ReactNode }) {
   const session = useProject()
   const onScreen = usePreviewOnScreen(session.id, component)
+
   return (
     <div ref={onScreen} className="group/asset relative min-w-0">
       {children}
@@ -789,6 +849,7 @@ function AssetRow({ component, children }: { component: string | undefined; chil
 /** Installs a catalog library with the project's package manager, then reopens the tab to load it. */
 async function installLibrary(session: ProjectSession, library: { id: string; name: string }): Promise<void> {
   const progress = toast.loading(`Installing ${library.name}…`, { description: "With the project's package manager" })
+
   try {
     await request("library.add", { projectId: session.id, library: library.id })
     track("library.added", { package: library.id })
@@ -812,8 +873,10 @@ const shownIconSets = new Map<string, string>()
 /** The catalog's libraries of one kind, to add to the project; `trigger` replaces the plus button that opens it. */
 function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?: ReactElement }) {
   const session = useProject()
+
   const [catalog, setCatalog] =
     useState<{ id: string; name: string; description: string; kind: "components" | "icons"; installed: boolean }[]>()
+
   return (
     <Popover
       onOpenChange={(open) => {
@@ -862,7 +925,10 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
                   variant={library.installed ? "ghost" : "outline"}
                   disabled={library.installed}
                   onClick={() => {
-                    if (kind === "icons") shownIconSets.set(session.id, library.id)
+                    if (kind === "icons") {
+                      shownIconSets.set(session.id, library.id)
+                    }
+
                     void installLibrary(session, library)
                   }}
                 >
@@ -878,6 +944,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
 
 function ImportStyles({ library }: { library: LibraryInfo }) {
   const session = useProject()
+
   return (
     <div className="type-message mx-2 mb-1 rounded-md border border-dashed p-2 text-muted-foreground">
       Its styles aren&apos;t imported yet, so its components render unstyled.{" "}
@@ -905,6 +972,7 @@ export async function importStyles(session: ProjectSession, library: LibraryInfo
       files: edit?.files.map((file) => file.path) ?? []
     })
     await workspace.reload(session.id, `Loading ${library.name}'s styles`)
+
     if (edit) {
       announceEdit(session.id, edit, {
         afterUndo: () => workspace.reload(session.id, `Taking out ${library.name}'s styles`)
@@ -921,6 +989,7 @@ export async function importStyles(session: ProjectSession, library: LibraryInfo
 
 /** The smallest an icon's cell gets, in pixels: room to aim at its icon. Cells grow so each row fills the panel. */
 const iconCell = 52
+
 /** How big each icon is drawn, in pixels. */
 const iconSize = 20
 
@@ -945,14 +1014,20 @@ export function IconsPanel() {
 
   useLayoutEffect(() => {
     const element = scrollRef.current
-    if (!element) return undefined
+
+    if (!element) {
+      return undefined
+    }
+
     const observer = new ResizeObserver(([entry]) => {
       const width = entry!.contentRect.width
       const fit = Math.max(1, Math.floor(width / iconCell))
       const cell = Math.max(iconCell, Math.floor(width / fit))
       setGrid((current) => (current.columns === fit && current.cell === cell ? current : { columns: fit, cell }))
     })
+
     observer.observe(element)
+
     return () => observer.disconnect()
   }, [library])
 
@@ -960,8 +1035,10 @@ export function IconsPanel() {
     () => (library ? iconCatalog(session.loaded, library, style) : undefined),
     [session.loaded, library, style]
   )
+
   const all = catalog?.entries ?? []
   const matches = useMemo(() => (catalog ? catalog.search(query) : []), [catalog, query])
+
   // The app doesn't use the React Compiler, whose memoizing this rule guards against; the virtualizer is used here only.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -970,6 +1047,7 @@ export function IconsPanel() {
     estimateSize: () => grid.cell,
     overscan: 8
   })
+
   // Rows change height with the panel's width; the virtualizer keeps the heights it measured until told.
   useLayoutEffect(() => virtualizer.measure(), [virtualizer, grid.cell])
 
@@ -996,6 +1074,7 @@ export function IconsPanel() {
       </div>
     )
   }
+
   return (
     <>
       {(sets.length > 1 || styles.length > 0) && (

@@ -21,6 +21,7 @@ describe("the files an export writes", () => {
         { format: "jpg", scale: 3 }
       ]
     )
+
     expect(files.map((file) => file.name)).toEqual(["Headline.png", "Headline@2x.png", "Headline@3x.jpg"])
   })
 
@@ -38,6 +39,7 @@ describe("the files an export writes", () => {
         { format: "jpg", scale: 1 }
       ]
     )
+
     expect(files.map((file) => file.name)).toEqual(["Logo.jpg"])
   })
 
@@ -96,11 +98,13 @@ describe("where each exported file comes from", () => {
   it("says why a file can't be written: no frame, a layer not drawn, or one with no size", () => {
     const sizes = [{ format: "png" as const, scale: 2 as const }]
     const files = exportFiles(["Gone", "Missing", "Hidden"], sizes)
+
     const plan = planExport(
       [{ design: "deleted" }, { design: "pricing", node: "missing" }, { design: "pricing", node: "hidden" }],
       files,
       frames
     )
+
     expect(plan.map((entry) => entry.problem)).toEqual([
       "Gone@2x.png: its design didn't draw",
       "Missing@2x.png: the layer isn't drawn in the state the canvas shows",
@@ -131,6 +135,7 @@ describe("a selection copied as one picture", () => {
       { id: "hidden", x: 0, y: 0, width: 0, height: 0 }
     ]
   }
+
   const card = { design: "card", scale: 2, width: 320, height: 200, nodes: [] }
   const at = { x: 0, y: 0 }
 
@@ -151,6 +156,7 @@ describe("a selection copied as one picture", () => {
       [pricing],
       copyScale
     )
+
     expect(plan.pieces).toEqual([{ frame: 0, crop: { left: 200, top: 80, width: 601, height: 400 }, left: 0, top: 0 }])
   })
 
@@ -163,6 +169,7 @@ describe("a selection copied as one picture", () => {
       [pricing, card],
       copyScale
     )
+
     expect(plan.pieces.map(({ frame, left, top }) => ({ frame, left, top }))).toEqual([
       { frame: 0, left: 800, top: 0 },
       { frame: 1, left: 0, top: 2000 }
@@ -180,6 +187,7 @@ describe("a selection copied as one picture", () => {
       [pricing],
       copyScale
     )
+
     expect(plan.pieces).toHaveLength(1)
     expect(plan.problems).toEqual([
       "Missing: the layer isn't drawn in the state the canvas shows",
@@ -189,6 +197,7 @@ describe("a selection copied as one picture", () => {
 
   it("is nothing, and says so, when it's too big to copy", () => {
     const far = { x: largestPicture, y: 0 }
+
     const plan = planPicture(
       [
         { design: "pricing", name: "Pricing", at },
@@ -197,6 +206,7 @@ describe("a selection copied as one picture", () => {
       [pricing, card],
       copyScale
     )
+
     expect(plan).toEqual({
       width: 0,
       height: 0,

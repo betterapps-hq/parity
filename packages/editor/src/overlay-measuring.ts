@@ -14,16 +14,29 @@ export type OverlayDesigns = ReadonlySet<string> | "every"
 
 /** The designs whose frames the overlay draws over, and so whose changes and animations it follows. */
 export function overlayDesigns(at: { selected?: string; hovered?: string; layoutGrid: boolean }): OverlayDesigns {
-  if (at.layoutGrid) return "every"
+  if (at.layoutGrid) {
+    return "every"
+  }
+
   const designs = new Set<string>()
-  if (at.selected) designs.add(at.selected)
-  if (at.hovered) designs.add(at.hovered)
+
+  if (at.selected) {
+    designs.add(at.selected)
+  }
+
+  if (at.hovered) {
+    designs.add(at.hovered)
+  }
+
   return designs
 }
 
 /** Whether a frame of `design` is one the overlay draws over. */
 export function drawsOver(designs: OverlayDesigns, design: string | undefined): boolean {
-  if (designs === "every") return true
+  if (designs === "every") {
+    return true
+  }
+
   return design !== undefined && designs.has(design)
 }
 
@@ -38,7 +51,10 @@ export function settleUntil(now: number, until: number): number {
  * has settled, since finding a frame's animations brings its styles up to date.
  */
 export function measuresNext(at: { now: number; until: number; showing: boolean; animating: () => boolean }): boolean {
-  if (!at.showing) return false
+  if (!at.showing) {
+    return false
+  }
+
   return at.now < at.until || at.animating()
 }
 
@@ -59,9 +75,13 @@ export function movesOnlyTheView(change: {
   updated: readonly { type: string; fields: readonly string[] }[]
   removed: readonly string[]
 }): boolean {
-  if (change.added.length > 0 || change.removed.length > 0) return false
+  if (change.added.length > 0 || change.removed.length > 0) {
+    return false
+  }
+
   return change.updated.every(({ type, fields }) => {
     const view = viewChanges[type]
+
     return view === "any" || (view !== undefined && fields.every((field) => view.has(field)))
   })
 }

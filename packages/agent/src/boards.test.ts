@@ -15,6 +15,7 @@ describe("canvasBoards", () => {
       root: { type: "layout" as const, id: "page", children: [] },
       states: [{ id: "default", name: "Default" }]
     })
+
     const boards = canvasBoards(
       [
         { path: "app.par", container: container("home", 0) },
@@ -23,6 +24,7 @@ describe("canvasBoards", () => {
       { "app.par#home": { width: 1280.4, height: 900.6 } },
       defaultModeSettings
     )
+
     expect(boards[0]).toEqual({
       key: "app.par#home",
       id: "home",
@@ -65,6 +67,7 @@ describe("overlapWarnings", () => {
       board("a", 5000, 0),
       board("b", 5100, 0)
     ]
+
     expect(overlapWarnings(boards, new Set(["app.par#pricing"]))).toEqual([
       {
         category: "overlap",

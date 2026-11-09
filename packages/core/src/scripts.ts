@@ -9,11 +9,13 @@ export function scriptRunning(
   const entries = Object.entries(scripts ?? {})
   const first = ["dev", "start", "serve"]
   entries.sort(([a], [b]) => rank(first, a) - rank(first, b))
+
   return entries.find(([, text]) => command.test(text))
 }
 
 function rank(first: string[], name: string): number {
   const index = first.indexOf(name)
+
   return index === -1 ? first.length : index
 }
 
@@ -21,7 +23,11 @@ function rank(first: string[], name: string): number {
 export function commandOption(command: string, names: string[]): string | undefined {
   for (const name of names) {
     const match = new RegExp(`(?:^|\\s)${name}(?:=|\\s+)(\\S+)`).exec(command)
-    if (match) return match[1]!.replaceAll(/^["']|["']$/g, "")
+
+    if (match) {
+      return match[1]!.replaceAll(/^["']|["']$/g, "")
+    }
   }
+
   return undefined
 }

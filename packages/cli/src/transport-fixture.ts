@@ -78,20 +78,29 @@ export function transportFixture(defaultResult: unknown) {
     mcp,
     events
   }
+
   const requests = fixture.requests
 
   const server = createServer(async (request, reply) => {
     const chunks: Buffer[] = []
-    for await (const chunk of request) chunks.push(Buffer.from(chunk))
+
+    for await (const chunk of request) {
+      chunks.push(Buffer.from(chunk))
+    }
+
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as { method?: string }
     reply.setHeader("content-type", "application/json")
+
     if (body.method === "copy") {
       reply.end(JSON.stringify({ result: { tabs: fixture.tabs, focusedAt: 1 } }))
+
       return
     }
+
     requests.push(body)
     reply.end(JSON.stringify(fixture.response))
   })
+
   let directory = ""
   let agentFile = ""
   const bin = join(import.meta.dirname, "bin.ts")
@@ -102,7 +111,11 @@ export function transportFixture(defaultResult: unknown) {
     agentFile = join(directory, "agent.json")
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
     const address = server.address()
-    if (!address || typeof address === "string") throw new Error("Missing test server port")
+
+    if (!address || typeof address === "string") {
+      throw new Error("Missing test server port")
+    }
+
     await writeFile(agentFile, JSON.stringify({ url: `http://127.0.0.1:${address.port}`, token: "contract-test" }))
   })
   afterAll(async () => {
@@ -130,6 +143,7 @@ export function transportFixture(defaultResult: unknown) {
         },
         stdio: ["pipe", "pipe", "pipe"]
       })
+
       let stdout = ""
       let stderr = ""
       child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
@@ -138,10 +152,12 @@ export function transportFixture(defaultResult: unknown) {
       child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
         stderr += chunk
       })
+
       const timeout = setTimeout(() => {
         child.kill()
         reject(new Error("Transport did not finish"))
       }, spawnLimit)
+
       child.on("error", (error) => {
         clearTimeout(timeout)
         reject(error)
@@ -155,13 +171,16 @@ export function transportFixture(defaultResult: unknown) {
       child.stdin.end(input)
     })
   }
+
   function events(): Record<string, unknown>[] {
     let names: string[]
+
     try {
       names = readdirSync(join(directory, "logs")).sort()
     } catch {
       return []
     }
+
     return names.flatMap((name) =>
       readFileSync(join(directory, "logs", name), "utf8")
         .split("\n")
@@ -169,6 +188,7 @@ export function transportFixture(defaultResult: unknown) {
         .map((line) => JSON.parse(line) as Record<string, unknown>)
     )
   }
+
   function mcp(input: Record<string, unknown>, name = "execute") {
     return run(
       ["mcp"],

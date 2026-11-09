@@ -17,20 +17,30 @@ export interface IdleClose {
 export function idleClose(idleMs: number, close: () => void): IdleClose {
   let using = 0
   let timer: ReturnType<typeof setTimeout> | undefined
+
   const cancel = () => {
     clearTimeout(timer)
     timer = undefined
   }
+
   return {
     use() {
       using++
       cancel()
       let ended = false
+
       return () => {
-        if (ended) return
+        if (ended) {
+          return
+        }
+
         ended = true
         using--
-        if (using > 0) return
+
+        if (using > 0) {
+          return
+        }
+
         timer = setTimeout(() => {
           timer = undefined
           close()

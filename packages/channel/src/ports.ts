@@ -55,9 +55,11 @@ export function nodePort(emitter: NodeEmitter, { wrapped = false, closedBy = {} 
       emitter.on("message", (value: unknown) =>
         listener.message(wrapped ? (value as { data?: unknown } | undefined)?.data : value)
       )
+
       for (const [event, reason] of Object.entries(closedBy)) {
         emitter.on(event, (value: unknown) => listener.closed(reason(value)))
       }
+
       emitter.start?.()
     },
     ...(emitter.close ? { close: () => emitter.close?.() } : {})
@@ -79,10 +81,14 @@ export interface MemoryPort extends Port {
 export function memoryPorts(): [MemoryPort, MemoryPort] {
   const make = (): MemoryPort & { listener?: PortListener; other?: MemoryPort & { listener?: PortListener } } => {
     let open = true
+
     const end: MemoryPort & { listener?: PortListener; other?: MemoryPort & { listener?: PortListener } } = {
       sent: [],
       post(message) {
-        if (!open) throw new Error("The port is closed")
+        if (!open) {
+          throw new Error("The port is closed")
+        }
+
         end.sent.push(message)
         const copy = structuredClone(message)
         setTimeout(() => end.other?.deliver(copy), 0)
@@ -91,19 +97,27 @@ export function memoryPorts(): [MemoryPort, MemoryPort] {
         end.listener = listener
       },
       close() {
-        if (!open) return
+        if (!open) {
+          return
+        }
+
         open = false
         setTimeout(() => end.other?.listener?.closed(), 0)
       },
       deliver(data) {
-        if (open) end.listener?.message(data)
+        if (open) {
+          end.listener?.message(data)
+        }
       }
     }
+
     return end
   }
+
   const a = make()
   const b = make()
   a.other = b
   b.other = a
+
   return [a, b]
 }

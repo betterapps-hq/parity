@@ -21,17 +21,22 @@ export class ChangePreview {
 
   /** Shows a change in place of what this preview showed before. `make` makes it, with the gesture it's given. */
   show(make: (gesture: string) => void): void {
-    if (this.open) this.takeBack()
-    else {
+    if (this.open) {
+      this.takeBack()
+    } else {
       const gesture = this.store.beginGesture()
       this.open = { gesture, checkpoint: this.store.checkpoint(this.design, gesture) }
     }
+
     make(this.open.gesture)
   }
 
   /** Takes the preview back, as though it never showed. */
   cancel(): void {
-    if (!this.open) return
+    if (!this.open) {
+      return
+    }
+
     this.takeBack()
     this.store.endGesture(this.open.gesture)
     this.open = undefined
@@ -47,7 +52,9 @@ export class ChangePreview {
   }
 
   private takeBack(): void {
-    if (this.open?.checkpoint) this.store.revert(this.open.checkpoint)
+    if (this.open?.checkpoint) {
+      this.store.revert(this.open.checkpoint)
+    }
   }
 }
 
@@ -55,5 +62,6 @@ export class ChangePreview {
 export function useChangePreview(store: GestureStore, design: string): ChangePreview {
   const preview = useMemo(() => new ChangePreview(store, design), [store, design])
   useEffect(() => () => preview.cancel(), [preview])
+
   return preview
 }

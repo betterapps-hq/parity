@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Screens in the modes they show beside their main one: dark desktop and light mobile next to light desktop. */
@@ -47,7 +48,10 @@ export const EveryStateZoomedOut: Story = onCanvas(
   () => {
     const { editor } = example()
     const bounds = editor?.getShapePageBounds(shapeIdFor(design("Button")))
-    if (editor && bounds) editor.zoomToBounds(bounds, { targetZoom: 1 / 3 })
+
+    if (editor && bounds) {
+      editor.zoomToBounds(bounds, { targetZoom: 1 / 3 })
+    }
   }
 )
 
@@ -121,7 +125,11 @@ export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], () =>
 export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {
   const { store, editor } = example()
   const bounds = editor?.getShapePageBounds(shapeIdFor(design("Pricing")))
-  if (!editor || !bounds) return
+
+  if (!editor || !bounds) {
+    return
+  }
+
   const notes = [
     store.addNote(store.mainPath, {
       id: "story-note-plans",
@@ -135,6 +143,7 @@ export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {
       position: { x: bounds.maxX + 80, y: bounds.y + 260 }
     })
   ]
+
   await new Promise((resolve) => setTimeout(resolve, 300))
   const boxes = [bounds, ...notes.flatMap((key) => editor.getShapePageBounds(shapeIdFor(key)) ?? [])]
   editor.zoomToBounds(Box.Common(boxes), { inset: 48 })

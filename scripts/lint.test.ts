@@ -21,6 +21,7 @@ function lint(...files: string[]): Diagnostic[] {
     [vp, "lint", "--format", "json", ...files.map((file) => relative(root, file))],
     { cwd: root, encoding: "utf8" }
   )
+
   return (JSON.parse(result.stdout) as { diagnostics: Diagnostic[] }).diagnostics
 }
 
@@ -42,7 +43,7 @@ describe("error notifications go through reportError (PAR-644)", () => {
 
   it("allows the other notifications", () => {
     const file = join(folder, "other.ts")
-    writeFileSync(file, 'import { toast } from "sonner"\n\ntoast.success("Saved")\ntoast("Copied")\n')
+    writeFileSync(file, 'import { toast } from "sonner"\n\ntoast.success("Saved")\n\ntoast("Copied")\n')
 
     expect(lint(file)).toEqual([])
   })

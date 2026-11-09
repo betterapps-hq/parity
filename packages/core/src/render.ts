@@ -54,6 +54,7 @@ function unsizedAxes(style: NodeStyle): Axis[] {
   return (["width", "height"] as const).filter((axis) => {
     const size = style[axis]
     const least = axis === "width" ? style.minWidth : style.minHeight
+
     return (size === undefined || size === "hug" || size === "fill") && least === undefined
   })
 }
@@ -61,7 +62,10 @@ function unsizedAxes(style: NodeStyle): Axis[] {
 /** Every component a resolved tree draws, by id, outermost first, as often as it's drawn. */
 export function renderedComponents(tree: readonly RenderNode[]): string[] {
   return tree.flatMap((node) => {
-    if (node.kind === "component") return [node.component, ...Object.values(node.slots).flatMap(renderedComponents)]
+    if (node.kind === "component") {
+      return [node.component, ...Object.values(node.slots).flatMap(renderedComponents)]
+    }
+
     return node.kind === "element" ? renderedComponents(node.children) : []
   })
 }
@@ -92,6 +96,7 @@ export function frameSize(
   mode: { viewport: string; width: number }
 ): { width: number; height?: number } {
   const size = design.kind === "frame" ? design.size : design.frames?.[mode.viewport]
+
   return { width: size?.width ?? mode.width, ...(size?.height === undefined ? {} : { height: size.height }) }
 }
 
@@ -105,6 +110,7 @@ export function frameViewport(
   mode: Pick<ResolvedMode, "options">
 ): { width: number; height: number } {
   const screen = mode.options.find(({ variable }) => variable.kind === "viewport")?.option.height
+
   return { width: size.width, height: size.height ?? screen ?? screenHeightForWidth(size.width) }
 }
 
@@ -128,6 +134,7 @@ export function frameGeometry(
   mode: Pick<ResolvedMode, "viewport" | "width" | "options">
 ): FrameGeometry {
   const size = frameSize(design, mode)
+
   return { ...size, viewport: frameViewport(size, mode) }
 }
 
@@ -154,20 +161,33 @@ const placedBy = new WeakMap<ContainerSpec, readonly string[]>()
 /** The ids of the designs a design's instances place, anywhere in it: its tree, its states and its params. */
 export function placedDesigns(design: ContainerSpec): readonly string[] {
   let placed = placedBy.get(design)
+
   if (!placed) {
     const found = new Set<string>()
+
     const visit = (value: unknown): void => {
-      if (Array.isArray(value)) for (const item of value) visit(item)
-      else if (typeof value === "object" && value !== null) {
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          visit(item)
+        }
+      } else if (typeof value === "object" && value !== null) {
         const node = value as Partial<InstanceNode>
-        if (node.type === "instance" && typeof node.design === "string") found.add(node.design)
-        for (const item of Object.values(value)) visit(item)
+
+        if (node.type === "instance" && typeof node.design === "string") {
+          found.add(node.design)
+        }
+
+        for (const item of Object.values(value)) {
+          visit(item)
+        }
       }
     }
+
     visit(design)
     placed = [...found]
     placedBy.set(design, placed)
   }
+
   return placed
 }
 
@@ -182,16 +202,23 @@ export function reachableLibrary(
   previous?: ComponentLibrary
 ): ComponentLibrary {
   const reached = new Map<string, ContainerSpec>()
+
   const visit = (current: ContainerSpec) => {
     for (const id of placedDesigns(current)) {
       const placed = library.get(id)
-      if (!placed || reached.has(id)) continue
+
+      if (!placed || reached.has(id)) {
+        continue
+      }
+
       reached.set(id, placed)
       visit(placed)
     }
   }
+
   visit(design)
   const same = previous?.size === reached.size && [...reached].every(([id, placed]) => previous.get(id) === placed)
+
   return same ? previous : reached
 }
 
@@ -271,6 +298,7 @@ function boardScope(
   state: StateSpec | undefined
 ): EvalScope {
   const choices = variantChoices(params, chosen)
+
   return { layers: [...optionPatches(params, choices), state?.overrides], args: boardArgs(params, choices) }
 }
 
@@ -298,49 +326,87 @@ export function drawnNode(node: DesignNode, scope: EvalScope, viewport?: string)
 export function applyPatch(node: DesignNode, patch: NodePatch, args?: Record<string, unknown>): DesignNode {
   const bound = (param: string | undefined) =>
     param !== undefined && args && Object.hasOwn(args, param) ? { value: args[param] } : undefined
+
   const next = { ...node } as DesignNode
   const visible = bound(node.bind?.visible)
   const hidden = patch.hidden ?? (visible ? !visible.value : node.hidden)
+
   if (hidden !== node.hidden) {
-    if (hidden) next.hidden = true
-    else delete next.hidden
+    if (hidden) {
+      next.hidden = true
+    } else {
+      delete next.hidden
+    }
   }
+
   if ((patch.style && Object.keys(patch.style).length > 0) || patch.unset?.style?.length) {
     const style = { ...without(node.style, patch.unset?.style), ...patch.style }
-    if (Object.keys(style).length > 0) next.style = style
-    else delete next.style
+
+    if (Object.keys(style).length > 0) {
+      next.style = style
+    } else {
+      delete next.style
+    }
   }
+
   if (next.type === "text") {
     const text = bound(next.bind?.text)
-    if (patch.text !== undefined) next.text = patch.text
-    else if (text) next.text = String(text.value)
+
+    if (patch.text !== undefined) {
+      next.text = patch.text
+    } else if (text) {
+      next.text = String(text.value)
+    }
   }
+
   if (next.type === "component") {
     const props: Record<string, unknown> = { ...next.props }
+
     for (const [prop, param] of Object.entries(next.bind?.props ?? {})) {
       const value = bound(param)
-      if (value) props[prop] = value.value
+
+      if (value) {
+        props[prop] = value.value
+      }
     }
-    for (const prop of patch.unset?.props ?? []) delete props[prop]
+
+    for (const prop of patch.unset?.props ?? []) {
+      delete props[prop]
+    }
+
     Object.assign(props, patch.props)
-    if (Object.keys(props).length > 0) next.props = props
-    else delete next.props
+
+    if (Object.keys(props).length > 0) {
+      next.props = props
+    } else {
+      delete next.props
+    }
   }
+
   if (
     next.type === "instance" &&
     ((patch.props && Object.keys(patch.props).length > 0) || patch.unset?.props?.length)
   ) {
     const args = { ...without(next.args, patch.unset?.props), ...patch.props }
-    if (Object.keys(args).length > 0) next.args = args
-    else delete next.args
+
+    if (Object.keys(args).length > 0) {
+      next.args = args
+    } else {
+      delete next.args
+    }
   }
+
   return next
 }
 
 /** `values` without `keys`. */
 export function without<T extends object>(values: T | undefined, keys: readonly string[] | undefined): T {
   const next = { ...values } as Record<string, unknown>
-  for (const key of keys ?? []) delete next[key]
+
+  for (const key of keys ?? []) {
+    delete next[key]
+  }
+
   return next as T
 }
 
@@ -353,6 +419,7 @@ export function boardArgs(
   choices: Record<string, string>
 ): Record<string, unknown> | undefined {
   const args = { ...paramDefaults(params), ...choices }
+
   return Object.keys(args).length > 0 ? args : undefined
 }
 
@@ -371,12 +438,18 @@ export function variantChoices(
   chosen: Record<string, unknown> = {}
 ): Record<string, string> {
   const choices: Record<string, string> = {}
+
   for (const [name, param] of Object.entries(params ?? {})) {
     const options = param.type === "variant" ? (param.options ?? []) : []
-    if (options.length === 0) continue
+
+    if (options.length === 0) {
+      continue
+    }
+
     const pick = [chosen[name], param.default].find((value) => options.some((option) => option.id === value))
     choices[name] = typeof pick === "string" ? pick : options[0]!.id
   }
+
   return choices
 }
 
@@ -392,10 +465,17 @@ export function optionPatches(
 
 /** The patches a layer has for nodes inside one instance, keyed by their path below it. */
 export function withinInstance(layer: PatchLayer, instanceId: string): PatchLayer {
-  if (!layer) return undefined
+  if (!layer) {
+    return undefined
+  }
+
   const prefix = `${instanceId}/`
   const inside = Object.entries(layer).filter(([key]) => key.startsWith(prefix))
-  if (inside.length === 0) return undefined
+
+  if (inside.length === 0) {
+    return undefined
+  }
+
   return Object.fromEntries(inside.map(([key, patch]) => [key.slice(prefix.length), patch]))
 }
 
@@ -419,6 +499,7 @@ export function instanceScope(
   const given = { ...without(node.args, patch.unset?.props), ...patch.props }
   const choices = variantChoices(component.params, given)
   const componentState = component.states.find((candidate) => candidate.id === node.state) ?? component.states[0]
+
   return {
     args: { ...defaults, ...given, ...choices },
     layers: [
@@ -438,7 +519,11 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
     // The same step as `drawnNode`, keeping the patch, which an instance passes into its component.
     const patch = nodePatch(scope.layers, node, viewportId)
     const shown = applyPatch(node, patch, scope.args)
-    if (shown.hidden) return []
+
+    if (shown.hidden) {
+      return []
+    }
+
     const style = shown.style ?? {}
 
     switch (shown.type) {
@@ -446,6 +531,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
         const direction = style.direction ?? "column"
         const filled = shown.slot === undefined ? undefined : scope.fills?.(shown.slot, direction)
         const children = filled ?? shown.children.flatMap((child) => resolve(child, direction))
+
         return [
           {
             kind: "element",
@@ -458,6 +544,7 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
           }
         ]
       }
+
       case "text":
         return [
           {
@@ -483,21 +570,32 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
         const props: Record<string, unknown> = { ...shown.props }
         // A component's own styles come from its props; what the design sets on it lands on its root as inline styles.
         const box = componentCss(style, parent)
-        if (Object.keys(box).length > 0) props.style = { ...(props.style as object | undefined), ...box }
+
+        if (Object.keys(box).length > 0) {
+          props.style = { ...(props.style as object | undefined), ...box }
+        }
+
         const slots: Record<string, RenderNode[]> = {}
+
         for (const [slot, children] of Object.entries(shown.slots ?? {})) {
           slots[slot] = children.flatMap((child) => resolve(child))
         }
+
         return [{ kind: "component", nodeId: id(node), component: shown.component, props, slots }]
       }
+
       case "instance": {
         const component = library.get(shown.design)
+
         if (!component || scope.stack.includes(shown.design)) {
           const problem = component ? `${shown.design} contains itself` : `No component design "${shown.design}"`
+
           return [{ kind: "component", nodeId: id(node), component: problem, props: {}, slots: {} }]
         }
+
         const expanded = instanceScope(shown, component, patch, scope.layers)
         const filling = shown.slots
+
         const inner = resolveTree(component.root, viewportId, library, {
           ...expanded,
           prefix: id(node),
@@ -505,43 +603,57 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
           fills: (slot, direction) =>
             filling?.[slot]?.length ? filling[slot].flatMap((child) => resolve(child, direction)) : undefined
         })
+
         const [first] = inner
+
         if (first && first.kind !== "text") {
           // The instance's place in its layout (width, grow) applies to the component's root, which takes its id.
           const box = componentCss(style, parent)
           first.nodeId = id(node)
+
           if (first.kind === "element") {
             first.style = { ...first.style, ...box }
             // An empty root is unsized along an axis the instance sizes only as the instance sizes it, so a length the
             // instance gives it counts, and so does hugging over its component's fixed one; on another axis, as its
             // component sizes it.
             const unsized = first.attributes?.[emptyLayoutAttribute]
+
             if (unsized !== undefined) {
               const own = unsizedAxes(style)
+
               const axes = (["width", "height"] as const).filter((axis) => {
                 const least = axis === "width" ? style.minWidth : style.minHeight
+
                 return style[axis] !== undefined || least !== undefined
                   ? own.includes(axis)
                   : unsized.split(" ").includes(axis)
               })
+
               first.attributes = { ...first.attributes, [emptyLayoutAttribute]: axes.join(" ") }
             }
-          } else if (Object.keys(box).length > 0)
+          } else if (Object.keys(box).length > 0) {
             first.props = { ...first.props, style: { ...(first.props.style as object | undefined), ...box } }
+          }
         }
+
         return inner
       }
     }
   }
+
   return resolve(root)
 }
 
 /** `over` applied on top of `under`. */
 export function mergePatches(under: NodePatch | undefined, over: NodePatch | undefined): NodePatch {
-  if (!over) return under ?? {}
+  if (!over) {
+    return under ?? {}
+  }
+
   // What the upper patch takes away goes from the lower one's values, and what it sets is no longer taken away.
   const props = mergeUnset(under?.unset?.props, over.unset?.props, over.props)
   const style = mergeUnset(under?.unset?.style, over.unset?.style, over.style)
+
   return {
     hidden: over.hidden ?? under?.hidden,
     text: over.text ?? under?.text,
@@ -558,12 +670,16 @@ function mergeUnset<K extends string>(
   set: object | undefined
 ): K[] | undefined {
   const keys = [...new Set([...(under ?? []), ...(over ?? [])])].filter((key) => !Object.hasOwn(set ?? {}, key))
+
   return keys.length > 0 ? keys : undefined
 }
 
 /** A step of the spacing scale (a multiple of the project's spacing unit), or a length token. */
 export function spacing(value: Length): string {
-  if (typeof value === "string") return token(value)
+  if (typeof value === "string") {
+    return token(value)
+  }
+
   return value === 0 ? "0" : `calc(var(--spacing) * ${value})`
 }
 
@@ -583,12 +699,14 @@ export const radiusKeywords: Readonly<Record<string, string>> = { "radius-full":
 /** The CSS for a radius: the token's variable, falling back to the keyword's value for a keyword. */
 function radiusCss(name: string): string {
   const keyword = radiusKeywords[name]
+
   return keyword === undefined ? token(name) : `var(--${name}, ${keyword})`
 }
 
 type Direction = "row" | "column"
 
 const flexAlign = { start: "flex-start", center: "center", end: "flex-end", stretch: "stretch" } as const
+
 const flexJustify = {
   start: "flex-start",
   center: "center",
@@ -600,6 +718,7 @@ const flexJustify = {
 
 function layoutCss(style: NodeStyle, parent: Direction | undefined): Record<string, string> {
   const grid = style.display === "grid"
+
   const css: Record<string, string> = {
     display: grid ? "grid" : "flex",
     position: "relative",
@@ -608,22 +727,44 @@ function layoutCss(style: NodeStyle, parent: Direction | undefined): Record<stri
     ...spacingCss(style),
     ...boxCss(style, parent)
   }
+
   if (grid) {
     css.gridTemplateColumns = `repeat(${style.columns ?? 2}, minmax(0, 1fr))`
-    if (style.rows !== undefined) css.gridTemplateRows = `repeat(${style.rows}, minmax(0, 1fr))`
+
+    if (style.rows !== undefined) {
+      css.gridTemplateRows = `repeat(${style.rows}, minmax(0, 1fr))`
+    }
   } else {
     css.flexDirection = style.direction ?? "column"
-    if (style.wrap) css.flexWrap = "wrap"
+
+    if (style.wrap) {
+      css.flexWrap = "wrap"
+    }
   }
-  if (style.gap !== undefined) css.gap = spacing(style.gap)
-  if (style.rowGap !== undefined) css.rowGap = spacing(style.rowGap)
-  if (style.align) css.alignItems = flexAlign[style.align]
+
+  if (style.gap !== undefined) {
+    css.gap = spacing(style.gap)
+  }
+
+  if (style.rowGap !== undefined) {
+    css.rowGap = spacing(style.rowGap)
+  }
+
+  if (style.align) {
+    css.alignItems = flexAlign[style.align]
+  }
+
   if (style.justify) {
     // A grid places items within their cells along the row; distributing space is for the tracks themselves.
     const distributes = style.justify === "between" || style.justify === "around" || style.justify === "evenly"
-    if (grid && !distributes) css.justifyItems = flexAlign[style.justify as "start" | "center" | "end"]
-    else css.justifyContent = flexJustify[style.justify]
+
+    if (grid && !distributes) {
+      css.justifyItems = flexAlign[style.justify as "start" | "center" | "end"]
+    } else {
+      css.justifyContent = flexJustify[style.justify]
+    }
   }
+
   return css
 }
 
@@ -634,8 +775,12 @@ function textCss(style: NodeStyle, parent: Direction | undefined): Record<string
     ...spacingCss(style),
     ...boxCss(style, parent)
   }
+
   // Hugging text is Figma's auto width: as wide as its line, never wrapped by its parent, only by a maximum width.
-  if (style.width === "hug") css.width = "max-content"
+  if (style.width === "hug") {
+    css.width = "max-content"
+  }
+
   if (style.lines === 1) {
     Object.assign(css, { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })
   } else if (style.lines !== undefined && style.lines > 1) {
@@ -646,6 +791,7 @@ function textCss(style: NodeStyle, parent: Direction | undefined): Record<string
       overflow: "hidden"
     })
   }
+
   return css
 }
 
@@ -657,26 +803,48 @@ function componentCss(style: NodeStyle, parent: Direction | undefined): Record<s
 /** Padding and margin, each on all sides, per axis, or per side. */
 function spacingCss(style: NodeStyle): Record<string, string> {
   const css: Record<string, string> = {}
-  if (style.padding !== undefined) css.padding = sidesCss(style.padding)
-  if (style.margin !== undefined) css.margin = sidesCss(style.margin)
+
+  if (style.padding !== undefined) {
+    css.padding = sidesCss(style.padding)
+  }
+
+  if (style.margin !== undefined) {
+    css.margin = sidesCss(style.margin)
+  }
+
   return css
 }
 
 function sidesCss(value: Padding): string {
   return (Array.isArray(value) ? value : [value]).map(spacing).join(" ")
 }
+
 /** Fill, border, corners, shadow and clipping: what layouts and text draw themselves. */
 function surfaceCss(style: NodeStyle): Record<string, string> {
   const css: Record<string, string> = {}
-  if (style.background) css.background = token(style.background)
+
+  if (style.background) {
+    css.background = token(style.background)
+  }
+
   if (style.border !== undefined || style.borderWidth !== undefined) {
     css.borderWidth = `${style.borderWidth ?? 1}px`
     css.borderStyle = style.borderStyle ?? "solid"
     css.borderColor = style.border ? token(style.border) : "var(--border, currentColor)"
   }
-  if (style.radius) css.borderRadius = radiusCss(style.radius)
-  if (style.shadow) css.boxShadow = token(style.shadow)
-  if (style.overflow) css.overflow = style.overflow === "scroll" ? "auto" : style.overflow
+
+  if (style.radius) {
+    css.borderRadius = radiusCss(style.radius)
+  }
+
+  if (style.shadow) {
+    css.boxShadow = token(style.shadow)
+  }
+
+  if (style.overflow) {
+    css.overflow = style.overflow === "scroll" ? "auto" : style.overflow
+  }
+
   return css
 }
 
@@ -686,36 +854,97 @@ function surfaceCss(style: NodeStyle): Record<string, string> {
  */
 function boxCss(style: NodeStyle, parent: Direction | undefined): Record<string, string> {
   const css: Record<string, string> = {}
-  if (style.grow) fill(css, parent === "column" ? "height" : "width", parent ?? "row")
+
+  if (style.grow) {
+    fill(css, parent === "column" ? "height" : "width", parent ?? "row")
+  }
+
   sizeCss(css, "width", style.width, parent)
   sizeCss(css, "height", style.height, parent)
-  if (style.minWidth !== undefined) css.minWidth = spacing(style.minWidth)
-  if (style.maxWidth !== undefined) css.maxWidth = spacing(style.maxWidth)
-  if (style.minHeight !== undefined) css.minHeight = spacing(style.minHeight)
-  if (style.maxHeight !== undefined) css.maxHeight = spacing(style.maxHeight)
-  if (style.self) css.alignSelf = flexAlign[style.self]
-  if (style.colSpan !== undefined) css.gridColumn = `span ${style.colSpan} / span ${style.colSpan}`
-  if (style.rowSpan !== undefined) css.gridRow = `span ${style.rowSpan} / span ${style.rowSpan}`
+
+  if (style.minWidth !== undefined) {
+    css.minWidth = spacing(style.minWidth)
+  }
+
+  if (style.maxWidth !== undefined) {
+    css.maxWidth = spacing(style.maxWidth)
+  }
+
+  if (style.minHeight !== undefined) {
+    css.minHeight = spacing(style.minHeight)
+  }
+
+  if (style.maxHeight !== undefined) {
+    css.maxHeight = spacing(style.maxHeight)
+  }
+
+  if (style.self) {
+    css.alignSelf = flexAlign[style.self]
+  }
+
+  if (style.colSpan !== undefined) {
+    css.gridColumn = `span ${style.colSpan} / span ${style.colSpan}`
+  }
+
+  if (style.rowSpan !== undefined) {
+    css.gridRow = `span ${style.rowSpan} / span ${style.rowSpan}`
+  }
+
   if (style.position === "absolute") {
     css.position = "absolute"
+
     for (const side of ["top", "right", "bottom", "left"] as const) {
-      if (style[side] !== undefined) css[side] = spacing(style[side])
+      if (style[side] !== undefined) {
+        css[side] = spacing(style[side])
+      }
     }
   }
-  if (style.opacity !== undefined) css.opacity = String(style.opacity / 100)
-  if (style.foreground) css.color = token(style.foreground)
-  if (style.font) css.fontFamily = token(style.font)
+
+  if (style.opacity !== undefined) {
+    css.opacity = String(style.opacity / 100)
+  }
+
+  if (style.foreground) {
+    css.color = token(style.foreground)
+  }
+
+  if (style.font) {
+    css.fontFamily = token(style.font)
+  }
+
   if (style.size) {
     css.fontSize = token(style.size)
     css.lineHeight = `var(--${style.size}--line-height, 1.5)`
   }
-  if (style.leading) css.lineHeight = token(style.leading)
-  if (style.weight !== undefined) css.fontWeight = String(style.weight)
-  if (style.tracking) css.letterSpacing = token(style.tracking)
-  if (style.textAlign) css.textAlign = style.textAlign
-  if (style.transform) css.textTransform = style.transform
-  if (style.decoration) css.textDecorationLine = style.decoration
-  if (style.italic) css.fontStyle = "italic"
+
+  if (style.leading) {
+    css.lineHeight = token(style.leading)
+  }
+
+  if (style.weight !== undefined) {
+    css.fontWeight = String(style.weight)
+  }
+
+  if (style.tracking) {
+    css.letterSpacing = token(style.tracking)
+  }
+
+  if (style.textAlign) {
+    css.textAlign = style.textAlign
+  }
+
+  if (style.transform) {
+    css.textTransform = style.transform
+  }
+
+  if (style.decoration) {
+    css.textDecorationLine = style.decoration
+  }
+
+  if (style.italic) {
+    css.fontStyle = "italic"
+  }
+
   return css
 }
 
@@ -729,21 +958,34 @@ function sizeCss(
   size: Size | undefined,
   parent: Direction | undefined
 ) {
-  if (size === undefined) return
+  if (size === undefined) {
+    return
+  }
+
   const main = parent !== undefined && (axis === "width") === (parent === "row")
-  if (size === "hug") css[axis] = "fit-content"
-  else if (size === "fill") fill(css, axis, parent)
-  else {
+
+  if (size === "hug") {
+    css[axis] = "fit-content"
+  } else if (size === "fill") {
+    fill(css, axis, parent)
+  } else {
     css[axis] = spacing(size)
-    if (main) css.flexShrink = "0"
+
+    if (main) {
+      css.flexShrink = "0"
+    }
   }
 }
 
 function fill(css: Record<string, string>, axis: "width" | "height", parent: Direction | undefined) {
   const min = axis === "width" ? "minWidth" : "minHeight"
-  if (parent === undefined) css[axis] = "100%"
-  else if ((axis === "width") === (parent === "row")) {
+
+  if (parent === undefined) {
+    css[axis] = "100%"
+  } else if ((axis === "width") === (parent === "row")) {
     css.flex = "1 1 0%"
     css[min] = "0"
-  } else css.alignSelf = "stretch"
+  } else {
+    css.alignSelf = "stretch"
+  }
 }

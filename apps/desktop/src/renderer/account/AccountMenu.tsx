@@ -9,7 +9,11 @@ import { NobodyAvatar, PersonAvatar } from "./PersonAvatar.tsx"
 /** An email that, when it's cut short, keeps its domain: the part that tells your accounts apart. */
 function Email({ address }: { address: string }) {
   const at = address.lastIndexOf("@")
-  if (at < 0) return <span className="min-w-0 truncate">{address}</span>
+
+  if (at < 0) {
+    return <span className="min-w-0 truncate">{address}</span>
+  }
+
   return (
     <span className="flex min-w-0">
       <span className="min-w-0 truncate">{address.slice(0, at)}</span>
@@ -34,16 +38,27 @@ export function AccountMenu() {
   const { account, accounts } = state
   const [open, setOpen] = useState(false)
   const list = useRef<HTMLDivElement>(null)
-  if (!loaded) return <span className="mb-1.5 ml-auto size-6 shrink-0" />
+
+  if (!loaded) {
+    return <span className="mb-1.5 ml-auto size-6 shrink-0" />
+  }
+
   const several = accounts.length > 1
+
   // Each action closes the panel first, so the keyboard goes back to your picture before anything moves.
   const then = (action: () => void) => () => {
     setOpen(false)
     action()
   }
+
   let label = "Sign in"
-  if (account) label = `Your accounts, signed in as ${account.email}`
-  else if (accounts.length > 0) label = "Your accounts, not signed in"
+
+  if (account) {
+    label = `Your accounts, signed in as ${account.email}`
+  } else if (accounts.length > 0) {
+    label = "Your accounts, not signed in"
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -141,10 +156,18 @@ function AccountRow({
   const { email, ended } = account
   // With one account the row is your name and email; with several, the email and where it opens.
   let detail = email
-  if (several) detail = ended ? "Session ended" : workspaceOf(account)
+
+  if (several) {
+    detail = ended ? "Session ended" : workspaceOf(account)
+  }
+
   // The account you're in is shaded once there's another to tell it from.
   let shade = "hover:bg-accent/60"
-  if (here) shade = several ? "bg-accent" : ""
+
+  if (here) {
+    shade = several ? "bg-accent" : ""
+  }
+
   const who = (
     <>
       <span className={ended ? "opacity-50" : ""}>
@@ -158,6 +181,7 @@ function AccountRow({
       </span>
     </>
   )
+
   return (
     <li
       aria-current={here && several ? "true" : undefined}

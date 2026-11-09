@@ -17,6 +17,7 @@ const success: ExecReply = {
   created: { home: "home-id" },
   screenshots: [{ path: "/shot.png", png: "AA==", design: "home", state: "default", mode: "desktop" }]
 }
+
 const structuredSuccess = structuredExec(execResponse(success))
 const fixture = transportFixture(success)
 const { requests, run, mcp } = fixture
@@ -24,11 +25,13 @@ const { requests, run, mcp } = fixture
 /** What reaches the app: the request, with the tab the CLI routed it to. */
 function expectRequests(params: Record<string, unknown>) {
   expect(requests).toHaveLength(2)
+
   for (const request of requests) {
     expect(request).toEqual(
       expect.objectContaining({ method: "exec", params: { tab: fixtureTab.id, ...params }, agent: "Contract Caller" })
     )
   }
+
   expect(requests).toContainEqual(expect.objectContaining({ agentId: "cli-session" }))
   expect(requests).toContainEqual(expect.objectContaining({ agentId: expect.stringMatching(/^Contract Caller#/) }))
 }
@@ -37,10 +40,12 @@ describe("execute transport contract", processTests, () => {
   it("omits undeclared CLI ids so long names remain distinct at the desktop boundary", async () => {
     const prefix = "Harness ".repeat(16)
     fixture.response = { result: emptyState(fixtureTab) }
+
     for (const suffix of ["One", "Two"]) {
       const cli = await run(["state"], "", { PARITY_AGENT_NAME: prefix + suffix, PARITY_AGENT_ID: undefined })
       expect(cli.code).toBe(0)
     }
+
     expect(requests).toEqual([
       { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "One", transport: "cli" },
       { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "Two", transport: "cli" }
@@ -74,10 +79,12 @@ describe("execute transport contract", processTests, () => {
   it("rejects a snippet file combined with retry in both adapters", async () => {
     const file = join(fixture.directory, "ambiguous.js")
     await writeFile(file, "Print(1)")
+
     const [cli, protocol] = await Promise.all([
       run(["exec", file, "--edit-id", "failed"], ""),
       mcp({ input: "Print(1)", editId: "failed" })
     ])
+
     expect(requests).toEqual([])
     expect(cli.code).toBe(1)
     expect(cli.stderr.trim()).toBe("Pass a snippet or an editId, not both")
@@ -95,11 +102,13 @@ describe("execute transport contract", processTests, () => {
   })
   it("records each run, MCP session and missing app in the CLI's own log, and says how each call came", async () => {
     const code = "Print(1)\n"
+
     const [cli, protocol, missing] = await Promise.all([
       run(["exec", "--label", "Try"], code),
       mcp({ input: code }),
       run(["tabs"], "", { PARITY_AGENT_FILE: join(fixture.directory, "none.json") })
     ])
+
     expect([cli.code, missing.code]).toEqual([0, 1])
     expect(toolReply(protocol.stdout)).toEqual(expect.objectContaining({ result: expect.anything() }))
     expect(
@@ -109,11 +118,13 @@ describe("execute transport contract", processTests, () => {
     ).toEqual(["cli", "mcp"])
     const events = fixture.events()
     expect(events.every((event) => event.process === "cli")).toBe(true)
+
     const named = (name: string) =>
       events
         .filter((event) => event.name === name)
         .map((event) => event.attributes)
         .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+
     expect(named("cli.ran")).toEqual([
       { command: "exec", flags: ["label"], exitCode: 0 },
       { command: "mcp", flags: [], exitCode: 0 },
@@ -146,10 +157,12 @@ describe("execute transport contract", processTests, () => {
     const code = "Print('file input')"
     const file = join(fixture.directory, "input.js")
     await writeFile(file, code)
+
     const [cli, protocol] = await Promise.all([
       run(["exec", file, "--label", "Review home screen", "--tab", "project", "--json"], ""),
       mcp({ input: code, description: "Review home screen", tab: "project" })
     ])
+
     expectRequests({ code, label: "Review home screen", tab: "project" })
     expect(JSON.parse(cli.stdout)).toEqual({
       ...success,
@@ -162,10 +175,12 @@ describe("execute transport contract", processTests, () => {
 
   it("maps retry patches identically, preserving empty replacement strings and all", async () => {
     const edits = [{ find: " old ", replace: "", all: true }]
+
     const [cli] = await Promise.all([
       run(["exec", "--edit-id", "failed", "--edits", JSON.stringify(edits)], ""),
       mcp({ editId: "failed", edits })
     ])
+
     expect(cli.code).toBe(0)
     expectRequests({ label: "Edit designs", editId: "failed", edits })
   })
@@ -230,6 +245,7 @@ describe("execute transport contract", processTests, () => {
         run(["exec", ...args, "--json"], stdin),
         mcp(input)
       ])
+
       expect(requests).toEqual([])
       expect(cli.code).toBe(1)
       expect(cli.stderr.trim()).toBe(error)
@@ -258,12 +274,15 @@ describe("execute transport contract", processTests, () => {
       created: {},
       screenshots: []
     }
+
     fixture.response = { result: failure }
+
     const [cli, json, protocol] = await Promise.all([
       run(["exec"], "Print(1)"),
       run(["exec", "--json"], "Print(1)"),
       mcp({ input: "Print(1)" })
     ])
+
     const canonical = execResponse(failure)
     // A snippet's unknown design isn't one of execute's inputs, so there's no path, but the alternatives stay.
     expect(canonical.error).toEqual({
@@ -300,6 +319,7 @@ describe("execute transport contract", processTests, () => {
         { id: "loading", name: "Loading" }
       ]
     }
+
     const project: AgentSnapshot = {
       tab: "measure",
       components: [],
@@ -314,22 +334,28 @@ describe("execute transport contract", processTests, () => {
       selection: {},
       bounds: {}
     }
+
     const render: AgentHooks["render"] = async () => {
       throw new Error("Measure rendered before checking its options")
     }
+
     const code = `await Measure("signup", { state: "all" })`
+
     // The reply as the app builds it from the agent's result, which the CLI's check takes.
     const { changes: _changes, ...result } = await execute({ label: "Measure", code }, project, {
       presence: () => undefined,
       render
     })
+
     const reply = replies.exec.parse({ ...result, applied: false, screenshots: [] })
     fixture.response = { result: reply }
+
     const [cli, json, protocol] = await Promise.all([
       run(["exec"], code),
       run(["exec", "--json"], code),
       mcp({ input: code })
     ])
+
     const canonical = execResponse(reply)
     expect(canonical.error).toEqual({
       code: "invalid_input",
@@ -384,12 +410,15 @@ describe("execute transport contract", processTests, () => {
         }
       ]
     }
+
     fixture.response = { result: replaced }
+
     const [cli, json, protocol] = await Promise.all([
       run(["exec"], "Print(1)"),
       run(["exec", "--json"], "Print(1)"),
       mcp({ input: "Print(1)" })
     ])
+
     const text = describeExec(execResponse(replaced))
     expect(text).toContain(
       [
@@ -415,11 +444,13 @@ describe("execute transport contract", processTests, () => {
 
   it("preserves desktop RPC errors in both transports, coded app_error when the app gives no code", async () => {
     fixture.response = { error: "Tab is not ready" }
+
     const [cli, json, protocol] = await Promise.all([
       run(["exec"], "Print(1)"),
       run(["exec", "--json"], "Print(1)"),
       mcp({ input: "Print(1)" })
     ])
+
     expect(cli.code).toBe(1)
     expect(cli.stderr.trim()).toBe("Tab is not ready")
     const error = { code: "app_error", message: "Tab is not ready", retryable: false }
@@ -436,16 +467,19 @@ describe("execute transport contract", processTests, () => {
       error: "No failed snippet with editId gone; send the whole snippet again",
       details: { code: "unknown_edit_id", retryable: false, field: "editId" }
     }
+
     const [json, protocol] = await Promise.all([
       run(["exec", "--edit-id", "gone", "--json"], ""),
       mcp({ editId: "gone" })
     ])
+
     const error = {
       code: "unknown_edit_id",
       message: "No failed snippet with editId gone; send the whole snippet again",
       retryable: false,
       path: "/editId"
     }
+
     expect(JSON.parse(json.stdout)).toEqual({ error })
     expect(toolReply(protocol.stdout)).toEqual(
       expect.objectContaining({ result: expect.objectContaining({ structuredContent: { error }, isError: true }) })
@@ -454,14 +488,17 @@ describe("execute transport contract", processTests, () => {
 
   it("says the app isn't running, as a retryable not_running, in both", async () => {
     const env = { PARITY_AGENT_FILE: join(fixture.directory, "missing.json") }
+
     const messages = [
       { jsonrpc: "2.0", id: 1, method: "initialize", params: { clientInfo: { name: "Contract Caller" } } },
       { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "execute", arguments: { input: "Print(1)" } } }
     ]
+
     const [json, protocol] = await Promise.all([
       run(["exec", "--json"], "Print(1)", env),
       run(["mcp"], messages.map((message) => JSON.stringify(message) + "\n").join(""), env)
     ])
+
     const error = expect.objectContaining({ code: "not_running", retryable: true })
     expect(json.code).toBe(1)
     expect(JSON.parse(json.stdout)).toEqual({ error })
@@ -474,7 +511,10 @@ describe("execute transport contract", processTests, () => {
     const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     const { tools } = (toolReply(result.stdout) as { result: { tools: Record<string, unknown>[] } }).result
     expect(tools.length).toBeGreaterThan(0)
-    for (const tool of tools) expect(tool).not.toHaveProperty("outputSchema")
+
+    for (const tool of tools) {
+      expect(tool).not.toHaveProperty("outputSchema")
+    }
   })
 })
 

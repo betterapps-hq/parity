@@ -8,6 +8,7 @@ function thrown(run: () => unknown): unknown {
   } catch (error) {
     return error
   }
+
   throw new Error("Expected it to throw")
 }
 
@@ -61,6 +62,7 @@ describe("coded errors", () => {
         { id: "empty", name: "Empty" }
       ]
     }
+
     expect(() => findState(container, "loading")).toThrow(
       'No state with id "loading" in Home. Calls take a state\'s id, as Designs() lists it. ' +
         "States: default (Default), empty (Empty)"

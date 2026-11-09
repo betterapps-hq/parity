@@ -31,8 +31,14 @@ export const codeEditors: readonly CodeEditor[] = [
 
 /** The editors a choice tries, in order; none means the system's default app. */
 export function editorsFor(choice: CodeEditorChoice): readonly CodeEditor[] {
-  if (choice === "system") return []
-  if (choice === "auto") return codeEditors
+  if (choice === "system") {
+    return []
+  }
+
+  if (choice === "auto") {
+    return codeEditors
+  }
+
   return codeEditors.filter((editor) => editor.id === choice)
 }
 
@@ -51,6 +57,7 @@ export function commandPaths(
   const separator = windows ? "\\" : "/"
   const join = (folder: string, file: string) => folder.replace(/[\\/]+$/, "") + separator + file
   const extensions = windows ? (env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean) : [""]
+
   return folders.flatMap((folder) => extensions.map((extension) => join(folder, command + extension.toLowerCase())))
 }
 
@@ -62,12 +69,19 @@ export function commandPaths(
 export function exportLine(source: string, name: string): number | undefined {
   const lines = source.split(/\r?\n/)
   const word = name.replace(/[$]/g, "\\$")
+
   const at = (pattern: RegExp) => {
     const index = lines.findIndex((line) => pattern.test(line))
+
     return index === -1 ? undefined : index + 1
   }
-  if (name === "default") return at(/^\s*export\s+default\b/)
+
+  if (name === "default") {
+    return at(/^\s*export\s+default\b/)
+  }
+
   const declares = `(?:async\\s+)?(?:function\\*?|const|let|var|class|interface|type|enum)\\s+${word}\\b`
+
   return (
     at(new RegExp(`^\\s*export\\s+(?:declare\\s+)?${declares}`)) ??
     // Declared without `export` and listed in an `export { … }`: the declaration is what's worth reading.
@@ -80,10 +94,18 @@ export function exportLine(source: string, name: string): number | undefined {
 
 function multilineExport(lines: string[], word: string): number | undefined {
   let open = false
+
   for (const [index, line] of lines.entries()) {
-    if (/^\s*export\s*\{/.test(line) && !line.includes("}")) open = true
-    else if (open && new RegExp(`\\b${word}\\b`).test(line)) return index + 1
-    if (open && line.includes("}")) open = false
+    if (/^\s*export\s*\{/.test(line) && !line.includes("}")) {
+      open = true
+    } else if (open && new RegExp(`\\b${word}\\b`).test(line)) {
+      return index + 1
+    }
+
+    if (open && line.includes("}")) {
+      open = false
+    }
   }
+
   return undefined
 }

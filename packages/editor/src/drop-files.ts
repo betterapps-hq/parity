@@ -58,8 +58,12 @@ export interface SkippedFile {
  * extension names. Undefined for anything else.
  */
 export function imageTypeOf(file: Pick<DroppedFile, "name" | "type">): string | undefined {
-  if (file.type) return Object.hasOwn(imageTypes, file.type) ? file.type : undefined
+  if (file.type) {
+    return Object.hasOwn(imageTypes, file.type) ? file.type : undefined
+  }
+
   const extension = /\.([^./\\]+)$/.exec(file.name)?.[1]?.toLowerCase()
+
   return extension && Object.hasOwn(byExtension, extension) ? byExtension[extension] : undefined
 }
 
@@ -72,31 +76,51 @@ export function mayBeImage(type: string): boolean {
 export function sortDrop(files: readonly DroppedFile[]): { images: DroppedImage[]; skipped: SkippedFile[] } {
   const images: DroppedImage[] = []
   const skipped: SkippedFile[] = []
+
   for (const [index, file] of files.entries()) {
     const type = imageTypeOf(file)
-    if (!type) skipped.push({ name: file.name, reason: "type" })
-    else if (file.size > imageLimit) skipped.push({ name: file.name, reason: "size" })
-    else images.push({ index, type })
+
+    if (!type) {
+      skipped.push({ name: file.name, reason: "type" })
+    } else if (file.size > imageLimit) {
+      skipped.push({ name: file.name, reason: "size" })
+    } else {
+      images.push({ index, type })
+    }
   }
+
   return { images, skipped }
 }
 
 /** What to say about skipped files: a title naming them, and why each was skipped. Undefined when none were. */
 export function skippedMessage(skipped: readonly SkippedFile[]): { title: string; description: string } | undefined {
-  if (skipped.length === 0) return undefined
+  if (skipped.length === 0) {
+    return undefined
+  }
+
   const title = skipped.length === 1 ? `Skipped ${skipped[0]!.name}` : `Skipped ${skipped.length} files`
   const sentences: string[] = []
   const types = skipped.filter((file) => file.reason === "type").map((file) => file.name)
-  if (types.length === 1) sentences.push(`${types[0]} isn't a ${imageKinds} image.`)
-  else if (types.length > 1) sentences.push(`${names(types)} aren't ${imageKinds} images.`)
+
+  if (types.length === 1) {
+    sentences.push(`${types[0]} isn't a ${imageKinds} image.`)
+  } else if (types.length > 1) {
+    sentences.push(`${names(types)} aren't ${imageKinds} images.`)
+  }
+
   const sizes = skipped.filter((file) => file.reason === "size").map((file) => file.name)
-  if (sizes.length > 0) sentences.push(`${names(sizes)} ${sizes.length === 1 ? "is" : "are"} larger than 20 MB.`)
+
+  if (sizes.length > 0) {
+    sentences.push(`${names(sizes)} ${sizes.length === 1 ? "is" : "are"} larger than 20 MB.`)
+  }
+
   return { title, description: sentences.join(" ") }
 }
 
 /** Names in a sentence: "a", "a and b", "a, b and c", and past five, how many more. */
 function names(list: readonly string[]): string {
   const shown = list.length > 5 ? [...list.slice(0, 4), `${list.length - 4} more`] : list
+
   return shown.length === 1 ? shown[0]! : `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)}`
 }
 
@@ -105,9 +129,16 @@ function names(list: readonly string[]): string {
  * files that may be images, into a layout, onto the empty canvas, or nowhere, over a design with no layout there.
  */
 export function dropHint(count: number, where: "layout" | "canvas" | "none"): string {
-  if (count === 0) return `Only ${imageKinds} images can be dropped`
-  if (where === "none") return "Drop onto a layout, or onto the empty canvas"
+  if (count === 0) {
+    return `Only ${imageKinds} images can be dropped`
+  }
+
+  if (where === "none") {
+    return "Drop onto a layout, or onto the empty canvas"
+  }
+
   const images = count === 1 ? "the image" : `${count} images`
+
   return where === "layout" ? `Add ${images} here` : `New frame with ${images}`
 }
 
@@ -136,6 +167,7 @@ export function designOfImages(
   const rootId = generateId(ids)
   ids.add(rootId)
   const name = (files.length === 1 && fileBaseName(files[0]!)) || "Images"
+
   return {
     id: uniqueId(name, taken),
     name,

@@ -22,11 +22,15 @@ import { currentCommit } from "./commit.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
 const out = join(appDir, "out")
+
 /** The bundles Parity runs, with their source maps, for uploading to Sentry; never packaged (PAR-625). */
 const sourceMaps = join(appDir, "sourcemaps")
 const require = createRequire(join(appDir, "package.json"))
+
 rmSync(out, { recursive: true, force: true })
+
 rmSync(sourceMaps, { recursive: true, force: true })
+
 mkdirSync(out, { recursive: true })
 
 execSync("pnpm exec vp build", { cwd: appDir, stdio: "inherit" })
@@ -59,6 +63,7 @@ await build({
     "builder-process": join(appDir, "src/utility/builder-process.ts")
   }
 })
+
 await build({
   ...node,
   entryPoints: {
@@ -69,6 +74,7 @@ await build({
   banner: {},
   outExtension: { ".js": ".cjs" }
 })
+
 // The project's Vite compiles the guest with the project's own React, never Parity's copy.
 await build({
   entryPoints: { guest: require.resolve("@parity-app/renderer-react/guest") },
@@ -85,14 +91,23 @@ await build({
 separateSourceMaps()
 
 cpSync(join(appDir, "resources"), join(out, "resources"), { recursive: true })
+
 const registry = dirname(require.resolve("@parity-app/registry/package.json"))
+
 cpSync(join(registry, "libraries"), join(out, "libraries"), { recursive: true })
+
 cpSync(join(registry, "in-app.json"), join(out, "in-app.json"))
+
 // The checker reads lib.*.d.ts next to TypeScript at runtime. A real directory also works from a packaged app.
 cpSync(dirname(require.resolve("typescript/package.json")), join(out, "node_modules/typescript"), { recursive: true })
+
 shipPackage("sharp", appDir)
+
 // One macOS build packages both Apple Silicon and Intel, from an install that has only the runner's own binaries.
-if (process.platform === "darwin") shipOtherMacBinaries()
+if (process.platform === "darwin") {
+  shipOtherMacBinaries()
+}
+
 checkShippedSharp()
 
 /**
@@ -107,13 +122,18 @@ function separateSourceMaps(): void {
     stdio: ["ignore", "ignore", "inherit"]
   })
   const maps = globSync(["*.map", "renderer/**/*.map"], { cwd: out })
-  if (maps.length < bundles.length) throw new Error(`Only ${maps.length} source maps were written: ${maps.join(", ")}`)
+
+  if (maps.length < bundles.length) {
+    throw new Error(`Only ${maps.length} source maps were written: ${maps.join(", ")}`)
+  }
+
   for (const map of maps) {
     const bundle = map.slice(0, -".map".length)
     mkdirSync(dirname(join(sourceMaps, map)), { recursive: true })
     cpSync(join(out, bundle), join(sourceMaps, bundle))
     renameSync(join(out, map), join(sourceMaps, map))
   }
+
   // Which release they belong to, which scripts/upload-sourcemaps.ts names.
   const { version } = readManifest(appDir)
   writeFileSync(join(sourceMaps, "build.json"), JSON.stringify({ version, commit: currentCommit(appDir) }, null, 2))
@@ -127,16 +147,24 @@ function separateSourceMaps(): void {
  */
 function checkShippedSharp(): void {
   const sharp = join(out, "node_modules/sharp")
+
   const script = `require(${JSON.stringify(sharp)})({ create: { width: 2, height: 2, channels: 3, background: "#36c" } })
     .webp({ lossless: true }).toBuffer()
     .then((webp) => { if (webp.toString("latin1", 8, 12) !== "WEBP") throw new Error("not a WebP"); console.log("sharp loads in Electron") })
     .catch((error) => { console.error(error); process.exit(1) })`
+
   const electron = require("electron") as unknown as string
   execFileSync(electron, ["-e", script], { stdio: "inherit", env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } })
-  if (process.platform !== "darwin") return
+
+  if (process.platform !== "darwin") {
+    return
+  }
+
   for (const arch of ["arm64", "x64"]) {
     for (const name of [`@img/sharp-darwin-${arch}`, `@img/sharp-libvips-darwin-${arch}`]) {
-      if (!existsSync(join(out, "node_modules", name, "package.json"))) throw new Error(`The build ships no ${name}`)
+      if (!existsSync(join(out, "node_modules", name, "package.json"))) {
+        throw new Error(`The build ships no ${name}`)
+      }
     }
   }
 }
@@ -148,10 +176,15 @@ function checkShippedSharp(): void {
  */
 function shipPackage(name: string, from: string, shipped = new Set<string>()): void {
   const folder = installed(name, from)
-  if (!folder || shipped.has(folder)) return
+
+  if (!folder || shipped.has(folder)) {
+    return
+  }
+
   shipped.add(folder)
   cpSync(folder, join(out, "node_modules", name), { recursive: true, dereference: true })
   const manifest = readManifest(folder)
+
   for (const dependency of Object.keys({ ...manifest.dependencies, ...manifest.optionalDependencies })) {
     shipPackage(dependency, folder, shipped)
   }
@@ -161,13 +194,20 @@ function shipPackage(name: string, from: string, shipped = new Set<string>()): v
 function installed(name: string, from: string): string | undefined {
   for (let folder = from; ; folder = dirname(folder)) {
     const candidate = basename(folder) === "node_modules" ? join(folder, name) : join(folder, "node_modules", name)
-    if (existsSync(join(candidate, "package.json"))) return realpathSync(candidate)
-    if (dirname(folder) === folder) return undefined
+
+    if (existsSync(join(candidate, "package.json"))) {
+      return realpathSync(candidate)
+    }
+
+    if (dirname(folder) === folder) {
+      return undefined
+    }
   }
 }
 
 function readManifest(folder: string) {
   const file = join(folder, "package.json")
+
   return parseManifest(readFileSync(file, "utf8"), file)
 }
 
@@ -175,11 +215,20 @@ function readManifest(folder: string) {
 function shipOtherMacBinaries(): void {
   const other = process.arch === "arm64" ? "x64" : "arm64"
   const sharp = readManifest(join(out, "node_modules/sharp"))
+
   for (const name of [`@img/sharp-darwin-${other}`, `@img/sharp-libvips-darwin-${other}`]) {
     const version = sharp.optionalDependencies?.[name]
-    if (!version) throw new Error(`sharp doesn't list ${name}`)
+
+    if (!version) {
+      throw new Error(`sharp doesn't list ${name}`)
+    }
+
     const target = join(out, "node_modules", name)
-    if (existsSync(target)) continue
+
+    if (existsSync(target)) {
+      continue
+    }
+
     const packed = mkdtempSync(join(tmpdir(), "parity-sharp-"))
     const tarball = execSync(`npm pack ${name}@${version} --silent`, { cwd: packed, encoding: "utf8" }).trim()
     mkdirSync(target, { recursive: true })
@@ -189,6 +238,7 @@ function shipOtherMacBinaries(): void {
 }
 
 const { name, version, license, description, author, homepage } = readManifest(appDir)
+
 writeFileSync(
   join(out, "package.json"),
   JSON.stringify(

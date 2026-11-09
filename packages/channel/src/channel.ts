@@ -66,6 +66,7 @@ export interface ErrorCodec {
 export const plainErrors: ErrorCodec = {
   encode(error) {
     const details = typeof error === "object" && error !== null ? (error as { details?: unknown }).details : undefined
+
     return { error: errorMessage(error), ...(details === undefined ? {} : { details }) }
   },
   decode(message, details) {
@@ -142,6 +143,7 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
     trace: currentTrace,
     around
   } = options
+
   let handlers = options.handlers
   let port: Port | undefined
   let closed: Error | undefined
@@ -150,7 +152,10 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
 
   const fail = (which: (request: Pending) => boolean, error: Error) => {
     for (const [id, request] of pending) {
-      if (!which(request)) continue
+      if (!which(request)) {
+        continue
+      }
+
       pending.delete(id)
       request.reject(error)
     }
@@ -158,12 +163,14 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
 
   const answer = async (from: Port, id: number, method: string, params: unknown, trace: unknown) => {
     let reply: ChannelMessage
+
     try {
       const run = () => handle(method, params)
       reply = { type: "response", id, result: await (around ? around({ method, trace }, run) : run()) }
     } catch (error) {
       reply = { type: "response", id, ...errors.encode(error) }
     }
+
     try {
       from.post(reply)
     } catch {
@@ -173,33 +180,62 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
 
   const handle = (method: string, params: unknown): unknown => {
     // With checks, they say which methods there are; without, the handlers do, once there are any.
-    if (checks && !Object.hasOwn(checks, method)) throw unknownMethod(method)
-    if (!handlers) throw notServing()
-    if (!Object.hasOwn(handlers, method)) throw unknownMethod(method)
+    if (checks && !Object.hasOwn(checks, method)) {
+      throw unknownMethod(method)
+    }
+
+    if (!handlers) {
+      throw notServing()
+    }
+
+    if (!Object.hasOwn(handlers, method)) {
+      throw unknownMethod(method)
+    }
+
     const key = method as keyof Local
     const read = checks ? checks[key](params) : params
+
     return handlers[key](read as Local[keyof Local]["params"])
   }
 
   const receive = (from: Port, data: unknown) => {
     const message = readMessage(data)
-    if (!message) return
-    if (message.type === "request") {
-      void answer(from, message.id, message.method, message.params, message.trace)
+
+    if (!message) {
       return
     }
+
+    if (message.type === "request") {
+      void answer(from, message.id, message.method, message.params, message.trace)
+
+      return
+    }
+
     const request = pending.get(message.id)
-    if (!request || request.port !== from) return
+
+    if (!request || request.port !== from) {
+      return
+    }
+
     pending.delete(message.id)
-    if (message.error === undefined) request.resolve(message.result)
-    else request.reject(errors.decode(message.error, message.details))
+
+    if (message.error === undefined) {
+      request.resolve(message.result)
+    } else {
+      request.reject(errors.decode(message.error, message.details))
+    }
   }
 
   const letGo = (reason?: Error) => {
     const previous = port
-    if (!previous) return
+
+    if (!previous) {
+      return
+    }
+
     port = undefined
     fail((request) => request.port === previous, disconnected(reason))
+
     try {
       previous.close?.()
     } catch {
@@ -209,10 +245,15 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
 
   return {
     request(method, params, given) {
-      if (closed) return Promise.reject(closed)
+      if (closed) {
+        return Promise.reject(closed)
+      }
+
       const trace = given ?? currentTrace?.()
+
       return new Promise((resolve, reject) => {
         const id = nextId++
+
         const message: ChannelMessage = {
           type: "request",
           id,
@@ -220,9 +261,13 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
           params,
           ...(trace === undefined ? {} : { trace })
         }
+
         const request: Pending = { resolve, reject, message }
         pending.set(id, request)
-        if (port) send(port, id, request)
+
+        if (port) {
+          send(port, id, request)
+        }
       })
     },
     serve(next) {
@@ -231,24 +276,37 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
     connect(next) {
       if (closed) {
         next.close?.()
+
         return
       }
+
       letGo()
       port = next
       next.listen({
         message: (data) => receive(next, data),
         closed: (reason) => {
-          if (port === next) letGo(reason)
+          if (port === next) {
+            letGo(reason)
+          }
         }
       })
-      for (const [id, request] of pending) if (!request.port) send(next, id, request)
+
+      for (const [id, request] of pending) {
+        if (!request.port) {
+          send(next, id, request)
+        }
+      }
     },
     close(reason) {
-      if (closed) return
+      if (closed) {
+        return
+      }
+
       closed = reason
       const previous = port
       port = undefined
       fail(() => true, reason)
+
       try {
         previous?.close?.()
       } catch {
@@ -267,8 +325,11 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
     const { message } = request
     request.port = to
     request.message = undefined
+
     try {
-      if (message) to.post(message)
+      if (message) {
+        to.post(message)
+      }
     } catch (error) {
       pending.delete(id)
       request.reject(error instanceof Error ? error : new Error(errorMessage(error)))
@@ -278,20 +339,38 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
 
 /** A channel message, or nothing for anything else that arrives on the port. */
 function readMessage(data: unknown): ChannelMessage | undefined {
-  if (typeof data !== "object" || data === null) return undefined
+  if (typeof data !== "object" || data === null) {
+    return undefined
+  }
+
   const message = data as Record<string, unknown>
-  if (typeof message.id !== "number") return undefined
+
+  if (typeof message.id !== "number") {
+    return undefined
+  }
+
   if (message.type === "request") {
     const request = { type: "request" as const, id: message.id, method: String(message.method), params: message.params }
+
     return message.trace === undefined ? request : { ...request, trace: message.trace }
   }
-  if (message.type !== "response") return undefined
-  if (message.error === undefined) return { type: "response", id: message.id, result: message.result }
+
+  if (message.type !== "response") {
+    return undefined
+  }
+
+  if (message.error === undefined) {
+    return { type: "response", id: message.id, result: message.result }
+  }
+
   return { type: "response", id: message.id, error: errorMessage(message.error), details: message.details }
 }
 
 /** A thrown value's message. */
 export function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
+  if (error instanceof Error) {
+    return error.message
+  }
+
   return typeof error === "string" ? error : String(error)
 }

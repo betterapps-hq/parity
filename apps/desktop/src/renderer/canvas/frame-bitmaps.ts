@@ -16,24 +16,31 @@ export const bitmapScale = 0.25
 
 /** How long a frame stays the same before it's captured, so editing doesn't capture every step. */
 const settleMs = 1000
+
 /** Bitmaps kept, most recently asked for last. Each is a quarter-size PNG. */
 const kept = 400
+
 /** How long after a failed capture it's tried again, doubling each time it fails, up to eight times as long. */
 const retryMs = 2000
+
 /** What a capture that failed gives, which isn't kept, unlike a frame that didn't render. */
 export const failed = Symbol("failed")
 
 /** Bitmaps by what they show, as data URLs: nothing for a frame that didn't render. */
 const bitmaps = new Map<string, Promise<string | undefined | typeof failed>>()
+
 /** The frame's height in its own CSS pixels, for bitmaps read from disk, by what they show. */
 const heights = new Map<string, number>()
+
 /** How many frames on the canvas show each bitmap. One nothing waits for is skipped when its turn comes. */
 const wanted = new Map<string, number>()
+
 /**
  * One capture for each offscreen window at a time, so agents' renders and exports still get their turn there, and a
  * frame nothing waits for any more is skipped when its turn comes (PAR-523).
  */
 const captures = turns(offscreenWindows)
+
 /** Frames on the canvas still waiting for their first bitmap, kept or captured. */
 let waiting = 0
 
@@ -76,6 +83,7 @@ export function useFrameShows(
   const { added } = session
   const { width, height } = frame
   const { width: viewportWidth, height: viewportHeight } = frame.viewport
+
   const job = useMemo(
     () =>
       renderJob(
@@ -110,7 +118,9 @@ export function useFrameShows(
       drawn.state
     ]
   )
+
   const id = guestId(guest)
+
   return useMemo(() => ({ ...frameKeys(job, { id }), job }), [job, id])
 }
 
@@ -166,22 +176,35 @@ export function useFrameBitmap(
     let timer: ReturnType<typeof setTimeout>
     let counted = true
     waiting++
+
     const settle = () => {
-      if (counted) waiting--
+      if (counted) {
+        waiting--
+      }
+
       counted = false
     }
+
     want(key, 1)
+
     // A capture that failed, as the offscreen window's can on a busy machine, is tried again later rather than leaving
     // the frame without a bitmap for good.
     const take = (attempt: number) =>
       void capture(key, latest.current, () => measured.current?.()).then((src) => {
-        if (!current) return
+        if (!current) {
+          return
+        }
+
         settle()
+
         if (src === failed) {
           setFailedKey(key)
           timer = setTimeout(() => take(attempt + 1), retryMs * Math.min(2 ** attempt, 8))
-        } else setShown({ key, src, ...(heights.has(key) ? { height: heights.get(key) } : {}) })
+        } else {
+          setShown({ key, src, ...(heights.has(key) ? { height: heights.get(key) } : {}) })
+        }
       })
+
     if (bitmaps.has(key)) {
       timer = setTimeout(() => take(0), 0)
     } else {
@@ -189,7 +212,10 @@ export function useFrameBitmap(
       // its turn to be captured (PAR-158). It's captured only once there's none, after what's left of the wait.
       const asked = performance.now()
       void stored(key, latest.current).then((kept) => {
-        if (!current) return
+        if (!current) {
+          return
+        }
+
         if (kept === undefined) {
           const settled = first.current === key && held.current?.() === true
           timer = setTimeout(() => take(0), settled ? 0 : Math.max(0, settleMs - (performance.now() - asked)))
@@ -199,6 +225,7 @@ export function useFrameBitmap(
         }
       })
     }
+
     return () => {
       current = false
       settle()
@@ -207,8 +234,14 @@ export function useFrameBitmap(
     }
   }, [key])
 
-  if (shown?.key === key) return { ...shown, pending: false }
-  if (failedKey === key) return { pending: false }
+  if (shown?.key === key) {
+    return { ...shown, pending: false }
+  }
+
+  if (failedKey === key) {
+    return { pending: false }
+  }
+
   if (shown?.src) {
     return {
       src: shown.src,
@@ -217,6 +250,7 @@ export function useFrameBitmap(
       stale: true
     }
   }
+
   return { pending: true }
 }
 
@@ -229,14 +263,23 @@ const firstRows = new Map<string, Map<string, FrameShows>>()
 /** Notes what a frame in its board's first row shows, for the project's picture, while it's on the canvas. */
 export function useFirstRowFrame(projectId: string, design: string, mode: string, shows: FrameShows, first: boolean) {
   useEffect(() => {
-    if (!first) return undefined
+    if (!first) {
+      return undefined
+    }
+
     const frames = firstRows.get(projectId) ?? new Map<string, FrameShows>()
     firstRows.set(projectId, frames)
     const id = `${design}\n${mode}`
     frames.set(id, shows)
+
     return () => {
-      if (frames.get(id) === shows) frames.delete(id)
-      if (frames.size === 0 && firstRows.get(projectId) === frames) firstRows.delete(projectId)
+      if (frames.get(id) === shows) {
+        frames.delete(id)
+      }
+
+      if (frames.size === 0 && firstRows.get(projectId) === frames) {
+        firstRows.delete(projectId)
+      }
     }
   }, [projectId, design, mode, shows, first])
 }
@@ -253,12 +296,18 @@ export function firstRowFrame(projectId: string, design: string, mode: string): 
 export async function frameBitmap({ key, job }: FrameShows): Promise<string | undefined> {
   if (!bitmaps.has(key)) {
     const kept = await stored(key, job)
-    if (kept) return kept.src
+
+    if (kept) {
+      return kept.src
+    }
   }
+
   // Wanted while it's taken, so it's captured even where no frame on the canvas waits for it any more.
   want(key, 1)
+
   try {
     const src = await capture(key, job)
+
     return typeof src === "string" ? src : undefined
   } finally {
     want(key, -1)
@@ -295,12 +344,19 @@ export function useFirstDrawWaits(rest: BoardRest | undefined, frame: Omit<Undra
   const [done, setDone] = useState(!rest)
   const [dormant, setDormant] = useState(() => rest?.dormant.get() ?? false)
   useEffect(() => {
-    if (done || !rest) return undefined
+    if (done || !rest) {
+      return undefined
+    }
+
     return react("frame waits to draw", () => setDormant(rest.dormant.get()))
   }, [done, rest])
   const waits = !done && holdsFirstDraw({ ...frame, dormant })
+
   // Set while rendering, as React allows for state that follows from props, so stopping waiting draws no extra time.
-  if (!done && !waits) setDone(true)
+  if (!done && !waits) {
+    setDone(true)
+  }
+
   return waits
 }
 
@@ -310,8 +366,13 @@ export function useFirstDrawWaits(rest: BoardRest | undefined, frame: Omit<Undra
  */
 export function drawnHeight(tile: HTMLElement | null, width: number): number | undefined {
   const host = tile?.querySelector<HTMLElement>("[data-frame]")
-  if (!host?.shadowRoot?.querySelector("[data-canvas-node]")) return undefined
+
+  if (!host?.shadowRoot?.querySelector("[data-canvas-node]")) {
+    return undefined
+  }
+
   const { width: drawnWidth, height } = host.getBoundingClientRect()
+
   return drawnWidth > 0 ? Math.round(((height * width) / drawnWidth) * 100) / 100 : undefined
 }
 
@@ -330,34 +391,53 @@ const reading = new Map<string, Promise<KeptBitmap | undefined>>()
  */
 export function stored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
   let read = reading.get(key)
+
   if (!read) {
     read = readStored(key, job).finally(() => reading.delete(key))
     reading.set(key, read)
   }
+
   return read
 }
 
 async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
   const { src, height } = await request("frames.stored", { job }).catch((): { src?: string; height?: number } => ({}))
   const captured = bitmaps.get(key)
+
   if (captured) {
     return captured.then((src) => {
-      if (typeof src !== "string") return undefined
+      if (typeof src !== "string") {
+        return undefined
+      }
+
       const height = heights.get(key)
+
       return { src, ...(height === undefined ? {} : { height }) }
     })
   }
-  if (src === undefined) return undefined
+
+  if (src === undefined) {
+    return undefined
+  }
+
   bitmaps.set(key, Promise.resolve(src))
-  if (height !== undefined) heights.set(key, height)
+
+  if (height !== undefined) {
+    heights.set(key, height)
+  }
+
   forgetOldest()
+
   return { src, ...(height === undefined ? {} : { height }) }
 }
 
 /** Lets go of the bitmaps asked for least recently, past the most kept. */
 function forgetOldest(): void {
   for (const old of bitmaps.keys()) {
-    if (bitmaps.size <= kept) break
+    if (bitmaps.size <= kept) {
+      break
+    }
+
     bitmaps.delete(old)
     heights.delete(old)
   }
@@ -374,37 +454,60 @@ export function capture(
   measure?: () => number | undefined
 ): Promise<string | undefined | typeof failed> {
   const known = bitmaps.get(key)
+
   if (known) {
     bitmaps.delete(key)
     bitmaps.set(key, known)
+
     return known
   }
+
   const taking = captures.run(async () => {
     if (!wanted.has(key)) {
       bitmaps.delete(key)
+
       return undefined
     }
+
     const height = measure?.()
     const taken = await request("frames.capture", { job, ...(height ? { height } : {}) })
-    if (taken.src === undefined) return undefined
+
+    if (taken.src === undefined) {
+      return undefined
+    }
+
     // The height kept with it: the live frame's, or the offscreen window's for a frame that hasn't drawn.
-    if (taken.height !== undefined) heights.set(key, taken.height)
+    if (taken.height !== undefined) {
+      heights.set(key, taken.height)
+    }
+
     return taken.src
   })
+
   const settled = taking.catch((error: unknown): typeof failed => {
-    if (bitmaps.get(key) === settled) bitmaps.delete(key)
+    if (bitmaps.get(key) === settled) {
+      bitmaps.delete(key)
+    }
+
     failedRender(key, error, job.design)
+
     return failed
   })
+
   bitmaps.set(key, settled)
   forgetOldest()
+
   return settled
 }
 
 export function want(key: string, change: 1 | -1): void {
   const count = (wanted.get(key) ?? 0) + change
-  if (count > 0) wanted.set(key, count)
-  else wanted.delete(key)
+
+  if (count > 0) {
+    wanted.set(key, count)
+  } else {
+    wanted.delete(key)
+  }
 }
 
 /**
@@ -413,9 +516,11 @@ export function want(key: string, change: 1 | -1): void {
  */
 function guestId(guest: object): number {
   let id = guests.get(guest)
+
   if (id === undefined) {
     id = nextGuest++
     guests.set(guest, id)
   }
+
   return id
 }

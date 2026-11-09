@@ -19,21 +19,34 @@ export function measureTogether(
 ): <T>(owner: object, measure: Measure<T>) => () => void {
   // Each measure as its read, which gives back its write.
   const pending = new Map<object, () => (() => void) | undefined>()
+
   const flush = () => {
     const reads = [...pending.values()]
     pending.clear()
     const writes = reads.flatMap((read) => read() ?? [])
-    if (writes.length > 0) around(() => writes.forEach((write) => write()))
+
+    if (writes.length > 0) {
+      around(() => writes.forEach((write) => write()))
+    }
   }
+
   return (owner, { read, write }) => {
-    if (pending.size === 0) schedule(flush)
+    if (pending.size === 0) {
+      schedule(flush)
+    }
+
     const asked = () => {
       const value = read()
+
       return value === undefined ? undefined : () => write(value)
     }
+
     pending.set(owner, asked)
+
     return () => {
-      if (pending.get(owner) === asked) pending.delete(owner)
+      if (pending.get(owner) === asked) {
+        pending.delete(owner)
+      }
     }
   }
 }

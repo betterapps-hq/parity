@@ -9,6 +9,7 @@ describe("guestModuleSource", () => {
       documents: [],
       libraries: []
     })
+
     expect(source).toContain(
       'Promise.all([import("virtual:canvas/renderer"), import("/src/index.css?inline"), import("/src/components/ui/button.tsx").catch('
     )
@@ -26,20 +27,28 @@ describe("guestModuleSource", () => {
       documents: [],
       libraries: []
     })
+
     const modules: Record<string, unknown> = {
       "virtual:canvas/renderer": { createGuest: (init: unknown) => init },
       "/src/fine.tsx": { Fine: "fine" }
     }
+
     // Runs the module with `load` standing in for the dev server, which fails on the broken file as on a syntax error.
     const body = source.replace("export default ", "return ").replaceAll("import(", "load(")
+
     // oxlint-disable-next-line eslint/no-new-func -- the test runs the generated module's source, which is a string
     const run = new Function("load", `return (async () => { ${body} })()`) as (
       load: (id: string) => Promise<unknown>
     ) => Promise<{ components: Record<string, unknown> }>
+
     const guest = await run(async (id) => {
-      if (id in modules) return modules[id]
+      if (id in modules) {
+        return modules[id]
+      }
+
       throw new Error(`Failed to parse ${id}`)
     })
+
     expect(guest.components.Fine).toBe("fine")
     expect(() => (guest.components.Broken as () => unknown)()).toThrow(
       "its module didn't load: Failed to parse /src/broken.tsx"
@@ -53,6 +62,7 @@ describe("guestModuleSource", () => {
       documents: [],
       libraries: []
     })
+
     expect(source).not.toContain('import("/src/app/orders/page.tsx").catch(')
     expect(source).toContain(
       '"OrdersPage": () => import("/src/app/orders/page.tsx").then((module) => module["default"], (error) => failed('
@@ -75,6 +85,7 @@ describe("guestModuleSource", () => {
         }
       ]
     })
+
     expect(source).toContain('import("@acme/ui").catch(')
     expect(source).toContain('"ui/Button": modules[1].loadError ? failed(modules[1].loadError) : modules[1]["Button"]')
   })
@@ -106,6 +117,7 @@ describe("guestModuleSource with libraries", () => {
         }
       ]
     })
+
     expect(source).toContain('"baseui/Dialog.Root": modules[1]["Dialog"]?.["Root"]')
     expect(source).toContain('renderer: { component: modules[3]["HugeiconsIcon"], prop: "icon" }')
     expect(source).toContain('import("@mui/material/styles").catch(')
@@ -136,6 +148,7 @@ describe("guestModuleSource with libraries", () => {
         }
       ]
     })
+
     expect(source).toContain('import("@heroicons/react/16/solid")')
     expect(source).toMatch(/"heroicons": \{ module: modules\[\d\], styles: \{ "16\/solid": modules\[\d\] \} \}/)
   })
@@ -166,6 +179,7 @@ describe("resolved library aliases", () => {
         }
       ]
     })
+
     expect(source).toContain('import("@acme/icons/outline")')
     expect(source).toContain('import("@acme/icons/solid")')
     expect(source).not.toContain("@real/icons")
@@ -207,6 +221,7 @@ describe("guestModuleSource with values a package makes", () => {
         }
       ]
     })
+
     expect(source).toContain('import("design-values")')
     expect(source).not.toContain('import("literal-data")')
   })
@@ -232,6 +247,7 @@ describe("guestModuleSource with values a package makes", () => {
       documents: [],
       libraries: []
     })
+
     expect(source).toContain('import("@chakra-ui/react/collection")')
     expect(source).toMatch(/modules: \{ "@chakra-ui\/react\/collection": modules\[\d+\] \}/)
   })
@@ -246,6 +262,7 @@ describe("guestModuleSource with package stylesheets", () => {
       documents: [],
       libraries: []
     })
+
     expect(source).toContain('import("@mantine/core/styles.css?inline")')
     expect(source).toContain("  css: [modules[2].default].join")
     expect(source).toContain("  packageCss: [modules[1].default].join")

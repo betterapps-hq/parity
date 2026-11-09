@@ -30,6 +30,7 @@ export const warningCategories = {
 } as const satisfies Record<string, WarningSeverity>
 
 export type WarningSeverity = "error" | "warning" | "suggestion"
+
 export type WarningCategory = keyof typeof warningCategories
 
 /** One finding: what it is, what to do, and the node or frame it's about when it's about one. */
@@ -55,10 +56,12 @@ const severityOrder: Record<WarningSeverity, number> = { error: 0, warning: 1, s
 /** Findings grouped by category and message: errors first, then warnings, then suggestions, each in found order. */
 export function groupWarnings(warnings: readonly Warning[]): WarningGroup[] {
   const groups = new Map<string, WarningGroup>()
+
   for (const { category, message, at } of warnings) {
     const key = `${category}\n${message}`
     const group = groups.get(key) ?? { category, severity: warningCategories[category], message, count: 0, at: [] }
     groups.set(key, group)
+
     if (at === undefined) {
       group.count = Math.max(group.count, 1)
     } else if (!group.at.includes(at)) {
@@ -66,6 +69,7 @@ export function groupWarnings(warnings: readonly Warning[]): WarningGroup[] {
       group.count = group.at.length
     }
   }
+
   return [...groups.values()].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity])
 }
 
@@ -74,9 +78,16 @@ export const placesShown = 5
 
 /** A group as one line: the place first, or how many places and the first few, then the message. */
 export function warningLine(group: WarningGroup): string {
-  if (group.at.length === 0) return group.message
-  if (group.at.length === 1) return `${group.at[0]}: ${group.message}`
+  if (group.at.length === 0) {
+    return group.message
+  }
+
+  if (group.at.length === 1) {
+    return `${group.at[0]}: ${group.message}`
+  }
+
   const shown = group.at.slice(0, placesShown).join(", ")
   const more = group.at.length > placesShown ? ` and ${group.at.length - placesShown} more` : ""
+
   return `${group.at.length} places (${shown}${more}): ${group.message}`
 }

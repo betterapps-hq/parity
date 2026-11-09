@@ -36,12 +36,17 @@ export function freeSpotBeside(original: Bounds, taken: readonly Bounds[], gap =
   const height = original.maxY - original.minY
   const y = original.minY
   let x = original.maxX + gap
+
   for (;;) {
     const blocking = taken.filter(
       (other) =>
         other.minX < x + width + gap && other.maxX + gap > x && other.minY < y + height + gap && other.maxY + gap > y
     )
-    if (blocking.length === 0) return { x, y }
+
+    if (blocking.length === 0) {
+      return { x, y }
+    }
+
     x = Math.max(...blocking.map((other) => other.maxX)) + gap
   }
 }
@@ -53,10 +58,12 @@ export function freeSpotBeside(original: Bounds, taken: readonly Bounds[], gap =
 export function rightOfEverything(designs: readonly PlacedDesign[], gap = 240): { x: number; y: number } {
   let right = 0
   let top = Infinity
+
   for (const design of designs) {
     right = Math.max(right, design.bounds ? design.bounds.maxX : design.position.x + undrawnWidth)
     top = Math.min(top, design.position.y)
   }
+
   return { x: Math.round(right + gap), y: Number.isFinite(top) ? top : 0 }
 }
 
@@ -69,7 +76,11 @@ export function aboveEverything(
   designs: readonly PlacedDesign[]
 ): { x: number; y: number } {
   let top = from.y
-  for (const design of designs) top = Math.min(top, design.bounds?.minY ?? design.position.y)
+
+  for (const design of designs) {
+    top = Math.min(top, design.bounds?.minY ?? design.position.y)
+  }
+
   return { x: from.x, y: Math.round(top - componentRise) }
 }
 
@@ -93,19 +104,24 @@ export function pastedPlacement(
   taken: readonly Bounds[]
 ): PastedPlacement {
   const drawn = designs.flatMap((design) => design.bounds ?? [])
+
   if (designs.length === 0 || drawn.length < designs.length) {
     const left = Math.min(...designs.map((design) => design.position.x))
     const top = Math.min(...designs.map((design) => design.position.y))
+
     return { shift: designs.length === 0 ? { x: 0, y: 0 } : { x: center.x - left, y: center.y - top } }
   }
+
   const around = {
     minX: Math.min(...drawn.map((box) => box.minX)),
     minY: Math.min(...drawn.map((box) => box.minY)),
     maxX: Math.max(...drawn.map((box) => box.maxX)),
     maxY: Math.max(...drawn.map((box) => box.maxY))
   }
+
   const spot = freeSpotBeside(around, taken)
   const shift = { x: spot.x - around.minX, y: 0 }
+
   return {
     shift,
     shown: { minX: around.minX + shift.x, minY: around.minY, maxX: around.maxX + shift.x, maxY: around.maxY }
@@ -127,11 +143,20 @@ export function panToShow(view: Bounds, target: Bounds, margin = 0): { x: number
     if (max - min + 2 * margin > viewMax - viewMin) {
       return min - margin < viewMin || min + margin > viewMax ? min - margin - viewMin : 0
     }
-    if (min - margin < viewMin) return min - margin - viewMin
-    if (max + margin > viewMax) return max + margin - viewMax
+
+    if (min - margin < viewMin) {
+      return min - margin - viewMin
+    }
+
+    if (max + margin > viewMax) {
+      return max + margin - viewMax
+    }
+
     return 0
   }
+
   const x = along(view.minX, view.maxX, target.minX, target.maxX)
   const y = along(view.minY, view.maxY, target.minY, target.maxY)
+
   return x === 0 && y === 0 ? undefined : { x, y }
 }

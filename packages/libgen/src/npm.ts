@@ -25,6 +25,7 @@ const npmVersion = listedVersion.extend({
 })
 
 export type NpmPackage = z.output<typeof npmPackage>
+
 export type NpmVersion = z.output<typeof npmVersion>
 
 /**
@@ -39,14 +40,22 @@ export async function packageDocument(
     headers: { accept: options.full ? "application/json" : "application/vnd.npm.install-v1+json" },
     ...(options.signal ? { signal: options.signal } : {})
   })
-  if (!response.ok) throw new Error(`npm has no ${name} (${response.status})`)
+
+  if (!response.ok) {
+    throw new Error(`npm has no ${name} (${response.status})`)
+  }
+
   return readDocument(npmPackage, await response.json(), name)
 }
 
 /** One version's document from npm. Throws when npm has no such version or its answer doesn't match. */
 export async function versionDocument(name: string, version: string): Promise<NpmVersion> {
   const response = await fetch(`${registry}/${name.replace("/", "%2F")}/${version}`)
-  if (!response.ok) throw new Error(`npm has no ${name}@${version} (${response.status})`)
+
+  if (!response.ok) {
+    throw new Error(`npm has no ${name}@${version} (${response.status})`)
+  }
+
   return readDocument(npmVersion, await response.json(), `${name}@${version}`)
 }
 

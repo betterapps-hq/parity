@@ -113,6 +113,7 @@ describe("where the padding and gap handles go", () => {
       children: [rect(24, 24, 112, 40), rect(24, 76, 112, 40)],
       direction: "column"
     }
+
     expect(find(spacingHandles(column), "gap 0").area).toEqual({ x: 24, y: 64, w: 112, h: 12 })
   })
 
@@ -223,6 +224,7 @@ describe("dragging a padding or gap handle", () => {
     const drag = spacingDrag(
       start({ kind: "padding", side: "top" }, { padding: "card-padding" }, { drawn: { padding: sides(24), gap: 12 } })
     )
+
     // 24 + 8 is 32: card-padding-lg and gutter are both 32; the first listed wins.
     expect(drag({ dx: 0, dy: -8, ...still })).toMatchObject({
       change: { padding: ["card-padding-lg", "card-padding", "card-padding", "card-padding"] },
@@ -233,10 +235,12 @@ describe("dragging a padding or gap handle", () => {
       padding: [7, "card-padding", "card-padding", "card-padding"]
     })
     expect(drag({ dx: 0, dy: 0, ...still })?.change).toEqual({ padding: "card-padding" })
+
     // Its own token comes before another with the same value.
     const gutter = spacingDrag(
       start({ kind: "padding", side: "top" }, { padding: "gutter" }, { drawn: { padding: sides(32), gap: 12 } })
     )
+
     expect(gutter({ dx: 0, dy: 4, ...still })).toMatchObject({ px: 28 })
     expect(gutter({ dx: 0, dy: 0, ...still })?.token).toBe("gutter")
   })
@@ -245,6 +249,7 @@ describe("dragging a padding or gap handle", () => {
     const drag = spacingDrag(
       start({ kind: "gap", direction: "row" }, { gap: 1 }, { drawn: { padding: sides(0), gap: 4 } })
     )
+
     expect(drag({ dx: 8, dy: 0, ...still })).toEqual({ change: { gap: 3 }, px: 12 })
   })
 
@@ -278,6 +283,7 @@ describe("stepping a padding or gap handle from the keyboard", () => {
       { gap: "stack-gap" },
       { drawn: { padding: sides(0), gap: 8 } }
     )
+
     expect(spacingStep(bound, 1, still)).toEqual({ change: { gap: "stack-gap" }, px: 12, token: "stack-gap" })
   })
 })

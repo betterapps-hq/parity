@@ -30,6 +30,7 @@ function withStyle(id: string, style: Record<string, unknown>): ContainerSpec["r
   const root = structuredClone(design.root) as Extract<ContainerSpec["root"], { type: "layout" }>
   const node = id === "root" ? root : root.children.find((child) => child.id === id)!
   node.style = { ...node.style, ...style }
+
   return root
 }
 

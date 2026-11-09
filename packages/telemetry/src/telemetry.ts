@@ -90,11 +90,17 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
     randomBytes = cryptoBytes,
     keep = recentEvents
   } = options
+
   const definitions = new Map<string, EventDefinition>()
+
   for (const definition of options.events) {
-    if (definitions.has(definition.name)) throw new Error(`${definition.name} is registered twice`)
+    if (definitions.has(definition.name)) {
+      throw new Error(`${definition.name} is registered twice`)
+    }
+
     definitions.set(definition.name, definition)
   }
+
   let context: EventContext = { ...options.context }
   let scrubber = createScrubber({ secrets: options.secrets })
   const kept = new RingBuffer<Envelope>(keep)
@@ -102,13 +108,22 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
   /** The event's definition, once its attributes are checked when checking. Undefined for an unknown name. */
   function definitionOf(name: string, attributes: unknown): EventDefinition | undefined {
     const definition = definitions.get(name)
-    if (!check) return definition
-    if (!definition) throw new TelemetryError(`${name} isn't a registered event`)
+
+    if (!check) {
+      return definition
+    }
+
+    if (!definition) {
+      throw new TelemetryError(`${name} isn't a registered event`)
+    }
+
     const result = definition.schema.safeParse(attributes)
+
     if (!result.success) {
       const problems = result.error.issues.map((issue) => `${issue.path.join(".") || "attributes"}: ${issue.message}`)
       throw new TelemetryError(`${name}'s attributes don't match its schema: ${problems.join("; ")}`)
     }
+
     return definition
   }
 
@@ -134,9 +149,17 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
   return {
     track(name, attributes, { span } = {}) {
       const definition = definitionOf(name, attributes)
-      if (!definition || random() >= definition.sample) return
+
+      if (!definition || random() >= definition.sample) {
+        return
+      }
+
       const recorded = envelope(definition, now(), scrubber.value(copyOf(attributes)))
-      if (span) Object.assign(recorded, { traceId: span.traceId, spanId: span.spanId })
+
+      if (span) {
+        Object.assign(recorded, { traceId: span.traceId, spanId: span.spanId })
+      }
+
       kept.push(recorded)
       deliver((sink) => sink.event(recorded))
     },
@@ -152,14 +175,22 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
       const startContext = context
       const copy = copyOf(attributes)
       let ended = false
+
       return {
         name,
         traceId,
         spanId,
         end(outcome = "ok", learned) {
-          if (ended) return
+          if (ended) {
+            return
+          }
+
           ended = true
-          if (!sampled || !definition) return
+
+          if (!sampled || !definition) {
+            return
+          }
+
           const recorded: SpanEnvelope = {
             ...envelope(definition, start, scrubber.value({ ...copy, ...learned }), startContext),
             traceId,
@@ -168,6 +199,7 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
             durationMs: Math.max(0, now() - start),
             outcome
           }
+
           kept.push(recorded)
           deliver((sink) => sink.span(recorded))
         }

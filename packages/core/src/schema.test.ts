@@ -21,6 +21,7 @@ function thrown(run: () => unknown): unknown {
   } catch (error) {
     return error
   }
+
   throw new Error("Expected it to throw")
 }
 
@@ -59,10 +60,12 @@ describe("parseData", () => {
   it("says which kinds a union takes, or follows the option that came closest", () => {
     expect(() => parseData(node, { type: "image" })).toThrow('/type: expected one of "layout", "text"')
     expect(() => parseData(z.union([z.string(), z.number()]), true)).toThrow("/: expected a string or a number")
+
     const either = z.union([
       z.object({ kind: z.literal("size"), width: z.number() }),
       z.object({ kind: z.literal("ratio"), ratio: z.number() })
     ])
+
     expect(() => parseData(either, { kind: "ratio", ratio: "16/9" })).toThrow("/ratio: expected a number")
   })
 
@@ -132,6 +135,7 @@ describe("packageManifest", () => {
       "./styles/*": ["./dist/*.css", "./src/*.css"],
       "./internal/*": null
     }
+
     expect(parseData(packageManifest, { exports }).exports).toEqual(exports)
     expect(parseData(packageManifest, { exports: "./index.js" }).exports).toBe("./index.js")
     expect(() => parseData(packageManifest, { exports: { ".": { import: 1 } } })).toThrow("/exports")
@@ -178,10 +182,12 @@ describe("onInvalidData", () => {
 
   it("names a schema by its description when it has no id, and a listener that throws changes nothing", () => {
     const names: string[] = []
+
     const stop = onInvalidData((failure) => {
       names.push(failure.schema)
       throw new Error("The listener broke")
     })
+
     expect(() => parseData(z.string().describe("A name"), 1)).toThrow("/: expected a string")
     stop()
     expect(names).toEqual(["A name"])

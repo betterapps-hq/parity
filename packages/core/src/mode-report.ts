@@ -80,6 +80,7 @@ export function modesReport(settings: ModeSettings): ModesReport {
       variable.options.map((option): ViewportReport => {
         const width = option.width ?? defaultWidth
         const window = frameViewport({ width }, { options: [{ variable, option }] })
+
         return {
           id: option.id,
           name: option.name,
@@ -89,7 +90,9 @@ export function modesReport(settings: ModeSettings): ModesReport {
         }
       })
     )
+
   const resolved = resolveModes(settings)
+
   return {
     variables: structuredClone(settings.variables),
     viewports,
@@ -118,6 +121,7 @@ function modeReport(mode: ResolvedMode, primary: boolean): ModeReport {
 export function designModes(settings: ModeSettings, design: ContainerSpec, frames = false): DesignModes {
   const shown = shownModes(settings, design)
   const state = design.view?.state ?? design.states[0]!.id
+
   return {
     id: design.id,
     name: design.name,
@@ -129,6 +133,7 @@ export function designModes(settings: ModeSettings, design: ContainerSpec, frame
       ? {
           frames: [shown.main, ...shown.beside].map((mode) => {
             const geometry = frameGeometry(design, mode)
+
             return {
               mode: mode.id,
               width: geometry.width,

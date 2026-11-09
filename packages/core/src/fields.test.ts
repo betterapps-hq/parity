@@ -25,12 +25,17 @@ function typed(text: string, rules: FieldRules, current?: number, tokens: string
 
 function value(text: string, rules: FieldRules, current?: number) {
   const outcome = typed(text, rules, current)
-  if (!outcome.ok) throw new Error(outcome.reason)
+
+  if (!outcome.ok) {
+    throw new Error(outcome.reason)
+  }
+
   return outcome.value
 }
 
 function reason(text: string, rules: FieldRules, current?: number) {
   const outcome = typed(text, rules, current)
+
   return outcome.ok ? undefined : outcome.reason
 }
 

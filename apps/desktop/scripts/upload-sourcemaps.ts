@@ -19,19 +19,29 @@ const where = ["--org", "better-apps", "--project", project]
 const { values } = parseArgs({
   options: { published: { type: "boolean", default: false }, "link-commits": { type: "boolean", default: false } }
 })
-if (!process.env.SENTRY_AUTH_TOKEN) throw new Error("SENTRY_AUTH_TOKEN isn't set")
+
+if (!process.env.SENTRY_AUTH_TOKEN) {
+  throw new Error("SENTRY_AUTH_TOKEN isn't set")
+}
 
 const build = JSON.parse(readFileSync(join(sourceMaps, "build.json"), "utf8")) as { version: string; commit?: string }
 const release = telemetryRelease({ project, version: build.version, published: values.published, commit: build.commit })
+
 console.log(`Uploading source maps for ${release}`)
 
 sentry("releases", "new", release, ...where)
+
 if (values["link-commits"]) {
-  if (!build.commit) throw new Error("The build doesn't say which commit it came from")
+  if (!build.commit) {
+    throw new Error("The build doesn't say which commit it came from")
+  }
+
   sentry("releases", "set-commits", release, "--commit", `betterapps-hq/parity@${build.commit}`, "--org", "better-apps")
 }
+
 // Matched to events by the debug IDs the build gave each bundle; the release only groups them.
 sentry("sourcemaps", "upload", sourceMaps, "--release", release, ...where)
+
 sentry("releases", "finalize", release, ...where)
 
 function sentry(...args: string[]): void {

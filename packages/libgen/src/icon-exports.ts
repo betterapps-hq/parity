@@ -17,8 +17,13 @@ export function preferredExports(
   const checker = program.getTypeChecker()
   const source = program.getSourceFile(typesFile)
   const module = source && checker.getSymbolAtLocation(source)
-  if (!module) return []
+
+  if (!module) {
+    return []
+  }
+
   const marks = new Map<string, { deprecated: boolean; declared: boolean }>()
+
   for (const symbol of checker.getExportsOfModule(module)) {
     const alias = (symbol.flags & ts.SymbolFlags.Alias) !== 0
     const target = alias ? checker.getAliasedSymbol(symbol) : symbol
@@ -28,17 +33,26 @@ export function preferredExports(
       declared: target.name === symbol.name
     })
   }
+
   const preferred: string[] = []
+
   for (const group of groups) {
     const names = group.filter(usable)
     const fallback = [...names].sort(shorterName)[0]
+
     const rank = (name: string) => {
       const mark = marks.get(name)
+
       return (mark?.deprecated ? 2 : 0) + (mark?.declared === false ? 1 : 0)
     }
+
     const best = [...names].sort((a, b) => rank(a) - rank(b) || shorterName(a, b))[0]
-    if (best && best !== fallback) preferred.push(best)
+
+    if (best && best !== fallback) {
+      preferred.push(best)
+    }
   }
+
   return preferred.sort()
 }
 
@@ -50,5 +64,6 @@ export function typesFor(specifier: string, from: string): string | undefined {
     { module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler },
     ts.sys
   ).resolvedModule?.resolvedFileName
+
   return resolved && /\.d\.[cm]?ts$/.test(resolved) ? resolved : undefined
 }

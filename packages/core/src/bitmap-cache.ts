@@ -38,26 +38,45 @@ export const bitmapCacheLimits: CacheLimits = {
 export function cacheRemovals(files: readonly CachedFile[], now: number, limits = bitmapCacheLimits): string[] {
   const removed = new Set<string>()
   const lastUsed = new Map<string, number>()
+
   for (const file of files) {
     if (file.partial) {
-      if (now - file.used > limits.partialAge) removed.add(file.path)
+      if (now - file.used > limits.partialAge) {
+        removed.add(file.path)
+      }
+
       continue
     }
+
     lastUsed.set(file.project, Math.max(lastUsed.get(file.project) ?? 0, file.used))
   }
+
   const kept: CachedFile[] = []
+
   for (const file of files) {
-    if (file.partial) continue
-    if (now - (lastUsed.get(file.project) ?? 0) > limits.maxAge) removed.add(file.path)
-    else kept.push(file)
+    if (file.partial) {
+      continue
+    }
+
+    if (now - (lastUsed.get(file.project) ?? 0) > limits.maxAge) {
+      removed.add(file.path)
+    } else {
+      kept.push(file)
+    }
   }
+
   let total = kept.reduce((sum, file) => sum + file.size, 0)
+
   if (total > limits.cap) {
     for (const file of [...kept].sort((a, b) => a.used - b.used)) {
-      if (total <= limits.keep) break
+      if (total <= limits.keep) {
+        break
+      }
+
       removed.add(file.path)
       total -= file.size
     }
   }
+
   return [...removed]
 }

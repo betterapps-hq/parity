@@ -56,6 +56,7 @@ describe("finding the app's components", () => {
   const list = async (uiKit?: string) => {
     const notes: string[] = []
     const { found } = await findAppComponents(root, renderer, readTsconfig(root), uiKit, notes)
+
     return { components: componentIds(found), notes }
   }
 
@@ -96,6 +97,7 @@ describe("finding the app's components", () => {
     await write("src/components/badge.ts", "export function Badge() {}")
     await write("src/env.d.ts", "export function Declared() {}")
     await write("vite.config.ts", "export function Config() {}")
+
     const { found } = await findAppComponents(
       root,
       { ...renderer, componentExtensions: [".tsx", ".ts"] },
@@ -103,6 +105,7 @@ describe("finding the app's components", () => {
       undefined,
       []
     )
+
     expect(found.map((component) => component.path)).toEqual(["src/components/badge.ts"])
   })
 
@@ -147,6 +150,7 @@ describe("component ids", () => {
       found("src/app/(portal)/error.tsx", "ErrorPage"),
       found("src/app/error.tsx", "ErrorPage")
     ])
+
     expect(ids).toEqual({
       FieldError: { path: "src/components/ui/field.tsx", export: "FieldError" },
       "components/FieldError": { path: "src/components/packing-fields.tsx", export: "FieldError", lazy: true },
@@ -160,11 +164,14 @@ describe("component ids", () => {
       [found("demos/sidebar-footer.tsx", "AppSidebar"), found("demos/sidebar-header.tsx", "AppSidebar")],
       new Set()
     )
+
     expect(Object.keys(ids)).toEqual(["demos/sidebar-footer/AppSidebar", "demos/sidebar-header/AppSidebar"])
+
     const avoided = componentIds(
       [found("src/nova/button.tsx", "Button"), found("src/ui/button.tsx", "Button")],
       new Set(["nova/Button"])
     )
+
     expect(Object.keys(avoided)).toEqual(["src/nova/Button", "ui/Button"])
   })
 
@@ -173,6 +180,7 @@ describe("component ids", () => {
       found("src/badge.tsx", "Badge"),
       { ...found("src/badge.tsx", "Badge"), export: "default" }
     ])
+
     expect(ids).toEqual({ Badge: { path: "src/badge.tsx", export: "Badge", lazy: true } })
   })
 
@@ -186,6 +194,7 @@ describe("component ids", () => {
       new Set(["nova/Button", "lucide/Heart"]),
       "nova"
     )
+
     expect(Object.keys(ids)).toEqual(["nova/ui/Button", "nova/FieldError", "nova/demos/FieldError"])
     expect(Object.keys(componentIds([found("src/card.tsx", "Card")], new Set(), "nova"))).toEqual(["nova/Card"])
   })
@@ -256,11 +265,13 @@ describe("checkedChanges", () => {
       ForAdmins: { path: "src/legacy/access.tsx", export: "ForAdmins", as: "function" as const },
       "nova/Card": { path: "@acme/nova", export: "Card", library: "nova" }
     }
+
     const changes = checkedChanges(sources, [
       { name: "Select", path: "src/components/ui/select.tsx", export: "Select", as: "exotic" },
       { name: "Button", path: "src/components/ui/button.tsx", export: "Button", as: "forwardRef" },
       { name: "ForAdmins", path: "src/components/access.tsx", export: "ForAdmins", as: "function" }
     ])
+
     expect(changes.confirmed).toEqual({
       Select: { path: "src/components/ui/select.tsx", export: "Select", as: "exotic" }
     })
@@ -276,6 +287,7 @@ describe("checkedChanges", () => {
       Select: { path: "src/components/ui/select.tsx", export: "Select" },
       Tabs: { path: "src/components/ui/tabs.tsx", export: "Tabs" }
     }
+
     const changes = checkedChanges(sources, [], new Set(["src/components/ui/tabs.tsx"]))
     expect(changes.removed).toEqual(["Tabs"])
   })
@@ -284,10 +296,12 @@ describe("checkedChanges", () => {
 describe("leftOutChanges", () => {
   it("replaces what the checker left out of the files it read again, and keeps the rest", () => {
     const entry = (name: string, path: string, reason: string) => ({ name, path, export: name, reason })
+
     const before = [
       entry("Theme", "src/theme.tsx", "a context, which passes a value down rather than drawing anything"),
       entry("Format", "src/format.ts", "not a function")
     ]
+
     const helper = { ...entry("Helper", "src/format.ts", "its type is any"), undecided: true as const }
     expect(leftOutChanges(before, new Set(["src/format.ts"]), [helper])).toEqual([helper, before[0]])
   })
@@ -308,6 +322,7 @@ describe("correctedSources", () => {
         { path: "src/components/button.tsx", export: "Button" }
       ]
     })
+
     expect(corrected).toEqual({
       Button: sources.Button,
       Toaster: sources.Toaster,
@@ -328,6 +343,7 @@ describe("correctedSources", () => {
     const included = {
       PromoPrice: { path: "src/promo.tsx", export: "PromoPrice", lazy: true, included: true as const }
     }
+
     expect(checkedChanges(included, []).removed).toEqual([])
   })
 })
@@ -349,11 +365,13 @@ describe("files changing", () => {
       Old: { path: "src/old.tsx", export: "Old", as: "function" as const, lazy: true },
       Button: { path: "src/components/ui/button.tsx", export: "Button", as: "function" as const }
     }
+
     const read = new Map([
       ["src/orders/table.tsx", [own("src/orders/table.tsx", "OrderTable", { as: "memo" })]],
       ["src/old.tsx", undefined],
       ["src/orders/filters.tsx", [own("src/orders/filters.tsx", "Filters")]]
     ])
+
     const changes = filesChanged(sources, read)
     expect(changes.removed).toEqual(["OrderRow", "Old"])
     expect(changes.added).toEqual(["Filters"])
@@ -366,10 +384,12 @@ describe("files changing", () => {
 
   it("follows a component moved to another file by its name, which keeps its id", () => {
     const sources = { StatCard: { path: "src/stat-card.tsx", export: "StatCard", as: "function" as const, lazy: true } }
+
     const read = new Map([
       ["src/stat-card.tsx", undefined],
       ["src/cards/stat-card.tsx", [own("src/cards/stat-card.tsx", "StatCard")]]
     ])
+
     expect(filesChanged(sources, read).sources).toEqual({
       StatCard: { path: "src/cards/stat-card.tsx", export: "StatCard", as: "function", lazy: true }
     })
@@ -379,6 +399,7 @@ describe("files changing", () => {
     const sources = {
       ForAdmins: { path: "src/access.tsx", export: "ForAdmins", as: "exotic" as const, lazy: true }
     }
+
     const read = new Map([
       [
         "src/access.tsx",
@@ -386,6 +407,7 @@ describe("files changing", () => {
       ],
       ["src/components/ui/select.tsx", [own("src/components/ui/select.tsx", "Select", { as: undefined, uiKit: true })]]
     ])
+
     const changes = filesChanged(sources, read)
     expect(changes.sources).toEqual({
       ForAdmins: { path: "src/access.tsx", export: "ForAdmins", lazy: true },
@@ -396,12 +418,14 @@ describe("files changing", () => {
   it("reads changed files again, and treats ones no longer in the app as gone", async () => {
     await write("src/orders/table.tsx", "export function OrderTable() {}\nexport const Row = Base.Row")
     await write("src/main.tsx", "createRoot(root).render(<App />)\nexport function App() {}")
+
     const read = await readChangedFiles(root, renderer, ["src/orders/table.tsx", "src/main.tsx"], undefined, [
       "src/orders/table.tsx",
       "src/main.tsx",
       "src/deleted.tsx",
       "src/orders/table.tsx"
     ])
+
     expect(read.get("src/orders/table.tsx")?.map((component) => [component.name, component.as])).toEqual([
       ["OrderTable", "function"],
       ["Row", undefined]
@@ -432,6 +456,7 @@ describe("the config changing while open", () => {
   /** The list a fresh open makes, before the type checker. */
   const fresh = async () =>
     componentIds((await findAppComponents(root, renderer, readTsconfig(root), undefined, [])).found)
+
   /** The list after the config changed, as the project service works it out. */
   const rediscover = async (list: ComponentList) =>
     nextComponentList(list, {
@@ -480,6 +505,7 @@ describe("importSpecifiers", () => {
       `import "./styles.css"`,
       `const page = import("./pages/home")`
     ].join("\n")
+
     expect(importSpecifiers(source)).toEqual(["./button", "@/lib/utils", "./styles.css", "./pages/home"])
   })
 

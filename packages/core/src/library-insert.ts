@@ -20,26 +20,47 @@ export function componentNode(
   given: Record<string, unknown> = {}
 ): DesignNode {
   const props: Record<string, unknown> = { ...given }
+
   for (const prop of info?.props ?? []) {
-    if (prop.name in props) continue
-    if (!prop.required || prop.default !== undefined || prop.name === "children") continue
-    if (prop.kind === "enum") props[prop.name] = prop.options?.[0]
-    else if (prop.kind === "boolean") props[prop.name] = false
-    else if (prop.kind === "number") props[prop.name] = 0
-    else if (prop.kind === "string") props[prop.name] = prop.name
+    if (prop.name in props) {
+      continue
+    }
+
+    if (!prop.required || prop.default !== undefined || prop.name === "children") {
+      continue
+    }
+
+    if (prop.kind === "enum") {
+      props[prop.name] = prop.options?.[0]
+    } else if (prop.kind === "boolean") {
+      props[prop.name] = false
+    } else if (prop.kind === "number") {
+      props[prop.name] = 0
+    } else if (prop.kind === "string") {
+      props[prop.name] = prop.name
+    }
   }
+
   const labelled =
     !("children" in given) &&
     !info?.fixedSize &&
     info?.props.some((prop) => prop.name === "children" && prop.kind === "node")
-  if (labelled) props.children = component.split("/").at(-1) ?? component
+
+  if (labelled) {
+    props.children = component.split("/").at(-1) ?? component
+  }
+
   const node: DesignNode = {
     type: "component",
     id: generateId(taken),
     component,
     ...(Object.keys(props).length > 0 ? { props } : {})
   }
-  if (labelled) named.add(node)
+
+  if (labelled) {
+    named.add(node)
+  }
+
   return node
 }
 
@@ -55,26 +76,42 @@ export function withLibraryContext(
   around: string[],
   taken: Set<string>
 ): DesignNode {
-  if (node.type !== "component") return node
+  if (node.type !== "component") {
+    return node
+  }
+
   const source = sources[node.component]
-  if (!source) return node
+
+  if (!source) {
+    return node
+  }
+
   const id = () => {
     const next = generateId(taken)
     taken.add(next)
+
     return next
   }
+
   const build = (child: Exclude<SampleChild, SampleRender>): DesignNode => {
-    if (typeof child === "string") return { type: "text", id: id(), text: child }
+    if (typeof child === "string") {
+      return { type: "text", id: id(), text: child }
+    }
+
     // An HTML element in a sample stands for any single element a part clones: text is one.
     if (!child.component.includes("/")) {
       const text = child.children?.find((item): item is string => typeof item === "string") ?? "Text"
+
       return { type: "text", id: id(), text }
     }
+
     // A child its sample spells out (with props or children) is as written; only a bare one takes its own sample's
     // props, so one `Cell` example's `colSpan` doesn't reach every cell of a table.
     return component(child.component, child.props, child.children, !child.props && !child.children)
   }
+
   const nodes = (children: SampleChild[]) => children.flatMap((child) => (isSampleRender(child) ? [] : [build(child)]))
+
   /**
    * Props and children as a node holds them. A render function (`renderInput`, function children) is a `$render:`
    * slot of the nodes it returns, `$renderWith:` when what it's called with is spread onto them, so its nodes can be
@@ -83,21 +120,38 @@ export function withLibraryContext(
   const held = (props: Record<string, unknown>, children: SampleChild[] = []) => {
     const plain: Record<string, unknown> = {}
     const slots: Record<string, DesignNode[]> = {}
+
     const renderSlot = (prop: string, render: SampleRender) => {
       slots[renderSlotKey(prop, render)] = nodes(render.$render)
     }
+
     for (const [key, value] of Object.entries(props)) {
-      if (isSampleRender(value)) renderSlot(key, value)
+      if (isSampleRender(value)) {
+        renderSlot(key, value)
+      }
       // Elements as a prop's value go in a slot of that name, which the canvas passes as the prop.
-      else if (isSampleElement(value)) slots[key] = nodes(value.$element)
-      else plain[key] = value
+      else if (isSampleElement(value)) {
+        slots[key] = nodes(value.$element)
+      } else {
+        plain[key] = value
+      }
     }
+
     const render = children.find(isSampleRender)
-    if (render) renderSlot("children", render)
+
+    if (render) {
+      renderSlot("children", render)
+    }
+
     const rest = nodes(children)
-    if (rest.length > 0) slots.children = rest
+
+    if (rest.length > 0) {
+      slots.children = rest
+    }
+
     return { props: plain, slots }
   }
+
   const component = (
     name: string,
     props?: Record<string, unknown>,
@@ -105,6 +159,7 @@ export function withLibraryContext(
     defaults = true
   ): DesignNode => {
     const { props: merged, slots } = held({ ...(defaults ? sources[name]?.sample?.props : {}), ...props }, children)
+
     return {
       type: "component",
       id: id(),
@@ -113,18 +168,28 @@ export function withLibraryContext(
       ...(Object.keys(slots).length > 0 ? { slots } : {})
     }
   }
+
   let placed: DesignNode = node
   // A part without a sample of its own is labelled as its library's other samples use it, in place of its name.
   const sample = source.sample ?? (named.has(node) ? usedIn(node.component, sources) : undefined)
+
   if (sample) {
     // A library that shows how a part is used says what it holds: the text or parts its sample gives, as children or a
     // prop (Chakra's `Highlight`), or nothing, as a Separator or an icon's box holds. So the label a new node is named
     // with goes, though not text set on purpose, even text that reads the same.
     const given = { ...node.props }
-    if (named.has(node)) delete given.children
+
+    if (named.has(node)) {
+      delete given.children
+    }
+
     const { props, slots } = held({ ...sample.props, ...given }, sample.children)
+
     // Children the sample spells out stand in for the text label, and none (`[]`, an input's) leave it out.
-    if (sample.children) delete props.children
+    if (sample.children) {
+      delete props.children
+    }
+
     const { props: _label, ...rest } = node
     placed = {
       ...rest,
@@ -132,29 +197,39 @@ export function withLibraryContext(
       ...(Object.keys(slots).length > 0 ? { slots: { ...node.slots, ...slots } } : {})
     }
   }
+
   const parents = source.parents ?? []
   const nearest = parents.findLastIndex((parent) => around.includes(parent))
   // An optional level (`DropdownMenuGroup`) comes only with a missing parent outside it, when the structure is new.
   const optional = new Set(source.optionalParents ?? [])
   const missing = parents.slice(nearest + 1)
+
   const added = missing.filter(
     (parent, index) => !optional.has(parent) || missing.slice(0, index).some((outer) => !optional.has(outer))
   )
+
   const calling = added.some((parent) => renderSlotOf(sources[parent]?.sample))
-  if (source.parentParts && added.length > 0 && !calling) return inOuterSample(added, placed)
+
+  if (source.parentParts && added.length > 0 && !calling) {
+    return inOuterSample(added, placed)
+  }
+
   for (const parent of added.reverse()) {
     const wrapper = component(parent)
     // A parent that calls its children, or a render prop (`TreeView.Node`'s `render`), gets the part in that render
     // slot, as its sample's own are.
     const calls = renderSlotOf(sources[parent]?.sample)
     const slot = calls ? renderSlotKey(calls.prop, calls.render) : "children"
+
     const kept = Object.fromEntries(
       Object.entries(wrapper.type === "component" ? (wrapper.slots ?? {}) : {}).filter(
         ([name]) => !calls || readRenderSlotKey(name)?.prop !== calls.prop
       )
     )
+
     placed = wrapper.type === "component" ? { ...wrapper, slots: { ...(calls ? kept : {}), [slot]: [placed] } } : placed
   }
+
   return placed
 
   /**
@@ -165,12 +240,18 @@ export function withLibraryContext(
   function inOuterSample(chain: string[], part: DesignNode): DesignNode {
     const inside = (level: number, given: SampleChild[] | undefined): DesignNode[] => {
       let name = ""
-      if (level < chain.length) name = chain[level]!
-      else if (part.type === "component") name = part.component
+
+      if (level < chain.length) {
+        name = chain[level]!
+      } else if (part.type === "component") {
+        name = part.component
+      }
+
       const items = (given ?? []).filter((item): item is Exclude<SampleChild, SampleRender> => !isSampleRender(item))
       const at = items.findIndex((item) => typeof item === "object" && item.component === name)
       const found = at === -1 ? undefined : (items[at] as Exclude<SampleChild, string | SampleRender>)
       let here = part
+
       if (level < chain.length) {
         // A bare level takes its own sample, as any bare child does.
         const written = found && (found.props || found.children)
@@ -178,10 +259,13 @@ export function withLibraryContext(
         const children = inside(level + 1, written ? found.children : sources[name]?.sample?.children)
         here = wrapper.type === "component" ? { ...wrapper, slots: { ...wrapper.slots, children } } : wrapper
       }
+
       return at === -1 ? [here] : items.map((item, index) => (index === at ? here : build(item)))
     }
+
     const outer = component(chain[0]!)
     const children = inside(1, sources[chain[0]!]?.sample?.children)
+
     return outer.type === "component" ? { ...outer, slots: { ...outer.slots, children } } : outer
   }
 }
@@ -194,31 +278,58 @@ export function withLibraryContext(
 function usedIn(component: string, sources: Record<string, ComponentSource>): ComponentSample | undefined {
   const find = (children: SampleChild[] | undefined): Exclude<SampleChild, string | SampleRender> | undefined => {
     for (const child of children ?? []) {
-      if (typeof child === "string") continue
-      if (isSampleRender(child)) {
-        const found = find(child.$render)
-        if (found) return found
+      if (typeof child === "string") {
         continue
       }
-      if (child.component === component) return child
+
+      if (isSampleRender(child)) {
+        const found = find(child.$render)
+
+        if (found) {
+          return found
+        }
+
+        continue
+      }
+
+      if (child.component === component) {
+        return child
+      }
+
       const found = find(child.children) ?? find(elementProps(child.props))
-      if (found) return found
+
+      if (found) {
+        return found
+      }
     }
+
     return undefined
   }
+
   const library = sources[component]?.library
+
   for (const source of Object.values(sources)) {
-    if (source.library !== library || !source.sample) continue
+    if (source.library !== library || !source.sample) {
+      continue
+    }
+
     const found = find(source.sample.children) ?? find(elementProps(source.sample.props))
-    if (found) return { children: found.children ?? [] }
+
+    if (found) {
+      return { children: found.children ?? [] }
+    }
   }
+
   return undefined
 }
 
 /** The elements and render functions a sample gives as props' values, as children are. */
 function elementProps(props: Record<string, unknown> | undefined): SampleChild[] {
   return Object.values(props ?? {}).flatMap((value): SampleChild[] => {
-    if (isSampleRender(value)) return [value]
+    if (isSampleRender(value)) {
+      return [value]
+    }
+
     return isSampleElement(value) ? value.$element : []
   })
 }
@@ -236,6 +347,7 @@ export function librarySource(
   // The library file marks an optional prop with `?`.
   const declared = new Set(Object.keys(component.props ?? {}).map((prop) => prop.replace(/\?$/, "")))
   const open = openProps.filter((prop) => declared.has(prop))
+
   return {
     path,
     export: name,
@@ -259,8 +371,14 @@ export function librarySource(
  */
 export function sampleIds(sample: ComponentSample, library: string): ComponentSample {
   const child = (node: SampleChild): SampleChild => {
-    if (typeof node === "string") return node
-    if (isSampleRender(node)) return { ...node, $render: node.$render.map(child) }
+    if (typeof node === "string") {
+      return node
+    }
+
+    if (isSampleRender(node)) {
+      return { ...node, $render: node.$render.map(child) }
+    }
+
     return {
       ...node,
       component: /^[a-z]/.test(node.component) ? node.component : `${library}/${node.component}`,
@@ -268,14 +386,23 @@ export function sampleIds(sample: ComponentSample, library: string): ComponentSa
       ...(node.children ? { children: node.children.map(child) } : {})
     }
   }
+
   // A render function in a prop (`renderInput`) names components too.
   const propId = (item: unknown): unknown => {
-    if (isSampleRender(item)) return { ...item, $render: item.$render.map(child) }
-    if (isSampleElement(item)) return { $element: item.$element.map(child) }
+    if (isSampleRender(item)) {
+      return { ...item, $render: item.$render.map(child) }
+    }
+
+    if (isSampleElement(item)) {
+      return { $element: item.$element.map(child) }
+    }
+
     return item
   }
+
   const propIds = (props: Record<string, unknown>) =>
     Object.fromEntries(Object.entries(props).map(([key, item]) => [key, propId(item)]))
+
   return {
     ...sample,
     ...(sample.props ? { props: propIds(sample.props) } : {}),

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { developmentStandIn, productionDependencies, viteBuilder } from "./index.ts"
 
 const viteFolder = dirname(createRequire(import.meta.url).resolve("vite/package.json"))
+
 /** What renderer-react serves in place of `react/jsx-dev-runtime`. */
 const standIns = { "/jsx-dev-runtime": 'export { Fragment, jsx as jsxDEV } from "$base/jsx-runtime"' }
 
@@ -17,6 +18,7 @@ let session: BuilderSession | undefined
 beforeEach(async () => {
   // The real path: Windows runners' tmpdir can use a short (8.3) name, which crashes libuv's watcher.
   root = await realpath(await mkdtemp(join(tmpdir(), "parity-production-")))
+
   // A stand-in for React, which says which build it is, as React picks its build by `process.env.NODE_ENV`.
   const files: Record<string, string> = {
     "package.json": JSON.stringify({ name: "fixture", type: "module" }),
@@ -71,10 +73,12 @@ beforeEach(async () => {
       ""
     ].join("\n")
   }
+
   for (const [path, content] of Object.entries(files)) {
     await mkdir(dirname(join(root, path)), { recursive: true })
     await writeFile(join(root, path), content)
   }
+
   await symlink(viteFolder, join(root, "node_modules", "vite"), "junction")
   options = {
     root,
@@ -110,6 +114,7 @@ afterEach(async () => {
 async function served(url: string): Promise<string> {
   const response = await fetch(new URL(url, session!.guestUrl))
   expect(response.status).toBe(200)
+
   return response.text()
 }
 
@@ -194,9 +199,11 @@ describe("productionDependencies", () => {
 
   it("names its optimizer plugin after the stand-ins, so other stand-ins bundle dependencies again", () => {
     const vite = { version: "8.3.5", rolldownVersion: "1.0.0" }
+
     const name = (given: Record<string, string>) =>
       (productionDependencies(vite, root, given) as { rolldownOptions: { plugins: { name: string }[] } })
         .rolldownOptions.plugins[0]!.name
+
     expect(name(standIns)).toBe(name({ ...standIns }))
     expect(name(standIns)).not.toBe(name({ "/jsx-dev-runtime": 'export { jsx as jsxDEV } from "$base/jsx-runtime"' }))
   })
@@ -205,6 +212,7 @@ describe("productionDependencies", () => {
     const { esbuildOptions } = productionDependencies({ version: "7.1.0" }, root, standIns) as {
       esbuildOptions: { plugins: { setup(build: unknown): void }[] }
     }
+
     let resolve: { filter: RegExp; to(args: { path: string; importer: string }): unknown } | undefined
     let load: ((args: { path: string }) => unknown) | undefined
     esbuildOptions.plugins[0]!.setup({

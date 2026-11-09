@@ -15,6 +15,7 @@ export type ValueKind = "decorator" | "sample"
 
 /** The parts of a frame a `$frame` value can name. */
 export const frameParts = ["root", "host", "body", "document", "dir", "lang", "selector"] as const
+
 export type FramePart = FrameValue["$frame"]
 
 /**
@@ -42,6 +43,7 @@ export function isSampleElement(value: unknown): value is SampleElement {
 /** Whether a value is one the package makes. */
 export function isMadeValue(value: unknown): value is MadeValue {
   const call = typeof value === "object" && value !== null ? (value as Record<string, unknown>).$call : undefined
+
   return typeof call === "object" && call !== null && typeof (call as Record<string, unknown>).import === "string"
 }
 
@@ -58,51 +60,93 @@ export function isSampleRender(value: unknown): value is SampleRender {
  */
 export function evaluateValue(value: unknown, host: ValueHost, kind: ValueKind = "decorator"): unknown {
   const evaluate = (item: unknown) => evaluateValue(item, host, kind)
+
   if (Array.isArray(value)) {
     const items = value.map(evaluate)
+
     return items.every((item, index) => item === value[index]) ? value : items
   }
-  if (typeof value !== "object" || value === null) return value
+
+  if (typeof value !== "object" || value === null) {
+    return value
+  }
+
   const record = value as Record<string, unknown>
-  if (isMadeValue(record)) return made(record, host, kind)
-  if (kind === "sample") return evaluateEntries(record, evaluate)
+
+  if (isMadeValue(record)) {
+    return made(record, host, kind)
+  }
+
+  if (kind === "sample") {
+    return evaluateEntries(record, evaluate)
+  }
+
   if (typeof record.$import === "string") {
     const imported = record as ImportedValue
+
     return host.exported(imported.$import, imported.export ?? "default")
   }
+
   if (typeof record.$global === "string") {
     const global = record as GlobalValue
     const chosen = host.global(global.$global)
     const values = global.values ?? {}
+
     return evaluate(chosen !== undefined && Object.hasOwn(values, chosen) ? values[chosen] : global.default)
   }
-  if (typeof record.$frame === "string") return host.frame((record as FrameValue).$frame)
-  if ("$function" in record) return () => evaluate(record.$function)
+
+  if (typeof record.$frame === "string") {
+    return host.frame((record as FrameValue).$frame)
+  }
+
+  if ("$function" in record) {
+    return () => evaluate(record.$function)
+  }
+
   return evaluateEntries(record, evaluate)
 }
 
 /** Plain JSON's entries worked out, or the object as it was when none of them changed. */
 function evaluateEntries(record: Record<string, unknown>, evaluate: (item: unknown) => unknown): unknown {
   let changed = false
+
   const entries = Object.entries(record).map(([key, item]) => {
     const evaluated = evaluate(item)
-    if (evaluated !== item) changed = true
+
+    if (evaluated !== item) {
+      changed = true
+    }
+
     return [key, evaluated] as const
   })
+
   return changed ? Object.fromEntries(entries) : record
 }
 
 function made(value: MadeValue, host: ValueHost, kind: ValueKind): unknown {
   const key = JSON.stringify(value)
-  if (host.made.has(key)) return host.made.get(key)
+
+  if (host.made.has(key)) {
+    return host.made.get(key)
+  }
+
   const { import: specifier, export: name } = value.$call
   const fn = host.exported(specifier, name)
-  if (typeof fn !== "function") throw new Error(`${specifier} has no function ${name}`)
+
+  if (typeof fn !== "function") {
+    throw new Error(`${specifier} has no function ${name}`)
+  }
+
   const result: unknown = fn(...(value.args ?? []).map((arg) => evaluateValue(arg, host, kind)))
+
   // The methods the examples call on it (`toaster.create({ title })`), once.
   for (const step of value.methods ?? []) {
     const method = (result as Record<string, unknown> | null | undefined)?.[step.method]
-    if (typeof method !== "function") continue
+
+    if (typeof method !== "function") {
+      continue
+    }
+
     try {
       method.apply(
         result,
@@ -112,38 +156,64 @@ function made(value: MadeValue, host: ValueHost, kind: ValueKind): unknown {
       // A call the examples make may need what the app has around it.
     }
   }
+
   host.made.set(key, result)
+
   return result
 }
 
 /** The modules a value imports from, each once, in the order they first appear. Plain JSON imports none. */
 export function valueImports(value: unknown, kind: ValueKind = "decorator"): string[] {
   const found = new Set<string>()
+
   const visit = (item: unknown): void => {
-    if (Array.isArray(item)) return item.forEach(visit)
-    if (typeof item !== "object" || item === null) return
-    const record = item as Record<string, unknown>
-    if (kind === "decorator" && typeof record.$import === "string") {
-      found.add(record.$import)
+    if (Array.isArray(item)) {
+      return item.forEach(visit)
+    }
+
+    if (typeof item !== "object" || item === null) {
       return
     }
+
+    const record = item as Record<string, unknown>
+
+    if (kind === "decorator" && typeof record.$import === "string") {
+      found.add(record.$import)
+
+      return
+    }
+
     if (isMadeValue(record)) {
       found.add(record.$call.import)
       record.args?.forEach(visit)
-      for (const step of record.methods ?? []) step.args?.forEach(visit)
+
+      for (const step of record.methods ?? []) {
+        step.args?.forEach(visit)
+      }
+
       return
     }
-    if (kind === "decorator" && typeof record.$frame === "string") return
+
+    if (kind === "decorator" && typeof record.$frame === "string") {
+      return
+    }
+
     Object.values(record).forEach(visit)
   }
+
   visit(value)
+
   return [...found]
 }
 
 /** An export of a module, following dots into namespaces (`Tooltip.Provider`). */
 export function exportOf(module: unknown, path: string): unknown {
   let found = module
-  for (const part of path.split(".")) found = (found as Record<string, unknown> | null | undefined)?.[part]
+
+  for (const part of path.split(".")) {
+    found = (found as Record<string, unknown> | null | undefined)?.[part]
+  }
+
   return found
 }
 
@@ -153,8 +223,13 @@ export function exportOf(module: unknown, path: string): unknown {
  */
 export function renderSlotOf(sample: ComponentSample | undefined): { prop: string; render: SampleRender } | undefined {
   const children = sample?.children?.find(isSampleRender)
-  if (children) return { prop: "children", render: children }
+
+  if (children) {
+    return { prop: "children", render: children }
+  }
+
   const entry = Object.entries(sample?.props ?? {}).find(([, value]) => isSampleRender(value))
+
   return entry ? { prop: entry[0], render: entry[1] as SampleRender } : undefined
 }
 
@@ -173,13 +248,19 @@ export interface RenderSlot {
  */
 export function renderSlotKey(prop: string, render: Pick<SampleRender, "spread" | "pass">): string {
   const pass = render.pass ? `?pass=${render.pass.join(",")}` : ""
+
   return `${render.spread ? "$renderWith" : "$render"}:${prop}${pass}`
 }
 
 /** A slot key `renderSlotKey` wrote, read back; `undefined` for a slot of plain nodes. */
 export function readRenderSlotKey(key: string): RenderSlot | undefined {
   const match = /^\$render(With)?:([^?]+)(?:\?pass=(.+))?$/.exec(key)
-  if (!match) return undefined
+
+  if (!match) {
+    return undefined
+  }
+
   const [, spread, prop, pass] = match
+
   return { prop: prop!, spread: spread !== undefined, ...(pass ? { pass: pass.split(",") } : {}) }
 }

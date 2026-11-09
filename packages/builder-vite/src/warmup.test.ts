@@ -3,9 +3,11 @@ import { warmGuestGraph } from "./warmup.ts"
 
 function deferred() {
   let resolve: () => void = () => undefined
+
   const promise = new Promise<void>((done) => {
     resolve = done
   })
+
   return { promise, resolve }
 }
 
@@ -15,32 +17,40 @@ describe("warming the guest graph", () => {
     const childReady = deferred()
     const firstBatch = deferred()
     const secondBatch = deferred()
+
     const metadata: {
       optimized: Record<string, { processing?: Promise<void> }>
       discovered: Record<string, { processing?: Promise<void> }>
     } = { optimized: {}, discovered: { first: { processing: firstBatch.promise } } }
+
     const optimizer = {
       init: async () => undefined,
       isOptimizedDepUrl: (url: string) => url.startsWith("/optimized/"),
       metadata
     }
+
     interface Module {
       url: string
       staticImportedUrls: Set<string>
     }
+
     const child: Module = { url: "/child.js", staticImportedUrls: new Set(["/optimized/react.js"]) }
     const root: Module = { url: "/entry.js", staticImportedUrls: new Set([child.url]) }
+
     const modules = new Map<string, Module>([
       [root.url, root],
       [child.url, child]
     ])
+
     const transformed: string[] = []
     let invalidated = false
+
     const warming = warmGuestGraph(
       {
         depsOptimizer: optimizer,
         async transformRequest(url) {
           transformed.push(url)
+
           if (url === child.url) {
             childStarted.resolve()
             await childReady.promise
@@ -55,6 +65,7 @@ describe("warming the guest graph", () => {
       },
       [root.url]
     )
+
     await childStarted.promise
     expect(invalidated).toBe(false)
     childReady.resolve()
@@ -78,7 +89,10 @@ describe("warming the guest graph", () => {
       {
         async transformRequest(url) {
           transformed.push(url)
-          if (url === "/broken.js") throw new Error("syntax error")
+
+          if (url === "/broken.js") {
+            throw new Error("syntax error")
+          }
         },
         moduleGraph: {
           getModuleByUrl: async () => undefined,
@@ -97,6 +111,7 @@ describe("warming the guest graph", () => {
       ["/src/button.tsx", { url: "/src/button.tsx", staticImportedUrls: new Set(["/src/lib/utils.ts"]) }],
       ["/src/lib/utils.ts", { url: "/src/lib/utils.ts", staticImportedUrls: new Set<string>() }]
     ])
+
     const transformed: string[] = []
     await warmGuestGraph(
       {

@@ -41,6 +41,7 @@ describe("token edits", () => {
       { name: "primary", category: "color", source: "semantic", values: { default: "black" } },
       { name: "radius", category: "radius", source: "semantic", values: { default: "0.5rem" } }
     ]
+
     /** The overrides after the canvas goes from one set of edits to the next, as the token store follows them. */
     const follow = (overrides: readonly TokenChange[], from: TokenEdits, to: TokenEdits, baseline = loaded) =>
       withTokenOverrides(overrides, tokenDifferences(from, to), baseline)
@@ -50,6 +51,7 @@ describe("token edits", () => {
         { ...primary, value: "red" },
         { name: "radius", theme: "dark", value: "1rem" }
       ])
+
       const edited = follow([], noTokenEdits, edits)
       expect(edited).toEqual([
         { name: "primary", theme: "default", value: "red" },
@@ -67,11 +69,13 @@ describe("token edits", () => {
         { ...primary, value: "red" },
         { name: "radius", theme: "dark", value: "1rem" }
       ])
+
       // Saved, then the guest loads again: its stylesheet has the edits, so a new store starts with nothing to override.
       const saved: Token[] = [
         { ...loaded[0]!, values: { default: "red" } },
         { ...loaded[1]!, values: { default: "0.5rem", dark: "1rem" } }
       ]
+
       const reloaded = follow([], noTokenEdits, edits, saved)
       expect(reloaded).toEqual([])
       // Undoing puts black back and takes the dark radius out on the canvas; frames drawn elsewhere must do the same.
@@ -87,6 +91,7 @@ describe("token edits", () => {
       { name: "primary", category: "color", source: "semantic", values: { default: "black", dark: "white" } },
       { name: "radius", category: "radius", source: "semantic", values: { default: "0.5rem" } }
     ]
+
     const edited = tokensWithEdits(tokens, withTokenEdits(noTokenEdits, [{ ...primary, value: "red" }]))
     expect(edited[0]?.values).toEqual({ default: "red", dark: "white" })
     expect(edited[1]).toBe(tokens[1])

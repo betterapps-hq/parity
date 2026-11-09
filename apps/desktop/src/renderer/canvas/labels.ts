@@ -6,7 +6,11 @@ function follow(kind: LabelKind, fit: boolean, width: number | undefined, height
   return (style: CSSStyleDeclaration, zoom: number) => {
     const { scale, opacity } = labelLook(kind, zoom, { width, height })
     style.transform = `scale(${scale / zoom})`
-    if (fit) style.width = `${(100 * zoom) / scale}%`
+
+    if (fit) {
+      style.width = `${(100 * zoom) / scale}%`
+    }
+
     style.opacity = opacity < 1 ? `${opacity}` : ""
     // Hidden, a faded label no longer takes the pointer.
     style.visibility = opacity > 0 ? "" : "hidden"

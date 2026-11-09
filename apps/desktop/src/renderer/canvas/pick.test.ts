@@ -19,14 +19,17 @@ const onValue: Under = {
   chain: ["app", "main", "content", "stats", "revenue"],
   path: ["app", "main", "content", "stats", "revenue", "revenue/header", "revenue/value"]
 }
+
 const onLabel: Under = {
   chain: ["app", "main", "content", "stats", "revenue"],
   path: ["app", "main", "content", "stats", "revenue", "revenue/header", "revenue/label"]
 }
+
 const onUsers: Under = {
   chain: ["app", "main", "content", "stats", "users"],
   path: ["app", "main", "content", "stats", "users"]
 }
+
 const onHeader: Under = { chain: ["app", "main", "content", "header"], path: ["app", "main", "content", "header"] }
 const onSidebar: Under = { chain: ["app", "sidebar"], path: ["app", "sidebar"] }
 const onBackground: Under = { chain: ["app"], path: ["app"] }
@@ -113,8 +116,10 @@ describe("a double-click", () => {
     const doubleClick = (selected?: { node: string; parent: string | undefined }) => {
       const clicked = pickLayer(onValue, selected, false)!
       const parent = onValue.chain[onValue.chain.indexOf(clicked) - 1]
+
       return pickDeeper(onValue, { node: clicked, parent })!
     }
+
     const first = doubleClick()
     const second = doubleClick({ node: first, parent: "main" })
     const third = doubleClick({ node: second, parent: "content" })
@@ -146,6 +151,7 @@ describe("hovering", () => {
 
 describe("a box drawn from a frame's background", () => {
   const box = (left: number, top: number, right: number, bottom: number) => ({ left, top, right, bottom })
+
   const layers = [
     { id: "header", box: box(0, 0, 400, 40) },
     { id: "stats", box: box(0, 60, 400, 160) },
@@ -232,6 +238,7 @@ describe("Enter", () => {
       { id: "loading", name: "Loading" }
     ]
   }
+
   const stat: ContainerSpec = {
     id: "stat",
     name: "Stat card",
@@ -254,12 +261,14 @@ describe("Enter", () => {
     },
     states: [{ id: "default", name: "Default" }]
   }
+
   const store = new DesignStore(
     [{ path: "app.par", document: { version: 3, containers: [dashboard, stat] } }],
     defaultModeSettings,
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }
   )
+
   const dash = "app.par#dash"
 
   it("selects every top-level layer of the selected design, or of a selected mode's frame", () => {

@@ -11,7 +11,9 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 // Dashboard's stat cards, in a grid of four columns, as moving.e2e.ts drags them.
@@ -25,6 +27,7 @@ async function recorded(match: Match, since?: string, read: () => LoggedEvent[] 
   await expect
     .poll(() => find(read(), match, since).length, { message: `${match.name} recorded`, timeout: 10_000 })
     .toBeGreaterThan(0)
+
   return find(read(), match, since).at(-1)!
 }
 
@@ -39,6 +42,7 @@ async function handled(method: string, traceId: string | undefined): Promise<Log
       timeout: 10_000
     })
     .toBe(method)
+
   return find(appEvents(), match).at(-1)!
 }
 
@@ -111,6 +115,7 @@ describe("the events Parity records", () => {
     await app.page.keyboard.press("Control+d")
     await expect.poll(() => app.unsaved()).not.toEqual([])
     await app.page.keyboard.press("Control+s")
+
     try {
       await expect.poll(() => app.unsaved()).toEqual([])
       const saved = await recorded({ name: "command.ran", attributes: { action: "save", from: "key" } }, since)
@@ -135,10 +140,12 @@ describe("the events Parity records", () => {
     expect(result.code).toBe(0)
     const command = await recorded({ name: "cli.ran", attributes: { command: "state" } }, since, cliEvents)
     expect(command.outcome).toBe("ok")
+
     const called = await recorded(
       { name: "agent.called", traceId: command.traceId, attributes: { method: "state", transport: "cli" } },
       since
     )
+
     expect(called).toMatchObject({ process: "service", parentSpanId: command.spanId, outcome: "ok" })
     expect(called.attributes.agent).toBe("e2e")
   })

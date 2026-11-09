@@ -45,11 +45,14 @@ import { type BatchRun, createOutbox, type Outbox, startSender, writeBatch } fro
  */
 
 type CliEvents = typeof cliEvents
+
 export type CliTelemetry = Telemetry<CliEvents>
 
 let telemetry: CliTelemetry | undefined
+
 /** The command running, whose trace the CLI's calls to the app continue. */
 let run: Span | undefined
+
 /** The last command's trace, which a failure it ends with is reported in, after its span has ended. */
 let lastRun: TraceContext | undefined
 
@@ -58,26 +61,39 @@ let lastRun: TraceContext | undefined
  * `PARITY_CLI_LOGS` names. Under Vitest only that folder, so tests never write to the person's own.
  */
 export function cliLogFolder(env: NodeJS.ProcessEnv = process.env): string | undefined {
-  if (env.PARITY_CLI_LOGS) return env.PARITY_CLI_LOGS
+  if (env.PARITY_CLI_LOGS) {
+    return env.PARITY_CLI_LOGS
+  }
+
   return env.VITEST ? undefined : join(homedir(), ".parity", "logs")
 }
+
 const keptFiles = 10
 const fileName = /^parity-cli-\d{4}-\d{2}-\d{2}\.jsonl$/
 
 /** A sink that appends each event as a line to the day's file, and drops the oldest past 10. Synchronous, and small. */
 export function fileSink(folder: string): Sink {
   let pruned = false
+
   const write = (envelope: Envelope) => {
     mkdirSync(folder, { recursive: true })
     appendFileSync(join(folder, `parity-cli-${envelope.time.slice(0, 10)}.jsonl`), `${JSON.stringify(envelope)}\n`)
-    if (pruned) return
+
+    if (pruned) {
+      return
+    }
+
     pruned = true
+
     const files = readdirSync(folder)
       .filter((name) => fileName.test(name))
       .sort()
-    for (const name of files.slice(0, Math.max(0, files.length - keptFiles)))
+
+    for (const name of files.slice(0, Math.max(0, files.length - keptFiles))) {
       rmSync(join(folder, name), { force: true })
+    }
   }
+
   return { event: write, span: write }
 }
 
@@ -91,11 +107,13 @@ export function cliTelemetrySetting(
   saved: string | undefined
 ): ResolvedTelemetry & { installId: string } {
   const read = readSavedTelemetry(saved)
+
   return { ...resolveTelemetry(variables, read.level), installId: read.installId ?? "none" }
 }
 
 function savedTelemetry(): string | undefined {
   const folder = desktopDataFolder({ platform: process.platform, env: process.env, home: homedir() })
+
   try {
     return readFileSync(join(folder, telemetryFileName), "utf8")
   } catch {
@@ -108,7 +126,10 @@ function savedTelemetry(): string | undefined {
  * shared and how to stop it. Nothing when they're off, or once it's been shown.
  */
 export function telemetryNotice(level: TelemetryLevel, shown: boolean): string | undefined {
-  if (level === "off" || shown) return undefined
+  if (level === "off" || shown) {
+    return undefined
+  }
+
   return "Parity shares diagnostics to help fix bugs. To stop sharing them, turn off Settings > Privacy > Share diagnostics in the app, or set PARITY_TELEMETRY=off."
 }
 
@@ -116,8 +137,13 @@ export function telemetryNotice(level: TelemetryLevel, shown: boolean): string |
 function showNotice(level: TelemetryLevel): void {
   const file = join(homedir(), ".parity", "telemetry-notice")
   const notice = telemetryNotice(level, existsSync(file))
-  if (!notice) return
+
+  if (!notice) {
+    return
+  }
+
   console.error(notice)
+
   try {
     mkdirSync(dirname(file), { recursive: true })
     writeFileSync(file, `${new Date().toISOString()}\n`)
@@ -144,7 +170,13 @@ export function batchRun(env: NodeJS.ProcessEnv, installId: string, installed: b
   const variables: RunVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }
   const driver: Driver = { kind: "agent", caller }
   const tags: Record<string, string> = { ...runTags(variables) }
-  for (const [key, value] of Object.entries(driverTags(driver))) if (value !== undefined) tags[key] = value
+
+  for (const [key, value] of Object.entries(driverTags(driver))) {
+    if (value !== undefined) {
+      tags[key] = value
+    }
+  }
+
   return {
     environment: telemetryEnvironment(env, installed),
     version: cliVersion(),
@@ -165,12 +197,14 @@ export function startCliTelemetry({ serving = false }: { serving?: boolean } = {
   const setting = cliTelemetrySetting(process.env, savedTelemetry())
   const installed = installedFromNpm()
   const sinks: Sink[] = folder ? [fileSink(folder)] : []
+
   if (setting.level === "all") {
     const outbox = createOutbox()
     sinks.push(createSentrySink(outbox.target, { upload: true }))
     hand(outbox, setting.installId, installed, serving)
     showNotice(setting.level)
   }
+
   return setCliTelemetry(
     createTelemetry({
       events: cliEvents,
@@ -199,6 +233,7 @@ const sender = fileURLToPath(new URL(import.meta.url.endsWith(".ts") ? "./send.t
 /** Writes the outbox's batch and starts the sender, as the process exits, and every 10 seconds while it serves. */
 function hand(outbox: Outbox, installId: string, installed: boolean, serving: boolean): void {
   const folder = cliOutboxFolder()
+
   const write = () => {
     try {
       if (writeBatch(folder, { run: batchRun(process.env, installId, installed), items: outbox.take() })) {
@@ -208,11 +243,15 @@ function hand(outbox: Outbox, installId: string, installed: boolean, serving: bo
       // Diagnostics that can't be written never fail a command.
     }
   }
+
   // An uncaught error is kept with the command's trace, then sent as the process exits with it.
   process.on("uncaughtExceptionMonitor", (error) => outbox.exception(error, run ?? lastRun, true))
   process.on("exit", write)
   thrown = (error) => outbox.exception(error, run ?? lastRun)
-  if (serving) setInterval(write, 10_000).unref()
+
+  if (serving) {
+    setInterval(write, 10_000).unref()
+  }
 }
 
 /** Keeps a command's failure that isn't one of Parity's coded errors, which is a bug, to send as a Sentry error. */
@@ -223,7 +262,9 @@ let thrown: ((error: unknown) => void) | undefined
  * that isn't running, are the command's answer, recorded on `cli.ran`; anything else is a bug in the CLI.
  */
 export function reportCliFailure(error: unknown): void {
-  if (errorDetails(error) === undefined) thrown?.(error)
+  if (errorDetails(error) === undefined) {
+    thrown?.(error)
+  }
 }
 
 /** Records the CLI's events through `given`, or stops recording them with none, as tests do. */
@@ -231,6 +272,7 @@ export function setCliTelemetry<T extends CliTelemetry | undefined>(given: T): T
   telemetry = given
   run = undefined
   lastRun = undefined
+
   return given
 }
 
@@ -247,7 +289,10 @@ export function recordCli<Name extends EventName<CliEvents>>(
  * continues its trace.
  */
 export async function inCliRun(command: string, flags: string[], work: () => Promise<void>): Promise<void> {
-  if (!telemetry) return work()
+  if (!telemetry) {
+    return work()
+  }
+
   const span = telemetry.startSpan("cli.ran", { command, flags })
   run = span
   lastRun = { traceId: span.traceId, spanId: span.spanId }
@@ -255,10 +300,12 @@ export async function inCliRun(command: string, flags: string[], work: () => Pro
   await endWhenSettled(span, () => work().finally(() => (run = undefined)), {
     result: () => {
       const exitCode = Number(process.exitCode ?? 0)
+
       return { outcome: exitCode === 0 ? "ok" : "error", attributes: { exitCode } }
     },
     error: (error) => {
       const code = errorCode(error)
+
       return { outcome: "error", attributes: { exitCode: 1, ...(code === undefined ? {} : { code }) } }
     }
   })

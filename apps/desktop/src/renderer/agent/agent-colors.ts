@@ -28,6 +28,7 @@ export const agentPalettes: AgentPalette[] = [
 /** How far apart two palettes are round the wheel, in steps of 30°. */
 function apart(a: number, b: number): number {
   const steps = Math.abs(a - b) % agentPalettes.length
+
   return Math.min(steps, agentPalettes.length - steps)
 }
 
@@ -41,20 +42,28 @@ class AgentColors {
 
   claim(agentId: string, name: string): AgentPalette {
     const held = this.claimed.get(agentId)
-    if (held !== undefined) return agentPalettes[held]!
+
+    if (held !== undefined) {
+      return agentPalettes[held]!
+    }
+
     const taken = [...this.claimed.values()]
     const preferred = hash(name) % agentPalettes.length
     const distance = (index: number) => Math.min(Infinity, ...taken.map((other) => apart(index, other)))
     const free = agentPalettes.map((_, index) => index).filter((index) => !taken.includes(index))
     let index = preferred
-    if (free.length > 0 && distance(preferred) < 3)
+
+    if (free.length > 0 && distance(preferred) < 3) {
       index = free.reduce((best, candidate) =>
         distance(candidate) > distance(best) ||
         (distance(candidate) === distance(best) && apart(candidate, preferred) < apart(best, preferred))
           ? candidate
           : best
       )
+    }
+
     this.claimed.set(agentId, index)
+
     return agentPalettes[index]!
   }
 
@@ -65,7 +74,11 @@ class AgentColors {
 
 function hash(text: string): number {
   let value = 2166136261
-  for (const char of text) value = Math.imul(value ^ char.codePointAt(0)!, 16777619)
+
+  for (const char of text) {
+    value = Math.imul(value ^ char.codePointAt(0)!, 16777619)
+  }
+
   return value >>> 0
 }
 

@@ -95,6 +95,7 @@ const mac = isMac()
 export function AppMenu() {
   // Re-renders the bar when the active tab changes; the menus read the rest when they open.
   useActiveTabId()
+
   const menus: [string, () => ReactNode][] = [
     ["File", FileItems],
     ["Edit", EditItems],
@@ -103,6 +104,7 @@ export function AppMenu() {
     ["Arrange", ArrangeItems],
     ["Help", HelpItems]
   ]
+
   return (
     <Menubar className="mr-2 mb-1.5 shrink-0 border-0 [-webkit-app-region:no-drag]" aria-label="Application">
       {menus.map(([name, Items]) => (
@@ -131,6 +133,7 @@ function Item({
   children?: ReactNode
 }) {
   const action = actions[command]
+
   return (
     <MenubarItem
       variant={variant}
@@ -158,6 +161,7 @@ function FileItems() {
   const session = activeSession()
   const recent = useRecentProjects()
   const designs = session?.store.getEntries().length ?? 0
+
   return (
     <>
       <Item command="newTab" icon={Plus} />
@@ -222,6 +226,7 @@ function FileItems() {
 function EditItems() {
   const history = activeSession()?.store.getHistory()
   const repeated = lastAction()
+
   return (
     <>
       <Item command="undo" icon={Undo2}>
@@ -260,6 +265,7 @@ function EditItems() {
 function ViewItems() {
   const layout = useLayout()
   const preferences = usePreferences()
+
   return (
     <>
       <Item command="home" icon={House} />
@@ -308,8 +314,13 @@ function ObjectItems() {
   const instance = selectedInstance()
   const current = activeSession()?.selection.get() ?? {}
   let makeComponent = "Make component"
-  if (design?.container.kind === "component") makeComponent = "Convert to screen"
-  else if (design) makeComponent = "Convert to component"
+
+  if (design?.container.kind === "component") {
+    makeComponent = "Convert to screen"
+  } else if (design) {
+    makeComponent = "Convert to component"
+  }
+
   return (
     <>
       <NewItems />
@@ -353,6 +364,7 @@ const alignCommands: { command: Command; icon: typeof AlignStartVertical }[] = [
 
 function ArrangeItems() {
   const unavailable = actions.alignLeft.available?.() === false
+
   return (
     <>
       {alignCommands.map(({ command, icon }) => (

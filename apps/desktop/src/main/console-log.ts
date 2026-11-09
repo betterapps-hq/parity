@@ -19,21 +19,32 @@ export function createConsoleLog({ limit = 500, now = Date.now }: { limit?: numb
   const entries: LoggedEntry[] = []
   const listeners = new Set<(change: ConsoleChange) => void>()
   let next = 1
+
   const tell = (change: ConsoleChange) => {
-    for (const listener of listeners) listener(change)
+    for (const listener of listeners) {
+      listener(change)
+    }
   }
+
   return {
     write(message: WrittenMessage): LoggedEntry | undefined {
-      if (chatter.some((pattern) => pattern.test(message.text))) return undefined
+      if (chatter.some((pattern) => pattern.test(message.text))) {
+        return undefined
+      }
+
       const at = now()
       const previous = entries.at(-1)
+
       if (previous && sameMessage(previous, message)) {
         previous.count++
         previous.last = at
         tell({ entries: [previous] })
+
         return previous
       }
+
       const { design, state, mode, ...written } = message
+
       const entry: LoggedEntry = {
         id: next++,
         ...written,
@@ -44,9 +55,15 @@ export function createConsoleLog({ limit = 500, now = Date.now }: { limit?: numb
         ...(state ? { state } : {}),
         ...(mode ? { mode } : {})
       }
+
       entries.push(entry)
-      if (entries.length > limit) entries.splice(0, entries.length - limit)
+
+      if (entries.length > limit) {
+        entries.splice(0, entries.length - limit)
+      }
+
       tell({ entries: [entry] })
+
       return entry
     },
 
@@ -54,7 +71,11 @@ export function createConsoleLog({ limit = 500, now = Date.now }: { limit?: numb
     read(from: string, clear = false): LoggedEntry[] {
       const wanted = origin(from)
       const found = entries.filter((entry) => origin(entry.source) === wanted)
-      if (clear) this.clear(from)
+
+      if (clear) {
+        this.clear(from)
+      }
+
       return found
     },
 
@@ -68,6 +89,7 @@ export function createConsoleLog({ limit = 500, now = Date.now }: { limit?: numb
 
     subscribe(listener: (change: ConsoleChange) => void): () => void {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     }
   }
@@ -82,6 +104,7 @@ export type ConsoleLog = ReturnType<typeof createConsoleLog>
  */
 export function announcedContexts(now: () => number = Date.now) {
   const announced = new Map<number, { level: ConsoleEntry["level"]; context: ConsoleContext; at: number }>()
+
   return {
     announce(window: number, level: ConsoleEntry["level"], context: ConsoleContext): void {
       announced.set(window, { level, context, at: now() })
@@ -89,6 +112,7 @@ export function announcedContexts(now: () => number = Date.now) {
     take(window: number, level: ConsoleEntry["level"]): ConsoleContext | undefined {
       const found = announced.get(window)
       announced.delete(window)
+
       return found && found.level === level && now() - found.at < contextHolds ? found.context : undefined
     }
   }
@@ -108,8 +132,12 @@ export function recordConsole(
   contents.on("console-message", (event) => {
     const { level, sourceId: source, lineNumber: line } = event
     const context = contextOf(level)
+
     // A frame's message on the canvas comes through the window's wrapper, so its own call is the one announced.
-    if (origin(context?.source ?? source) === appOrigin) return
+    if (origin(context?.source ?? source) === appOrigin) {
+      return
+    }
+
     // Styling markers from console.log("%c...", css) carry no meaning outside DevTools.
     const text = event.message.replaceAll("%c", "")
     log.write({ level, text, source, line, where, ...context })
@@ -127,20 +155,31 @@ export function batchedChanges(
 ): (change: ConsoleChange) => void {
   let waiting = new Map<number, LoggedEntry>()
   let scheduled = false
+
   const flush = () => {
     scheduled = false
-    if (waiting.size === 0) return
+
+    if (waiting.size === 0) {
+      return
+    }
+
     const entries = [...waiting.values()].map((entry) => ({ ...entry }))
     waiting = new Map()
     send({ entries })
   }
+
   return (change) => {
     if ("cleared" in change) {
       flush()
       send(change)
+
       return
     }
-    for (const entry of change.entries) waiting.set(entry.id, entry)
+
+    for (const entry of change.entries) {
+      waiting.set(entry.id, entry)
+    }
+
     if (!scheduled) {
       scheduled = true
       schedule(flush, wait)

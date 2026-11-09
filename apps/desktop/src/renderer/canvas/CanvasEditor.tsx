@@ -72,11 +72,14 @@ class ShapeIndicators extends ShapeIndicatorOverlayUtil {
   override getOverlays() {
     const overlays = super.getOverlays()
     const hovered = this.editor.getHoveredShapeId()
+
     if (!hovered || !hoveringLayer.get(this.editor)?.get() || this.editor.getSelectedShapeIds().includes(hovered)) {
       return overlays
     }
+
     return overlays.flatMap((overlay) => {
       const idsToDisplay = overlay.props.idsToDisplay.filter((id) => id !== hovered)
+
       return idsToDisplay.length > 0 || overlay.props.hintingShapeIds.length > 0
         ? [{ ...overlay, props: { ...overlay.props, idsToDisplay } }]
         : []
@@ -94,7 +97,11 @@ function setSelectionColor(editor: Editor, color: string): void {
   const value = drawableColor(color)
   const theme = editor.getCurrentTheme()
   const { light, dark } = theme.colors
-  if (light.selectionStroke === value && dark.selectionStroke === value) return
+
+  if (light.selectionStroke === value && dark.selectionStroke === value) {
+    return
+  }
+
   editor.updateTheme({
     ...theme,
     colors: { ...theme.colors, light: { ...light, selectionStroke: value }, dark: { ...dark, selectionStroke: value } }
@@ -106,11 +113,13 @@ const drawable = new Map<string, string>()
 /** A color a canvas can draw with: the kinds' colors are custom properties, which only CSS resolves. */
 function drawableColor(color: string): string {
   let value = drawable.get(color)
+
   if (value === undefined) {
     const property = /^var\((--[\w-]+)\)$/.exec(color)?.[1]
     value = (property && getComputedStyle(document.documentElement).getPropertyValue(property).trim()) || color
     drawable.set(color, value)
   }
+
   return value
 }
 
@@ -126,24 +135,32 @@ function settleZoom(editor: Editor): () => void {
   let held = zoomHeldFrom(editor.getZoomLevel(), performance.now())
   let frame = 0
   let endRedraw: (() => void) | undefined
+
   const check = (now: number) => {
     const zoom = editor.getZoomLevel()
     held = holdZoom(held, zoom, now)
+
     if (zoomSettled(held, now)) {
       if (zoom !== settled.get()) {
         const layer = editor.getContainer().querySelector(".tl-html-layer")
         endRedraw?.()
         endRedraw = layer ? redrawLayer(layer) : undefined
       }
+
       settled.set(zoom)
       frame = 0
-    } else frame = requestAnimationFrame(check)
+    } else {
+      frame = requestAnimationFrame(check)
+    }
   }
+
   const stop = react("settle zoom", () => {
     editor.getZoomLevel()
     frame ||= requestAnimationFrame(check)
   })
+
   editor.getEfficientZoomLevel = () => settled.get()
+
   return () => {
     stop()
     cancelAnimationFrame(frame)
@@ -160,10 +177,12 @@ const zoomSettledness = new WeakMap<Editor, Computed<boolean>>()
  */
 export function isZoomSettled(editor: Editor): boolean {
   let settled = zoomSettledness.get(editor)
+
   if (!settled) {
     settled = computed("zoom settled", () => editor.getZoomLevel() === editor.getEfficientZoomLevel())
     zoomSettledness.set(editor, settled)
   }
+
   return settled.get()
 }
 
@@ -197,30 +216,46 @@ export function isRestingFar(editor: Editor): boolean {
  */
 function markZoomedOut(editor: Editor): () => void {
   const area = editor.getContainer().closest(".canvas-area")
-  if (!area) return () => undefined
+
+  if (!area) {
+    return () => undefined
+  }
+
   const marks = [
     ["data-far", bitmapScale],
     ["data-tiny", 0.05]
   ] as const
+
   const far = (zoom: number, before: boolean) =>
     zoom * window.devicePixelRatio <= (before ? bitmapScale * 1.15 : bitmapScale)
+
   const stop = react("zoomed out", () => {
     const drawn = editor.getZoomLevel() * window.devicePixelRatio
+
     for (const [mark, line] of marks) {
       const on = drawn <= (area.hasAttribute(mark) ? line * 1.15 : line)
-      if (area.hasAttribute(mark) !== on) area.toggleAttribute(mark, on)
+
+      if (area.hasAttribute(mark) !== on) {
+        area.toggleAttribute(mark, on)
+      }
     }
   })
+
   const resting = atom("resting far", far(editor.getEfficientZoomLevel(), false))
   restingFar.set(editor, resting)
+
   const stopResting = react("resting far", () => {
     resting.set(far(editor.getEfficientZoomLevel(), resting.__unsafe__getWithoutCapture()))
   })
+
   return () => {
     stop()
     stopResting()
     restingFar.delete(editor)
-    for (const [mark] of marks) area.removeAttribute(mark)
+
+    for (const [mark] of marks) {
+      area.removeAttribute(mark)
+    }
   }
 }
 
@@ -239,12 +274,20 @@ function overlaysShow(editor: Editor): boolean {
 /** tldraw's overlay canvas only holds a bitmap while an overlay shows (see `sizeWhileShown`). */
 function sizeOverlays(editor: Editor): () => void {
   const canvas = editor.getContainer().querySelector<HTMLCanvasElement>("canvas.tl-canvas-overlays")
-  if (!canvas) return () => undefined
+
+  if (!canvas) {
+    return () => undefined
+  }
+
   const sizing = sizeWhileShown(canvas, () => overlaysShow(editor))
   sizing.release()
+
   const stop = react("overlay canvas size", () => {
-    if (!overlaysShow(editor)) sizing.release()
+    if (!overlaysShow(editor)) {
+      sizing.release()
+    }
   })
+
   return () => {
     stop()
     sizing.restore()
@@ -270,12 +313,19 @@ export function CanvasEditor({
   // Shown, the tab's frames may wake at once; hidden, they sleep only once it's stayed hidden a moment.
   useEffect(() => {
     const hidden = editor && hiddenTabs.get(editor)
-    if (!hidden) return undefined
-    if (shown) {
-      hidden.set(false)
+
+    if (!hidden) {
       return undefined
     }
+
+    if (shown) {
+      hidden.set(false)
+
+      return undefined
+    }
+
     const timer = setTimeout(() => hidden.set(true), hiddenSleepMs)
+
     return () => clearTimeout(timer)
   }, [editor, shown])
 
@@ -293,6 +343,7 @@ export function CanvasEditor({
           TLShapeId,
           { type: "canvas-container" | "canvas-note"; key: string; x: number; y: number; locked?: boolean }
         >()
+
         for (const { key, container } of store.getEntries()) {
           // A board an agent moved stays where it was until the agent's cursor drags it over.
           const at = heldBoards.at(tab, key) ?? container.position
@@ -300,16 +351,25 @@ export function CanvasEditor({
           const locked = container.locked === true
           wanted.set(shapeIdFor(key), { type: "canvas-container", key, ...at, locked })
         }
-        for (const { key, note } of store.getNotes())
+
+        for (const { key, note } of store.getNotes()) {
           wanted.set(shapeIdFor(key), { type: "canvas-note", key, ...note.position })
+        }
+
         editor.run(
           () => {
             const stale = editor.getCurrentPageShapes().filter((shape) => !wanted.has(shape.id))
-            if (stale.length > 0) editor.deleteShapes(stale.map((shape) => shape.id))
+
+            if (stale.length > 0) {
+              editor.deleteShapes(stale.map((shape) => shape.id))
+            }
+
             for (const [id, { type, key, x, y, locked = false }] of wanted) {
               const shape = editor.getShape(id)
-              if (!shape) editor.createShape({ id, type, x, y, isLocked: locked, props: { key } })
-              else if (Math.abs(shape.x - x) >= 1 || Math.abs(shape.y - y) >= 1 || shape.isLocked !== locked) {
+
+              if (!shape) {
+                editor.createShape({ id, type, x, y, isLocked: locked, props: { key } })
+              } else if (Math.abs(shape.x - x) >= 1 || Math.abs(shape.y - y) >= 1 || shape.isLocked !== locked) {
                 editor.updateShape({ id, type: shape.type, x, y, isLocked: locked })
               }
             }
@@ -317,6 +377,7 @@ export function CanvasEditor({
           { history: "ignore" }
         )
       }
+
       sync()
       // The canvas opens on the whole project, placed roughly by where its boards are before they've sized themselves, so
       // frames start at the zoom they're shown at: zoomed far out, a frame with a bitmap kept from an earlier session
@@ -324,7 +385,11 @@ export function CanvasEditor({
       // Boards not sized yet are small, so a small project would start zoomed in; that one starts where it did.
       const opening = editor.getCamera()
       editor.zoomToFit()
-      if (editor.getZoomLevel() > opening.z) editor.setCamera(opening, { immediate: true })
+
+      if (editor.getZoomLevel() > opening.z) {
+        editor.setCamera(opening, { immediate: true })
+      }
+
       const stopZoom = settleZoom(editor)
       const stopZoomedOut = markZoomedOut(editor)
       const stopOverlays = sizeOverlays(editor)
@@ -339,8 +404,12 @@ export function CanvasEditor({
       let translation:
         | { gesture: string; began: number; moved: Set<string>; frames: () => number | undefined }
         | undefined
+
       const stopTranslation = react("translation ends", () => {
-        if (editor.isIn("select.translating") || !translation) return
+        if (editor.isIn("select.translating") || !translation) {
+          return
+        }
+
         const { gesture, began, moved, frames } = translation
         translation = undefined
         const undoStep = store.endGesture(gesture)
@@ -355,9 +424,14 @@ export function CanvasEditor({
           undoStep
         })
       })
+
       const stopMoves = editor.sideEffects.registerAfterChangeHandler("shape", (previous, next, source) => {
-        if (source !== "user" || designDrag.active || (previous.x === next.x && previous.y === next.y)) return
+        if (source !== "user" || designDrag.active || (previous.x === next.x && previous.y === next.y)) {
+          return
+        }
+
         const translating = editor.isIn("select.translating")
+
         if (translating) {
           translation ??= {
             gesture: store.beginGesture(),
@@ -365,12 +439,18 @@ export function CanvasEditor({
             moved: new Set(),
             frames: countFrames()
           }
-          if (next.type === "canvas-container" || next.type === "canvas-note") translation.moved.add(next.props.key)
+
+          if (next.type === "canvas-container" || next.type === "canvas-note") {
+            translation.moved.add(next.props.key)
+          }
         }
+
         const gesture = translating ? translation?.gesture : undefined
+
         if (next.type === "canvas-container" && !heldBoards.at(tab, next.props.key)) {
           store.setPosition(next.props.key, { x: next.x, y: next.y }, { gesture })
         }
+
         if (next.type === "canvas-note") {
           const position = { x: Math.round(next.x), y: Math.round(next.y) }
           store.updateNote(next.props.key, "Move text", (note) => ({ ...note, position }), { gesture })
@@ -379,67 +459,106 @@ export function CanvasEditor({
 
       // tldraw's selection and ours stay in step, whichever side changes.
       const stopSelection = editor.sideEffects.registerAfterChangeHandler("instance_page_state", (previous, next) => {
-        if (previous.selectedShapeIds === next.selectedShapeIds) return
+        if (previous.selectedShapeIds === next.selectedShapeIds) {
+          return
+        }
+
         const ids = next.selectedShapeIds
         const shape = ids.length === 1 ? editor.getShape(ids[0]!) : undefined
         const current = selection.get()
+
         // Shift-click and dragging a box on the canvas select several designs at once.
         const designs = ids.flatMap((id) => {
           const candidate = editor.getShape(id)
+
           return candidate?.type === "canvas-container" ? [candidate.props.key] : []
         })
+
         if (designs.length > 1) {
           const wanted = designsSelection(designs)
+
           if (current.node || current.note || (current.designs ?? []).join() !== wanted.designs!.join()) {
             selection.set(wanted)
           }
         } else if (shape?.type === "canvas-container") {
-          if (current.design !== shape.props.key || current.note) selection.set({ design: shape.props.key })
+          if (current.design !== shape.props.key || current.note) {
+            selection.set({ design: shape.props.key })
+          }
         } else if (shape?.type === "canvas-note") {
-          if (current.note !== shape.props.key) selection.set({ note: shape.props.key })
-        } else if (ids.length === 0 && (current.design || current.note)) selection.set({})
+          if (current.note !== shape.props.key) {
+            selection.set({ note: shape.props.key })
+          }
+        } else if (ids.length === 0 && (current.design || current.note)) {
+          selection.set({})
+        }
       })
+
       const followSelection = () => {
         const current = selection.get()
         let keys: string[]
-        if (current.note) keys = [current.note]
-        else if (current.design && (current.node || current.mode)) keys = [current.design]
-        else keys = selectedDesigns(current)
+
+        if (current.note) {
+          keys = [current.note]
+        } else if (current.design && (current.node || current.mode)) {
+          keys = [current.design]
+        } else {
+          keys = selectedDesigns(current)
+        }
+
         const wanted = keys.map(shapeIdFor).filter((id) => editor.getShape(id))
         const ids = editor.getSelectedShapeIds()
+
         if (ids.length !== wanted.length || ids.some((id, index) => id !== wanted[index])) {
           editor.setSelectedShapes(wanted)
         }
+
         // Each kind of thing has its own selection color.
         const entry = current.design ? store.getEntry(current.design) : undefined
         let color: string = kindColors.screen
-        if (current.node) color = kindColors.layer
-        else if (current.mode) color = kindColors.mode
-        else if (entry) color = designColor(entry.container.kind)
+
+        if (current.node) {
+          color = kindColors.layer
+        } else if (current.mode) {
+          color = kindColors.mode
+        } else if (entry) {
+          color = designColor(entry.container.kind)
+        }
+
         setSelectionColor(editor, color)
       }
+
       const stopFollowing = selection.subscribe(followSelection)
       followSelection()
       const layerHovered = atom("hovering a layer", false)
       hoveringLayer.set(editor, layerHovered)
       // Only the Layers panel hovers a design without a layer, which outlines its board as hovering the board does.
       const rowHovered = atom<string | undefined>("design hovered in Layers", undefined)
+
       const stopHover = selection.subscribe(() => {
         const hover = selection.getHover()
         layerHovered.set(!!hover?.node)
         rowHovered.set(hover && !hover.node ? hover.design : undefined)
       })
+
       // tldraw takes its hover away as it handles the pointer leaving the canvas, a tick after the row is entered, so the
       // board's is put back whenever it changes while the row stays hovered (PAR-187).
       let outlined: TLShapeId | undefined
+
       const stopOutline = react("outline the design hovered in Layers", () => {
         const design = rowHovered.get()
         const hovered = editor.getHoveredShapeId()
+
         if (design) {
           outlined = shapeIdFor(design)
-          if (hovered !== outlined) editor.setHoveredShape(outlined)
+
+          if (hovered !== outlined) {
+            editor.setHoveredShape(outlined)
+          }
         } else if (outlined) {
-          if (hovered === outlined) editor.setHoveredShape(null)
+          if (hovered === outlined) {
+            editor.setHoveredShape(null)
+          }
+
           outlined = undefined
         }
       })
@@ -447,6 +566,7 @@ export function CanvasEditor({
       // Containers size themselves after their content renders, so fit once they have.
       const fit = setTimeout(() => editor.zoomToFit({ animation: { duration: 200 } }), 400)
       onEditor(editor)
+
       return () => {
         clearTimeout(fit)
         stopZoom()
@@ -458,7 +578,11 @@ export function CanvasEditor({
         stopTranslation()
         // A drag still going as the canvas goes, as when its tab closes: its frame counter stops with it.
         translation?.frames()
-        if (translation) store.endGesture(translation.gesture)
+
+        if (translation) {
+          store.endGesture(translation.gesture)
+        }
+
         translation = undefined
         stopCamera()
         camera.stop()

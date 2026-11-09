@@ -143,10 +143,12 @@ describe("the slot code nests between the tags", () => {
   it("is the one holding the most layers, whatever it's called", () => {
     const marked = setSlot(setSlot(card, "body", "content"), "footer", "actions")
     expect(childrenSlot(designSlots(marked))?.name).toBe("content")
+
     const fuller = mapNode(marked.root, "footer", (node) => ({
       ...(node as LayoutNode),
       children: [1, 2, 3].map((index) => ({ type: "text" as const, id: `action${index}`, text: "Action" }))
     }))
+
     expect(childrenSlot(designSlots({ ...marked, root: fuller }))?.name).toBe("actions")
   })
 
@@ -160,6 +162,7 @@ describe("the slot code nests between the tags", () => {
 describe("filling an instance's slots", () => {
   const component = setSlot(setSlot(card, "body", "content"), "footer", "actions")
   const library = componentLibrary([component])
+
   const page: ContainerSpec = {
     id: "page",
     name: "Page",
@@ -167,20 +170,35 @@ describe("filling an instance's slots", () => {
     root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] },
     states: [{ id: "default", name: "Default" }]
   }
+
   const filled = (container: ContainerSpec): ContainerSpec => ({
     ...container,
     root: insertNode(container.root, "copy", { type: "text", id: "mine", text: "Mine" }, { slot: "content" })
   })
+
   const texts = (nodes: RenderNode[]): string[] =>
     nodes.flatMap((node) => {
-      if (node.kind === "text") return [node.text]
-      if (node.kind === "element") return texts(node.children)
+      if (node.kind === "text") {
+        return [node.text]
+      }
+
+      if (node.kind === "element") {
+        return texts(node.children)
+      }
+
       return Object.values(node.slots).flatMap(texts)
     })
+
   const ids = (nodes: RenderNode[]): string[] =>
     nodes.flatMap((node) => {
-      if (node.kind === "text") return []
-      if (node.kind === "element") return [node.nodeId, ...ids(node.children)]
+      if (node.kind === "text") {
+        return []
+      }
+
+      if (node.kind === "element") {
+        return [node.nodeId, ...ids(node.children)]
+      }
+
       return [node.nodeId, ...Object.values(node.slots).flatMap(ids)]
     })
 
@@ -226,16 +244,19 @@ describe("filling an instance's slots", () => {
   it("is read from a project file, which refuses a fill reusing one of the design's ids", () => {
     const file = (container: ContainerSpec) => ({ version: 3, containers: [component, container] })
     expect(parseCanvasDocument(file(filled(page))).containers[1]).toEqual(filled(page))
+
     const clash = {
       ...page,
       root: insertNode(page.root, "copy", { type: "text", id: "taken", text: "A" }, { slot: "content" })
     }
+
     const doubled = JSON.parse(
       JSON.stringify(clash).replace(
         '"slots":{"content":[',
         '"slots":{"content":[{"type":"text","id":"page","text":"B"},'
       )
     )
+
     expect(() => parseCanvasDocument(file(doubled))).toThrow('duplicate node id "page"')
   })
 })
@@ -250,6 +271,7 @@ describe("a copy of a slot", () => {
 
   it("baked into a screen by Detach is plain layers", () => {
     const marked = setSlot(card, "body", "content")
+
     const screen: ContainerSpec = {
       id: "page",
       name: "Page",
@@ -257,14 +279,17 @@ describe("a copy of a slot", () => {
       root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] },
       states: [{ id: "default", name: "Default" }]
     }
+
     const detached = detachInstance(screen, "copy", componentLibrary([marked]))
     const layouts: LayoutNode[] = []
+
     const visit = (node: ContainerSpec["root"]) => {
       if (node.type === "layout") {
         layouts.push(node)
         node.children.forEach(visit)
       }
     }
+
     visit(detached.root)
     expect(layouts.length).toBeGreaterThan(2)
     expect(layouts.every((layout) => layout.slot === undefined)).toBe(true)

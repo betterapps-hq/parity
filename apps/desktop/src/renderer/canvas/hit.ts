@@ -41,6 +41,7 @@ export function inside(rect: DOMRect, point: Point): boolean {
  */
 export function hitTest(area: ParentNode, store: DesignStore, point: Point, editor?: Editor): Hit | undefined {
   const frame = frameAt(area, store, point, editor)
+
   return frame && hitInFrame(frame.entry, frame.host, point)
 }
 
@@ -58,14 +59,27 @@ export function frameAt(
     hitInside: true,
     filter: (shape) => shape.type === "canvas-container"
   })
+
   let hosts: Iterable<HTMLElement> = []
-  if (!editor) hosts = allFrames(area)
-  else if (board?.type === "canvas-container") hosts = findFrames(area, board.props.key)
-  for (const host of hosts) {
-    if (!inside(host.getBoundingClientRect(), point)) continue
-    const entry = store.getEntry(host.dataset.design ?? "")
-    if (entry) return { entry, host }
+
+  if (!editor) {
+    hosts = allFrames(area)
+  } else if (board?.type === "canvas-container") {
+    hosts = findFrames(area, board.props.key)
   }
+
+  for (const host of hosts) {
+    if (!inside(host.getBoundingClientRect(), point)) {
+      continue
+    }
+
+    const entry = store.getEntry(host.dataset.design ?? "")
+
+    if (entry) {
+      return { entry, host }
+    }
+  }
+
   return undefined
 }
 
@@ -77,6 +91,7 @@ export function hitInFrame(entry: ContainerEntry, host: HTMLElement, point: Poin
   const deepest = path.at(-1)?.split("/")[0]
   const location = deepest ? locateNode(entry.container.root, deepest) : undefined
   const chain = location ? [...location.ancestors, location.node] : [entry.container.root]
+
   return { entry, host, mode: host.dataset.mode ?? "", state: host.dataset.state ?? "", chain, path }
 }
 
@@ -86,6 +101,7 @@ export function hitInFrame(entry: ContainerEntry, host: HTMLElement, point: Poin
  */
 export function underPoint(hit: Hit): Under {
   const { container } = hit.entry
+
   return {
     chain: unlockedPath(
       container,
@@ -101,10 +117,15 @@ export function underPoint(hit: Hit): Under {
  */
 export function selectedIn(hit: Hit, current: Selection): Selected | undefined {
   const node = current.design === hit.entry.key ? current.node : undefined
-  if (!node) return undefined
+
+  if (!node) {
+    return undefined
+  }
+
   const parent = isInnerPath(node)
     ? nodeParent(hit.host, node)
     : locateNode(hit.entry.container.root, node)?.ancestors.at(-1)?.id
+
   return { node, parent }
 }
 
@@ -115,6 +136,7 @@ export function selectionFrame(
   picked: { mode?: string; state?: string }
 ): HTMLElement | undefined {
   const frames = findFrames(area, design)
+
   return (
     frames.find((host) => host.dataset.mode === picked.mode && host.dataset.state === picked.state) ??
     frames.find((host) => host.dataset.mode === picked.mode) ??
@@ -132,6 +154,7 @@ export function nodeInFrames(area: ParentNode, design: string, node: string, pic
     .flatMap((host) => {
       const rect = nodeBox(host, node)
       const element: HTMLElement | undefined = findNodeElement(host, node)
+
       return rect && (element || rect.width > 0 || rect.height > 0)
         ? [{ host, element, rect, picked: host === picked }]
         : []

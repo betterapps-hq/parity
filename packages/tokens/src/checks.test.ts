@@ -6,9 +6,18 @@ import { builtOn, checkTokenEdit, type CssSupports, loopProblem, valueProblem } 
  * filter a `blur()` of one; anything else it's asked about it takes.
  */
 const supports: CssSupports = (property, value) => {
-  if (property === "color") return /^(#[\da-f]{3,8}|oklch\(.+\))$/i.test(value)
-  if (property === "border-radius" || property === "width") return /^\d*\.?\d+(px|rem)$/.test(value)
-  if (property === "filter") return /^blur\(\d*\.?\d+(px|rem)\)$/.test(value)
+  if (property === "color") {
+    return /^(#[\da-f]{3,8}|oklch\(.+\))$/i.test(value)
+  }
+
+  if (property === "border-radius" || property === "width") {
+    return /^\d*\.?\d+(px|rem)$/.test(value)
+  }
+
+  if (property === "filter") {
+    return /^blur\(\d*\.?\d+(px|rem)\)$/.test(value)
+  }
+
   return true
 }
 

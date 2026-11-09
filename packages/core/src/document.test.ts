@@ -23,6 +23,7 @@ describe("a frame in a project file", () => {
     root: { type: "layout", id: "root", children: [{ type: "text", id: "note", text: "Idea" }] },
     states: [{ id: "default", name: "Default" }]
   }
+
   const file = (design: Record<string, unknown>) => ({ version: 3, containers: [design] })
 
   it("is read and written like the other kinds, with a size of its own", () => {
@@ -45,6 +46,7 @@ describe("a frame in a project file", () => {
       [{ view: { modes: ["desktop-dark"] } }, "/containers/0/view"],
       [{ frames: { mobile: { width: 390 } } }, "/containers/0/frames"]
     ]
+
     for (const [change, message] of cases) {
       expect(() => parseCanvasDocument(file({ ...frame, ...change }))).toThrow(message)
     }
@@ -63,11 +65,13 @@ describe("canvas objects, links and sources in a project file", () => {
     { kind: "operation", ref: "getUser", position: { x: 400, y: 0 } },
     { kind: "route", ref: "/users/:id", position: { x: 800, y: 0 } }
   ]
+
   const links = [
     { id: "l1", type: "shows", from: { kind: "screen", ref: "user-page" }, to: { kind: "route", ref: "/users/:id" } },
     { id: "l2", type: "calls", from: { kind: "route", ref: "/users/:id" }, to: { kind: "operation", ref: "getUser" } },
     { id: "l3", type: "reads", from: { kind: "operation", ref: "getUser" }, to: { kind: "table", ref: "public.users" } }
   ]
+
   const file = {
     version: 3,
     containers: [],
@@ -91,6 +95,7 @@ describe("canvas objects, links and sources in a project file", () => {
       [[objects[0], { ...objects[0], position: { x: 9, y: 9 } }], '/objects/1: the table "public.users" is already'],
       [[{ ...objects[0], position: { x: 0 } }], "/objects/0/position/y"]
     ]
+
     for (const [list, message] of cases) {
       expect(() => parseCanvasDocument({ ...file, objects: list })).toThrow(message)
     }
@@ -98,15 +103,18 @@ describe("canvas objects, links and sources in a project file", () => {
 
   it("join only the kinds each type of link allows", () => {
     const tableToScreen = { ...links[0], from: links[2]!.to, to: links[0]!.from }
+
     const cases: [unknown, string][] = [
       [[tableToScreen], "/links/0: a shows link goes from screen to route, not table to screen"],
       [[{ ...links[2], type: "joins" }], "/links/0/type"],
       [[links[0], { ...links[1], id: "l1" }], '/links/1/id: duplicate link id "l1"'],
       [[{ ...links[0], from: { kind: "frame", ref: "sketch" } }], "/links/0/from/kind"]
     ]
+
     for (const [list, message] of cases) {
       expect(() => parseCanvasDocument({ ...file, links: list })).toThrow(message)
     }
+
     expect(linkAllowed("writes", "operation", "table")).toBe(true)
     expect(linkAllowed("calls", "component", "operation")).toBe(true)
     expect(linkAllowed("calls", "operation", "table")).toBe(false)

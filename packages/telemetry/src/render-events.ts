@@ -8,6 +8,7 @@ import { defineEvent } from "./events.ts"
  */
 
 const ms = (meaning: string) => z.number().int().nonnegative().describe(meaning)
+
 const design = {
   design: z.string().optional().describe("The design's key, as the document names it. None for a component preview"),
   state: z.string().optional().describe("The design's state, when it draws one"),
@@ -139,22 +140,33 @@ export function cacheCounter(): {
   const frames: Tally = { hits: 0, misses: 0 }
   const previews: Tally = { hits: 0, misses: 0 }
   let changed = false
+
   const count = (tally: Tally, hit: boolean) => {
-    if (hit) tally.hits++
-    else tally.misses++
+    if (hit) {
+      tally.hits++
+    } else {
+      tally.misses++
+    }
+
     changed = true
   }
+
   const rate = ({ hits, misses }: Tally) => ({
     hits,
     misses,
     hitRate: hits + misses === 0 ? 0 : Math.round((hits / (hits + misses)) * 1000) / 1000
   })
+
   return {
     frame: (hit) => count(frames, hit),
     preview: (hit) => count(previews, hit),
     report() {
-      if (!changed) return undefined
+      if (!changed) {
+        return undefined
+      }
+
       changed = false
+
       return { frames: rate(frames), previews: rate(previews) }
     }
   }

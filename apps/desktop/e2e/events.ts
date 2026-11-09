@@ -19,11 +19,13 @@ const cliLogs = () => join(inject("app").profile, "cli-logs")
 /** Every event in a folder's `.jsonl` files, oldest first. A folder that isn't there yet has none. */
 function readFolder(folder: string): LoggedEvent[] {
   let names: string[]
+
   try {
     names = readdirSync(folder)
   } catch {
     return []
   }
+
   return names
     .filter((name) => name.endsWith(".jsonl"))
     .flatMap((name) => parseLogLines(readFileSync(join(folder, name), "utf8")))
@@ -45,8 +47,12 @@ export interface Match {
 
 /** Whether an event is the one a match describes. */
 function matches(event: LoggedEvent, { name, attributes = {}, ...fields }: Match): boolean {
-  if (event.name !== name) return false
+  if (event.name !== name) {
+    return false
+  }
+
   const envelope: Record<string, unknown> = { ...event }
+
   return (
     Object.entries(fields).every(([key, value]) => envelope[key] === value) &&
     Object.entries(attributes).every(([key, value]) => event.attributes[key] === value)
@@ -60,7 +66,10 @@ export function find(events: LoggedEvent[], match: Match, since?: string): Logge
 
 /** The names of the events in a trace, with the process each came from, sorted, so a failure lists what was there. */
 export function trace(events: LoggedEvent[], traceId: string | undefined): string[] {
-  if (!traceId) return []
+  if (!traceId) {
+    return []
+  }
+
   return events
     .filter((event) => event.traceId === traceId)
     .map((event) => `${event.process} ${event.name}`)
@@ -79,6 +88,7 @@ export function testRun(): string | undefined {
  */
 export function runCli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
   const { profile } = inject("app")
+
   return new Promise((done, fail) => {
     const child = spawn(process.execPath, [join(repoDir, "packages/cli/src/bin.ts"), ...args], {
       cwd: repoDir,
@@ -91,6 +101,7 @@ export function runCli(args: string[]): Promise<{ code: number | null; stdout: s
       },
       stdio: ["ignore", "pipe", "pipe"]
     })
+
     let stdout = ""
     let stderr = ""
     child.stdout.on("data", (chunk: Buffer) => (stdout += chunk.toString()))

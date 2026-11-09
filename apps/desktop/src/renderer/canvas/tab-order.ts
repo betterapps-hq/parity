@@ -9,14 +9,21 @@ export function getTabOrderShown(): boolean {
 }
 
 export function setTabOrderShown(next: boolean): void {
-  if (next === shown) return
+  if (next === shown) {
+    return
+  }
+
   shown = next
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 export function useTabOrderShown(): boolean {
   return useSyncExternalStore((listener) => {
     listeners.add(listener)
+
     return () => listeners.delete(listener)
   }, getTabOrderShown)
 }
@@ -44,27 +51,53 @@ const focusableSelector = [
  */
 export function tabOrder(host: Element): HTMLElement[] {
   const root = host.shadowRoot
-  if (!root) return []
+
+  if (!root) {
+    return []
+  }
+
   const radios = new Map<string, HTMLInputElement>()
+
   const candidates = [...root.querySelectorAll<HTMLElement>(focusableSelector)].filter((element) => {
-    if (element.tabIndex < 0 || element.matches(":disabled") || element.closest("[inert], [hidden]")) return false
-    if (element instanceof HTMLInputElement && element.type === "hidden") return false
+    if (element.tabIndex < 0 || element.matches(":disabled") || element.closest("[inert], [hidden]")) {
+      return false
+    }
+
+    if (element instanceof HTMLInputElement && element.type === "hidden") {
+      return false
+    }
+
     const style = getComputedStyle(element)
-    if (style.visibility === "hidden" || style.display === "none") return false
+
+    if (style.visibility === "hidden" || style.display === "none") {
+      return false
+    }
+
     const rect = element.getBoundingClientRect()
-    if (rect.width === 0 && rect.height === 0) return false
+
+    if (rect.width === 0 && rect.height === 0) {
+      return false
+    }
+
     if (element instanceof HTMLInputElement && element.type === "radio" && element.name) {
       const group = `${element.form?.id ?? ""}\n${element.name}`
       const chosen = radios.get(group)
-      if (!chosen || (element.checked && !chosen.checked)) radios.set(group, element)
+
+      if (!chosen || (element.checked && !chosen.checked)) {
+        radios.set(group, element)
+      }
     }
+
     return true
   })
+
   const tabbable = candidates.filter(
     (element) =>
       !(element instanceof HTMLInputElement && element.type === "radio" && element.name) ||
       [...radios.values()].includes(element)
   )
+
   const positive = tabbable.filter((element) => element.tabIndex > 0).sort((a, b) => a.tabIndex - b.tabIndex)
+
   return [...positive, ...tabbable.filter((element) => element.tabIndex === 0)]
 }

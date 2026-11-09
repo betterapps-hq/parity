@@ -20,6 +20,7 @@ class HeldBoards {
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener)
+
     return () => {
       this.listeners.delete(listener)
     }
@@ -34,7 +35,11 @@ class HeldBoards {
   hold(tab: string, design: string, from: Point): void {
     const key = id(tab, design)
     const current = this.held.get(key)
-    if (current) clearTimeout(current.timer)
+
+    if (current) {
+      clearTimeout(current.timer)
+    }
+
     this.held.set(key, {
       at: current?.at ?? from,
       moves: (current?.moves ?? 0) + 1,
@@ -46,7 +51,11 @@ class HeldBoards {
   /** Draws a held board somewhere along its drag. */
   set(tab: string, design: string, at: Point): void {
     const held = this.held.get(id(tab, design))
-    if (!held) return
+
+    if (!held) {
+      return
+    }
+
     held.at = at
     this.notify()
   }
@@ -55,23 +64,35 @@ class HeldBoards {
   finish(tab: string, design: string, to: Point): void {
     const key = id(tab, design)
     const held = this.held.get(key)
-    if (!held) return
+
+    if (!held) {
+      return
+    }
+
     if (--held.moves > 0) {
       held.at = to
       this.notify()
-    } else this.release(key)
+    } else {
+      this.release(key)
+    }
   }
 
   private release(key: string): void {
     const held = this.held.get(key)
-    if (!held) return
+
+    if (!held) {
+      return
+    }
+
     clearTimeout(held.timer)
     this.held.delete(key)
     this.notify()
   }
 
   private notify(): void {
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }
 

@@ -69,9 +69,11 @@ export function previewKind(
   const written = ((theme && token.values[theme]) ?? "").trim()
   const value = lookup ? resolveReferences(written, (name) => lookup(name, theme)) : written
   const kind = inferTokenKind(token.name, value, type, token.category)
+
   if (kind === "blur" && token.name.toLowerCase().replaceAll(/[-_.]/g, "").includes("backdropblur")) {
     return "backdrop-blur"
   }
+
   return isMapped(kind) ? previewOf[kind] : kind
 }
 
@@ -85,10 +87,18 @@ export function defaultValues(
   tokens: readonly Pick<Token, "name" | "values">[]
 ): (name: string, theme?: string) => string | undefined {
   const values = new Map(tokens.map((token) => [token.name, token.values]))
+
   return (name, theme) => {
     const found = values.get(name)
-    if (!found) return undefined
-    if (theme === undefined) return found.default ?? Object.values(found)[0]
+
+    if (!found) {
+      return undefined
+    }
+
+    if (theme === undefined) {
+      return found.default ?? Object.values(found)[0]
+    }
+
     return found[theme] ?? found.default
   }
 }
@@ -99,11 +109,17 @@ export function defaultValues(
  */
 export function resolveReferences(value: string, lookup: (name: string) => string | undefined): string {
   let resolved = value
+
   for (let depth = 0; depth < 8 && resolved.includes("var("); depth++) {
     const next = substituteReferences(resolved, lookup)
-    if (next === resolved) break
+
+    if (next === resolved) {
+      break
+    }
+
     resolved = next
   }
+
   return resolved
 }
 
@@ -127,6 +143,7 @@ export function codeForms(name: string, kind: PreviewKind, value: string): CodeF
     kind === "breakpoint"
       ? { group: "CSS", label: "Media query", text: `@media (width >= ${value})` }
       : { group: "CSS", label: "Variable", text: `var(--${name})` }
+
   return [css, { group: "Token", label: "Name", text: name }]
 }
 
@@ -137,26 +154,36 @@ export function codeForms(name: string, kind: PreviewKind, value: string): CodeF
 function outerReferences(value: string): { start: number; end: number; name: string; fallback?: string }[] {
   const found: { start: number; end: number; name: string; fallback?: string }[] = []
   const opening = /var\(\s*--([\w-]+)\s*([,)])/g
+
   for (let match = opening.exec(value); match; match = opening.exec(value)) {
     const [, name = "", after] = match
+
     if (after === ")") {
       found.push({ start: match.index, end: opening.lastIndex, name })
       continue
     }
+
     let depth = 1
     let at = opening.lastIndex
+
     for (; at < value.length; at++) {
-      if (value[at] === "(") depth++
-      else if (value[at] === ")" && --depth === 0) break
+      if (value[at] === "(") {
+        depth++
+      } else if (value[at] === ")" && --depth === 0) {
+        break
+      }
     }
+
     // A fallback left open has no end to substitute up to, though its token is still referred to.
     if (depth > 0) {
       found.push({ start: match.index, end: value.length, name, fallback: value.slice(opening.lastIndex) })
       break
     }
+
     found.push({ start: match.index, end: at + 1, name, fallback: value.slice(opening.lastIndex, at) })
     opening.lastIndex = at + 1
   }
+
   return found
 }
 
@@ -172,12 +199,14 @@ export function tokenReferences(value: string): string[] {
 export function substituteReferences(value: string, lookup: (name: string) => string | undefined): string {
   let substituted = ""
   let last = 0
+
   for (const { start, end, name, fallback } of outerReferences(value)) {
     const written = value.slice(start, end)
     const own = lookup(name) ?? (fallback === undefined ? written : substituteReferences(fallback.trim(), lookup))
     substituted += value.slice(last, start) + own
     last = end
   }
+
   return substituted + value.slice(last)
 }
 
@@ -189,15 +218,29 @@ export function substituteReferences(value: string, lookup: (name: string) => st
 export function unclosedInValue(text: string): string | undefined {
   const closers: string[] = []
   let quote: string | undefined
+
   for (const char of text) {
     if (quote) {
-      if (char === quote) quote = undefined
-    } else if (char === '"' || char === "'") quote = char
-    else if (char === "(" || char === "[") closers.push(char === "(" ? ")" : "]")
-    else if ((char === ")" || char === "]") && closers.pop() !== char) return `There's a ${char} with nothing to close.`
+      if (char === quote) {
+        quote = undefined
+      }
+    } else if (char === '"' || char === "'") {
+      quote = char
+    } else if (char === "(" || char === "[") {
+      closers.push(char === "(" ? ")" : "]")
+    } else if ((char === ")" || char === "]") && closers.pop() !== char) {
+      return `There's a ${char} with nothing to close.`
+    }
   }
-  if (quote) return "A quote isn't closed."
-  if (closers.length > 0) return `A bracket isn't closed. Add ${closers.reverse().join("")} at the end.`
+
+  if (quote) {
+    return "A quote isn't closed."
+  }
+
+  if (closers.length > 0) {
+    return `A bracket isn't closed. Add ${closers.reverse().join("")} at the end.`
+  }
+
   return undefined
 }
 
@@ -206,14 +249,19 @@ export function valueParts(value: string): string[] {
   const parts: string[] = []
   let depth = 0
   let start = 0
+
   for (const [index, char] of value.split("").entries()) {
-    if (char === "(") depth += 1
-    else if (char === ")") depth -= 1
-    else if (char === "," && depth === 0) {
+    if (char === "(") {
+      depth += 1
+    } else if (char === ")") {
+      depth -= 1
+    } else if (char === "," && depth === 0) {
       parts.push(value.slice(start, index).trim())
       start = index + 1
     }
   }
+
   parts.push(value.slice(start).trim())
+
   return parts
 }

@@ -38,20 +38,36 @@ export function hiddenReason(name: string, facts: HidingFacts = {}): HiddenReaso
   const own = name.split("/").at(-1) ?? name
   // A namespaced part is named by its last piece: Radix's `Tooltip.Provider` is a provider.
   const last = own.split(".").at(-1) ?? own
-  if (facts.internal || last.endsWith("Portal")) return "internal"
-  if (/Providers?$/.test(last)) return "provider"
-  if (plumbingNames.has(own.toLowerCase()) || last.endsWith("Boundary")) return "plumbing"
+
+  if (facts.internal || last.endsWith("Portal")) {
+    return "internal"
+  }
+
+  if (/Providers?$/.test(last)) {
+    return "provider"
+  }
+
+  if (plumbingNames.has(own.toLowerCase()) || last.endsWith("Boundary")) {
+    return "plumbing"
+  }
+
   return undefined
 }
 
 /** A heading for the components a source hides, naming what's there: "Internal parts and providers". */
 export function hiddenHeading(reasons: Iterable<HiddenReason>): string {
   const present = new Set(reasons)
+
   const names = (["internal", "provider", "plumbing"] as const)
     .filter((reason) => present.has(reason))
     .map((reason) => ({ internal: "internal parts", provider: "providers", plumbing: "app plumbing" })[reason])
-  if (names.length === 0) return ""
+
+  if (names.length === 0) {
+    return ""
+  }
+
   const text = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
+
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}`
 }
 
@@ -114,11 +130,21 @@ function queryWords(query: string): string[] {
 /** How a run of the search's words matches a name, or undefined: exactly, at its start, at a word's start, or within. */
 function nameTier(words: string[], typed: string): 0 | 1 | 2 | 3 | undefined {
   const whole = words.join("")
-  if (whole === typed) return 0
-  if (whole.startsWith(typed)) return 1
-  for (let index = 1; index < words.length; index++) {
-    if (words.slice(index).join("").startsWith(typed)) return 2
+
+  if (whole === typed) {
+    return 0
   }
+
+  if (whole.startsWith(typed)) {
+    return 1
+  }
+
+  for (let index = 1; index < words.length; index++) {
+    if (words.slice(index).join("").startsWith(typed)) {
+      return 2
+    }
+  }
+
   return whole.includes(typed) ? 3 : undefined
 }
 
@@ -128,27 +154,44 @@ function nameTier(words: string[], typed: string): 0 | 1 | 2 | 3 | undefined {
  */
 export function matchOption(option: InsertOption, query: string): Match | undefined {
   const typed = queryWords(query)
-  if (typed.length === 0) return query.trim() ? undefined : { tier: 0, closeness: 0, sourceWords: 0 }
+
+  if (typed.length === 0) {
+    return query.trim() ? undefined : { tier: 0, closeness: 0, sourceWords: 0 }
+  }
+
   const name = nameWords(option.name)
   const source = nameWords(option.sourceName)
   const described = [...source, ...nameWords(option.description ?? "")]
   const sourceWords = typed.filter((word) => source.some((part) => part.startsWith(word))).length
   const whole = nameTier(name, typed.join(""))
-  if (whole !== undefined) return { tier: whole, closeness: 0, sourceWords: 0 }
+
+  if (whole !== undefined) {
+    return { tier: whole, closeness: 0, sourceWords: 0 }
+  }
+
   // Word by word: each found in the name, or else in what describes it. Its source's name ("nova badge") counts only
   // beside a word of its own name, so a heading such as Local components doesn't match everything under it.
   let closeness = 3
   let inName = 0
   let inDescription = 0
+
   for (const word of typed) {
     const tier = nameTier(name, word)
+
     if (tier !== undefined) {
       inName++
       closeness = Math.min(closeness, tier)
-    } else if (described.slice(source.length).some((part) => part.startsWith(word))) inDescription++
-    else if (!source.some((part) => part.startsWith(word))) return undefined
+    } else if (described.slice(source.length).some((part) => part.startsWith(word))) {
+      inDescription++
+    } else if (!source.some((part) => part.startsWith(word))) {
+      return undefined
+    }
   }
-  if (inName > 0) return { tier: 4, closeness, sourceWords }
+
+  if (inName > 0) {
+    return { tier: 4, closeness, sourceWords }
+  }
+
   return inDescription > 0 ? { tier: 5, closeness: 3, sourceWords } : undefined
 }
 
@@ -158,7 +201,11 @@ export function matchOption(option: InsertOption, query: string): Match | undefi
  */
 export function searchOption(option: InsertOption, query: string): Match | undefined {
   const match = matchOption(option, query)
-  if (!match || !option.hidden) return match
+
+  if (!match || !option.hidden) {
+    return match
+  }
+
   return queryWords(query).length > 0 && match.tier <= 4 ? match : undefined
 }
 
@@ -199,40 +246,53 @@ export function insertRows(options: readonly InsertOption[], query = ""): Insert
   const found: { option: InsertOption; match: Match; index: number }[] = []
   options.forEach((option, index) => {
     const match = searchOption(option, query)
-    if (match) found.push({ option, match, index })
+
+    if (match) {
+      found.push({ option, match, index })
+    }
   })
   // Merge by name across sources; a second component of one name in the same source stays a row of its own.
   const rows: (typeof found)[] = []
   const byName = new Map<string, (typeof found)[]>()
+
   for (const entry of found) {
     if (!mergeable(entry.option)) {
       rows.push([entry])
       continue
     }
+
     const { name } = entry.option
     const candidates = byName.get(name) ?? []
     const row = candidates.find((members) => members.every((member) => member.option.source !== entry.option.source))
-    if (row) row.push(entry)
-    else {
+
+    if (row) {
+      row.push(entry)
+    } else {
       const created = [entry]
       rows.push(created)
       byName.set(name, [...candidates, created])
     }
   }
+
   const order = (a: (typeof found)[number], b: (typeof found)[number]) =>
     b.match.sourceWords - a.match.sourceWords ||
     originRank[a.option.origin] - originRank[b.option.origin] ||
     a.index - b.index
+
   const ranked = rows.map((members) => {
     const sorted = [...members].sort(order)
+
     const best = members.reduce((a, b) =>
       (b.match.tier - a.match.tier || b.match.closeness - a.match.closeness) < 0 ? b : a
     )
+
     const { tier, closeness } = best.match
     // A hidden row a search names in full ranks with the rest; one it only partly names comes after them.
     const late = members.every((member) => isLate(member.option, best.match))
+
     return { members: sorted, tier, closeness, late }
   })
+
   ranked.sort(
     (a, b) =>
       compareRanked(a, b) ||
@@ -241,6 +301,7 @@ export function insertRows(options: readonly InsertOption[], query = ""): Insert
       originRank[a.members[0]!.option.origin] - originRank[b.members[0]!.option.origin] ||
       a.members[0]!.index - b.members[0]!.index
   )
+
   return ranked.map(({ members }) => ({
     key: members[0]!.option.key,
     name: members[0]!.option.name,

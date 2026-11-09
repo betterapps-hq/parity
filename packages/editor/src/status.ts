@@ -54,24 +54,35 @@ export interface StatusOptions {
 export function editStatus(history: DesignHistory, options: StatusOptions = {}): EditStatus {
   const { summary = false, limit = 10 } = options
   const tokens = tokenWrites(history.current.tokens, history.saved.tokens)
+
   const unsaved = unsavedPaths(history).map((path): UnsavedFile => {
     const kind = path === history.stylesheet && !history.current.documents.has(path) ? "stylesheet" : "document"
-    if (!summary) return { path, kind }
+
+    if (!summary) {
+      return { path, kind }
+    }
+
     if (kind === "stylesheet") {
       const names = tokens.map((change) => `${change.name} ${change.theme}`)
+
       return { path, kind, tokens: names.slice(0, limit), ...more(names.length - limit) }
     }
+
     const designs = designChanges(history.current.documents.get(path), history.saved.documents.get(path))
     const modes = path === history.mainPath && !sameValue(history.current.modes, history.saved.modes)
     const all = designs.added.length + designs.changed.length + designs.removed.length
+
     const kept = {
       added: designs.added.slice(0, limit),
       changed: designs.changed.slice(0, limit),
       removed: designs.removed.slice(0, limit)
     }
+
     const shown = kept.added.length + kept.changed.length + kept.removed.length
+
     return { path, kind, designs: kept, ...(modes ? { modes } : {}), ...more(all - shown) }
   })
+
   const side = (steps: readonly { label: string }[]): HistorySide => ({
     count: steps.length,
     ...(summary
@@ -83,6 +94,7 @@ export function editStatus(history: DesignHistory, options: StatusOptions = {}):
         }
       : {})
   })
+
   return {
     revision: history.revision,
     dirty: unsaved.length > 0,
@@ -108,9 +120,12 @@ function designChanges(
   const after = new Map((current?.containers ?? []).map((container) => [container.id, container]))
   const added = [...after.keys()].filter((id) => !before.has(id))
   const removed = [...before.keys()].filter((id) => !after.has(id))
+
   const changed = [...after].flatMap(([id, container]) => {
     const was = before.get(id)
+
     return was && !sameDesign(was, container) ? [id] : []
   })
+
   return { added, changed, removed }
 }

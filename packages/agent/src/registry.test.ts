@@ -17,10 +17,12 @@ import type { CopyEntry } from "./routing.ts"
 
 let home = ""
 let registry: Registry
+
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "parity-registry-"))
   registry = agentRegistry({}, home)
 })
+
 afterEach(() => rmSync(home, { recursive: true, force: true }))
 
 function entry(app: number): CopyEntry {

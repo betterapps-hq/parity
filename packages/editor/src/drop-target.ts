@@ -50,12 +50,20 @@ export function frameLayout(frame: FrameBox, measured: Iterable<MeasuredLayer>):
   const layers: FrameLayout["layers"] = []
   const boxes = new Map<string, Rect>()
   const flows = new Map<string, Flow>()
+
   for (const { id, box, flow } of measured) {
-    if (!box || (box.right - box.left === 0 && box.bottom - box.top === 0)) continue
+    if (!box || (box.right - box.left === 0 && box.bottom - box.top === 0)) {
+      continue
+    }
+
     layers.push({ id, box })
     boxes.set(id, box)
-    if (flow) flows.set(id, flow)
+
+    if (flow) {
+      flows.set(id, flow)
+    }
   }
+
   return { frame, layers, boxes, flows }
 }
 
@@ -100,10 +108,12 @@ export function dropTargetAt({
 }: DropQuery): DropTarget | undefined {
   // Points now map back to where they were in the frame then, in case the camera moved.
   const scale = now.width > 0 ? layout.frame.width / now.width : 1
+
   const then = {
     x: layout.frame.left + (point.x - now.left) * scale,
     y: layout.frame.top + (point.y - now.top) * scale
   }
+
   const deepest = layout.layers.findLast(({ box }) => inside(box, then))?.id
   const location = deepest ? locateNode(root, deepest) : undefined
   const chain = location ? [...location.ancestors, location.node] : [root]
@@ -113,16 +123,27 @@ export function dropTargetAt({
   const own = new Set(same ? ids.map((id) => locateNode(root, id)?.ancestors.at(-1)?.id) : [])
   const stop = chain.findLastIndex((node) => own.has(node.id))
   const parent = (stop === -1 ? chain : chain.slice(0, stop + 1)).findLast((node) => node.type === "layout")
-  if (parent?.type !== "layout") return undefined
+
+  if (parent?.type !== "layout") {
+    return undefined
+  }
+
   const flow = layout.flows.get(parent.id)
   const box = layout.boxes.get(parent.id)
-  if (!flow || !box) return undefined
+
+  if (!flow || !box) {
+    return undefined
+  }
+
   const children = parent.children.flatMap((child, index) => {
     const childBox = layout.boxes.get(child.id)
+
     // Layers being moved within their design aren't slots, nor are children that aren't drawn.
     return childBox && !(same && moving.has(child.id)) ? [{ index, box: childBox }] : []
   })
+
   const slot = slotAt(children, then, flow, box, parent.children.length)
+
   return {
     target: { design, parent: parent.id, index: slot.index },
     line: {

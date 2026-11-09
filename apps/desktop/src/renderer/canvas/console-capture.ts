@@ -49,13 +49,18 @@ const interactions = [
 export function frameContext(path: readonly EventTarget[]): (ConsoleContext & { design: string }) | undefined {
   for (const target of path) {
     const dataset = (target as Partial<HTMLElement>).dataset
-    if (dataset?.frame === undefined || !dataset.design) continue
+
+    if (dataset?.frame === undefined || !dataset.design) {
+      continue
+    }
+
     return {
       design: dataset.design,
       ...(dataset.state ? { state: dataset.state } : {}),
       ...(dataset.mode ? { mode: dataset.mode } : {})
     }
   }
+
   return undefined
 }
 
@@ -69,9 +74,12 @@ const stackFrame = /((?:https?|file):\/\/[^\s()]+):(\d+):\d+\)?$/
 export function callSite(stack: string | undefined): { source: string; line: number } | undefined {
   const frames = (stack ?? "").split("\n").flatMap((text) => {
     const found = stackFrame.exec(text.trim())
+
     return found ? [{ source: found[1]!, line: Number(found[2]) }] : []
   })
+
   const own = frames[0] && URL.parse(frames[0].source)?.origin
+
   return frames.slice(1).find((frame) => URL.parse(frame.source)?.origin !== own)
 }
 
@@ -93,38 +101,63 @@ export function captureConsole(
 ): void {
   let context: (ConsoleContext & { design: string }) | undefined
   let wrapped: Partial<Record<Method, (...args: unknown[]) => void>> | undefined
+
   const unwrap = () => {
     for (const method of Object.keys(levels) as Method[]) {
       const wrapper = wrapped?.[method]
+
       // Something that wrapped the console after this did keeps its wrapper.
-      if (wrapper && target.console[method] === wrapper) target.console[method] = originals[method]!
+      if (wrapper && target.console[method] === wrapper) {
+        target.console[method] = originals[method]!
+      }
     }
+
     wrapped = undefined
     context = undefined
   }
+
   const originals: Partial<Record<Method, (...args: unknown[]) => void>> = {}
+
   const wrap = () => {
-    if (wrapped) return
+    if (wrapped) {
+      return
+    }
+
     wrapped = {}
+
     for (const [method, level] of Object.entries(levels) as [Method, ConsoleEntry["level"]][]) {
       const original = target.console[method]
       originals[method] = original
+
       const wrapper = (...args: unknown[]) => {
         // The console reports this wrapper as the message's source, so the frame's own call goes with the design.
-        if (context) host.announce(level, { ...context, ...callSite(new Error().stack) })
+        if (context) {
+          host.announce(level, { ...context, ...callSite(new Error().stack) })
+        }
+
         original.apply(target.console, args)
       }
+
       wrapped[method] = wrapper
       target.console[method] = wrapper
     }
+
     // Once the task the event started is done, with the microtasks and render it queued.
     target.setTimeout(unwrap, 0)
   }
+
   const listen = (event: Event) => {
     const found = frameContext(event.composedPath())
-    if (!found) return
+
+    if (!found) {
+      return
+    }
+
     context = found
     wrap()
   }
-  for (const type of interactions) target.addEventListener(type, listen, { capture: true, passive: true })
+
+  for (const type of interactions) {
+    target.addEventListener(type, listen, { capture: true, passive: true })
+  }
 }

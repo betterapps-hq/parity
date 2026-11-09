@@ -11,6 +11,7 @@ afterEach(() => {
 
 function setup() {
   const close = vi.fn<() => void>()
+
   return { close, idle: idleClose(60_000, close) }
 }
 

@@ -14,11 +14,22 @@ export type LockSource = { by: "itself" } | { by: "layer"; layer: DesignNode } |
 export function lockSource(container: ContainerSpec, id: string): LockSource | undefined {
   const [own] = id.split("/")
   const location = locateNode(container.root, own!)
-  if (!location) return container.locked ? { by: "design" } : undefined
-  if (location.node.locked && !isInnerPath(id)) return { by: "itself" }
+
+  if (!location) {
+    return container.locked ? { by: "design" } : undefined
+  }
+
+  if (location.node.locked && !isInnerPath(id)) {
+    return { by: "itself" }
+  }
+
   const around = [...location.ancestors, ...(isInnerPath(id) ? [location.node] : [])]
   const layer = around.reverse().find((node) => node.locked)
-  if (layer) return { by: "layer", layer }
+
+  if (layer) {
+    return { by: "layer", layer }
+  }
+
   return container.locked ? { by: "design" } : undefined
 }
 
@@ -35,8 +46,10 @@ export function isLocked(container: ContainerSpec, id: string): boolean {
 export function unlockedPath(container: ContainerSpec, path: readonly string[]): readonly string[] {
   const at = path.findIndex((id) => {
     const source = lockSource({ ...container, locked: false }, id)
+
     return source !== undefined
   })
+
   return at === -1 ? path : path.slice(0, at)
 }
 
@@ -51,6 +64,7 @@ export function lockableIds(container: ContainerSpec, ids: readonly string[]): s
 /** Whether every lockable layer among `ids` is locked by its own lock, so Lock reads Unlock. */
 export function layersLocked(container: ContainerSpec, ids: readonly string[]): boolean {
   const own = lockableIds(container, ids)
+
   return own.length > 0 && own.every((id) => locateNode(container.root, id)!.node.locked === true)
 }
 
@@ -60,9 +74,14 @@ export function layersLocked(container: ContainerSpec, ids: readonly string[]): 
  */
 export function toggleLockedLayers(container: ContainerSpec, ids: readonly string[]): ContainerSpec {
   const own = lockableIds(container, ids)
-  if (own.length === 0) return container
+
+  if (own.length === 0) {
+    return container
+  }
+
   const lock = !layersLocked(container, own)
   const root = own.reduce((next, id) => mapNode(next, id, (node) => withLocked(node, lock)), container.root)
+
   return root === container.root ? container : { ...container, root }
 }
 
@@ -77,8 +96,15 @@ export function setDesignLocked(container: ContainerSpec, lock: boolean): Contai
 }
 
 function withLocked<T extends { locked?: boolean }>(value: T, lock: boolean): T {
-  if ((value.locked === true) === lock) return value
-  if (lock) return { ...value, locked: true }
+  if ((value.locked === true) === lock) {
+    return value
+  }
+
+  if (lock) {
+    return { ...value, locked: true }
+  }
+
   const { locked: _locked, ...rest } = value
+
   return rest as T
 }

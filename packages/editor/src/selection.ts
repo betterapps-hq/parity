@@ -63,7 +63,10 @@ export function selectedNodes(selection: Selection): string[] {
 
 /** Every selected design, when designs rather than layers are selected. */
 export function selectedDesigns(selection: Selection): string[] {
-  if (selection.node || selection.mode) return []
+  if (selection.node || selection.mode) {
+    return []
+  }
+
   return selection.designs ?? (selection.design ? [selection.design] : [])
 }
 
@@ -74,7 +77,11 @@ export function layersSelection(
   frame: { mode?: string; state?: string } = {}
 ): Selection {
   const unique = [...new Set(nodes)]
-  if (unique.length === 0) return { design }
+
+  if (unique.length === 0) {
+    return { design }
+  }
+
   return {
     design,
     node: unique.at(-1),
@@ -91,15 +98,23 @@ export function toggleLayer(
   node: string,
   frame: { mode?: string; state?: string }
 ): Selection {
-  if (current.design !== design) return layersSelection(design, [node], frame)
+  if (current.design !== design) {
+    return layersSelection(design, [node], frame)
+  }
+
   const list = selectedNodes(current)
   const next = list.includes(node) ? list.filter((id) => id !== node) : [...list, node]
+
   return layersSelection(design, next, { mode: current.mode ?? frame.mode, state: current.state ?? frame.state })
 }
 
 /** A selection of designs on the canvas. */
 export function designsSelection(designs: string[]): Selection {
   const unique = [...new Set(designs)]
-  if (unique.length === 0) return {}
+
+  if (unique.length === 0) {
+    return {}
+  }
+
   return { design: unique.at(-1), ...(unique.length > 1 ? { designs: unique } : {}) }
 }

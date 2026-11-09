@@ -33,6 +33,7 @@ const codedErrors: ErrorCodec = {
   }),
   decode: (message, details) => {
     const code = (details as { code?: unknown } | undefined)?.code
+
     return typeof code === "string" ? new CodedFailure(message, { code }) : new Error(message)
   }
 }
@@ -40,7 +41,11 @@ const codedErrors: ErrorCodec = {
 const checks: Checks<ServiceSide> = {
   "notes.add": (params) => {
     const text = (params as { text?: unknown } | undefined)?.text
-    if (typeof text !== "string") throw new CodedFailure("/text: expected a string", { code: "invalid_input" })
+
+    if (typeof text !== "string") {
+      throw new CodedFailure("/text: expected a string", { code: "invalid_input" })
+    }
+
     return { text }
   },
   "notes.slow": () => undefined,
@@ -50,9 +55,11 @@ const checks: Checks<ServiceSide> = {
 function connected(options: { checks?: boolean } = {}) {
   let later: () => void = () => undefined
   const added: string[] = []
+
   const handlers: Handlers<ServiceSide> = {
     "notes.add": ({ text }) => {
       added.push(text)
+
       return { id: added.length }
     },
     "notes.slow": () => new Promise((resolve) => (later = () => resolve("done"))),
@@ -60,6 +67,7 @@ function connected(options: { checks?: boolean } = {}) {
       throw new CodedFailure("That note is locked", { code })
     }
   }
+
   const service = createChannel<ServiceSide, WindowSide>({
     handlers,
     errors: codedErrors,
@@ -67,13 +75,16 @@ function connected(options: { checks?: boolean } = {}) {
     unknownMethod: (method) => new CodedFailure(`Unknown method ${method}`, { code: "invalid_input" }),
     disconnected: () => new Error("The canvas window closed")
   })
+
   const window = createChannel<WindowSide, ServiceSide>({
     errors: codedErrors,
     notServing: () => new Error("The canvas window isn't ready yet")
   })
+
   const [servicePort, windowPort] = memoryPorts()
   service.connect(servicePort)
   window.connect(windowPort)
+
   return { service, window, servicePort, windowPort, added, finishSlow: () => later() }
 }
 
@@ -136,6 +147,7 @@ describe("createChannel", () => {
     const window = createChannel<WindowSide, ServiceSide>({
       disconnected: () => new Error("The project service restarted")
     })
+
     const [silent] = memoryPorts()
     window.connect(silent)
     const lost = window.request("notes.add", { text: "Lost" })
@@ -181,6 +193,7 @@ describe("createChannel", () => {
 
   it("passes what its checks read to the handler, not what was sent", async () => {
     const seen: unknown[] = []
+
     const service = createChannel<ServiceSide, WindowSide>({
       checks: { ...checks, "notes.add": () => ({ text: "trimmed" }) },
       handlers: {
@@ -189,6 +202,7 @@ describe("createChannel", () => {
         "notes.fail": () => undefined as never
       }
     })
+
     const window = createChannel<WindowSide, ServiceSide>()
     const [a, b] = memoryPorts()
     service.connect(a)
@@ -199,9 +213,11 @@ describe("createChannel", () => {
 
   it("ignores what isn't a channel message, and a reply nobody asked for", async () => {
     const { window, windowPort } = connected()
+
     for (const stray of [undefined, "hello", { type: "connect" }, { type: "response", id: 99, result: 1 }]) {
       windowPort.deliver(stray)
     }
+
     expect(await window.request("notes.add", { text: "Still works" })).toEqual({ id: 1 })
   })
 
@@ -216,6 +232,7 @@ describe("createChannel", () => {
 
   it("passes the trace a request was sent in to the other end's `around`, which runs its handler", async () => {
     const seen: { method: string; trace: unknown }[] = []
+
     const service = createChannel<ServiceSide, WindowSide>({
       handlers: {
         "notes.add": ({ text }) => ({ id: text.length }),
@@ -227,9 +244,11 @@ describe("createChannel", () => {
       errors: codedErrors,
       around: async (request, answer) => {
         seen.push(request)
+
         return answer()
       }
     })
+
     let current: unknown = { "sentry-trace": "action" }
     const window = createChannel<WindowSide, ServiceSide>({ errors: codedErrors, trace: () => current })
     const [servicePort, windowPort] = memoryPorts()
@@ -256,6 +275,7 @@ describe("createChannel", () => {
       sent.push(message)
       post(message)
     }
+
     expect(await window.request("notes.add", { text: "Old" })).toEqual({ id: 1 })
     expect(sent).toEqual([{ type: "request", id: 1, method: "notes.add", params: { text: "Old" } }])
   })
@@ -264,6 +284,7 @@ describe("createChannel", () => {
 describe("nodePort", () => {
   it("unwraps Electron's `{ data }` messages and fails what was sent when its close event says why", async () => {
     const emitter = Object.assign(new EventEmitter(), { posted: [] as unknown[], started: false })
+
     const port = nodePort(
       Object.assign(emitter, {
         postMessage: (message: unknown) => emitter.posted.push(message),
@@ -273,6 +294,7 @@ describe("nodePort", () => {
       }),
       { wrapped: true, closedBy: { exit: (code) => new Error(`The service stopped with code ${String(code)}`) } }
     )
+
     const channel = createChannel<WindowSide, ServiceSide>()
     channel.connect(port)
     expect(emitter.started).toBe(true)

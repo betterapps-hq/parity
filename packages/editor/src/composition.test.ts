@@ -55,7 +55,10 @@ const context = { sources, props }
 
 /** The components an example holds, outermost first. */
 function components(node: DesignNode): string[] {
-  if (node.type !== "component") return []
+  if (node.type !== "component") {
+    return []
+  }
+
   return [node.component, ...Object.values(node.slots ?? {}).flatMap((nodes) => nodes.flatMap(components))]
 }
 

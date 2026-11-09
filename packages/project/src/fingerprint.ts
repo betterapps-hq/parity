@@ -20,10 +20,13 @@ export async function fingerprintInputs(
 ): Promise<string[]> {
   const own = Object.values(sources).flatMap((source) => {
     const file = source.declaration ?? (source.library ? undefined : source.path)
+
     return file && !file.includes("node_modules/") ? [file] : []
   })
+
   const { configs, lockfiles } = configInputs(tsconfig, await findLockfiles(root))
   const paths = new Set([...files, ...own, ...configs, ...lockfiles])
+
   return [...paths].sort()
 }
 
@@ -42,10 +45,15 @@ export async function detectionFingerprint(
   const hash = createHash("sha256").update(salt).update("\0")
   const ids = Object.keys(sources).sort()
   hash.update(JSON.stringify(ids.map((id) => [id, sources[id]])))
+
   for (const path of await fingerprintInputs(root, files, sources, tsconfig)) {
     const contents = await readFile(resolve(root, path)).catch(() => undefined)
     hash.update(`\0${path}\0`)
-    if (contents) hash.update(contents)
+
+    if (contents) {
+      hash.update(contents)
+    }
   }
+
   return hash.digest("hex")
 }

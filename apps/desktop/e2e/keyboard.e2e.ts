@@ -10,12 +10,15 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 // Pricing's footer links, a row of three texts: Privacy, Terms and Status.
 const links = "b1UlB"
 const [privacy, terms, status] = ["I642d", "U2Hkf", "vMbuW"]
+
 // Calendar's Planning slot, placed absolutely at top 16 and stretched between left 0 and right 0, in its Events.
 const planning = "aAaEs"
 const events = "zEb2T"
@@ -24,6 +27,7 @@ const frameFocus = () =>
   app.page.evaluate(() =>
     [...document.querySelectorAll<HTMLElement>("[data-frame]")].some((host) => host.shadowRoot?.activeElement)
   )
+
 const allInert = () =>
   app.page.evaluate(() => [...document.querySelectorAll("[data-frame]")].every((host) => host.hasAttribute("inert")))
 
@@ -32,10 +36,12 @@ describe("keys outside Interact", () => {
     await app.show("Sign in", 0.5)
     await app.selectDesign("Sign in")
     expect(await allInert()).toBe(true)
+
     for (let press = 0; press < 4; press++) {
       await app.page.keyboard.press("Tab")
       expect(await frameFocus()).toBe(false)
     }
+
     // The canvas's keys still work after it.
     await app.page.keyboard.press("n")
     await expect.poll(async () => (await app.selection()).design).not.toBe(await app.key("Sign in"))
@@ -47,22 +53,29 @@ describe("keys outside Interact", () => {
     await app.page.keyboard.press("i")
     await expect.poll(() => app.tool()).toBe("interact")
     expect(await allInert()).toBe(false)
+
     const field = await app.page.evaluate(() => {
       const e2e = window.e2e!
+
       const { x, y, width, height } = e2e
         .frame(e2e.key("Sign in"))
         .shadowRoot!.querySelector("input")!
         .getBoundingClientRect()
+
       return { x, y, width, height }
     })
+
     await app.click(center(field))
     await app.page.keyboard.type("ada")
+
     const typed = () =>
       app.page.evaluate(() => {
         const e2e = window.e2e!
         const active = e2e.frame(e2e.key("Sign in")).shadowRoot!.activeElement
+
         return active instanceof HTMLInputElement ? active.value : undefined
       })
+
     expect(await typed()).toMatch(/ada$/)
     // Keys typed there are the design's: N went into the field rather than to the next design.
     await app.page.keyboard.type("n")
@@ -81,9 +94,11 @@ describe("Tab from a design's title", () => {
     await app.show("Members", 1)
     await app.selectDesign("Members")
     const members = await app.key("Members")
+
     const focused = () =>
       app.page.evaluate(() => {
         const active = document.activeElement
+
         return {
           label: active?.getAttribute("aria-label") ?? active?.textContent?.trim(),
           title: !!active?.closest(".design-title"),
@@ -91,6 +106,7 @@ describe("Tab from a design's title", () => {
           canvas: !!active?.closest(".tl-container")
         }
       })
+
     expect(await focused()).toEqual({ label: "Members", title: true, board: null, canvas: true })
     await app.page.keyboard.press("Tab")
     expect(await focused()).toEqual({ label: "State", title: true, board: null, canvas: true })
@@ -99,15 +115,21 @@ describe("Tab from a design's title", () => {
     // On past the canvas: Members' mode caption, which Enter selects as a person would click it, then out, never to
     // another design's title or board. Without a licence key, as here, tldraw's own notice comes too.
     const boards: string[] = []
+
     for (let press = 0; press < 4 && (await focused()).canvas; press++) {
       await app.page.keyboard.press("Tab")
       const now = await focused()
       expect(now.title).toBe(false)
-      if (!now.board) continue
+
+      if (!now.board) {
+        continue
+      }
+
       boards.push(now.board)
       await app.page.keyboard.press("Enter")
       await expect.poll(() => app.selection()).toEqual({ design: members, mode: expect.any(String) })
     }
+
     expect(boards).toEqual([members])
     expect(await focused()).toMatchObject({ canvas: false })
   })
@@ -168,14 +190,18 @@ describe("nudging", () => {
     await app.page.keyboard.press("Alt+ArrowRight")
     await app.frames(2)
     expect(await position()).toEqual({ x: at.x - 1, y: at.y - 10 })
+
     const board = await app.page.evaluate(() => {
       const e2e = window.e2e!
       const editor = e2e.session().editor!
+
       const shape = editor
         .getCurrentPageShapes()
         .find((candidate) => candidate.id.endsWith(encodeURIComponent(e2e.key("Pricing"))))!
+
       return { x: shape.x, y: shape.y }
     })
+
     expect(board).toEqual({ x: at.x - 1, y: at.y - 10 })
     await app.page.keyboard.press("Control+z")
     await expect.poll(position).toEqual(at)
@@ -242,13 +268,19 @@ describe("next and previous design", () => {
 /** The camera once it has stopped moving, rounded to what can be seen. */
 async function settledCamera(): Promise<{ x: number; y: number; z: number }> {
   let last = ""
+
   for (let tries = 0; tries < 40; tries++) {
     await app.frames(2)
     const camera = await app.camera()
     const rounded = { x: Math.round(camera.x), y: Math.round(camera.y), z: Math.round(camera.z * 1000) / 1000 }
-    if (JSON.stringify(rounded) === last) return rounded
+
+    if (JSON.stringify(rounded) === last) {
+      return rounded
+    }
+
     last = JSON.stringify(rounded)
   }
+
   throw new Error("The camera kept moving")
 }
 
@@ -272,6 +304,7 @@ describe("paste over selection and paste to replace", () => {
     let loads = 0
     const count = () => loads++
     app.page.on("framenavigated", count)
+
     try {
       await app.show("Pricing", 0.5, links)
       await app.selectLayer("Pricing", terms)
@@ -319,14 +352,17 @@ describe("paste over selection and paste to replace", () => {
     const signIn = before.find((design) => design.name === "Sign in")!
     expect(copy.position).toEqual(signIn.position)
     expect((await app.selection()).design).toBe(copy.key)
+
     const onTop = await app.page.evaluate(
       ([copy, under]) => {
         const shapes = window.e2e!.session().editor!.getCurrentPageShapesSorted()
         const index = (key: string) => shapes.findIndex((shape) => shape.id.endsWith(encodeURIComponent(key)))
+
         return index(copy) > index(under)
       },
       [copy.key, signIn.key] as const
     )
+
     expect(onTop).toBe(true)
   })
 
@@ -363,8 +399,10 @@ describe("how shortcuts are shown", () => {
       const texts = await open.allInnerTexts()
       await app.page.keyboard.press("Escape")
       await expect.poll(() => app.page.getByRole("menu").count()).toBe(0)
+
       return texts.map((text) => text.replace(/\s+/g, " ").trim())
     }
+
     expect(await items("Edit")).toEqual(
       expect.arrayContaining([
         "Paste Ctrl+V",
@@ -384,6 +422,7 @@ describe("how shortcuts are shown", () => {
     const dialog = app.page.getByRole("dialog")
     await expect.poll(() => dialog.isVisible()).toBe(true)
     const text = await dialog.innerText()
+
     for (const label of [
       "Nudge",
       "Big nudge",
@@ -394,6 +433,7 @@ describe("how shortcuts are shown", () => {
     ]) {
       expect(text).toContain(label)
     }
+
     expect(await dialog.locator("kbd", { hasText: /^Ctrl\+Shift\+R$/ }).count()).toBeGreaterThan(0)
     expect(await dialog.locator("kbd", { hasText: /^Shift\+←$/ }).count()).toBeGreaterThan(0)
   })

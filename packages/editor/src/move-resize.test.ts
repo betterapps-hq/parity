@@ -167,6 +167,7 @@ const box = (left: number, top: number, width: number, height: number): Rect => 
 const scale = 0.71
 const button = box(1000, 200, 122.6 * scale, 32 * scale)
 const header = box(600, 200, 400 + 122.6 * scale, 32 * scale)
+
 const start = (edge: Edge, fields: Partial<ResizeStart> = {}): ResizeStart => ({
   edge,
   rect: button,
@@ -179,6 +180,7 @@ const start = (edge: Edge, fields: Partial<ResizeStart> = {}): ResizeStart => ({
 /** The style the gesture gives at each pointer position in turn, the last one returned. */
 function drag(from: ResizeStart, ...moves: [number, number, boolean?][]) {
   const gesture = resizeGesture(from)
+
   return moves.map(([dx, dy, shift]) => gesture({ dx, dy, shift: !!shift })).at(-1)
 }
 
@@ -187,6 +189,7 @@ describe("which sizes a handle changes", () => {
     const axes = Object.fromEntries(
       (["n", "e", "s", "w", "ne", "se", "sw", "nw"] as const).map((edge) => [edge, edgeAxes(edge)])
     )
+
     expect(axes).toEqual({
       n: { width: false, height: true },
       e: { width: true, height: false },
@@ -245,6 +248,7 @@ describe("resizing a layer in a layout", () => {
 describe("resizing an absolutely placed layer", () => {
   // Calendar's Review slot: 16 steps tall, 40 steps from the top, stretched between its day's sides.
   const slot = box(100, 160, 200, 64)
+
   const from = (edge: Edge, style: NodeStyle) =>
     start(edge, {
       rect: slot,
@@ -293,6 +297,7 @@ describe("resizing a layer from what the board shows and what was measured", () 
   it("takes grow away with a size along its layout's direction, and keeps it across", () => {
     const growing = (edge: Edge, parentDirection: "row" | "column") =>
       layerResize({ ...measured, edge, layer: { style: { grow: true }, parentDirection } })
+
     expect(growing("e", "row")({ dx: 20, dy: 0, shift: false, snaps: true }).style).toStrictEqual({
       width: 30,
       grow: undefined
@@ -312,6 +317,7 @@ describe("resizing a layer from what the board shows and what was measured", () 
   // Calendar's Review slot, 16 steps tall at top 40, stretched between its day's sides, with Lunch 8 steps below.
   const slot = { x: 0, y: 160, w: 200, h: 64 }
   const day = { siblings: [{ x: 0, y: 256, w: 200, h: 48 }], parent: { x: 0, y: 0, w: 200, h: 560 } }
+
   const review = (edge: Edge) =>
     layerResize({
       ...measured,
@@ -379,6 +385,7 @@ describe("resizing from the middle with Alt (PAR-169)", () => {
   it("moves an absolutely placed layer's inset back by half of what it grows, keeping its middle", () => {
     // Calendar's Review slot, 16 steps high at top 40: the top handle 16px up grows it 32px, so 24 steps at top 36.
     const slot = box(100, 160, 200, 64)
+
     const from = (edge: Edge, style: NodeStyle) =>
       resizeGesture({
         edge,
@@ -388,6 +395,7 @@ describe("resizing from the middle with Alt (PAR-169)", () => {
         unit: 4,
         absolute: { style, drawn: { top: 40, right: 0, bottom: 84, left: 0 } }
       })
+
     const style: NodeStyle = { top: 40, left: 0, right: 0, height: 16 }
     expect(from("n", style)({ dx: 0, dy: -16, shift: false, centre: true })).toEqual({ height: 24, top: 36 })
     // Stretched between both sides, both insets move.
@@ -404,6 +412,7 @@ describe("resizing several layers together (PAR-169)", () => {
   // Three cards 40px wide, 10px apart, in a row from 0 to 140, at full size with a 4px unit.
   const cards = [box(0, 0, 40, 40), box(50, 0, 40, 40), box(100, 0, 40, 40)]
   const union = box(0, 0, 140, 40)
+
   const together = (edge: Edge) =>
     layersResize(
       cards.map((rect) => ({
@@ -445,10 +454,12 @@ describe("dragging an absolutely placed layer", () => {
   // The Review slot again, with Lunch's top 32px below its bottom, or 33px.
   const style: NodeStyle = { position: "absolute", top: 40, left: 0, right: 0, height: 16 }
   const slot = { x: 0, y: 160, w: 200, h: 64 }
+
   const day = (lunch: number) => ({
     siblings: [{ x: 0, y: lunch, w: 200, h: 48 }],
     parent: { x: 0, y: 0, w: 200, h: 560 }
   })
+
   const moving = (lunch: number) =>
     absoluteDrag({ style, unit: 4, scale: 1, snapping: { box: slot, scene: day(lunch) } })
 
@@ -481,7 +492,9 @@ const pricing: ContainerSpec = {
   root: { type: "layout", id: "root", children: [] },
   states: [{ id: "default", name: "Default" }]
 }
+
 const desktop = { viewport: "desktop", width: 1280 }
+
 const framed = (edge: Edge, design = pricing, rect = box(0, 0, 640, 450)) =>
   frameResize({ design, mode: desktop, edge, rect, scale: 0.5 })
 
@@ -656,6 +669,7 @@ function card(): ContainerSpec {
 }
 
 const nothingDrawn: Drawn = { flow: () => undefined, insets: () => undefined }
+
 const order = (container: ContainerSpec, parent = "root") =>
   (findNode(container.root, parent) as Extract<DesignNode, { type: "layout" }>).children.map((child) => child.id)
 
@@ -706,9 +720,11 @@ describe("nudging a design's layers", () => {
 
   it("lands on whole pixels after many presses with a unit that doesn't divide evenly", () => {
     let container = card()
+
     for (let press = 0; press < 6; press++) {
       container = nudgeLayers(container, ["badge"], base, "right", false, 6, nothingDrawn).container
     }
+
     // 2 steps of 6px is 12px; six presses make it 18px, 3 steps exactly.
     expect(findNode(container.root, "badge")?.style?.left).toBe(3)
   })

@@ -88,27 +88,39 @@ export function unknownReference(
  */
 export function closest(reference: string, candidates: readonly string[], limit = alternativeLimit): string[] {
   const unique = [...new Set(candidates)]
-  if (unique.length <= limit) return unique
+
+  if (unique.length <= limit) {
+    return unique
+  }
+
   const wanted = reference.toLowerCase()
+
   const ranked = unique.map((candidate, index) => {
     const lower = candidate.toLowerCase()
     const near = wanted.length > 0 && (lower.includes(wanted) || wanted.includes(lower))
+
     return { candidate, index, near: near ? 0 : 1, distance: near ? 0 : editDistance(wanted, lower) }
   })
+
   ranked.sort((a, b) => a.near - b.near || a.distance - b.distance || a.index - b.index)
+
   return ranked.slice(0, limit).map(({ candidate }) => candidate)
 }
 
 /** How many single-character insertions, deletions or substitutions turn one string into the other. */
 function editDistance(a: string, b: string): number {
   let previous = Array.from({ length: b.length + 1 }, (_, index) => index)
+
   for (let i = 1; i <= a.length; i++) {
     const row = [i]
+
     for (let j = 1; j <= b.length; j++) {
       row[j] = Math.min(previous[j]! + 1, row[j - 1]! + 1, previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1))
     }
+
     previous = row
   }
+
   return previous[b.length]!
 }
 

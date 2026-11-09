@@ -24,7 +24,11 @@ import { layersName } from "./new-screen.ts"
 export function nextFrameName(names: Iterable<string>, base = "Frame"): string {
   const pattern = new RegExp(`^${base} (\\d+)$`)
   let highest = 0
-  for (const name of names) highest = Math.max(highest, Number(pattern.exec(name)?.[1] ?? 0))
+
+  for (const name of names) {
+    highest = Math.max(highest, Number(pattern.exec(name)?.[1] ?? 0))
+  }
+
   return `${base} ${highest + 1}`
 }
 
@@ -41,6 +45,7 @@ export function drawnFrame(
   size: { width: number; height: number }
 ): ContainerSpec {
   const name = nextFrameName(taken.map((design) => design.name))
+
   const frame = newDesign(
     "frame",
     [],
@@ -49,6 +54,7 @@ export function drawnFrame(
       size: { width: Math.round(size.width), height: Math.round(size.height) }
     }
   )
+
   return {
     ...frame,
     id: uniqueId(
@@ -78,21 +84,26 @@ export function snapToEdges(
 ): { point: { x: number; y: number }; guides: { x?: number; y?: number } } {
   const nearest = (value: number, edges: number[]) => {
     let best: number | undefined
+
     for (const edge of edges) {
       if (Math.abs(value - edge) <= reach && (best === undefined || Math.abs(value - edge) < Math.abs(value - best))) {
         best = edge
       }
     }
+
     return best
   }
+
   const x = nearest(
     point.x,
     boxes.flatMap((box) => [box.minX, box.maxX])
   )
+
   const y = nearest(
     point.y,
     boxes.flatMap((box) => [box.minY, box.maxY])
   )
+
   return {
     point: { x: x ?? point.x, y: y ?? point.y },
     guides: { ...(x === undefined ? {} : { x }), ...(y === undefined ? {} : { y }) }
@@ -106,6 +117,7 @@ export function draggedBox(
 ): { x: number; y: number; width: number; height: number } {
   const x = Math.round(Math.min(from.x, to.x))
   const y = Math.round(Math.min(from.y, to.y))
+
   return {
     x,
     y,
@@ -125,9 +137,16 @@ export function hugsContent(design: ContainerSpec): boolean {
  * it shows at. Undefined when it's already that wide, or doesn't hug.
  */
 export function fittedFrame(design: ContainerSpec, drawnWidth: number): ContainerSpec | undefined {
-  if (!hugsContent(design)) return undefined
+  if (!hugsContent(design)) {
+    return undefined
+  }
+
   const width = Math.max(1, Math.round(drawnWidth))
-  if (design.size?.width === width && design.size.height === undefined) return undefined
+
+  if (design.size?.width === width && design.size.height === undefined) {
+    return undefined
+  }
+
   return { ...design, size: { width } }
 }
 
@@ -137,15 +156,24 @@ export function fittedFrame(design: ContainerSpec, drawnWidth: number): Containe
  * viewport's (see `withFrame`).
  */
 export function withFrameSize(design: ContainerSpec, size: FrameSize): ContainerSpec {
-  if (design.kind !== "frame") return design
+  if (design.kind !== "frame") {
+    return design
+  }
+
   const next: ContainerSpec = { ...design }
-  if (size.width === undefined && size.height === undefined) delete next.size
-  else next.size = size
+
+  if (size.width === undefined && size.height === undefined) {
+    delete next.size
+  } else {
+    next.size = size
+  }
+
   if (size.width !== undefined && hugsContent(design) && design.root.type === "layout") {
     const style = { ...design.root.style }
     delete style.width
     next.root = { ...design.root, style }
   }
+
   return next
 }
 
@@ -155,11 +183,21 @@ export function withFrameSize(design: ContainerSpec, size: FrameSize): Container
  * it. Selecting a frame edits this; `frameRootStored` puts an edit back. Anything but a frame is left as it is.
  */
 export function frameRootShown(design: ContainerSpec, unit: number): ContainerSpec {
-  if (design.kind !== "frame" || design.root.type !== "layout") return design
+  if (design.kind !== "frame" || design.root.type !== "layout") {
+    return design
+  }
+
   const style = { ...design.root.style }
   const { width, height } = design.size ?? {}
-  if (width !== undefined && style.width !== "hug") style.width = width / unit
-  if (height !== undefined) style.height = height / unit
+
+  if (width !== undefined && style.width !== "hug") {
+    style.width = width / unit
+  }
+
+  if (height !== undefined) {
+    style.height = height / unit
+  }
+
   return { ...design, root: { ...design.root, style } }
 }
 
@@ -169,18 +207,37 @@ export function frameRootShown(design: ContainerSpec, unit: number): ContainerSp
  * the primary mode and as tall as its content.
  */
 export function frameRootStored(design: ContainerSpec, unit: number): ContainerSpec {
-  if (design.kind !== "frame" || design.root.type !== "layout") return design
+  if (design.kind !== "frame" || design.root.type !== "layout") {
+    return design
+  }
+
   const style = { ...design.root.style }
   const size: FrameSize = {}
-  if (typeof style.width === "number") size.width = Math.round(style.width * unit)
-  else if (style.width === "hug" && design.size?.width !== undefined) size.width = design.size.width
-  if (typeof style.height === "number") size.height = Math.round(style.height * unit)
-  if (style.width !== "hug") delete style.width
+
+  if (typeof style.width === "number") {
+    size.width = Math.round(style.width * unit)
+  } else if (style.width === "hug" && design.size?.width !== undefined) {
+    size.width = design.size.width
+  }
+
+  if (typeof style.height === "number") {
+    size.height = Math.round(style.height * unit)
+  }
+
+  if (style.width !== "hug") {
+    delete style.width
+  }
+
   delete style.height
   const { style: _, ...bare } = design.root
   const next: ContainerSpec = { ...design, root: Object.keys(style).length > 0 ? { ...bare, style } : bare }
-  if (size.width === undefined && size.height === undefined) delete next.size
-  else next.size = size
+
+  if (size.width === undefined && size.height === undefined) {
+    delete next.size
+  } else {
+    next.size = size
+  }
+
   return next
 }
 
@@ -199,6 +256,7 @@ export function frameOfText(
   ids.add(rootId)
   const node = generateId(ids)
   const name = layersName([{ type: "text", id: node, text }])
+
   return {
     design: {
       id: uniqueId(name, taken),
@@ -224,9 +282,14 @@ export function frameOfText(
  */
 export function textFrameRenamed(design: ContainerSpec, node: string, before: string, after: string): ContainerSpec {
   const children = design.root.type === "layout" ? design.root.children : []
-  if (design.kind !== "frame" || children.length !== 1 || children[0]!.id !== node) return design
+
+  if (design.kind !== "frame" || children.length !== 1 || children[0]!.id !== node) {
+    return design
+  }
+
   const was = layersName([{ type: "text", id: "text", text: before }])
   const name = layersName([{ type: "text", id: "text", text: after }])
+
   return design.name === was && name !== was && after.trim() ? { ...design, name } : design
 }
 
@@ -248,12 +311,15 @@ export interface FramePreset {
  */
 export function framePresets(settings: ModeSettings): FramePreset[] {
   const presets: FramePreset[] = []
+
   for (const mode of resolveModes(settings)) {
     const option = mode.options.find(({ variable }) => variable.kind === "viewport")?.option
     const name = option?.name ?? mode.name
     const found = presets.find((preset) => preset.name === name && preset.width === mode.width)
-    if (found) found.modes.push(mode.name)
-    else {
+
+    if (found) {
+      found.modes.push(mode.name)
+    } else {
       presets.push({
         mode,
         name,
@@ -263,6 +329,7 @@ export function framePresets(settings: ModeSettings): FramePreset[] {
       })
     }
   }
+
   return presets
 }
 
@@ -270,8 +337,11 @@ export function framePresets(settings: ModeSettings): FramePreset[] {
 export function instanceCount(design: ContainerSpec, id: string): number {
   let count = 0
   walkNodes(design.root, (node) => {
-    if (node.type === "instance" && node.design === id) count += 1
+    if (node.type === "instance" && node.design === id) {
+      count += 1
+    }
   })
+
   return count
 }
 
@@ -282,7 +352,10 @@ export function instanceCount(design: ContainerSpec, id: string): number {
 export function detachInstancesOf(design: ContainerSpec, id: string, library: ComponentLibrary): ContainerSpec {
   const instances: string[] = []
   walkNodes(design.root, (node) => {
-    if (node.type === "instance" && node.design === id) instances.push(node.id)
+    if (node.type === "instance" && node.design === id) {
+      instances.push(node.id)
+    }
   })
+
   return instances.reduce((current, instance) => detachInstance(current, instance, library), design)
 }

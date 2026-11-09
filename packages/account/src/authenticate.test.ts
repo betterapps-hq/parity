@@ -35,10 +35,13 @@ const answer = {
 /** A `fetch` that gives one answer and keeps what it was asked. */
 function answering(status: number, body: unknown) {
   const requests: { url: string; init: RequestInit }[] = []
+
   const fetch: Fetch = async (url, init) => {
     requests.push({ url, init })
+
     return new Response(typeof body === "string" ? body : JSON.stringify(body), { status })
   }
+
   return { fetch, requests }
 }
 
@@ -135,6 +138,7 @@ describe("authenticate", () => {
 
   it("names the account WorkOS sends to single sign-on", async () => {
     const code = codeRequest({ clientId: "client_01TEST", code: "01CODE", verifier: "verifier" })
+
     const sso = answering(403, {
       code: "sso_required",
       message: "User must authenticate using one of the matching connections.",
@@ -142,6 +146,7 @@ describe("authenticate", () => {
       connection_ids: ["conn_01"],
       pending_authentication_token: "pending_01"
     })
+
     expect(await authenticate(sso.fetch, code)).toEqual({
       kind: "refused",
       status: 403,
@@ -153,6 +158,7 @@ describe("authenticate", () => {
 
   it("names the organizations to choose from, and whose account it is", async () => {
     const code = codeRequest({ clientId: "client_01TEST", code: "01CODE", verifier: "verifier" })
+
     const choose = answering(403, {
       code: "organization_selection_required",
       message: "The user must choose an organization to sign in to.",
@@ -163,6 +169,7 @@ describe("authenticate", () => {
         { id: "org_01GLOBEX", name: "Globex", object: "organization" }
       ]
     })
+
     expect(await authenticate(choose.fetch, code)).toEqual({
       kind: "refused",
       status: 403,
@@ -178,12 +185,15 @@ describe("authenticate", () => {
 
   it("is unavailable when WorkOS is busy or down, or the network fails", async () => {
     const refresh = refreshRequest({ clientId: "client_01TEST", refreshToken: "refresh_01" })
-    for (const status of [408, 429, 500, 503])
+
+    for (const status of [408, 429, 500, 503]) {
       expect(await authenticate(answering(status, {}).fetch, refresh)).toEqual({
         kind: "unavailable",
         status,
         message: `WorkOS answered ${status}`
       })
+    }
+
     const offline: Fetch = () => Promise.reject(new TypeError("fetch failed"))
     expect(await authenticate(offline, refresh)).toEqual({ kind: "unavailable", message: "fetch failed" })
   })

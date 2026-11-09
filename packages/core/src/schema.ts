@@ -26,7 +26,12 @@ export function fileObject<const Shape extends z.core.$ZodLooseShape>(shape: Sha
 
 /** Zod's own copy of an object, without the keys whose values are `undefined`. */
 function withoutUnset<T extends object>(value: T): T {
-  for (const [key, entry] of Object.entries(value)) if (entry === undefined) Reflect.deleteProperty(value, key)
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry === undefined) {
+      Reflect.deleteProperty(value, key)
+    }
+  }
+
   return value
 }
 
@@ -37,9 +42,11 @@ export function jsonText<T extends z.ZodType>(schema: T) {
     .transform((text, context) => {
       try {
         const value: unknown = JSON.parse(text)
+
         return value
       } catch {
         context.addIssue({ code: "custom", message: "expected JSON" })
+
         return z.NEVER
       }
     })
@@ -52,7 +59,11 @@ export function jsonText<T extends z.ZodType>(schema: T) {
  */
 export function parseData<T extends z.ZodType>(schema: T, value: unknown, at = ""): z.output<T> {
   const checked = checkData(schema, value, at)
-  if (checked.success) return checked.data
+
+  if (checked.success) {
+    return checked.data
+  }
+
   const { pointer, message } = checked.problem
   throw new TypeError(`${pointer || "/"}: ${message}`)
 }
@@ -63,7 +74,11 @@ export function parseData<T extends z.ZodType>(schema: T, value: unknown, at = "
  */
 export function parseInput<T extends z.ZodType>(schema: T, value: unknown, at = ""): z.output<T> {
   const checked = checkData(schema, value, at)
-  if (checked.success) return checked.data
+
+  if (checked.success) {
+    return checked.data
+  }
+
   const { pointer, message } = checked.problem
   throw new CodedError(`${pointer || "/"}: ${message}`, {
     code: "invalid_input",
@@ -87,8 +102,13 @@ export function checkData<T extends z.ZodType>(
   at = ""
 ): { success: true; data: z.output<T> } | { success: false; problem: SchemaProblem } {
   const result = schema.safeParse(value, { error: issueText })
-  if (result.success) return { success: true, data: result.data }
+
+  if (result.success) {
+    return { success: true, data: result.data }
+  }
+
   const problem = firstProblem(result.error.issues, at)
+
   if (invalidDataListener) {
     try {
       invalidDataListener({ schema: schemaName(schema), problem, issues: result.error.issues, value })
@@ -96,6 +116,7 @@ export function checkData<T extends z.ZodType>(
       // A listener's failure never changes what the check returns.
     }
   }
+
   return { success: false, problem }
 }
 
@@ -117,16 +138,26 @@ let invalidDataListener: ((failure: InvalidData) => void) | undefined
  */
 export function onInvalidData(listener: (failure: InvalidData) => void): () => void {
   invalidDataListener = listener
+
   return () => {
-    if (invalidDataListener === listener) invalidDataListener = undefined
+    if (invalidDataListener === listener) {
+      invalidDataListener = undefined
+    }
   }
 }
 
 /** A name for a schema in telemetry: its registered id, its description, or else the function that checked with it. */
 function schemaName(schema: z.ZodType): string {
   const meta = z.globalRegistry.get(schema)
-  if (typeof meta?.id === "string") return meta.id
-  if (schema.description) return schema.description
+
+  if (typeof meta?.id === "string") {
+    return meta.id
+  }
+
+  if (schema.description) {
+    return schema.description
+  }
+
   return checkingFunction() ?? "unnamed"
 }
 
@@ -137,8 +168,12 @@ const ownFunctions = new Set(["checkingFunction", "schemaName", "checkData", "pa
 function checkingFunction(): string | undefined {
   for (const line of new Error().stack?.split("\n").slice(1) ?? []) {
     const name = /at (?:async )?([\w$.<>]+) \(/.exec(line)?.[1]
-    if (name && !ownFunctions.has(name.split(".").pop() ?? name)) return name
+
+    if (name && !ownFunctions.has(name.split(".").pop() ?? name)) {
+      return name
+    }
   }
+
   return undefined
 }
 
@@ -155,12 +190,21 @@ function jsonPointer(path: readonly PropertyKey[]): string {
  */
 function firstProblem(issues: readonly z.core.$ZodIssue[], at: string): SchemaProblem {
   const [issue] = issues
-  if (!issue) return { pointer: at, message: "isn't valid" }
+
+  if (!issue) {
+    return { pointer: at, message: "isn't valid" }
+  }
+
   const pointer = at + jsonPointer(issue.path)
+
   if (issue.code === "unrecognized_keys") {
     return { pointer: pointer + jsonPointer(issue.keys.slice(0, 1)), message: issue.message }
   }
-  if (issue.code === "invalid_union" && issue.errors.length > 0) return unionProblem(issue.errors, pointer)
+
+  if (issue.code === "invalid_union" && issue.errors.length > 0) {
+    return unionProblem(issue.errors, pointer)
+  }
+
   return { pointer, message: issue.message }
 }
 
@@ -168,27 +212,38 @@ function unionProblem(options: readonly (readonly z.core.$ZodIssue[])[], pointer
   const issues = options.flat()
   const shallow = issues.every((issue) => issue.path.length === 0)
   const expected = issues.map(expectation)
+
   if (shallow && expected.every((text) => text !== undefined)) {
     return { pointer, message: `expected ${[...new Set(expected)].join(" or ")}` }
   }
+
   const depth = (option: readonly z.core.$ZodIssue[]) => option[0]?.path.length ?? 0
   const typed = options.filter((option) => !refusesType(option))
+
   const closest = (typed.length > 0 ? typed : options).reduce((best, option) =>
     option.length < best.length || (option.length === best.length && depth(option) > depth(best)) ? option : best
   )
+
   return firstProblem(closest, pointer)
 }
 
 /** Whether a union's option failed on the value's type itself, as a string option does for an object. */
 function refusesType(option: readonly z.core.$ZodIssue[]): boolean {
   const [first] = option
+
   return first?.code === "invalid_type" && first.path.length === 0
 }
 
 /** What one type or value check wanted, as `a string` or `"row"`; nothing for other checks. */
 function expectation(issue: z.core.$ZodIssue): string | undefined {
-  if (issue.code === "invalid_type") return typeName(issue.expected)
-  if (issue.code === "invalid_value") return issue.values.map(literal).join(" or ")
+  if (issue.code === "invalid_type") {
+    return typeName(issue.expected)
+  }
+
+  if (issue.code === "invalid_value") {
+    return issue.values.map(literal).join(" or ")
+  }
+
   return undefined
 }
 
@@ -205,10 +260,12 @@ function issueText(issue: z.core.$ZodRawIssue): string | undefined {
       return "unknown property"
     case "invalid_union": {
       const options: unknown = "options" in issue ? issue.options : undefined
+
       return Array.isArray(options) && options.length > 0
         ? `expected one of ${options.map(literal).join(", ")}`
         : undefined
     }
+
     case "too_small":
       return bound("at least", "more than", issue.origin, issue.minimum, issue.inclusive)
     case "too_big":
@@ -249,6 +306,10 @@ function bound(
 ): string | undefined {
   const words = inclusive ? inclusiveWords : exclusiveWords
   const unit = units[origin]
-  if (unit) return `expected ${words} ${limit} ${unit}${Number(limit) === 1 ? "" : "s"}`
+
+  if (unit) {
+    return `expected ${words} ${limit} ${unit}${Number(limit) === 1 ? "" : "s"}`
+  }
+
   return ["number", "int", "bigint"].includes(origin) ? `expected ${words} ${limit}` : undefined
 }

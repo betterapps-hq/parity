@@ -58,16 +58,19 @@ const wide = form().states[1]!
 /** The shared fixture's card, its board showing the variant options `variants`: Inline turns its body into a row. */
 function card(variants: Record<string, string> = {}): ContainerSpec {
   const found = effectiveFixture.designs.find((design) => design.id === "card")!
+
   return { ...found, view: { ...found.view, variants } }
 }
 
 const childIds = (container: ContainerSpec, id: string) => {
   const node = findNode(container.root, id)
+
   return node?.type === "layout" ? node.children.map((child) => child.id) : undefined
 }
 
 const slotIds = (container: ContainerSpec, id: string, slot = "children") => {
   const node = findNode(container.root, id)
+
   return node?.type === "component" ? node.slots?.[slot]?.map((child) => child.id) : undefined
 }
 
@@ -129,14 +132,17 @@ describe("duplicating layers", () => {
 describe("deleting designs", () => {
   it("takes each out of its own document and leaves the rest", () => {
     const other: ContainerSpec = { ...form(), id: "other", name: "Other" }
+
     const documents = new Map<string, CanvasDocument>([
       ["main.par", { version: 3, containers: [form(), other] }],
       ["more.par", { version: 3, containers: [{ ...form(), id: "more" }] }]
     ])
+
     const next = removeDesigns(documents, [
       { path: "main.par", id: "form" },
       { path: "missing.par", id: "form" }
     ])
+
     expect(next.get("main.par")!.containers.map((container) => container.id)).toEqual(["other"])
     expect(next.get("more.par")).toBe(documents.get("more.par"))
     expect(next.has("missing.par")).toBe(false)

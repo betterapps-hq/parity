@@ -87,6 +87,7 @@ describe("library files", () => {
       [],
       join(root, "registry")
     )
+
     expect(found.libraries[0]?.decorators).toHaveLength(1)
     expect(Object.keys(found.components).sort()).toEqual(["acme/Button", "acme/Chip"])
     expect(found.notes[0]).toMatch(

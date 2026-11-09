@@ -39,27 +39,43 @@ export async function warmGuestGraph(client: Client, roots: string[]): Promise<v
   await client.depsOptimizer?.scanProcessing
   const seen = new Set<string>()
   const queue = [...roots]
+
   for (let index = 0; index < queue.length; index++) {
     const url = queue[index]!
-    if (seen.has(url) || client.depsOptimizer?.isOptimizedDepUrl(url)) continue
+
+    if (seen.has(url) || client.depsOptimizer?.isOptimizedDepUrl(url)) {
+      continue
+    }
+
     seen.add(url)
+
     try {
       await client.transformRequest(url)
       const module = await client.moduleGraph.getModuleByUrl(url)
+
       // Only what the browser will import: a watched file transformed as a module sends its Node-only imports to the
       // optimizer, which then tries to bundle the project's build tools.
-      for (const child of module?.staticImportedUrls ?? []) queue.push(child)
+      for (const child of module?.staticImportedUrls ?? []) {
+        queue.push(child)
+      }
     } catch {
       // Optional project modules keep their own load errors, as they do when the browser requests them.
     }
   }
+
   while (client.depsOptimizer) {
     const { optimized, discovered } = client.depsOptimizer.metadata
+
     const batches = Object.values({ ...optimized, ...discovered })
       .map((dependency) => dependency.processing)
       .filter((pending) => pending !== undefined)
-    if (!batches.length) break
+
+    if (!batches.length) {
+      break
+    }
+
     await Promise.all(batches)
   }
+
   client.moduleGraph.invalidateAll()
 }

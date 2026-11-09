@@ -6,9 +6,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { type Batch, type BatchRun, type BatchTarget, createOutbox, sendBatches, writeBatch } from "./outbox.ts"
 
 let folder: string
+
 beforeEach(() => {
   folder = mkdtempSync(join(tmpdir(), "parity-outbox-"))
 })
+
 afterEach(() => rmSync(folder, { recursive: true, force: true }))
 
 const run: BatchRun = {
@@ -23,6 +25,7 @@ const run: BatchRun = {
 function fakeTarget(onSend?: (batch: Batch) => void) {
   const sent: Batch[] = []
   const flushes: number[] = []
+
   const target: BatchTarget = {
     send: (batch) => {
       sent.push(batch)
@@ -30,6 +33,7 @@ function fakeTarget(onSend?: (batch: Batch) => void) {
     },
     flush: async () => flushes.push(sent.length)
   }
+
   return { sent, flushes, target }
 }
 
@@ -41,12 +45,14 @@ const breadcrumbOnly = (category: string): Batch => ({
 describe("createOutbox", () => {
   it("keeps what the Sentry sink sends, in order: breadcrumbs, logs, and the command's span as a transaction", () => {
     const outbox = createOutbox()
+
     const telemetry = createTelemetry({
       events: cliEvents,
       context: { process: "cli", installId: "install", sessionId: "session" },
       sinks: [createSentrySink(outbox.target, { upload: true })],
       check: true
     })
+
     const span = telemetry.startSpan("cli.ran", { command: "tabs", flags: [] })
     telemetry.track("cli.connectFailed", { code: "not_running", copies: 0 }, { span })
     span.end("error", { exitCode: 1 })
@@ -94,11 +100,16 @@ describe("sendBatches", () => {
   it("sends a batch written while it sends, before letting go", async () => {
     writeBatch(folder, breadcrumbOnly("first"))
     let wrote = false
+
     const { sent, target } = fakeTarget(() => {
-      if (wrote) return
+      if (wrote) {
+        return
+      }
+
       wrote = true
       writeBatch(folder, breadcrumbOnly("later"))
     })
+
     expect(await sendBatches(folder, target)).toBe(2)
     expect(sent).toHaveLength(2)
   })

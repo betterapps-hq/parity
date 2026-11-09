@@ -35,11 +35,13 @@ interface Tool {
   /** Runs the tool on its arguments, which its contract checks. */
   run(input: unknown): Promise<Reply>
 }
+
 interface Reply {
   content: Content[]
   structuredContent?: Record<string, unknown>
   isError?: boolean
 }
+
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }
 
 /**
@@ -63,6 +65,7 @@ function operationTool<Result>(
     fields: operation.fields,
     async run(input) {
       const result = await operation.run(input, call)
+
       return {
         content: format(result),
         structuredContent: operation.structured(result),
@@ -71,18 +74,26 @@ function operationTool<Result>(
     }
   }
 }
+
 /** Results that are data to begin with, as compact JSON text for clients that don't read structuredContent. */
 const json = (value: unknown): Content[] => [text(JSON.stringify(value))]
+
 /** MCP's names for execute's label and code. */
 const executeNames = { label: "description", code: "input" }
 
 /** MCP's execute arguments under the contract's names: description is label and input is code. */
 function contractNames(input: unknown): unknown {
   const fields = plainObject.safeParse(input).data
-  if (!fields) return input
+
+  if (!fields) {
+    return input
+  }
+
   const { description: label, input: code, ...rest } = fields
+
   return { ...rest, ...(label === undefined ? {} : { label }), ...(code === undefined ? {} : { code }) }
 }
+
 const tools: Tool[] = [
   operationTool(
     "get_tabs",
@@ -118,6 +129,7 @@ const tools: Tool[] = [
     async run(input) {
       const result = await executeOperation.run(contractNames(input), call)
       const structured = executeOperation.structured(result)
+
       return {
         content: [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))],
         structuredContent: result.error ? { ...structured, error: renamePath(result.error, executeNames) } : structured,
@@ -187,6 +199,7 @@ const tools: Tool[] = [
     fields: logsFields,
     run: async (input) => {
       const result = readLogs(input)
+
       return { content: [text(describeLogs(result))], structuredContent: { ...result } }
     }
   },
@@ -229,22 +242,33 @@ export function serveMcp(): void {
   const lines = createInterface({ input: process.stdin })
   const send = (reply: unknown) => process.stdout.write(`${JSON.stringify(reply)}\n`)
   lines.on("line", (line) => {
-    if (!line.trim()) return
-    const json = jsonText(z.unknown()).safeParse(line)
-    if (!json.success) {
-      send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } })
+    if (!line.trim()) {
       return
     }
+
+    const json = jsonText(z.unknown()).safeParse(line)
+
+    if (!json.success) {
+      send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } })
+
+      return
+    }
+
     const read = checkData(message, json.data)
+
     if (!read.success) {
       const id = z.union([z.string(), z.number()]).safeParse(plainObject.safeParse(json.data).data?.id).data ?? null
       const { pointer, message: problem } = read.problem
       send({ jsonrpc: "2.0", id, error: { code: -32600, message: `Invalid request: ${pointer || "/"}: ${problem}` } })
+
       return
     }
+
     const request = read.data
     void respond(request.method, request.params).then((reply) => {
-      if (request.id !== undefined && reply) send({ jsonrpc: "2.0", id: request.id, ...reply })
+      if (request.id !== undefined && reply) {
+        send({ jsonrpc: "2.0", id: request.id, ...reply })
+      }
     })
   })
 }
@@ -261,6 +285,7 @@ async function respond(method: string, params: Record<string, unknown> = {}) {
         ...(version ? { clientVersion: version } : {}),
         ...(protocolVersion ? { protocolVersion } : {})
       })
+
       return {
         result: {
           protocolVersion: protocolVersion ?? "2025-06-18",
@@ -270,6 +295,7 @@ async function respond(method: string, params: Record<string, unknown> = {}) {
         }
       }
     }
+
     case "ping":
       return { result: {} }
     case "tools/list":
@@ -280,19 +306,28 @@ async function respond(method: string, params: Record<string, unknown> = {}) {
       }
     case "tools/call": {
       const called = checkData(toolCall, params)
+
       if (!called.success) {
         const { pointer, message: problem } = called.problem
+
         return { error: { code: -32602, message: `Invalid params: ${pointer}: ${problem}` } }
       }
+
       const tool = tools.find((candidate) => candidate.name === called.data.name)
-      if (!tool) return { error: { code: -32602, message: `Unknown tool ${called.data.name}` } }
+
+      if (!tool) {
+        return { error: { code: -32602, message: `Unknown tool ${called.data.name}` } }
+      }
+
       try {
         return { result: await tool.run(called.data.arguments ?? {}) }
       } catch (error) {
         const failure = renamePath(operationError(error, tool.fields), tool.names ?? {})
+
         return { result: { content: [text(failure.message)], structuredContent: { error: failure }, isError: true } }
       }
     }
+
     default:
       return method.startsWith("notifications/")
         ? undefined

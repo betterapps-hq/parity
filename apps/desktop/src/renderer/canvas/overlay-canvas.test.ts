@@ -68,8 +68,12 @@ describe("sizeWhileShown", () => {
     const sizing = sizeWhileShown(canvas, () => false)
     sizing.release()
     const sets = canvas.sets
+
     // Panning with nothing showing draws again and again, each time finding the canvas smaller than the window.
-    for (let pan = 0; pan < 5; pan++) draw(canvas)
+    for (let pan = 0; pan < 5; pan++) {
+      draw(canvas)
+    }
+
     sizing.release()
     expect(canvas.sets).toBe(sets)
   })

@@ -5,6 +5,7 @@ import { inSpan, traceWith } from "../shared/tracing.ts"
 import { watchFrame } from "./frame-telemetry.ts"
 
 const sink = createTestSink()
+
 traceWith(
   createTelemetry({
     events: registeredEvents,
@@ -39,9 +40,11 @@ function draw(
   failed = vi.fn<() => void>()
 ) {
   let time = 1000
+
   const tick = (ms: number) => {
     time += ms
   }
+
   return inSpan("frame.rendered", { priority: "render", queuedMs: 12, whole: true }, (span) =>
     steps(
       watchFrame(job, "render", span, failed, () => time),
@@ -51,6 +54,7 @@ function draw(
 }
 
 beforeEach(() => sink.clear())
+
 afterEach(() => vi.useRealTimers())
 
 describe("watchFrame", () => {
@@ -87,6 +91,7 @@ describe("watchFrame", () => {
         error: "Cannot find module './theme'",
         errorStack: "Error: Cannot find module\n  at Card"
       })
+
       watch.rendered(broken)
       watch.end(broken)
     }, failed)
@@ -110,6 +115,7 @@ describe("watchFrame", () => {
     vi.useFakeTimers()
     const failed = vi.fn<() => void>()
     let finish: () => void = () => undefined
+
     const drawing = draw(
       (watch) =>
         new Promise<void>((resolve) => {
@@ -121,6 +127,7 @@ describe("watchFrame", () => {
         }),
       failed
     )
+
     await vi.advanceTimersByTimeAsync(frameTimeoutMs)
     expect(sink.named("frame.failed")[0]?.attributes).toMatchObject({ failure: "timed out" })
     finish()

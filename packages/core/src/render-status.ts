@@ -32,7 +32,10 @@ export function renderProblem(error: string): RenderProblem {
 
 /** A component's status in words, as the Components panel shows it. */
 export function describeRenderStatus(status: ComponentRenderStatus): string {
-  if ("drawn" in status) return "Draws on the canvas"
+  if ("drawn" in status) {
+    return "Draws on the canvas"
+  }
+
   switch (renderProblem(status.error)) {
     case "provider":
       return `Needs a provider, which a decorator can add: ${status.error}`

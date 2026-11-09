@@ -18,6 +18,7 @@ describe("inserting a library part", () => {
         sample: { props: { placeholder: "Pick one" }, children: [] }
       }
     }
+
     const taken = new Set<string>()
     const button = withLibraryContext(componentNode("acme/Button", takesChildren, taken), sources, [], taken)
     expect(button.type === "component" && button.props).toEqual({ children: "Button" })
@@ -59,6 +60,7 @@ describe("inserting a library part", () => {
       // Another library's sample says nothing about acme's parts.
       "other/Panel": source({ library: "other", sample: { children: [{ component: "acme/Badge", children: [] }] } })
     }
+
     const taken = new Set<string>()
     const insert = (name: string) => withLibraryContext(componentNode(name, takesChildren, taken), sources, [], taken)
     const inside = (node: DesignNode) => (node.type === "component" ? node.slots?.children?.[0] : undefined)
@@ -89,18 +91,21 @@ describe("inserting a library part", () => {
         sample: { props: { children: "Spotlight bulb" } }
       }
     }
+
     const taken = new Set<string>()
     const named = withLibraryContext(componentNode("acme/Highlight", takesChildren, taken), sources, [], taken)
     expect(named.type === "component" && named.props).toEqual({ children: "Spotlight bulb" })
     const node = { type: "component" as const, id: "mine", component: "acme/Highlight", props: { children: "Mine" } }
     const written = withLibraryContext(node, sources, [], taken)
     expect(written.type === "component" && written.props).toEqual({ children: "Mine" })
+
     const same = {
       type: "component" as const,
       id: "same",
       component: "acme/Highlight",
       props: { children: "Highlight" }
     }
+
     const kept = withLibraryContext(same, sources, [], taken)
     expect(kept.type === "component" && kept.props).toEqual({ children: "Highlight" })
     // Text given to componentNode is kept, not labelled over, even when it's the part's name.
@@ -127,10 +132,17 @@ const accordion: Record<string, ComponentSource> = {
 
 /** The tree's shape: each component's name and its children's. */
 function shape(node: DesignNode): unknown {
-  if (node.type === "text") return node.text
-  if (node.type !== "component") return node.type
+  if (node.type === "text") {
+    return node.text
+  }
+
+  if (node.type !== "component") {
+    return node.type
+  }
+
   const children = node.slots?.children ?? []
   const name = node.component.split("/")[1]!
+
   return children.length > 0 ? { [name]: children.map(shape) } : name
 }
 
@@ -167,6 +179,7 @@ describe("a library part's parents and samples", () => {
         optionalParents: ["acme/MenuGroup"]
       })
     }
+
     const item: DesignNode = { type: "component", id: "i", component: "acme/MenuItem" }
     expect(shape(withLibraryContext(item, menu, [], new Set(["i"])))).toEqual({
       Menu: [{ MenuContent: [{ MenuGroup: ["MenuItem"] }] }]
@@ -190,6 +203,7 @@ describe("a library part's parents and samples", () => {
       "acme/TableBody": source({ parents: ["acme/Table"], sample: { children: ["Rows"] } }),
       "acme/Row": source({ parents: ["acme/Table", "acme/TableBody"], parentParts: true })
     }
+
     const row: DesignNode = { type: "component", id: "r", component: "acme/Row" }
     expect(shape(withLibraryContext(row, table, [], new Set(["r"])))).toEqual({
       Table: [{ TableHeader: [{ Column: ["Name"] }] }, { TableBody: ["Row"] }]
@@ -218,6 +232,7 @@ describe("a library part's parents and samples", () => {
       }),
       "acme/Cell": source({ parents: ["acme/Table", "acme/TableBody", "acme/Row"], parentParts: true })
     }
+
     const cell: DesignNode = { type: "component", id: "c", component: "acme/Cell" }
     expect(shape(withLibraryContext(cell, table, [], new Set(["c"])))).toEqual({
       Table: [{ TableHeader: [{ Column: ["A"] }] }, { TableBody: [{ Row: ["Cell", "Lovelace"] }] }]
@@ -231,6 +246,7 @@ describe("a library part's parents and samples", () => {
       }),
       "acme/Cell": source({ sample: { props: { colSpan: 2 }, children: ["Wide"] } })
     }
+
     const row: DesignNode = { type: "component", id: "r", component: "acme/Row" }
     const placed = withLibraryContext(row, table, [], new Set(["r"]))
     const cells = placed.type === "component" ? (placed.slots?.children ?? []) : []
@@ -249,6 +265,7 @@ describe("a library part's parents and samples", () => {
       }),
       "acme/Item": source({ parents: ["acme/Node"] })
     }
+
     const item: DesignNode = { type: "component", id: "i", component: "acme/Item" }
     const placed = withLibraryContext(item, tree, [], new Set(["i"]))
     const slots = placed.type === "component" ? placed.slots : undefined
@@ -267,26 +284,32 @@ describe("a library part's parents and samples", () => {
       }),
       "acme/TextField": source()
     }
+
     const input = withLibraryContext(
       { type: "component", id: "d", component: "acme/DateInput" },
       dates,
       [],
       new Set(["d"])
     )
+
     expect(input.type === "component" && Object.keys(input.slots ?? {})).toEqual(["$render:children?pass=segment"])
+
     const segment = withLibraryContext(
       { type: "component", id: "s", component: "acme/DateSegment" },
       dates,
       [],
       new Set(["s"])
     )
+
     expect(segment.type === "component" && segment.slots?.["$render:children?pass=segment"]?.[0]?.id).toBe("s")
+
     const autocomplete = withLibraryContext(
       { type: "component", id: "a", component: "acme/Autocomplete" },
       dates,
       [],
       new Set(["a"])
     )
+
     expect(autocomplete.type === "component" && autocomplete.props).toEqual({ open: true })
     expect(autocomplete.type === "component" && shape(autocomplete.slots!["$renderWith:renderInput"]![0]!)).toBe(
       "TextField"
@@ -300,12 +323,14 @@ describe("a library part's parents and samples", () => {
       }),
       "acme/Checkbox": source()
     }
+
     const placed = withLibraryContext(
       { type: "component", id: "f", component: "acme/FormControlLabel" },
       form,
       [],
       new Set(["f"])
     )
+
     expect(placed.type === "component" && placed.props).toEqual({ label: "Remember me" })
     expect(placed.type === "component" && shape(placed.slots!.control![0]!)).toBe("Checkbox")
   })
@@ -317,6 +342,7 @@ describe("a library part's parents and samples", () => {
       component: "acme/Accordion",
       props: { children: "Accordion" }
     }
+
     const placed = withLibraryContext(root, accordion, [], new Set(["a"]))
     expect(shape(placed)).toEqual({ Accordion: [{ AccordionItem: ["AccordionTrigger"] }] })
     expect(placed.type === "component" && placed.props).toBeFalsy()
@@ -327,6 +353,7 @@ describe("librarySource", () => {
   it("names the props it declares that say what's open or chosen, for its preview", () => {
     const declares = (props: Record<string, string>) =>
       librarySource("acme", "Part", { as: "function", props }, "@acme/ui").openProps
+
     expect(declares({ "defaultOpen?": "1", "open?": "1", "className?": "2" })).toEqual(["defaultOpen"])
     expect(declares({ "defaultValue?": "3", "value?": "3" })).toEqual(["defaultValue", "value"])
     expect(declares({ value: "3" })).toEqual(["value"])

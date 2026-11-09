@@ -13,6 +13,7 @@ export type LibraryToken = DescribedToken & { library: string }
  */
 function cssNames(path: string): string[] {
   const parts = path.split(".")
+
   return [parts.join("-"), parts.slice(1).join("-")].filter(Boolean)
 }
 
@@ -24,15 +25,21 @@ export function matchDescribed(
   const names = new Set(tokens.map((token) => token.name))
   const byName = new Map<string, LibraryToken>()
   const unmatched: LibraryToken[] = []
+
   for (const source of sources ?? []) {
     for (const token of source.tokens) {
       const described = { ...token, library: source.name }
       // A token that names its custom property matches it exactly; otherwise its path is the best guess.
       const candidates = token.parity?.var ? [token.parity.var] : cssNames(token.path)
       const name = candidates.find((candidate) => names.has(candidate))
-      if (name) byName.set(name, described)
-      else unmatched.push(described)
+
+      if (name) {
+        byName.set(name, described)
+      } else {
+        unmatched.push(described)
+      }
     }
   }
+
   return { byName, unmatched }
 }

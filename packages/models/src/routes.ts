@@ -29,16 +29,21 @@ export const Routes = z
   })
   .superRefine((model, context) => {
     const seen = new Set<string>()
+
     const visit = (routes: readonly Route[], path: PropertyKey[]) => {
       uniqueIds(routes, path, context, seen)
       routes.forEach((route, index) => {
-        if (route.children) visit(route.children, [...path, index, "children"])
+        if (route.children) {
+          visit(route.children, [...path, index, "children"])
+        }
       })
     }
+
     visit(model.routes, ["routes"])
   })
 
 export type Route = z.infer<typeof Route>
+
 export type Routes = z.infer<typeof Routes>
 
 export function parseRoutes(value: unknown): Routes {

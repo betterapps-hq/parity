@@ -63,6 +63,7 @@ describe("previewMode", () => {
         }
       ]
     }
+
     expect(named(settings, "dark")).toBe("desktop-dark-ar")
     // With no other mode on its viewport, the first that matches.
     settings.modes.pop()
@@ -72,11 +73,13 @@ describe("previewMode", () => {
   it("is the primary mode when none matches or the project has no theme", () => {
     const lightOnly = { ...defaultModeSettings, modes: [defaultModeSettings.modes[0]!, defaultModeSettings.modes[2]!] }
     expect(named(lightOnly, "dark")).toBe("desktop-light")
+
     const noTheme: ModeSettings = {
       version: 1,
       variables: defaultModeSettings.variables.filter((variable) => variable.kind !== "theme"),
       modes: [{ id: "desktop", name: "Desktop", values: { viewport: "desktop" } }]
     }
+
     expect(named(noTheme, "dark")).toBe("desktop")
     expect(named({ ...noTheme, modes: [] }, "dark")).toBeUndefined()
   })
@@ -85,6 +88,7 @@ describe("previewMode", () => {
     const theme = (option: VariableOption): ResolvedMode["options"] => [
       { variable: { id: "theme", name: "Theme", kind: "theme", options: [option] }, option }
     ]
+
     expect(modeAppearance({ options: theme({ id: "night", name: "Night", className: "theme-dark" }) })).toBe("dark")
     expect(modeAppearance({ options: theme({ id: "dark-blue", name: "Midnight" }) })).toBe("dark")
     expect(modeAppearance({ options: theme({ id: "darkest", name: "Darkest" }) })).toBe("light")

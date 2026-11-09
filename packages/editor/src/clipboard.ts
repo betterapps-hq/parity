@@ -62,6 +62,7 @@ export function writeEnvelope(
   payload: ClipboardPayload
 ): { text: string; envelope: ClipboardEnvelope } {
   const envelope: ClipboardEnvelope = { parity: "clipboard", version: 1, project, payload }
+
   return { text: JSON.stringify(envelope), envelope }
 }
 
@@ -72,13 +73,17 @@ export function isParityCopy(text: string): boolean {
 
 /** Parity's own copy, read back from the clipboard's text, or undefined for anything else or a copy that doesn't parse. */
 export function readEnvelope(text: string): ClipboardEnvelope | undefined {
-  if (!isParityCopy(text)) return undefined
+  if (!isParityCopy(text)) {
+    return undefined
+  }
+
   return jsonText(clipboardEnvelope).safeParse(text).data
 }
 
 /** SVG markup, as icon sites and design tools copy it, which pastes as a picture rather than as its source. */
 export function isSvgMarkup(text: string): boolean {
   const plain = text.trim()
+
   return /^(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(plain) && plain.endsWith("</svg>")
 }
 
@@ -98,6 +103,7 @@ export function copyLayers(
   viewport?: string
 ): ClipboardPayload | undefined {
   const nodes = topmostNodes(container.root, ids).map((node) => asShown(container, node, state, viewport))
+
   return nodes.length > 0 ? { kind: "layers", nodes } : undefined
 }
 
@@ -114,15 +120,23 @@ export function asShown(
   viewport?: string
 ): DesignNode {
   const read = boardReader(container, { state, viewport })
+
   const shown = (layer: DesignNode): DesignNode => {
     const drawn = read(layer)
-    if (drawn.type === "layout") return { ...drawn, children: drawn.children.map(shown) }
+
+    if (drawn.type === "layout") {
+      return { ...drawn, children: drawn.children.map(shown) }
+    }
+
     if (drawn.type === "component" && drawn.slots) {
       const slots = Object.fromEntries(childEntries(drawn).map(({ slot, nodes }) => [slot!, nodes.map(shown)]))
+
       return { ...drawn, slots }
     }
+
     return drawn
   }
+
   return shown(node)
 }
 
@@ -133,26 +147,38 @@ export function asShown(
 export function fitBindings(node: DesignNode, destination: ContainerSpec): DesignNode {
   const has = (param: string) => destination.params !== undefined && Object.hasOwn(destination.params, param)
   let next = node
+
   if (node.bind) {
     const { text, visible, props } = node.bind
     const keptProps = Object.fromEntries(Object.entries(props ?? {}).filter(([, param]) => has(param)))
+
     const bind = {
       ...(text !== undefined && has(text) ? { text } : {}),
       ...(visible !== undefined && has(visible) ? { visible } : {}),
       ...(Object.keys(keptProps).length > 0 ? { props: keptProps } : {})
     }
+
     next = { ...node }
-    if (Object.keys(bind).length > 0) next.bind = bind
-    else delete next.bind
+
+    if (Object.keys(bind).length > 0) {
+      next.bind = bind
+    } else {
+      delete next.bind
+    }
   }
-  if (next.type === "layout")
+
+  if (next.type === "layout") {
     return { ...next, children: next.children.map((child) => fitBindings(child, destination)) }
+  }
+
   if (next.type === "component" && next.slots) {
     const slots = Object.fromEntries(
       childEntries(next).map(({ slot, nodes }) => [slot!, nodes.map((child) => fitBindings(child, destination))])
     )
+
     return { ...next, slots }
   }
+
   return next
 }
 
@@ -174,11 +200,22 @@ export function pasteTarget(
   const { root } = container
   const layers = topmostNodes(root, selection.nodes)
   const primary = selection.node ? findNode(root, selection.node) : undefined
-  if (primary?.type === "layout" && layers.length === 1) return { parent: primary.id }
+
+  if (primary?.type === "layout" && layers.length === 1) {
+    return { parent: primary.id }
+  }
+
   const last = layers.at(-1) && locateNode(root, layers.at(-1)!.id)
   const parent = last?.ancestors.at(-1)
-  if (last && parent) return { parent: parent.id, index: last.index + 1, slot: last.slot }
-  if (root.type === "layout") return { parent: root.id }
+
+  if (last && parent) {
+    return { parent: parent.id, index: last.index + 1, slot: last.slot }
+  }
+
+  if (root.type === "layout") {
+    return { parent: root.id }
+  }
+
   return undefined
 }
 
@@ -194,12 +231,14 @@ export function pasteLayers(
   const taken = nodeIds(container.root)
   const copies = nodes.map((node) => withFreshIds(fitBindings(node, container), taken))
   let root = container.root
+
   for (const [offset, copy] of copies.entries()) {
     root = insertNode(root, target.parent, copy, {
       index: target.index === undefined ? undefined : target.index + offset,
       slot: target.slot
     })
   }
+
   return { container: { ...container, root }, copies: copies.map((copy) => copy.id) }
 }
 
@@ -213,9 +252,11 @@ export function copyDesigns(
   shift: { x: number; y: number }
 ): ContainerSpec[] {
   const ids = [...taken]
+
   return designs.map((design) => {
     const id = ids.includes(design.id) ? uniqueId(design.name, ids) : design.id
     ids.push(id)
+
     return {
       ...design,
       id,
@@ -237,9 +278,11 @@ export function copyNotes(
   const left = Math.min(...notes.map((note) => note.position.x))
   const top = Math.min(...notes.map((note) => note.position.y))
   const shift = at ? { x: at.x - left, y: at.y - top } : { x: 24, y: 24 }
+
   return notes.map((note) => {
     const id = `note-${generateId(ids)}`
     ids.add(id)
+
     return { ...note, id, position: { x: note.position.x + shift.x, y: note.position.y + shift.y } }
   })
 }
@@ -255,6 +298,7 @@ export function styleOf(
   viewport?: string
 ): NodeStyle | undefined {
   const node = findNode(container.root, id)
+
   return node ? { ...boardReader(container, { state, viewport })(node).style } : undefined
 }
 
@@ -271,13 +315,19 @@ export function applyStyle(
   viewport?: string
 ): ContainerSpec {
   let next = container
+
   for (const id of ids) {
     const node = findNode(next.root, id)
-    if (!node) continue
+
+    if (!node) {
+      continue
+    }
+
     const shown = boardReader(next, { state, viewport })(node).style ?? {}
     const taken = styleKeys.filter((key) => Object.hasOwn(shown, key) && !Object.hasOwn(style, key))
     next = editNode(next, boardTarget(next, state.id), id, { style, unset: { style: taken } })
   }
+
   return next
 }
 
@@ -286,12 +336,23 @@ export function applyStyle(
  * known yet.
  */
 export function missingComponents(nodes: readonly DesignNode[], known: Record<string, unknown>): string[] {
-  if (Object.keys(known).length === 0) return []
-  const missing = new Set<string>()
-  const visit = (node: DesignNode) => {
-    if (node.type === "component" && !(node.component in known)) missing.add(node.component)
-    for (const { nodes: children } of childEntries(node)) children.forEach(visit)
+  if (Object.keys(known).length === 0) {
+    return []
   }
+
+  const missing = new Set<string>()
+
+  const visit = (node: DesignNode) => {
+    if (node.type === "component" && !(node.component in known)) {
+      missing.add(node.component)
+    }
+
+    for (const { nodes: children } of childEntries(node)) {
+      children.forEach(visit)
+    }
+  }
+
   nodes.forEach(visit)
+
   return [...missing]
 }

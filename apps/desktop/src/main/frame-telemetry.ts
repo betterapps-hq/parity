@@ -6,6 +6,7 @@ import type { PageFailure } from "./render-results.ts"
 /** What a frame drawn offscreen was asked to show, for its events. */
 function shown(job: RenderJob, priority: string): { design?: string; state?: string; mode?: string; priority: string } {
   const { design } = job
+
   return {
     ...(design?.key ? { design: design.key } : {}),
     ...(design?.state ? { state: design.state } : {}),
@@ -36,18 +37,24 @@ export function watchFrame(
   const started = now()
   let renderMs: number | undefined
   let failure: FrameFailure | undefined
+
   const fail = (why: FrameFailure, message: string, stack?: string) => {
     failure ??= why
     track("frame.failed", { ...shown(job, priority), failure: why, message, ...(stack ? { stack } : {}) }, span)
     failed()
   }
+
   const failedWith = ({ error, errorStack }: { error?: string; errorStack?: string }) => {
-    if (error && failure === undefined) fail(frameFailure(error), error, errorStack)
+    if (error && failure === undefined) {
+      fail(frameFailure(error), error, errorStack)
+    }
   }
+
   const timer = setTimeout(
     () => fail("timed out", `It was still drawing ${frameTimeoutMs / 1000} seconds after its turn came`),
     frameTimeoutMs
   )
+
   return {
     rendered(frame) {
       renderMs = Math.round(now() - started)
@@ -56,7 +63,11 @@ export function watchFrame(
     threw: failedWith,
     end(frame, threw = false) {
       clearTimeout(timer)
-      if (threw) return
+
+      if (threw) {
+        return
+      }
+
       const ended = Math.round(now() - started)
       span?.end(failure ? "error" : "ok", {
         ...shown(job, priority),

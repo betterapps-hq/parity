@@ -54,7 +54,10 @@ export function keepFailedFrame(png: Uint8Array): void {
 }
 
 function failedFrame(): { filename: string; data: Uint8Array; contentType: string } | undefined {
-  if (lastFailedFrame && Date.now() - lastFailedFrame.at > failedFrameKeptMs) lastFailedFrame = undefined
+  if (lastFailedFrame && Date.now() - lastFailedFrame.at > failedFrameKeptMs) {
+    lastFailedFrame = undefined
+  }
+
   return lastFailedFrame?.attachment
 }
 
@@ -97,9 +100,16 @@ function definedTags(tags: Record<string, string | undefined>): Record<string, s
 
 /** An agent called the app through the service, which says who it is (PAR-630). What isn't a caller is ignored. */
 export function agentCalled(sent: unknown): void {
-  if (typeof sent !== "object" || sent === null) return
+  if (typeof sent !== "object" || sent === null) {
+    return
+  }
+
   const { name, id, client } = sent as Record<string, unknown>
-  if (typeof name !== "string" || typeof id !== "string") return
+
+  if (typeof name !== "string" || typeof id !== "string") {
+    return
+  }
+
   driver.agentCalled({ name, id, ...(typeof client === "string" ? { client } : {}) })
 }
 
@@ -147,7 +157,11 @@ export function startTelemetry(
     beforeSend: (event, hint) => {
       // An error carries the frame that last failed to draw offscreen, while it's recent (PAR-638).
       const frame = failedFrame()
-      if (frame) hint.attachments = [...(hint.attachments ?? []), frame]
+
+      if (frame) {
+        hint.attachments = [...(hint.attachments ?? []), frame]
+      }
+
       return scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } }))
     },
     beforeSendTransaction: (event) => scrubber.value(withDriver(event)),
@@ -165,6 +179,7 @@ export function startTelemetry(
   watchMainLoop()
   // An agent that stops calling hands back to the person, which spans and logs, unlike errors, don't check as they're sent.
   setInterval(() => driver.current(), 1000).unref()
+
   return { level, environment }
 }
 
@@ -179,7 +194,10 @@ const sentryTarget: SentryTarget = {
   captureEvent: (event) => void Sentry.captureEvent(event),
   log: ({ level: logLevel, message, attributes, traceId }) =>
     Sentry.withScope((scope) => {
-      if (traceId) scope.setPropagationContext({ traceId, sampleRand: Math.random() })
+      if (traceId) {
+        scope.setPropagationContext({ traceId, sampleRand: Math.random() })
+      }
+
       Sentry.logger[logLevel](message, attributes)
     })
 }
@@ -212,9 +230,11 @@ export function startEvents({
     sessionId: randomUUID(),
     check: !installed
   }
+
   const logFile = createLogFileSink(createLogFiles({ folder: join(userData, "logs") }), {
     testRun: process.env.PARITY_TEST_RUN?.trim() || undefined
   })
+
   // The file is written as the app quits, with what's waiting.
   app.on("will-quit", () => logFile.flush())
   const upload = createSentrySink(sentryTarget, { upload: true, scope: false })
@@ -228,6 +248,7 @@ export function startEvents({
       upload.span(envelope)
     }
   }
+
   const telemetry = recordInvalidData(
     createTelemetry({
       events: registeredEvents,
@@ -237,7 +258,9 @@ export function startEvents({
       onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
     })
   )
+
   scrubber.follow(telemetry)
+
   return { run, telemetry, flushLogs: () => logFile.flush() }
 }
 
@@ -246,14 +269,25 @@ export function startEvents({
  * What isn't an envelope is dropped, since it crossed a process boundary.
  */
 export function recordForwarded(sent: unknown, process?: Envelope["process"]): void {
-  if (!forward) return
+  if (!forward) {
+    return
+  }
+
   const read = envelopeSchema.safeParse(sent)
-  if (!read.success) return
+
+  if (!read.success) {
+    return
+  }
+
   // A window's events are named by the window that sent them, not by what the page says.
   const envelope = process ? { ...read.data, process } : read.data
+
   try {
-    if (isSpanEnvelope(envelope)) forward.span(envelope)
-    else forward.event(envelope)
+    if (isSpanEnvelope(envelope)) {
+      forward.span(envelope)
+    } else {
+      forward.event(envelope)
+    }
   } catch (error) {
     console.warn("[telemetry] couldn't record another process's event:", error)
   }
@@ -266,7 +300,11 @@ export function recordForwarded(sent: unknown, process?: Envelope["process"]): v
 export function applyTelemetry(next: { level: TelemetryLevel; installId: string }): void {
   level = next.level
   const client = Sentry.getClient()
-  if (client) client.getOptions().enabled = level !== "off"
+
+  if (client) {
+    client.getOptions().enabled = level !== "off"
+  }
+
   installId = next.installId
   tagDriver()
 }
@@ -285,7 +323,10 @@ export function watchWindowHangs(
     Sentry.addBreadcrumb({ category: "window", level: "warning", message: `The ${name} stopped answering` })
   })
   window.on("responsive", () => {
-    if (since === undefined) return
+    if (since === undefined) {
+      return
+    }
+
     const stuckMs = Math.round(performance.now() - since)
     since = undefined
     Sentry.captureMessage(`The ${name} was unresponsive for ${(stuckMs / 1000).toFixed(1)}s`, {
@@ -323,11 +364,17 @@ function watchMainLoop(): void {
     const now = performance.now()
     const lateMs = Math.round(now - expected)
     expected = now + every
+
     if (slept) {
       slept = false
+
       return
     }
-    if (lateMs < hangThreshold) return
+
+    if (lateMs < hangThreshold) {
+      return
+    }
+
     Sentry.captureMessage(`Main was blocked for ${(lateMs / 1000).toFixed(1)}s`, {
       level: "warning",
       tags: { hang: "main" },

@@ -6,6 +6,7 @@ const listeners = new Set<() => void>()
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
+
   return () => listeners.delete(listener)
 }
 
@@ -15,12 +16,19 @@ function subscribe(listener: () => void): () => void {
  */
 export function TitleLayer() {
   const editor = useEditor()
+
   return (
     <div
       ref={(element) => {
-        if (element) hosts.set(editor, element)
-        else hosts.delete(editor)
-        for (const listener of listeners) listener()
+        if (element) {
+          hosts.set(editor, element)
+        } else {
+          hosts.delete(editor)
+        }
+
+        for (const listener of listeners) {
+          listener()
+        }
       }}
       className="pointer-events-none absolute top-0 left-0 z-[1000000]"
     />

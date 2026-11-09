@@ -10,13 +10,20 @@ const edges = ["left", "right", "top", "bottom"] as const
 /** How far `inner` reaches past each edge of `outer`, beyond the tolerance; nothing when it stays inside. */
 export function overflowPast(inner: FrameBox, outer: FrameBox, tolerance = overflowTolerance): Overflow | undefined {
   const past: Overflow = {}
+
   const amounts = {
     left: outer.x - inner.x,
     right: inner.x + inner.width - (outer.x + outer.width),
     top: outer.y - inner.y,
     bottom: inner.y + inner.height - (outer.y + outer.height)
   }
-  for (const edge of edges) if (amounts[edge] > tolerance) past[edge] = round(amounts[edge])
+
+  for (const edge of edges) {
+    if (amounts[edge] > tolerance) {
+      past[edge] = round(amounts[edge])
+    }
+  }
+
   return Object.keys(past).length > 0 ? past : undefined
 }
 
@@ -43,12 +50,18 @@ export function layoutFindings(
   const frameBox = { x: 0, y: 0, width: frame.width, height: frame.height }
   const reach = frame.fixedHeight ? frameBox : { ...frameBox, height: Number.POSITIVE_INFINITY }
   const found = new Map<string, LayoutFinding>()
+
   for (const node of nodes) {
-    if (node.width <= 0 || node.height <= 0) continue
+    if (node.width <= 0 || node.height <= 0) {
+      continue
+    }
+
     const box = { x: node.x, y: node.y, width: node.width, height: node.height }
+
     if (node.clip) {
       const { node: by, ...clipBox } = node.clip
       const overflow = overflowPast(box, clipBox, tolerance)
+
       if (overflow) {
         found.set(node.id, {
           kind: "clipped",
@@ -60,21 +73,35 @@ export function layoutFindings(
         continue
       }
     }
+
     const overflow = overflowPast(box, reach, tolerance)
-    if (overflow)
+
+    if (overflow) {
       found.set(node.id, { kind: "frame-overflow", node: node.id, box, container: { box: frameBox }, overflow })
+    }
   }
+
   const parents = new Map(nodes.map((node) => [node.id, node.parent]))
+
   const covered = (finding: LayoutFinding) => {
     const seen = new Set<string>()
+
     for (let id = parents.get(finding.node); id && !seen.has(id); id = parents.get(id)) {
       seen.add(id)
       const outer = found.get(id)
-      if (!outer || outer.kind !== finding.kind || outer.container.node !== finding.container.node) continue
-      if (edges.every((edge) => (finding.overflow[edge] ?? 0) <= (outer.overflow[edge] ?? 0) + tolerance)) return true
+
+      if (!outer || outer.kind !== finding.kind || outer.container.node !== finding.container.node) {
+        continue
+      }
+
+      if (edges.every((edge) => (finding.overflow[edge] ?? 0) <= (outer.overflow[edge] ?? 0) + tolerance)) {
+        return true
+      }
     }
+
     return false
   }
+
   return [...found.values()].filter((finding) => !covered(finding))
 }
 
@@ -85,6 +112,7 @@ export function describeOverflow(overflow: Overflow): string {
   const parts = edges.flatMap((edge) =>
     overflow[edge] === undefined ? [] : [`${overflow[edge]}px ${edgeWords[edge]}`]
   )
+
   return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : (parts[0] ?? "")
 }
 
@@ -94,12 +122,16 @@ export function describeOverflow(overflow: Overflow): string {
  */
 export function describeLayoutFinding(finding: LayoutFinding, name: (id: string) => string | undefined): string {
   const amounts = describeOverflow(finding.overflow)
+
   if (finding.kind === "clipped") {
     const by = finding.container.node
     const clipper = by ? `${name(by) ?? by} (${by})` : "an element outside the design's layers"
+
     return `${amounts} cut off by ${clipper}, which clips its overflow`
   }
+
   const { x, y, width, height } = finding.box
+
   return `at x ${x}, y ${y} and ${width} × ${height}px, it sticks out of the ${finding.container.box.width}px frame by ${amounts}`
 }
 

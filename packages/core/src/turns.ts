@@ -11,12 +11,14 @@ export interface Turns {
 export function turns(limit: number): Turns {
   const waiting: (() => void)[] = []
   let running = 0
+
   const next = () => {
     while (running < limit && waiting.length > 0) {
       running++
       waiting.shift()!()
     }
   }
+
   return {
     run(task) {
       return new Promise((resolve, reject) => {

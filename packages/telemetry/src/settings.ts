@@ -42,14 +42,23 @@ export interface ResolvedTelemetry {
  */
 export function resolveTelemetry(variables: TelemetryVariables, setting: TelemetryLevel = "all"): ResolvedTelemetry {
   const asked = variables.PARITY_TELEMETRY?.trim().toLowerCase() || undefined
+
   if (asked !== undefined && !telemetryLevels.includes(asked as TelemetryLevel)) {
     throw new TypeError(`PARITY_TELEMETRY is "${variables.PARITY_TELEMETRY}"; expected all or off`)
   }
-  if (variables.VITEST) return { level: "off", setting, overriddenBy: "VITEST" }
+
+  if (variables.VITEST) {
+    return { level: "off", setting, overriddenBy: "VITEST" }
+  }
+
   if (/^(1|true)$/i.test(variables.DO_NOT_TRACK?.trim() ?? "")) {
     return { level: "off", setting, overriddenBy: "DO_NOT_TRACK" }
   }
-  if (asked !== undefined) return { level: asked as TelemetryLevel, setting, overriddenBy: "PARITY_TELEMETRY" }
+
+  if (asked !== undefined) {
+    return { level: asked as TelemetryLevel, setting, overriddenBy: "PARITY_TELEMETRY" }
+  }
+
   return { level: setting, setting }
 }
 
@@ -76,11 +85,15 @@ export type SavedTelemetry = z.infer<typeof savedTelemetry>
  */
 export function readSavedTelemetry(text: string | undefined): SavedTelemetry {
   let value: unknown = {}
+
   try {
-    if (text !== undefined) value = JSON.parse(text)
+    if (text !== undefined) {
+      value = JSON.parse(text)
+    }
   } catch {
     // Unreadable counts as unset.
   }
+
   return savedTelemetry.catch({ level: "all" }).parse(value)
 }
 
@@ -96,16 +109,27 @@ export interface DataFolderContext {
  * `telemetry.json` (PAR-642). `PARITY_USER_DATA` names another copy's folder, as it does for the app.
  */
 export function desktopDataFolder({ platform, env, home }: DataFolderContext): string {
-  if (env.PARITY_USER_DATA) return env.PARITY_USER_DATA
+  if (env.PARITY_USER_DATA) {
+    return env.PARITY_USER_DATA
+  }
+
   const separator = platform === "win32" ? "\\" : "/"
   let appData = env.XDG_CONFIG_HOME || [home, ".config"].join(separator)
-  if (platform === "win32") appData = env.APPDATA || [home, "AppData", "Roaming"].join(separator)
-  else if (platform === "darwin") appData = [home, "Library", "Application Support"].join(separator)
+
+  if (platform === "win32") {
+    appData = env.APPDATA || [home, "AppData", "Roaming"].join(separator)
+  } else if (platform === "darwin") {
+    appData = [home, "Library", "Application Support"].join(separator)
+  }
+
   return [appData, "@parity", "desktop"].join(separator)
 }
 
 /** Which environment a run reports as: `ci` wherever CI is set, else `tester` for an installed build. */
 export function telemetryEnvironment(variables: TelemetryVariables, installed: boolean): TelemetryEnvironment {
-  if (variables.CI && !/^(0|false)$/i.test(variables.CI.trim())) return "ci"
+  if (variables.CI && !/^(0|false)$/i.test(variables.CI.trim())) {
+    return "ci"
+  }
+
   return installed ? "tester" : "development"
 }

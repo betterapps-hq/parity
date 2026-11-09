@@ -37,6 +37,7 @@ export const decoratorValue: z.ZodType<unknown> = z.lazy(() =>
     plain(valueForms, decoratorValue)
   ])
 )
+
 export type DecoratorValue = unknown
 
 /**
@@ -49,6 +50,7 @@ export const sampleValue: z.ZodType<unknown> = z.lazy(() =>
 
 /** Something the package exports, such as a theme object. */
 const importedValue = fileObject({ $import: z.string(), export: z.string().optional() })
+
 export type ImportedValue = z.infer<typeof importedValue>
 
 /**
@@ -66,7 +68,9 @@ function made(value: z.ZodType<unknown>) {
     methods: z.array(fileObject({ method: z.string(), args: z.array(value).optional() })).optional()
   })
 }
+
 const madeValue = made(decoratorValue)
+
 export type MadeValue = z.infer<typeof madeValue>
 
 /** Picked by the frame's global, which is the mode's option for that variable, else `default`. */
@@ -75,10 +79,12 @@ const globalValue = fileObject({
   values: z.record(z.string(), decoratorValue),
   default: decoratorValue.optional()
 })
+
 export type GlobalValue = z.infer<typeof globalValue>
 
 /** Part of the frame itself. */
 const frameValue = fileObject({ $frame: z.enum(frameParts) })
+
 export type FrameValue = z.infer<typeof frameValue>
 
 /** A function returning the value it holds. */

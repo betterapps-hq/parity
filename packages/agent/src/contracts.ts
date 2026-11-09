@@ -21,16 +21,22 @@ import { z } from "zod"
  */
 export function readRequest<T extends z.ZodType>(schema: T, input: unknown, depth = Infinity): z.output<T> {
   const checked = checkData(schema, withoutUnset(input))
-  if (checked.success) return checked.data
+
+  if (checked.success) {
+    return checked.data
+  }
+
   const field = checked.problem.pointer
     .split("/")
     .slice(1, depth + 1)
     .join("/")
+
   throw new CodedError(checked.problem.message, { code: "invalid_input", ...(field ? { field } : {}) })
 }
 
 function withoutUnset(input: unknown): unknown {
   const fields = plainObject.safeParse(input).data
+
   return fields ? Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) : input
 }
 
@@ -40,6 +46,7 @@ function withoutUnset(input: unknown): unknown {
  */
 export function requestJsonSchema(schema: z.ZodType) {
   const { $schema: _dialect, ...json } = z.toJSONSchema(schema, { io: "input" })
+
   return json
 }
 
@@ -56,6 +63,7 @@ function text(name: string, description: string) {
 function selector(name: string) {
   const message = `${name} must be a nonblank string or a nonempty list of nonblank strings`
   const item = nonblank(message)
+
   return z.union([item, z.array(item, message).min(1, message)], message)
 }
 
@@ -71,6 +79,7 @@ function flag(name: string, description: string) {
 /** How many items a list read returns at most: a default that keeps a reply small, and a ceiling. */
 function limit(description: string, fallback: number, most: number) {
   const message = `limit must be a whole number from 1 to ${most}`
+
   return z.int(message).min(1, message).max(most, message).default(fallback).describe(description)
 }
 
@@ -95,6 +104,7 @@ const scaleMessage = "scale must be a finite number from 0.25 to 3"
 const scale = z.number(scaleMessage).min(0.25, scaleMessage).max(3, scaleMessage).default(1).describe("Pixel density.")
 const absoluteRoot = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/
 const blankRoot = "root must be a nonblank string"
+
 /** A project folder. Being absolute already rules out blank text, so the schema publishes only that pattern. */
 const root = z
   .string(blankRoot)
@@ -102,6 +112,7 @@ const root = z
   .refine((path) => /\S/.test(path), blankRoot)
   .regex(absoluteRoot, "root must be an absolute project folder path")
   .describe("Absolute project folder path.")
+
 /** A render's frames: every state and the modes the design shows, unless the call narrows them. */
 const checks = {
   tab,
@@ -145,8 +156,14 @@ const execute = {
 
 /** A field only the other kind of request takes: a snippet with an editId, or retry edits with no editId. */
 function misplaced(keys: readonly string[]): string {
-  if (keys.includes("editId") || keys.includes("code")) return "Pass a snippet or an editId, not both"
-  if (keys.includes("edits")) return "edits requires an editId"
+  if (keys.includes("editId") || keys.includes("code")) {
+    return "Pass a snippet or an editId, not both"
+  }
+
+  if (keys.includes("edits")) {
+    return "edits requires an editId"
+  }
+
   return `Unknown input field ${keys[0] ?? ""}`
 }
 

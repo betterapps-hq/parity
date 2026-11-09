@@ -22,6 +22,7 @@ function Cursor({
   light: boolean
 }) {
   const colors = agentPalettes.find((candidate) => candidate.name === palette)
+
   return (
     <div className={`flex min-h-64 items-center justify-center p-16 ${light ? "bg-white" : "bg-[#0e0e10]"}`}>
       <div className="group/cursor relative" data-idle={state === "idle"}>
@@ -48,6 +49,7 @@ const meta = {
 } satisfies Meta<typeof Cursor>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Travelling or looking at something. */

@@ -47,8 +47,10 @@ export interface SkeletonOptions {
 
 /** How much of the frame a surface covers to count as its background. */
 const coversFrame = 0.9
+
 /** How much of a line of text its bar fills, top to bottom, as a skeleton draws text. */
 const textBar = 0.6
+
 /** How strongly text and media show, in their own color: about as dark as text is drawn this small. */
 const textOpacity = 0.35
 const mediaOpacity = 0.2
@@ -64,14 +66,24 @@ export function frameSkeleton(
   const shown: { box: Shape; style: Style; order: number }[] = []
   drawn.forEach((box, order) => {
     const clipped = clip(box, frame)
-    if (!clipped || clipped.width < smallest || clipped.height < smallest) return
-    if (box.kind === "surface" && box.color && (clipped.width * clipped.height) / area >= coversFrame) {
-      background = box.color
+
+    if (!clipped || clipped.width < smallest || clipped.height < smallest) {
       return
     }
+
+    if (box.kind === "surface" && box.color && (clipped.width * clipped.height) / area >= coversFrame) {
+      background = box.color
+
+      return
+    }
+
     const drawnAs = draw(box, clipped)
-    if (drawnAs) shown.push({ ...drawnAs, order })
+
+    if (drawnAs) {
+      shown.push({ ...drawnAs, order })
+    }
   })
+
   const kept =
     shown.length <= most
       ? shown
@@ -79,6 +91,7 @@ export function frameSkeleton(
           .sort((a, b) => b.box.width * b.box.height - a.box.width * a.box.height)
           .slice(0, most)
           .sort((a, b) => a.order - b.order)
+
   return { width: frame.width, height: frame.height, ...(background ? { background } : {}), layers: layer(kept) }
 }
 
@@ -95,15 +108,26 @@ type Style = Omit<SkeletonLayer, "path">
 /** How a box is drawn, or nothing for one that draws nothing. */
 function draw(box: DrawnBox, shape: Shape): { box: Shape; style: Style } | undefined {
   if (box.kind === "text") {
-    if (!box.color) return undefined
+    if (!box.color) {
+      return undefined
+    }
+
     const height = shape.height * textBar
+
     return {
       box: { ...shape, y: shape.y + (shape.height - height) / 2, height, radius: height / 2 },
       style: { fill: box.color, opacity: textOpacity }
     }
   }
-  if (box.kind === "media") return { box: shape, style: { fill: box.color ?? "currentColor", opacity: mediaOpacity } }
-  if (!box.color && !box.border) return undefined
+
+  if (box.kind === "media") {
+    return { box: shape, style: { fill: box.color ?? "currentColor", opacity: mediaOpacity } }
+  }
+
+  if (!box.color && !box.border) {
+    return undefined
+  }
+
   return {
     box: shape,
     style: { ...(box.color ? { fill: box.color } : {}), ...(box.border ? { stroke: box.border } : {}), opacity: 1 }
@@ -116,7 +140,11 @@ function clip(box: DrawnBox, frame: { width: number; height: number }): Shape | 
   const y = Math.max(0, box.y)
   const width = Math.min(frame.width, box.x + box.width) - x
   const height = Math.min(frame.height, box.y + box.height) - y
-  if (width <= 0 || height <= 0) return undefined
+
+  if (width <= 0 || height <= 0) {
+    return undefined
+  }
+
   return { x, y, width, height, radius: Math.min(box.radius ?? 0, width / 2, height / 2) }
 }
 
@@ -126,20 +154,30 @@ function clip(box: DrawnBox, frame: { width: number; height: number }): Shape | 
  */
 function layer(boxes: { box: Shape; style: Style }[]): SkeletonLayer[] {
   const layers: { style: Style; key: string; boxes: Shape[] }[] = []
+
   for (const { box, style } of boxes) {
     const key = `${style.fill}|${style.stroke}|${style.opacity}`
     let joined = false
+
     for (let index = layers.length - 1; index >= 0; index--) {
       const candidate = layers[index]!
+
       if (candidate.key === key) {
         candidate.boxes.push(box)
         joined = true
         break
       }
-      if (candidate.boxes.some((other) => overlaps(box, other))) break
+
+      if (candidate.boxes.some((other) => overlaps(box, other))) {
+        break
+      }
     }
-    if (!joined) layers.push({ style, key, boxes: [box] })
+
+    if (!joined) {
+      layers.push({ style, key, boxes: [box] })
+    }
   }
+
   return layers.map(({ style, boxes }) => ({ path: boxes.map(outline).join(""), ...style }))
 }
 
@@ -150,9 +188,14 @@ function overlaps(a: Shape, b: Shape): boolean {
 /** A box as path commands, clockwise from its top left corner. */
 function outline({ x, y, width, height, radius }: Shape): string {
   const n = (value: number) => String(Math.round(value * 10) / 10)
-  if (radius < 0.5) return `M${n(x)} ${n(y)}h${n(width)}v${n(height)}h${n(-width)}Z`
+
+  if (radius < 0.5) {
+    return `M${n(x)} ${n(y)}h${n(width)}v${n(height)}h${n(-width)}Z`
+  }
+
   const r = n(radius)
   const arc = (dx: number, dy: number) => `a${r} ${r} 0 0 1 ${n(dx)} ${n(dy)}`
+
   return (
     `M${n(x + radius)} ${n(y)}h${n(width - 2 * radius)}${arc(radius, radius)}v${n(height - 2 * radius)}` +
     `${arc(-radius, radius)}h${n(-(width - 2 * radius))}${arc(-radius, -radius)}v${n(-(height - 2 * radius))}` +

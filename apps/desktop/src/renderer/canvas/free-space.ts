@@ -14,7 +14,11 @@ export function bringIntoView(editor: Editor, target: Bounds): void {
   const view = editor.getViewportPageBounds()
   const camera = editor.getCamera()
   const shift = panToShow(view, target, viewMargin / camera.z)
-  if (!shift) return
+
+  if (!shift) {
+    return
+  }
+
   editor.setCamera({ x: camera.x - shift.x, y: camera.y - shift.y, z: camera.z }, { animation: { duration: 250 } })
 }
 
@@ -23,20 +27,31 @@ const sizedBoards = new WeakMap<Editor, Atom<ReadonlySet<TLShapeId>>>()
 
 function sizedOn(editor: Editor): Atom<ReadonlySet<TLShapeId>> {
   let sized = sizedBoards.get(editor)
+
   if (!sized) {
     sized = atom("sized boards", new Set<TLShapeId>())
     sizedBoards.set(editor, sized)
   }
+
   return sized
 }
 
 /** Says whether a board's shape has the size its content draws at, as its board measures it (see ContainerContent). */
 export function setBoardSized(editor: Editor, id: TLShapeId, sized: boolean): void {
   const boards = sizedOn(editor)
-  if (boards.get().has(id) === sized) return
+
+  if (boards.get().has(id) === sized) {
+    return
+  }
+
   const next = new Set(boards.get())
-  if (sized) next.add(id)
-  else next.delete(id)
+
+  if (sized) {
+    next.add(id)
+  } else {
+    next.delete(id)
+  }
+
   boards.set(next)
 }
 
@@ -49,23 +64,39 @@ const sizingPatience = 2000
  * that isn't showing, leaves the view alone.
  */
 export function bringIntoViewOnceSized(editor: Editor, ids: readonly TLShapeId[]): void {
-  if (ids.length === 0) return
+  if (ids.length === 0) {
+    return
+  }
+
   let done = false
+
   // Once, and not from inside the reaction, which is still running, and may not have been returned yet, when it first
   // finds them sized.
   const finish = (target?: Bounds) => {
-    if (done) return
+    if (done) {
+      return
+    }
+
     done = true
     clearTimeout(timer)
     queueMicrotask(() => {
       stop()
-      if (target) bringIntoView(editor, target)
+
+      if (target) {
+        bringIntoView(editor, target)
+      }
     })
   }
+
   const timer = setTimeout(finish, sizingPatience)
+
   const stop = react("boards sized to bring into view", () => {
     const sized = sizedOn(editor).get()
-    if (done || !ids.every((id) => sized.has(id))) return
+
+    if (done || !ids.every((id) => sized.has(id))) {
+      return
+    }
+
     const boxes = ids.flatMap((id) => editor.getShapePageBounds(id) ?? [])
     finish(
       boxes.length === 0

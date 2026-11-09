@@ -12,6 +12,7 @@ describe("tldraw's shapes without pattern fills", () => {
     const shapes = defaultShapeUtils.map(
       (util) => withoutPatternFills.find((replacement) => replacement.type === util.type) ?? util
     )
+
     expect(shapes.filter((util) => canvasDefs(util).length > 0).map((util) => util.type)).toEqual([])
   })
 

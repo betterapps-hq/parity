@@ -23,34 +23,64 @@ export async function styleModules(
 ): Promise<Record<string, string> | undefined> {
   const icons = (module: Record<string, unknown>) =>
     Object.keys(module).filter((name) => /^[A-Z]/.test(name) && isComponent(module[name]))
+
   const base = await load(main).catch(() => undefined)
-  if (!base) return undefined
+
+  if (!base) {
+    return undefined
+  }
+
   const names = icons(base).sort()
   const sample = names.slice(0, sampled)
   const drawn = new Map(sample.map((name) => [name, draw(base[name])]))
   const found: { specifier: string; module: Record<string, unknown> }[] = []
+
   for (const entry of entries) {
-    if (entry === "." || entry.includes("*") || /\.[a-z]+$/i.test(entry)) continue
+    if (entry === "." || entry.includes("*") || /\.[a-z]+$/i.test(entry)) {
+      continue
+    }
+
     const specifier = packageName + entry.slice(1)
+
     if (specifier === main) {
       found.push({ specifier, module: base })
       continue
     }
+
     const module = await load(specifier).catch(() => undefined)
-    if (!module) continue
+
+    if (!module) {
+      continue
+    }
+
     const own = new Set(icons(module))
     const shared = sample.filter((name) => own.has(name))
+
     if (own.size === 0 || names.filter((name) => own.has(name)).length * 2 < names.length || shared.length === 0) {
       continue
     }
+
     // The same icons as a module already found, under another path, or drawn just as the default module draws them.
-    if (found.some((other) => shared.every((name) => other.module[name] === module[name]))) continue
-    if (shared.some((name) => draw(module[name]) === drawn.get(name))) continue
+    if (found.some((other) => shared.every((name) => other.module[name] === module[name]))) {
+      continue
+    }
+
+    if (shared.some((name) => draw(module[name]) === drawn.get(name))) {
+      continue
+    }
+
     found.push({ specifier, module })
   }
+
   // A default module that isn't one of the listed paths, such as the package itself, comes first.
-  if (!found.some((style) => style.module === base)) found.unshift({ specifier: main, module: base })
-  if (found.length < 2) return undefined
+  if (!found.some((style) => style.module === base)) {
+    found.unshift({ specifier: main, module: base })
+  }
+
+  if (found.length < 2) {
+    return undefined
+  }
+
   return Object.fromEntries(
     found.map(({ specifier }) => [
       specifier.startsWith(`${packageName}/`) ? styleName(specifier.slice(packageName.length + 1)) : "Default",

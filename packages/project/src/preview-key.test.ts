@@ -15,6 +15,7 @@ const files = new Map(
     "src/theme.css"
   ].map((path) => [path, "1:1"])
 )
+
 const alias = (specifier: string) => (specifier.startsWith("@/") ? `src/${specifier.slice(2)}` : undefined)
 
 describe("resolveModule", () => {
@@ -58,6 +59,7 @@ describe("moduleClosure", () => {
     "c.ts": ["a.tsx"],
     "d.ts": []
   }
+
   const importsOf = async (path: string) => graph[path] ?? []
 
   it("reaches every file through imports, once, even round a cycle", async () => {
@@ -87,6 +89,7 @@ describe("sharedPreviewFiles", () => {
         ].map((path) => [path, "1:1"])
       )
     }
+
     expect(sharedPreviewFiles(snapshot)).toEqual([
       "package.json",
       "tsconfig.app.json",
@@ -128,7 +131,9 @@ describe("previewKey", () => {
   async function keyOf(component: string, snapshot: CodeSnapshot, drawn: unknown = { tree: component }) {
     const importsOf = async (path: string) =>
       importedFiles(path, await readFile(join(root, path), "utf8"), snapshot.files, () => undefined)
+
     const closure = await moduleClosure([component, "src/index.css"], importsOf)
+
     return previewKey({ drawn, files: [...closure, ...sharedPreviewFiles(snapshot)], snapshot, salt: "1" })
   }
 

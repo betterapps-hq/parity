@@ -5,6 +5,7 @@ import { measureTogether } from "./measure-together.ts"
 function batch() {
   const log: string[] = []
   let flush: (() => void) | undefined
+
   const measure = measureTogether(
     (writes) => {
       log.push("change")
@@ -15,13 +16,16 @@ function batch() {
       flush = scheduled
     }
   )
+
   const board = (name: string, size: number | undefined) => ({
     read: () => {
       log.push(`read ${name}`)
+
       return size
     },
     write: (value: number) => log.push(`write ${name} ${value}`)
   })
+
   return { log, measure, board, run: () => flush?.() }
 }
 

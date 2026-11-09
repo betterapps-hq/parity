@@ -7,8 +7,13 @@ export function callerIdentity(
   client?: unknown
 ): { name: string; id: string; client?: string } | undefined {
   const name = nonBlankString.safeParse(agent).data
-  if (!name) return undefined
+
+  if (!name) {
+    return undefined
+  }
+
   const id = nonBlankString.safeParse(agentId).data?.slice(0, 80)
   const program = nonBlankString.safeParse(client).data?.slice(0, 80)
+
   return { name, id: id ?? name, ...(program ? { client: program } : {}) }
 }

@@ -29,6 +29,7 @@ describe("lastRunCrash", () => {
       event("b", "action.ran", "2026-11-06T10:02:00.000Z", { process: "renderer" }),
       event("c", "app.started", "2026-11-06T11:00:00.000Z")
     ]
+
     const crash = lastRunCrash(events, "c")
     expect(crash).toMatchObject({
       sessionId: "b",
@@ -44,6 +45,7 @@ describe("lastRunCrash", () => {
       event("a", "app.quit", "2026-11-06T09:30:00.000Z"),
       event("c", "app.started", "2026-11-06T11:00:00.000Z")
     ]
+
     expect(lastRunCrash(quit, "c")).toBeUndefined()
     expect(lastRunCrash([event("c", "app.started", "2026-11-06T11:00:00.000Z")], "c")).toBeUndefined()
   })
@@ -54,12 +56,14 @@ describe("lastRunCrash", () => {
       event("a", "app.quit", "2026-11-06T09:30:00.000Z"),
       event("cli", "command.ran", "2026-11-06T10:00:00.000Z", { process: "cli" })
     ]
+
     expect(lastRunCrash(events, "c")).toBeUndefined()
   })
 })
 
 describe("diagnosticFiles", () => {
   const now = Date.parse("2026-11-06T12:00:00.000Z")
+
   const events = [
     event("a", "old", "2026-11-06T10:30:00.000Z", { project: "/old" }),
     event("b", "project.opened", "2026-11-06T11:10:00.000Z", { project: "/site" }),
