@@ -55,12 +55,20 @@ export function zipFiles(files: readonly { name: string; text: string }[], modif
   return Buffer.concat([...locals, directory, end])
 }
 
+/** A time and date as zip stores them: two 16-bit fields. */
+interface DosTime {
+  time: number
+  date: number
+}
+
 /** A time as zip has it: local time, to two seconds, from 1980. */
-function dosTime(at: Date): { time: number; date: number } {
+function dosTime(at: Date): DosTime {
   const year = Math.max(at.getFullYear(), 1980)
 
   return {
+    // oxlint-disable-next-line no-bitwise -- zip packs hours, minutes and seconds into bit fields of one 16-bit word
     time: (at.getHours() << 11) | (at.getMinutes() << 5) | Math.floor(at.getSeconds() / 2),
+    // oxlint-disable-next-line no-bitwise -- zip packs year, month and day into bit fields of one 16-bit word
     date: ((year - 1980) << 9) | ((at.getMonth() + 1) << 5) | at.getDate()
   }
 }

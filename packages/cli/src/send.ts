@@ -46,6 +46,11 @@ function releaseOf(run: Batch["run"]): string {
   return release
 }
 
+/** Waits until what's been sent has left, or the time runs out. */
+async function flush(timeoutMs: number): Promise<void> {
+  await Sentry.flush(timeoutMs)
+}
+
 /** Sends one batch in a scope of its own, so its breadcrumbs, tags and user go only with its own events. */
 function send(batch: Batch): void {
   const { run } = batch
@@ -85,16 +90,20 @@ function send(batch: Batch): void {
         case "exception": {
           const error = Object.assign(new Error(item.error.message), { name: item.error.name })
           error.stack = item.error.stack ?? `${item.error.name}: ${item.error.message}`
-          scope.captureException(error, {
-            ...(item.uncaught ? { mechanism: { type: "onuncaughtexception", handled: false } } : {}),
-            captureContext: {
-              ...labelled,
-              tags: item.tags,
-              ...(item.trace
-                ? { contexts: { trace: { trace_id: item.trace.traceId, span_id: item.trace.spanId } } }
-                : {})
-            }
-          })
+
+          const context = { ...labelled, tags: item.tags }
+
+          const captureContext = item.trace
+            ? { ...context, contexts: { trace: { trace_id: item.trace.traceId, span_id: item.trace.spanId } } }
+            : context
+
+          const hint: Sentry.EventHint = { captureContext }
+
+          if (item.uncaught) {
+            hint.mechanism = { type: "onuncaughtexception", handled: false }
+          }
+
+          scope.captureException(error, hint)
           break
         }
       }
@@ -113,7 +122,7 @@ if (folder) {
     sendClientReports: false,
     ...sentryScrubbing(scrubber, Sentry)
   })
-  const target: BatchTarget = { send, flush: (timeoutMs) => Sentry.flush(timeoutMs) }
+  const target: BatchTarget = { send, flush }
   await sendBatches(folder, target)
   await Sentry.close(2000)
 }

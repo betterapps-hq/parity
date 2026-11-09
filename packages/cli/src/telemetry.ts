@@ -34,8 +34,18 @@ import {
   telemetryUser,
   traceHeaders
 } from "@parity-app/telemetry"
+import { z } from "zod"
 import { cliVersion } from "./diagnostics.ts"
-import { type BatchRun, createOutbox, loadedDebugIds, type Outbox, startSender, writeBatch } from "./outbox.ts"
+import {
+  type Batch,
+  type BatchRun,
+  createOutbox,
+  loadedDebugIds,
+  type Outbox,
+  startSender,
+  writeBatch
+} from "./outbox.ts"
+import { stderr } from "./output.ts"
 
 /*
  * The CLI's own events (PAR-641): each command it runs, the copies of the app it can't reach or can't read, and the MCP
@@ -47,6 +57,9 @@ import { type BatchRun, createOutbox, loadedDebugIds, type Outbox, startSender, 
 type CliEvents = typeof cliEvents
 
 export type CliTelemetry = Telemetry<CliEvents>
+
+/** What one of the CLI's events records, by its name. */
+export type CliAttributes<Name extends EventName<CliEvents>> = EventAttributes<CliEvents, Name>
 
 let telemetry: CliTelemetry | undefined
 
@@ -142,7 +155,7 @@ function showNotice(level: TelemetryLevel): void {
     return
   }
 
-  console.error(notice)
+  stderr(notice)
 
   try {
     mkdirSync(dirname(file), { recursive: true })
@@ -171,18 +184,25 @@ export interface CliBuild {
   commit?: string
 }
 
+/** `build.json` as the CLI reads it: published only when it says `true`, and a commit only when it names one. */
+const buildFile = z
+  .looseObject({ published: z.boolean().catch(false), commit: z.string().optional().catch(undefined) })
+  .catch({ published: false })
+
 /** This CLI's build, from `build.json` beside the bundle, or nothing when it runs from source. */
 function cliBuild(): CliBuild | undefined {
   try {
-    const build = JSON.parse(readFileSync(new URL("./build.json", import.meta.url), "utf8")) as {
-      published?: unknown
-      commit?: unknown
+    const { published, commit } = buildFile.parse(
+      JSON.parse(readFileSync(new URL("./build.json", import.meta.url), "utf8"))
+    )
+
+    const build: CliBuild = { published }
+
+    if (commit !== undefined) {
+      build.commit = commit
     }
 
-    return {
-      published: build.published === true,
-      ...(typeof build.commit === "string" ? { commit: build.commit } : {})
-    }
+    return build
   } catch {
     return undefined
   }
@@ -210,7 +230,7 @@ export function batchRun(
 ): BatchRun {
   const variables: RunVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }
   const driver: Driver = { kind: "agent", caller }
-  const tags: Record<string, string> = { ...runTags(variables) }
+  const tags: BatchRun["tags"] = { ...runTags(variables) }
 
   for (const [key, value] of Object.entries(driverTags(driver))) {
     if (value !== undefined) {
@@ -281,7 +301,13 @@ function hand(outbox: Outbox, installId: string, installed: boolean, serving: bo
       const run = batchRun(process.env, installId, installed)
       const debugIds = loadedDebugIds()
 
-      if (writeBatch(folder, { run, items: outbox.take(), ...(debugIds ? { debugIds } : {}) })) {
+      const batch: Batch = { run, items: outbox.take() }
+
+      if (debugIds) {
+        batch.debugIds = debugIds
+      }
+
+      if (writeBatch(folder, batch)) {
         startSender(folder, sender)
       }
     } catch {
@@ -300,15 +326,15 @@ function hand(outbox: Outbox, installId: string, installed: boolean, serving: bo
 }
 
 /** Keeps a command's failure that isn't one of Parity's coded errors, which is a bug, to send as a Sentry error. */
-let thrown: ((error: unknown) => void) | undefined
+let thrown: ((cause: unknown) => void) | undefined
 
 /**
  * Reports an error a command failed with, once its telemetry has started. Coded errors, such as invalid input or an app
  * that isn't running, are the command's answer, recorded on `cli.ran`; anything else is a bug in the CLI.
  */
-export function reportCliFailure(error: unknown): void {
-  if (errorDetails(error) === undefined) {
-    thrown?.(error)
+export function reportCliFailure(cause: unknown): void {
+  if (errorDetails(cause) === undefined) {
+    thrown?.(cause)
   }
 }
 
@@ -351,7 +377,7 @@ export async function inCliRun(command: string, flags: string[], work: () => Pro
     error: (error) => {
       const code = errorCode(error)
 
-      return { outcome: "error", attributes: { exitCode: 1, ...(code === undefined ? {} : { code }) } }
+      return { outcome: "error", attributes: code === undefined ? { exitCode: 1 } : { exitCode: 1, code } }
     }
   })
 }

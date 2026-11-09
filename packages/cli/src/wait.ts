@@ -1,3 +1,9 @@
+/** A wait's abort signal, and `stop` to end the wait once the answer has come. */
+export interface WaitLimit {
+  signal: AbortSignal
+  stop: () => void
+}
+
 /**
  * A limit on waiting for another process that counts only the time this one was free to wait (PAR-766). It counts ticks
  * of `interval` rather than wall time, and Node runs a late tick once without catching up, so a stretch where this
@@ -7,7 +13,7 @@
  *
  * `stop` ends the wait once the answer has come, so reading and checking it isn't timed either.
  */
-export function waitLimit(limit: number, interval = 100): { signal: AbortSignal; stop(): void } {
+export function waitLimit(limit: number, interval = 100): WaitLimit {
   const controller = new AbortController()
   let waited = 0
 

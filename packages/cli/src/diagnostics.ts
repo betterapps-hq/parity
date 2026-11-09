@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { homedir, platform, release, arch } from "node:os"
 import { join, resolve } from "node:path"
 import { desktopDataFolder, diagnosticFiles, lastRunCrash } from "@parity-app/telemetry"
+import { z } from "zod"
 import { readEvents } from "./logs.ts"
 import { zipFiles } from "./zip.ts"
 
@@ -23,12 +24,17 @@ function dataFolder(env: NodeJS.ProcessEnv = process.env): string {
   return desktopDataFolder({ platform: process.platform, env, home: homedir() })
 }
 
+const versioned = z.object({ version: z.string() })
+
+/** The `version` a JSON file names, or "unknown" when it names none. Throws when the file isn't JSON. */
+function versionIn(text: string): string {
+  return versioned.safeParse(JSON.parse(text)).data?.version ?? "unknown"
+}
+
 /** The installed app's version, from the file main keeps, or "unknown" when it hasn't run. */
 function appVersion(folder: string): string {
   try {
-    const build = JSON.parse(readFileSync(join(folder, "installed-build.json"), "utf8")) as { version?: unknown }
-
-    return typeof build.version === "string" ? build.version : "unknown"
+    return versionIn(readFileSync(join(folder, "installed-build.json"), "utf8"))
   } catch {
     return "unknown"
   }
@@ -37,11 +43,7 @@ function appVersion(folder: string): string {
 /** This CLI's version, from its package.json, which sits beside both src and dist. */
 export function cliVersion(): string {
   try {
-    const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
-      version?: unknown
-    }
-
-    return typeof manifest.version === "string" ? manifest.version : "unknown"
+    return versionIn(readFileSync(new URL("../package.json", import.meta.url), "utf8"))
   } catch {
     return "unknown"
   }
@@ -66,13 +68,19 @@ export function writeDiagnostics({
       node: process.versions.node,
       system: `${platform()} ${release()} ${arch()}`
     },
-    ...(crash ? { crash } : {})
+    crash
   })
 
   const path = resolve(out ?? `parity-diagnostics-${now.toISOString().replace(/[:.]/g, "-")}.zip`)
   writeFileSync(path, zipFiles(files, now))
 
-  return { path, files: files.map((file) => file.name), ...(crash ? { crashed: crash.sessionId } : {}) }
+  const result: DiagnosticsResult = { path, files: files.map((file) => file.name) }
+
+  if (crash) {
+    result.crashed = crash.sessionId
+  }
+
+  return result
 }
 
 export function describeDiagnostics({ path, files, crashed }: DiagnosticsResult): string {
