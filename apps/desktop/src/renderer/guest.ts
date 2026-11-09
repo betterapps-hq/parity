@@ -44,6 +44,7 @@ export function loadGuest(url: string, theme: readonly ThemeVariable[]): Promise
   let loading = guests.get(url)
 
   if (!loading) {
+    // SAFETY: `loaded`, its one required field, is set on the next line, before anything reads the entry.
     const entry = {} as Loading
     entry.loaded = load(url, theme, entry)
     entry.loaded.catch(() => {
@@ -168,10 +169,10 @@ export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, 
         if (themeOfSelector(rule.selectorText, atRules) === theme) {
           rules.push(rule)
         }
-      } else if ("cssRules" in rule) {
+      } else if ("cssRules" in rule && rule.cssRules instanceof CSSRuleList) {
         const atRule = /^@([\w-]+)\s*([^{]*)/.exec(rule.cssText)
         const inner = atRule ? [...atRules, { name: atRule[1]!.toLowerCase(), prelude: atRule[2]!.trim() }] : atRules
-        collect((rule as CSSGroupingRule).cssRules, inner)
+        collect(rule.cssRules, inner)
       }
     }
   }
@@ -199,6 +200,7 @@ async function importWithRetry(url: string, attempts = 3): Promise<Guest> {
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const target = attempt === 0 ? url : `${url}?attempt=${attempt}`
+      // SAFETY: the guest module is the entry Parity's builder generates, whose default export is the guest.
       const module = (await import(/* @vite-ignore */ target)) as { default: Guest }
 
       return module.default

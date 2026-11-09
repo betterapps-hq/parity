@@ -283,5 +283,7 @@ function sameTarget(a: Box, b: Box): boolean {
 }
 
 function rgb(hex: string): [number, number, number] {
-  return [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16) / 255) as [number, number, number]
+  const channel = (at: number) => Number.parseInt(hex.slice(at, at + 2), 16) / 255
+
+  return [channel(1), channel(3), channel(5)]
 }

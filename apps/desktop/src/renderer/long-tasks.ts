@@ -1,4 +1,5 @@
 import { type registeredEvents, slowThresholdMs, type Telemetry } from "@parity-app/telemetry"
+import type { Attributes } from "./chrome/event-attributes.ts"
 
 /** The inputs a long task is put down to, when one came just before it or during it. */
 const inputs = ["pointerdown", "pointerup", "keydown", "wheel", "drop", "paste"] as const
@@ -28,10 +29,13 @@ export function watchLongTasks(telemetry: Telemetry<typeof registeredEvents>): v
       }
 
       const during = last && last.at >= entry.startTime - inputLeadMs && last.at <= entry.startTime + entry.duration
-      telemetry.track("renderer.long_task", {
-        durationMs: Math.round(entry.duration),
-        ...(during && last ? { action: last.type } : {})
-      })
+      const task: Attributes<"renderer.long_task"> = { durationMs: Math.round(entry.duration) }
+
+      if (during && last) {
+        task.action = last.type
+      }
+
+      telemetry.track("renderer.long_task", task)
     }
   }).observe({ type: "longtask", buffered: true })
 }

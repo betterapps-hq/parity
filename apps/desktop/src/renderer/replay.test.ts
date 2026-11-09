@@ -64,13 +64,14 @@ function fakeTimers() {
   const due = new Map<number, { at: number; run: () => void }>()
   let next = 0
 
+  // SAFETY: the holds call `later` only with a callback and a delay, and `cancel` only with what `later` returned.
   return {
     later: ((run: () => void, ms: number) => {
       due.set(++next, { at: now + ms, run })
 
       return next
-    }) as unknown as typeof setTimeout,
-    cancel: ((id: number) => void due.delete(id)) as unknown as typeof clearTimeout,
+    }) as typeof setTimeout,
+    cancel: ((id: number) => void due.delete(id)) as typeof clearTimeout,
     elapse(ms: number) {
       now += ms
 

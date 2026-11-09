@@ -47,7 +47,7 @@ export function keepProjectPicture(session: ProjectSession): () => void {
 
     taking = true
     void takePicture(session, () => stopped)
-      .catch((error: unknown) => console.warn(`Couldn't keep ${session.info.name}'s picture`, error))
+      .catch((cause: unknown) => console.warn(`Couldn't keep ${session.info.name}'s picture`, cause))
       .finally(() => {
         taking = false
 
@@ -112,13 +112,15 @@ async function framesDrawn(session: ProjectSession, stopped: () => boolean): Pro
   const started = performance.now()
 
   for (;;) {
-    const screens = picturedScreens(session.store.getEntries(), session.store.getModes()).map(
-      (screen): ScreenFrames => ({
-        screen,
-        main: firstRowFrame(session.id, screen.design, screen.main.id),
-        ...(screen.phone ? { phone: firstRowFrame(session.id, screen.design, screen.phone.id) } : {})
-      })
-    )
+    const screens = picturedScreens(session.store.getEntries(), session.store.getModes()).map((screen) => {
+      const frames: ScreenFrames = { screen, main: firstRowFrame(session.id, screen.design, screen.main.id) }
+
+      if (screen.phone) {
+        frames.phone = firstRowFrame(session.id, screen.design, screen.phone.id)
+      }
+
+      return frames
+    })
 
     const drawn = screens.every(({ screen, main, phone }) => main && (!screen.phone || phone))
 
@@ -138,11 +140,13 @@ async function screenPicture({ screen, main, phone }: ScreenFrames): Promise<Pic
     return undefined
   }
 
-  return {
-    name: screen.name,
-    main: pictureFrame(mainSrc, screen.main.name, main.job),
-    ...(screen.phone && phone && phoneSrc ? { phone: pictureFrame(phoneSrc, screen.phone.name, phone.job) } : {})
+  const picture: PictureScreen = { name: screen.name, main: pictureFrame(mainSrc, screen.main.name, main.job) }
+
+  if (screen.phone && phone && phoneSrc) {
+    picture.phone = pictureFrame(phoneSrc, screen.phone.name, phone.job)
   }
+
+  return picture
 }
 
 /** A frame in a picture, which shows the top of it, as tall as its window or its own height when that's less. */

@@ -89,9 +89,19 @@ export function pageHolds(
  * showed; a snapshot once the frame shows costs the same, after. Replay keeps its page recorder to itself, so it's
  * reached through `_replay`; while diagnostics are off there's none.
  */
-export const holdRecording = pageHolds(() =>
-  recording ? (Sentry.getReplay() as unknown as { _replay?: PageRecorder } | undefined)?._replay : undefined
-)
+export const holdRecording = pageHolds(() => (recording ? replayRecorder() : undefined))
+
+/** Replay's page recorder, its private `_replay`, when it has one that looks like it. */
+function replayRecorder(): PageRecorder | undefined {
+  // Brackets are TypeScript's way into a private member; Replay declares this one without a type.
+  const recorder: unknown = Sentry.getReplay()?.["_replay"]
+
+  return isPageRecorder(recorder) ? recorder : undefined
+}
+
+function isPageRecorder(value: unknown): value is PageRecorder {
+  return value instanceof Object && "isEnabled" in value && "isPaused" in value && "pause" in value && "resume" in value
+}
 
 /**
  * What the recorder shows of the window: everything as written, its secrets scrubbed (PAR-679), as in every other

@@ -71,6 +71,7 @@ function firstLaunch(): boolean {
 }
 
 /** Takes what main says, checked against its schema, since IPC is data from outside. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- IPC: what main sends is checked against its schema here
 export function receiveAccount(raw: unknown): void {
   const parsed = accountState.safeParse(raw)
 
@@ -159,7 +160,7 @@ export function startAccount(): void {
         receiveAccount(raw)
       }
     })
-    .catch((error: unknown) => console.error("Parity couldn't ask who's signed in", error))
+    .catch((cause: unknown) => console.error("Parity couldn't ask who's signed in", cause))
 }
 
 export function useAccount(): AccountView {
@@ -173,9 +174,9 @@ export function useAccount(): AccountView {
   )
 }
 
-const failed = (title: string) => (error: unknown) => {
-  console.error(title, error)
-  reportError(error, { operation: "account", title, description: "Try again in a moment." })
+const failed = (title: string) => (cause: unknown) => {
+  console.error(title, cause)
+  reportError(cause, { operation: "account", title, description: "Try again in a moment." })
 }
 
 /** What the sign-in screens, the account menu and Home do. */
@@ -236,7 +237,7 @@ export const accountActions = {
           toast(`Signed out of ${email}`, { id: "signed-out" })
         }
       },
-      (error: unknown) => console.error("Signing out failed", error)
+      (cause: unknown) => console.error("Signing out failed", cause)
     )
   },
   /** Switches to another account signed in, at once: each keeps its own session. */

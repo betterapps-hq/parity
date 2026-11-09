@@ -1,3 +1,5 @@
+import { fnvStep } from "../bits.ts"
+
 /**
  * An agent's colors: three stops its glow drifts between, the solid one its cursor wears, and text that reads on it, at
  * least 4.5:1 on the solid color and on every stop, since its badge is a gradient of them.
@@ -50,7 +52,7 @@ class AgentColors {
     const taken = [...this.claimed.values()]
     const preferred = hash(name) % agentPalettes.length
     const distance = (index: number) => Math.min(Infinity, ...taken.map((other) => apart(index, other)))
-    const free = agentPalettes.map((_, index) => index).filter((index) => !taken.includes(index))
+    const free = [...agentPalettes.keys()].filter((index) => !taken.includes(index))
     let index = preferred
 
     if (free.length > 0 && distance(preferred) < 3) {
@@ -76,10 +78,10 @@ function hash(text: string): number {
   let value = 2166136261
 
   for (const char of text) {
-    value = Math.imul(value ^ char.codePointAt(0)!, 16777619)
+    value = fnvStep(value, char.codePointAt(0)!)
   }
 
-  return value >>> 0
+  return value
 }
 
 export const agentColors = new AgentColors()

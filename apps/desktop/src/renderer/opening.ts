@@ -1,5 +1,6 @@
 import { type EventAttributes, errorCode, type registeredEvents } from "@parity-app/telemetry"
 import type { ProjectInfo } from "../shared/protocol.ts"
+import type { Attributes } from "./chrome/event-attributes.ts"
 import { track } from "./report-error.ts"
 import { startStep } from "./tracing.ts"
 
@@ -23,14 +24,20 @@ export interface Opening {
   /** The tab is ready. Gives back what records the canvas's first frame, which only its first call does. */
   ready(info: ProjectInfo): (from: FirstFrame) => void
   /** The open failed. */
-  failed(error: unknown): void
+  failed(cause: unknown): void
   /** The tab was closed, or the project was already open in another. */
   dropped(): void
 }
 
 export function startOpening(root: string | undefined, reload: boolean, now = () => performance.now()): Opening {
   const began = now()
-  const step = startStep("project.opening", { reload, ...(root === undefined ? {} : { root }) })
+  const opening: Attributes<"project.opening"> = { reload }
+
+  if (root !== undefined) {
+    opening.root = root
+  }
+
+  const step = startStep("project.opening", opening)
   const span = step.context
   const inOpen = span ? { span } : undefined
 
@@ -52,8 +59,8 @@ export function startOpening(root: string | undefined, reload: boolean, now = ()
         track("project.drawn", attributes, inOpen)
       }
     },
-    failed(error) {
-      const code = errorCode(error)
+    failed(cause) {
+      const code = errorCode(cause)
       step.end("error", code === undefined ? undefined : { code })
     },
     dropped: () => step.end("cancelled")
