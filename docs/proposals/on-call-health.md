@@ -182,13 +182,13 @@ Commit links depend on PAR-768, which adds `betterapps-hq/parity` to Sentry's re
 
 ## Telemetry's own health
 
-| Signal                    | Comes from                                                                                        | Where                                                                   | Alert                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Dropped events            | Sentry's stats: rate limited, over quota, filtered, client discards, by category                  | Settings > Stats. Dashboards can't chart them                           | Sentry's spend notifications at 80% and 100% of each quota |
-| Quota                     | Settings > Subscription, by category                                                              | Same                                                                    | Same                                                       |
-| Events sent, by category  | Spans `count()`, logs `count()`, errors `count()` by `project`, `environment`                     | Telemetry volume (Parity releases and telemetry)                        | Watch                                                      |
-| Scrubbing is working      | A canary secret CI's end-to-end run puts where the scrubber must catch it (PAR-775)               | Canary secrets seen (Parity releases and telemetry), once PAR-775 lands | 1 or more: Critical                                        |
-| The CLI's dropped batches | Nothing yet: a batch a day old is dropped silently, and the CLI sends no client reports (PAR-776) | Once PAR-776 lands                                                      | Watch                                                      |
+| Signal                    | Comes from                                                                                            | Where                                            | Alert                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------- |
+| Dropped events            | Sentry's stats: rate limited, over quota, filtered, client discards, by category                      | Settings > Stats. Dashboards can't chart them    | Sentry's spend notifications at 80% and 100% of each quota |
+| Quota                     | Settings > Subscription, by category                                                                  | Same                                             | Same                                                       |
+| Events sent, by category  | Spans `count()`, logs `count()`, errors `count()` by `project`, `environment`                         | Telemetry volume (Parity releases and telemetry) | Watch                                                      |
+| Scrubbing is working      | Nothing in production. Unit tests check the scrubber; a CI canary (PAR-775) was dropped on 2026-11-09 | None                                             | None                                                       |
+| The CLI's dropped batches | Nothing yet: a batch a day old is dropped silently, and the CLI sends no client reports (PAR-776)     | Once PAR-776 lands                               | Watch                                                      |
 
 **At today's volume, the free Developer plan's quotas don't last the month.** Every plan includes 5 million spans, 50
 replays, 5 GB of logs, one uptime monitor and one cron monitor, and Developer 5,000 errors. Last week CI sent 718,000 of
@@ -238,7 +238,7 @@ Four dashboards, each answering one question. Each covers all of `better-apps`' 
   Gestures interrupted or cancelled.
 - **Parity releases and telemetry: is the latest build healthy, and is the data coming in?** Users by release,
   Crash-free sessions by release, New in the latest release, Regressed issues by release, Errors by release, Telemetry
-  volume (spans, logs and errors sent, by environment) and, once PAR-775 lands, Canary secrets seen.
+  volume (spans, logs and errors sent, by environment).
 - **Parity web** waits for those surfaces, as [Web, dashboard and API](#web-dashboard-and-api) says.
 
 PAR-643's eight widgets are each in one of the four, so "Parity" in sentry.md becomes this set. PAR-727's widget is Time
@@ -250,8 +250,8 @@ they need:
 
 - **Bitmap cache hit rate:** `bitmapCache.used` sends `frames` and `previews` as objects, which Sentry's logs keep as
   JSON strings, so their rates can't be charted. PAR-772 flattens them.
-- **Secrets scrubbed:** a log's attributes can't be searched for `[redacted]` across every attribute. The canary
-  (PAR-775) shows scrubbing working instead.
+- **Secrets scrubbed:** a log's attributes can't be searched for `[redacted]` across every attribute. Nothing replaces
+  it: the CI canary planned for that (PAR-775) was dropped on 2026-11-09.
 
 ## The monitors
 
@@ -279,25 +279,24 @@ issue.
 | Agent calls slow                             | `parity-desktop` | Spans `span.op:agent.called environment:production`, `p95(span.duration)`        | 1 h    | Over 3 s  |           |
 | Startup slow                                 | `parity-desktop` | Logs `message:app.started environment:production`, `p95(firstPaintMs)`           | 24 h   | Over 25 s |           |
 
-The monitors that wait on missing signals (service restarts, memory, the scrubbing canary) are made with their issues.
-"Email critical monitor breaches" is one new alert, for the critical levels, made with PAR-779. The canary's monitor
-(PAR-775) is the one exception to production only: the canary only ever comes from CI.
+The monitors that wait on missing signals (service restarts, memory) are made with their issues. "Email critical monitor
+breaches" is one new alert, for the critical levels, made with PAR-779.
 
 ## Proposed issues
 
 Each of these is a Linear issue in the Product telemetry stream, filed on 2026-11-09.
 
-| #       | Issue                                                                                          | Why                                                                                                                                                                                                      | Pts |
-| ------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| PAR-771 | Record the service restarting, windows hanging and main's loop blocked as events with how long | A service restart is only a breadcrumb, so it can't be counted. Hangs are Sentry messages whose `stuckMs` is in `extra`, which can't be searched or charted                                              | 2   |
-| PAR-772 | Record memory and the bitmap cache as numbers Sentry can chart                                 | `process.memory` and `bitmapCache.used` send objects, which Sentry's logs keep as JSON strings. One number per role (`main`, `service`, `editor`, `render`, `total`) and per hit rate can be charted     | 2   |
-| PAR-773 | Time exports in `export.done` and `export.failed`                                              | Neither has a duration, so export latency can't be measured                                                                                                                                              | 1   |
-| PAR-774 | Check each published release has its source maps and commits in Sentry                         | An upload or commit link that fails is a warning today, and until 2026-11-09 every one failed unnoticed. The release workflow should fail, or file a bug                                                 | 2   |
-| PAR-775 | Put a canary secret through CI's end-to-end run and alert if Sentry ever sees it               | Nothing shows scrubbing working outside unit tests. A fixed fake key in the fixture project's `.env`, typed into a layer and carried by an error thrown on purpose, should never reach Sentry unredacted | 2   |
-| PAR-776 | Count the CLI's dropped outbox batches and send them with the next batch                       | A batch a day old is dropped silently, and the CLI turns client reports off, so its losses don't show in Sentry's stats                                                                                  | 1   |
-| PAR-777 | Send only errors and reports from CI, and keep its spans, logs and replays in the local copy   | CI sends 90% of the spans, which runs past every plan's quota. The end-to-end suite reads the local copy, so its event checks keep working                                                               | 2   |
-| PAR-778 | Split the `tester` environment into `preview` and `release`                                    | A pull request's preview installer and the published app are both `tester` today, so a preview's bugs read as the release's                                                                              | 1   |
-| PAR-779 | Send `production` from public builds and make the on-call monitors for it                      | Only production alerts, and Sentry can't watch an environment it hasn't seen. Blocked by the first public release (PAR-619). Takes in PAR-714                                                            | 3   |
+| #       | Issue                                                                                          | Why                                                                                                                                                                                                  | Pts |
+| ------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| PAR-771 | Record the service restarting, windows hanging and main's loop blocked as events with how long | A service restart is only a breadcrumb, so it can't be counted. Hangs are Sentry messages whose `stuckMs` is in `extra`, which can't be searched or charted                                          | 2   |
+| PAR-772 | Record memory and the bitmap cache as numbers Sentry can chart                                 | `process.memory` and `bitmapCache.used` send objects, which Sentry's logs keep as JSON strings. One number per role (`main`, `service`, `editor`, `render`, `total`) and per hit rate can be charted | 2   |
+| PAR-773 | Time exports in `export.done` and `export.failed`                                              | Neither has a duration, so export latency can't be measured                                                                                                                                          | 1   |
+| PAR-774 | Check each published release has its source maps and commits in Sentry                         | An upload or commit link that fails is a warning today, and until 2026-11-09 every one failed unnoticed. The release workflow should fail, or file a bug                                             | 2   |
+| PAR-775 | ~~Put a canary secret through CI's end-to-end run and alert if Sentry ever sees it~~           | Dropped by Andrew on 2026-11-09, and canceled. Scrubbing stays checked by unit tests only                                                                                                            | 2   |
+| PAR-776 | Count the CLI's dropped outbox batches and send them with the next batch                       | A batch a day old is dropped silently, and the CLI turns client reports off, so its losses don't show in Sentry's stats                                                                              | 1   |
+| PAR-777 | Send only errors and reports from CI, and keep its spans, logs and replays in the local copy   | CI sends 90% of the spans, which runs past every plan's quota. The end-to-end suite reads the local copy, so its event checks keep working                                                           | 2   |
+| PAR-778 | Split the `tester` environment into `preview` and `release`                                    | A pull request's preview installer and the published app are both `tester` today, so a preview's bugs read as the release's                                                                          | 1   |
+| PAR-779 | Send `production` from public builds and make the on-call monitors for it                      | Only production alerts, and Sentry can't watch an environment it hasn't seen. Blocked by the first public release (PAR-619). Takes in PAR-714                                                        | 3   |
 
 **PAR-714** now watches `production` rather than `tester`, and is blocked by PAR-779.
 

@@ -6612,8 +6612,7 @@ mine:
   the same set, and the web, dashboard and API projects join when they send.
 - **Made through Sentry's API from a signed-in browser,** not by hand in the UI: the same calls the UI makes, so the
   widgets match the spec exactly and were checked against live data as they were made. Two planned widgets were left
-  out, since Sentry can't read what they need: the bitmap cache's hit rate (PAR-772) and a count of scrubbed secrets,
-  which the canary (PAR-775) replaces.
+  out, since Sentry can't read what they need: the bitmap cache's hit rate (PAR-772) and a count of scrubbed secrets.
 - **Signals not sent yet are their own issues,** PAR-771 to PAR-776: service restarts and hang lengths, memory and the
-  cache as numbers, export times, a check that releases have their maps and commits, a scrubbing canary, and the CLI's
-  dropped batches.
+  cache as numbers, export times, a check that releases have their maps and commits, and the CLI's dropped batches. A
+  scrubbing canary in CI (PAR-775) was proposed too, and you dropped it.
