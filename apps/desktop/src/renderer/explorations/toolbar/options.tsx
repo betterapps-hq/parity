@@ -373,6 +373,22 @@ let escapeReview: (() => void) | undefined
 /** What C and Shift+T do while a bar with the review tools is showing, if one is. */
 let reviewKey: ((key: "comment" | "annotate") => void) | undefined
 
+/** Whether a pointer is down, so a drag in progress keeps Esc to cancel it, as the canvas's shortcuts let it. */
+let pointerHeld = false
+
+window.addEventListener("pointerdown", () => (pointerHeld = true), { capture: true })
+
+window.addEventListener("pointerup", () => (pointerHeld = false), { capture: true })
+
+window.addEventListener("pointercancel", () => (pointerHeld = false), { capture: true })
+
+/** Whether the canvas in view is on Interact. Other projects' tabs stay mounted, hidden, with their own tools. */
+function interacting(): boolean {
+  const shown = [...document.querySelectorAll<HTMLElement>(".canvas-area")].find((area) => !area.closest("[hidden]"))
+
+  return shown?.dataset.tool === "interact"
+}
+
 /*
  * The canvas's shortcuts take keys on the window while they're captured, and stop them there. Listening from when this
  * module loads, before the app's window draws, puts this ahead of them, so Esc puts a review tool down rather than
@@ -385,7 +401,7 @@ window.addEventListener(
     const target = event.target instanceof Element ? event.target : undefined
     const inOverlay = !!target?.closest("[role=menu], [role=listbox], [role=dialog]")
 
-    if (event.key === "Escape" && escapeReview && !inOverlay) {
+    if (event.key === "Escape" && escapeReview && !inOverlay && !pointerHeld) {
       event.stopImmediatePropagation()
       escapeReview()
 
@@ -394,9 +410,8 @@ window.addEventListener(
 
     // Typing, and Interact, where keys are the designs', keep C and T.
     const typing = !!target?.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
-    const interacting = !!document.querySelector(".canvas-area[data-tool=interact]")
 
-    if (!reviewKey || inOverlay || typing || interacting || event.ctrlKey || event.metaKey || event.altKey) {
+    if (!reviewKey || inOverlay || typing || interacting() || event.ctrlKey || event.metaKey || event.altKey) {
       return
     }
 
