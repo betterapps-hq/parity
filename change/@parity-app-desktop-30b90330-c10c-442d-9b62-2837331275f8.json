@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Bring the desktop utility process up to Buildkit's lint rules",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
