@@ -123,6 +123,7 @@ function startDrag(design: Board, card: string, before: string | null, late = fa
       }
 
       const original = shadow.querySelector<HTMLElement>(`[data-canvas-node="${card}"]`)!
+      // SAFETY: a deep clone of an element is an element of the same kind.
       const copy = original.cloneNode(true) as HTMLElement
 
       for (const element of [copy, ...copy.querySelectorAll("[data-canvas-node]")]) {
@@ -137,7 +138,7 @@ function startDrag(design: Board, card: string, before: string | null, late = fa
         layouts.measure(host, design.container.root)
       }
 
-      ;(window as unknown as { layouts: unknown }).layouts = layouts
+      Object.assign(window, { layouts })
     },
     { design, card, before, late }
   )
@@ -148,9 +149,8 @@ function dropAt(design: Board, card: string, point: { x: number; y: number }) {
   return page.evaluate(
     ({ design, card, point }) => {
       const host = document.querySelector<HTMLElement>("#host")!
-      const layouts = (window as unknown as { layouts: unknown }).layouts
-      // @ts-expect-error The bundle's global.
-      const found = drop.dropInFrame(layouts, design, host, point, "board", [card])
+      // @ts-expect-error The bundle's global, and the layouts the page measured.
+      const found = drop.dropInFrame(window.layouts, design, host, point, "board", [card])
 
       return found && { parent: found.target.parent, index: found.target.index, line: found.line }
     },

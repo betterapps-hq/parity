@@ -28,6 +28,7 @@ describe("frames on screen", () => {
     ])
 
     expect({ filename, contentType }).toEqual({ filename: "frames.json", contentType: "application/json" })
+    // SAFETY: the frames are sent as JSON text.
     expect(JSON.parse(data as string)).toEqual([
       expect.objectContaining({ mode: "Mobile Light", bitmap: true }),
       expect.objectContaining({ mode: "Desktop", width: 1280, height: 800, bitmap: false })
@@ -58,7 +59,7 @@ describe("frames on screen", () => {
   })
 
   it("reports a render that keeps failing once for what it shows", () => {
-    const listener = vi.fn<(error: unknown) => void>()
+    const listener = vi.fn<(cause: unknown) => void>()
     const stop = onFailedRender(listener)
     const drawn = { key: "designs/settings.parity.json#settings" }
     failedRender("shows-1", new Error("timed out"), drawn)
@@ -66,6 +67,7 @@ describe("frames on screen", () => {
     failedRender("shows-2", new Error("timed out"), drawn)
     failedRender("component-preview", new Error("timed out"), undefined)
     stop()
+    // SAFETY: the test fails the render with an Error.
     expect(listener.mock.calls.map(([error]) => (error as Error).message)).toEqual(["timed out", "timed out"])
   })
 })

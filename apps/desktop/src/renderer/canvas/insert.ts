@@ -9,6 +9,7 @@ import {
   type Point,
   whereToInsert
 } from "@parity-app/editor"
+import type { Attributes } from "../chrome/event-attributes.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { track } from "../report-error.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -26,15 +27,20 @@ function recordInsert(
   design: string | undefined,
   newDesign: boolean
 ): void {
-  track("insert.done", {
+  const done: Attributes<"insert.done"> = {
     source: insertSource(session, item),
     via,
     kind: item.kind,
     item: itemName(item),
     count: 1,
-    ...(design ? { design } : {}),
     newDesign
-  })
+  }
+
+  if (design) {
+    done.design = design
+  }
+
+  track("insert.done", done)
 }
 
 /** Which item it is: the component, the design an instance places, or the image's file. */
@@ -102,17 +108,28 @@ export function dropTarget(
   const { hit, slot } = place
   const { box } = place.here
 
-  return {
+  const target: DropTarget = {
     entry: hit.entry,
     parent: slot.layout,
     index: slot.index,
-    ...(slot.slot ? { slot: slot.slot } : {}),
     mode: hit.mode,
     state: hit.state,
-    box: { x: box.left, y: box.top, w: box.right - box.left, h: box.bottom - box.top },
-    ...(slot.line ? { line: slot.line } : {}),
-    ...(slot.free ? { at: slot.at } : {})
+    box: { x: box.left, y: box.top, w: box.right - box.left, h: box.bottom - box.top }
   }
+
+  if (slot.slot) {
+    target.slot = slot.slot
+  }
+
+  if (slot.line) {
+    target.line = slot.line
+  }
+
+  if (slot.free) {
+    target.at = slot.at
+  }
+
+  return target
 }
 
 /** What inserting an item needs to know from the project: its component's props, the sources and the library. */
