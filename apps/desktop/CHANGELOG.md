@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 13:04:55 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 13:35:47 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.45.1
+
+Mon, 09 Nov 2026 13:35:47 GMT
+
+### Patches
+
+- Keep a thin padding or gap handle hovered, with its hatching and value, while its hint opens over a still pointer
+  (ajcraswell@gmail.com)
 
 ## 0.45.0
 

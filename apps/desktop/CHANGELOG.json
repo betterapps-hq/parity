@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 13:35:47 GMT",
+      "version": "0.45.1",
+      "tag": "@parity-app/desktop_v0.45.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dd1f05959c1e1569a351842304e4645c3758b34d",
+            "comment": "Keep a thin padding or gap handle hovered, with its hatching and value, while its hint opens over a still pointer"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9cf1bb3880ac91188de8a59a71478cb09b6e75d2",
+            "comment": "Make two end-to-end tests hold up after the toolbar refresh"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 13:04:55 GMT",
       "version": "0.45.0",
       "tag": "@parity-app/desktop_v0.45.0",

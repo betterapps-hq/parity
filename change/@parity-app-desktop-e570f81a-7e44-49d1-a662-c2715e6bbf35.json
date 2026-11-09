@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Make two end-to-end tests hold up after the toolbar refresh",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

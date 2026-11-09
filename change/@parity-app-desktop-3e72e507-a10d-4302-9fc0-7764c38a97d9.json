@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep a thin padding or gap handle hovered, with its hatching and value, while its hint opens over a still pointer",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
