@@ -1,15 +1,4 @@
-import { ToggleGroup, ToggleGroupItem, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
-import {
-  Hand,
-  type LucideIcon,
-  MousePointer2,
-  MousePointerClick,
-  Play,
-  Pointer,
-  RectangleEllipsis,
-  SquareMousePointer,
-  TextCursorInput
-} from "lucide-react"
+import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import type { ReactNode } from "react"
 import { ProjectContext } from "../../canvas/context.ts"
 import { FloatingToolbar } from "../../chrome/Toolbar.tsx"
@@ -24,7 +13,7 @@ import penpotToolbar from "./competitors/penpot-toolbar.png?url"
 import penpotZoom from "./competitors/penpot-zoom.png?url"
 import tldrawMore from "./competitors/tldraw-more.png?url"
 import tldrawToolbar from "./competitors/tldraw-toolbar.png?url"
-import { OneBarToolbar, pickedTool, ReviewToolbar, TidiedToolbar } from "./options.tsx"
+import { OneBarToolbar, ReviewToolbar, TidiedToolbar } from "./options.tsx"
 
 /*
  * The toolbars on their own, ours live and the others as screenshots at their actual size, taken on 2026-11-09. Ours
@@ -166,84 +155,6 @@ const takeaways = [
   "Figma folds Hand under Move, as A, B and C now do with Hand and Interact. Framer and tldraw keep Hand as its own button."
 ]
 
-/** Icons Interact could take, the first as today. */
-const interactIcons: { name: string; icon: LucideIcon; note: string }[] = [
-  {
-    name: "Pointer (today)",
-    icon: Pointer,
-    note: "A pointing hand, which reads as a second Hand beside the Hand tool."
-  },
-  {
-    name: "MousePointerClick",
-    icon: MousePointerClick,
-    note: "A cursor clicking: click it for real. PAR-184 uses it for Behaviour annotations, so one of them would change."
-  },
-  {
-    name: "SquareMousePointer",
-    icon: SquareMousePointer,
-    note: "A cursor inside a box: use what's inside the frame, where it is."
-  },
-  {
-    name: "TextCursorInput",
-    icon: TextCursorInput,
-    note: "A text cursor beside a field: typing into the real component, which is what Interact makes possible."
-  },
-  {
-    name: "RectangleEllipsis",
-    icon: RectangleEllipsis,
-    note: "An input field with dots, once Lucide's FormInput. It reads as a form or a password more than as trying things."
-  },
-  {
-    name: "Play",
-    icon: Play,
-    note: "Figma's and Framer's preview, which everyone knows, but it suggests a separate preview rather than working in place."
-  }
-]
-
-/** Each icon beside Move and Hand as the Move menu lists them, unpicked and then picked. */
-function InteractIcons() {
-  return (
-    <section className="border-t py-6">
-      <h2 className="font-medium">Icons for Interact</h2>
-      <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-        Interact now sits in the Move menu, with Move and select and Hand, and the button shows its icon while
-        it&rsquo;s picked. Each candidate is beside the other two, then picked. The options use SquareMousePointer for
-        now.
-      </p>
-      <div className="mt-4 grid gap-4">
-        {interactIcons.map(({ name, icon: Icon, note }) => (
-          <div key={name} className="grid items-center gap-3 md:grid-cols-[14rem_auto_1fr]">
-            <span className="text-sm font-medium">{name}</span>
-            <div className="flex gap-3">
-              {[false, true].map((picked) => (
-                <ToggleGroup
-                  key={String(picked)}
-                  size="lg"
-                  spacing={1}
-                  value={[picked ? "interact" : "select"]}
-                  aria-label={`${name}, ${picked ? "picked" : "beside Move and Hand"}`}
-                  className="h-11 items-stretch gap-0.5 rounded-xl border bg-popover p-1 shadow-lg"
-                >
-                  <ToggleGroupItem value="select" aria-label="Move and select" className={pickedTool}>
-                    <MousePointer2 />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="hand" aria-label="Hand" className={pickedTool}>
-                    <Hand />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="interact" aria-label="Interact" className={pickedTool}>
-                    <Icon />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              ))}
-            </div>
-            <p className="text-sm text-muted-foreground">{note}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 function Section({ entry }: { entry: Entry }) {
   return (
     <section className="grid gap-3 border-t py-6 md:grid-cols-[14rem_1fr]">
@@ -276,11 +187,7 @@ export function ToolbarComparison() {
             <li key={takeaway}>{takeaway}</li>
           ))}
         </ul>
-        {ours.map((entry) => (
-          <Section key={entry.name} entry={entry} />
-        ))}
-        <InteractIcons />
-        {others.map((entry) => (
+        {[...ours, ...others].map((entry) => (
           <Section key={entry.name} entry={entry} />
         ))}
       </div>

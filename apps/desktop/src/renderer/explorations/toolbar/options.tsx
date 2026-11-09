@@ -82,15 +82,15 @@ type PointerTool = (typeof pointerTools)[number]
 
 const isPointerTool = (tool: Tool): tool is PointerTool => (pointerTools as readonly Tool[]).includes(tool)
 
-/**
- * The picked tool, in the canvas's selection blue at the step its chips use, so the white icon on it reads at about
- * 4.9:1, as tldraw and Figma pick theirs out in blue. Switches like Code keep the kit's quieter pressed look.
- */
 /** The arrow that opens a tool's menu, beside its tool. */
 const chevron = "-ml-0.5 h-full w-4 text-muted-foreground"
 
-export const pickedTool =
-  "h-full aria-pressed:bg-(--canvas-layer-chip) aria-pressed:text-white aria-pressed:hover:bg-(--canvas-layer-chip)/90"
+/**
+ * A tool, 32px square as Figma's are, picked out in the canvas's selection blue at the step its chips use, so the white
+ * icon on it reads at about 4.9:1, as tldraw and Figma pick theirs out in blue.
+ */
+const pickedTool =
+  "size-8 min-w-8 px-0 aria-pressed:bg-(--canvas-layer-chip) aria-pressed:text-white aria-pressed:hover:bg-(--canvas-layer-chip)/90"
 
 /** A label and the first of its keys, as every tooltip in the app shows them. */
 function Tip({ command, label, children }: { command: Command; label?: string; children: ReactElement }) {
@@ -116,7 +116,7 @@ function Bar({ label, children }: { label: string; children: ReactNode }) {
       role="toolbar"
       data-option
       aria-label={label}
-      className="absolute bottom-4 left-1/2 z-[400] flex h-11 -translate-x-1/2 items-stretch gap-0.5 rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg"
+      className="absolute bottom-4 left-1/2 z-[400] flex -translate-x-1/2 items-stretch gap-0.5 rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg"
     >
       {children}
     </div>
@@ -194,7 +194,6 @@ function Tools({ review = false }: { review?: boolean }) {
 
   return (
     <ToggleGroup
-      size="lg"
       spacing={1}
       value={[reviewing ?? tool]}
       onValueChange={([value]) => {
@@ -478,9 +477,8 @@ function InsertButton() {
     <Tip command="insert">
       <Button
         variant="ghost"
-        size="icon-lg"
+        size="icon"
         aria-label={keymap.insert.label}
-        className="h-full"
         onClick={() => void actions.insert.run("toolbar")}
       >
         <SquarePlus />
@@ -608,9 +606,8 @@ function ZoomMenu() {
         render={
           <Button
             variant="ghost"
-            size="lg"
             aria-label={`Zoom, ${Math.round(zoom * 100)}%`}
-            className="h-full min-w-18 gap-1 px-2 tabular-nums"
+            className="h-8 min-w-16 gap-1 px-2 tabular-nums"
             disabled={!editor}
           />
         }
@@ -640,7 +637,7 @@ function SearchActions() {
     <Tip command="actions">
       <Button
         variant="ghost"
-        size="icon-lg"
+        size="icon"
         aria-label={keymap.actions.label}
         onClick={() => void actions.actions.run("toolbar")}
       >
