@@ -10,7 +10,8 @@ const durationMs = z.number().nonnegative().describe("How long it took, in milli
 const reopen = z
   .boolean()
   .describe("Whether it was reopened as Parity started, because it was open last time (PAR-179)")
-const version = (tool: string) => z.string().optional().describe(`The ${tool} version installed, when it has one`)
+const version = (tool: string) =>
+  z.string().optional().describe(`The ${tool} version installed, once detection found it`)
 const count = (what: string) => z.number().int().nonnegative().describe(what)
 const builder = z.string().describe("The builder's name, as Vite")
 
@@ -22,7 +23,12 @@ const opening = {
   detectionMs: z.number().nonnegative().optional().describe("How long detection took, when it finished"),
   builderMs: z.number().nonnegative().optional().describe("How long the builder took to answer, when it did"),
   framework: z.string().optional().describe("The renderer's ID, as `react`, once one was found"),
-  builder: z.string().optional().describe("The builder's ID, as `vite`, once one was found")
+  builder: z.string().optional().describe("The builder's ID, as `vite`, once one was found"),
+  react: version("React"),
+  vite: version("Vite"),
+  tailwind: version("Tailwind"),
+  storybook: version("Storybook"),
+  typescript: version("TypeScript")
 }
 
 export const projectDetected = defineEvent("project.detected", z.object({ root }), {
@@ -36,11 +42,6 @@ export const projectOpened = defineEvent(
   z.object({
     ...opening,
     cached: z.boolean().describe("Whether its components and props came from the last detection, as nothing changed"),
-    react: version("React"),
-    vite: version("Vite"),
-    tailwind: version("Tailwind"),
-    storybook: version("Storybook"),
-    typescript: version("TypeScript"),
     components: count("The components it has"),
     designs: count("The designs in its project files"),
     tokens: count("The theme variables its styles have"),

@@ -824,6 +824,11 @@ Some failures are recorded for you, so code doesn't record them again:
 | `builderMs`   | `number`, optional         | How long the builder took to answer, when it did                                   |
 | `framework`   | `string`, optional         | The renderer's ID, as `react`, once one was found                                  |
 | `builder`     | `string`, optional         | The builder's ID, as `vite`, once one was found                                    |
+| `react`       | `string`, optional         | The React version installed, once detection found it                               |
+| `vite`        | `string`, optional         | The Vite version installed, once detection found it                                |
+| `tailwind`    | `string`, optional         | The Tailwind version installed, once detection found it                            |
+| `storybook`   | `string`, optional         | The Storybook version installed, once detection found it                           |
+| `typescript`  | `string`, optional         | The TypeScript version installed, once detection found it                          |
 | `step`        | `"detection" \| "builder"` | The step that failed                                                               |
 | `message`     | `string`                   | Why, as the tab says it                                                            |
 | `code`        | `string`, optional         | The `CodedError` code, when the failure has one                                    |
@@ -840,12 +845,12 @@ Some failures are recorded for you, so code doesn't record them again:
 | `builderMs`   | `number`, optional | How long the builder took to answer, when it did                                   |
 | `framework`   | `string`, optional | The renderer's ID, as `react`, once one was found                                  |
 | `builder`     | `string`, optional | The builder's ID, as `vite`, once one was found                                    |
+| `react`       | `string`, optional | The React version installed, once detection found it                               |
+| `vite`        | `string`, optional | The Vite version installed, once detection found it                                |
+| `tailwind`    | `string`, optional | The Tailwind version installed, once detection found it                            |
+| `storybook`   | `string`, optional | The Storybook version installed, once detection found it                           |
+| `typescript`  | `string`, optional | The TypeScript version installed, once detection found it                          |
 | `cached`      | `boolean`          | Whether its components and props came from the last detection, as nothing changed  |
-| `react`       | `string`, optional | The React version installed, when it has one                                       |
-| `vite`        | `string`, optional | The Vite version installed, when it has one                                        |
-| `tailwind`    | `string`, optional | The Tailwind version installed, when it has one                                    |
-| `storybook`   | `string`, optional | The Storybook version installed, when it has one                                   |
-| `typescript`  | `string`, optional | The TypeScript version installed, when it has one                                  |
 | `components`  | `integer`          | The components it has                                                              |
 | `designs`     | `integer`          | The designs in its project files                                                   |
 | `tokens`      | `integer`          | The theme variables its styles have                                                |
