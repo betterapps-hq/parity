@@ -20,7 +20,7 @@ function entry(app: number, startedAt: number): CopyEntry {
 }
 
 function copy(app: number, startedAt: number, tabs: RoutedTab[], focusedAt?: number): Copy {
-  return { entry: entry(app, startedAt), report: { tabs, ...(focusedAt === undefined ? {} : { focusedAt }) } }
+  return { entry: entry(app, startedAt), report: focusedAt === undefined ? { tabs } : { tabs, focusedAt } }
 }
 
 /** The person's app, started first, and a copy a session started later. */

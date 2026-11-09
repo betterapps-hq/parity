@@ -69,15 +69,10 @@ export function frameProblems(
     const label = name(finding.node)
     const by = finding.container.node
     const byName = by ? name(by) : undefined
-    add({
-      kind: finding.kind,
-      problem: describeLayoutFinding(finding, name),
-      node: finding.node,
-      ...(label ? { name: label } : {}),
-      box: finding.box,
-      container: { ...finding.container, ...(byName ? { name: byName } : {}) },
-      overflow: finding.overflow
-    })
+    const about = { kind: finding.kind, problem: describeLayoutFinding(finding, name), node: finding.node }
+    const head = label ? { ...about, name: label } : about
+    const container = byName ? { ...finding.container, name: byName } : { ...finding.container }
+    add({ ...head, box: finding.box, container, overflow: finding.overflow })
   }
 
   // Content wider than the frame that no node accounts for, such as a component's own element.
@@ -86,6 +81,12 @@ export function frameProblems(
   }
 
   return found
+}
+
+/** What axe-core found in one drawn frame, and the contrast it measured for each contrast failure. */
+export interface FrameAccessibility {
+  found: AccessibilityFinding[]
+  contrast: Map<AccessibilityFinding, FrameContrast>
 }
 
 /**
@@ -97,7 +98,7 @@ export function accessibilityFindings(
   state: StateSpec,
   mode: ResolvedMode,
   frame: FrameResult
-): { found: AccessibilityFinding[]; contrast: Map<AccessibilityFinding, FrameContrast> } {
+): FrameAccessibility {
   const found: AccessibilityFinding[] = []
   const contrast = new Map<AccessibilityFinding, FrameContrast>()
   const seen = new Set<string>()
@@ -114,7 +115,11 @@ export function accessibilityFindings(
       }
 
       seen.add(once)
-      const finding = { state: state.id, mode: mode.id, ...issue, ...(name ? { node, name } : {}), ...about }
+
+      const finding = name
+        ? { state: state.id, mode: mode.id, ...issue, node, name, ...about }
+        : { state: state.id, mode: mode.id, ...issue, ...about }
+
       found.push(finding)
 
       if (finding.contrast && frame.contrast && id === node) {

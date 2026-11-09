@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import { createContext, Script, type Context } from "node:vm"
 import { CodedError, describeConflicts, errorDetails } from "@parity-app/core"
 import type { AgentHooks, AgentSnapshot, ExecResult } from "./types.ts"
-import { AgentWorkspace } from "./workspace.ts"
+import { type AgentApi, AgentWorkspace } from "./workspace.ts"
 
 export interface ExecRequest {
   label: string
@@ -81,7 +81,7 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
   }
 }
 
-async function run(tab: string, code: string, api: Record<string, unknown>): Promise<void> {
+async function run(tab: string, code: string, api: AgentApi): Promise<void> {
   let context = contexts.get(tab)
 
   if (!context) {
@@ -92,6 +92,7 @@ async function run(tab: string, code: string, api: Record<string, unknown>): Pro
   Object.assign(context, api, { console: { log: api.Print, warn: api.Print, error: api.Print } })
   // The wrapper adds one line before the snippet, so line numbers in errors match what the agent wrote.
   const script = new Script(`(async () => {\n${code}\n})()`, { filename: "snippet.js", lineOffset: -1 })
+  // SAFETY: the script is an async arrow called at once, so what it evaluates to is the promise of its run.
   await (script.runInContext(context, { timeout: 5000 }) as Promise<void>)
 }
 
@@ -126,12 +127,12 @@ function patch(editId: string, edits: { find: string; replace: string; all?: boo
   return code
 }
 
-function describeError(error: unknown): string {
-  if (!(error instanceof Error)) {
-    return String(error)
+function describeError(cause: unknown): string {
+  if (!(cause instanceof Error)) {
+    return String(cause)
   }
 
-  const line = /snippet\.js:(\d+)(?::(\d+))?/.exec(error.stack ?? "")
+  const line = /snippet\.js:(\d+)(?::(\d+))?/.exec(cause.stack ?? "")
 
-  return line ? `${error.message} (line ${line[1]}${line[2] ? `, column ${line[2]}` : ""})` : error.message
+  return line ? `${cause.message} (line ${line[1]}${line[2] ? `, column ${line[2]}` : ""})` : cause.message
 }
