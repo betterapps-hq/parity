@@ -2,6 +2,8 @@ import { existsSync } from "node:fs"
 import { join, resolve } from "node:path"
 import type { ComponentInfo, ComponentProp, ComponentSource, PropGroup, PropKind } from "@parity-app/core"
 import ts from "typescript"
+import { hasFlag } from "./flags.ts"
+import type { ComponentSources } from "./listing.ts"
 import { importAlias, readTsconfig } from "./tsconfig.ts"
 
 type Literal = string | number | boolean | null
@@ -18,12 +20,12 @@ const groupOrder: PropGroup[] = ["variant", "own", "html", "aria", "event"]
  */
 export function inferProps(
   root: string,
-  components: Record<string, ComponentSource>,
+  components: ComponentSources,
   program: ts.Program = ts.createProgram({ rootNames: propsFiles(root, components), options: compilerOptions(root) })
 ): Record<string, ComponentInfo> {
   const fileOf = (source: ComponentSource) => resolve(root, source.declaration ?? source.path)
   const checker = program.getTypeChecker()
-  const result: Record<string, ComponentInfo> = {}
+  const result: [string, ComponentInfo][] = []
   const variantsByFile = new Map<string, { variants: Variants; implementation: ts.SourceFile }>()
   const tsconfig = readTsconfig(root)
 
@@ -53,14 +55,18 @@ export function inferProps(
 
       if (read) {
         const { props, takesStyle } = read
-        result[name] = {
-          name,
-          path: source.path,
-          ...(from ? { import: from } : {}),
-          props,
-          ...(takesStyle === undefined ? {} : { takesStyle }),
-          ...(setsOwnSize(implementation, source.export) ? { fixedSize: true as const } : {})
+        const head = from ? { name, path: source.path, import: from } : { name, path: source.path }
+        const info: ComponentInfo = { ...head, props }
+
+        if (takesStyle !== undefined) {
+          info.takesStyle = takesStyle
         }
+
+        if (setsOwnSize(implementation, source.export)) {
+          info.fixedSize = true
+        }
+
+        result.push([name, info])
       }
     } catch (error) {
       // One component the checker can't follow shouldn't cost the others their props.
@@ -68,11 +74,11 @@ export function inferProps(
     }
   }
 
-  return result
+  return Object.fromEntries(result)
 }
 
 /** The files props are read from: each component's declarations, else its source. */
-export function propsFiles(root: string, components: Record<string, ComponentSource>): string[] {
+export function propsFiles(root: string, components: ComponentSources): string[] {
   return [...new Set(Object.values(components).map((source) => resolve(root, source.declaration ?? source.path)))]
 }
 
@@ -128,13 +134,19 @@ function compilerOptions(root: string): ts.CompilerOptions {
   return fallback
 }
 
+/** A component's props, and whether it takes `style`, where its type says. */
+interface ReadProps {
+  props: ComponentProp[]
+  takesStyle?: boolean
+}
+
 function componentProps(
   checker: ts.TypeChecker,
   file: ts.SourceFile,
   exportName: string,
   variants: Variants,
   implementation: ts.SourceFile
-): { props: ComponentProp[]; takesStyle?: boolean } | undefined {
+): ReadProps | undefined {
   const moduleSymbol = checker.getSymbolAtLocation(file)
 
   if (!moduleSymbol) {
@@ -147,7 +159,7 @@ function componentProps(
     return undefined
   }
 
-  if (symbol.flags & ts.SymbolFlags.Alias) {
+  if (hasFlag(symbol.flags, ts.SymbolFlags.Alias)) {
     symbol = checker.getAliasedSymbol(symbol)
   }
 
@@ -179,7 +191,7 @@ function componentProps(
     const declaration = prop.declarations?.[0]
     // React declares `children` for every element, but an `<input>` given any throws (React error 137), so a component
     // passing its props to one takes none, unless it declares its own.
-    const fromReact = prop.declarations?.every((declared) => declaredBy(declared, "DOMAttributes"))
+    const fromReact = prop.declarations?.every((declared) => declaredBy(declared, domAttributes))
 
     if (prop.name === "children" && toVoidElement && fromReact) {
       continue
@@ -228,7 +240,7 @@ function componentProps(
       entry.default = fallback
     }
 
-    if (!(prop.flags & ts.SymbolFlags.Optional)) {
+    if (!hasFlag(prop.flags, ts.SymbolFlags.Optional)) {
       entry.required = true
     }
 
@@ -260,6 +272,9 @@ function componentProps(
 
   return takesStyle === undefined ? { props } : { props, takesStyle }
 }
+
+/** The interface React declares the props every element shares in, `children` among them. */
+const domAttributes = new Set(["DOMAttributes"])
 
 /** The interfaces React declares a void element's own attributes in: `InputHTMLAttributes` is an `<input>`'s. */
 const voidAttributes = new Set([
@@ -295,18 +310,18 @@ function passesToVoidElement(checker: ts.TypeChecker, propsType: ts.Type, file: 
 }
 
 /** Whether a property is declared in an interface of one of these names. */
-function declaredBy(declaration: ts.Declaration | undefined, names: string | Set<string>): boolean {
+function declaredBy(declaration: ts.Declaration | undefined, names: ReadonlySet<string>): boolean {
   const parent = declaration?.parent
 
   if (!parent || !ts.isInterfaceDeclaration(parent)) {
     return false
   }
 
-  return typeof names === "string" ? parent.name.text === names : names.has(parent.name.text)
+  return names.has(parent.name.text)
 }
 
 /** Props types that could have any key: `any`, `unknown`, `object` and a type parameter. */
-const openTypes = ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.NonPrimitive | ts.TypeFlags.TypeParameter
+const openTypes = [ts.TypeFlags.Any, ts.TypeFlags.Unknown, ts.TypeFlags.NonPrimitive, ts.TypeFlags.TypeParameter]
 
 /**
  * Whether a props type has `style`, which is where the canvas puts the sizes and styles a design sets. Unknown for a
@@ -315,7 +330,7 @@ const openTypes = ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.NonPrim
 function declaresStyle(checker: ts.TypeChecker, propsType: ts.Type): boolean | undefined {
   const parts = propsType.isUnion() ? propsType.types : [propsType]
 
-  if (parts.some((part) => part.flags & openTypes)) {
+  if (parts.some((part) => hasFlag(part.flags, ...openTypes))) {
     return undefined
   }
 
@@ -326,14 +341,27 @@ function declaresStyle(checker: ts.TypeChecker, propsType: ts.Type): boolean | u
   return parts.some((part) => checker.getPropertyOfType(part, "style") !== undefined)
 }
 
+/** What a prop takes: its kind, the options of a set of values, and for a slot, its type as written. */
+interface Classified {
+  kind: PropKind
+  options?: (string | number | boolean)[]
+  slot?: string
+}
+
 function classify(
   checker: ts.TypeChecker,
   type: ts.Type,
   declaration: ts.Declaration | undefined,
   name: string
-): { kind: PropKind; options?: (string | number | boolean)[]; slot?: string } {
+): Classified {
   const value = checker.getNonNullableType(type)
-  const written = declaration && "type" in declaration ? (declaration.type as ts.TypeNode | undefined)?.getText() : ""
+
+  const written =
+    declaration && "type" in declaration
+      ? // SAFETY: every declaration with a `type` (a property, parameter or variable) holds the type node written for it, or none.
+        (declaration.type as ts.TypeNode | undefined)?.getText()
+      : ""
+
   const parts = value.isUnion() ? value.types : [value]
   const slot = name === "children" ? undefined : slotKind(checker, parts)
 
@@ -353,29 +381,29 @@ function classify(
     return { kind: "function" }
   }
 
-  if (parts.every((part) => part.flags & ts.TypeFlags.BooleanLike)) {
+  if (parts.every((part) => hasFlag(part.flags, ts.TypeFlags.BooleanLike))) {
     return { kind: "boolean" }
   }
 
-  const literals = parts.map(literalOf)
+  const literals = parts.flatMap((part) => literalOf(checker, part) ?? [])
 
-  if (literals.every((literal) => literal !== undefined)) {
-    return { kind: "enum", options: literals as (string | number | boolean)[] }
+  if (literals.length === parts.length) {
+    return { kind: "enum", options: literals }
   }
 
-  if (parts.every((part) => part.flags & ts.TypeFlags.StringLike)) {
+  if (parts.every((part) => hasFlag(part.flags, ts.TypeFlags.StringLike))) {
     return { kind: "string" }
   }
 
-  if (parts.every((part) => part.flags & ts.TypeFlags.NumberLike)) {
+  if (parts.every((part) => hasFlag(part.flags, ts.TypeFlags.NumberLike))) {
     return { kind: "number" }
   }
 
-  if (parts.every((part) => part.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike))) {
+  if (parts.every((part) => hasFlag(part.flags, ts.TypeFlags.StringLike, ts.TypeFlags.NumberLike))) {
     return { kind: "string" }
   }
 
-  if (value.flags & ts.TypeFlags.Object) {
+  if (hasFlag(value.flags, ts.TypeFlags.Object)) {
     return { kind: "object" }
   }
 
@@ -389,7 +417,7 @@ function classify(
  */
 function slotKind(checker: ts.TypeChecker, parts: readonly ts.Type[]): "node" | "object" | undefined {
   const partProps = (part: ts.Type) =>
-    part.flags & (ts.TypeFlags.Object | ts.TypeFlags.Intersection) &&
+    hasFlag(part.flags, ts.TypeFlags.Object, ts.TypeFlags.Intersection) &&
     part.getCallSignatures().length === 0 &&
     checker.getPropertyOfType(part, "as") !== undefined
 
@@ -400,20 +428,20 @@ function slotKind(checker: ts.TypeChecker, parts: readonly ts.Type[]): "node" | 
   const content = parts.some(
     (part) =>
       !partProps(part) &&
-      (part.flags & (ts.TypeFlags.StringLike | ts.TypeFlags.NumberLike) ||
+      (hasFlag(part.flags, ts.TypeFlags.StringLike, ts.TypeFlags.NumberLike) ||
         /ReactElement|ReactNode|ReactPortal|Iterable/.test(checker.typeToString(part)))
   )
 
   return content ? "node" : "object"
 }
 
-function literalOf(type: ts.Type): string | number | boolean | undefined {
+function literalOf(checker: ts.TypeChecker, type: ts.Type): string | number | boolean | undefined {
   if (type.isStringLiteral() || type.isNumberLiteral()) {
     return type.value
   }
 
-  if (type.flags & ts.TypeFlags.BooleanLiteral) {
-    return (type as { intrinsicName?: string }).intrinsicName === "true"
+  if (hasFlag(type.flags, ts.TypeFlags.BooleanLiteral)) {
+    return checker.typeToString(type) === "true"
   }
 
   return undefined

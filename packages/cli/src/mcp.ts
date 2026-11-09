@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline"
 import { requestJsonSchema } from "@parity-app/agent/contracts"
-import { checkData, jsonText, plainObject } from "@parity-app/core/schema"
+import { checkData, jsonText, jsonValue, plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
 import { mcpCallerName, mcpClientName, mcpClientVersion } from "./caller.ts"
 import {
@@ -20,25 +20,32 @@ import {
 import { operationError, renamePath } from "./errors.ts"
 import { executeOperation } from "./execute.ts"
 import { describeLogs, logsFields, logsInputSchema, readLogs } from "./logs.ts"
-import { type Operation, operations, skillOperation } from "./operations.ts"
+import {
+  type InputSchema,
+  inputFields,
+  type Operation,
+  type OperationInput,
+  operations,
+  skillOperation
+} from "./operations.ts"
 import { readSkill } from "./skills.ts"
-import { recordCli } from "./telemetry.ts"
+import { type CliAttributes, recordCli } from "./telemetry.ts"
 
 interface Tool {
   name: string
   description: string
-  inputSchema: Record<string, unknown>
+  inputSchema: InputSchema
   /** The input fields an error's path can point at, in this tool's names. */
   fields: readonly string[]
   /** Renames the contract's fields to this tool's, in error paths. */
   names?: Record<string, string>
   /** Runs the tool on its arguments, which its contract checks. */
-  run(input: unknown): Promise<Reply>
+  run(input: OperationInput): Promise<Reply>
 }
 
 interface Reply {
   content: Content[]
-  structuredContent?: Record<string, unknown>
+  structuredContent?: object
   isError?: boolean
 }
 
@@ -76,22 +83,30 @@ function operationTool<Result>(
 }
 
 /** Results that are data to begin with, as compact JSON text for clients that don't read structuredContent. */
-const json = (value: unknown): Content[] => [text(JSON.stringify(value))]
+const json = <Value>(value: Value): Content[] => [text(JSON.stringify(value))]
 
 /** MCP's names for execute's label and code. */
 const executeNames = { label: "description", code: "input" }
 
 /** MCP's execute arguments under the contract's names: description is label and input is code. */
-function contractNames(input: unknown): unknown {
-  const fields = plainObject.safeParse(input).data
+function contractNames(input: OperationInput): OperationInput {
+  const fields = inputFields.safeParse(input).data
 
   if (!fields) {
     return input
   }
 
-  const { description: label, input: code, ...rest } = fields
+  const { description: label, input: code, ...renamed } = fields
 
-  return { ...rest, ...(label === undefined ? {} : { label }), ...(code === undefined ? {} : { code }) }
+  if (label !== undefined) {
+    renamed.label = label
+  }
+
+  if (code !== undefined) {
+    renamed.code = code
+  }
+
+  return renamed
 }
 
 const tools: Tool[] = [
@@ -235,12 +250,15 @@ const initializeParams = z.looseObject({
 })
 
 /** `tools/call`'s params: which tool, and its arguments, which the tool's own schema checks. */
-const toolCall = z.looseObject({ name: z.string(), arguments: z.unknown() })
+const toolCall = z.looseObject({ name: z.string(), arguments: jsonValue.optional() })
+
+/** A request's params, which each method reads as it needs. */
+type Params = NonNullable<z.output<typeof message>["params"]>
 
 /** Serves Parity's tools over MCP on stdin and stdout. */
 export function serveMcp(): void {
   const lines = createInterface({ input: process.stdin })
-  const send = (reply: unknown) => process.stdout.write(`${JSON.stringify(reply)}\n`)
+  const send = <Reply>(reply: Reply) => process.stdout.write(`${JSON.stringify(reply)}\n`)
   lines.on("line", (line) => {
     if (!line.trim()) {
       return
@@ -273,18 +291,28 @@ export function serveMcp(): void {
   })
 }
 
-async function respond(method: string, params: Record<string, unknown> = {}) {
+async function respond(method: string, params: Params = {}) {
   switch (method) {
     case "initialize": {
       const { clientInfo, protocolVersion } = initializeParams.parse(params)
       const client = mcpClientName(clientInfo)
       setCaller(mcpCallerName(clientInfo), true, client)
       const version = mcpClientVersion(clientInfo)
-      recordCli("mcp.session", {
-        ...(client ? { client } : {}),
-        ...(version ? { clientVersion: version } : {}),
-        ...(protocolVersion ? { protocolVersion } : {})
-      })
+      const session: CliAttributes<"mcp.session"> = {}
+
+      if (client) {
+        session.client = client
+      }
+
+      if (version) {
+        session.clientVersion = version
+      }
+
+      if (protocolVersion) {
+        session.protocolVersion = protocolVersion
+      }
+
+      recordCli("mcp.session", session)
 
       return {
         result: {

@@ -1,6 +1,10 @@
 import { createServer, type Server } from "node:http"
 import { afterEach, describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 import { waitLimit } from "./wait.ts"
+
+/** A listening server's address. */
+const listening = z.looseObject({ port: z.number() })
 
 let server: Server | undefined
 
@@ -20,9 +24,10 @@ async function copy(answers = true): Promise<string> {
   })
 
   await new Promise<void>((resolve) => server?.listen(0, "127.0.0.1", resolve))
-  const address = server.address()
+  // A server listening on a port has an address with one, never a pipe's name.
+  const { port } = listening.parse(server.address())
 
-  return `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`
+  return `http://127.0.0.1:${port}`
 }
 
 /** Keeps this process busy, as a starved runner or its own module loading does. */

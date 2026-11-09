@@ -24,13 +24,15 @@ function snippets(markdown: string): { line: number; code: string }[] {
 
 const text = (id: string, words: string): DesignNode => ({ type: "text", id, name: id, text: words })
 
-const layout = (name: string, children: DesignNode[] = [], hidden?: boolean): DesignNode => ({
-  type: "layout",
-  id: name.toLowerCase().replaceAll(" ", "-"),
-  name,
-  ...(hidden ? { hidden } : {}),
-  children
-})
+const layout = (name: string, children: DesignNode[] = [], hidden?: boolean): DesignNode => {
+  const node: DesignNode = { type: "layout", id: name.toLowerCase().replaceAll(" ", "-"), name, children }
+
+  if (hidden) {
+    node.hidden = hidden
+  }
+
+  return node
+}
 
 const row = (id: string, name: string, email: string): DesignNode => ({
   type: "layout",
@@ -150,14 +152,11 @@ function project(tab: string): AgentSnapshot {
 
 const hooks: AgentHooks = {
   presence: () => undefined,
-  render: async ({ mode, capture }) => ({
-    width: mode.width,
-    height: 600,
-    nodes: [],
-    overflowsX: false,
-    unknownComponents: [],
-    ...(capture ? { png: "iVBOR" } : {})
-  }),
+  render: async ({ mode, capture }) => {
+    const rendered = { width: mode.width, height: 600, nodes: [], overflowsX: false, unknownComponents: [] }
+
+    return capture ? { ...rendered, png: "iVBOR" } : rendered
+  },
   iconNames: async () => ({ names: ["Bell", "Heart", "Settings"], aliases: { Settings: ["Cog"] } })
 }
 

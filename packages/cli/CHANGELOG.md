@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 09 Nov 2026 04:18:08 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 06:57:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.28.3
+
+Mon, 09 Nov 2026 06:57:43 GMT
+
+### Patches
+
+- Stop a call failing because the CLI was too busy to read a copy's answer in time (ajcraswell@gmail.com)
 
 ## 0.28.2
 

@@ -109,13 +109,15 @@ status Todo, label Bug, no priority. The calls behind them are in
 A metric monitor opens a Sentry issue while its number is past its threshold and resolves it once it's back, and the
 alert above files that issue in Linear.
 
-| Monitor                                                                         | Project          | Watches                                                                                                 | Opens when |
-| ------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------- | ---------- |
-| [Agent calls failing over 5%](https://better-apps.sentry.io/monitors/10889795/) | `parity-desktop` | `failure_rate()` of spans with `span.op:agent.called`, every environment, over the last hour            | Over 0.05  |
-| Crash-free sessions under 99% in tester, not made yet (PAR-714)                 | `parity-desktop` | `percentage(sessions_crashed, sessions)` as a crash-free rate, environment `tester`, over the last hour | Under 99%  |
+**Only `production` alerts,** and nothing sends it until Parity is public, so no monitor is on. Development, CI and
+testers' builds are watched on the [dashboards](#dashboards) instead. The monitors on-call gets once `production` sends,
+with their thresholds, are in [proposals/on-call-health.md](proposals/on-call-health.md#the-monitors), and PAR-779 makes
+them.
 
-The crash-free monitor waits for `tester` to exist: Sentry refuses a monitor on an environment it hasn't seen, and
-installed builds haven't sent an event since PAR-625 named them `tester`.
+| Monitor                                                                         | Project          | Watches                                                                                      | State                                      |
+| ------------------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| [Agent calls failing over 5%](https://better-apps.sentry.io/monitors/10889795/) | `parity-desktop` | `failure_rate()` of spans with `span.op:agent.called`, every environment, over the last hour | Off since 2026-11-09, until PAR-779        |
+| Crash-free sessions under 99% in production (PAR-714)                           | `parity-desktop` | A crash-free session rate, environment `production`, over the last hour                      | Not made: waits for `production` (PAR-779) |
 
 What a filed issue carries:
 
@@ -139,36 +141,32 @@ organisation's "Send a notification when pull requests are ready" email `admin@b
 
 ## Dashboards
 
-One dashboard, **Parity**, holds the views the telemetry plan asks for. It isn't made yet (PAR-716): Sentry's MCP server
-can't create dashboards, so it's made by hand from this list. Every widget covers `parity-desktop` and `parity-cli`, and
-the dashboard's environment and release filters narrow all of them at once.
+Four dashboards, each answering one question on-call asks. What each widget reads, and why, is in
+[proposals/on-call-health.md](proposals/on-call-health.md#the-dashboards).
 
-Where events land decides each widget's dataset: errors are Sentry errors, spans are Sentry spans with `span.op` the
-span's name and its attributes as they are, and other events are Sentry logs with `message` the event's name. A numeric
-attribute in a logs widget is picked as a number, as `durationMs`, which the API writes as `tags[durationMs,number]`.
+| Dashboard                                                                          | Answers                                                  |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [Parity](https://better-apps.sentry.io/dashboard/10723054/)                        | Is anything wrong right now? On-call's first stop        |
+| [Parity performance](https://better-apps.sentry.io/dashboard/10723055/)            | Is anything slow? p50, p95 and p99 of each measured step |
+| [Parity workflows](https://better-apps.sentry.io/dashboard/10723056/)              | Which step of a workflow is failing, and why?            |
+| [Parity releases and telemetry](https://better-apps.sentry.io/dashboard/10723057/) | Is the latest build healthy, and is the data coming in?  |
 
-| Widget                                | Dataset  | Display | Query                                               | Shows                                                | Grouped by                                              |
-| ------------------------------------- | -------- | ------- | --------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------- |
-| Crash-free sessions by release        | Releases | Line    | (none)                                              | `crash_free_rate(session)`                           | `release`                                               |
-| Top errors by release and environment | Errors   | Table   | (none)                                              | `count()`, `count_unique(user)`, sorted by `count()` | `issue`, `title`, `release`, `environment`              |
-| Test passes and their errors          | Errors   | Table   | `has:test_run`                                      | `count()`, `count_unique(issue)`, `last_seen()`      | `test_run`, `environment`                               |
-| Project open failures                 | Logs     | Table   | `message:project.openFailed`                        | `count()`                                            | `framework`, `react`, `vite`, `builder`, `step`, `code` |
-| p95 of rendering and agent calls      | Spans    | Line    | `span.op:[frame.rendered,frame.drawn,agent.called]` | `p95(span.duration)`                                 | `span.op`                                               |
-| p95 of opening and saving             | Logs     | Line    | `message:[project.loaded,document.saved]`           | `p95(durationMs)`                                    | `message`                                               |
-| Agent error codes by operation        | Spans    | Table   | `span.op:agent.called has:code`                     | `count()`                                            | `method`, `code`, `transport`                           |
-| Gestures interrupted or cancelled     | Logs     | Bar     | `message:gesture.ended how:[interrupted,cancelled]` | `count()`                                            | `kind`, `how`                                           |
-
-- **Four widgets wait for events that aren't on main yet.** `project.openFailed` and `project.loaded` come with PAR-637
-  (betterapps-hq/parity#319), `gesture.ended` with PAR-640 (#324) and `frame.rendered` with PAR-638 (#323). Builds from
-  those branches have already sent them, and the queries were checked against what they sent, but builds from main send
-  none of them, so Project open failures, Gestures interrupted or cancelled and the opening half of p95 of opening and
-  saving stay empty until those land. Rendering reads `frame.drawn` until then.
-- **Opening is `project.loaded`,** from asking to open a project until its tab is ready, the time a person waits.
-  `project.opened`'s `durationMs` stops at the service, and `project.detected` is one step of it.
-- **Rendering is `frame.rendered`,** which PAR-638 renames from `frame.drawn`; the query takes both until no build sends
-  the old name.
-- **Test passes with no errors don't show in the table,** since it counts errors. A pass's spans and logs are found by
-  searching either for its `test_run`.
+- **Every dashboard covers all of `better-apps`' projects,** with environment and release filters that narrow every
+  widget at once, starting at the last 7 days. Sentry won't let a dashboard pick projects its maker isn't a member of,
+  and `admin@betterapps.io` is an owner but not a member of the `parity` team. `parity-web`, `parity-dashboard` and
+  `parity-api` join them once they send.
+- **Where events land decides each widget's dataset:** errors are Sentry errors, spans are Sentry spans with `span.op`
+  the span's name and its attributes as they are, and other events are Sentry logs with `message` the event's name. A
+  numeric attribute in a logs widget is picked as a number, as `durationMs`, which the API writes as
+  `tags[durationMs,number]`. An attribute sent as an object, such as `process.memory`'s `processes`, is kept as a JSON
+  string and can't be charted (PAR-772).
+- **They were made through Sentry's own API from the browser,** signed in as `admin@betterapps.io`, on 2026-11-09, since
+  Sentry's MCP server can't create dashboards and agents have no token that can. To change one, edit it in Sentry's UI,
+  or, from a page on `better-apps.sentry.io`, `PUT /api/0/organizations/better-apps/dashboards/<id>/` with the
+  `sentry-sc` cookie as `X-CSRFToken`.
+- **PAR-643's eight widgets are all in them:** the crash-free rate, top errors and test passes on Parity; p95 of
+  rendering, agent calls, opening and saving on Parity performance; and project open failures, agent error codes and
+  interrupted gestures on Parity workflows.
 
 ## Secrets
 
@@ -196,14 +194,13 @@ so a Sentry module needs them to take a Sentry token first. Until then, these we
    reopen there (PAR-668). It was Backlog.
 9. Created the monitor "Agent calls failing over 5%" and the alert "File monitor breaches in Linear" with Sentry's MCP
    server, on 2026-11-08, with the same Linear action.
+10. Created the four [dashboards](#dashboards) on 2026-11-09, and turned "Agent calls failing over 5%" off, since only
+    `production` alerts (PAR-716).
 
 PAR-658 brings all of this into Terraform in `infra/sentry`, which the Sentry provider supports for monitors, alerts and
 dashboards.
 
 ## Still to do
 
-1. **Make the Parity dashboard (PAR-716).** In Sentry, signed in as `admin@betterapps.io`, open Dashboards > Create
-   Dashboard, name it "Parity", pick `parity-desktop` and `parity-cli`, and add each widget in [Dashboards](#dashboards)
-   with Add Widget, choosing its dataset, display, query, what it shows and its group. Save it, and link it here.
-2. **Make the crash-free monitor (PAR-714)** once a published build has sent an event from `tester`, with Sentry's MCP
-   server, and connect it to "File monitor breaches in Linear".
+1. **Make the on-call monitors (PAR-779)** once public builds send `production`, the crash-free monitor (PAR-714) among
+   them, and turn "Agent calls failing over 5%" on again for `production`.

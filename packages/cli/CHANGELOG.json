@@ -2,6 +2,53 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 06:57:43 GMT",
+      "version": "0.28.3",
+      "tag": "@parity-app/cli_v0.28.3",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "02e8d18242be3dd1b3bb2d1c3350e82b246c8f14",
+            "comment": "Brace every if and space statements apart, as Buildkit's lint rules ask"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5eb588c75bd9b26ae53cbc99759fe1ab3b2894fd",
+            "comment": "Core meets Buildkit's lint rules; nothing users see changes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "41506c104e0d0991aa95f80d430e78ed4257a0bc",
+            "comment": "Bring packages/agent up to Buildkit's lint rules (PAR-735)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b7d97abb9cc576114f13739c94f6595cf8d88385",
+            "comment": "Read the file being replaced as libgen's Live type"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dc00f9766be3aba52362ea8660a2924a392e83b5",
+            "comment": "Read image extensions through the editor's imageExtension (PAR-734)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "41a10c667dde16dceadf60578f2aac46c74dbeb2",
+            "comment": "Stop a call failing because the CLI was too busy to read a copy's answer in time"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 04:18:08 GMT",
       "version": "0.28.2",
       "tag": "@parity-app/cli_v0.28.2",

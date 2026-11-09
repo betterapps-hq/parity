@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Read image extensions through the editor's imageExtension (PAR-734)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
