@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Bring packages/code up to Buildkit's lint rules",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

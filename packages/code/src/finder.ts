@@ -4,13 +4,18 @@ import {
   type ComponentInfo,
   type ComponentProp,
   type ComponentRole,
-  type ComponentSource,
-  componentRole,
-  type RendererAdapter
+  componentRole
 } from "@parity-app/core"
 import ts from "typescript"
 import { componentOptions, findComponents, reactProbe, withReactProbe } from "./checker.ts"
-import { type CheckResult, checkedChanges, componentIds, findAppComponents } from "./listing.ts"
+import {
+  type CheckResult,
+  type ComponentReader,
+  type ComponentSources,
+  checkedChanges,
+  componentIds,
+  findAppComponents
+} from "./listing.ts"
 import { inferProps, propsFiles } from "./props.ts"
 import { importAlias, type ProjectTsconfig, readTsconfig } from "./tsconfig.ts"
 
@@ -47,9 +52,9 @@ export interface ComponentFinder {
   /** Which exports of the app's `files`, relative to the root, are components, and why the others aren't. */
   check(root: string, files: readonly string[], program?: ts.Program): CheckResult
   /** Each component's props, by id. */
-  props(root: string, sources: Record<string, ComponentSource>, program?: ts.Program): Record<string, ComponentInfo>
+  props(root: string, sources: ComponentSources, program?: ts.Program): Record<string, ComponentInfo>
   /** The files `props` reads for `sources`, such as libraries' declarations, so one program can hold them too. */
-  propsFiles(root: string, sources: Record<string, ComponentSource>): string[]
+  propsFiles(root: string, sources: ComponentSources): string[]
 }
 
 /**
@@ -80,7 +85,7 @@ export const reactFinder: ComponentFinder = {
   },
   check(root, files, program) {
     const entries = files.map((file) => resolve(root, file))
-    const report = findComponents({ entries, root, defaultExports: true, ...(program ? { program } : {}) })
+    const report = findComponents({ entries, root, defaultExports: true, program })
     const pathOf = (entry: string) => relative(root, entry).replaceAll("\\", "/")
 
     return {
@@ -117,7 +122,7 @@ export const reactFinder: ComponentFinder = {
  */
 export async function findAll(
   finder: ComponentFinder,
-  renderer: RendererAdapter,
+  renderer: ComponentReader,
   root: string,
   uiKit?: string
 ): Promise<AppComponent[]> {
@@ -139,7 +144,7 @@ export async function findAll(
 /** The app's own components in the contract's shape, from the list and props the passes made. Libraries' are left out. */
 export function appComponents(
   root: string,
-  sources: Record<string, ComponentSource>,
+  sources: ComponentSources,
   props: Record<string, ComponentInfo>
 ): AppComponent[] {
   const tsconfig = readTsconfig(root)
@@ -153,16 +158,22 @@ export function appComponents(
 
     const info = props[id]
 
-    return [
-      {
-        id,
-        path: source.path,
-        export: source.export,
-        import: info?.import ?? importAlias(root, tsconfig, source.path) ?? source.path,
-        role,
-        ...(source.as ? { evidence: source.as } : {}),
-        ...(info ? { props: info.props } : {})
-      }
-    ]
+    const component: AppComponent = {
+      id,
+      path: source.path,
+      export: source.export,
+      import: info?.import ?? importAlias(root, tsconfig, source.path) ?? source.path,
+      role
+    }
+
+    if (source.as) {
+      component.evidence = source.as
+    }
+
+    if (info) {
+      component.props = info.props
+    }
+
+    return [component]
   })
 }
