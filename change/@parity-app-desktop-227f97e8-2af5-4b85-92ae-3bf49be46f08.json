@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component as component.changed",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

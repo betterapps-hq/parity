@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Use Buildkit's Storybook config without the app listing its addons",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
