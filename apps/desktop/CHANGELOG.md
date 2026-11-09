@@ -1,8 +1,26 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 11:25:40 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 12:11:34 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.43.0
+
+Mon, 09 Nov 2026 12:11:34 GMT
+
+### Minor changes
+
+- Unnamed icon layers are called by their icon, as Plus rather than lucide/Plus, in Layers, search and the inspector.
+  (ajcraswell@gmail.com)
+- Report a published app whose release has been promoted to everyone as the production environment in Sentry (PAR-779)
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Bring the canvas code up to Buildkit's lint rules, renaming tldraw's shape names for the canvas's own
+  (ajcraswell@gmail.com)
+- Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows
+  (PAR-788) (ajcraswell@gmail.com)
 
 ## 0.42.0
 

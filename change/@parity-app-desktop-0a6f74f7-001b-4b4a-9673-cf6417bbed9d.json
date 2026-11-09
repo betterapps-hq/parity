@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Bring the canvas code up to Buildkit's lint rules, renaming tldraw's shape names for the canvas's own",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

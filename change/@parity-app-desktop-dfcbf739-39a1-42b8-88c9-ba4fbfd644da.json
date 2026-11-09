@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Report a published app whose release has been promoted to everyone as the production environment in Sentry (PAR-779)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

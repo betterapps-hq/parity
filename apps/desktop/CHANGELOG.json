@@ -2,6 +2,49 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 12:11:34 GMT",
+      "version": "0.43.0",
+      "tag": "@parity-app/desktop_v0.43.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e2865513ea55de22f05edf0ea8eaa37ecced5ef8",
+            "comment": "Bring the canvas code up to Buildkit's lint rules, renaming tldraw's shape names for the canvas's own"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "145dfbaa2493119d05b9272394d5ced18d06ee59",
+            "comment": "Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows (PAR-788)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ad2a09d42f95318253c43dabebb0457d34d58b35",
+            "comment": "Unnamed icon layers are called by their icon, as Plus rather than lucide/Plus, in Layers, search and the inspector."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6605317673a5c9a56f127c19b56af04ea5f492da",
+            "comment": "Report a published app whose release has been promoted to everyone as the production environment in Sentry (PAR-779)"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e5a97c0b268b69136e9ea1349931b0bd3d46675c",
+            "comment": "Bring the scripts, end-to-end tests and Storybook config up to Buildkit's lint rules"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 11:25:40 GMT",
       "version": "0.42.0",
       "tag": "@parity-app/desktop_v0.42.0",
