@@ -18,10 +18,16 @@ function cssNames(path: string): string[] {
 }
 
 /** Described tokens by the custom property each one matches, and the ones that match none. */
+export interface MatchedTokens {
+  byName: Map<string, LibraryToken>
+  unmatched: LibraryToken[]
+}
+
+/** Described tokens by the custom property each one matches, and the ones that match none. */
 export function matchDescribed(
   sources: readonly DescribedTokens[] | undefined,
   tokens: readonly Token[]
-): { byName: Map<string, LibraryToken>; unmatched: LibraryToken[] } {
+): MatchedTokens {
   const names = new Set(tokens.map((token) => token.name))
   const byName = new Map<string, LibraryToken>()
   const unmatched: LibraryToken[] = []
