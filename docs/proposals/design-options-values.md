@@ -64,8 +64,8 @@ Padding, margin, border width and scroll padding.
 - **Forms:** each side holds its own form, token chip and mark.
 - **States:** Mixed is per side; editing one side changes only that side on every layer.
 - **Editing:** a per-side button switches forms; its menu is Figma's (All, Top, Bottom, Left, Right, Custom). Shorthand
-  typed into any of these fields fills them in CSS's order. The box-model widget adds margin's ring. Alt changes the
-  opposite side too, Alt+Shift all four, as Figma's handles do.
+  typed into any of these fields fills them in CSS's order. The box-model widget shows padding and margin together, each
+  side opening its field in a popover. Alt changes the opposite side too, Alt+Shift all four, as Figma's handles do.
 - **Tokens:** spacing, or border-width for Stroke.
 - **Writes:** the fewest classes, shorthand first: `p-4`, `px-4 py-2`, `p-4 pb-6`, `border border-t-2`; logical forms
   under the Logical switch.

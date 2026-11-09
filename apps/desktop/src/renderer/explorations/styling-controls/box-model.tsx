@@ -1,14 +1,19 @@
+import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react"
-import { MessageLine, useTokens } from "./field-parts.tsx"
+import { KeyHints } from "../../canvas/KeyHints.tsx"
+import { spacingColor } from "../../canvas/SpacingHandles.tsx"
+import { gestures as held } from "../../chrome/keymap.ts"
+import { formatNumber } from "./css-values.ts"
+import { useTokens } from "./field-parts.tsx"
 import { type Side, type SideRules, type Sides, sideInline, sideNames, sideRules } from "./sides-writes.ts"
-import { SideField, spreadTo, useSidesLine } from "./sides.tsx"
+import { SideField, spreadTo } from "./sides.tsx"
 import type { LengthToken } from "./tokens.ts"
 
 /*
- * The box-model widget (PAR-652's Spacing), in place of Padding's sides while Each side is pressed: padding's ring around the
- * layer's size, and margin's ring around that once a margin is set, each side a field typed as any side is, and
- * SpacingPreview, the canvas's stand-in, which draws padding and margin as DevTools does and highlights the side
- * that's hovered.
+ * The box-model widget (PAR-652's Spacing): Spacing's padding and margin in one box, as DevTools and Webflow lay them
+ * out, margin's ring around padding's around the layer's size. Each side shows its value where the side is, and opens
+ * its field in a popover to edit it. SpacingPreview, the canvas's stand-in, draws padding and margin as the canvas does
+ * and highlights the side that's hovered.
  */
 
 /** Which sides are hovered in a field or the widget, for the preview to highlight. */
@@ -17,16 +22,127 @@ export interface SpacingHover {
   sides: number[]
 }
 
+/** Padding as the canvas shades it (CanvasOverlay): the spacing pink, hatched. */
+const paddingFill =
+  "repeating-linear-gradient(-45deg, oklch(0.7 0.2 350 / 0.28) 0 1px, oklch(0.7 0.2 350 / 0.1) 1px 5px)"
+/** Margin, which the canvas doesn't draw yet: the same pink, flat and faint, so it reads as outside the layer. */
+const marginFill = `color-mix(in oklch, ${spacingColor} 8%, transparent)`
+/** A side that's hovered or being edited, as the canvas shades the handle it's dragging. */
+const activeFill = `color-mix(in oklch, ${spacingColor} 30%, transparent)`
+const edge = (strength: number) => `color-mix(in oklch, ${spacingColor} ${strength}%, transparent)`
+
 /**
- * Padding's ring, with margin's around it once a margin is set, as DevTools' box model lays them out: each side's
- * field where the side is, the layer's size in the middle. Each field is typed, stepped and scrubbed as any side, Alt
- * reaching the opposite side and Alt+Shift all four. What the fields say goes under the widget. Hovering a field
- * highlights its side on the canvas.
+ * A side's measurement as the box shows it, with its unit: `16px`, `10%`, `Auto`, a token's value. A token missing from
+ * the project shows its name, since it has no value.
+ */
+function measurement(side: Side, token: LengthToken | undefined): { number: string; unit?: string } | undefined {
+  if (side === undefined) return undefined
+  if (side === "auto") return { number: "Auto" }
+  if ("number" in side) return { number: formatNumber(side.number), unit: "px" }
+  if ("percent" in side) return { number: formatNumber(side.percent), unit: "%" }
+  return token ? { number: formatNumber(token.px), unit: "px" } : { number: side.token }
+}
+
+/**
+ * One side in the box: its measurement with its unit, where the side is, a token's shaded as a token is, as Webflow
+ * shades a variable's. It opens the side's field in a popover, on hover after a moment or on a press or Enter: the
+ * field every side has, its token's name and value, its unit and the app's maths, with the keys that reach the other
+ * sides. Hovering it, or editing it, highlights the side on the canvas.
+ */
+function BoxSide({
+  box,
+  index,
+  sides,
+  rules,
+  mixed,
+  measured,
+  onChange,
+  onHover
+}: {
+  box: "padding" | "margin"
+  index: number
+  sides: Sides
+  rules: SideRules
+  mixed: boolean
+  measured?: number
+  onChange: (sides: Sides, cleared: number[]) => void
+  onHover?: (hover: SpacingHover | undefined) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const { tokens } = useTokens(rules.tokens.set)
+  const label = `${sideNames[index]} ${box}`
+  const value = sides[index]
+  const tokenName = typeof value === "object" && "token" in value ? value.token : undefined
+  const token = tokens.find((other) => other.name === tokenName)
+  const shown = mixed ? { number: "Mixed" } : (measurement(value, token) ?? { number: "0", unit: "px" })
+  const faint = mixed || value === undefined
+  const highlight = (on: boolean) => onHover?.(on ? { box, sides: [index] } : undefined)
+  let named = `${shown.number}${shown.unit ?? ""}`
+  if (tokenName !== undefined) named = `${tokenName}, ${token?.detail ?? "missing"}`
+  else if (value === undefined && !mixed) named = "Unset"
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        highlight(next)
+      }}
+    >
+      <PopoverTrigger
+        openOnHover
+        delay={350}
+        closeDelay={150}
+        aria-label={`${label}: ${named}`}
+        onPointerEnter={() => highlight(true)}
+        onPointerLeave={() => {
+          if (!open) highlight(false)
+        }}
+        className={`flex h-5 max-w-14 min-w-6 items-baseline justify-center rounded-sm px-1 text-xs leading-5 tabular-nums outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-foreground/15 ${faint ? "text-muted-foreground" : ""} ${tokenName === undefined ? "" : "bg-foreground/10"}`}
+      >
+        <span className="truncate">{shown.number}</span>
+        {shown.unit && <span className="text-muted-foreground">{shown.unit}</span>}
+      </PopoverTrigger>
+      <PopoverContent className="w-52 gap-2 p-2" side={index === 2 ? "bottom" : "top"}>
+        <div className="flex items-baseline justify-between gap-2 text-xs">
+          <span className="font-medium">{label}</span>
+          {/* A token's value, which its chip in the field doesn't say. */}
+          {token && <span className="text-muted-foreground tabular-nums">{token.detail}</span>}
+        </div>
+        <SideField
+          label={label}
+          rules={rules}
+          value={value}
+          mixed={mixed}
+          spreads
+          measured={measured}
+          onChange={(next: Side, spread) => {
+            const reached = spreadTo([index], spread)
+            onChange(sides.map((other, at) => (reached.includes(at) ? next : other)) as Sides, reached)
+          }}
+          onShorthand={(next) => onChange(next, [0, 1, 2, 3])}
+        />
+        <span className="text-xs text-muted-foreground">
+          <KeyHints
+            rows={[
+              { keys: held.oppositePadding.keys, does: "Both sides" },
+              { keys: held.everyPadding.keys, does: "All sides" }
+            ]}
+          />
+        </span>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/**
+ * Spacing's box: margin's ring around padding's around the layer's size, each side's measurement and unit where the side
+ * is, as DevTools' box model lays them out. Hovering a value opens its field in a popover after a moment; pressing it, or
+ * Enter, opens it at once. Padding is shaded as the canvas shades it, and margin, outside it, faintly within a dashed
+ * edge.
  */
 export function BoxModel({
   padding,
   margin,
-  showMargin,
   paddingMixed = [],
   marginMixed = [],
   measuredMargin,
@@ -37,8 +153,6 @@ export function BoxModel({
 }: {
   padding: Sides
   margin: Sides
-  /** Margin's ring shows once a margin is set, or once Margin is added from the section's menu. */
-  showMargin: boolean
   paddingMixed?: readonly boolean[]
   marginMixed?: readonly boolean[]
   /** What each margin side comes to, for Auto. */
@@ -49,76 +163,49 @@ export function BoxModel({
   onMargin: (sides: Sides, cleared: number[]) => void
   onHover?: (hover: SpacingHover | undefined) => void
 }) {
-  const { lineFor, said } = useSidesLine()
-  const side = (
-    box: "padding" | "margin",
-    index: number,
-    sides: Sides,
-    rules: SideRules,
-    mixed: readonly boolean[],
-    onChange: (sides: Sides, cleared: number[]) => void
-  ) => {
-    const label = `${sideNames[index]} ${box}`
-    return (
-      <div
-        className="w-10 shrink-0"
-        onPointerEnter={() => onHover?.({ box, sides: [index] })}
-        onPointerLeave={() => onHover?.(undefined)}
-      >
-        <SideField
-          label={label}
-          rules={rules}
-          value={sides[index]}
-          mixed={mixed[index]}
-          bare
-          narrow
-          spreads
-          measured={box === "margin" ? measuredMargin?.[index] : undefined}
-          line={lineFor(label)}
-          onChange={(value: Side, spread) => {
-            const reached = spreadTo([index], spread)
-            onChange(sides.map((other, at) => (reached.includes(at) ? value : other)) as Sides, reached)
-          }}
-          onShorthand={(next) => onChange(next, [0, 1, 2, 3])}
-        />
-      </div>
-    )
-  }
-  const paddingSide = (index: number) => side("padding", index, padding, sideRules.padding, paddingMixed, onPadding)
-  const marginSide = (index: number) => side("margin", index, margin, sideRules.margin, marginMixed, onMargin)
-  const ring = (
-    <div className="relative flex min-w-0 flex-1 flex-col items-center rounded-md border border-emerald-500/60 bg-emerald-500/10 px-1 py-0.5">
-      <span className="absolute top-1 left-1.5 text-2xs text-muted-foreground">Padding</span>
-      {paddingSide(0)}
-      <div className="flex w-full items-center justify-between gap-1">
-        {paddingSide(3)}
-        <div className="grid h-9 min-w-0 flex-1 place-items-center rounded-sm border bg-background text-2xs whitespace-nowrap text-muted-foreground tabular-nums">
-          {size.width} × {size.height}
-        </div>
-        {paddingSide(1)}
-      </div>
-      {paddingSide(2)}
-    </div>
+  const side = (box: "padding" | "margin", index: number) => (
+    <BoxSide
+      box={box}
+      index={index}
+      sides={box === "padding" ? padding : margin}
+      rules={box === "padding" ? sideRules.padding : sideRules.margin}
+      mixed={(box === "padding" ? paddingMixed : marginMixed)[index] ?? false}
+      measured={box === "margin" ? measuredMargin?.[index] : undefined}
+      onChange={box === "padding" ? onPadding : onMargin}
+      onHover={onHover}
+    />
+  )
+  const name = (text: string) => (
+    <span className="absolute top-1 left-1.5 text-2xs text-muted-foreground select-none">{text}</span>
   )
   return (
-    <fieldset className="m-0 grid min-w-0 gap-1 border-0 p-0 pt-1" aria-label="Box model">
-      {showMargin ? (
-        <div className="relative flex flex-col items-center rounded-md border border-dashed border-orange-400/70 bg-orange-400/10 px-1 py-0.5">
-          <span className="absolute top-1 left-1.5 text-2xs text-muted-foreground">Margin</span>
-          {marginSide(0)}
+    <fieldset
+      className="relative m-0 flex min-w-0 flex-col items-center gap-0.5 rounded-md border border-dashed p-1"
+      style={{ background: marginFill, borderColor: edge(55) }}
+      aria-label="Box model"
+    >
+      {name("Margin")}
+      {side("margin", 0)}
+      <div className="flex w-full items-center gap-1">
+        {side("margin", 3)}
+        <div
+          className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border p-1"
+          style={{ background: paddingFill, borderColor: edge(60) }}
+        >
+          {name("Padding")}
+          {side("padding", 0)}
           <div className="flex w-full items-center gap-1">
-            {marginSide(3)}
-            {ring}
-            {marginSide(1)}
+            {side("padding", 3)}
+            <div className="grid h-8 min-w-0 flex-1 place-items-center rounded-sm border bg-background text-2xs whitespace-nowrap text-muted-foreground tabular-nums">
+              {size.width} × {size.height}
+            </div>
+            {side("padding", 1)}
           </div>
-          {marginSide(2)}
+          {side("padding", 2)}
         </div>
-      ) : (
-        ring
-      )}
-      {said.map((message) => (
-        <MessageLine key={message.text} message={message} />
-      ))}
+        {side("margin", 1)}
+      </div>
+      {side("margin", 2)}
     </fieldset>
   )
 }
@@ -137,8 +224,8 @@ export interface Measured {
 const sideKeys = ["top", "right", "bottom", "left"] as const
 
 /**
- * A card, Plans, in a parent, Pricing, drawn with the sides set: padding tinted green and margin orange, as DevTools
- * draws them, the hovered side stronger. It measures what the browser made of them (Auto, a percentage), which the
+ * A card, Plans, in a parent, Pricing, drawn with the sides set: padding shaded as the canvas shades it and margin
+ * faintly in the same pink, as the box draws them, the hovered side stronger. It measures what the browser made of them (Auto, a percentage), which the
  * fields show as what they come to.
  */
 export function SpacingPreview({
@@ -208,7 +295,8 @@ export function SpacingPreview({
   }
   const strong = (which: SpacingHover["box"], index: number) => hover?.box === which && hover.sides.includes(index)
   const band = (which: "padding" | "margin", index: number, position: CSSProperties): ReactNode => {
-    const color = which === "padding" ? "16 185 129" : "251 146 60"
+    let background = which === "padding" ? paddingFill : `color-mix(in oklch, ${spacingColor} 14%, transparent)`
+    if (strong(which, index)) background = activeFill
     return (
       <div
         key={`${which}-${index}`}
@@ -216,8 +304,9 @@ export function SpacingPreview({
         className="pointer-events-none absolute"
         style={{
           ...position,
-          background: `rgb(${color} / ${strong(which, index) ? 0.6 : 0.25})`,
-          outline: strong(which, index) ? `1px solid rgb(${color})` : undefined
+          background,
+          // Margin's edge is dashed, as the box draws it.
+          outline: strong(which, index) ? `1px ${which === "margin" ? "dashed" : "solid"} ${spacingColor}` : undefined
         }}
       />
     )

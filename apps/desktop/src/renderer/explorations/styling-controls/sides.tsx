@@ -329,8 +329,6 @@ export function FourSidesField({
   hint,
   doesNothing,
   tokensOnly,
-  startEach,
-  customView,
   onChange,
   onHover
 }: {
@@ -349,14 +347,10 @@ export function FourSidesField({
   /** Why the row does nothing here, which dims it. */
   doesNothing?: string
   tokensOnly?: boolean
-  /** Opens with Each side pressed, where a story starts on the box-model widget; otherwise only when sides differ. */
-  startEach?: boolean
-  /** Shown in place of the four fields while Each side is pressed, as Padding opens the box-model widget. */
-  customView?: ReactNode
   onChange: (sides: Sides, cleared: number[]) => void
   onHover?: (sides: number[] | undefined) => void
 }) {
-  const [each, setEach] = useState(() => startEach ?? !fitsTogether(together, sides, mixed))
+  const [each, setEach] = useState(() => !fitsTogether(together, sides, mixed))
   const noun = label.toLowerCase()
   const update = (indexes: number[], value: Side, spread: Spread) => {
     const reached = spreadTo(indexes, spread)
@@ -415,15 +409,9 @@ export function FourSidesField({
         hint={[doesNothing, hint].filter(Boolean).join("\n") || undefined}
         action={<EachToggle label="Each side" parts="sides" pressed={each} onClick={() => setEach(!each)} />}
       >
-        {each && customView !== undefined ? (
-          customView
-        ) : (
-          <div
-            className={`grid min-w-0 gap-x-2 gap-y-1 ${together === "one" && !each ? "grid-cols-1" : "grid-cols-2"}`}
-          >
-            {fields}
-          </div>
-        )}
+        <div className={`grid min-w-0 gap-x-2 gap-y-1 ${together === "one" && !each ? "grid-cols-1" : "grid-cols-2"}`}>
+          {fields}
+        </div>
       </Field>
     </div>
   )

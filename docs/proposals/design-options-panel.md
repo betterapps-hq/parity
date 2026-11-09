@@ -220,7 +220,11 @@ image and icon layers, Spacing starts as a title with + until a padding or margi
 | Padding | The four-sides field, two fields on a layout (today: two, with a per-side toggle); the box-model widget                                                         | `padding` and its sides | Auto layout's padding |
 | Margin  | The four-sides field, shown once set or added from More, and the box-model widget's outer ring; takes `auto` and negatives (today: a sides field, as Padding's) | `margin` and its sides  | None                  |
 
-The box-model widget opens from Custom in the per-side button's menu and shows margin's ring once a margin is set.
+The box-model widget is being tried in Storybook as Spacing's whole control, in place of these two rows, since it's the
+easiest to understand: margin's ring around padding's around the layer's size, each side's value where the side is.
+Hovering a value opens its field in a popover after a moment, and pressing it or Enter opens it at once, so the box
+needn't fit a field, a unit menu or a token's chip on every side. Padding is shaded as the canvas shades it, in hatched
+pink; margin is the same pink, faint, within a dashed edge, until margin's canvas handles give it a color of its own.
 Margin has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`), and hovering a side highlights it.
 Horizontal and vertical are written as `px-*` and `py-*`, which v4 compiles to `padding-inline` and `padding-block`, so
 they follow writing direction; separate sides are physical (`pl-4`), and a Logical switch under More writes `ps-*` and
