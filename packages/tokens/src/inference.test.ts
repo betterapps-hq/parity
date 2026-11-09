@@ -1,15 +1,19 @@
 import { readFileSync } from "node:fs"
+import { parseData } from "@parity-app/core/schema"
 import { describe, expect, it } from "vite-plus/test"
-import { type InferredKind, inferTokenKind, simplifyCalc } from "./inference.ts"
+import { z } from "zod"
+import { inferTokenKind, simplifyCalc } from "./inference.ts"
 import { resolveReferences } from "./kinds.ts"
 
-interface Labelled {
-  library: string
-  name: string
-  values: { default: string; dark?: string }
-  /** What the library itself files it as. */
-  label: InferredKind
-}
+const labelledTokens = z.array(
+  z.object({
+    library: z.string(),
+    name: z.string(),
+    values: z.object({ default: z.string(), dark: z.string().optional() }),
+    /** What the library itself files it as. */
+    label: z.string()
+  })
+)
 
 /**
  * Every token of five libraries, read from their npm packages, each with the kind its library files it under: Chakra
@@ -18,14 +22,17 @@ interface Labelled {
  * 99.7% before it was added, and its three misses that were the rules' were fixed. Where a label differs from what the
  * library states, `corrected` keeps the library's.
  */
-const labelled = JSON.parse(
-  readFileSync(new URL("../fixtures/token-categories.json", import.meta.url), "utf8")
-) as Labelled[]
+const labelled = parseData(
+  labelledTokens,
+  JSON.parse(readFileSync(new URL("../fixtures/token-categories.json", import.meta.url), "utf8"))
+)
 
 describe("inferTokenKind", () => {
-  it("files every token in the fixture as its library does, and reports how often for each library", () => {
+  it("files every token in the fixture as its library does, and reports how often for each library", async ({
+    annotate
+  }) => {
     const byLibrary = Map.groupBy(labelled, (token) => token.library)
-    const accuracy: Record<string, string> = {}
+    const accuracy: string[] = []
     const misses: string[] = []
 
     for (const [library, tokens] of byLibrary) {
@@ -43,10 +50,10 @@ describe("inferTokenKind", () => {
         }
       }
 
-      accuracy[library] = `${((100 * right) / tokens.length).toFixed(1)}% of ${tokens.length}`
+      accuracy.push(`${library} ${((100 * right) / tokens.length).toFixed(1)}% of ${tokens.length}`)
     }
 
-    console.log("Token kinds inferred as each library files them:", accuracy)
+    await annotate(`Token kinds inferred as each library files them: ${accuracy.join(", ")}`)
     expect(misses).toEqual([])
   })
 
