@@ -25,6 +25,7 @@ export function preferredExports(
   const marks = new Map<string, { deprecated: boolean; declared: boolean }>()
 
   for (const symbol of checker.getExportsOfModule(module)) {
+    // oxlint-disable-next-line no-bitwise -- TypeScript keeps a symbol's kinds as bit flags, read only with `&`.
     const alias = (symbol.flags & ts.SymbolFlags.Alias) !== 0
     const target = alias ? checker.getAliasedSymbol(symbol) : symbol
     const tags = [...symbol.getJsDocTags(checker), ...(alias ? target.getJsDocTags(checker) : [])]

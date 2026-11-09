@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 import {
+  type ExampleUse,
   exampleItem,
   exampleLevels,
   familyOf,
@@ -360,12 +361,12 @@ describe("reading examples", () => {
 })
 
 describe("nearest parents", () => {
-  const use = (parents: [string, number][], topLevel = 0) => ({
+  const use = (parents: [string, number][], topLevel = 0): ExampleUse => ({
     count: parents.reduce((sum, [, count]) => sum + count, topLevel),
     topLevel,
     parents: new Map(parents),
-    paths: [] as string[][],
-    usePaths: [] as string[][],
+    paths: [],
+    usePaths: [],
     sampleSize: 0,
     fromHook: false
   })

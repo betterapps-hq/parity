@@ -1,8 +1,6 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
-import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { pathToFileURL } from "node:url"
 import { findComponents } from "@parity-app/code"
 import { categorize, describedCategories, describedTokenCss, readDesignTokens } from "@parity-app/tokens"
 import { describe, expect, it } from "vite-plus/test"
@@ -10,7 +8,9 @@ import { checkAnatomy, readAnatomy } from "./anatomy.ts"
 import { readExamples } from "./examples.ts"
 import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.ts"
 import { compareComponents, loader, mergeManifest, selectComponents } from "./index.ts"
+import { isFunction, isRecord, isText, type LiveObject } from "./live.ts"
 import { completeChains, guessParent, type PartRelation, relateParts, spelledOut } from "./parts.ts"
+import { foundComponent, loadFrom, testReact } from "./react-for-tests.ts"
 import { cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
 const demo = join(import.meta.dirname, "fixtures/demo").replaceAll("\\", "/")
@@ -136,29 +136,19 @@ describe("toDtcg", () => {
   })
 })
 
-/** As much of React as the parts test uses; libgen doesn't depend on React's types. */
-interface ReactLike {
-  createContext(value: boolean): { Provider: unknown; Consumer: unknown }
-  createElement(type: unknown, props?: Record<string, unknown> | null, ...children: unknown[]): unknown
-  useContext(context: unknown): boolean
-}
-
 describe("parts", () => {
   // React from a workspace package that depends on it; libgen loads the project's own copy in real use.
-  const fromRenderer = createRequire(join(import.meta.dirname, "../../renderer-react/package.json"))
-
-  const load = async (specifier: string) =>
-    (await import(pathToFileURL(fromRenderer.resolve(specifier)).href)) as Record<string, unknown>
+  const load = loadFrom(join(import.meta.dirname, "../../renderer-react/package.json"))
 
   it("places each part inside what its error names, nearest last, and keeps samples that make it render", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
     const AccordionContext = React.createContext(false)
     const ItemContext = React.createContext(false)
 
     const library = {
-      Accordion: ({ children }: { children?: unknown }) =>
+      Accordion: ({ children }: LiveObject) =>
         React.createElement(AccordionContext.Provider, { value: true }, children),
-      AccordionItem: ({ children }: { children?: unknown }) => {
+      AccordionItem: ({ children }: LiveObject) => {
         if (!React.useContext(AccordionContext)) {
           throw new Error("`AccordionItem` must be used within `Accordion`")
         }
@@ -174,13 +164,12 @@ describe("parts", () => {
       },
       Badge: () => React.createElement("span", null, "New"),
       BadgeContext: AccordionContext.Consumer,
-      Field: (props: Record<string, unknown>) => React.createElement("input", props)
+      Field: (props: LiveObject) => React.createElement("input", props)
     }
 
     const loadLibrary = async (specifier: string) => (specifier === "demo" ? library : load(specifier))
 
-    const found = (name: string) =>
-      ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
+    const found = foundComponent
 
     const { relations, tried } = await relateParts(
       loadLibrary,
@@ -207,7 +196,7 @@ describe("parts", () => {
   })
 
   it("takes the chain the examples show when the error names nothing, and leaves out where they happen to be", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
     const MenuContext = React.createContext(false)
     const SubContext = React.createContext(false)
 
@@ -216,13 +205,12 @@ describe("parts", () => {
     }
 
     const library = {
-      Menu: ({ children }: { children?: unknown }) =>
-        React.createElement(MenuContext.Provider, { value: true }, children),
-      MenuContent: ({ children }: { children?: unknown }) => (React.useContext(MenuContext) ? children : missing()),
-      MenuSub: ({ children }: { children?: unknown }) =>
+      Menu: ({ children }: LiveObject) => React.createElement(MenuContext.Provider, { value: true }, children),
+      MenuContent: ({ children }: LiveObject) => (React.useContext(MenuContext) ? children : missing()),
+      MenuSub: ({ children }: LiveObject) =>
         React.useContext(MenuContext) ? React.createElement(SubContext.Provider, { value: true }, children) : missing(),
       MenuSubTrigger: () => (React.useContext(SubContext) ? React.createElement("button", null, "More") : missing()),
-      Card: ({ children }: { children?: unknown }) => React.createElement("div", null, children),
+      Card: ({ children }: LiveObject) => React.createElement("div", null, children),
       Badge: () => React.createElement("span", null, "New")
     }
 
@@ -242,9 +230,7 @@ describe("parts", () => {
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      names.map(
-        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
-      ),
+      names.map(foundComponent),
       [],
       {},
       uses
@@ -260,11 +246,11 @@ describe("parts", () => {
   })
 
   it("gives a part whose children must be a string its text as the children prop", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
 
     const library = {
-      Highlight: ({ children }: { children?: unknown }) => {
-        if (typeof children !== "string") {
+      Highlight: ({ children }: LiveObject) => {
+        if (!isText(children)) {
           throw new Error("The children prop of Highlight must be a string")
         }
 
@@ -280,7 +266,7 @@ describe("parts", () => {
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      [{ name: "Highlight", export: "Highlight", samples: {} } as unknown as Parameters<typeof relateParts>[2][number]],
+      [foundComponent("Highlight")],
       [],
       {},
       uses
@@ -291,20 +277,18 @@ describe("parts", () => {
   })
 
   it("places a part that needs the parts around it, and a collection's item that only draws a placeholder alone", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
     const TableContext = React.createContext(false)
 
     // Like React Aria: an item outside its collection draws a placeholder, and a body needs a header beside it.
     const library = {
-      Table: ({ children }: { children?: unknown[] }) => {
-        const header = ([] as unknown[])
-          .concat(children)
-          .some((child) => (child as { type?: unknown })?.type === library.TableHeader)
+      Table: ({ children }: LiveObject) => {
+        const header = [children].flat().some((child) => isRecord(child) && child.type === library.TableHeader)
 
         return React.createElement(TableContext.Provider, { value: header }, children)
       },
-      TableHeader: ({ children }: { children?: unknown }) => React.createElement("thead", null, children),
-      TableBody: ({ children }: { children?: unknown }) => {
+      TableHeader: ({ children }: LiveObject) => React.createElement("thead", null, children),
+      TableBody: ({ children }: LiveObject) => {
         if (!React.useContext(TableContext)) {
           throw new Error("Cannot read properties of undefined (reading 'key')")
         }
@@ -312,7 +296,7 @@ describe("parts", () => {
         return React.createElement("tbody", null, children)
       },
       Column: () => React.createElement("th", null, "Name"),
-      Row: ({ children }: { children?: unknown }) =>
+      Row: ({ children }: LiveObject) =>
         React.useContext(TableContext) ? React.createElement("tr", null, children) : React.createElement("item", null)
     }
 
@@ -327,9 +311,7 @@ describe("parts", () => {
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      names.map(
-        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
-      ),
+      names.map(foundComponent),
       [],
       {},
       uses
@@ -345,21 +327,20 @@ describe("parts", () => {
   })
 
   it("marks levels some examples leave out, and it renders without, as optional", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
     const MenuContext = React.createContext(false)
     const ContentContext = React.createContext(false)
 
     const library = {
-      Menu: ({ children }: { children?: unknown }) =>
-        React.createElement(MenuContext.Provider, { value: true }, children),
-      MenuContent: ({ children }: { children?: unknown }) => {
+      Menu: ({ children }: LiveObject) => React.createElement(MenuContext.Provider, { value: true }, children),
+      MenuContent: ({ children }: LiveObject) => {
         if (!React.useContext(MenuContext)) {
           throw new Error("Context is missing.")
         }
 
         return React.createElement(ContentContext.Provider, { value: true }, children)
       },
-      MenuGroup: ({ children }: { children?: unknown }) => React.createElement("div", null, children),
+      MenuGroup: ({ children }: LiveObject) => React.createElement("div", null, children),
       MenuItem: () => {
         if (!React.useContext(ContentContext)) {
           throw new Error("Context is missing.")
@@ -384,9 +365,7 @@ describe("parts", () => {
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      names.map(
-        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
-      ),
+      names.map(foundComponent),
       [],
       {},
       uses
@@ -400,14 +379,13 @@ describe("parts", () => {
   })
 
   it("places a part no example shows where the package renders it, and calls a parent's function children", async () => {
-    const React = (await load("react")) as unknown as ReactLike & { createContext: ReactLike["createContext"] }
+    const React = await testReact(load)
     const Positioner = React.createContext(false)
     const Segments = React.createContext(false)
 
     const library = {
-      Select: ({ children }: { children?: unknown }) => React.createElement("div", null, children),
-      SelectContent: ({ children }: { children?: unknown }) =>
-        React.createElement(Positioner.Provider, { value: true }, children),
+      Select: ({ children }: LiveObject) => React.createElement("div", null, children),
+      SelectContent: ({ children }: LiveObject) => React.createElement(Positioner.Provider, { value: true }, children),
       SelectScrollUpButton: () => {
         if (!React.useContext(Positioner)) {
           throw new Error("Context is missing.")
@@ -415,18 +393,14 @@ describe("parts", () => {
 
         return React.createElement("button", null, "Up")
       },
-      DateInput: ({ children }: { children?: unknown }) => {
-        if (typeof children !== "function") {
+      DateInput: ({ children }: LiveObject) => {
+        if (!isFunction(children)) {
           throw new Error("children is not a function")
         }
 
-        return React.createElement(
-          Segments.Provider,
-          { value: true },
-          (children as (segment: string) => unknown)("day")
-        )
+        return React.createElement(Segments.Provider, { value: true }, children("day"))
       },
-      DateSegment: ({ segment }: { segment?: string }) => {
+      DateSegment: ({ segment }: LiveObject) => {
         if (!React.useContext(Segments) || !segment) {
           throw new Error("DateSegment needs a segment")
         }
@@ -445,9 +419,7 @@ describe("parts", () => {
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
       "demo",
-      names.map(
-        (name) => ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
-      ),
+      names.map(foundComponent),
       [],
       {},
       uses,
@@ -657,19 +629,15 @@ describe("regenerating", () => {
 
 describe("errors from the app", () => {
   // React from a workspace package that depends on it; libgen loads the project's own copy in real use.
-  const fromRenderer = createRequire(join(import.meta.dirname, "../../renderer-react/package.json"))
-
-  const load = async (specifier: string) =>
-    (await import(pathToFileURL(fromRenderer.resolve(specifier)).href)) as Record<string, unknown>
+  const load = loadFrom(join(import.meta.dirname, "../../renderer-react/package.json"))
 
   it("puts the parent an app error names in the part's chain, and takes an input's label off", async () => {
-    const React = (await load("react")) as unknown as ReactLike
+    const React = await testReact(load)
     const RootContext = React.createContext(false)
 
     const library = {
-      Root: ({ children }: { children?: unknown }) =>
-        React.createElement(RootContext.Provider, { value: true }, children),
-      Item: ({ children }: { children?: unknown }) => {
+      Root: ({ children }: LiveObject) => React.createElement(RootContext.Provider, { value: true }, children),
+      Item: ({ children }: LiveObject) => {
         if (!React.useContext(RootContext)) {
           throw new Error("`Item` must be used within `Root`")
         }
@@ -679,11 +647,16 @@ describe("errors from the app", () => {
       // Closed on the server, so they draw nothing there and need nothing.
       Content: () => null,
       Search: () => null,
-      Validity: ({ children }: { children: (state: string) => unknown }) => children("valid")
+      Validity: ({ children }: LiveObject) => {
+        if (!isFunction(children)) {
+          throw new TypeError("children is not a function")
+        }
+
+        return children("valid")
+      }
     }
 
-    const found = (name: string) =>
-      ({ name, export: name, samples: {} }) as unknown as Parameters<typeof relateParts>[2][number]
+    const found = foundComponent
 
     const { relations } = await relateParts(
       async (specifier) => (specifier === "demo" ? library : load(specifier)),
