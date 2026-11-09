@@ -84,6 +84,28 @@ One action is one trace in Sentry, across every process that works on it (PAR-62
 
 To find one, open a span's trace in Sentry, or search spans by `trace` from an error.
 
+## Checking it in the end-to-end tests
+
+The end-to-end suite reads back what the app recorded and checks the main workflows' events (PAR-648), in
+`apps/desktop/e2e/telemetry.e2e.ts`. Like the rest of the suite it runs only in CI, through `.github/workflows/app.yml`.
+
+- **It reads the local copy,** from the copy's own profile, since main writes every event and span from every process
+  there at every level. That's the same thing Sentry gets, without asking Sentry for it. `e2e/events.ts` reads it and
+  finds events by name, envelope field and attribute. Main writes each second, so a test waits for an event with
+  `expect.poll`.
+- **What it checks:** opening the project, from `project.opening` to `project.opened`, `project.loaded` and
+  `project.drawn`; a layer drag, as `gesture.ran` and `gesture.ended`; Duplicate and Save from the keyboard, as
+  `command.ran` from `key`; the file write as `document.saved`; and an agent's `parity state`, as `cli.ran` in the CLI's
+  log and `agent.called` in the app's.
+- **It checks the traces across processes:** the service's `project.opened` and its answers are in the trace of
+  `project.opening`, with `project.loaded` and `project.drawn`. The service's answer to `document.save` is in the trace
+  of the drag, the command or Save that asked for the write. `agent.called` continues the command's `cli.ran` span.
+  `gesture.ended` and the window's `document.saved` are recorded outside their trace, so they're checked by their
+  attributes alone.
+- **CI's runs still send to Sentry,** as `environment: ci` with `test_run` set to `github-<run>-<attempt>`, and every
+  line of the local copy carries that `testRun`, which the suite checks. The `parity` command it runs sends as an
+  agent's does, with the same tags, and writes its log and outbox inside the copy's profile.
+
 ## Agents and the CLI
 
 Agents' calls are recorded where they're answered, once for every operation, whichever way they came (PAR-641):
