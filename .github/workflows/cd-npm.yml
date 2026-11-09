@@ -30,3 +30,31 @@ jobs:
       build-command: pnpm --filter @parity-app/cli build
     secrets:
       RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+  # The release builds the CLI without Sentry's token, so this builds the published version again from its tag and
+  # uploads its bundles and source maps to parity-cli, as the release the installed CLI reports (PAR-719). Each bundle's
+  # debug ID comes from its contents, so these maps match the bundles npm has.
+  sourcemaps:
+    name: Upload source maps
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - id: version
+        env:
+          PACKAGES: ${{ needs.release.outputs.packages }}
+        run:
+          echo "version=$(jq -r '.[] | select(.name == "@parity-app/cli") | .to' <<< "$PACKAGES")" >> "$GITHUB_OUTPUT"
+      - if: steps.version.outputs.version != ''
+        uses: betterapps-hq/pipelines/github/actions/setup@main
+        with:
+          ref: "@parity-app/cli_v${{ steps.version.outputs.version }}"
+      - if: steps.version.outputs.version != ''
+        name: Build the published version
+        run: pnpm --filter @parity-app/cli build
+      - if: steps.version.outputs.version != ''
+        name: Upload to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: node scripts/upload-sourcemaps.ts packages/cli --project parity-cli --published --link-commits

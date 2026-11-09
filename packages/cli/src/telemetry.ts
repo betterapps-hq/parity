@@ -35,7 +35,7 @@ import {
   traceHeaders
 } from "@parity-app/telemetry"
 import { cliVersion } from "./diagnostics.ts"
-import { type BatchRun, createOutbox, type Outbox, startSender, writeBatch } from "./outbox.ts"
+import { type BatchRun, createOutbox, loadedDebugIds, type Outbox, startSender, writeBatch } from "./outbox.ts"
 
 /*
  * The CLI's own events (PAR-641): each command it runs, the copies of the app it can't reach or can't read, and the MCP
@@ -139,8 +139,45 @@ export function cliCallerChanged(next: AgentCaller): void {
   caller = next
 }
 
-/** What a batch reports as: environment, version, the test pass and who's driving, read as it's written. */
-export function batchRun(env: NodeJS.ProcessEnv, installId: string, installed: boolean): BatchRun {
+/** What `vp pack` writes beside the bundles (PAR-719): whether `npm publish` made them, and the commit they're from. */
+export interface CliBuild {
+  published: boolean
+  commit?: string
+}
+
+/** This CLI's build, from `build.json` beside the bundle, or nothing when it runs from source. */
+function cliBuild(): CliBuild | undefined {
+  try {
+    const build = JSON.parse(readFileSync(new URL("./build.json", import.meta.url), "utf8")) as {
+      published?: unknown
+      commit?: unknown
+    }
+    return {
+      published: build.published === true,
+      ...(typeof build.commit === "string" ? { commit: build.commit } : {})
+    }
+  } catch {
+    return undefined
+  }
+}
+
+/** What names an unpublished build's release: the commit it was built from, or a checkout's folder run from source. */
+function releaseSource(build: CliBuild | undefined): Pick<BatchRun, "commit" | "source"> {
+  if (!build) return { source: fileURLToPath(new URL(".", import.meta.url)) }
+  return build.commit ? { commit: build.commit } : {}
+}
+
+/**
+ * What a batch reports as: environment, version, release, the test pass and who's driving, read as it's written. Only
+ * the build `npm publish` made reports as its version; a pkg.pr.new preview or a checkout's own `dist` is named by the
+ * commit it was built from, and a checkout run from source by its commit, which the sender reads off the command's path.
+ */
+export function batchRun(
+  env: NodeJS.ProcessEnv,
+  installId: string,
+  installed: boolean,
+  build: CliBuild | undefined = cliBuild()
+): BatchRun {
   const variables: RunVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }
   const driver: Driver = { kind: "agent", caller }
   const tags: Record<string, string> = { ...runTags(variables) }
@@ -148,8 +185,8 @@ export function batchRun(env: NodeJS.ProcessEnv, installId: string, installed: b
   return {
     environment: telemetryEnvironment(env, installed),
     version: cliVersion(),
-    installed,
-    ...(installed ? {} : { source: fileURLToPath(new URL(".", import.meta.url)) }),
+    published: build?.published ?? false,
+    ...releaseSource(build),
     tags,
     user: telemetryUser(installId, variables, driver)
   }
@@ -201,7 +238,9 @@ function hand(outbox: Outbox, installId: string, installed: boolean, serving: bo
   const folder = cliOutboxFolder()
   const write = () => {
     try {
-      if (writeBatch(folder, { run: batchRun(process.env, installId, installed), items: outbox.take() })) {
+      const run = batchRun(process.env, installId, installed)
+      const debugIds = loadedDebugIds()
+      if (writeBatch(folder, { run, items: outbox.take(), ...(debugIds ? { debugIds } : {}) })) {
         startSender(folder, sender)
       }
     } catch {

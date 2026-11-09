@@ -3,7 +3,16 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { cliEvents, createSentrySink, createTelemetry } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import { type Batch, type BatchRun, type BatchTarget, createOutbox, sendBatches, writeBatch } from "./outbox.ts"
+import {
+  adoptDebugIds,
+  type Batch,
+  type BatchRun,
+  type BatchTarget,
+  createOutbox,
+  loadedDebugIds,
+  sendBatches,
+  writeBatch
+} from "./outbox.ts"
 
 let folder: string
 beforeEach(() => {
@@ -14,7 +23,7 @@ afterEach(() => rmSync(folder, { recursive: true, force: true }))
 const run: BatchRun = {
   environment: "development",
   version: "0.19.0",
-  installed: false,
+  published: false,
   tags: { driver: "agent", agent: "Terminal" },
   user: { id: "install" }
 }
@@ -130,5 +139,23 @@ describe("sendBatches", () => {
     expect(await sendBatches(folder, target, { now: () => Date.now() + 25 * 60 * 60 * 1000 })).toBe(0)
     expect(sent).toEqual([])
     expect(readdirSync(folder)).toEqual([])
+  })
+})
+
+describe("debug IDs", () => {
+  const command = "Error\n    at file:///cli/dist/bin.mjs:1:20"
+  const sender = "Error\n    at file:///cli/dist/send.mjs:1:20"
+
+  it("carries the command's bundles' debug IDs to the sender, which adds them to its own", () => {
+    const batch: Batch = { run, items: [], debugIds: loadedDebugIds({ _sentryDebugIds: { [command]: "bin-id" } }) }
+    const global = { _sentryDebugIds: { [sender]: "send-id" } }
+    adoptDebugIds(structuredClone(batch), global)
+    expect(global._sentryDebugIds).toEqual({ [sender]: "send-id", [command]: "bin-id" })
+  })
+
+  it("leaves the sender's alone for a batch from source, which has none", () => {
+    const global = { _sentryDebugIds: { [sender]: "send-id" } }
+    adoptDebugIds({ run, items: [], debugIds: loadedDebugIds({}) }, global)
+    expect(global._sentryDebugIds).toEqual({ [sender]: "send-id" })
   })
 })

@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process"
 import { createScrubber, telemetryRelease } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/node"
-import { type Batch, type BatchTarget, sendBatches } from "./outbox.ts"
+import { adoptDebugIds, type Batch, type BatchTarget, sendBatches } from "./outbox.ts"
 
 /*
  * The detached process that sends the CLI's batches to Sentry's `parity-cli` project (PAR-642), started as a command
@@ -14,7 +14,7 @@ const dsn = "https://65d0cf052034375c83fb8f442e40e7f8@o4512381874274304.ingest.u
 
 const scrubber = createScrubber()
 
-/** The commit a checkout runs, which names its release, or none outside a Git checkout. */
+/** The commit a checkout run from source is at, which names its release, or none outside a Git checkout. */
 function commitOf(folder: string | undefined): string | undefined {
   if (!folder) return undefined
   try {
@@ -27,14 +27,14 @@ function commitOf(folder: string | undefined): string | undefined {
 const releases = new Map<string, string>()
 
 function releaseOf(run: Batch["run"]): string {
-  const key = `${run.version}|${run.installed}|${run.source ?? ""}`
+  const key = `${run.version}|${run.published}|${run.commit ?? run.source ?? ""}`
   let release = releases.get(key)
   if (release === undefined) {
     release = telemetryRelease({
       project: "parity-cli",
       version: run.version,
-      published: run.installed,
-      commit: commitOf(run.source)
+      published: run.published,
+      commit: run.commit ?? commitOf(run.source)
     })
     releases.set(key, release)
   }
@@ -45,6 +45,7 @@ function releaseOf(run: Batch["run"]): string {
 function send(batch: Batch): void {
   const { run } = batch
   const release = releaseOf(run)
+  adoptDebugIds(batch)
   // Logs take these from the client's options as they're captured, so each batch sets them before its own.
   const options = Sentry.getClient()?.getOptions()
   if (options) Object.assign(options, { environment: run.environment, release })
