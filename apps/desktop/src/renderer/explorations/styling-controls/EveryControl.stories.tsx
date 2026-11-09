@@ -147,7 +147,7 @@ const groups: { name: string; entries: Entry[] }[] = [
       { name: "Easing and spring", Story: composeStories(easing).Preset }
     ]
   },
-  { name: "Code", entries: [{ name: "Raw CSS value", Story: composeStories(rawCss).Rows }] }
+  { name: "Code", entries: [{ name: "Raw CSS value", Story: composeStories(rawCss).Rows, reviewed: true }] }
 ]
 
 // Numbered through in the panel's order, so a control keeps its number however the page is sorted.
