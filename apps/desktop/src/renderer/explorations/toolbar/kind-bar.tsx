@@ -11,7 +11,7 @@ import { Sparkles } from "lucide-react"
 import { useState } from "react"
 import { formatKeys } from "../../chrome/keys.ts"
 import { kindOptions } from "./kind-options.ts"
-import { Divider, type AnnotationKind } from "./options.tsx"
+import { Divider, type AnnotationKind, reviewSpec } from "./options.tsx"
 import { springIn } from "./springs.ts"
 
 /** A picked stamp's chip boings, and its name slides out of it. */
@@ -79,6 +79,29 @@ export function KindBar({ kind, onDone }: { kind: AnnotationKind; onDone?: () =>
       <Button variant="ghost" className="h-8 gap-1.5 px-2 active:scale-95">
         <Sparkles /> Suggest
       </Button>
+      <Button variant="secondary" className="ml-0.5 h-8 gap-1.5 px-2.5 active:scale-95" onClick={onDone}>
+        Done <Kbd>{formatKeys("Esc")}</Kbd>
+      </Button>
+    </>
+  )
+}
+
+/**
+ * Comment's bar, for warping into like a kind's: it has no options to pick, so it says what a click does, then Done.
+ * Its words are parts of the warp too, so they're pulled in and burst out like buttons.
+ */
+export function CommentBar({ onDone }: { onDone?: () => void }) {
+  const { doing, hint, icon: Icon } = reviewSpec("comment")
+
+  return (
+    <>
+      <span data-warp-part className="flex items-center gap-2 pl-2 text-sm font-medium whitespace-nowrap">
+        <Icon className="size-4" />
+        {doing}
+      </span>
+      <span data-warp-part className="flex items-center px-1.5 text-xs whitespace-nowrap text-muted-foreground">
+        {hint}
+      </span>
       <Button variant="secondary" className="ml-0.5 h-8 gap-1.5 px-2.5 active:scale-95" onClick={onDone}>
         Done <Kbd>{formatKeys("Esc")}</Kbd>
       </Button>

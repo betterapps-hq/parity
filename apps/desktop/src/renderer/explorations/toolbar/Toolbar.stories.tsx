@@ -28,7 +28,7 @@ export const Today: Story = {
 
 /**
  * Pick a kind of annotation in the review menu and the toolbar warps into that kind's own bar, its options as stamps.
- * Done or Esc warps it back. Comment still shows its bar above.
+ * Done or Esc warps it back. Comment warps the same way, into a bar that says what a click does.
  */
 export const Warp: Story = {
   loaders: [() => openProjects("example")],

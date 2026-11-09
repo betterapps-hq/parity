@@ -477,7 +477,7 @@ export function useReviewEscape(onDone: (() => void) | undefined) {
 }
 
 /** What a click does while a review tool is picked, and the way out, which Esc takes too. */
-export function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
+function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
   useReviewEscape(onDone)
 
   return <ReviewBarLook tool={tool} onDone={onDone} />

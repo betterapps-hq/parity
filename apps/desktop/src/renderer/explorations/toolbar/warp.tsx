@@ -3,12 +3,10 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { ProjectContext, useProject } from "../../canvas/context.ts"
 import { useTool } from "../../selection.ts"
 import { example } from "../../stories/fixtures.tsx"
-import { KindBar } from "./kind-bar.tsx"
+import { CommentBar, KindBar } from "./kind-bar.tsx"
 import {
-  type AnnotationKind,
   annotationKinds,
   Divider,
-  ReviewBar,
   type ReviewTool,
   reviewSpec,
   SearchActions,
@@ -20,7 +18,8 @@ import { along, asEasing, reducedMotion, springs } from "./springs.ts"
 
 /*
  * An experiment: picking a kind of annotation in the review menu warps the toolbar into that kind's own bar, its
- * options as stamps, and Done or Esc warps it back. Comment still shows the bar above. On the way in:
+ * options as stamps, and Done or Esc warps it back. Comment warps the same way, into a bar that says what a click does.
+ * On the way in:
  *
  * 1. The bar crouches, squashing wide and short, as a ripple in the kind's color spreads from the review button.
  * 2. The tools are pulled into the review button, the farthest first, shrinking and blurring, and the button bursts.
@@ -45,8 +44,10 @@ const timing = {
   pullStagger: 10
 }
 
-/** The buttons and dividers on one side of the bar, which move one by one. */
-const partsOf = (layer: HTMLElement) => [...layer.querySelectorAll<HTMLElement>("button, [role='separator']")]
+/** The buttons, dividers and words on one side of the bar, which move one by one. */
+const partsOf = (layer: HTMLElement) => [
+  ...layer.querySelectorAll<HTMLElement>("button, [role='separator'], [data-warp-part]")
+]
 
 const centerOf = (element: Element) => {
   const box = element.getBoundingClientRect()
@@ -211,7 +212,7 @@ export function WarpStage() {
   )
 }
 
-/** The proposed toolbar, warping into a kind's bar while that kind of annotation is being placed. */
+/** The proposed toolbar, warping into a review tool's bar while it's picked: a kind's, or Comment's. */
 function WarpToolbar() {
   const { selection } = useProject()
   const tool = useTool(selection)
@@ -229,13 +230,13 @@ function WarpToolbar() {
     setReview(undefined)
   }
 
-  // The kind whose bar is drawn, kept after Done so its stamps can fly back into the toolbar.
-  const [shownKind, setShownKind] = useState<AnnotationKind>("behaviour")
+  // The review tool whose bar is drawn, kept after Done so its parts can fly back into the toolbar.
+  const [shown, setShown] = useState<ReviewTool>("behaviour")
   const picked = review?.picked
-  const warped = !!picked && picked !== "comment"
+  const warped = !!picked
 
-  if (picked && picked !== "comment" && picked !== shownKind) {
-    setShownKind(picked)
+  if (picked && picked !== shown) {
+    setShown(picked)
   }
 
   useReviewEscape(warped ? review.done : undefined)
@@ -280,12 +281,15 @@ function WarpToolbar() {
         leaving,
         entering,
         direction: warped ? "in" : "out",
-        color: warped ? reviewSpec(shownKind).color : "var(--canvas-layer-chip)"
+        // Comment has no color of its own, so it warps in the selection blue, as the way back does.
+        color: warped && shown !== "comment" ? reviewSpec(shown).color : "var(--canvas-layer-chip)"
       })
     }
 
-    entering.querySelector<HTMLElement>("[aria-pressed='true']")?.focus({ preventScroll: true })
-  }, [warped, shownKind])
+    // Focus goes to the picked tool or stamp, or for Comment, which has none, to Done.
+    const focus = entering.querySelector<HTMLElement>("[aria-pressed='true']") ?? entering.querySelector("button")
+    focus?.focus({ preventScroll: true })
+  }, [warped, shown])
 
   const width = warped ? widths.kind : widths.tools
 
@@ -293,7 +297,7 @@ function WarpToolbar() {
     <div
       ref={bar}
       role="toolbar"
-      aria-label={warped ? `${annotationKinds[shownKind].label} annotations` : "Toolbar"}
+      aria-label={toolbarLabel(warped, shown)}
       className="absolute bottom-4 left-1/2 z-[400] origin-bottom -translate-x-1/2 rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg"
     >
       <span
@@ -324,12 +328,24 @@ function WarpToolbar() {
           <SearchActions />
         </Layer>
         <Layer ref={kindLayer} shown={warped}>
-          <KindBar key={shownKind} kind={shownKind} onDone={() => review?.done()} />
+          {shown === "comment" ? (
+            <CommentBar onDone={() => review?.done()} />
+          ) : (
+            <KindBar key={shown} kind={shown} onDone={() => review?.done()} />
+          )}
         </Layer>
       </div>
-      {review && !warped && <ReviewBar tool={review.picked} onDone={review.done} />}
     </div>
   )
+}
+
+/** What the bar is to a screen reader: the toolbar, or the review tool's bar it warped into. */
+function toolbarLabel(warped: boolean, shown: ReviewTool): string {
+  if (!warped) {
+    return "Toolbar"
+  }
+
+  return shown === "comment" ? "Comments" : `${annotationKinds[shown].label} annotations`
 }
 
 /**
