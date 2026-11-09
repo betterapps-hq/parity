@@ -646,25 +646,27 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `export.done`
 
-| Attribute | Type                    | Meaning                                                          |
-| --------- | ----------------------- | ---------------------------------------------------------------- |
-| `kind`    | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images |
-| `formats` | `("png" \| "jpg")[]`    | The formats written                                              |
-| `scales`  | `number[]`              | The scales written                                               |
-| `designs` | `integer`               | The designs and layers exported                                  |
-| `states`  | `integer`, optional     | The states exported, when they're counted                        |
-| `files`   | `integer`               | The files written                                                |
+| Attribute    | Type                    | Meaning                                                                                        |
+| ------------ | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `kind`       | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images                               |
+| `formats`    | `("png" \| "jpg")[]`    | The formats written                                                                            |
+| `scales`     | `number[]`              | The scales written                                                                             |
+| `designs`    | `integer`               | The designs and layers exported                                                                |
+| `states`     | `integer`, optional     | The states exported, when they're counted                                                      |
+| `durationMs` | `integer`               | From asking for the export, once its folder is picked, until its files are written or it fails |
+| `files`      | `integer`               | The files written                                                                              |
 
 ### `export.failed`
 
-| Attribute | Type                    | Meaning                                                          |
-| --------- | ----------------------- | ---------------------------------------------------------------- |
-| `kind`    | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images |
-| `formats` | `("png" \| "jpg")[]`    | The formats written                                              |
-| `scales`  | `number[]`              | The scales written                                               |
-| `designs` | `integer`               | The designs and layers exported                                  |
-| `states`  | `integer`, optional     | The states exported, when they're counted                        |
-| `code`    | `string`, optional      | The `CodedError` code, when the failure has one                  |
+| Attribute    | Type                    | Meaning                                                                                        |
+| ------------ | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `kind`       | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images                               |
+| `formats`    | `("png" \| "jpg")[]`    | The formats written                                                                            |
+| `scales`     | `number[]`              | The scales written                                                                             |
+| `designs`    | `integer`               | The designs and layers exported                                                                |
+| `states`     | `integer`, optional     | The states exported, when they're counted                                                      |
+| `durationMs` | `integer`               | From asking for the export, once its folder is picked, until its files are written or it fails |
+| `code`       | `string`, optional      | The `CodedError` code, when the failure has one                                                |
 
 ### `frame.failed`
 
