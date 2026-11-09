@@ -52,6 +52,7 @@ describe("an icon layer's icon", () => {
 
 // An icon's name is what tells it from the others, since each shows Smile (PAR-796).
 describe("an icon layer's label", () => {
+  // SAFETY: naming an icon layer reads only a library's id and kind.
   const libraries = [{ id: "lucide", kind: "icons" }] as LibraryInfo[]
   const plus = { type: "component", id: "plus", component: "lucide/Plus" } satisfies DesignNode
 

@@ -2187,7 +2187,8 @@ the Repository, CI and releases stream in Linear.
   such as a bitwise hash or a CLI that prints. My calls:
   - **Code that doesn't pass yet is listed in `notYetClean` in `vite.config.ts`,** one entry per PAR-730 sub-issue,
     naming only the rules that part still breaks. New code and every path outside the list get every rule. The list only
-    shrinks, and goes when it's empty.
+    shrinks, and goes when it's empty. It went with PAR-751, the last entry, on 2026-11-09, so all the code gets every
+    rule.
   - **`vite.config.ts` lists only Parity's rules beyond base:** `consistent-type-imports`, Vite+'s imports rule and the
     `toast.error` restriction. `react/exhaustive-deps` stays an error rather than base's warning.
   - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility

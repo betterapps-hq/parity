@@ -244,7 +244,7 @@ describe("auto width, auto height and fixed text", () => {
 
     // Auto height: the width it's drawn at, fixed, in spacing steps; the height still follows the text.
     await sizing("Auto height").click()
-    await expect.poll(async () => typeof (await app.style("Pricing", heading)).width).toBe("number")
+    await expect.poll(async () => (await app.style("Pricing", heading)).width).toEqual(expect.any(Number))
     const fixedWidth = Number((await app.style("Pricing", heading)).width)
     // Rounded up to whole steps, so the text doesn't wrap again.
     expect(fixedWidth * 4).toBeGreaterThanOrEqual(line.width - 0.5)
@@ -254,7 +254,7 @@ describe("auto width, auto height and fixed text", () => {
 
     // Fixed: the height it's drawn at too.
     await sizing("Fixed size").click()
-    await expect.poll(async () => typeof (await app.style("Pricing", heading)).height).toBe("number")
+    await expect.poll(async () => (await app.style("Pricing", heading)).height).toEqual(expect.any(Number))
     const fixedHeight = Number((await app.style("Pricing", heading)).height)
     expect(fixedHeight * 4).toBeGreaterThanOrEqual(line.height - 0.5)
     expect(fixedHeight * 4).toBeLessThan(line.height + 4.5)

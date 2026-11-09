@@ -5,6 +5,7 @@
 import { mkdir } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { chromium, type Page } from "playwright-core"
+import { print } from "../../../scripts/output.ts"
 
 const port = process.env.PARITY_DEBUG_PORT ?? "9333"
 const showAll = process.argv.includes("--all")
@@ -51,11 +52,12 @@ try {
         state: row.dataset.state,
         modes: [...row.querySelectorAll<HTMLElement>(".mode-tile")].map((tile) => {
           const shadow = tile.querySelector<HTMLElement>("[data-frame]")?.shadowRoot
-          const body = shadow?.firstElementChild as HTMLElement | null | undefined
+          const first = shadow?.firstElementChild
+          const body = first instanceof HTMLElement ? first : undefined
 
-          const unknown = [...(shadow?.querySelectorAll("div") ?? [])]
-            .map((element) => element.textContent ?? "")
-            .filter((text) => text.startsWith("Unknown component"))
+          const unknown = [...(shadow?.querySelectorAll("div") ?? [])].flatMap((element) =>
+            element.textContent?.startsWith("Unknown component") ? [element.textContent] : []
+          )
 
           return {
             mode: tile.dataset.mode,
@@ -79,11 +81,11 @@ try {
   await mkdir(outDir, { recursive: true })
   const slug = (designName ?? "canvas").toLowerCase().replaceAll(/\W+/g, "-")
   const screenshot = join(outDir, `${slug}${showAll ? "-all" : ""}.png`)
-  await page.screenshot({ path: screenshot, timeout: 15_000 }).catch((error: unknown) => {
-    errors.push(`screenshot: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`)
+  await page.screenshot({ path: screenshot, timeout: 15_000 }).catch((cause: unknown) => {
+    errors.push(`screenshot: ${cause instanceof Error ? cause.message.split("\n")[0] : String(cause)}`)
   })
   await restore?.()
-  console.log(JSON.stringify({ screenshot, designs: report, errors }, null, 2))
+  print(JSON.stringify({ screenshot, designs: report, errors }, null, 2))
 } finally {
   await browser.close()
 }

@@ -4,6 +4,7 @@
 //   node scripts/retry.ts <command> [args...]
 import { spawnSync } from "node:child_process"
 import { setTimeout as sleep } from "node:timers/promises"
+import { print } from "./output.ts"
 
 /** How many times a command is run before its failure stands. */
 const tries = 3
@@ -52,7 +53,7 @@ if (import.meta.main) {
 
   const status = await retry(run, {
     onRetry: (code, attempt) =>
-      console.log(`::warning::${[command, ...args].join(" ")} failed (exit ${code}), try ${attempt} of ${tries}`)
+      print(`::warning::${[command, ...args].join(" ")} failed (exit ${code}), try ${attempt} of ${tries}`)
   })
 
   process.exit(status)

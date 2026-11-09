@@ -2,6 +2,7 @@
 // Usage: node scripts/snap.ts <name> [delay]
 import { join, resolve } from "node:path"
 import { chromium } from "playwright-core"
+import { print } from "../../../scripts/output.ts"
 
 const [name = "snap", delay = "0"] = process.argv.slice(2)
 const browser = await chromium.connectOverCDP(`http://127.0.0.1:${process.env.PARITY_DEBUG_PORT ?? "9333"}`)
@@ -19,7 +20,7 @@ try {
   await page.waitForTimeout(Number(delay))
   const path = join(resolve(import.meta.dirname, "../../../.inspect"), `${name}.png`)
   await page.screenshot({ path, timeout: 15_000 })
-  console.log(path)
+  print(path)
 } finally {
   await browser.close()
 }

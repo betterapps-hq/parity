@@ -11,9 +11,11 @@ import { execFileSync } from "node:child_process"
 import { appendFileSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { parseArgs } from "node:util"
+import { parseData } from "@parity-app/core/schema"
 import { telemetryRelease } from "@parity-app/telemetry"
 import { SentryCli } from "@sentry/cli"
-import type { SourceMapsBuild } from "./sourcemaps.ts"
+import { print } from "./output.ts"
+import { sourceMapsBuild } from "./sourcemaps.ts"
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -37,10 +39,10 @@ if (!process.env.SENTRY_AUTH_TOKEN) {
 
 const sourceMaps = resolve(packageFolder, "sourcemaps")
 const where = ["--org", "better-apps", "--project", project]
-const build = JSON.parse(readFileSync(join(sourceMaps, "build.json"), "utf8")) as SourceMapsBuild
+const build = parseData(sourceMapsBuild, JSON.parse(readFileSync(join(sourceMaps, "build.json"), "utf8")))
 const release = telemetryRelease({ project, version: build.version, published: values.published, commit: build.commit })
 
-console.log(`Uploading source maps for ${release}`)
+print(`Uploading source maps for ${release}`)
 
 // For the step after it, which asks Sentry whether the release ended up with its maps and commits (PAR-774).
 if (process.env.GITHUB_OUTPUT) {
@@ -72,7 +74,7 @@ if (values["link-commits"]) {
       "better-apps"
     )
   } catch {
-    console.log(`::warning::The source maps are uploaded, but ${release} isn't linked to its commit.`)
+    print(`::warning::The source maps are uploaded, but ${release} isn't linked to its commit.`)
   }
 }
 

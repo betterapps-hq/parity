@@ -96,6 +96,7 @@ describe("dropping image files", () => {
     await expect.poll(async () => (await app.children("Pricing", hero)).length, { timeout: 10_000 }).toBe(6)
     expect(await hint().count()).toBe(0)
     const children = await app.children("Pricing", hero)
+    // SAFETY: the poll above waited for all six children, so the fourth and fifth are there.
     const [wide, logo] = children.slice(3, 5) as [string, string]
     expect(children).toEqual([badge, headline, lede, wide, logo, billing])
     // Each at its own proportions, 80 steps wide, and saved under public/images/ named after its file.

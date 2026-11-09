@@ -4,9 +4,12 @@
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { createWriteStream } from "node:fs"
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, unlink, writeFile } from "node:fs/promises"
-import { createServer } from "node:net"
+import { type AddressInfo, createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { basename, join, resolve } from "node:path"
+import { parseData, parserFor } from "@parity-app/core/schema"
+import { z } from "zod"
+import { print } from "../../../scripts/output.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
@@ -114,7 +117,7 @@ async function enlargeRunnerDisplay(): Promise<void> {
     { encoding: "utf8", windowsHide: true }
   )
 
-  console.log(`Runner display: ${(result.stdout || result.stderr).trim()}`)
+  print(`Runner display: ${(result.stdout || result.stderr).trim()}`)
 }
 
 /** ChangeDisplaySettings through PowerShell, printing the size before and after and the call's result (0 is success). */
@@ -219,10 +222,10 @@ function systemPort(): Promise<number> {
     const server = createServer()
     server.once("error", reject)
     server.listen(0, "127.0.0.1", () => {
-      const address = server.address()
-      server.close(() =>
-        address && typeof address === "object" ? resolve(address.port) : reject(new Error("No port"))
-      )
+      // SAFETY: a server listening on a TCP port, as this one now is, reports an `AddressInfo`; only a pipe's address
+      // is a string, and it's null only before listening.
+      const { port } = server.address() as AddressInfo
+      server.close(() => resolve(port))
     })
   })
 }
@@ -263,7 +266,7 @@ async function copyExample(dir: string): Promise<string> {
 
   await writeFile(join(root, "src/components/member-row.tsx"), memberRow)
   const file = join(root, "shadcn-vite.par")
-  const document = JSON.parse(await readFile(file, "utf8")) as { containers: unknown[] }
+  const document = parseData(exampleDocument, JSON.parse(await readFile(file, "utf8")))
   document.containers.push(membersDesign)
   await writeFile(file, `${JSON.stringify(document, null, 2)}\n`)
 
@@ -336,9 +339,10 @@ async function waitForWindow(uiPort: number, debugPort: number, runner: ChildPro
 
     const pages = await fetch(`http://127.0.0.1:${debugPort}/json/list`)
       .then((response) => response.json())
+      .then(devtoolsTargets)
       .catch(() => [])
 
-    if (Array.isArray(pages) && pages.some((page) => isWindow(page, uiPort))) {
+    if (pages.some((page) => isWindow(page.url, uiPort))) {
       return
     }
 
@@ -349,13 +353,15 @@ async function waitForWindow(uiPort: number, debugPort: number, runner: ChildPro
 }
 
 /** The app's own window, as the protocol lists it, rather than the offscreen renderer or a tool. */
-export function isWindow(page: unknown, uiPort: number): boolean {
-  if (typeof page !== "object" || page === null || !("url" in page) || typeof page.url !== "string") {
-    return false
-  }
-
-  return page.url.startsWith(`http://localhost:${uiPort}`) && !page.url.includes("render")
+export function isWindow(url: string, uiPort: number): boolean {
+  return url.startsWith(`http://localhost:${uiPort}`) && !url.includes("render")
 }
+
+/** The pages and workers the DevTools protocol lists at `/json/list`, by their URLs. */
+const devtoolsTargets = parserFor(z.array(z.object({ url: z.string() })))
+
+/** The example's design file, as far as the copy reads it: its designs, kept as they are, and the rest left alone. */
+const exampleDocument = z.looseObject({ containers: z.array(z.json()) })
 
 /** Stops the runner and everything it started: Electron, its service and the servers. */
 async function stopProcess(child: ChildProcess): Promise<void> {

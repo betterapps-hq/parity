@@ -174,18 +174,27 @@ async function discover(): Promise<{
     name: pkg.name ?? "shadcn-vite",
     renderer: { id: reactRenderer.id, name: reactRenderer.name },
     builder: { id: "vite", name: "Vite", toolVersion: "8" },
-    ...(stylesheet ? { styles: { id: tailwindStyles.id, name: tailwindStyles.name, stylesheet } } : {}),
     theme,
     componentCount: Object.keys(config.components).length,
     sources: config.components,
     libraries: config.libraries,
-    ...(config.storybook ? { storybook: config.storybook } : {}),
-    ...(config.describedTokens ? { describedTokens: config.describedTokens } : {}),
     notes: config.notes,
     detection: await detectProject(root, pkg),
     documents,
     mainDocument,
     modes: { settings: main?.modes ?? defaultModeSettings, custom: !!main?.modes }
+  }
+
+  if (stylesheet) {
+    info.styles = { id: tailwindStyles.id, name: tailwindStyles.name, stylesheet }
+  }
+
+  if (config.storybook) {
+    info.storybook = config.storybook
+  }
+
+  if (config.describedTokens) {
+    info.describedTokens = config.describedTokens
   }
 
   return { config, info, components: inferProps(root, config.components) }

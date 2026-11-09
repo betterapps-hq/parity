@@ -34,11 +34,14 @@ export default defineConfig(({ mode }) => {
     // Prebundled dependencies are minified, which halves what the window holds of tldraw and React DOM. Their source
     // maps still lead DevTools to the code as published; only the app's own code is served as written.
     optimizeDeps: { rolldownOptions: { output: { minify: true }, ...react.dependencies } },
-    ...(port === 5310 ? {} : { cacheDir: resolve(import.meta.dirname, `node_modules/.vite-${port}`) }),
+    // Unset on the usual port, where Vite keeps its default cache.
+    cacheDir: port === 5310 ? undefined : resolve(import.meta.dirname, `node_modules/.vite-${port}`),
     server: {
       port,
       strictPort: true,
-      ...(frozen ? { hmr: false, watch: null } : {}),
+      // Unset unless frozen, which leaves Vite's defaults: reloading on edits, and watching for them.
+      hmr: frozen ? false : undefined,
+      watch: frozen ? null : undefined,
       // Forwarding wraps console.error and warn, so every message would seem to come from Vite's client. Parity tells a
       // project's messages from its own by the script that wrote them.
       forwardConsole: false
