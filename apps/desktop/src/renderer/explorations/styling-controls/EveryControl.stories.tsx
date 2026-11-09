@@ -93,8 +93,8 @@ const groups: { name: string; entries: Entry[] }[] = [
   {
     name: "Spacing",
     entries: [
-      { name: "Padding", Story: composeStories(padding).VerticalAndHorizontal },
-      { name: "Margin", Story: composeStories(margin).AutoAcross },
+      { name: "Padding", Story: composeStories(padding).VerticalAndHorizontal, reviewed: true },
+      { name: "Margin", Story: composeStories(margin).AutoAcross, reviewed: true },
       { name: "Box model", Story: composeStories(boxModel).WithMargin }
     ]
   },

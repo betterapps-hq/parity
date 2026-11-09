@@ -433,11 +433,17 @@ export function fieldBox(error: boolean, extra = ""): string {
 }
 
 /**
- * The one button over the end of a field (Tokens, or Detach on a token), faded in while the field's hovered or focused,
- * or its list is open, when the field makes room for it (`pr-7`) and a unit or mark at the end moves aside.
+ * Detach over the end of a field that holds a token but offers no list of them, faded in while the field's hovered or
+ * focused, when the field makes room for it (`pr-7`) and a mark at the end moves aside. Hidden, it takes no clicks.
  */
 export const fieldEndButton =
-  "absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 outline-none group-focus-within/field:opacity-100 group-hover/field:opacity-100 hover:bg-background/70 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:opacity-100"
+  "pointer-events-none absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 outline-none group-focus-within/field:pointer-events-auto group-focus-within/field:opacity-100 group-hover/field:pointer-events-auto group-hover/field:opacity-100 hover:bg-background/70 hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:pointer-events-auto data-popup-open:opacity-100"
+
+/**
+ * A field's chevron, which opens its tokens or picker: always shown at the box's end, so it's never found by hovering,
+ * the room it needs is never seen empty, and nothing moves as the pointer comes to a unit's menu.
+ */
+const fieldEndButtonShown = fieldEndButton.replace("pointer-events-none ", "").replace(" opacity-0", "")
 
 /**
  * Text longer than a field's line holds, as a CSS row's value or an expression: it wraps and grows with its text, a
@@ -1107,6 +1113,17 @@ function inScaleOrder<T extends FieldToken>(tokens: readonly T[]): readonly T[] 
 const menuRow =
   "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent"
 
+/** Detach, in what a field's chevron opens while it holds a token: keeps what the token comes to, without it. */
+function DetachRow({ token, onDetach }: { token: FieldToken; onDetach: () => void }) {
+  return (
+    <button type="button" className={menuRow} onClick={onDetach}>
+      <Unlink aria-hidden className="size-3.5 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate">Detach</span>
+      <span className="text-muted-foreground tabular-nums">{token.detail}</span>
+    </button>
+  )
+}
+
 export interface TokenMenuProps<T extends FieldToken> {
   label: string
   tokens: readonly T[]
@@ -1417,7 +1434,8 @@ export interface FieldChip {
   /** Takes the token off, leaving the field unset: Backspace or Delete with nothing typed, or on the pill. */
   onRemove: () => void
   /**
-   * Detaches the token, keeping what it came to as the field's own value, as Figma's Detach does: the end button.
+   * Detaches the token, keeping what it came to as the field's own value, as Figma's Detach does: a row in what the
+   * field's chevron opens.
    * Without it, Detach takes the token off (`onRemove`).
    */
   onDetach?: () => void
@@ -1578,7 +1596,8 @@ export interface FieldSearch<T> {
 /**
  * The field every styling control builds on, drawn as the simpler fields are (PAR-186): a filled box with the inner
  * label or icon, which scrubs; the value, or a token's pill, named alone, with what it comes to in its hint; the unit;
- * and one button over the box's end, in room it keeps, faded in on hover or focus: Tokens, or Detach on a token. A
+ * and, where it offers tokens or a picker, a chevron at the box's end that always shows, whatever the field holds,
+ * and opens them, with Detach in what it opens while a token's set. Nothing in the field shows only on hover. A
  * value of its own has no mark: its token list offers the nearest token first, then Create token (`own`). What's typed
  * is read when Enter is pressed or the field is left: text it can't read stays, outlined, with the reason under the
  * row, and Escape or leaving puts the value back and says so. Up and Down step it. Typing on a focused pill replaces
@@ -1714,12 +1733,13 @@ export function ValueField<T>({
   let mark: ReactNode
   if (!typing) mark = showChip ? status?.theme : (status?.missing ?? status?.theme)
 
-  // The unit shows whenever the value does, narrow or focused, so what's typed is read in it; text typed with a unit
-  // of its own (`2rem`, `auto`) takes its place. A narrow field has room for one thing after the value: its status
-  // mark takes the unit's place, which its hint names.
+  // The unit always shows, set, unset or focused, so what's typed is read in it. It goes only where there's no number
+  // for it to measure: a token's pill, a word shown (Auto, Hug, Mixed) and text typed with a unit of its own (`2rem`,
+  // `auto`). A narrow field has room for one thing after the value: its status mark takes the unit's place, which its
+  // hint names.
   const typedOwnUnit = typing && /[a-z%°×]\s*$/i.test(typed.typed ?? "")
-  const showUnit =
-    unit !== undefined && !typedOwnUnit && !showChip && (shown !== undefined || !mixed) && !(narrow && mark)
+  const showsWord = !typing && /[a-z]/i.test(shown ?? fieldPlaceholder ?? "")
+  const showUnit = unit !== undefined && !typedOwnUnit && !showChip && !showsWord && !(narrow && mark)
   let unitPart: ReactNode
   if (showUnit && typeof unit === "string") unitPart = <span className="shrink-0 text-muted-foreground">{unit}</span>
   else if (showUnit) unitPart = unit
@@ -1740,14 +1760,59 @@ export function ValueField<T>({
     chip.onRemove()
     input.current?.focus()
   }
-  // Room at the box's end for its one button, only while it shows: on hover or focus, and while Tokens has its list
-  // open (Detach shows only on hover or focus). At rest, a unit or mark sits at the end, and moves aside for it. A unit
-  // that's a menu keeps the room, so it's where it was seen when the pointer reaches it, not under the end button.
-  const endRoom = !bare && (offers || chip !== undefined)
-  const unitIsMenu = showUnit && typeof unit !== "string"
+  // A field that offers tokens or a picker always shows its chevron at the end, empty, set or holding a token, so it's
+  // never found by hovering and never swapped for something else; Detach is in what it opens. A token's pill in a field
+  // that offers neither keeps Detach over the box's end, shown on hover or focus.
+  const shownEnd = offers && !bare
+  const hoverDetach = !bare && !offers && chip !== undefined
   let room = ""
-  if (endRoom && ((open && !showChip) || unitIsMenu)) room = "pr-7"
-  else if (endRoom) room = "transition-[padding] duration-100 hover:pr-7 focus-within:pr-7"
+  if (shownEnd) room = "pr-7"
+  else if (hoverDetach) room = "transition-[padding] duration-100 hover:pr-7 focus-within:pr-7"
+
+  const endButtons = (
+    <>
+      {showChip && hoverDetach && (
+        <Hint
+          label="Detach"
+          detail={chip.token ? `Keeps ${chip.token.detail}, not the token` : "Clears the missing token"}
+        >
+          <button
+            type="button"
+            aria-label={`Detach ${label} from ${chip.name}`}
+            disabled={disabled}
+            onClick={detach}
+            className={fieldEndButton}
+          >
+            <Unlink className="size-3.5" />
+          </button>
+        </Hint>
+      )}
+      {picker?.swatch !== undefined && !bare && (
+        <Hint label="Picker" detail={altSteps ? undefined : "Alt+Down"}>
+          <button
+            type="button"
+            aria-label={`${label} tokens`}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            disabled={disabled}
+            onClick={() => setOpen(!open)}
+            className={fieldEndButtonShown}
+          >
+            <ChevronDown className="size-3.5" />
+          </button>
+        </Hint>
+      )}
+      {offers && picker?.swatch === undefined && !bare && (
+        // The list's one trigger, there whatever the field holds, so what the list's anchored to never leaves while
+        // it's open, as a pick sets a token or takes one off.
+        <Hint label={picker ? "Picker" : "Tokens"} detail={altSteps ? undefined : "Alt+Down"}>
+          <PopoverTrigger aria-label={`${label} tokens`} disabled={disabled} className={fieldEndButtonShown}>
+            <ChevronDown className="size-3.5" />
+          </PopoverTrigger>
+        </Hint>
+      )}
+    </>
+  )
 
   const boxExtra = `flex-1 ${room} ${disabled ? "opacity-50" : ""}`
   const box = (
@@ -1887,51 +1952,7 @@ export function ValueField<T>({
         )}
         {unitPart}
         {mark}
-        {showChip && !bare && (
-          <Hint
-            label="Detach"
-            detail={chip.token ? `Keeps ${chip.token.detail}, not the token` : "Clears the missing token"}
-          >
-            <button
-              type="button"
-              aria-label={`Detach ${label} from ${chip.name}`}
-              disabled={disabled}
-              onClick={detach}
-              className={fieldEndButton}
-            >
-              <Unlink className="size-3.5" />
-            </button>
-          </Hint>
-        )}
-        {!showChip && picker?.swatch !== undefined && !bare && (
-          <Hint label="Picker" detail={altSteps ? undefined : "Alt+Down"}>
-            <button
-              type="button"
-              aria-label={`${label} tokens`}
-              aria-haspopup="dialog"
-              aria-expanded={open}
-              disabled={disabled}
-              onClick={() => setOpen(!open)}
-              className={fieldEndButton}
-            >
-              <ChevronDown className="size-3.5" />
-            </button>
-          </Hint>
-        )}
-        {offers && picker?.swatch === undefined && !bare && (
-          // The list's one trigger, kept behind Detach while a pill shows, so what the list's anchored to never leaves
-          // while it's open, as a pick sets a token or takes one off.
-          <Hint label={picker ? "Picker" : "Tokens"} detail={altSteps ? undefined : "Alt+Down"}>
-            <PopoverTrigger
-              aria-label={`${label} tokens`}
-              disabled={disabled}
-              tabIndex={showChip ? -1 : undefined}
-              className={`${fieldEndButton} ${showChip ? "invisible" : ""}`}
-            >
-              <ChevronDown className="size-3.5" />
-            </PopoverTrigger>
-          </Hint>
-        )}
+        {endButtons}
         {description !== undefined && (
           <span id={`${searchId}-description`} className="sr-only">
             {description}
@@ -1948,6 +1969,11 @@ export function ValueField<T>({
   if (picker) {
     popup = (
       <PopoverContent className={picker.className ?? "w-64 gap-0 p-0"} align="start">
+        {showChip && chip.token && (
+          <div className="border-b p-1">
+            <DetachRow token={chip.token} onDetach={detach} />
+          </div>
+        )}
         {picker.content}
       </PopoverContent>
     )
@@ -2002,6 +2028,17 @@ export function ValueField<T>({
             close()
           }}
         />
+        {showChip && chip.token && (
+          <div className="mt-1 border-t pt-1">
+            <DetachRow
+              token={chip.token}
+              onDetach={() => {
+                close()
+                detach()
+              }}
+            />
+          </div>
+        )}
       </PopoverContent>
     )
   }

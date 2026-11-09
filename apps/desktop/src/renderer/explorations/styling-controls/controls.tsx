@@ -1577,8 +1577,8 @@ function LengthField({
     if (next === "%" && own) onChange({ percent: own.px })
     else if (next === "px" && percent !== undefined) onChange({ px: percent })
   }
-  let unit: ReactNode
-  if (takesPercent && (own || percent !== undefined)) {
+  let unit: ReactNode = "px"
+  if (takesPercent) {
     unit = (
       <UnitMenu
         label={label}
@@ -1590,7 +1590,7 @@ function LengthField({
         onUnit={toUnit}
       />
     )
-  } else if (own) unit = "px"
+  }
   // A narrow field's hint carries the value's status, which has no room in the field.
   let status: string | undefined
   if (token?.deprecated) status = `Deprecated: use ${token.deprecated} instead`
@@ -1958,7 +1958,7 @@ export function Num({
   }
   const from = () => value ?? Math.max(min, 0)
   let unitPart: ReactNode = suffix
-  if (pixels && value !== undefined) {
+  if (pixels) {
     unitPart = (
       <UnitMenu
         label={label}
