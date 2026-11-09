@@ -166,10 +166,12 @@ type with no kind fits it: a transition entry offers transition tokens, and Stro
 tokens ([design-options-tokens.md](design-options-tokens.md), Fields and token kinds).
 
 Each token is drawn with its preview, as the Tokens panel draws it, with a larger one of the highlighted token under the
-list (PAR-143). Moving through the list with the arrow keys or the pointer previews each token on the canvas, as Figma's
-font list does, and so does every menu (fonts, weights, blend modes, shadows, cursors). Escape or leaving puts the value
-back, and choosing is one undo step. Where a field has an editor of its own (the color square, a shadow's fields, the
-curve), it's the picker's Custom tab.
+list (PAR-143). A field that can be unset lists None first, drawn with the same preview at nothing, so the scale starts
+from it: no blur shows the shapes sharp, and no radius a square corner. Auto, which is worked out, has no preview.
+Moving through the list with the arrow keys or the pointer previews each token on the canvas, as Figma's font list does,
+and so does every menu (fonts, weights, blend modes, shadows, cursors). Escape or leaving puts the value back, and
+choosing is one undo step. Where a field has an editor of its own (the color square, a shadow's fields, the curve), it's
+the picker's Custom tab.
 
 ## Lists
 

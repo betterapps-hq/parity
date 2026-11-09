@@ -1012,7 +1012,8 @@ function LengthField({
               onAllow: (reason) => onChange(reason === undefined ? { px: own.px } : { ...own, allow: reason })
             }
       }
-      tokens={{ list: tokens, current: name, none: "None", onPick: onChange }}
+      // None draws as no radius or no blur, so the scale starts from it.
+      tokens={{ list: tokens, current: name, none: "None", noneValue: "0px", onPick: onChange }}
       refused={refused && nearest ? { nearest, onUse: () => onChange(nearest.name) } : undefined}
       narrow={narrow}
       hint={{ detail: status }}

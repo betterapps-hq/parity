@@ -119,7 +119,7 @@ const groups: { name: string; entries: Entry[] }[] = [
     name: "Effects",
     entries: [
       { name: "Shadow list", Story: composeStories(shadows).Token },
-      { name: "Layer and background blur", Story: composeStories(blur).Both },
+      { name: "Layer and background blur", Story: composeStories(blur).Both, reviewed: true },
       { name: "Filter list", Story: composeStories(filters).InTailwindsOrder },
       { name: "Transform", Story: composeStories(transform).Move, reviewed: true },
       { name: "Angle", Story: composeStories(angle).Step, reviewed: true }

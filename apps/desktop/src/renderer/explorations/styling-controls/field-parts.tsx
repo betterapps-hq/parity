@@ -1081,9 +1081,31 @@ export interface TokenListProps {
   current?: string
   /** A first row that unsets the field, where it can be unset, with what unset is called (None, Auto). */
   none?: string
+  /**
+   * What unset comes to, where it's a value the tokens' preview can draw (`0px` for no blur or radius): the first row
+   * draws it, so the scale starts from it.
+   */
+  noneValue?: string
   /** The field holds a value of its own, so neither the first row nor any token is the one it holds. */
   own?: boolean
   onPick: (name: string | undefined) => void
+}
+
+/** A token row's preview, or the first row's: what unset comes to where it can be drawn, and room for one where not. */
+function RowMark({
+  token,
+  kind,
+  noneValue,
+  playing
+}: {
+  token?: FieldToken
+  kind?: FieldToken["kind"]
+  noneValue?: string
+  playing: boolean
+}) {
+  if (token) return <TokenMark kind={token.kind} value={token.value} name={token.name} playing={playing} />
+  if (kind !== undefined && noneValue !== undefined) return <TokenMark kind={kind} value={noneValue} />
+  return <span aria-hidden className="block h-4 w-6 shrink-0" />
 }
 
 /**
@@ -1091,7 +1113,7 @@ export interface TokenListProps {
  * to, a deprecated one marked, and the one the field holds highlighted. Up and Down move through it. A token that
  * moves (a duration, an easing) plays while its row is hovered or focused, as in the Tokens panel.
  */
-export function TokenList({ label, tokens, current, none, own = false, onPick }: TokenListProps) {
+export function TokenList({ label, tokens, current, none, noneValue, own = false, onPick }: TokenListProps) {
   const { live, rowProps } = useLiveRow()
   const rows: { name: string | undefined; token?: FieldToken }[] = [
     ...(none === undefined ? [] : [{ name: undefined }]),
@@ -1118,11 +1140,7 @@ export function TokenList({ label, tokens, current, none, own = false, onPick }:
             {...rowProps(name)}
             className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent ${selected ? "bg-accent" : ""}`}
           >
-            {token ? (
-              <TokenMark kind={token.kind} value={token.value} name={token.name} playing={live(name)} />
-            ) : (
-              <span aria-hidden className="block h-4 w-6 shrink-0" />
-            )}
+            <RowMark token={token} kind={tokens[0]?.kind} noneValue={noneValue} playing={live(name)} />
             <span className={`min-w-0 flex-1 truncate ${token ? "" : "text-muted-foreground"}`}>{name ?? none}</span>
             {token?.deprecated && <TriangleAlert aria-label="Deprecated" className="size-3 shrink-0 text-amber-500" />}
             {token && <span className="text-muted-foreground tabular-nums">{token.detail}</span>}
@@ -1171,6 +1189,8 @@ export interface TokenMenuProps<T extends FieldToken> {
   /** The token the field holds. */
   current?: string
   none?: string
+  /** What unset comes to, drawn in the first row, as TokenList's. */
+  noneValue?: string
   /** The value of its own the field holds, in words (`12px`, `#2563EB`), which the nearest token and Create token are for. */
   own?: string
   nearest?: T
@@ -1202,6 +1222,7 @@ export function TokenMenu<T extends FieldToken>({
   tokens,
   current,
   none,
+  noneValue,
   own,
   nearest,
   same = false,
@@ -1254,6 +1275,7 @@ export function TokenMenu<T extends FieldToken>({
           tokens={listed}
           current={current}
           none={none}
+          noneValue={noneValue}
           own={own !== undefined || holdsOwn}
           onPick={onPick}
         />
@@ -1541,6 +1563,8 @@ export interface ValueFieldProps<T> {
     current?: string
     /** A first row that unsets the field, with what unset is called (None, Auto). */
     none?: string
+    /** What unset comes to, drawn in the first row where the tokens' preview can (`0px`). */
+    noneValue?: string
     onPick: (name: string | undefined) => void
   }
   /**
@@ -2043,6 +2067,7 @@ export function ValueField<T>({
           tokens={tokens.list}
           current={tokens.current}
           none={tokens.none}
+          noneValue={tokens.noneValue}
           own={own?.text}
           holdsOwn={chip === undefined && shown !== undefined && shown !== ""}
           nearest={own?.nearest}

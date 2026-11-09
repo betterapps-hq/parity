@@ -251,6 +251,8 @@ export function SideField({
         list: tokens,
         current: tokenName,
         none: rules.unset,
+        // None is no padding, margin or stroke, which the previews draw; Auto is worked out, so it has none.
+        noneValue: rules.unset === "None" ? "0px" : undefined,
         onPick: (name) => onChange(name === undefined ? undefined : { token: name }, "side")
       }}
       refusal={refused ? notAStep(`${nearestStep}${unit}`, useNearest) : undefined}
