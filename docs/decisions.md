@@ -5746,6 +5746,10 @@ window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `
   its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
 - **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679.
 
+- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. PAR-679 has since
+  scrubbed them; see "Replays are scrubbed as they're recorded" below. A render failure thrown in the page arrives as
+  Electron's "Script failed to execute", without the page's message; that's PAR-680.
+
 ## sharp isn't loaded in the app on Linux (PAR-688)
 
 On Linux, the project service segfaulted the first time sharp encoded a picture, in a libuv worker with libvips's
@@ -6353,6 +6357,35 @@ preload bridge and then the port), the Base UI parts each board's title mounts (
 - **The rest are issues of their own:** PAR-758 for Session Replay, PAR-759 for the kept bitmaps' requests and PAR-760
   for the boards' title controls. Drawing the boards and frames themselves is left as it is.
 
+## Replays are scrubbed as they're recorded (PAR-679)
+
+Session Replay recordings lose the same secrets as every other event, `.env` values included, through the editor
+window's own scrubber (`replayPrivacy` in `renderer/replay.ts`), as "Secrets are scrubbed before any event leaves a
+process" has it, and nothing else is hidden that wasn't before. My calls:
+
+- **Text is scrubbed through Replay's `maskFn`, not `beforeAddRecordingEvent`.** The issue expected the second, but
+  Replay calls it only for its own custom events (clicks, requests, spans), never for the page's snapshots and changes.
+  `maskAllText` with a `maskFn` is the one hook that sees each text node, as the recorder reads it and each time it
+  changes; the scrubber leaves everything but secrets as it was. Styles and scripts don't pass through it.
+- **`beforeAddRecordingEvent` scrubs the custom events too,** since Replay adds them without `beforeBreadcrumb`: a
+  click's breadcrumb carries the clicked element's text.
+- **Fields are masked by name, not scrubbed.** Replay shows a masked field's value as stars whatever `maskFn` returns,
+  and an unmasked one as written, so what's typed can't be scrubbed. `Field` marks a row whose name `isSecretName` calls
+  secret, such as an `apiKey` prop, with `data-sentry-mask`, so its value shows as stars; password fields already do.
+  Other fields keep their values, which is what makes a bug in the inspector findable. Parity has no integration
+  settings or `.env` editor yet; when it does, they mask the same way.
+- **What it costs:** scrubbing every text node in a full snapshot of the example project, open at the start (574 text
+  nodes among 5,544 elements, and the 2,410-mutation change as it opens), takes about 2 ms in the window.
+  `pnpm perf --open-only` against main, with replay recording in both, measured no slower opening: launch, reopen and
+  restart were within run-to-run noise (main's 12.1 s against 10.6 s with scrubbing to a usable launch, 4.9 s against
+  4.2 s to reopen, 6.7 s against 6.8 s to restart). So the scrubber runs on everything, rather than only on the fields
+  that can hold secrets, which was the issue's fallback.
+- **Checked in the app:** keys put on screen, clicked and changed came back as `[redacted]` in Sentry's stored recording
+  segments, with the rest of the window's text as written (replay `c3060db5…`).
+- **`.env` values reach the window a moment after it starts,** so text recorded before main passes them isn't scrubbed
+  of them, though known shapes and long random strings are. They come as a project opens, before its panels show
+  it. =======
+
 ## A render page's failure keeps its own message (PAR-680)
 
 When the render page threw inside main's `executeJavaScript`, as `canvasHeight()` or `canvasAudit()` can, Electron
@@ -6369,3 +6402,5 @@ an agent never said what went wrong. My calls:
 - **The page's stack goes with `frame.failed`,** recorded under the frame's span as `render threw`, as a guest's own
   error is. The stack doesn't cross processes, since `codedErrors` sends messages, and an agent never gets the guest's
   stack.
+
+> > > > > > > origin/main

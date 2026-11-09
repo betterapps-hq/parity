@@ -7,6 +7,8 @@ import { createScrubber, type Scrubber } from "@parity-app/telemetry"
 export interface SecretScrubbing {
   /** A copy of the value with secrets replaced, as `Scrubber.value`. */
   value<T>(input: T): T
+  /** The text with secrets replaced, as `Scrubber.text`. */
+  text(input: string): string
   /** Scrubs these values from now on, in place of those given before, here and in the telemetry given to `follow`. */
   use(secrets: readonly string[]): void
   /** Gives this process's telemetry the values now and whenever they change. */
@@ -19,6 +21,7 @@ export function secretScrubbing(): SecretScrubbing {
   const followers: { setSecrets(secrets: Iterable<string>): void }[] = []
   return {
     value: (input) => scrubber.value(input),
+    text: (input) => scrubber.text(input),
     use(next) {
       secrets = [...next]
       scrubber = createScrubber({ secrets })
