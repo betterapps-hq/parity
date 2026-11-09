@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
-import type { GenerateReport as Report } from "@parity-app/libgen"
+import type { Live, GenerateReport as Report } from "@parity-app/libgen"
 import { z } from "zod"
 import { readAppErrors } from "./check.ts"
 
@@ -98,7 +98,7 @@ export async function runLib(packageName: string | undefined, options: LibOption
   // The file being replaced, for what changed and the hand edits it keeps.
   const existing = target
     ? await readFile(target, "utf8").then(
-        (text): unknown => JSON.parse(text),
+        (text): Live => JSON.parse(text),
         () => undefined
       )
     : undefined

@@ -6,12 +6,21 @@ import ts from "typescript"
  * A prop one of the package's components gives a part it renders: one of its own props, a value, an item of a list it
  * maps (`toasts.map((toast) => <Toast toast={toast} />)`), or worked out.
  */
-export type PassedProp = { forward: string } | { value: unknown } | { item: true } | { computed: true }
+export type PassedProp =
+  | { forward: string }
+  | { value: string | number | boolean }
+  | { item: true }
+  | { computed: true }
+
+/** The props a render passes, by name. */
+export interface PassedProps {
+  [prop: string]: PassedProp
+}
 
 /** How a component of the package renders a part: the owner, the props it passes, and the parts it puts inside. */
 export interface RenderCall {
   owner: string
-  props: Record<string, PassedProp>
+  props: PassedProps
   children?: RenderedChild[]
 }
 
@@ -108,7 +117,13 @@ export async function readRenders(
           if (calls) {
             const list = calls.get(named(rendered)) ?? []
             const children = renderedChildren(node, source, named)
-            list.push({ owner: here, props: passedProps(node, own), ...(children.length > 0 ? { children } : {}) })
+            const call: RenderCall = { owner: here, props: passedProps(node, own) }
+
+            if (children.length > 0) {
+              call.children = children
+            }
+
+            list.push(call)
             calls.set(named(rendered), list)
           }
         }
@@ -246,8 +261,8 @@ function paramsOf(node: ts.Node): Params {
 }
 
 /** The props a render passes: the owner's own props by name, literal values, and the rest as worked out. */
-function passedProps(node: ts.Node, params: Params): Record<string, PassedProp> {
-  const props: Record<string, PassedProp> = {}
+function passedProps(node: ts.Node, params: Params): PassedProps {
+  const props: PassedProps = {}
   const object = ts.isCallExpression(node) ? node.arguments[1] : undefined
   const entries: [string, ts.Expression | undefined][] = []
 
@@ -348,7 +363,13 @@ function renderedChildren(node: ts.Node, source: ts.SourceFile, named: (local: s
     if (rendered) {
       const children = childrenOf(expression)
 
-      return [{ component: named(rendered), ...(children.length > 0 ? { children } : {}) }]
+      const child: RenderedChild = { component: named(rendered) }
+
+      if (children.length > 0) {
+        child.children = children
+      }
+
+      return [child]
     }
 
     // An HTML element: what's inside it.
