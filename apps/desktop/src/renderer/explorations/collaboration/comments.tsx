@@ -123,9 +123,11 @@ export function toggleReaction(reactions: Reaction[] = [], emoji: string): React
 
   const by = existing.by.includes(me) ? existing.by.filter((person) => person !== me) : [...existing.by, me]
 
-  return reactions
-    .map((reaction) => (reaction === existing ? { ...reaction, by } : reaction))
-    .filter((reaction) => reaction.by.length > 0)
+  return reactions.flatMap((reaction) => {
+    const next = reaction === existing ? { ...reaction, by } : reaction
+
+    return next.by.length > 0 ? [next] : []
+  })
 }
 
 /** Emoji reactions under a comment, with who reacted on hover. Yours are tinted; the smiley after them adds one. */
@@ -579,7 +581,9 @@ export function Composer({
         setDragging(true)
       }}
       onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        const into = event.relatedTarget instanceof Node ? event.relatedTarget : null
+
+        if (!event.currentTarget.contains(into)) {
           setDragging(false)
         }
       }}
@@ -753,6 +757,13 @@ export function AgentWorking({ agent, label }: { agent: Person; label: string })
   )
 }
 
+/** What a place note says: its icon, why the thread moved, and the action that goes back. */
+interface PlaceNotice {
+  icon: LucideIcon
+  text: ReactNode
+  action: string
+}
+
 /**
  * Why a thread isn't where it was left, and the way back: move the pin of a thread whose layer was deleted, go to the
  * design a layer moved to, switch to the frame a comment was left in, or open the component it's on.
@@ -765,7 +776,7 @@ export function PlaceNote({ place, layer }: { place: Place; layer?: string }) {
     icon: Icon,
     text,
     action
-  } = ((): { icon: LucideIcon; text: ReactNode; action: string } => {
+  } = ((): PlaceNotice => {
     switch (place.kind) {
       case "deleted":
         return {

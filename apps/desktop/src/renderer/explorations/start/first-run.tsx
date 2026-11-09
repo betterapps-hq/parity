@@ -6,7 +6,7 @@ import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { ArrowRight, Check, FolderOpen, Layers } from "lucide-react"
 import type { ReactNode } from "react"
 import { me, people } from "../explore-data.ts"
-import { Avatar, AzureDevOpsMark, GitHubMark } from "../parts.tsx"
+import { Avatar, AzureDevOpsMark, GitHubMark, withVariables } from "../parts.tsx"
 import { stacks, type StartProject, templatesOn } from "./data.ts"
 import type { ExistingSource } from "./new-project.tsx"
 import {
@@ -78,7 +78,7 @@ export function FirstRunPage() {
         <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-12">
           <section
             className="group/sample relative grid grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-center gap-7"
-            style={{ ["--parity" as string]: parity }}
+            style={withVariables({ "--parity": parity })}
           >
             <div className="overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/sample:ring-2 group-hover/sample:ring-(--parity)">
               <CanvasArt project={sample} design={sample.designs[0]!} labels live={false} />

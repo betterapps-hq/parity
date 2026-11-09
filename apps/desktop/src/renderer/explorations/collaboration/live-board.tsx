@@ -21,8 +21,14 @@ export interface Pinned {
   deleted?: boolean
 }
 
+/** What an exiting value shows while it animates out, and whether it's open or closing. */
+interface Exit<T> {
+  shown: T | undefined
+  state: "open" | "closed"
+}
+
 /** Keeps a value rendered for `ms` after it goes away, so it can animate out; `state` says which way it's going. */
-function useExit<T>(value: T | undefined, ms: number): { shown: T | undefined; state: "open" | "closed" } {
+function useExit<T>(value: T | undefined, ms: number): Exit<T> {
   const [last, setLast] = useState(value)
 
   if (value !== undefined && value !== last) {
@@ -247,7 +253,7 @@ export function LiveBoard({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
+      const target = event.target instanceof Element ? event.target : null
 
       if (event.defaultPrevented || target?.closest?.("[data-radix-popper-content-wrapper]")) {
         return

@@ -106,6 +106,12 @@ export interface Start {
   overlay?: ReactNode
 }
 
+/** Where a dragged point lands, and the guides it snapped to on each axis. */
+interface Snapped {
+  point: Point
+  guides: { x?: number; y?: number }
+}
+
 interface Point {
   x: number
   y: number
@@ -293,7 +299,7 @@ export function FramesWorkspace({ start }: { start: Start }) {
   }
 
   // Snaps a point to the edges of the designs around it, within 6 pixels on the screen, and says where.
-  const snap = (point: Point): { point: Point; guides: { x?: number; y?: number } } => {
+  const snap = (point: Point): Snapped => {
     const reach = 6 / view.zoom
     let x: number | undefined
     let y: number | undefined
@@ -824,9 +830,19 @@ export function FramesWorkspace({ start }: { start: Start }) {
                 designs: current.designs.map((each) => (each.id === design.id ? { ...each, name, named: false } : each))
               }))
             }
-            onSize={(width, height) =>
-              update(design.id, { ...(width ? { width } : {}), ...(height ? { height } : {}) })
-            }
+            onSize={(width, height) => {
+              const size: Partial<Design> = {}
+
+              if (width) {
+                size.width = width
+              }
+
+              if (height) {
+                size.height = height
+              }
+
+              update(design.id, size)
+            }}
           />
         )}
         {!design && <NothingSelected />}

@@ -14,27 +14,29 @@ import {
   Server,
   SquareDashed
 } from "lucide-react"
-import type { CSSProperties, ReactNode } from "react"
+import type { ReactNode } from "react"
+import { withVariables } from "../parts.tsx"
 import type { ArtName, PreviewState, SampleComponent } from "./preview-data.ts"
 
 /**
  * The example's light theme, as its frames draw it. The drawings below stand in for the bitmaps the offscreen renderer
  * would make: in the app each is an `<img>` of the real component, never a live render.
  */
-const look = {
-  "--a-bg": "oklch(1 0 0)",
-  "--a-fg": "oklch(0.145 0 0)",
-  "--a-primary": "oklch(0.205 0 0)",
-  "--a-primary-fg": "oklch(0.985 0 0)",
-  "--a-muted": "oklch(0.97 0 0)",
-  "--a-muted-fg": "oklch(0.556 0 0)",
-  "--a-border": "oklch(0.922 0 0)",
-  "--a-destructive": "oklch(0.577 0.245 27.325)",
-  "--a-chart": "oklch(0.646 0.222 41.116)",
-  "--a-good": "oklch(0.6 0.15 155)",
-  fontFamily: "'Geist Variable', sans-serif",
-  color: "var(--a-fg)"
-} as CSSProperties
+const look = withVariables(
+  {
+    "--a-bg": "oklch(1 0 0)",
+    "--a-fg": "oklch(0.145 0 0)",
+    "--a-primary": "oklch(0.205 0 0)",
+    "--a-primary-fg": "oklch(0.985 0 0)",
+    "--a-muted": "oklch(0.97 0 0)",
+    "--a-muted-fg": "oklch(0.556 0 0)",
+    "--a-border": "oklch(0.922 0 0)",
+    "--a-destructive": "oklch(0.577 0.245 27.325)",
+    "--a-chart": "oklch(0.646 0.222 41.116)",
+    "--a-good": "oklch(0.6 0.15 155)"
+  },
+  { fontFamily: "'Geist Variable', sans-serif", color: "var(--a-fg)" }
+)
 
 function Face({ name, hue, size = 32 }: { name: string; hue: number; size?: number }) {
   return (
@@ -50,19 +52,19 @@ function Face({ name, hue, size = 32 }: { name: string; hue: number; size?: numb
   )
 }
 
-const buttonTones: Record<string, string> = {
-  default: "bg-(--a-primary) text-(--a-primary-fg)",
-  destructive: "bg-(--a-destructive) text-white",
-  outline: "border border-(--a-border) bg-(--a-bg) shadow-xs",
-  secondary: "bg-(--a-muted) text-(--a-fg)",
-  ghost: "text-(--a-fg)",
-  link: "text-(--a-fg) underline underline-offset-4"
-}
+const buttonTones = new Map<string, string>([
+  ["default", "bg-(--a-primary) text-(--a-primary-fg)"],
+  ["destructive", "bg-(--a-destructive) text-white"],
+  ["outline", "border border-(--a-border) bg-(--a-bg) shadow-xs"],
+  ["secondary", "bg-(--a-muted) text-(--a-fg)"],
+  ["ghost", "text-(--a-fg)"],
+  ["link", "text-(--a-fg) underline underline-offset-4"]
+])
 
 function Button({ variant = "default", children = "Button" }: { variant?: string; children?: ReactNode }) {
   return (
     <span
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium whitespace-nowrap ${buttonTones[variant] ?? buttonTones.default}`}
+      className={`inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium whitespace-nowrap ${buttonTones.get(variant) ?? buttonTones.get("default")}`}
     >
       {children}
     </span>

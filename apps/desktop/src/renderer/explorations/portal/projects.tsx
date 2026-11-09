@@ -18,11 +18,13 @@ const order: Handoff[] = ["In review", "Ready to build", "Building", "Changed si
 
 /** A project's or team's boards, counted by where they stand. */
 function statuses(projects: string[]) {
-  const all = Object.entries(handoff).filter(([key]) => projects.includes(key.split("/")[0]!))
+  const all = [...handoff].filter(([key]) => projects.includes(key.split("/")[0]!))
 
-  return order
-    .map((status) => ({ status, count: all.filter(([, value]) => value === status).length }))
-    .filter((entry) => entry.count)
+  return order.flatMap((status) => {
+    const count = all.filter(([, value]) => value === status).length
+
+    return count ? [{ status, count }] : []
+  })
 }
 
 function Counts({ projects }: { projects: string[] }) {
@@ -94,7 +96,7 @@ export function AllProjectsPage() {
                 </span>
               </div>
               {projects.map((shown) => {
-                const owner = owners[shown.id]!
+                const owner = owners.get(shown.id)!
 
                 return (
                   <div key={shown.id} className={`${columns} rounded-lg px-2 py-2 hover:bg-muted/30`}>

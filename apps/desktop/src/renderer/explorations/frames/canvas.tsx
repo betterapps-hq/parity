@@ -335,10 +335,11 @@ export function Board({
         role="group"
         aria-label={`${name}, a ${kind}`}
         onPointerDown={title.onPointerDown}
-        style={{
-          padding: `0 ${gutter.side}px ${gutter.side}px`,
-          ...(title.selected ? { boxShadow: `0 0 0 2px ${kindColor(kind)}` } : {})
-        }}
+        style={
+          title.selected
+            ? { padding: `0 ${gutter.side}px ${gutter.side}px`, boxShadow: `0 0 0 2px ${kindColor(kind)}` }
+            : { padding: `0 ${gutter.side}px ${gutter.side}px` }
+        }
       >
         <div className="flex items-start">
           {previews.map((preview, index) => (

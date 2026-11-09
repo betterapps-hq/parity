@@ -1,10 +1,10 @@
 import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, Component, Eye, ListFilter, MessageSquarePlus, Plus } from "lucide-react"
-import type { CSSProperties, ReactNode } from "react"
+import type { ReactNode } from "react"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { formatKeys } from "../../chrome/keys.ts"
 import { me, type Person } from "../explore-data.ts"
-import { Avatar, AvatarStack } from "../parts.tsx"
+import { Avatar, AvatarStack, withVariables } from "../parts.tsx"
 import type { ThreadData } from "./collab-data.ts"
 import { CommentText, commentBlue } from "./comments.tsx"
 
@@ -95,10 +95,12 @@ export function CommentPin({
       } origin-bottom-left ${className}`}
       style={
         state === "working"
-          ? ({
-              "--tw-ring-color": palette.color,
-              boxShadow: `0 0 0 5px color-mix(in oklch, ${palette.color} 22%, transparent), 0 4px 14px rgb(0 0 0 / 0.45)`
-            } as CSSProperties)
+          ? withVariables(
+              { "--tw-ring-color": palette.color },
+              {
+                boxShadow: `0 0 0 5px color-mix(in oklch, ${palette.color} 22%, transparent), 0 4px 14px rgb(0 0 0 / 0.45)`
+              }
+            )
           : undefined
       }
     >

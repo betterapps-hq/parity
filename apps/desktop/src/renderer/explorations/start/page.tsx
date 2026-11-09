@@ -59,7 +59,7 @@ import { agentPalettes } from "../../agent/agent-colors.ts"
 import { AgentBadge, AgentPointer } from "../../agent/AgentPointer.tsx"
 import { formatKeys } from "../../chrome/keys.ts"
 import { me, people, type Person } from "../explore-data.ts"
-import { Avatar, AzureDevOpsMark, ExploreWindow, GitHubMark, type MockTab } from "../parts.tsx"
+import { Avatar, AzureDevOpsMark, ExploreWindow, GitHubMark, type MockTab, withVariables } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
 import {
   type Design,
@@ -67,6 +67,7 @@ import {
   forYou,
   lastVisits,
   organizations,
+  isOrgId,
   type OrgId,
   project as findProject,
   projects,
@@ -484,16 +485,16 @@ const liveStyles = `
 `
 
 /** Cursor colors, the same ones the canvas gives each of them. */
-const palettes: Record<string, number> = {
-  [people.claude.name]: 7,
-  [people.maya.name]: 0,
-  [people.cursor.name]: 4,
-  [people.jonas.name]: 1,
-  [people.priya.name]: 5
-}
+const palettes = new Map([
+  [people.claude.name, 7],
+  [people.maya.name, 0],
+  [people.cursor.name, 4],
+  [people.jonas.name, 1],
+  [people.priya.name, 5]
+])
 
 function paletteFor(person: Person) {
-  return agentPalettes[palettes[person.name] ?? 9]!
+  return agentPalettes[palettes.get(person.name) ?? 9]!
 }
 
 /** Someone's cursor at work on a design: an agent shows what it's doing, a person their name. */
@@ -515,7 +516,7 @@ function LiveCursor({
   return (
     <div
       className={`pointer-events-none absolute z-10 ${small ? "scale-[0.8]" : ""} origin-top-left motion-safe:animate-[var(--drift)]`}
-      style={{ ...style, ["--drift" as string]: `start-live-${path} ${path === "a" ? 9 : 11}s ease-in-out infinite` }}
+      style={withVariables({ "--drift": `start-live-${path} ${path === "a" ? 9 : 11}s ease-in-out infinite` }, style)}
     >
       <AgentPointer palette={palette} />
       {who.agent && !small ? (
@@ -781,7 +782,7 @@ export function ProjectCard({
       <div
         ref={art}
         className="relative overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/card:ring-2 group-hover/card:ring-(--parity)"
-        style={{ ["--parity" as string]: parity }}
+        style={withVariables({ "--parity": parity })}
       >
         <CanvasArt project={project} design={design} live={false} />
         {many && (
@@ -863,7 +864,7 @@ export function ContinueCard({ visit }: { visit: Visit }) {
   return (
     <section
       className="group/continue relative grid grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-center gap-7"
-      style={{ ["--parity" as string]: parity }}
+      style={withVariables({ "--parity": parity })}
     >
       <div className="overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/continue:ring-2 group-hover/continue:ring-(--parity)">
         <CanvasArt project={project} design={design} labels live={false} />
@@ -1160,7 +1161,7 @@ export function TemplateCard({ template, onPick }: { template: Template; onPick?
           : start.newProject?.({ tab: "template", stack: template.stack, template: template.id })
       }
       className="group/template flex flex-col gap-2.5 text-left outline-none"
-      style={{ ["--parity" as string]: parity }}
+      style={withVariables({ "--parity": parity })}
     >
       <span className="relative block overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/template:ring-2 group-hover/template:ring-(--parity) group-focus-visible/template:ring-2 group-focus-visible/template:ring-ring">
         <DesignRender kind={template.designs[0]!.kind} look={template.look} />
@@ -1267,7 +1268,7 @@ export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; on
         }
       />
       <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange?.(next as OrgId)}>
+        <DropdownMenuRadioGroup value={value} onValueChange={(next: string) => isOrgId(next) && onChange?.(next)}>
           {choices.map((candidate) => (
             <DropdownMenuRadioItem key={candidate.id} value={candidate.id}>
               <OrgBadge org={candidate} size={18} /> {candidate.name}

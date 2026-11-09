@@ -25,7 +25,8 @@ import {
   RefreshCw,
   Rows3,
   Search,
-  Shapes,
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- Lucide names the icon; it's used as IconsIcon
+  Shapes as IconsIcon,
   StretchHorizontal,
   Type
 } from "lucide-react"
@@ -33,10 +34,13 @@ import { type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { useHoverCard } from "../../chrome/hover-card.ts"
 import { formatKeys } from "../../chrome/keys.ts"
+import { optionNamed } from "../parts.tsx"
 import { ComponentPreview, KindIcon, stateWords } from "./component-art.tsx"
 import { components, groupTitles, type PreviewState, type SampleComponent } from "./preview-data.ts"
 
-export type ComponentsView = "names" | "list" | "grid"
+const componentsViews = ["names", "list", "grid"] as const
+
+export type ComponentsView = (typeof componentsViews)[number]
 
 /** What a row says under a component's name: its variants, or why it has no picture. */
 function meta(component: SampleComponent): { text: string; tone?: string } | undefined {
@@ -199,7 +203,13 @@ export function ComponentsPanel({
           size="sm"
           spacing={0}
           value={[view]}
-          onValueChange={([value]) => value && setView(value as ComponentsView)}
+          onValueChange={([value]) => {
+            const next = optionNamed(componentsViews, value)
+
+            if (next) {
+              setView(next)
+            }
+          }}
           aria-label="Show components as"
         >
           {(
@@ -493,7 +503,7 @@ export function InsertPicker({ highlighted = "Project card", query }: { highligh
           ))}
           {search.trim().length < 2 && (
             <p className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
-              <Shapes className="size-3.5" /> Type to search 1,647 icons too
+              <IconsIcon className="size-3.5" /> Type to search 1,647 icons too
             </p>
           )}
         </CommandList>
