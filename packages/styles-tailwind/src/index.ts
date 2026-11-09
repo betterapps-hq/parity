@@ -47,7 +47,8 @@ async function loadTailwindNode(root: string): Promise<TailwindNode> {
     const entry = tailwind && packageEntry(tailwind, "runtime")
 
     if (entry) {
-      return (await import(pathToFileURL(entry).href)) as TailwindNode
+      // A dynamic import is untyped; this is the project's own copy of the package `TailwindNode` describes.
+      return await import(pathToFileURL(entry).href)
     }
   }
 

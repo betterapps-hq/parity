@@ -38,6 +38,10 @@ jobs:
       pull-requests: write
     uses: betterapps-hq/pipelines/.github/workflows/preview-desktop.yml@main
     with:
+      # Electron is installed before the build loads it, and the installers are made, with up to 3 tries each, since
+      # GitHub's releases time out now and then (PAR-789).
+      build-command: node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron && pnpm build
+      package-command: node ../../scripts/retry.ts pnpm exec electron-builder --publish never
       build-secret-env: VITE_TLDRAW_LICENSE_KEY
       retention-days: 14
       comment: false
@@ -51,7 +55,7 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     uses: ./.github/workflows/upload-sourcemaps.yml
     with:
-      build-command: pnpm build
+      build-command: node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron && pnpm build
       package: apps/desktop
       project: parity-desktop
     secrets:

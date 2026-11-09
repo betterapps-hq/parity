@@ -1,4 +1,4 @@
-import type { TelemetryLevel } from "@parity-app/telemetry"
+import type { ResolvedTelemetry } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/renderer"
 import { scrubber } from "./telemetry.ts"
 
@@ -111,11 +111,11 @@ export const replayPrivacy = {
 
 /**
  * Records the editor window with Session Replay while diagnostics are on, its secrets scrubbed and its canvases
- * included, and stops while they're off (PAR-624). The recorder is added the first time they're on, so with them off it never loads. Only
+ * included, and stops while they're off (PAR-624). CI never records, since it sends only errors and reports (PAR-777). The recorder is added the first time they're on, so with them off it never loads. Only
  * the editor window calls this, as it learns the setting and each time it changes; the offscreen renderers never record.
  */
-export function followTelemetry(level: TelemetryLevel): void {
-  if (level === "off") {
+export function followTelemetry({ level, errorsOnly }: Pick<ResolvedTelemetry, "level" | "errorsOnly">): void {
+  if (level === "off" || errorsOnly) {
     if (recording) {
       void Sentry.getReplay()?.stop()
     }

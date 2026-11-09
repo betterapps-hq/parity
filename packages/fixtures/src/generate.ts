@@ -24,88 +24,100 @@ interface Project {
   generate(dir: string): Promise<void>
 }
 
-const projects: Record<string, Project> = {
-  "vite7-js": {
-    install: "npm ci",
-    async generate(dir) {
-      // create-vite 8 still scaffolds Vite 7.
-      await createVite("8.3.0", dir, "react", "--no-interactive --no-rolldown")
-      await remove(dir, "vite.config.js", "src/App.css", "src/assets")
-      await overlay(dir, "vite7-js")
-      await run(dir, "npm install")
+const projects = new Map<string, Project>([
+  [
+    "vite7-js",
+    {
+      install: "npm ci",
+      async generate(dir) {
+        // create-vite 8 still scaffolds Vite 7.
+        await createVite("8.3.0", dir, "react", "--no-interactive --no-rolldown")
+        await remove(dir, "vite.config.js", "src/App.css", "src/assets")
+        await overlay(dir, "vite7-js")
+        await run(dir, "npm install")
+      }
     }
-  },
-  "react-aria": {
-    install: "yarn install --immutable",
-    async generate(dir) {
-      // Vite 7, not 8: Storybook 9 accepts Vite 5 to 7 only.
-      await createVite("8.3.0", dir, "react-ts", "--no-interactive --no-rolldown")
-      await remove(dir, "vite.config.ts", "src/App.css", "src/assets")
-      await replaceIn(dir, "tsconfig.node.json", '"vite.config.ts"', '"vite.config.mts"')
-      await overlay(dir, "react-aria")
-      await writeFile(
-        join(dir, ".gitignore"),
-        `${await readFile(join(dir, ".gitignore"), "utf8")}.yarn/install-state.gz\n`
-      )
-      // An empty lockfile makes Yarn treat this folder as a project of its own, not part of the repo around it.
-      await writeFile(join(dir, "yarn.lock"), "")
-      await editPackage(dir, (pkg) => {
-        pkg.packageManager = "yarn@4.18.1"
-        addDependencies(pkg, "dependencies", {
-          "@hugeicons/core-free-icons": "4.3.5",
-          "@hugeicons/react": "1.1.10",
-          "react-aria-components": "1.22.1"
+  ],
+  [
+    "react-aria",
+    {
+      install: "yarn install --immutable",
+      async generate(dir) {
+        // Vite 7, not 8: Storybook 9 accepts Vite 5 to 7 only.
+        await createVite("8.3.0", dir, "react-ts", "--no-interactive --no-rolldown")
+        await remove(dir, "vite.config.ts", "src/App.css", "src/assets")
+        await replaceIn(dir, "tsconfig.node.json", '"vite.config.ts"', '"vite.config.mts"')
+        await overlay(dir, "react-aria")
+        await writeFile(
+          join(dir, ".gitignore"),
+          `${await readFile(join(dir, ".gitignore"), "utf8")}.yarn/install-state.gz\n`
+        )
+        // An empty lockfile makes Yarn treat this folder as a project of its own, not part of the repo around it.
+        await writeFile(join(dir, "yarn.lock"), "")
+        await editPackage(dir, (pkg) => {
+          pkg.packageManager = "yarn@4.18.1"
+          addDependencies(pkg, "dependencies", {
+            "@hugeicons/core-free-icons": "4.3.5",
+            "@hugeicons/react": "1.1.10",
+            "react-aria-components": "1.22.1"
+          })
+          addDependencies(pkg, "devDependencies", { "@tailwindcss/vite": "4.3.3", tailwindcss: "4.3.3" })
         })
-        addDependencies(pkg, "devDependencies", { "@tailwindcss/vite": "4.3.3", tailwindcss: "4.3.3" })
-      })
-      await storybook(
-        dir,
-        "npx --yes create-storybook@9.1.21 --yes --no-dev --skip-install --type react --builder vite --package-manager yarn2"
-      )
-      await remove(dir, "src/stories")
-      await prepend(dir, ".storybook/preview.ts", 'import "../src/index.css"\n')
-      await run(dir, "yarn install")
+        await storybook(
+          dir,
+          "npx --yes create-storybook@9.1.21 --yes --no-dev --skip-install --type react --builder vite --package-manager yarn2"
+        )
+        await remove(dir, "src/stories")
+        await prepend(dir, ".storybook/preview.ts", 'import "../src/index.css"\n')
+        await run(dir, "yarn install")
+      }
     }
-  },
-  mantine: {
-    install: "bun install --frozen-lockfile",
-    async generate(dir) {
-      await createVite("9.3.1", dir, "react-ts", "--no-interactive --no-immediate")
-      await remove(dir, "vite.config.ts", "src/App.css", "src/assets")
-      await replaceIn(dir, "tsconfig.node.json", '"vite.config.ts"', '"vite.config.cts"')
-      await overlay(dir, "mantine")
-      // Mantine's Vite guide: the components, then PostCSS with Mantine's preset for the project's own CSS modules.
-      await editPackage(dir, (pkg) => {
-        addDependencies(pkg, "dependencies", { "@mantine/core": "9.7.3", "@mantine/hooks": "9.7.3" })
-        addDependencies(pkg, "devDependencies", {
-          postcss: "8.5.31",
-          "postcss-preset-mantine": "1.18.0",
-          "postcss-simple-vars": "7.0.1"
+  ],
+  [
+    "mantine",
+    {
+      install: "bun install --frozen-lockfile",
+      async generate(dir) {
+        await createVite("9.3.1", dir, "react-ts", "--no-interactive --no-immediate")
+        await remove(dir, "vite.config.ts", "src/App.css", "src/assets")
+        await replaceIn(dir, "tsconfig.node.json", '"vite.config.ts"', '"vite.config.cts"')
+        await overlay(dir, "mantine")
+        // Mantine's Vite guide: the components, then PostCSS with Mantine's preset for the project's own CSS modules.
+        await editPackage(dir, (pkg) => {
+          addDependencies(pkg, "dependencies", { "@mantine/core": "9.7.3", "@mantine/hooks": "9.7.3" })
+          addDependencies(pkg, "devDependencies", {
+            postcss: "8.5.31",
+            "postcss-preset-mantine": "1.18.0",
+            "postcss-simple-vars": "7.0.1"
+          })
         })
-      })
-      await run(dir, "bun install")
+        await run(dir, "bun install")
+      }
     }
-  },
-  "too-old": {
-    install: "npm ci",
-    async generate(dir) {
-      // Every tool here is past the version cutoff: React 18, Vite 5, Tailwind v3 and Storybook 8.
-      await createVite("5.5.5", dir, "react-ts", "")
-      await editPackage(dir, (pkg) =>
-        addDependencies(pkg, "devDependencies", { autoprefixer: "10.6.1", postcss: "8.5.31", tailwindcss: "3.4.19" })
-      )
-      await run(dir, "npx --yes tailwindcss@3.4.19 init -p")
-      await storybook(
-        dir,
-        "npx --yes storybook@8.6.19 init --yes --skip-install --no-dev --type react --builder vite --package-manager npm"
-      )
-      await remove(dir, "src/App.css", "src/assets", "src/stories")
-      await overlay(dir, "too-old")
-      await prepend(dir, ".storybook/preview.ts", 'import "../src/index.css"\n')
-      await run(dir, "npm install")
+  ],
+  [
+    "too-old",
+    {
+      install: "npm ci",
+      async generate(dir) {
+        // Every tool here is past the version cutoff: React 18, Vite 5, Tailwind v3 and Storybook 8.
+        await createVite("5.5.5", dir, "react-ts", "")
+        await editPackage(dir, (pkg) =>
+          addDependencies(pkg, "devDependencies", { autoprefixer: "10.6.1", postcss: "8.5.31", tailwindcss: "3.4.19" })
+        )
+        await run(dir, "npx --yes tailwindcss@3.4.19 init -p")
+        await storybook(
+          dir,
+          "npx --yes storybook@8.6.19 init --yes --skip-install --no-dev --type react --builder vite --package-manager npm"
+        )
+        await remove(dir, "src/App.css", "src/assets", "src/stories")
+        await overlay(dir, "too-old")
+        await prepend(dir, ".storybook/preview.ts", 'import "../src/index.css"\n')
+        await run(dir, "npm install")
+      }
     }
-  }
-}
+  ]
+])
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const fixturesDir = resolve(packageDir, "../../fixtures")
@@ -181,7 +193,7 @@ function addDependencies(
 }
 
 function run(cwd: string, command: string, extraEnv: NodeJS.ProcessEnv = {}): Promise<void> {
-  console.log(`\n> ${command}   (in fixtures/${relative(fixturesDir, cwd).replaceAll("\\", "/")})`)
+  say(`\n> ${command}   (in fixtures/${relative(fixturesDir, cwd).replaceAll("\\", "/")})`)
 
   return new Promise((done, fail) => {
     // Package managers are .cmd scripts on Windows, which only start through a shell. Commands come from this file.
@@ -202,7 +214,7 @@ function run(cwd: string, command: string, extraEnv: NodeJS.ProcessEnv = {}): Pr
  * and committed with an npm lockfile, so they install with `npm ci`.
  */
 async function installCommand(name: string): Promise<string> {
-  const project = projects[name]
+  const project = projects.get(name)
 
   if (project) {
     return project.install
@@ -213,6 +225,12 @@ async function installCommand(name: string): Promise<string> {
   }
 
   throw new Error(`fixtures/${name} has no package-lock.json, so install-projects can't tell how to install it`)
+}
+
+/** Prints a line of progress, between the output of the commands it runs. */
+function say(line: string): void {
+  process.stdout.write(`${line}
+`)
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -233,7 +251,7 @@ const known = install
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort()
-  : Object.keys(projects)
+  : [...projects.keys()]
 
 for (const name of names) {
   if (!known.includes(name)) {
@@ -256,7 +274,7 @@ for (const name of names.length > 0 ? names : known) {
     continue
   }
 
-  const project = projects[name]!
+  const project = projects.get(name)!
   const expected = await readFile(join(dir, "expected.json"), "utf8").catch(() => undefined)
   await rm(dir, { recursive: true, force: true })
   await project.generate(dir)
@@ -265,5 +283,5 @@ for (const name of names.length > 0 ? names : known) {
     await writeFile(join(dir, "expected.json"), expected)
   }
 
-  console.log(`\nGenerated fixtures/${name}`)
+  say(`\nGenerated fixtures/${name}`)
 }

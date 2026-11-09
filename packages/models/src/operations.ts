@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { checkModel } from "./check.ts"
+import { modelParser } from "./check.ts"
 import { uniqueIds } from "./unique.ts"
 
 // The API lens's model: a list of operations, each with an input and output in JSON Schema, and a method and path when
@@ -58,6 +58,4 @@ export type Operation = z.infer<typeof Operation>
 
 export type Operations = z.infer<typeof Operations>
 
-export function parseOperations(value: unknown): Operations {
-  return checkModel(Operations, value)
-}
+export const parseOperations = modelParser(Operations)

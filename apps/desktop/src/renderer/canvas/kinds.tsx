@@ -17,13 +17,14 @@ import type { ContainerEntry } from "../design-store.ts"
 
 /**
  * Each kind of thing on the canvas has its own selection color and icon, so a glance tells a screen from a component,
- * a mode, or a layer inside a design.
+ * a mode, a layer inside a design, or the text among its layers (PAR-792).
  */
 export const kindColors = {
   screen: "var(--canvas-screen)",
   component: "var(--canvas-component)",
   mode: "var(--canvas-mode)",
   layer: "var(--canvas-layer)",
+  text: "var(--canvas-text)",
   agent: "var(--canvas-agent)"
 } as const
 
@@ -42,6 +43,7 @@ export const chipColors = {
   component: { background: "var(--canvas-component-chip)", color: "white" },
   mode: { background: kindColors.mode, color: "var(--canvas-chip-ink)" },
   layer: { background: "var(--canvas-layer-chip)", color: "white" },
+  text: { background: "var(--canvas-text-chip)", color: "white" },
   agent: { background: kindColors.agent, color: "var(--canvas-chip-ink)" }
 } as const satisfies Record<keyof typeof kindColors, ChipColors>
 
@@ -61,7 +63,8 @@ export function chipFor(color: string): ChipColors {
 const textColors: Partial<Record<keyof typeof kindColors, string>> = {
   screen: "var(--canvas-screen-text)",
   component: "var(--canvas-component-text)",
-  layer: "var(--canvas-layer-text)"
+  layer: "var(--canvas-layer-text)",
+  text: "var(--canvas-text-text)"
 }
 
 /** The text color that goes with a selection color from `kindColors`, or the color itself for one without. */
@@ -80,9 +83,13 @@ export function designColor(kind: ContainerKind | undefined): string {
   return kind === "component" ? kindColors.component : kindColors.screen
 }
 
-/** Library components and instances of component designs are purple; plain layout and text are layers. */
+/** Library components and instances of component designs are purple, text is green, and plain layout is a layer. */
 export function nodeColor(node: DesignNode): string {
-  return node.type === "component" || node.type === "instance" ? kindColors.component : kindColors.layer
+  if (node.type === "component" || node.type === "instance") {
+    return kindColors.component
+  }
+
+  return node.type === "text" ? kindColors.text : kindColors.layer
 }
 
 /**

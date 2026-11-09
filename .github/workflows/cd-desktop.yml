@@ -50,7 +50,12 @@ jobs:
     with:
       ci-workflow: ci.yml
       build-secret-env: VITE_TLDRAW_LICENSE_KEY
-      build-command: PARITY_RELEASE_CHANNEL=beta pnpm build
+      # Electron is installed before the build loads it, and the installers are made, with up to 3 tries each, since
+      # GitHub's releases time out now and then (PAR-789).
+      build-command: >-
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron && PARITY_RELEASE_CHANNEL=beta
+        pnpm build
+      package-command: node ../../scripts/retry.ts pnpm exec electron-builder --publish never
     secrets:
       BUILD_SECRET: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
 
@@ -63,7 +68,9 @@ jobs:
     uses: ./.github/workflows/upload-sourcemaps.yml
     with:
       ref: v${{ needs.release.outputs.version }}
-      build-command: PARITY_RELEASE_CHANNEL=beta pnpm build
+      build-command: >-
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron && PARITY_RELEASE_CHANNEL=beta
+        pnpm build
       package: apps/desktop
       project: parity-desktop
       published: true

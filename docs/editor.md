@@ -2610,13 +2610,20 @@ Where a layer sits isn't said, since Layers shows it, nor a text layer's tag. A 
 the insert picker names it, so it agrees with the icon; a grid gets the Layout section's grid icon, in Layers too. A
 layer inside an instance says the same, in the component color.
 
+A text layer's color is green, its own (PAR-792), where other layers are the layer blue: its T in Layers, this heading,
+the Code and Accessibility panels, states, search and the canvas menu, and its outline, chip and text-editing outline on
+the canvas. It's a leaf green, darker and yellower than modes' teal, at the same contrast steps as the other kinds
+(`--canvas-text`, `--canvas-text-chip` and `--canvas-text-text` in `styles.css`). A text layer inside an instance is
+still drawn in the component color.
+
 Code: `SelectionHeading` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by `DesignPanel.tsx` and both
-headers in `LayerPanel.tsx`; `layerKind` in `chrome/layer-kind.ts`; `NodeIcon` in `canvas/kinds.tsx`.
+headers in `LayerPanel.tsx`; `layerKind` in `chrome/layer-kind.ts`; `NodeIcon` and `nodeColor` in `canvas/kinds.tsx`.
 
 Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (5: text whatever its tag; layouts by direction and grids;
-a slot; an instance's component only in full; a library's components and icons named by the library). The header itself
-is checked in the Inspector stories (Layer/Kinds, Layer/Instances: Layer Inside An Instance, Layer/Basics: Unnamed
-Layer, Design: Screen Selected), in light and dark.
+a slot; an instance's component only in full; a library's components and icons named by the library), and
+`apps/desktop/src/renderer/canvas/kinds.test.ts` (2: a text layer is green apart from its layout; its chip and its text
+on a panel take their own steps). The header itself is checked in the Inspector stories (Layer/Kinds, Layer/Instances:
+Layer Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
 
 ## Component props
 

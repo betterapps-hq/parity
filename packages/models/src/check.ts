@@ -1,17 +1,23 @@
 import type { z } from "zod"
 
 /**
- * Checks a value against a model's schema and returns it typed. A failure throws `TypeError` with the JSON pointer of
- * the first problem, as `/tables/0/name: expected a string`, the way `.par` and `.lib.par` files report theirs.
+ * A parser for a model's documents: it checks a value against the schema and returns it typed. A failure throws
+ * `TypeError` with the JSON pointer of the first problem, as `/tables/0/name: expected a string`, the way `.par` and
+ * `.lib.par` files report theirs.
  */
-export function checkModel<T extends z.ZodType>(schema: T, value: unknown): z.output<T> {
-  const result = schema.safeParse(value)
+export function modelParser<T extends z.ZodType>(
+  schema: T
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: a model document read from disk or an agent comes here to be parsed
+): (value: unknown) => z.output<T> {
+  return (value) => {
+    const result = schema.safeParse(value)
 
-  if (result.success) {
-    return result.data
+    if (result.success) {
+      return result.data
+    }
+
+    throw new TypeError(describeIssue(result.error.issues[0]!))
   }
-
-  throw new TypeError(describeIssue(result.error.issues[0]!))
 }
 
 function describeIssue(issue: z.core.$ZodIssue): string {

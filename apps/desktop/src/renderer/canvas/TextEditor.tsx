@@ -189,7 +189,7 @@ export function TextEditor() {
               top: layout.box.y,
               ...(layout.grows ? { minWidth: layout.box.w } : { width: layout.box.w }),
               minHeight: layout.box.h,
-              outlineColor: kindColors.layer,
+              outlineColor: kindColors.text,
               outlineStyle: "solid"
             }
           : { display: "none" }

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 import { existsSync } from "node:fs"
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { dirname, resolve, sep } from "node:path"
+import { isText } from "@parity-app/core/values/evaluate"
 import {
   diffFile,
   type FileChange,
@@ -101,7 +102,7 @@ async function apply(project: EditedProject, edit: ProjectEdit): Promise<FileCha
     if (!existsSync(target)) {
       current.set(file.path, undefined)
     } else {
-      current.set(file.path, isText(file) ? await readFile(target, "utf8") : new Uint8Array(await readFile(target)))
+      current.set(file.path, isTextEdit(file) ? await readFile(target, "utf8") : new Uint8Array(await readFile(target)))
     }
   }
 
@@ -113,7 +114,7 @@ async function apply(project: EditedProject, edit: ProjectEdit): Promise<FileCha
     for (const change of changes) {
       written.push({ change, known: project.known.get(change.path) })
 
-      if (typeof change.after === "string") {
+      if (isText(change.after)) {
         project.known.set(change.path, change.after)
       }
 
@@ -136,12 +137,12 @@ async function apply(project: EditedProject, edit: ProjectEdit): Promise<FileCha
   return changes
 }
 
-function isText(file: FileEdit): boolean {
+function isTextEdit(file: FileEdit): boolean {
   if (file.kind === "patch") {
     return true
   }
 
-  return typeof (file.kind === "delete" ? file.expected : file.content) === "string"
+  return isText(file.kind === "delete" ? file.expected : file.content)
 }
 
 /** A path from the project's root as a path on disk, refusing one that leads outside the project. */
