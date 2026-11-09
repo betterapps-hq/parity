@@ -44,6 +44,20 @@ jobs:
     secrets:
       BUILD_SECRET: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
 
+  # The template builds the installers without Sentry's token, so this builds the same commit again and uploads its maps,
+  # for the release the installers report, the commit (PAR-685). Forks get no secrets, so it skips them.
+  sourcemaps:
+    name: Source maps
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    uses: ./.github/workflows/upload-sourcemaps.yml
+    with:
+      build-command: pnpm build
+      package: apps/desktop
+      project: parity-desktop
+    secrets:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      VITE_TLDRAW_LICENSE_KEY: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
+
   storybook:
     name: Storybook
     if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
