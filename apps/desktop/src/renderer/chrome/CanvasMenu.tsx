@@ -213,7 +213,7 @@ function MenuItems({ opened }: { opened: Opened }) {
   const entries = useContainerEntries(session.store)
   const notes = useNotes(session.store)
 
-  return canvasMenu(opened.target, selection, entries, notes.length).map((entry, index) => {
+  return canvasMenu(opened.target, selection, entries, notes.length, session.info.libraries).map((entry, index) => {
     if (entry.kind === "separator") {
       return <ContextMenuSeparator key={`line-${index}`} />
     }

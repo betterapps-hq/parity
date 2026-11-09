@@ -198,7 +198,7 @@ export function LayerTree() {
     const library = store.getComponentLibrary()
 
     const label = (entry: ContainerEntry, node?: DesignNode) =>
-      node ? layerLabel(node, entries, library) : entry.container.name
+      node ? layerLabel(node, entries, library, session.info.libraries) : entry.container.name
 
     const all: Row[] = []
     const list: Line[] = []
@@ -231,7 +231,7 @@ export function LayerTree() {
     }
 
     return { rows: all, lines: list }
-  }, [groups, expanded, search, entries, store])
+  }, [groups, expanded, search, entries, store, session.info.libraries])
 
   const lineIndex = useMemo(() => new Map(lines.map((line, index) => [line.key, index])), [lines])
 
@@ -657,7 +657,9 @@ export function LayerTree() {
                     <LayerRow
                       row={line.row}
                       label={
-                        line.row.node ? layerLabel(line.row.node, entries, library) : line.row.design.container.name
+                        line.row.node
+                          ? layerLabel(line.row.node, entries, library, session.info.libraries)
+                          : line.row.design.container.name
                       }
                       searching={!!search}
                       selected={selectedRows.has(line.row.id)}

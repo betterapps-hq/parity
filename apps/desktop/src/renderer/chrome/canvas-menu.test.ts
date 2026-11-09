@@ -1,4 +1,11 @@
-import { type ContainerSpec, type DesignNode, findNode, nodeOnBoard, toggleHidden } from "@parity-app/core"
+import {
+  type ContainerSpec,
+  type DesignNode,
+  findNode,
+  type LibraryInfo,
+  nodeOnBoard,
+  toggleHidden
+} from "@parity-app/core"
 import { designsSelection, layersSelection, type Selection } from "@parity-app/editor"
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
@@ -357,6 +364,20 @@ describe("select layer", () => {
       label: "Stat card",
       kind: "component"
     })
+  })
+
+  it("names an unnamed icon by its icon, as Layers does, once it knows the project's icon sets", () => {
+    const overChart: MenuTarget = { design, path: ["root", "chart"], mode: "desktop", state: "default" }
+
+    const label = (libraries: readonly Pick<LibraryInfo, "id" | "kind">[]) => {
+      const entry = canvasMenu(overChart, {}, entries, 0, libraries)[0]
+
+      return entry?.kind === "select-layer" ? entry.choices.at(-1)?.label : undefined
+    }
+
+    // The fixture's chart comes from `ui`, which counts as an icon set here.
+    expect(label([{ id: "ui", kind: "icons" }])).toBe("Chart")
+    expect(label([{ id: "ui", kind: "components" }])).toBe("ui/Chart")
   })
 
   it("lists the design alone around its frames, and nothing for a design that's gone", () => {

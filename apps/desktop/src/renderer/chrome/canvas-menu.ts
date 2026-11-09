@@ -7,6 +7,7 @@ import {
   findNode,
   hiddenOnBoard,
   isInnerPath,
+  type LibraryInfo,
   locateInner,
   nodeLabel
 } from "@parity-app/core"
@@ -21,6 +22,7 @@ import {
 } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
 import { type Command, keymap } from "./keymap.ts"
+import { unnamedIconLabel } from "./layer-kind.ts"
 
 /**
  * What the canvas's right-click menu shows, and what a right-click selects first, as Figma's canvas menu does. These
@@ -90,7 +92,8 @@ export function canvasMenu(
   target: MenuTarget | undefined,
   selection: Selection,
   entries: readonly ContainerEntry[],
-  notes = 0
+  notes = 0,
+  libraries: readonly Pick<LibraryInfo, "id" | "kind">[] = []
 ): MenuEntry[] {
   if (!target) {
     const something = entries.length > 0 || notes > 0
@@ -125,7 +128,7 @@ export function canvasMenu(
   const order: Command[] = ["bringToFront", "bringForward", "sendBackward", "sendToBack"]
 
   return sections([
-    [{ kind: "select-layer", label: "Select layer", choices: layerChoices(target, selection, entries) }],
+    [{ kind: "select-layer", label: "Select layer", choices: layerChoices(target, selection, entries, libraries) }],
     [
       item("copy", layers ? can.copy : !!selection.design),
       item("pasteHere", true),
@@ -206,7 +209,12 @@ export function rightClickSelection(
 }
 
 /** Every layer under the pointer, outermost first, the design itself at the top, named as the Layers panel names them. */
-function layerChoices(target: MenuTarget, selection: Selection, entries: readonly ContainerEntry[]): LayerChoice[] {
+function layerChoices(
+  target: MenuTarget,
+  selection: Selection,
+  entries: readonly ContainerEntry[],
+  libraries: readonly Pick<LibraryInfo, "id" | "kind">[]
+): LayerChoice[] {
   const entry = entries.find((candidate) => candidate.key === target.design)
 
   if (!entry) {
@@ -246,7 +254,7 @@ function layerChoices(target: MenuTarget, selection: Selection, entries: readonl
     choices.push({
       id,
       whole: false,
-      label: nodeLabel(layer, (design) => designName(entries, design)),
+      label: unnamedIconLabel(layer, libraries) ?? nodeLabel(layer, (design) => designName(entries, design)),
       layer,
       selected: picked.includes(id)
     })

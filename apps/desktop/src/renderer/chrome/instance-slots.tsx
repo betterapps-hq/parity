@@ -254,7 +254,7 @@ export function SlotPanel({
   const entries = useContainerEntries(store)
   const clear = useClear(entry, instance)
   const filled = slot.fill.length > 0
-  const name = layerLabel(instance, entries, store.getComponentLibrary())
+  const name = layerLabel(instance, entries, store.getComponentLibrary(), session.info.libraries)
 
   return (
     <>

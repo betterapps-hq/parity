@@ -52,7 +52,7 @@ export function mount(containers, { camera } = {}) {
     { saveDocument: async () => undefined, autosave: () => false }
   )
   const selection = new SelectionStore()
-  const session = { id: "app", store, selection, loaded, tokens: { get: () => [] }, errors: [] }
+  const session = { id: "app", store, selection, loaded, tokens: { get: () => [] }, errors: [], info: { libraries: [] } }
   window.session = session
   window.stopCamera?.()
   window.stopCamera = undefined
