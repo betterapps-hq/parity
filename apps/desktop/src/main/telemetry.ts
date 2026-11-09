@@ -155,7 +155,7 @@ export function startTelemetry(
     sending: Pick<ResolvedTelemetry, "level" | "errorsOnly"> & { installId: string }
   }
 ): TelemetryStart {
-  const environment = telemetryEnvironment(env, installed)
+  const environment = telemetryEnvironment(env, { installed, published })
   // CI sends only errors and reports, with their breadcrumbs; its spans and logs stay in the local copy (PAR-777).
   const scrubbing = sentryScrubbing(scrubber, Sentry, { errorsOnly: sending.errorsOnly })
   runVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }

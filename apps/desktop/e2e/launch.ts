@@ -72,7 +72,8 @@ export async function launch(): Promise<RunningApp> {
 
   const stop = async () => {
     await stopProcess(runner)
-    output.end()
+    await new Promise<void>((resolve) => output.end(resolve))
+    await keepTelemetry(dir, profile)
     await removeCopy(dir, project)
 
     // A copy on another port bundles into a folder and caches dependencies of its own, kept only for the suite's port.
@@ -267,6 +268,33 @@ async function copyExample(dir: string): Promise<string> {
   await writeFile(file, `${JSON.stringify(document, null, 2)}\n`)
 
   return root
+}
+
+/**
+ * Copies the run's local copy of its telemetry out of the folder `stop` removes, to `PARITY_E2E_TELEMETRY` when it's
+ * set, failed run or not: the app's logs, the `parity` commands' logs and the app's output. CI sends only errors to
+ * Sentry, so on CI this is where a run's spans and logs are, and app.yml uploads the folder (PAR-785). It keeps the
+ * profile's layout, so `parity logs` reads it with `PARITY_USER_DATA` set to the folder.
+ */
+async function keepTelemetry(dir: string, profile: string): Promise<void> {
+  const kept = process.env.PARITY_E2E_TELEMETRY?.trim()
+
+  if (!kept) {
+    return
+  }
+
+  const copies = [
+    { from: join(profile, "logs"), to: "logs" },
+    { from: join(profile, "cli-logs"), to: "cli-logs" },
+    { from: join(dir, "app.log"), to: "app.log" }
+  ]
+
+  await mkdir(kept, { recursive: true })
+
+  for (const { from, to } of copies) {
+    // A run that stopped early may not have written one of them.
+    await cp(from, join(kept, to), { recursive: true }).catch(() => undefined)
+  }
 }
 
 /** Takes the links out before the folder, so removing it can't reach the packages they point to. */
