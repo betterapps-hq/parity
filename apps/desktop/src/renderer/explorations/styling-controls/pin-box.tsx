@@ -244,7 +244,8 @@ function PinBox({
         />
       )
     }
-    const placeholder = sticky ? "Auto" : `Auto ${measured[index]}`
+    // What Auto comes to is in the field's hint, as a narrow field's is: beside the chevron, there's room for Auto alone.
+    const placeholder = "Auto"
     return (
       <SideField
         label={`${name} inset`}
@@ -252,7 +253,7 @@ function PinBox({
         value={position.insets[index]}
         narrow
         placeholder={placeholder}
-        measured={measured[index]}
+        measured={sticky ? undefined : measured[index]}
         percentOf={`Pricing's ${index % 2 === 0 ? "height" : "width"}`}
         line={lineFor(`${name} inset`)}
         onChange={(value) => setSide(index, value)}
@@ -295,9 +296,9 @@ function PinBox({
       <Hint label="Insets" detail={hint} wait>
         <span className="w-fit text-xs text-muted-foreground">Insets</span>
       </Hint>
-      <div className="grid grid-cols-[72px_1fr_72px] items-center gap-1.5">
+      <div className="grid grid-cols-[84px_1fr_84px] items-center gap-1.5">
         <span />
-        <div className="mx-auto w-[72px]">{field(0)}</div>
+        <div className="mx-auto w-[84px]">{field(0)}</div>
         <span />
         <div>{field(3)}</div>
         <div className="relative h-24 rounded-md border bg-muted/40">
@@ -316,7 +317,7 @@ function PinBox({
         </div>
         <div>{field(1)}</div>
         <span />
-        <div className="mx-auto w-[72px]">{field(2)}</div>
+        <div className="mx-auto w-[84px]">{field(2)}</div>
         <span />
       </div>
       {said.map((message) => (

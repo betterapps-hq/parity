@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ChevronDown, LayoutTemplate, Link2, Minus, Plus, Squircle } from "lucide-react"
+import { ChevronDown, LayoutTemplate, Link2, Minus, Monitor, Plus, Squircle } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { ChoiceInput } from "../../chrome/fields.tsx"
@@ -929,8 +929,8 @@ function LengthField({
     if (next === "%" && own) onChange({ percent: own.px })
     else if (next === "px" && percent !== undefined) onChange({ px: percent })
   }
-  let unit: ReactNode
-  if (takesPercent && (own || percent !== undefined)) {
+  let unit: ReactNode = "px"
+  if (takesPercent) {
     unit = (
       <UnitMenu
         label={label}
@@ -942,7 +942,7 @@ function LengthField({
         onUnit={toUnit}
       />
     )
-  } else if (own) unit = "px"
+  }
   // A narrow field's hint carries the value's status, which has no room in the field.
   let status: string | undefined
   if (token?.deprecated) status = `Deprecated: use ${token.deprecated} instead`
@@ -1211,7 +1211,16 @@ export function FrameSection({
   onChange: (frame: { width: number; height: number | undefined }) => void
 }) {
   return (
-    <PanelSection title="Frame" description="Pricing's size in Desktop. Dragging the frame's edges sets it too.">
+    <PanelSection
+      title="Frame"
+      action={
+        // Which viewport's size this is: each has its own. The selection already says which design.
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Monitor aria-hidden className="size-3.5" />
+          Desktop
+        </span>
+      }
+    >
       <div className="flex flex-col gap-2.5">
         <Field label="Size">
           <div className="grid grid-cols-2 gap-1">
@@ -1301,7 +1310,7 @@ export function Num({
   }
   const from = () => value ?? Math.max(min, 0)
   let unitPart: ReactNode = suffix
-  if (pixels && value !== undefined) {
+  if (pixels) {
     unitPart = (
       <UnitMenu
         label={label}

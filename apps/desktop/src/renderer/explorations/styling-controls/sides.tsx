@@ -150,7 +150,7 @@ export function SideField({
     else if (next === "px" && percent !== undefined) onChange({ number: percent }, "side")
   }
   let shownUnit: ReactNode
-  if (rules.percent && (own || percent !== undefined)) {
+  if (rules.percent) {
     shownUnit = (
       <UnitMenu
         label={label}
@@ -163,11 +163,11 @@ export function SideField({
       />
     )
   } else if (percent !== undefined) shownUnit = "%"
-  else if (own && unit) shownUnit = unit
+  else shownUnit = unit
 
   let comesTo: string | undefined
   if (token) comesTo = token.detail
-  else if ((value === "auto" || percent !== undefined) && measured !== undefined)
+  else if (((value === undefined && narrow) || value === "auto" || percent !== undefined) && measured !== undefined)
     comesTo = `${formatNumber(measured)}${unit}`
 
   // The hint carries the value's status, which a narrow field has no room to say.
