@@ -64,6 +64,7 @@ import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
+import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
 import { containerModes, modeNames, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
@@ -89,7 +90,7 @@ export function ContainerView(props: ContainerViewProps) {
  * A frame on the canvas, the light kind: no board, previews or menus. Its name sits above it, smaller and quieter than
  * a board's, and the design is drawn at its own size in the project's primary mode, in its one state (PAR-545).
  */
-function FrameView({ ref, entry, onTitlePointerDown, title, rest }: ContainerViewProps) {
+function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: ContainerViewProps) {
   const own = useRef<HTMLDivElement>(null)
   const board = ref ?? own
   const { store, loaded, selection } = useProject()
@@ -103,7 +104,7 @@ function FrameView({ ref, entry, onTitlePointerDown, title, rest }: ContainerVie
 
   const titleBar = (
     // Its name runs past a narrow frame rather than being cut off, since there's no board for it to fit.
-    <TitleBar showControls={false} width={undefined} quiet>
+    <TitleBar active={hovered || isSelected} width={undefined} quiet>
       <TitleButton
         entry={entry}
         selected={isSelected}
@@ -285,7 +286,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
     store.updateView(key, `Show ${modeNames(all, shown)}`, (view) => withShownModes(view, main, shown, all))
 
   const titleBar = (
-    <TitleBar showControls={hovered || isSelected} width={width}>
+    <TitleBar active={hovered || isSelected} width={width}>
       <TitleButton
         entry={entry}
         selected={isSelected}
@@ -459,14 +460,16 @@ function StateRow({
  * screen size up close, then shrinking down to 60%, so names don't swamp the boards they name. The name is clipped to
  * the board's width, and shows until the board is too narrow on screen to read it; the controls only while the board
  * is hovered or selected, or one of their menus is open, and there's room for them, so a canvas of designs stays quiet.
+ * Its menus and hints mount once it's first used (see `useMountOnUse`), so a canvas of designs opens sooner.
  */
 function TitleBar({
-  showControls,
+  active,
   width,
   quiet = false,
   children
 }: {
-  showControls: boolean
+  /** The design is hovered or selected: its controls show. */
+  active: boolean
   /** How wide the board is on the canvas. */
   width: number | undefined
   /** A frame's: closer to it, as it has no board around it. */
@@ -475,6 +478,7 @@ function TitleBar({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   useCanvasLabel(ref, "name", { fit: true, width })
+  const { used, area } = useMountOnUse(active)
 
   return (
     <div
@@ -482,14 +486,20 @@ function TitleBar({
       className={`design-title group/title pointer-events-auto absolute bottom-full left-0 origin-bottom-left ${
         quiet ? "w-max pb-1" : "pb-2.5"
       }`}
-      data-controls={showControls}
+      data-controls={active}
+      {...area}
     >
-      <div className={`@container flex min-w-0 items-center gap-3 ${quiet ? "h-6" : "h-8"}`}>{children}</div>
+      <div className={`@container flex min-w-0 items-center gap-3 ${quiet ? "h-6" : "h-8"}`}>
+        <Used value={used}>{children}</Used>
+      </div>
     </div>
   )
 }
 
+/** A board's menus, mounted once its title is used: until then they'd be hidden anyway. */
 function TitleControls({ children }: { children: ReactNode }) {
+  const used = useUsed()
+
   return (
     <div
       className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex @max-[22rem]:hidden!"
@@ -497,7 +507,7 @@ function TitleControls({ children }: { children: ReactNode }) {
       data-canvas-control
       onPointerDown={stopEventPropagation}
     >
-      {children}
+      {used && children}
     </div>
   )
 }
@@ -522,6 +532,7 @@ function TitleButton({
   onPointerDown: (event: ReactPointerEvent) => void
 }) {
   const session = useProject()
+  const used = useUsed()
   const [renaming, setRenaming] = useState(false)
   const { container } = entry
 
@@ -576,28 +587,37 @@ function TitleButton({
     )
   }
 
+  // Until the title is used it's the button alone, without the menu and hint, which would only slow the canvas opening.
+  const button = (
+    <button
+      type="button"
+      tabIndex={selected ? 0 : -1}
+      onPointerDown={onPointerDown}
+      onContextMenu={stopEventPropagation}
+      onDoubleClick={(event) => {
+        event.stopPropagation()
+        setRenaming(true)
+      }}
+      className={`flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 text-sm hover:text-foreground ${
+        quiet ? "text-muted-foreground" : "font-medium text-foreground/90"
+      }`}
+      style={color ? { color } : undefined}
+    >
+      {icon}
+      <Name>{container.name}</Name>
+    </button>
+  )
+
+  if (!used) {
+    return button
+  }
+
   return (
     <ContextMenu>
       <ContextMenuTrigger
         render={
           <Hint label={`${container.name}, in ${entry.path}`} detail="Double-click to rename." wait>
-            <button
-              type="button"
-              tabIndex={selected ? 0 : -1}
-              onPointerDown={onPointerDown}
-              onContextMenu={stopEventPropagation}
-              onDoubleClick={(event) => {
-                event.stopPropagation()
-                setRenaming(true)
-              }}
-              className={`flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 text-sm hover:text-foreground ${
-                quiet ? "text-muted-foreground" : "font-medium text-foreground/90"
-              }`}
-              style={color ? { color } : undefined}
-            >
-              {icon}
-              <Name>{container.name}</Name>
-            </button>
+            {button}
           </Hint>
         }
       />
