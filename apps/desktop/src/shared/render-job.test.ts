@@ -35,14 +35,19 @@ const modes: ModeSettings = {
 const mode = resolveModes(modes)[0]!
 
 function design(height?: number): ContainerSpec {
-  return {
+  const container: ContainerSpec = {
     id: "page",
     name: "Page",
     position: { x: 0, y: 0 },
     root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }],
-    ...(height === undefined ? {} : { frames: { desktop: { height } } })
+    states: [{ id: "default", name: "Default" }]
   }
+
+  if (height !== undefined) {
+    container.frames = { desktop: { height } }
+  }
+
+  return container
 }
 
 /** The frame an agent's call asks the offscreen window for, as `Measure` sends it. */
@@ -93,7 +98,7 @@ describe("renderJobMode", () => {
 
     const agent = renderJobMode(request.mode, {
       width: request.mode.width,
-      ...(request.height === undefined ? {} : { height: request.height }),
+      height: request.height,
       viewport: request.viewport
     })
 
@@ -219,6 +224,7 @@ describe("a job's names", () => {
   })
 
   it("leave out a field the job gains, in the job or its mode, until this module names it", () => {
+    // SAFETY: a job with more fields than `RenderJob` names is still one; the extra fields are what's being tested.
     const grown = { ...job, opacity: 0.5, mode: { ...job.mode, safeArea: 20 } } as RenderJob
     expect(names(grown)).toEqual(names(job))
   })

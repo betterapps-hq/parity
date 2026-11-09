@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Keep the end-to-end run's local telemetry copy as an artifact of its CI run",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

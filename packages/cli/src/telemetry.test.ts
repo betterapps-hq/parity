@@ -194,7 +194,14 @@ describe("batchRun", () => {
 
   it("names a build that npm didn't publish, such as a pkg.pr.new preview, by the commit it was built from", () => {
     const run = batchRun({}, "install", true, { published: false, commit: "9a6440b" })
-    expect(run).toMatchObject({ environment: "tester", published: false, commit: "9a6440b" })
+    expect(run).toMatchObject({ environment: "preview", published: false, commit: "9a6440b" })
     expect(run.source).toBeUndefined()
+  })
+
+  it("reports the package npm published as the release", () => {
+    expect(batchRun({}, "install", true, { published: true })).toMatchObject({
+      environment: "release",
+      published: true
+    })
   })
 })

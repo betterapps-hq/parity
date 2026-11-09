@@ -11,12 +11,12 @@ import {
   resolvePathAlias,
   sharedPreviewFiles
 } from "@parity-app/project"
+import { logNote } from "../shared/log.ts"
 import type { ComponentPreview, PreviewJob } from "../shared/protocol.ts"
 import { previewName } from "../shared/render-job.ts"
 import { track } from "../shared/tracing.ts"
 import { previewIndex, storedPreview, storePreview } from "./bitmap-store.ts"
 import { cacheUse } from "./cache-use.ts"
-import { logNote } from "./log.ts"
 import type { OpenProjects } from "./projects.ts"
 import { renderPreview } from "./render.ts"
 import { losslessWebp } from "./webp.ts"

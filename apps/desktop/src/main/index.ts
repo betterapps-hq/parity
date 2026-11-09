@@ -9,12 +9,14 @@ import {
   CodedError,
   drawsNothing,
   fitInside,
+  type JsonValue,
   offscreenWindows,
   previewSizes,
   type RenderPriority,
   renderQueue,
   serviceRestarts
 } from "@parity-app/core"
+import { isText } from "@parity-app/core/values/evaluate"
 import { type Span, telemetryFileName } from "@parity-app/telemetry"
 import {
   app,
@@ -49,6 +51,7 @@ import {
   telemetrySetting as telemetryLevelCheck,
   themeSource
 } from "../shared/ipc-checks.ts"
+import { logNote } from "../shared/log.ts"
 import type { ConsoleContext, ProcessUsage, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { deviceBox, devicePixels } from "../shared/render-job.ts"
 import type {
@@ -124,7 +127,7 @@ const telemetrySetting = new TelemetrySetting({
 })
 
 /** The app's own package.json: the build's, or the checkout's when run from source. */
-const appManifest = () => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8")) as unknown
+const appManifest = (): JsonValue => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8"))
 const built = builtRelease(appManifest)
 const installed = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
 
@@ -292,10 +295,10 @@ function startService(): UtilityProcess {
 
         return { taken }
       },
-      record: (envelope) => recordForwarded(envelope),
+      record: (envelope) => void recordForwarded(envelope),
       // The open projects' `.env` values, scrubbed here and in every window (PAR-672).
       secrets: (secrets) => {
-        projectSecrets = secrets.filter((value) => typeof value === "string")
+        projectSecrets = secrets.filter(isText)
         scrubber.use(projectSecrets)
 
         for (const window of BrowserWindow.getAllWindows()) {
@@ -405,7 +408,8 @@ function createWindow(): void {
     backgroundColor: background,
     // The tab strip is the title bar; the system's window buttons sit over its end.
     titleBarStyle: mac ? "hiddenInset" : "hidden",
-    ...(mac ? {} : { titleBarOverlay: { color: background, symbolColor: symbols, height: 40 } }),
+    // No overlay on macOS, whose traffic lights sit inset in the strip instead.
+    titleBarOverlay: !mac && { color: background, symbolColor: symbols, height: 40 },
     webPreferences: {
       additionalArguments: [
         `--parity-version=${app.getVersion()}`,
@@ -908,18 +912,20 @@ ipcMain.handle(
 )
 
 // Windows and render windows send the events they record, named by the window that sent them (PAR-627).
-ipcMain.on(ipc.telemetry, (event, envelope: unknown) => {
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent, which `recordForwarded` parses
+ipcMain.on(ipc.telemetry, (event, sent: unknown) => {
   const window = BrowserWindow.fromWebContents(event.sender)
   const render = window && isRenderWindow(window)
-  recordForwarded(envelope, render ? "render" : "renderer")
+  const envelope = recordForwarded(sent, render ? "render" : "renderer")
 
-  if (!render) {
+  if (envelope && !render) {
     appLife.forwarded(envelope)
   }
 })
 
 // The editor says which frame's event it's handling just before a console message is written there (PAR-147). Word
 // that isn't one is ignored, and the message is kept as the project's.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent, parsed here
 ipcMain.on(ipc.consoleAnnounce, (event, announcement: unknown) => {
   const read = consoleAnnouncement.safeParse(announcement)
 
@@ -1080,11 +1086,17 @@ consoleLog.subscribe(
 )
 
 function consoleContextOf(design: NonNullable<RenderJob["design"]>): ConsoleContext {
-  return {
-    design: design.key,
-    ...(design.state ? { state: design.state } : {}),
-    ...(design.mode ? { mode: design.mode } : {})
+  const context: ConsoleContext = { design: design.key }
+
+  if (design.state) {
+    context.state = design.state
   }
+
+  if (design.mode) {
+    context.mode = design.mode
+  }
+
+  return context
 }
 
 /** The editor window, which agents' calls go through: Parity's own page, not an offscreen renderer. */
@@ -1158,16 +1170,26 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
   return loaded.then(() => window)
 }
 
-/** Calls into the render page, throwing what the page threw as a `PageError` with its own message and stack. */
-async function callPage(window: BrowserWindow, call: string): Promise<unknown> {
-  return pageAnswer(await window.webContents.executeJavaScript(pageCall(call), true))
+/**
+ * Calls into the render page and parses what it gave with `read`, throwing what the page threw as a `PageError` with
+ * its own message and stack.
+ */
+async function callPage<Result>(
+  window: BrowserWindow,
+  call: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what the render page gave, which `read` parses
+  read: (value: unknown) => Result
+): Promise<Result> {
+  return read(pageAnswer(await window.webContents.executeJavaScript(pageCall(call), true)))
 }
 
 function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: RenderedFrame; png?: string }> {
   return renderOffscreen("render", job, capture || !!job.audit, async (window, frame, width, height) => {
     if (job.audit) {
-      const audited = auditResult(
-        await callPage(window, `window.canvasAudit(${JSON.stringify(job.colorTokens ?? [])})`)
+      const audited = await callPage(
+        window,
+        `window.canvasAudit(${JSON.stringify(job.colorTokens ?? [])})`,
+        auditResult
       )
 
       frame.issues = audited.issues
@@ -1183,7 +1205,7 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
     // A frame that grows with its content keeps the height the canvas lays it out at, measured after the capture
     // (PAR-525).
     if (job.mode.height === undefined) {
-      const canvasHeight = canvasHeightResult(await callPage(window, "window.canvasHeight()"))
+      const canvasHeight = await callPage(window, "window.canvasHeight()", canvasHeightResult)
 
       if (canvasHeight !== undefined) {
         frame.canvasHeight = canvasHeight
@@ -1304,7 +1326,7 @@ function renderOffscreen(
     })
 
     try {
-      const result = renderResult(await callPage(window, `window.canvasRender(${JSON.stringify(job)})`))
+      const result = await callPage(window, `window.canvasRender(${JSON.stringify(job)})`, renderResult)
       watch.rendered(result)
       // The guest's stack is telemetry's alone; agents get the message.
       const { errorStack: _stack, ...frame } = result
@@ -1318,7 +1340,7 @@ function renderOffscreen(
       // The whole frame is in view, so a capture or a contrast check sees all of it.
       const height = devicePixels(frame.height, job.scale)
       window.setContentSize(width, height)
-      await callPage(window, "window.canvasSettle()")
+      await callPage(window, "window.canvasSettle()", () => undefined)
       const done = await then(window, frame, width, height)
       watch.end(frame)
 
@@ -1455,7 +1477,7 @@ if (devRunner !== undefined) {
       }
 
       running = next
-      console.log("[dev] project service changed, restarting it")
+      logNote("[dev] project service changed, restarting it")
       restartService()
     }, 300)
   })

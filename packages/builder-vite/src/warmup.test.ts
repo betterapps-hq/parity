@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { warmGuestGraph } from "./warmup.ts"
+import { type OptimizerMetadata, warmGuestGraph } from "./warmup.ts"
 
 function deferred() {
   let resolve: () => void = () => undefined
@@ -18,10 +18,7 @@ describe("warming the guest graph", () => {
     const firstBatch = deferred()
     const secondBatch = deferred()
 
-    const metadata: {
-      optimized: Record<string, { processing?: Promise<void> }>
-      discovered: Record<string, { processing?: Promise<void> }>
-    } = { optimized: {}, discovered: { first: { processing: firstBatch.promise } } }
+    const metadata: OptimizerMetadata = { optimized: {}, discovered: { first: { processing: firstBatch.promise } } }
 
     const optimizer = {
       init: async () => undefined,
@@ -55,6 +52,8 @@ describe("warming the guest graph", () => {
             childStarted.resolve()
             await childReady.promise
           }
+
+          return null
         },
         moduleGraph: {
           getModuleByUrl: async (url) => modules.get(url),
@@ -93,6 +92,8 @@ describe("warming the guest graph", () => {
           if (url === "/broken.js") {
             throw new Error("syntax error")
           }
+
+          return null
         },
         moduleGraph: {
           getModuleByUrl: async () => undefined,
@@ -117,6 +118,8 @@ describe("warming the guest graph", () => {
       {
         async transformRequest(url) {
           transformed.push(url)
+
+          return null
         },
         moduleGraph: {
           getModuleByUrl: async (url) => modules.get(url),

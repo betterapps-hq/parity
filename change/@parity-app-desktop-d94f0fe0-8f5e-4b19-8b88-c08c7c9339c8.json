@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Zoomed out, a narrow board's title runs into the free canvas beside it instead of truncating at the board's edge",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,17 +1,19 @@
 import type { Fetch } from "@parity-app/account"
+import type { JsonValue } from "@parity-app/core"
+import { isText } from "@parity-app/core/values/evaluate"
 import { describe, expect, it } from "vite-plus/test"
 import type { AccountState, SignInProvider } from "../shared/account.ts"
 import { type AccountOptions, createAccount } from "./account.ts"
 import type { SessionStore, StoredAccounts } from "./session-store.ts"
 
-const jwt = (claims: Record<string, unknown>) =>
+const jwt = (claims: Record<string, JsonValue>) =>
   ["header", JSON.stringify(claims), "signature"].map((part) => Buffer.from(part).toString("base64url")).join(".")
 
 /**
  * WorkOS's answer to a code or a refresh, handing back `refresh`, with a token that lasts five minutes from `now`, for
  * Ada's own account or another of hers.
  */
-function session(refresh: string, now: number, claims: Record<string, unknown> = {}, email = "ada@example.com") {
+function session(refresh: string, now: number, claims: Record<string, JsonValue> = {}, email = "ada@example.com") {
   return {
     user: { id: `user_${email}`, email, email_verified: true, first_name: "Ada", last_name: "Lovelace" },
     organization_id: "org_1",
@@ -66,15 +68,15 @@ const keptFor = (store: { kept?: StoredAccounts }, email = "ada@example.com") =>
  */
 function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
   let now = 1_800_000_000_000
-  const answers: { status: number; body: unknown }[] = []
-  const requests: Record<string, unknown>[] = []
+  const answers: { status: number; body: JsonValue }[] = []
+  const requests: Record<string, JsonValue>[] = []
   const opened: string[] = []
   const states: AccountState[] = []
   const timers: { run: () => void; at: number }[] = []
   let closed = 0
 
   const fetch: Fetch = async (_url, init) => {
-    requests.push(JSON.parse(typeof init.body === "string" ? init.body : "{}") as Record<string, unknown>)
+    requests.push(JSON.parse(isText(init.body) ? init.body : "{}"))
     const answer = answers.shift() ?? { status: 503, body: {} }
 
     return new Response(JSON.stringify(answer.body), { status: answer.status })
@@ -108,7 +110,7 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
     opened,
     requests,
     closed: () => closed,
-    answer: (status: number, body: unknown) => answers.push({ status, body }),
+    answer: (status: number, body: JsonValue) => answers.push({ status, body }),
     /** Moves the clock to the next timer and runs it. */
     async tick() {
       const timer = timers.sort((a, b) => a.at - b.at).shift()

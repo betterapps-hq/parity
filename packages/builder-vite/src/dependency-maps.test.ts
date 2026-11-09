@@ -47,7 +47,7 @@ describe("dependencySourceMaps", () => {
     // The real path: Windows runners' tmpdir can use a short (8.3) name, which crashes libuv's watcher.
     root = await realpath(await mkdtemp(join(tmpdir(), "parity-maps-")))
 
-    const files: Record<string, string> = {
+    const files = {
       "package.json": JSON.stringify({ name: "fixture", type: "module" }),
       "main.js":
         'import { greeting } from "bundled"\nimport { plain } from "plain"\nexport const message = greeting + plain\n',
@@ -99,9 +99,10 @@ describe("dependencySourceMaps", () => {
       expect(bundled).toContain('"hello"')
       expect(bundled).not.toContain("sourceMappingURL=data:")
       expect(bundled.trimEnd().endsWith("//# sourceMappingURL=bundled.js.map")).toBe(true)
-      const map = JSON.parse(await get(new URL("bundled.js.map", bundledUrl))) as { version: number; sources: string[] }
-      expect(map.version).toBe(3)
-      expect(map.sources.some((source) => source.endsWith("bundled/index.js"))).toBe(true)
+      expect(JSON.parse(await get(new URL("bundled.js.map", bundledUrl)))).toMatchObject({
+        version: 3,
+        sources: expect.arrayContaining([expect.stringMatching(/bundled\/index\.js$/)])
+      })
 
       const plain = await get(main.match(/"(\/node_modules\/plain\/index\.js[^"]*)"/)![1])
       expect(plain).toContain("export const plain = 1")

@@ -29,7 +29,13 @@ export function linuxAnonymous(status: string): number | undefined {
   return kilobytes === undefined ? undefined : Number(kilobytes) * 1024
 }
 
-const units: Record<string, number> = { B: 1, K: 2 ** 10, M: 2 ** 20, G: 2 ** 30, T: 2 ** 40 }
+const units = new Map([
+  ["B", 1],
+  ["K", 2 ** 10],
+  ["M", 2 ** 20],
+  ["G", 2 ** 30],
+  ["T", 2 ** 40]
+])
 
 /**
  * Each process's memory footprint on macOS, which Activity Monitor's Memory column shows, from
@@ -49,7 +55,7 @@ export function macFootprints(top: string): Map<number, number> {
     const row = /^\s*(\d+)\s+([\d.]+)([BKMGT])[+-]?\s*$/.exec(line)
 
     if (row) {
-      sizes.set(Number(row[1]), Math.round(Number(row[2]) * units[row[3]!]!))
+      sizes.set(Number(row[1]), Math.round(Number(row[2]) * units.get(row[3]!)!))
     }
   }
 

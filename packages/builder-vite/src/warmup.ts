@@ -1,3 +1,5 @@
+import type { TransformResult } from "vite"
+
 interface Module {
   url: string
   /**
@@ -9,20 +11,23 @@ interface Module {
   staticImportedUrls?: ReadonlySet<string>
 }
 
+/** The dependencies Vite's optimizer has bundled and found, each with the batch still bundling it. */
+export interface OptimizerMetadata {
+  optimized: Record<string, { processing?: Promise<void> }>
+  discovered: Record<string, { processing?: Promise<void> }>
+}
+
 interface Optimizer {
   init(): Promise<void>
   scanProcessing?: Promise<void>
   isOptimizedDepUrl(url: string): boolean
-  metadata: {
-    optimized: Record<string, { processing?: Promise<void> }>
-    discovered: Record<string, { processing?: Promise<void> }>
-  }
+  metadata: OptimizerMetadata
 }
 
 /** The Vite environment methods used by startup; its one-shot crawl-end promise is deliberately not a barrier. */
 interface Client {
   depsOptimizer?: Optimizer
-  transformRequest(url: string): Promise<unknown>
+  transformRequest(url: string): Promise<TransformResult | null>
   moduleGraph: {
     getModuleByUrl(url: string): Promise<Module | undefined>
     invalidateAll(): void

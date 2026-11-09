@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Exports record how long they took, as durationMs on export.done and export.failed (PAR-773)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

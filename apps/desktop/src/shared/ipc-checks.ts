@@ -90,6 +90,7 @@ export type ProblemReport = z.infer<typeof problemReport>
 export function checked<Event, Schema extends z.ZodType, Result>(
   schema: Schema,
   handler: (event: Event, argument: z.output<Schema>) => Result
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent over IPC, parsed here
 ): (event: Event, argument: unknown) => Result {
   return (event, argument) => handler(event, parseData(schema, argument))
 }
