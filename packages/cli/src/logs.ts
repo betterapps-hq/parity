@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { desktopDataFolder, type Envelope, type Level, type Process } from "@parity-app/telemetry"
 import { z } from "zod"
 import { invalidInput } from "./errors.ts"
+import type { OperationInput } from "./operations.ts"
 
 /**
  * `parity logs` and `get_logs`: Parity's own events from the local copy main writes at every level, Off included,
@@ -56,6 +57,9 @@ export function logsFolder(env: NodeJS.ProcessEnv = process.env): string {
 
 const fileName = /^parity-(\d{4}-\d{2}-\d{2})(?:\.(\d+))?\.jsonl$/
 
+/** What a line needs to be read as an event: its name and time, which every envelope has. */
+const loggedLine = z.looseObject({ name: z.string(), time: z.string() })
+
 /** Every event in the folder's log files, oldest first. Lines that aren't events are skipped. */
 export function readEvents(folder: string): LogEvent[] {
   let names: string[]
@@ -91,10 +95,11 @@ export function readEvents(folder: string): LogEvent[] {
       }
 
       try {
-        const event = JSON.parse(line) as LogEvent
+        const event = JSON.parse(line)
 
-        if (typeof event?.name === "string" && typeof event.time === "string") {
-          events.push(event)
+        if (loggedLine.safeParse(event).success) {
+          // SAFETY: main writes every line as an envelope, so one with its name and time is whole, not cut short.
+          events.push(event as LogEvent)
         }
       } catch {
         // A line cut short by a crash or a full disk.
@@ -105,14 +110,19 @@ export function readEvents(folder: string): LogEvent[] {
   return events.sort((a, b) => a.time.localeCompare(b.time))
 }
 
-const units: Record<string, number> = { s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 }
+const units = new Map([
+  ["s", 1000],
+  ["m", 60_000],
+  ["h", 3_600_000],
+  ["d", 86_400_000]
+])
 
 /** When `since` starts, in milliseconds since 1970. */
 function sinceTime(since: string, now: number): number {
   const ago = /^(\d+(?:\.\d+)?)([smhd])$/.exec(since.trim())
 
   if (ago?.[1] && ago[2]) {
-    return now - Number(ago[1]) * (units[ago[2]] ?? 0)
+    return now - Number(ago[1]) * (units.get(ago[2]) ?? 0)
   }
 
   const time = Date.parse(since)
@@ -125,7 +135,7 @@ function sinceTime(since: string, now: number): number {
 }
 
 /** Reads and filters the local copy. `now` is for tests. */
-export function readLogs(input: unknown, { folder = logsFolder(), now = Date.now() } = {}): LogsResult {
+export function readLogs(input: OperationInput, { folder = logsFolder(), now = Date.now() } = {}): LogsResult {
   const parsed = logsInputSchema.safeParse(input)
 
   if (!parsed.success) {
@@ -151,9 +161,15 @@ export function readLogs(input: unknown, { folder = logsFolder(), now = Date.now
       (after === undefined || Date.parse(event.time) >= after)
   )
 
+  // The run shown goes second, after the folder, where people reading --json find it.
+  const head: Pick<LogsResult, "folder" | "session"> = { folder }
+
+  if (shown) {
+    head.session = shown
+  }
+
   return {
-    folder,
-    ...(shown ? { session: shown } : {}),
+    ...head,
     events: events.slice(-limit),
     total: events.length,
     truncated: events.length > limit,

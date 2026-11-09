@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Read the file being replaced as libgen's Live type",
+  "comment": "Bring packages/telemetry up to Buildkit's lint rules",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

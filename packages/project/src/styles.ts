@@ -98,9 +98,11 @@ export async function stylesWith(root: string, shadcn: ShadcnConfig | undefined,
  * or Sass. CSS modules (`.module.css`) are scoped to the component that imports them, so they aren't global styles.
  */
 export function stylesheetImports(source: string): string[] {
-  return [...source.matchAll(/\bimport\s+(?:[\w$*{}\s,]+?\s+from\s+)?["']([^"'?]+\.s?css)["']/g)]
+  return source
+    .matchAll(/\bimport\s+(?:[\w$*{}\s,]+?\s+from\s+)?["']([^"'?]+\.s?css)["']/g)
     .map((match) => match[1]!)
     .filter((specifier) => !/\.module\.s?css$/.test(specifier))
+    .toArray()
 }
 
 /**

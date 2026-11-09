@@ -7,8 +7,13 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
 const key = "sk-proj-par756FakeKeyAbCdEfGhIjKlMnOp0123"
 
+/** What a started Sentry has sent, as JSON, once it's flushed. */
+interface StartedSentry {
+  sent(): Promise<string>
+}
+
 /** Starts Sentry as a Parity process does, with tracing on, and gives back what it sends, as JSON. */
-function startSentry(): { sent: () => Promise<string> } {
+function startSentry(): StartedSentry {
   const envelopes: unknown[] = []
   Sentry.init({
     dsn: "https://public@sentry.example.com/1",

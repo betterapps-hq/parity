@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Read image extensions through the editor's imageExtension (PAR-734)",
+  "comment": "Bring packages/channel up to Buildkit's lint rules",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

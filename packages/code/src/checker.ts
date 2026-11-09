@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto"
 import { basename, dirname, join, relative } from "node:path"
-import type { ComponentEvidence } from "@parity-app/core"
+import type { ComponentEvidence, ComponentSample } from "@parity-app/core"
 import ts from "typescript"
+import { hasFlag } from "./flags.ts"
 
 /** A component the type checker found, and why it counts as one. */
 export interface FoundComponent {
@@ -25,8 +26,14 @@ export interface FoundComponent {
   /** A hash of what it was found as and its own props: a change in either changes it. */
   fingerprint: string
   /** Values for the props it can't render without, where the type says what one looks like. */
-  samples: Record<string, unknown>
+  samples: SampleProps
 }
+
+/** Sample props, as core keeps a component's sample. */
+export type SampleProps = NonNullable<ComponentSample["props"]>
+
+/** A sample value for one prop: text, a number, `true` or an empty list. */
+type SampleValue = string | number | boolean | never[]
 
 export interface ComponentReport {
   components: FoundComponent[]
@@ -122,7 +129,7 @@ export function findComponents(scan: ComponentScan): ComponentReport {
   const visit = (name: string, symbol: ts.Symbol, from: { entry: string; export: string }, namespace?: string) => {
     const short = name.slice(name.lastIndexOf(".") + 1)
 
-    if (!/^[A-Z]/.test(short) || !(symbol.flags & ts.SymbolFlags.Value)) {
+    if (!/^[A-Z]/.test(short) || !hasFlag(symbol.flags, ts.SymbolFlags.Value)) {
       return
     }
 
@@ -139,7 +146,7 @@ export function findComponents(scan: ComponentScan): ComponentReport {
       verdict = judge(checker, type, node)
 
       // Icon sets give thousands of exports one shared type; judging it once keeps them fast.
-      if (!(type.flags & ts.TypeFlags.Any)) {
+      if (!hasFlag(type.flags, ts.TypeFlags.Any)) {
         verdicts.set(type, verdict)
       }
     }
@@ -210,7 +217,7 @@ export function findComponents(scan: ComponentScan): ComponentReport {
     }
 
     for (const exported of checker.getExportsOfModule(moduleSymbol)) {
-      const target = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported
+      const target = hasFlag(exported.flags, ts.SymbolFlags.Alias) ? checker.getAliasedSymbol(exported) : exported
       let name = exported.name
 
       if (name === "default") {
@@ -227,7 +234,7 @@ export function findComponents(scan: ComponentScan): ComponentReport {
         }
 
         for (const member of checker.getExportsOfModule(target)) {
-          const resolved = member.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(member) : member
+          const resolved = hasFlag(member.flags, ts.SymbolFlags.Alias) ? checker.getAliasedSymbol(member) : member
           visit(`${name}.${member.name}`, resolved, { entry, export: `${exported.name}.${member.name}` }, name)
         }
       } else {
@@ -261,13 +268,16 @@ export function findComponents(scan: ComponentScan): ComponentReport {
   return report
 }
 
-type Verdict =
-  | { as: ComponentEvidence; requiredProps: string[]; props?: ts.Type }
-  | { ambiguous: string }
-  | { not: string }
+/** What a component takes: the props it can't render without, and its props type when it has one. */
+interface PropsOf {
+  requiredProps: string[]
+  props?: ts.Type
+}
+
+type Verdict = ({ as: ComponentEvidence } & PropsOf) | { ambiguous: string } | { not: string }
 
 function judge(checker: ts.TypeChecker, type: ts.Type, node: ts.Type | undefined): Verdict {
-  if (type.flags & ts.TypeFlags.Any) {
+  if (hasFlag(type.flags, ts.TypeFlags.Any)) {
     return { ambiguous: "its type is any, so it can't be told apart from a helper" }
   }
 
@@ -334,7 +344,7 @@ function judge(checker: ts.TypeChecker, type: ts.Type, node: ts.Type | undefined
 
     const returned = signature.getReturnType()
 
-    if (returned.flags & ts.TypeFlags.Any) {
+    if (hasFlag(returned.flags, ts.TypeFlags.Any)) {
       return { ambiguous: "returns any, so whether React can render it isn't known" }
     }
 
@@ -357,10 +367,7 @@ function judge(checker: ts.TypeChecker, type: ts.Type, node: ts.Type | undefined
   return { as: "function", ...propsOf(checker, calls[0]) }
 }
 
-function propsOf(
-  checker: ts.TypeChecker,
-  signature: ts.Signature | undefined
-): { requiredProps: string[]; props?: ts.Type } {
+function propsOf(checker: ts.TypeChecker, signature: ts.Signature | undefined): PropsOf {
   const first = signature?.getParameters()[0]
 
   if (!first) {
@@ -373,18 +380,17 @@ function propsOf(
 }
 
 function required(checker: ts.TypeChecker, type: ts.Type): string[] {
-  if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown)) {
+  if (hasFlag(type.flags, ts.TypeFlags.Any, ts.TypeFlags.Unknown)) {
     return []
   }
 
-  // A union of prop shapes (one per variant) needs only what every shape needs.
-  const shapes = type.isUnion() ? type.types : [type]
+  // A union of props types (one per variant) needs only what every variant needs.
+  const variants = type.isUnion() ? type.types : [type]
 
-  const per = shapes.map((shape) =>
+  const per = variants.map((variant) =>
     checker
-      .getPropertiesOfType(shape)
-      .filter((property) => !(property.flags & ts.SymbolFlags.Optional))
-      .map((property) => property.name)
+      .getPropertiesOfType(variant)
+      .flatMap((property) => (hasFlag(property.flags, ts.SymbolFlags.Optional) ? [] : [property.name]))
   )
 
   return per.reduce((all, names) => all.filter((name) => names.includes(name)))
@@ -400,26 +406,28 @@ function isRequired(parameter: ts.Symbol): boolean {
   return !declaration.questionToken && !declaration.initializer && !declaration.dotDotDotToken
 }
 
-const primitive =
-  ts.TypeFlags.StringLike |
-  ts.TypeFlags.NumberLike |
-  ts.TypeFlags.BooleanLike |
-  ts.TypeFlags.BigIntLike |
-  ts.TypeFlags.ESSymbolLike |
-  ts.TypeFlags.Undefined |
-  ts.TypeFlags.Null |
+const primitive = [
+  ts.TypeFlags.StringLike,
+  ts.TypeFlags.NumberLike,
+  ts.TypeFlags.BooleanLike,
+  ts.TypeFlags.BigIntLike,
+  ts.TypeFlags.ESSymbolLike,
+  ts.TypeFlags.Undefined,
+  ts.TypeFlags.Null,
   ts.TypeFlags.Void
+]
 
 function isPrimitive(type: ts.Type): boolean {
   const parts = type.isUnion() ? type.types : [type]
 
-  return parts.every((part) => (part.flags & primitive) !== 0)
+  return parts.every((part) => hasFlag(part.flags, ...primitive))
 }
 
 function isNamespace(symbol: ts.Symbol): boolean {
-  const valueKinds = ts.SymbolFlags.Function | ts.SymbolFlags.Variable | ts.SymbolFlags.Class
-
-  return (symbol.flags & ts.SymbolFlags.ValueModule) !== 0 && (symbol.flags & valueKinds) === 0
+  return (
+    hasFlag(symbol.flags, ts.SymbolFlags.ValueModule) &&
+    !hasFlag(symbol.flags, ts.SymbolFlags.Function, ts.SymbolFlags.Variable, ts.SymbolFlags.Class)
+  )
 }
 
 function reactNodeType(checker: ts.TypeChecker, probe: ts.SourceFile | undefined): ts.Type | undefined {
@@ -433,7 +441,7 @@ function reactNodeType(checker: ts.TypeChecker, probe: ts.SourceFile | undefined
   const type = checker.getDeclaredTypeOfSymbol(alias)
 
   // Without React's types the alias is an error type, which is any.
-  return type.flags & ts.TypeFlags.Any ? undefined : type
+  return hasFlag(type.flags, ts.TypeFlags.Any) ? undefined : type
 }
 
 /**
@@ -528,7 +536,7 @@ function ownProps(checker: ts.TypeChecker, type: ts.Type): Record<string, string
     }
 
     const written = checker.typeToString(checker.getTypeOfSymbol(property), undefined, ts.TypeFormatFlags.NoTruncation)
-    const optional = property.flags & ts.SymbolFlags.Optional ? "?" : ""
+    const optional = hasFlag(property.flags, ts.SymbolFlags.Optional) ? "?" : ""
     props[`${property.name}${optional}`] = hash(written).slice(0, 6)
   }
 
@@ -539,8 +547,8 @@ function ownProps(checker: ts.TypeChecker, type: ts.Type): Record<string, string
  * Sample values for required props, from their types: the first of a set of strings, a word for a string or a
  * node, a number, `true`, or an empty list. A function or an object is left out, since a sample can't say what it does.
  */
-function samplesFor(checker: ts.TypeChecker, type: ts.Type, required: string[]): Record<string, unknown> {
-  const samples: Record<string, unknown> = {}
+function samplesFor(checker: ts.TypeChecker, type: ts.Type, required: string[]): SampleProps {
+  const samples: [string, SampleValue][] = []
 
   for (const name of required) {
     const property = type.getProperty(name)
@@ -552,14 +560,14 @@ function samplesFor(checker: ts.TypeChecker, type: ts.Type, required: string[]):
     const value = sampleOf(checker, checker.getNonNullableType(checker.getTypeOfSymbol(property)), name)
 
     if (value !== undefined) {
-      samples[name] = value
+      samples.push([name, value])
     }
   }
 
-  return samples
+  return Object.fromEntries(samples)
 }
 
-function sampleOf(checker: ts.TypeChecker, type: ts.Type, name: string): unknown {
+function sampleOf(checker: ts.TypeChecker, type: ts.Type, name: string): SampleValue | undefined {
   const parts = type.isUnion() ? type.types : [type]
   const literal = parts.find((part) => part.isStringLiteral())
 
@@ -567,15 +575,15 @@ function sampleOf(checker: ts.TypeChecker, type: ts.Type, name: string): unknown
     return literal.value
   }
 
-  if (parts.some((part) => part.flags & ts.TypeFlags.String)) {
+  if (parts.some((part) => hasFlag(part.flags, ts.TypeFlags.String))) {
     return /src|href|url/i.test(name) ? "#" : "Text"
   }
 
-  if (parts.some((part) => part.flags & ts.TypeFlags.Number)) {
+  if (parts.some((part) => hasFlag(part.flags, ts.TypeFlags.Number))) {
     return 1
   }
 
-  if (parts.some((part) => part.flags & ts.TypeFlags.BooleanLike)) {
+  if (parts.some((part) => hasFlag(part.flags, ts.TypeFlags.BooleanLike))) {
     return true
   }
 

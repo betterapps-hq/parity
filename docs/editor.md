@@ -3865,8 +3865,11 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   out with the cache.
 - **A frame not yet captured this session asks for a kept one first,** and shows it as soon as it's read. Only when
   there's none is it captured, after what's left of the 1-second wait; frames showing the same bitmap share one read,
-  and a capture that landed meanwhile wins. Every capture that rendered is kept, written beside its name and renamed so
-  a reader never finds half a file. A frame that didn't render isn't kept.
+  and a capture that landed meanwhile wins. The frames asking in the same task, as a canvas mounting asks for all of
+  them, go in one `frames.stored` request, their jobs as JSON text, which crosses the preload bridge and the port as one
+  copy (PAR-759). A warm reopen of the example project spent 196 to 250 ms of the window's thread sending 119 requests
+  before its first frame, and spends 37 to 59 ms sending one. Every capture that rendered is kept, written beside its
+  name and renamed so a reader never finds half a file. A frame that didn't render isn't kept.
 - **Four frames are captured at once (PAR-523),** each in an offscreen window of its own, so each is drawn, measured and
   captured exactly as it was when one window took them one at a time. The canvas asks for as many captures at once as
   there are windows (`offscreenWindows`, in `turns`), so an agent's render or export waits for at most the four under
@@ -3910,10 +3913,11 @@ crop covering its box, and boxes and heights measured back in CSS pixels). `pack
 text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
 images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
 the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
-`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (4: a kept bitmap stands in for its key, with its height, so no
-capture is asked for, frames with the same key share a read, none when none was kept, and a capture taken during the
-read wins). Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test
-of their own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
+`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (6: a kept bitmap stands in for its key, with its height, so no
+capture is asked for, frames with the same key share a read, frames asking together share one request and each gets its
+own bitmap, none when the service couldn't say, none when none was kept, and a capture taken during the read wins).
+Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test of their
+own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
 `examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
 shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
 millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
@@ -4123,15 +4127,22 @@ was tried in a debug copy on `examples/shadcn-vite`: zooming in steadily from th
 board, the board was still blurry 8 seconds after the camera stopped; with the redraw, it was sharp once the zoom
 settled. Its cost wasn't timed, as the copy's window was minimized; it's one paint of the layer for each zoom.
 
-### Titles and labels zoomed far out (PAR-151, PAR-155)
+### Titles and labels zoomed far out (PAR-151, PAR-155, PAR-787)
 
 A board's labels are its design's title above it, the state labels beside its rows when it shows every state, and the
 captions naming each frame's mode. Up close they keep their screen size. Past 40% they shrink with the canvas, so they
 stay beside what they label instead of growing over the boards around it.
 
-- **Titles and state labels are names, so they stay.** They shrink to 60% of their screen size and no smaller. A title
-  is as wide on screen as its board: a long name truncates, and the design's icon is clipped with it, so nothing runs
-  past the board's edge.
+- **Titles and state labels are names, so they stay.** They shrink to 60% of their screen size and no smaller. Up close,
+  a title is as wide on screen as its board, so its controls sit at the board's right edge, and a long name truncates
+  there.
+- **Zoomed out, a title runs into the free canvas beside its board (PAR-787).** Once a board is too narrow on screen for
+  the title's controls (352 pixels at the title's drawn size), its name may run past the board's right edge, up to 8
+  screen pixels short of the next thing on the page whose top or title is level with it: a board, a frame or a note.
+  With nothing level to its right, it's as wide as the controls would need. It's never narrower than the board, and the
+  controls stay hidden while it runs past. So a narrow component's name reads in full instead of as "A…", where the
+  canvas beside it is empty. What's level depends on the zoom, since a title is the same height on screen and so covers
+  more of the canvas further out. The title follows as things beside it move, without its board drawing again.
 - **Captions are detail, and go first.** They shrink as titles do, but fade as they shrink and are gone by 25%.
 - **Too small to read, a label hides.** Once a board is narrower than 24 screen pixels, its title hides, and its state
   labels with it. A caption hides once its frame is that narrow. So at 1% a board 2,400 pixels wide or more keeps its
@@ -4147,16 +4158,23 @@ stay beside what they label instead of growing over the boards around it.
 Code: `labelLook` in `packages/editor/src/canvas-labels.ts`, the rule for every label; `useCanvasLabel` in
 `apps/desktop/src/renderer/canvas/labels.ts`, which applies it to a label's style as the zoom changes; `TitleBar`,
 `StateLabel` and `FrameCaption` in `canvas/ContainerView.tsx`, which pass each the board's or the frame's width, and a
-state's label the space beside its row (`useLabelSpace`, from `stateLabelSpace` in the package).
+state's label the space beside its row (`useLabelSpace`, from `stateLabelSpace` in the package). How far a title runs is
+`titleReach` in the package, applied by `useTitleReach` in `ContainerView.tsx`, with what else is on the page read from
+the canvas in `ContainerShapeUtil.tsx`.
 
-Tests: `packages/editor/src/canvas-labels.test.ts` (8: every label at screen size up close; names shrinking to 60% and
-showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by 25%; a label hiding
-once what it labels is under 24 screen pixels, and showing again closer in; a narrow board's detail hiding with its
-title at 30%, where it would otherwise still show; a state's label shrinking as a title does beside a tall row; its
-space measured from its top to the next row's label; and hiding without that space on screen, or on a board too narrow
-for its title). Gaps: applying the look to the DOM (the transform, the width it fits, the clipped icon and the row's
-measured height) has no automated test. It was checked in Storybook on the example's boards at 100%, 25%, 5% and 1%, and
-for PAR-155 on a row of component boards showing every state.
+Tests: `packages/editor/src/canvas-labels.test.ts` (14. `labelLook`, 8: every label at screen size up close; names
+shrinking to 60% and showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by
+25%; a label hiding once what it labels is under 24 screen pixels, and showing again closer in; a narrow board's detail
+hiding with its title at 30%, where it would otherwise still show; a state's label shrinking as a title does beside a
+tall row; its space measured from its top to the next row's label; and hiding without that space on screen, or on a
+board too narrow for its title. `titleReach`, 6: to the next board level with it, short of 8 screen pixels; the nearest
+of several; a board lower down whose title is level; boards to its left, above or below ignored; never narrower than the
+board; and the band of the canvas a title covers growing further out). Gaps: applying the look to the DOM (the
+transform, the width it fits, the clipped icon and the row's measured height) has no automated test. It was checked in
+Storybook on the example's boards at 100%, 25%, 5% and 1%, and for PAR-155 on a row of component boards showing every
+state. For PAR-787 it was checked in Storybook's zoomed-out boards at 4% and 10%: screen names and "Plan card" and "Stat
+card" read in full, and a name with a board close beside it still truncates. A title running past its board can still
+cross a state label beside the next board's rows; that has no test.
 
 ### A board's gutter keeps its screen size up close (PAR-602)
 
@@ -4544,6 +4562,46 @@ change; only an owner's latest measure; one taken back left out, but not one ask
 what had nothing to measure; measures asked for while writing run in a batch of their own). Gaps: the board's measure
 itself has no automated test; it was checked by counting layouts in a trace of the reopen, and by finding all 61 boards'
 shapes the size of their elements after the reopen and again at 50%.
+
+### A design's title mounts its menus once it's used (PAR-760)
+
+Every design's title has a context menu and a hint, and a board's has its state and modes menus and, with variants, its
+variant menu. None is open as a project opens, but mounting them on all 61 of the example's boards took about 0.12 s of
+the task before the first frame. A title now draws its name as a plain button, and its menus and hint mount the first
+time it's used: the pointer enters it, it takes focus or it's right-clicked, or its design is hovered or selected. After
+that they stay mounted, so a menu open as the pointer leaves stays open.
+
+- **Nothing changes for whoever uses it.** The pointer enters a title before it presses or right-clicks there, and the
+  menus mount at once, before the next event, so the right-click finds them. Keyboard focus reaches only the selected
+  design's title and menus, which are mounted by then. The button's role, name and tab order are the same before and
+  after, and its menus are hidden until the design is hovered or selected, so a screen reader finds the same controls.
+- **What comes first is handed on.** Mounting the menu swaps the button for the menu's trigger, a new element. A focus
+  that arrives first, as a screen reader's might, moves to the new button, and a right-click that arrives with no
+  pointer over the title first, as a long press might, is sent again to whatever is now at that point.
+
+| Reopened in the same window, tab ready to first frame | Before         | After          |
+| ----------------------------------------------------- | -------------- | -------------- |
+| Time in the Base UI kit, first round                  | 105 to 161 ms  | 68 to 121 ms   |
+| Time in the Base UI kit, second round                 | 223 to 255 ms  | 51 to 95 ms    |
+| Tab ready to first frame, first round                 | 0.49 to 0.89 s | 0.78 to 1.31 s |
+| Tab ready to first frame, second round                | 1.16 to 1.45 s | 0.78 to 1.07 s |
+
+Five reopens each, in the order before, after, before, after, each round in a fresh `pnpm perf --open-only --keep` copy
+on React's production build, profiled from the tab being ready to its first frame. Other sessions were using the
+machine, more so after the first round: the first after round's reopens were slower all through, the time before the tab
+was ready included, so its time to the first frame says more about the machine than the change. The kit's share is what
+the change moves, and it fell by more than half in every round. What's left of it is the rest of the window's Base UI
+parts, the state labels' hints on boards showing every state among them.
+
+Code: `useMountOnUse` in `apps/desktop/src/renderer/canvas/mount-on-use.tsx`, and `TitleBar`, `TitleButton` and
+`TitleControls` in `canvas/ContainerView.tsx`.
+
+Tests: `apps/desktop/src/renderer/canvas/mount-on-use.test.ts` (5, in Chrome: nothing mounted until used; the pointer
+entering mounts the menus, and a right-click then opens the context menu; a right-click with no pointer move first still
+opens it; focus stays on what was focused, and Enter opens a menu; mounted at once when ready, and kept once used). The
+keyboard's way through a title is in "Tab from a design's title". Gaps: the board's own title isn't in a unit test.
+Every board menu was opened by mouse and keyboard in `pnpm dev` on the example, and a frame's title menu in the Frames
+story.
 
 ### Reopening loads the project afresh (PAR-195, PAR-422, PAR-433)
 
@@ -5486,16 +5544,18 @@ Several copies of Parity can run at once, each with its own projects open, and e
 that has its project. Each copy writes an entry to `~/.parity/agents` as its service starts and main removes it as the
 copy quits. A call that finds an entry for a copy that isn't running removes it if it can; one it can't remove, as when
 another call is removing it at the same moment, doesn't fail the call (PAR-764). The CLI asks each copy for its tabs and
-when its window last had focus, chooses the copy and tab by the rules in `packages/agent/src/routing.ts`, and sends that
-exact tab. `--tab` takes an id, folder or name; `--tab active` is the active tab of the copy focused last; without
-`--tab`, a call goes to the open project the working folder is in, else to `active`. A project open in two copies goes
-to the one running longest. `parity tabs` lists every copy's projects once. `PARITY_AGENT_FILE` keeps a copy apart,
-reachable only through that file.
+when its window last had focus, giving up on one that hasn't answered after 5 seconds of the CLI being free to wait, so
+a CLI starved on a busy machine still reads a copy that answered (PAR-766). It then chooses the copy and tab by the
+rules in `packages/agent/src/routing.ts`, and sends that exact tab. `--tab` takes an id, folder or name; `--tab active`
+is the active tab of the copy focused last; without `--tab`, a call goes to the open project the working folder is in,
+else to `active`. A project open in two copies goes to the one running longest. `parity tabs` lists every copy's
+projects once. `PARITY_AGENT_FILE` keeps a copy apart, reachable only through that file.
 
 Implementation: `packages/agent/src/routing.ts` (the rules, data in and out, also the app's tab matching in
 `renderer/agent/handlers.ts`), `packages/agent/src/registry.ts` (entries, for the app and the CLI),
 `apps/desktop/src/utility/agent.ts` (writes the entry, answers `copy`), `apps/desktop/src/main/index.ts` (removes it),
-`packages/cli/src/client.ts` (routes each call) and `operations.ts` (each operation's routing, from its fields).
+`packages/cli/src/client.ts` (routes each call), `wait.ts` (the limit on asking a copy) and `operations.ts` (each
+operation's routing, from its fields).
 
 Tests: `packages/agent/src/routing.test.ts` (two copies with different projects, the same project in both, `active` by
 focus, the working folder, nested projects, Windows case and slashes, nothing open or running),
@@ -5503,7 +5563,8 @@ focus, the working folder, nested projects, Windows case and slashes, nothing op
 file before the registry; a copy kept apart), and `packages/cli/src/copies.test.ts` (the real CLI and MCP server against
 two fake copies: routing, `active`, the merged list, an unknown tab, a stale entry removed, each operation's routing,
 and MCP tools routed and answering exactly as the CLI's commands do, since both run the same operations through the same
-`call`).
+`call`), and `packages/cli/src/wait.test.ts` (an answer read after the CLI was blocked past the limit; a copy that never
+answers given up on).
 
 Checked with two dev copies sharing a registry, one with `examples/shadcn-vite` and one with a copy of it: `parity tabs`
 listed both; `state` reached each by folder (in any case and slashes) and from inside each project's folder; `exec` ran

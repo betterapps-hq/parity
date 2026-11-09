@@ -1,8 +1,28 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 04:17:56 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 06:57:27 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.40.5
+
+Mon, 09 Nov 2026 06:57:27 GMT
+
+### Patches
+
+- Ask for a project's kept frame bitmaps in one request, as JSON text, so reopening a project spends less of the
+  window's time before its first frame (ajcraswell@gmail.com)
+- Open projects sooner: a design's title mounts its menus and hint only once it's hovered, focused, right-clicked or
+  selected (ajcraswell@gmail.com)
+
+## 0.40.4
+
+Mon, 09 Nov 2026 05:37:21 GMT
+
+### Patches
+
+- Brings the desktop app's chrome folder up to Buildkit's lint rules, and names tldraw shape IDs canvasIdFor and a
+  process's server-or-task field lifetime (ajcraswell@gmail.com)
 
 ## 0.40.3
 

@@ -5785,8 +5785,9 @@ window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `
 - **What it costs:** the editor window's bundle grows by 153 kB (49 kB gzipped); `render.js` doesn't change. On the
   example project, a minute of selecting after opening left the JS heap within 0 to 6 MB of the 110 MB it holds with
   telemetry off, after garbage collection, over two runs each. With the project open, the page held about 27,600 DOM
-  nodes against 6,700, which closing it gives back. PAR-683 watches that over longer sessions. `pnpm perf` couldn't give
-  its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
+  nodes against 6,700, which closing it gives back. PAR-683 found that level over an hour and the gap to be attributes,
+  not removed nodes; see "Session Replay's memory stays level over an hour" below. `pnpm perf` couldn't give its
+  numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
 - **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. PAR-679 has since
   scrubbed them; see "Replays are scrubbed as they're recorded" below.
 
@@ -6398,6 +6399,23 @@ preload bridge and then the port), the Base UI parts each board's title mounts (
 - **The rest are issues of their own:** PAR-758 for Session Replay, PAR-759 for the kept bitmaps' requests and PAR-760
   for the boards' title controls. Drawing the boards and frames themselves is left as it is.
 
+## Kept bitmaps are asked for together, as JSON text (PAR-759)
+
+Called on 2026-11-08. Reopening the example project (119 frames) sent 119 `frames.stored` requests as its canvas
+mounted, each with its frame's render job, and copying them across the preload bridge and onto the port took 196 to 250
+ms of the window's thread before the first frame. My calls:
+
+- **The frames a canvas mounts ask in one request.** `askStored` in `canvas/frame-bitmaps.ts` gathers the jobs asked for
+  in a task and sends them once it's done, and the service answers each job's bitmap in order. Alone, this cut the cost
+  to 159 to 184 ms: the bridge and the port copy the theme the jobs share once, but the trees, 94 different ones
+  totalling 2.5 MB as JSON, were still copied object by object.
+- **The jobs go as JSON text.** Text crosses the bridge and the port as one copy: stringifying the batch and sending it
+  takes 37 to 59 ms in all. The service reads it with `storedJobs`, the render job's own check under `jsonText`, so a
+  page sending anything else is refused as before. Sending only what the disk name needs wasn't simpler, since the name
+  takes nearly all of the job, the theme and tree included.
+- **Other requests keep their objects.** `frames.capture` sends one job at a time, and `previews.lookup` waits until the
+  canvas's bitmaps are in, so neither was in the profile.
+
 ## Replays are scrubbed as they're recorded (PAR-679)
 
 Session Replay recordings lose the same secrets as every other event, `.env` values included, through the editor
@@ -6554,3 +6572,64 @@ after it to add tags or attachments. My calls:
 - **One hook, in the package, with the SDK passed in.** `@parity-app/telemetry` still never imports Sentry, so each
   process passes its own module, whose `withStaticSpan` marks the span hook. The CLI's tests check it against the real
   SDK: a span holding a key leaves scrubbed, and Sentry starts without the warning.
+
+## Session Replay's memory stays level over an hour (PAR-683)
+
+The editor window held about 28,000 DOM nodes with Replay recording against 6,700 with diagnostics off, which looked
+like the recorder keeping nodes the canvas had removed. It isn't: over an hour the count doesn't grow, and the gap is
+the attributes of elements still on the page. Nothing in `renderer/replay.ts` changed. My calls:
+
+- **Measured with `pnpm perf --soak 60`,** a mode added for this: on the example project, round after round of zooming
+  the whole project in and out, waking every board at 100% so its frames mount and the rest go to sleep, then selecting
+  and editing 20 designs, reading the window after each round once garbage is collected. `PARITY_TELEMETRY` chose the
+  level; both copies ran side by side on 2026-11-09, 92 and 93 rounds.
+
+  | Replay | DOM nodes, rounds 5 to the end | JS heap, round 5 → the end | Window's private memory, rounds 5 to the end |
+  | ------ | ------------------------------ | -------------------------- | -------------------------------------------- |
+  | All    | 27,398 to 27,605               | 121 → 126 MB               | 451 to 531 MB                                |
+  | Off    | 6,763 to 6,779                 | 116 → 118 MB               | 415 to 504 MB                                |
+
+  Both settle after the first round and stay there. The heap creeps by a few megabytes an hour either way, and private
+  memory wanders within about the same band for both.
+
+- **Replay was recording all the while.** It pauses after five minutes without a click or a key, and the soak works
+  through the editor, so each round presses Shift and each reading asks Replay's recorder whether it's paused: all 93
+  were recording. A first run without the key press, as the OpenAI review pointed out, may have measured a recorder
+  paused for most of the hour; its numbers matched these.
+- **The extra 21,000 nodes are `Attr` objects.** Chromium makes one for an element's attribute the first time a script
+  reads `element.attributes`, keeps it while the element lives, and counts it as a node. The recorder reads every
+  attribute as it snapshots the page. With Replay on, the window had 6,136 nodes in its tree and 93 detached ones, and
+  its 20,195 attributes made up the rest; reading every attribute again added 119. With Replay off, reading them took
+  the count from 6,167 to 26,362. So the count follows the page that's showing, not the session's length.
+- **No `block` or `ignore` selectors for sleeping frames.** Frames are already blocked and their shadow roots hidden
+  from the recorder (PAR-624), and there's no growth left for more selectors to stop.
+- **Sentry's own limits bound the rest.** A replay ends after an hour, or 15 minutes idle, and the next one starts from
+  a fresh snapshot, so nothing the recorder keeps outlives that.
+
+## On-call watches four dashboards, and only production alerts (PAR-716)
+
+You approved [proposals/on-call-health.md](proposals/on-call-health.md) on 2026-11-09, which sets out what on-call
+watches across every process and surface. The dashboards are linked in [sentry.md](sentry.md#dashboards). Your calls and
+mine:
+
+- **Four dashboards, one question each,** rather than PAR-643's one: Parity (is anything wrong now?), Parity performance
+  (is anything slow?), Parity workflows (which step is failing?) and Parity releases and telemetry (is the latest build
+  healthy, and is the data coming in?). The first stays on one screen, and each of the others is where its numbers lead.
+  PAR-727's time to first frame is on Parity performance, so it closes with this.
+- **Only `production` alerts.** Development is agents' and your own drives, CI fails on purpose, and installed builds
+  are testers', so none of them should file a monitor bug. No monitor is on until a public build sends `production`
+  (PAR-779), and "Agent calls failing over 5%" is off until then. The issue alerts for new issues, regressions and
+  feedback still file from every environment.
+- **CI sends errors and reports only (PAR-777).** It sent 90% of last week's spans, which no plan's quota covers. The
+  end-to-end suite reads the local copy, so its checks don't need Sentry.
+- **`tester` splits into `preview` and `release` (PAR-778),** so a preview installer's bugs don't read as the published
+  app's.
+- **Every dashboard covers all projects.** `admin@betterapps.io` isn't a member of the `parity` team, and Sentry refuses
+  a dashboard that names projects its maker can't open. Only Parity's projects are in `better-apps`, so all of them is
+  the same set, and the web, dashboard and API projects join when they send.
+- **Made through Sentry's API from a signed-in browser,** not by hand in the UI: the same calls the UI makes, so the
+  widgets match the spec exactly and were checked against live data as they were made. Two planned widgets were left
+  out, since Sentry can't read what they need: the bitmap cache's hit rate (PAR-772) and a count of scrubbed secrets.
+- **Signals not sent yet are their own issues,** PAR-771 to PAR-776: service restarts and hang lengths, memory and the
+  cache as numbers, export times, a check that releases have their maps and commits, and the CLI's dropped batches. A
+  scrubbing canary in CI (PAR-775) was proposed too, and you dropped it.

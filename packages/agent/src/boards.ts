@@ -89,14 +89,17 @@ export function boardOverlaps(boards: readonly Board[], only?: string): Overlap[
       }
 
       const collide = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 0
-      found.push({
-        designs: [a.id, b.id],
-        names: [a.name, b.name],
-        width,
-        height,
-        ...(collide ? {} : { titleOnly: true as const }),
-        ...(a.estimated || b.estimated ? { estimated: true as const } : {})
-      })
+      const overlap: Overlap = { designs: [a.id, b.id], names: [a.name, b.name], width, height }
+
+      if (!collide) {
+        overlap.titleOnly = true
+      }
+
+      if (a.estimated || b.estimated) {
+        overlap.estimated = true
+      }
+
+      found.push(overlap)
     }
   }
 
@@ -115,6 +118,7 @@ export function overlapWarnings(boards: readonly Board[], touched: ReadonlySet<s
   const near = found.filter(({ designs }) => designs.some((id) => ids.has(id)))
 
   const warnings: Warning[] = near.map(({ designs, names, width, height, titleOnly }) => {
+    // SAFETY: an overlap names a pair of designs, so mapping them gives two labels.
     const [a, b] = designs.map((id, index) => `${names[index]} (${id})`) as [string, string]
     const guessed = names.filter((_, index) => !drawn.get(designs[index]))
 
@@ -153,15 +157,17 @@ export function overlapWarnings(boards: readonly Board[], touched: ReadonlySet<s
   return warnings
 }
 
+/** A point on the canvas, in canvas units. */
+export interface CanvasPoint {
+  x: number
+  y: number
+}
+
 /**
  * Where a board of the given size fits clear of the others: right of or below them all, or of the boards level with
  * `anchor` (the board `options.near` names) when there is one, `padding` away.
  */
-export function emptySpace(
-  boards: readonly Board[],
-  options: Omit<SpaceOptions, "near">,
-  anchor?: Board
-): { x: number; y: number } {
+export function emptySpace(boards: readonly Board[], options: Omit<SpaceOptions, "near">, anchor?: Board): CanvasPoint {
   const padding = options.padding ?? 240
 
   if (boards.length === 0) {
@@ -176,7 +182,7 @@ export function emptySpace(
         x: anchor.x,
         y:
           Math.max(
-            ...boards.filter((box) => spans(box.x, box.width, anchor.x, options.width)).map((box) => box.y + box.height)
+            ...boards.flatMap((box) => (spans(box.x, box.width, anchor.x, options.width) ? [box.y + box.height] : []))
           ) + padding
       }
     }
@@ -184,7 +190,7 @@ export function emptySpace(
     return {
       x:
         Math.max(
-          ...boards.filter((box) => spans(box.y, box.height, anchor.y, options.height)).map((box) => box.x + box.width)
+          ...boards.flatMap((box) => (spans(box.y, box.height, anchor.y, options.height) ? [box.x + box.width] : []))
         ) + padding,
       y: anchor.y
     }

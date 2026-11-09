@@ -200,6 +200,11 @@ Storybook or the CLI.
 - **While a project's canvas mounts, the page isn't recorded,** from the tab being ready until its first frame shows, or
   5 seconds at most. The replay keeps the page as it was before, then a snapshot of the canvas once the frame shows, in
   the same replay. Clicks and requests are still recorded meanwhile.
+- **Recording doesn't grow the window's memory over a session.** Over an hour of zooming, selecting and editing, the JS
+  heap and the window's private memory stayed level with Replay on, as with it off. The page counts about 21,000 more
+  DOM nodes while recording: one for each attribute of each element the recorder reads, which go with their elements.
+  `pnpm perf --soak <minutes>` measures it again; see "Session Replay's memory stays level over an hour" in
+  [decisions.md](decisions.md).
 
 A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
 shadow roots: it kept every one it saw, and with a frame's the closed project's canvas. The offscreen windows that draw
@@ -473,14 +478,14 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `bitmapCache.used`
 
-| Attribute          | Type      | Meaning                                                           |
-| ------------------ | --------- | ----------------------------------------------------------------- |
-| `frames.hits`      | `integer` | Frame bitmaps found kept for the code they draw                   |
-| `frames.misses`    | `integer` | Frame bitmaps looked for and not kept for the code they draw      |
-| `frames.hitRate`   | `number`  | The share of lookups found, from 0 to 1                           |
-| `previews.hits`    | `integer` | Component previews found kept for the code they draw              |
-| `previews.misses`  | `integer` | Component previews looked for and not kept for the code they draw |
-| `previews.hitRate` | `number`  | The share of lookups found, from 0 to 1                           |
+| Attribute        | Type      | Meaning                                                                                 |
+| ---------------- | --------- | --------------------------------------------------------------------------------------- |
+| `frameHits`      | `integer` | Frame bitmaps found kept on disk for the code they draw, this session                   |
+| `frameMisses`    | `integer` | Frame bitmaps looked for on disk and not kept for the code they draw, this session      |
+| `frameHitRate`   | `number`  | The share of frame bitmap lookups found this session, from 0 to 1                       |
+| `previewHits`    | `integer` | Component previews found kept on disk for the code they draw, this session              |
+| `previewMisses`  | `integer` | Component previews looked for on disk and not kept for the code they draw, this session |
+| `previewHitRate` | `number`  | The share of component preview lookups found this session, from 0 to 1                  |
 
 ### `builder.crashed`
 
@@ -641,25 +646,27 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `export.done`
 
-| Attribute | Type                    | Meaning                                                          |
-| --------- | ----------------------- | ---------------------------------------------------------------- |
-| `kind`    | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images |
-| `formats` | `("png" \| "jpg")[]`    | The formats written                                              |
-| `scales`  | `number[]`              | The scales written                                               |
-| `designs` | `integer`               | The designs and layers exported                                  |
-| `states`  | `integer`, optional     | The states exported, when they're counted                        |
-| `files`   | `integer`               | The files written                                                |
+| Attribute    | Type                    | Meaning                                                                                        |
+| ------------ | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `kind`       | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images                               |
+| `formats`    | `("png" \| "jpg")[]`    | The formats written                                                                            |
+| `scales`     | `number[]`              | The scales written                                                                             |
+| `designs`    | `integer`               | The designs and layers exported                                                                |
+| `states`     | `integer`, optional     | The states exported, when they're counted                                                      |
+| `durationMs` | `integer`               | From asking for the export, once its folder is picked, until its files are written or it fails |
+| `files`      | `integer`               | The files written                                                                              |
 
 ### `export.failed`
 
-| Attribute | Type                    | Meaning                                                          |
-| --------- | ----------------------- | ---------------------------------------------------------------- |
-| `kind`    | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images |
-| `formats` | `("png" \| "jpg")[]`    | The formats written                                              |
-| `scales`  | `number[]`              | The scales written                                               |
-| `designs` | `integer`               | The designs and layers exported                                  |
-| `states`  | `integer`, optional     | The states exported, when they're counted                        |
-| `code`    | `string`, optional      | The `CodedError` code, when the failure has one                  |
+| Attribute    | Type                    | Meaning                                                                                        |
+| ------------ | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `kind`       | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images                               |
+| `formats`    | `("png" \| "jpg")[]`    | The formats written                                                                            |
+| `scales`     | `number[]`              | The scales written                                                                             |
+| `designs`    | `integer`               | The designs and layers exported                                                                |
+| `states`     | `integer`, optional     | The states exported, when they're counted                                                      |
+| `durationMs` | `integer`               | From asking for the export, once its folder is picked, until its files are written or it fails |
+| `code`       | `string`, optional      | The `CodedError` code, when the failure has one                                                |
 
 ### `frame.failed`
 
@@ -799,10 +806,15 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `process.memory`
 
-| Attribute   | Type                   | Meaning                                                                            |
-| ----------- | ---------------------- | ---------------------------------------------------------------------------------- |
-| `reason`    | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                     |
-| `processes` | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it |
+| Attribute      | Type                   | Meaning                                                                                   |
+| -------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
+| `reason`       | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                            |
+| `mainBytes`    | `integer`              | The app's main process's private memory in bytes                                          |
+| `serviceBytes` | `integer`              | The project service's private memory in bytes, or 0 while none runs                       |
+| `editorBytes`  | `integer`              | Every editor window's private memory together, in bytes                                   |
+| `renderBytes`  | `integer`              | The offscreen renderers' private memory together, in bytes                                |
+| `totalBytes`   | `integer`              | Every process's private memory together, in bytes, counting builders, the GPU and helpers |
+| `processes`    | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it        |
 
 ### `project.closed`
 

@@ -2,6 +2,76 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 06:57:27 GMT",
+      "version": "0.40.5",
+      "tag": "@parity-app/desktop_v0.40.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "147097532dc7de4671d2a8dbbe163b54c959d81c",
+            "comment": "Ask for a project's kept frame bitmaps in one request, as JSON text, so reopening a project spends less of the window's time before its first frame"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "912120ca9276e3d19d3d67a018275ba6cf7563a3",
+            "comment": "Open projects sooner: a design's title mounts its menus and hint only once it's hovered, focused, right-clicked or selected"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "eb5d55992c591f2a0872d40709eeddeb62e9b1af",
+            "comment": "Bring renderer-react up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "41506c104e0d0991aa95f80d430e78ed4257a0bc",
+            "comment": "Bring packages/agent up to Buildkit's lint rules (PAR-735)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 05:37:21 GMT",
+      "version": "0.40.4",
+      "tag": "@parity-app/desktop_v0.40.4",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dc00f9766be3aba52362ea8660a2924a392e83b5",
+            "comment": "Read image extensions through the editor's imageExtension (PAR-734)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5eb588c75bd9b26ae53cbc99759fe1ab3b2894fd",
+            "comment": "Core meets Buildkit's lint rules; nothing users see changes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "02e8d18242be3dd1b3bb2d1c3350e82b246c8f14",
+            "comment": "Brace every if and space statements apart, as Buildkit's lint rules ask"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "afdeb9604454374459552f61ee90ba9ab30d2198",
+            "comment": "Brings the desktop app's chrome folder up to Buildkit's lint rules, and names tldraw shape IDs canvasIdFor and a process's server-or-task field lifetime"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 04:17:56 GMT",
       "version": "0.40.3",
       "tag": "@parity-app/desktop_v0.40.3",

@@ -26,8 +26,12 @@ describe("cacheCounter", () => {
     counter.frame(false)
     counter.preview(false)
     expect(counter.report()).toEqual({
-      frames: { hits: 2, misses: 1, hitRate: 0.667 },
-      previews: { hits: 0, misses: 1, hitRate: 0 }
+      frameHits: 2,
+      frameMisses: 1,
+      frameHitRate: 0.667,
+      previewHits: 0,
+      previewMisses: 1,
+      previewHitRate: 0
     })
   })
 
@@ -35,9 +39,9 @@ describe("cacheCounter", () => {
     const counter = cacheCounter()
     expect(counter.report()).toBeUndefined()
     counter.preview(true)
-    expect(counter.report()?.previews.hits).toBe(1)
+    expect(counter.report()?.previewHits).toBe(1)
     expect(counter.report()).toBeUndefined()
     counter.preview(true)
-    expect(counter.report()?.previews).toEqual({ hits: 2, misses: 0, hitRate: 1 })
+    expect(counter.report()).toMatchObject({ previewHits: 2, previewMisses: 0, previewHitRate: 1 })
   })
 })

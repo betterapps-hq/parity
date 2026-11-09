@@ -127,15 +127,16 @@ const base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/
 
 /** A number in a source map's base64 VLQ. */
 function vlq(value: number): string {
-  let rest = value < 0 ? (-value << 1) | 1 : value << 1
+  // The sign is the lowest bit; each digit carries five bits, low first, and 32 when more follow.
+  let rest = value < 0 ? -value * 2 + 1 : value * 2
   let out = ""
 
   do {
-    let digit = rest & 31
-    rest >>>= 5
+    let digit = rest % 32
+    rest = Math.floor(rest / 32)
 
     if (rest > 0) {
-      digit |= 32
+      digit += 32
     }
 
     out += base64.charAt(digit)

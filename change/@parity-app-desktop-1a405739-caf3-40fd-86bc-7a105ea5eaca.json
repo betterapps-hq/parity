@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Brace every if and space statements apart, as Buildkit's lint rules ask",
+  "comment": "Bring packages/code up to Buildkit's lint rules",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

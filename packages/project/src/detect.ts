@@ -8,7 +8,7 @@ import type {
 } from "@parity-app/core"
 import type { Agent } from "package-manager-detector"
 import { resolveCommand } from "package-manager-detector/commands"
-import { LOCKS } from "package-manager-detector/constants"
+import { AGENTS, LOCKS } from "package-manager-detector/constants"
 import { detect } from "package-manager-detector/detect"
 import semver from "semver"
 import { nearestLockfiles } from "./lockfile.ts"
@@ -119,11 +119,9 @@ export async function detectProject(
   return {
     packageManager,
     tools: used,
-    ...(list
-      ? {
-          notice: `Not tested with Parity: ${list}. Nothing is blocked; Parity tests versions from the last two years, and each tool's newest.`
-        }
-      : {})
+    notice: list
+      ? `Not tested with Parity: ${list}. Nothing is blocked; Parity tests versions from the last two years, and each tool's newest.`
+      : undefined
   }
 }
 
@@ -164,7 +162,7 @@ async function detectTool(
   return {
     id: tool.id,
     name: tool.name,
-    ...(range ? { declared: range } : {}),
+    declared: range || undefined,
     status: "missing",
     summary: `${tool.name}${range ? ` ${range}` : ""} is in package.json but isn't installed: install the project's packages first`
   }
@@ -190,20 +188,22 @@ function toolDetection(tool: Tool, version: string, where: { from?: string; conf
 
   return {
     ...base,
-    ...(support.drops ? { drops: support.drops } : {}),
+    drops: support.drops || undefined,
     summary: support.drops ? `${found}; tested until ${month(support.drops)}` : found
   }
+}
+
+/** Whether Parity tests a version, and the day it stops if it's going to. */
+export interface Support {
+  status: "supported" | "newer" | "dropped"
+  drops?: string
 }
 
 /**
  * The version cutoff: a major released more than two years ago is dropped, counted from its own x.0.0, except the
  * tool's newest major, which is never dropped. Dropped means Parity doesn't test it; nothing is blocked.
  */
-export function cutoff(
-  tool: Pick<Tool, "majors">,
-  version: string,
-  today = new Date()
-): { status: "supported" | "newer" | "dropped"; drops?: string } {
+export function cutoff(tool: Pick<Tool, "majors">, version: string, today = new Date()): Support {
   const valid = semver.valid(version) ?? semver.coerce(version)?.version
 
   if (!valid) {
@@ -248,16 +248,16 @@ function month(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
 }
 
-const agentNames: Record<string, string> = {
-  npm: "npm",
-  pnpm: "pnpm",
-  "pnpm@6": "pnpm",
-  "pnpm-rush": "pnpm",
-  yarn: "Yarn",
-  "yarn@berry": "Yarn Berry",
-  bun: "Bun",
-  deno: "Deno"
-}
+const agentNames = new Map<Agent, string>([
+  ["npm", "npm"],
+  ["pnpm", "pnpm"],
+  ["pnpm@6", "pnpm"],
+  ["pnpm-rush", "pnpm"],
+  ["yarn", "Yarn"],
+  ["yarn@berry", "Yarn Berry"],
+  ["bun", "Bun"],
+  ["deno", "Deno"]
+])
 
 /**
  * The project's package manager, by `package-manager-detector`: in each folder from the root up, a lockfile, then the
@@ -280,11 +280,11 @@ export async function detectPackageManager(root: string): Promise<PackageManager
       const field = manifest?.manifest.packageManager !== undefined ? "packageManager" : "devEngines.packageManager"
       const fromLock = lock !== undefined && LOCKS[lock] === found.name
       const from = path(folder, fromLock ? lock : "package.json")
-      const name = agentNames[found.agent] ?? found.name
+      const name = agentNames.get(found.agent) ?? found.name
       const version = found.version && semver.coerce(found.version) ? found.version : undefined
       const summary = `${name}${version ? ` ${version}` : ""} from ${fromLock ? from : `${field} in ${from}`}`
 
-      return { id: found.name, name, agent: found.agent, ...(version ? { version } : {}), from, ...lockfile, summary }
+      return { id: found.name, name, agent: found.agent, version, from, ...lockfile, summary }
     }
 
     if (dirname(folder) === folder) {
@@ -303,7 +303,8 @@ export async function detectPackageManager(root: string): Promise<PackageManager
 
 /** The command that adds packages to a project with its package manager, from `package-manager-detector`'s table. */
 export function addCommand(agent: string, packages: string[]): { command: string; args: string[] } {
-  const resolved = resolveCommand(agent as Agent, "add", packages)
+  const known = AGENTS.find((candidate) => candidate === agent)
+  const resolved = known && resolveCommand(known, "add", packages)
 
   if (!resolved) {
     throw new Error(`Parity doesn't know how to add packages with ${agent}`)

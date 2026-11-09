@@ -19,8 +19,11 @@ import { z } from "zod"
  * fields are flat, so a bad item in a list of modes points at `mode`. A field set to `undefined` counts as left out,
  * as a terminal's missing options leave it.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what an agent sent, read here
 export function readRequest<T extends z.ZodType>(schema: T, input: unknown, depth = Infinity): z.output<T> {
-  const checked = checkData(schema, withoutUnset(input))
+  const sent = plainObject.safeParse(input).data
+  const given = sent ? Object.fromEntries(Object.entries(sent).filter(([, value]) => value !== undefined)) : input
+  const checked = checkData(schema, given)
 
   if (checked.success) {
     return checked.data
@@ -31,13 +34,7 @@ export function readRequest<T extends z.ZodType>(schema: T, input: unknown, dept
     .slice(1, depth + 1)
     .join("/")
 
-  throw new CodedError(checked.problem.message, { code: "invalid_input", ...(field ? { field } : {}) })
-}
-
-function withoutUnset(input: unknown): unknown {
-  const fields = plainObject.safeParse(input).data
-
-  return fields ? Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) : input
+  throw new CodedError(checked.problem.message, field ? { code: "invalid_input", field } : { code: "invalid_input" })
 }
 
 /**
@@ -83,9 +80,12 @@ function limit(description: string, fallback: number, most: number) {
   return z.int(message).min(1, message).max(most, message).default(fallback).describe(description)
 }
 
+// The fields `z.strictObject` takes, by its own parameter rather than zod's internal name for them.
+type ObjectFields = NonNullable<Parameters<typeof z.strictObject>[0]>
+
 /** An operation's input: these fields and no others, in an object. */
-function fields<Shape extends z.ZodRawShape>(shape: Shape) {
-  return z.strictObject(shape, {
+function fields<Fields extends ObjectFields>(entries: Fields) {
+  return z.strictObject(entries, {
     error: (issue) =>
       issue.code === "unrecognized_keys"
         ? `Unknown input field ${issue.keys[0] ?? ""}`
@@ -167,8 +167,8 @@ function misplaced(keys: readonly string[]): string {
   return `Unknown input field ${keys[0] ?? ""}`
 }
 
-function executeKind<Shape extends z.ZodRawShape>(shape: Shape) {
-  return z.strictObject(shape, {
+function executeKind<Fields extends ObjectFields>(entries: Fields) {
+  return z.strictObject(entries, {
     error: (issue) => (issue.code === "unrecognized_keys" ? misplaced(issue.keys) : "Operation input must be an object")
   })
 }

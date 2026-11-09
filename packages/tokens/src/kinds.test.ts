@@ -223,8 +223,8 @@ describe("values", () => {
 
   it("lists the tokens a value refers to, and replaces them with what they come to", () => {
     expect(tokenReferences("calc(var(--radius) * 0.8 + var(--gap, 2px))")).toEqual(["radius", "gap"])
-    const values: Record<string, string> = { radius: "0.625rem" }
-    expect(substituteReferences("calc(var(--radius) * 0.8 + var(--gap, 2px))", (name) => values[name])).toBe(
+    const values = new Map([["radius", "0.625rem"]])
+    expect(substituteReferences("calc(var(--radius) * 0.8 + var(--gap, 2px))", (name) => values.get(name))).toBe(
       "calc(0.625rem * 0.8 + 2px)"
     )
   })
@@ -233,8 +233,8 @@ describe("values", () => {
     expect(tokenReferences("var(--chart-1, var(--safe))")).toEqual(["chart-1", "safe"])
     expect(tokenReferences("calc(var(--a, calc(var(--b) * 2)) + var(--c))")).toEqual(["a", "b", "c"])
     expect(tokenReferences("var(--a, var(--b)")).toEqual(["a", "b"])
-    const values: Record<string, string> = { radius: "0.625rem" }
-    const lookup = (name: string) => values[name]
+    const values = new Map([["radius", "0.625rem"]])
+    const lookup = (name: string) => values.get(name)
     expect(substituteReferences("var(--missing, var(--radius))", lookup)).toBe("0.625rem")
     expect(substituteReferences("calc(var(--missing, calc(var(--radius) * 2)) + 1px)", lookup)).toBe(
       "calc(calc(0.625rem * 2) + 1px)"

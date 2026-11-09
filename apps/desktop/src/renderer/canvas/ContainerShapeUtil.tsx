@@ -133,6 +133,18 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   const y = useValue("board y", () => editor.getShape(shape.id)?.y ?? 0, [editor, shape.id])
   const titleLayer = useTitleLayer(editor)
 
+  // Everything else on the page, for its title to run up to zoomed out. Read as the zoom is, so the title follows when
+  // something beside it moves, and only it.
+  const others = useMemo(() => {
+    const boxes = computed("board's neighbours", () =>
+      editor
+        .getCurrentPageShapes()
+        .flatMap((other) => (other.id === shape.id ? [] : (editor.getShapePageBounds(other) ?? [])))
+    )
+
+    return () => boxes.get()
+  }, [editor, shape.id])
+
   const frame = entry?.container.kind === "frame"
   useLayoutEffect(() => {
     if (!frame) {
@@ -395,7 +407,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       entry={entry}
       hovered={hovered}
       onTitlePointerDown={dragByTitle}
-      title={titleLayer && { layer: titleLayer, x, y, width: shape.props.w }}
+      title={titleLayer && { layer: titleLayer, x, y, width: shape.props.w, height: shape.props.h, others }}
       rest={rest}
     />
   )

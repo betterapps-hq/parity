@@ -2,11 +2,11 @@ import { createHash } from "node:crypto"
 import { readFileSync, realpathSync, statSync } from "node:fs"
 import { freemem } from "node:os"
 import { dirname, resolve } from "node:path"
-import type { ComponentInfo, ComponentSource } from "@parity-app/core"
+import type { ComponentInfo } from "@parity-app/core"
 import ts from "typescript"
 import { type ConfigChange, configChange, type ConfigInputs, configInputs, type ConfigStamps } from "./config-inputs.ts"
 import type { ComponentFinder } from "./finder.ts"
-import type { CheckResult } from "./listing.ts"
+import type { CheckResult, ComponentSources } from "./listing.ts"
 import { readTsconfig } from "./tsconfig.ts"
 
 /** A request for a project's program. Files are relative to the root, or absolute; lockfiles are relative to it. */
@@ -29,7 +29,7 @@ export interface CheckRequest {
 /** Each of `components`' props. `files` are the app's files the checker reads next, read now so both share a program. */
 export interface PropsRequest {
   root: string
-  components: Record<string, ComponentSource>
+  components: ComponentSources
   files?: readonly string[]
   known?: readonly string[]
   lockfiles: readonly string[]
@@ -193,7 +193,7 @@ export function programCache(finder: ComponentFinder, settings: ProgramCacheOpti
       rootNames: [...checker.rootNames, ...checker.extraRoots],
       options: checker.options,
       host: checker.host,
-      ...(checker.program ? { oldProgram: checker.program } : {})
+      oldProgram: checker.program
     })
     checker.read = new Map(
       checker.program
@@ -286,7 +286,7 @@ function cachingHost(options: ts.CompilerOptions, parsed: ParseCache): ts.Compil
     const time = isInstalled(fileName) ? 0 : modified(fileName)
 
     const settings =
-      typeof language === "object" ? `${language.languageVersion}:${language.impliedNodeFormat ?? ""}` : `${language}`
+      language instanceof Object ? `${language.languageVersion}:${language.impliedNodeFormat ?? ""}` : `${language}`
 
     const key = `${settings}:${fileName}`
     const kept = parsed.get(key)

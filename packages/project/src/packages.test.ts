@@ -1,7 +1,9 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { ComponentEvidence, RendererAdapter } from "@parity-app/core"
+import type { ComponentExport, RendererAdapter } from "@parity-app/core"
+import type { JsonValue } from "@parity-app/core/schema"
+import { isText } from "@parity-app/core/values/evaluate"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { findLibraries } from "./libraries.ts"
 import {
@@ -15,12 +17,19 @@ import {
 } from "./packages.ts"
 
 /** Exported functions are components, and so is a capitalised default export. Declaration files don't say how. */
-const renderer = {
-  findComponents: (source: string, file: string) => [
-    ...[...source.matchAll(/export (?:declare )?function ([A-Z]\w*)/g)].map(([, name]) => ({
+const renderer: RendererAdapter = {
+  id: "test",
+  name: "Test",
+  detect: () => true,
+  guestModule: "",
+  runtimePackages: [],
+  runtimeImports: [],
+  componentExtensions: [".tsx"],
+  findComponents: (source, file) => [
+    ...[...source.matchAll(/export (?:declare )?function ([A-Z]\w*)/g)].map(([, name]): ComponentExport => ({
       name: name!,
       export: name!,
-      ...(file.endsWith(".d.ts") ? {} : { as: "function" as ComponentEvidence })
+      as: file.endsWith(".d.ts") ? undefined : "function"
     })),
     ...[...source.matchAll(/export default ([A-Z]\w*)/g)].map(([, name]) => ({ name: name!, export: "default" }))
   ]
@@ -29,10 +38,10 @@ const renderer = {
 /** One folder holding every shape of package the reader is asked about, installed for an app in `apps/web`. */
 let root: string
 
-function write(path: string, content: string | object = ""): void {
+function write(path: string, content: JsonValue = ""): void {
   const file = join(root, path)
   mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, typeof content === "string" ? content : JSON.stringify(content))
+  writeFileSync(file, isText(content) ? content : JSON.stringify(content))
 }
 
 const app = () => join(root, "apps", "web")
@@ -285,7 +294,7 @@ describe("following re-exports", () => {
   })
 
   it("lists a library's components from declarations only its exports name", async () => {
-    const found = await findLibraries(app(), { dependencies: { exported: "1.0.0" } }, [], renderer as RendererAdapter)
+    const found = await findLibraries(app(), { dependencies: { exported: "1.0.0" } }, [], renderer)
     expect(found.libraries.map((library) => library.id)).toEqual(["exported"])
     expect(found.components).toEqual({
       "exported/Badge": {

@@ -103,7 +103,7 @@ describe("fileSink", () => {
       expect(names).not.toContain("parity-cli-2026-10-02.jsonl")
       expect(names).toContain("notes.txt")
       const lines = readFileSync(join(folder, "parity-cli-2026-11-08.jsonl"), "utf8").trim().split("\n")
-      expect(lines.map((line) => JSON.parse(line) as unknown)).toEqual([envelope, envelope])
+      expect(lines.map((line) => JSON.parse(line))).toEqual([envelope, envelope])
     } finally {
       rmSync(folder, { recursive: true, force: true })
     }

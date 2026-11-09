@@ -1,13 +1,22 @@
-import { defaultModeSettings, type DesignNode, findNode, frameGeometry, resolveModes } from "@parity-app/core"
+import {
+  type ContainerSpec,
+  defaultModeSettings,
+  type DesignNode,
+  findNode,
+  frameGeometry,
+  resolveModes
+} from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
+import { replies } from "./contracts.ts"
 import { execute } from "./run.ts"
 import type {
-  AccessibilityFinding,
   AgentChangeSet,
   AgentEvent,
   AgentHooks,
   AgentSnapshot,
   FrameRequest,
+  FrameResult,
   IconNames,
   IconSet
 } from "./types.ts"
@@ -76,45 +85,70 @@ function snapshot(): AgentSnapshot {
 function hooks(events: AgentEvent[] = []): AgentHooks {
   return {
     presence: (batch) => events.push(...batch),
-    render: async ({ mode, capture, audit }) => ({
-      width: mode.width,
-      height: 600,
-      nodes: [{ id: "title", x: 0, y: 0, width: mode.width + 10, height: 40 }],
-      overflowsX: mode.width < 500,
-      unknownComponents: [],
-      ...(capture ? { png: "iVBOR" } : {}),
-      ...(audit
-        ? {
-            issues: [
+    render: async ({ mode, capture, audit }) => {
+      const frame: FrameResult = {
+        width: mode.width,
+        height: 600,
+        nodes: [{ id: "title", x: 0, y: 0, width: mode.width + 10, height: 40 }],
+        overflowsX: mode.width < 500,
+        unknownComponents: []
+      }
+
+      if (capture) {
+        frame.png = "iVBOR"
+      }
+
+      if (audit) {
+        frame.issues = [
+          {
+            rule: "color-contrast",
+            impact: "serious" as const,
+            help: "Elements must meet minimum color contrast ratio thresholds",
+            helpUrl: "https://dequeuniversity.com/rules/axe/4.14/color-contrast",
+            nodes: [
               {
-                rule: "color-contrast",
-                impact: "serious" as const,
-                help: "Elements must meet minimum color contrast ratio thresholds",
-                helpUrl: "https://dequeuniversity.com/rules/axe/4.14/color-contrast",
-                nodes: [
-                  {
-                    id: "title",
-                    detail: "#999999 on #ffffff is 2.84:1, and 24px text needs 4.5:1.",
-                    contrast: {
-                      foreground: "#999999",
-                      background: "#ffffff",
-                      ratio: 2.84,
-                      required: 4.5,
-                      fontSize: 24,
-                      bold: false
-                    }
-                  },
-                  { id: "frame-root", detail: "Outside any node" },
-                  { id: "submit/label", detail: "Inside an instance" },
-                  { id: "submit/icon", detail: "Inside the same instance" },
-                  { id: "", detail: "Also outside any node" }
-                ]
-              }
+                id: "title",
+                detail: "#999999 on #ffffff is 2.84:1, and 24px text needs 4.5:1.",
+                contrast: {
+                  foreground: "#999999",
+                  background: "#ffffff",
+                  ratio: 2.84,
+                  required: 4.5,
+                  fontSize: 24,
+                  bold: false
+                }
+              },
+              { id: "frame-root", detail: "Outside any node" },
+              { id: "submit/label", detail: "Inside an instance" },
+              { id: "submit/icon", detail: "Inside the same instance" },
+              { id: "", detail: "Also outside any node" }
             ]
           }
-        : {})
-    })
+        ]
+      }
+
+      return frame
+    }
   }
+}
+
+/** What a snippet printed as JSON, read as `schema` says. */
+function printed<T extends z.ZodType>(text: string | undefined, schema: T): z.output<T> {
+  return schema.parse(JSON.parse(text ?? "null"))
+}
+
+/** Accessibility findings, as the app answers them. */
+const findingList = replies.accessibility.shape.findings
+
+/** A design's root, which the fixture's designs make a layout. */
+function layoutRoot(design: ContainerSpec | undefined): Extract<DesignNode, { type: "layout" }> {
+  const root = design?.root
+
+  if (root?.type !== "layout") {
+    throw new Error("The fixture's design has no layout root")
+  }
+
+  return root
 }
 
 describe("execute", () => {
@@ -365,7 +399,7 @@ Print(JSON.stringify(Overlaps("signup")))`
     )
 
     expect(result.ok).toBe(true)
-    expect(events.filter((event) => event.design === "app.par#pricing").map((event) => event.kind)).toEqual([
+    expect(events.flatMap((event) => (event.design === "app.par#pricing" ? [event.kind] : []))).toEqual([
       "write",
       "move"
     ])
@@ -611,7 +645,7 @@ Print(await Screenshot("signup", {mode: ["desktop-light", "tablet-light"]}))`
     expect(result.output[2]).toBe("2")
     expect(result.screenshots.map((shot) => shot.mode)).toEqual(["desktop-light", "tablet-light"])
     // Each look shows as what it is, so the agent's cursor can say so.
-    const looks = new Set(events.filter((event) => event.design).map((event) => event.kind))
+    const looks = new Set(events.flatMap((event) => (event.design ? [event.kind] : [])))
     expect(looks).toEqual(new Set(["measure", "problems", "screenshot"]))
   })
 
@@ -652,7 +686,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
 
     expect(result.ok).toBe(true)
     expect(result.output[0]).toBe("default mobile-light page")
-    const problems = JSON.parse(result.output[1]!) as { kind: string; mode: string }[]
+    const problems = printed(result.output[1], z.array(z.looseObject({ kind: z.string(), mode: z.string() })))
     expect(problems.filter((problem) => problem.kind === "frame-overflow")).toEqual([
       {
         state: "default",
@@ -760,11 +794,8 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     )
 
     expect(result.ok).toBe(true)
-    expect(events.filter((event) => event.design).map((event) => event.kind)).toEqual([
-      "accessibility",
-      "accessibility"
-    ])
-    const findings = JSON.parse(result.output[0]!) as Record<string, unknown>[]
+    expect(events.flatMap((event) => (event.design ? [event.kind] : []))).toEqual(["accessibility", "accessibility"])
+    const findings = printed(result.output[0], findingList)
     // Per mode: the title, the frame once, and the instance once for everything inside it.
     expect(findings).toHaveLength(6)
     expect(findings[2]).toMatchObject({ node: "submit", name: "Submit", detail: "Inside an instance" })
@@ -830,7 +861,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
       ["background", "primary", "muted", "neutral-500"],
       ["background", "primary", "muted", "neutral-500"]
     ])
-    const findings = JSON.parse(result.output[0]!) as AccessibilityFinding[]
+    const findings = printed(result.output[0], findingList)
     const title = findings.find((finding) => finding.node === "title" && finding.mode === "desktop-light")
     // primary would pass on white, but not on black, where the title passes now. Only neutral-500 passes on both, so it's
     // suggested though it isn't semantic, at its lower ratio of the two.
@@ -856,7 +887,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
       { presence: () => undefined, render }
     )
 
-    const findings = JSON.parse(result.output[0]!) as AccessibilityFinding[]
+    const findings = printed(result.output[0], findingList)
     expect(findings[0]?.contrast).not.toHaveProperty("fix")
   })
 
@@ -866,10 +897,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     project.documents[0]!.document.containers = [
       {
         ...signup!,
-        root: {
-          ...signup!.root,
-          children: [{ type: "instance", id: "submit", design: "member-row" }]
-        } as typeof signup.root
+        root: { ...layoutRoot(signup), children: [{ type: "instance", id: "submit", design: "member-row" }] }
       },
       {
         id: "member-row",
@@ -888,7 +916,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     )
 
     expect(result.ok).toBe(true)
-    const findings = JSON.parse(result.output[0]!) as Record<string, unknown>[]
+    const findings = printed(result.output[0], findingList)
     expect(findings.find((finding) => finding.node === "submit")).toMatchObject({ name: "Member row" })
   })
 })
@@ -922,10 +950,7 @@ describe("render inputs", () => {
     project.documents[0]!.document.containers = [
       {
         ...signup!,
-        root: {
-          ...signup!.root,
-          children: [{ type: "instance", id: "row", design: "kit/label" }]
-        } as typeof signup.root
+        root: { ...layoutRoot(signup), children: [{ type: "instance", id: "row", design: "kit/label" }] }
       }
     ]
     project.libraryDesigns = [
@@ -989,10 +1014,7 @@ Insert("page", {type: "instance", design: "kit/missing"})`
     project.documents[0]!.document.containers = [
       {
         ...signup!,
-        root: {
-          ...signup!.root,
-          children: [{ type: "instance", id: "row", design: "kit/label" }]
-        } as typeof signup.root
+        root: { ...layoutRoot(signup), children: [{ type: "instance", id: "row", design: "kit/label" }] }
       },
       {
         id: "kit/label",
@@ -1172,19 +1194,22 @@ Insert("page", {type: "component", component: "Heart"})`
     }
   }
 
-  const names: Record<string, IconNames> = {
-    lucide: {
-      names: ["Heart", "HeartCrack", "Settings", "Bell", "Star"],
-      aliases: { Settings: ["Cog"] },
-      tags: { Heart: ["love"] }
-    },
-    "heroicons/": { names: ["BellIcon", "CogIcon"] },
-    "heroicons/24/solid": { names: ["CogIcon"] }
-  }
+  const names = new Map<string, IconNames>([
+    [
+      "lucide",
+      {
+        names: ["Heart", "HeartCrack", "Settings", "Bell", "Star"],
+        aliases: { Settings: ["Cog"] },
+        tags: { Heart: ["love"] }
+      }
+    ],
+    ["heroicons/", { names: ["BellIcon", "CogIcon"] }],
+    ["heroicons/24/solid", { names: ["CogIcon"] }]
+  ])
 
   const withIcons = (): AgentHooks => ({
     ...hooks(),
-    iconNames: async (set, module) => names[set === "lucide" ? set : `${set}/${module ?? ""}`]!
+    iconNames: async (set, module) => names.get(set === "lucide" ? set : `${set}/${module ?? ""}`)!
   })
 
   it("lists the project's icon sets with their styles and how designs name their icons", async () => {
@@ -1741,10 +1766,7 @@ await Problems("signup", { state: "all", mode: "all" })`
   it("still reads null as taking a value away", async () => {
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
-    signup.root = {
-      ...signup.root,
-      responsive: { mobile: { style: { gap: 2 } } }
-    } as DesignNode
+    signup.root = { ...layoutRoot(signup), responsive: { mobile: { style: { gap: 2 } } } }
 
     const result = await execute(
       {
@@ -1772,7 +1794,7 @@ describe("Replace", () => {
   function patched(): AgentSnapshot {
     const read = snapshot()
     const [design] = read.documents[0]!.document.containers
-    const page = design!.root as Extract<DesignNode, { type: "layout" }>
+    const page = layoutRoot(design)
     page.responsive = { mobile: { style: { gap: 2 } } }
     page.children[0]!.responsive = { mobile: { hidden: true }, tablet: { text: "Sign up" } }
     design!.states.push({ id: "loading", name: "Loading", overrides: { submit: { props: { disabled: true } } } })

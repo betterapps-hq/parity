@@ -5,7 +5,7 @@
 // same window; and starting the app again on the same profile, as someone does each day.
 // Results go to .inspect/perf/<label>.json; --compare prints another run's numbers beside them.
 // Usage: pnpm perf [--label name] [--compare name] [--project root] [--seconds 4] [--viewport 1439x901] [--css "rules"]
-//                  [--profile] [--keep] [--open-only] [--runs "zoom, pan"] [--react development]
+//                  [--profile] [--keep] [--open-only] [--runs "zoom, pan"] [--react development] [--soak 60]
 //   --react     the window's React build: production, as `pnpm dev:prod` runs it, unless this says development, as
 //               `pnpm dev` runs it; each result says which it ran
 //   --viewport  the page's size in CSS pixels, the same every run (the default is the first runs' window)
@@ -14,6 +14,9 @@
 //   --keep      leaves the app running afterwards, until the script is stopped
 //   --open-only times opening the project and nothing else
 //   --runs      only these camera runs, by name (see `motions`), and nothing else once the project has opened
+//   --soak      works the project for this many minutes instead, zooming, waking every board, selecting and editing
+//               over and over, and reads the window's memory after each round (PAR-683); PARITY_TELEMETRY=all or off
+//               chooses whether Session Replay records it
 // PARITY_PERF_UI_PORT and PARITY_PERF_DEBUG_PORT choose the copy's ports (5320 and 9340), so two sessions can measure at
 // once.
 import { type ChildProcess, spawn } from "node:child_process"
@@ -58,6 +61,7 @@ const viewport = option("viewport") ?? "1439x901"
 const keep = args.includes("--keep")
 const openOnly = args.includes("--open-only")
 const profiling = args.includes("--profile")
+const soakMinutes = option("soak") === undefined ? undefined : Number(option("soak"))
 const second = resolve(option("second") ?? join(repoDir, "fixtures/vite7-js"))
 
 // The production build unless asked otherwise, so runs compare with those since PAR-519.
@@ -135,6 +139,8 @@ interface Measured {
   /** Editing one design at a time; missing from runs made before it was measured. */
   edit?: Measured["select"]
   memoryMb: Record<string, number>
+  /** With `--soak`: what the window held after each round of work, after collecting garbage. */
+  soak?: Soaked[]
   /** What the tab still holds while another is showing, and how long switching back takes to draw it. */
   hidden?: {
     nodesShown: number
@@ -157,12 +163,28 @@ interface Measured {
   }
 }
 
+/** The window after a round of `--soak`, at a minute into it. */
+interface Soaked {
+  minute: number
+  rounds: number
+  nodes: number
+  heapMb: number
+  /** The editor window's private memory, as the system counts it. */
+  windowMb: number
+  /** Whether Session Replay was recording the page then, paused, or not running at all. */
+  replay: ReplayState
+}
+
+type ReplayState = "recording" | "paused" | "off"
+
 interface Result extends Partial<Measured> {
   label: string
   date: string
   project: string
   /** The window's React build; missing from runs made before PAR-519, all development. */
   react?: ReactBuild
+  /** Diagnostics' level, when PARITY_TELEMETRY chose it, as `--soak` runs ask it to. */
+  telemetry?: string
   css?: string
   /**
    * Opening the project: on the first launch, timed from the window's page loading; again in the same window, from the
@@ -188,7 +210,7 @@ try {
   const open: NonNullable<Result["open"]> = { launch: await opened(page) }
   const measured = openOnly ? {} : await measure(page)
 
-  if (!only) {
+  if (!only && soakMinutes === undefined) {
     open.reopen = await opened(page, project)
     // Started again on the same profile, it restores the tab and finds the bitmaps it kept.
     console.log("Starting the copy again on the same profile")
@@ -203,6 +225,7 @@ try {
     date: new Date().toISOString(),
     project,
     react,
+    ...(process.env.PARITY_TELEMETRY ? { telemetry: process.env.PARITY_TELEMETRY } : {}),
     ...(css ? { css } : {}),
     open,
     ...measured
@@ -415,6 +438,14 @@ async function measure(page: Page): Promise<Partial<Measured>> {
     })
 
   await hiddenSince()
+
+  if (soakMinutes !== undefined) {
+    const soak = await soaked(page, cdp, soakMinutes)
+    await cdp.detach()
+
+    return { census, soak }
+  }
+
   const runs: Run[] = []
 
   for (const motion of only ?? motions) {
@@ -943,37 +974,9 @@ async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit
  * boards kept their sizes.
  */
 async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<Measured["hidden"]> {
-  // At 100%, each board is brought into view in turn, so its frames have woken, as after working across the project;
-  // then the camera rests on the first. Zoomed out, frames already sleep, and hiding the tab would free nothing more.
-  await page.evaluate(async () => {
-    const editor = (window as unknown as PerfWindow).perfSession.editor!
-    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-    const shapes = editor.getCurrentPageShapesSorted()
-
-    for (const shape of [...shapes, shapes[0]]) {
-      const bounds = shape && editor.getShapePageBounds(shape)
-
-      if (!bounds) {
-        continue
-      }
-
-      editor.setCamera({ ...editor.getCamera(), z: 1 }, { immediate: true })
-      editor.centerOnPoint(bounds.center, { animation: { duration: 0 } })
-      await wait(400)
-    }
-
-    await wait(1500)
-  })
-
-  const counts = async () => {
-    await cdp.send("HeapProfiler.collectGarbage")
-    const { metrics } = await cdp.send("Performance.getMetrics")
-    const value = (name: string) => metrics.find((metric) => metric.name === name)?.value ?? 0
-
-    return { nodes: value("Nodes"), heapMb: Math.round(value("JSHeapUsedSize") / 1048576) }
-  }
-
-  const shown = await counts()
+  // Zoomed out, frames already sleep, and hiding the tab would free nothing more.
+  await visitEveryBoard(page)
+  const shown = await counts(cdp)
 
   // Keyed by design, since the shapes' ids aren't kept across sessions.
   const boards = () =>
@@ -1026,7 +1029,7 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<M
   )
 
   await page.waitForTimeout(5000)
-  const hidden = await counts()
+  const hidden = await counts(cdp)
 
   const back = await page.evaluate(
     async ([url, id, frames]) => {
@@ -1098,6 +1101,104 @@ async function hiddenTab(page: Page, cdp: CDPSession, frames: number): Promise<M
     resizedLater: resizedLater.length,
     resized: resizedLater
   }
+}
+
+/**
+ * Brings each board into view in turn at 100%, so its frames wake, as after working across the project, and those left
+ * behind go back to sleep; then the camera rests on the first.
+ */
+async function visitEveryBoard(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const editor = (window as unknown as PerfWindow).perfSession.editor!
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+    const shapes = editor.getCurrentPageShapesSorted()
+
+    for (const shape of [...shapes, shapes[0]]) {
+      const bounds = shape && editor.getShapePageBounds(shape)
+
+      if (!bounds) {
+        continue
+      }
+
+      editor.setCamera({ ...editor.getCamera(), z: 1 }, { immediate: true })
+      editor.centerOnPoint(bounds.center, { animation: { duration: 0 } })
+      await wait(400)
+    }
+
+    await wait(1500)
+  })
+}
+
+/** The page's DOM nodes and JS heap once garbage has been collected. */
+async function counts(cdp: CDPSession): Promise<{ nodes: number; heapMb: number }> {
+  await cdp.send("HeapProfiler.collectGarbage")
+  const { metrics } = await cdp.send("Performance.getMetrics")
+  const value = (name: string) => metrics.find((metric) => metric.name === name)?.value ?? 0
+
+  return { nodes: value("Nodes"), heapMb: Math.round(value("JSHeapUsedSize") / 1048576) }
+}
+
+/**
+ * Works the project for `minutes`, round after round: zooming the whole project in and out, waking every board at 100%
+ * and leaving it to sleep, then selecting and editing designs, as `pnpm perf` measures each once. After each round it
+ * reads what the window holds, so growth that never levels off shows as a rising line (PAR-683). The work goes through
+ * the editor, not input, and Replay pauses after five minutes without a click or a key, so each round also presses
+ * Shift, which does nothing on the canvas, and each reading says whether Replay was recording.
+ */
+async function soaked(page: Page, cdp: CDPSession, minutes: number): Promise<Soaked[]> {
+  const started = Date.now()
+  const readings: Soaked[] = []
+
+  const read = async (rounds: number) => {
+    const { nodes, heapMb } = await counts(cdp)
+    const windowMb = (await memory(page, cdp))["this-window"] ?? 0
+    const replay = await replayState(page)
+    const reading = { minute: round((Date.now() - started) / 60_000), rounds, nodes, heapMb, windowMb, replay }
+    readings.push(reading)
+    console.log(
+      `  ${reading.minute} min, ${rounds} rounds: ${nodes} nodes, ${heapMb} MB heap, ${windowMb} MB window, replay ${replay}`
+    )
+  }
+
+  await read(0)
+
+  for (let rounds = 1; Date.now() - started < minutes * 60_000; rounds++) {
+    await page.keyboard.press("Shift")
+    await moveCamera(page, cdp, "zoom")
+    await visitEveryBoard(page)
+    await timeChanges(page, cdp, "select")
+    await timeChanges(page, cdp, "edit")
+    await read(rounds)
+  }
+
+  return readings
+}
+
+/**
+ * Whether Session Replay is recording the page, through the window's own instance of Sentry: the module `replay.ts`
+ * imports, as Vite serves it to the page. Replay keeps its page recorder to itself, as `holdRecording` finds it.
+ */
+async function replayState(page: Page): Promise<ReplayState> {
+  return page.evaluate(async () => {
+    const source = await (await fetch("/replay.ts")).text()
+    const url = /from\s+"([^"]*sentry_electron_renderer[^"]*)"/.exec(source)?.[1]
+
+    if (!url) {
+      throw new Error("replay.ts doesn't import Sentry as perf expects")
+    }
+
+    const { getReplay } = (await import(url)) as {
+      getReplay: () => { _replay?: { isEnabled(): boolean; isPaused(): boolean } } | undefined
+    }
+
+    const recorder = getReplay()?._replay
+
+    if (!recorder?.isEnabled()) {
+      return "off"
+    }
+
+    return recorder.isPaused() ? "paused" : "recording"
+  })
 }
 
 async function memory(page: Page, cdp: CDPSession): Promise<Record<string, number>> {
@@ -1319,6 +1420,16 @@ function report(result: Result, previous: Result | undefined): void {
     for (const board of result.hidden.resized?.slice(0, 10) ?? []) {
       console.log(`    ${board}`)
     }
+  }
+
+  if (result.soak?.length) {
+    const [first, last] = [result.soak[0]!, result.soak.at(-1)!]
+    console.log(`\n${last.minute} minutes, ${last.rounds} rounds, with diagnostics ${result.telemetry ?? "as set"}`)
+    console.log(`  nodes             ${first.nodes} → ${last.nodes}`)
+    console.log(`  heap MB           ${first.heapMb} → ${last.heapMb}`)
+    console.log(`  window MB         ${first.windowMb} → ${last.windowMb}`)
+    const recording = result.soak.filter((reading) => reading.replay === "recording").length
+    console.log(`  replay recording  ${recording} of ${result.soak.length} readings`)
   }
 
   if (result.memoryMb) {

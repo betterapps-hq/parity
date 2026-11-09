@@ -6,7 +6,15 @@ import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { describeExec } from "./client.ts"
 import { type ExecReply, execResponse, executeRequest, structuredExec } from "./execute.ts"
-import { emptyState, fixtureTab, processTests, toolReply, transportFixture } from "./transport-fixture.ts"
+import {
+  emptyState,
+  fixtureTab,
+  type JsonObject,
+  processTests,
+  succeeded,
+  toolReply,
+  transportFixture
+} from "./transport-fixture.ts"
 
 const success: ExecReply = {
   ok: true,
@@ -23,7 +31,7 @@ const fixture = transportFixture(success)
 const { requests, run, mcp } = fixture
 
 /** What reaches the app: the request, with the tab the CLI routed it to. */
-function expectRequests(params: Record<string, unknown>) {
+function expectRequests(params: JsonObject) {
   expect(requests).toHaveLength(2)
 
   for (const request of requests) {
@@ -43,7 +51,7 @@ describe("execute transport contract", processTests, () => {
 
     for (const suffix of ["One", "Two"]) {
       const cli = await run(["state"], "", { PARITY_AGENT_NAME: prefix + suffix, PARITY_AGENT_ID: undefined })
-      expect(cli.code).toBe(0)
+      expect(cli).toEqual(succeeded)
     }
 
     expect(requests).toEqual([
@@ -109,13 +117,12 @@ describe("execute transport contract", processTests, () => {
       run(["tabs"], "", { PARITY_AGENT_FILE: join(fixture.directory, "none.json") })
     ])
 
-    expect([cli.code, missing.code]).toEqual([0, 1])
+    expect([cli, missing]).toEqual([succeeded, expect.objectContaining({ code: 1 })])
     expect(toolReply(protocol.stdout)).toEqual(expect.objectContaining({ result: expect.anything() }))
-    expect(
-      requests
-        .map((request) => String((request as { transport?: unknown }).transport))
-        .sort((a, b) => a.localeCompare(b))
-    ).toEqual(["cli", "mcp"])
+    expect(requests.map((request) => String(request.transport)).sort((a, b) => a.localeCompare(b))).toEqual([
+      "cli",
+      "mcp"
+    ])
     const events = fixture.events()
     expect(events.every((event) => event.process === "cli")).toBe(true)
 
@@ -137,7 +144,7 @@ describe("execute transport contract", processTests, () => {
     const code = "Print(Designs().length)\n"
     const [cli, protocol] = await Promise.all([run(["exec"], code), mcp({ input: code })])
     expectRequests({ code, label: "Edit designs" })
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expect(cli.stdout.trim()).toBe(describeExec(execResponse(success)))
     expect(toolReply(protocol.stdout)).toEqual({
       jsonrpc: "2.0",
@@ -181,13 +188,13 @@ describe("execute transport contract", processTests, () => {
       mcp({ editId: "failed", edits })
     ])
 
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expectRequests({ label: "Edit designs", editId: "failed", edits })
   })
 
   it("defaults retry edits to an empty list for both transports", async () => {
     const [cli] = await Promise.all([run(["exec", "--edit-id", "failed"], ""), mcp({ editId: "failed" })])
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expectRequests({ label: "Edit designs", editId: "failed", edits: [] })
   })
 
@@ -509,7 +516,7 @@ describe("execute transport contract", processTests, () => {
 
   it("lists tools without output schemas, which cost agents context and no client needs (PAR-510)", async () => {
     const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
-    const { tools } = (toolReply(result.stdout) as { result: { tools: Record<string, unknown>[] } }).result
+    const tools = toolReply(result.stdout)?.result?.tools ?? []
     expect(tools.length).toBeGreaterThan(0)
 
     for (const tool of tools) {

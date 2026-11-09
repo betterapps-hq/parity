@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Brings the desktop app's chrome folder up to Buildkit's lint rules, and names tldraw shape IDs canvasIdFor and a process's server-or-task field lifetime",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

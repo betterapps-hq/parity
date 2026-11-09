@@ -6,6 +6,7 @@ import { checkData, jsonText } from "@parity-app/core/schema"
 import { z } from "zod"
 import { call } from "./client.ts"
 import { executeOperation } from "./execute.ts"
+import { stderr, stdout } from "./output.ts"
 
 /** The registry's least share of placed parts each library must render, by library, in `in-app.json`. */
 const floorsFile = jsonText(z.record(z.string(), z.number()))
@@ -153,13 +154,13 @@ Print(JSON.stringify(await Problems(id, { mode: ${JSON.stringify(mode)} })))`,
 
   if (options.record) {
     const kept = await recordAppErrors(registryDir(), library, report)
-    console.error(`Kept ${kept} errors from the app for ${library}; run parity lib with --registry to use them.`)
+    stderr(`Kept ${kept} errors from the app for ${library}; run parity lib with --registry to use them.`)
   }
 
   if (options.json) {
-    console.log(JSON.stringify(report, null, 2))
+    stdout(JSON.stringify(report, null, 2))
   } else {
-    console.log(describeCheck(report))
+    stdout(describeCheck(report))
   }
 
   if (report.floor !== undefined && report.score < report.floor) {
@@ -252,6 +253,7 @@ export function score(
 
   const misses = Object.fromEntries(
     placed
+      .values()
       .filter((name) => !hits.includes(name))
       .map((name) => [
         name,

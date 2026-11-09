@@ -1,5 +1,7 @@
 import {
   memoryEveryMs,
+  memoryRecord,
+  type ProcessMemory,
   type registeredEvents,
   type StartupStep,
   startupTimer,
@@ -24,8 +26,8 @@ function projectLoadedOf(envelope: unknown): { restored: boolean } | undefined {
   return { restored: attributes?.restored === true }
 }
 
-/** What `process.memory` lists: each process's role and private memory in bytes. */
-export type MemoryReading = () => Promise<{ role: string; memory: number }[]>
+/** What `process.memory` is made from: each process's role and private memory in bytes. */
+export type MemoryReading = () => Promise<ProcessMemory[]>
 
 /**
  * Records the app's own life from main (PAR-631): how long it took to start, how it quit, each update step, and every
@@ -39,11 +41,7 @@ export function recordAppLife(telemetry: Telemetry<typeof registeredEvents>, rea
 
   const recordMemory = (reason: "interval" | "hang") =>
     readMemory().then(
-      (processes) =>
-        telemetry.track("process.memory", {
-          reason,
-          processes: processes.map(({ role, memory }) => ({ role, memory: Math.round(memory) }))
-        }),
+      (processes) => telemetry.track("process.memory", memoryRecord(reason, processes)),
       () => undefined
     )
 

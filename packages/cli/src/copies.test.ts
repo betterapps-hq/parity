@@ -4,9 +4,11 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { createServer, type Server } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import type { JsonValue } from "@parity-app/core/schema"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 import { operations } from "./operations.ts"
-import { compileCache, emptyState, processTests, toolReply } from "./transport-fixture.ts"
+import { compileCache, emptyState, type JsonObject, processTests, succeeded, toolReply } from "./transport-fixture.ts"
 
 /**
  * The CLI against two running copies of the app, each with its own project open (PAR-514): every call reaches the copy
@@ -17,7 +19,7 @@ interface FakeCopy {
   startedAt: number
   tabs: { id: string; name: string; root: string; active: boolean; status: string; designs: number }[]
   focusedAt: number
-  requests: { method: string; params: Record<string, unknown> }[]
+  requests: { method: string; params: JsonObject }[]
   server?: Server
 }
 
@@ -43,6 +45,15 @@ const session: FakeCopy = {
 /** A copy that quit without removing its entry: no process, nothing listening. */
 const gone = { version: 1, url: "http://127.0.0.1:9", token: "gone", app: 2 ** 31 - 2, startedAt: 500 }
 
+/** A call a copy is sent, as far as the tests read it. */
+const copyRequest = z.looseObject({ method: z.string(), params: z.record(z.string(), z.json()) })
+
+/** A listening server's address. */
+const listening = z.looseObject({ port: z.number() })
+
+/** `parity tabs --json`, as far as the tests read it. */
+const listedTabs = z.object({ tabs: z.array(z.object({ id: z.string(), active: z.boolean() })) })
+
 let registry = ""
 const bin = join(import.meta.dirname, "bin.ts")
 
@@ -57,10 +68,7 @@ beforeAll(async () => {
         chunks.push(Buffer.from(chunk))
       }
 
-      const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
-        method: string
-        params: Record<string, unknown>
-      }
+      const body = copyRequest.parse(JSON.parse(Buffer.concat(chunks).toString("utf8")))
 
       reply.setHeader("content-type", "application/json")
 
@@ -75,11 +83,8 @@ beforeAll(async () => {
       reply.end(JSON.stringify({ result: emptyState(tab) }))
     })
     await new Promise<void>((resolve) => copy.server!.listen(0, "127.0.0.1", resolve))
-    const address = copy.server.address()
-
-    if (!address || typeof address === "string") {
-      throw new Error("No port")
-    }
+    // A server listening on a port has an address with one, never a pipe's name.
+    const address = listening.parse(copy.server.address())
 
     const entry = {
       version: 1,
@@ -135,7 +140,7 @@ function run(args: string[], cwd = tmpdir(), input?: string) {
 }
 
 /** The same call through the MCP server: its structured result, or its error. */
-async function tool(name: string, input: Record<string, unknown>, cwd = tmpdir()) {
+async function tool(name: string, input: JsonValue, cwd = tmpdir()) {
   const messages = [
     { jsonrpc: "2.0", id: 1, method: "initialize", params: { clientInfo: { name: "Copies" } } },
     { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name, arguments: input } }
@@ -143,9 +148,8 @@ async function tool(name: string, input: Record<string, unknown>, cwd = tmpdir()
 
   const lines = messages.map((message) => JSON.stringify(message) + "\n").join("")
   const { stdout } = await run(["mcp"], cwd, lines)
-  const reply = toolReply(stdout) as { result?: { structuredContent?: unknown } } | undefined
 
-  return reply?.result?.structuredContent
+  return toolReply(stdout)?.result?.structuredContent
 }
 
 describe("routing between copies", processTests, () => {
@@ -170,16 +174,16 @@ describe("routing between copies", processTests, () => {
 
   it("sends each call to the copy that has its project open", async () => {
     const codes = await Promise.all([run(["state", "--tab", "shop"]), run(["state", "--tab", blog])])
-    expect(codes.map((result) => result.code)).toEqual([0, 0])
+    expect(codes).toEqual([succeeded, succeeded])
     expect(person.requests).toEqual([{ method: "state", params: { tab: shop } }])
     expect(session.requests).toEqual([{ method: "state", params: { tab: blog } }])
   })
 
   it("sends --tab active to the copy focused last, and lists every copy's projects", async () => {
     const [state, tabs] = await Promise.all([run(["state", "--tab", "active"]), run(["tabs"])])
-    expect(state.code).toBe(0)
+    expect(state).toEqual(succeeded)
     expect(session.requests).toEqual([{ method: "state", params: { tab: blog } }])
-    const listed = JSON.parse(tabs.stdout) as { tabs: { id: string; active: boolean }[] }
+    const listed = listedTabs.parse(JSON.parse(tabs.stdout))
     expect(listed.tabs.map((tab) => [tab.id, tab.active])).toEqual([
       [shop, false],
       [blog, true]
@@ -192,7 +196,7 @@ describe("routing between copies", processTests, () => {
     person.tabs = [{ id: folder, name: "work", root: folder, active: false, status: "ready", designs: 0 }]
 
     try {
-      expect((await run(["state"], folder)).code).toBe(0)
+      expect(await run(["state"], folder)).toEqual(succeeded)
       expect(person.requests).toEqual([{ method: "state", params: { tab: folder } }])
     } finally {
       person.tabs = [{ id: shop, name: "shop", root: shop, active: true, status: "ready", designs: 0 }]
