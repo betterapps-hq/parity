@@ -5,8 +5,10 @@ import {
   type ComponentLibrary,
   type DesignNode,
   type NodeStyle,
+  type PropValues,
   radiusKeywords
 } from "@parity-app/core"
+import { z } from "zod"
 import type { Warning } from "./warnings.ts"
 
 /** What a design is checked against: the project's components, tokens and icon sets, and what this call inserted. */
@@ -31,11 +33,13 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
   const icons = (context.iconSets ?? []).map((set) => `${set.id}/`)
   const tokens = new Set(context.tokens.map((token) => token.name))
   const known = (name: string, value: string) => tokens.has(value) || (name === "radius" && value in radiusKeywords)
+
   for (const container of document.containers) {
     const check = (node: DesignNode, where: string) => {
       if (node.type === "instance" && !context.library.has(node.design)) {
         warn("unknown_component_design", `no component design "${node.design}"`, where)
       }
+
       if (
         node.type === "component" &&
         !components.has(node.component) &&
@@ -47,15 +51,20 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
           where
         )
       }
+
       if (node.type === "component" && context.inserted.has(node.id)) {
         found.push(...propWarnings(context.props[node.component], node.component, node.props, where))
       }
+
       for (const style of [node.style, ...Object.values(node.responsive ?? {}).map((patch) => patch.style)]) {
         for (const name of tokenStyleKeys) {
           const value = style?.[name]
-          if (value && !known(name, value))
+
+          if (value && !known(name, value)) {
             warn("not_a_token", `${name} "${value}" isn't a token. Use a name from GetTokens().`, where)
+          }
         }
+
         for (const [name, value] of lengthTokens(style)) {
           if (!tokens.has(value)) {
             warn(
@@ -66,6 +75,7 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
           }
         }
       }
+
       if (
         context.inserted.has(node.id) &&
         !node.name &&
@@ -74,20 +84,29 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
       ) {
         warn("unnamed_layout", "name layouts that group things, so the layers tree reads well", where)
       }
-      for (const entry of childEntries(node))
-        for (const child of entry.nodes) check(child, `${container.id}/${child.id}`)
+
+      for (const entry of childEntries(node)) {
+        for (const child of entry.nodes) {
+          check(child, `${container.id}/${child.id}`)
+        }
+      }
     }
+
     check(container.root, `${container.id}/${container.root.id}`)
+
     for (const state of container.states) {
       for (const [nodeId, patch] of Object.entries(state.overrides ?? {})) {
         for (const name of tokenStyleKeys) {
           const value = patch.style?.[name]
-          if (value && !known(name, value))
+
+          if (value && !known(name, value)) {
             warn("not_a_token", `${name} "${value}" isn't a token`, `${container.id} state ${state.id}/${nodeId}`)
+          }
         }
       }
     }
   }
+
   return found
 }
 
@@ -98,23 +117,31 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
 export function propWarnings(
   info: ComponentInfo | undefined,
   component: string,
-  props: Record<string, unknown> | undefined,
+  props: PropValues | undefined,
   where: string
 ): Warning[] {
-  if (!info || !props) return []
+  if (!info || !props) {
+    return []
+  }
+
   const found: Warning[] = []
+
   for (const [name, value] of Object.entries(props)) {
     const prop = info.props.find((candidate) => candidate.name === name)
+
     if (!prop) {
-      if (!name.startsWith("data-"))
+      if (!name.startsWith("data-")) {
         found.push({
           category: "unknown_prop",
           message: `${component} has no prop "${name}". Check Props("${component}").`,
           at: where
         })
+      }
+
       continue
     }
-    if (prop.kind === "enum" && value !== undefined && !prop.options?.includes(value as string)) {
+
+    if (prop.kind === "enum" && value !== undefined && !prop.options?.some((option) => option === value)) {
       found.push({
         category: "invalid_option",
         message: `${component} ${name} is one of ${prop.options?.map((option) => JSON.stringify(option)).join(", ")}, not ${JSON.stringify(value)}`,
@@ -122,18 +149,29 @@ export function propWarnings(
       })
     }
   }
+
   return found
 }
+
+/** A length written as a name, a token's or `fill` or `hug`, rather than a number of spacing steps. */
+const lengthName = z.string()
 
 /** Lengths given as token names rather than spacing steps, by the style key they're under. */
 function lengthTokens(style: NodeStyle | undefined): [string, string][] {
   const found: [string, string][] = []
+
   for (const name of lengthStyleKeys) {
     const value = style?.[name]
+
     for (const side of Array.isArray(value) ? value : [value]) {
-      if (typeof side === "string" && side !== "fill" && side !== "hug") found.push([name, side])
+      const token = lengthName.safeParse(side).data
+
+      if (token !== undefined && token !== "fill" && token !== "hug") {
+        found.push([name, token])
+      }
     }
   }
+
   return found
 }
 

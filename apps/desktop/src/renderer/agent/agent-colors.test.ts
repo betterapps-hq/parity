@@ -23,6 +23,9 @@ describe("agent colors", () => {
     const ids = agentPalettes.map((_, index) => `same#${index}`)
     const claimed = ids.map((id) => agentColors.claim(id, "Claude Code"))
     expect(new Set(claimed).size).toBe(agentPalettes.length)
-    for (const id of ids) agentColors.release(id)
+
+    for (const id of ids) {
+      agentColors.release(id)
+    }
   })
 })

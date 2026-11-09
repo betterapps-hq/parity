@@ -8,7 +8,7 @@ import { describe, expect, it } from "vite-plus/test"
  * removes one fails here, so 12.8px, 14px or a medium tab can't quietly come back. When it fails, decide what the new
  * class should come to, add a rule to styles.css if it needs one, and update this list.
  */
-const known: Record<string, Record<string, string>> = {
+const known = {
   "accordion.js": { "font-medium": "unused" },
   "alert-dialog.js": {
     "font-medium": "dialog title: styles.css repoints it to semibold",
@@ -100,26 +100,30 @@ const known: Record<string, Record<string, string>> = {
     "text-[0.8rem]": "the small toggle: styles.css sets it to 12px"
   },
   "trace.js": { "leading-relaxed": "unused" }
-}
+} satisfies Record<string, Record<string, string>>
 
 const typeClass =
   /(?:^|[\s"'`:])(font-medium|text-\[[^\]]+\]|md:text-[a-z0-9]+|leading-[a-z0-9]+|tracking-[a-z]+)(?=[\s"'`]|$)/g
 
 /** Every type class in each of the kit's components, as "class" or "class×count". */
-function scanKit(): Record<string, string[]> {
+function scanKit() {
   const folder = fileURLToPath(new URL("../../node_modules/@buildkitgg/shadcn-baseui-kit/dist/ui/", import.meta.url))
   const found: Record<string, string[]> = {}
+
   for (const file of readdirSync(folder)
     .filter((name) => name.endsWith(".js"))
     .sort()) {
     const counts = new Map<string, number>()
+
     for (const [, name] of readFileSync(folder + file, "utf8").matchAll(typeClass)) {
       counts.set(name!, (counts.get(name!) ?? 0) + 1)
     }
+
     if (counts.size > 0) {
       found[file] = [...counts].map(([name, count]) => (count === 1 ? name : `${name}×${count}`)).sort()
     }
   }
+
   return found
 }
 

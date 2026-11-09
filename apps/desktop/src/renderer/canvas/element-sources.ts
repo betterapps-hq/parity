@@ -25,13 +25,27 @@ export const listedElements = 60
  */
 export function sourcedElements(roots: readonly Element[], limit = listedElements): SourcedElement[] {
   const found: SourcedElement[] = []
+
   const visit = (element: Element, depth: number) => {
-    if (found.length >= limit) return
+    if (found.length >= limit) {
+      return
+    }
+
     const sourced = sourcedElement(element, depth)
-    if (sourced) found.push(sourced)
-    for (const child of element.children) visit(child, sourced ? depth + 1 : depth)
+
+    if (sourced) {
+      found.push(sourced)
+    }
+
+    for (const child of element.children) {
+      visit(child, sourced ? depth + 1 : depth)
+    }
   }
-  for (const root of roots) visit(root, 0)
+
+  for (const root of roots) {
+    visit(root, 0)
+  }
+
   return found
 }
 
@@ -42,6 +56,7 @@ export function sourcedElements(roots: readonly Element[], limit = listedElement
  */
 export function sourcedElementAt(host: Element, x: number, y: number): SourcedElement | undefined {
   const found = host.shadowRoot ? writtenAt(host.shadowRoot, x, y) : undefined
+
   return found && sourcedElement(found, 0)
 }
 
@@ -56,18 +71,35 @@ export function frameAt<T extends Element>(frames: readonly T[], x: number, y: n
  */
 function writtenAt(parent: ParentNode, x: number, y: number): Element | undefined {
   const { children } = parent
+
   for (let index = children.length - 1; index >= 0; index--) {
     const child = children[index]!
-    if (child.localName === "style" || child.localName === "script") continue
+
+    if (child.localName === "style" || child.localName === "script") {
+      continue
+    }
+
     const rect = child.getBoundingClientRect()
     const boxless = rect.width === 0 && rect.height === 0
-    if (!boxless && !holds(rect, x, y)) continue
+
+    if (!boxless && !holds(rect, x, y)) {
+      continue
+    }
+
     const inner = writtenAt(child, x, y)
-    if (inner) return inner
-    if (boxless) continue
+
+    if (inner) {
+      return inner
+    }
+
+    if (boxless) {
+      continue
+    }
+
     // The element on top here: it, if a project file wrote it, else the written element around it.
     return child.hasAttribute(elementSourceAttribute) ? child : undefined
   }
+
   return undefined
 }
 
@@ -78,6 +110,7 @@ function holds(rect: DOMRect, x: number, y: number): boolean {
 /** The elements under `roots` written at one place in the code, as a list's items all are. */
 export function elementsWrittenAt(roots: readonly Element[], at: string): Element[] {
   const selector = `[${elementSourceAttribute}="${CSS.escape(at)}"]`
+
   return roots.flatMap((root) => [...(root.matches(selector) ? [root] : []), ...root.querySelectorAll(selector)])
 }
 
@@ -94,6 +127,10 @@ export function shortSource({ path, line }: ElementSource): string {
 function sourcedElement(element: Element, depth: number): SourcedElement | undefined {
   const at = element.getAttribute(elementSourceAttribute)
   const source = parseElementSource(at)
-  if (!source || !at) return undefined
+
+  if (!source || !at) {
+    return undefined
+  }
+
   return { element, tag: element.localName, source, at, depth }
 }

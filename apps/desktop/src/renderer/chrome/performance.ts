@@ -37,12 +37,14 @@ function start(): () => void {
   let last = performance.now()
   let since = last
   let processes: ProcessUsage[] = []
+
   let frame = requestAnimationFrame(function tick(now) {
     frames += 1
     longest = Math.max(longest, now - last)
     last = now
     frame = requestAnimationFrame(tick)
   })
+
   const timer = setInterval(() => {
     const now = performance.now()
     const fps = Math.round((frames * 1000) / (now - since))
@@ -50,21 +52,34 @@ function start(): () => void {
     frames = 0
     longest = 0
     since = now
+    // SAFETY: Chromium adds `performance.memory`, which the DOM types leave out; it's optional for other engines.
     const memory = (performance as Performance & { memory?: MemoryInfo }).memory
     const heap = memory ? { used: memory.usedJSHeapSize, limit: memory.jsHeapSizeLimit } : undefined
+
     const publish = () => {
-      if (!stop) return
-      stats = {
-        latest: { fps, longestFrame, processes, ...(heap ? { heap } : {}) },
-        history: [...stats.history, fps].slice(-historyLength)
+      if (!stop) {
+        return
       }
-      for (const listener of listeners) listener()
+
+      const latest: Sample = { fps, longestFrame, processes }
+
+      if (heap) {
+        latest.heap = heap
+      }
+
+      stats = { latest, history: [...stats.history, fps].slice(-historyLength) }
+
+      for (const listener of listeners) {
+        listener()
+      }
     }
+
     window.canvasHost.metrics().then((next) => {
       processes = next
       publish()
     }, publish)
   }, 1000)
+
   return () => {
     cancelAnimationFrame(frame)
     clearInterval(timer)
@@ -73,10 +88,18 @@ function start(): () => void {
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
-  if (!stop) stop = start()
+
+  if (!stop) {
+    stop = start()
+  }
+
   return () => {
     listeners.delete(listener)
-    if (listeners.size > 0) return
+
+    if (listeners.size > 0) {
+      return
+    }
+
     stop?.()
     stop = undefined
     stats = empty

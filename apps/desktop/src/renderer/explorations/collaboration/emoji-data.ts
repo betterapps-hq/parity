@@ -25,7 +25,8 @@ function list(lines: string): EmojiEntry[] {
     .split("\n")
     .map((line) => {
       const [emoji, name, keywords = "", tone] = line.trim().split("|")
-      return { emoji: emoji!, name: name!, keywords, ...(tone ? { tone: true } : {}) }
+
+      return tone ? { emoji: emoji!, name: name!, keywords, tone: true } : { emoji: emoji!, name: name!, keywords }
     })
 }
 
@@ -271,17 +272,35 @@ export function shortcode(entry: EmojiEntry): string {
 /** Emoji whose name or keywords start with what's typed, best first: names, then keywords, then anywhere. */
 export function searchEmoji(query: string, limit = Infinity): EmojiEntry[] {
   const typed = query.trim().toLowerCase().replace(/_/g, " ")
-  if (!typed) return []
+
+  if (!typed) {
+    return []
+  }
+
   const rank = (entry: EmojiEntry) => {
     const words = `${entry.name} ${entry.keywords}`.toLowerCase().replace(/_/g, " ")
-    if (entry.name.toLowerCase().startsWith(typed)) return 0
-    if (words.split(" ").some((word) => word.startsWith(typed))) return 1
-    if (words.includes(typed)) return 2
+
+    if (entry.name.toLowerCase().startsWith(typed)) {
+      return 0
+    }
+
+    if (words.split(" ").some((word) => word.startsWith(typed))) {
+      return 1
+    }
+
+    if (words.includes(typed)) {
+      return 2
+    }
+
     return 3
   }
+
   return allEmoji
-    .map((entry) => ({ entry, rank: rank(entry) }))
-    .filter(({ rank }) => rank < 3)
+    .flatMap((entry) => {
+      const ranked = rank(entry)
+
+      return ranked < 3 ? [{ entry, rank: ranked }] : []
+    })
     .sort((a, b) => a.rank - b.rank)
     .slice(0, limit)
     .map(({ entry }) => entry)
@@ -298,7 +317,11 @@ export const skinTones = [
 
 /** The emoji in a skin tone: the modifier follows its first character, in place of any presentation selector. */
 export function withTone(entry: EmojiEntry, modifier: string): string {
-  if (!entry.tone || !modifier) return entry.emoji
+  if (!entry.tone || !modifier) {
+    return entry.emoji
+  }
+
   const [first, ...rest] = Array.from(entry.emoji.replace(/️/g, ""))
+
   return [first, modifier, ...rest].join("")
 }

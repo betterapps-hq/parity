@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
+import { print } from "../../../scripts/output.ts"
 import { App } from "./app.ts"
 
 // docs/editor.md, Inserting: the `/` picker (PAR-178), how quickly it opens, what it lists first, what it leaves out
@@ -16,7 +17,9 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 const picker = () => app.page.getByRole("listbox", { name: "Layers, components and icons" })
@@ -32,17 +35,24 @@ async function open(): Promise<number> {
     const opened = new Promise<number>((resolve) => {
       const observer = new MutationObserver(() => {
         const list = document.querySelector("[role=listbox]")
-        if (!list?.querySelector("[role=option]")) return
+
+        if (!list?.querySelector("[role=option]")) {
+          return
+        }
+
         observer.disconnect()
         list.getBoundingClientRect()
         resolve(performance.now() - pressed)
       })
+
       observer.observe(document.body, { childList: true, subtree: true })
     })
+
     const pressed = performance.now()
     window.pickerOpened = opened
   })
   await app.page.keyboard.press("/")
+
   return app.page.evaluate(() => window.pickerOpened!)
 }
 
@@ -57,12 +67,18 @@ function lines(): Promise<string[]> {
   return picker().evaluate((list) =>
     [...list.querySelectorAll(":scope > div > *")].map((line) => {
       const text = (line.textContent ?? "").trim()
-      if (line.getAttribute("role") !== "option") return `# ${text}`
+
+      if (line.getAttribute("role") !== "option") {
+        return `# ${text}`
+      }
+
       // A row's name, then each source or detail beside it as its own part.
       const parts = [...line.querySelectorAll(":scope > span")].map((part) => {
         const chips = [...part.querySelectorAll("button")].map((chip) => chip.textContent)
+
         return chips.length > 0 ? chips.join(" | ") : part.textContent
       })
+
       return parts.join(" / ")
     })
   )
@@ -72,6 +88,7 @@ function lines(): Promise<string[]> {
 async function search(query: string): Promise<string[]> {
   await field().fill(query)
   await expect.poll(async () => (await field().inputValue()) === query && (await lines()).length > 0).toBe(true)
+
   return lines()
 }
 
@@ -80,15 +97,17 @@ describe("the insert picker", () => {
     await app.show("Members", 0.5)
     await app.selectDesign("Members")
     const times: number[] = []
+
     for (let run = 0; run < 7; run++) {
       times.push(await open())
       await close()
     }
+
     // The list is built while the window is idle, so even the first opening only draws it. On a quiet machine every
     // opening takes 25 to 50ms in development; other work on the machine can double one, so the slower half has room.
     // Before PAR-178 each took 400 to 900ms.
     const sorted = [...times].sort((a, b) => a - b)
-    console.log(`Opened the picker in ${times.map((time) => Math.round(time)).join(", ")}ms`)
+    print(`Opened the picker in ${times.map((time) => Math.round(time)).join(", ")}ms`)
     expect(sorted[0]).toBeLessThan(100)
     expect(sorted[3]).toBeLessThan(150)
   })
@@ -116,22 +135,30 @@ describe("the insert picker", () => {
       "Horizontal layout",
       "# Local components"
     ])
+
     // Only the lines in view are drawn, so the list is scrolled a screen at a time to read every heading. Each scroll
     // is announced at once, as a wheel's would be a frame later, since frames are slow in a window in the background.
     const headings = await app.page.evaluate(async () => {
       const list = document.querySelector<HTMLElement>("[role=listbox]")!
       const seen: string[] = []
+
       for (let top = 0; top <= list.scrollHeight; top += list.clientHeight) {
         list.scrollTop = top
         list.dispatchEvent(new Event("scroll"))
         await new Promise((resolve) => setTimeout(resolve, 0))
+
         for (const line of list.querySelectorAll(":scope > div > div[role=presentation]")) {
           const text = line.textContent ?? ""
-          if (text && !seen.includes(text)) seen.push(text)
+
+          if (text && !seen.includes(text)) {
+            seen.push(text)
+          }
         }
       }
+
       return seen
     })
+
     // The example has no pages, and App and ThemeProvider aren't listed until searched for, so the app's own section
     // holds the run's MemberRow, MemberNames and EmailField.
     expect(headings).toEqual(["Basics", "Local components", "UI kit", "shadcn-vite", "Shadcn Nova", "Radix Primitives"])

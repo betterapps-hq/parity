@@ -25,6 +25,7 @@ const meta = {
 } satisfies Meta<typeof DesignTab>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Two designs selected: how many, their names, the align buttons, then duplicate and delete. */
@@ -109,5 +110,6 @@ export const LayersGone: Story = {
 function childrenOf(designName: string, layoutName: string): string[] {
   const entry = example().store.getEntry(design(designName))
   const layout = entry && findNode(entry.container.root, node(designName, layoutName))
+
   return layout?.type === "layout" ? layout.children.map((child) => child.id) : []
 }

@@ -16,7 +16,11 @@ const { jonas, sam } = people
 /** A name with the part that matches the search marked. */
 function Match({ text }: { text: string }) {
   const at = text.toLowerCase().indexOf(searchQuery)
-  if (at < 0) return <>{text}</>
+
+  if (at < 0) {
+    return <>{text}</>
+  }
+
   return (
     <>
       {text.slice(0, at)}
@@ -53,6 +57,7 @@ const components: { name: string; project: string; file: string; uses: string }[
 
 export function SearchPage() {
   const mention = event("jonas-mention")
+
   return (
     <PortalPage active="search" path={`kestrel/search?q=${searchQuery}`}>
       <div className="flex min-h-full">
@@ -66,7 +71,8 @@ export function SearchPage() {
               {designs.map((hit) => {
                 const shown = portalProject(hit.project)
                 const design = designOf(shown, hit.design)
-                const status = handoff[`${hit.project}/${hit.design}`]
+                const status = handoff.get(`${hit.project}/${hit.design}`)
+
                 return (
                   <div
                     key={`${hit.project}/${hit.design}`}

@@ -16,6 +16,7 @@ const tab = { id: "D:/app", name: "app" }
 describe("describeConsole", () => {
   it("says which design wrote a message, in which state and mode, when the app knows (PAR-147)", () => {
     const at = Date.UTC(2026, 10, 5, 18, 30)
+
     const entry = {
       level: "error" as const,
       text: "Cannot read properties of undefined (reading 'price')",
@@ -25,6 +26,7 @@ describe("describeConsole", () => {
       first: at,
       last: at
     }
+
     const text = describeConsole({
       tab,
       total: 2,
@@ -34,6 +36,7 @@ describe("describeConsole", () => {
         { ...entry, where: "offscreen" }
       ]
     })
+
     const places = text.split("\n").filter((line) => line.startsWith("  at "))
     expect(places).toEqual([
       "  at /src/plan-price.tsx:12, from design pricing (yearly, desktop-light)",
@@ -58,6 +61,7 @@ describe("describeProblems", () => {
         { state: "loading", mode: "mobile", problem: "cut off by a parent that clips", node: "stats" }
       ]
     })
+
     expect(text).toBe(
       [
         "2 problems in Dashboard (dashboard), 4 frames:",
@@ -87,6 +91,7 @@ describe("describeProblems", () => {
         }
       ]
     })
+
     expect(text).toBe(
       [
         "1 problem in Checkout (checkout), 2 frames:",
@@ -110,6 +115,7 @@ describe("describeComponents", () => {
         { name: "Loose", path: "src/promo.tsx", reason: "its type is any", undecided: true }
       ]
     })
+
     expect(text).toBe(
       [
         "The project's own:",
@@ -130,6 +136,7 @@ describe("describeComponents", () => {
       components: ["Card", "Button", "CardTitle", "Promo", "ui/Badge"],
       files: { Button: "src/ui/button.tsx", Card: "src/ui/card.tsx", CardTitle: "src/ui/card.tsx" }
     })
+
     expect(text).toBe(
       [
         "The project's own, by file:",
@@ -158,6 +165,7 @@ describe("describeComponents", () => {
         include: [{ path: "src/promo.tsx", export: "PromoPrice" }]
       }
     })
+
     expect(text).toBe(
       [
         "The project's own:",
@@ -199,6 +207,7 @@ describe("describeAccessibility", () => {
         finding("row-2", "error")
       ]
     })
+
     expect(text).toContain(
       "  Member row (row-1, row-2), in default, error in desktop: #737373 on #f5f5f5 is 4.34:1, and 14px text needs 4.5:1."
     )
@@ -208,6 +217,7 @@ describe("describeAccessibility", () => {
   it("gives a contrast failure's fix as the style to set, or says no token passes", () => {
     const fixed = { ...finding("row-1", "default"), contrast: { fix: { token: "foreground", ratio: 18.16 } } }
     const unfixable = { ...finding("row-2", "error"), name: "Badge", contrast: { fix: "none" as const } }
+
     const text = describeAccessibility({
       tab,
       design: { id: "team", name: "Team" },
@@ -215,6 +225,7 @@ describe("describeAccessibility", () => {
       warnings: [],
       findings: [fixed, unfixable]
     })
+
     expect(text).toContain(
       '  Member row (row-1), in default in desktop: #737373 on #f5f5f5 is 4.34:1, and 14px text needs 4.5:1.\n    Fix: set style.foreground to "foreground", which reaches 18.16:1 in every frame checked.'
     )
@@ -266,6 +277,7 @@ describe("describeModes", () => {
         }
       ]
     })
+
     expect(text).toBe(
       [
         "Viewports, the ids Responsive(node, viewport, patch) takes:",
@@ -302,6 +314,7 @@ describe("describeStatus", () => {
       undo: { count: 4, labels: ["Edit --primary"] },
       redo: { count: 0, labels: [] }
     })
+
     expect(text).toBe(
       [
         "Shop is at revision a1b2c3d4:4.",
@@ -330,6 +343,7 @@ describe("describeStatus", () => {
       undo: { count: 0 },
       redo: { count: 2 }
     })
+
     expect(text).toBe(
       [
         "Shop is at revision a1b2c3d4:0.",
@@ -356,6 +370,7 @@ describe("describeTokens", () => {
       total: 1,
       truncated: false
     })
+
     expect(text).toContain("color, semantic:\n  muted-foreground: default #737373, dark #a1a1a1")
   })
 
@@ -386,6 +401,7 @@ describe("describeExec", () => {
         { category: "unnamed_layout", severity: "suggestion", message: "name layouts", count: 12, at: [] }
       ]
     })
+
     expect(text).toBe(
       [
         "Done. The changes are on the canvas as one undoable step.",

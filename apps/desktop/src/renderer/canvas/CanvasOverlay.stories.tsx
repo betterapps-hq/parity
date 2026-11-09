@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const select = (selection: Parameters<ReturnType<typeof example>["selection"]["set"]>[0]) => () =>
@@ -87,7 +88,10 @@ export const LayerSelected: Story = onCanvas(["Pricing"], () =>
   select(layersSelection(design("Pricing"), [node("Pricing", "Headline")]))()
 )
 
-/** A layout selected: its padding and the gaps between its children are shaded. */
+/**
+ * A layout selected: a bar on each side's padding and each gap between its children, which hatches the space it
+ * changes while the pointer is on it.
+ */
 export const LayoutSpacing: Story = onCanvas(["Pricing"], () =>
   select(layersSelection(design("Pricing"), [node("Pricing", "Hero")]))()
 )

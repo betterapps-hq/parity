@@ -58,6 +58,7 @@ export function ModesPanel() {
   const tokens = useTokenList(tokenStore)
   const presets = useMemo(() => viewportPresets(tokens, info.libraries), [tokens, info.libraries])
   const update = (next: Partial<ModeSettings>) => store.setModes({ ...settings, ...next })
+
   const replaceMode = (id: string, next: ModeSpec) =>
     update({ modes: settings.modes.map((mode) => (mode.id === id ? next : mode)) })
 
@@ -67,12 +68,18 @@ export function ModesPanel() {
     const base = added?.settings ?? settings
     const values = Object.fromEntries(base.variables.map((variable) => [variable.id, variable.options[0]!.id]))
     const variable = base.variables.find((candidate) => candidate.kind === "viewport")
-    if (added && variable) values[variable.id] = added.option
+
+    if (added && variable) {
+      values[variable.id] = added.option
+    }
+
     const name = autoName(base, values)
+
     const id = uniqueId(
       name,
       base.modes.map((mode) => mode.id)
     )
+
     store.setModes({ ...base, modes: [...base.modes, { id, name, values }] }, "Add mode")
   }
 
@@ -126,6 +133,7 @@ export function ModesPanel() {
               onMakePrimary={() => update({ modes: [mode, ...settings.modes.filter((m) => m.id !== mode.id)] })}
               onDuplicate={() => {
                 const name = `${mode.name} copy`
+
                 const copy = {
                   ...mode,
                   id: uniqueId(
@@ -134,6 +142,7 @@ export function ModesPanel() {
                   ),
                   name
                 }
+
                 update({ modes: [...settings.modes, copy] })
               }}
               onDelete={
@@ -157,19 +166,28 @@ export function ModesPanel() {
               }
               onAdd={(preset) => {
                 const added = withViewport(settings, preset)
-                if (added && added.settings !== settings) store.setModes(added.settings, `Add ${preset.name}`)
+
+                if (added && added.settings !== settings) {
+                  store.setModes(added.settings, `Add ${preset.name}`)
+                }
               }}
               onRemove={(optionId) => {
                 // Modes that used it fall back to the first option.
                 const modes = settings.modes.map((mode) => {
-                  if (mode.values[variable.id] !== optionId) return mode
+                  if (mode.values[variable.id] !== optionId) {
+                    return mode
+                  }
+
                   const values = { ...mode.values }
                   delete values[variable.id]
+
                   return { ...mode, values }
                 })
+
                 const variables = settings.variables.map((v) =>
                   v.id === variable.id ? { ...v, options: v.options.filter((option) => option.id !== optionId) } : v
                 )
+
                 store.setModes({ ...settings, variables, modes }, "Remove option")
               }}
             />
@@ -192,6 +210,7 @@ interface ModeCardProps {
 
 function ModeCard({ mode, settings, primary, onChange, onMakePrimary, onDuplicate, onDelete }: ModeCardProps) {
   const resolved = resolveMode(settings, mode)
+
   const setValue = (variableId: string, optionId: string) => {
     const values = { ...mode.values, [variableId]: optionId }
     // Keep generated names in step with the values; a name someone typed stays as it is.
@@ -209,10 +228,15 @@ function ModeCard({ mode, settings, primary, onChange, onMakePrimary, onDuplicat
           className="h-7 flex-1 border-transparent bg-transparent px-1.5 font-medium shadow-none hover:border-input"
           onBlur={(event) => {
             const name = event.currentTarget.value.trim()
-            if (name && name !== mode.name) onChange({ ...mode, name })
+
+            if (name && name !== mode.name) {
+              onChange({ ...mode, name })
+            }
           }}
           onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur()
+            if (event.key === "Enter") {
+              event.currentTarget.blur()
+            }
           }}
         />
         {/* A tag on the mode's row, a Caption, as its chips are in the Design tab. */}
@@ -246,6 +270,7 @@ function ModeCard({ mode, settings, primary, onChange, onMakePrimary, onDuplicat
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5">
         {resolved.options.map(({ variable, option }) => {
           const Icon = kindIcons[variable.kind]
+
           return (
             <VariableSelect
               key={variable.id}
@@ -280,6 +305,7 @@ function VariableSelect({ icon, variable, value, onChange }: VariableSelectProps
       </>
     )
   }))
+
   return (
     <>
       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -313,8 +339,10 @@ interface VariableCardProps {
 
 function VariableCard({ variable, presets, onChange, onAdd, onRemove }: VariableCardProps) {
   const Icon = kindIcons[variable.kind]
+
   const setOption = (id: string, next: VariableOption) =>
     onChange({ ...variable, options: variable.options.map((option) => (option.id === id ? next : option)) })
+
   const viewport = variable.kind === "viewport"
 
   return (
@@ -353,6 +381,7 @@ function VariableCard({ variable, presets, onChange, onAdd, onRemove }: Variable
                   className="h-6 w-16 px-1.5 text-right text-xs"
                   onBlur={(event) => {
                     const width = Number(event.currentTarget.value)
+
                     if (Number.isFinite(width) && width >= 240 && width !== option.width) {
                       setOption(option.id, { ...option, width })
                     }
@@ -386,10 +415,23 @@ function VariableCard({ variable, presets, onChange, onAdd, onRemove }: Variable
 /** What an option does to a frame, as small code chips. */
 function OptionDetails({ option }: { option: VariableOption }) {
   const parts: string[] = []
-  if (option.width !== undefined) parts.push(`${option.width}px`)
-  if (option.className) parts.push(`class="${option.className}"`)
-  for (const [name, value] of Object.entries(option.attributes ?? {})) parts.push(`${name}="${value}"`)
-  if (parts.length === 0) return <span className="text-xs text-muted-foreground">No change</span>
+
+  if (option.width !== undefined) {
+    parts.push(`${option.width}px`)
+  }
+
+  if (option.className) {
+    parts.push(`class="${option.className}"`)
+  }
+
+  for (const [name, value] of Object.entries(option.attributes ?? {})) {
+    parts.push(`${name}="${value}"`)
+  }
+
+  if (parts.length === 0) {
+    return <span className="text-xs text-muted-foreground">No change</span>
+  }
+
   return (
     <>
       {parts.map((part) => (
@@ -406,7 +448,9 @@ function autoName(settings: ModeSettings, values: Record<string, string>): strin
   const names = settings.variables.flatMap((variable, index) => {
     const option = variable.options.find((candidate) => candidate.id === values[variable.id]) ?? variable.options[0]!
     const isDefault = option.id === variable.options[0]!.id
+
     return index < 2 || !isDefault ? [option.name] : []
   })
+
   return names.join(" ")
 }

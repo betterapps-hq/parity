@@ -32,7 +32,10 @@ const listeners = new Set<() => void>()
 
 function update(next: Partial<AccountView>): void {
   view = { ...view, ...next }
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 /** Signed out, with nothing showing, as stories start. */
@@ -57,35 +60,60 @@ function remember(choice: "skipped" | "signed-in"): void {
  */
 function firstLaunch(): boolean {
   let chosen: string | null = null
+
   try {
     chosen = localStorage.getItem(choiceKey)
   } catch {
     // Unreadable storage counts as no choice.
   }
+
   return chosen === null && !window.canvasHost.initialProject && workspace.getProjects().length === 0
 }
 
 /** Takes what main says, checked against its schema, since IPC is data from outside. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- IPC: what main sends is checked against its schema here
 export function receiveAccount(raw: unknown): void {
   const parsed = accountState.safeParse(raw)
+
   if (!parsed.success) {
     console.error("Parity couldn't read who's signed in", parsed.error)
+
     return
   }
+
   const state = parsed.data
   const before = view
   const was = before.state
   // Someone's signed in where nobody was, or a sign-in that was waiting signed in another account or the same again.
   const signedIn = !!state.account && (!was.account || (was.attempt?.at === "waiting" && !state.attempt))
   let place = before.place
-  if (!before.loaded && !state.account && firstLaunch()) place = "screen"
-  if (signedIn) place = undefined
+
+  if (!before.loaded && !state.account && firstLaunch()) {
+    place = "screen"
+  }
+
+  if (signedIn) {
+    place = undefined
+  }
+
   // WorkOS ended the session of the account you're in: say so over whatever's open, which stays as it is.
-  if (state.ended && !was.ended) place = "dialog"
+  if (state.ended && !was.ended) {
+    place = "dialog"
+  }
+
   update({ loaded: true, state, place })
-  if (signedIn) remember("signed-in")
-  if (signedIn && before.loaded && state.account) joinedToast(state.account.email, was.accounts)
-  if (signedIn && before.loaded && state.account?.untilQuit) untilQuitToast()
+
+  if (signedIn) {
+    remember("signed-in")
+  }
+
+  if (signedIn && before.loaded && state.account) {
+    joinedToast(state.account.email, was.accounts)
+  }
+
+  if (signedIn && before.loaded && state.account?.untilQuit) {
+    untilQuitToast()
+  }
 }
 
 /** Where an account opens: its organization, or Personal in none. */
@@ -95,10 +123,17 @@ export function workspaceOf(person: AccountPerson): string {
 
 /** Says which account a sign-in added, once there was already one, since your picture is all that changes. */
 function joinedToast(email: string, before: readonly SignedInAccount[]): void {
-  if (before.length === 0) return
+  if (before.length === 0) {
+    return
+  }
+
   const had = before.find((each) => each.email === email)
   let title = `Added ${email}`
-  if (had) title = had.ended ? `Signed in again as ${email}` : `${email} is already signed in`
+
+  if (had) {
+    title = had.ended ? `Signed in again as ${email}` : `${email} is already signed in`
+  }
+
   toast(title, { id: "account-joined" })
 }
 
@@ -121,24 +156,27 @@ export function startAccount(): void {
   void window.canvasHost.account
     .get()
     .then((raw) => {
-      if (!received) receiveAccount(raw)
+      if (!received) {
+        receiveAccount(raw)
+      }
     })
-    .catch((error: unknown) => console.error("Parity couldn't ask who's signed in", error))
+    .catch((cause: unknown) => console.error("Parity couldn't ask who's signed in", cause))
 }
 
 export function useAccount(): AccountView {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => view
   )
 }
 
-const failed = (title: string) => (error: unknown) => {
-  console.error(title, error)
-  reportError(error, { operation: "account", title, description: "Try again in a moment." })
+const failed = (title: string) => (cause: unknown) => {
+  console.error(title, cause)
+  reportError(cause, { operation: "account", title, description: "Try again in a moment." })
 }
 
 /** What the sign-in screens, the account menu and Home do. */
@@ -164,7 +202,10 @@ export const accountActions = {
   },
   /** A project opened another way while the sign-in screen showed, as from the File menu: that's going on without. */
   leaveScreen: () => {
-    if (view.place !== "screen") return
+    if (view.place !== "screen") {
+      return
+    }
+
     remember("skipped")
     update({ place: undefined })
     void window.canvasHost.account.cancel()
@@ -182,24 +223,32 @@ export const accountActions = {
     void window.canvasHost.account.signOut(email).then(
       () => {
         const now = view.state.account
-        if (leaving?.ended) toast(`Removed ${email}`, { id: "signed-out" })
-        else if (!now) {
+
+        if (leaving?.ended) {
+          toast(`Removed ${email}`, { id: "signed-out" })
+        } else if (!now) {
           toast("You're signed out", { id: "signed-out", description: "Projects on this computer stay open." })
         } else if (here) {
           toast(`Signed out of ${email}`, {
             id: "signed-out",
             description: `You're in ${workspaceOf(now)} as ${now.email} now.`
           })
-        } else toast(`Signed out of ${email}`, { id: "signed-out" })
+        } else {
+          toast(`Signed out of ${email}`, { id: "signed-out" })
+        }
       },
-      (error: unknown) => console.error("Signing out failed", error)
+      (cause: unknown) => console.error("Signing out failed", cause)
     )
   },
   /** Switches to another account signed in, at once: each keeps its own session. */
   use: (email: string) =>
     void window.canvasHost.account.use(email).then(() => {
       const now = view.state.account
-      if (now?.email !== email) return
+
+      if (now?.email !== email) {
+        return
+      }
+
       toast(`Switched to ${email}`, { id: "account-switched", description: `You're in ${workspaceOf(now)} now.` })
     }, failed("Parity couldn't switch accounts")),
   explainUntilQuit: (open: boolean) => update({ untilQuit: open }),

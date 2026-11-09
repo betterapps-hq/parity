@@ -6,20 +6,30 @@ import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/t
 import sharp from "sharp"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { PreviewJob, RenderJob } from "../shared/protocol.ts"
+import type { PreviewDrawn } from "../shared/service.ts"
 import type { componentPreviews, PreviewProjects } from "./previews.ts"
 
+/** The offscreen window as the tests set it up: what it draws, and the jobs it was asked to draw. */
+interface OpenWindow {
+  root: string
+  snapshots: Map<string, Promise<CodeSnapshot>>
+  draws: string[]
+  draw: (job: RenderJob) => Promise<PreviewDrawn>
+}
+
 // The offscreen window, which needs Electron, stands in; the store and the keys are the real ones.
-const open = vi.hoisted(() => ({
+const open = vi.hoisted((): OpenWindow => ({
   root: "",
-  snapshots: new Map<string, Promise<CodeSnapshot>>(),
-  draws: [] as string[],
-  draw: (_job: RenderJob): Promise<unknown> => Promise.resolve(undefined)
+  snapshots: new Map(),
+  draws: [],
+  draw: () => Promise.resolve({ empty: true })
 }))
 
 /** The open project, served at each address in `open.snapshots`. */
 const project: PreviewProjects = {
   codeServedAt: (_projectId, guestUrl) => {
     const code = open.snapshots.get(guestUrl)
+
     return code && { code, fingerprint: code.then(({ fingerprint }) => fingerprint), sources: {} }
   },
   previewProject: () => ({
@@ -35,6 +45,7 @@ const project: PreviewProjects = {
 vi.mock("./render.ts", () => ({
   renderPreview: (job: RenderJob) => {
     open.draws.push(JSON.stringify(job.tree))
+
     return open.draw(job)
   }
 }))
@@ -55,6 +66,7 @@ async function startService(): Promise<ReturnType<typeof componentPreviews>> {
       check: true
     })
   )
+
   return (await import("./previews.ts")).componentPreviews(project)
 }
 
@@ -65,6 +77,7 @@ async function picture(width: number, height: number): Promise<string> {
   const png = await sharp({ create: { width, height, channels: 3, background: "#ffffff" } })
     .png()
     .toBuffer()
+
   return png.toString("base64")
 }
 
@@ -145,6 +158,7 @@ describe("component previews", () => {
       preview("Button", "http://localhost:5002"),
       preview("Badge", "http://localhost:5002")
     ])
+
     expect(badge?.image).toBeDefined()
     // Until it's made again, Button's last picture stands in for it.
     expect(button?.image).toBeUndefined()
@@ -230,6 +244,6 @@ describe("component previews' telemetry", () => {
     open.draw = () => Promise.resolve({ empty: true })
     await previews.makePreview(preview("Badge"), "idle")
     await previews.lookupPreviews([preview("Button"), preview("Badge")])
-    expect(cacheUse.report()?.previews).toEqual({ hits: 2, misses: 1, hitRate: 0.667 })
+    expect(cacheUse.report()).toMatchObject({ previewHits: 2, previewMisses: 1, previewHitRate: 0.667 })
   })
 })

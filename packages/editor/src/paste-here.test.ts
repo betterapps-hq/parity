@@ -1,15 +1,19 @@
-import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity-app/core"
+import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle, type TextNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { textLayer } from "./clipboard.ts"
 import type { Rect } from "./drop-slot.ts"
 import { type HereLayout, pasteHere, slotHere } from "./paste-here.ts"
 
-const text = (id: string, style?: NodeStyle): DesignNode => ({
-  type: "text",
-  id,
-  text: id,
-  ...(style ? { style } : {})
-})
+const text = (id: string, style?: NodeStyle): DesignNode => {
+  const node: TextNode = { type: "text", id, text: id }
+
+  if (style) {
+    node.style = style
+  }
+
+  return node
+}
+
 const box = (left: number, top: number, width: number, height: number): Rect => ({
   left,
   top,
@@ -76,12 +80,14 @@ function dashboard(): ContainerSpec {
 
 const base = dashboard().states[0]!
 const floating = dashboard().states[1]!
+
 const card: DesignNode = {
   type: "layout",
   id: "card",
   style: { padding: 4 },
   children: [text("card-title")]
 }
+
 const badge = text("badge", { position: "absolute", top: 1, right: 2, width: 6 })
 
 /** The stat cards' row as a frame drawn at full size draws it, each card 100px wide with 16px between them. */
@@ -124,7 +130,11 @@ const toolbar = (point: { x: number; y: number }, slot = "children"): HereLayout
 
 const children = (container: ContainerSpec, id: string, slot?: string) => {
   const node = findNode(container.root, id)
-  if (node?.type === "component") return (node.slots?.[slot ?? "children"] ?? []).map((child) => child.id)
+
+  if (node?.type === "component") {
+    return (node.slots?.[slot ?? "children"] ?? []).map((child) => child.id)
+  }
+
   return node?.type === "layout" ? node.children.map((child) => child.id) : []
 }
 
@@ -209,6 +219,7 @@ describe("paste here", () => {
 
   it("reads whether the layout is absolutely placed in the frame's viewport", () => {
     const original = dashboard()
+
     const responsive: ContainerSpec = {
       ...original,
       root: {
@@ -225,6 +236,7 @@ describe("paste here", () => {
         ]
       }
     }
+
     expect(slotHere(responsive, stats({ x: 280, y: 230 }), base, "mobile")).toMatchObject({ free: true, index: 4 })
     expect(slotHere(responsive, stats({ x: 280, y: 230 }), base, "desktop")).toMatchObject({ free: false, index: 2 })
   })
@@ -257,12 +269,14 @@ describe("paste here", () => {
       src: `/${id}.png`,
       style: { width }
     })
+
     const { container, copies } = pasteHere(
       dashboard(),
       [image("wide", 80), image("narrow", 40), text("note"), image("last", 10)],
       events({ x: 160, y: 280 }),
       base
     )
+
     const placed = copies.map((id) => findNode(container.root, id)?.style)
     expect(placed.map((style) => style?.left)).toEqual([50, 134, 178, 178])
     expect(placed.map((style) => style?.top)).toEqual([100, 100, 100, 100])
@@ -333,6 +347,7 @@ describe("the slot here", () => {
         box: box(100, 200, 216, 136)
       }
     )
+
     expect(slotHere(dashboard(), grid, base)).toMatchObject({ index: 3, line: { x: 214, y: 276, w: 2, h: 60 } })
     // Past the second row's last card, before the end.
     expect(slotHere(dashboard(), { ...grid, point: { x: 330, y: 300 } }, base)?.index).toBe(4)

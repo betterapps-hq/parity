@@ -14,7 +14,12 @@ import {
  */
 export function baseDesignNote(container: ContainerSpec, state: StateSpec, what: string): string | undefined {
   const target = boardTarget(container, state.id)
-  if (editsDesign(container, target)) return undefined
+
+  if (editsDesign(container, target)) {
+    return undefined
+  }
+
   const every = isBaseState(container, state.id) && target.variant ? "variant" : "state"
+
   return `${what} change every ${every}, not only ${editTargetName(container, target)}.`
 }

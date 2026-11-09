@@ -52,14 +52,16 @@ export function readServiceEnvironment(env: NodeJS.ProcessEnv): ServiceEnvironme
   const set = Object.fromEntries(
     Object.keys(serviceEnvironment.shape).flatMap((name) => {
       const value = env[name]
+
       return value === undefined || value === "" ? [] : [[name, value]]
     })
   )
+
   try {
     return parseData(serviceEnvironment, set)
   } catch (error) {
     throw new TypeError(
-      `The project service can't start with this environment variable: ${(error as Error).message.slice(1)}`
+      `The project service can't start with this environment variable: ${error instanceof Error ? error.message.slice(1) : String(error)}`
     )
   }
 }
@@ -69,5 +71,6 @@ let read: ServiceEnvironment | undefined
 /** The service's environment, read from `process.env` the first time it's asked for. */
 export function environment(): ServiceEnvironment {
   read ??= readServiceEnvironment(process.env)
+
   return read
 }

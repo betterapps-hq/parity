@@ -1,11 +1,16 @@
 import { z } from "zod"
-import { CodedError } from "./errors.ts"
+import { CodedError, type ErrorDetails } from "./errors.ts"
 
 /**
  * Checks for data Parity didn't make (PAR-578): files, agent input, environment variables, other programs' JSON. A zod
  * schema is both the check and the type. A failed check reads as core's hand-written ones in `validate.ts` did: a JSON
  * pointer to the value at fault, then what was expected there, as in `/containers/0/name: expected a string`.
  */
+
+/** A value JSON can hold, for data read from a JSON file. */
+export const jsonValue = z.json()
+
+export type JsonValue = z.infer<typeof jsonValue>
 
 /** An object with string keys, and not an array or null. */
 export const plainObject = z.record(z.string(), z.unknown())
@@ -20,13 +25,21 @@ export const finiteNumber = z.number()
  * An object in a file Parity owns, such as a `.par`. A key it doesn't know is an error, and a key set to `undefined` is
  * left out, as JSON leaves it out, so what the window saves from memory reads as it would from the file.
  */
-export function fileObject<const Shape extends z.core.$ZodLooseShape>(shape: Shape) {
-  return z.strictObject(shape).overwrite(withoutUnset)
+// The fields `z.strictObject` takes, by its own parameter rather than zod's internal name for them.
+type ObjectFields = NonNullable<Parameters<typeof z.strictObject>[0]>
+
+export function fileObject<const Fields extends ObjectFields>(fields: Fields) {
+  return z.strictObject(fields).overwrite(withoutUnset)
 }
 
 /** Zod's own copy of an object, without the keys whose values are `undefined`. */
 function withoutUnset<T extends object>(value: T): T {
-  for (const [key, entry] of Object.entries(value)) if (entry === undefined) Reflect.deleteProperty(value, key)
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry === undefined) {
+      Reflect.deleteProperty(value, key)
+    }
+  }
+
   return value
 }
 
@@ -37,9 +50,11 @@ export function jsonText<T extends z.ZodType>(schema: T) {
     .transform((text, context) => {
       try {
         const value: unknown = JSON.parse(text)
+
         return value
       } catch {
         context.addIssue({ code: "custom", message: "expected JSON" })
+
         return z.NEVER
       }
     })
@@ -50,9 +65,14 @@ export function jsonText<T extends z.ZodType>(schema: T) {
  * Checks data Parity didn't make and returns what the schema reads from it, or throws `TypeError` with the first
  * problem as `/json/pointer: message`. `at` is where the value sits in a larger one, so its pointers start there.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: data Parity didn't make comes here to be parsed
 export function parseData<T extends z.ZodType>(schema: T, value: unknown, at = ""): z.output<T> {
   const checked = checkData(schema, value, at)
-  if (checked.success) return checked.data
+
+  if (checked.success) {
+    return checked.data
+  }
+
   const { pointer, message } = checked.problem
   throw new TypeError(`${pointer || "/"}: ${message}`)
 }
@@ -61,14 +81,39 @@ export function parseData<T extends z.ZodType>(schema: T, value: unknown, at = "
  * Checks an agent's input, as `parseData` does, but throws `CodedError` with `invalid_input` and the pointer as its
  * field, without the leading slash, so the CLI and MCP report the pointer as the error's `path` (PAR-472).
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: data Parity didn't make comes here to be parsed
 export function parseInput<T extends z.ZodType>(schema: T, value: unknown, at = ""): z.output<T> {
   const checked = checkData(schema, value, at)
-  if (checked.success) return checked.data
+
+  if (checked.success) {
+    return checked.data
+  }
+
   const { pointer, message } = checked.problem
-  throw new CodedError(`${pointer || "/"}: ${message}`, {
-    code: "invalid_input",
-    ...(pointer ? { field: pointer.slice(1) } : {})
-  })
+  const details: ErrorDetails = { code: "invalid_input", retryable: false }
+
+  if (pointer) {
+    details.field = pointer.slice(1)
+  }
+
+  throw new CodedError(`${pointer || "/"}: ${message}`, details)
+}
+
+/**
+ * A reader for one kind of file or message: `parseData` with its schema, and `read` making the result what callers
+ * use. The parsers built with it are where their data comes in, so they take what the file or message held.
+ */
+export function parserFor<T extends z.ZodType, R = z.output<T>>(
+  schema: T,
+  read?: (parsed: z.output<T>) => R
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: data Parity didn't make comes here to be parsed
+): (value: unknown, at?: string) => R {
+  return (value, at = "") => {
+    const parsed = parseData(schema, value, at)
+
+    // SAFETY: without `read`, `R` is its default, the schema's output.
+    return read ? read(parsed) : (parsed as R)
+  }
 }
 
 /** What a failed check found first: where, as a JSON pointer (`` for the value itself), and what was expected there. */
@@ -83,12 +128,18 @@ export interface SchemaProblem {
  */
 export function checkData<T extends z.ZodType>(
   schema: T,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: data Parity didn't make comes here to be parsed
   value: unknown,
   at = ""
 ): { success: true; data: z.output<T> } | { success: false; problem: SchemaProblem } {
   const result = schema.safeParse(value, { error: issueText })
-  if (result.success) return { success: true, data: result.data }
+
+  if (result.success) {
+    return { success: true, data: result.data }
+  }
+
   const problem = firstProblem(result.error.issues, at)
+
   if (invalidDataListener) {
     try {
       invalidDataListener({ schema: schemaName(schema), problem, issues: result.error.issues, value })
@@ -96,6 +147,7 @@ export function checkData<T extends z.ZodType>(
       // A listener's failure never changes what the check returns.
     }
   }
+
   return { success: false, problem }
 }
 
@@ -117,16 +169,26 @@ let invalidDataListener: ((failure: InvalidData) => void) | undefined
  */
 export function onInvalidData(listener: (failure: InvalidData) => void): () => void {
   invalidDataListener = listener
+
   return () => {
-    if (invalidDataListener === listener) invalidDataListener = undefined
+    if (invalidDataListener === listener) {
+      invalidDataListener = undefined
+    }
   }
 }
 
 /** A name for a schema in telemetry: its registered id, its description, or else the function that checked with it. */
 function schemaName(schema: z.ZodType): string {
   const meta = z.globalRegistry.get(schema)
-  if (typeof meta?.id === "string") return meta.id
-  if (schema.description) return schema.description
+
+  if (meta?.id !== undefined) {
+    return meta.id
+  }
+
+  if (schema.description) {
+    return schema.description
+  }
+
   return checkingFunction() ?? "unnamed"
 }
 
@@ -137,8 +199,12 @@ const ownFunctions = new Set(["checkingFunction", "schemaName", "checkData", "pa
 function checkingFunction(): string | undefined {
   for (const line of new Error().stack?.split("\n").slice(1) ?? []) {
     const name = /at (?:async )?([\w$.<>]+) \(/.exec(line)?.[1]
-    if (name && !ownFunctions.has(name.split(".").pop() ?? name)) return name
+
+    if (name && !ownFunctions.has(name.split(".").pop() ?? name)) {
+      return name
+    }
   }
+
   return undefined
 }
 
@@ -155,12 +221,21 @@ function jsonPointer(path: readonly PropertyKey[]): string {
  */
 function firstProblem(issues: readonly z.core.$ZodIssue[], at: string): SchemaProblem {
   const [issue] = issues
-  if (!issue) return { pointer: at, message: "isn't valid" }
+
+  if (!issue) {
+    return { pointer: at, message: "isn't valid" }
+  }
+
   const pointer = at + jsonPointer(issue.path)
+
   if (issue.code === "unrecognized_keys") {
     return { pointer: pointer + jsonPointer(issue.keys.slice(0, 1)), message: issue.message }
   }
-  if (issue.code === "invalid_union" && issue.errors.length > 0) return unionProblem(issue.errors, pointer)
+
+  if (issue.code === "invalid_union" && issue.errors.length > 0) {
+    return unionProblem(issue.errors, pointer)
+  }
+
   return { pointer, message: issue.message }
 }
 
@@ -168,27 +243,38 @@ function unionProblem(options: readonly (readonly z.core.$ZodIssue[])[], pointer
   const issues = options.flat()
   const shallow = issues.every((issue) => issue.path.length === 0)
   const expected = issues.map(expectation)
+
   if (shallow && expected.every((text) => text !== undefined)) {
     return { pointer, message: `expected ${[...new Set(expected)].join(" or ")}` }
   }
+
   const depth = (option: readonly z.core.$ZodIssue[]) => option[0]?.path.length ?? 0
   const typed = options.filter((option) => !refusesType(option))
+
   const closest = (typed.length > 0 ? typed : options).reduce((best, option) =>
     option.length < best.length || (option.length === best.length && depth(option) > depth(best)) ? option : best
   )
+
   return firstProblem(closest, pointer)
 }
 
 /** Whether a union's option failed on the value's type itself, as a string option does for an object. */
 function refusesType(option: readonly z.core.$ZodIssue[]): boolean {
   const [first] = option
+
   return first?.code === "invalid_type" && first.path.length === 0
 }
 
 /** What one type or value check wanted, as `a string` or `"row"`; nothing for other checks. */
 function expectation(issue: z.core.$ZodIssue): string | undefined {
-  if (issue.code === "invalid_type") return typeName(issue.expected)
-  if (issue.code === "invalid_value") return issue.values.map(literal).join(" or ")
+  if (issue.code === "invalid_type") {
+    return typeName(issue.expected)
+  }
+
+  if (issue.code === "invalid_value") {
+    return issue.values.map(literal).join(" or ")
+  }
+
   return undefined
 }
 
@@ -205,10 +291,12 @@ function issueText(issue: z.core.$ZodRawIssue): string | undefined {
       return "unknown property"
     case "invalid_union": {
       const options: unknown = "options" in issue ? issue.options : undefined
+
       return Array.isArray(options) && options.length > 0
         ? `expected one of ${options.map(literal).join(", ")}`
         : undefined
     }
+
     case "too_small":
       return bound("at least", "more than", issue.origin, issue.minimum, issue.inclusive)
     case "too_big":
@@ -218,26 +306,31 @@ function issueText(issue: z.core.$ZodRawIssue): string | undefined {
   }
 }
 
-const typeNames: Record<string, string> = {
-  array: "an array",
-  boolean: "true or false",
-  int: "a whole number",
-  number: "a number",
-  object: "an object",
-  record: "an object",
-  string: "a string",
-  tuple: "an array"
-}
+const typeNames = new Map([
+  ["array", "an array"],
+  ["boolean", "true or false"],
+  ["int", "a whole number"],
+  ["number", "a number"],
+  ["object", "an object"],
+  ["record", "an object"],
+  ["string", "a string"],
+  ["tuple", "an array"]
+])
 
 function typeName(expected: string): string {
-  return typeNames[expected] ?? expected
+  return typeNames.get(expected) ?? expected
 }
 
-function literal(value: unknown): string {
+function literal(value: z.core.util.Primitive): string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a primitive has no tag; only strings are quoted
   return typeof value === "string" ? JSON.stringify(value) : String(value)
 }
 
-const units: Record<string, string> = { string: "character", array: "item", set: "item" }
+const units = new Map([
+  ["string", "character"],
+  ["array", "item"],
+  ["set", "item"]
+])
 
 /** A size or range check's limit, as `expected at least 1 item` or `expected less than 10`. */
 function bound(
@@ -248,7 +341,11 @@ function bound(
   inclusive = true
 ): string | undefined {
   const words = inclusive ? inclusiveWords : exclusiveWords
-  const unit = units[origin]
-  if (unit) return `expected ${words} ${limit} ${unit}${Number(limit) === 1 ? "" : "s"}`
+  const unit = units.get(origin)
+
+  if (unit) {
+    return `expected ${words} ${limit} ${unit}${Number(limit) === 1 ? "" : "s"}`
+  }
+
   return ["number", "int", "bigint"].includes(origin) ? `expected ${words} ${limit}` : undefined
 }

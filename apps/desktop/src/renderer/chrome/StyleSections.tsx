@@ -73,13 +73,21 @@ import {
 } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
+import { numberValue } from "./prop-values.ts"
 import type { StyleEditor } from "./style-editor.ts"
+
+/** Whether a row's keys are changed or differ across the layers, and how to reset them. */
+interface RowState {
+  changed: boolean
+  mixed: boolean
+  onReset: () => void
+}
 
 /**
  * What a row shows and does, from the editor: the selection's shared style, whether the row's keys are changed or
  * differ across the layers, and its reset. The row's keys are listed once, in `@parity-app/editor`'s `styleRows`.
  */
-function rowOf(editor: StyleEditor, row: StyleRow): { changed: boolean; mixed: boolean; onReset: () => void } {
+function rowOf(editor: StyleEditor, row: StyleRow): RowState {
   return {
     changed: editor.selection.changed(row),
     mixed: editor.selection.differs(row),
@@ -104,11 +112,17 @@ function fieldEdits<R extends StyleRow>(
   write: (value: FieldValue, style: NodeStyle) => Pick<StyleValues, RowKey<R>>
 ): Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit"> {
   const edit = (update: FieldUpdate) => fieldEdit(read, write, update)
+
   return {
     onPreview: (update) => editor.preview?.(row, edit(update)),
     onCancel: () => editor.endPreview?.(),
     onCommit: (update, gesture) => editor.set(row, edit(update), label, gesture)
   }
+}
+
+/** A number field's value as a style's number: its rules take no token names, so it's a number or unset. */
+function numberOf(value: FieldValue): number | undefined {
+  return numberValue.safeParse(value).data
 }
 
 /** A field's value as a length: steps, or a token's name. */
@@ -133,6 +147,7 @@ interface SectionProps {
  */
 export function StyleSections({ editor, node }: { editor: StyleEditor; node: DesignNode }) {
   const props: SectionProps = { editor, node, parent: editor.selection.parent }
+
   return (
     <>
       {node.type === "layout" && <LayoutSection {...props} />}
@@ -154,6 +169,7 @@ function LayoutSection({ editor }: SectionProps) {
   const direction = style.direction ?? "column"
   const distributed = style.justify === "between" || style.justify === "around" || style.justify === "evenly"
   const mode = grid ? "grid" : direction
+
   return (
     <PanelSection title="Layout">
       <div className="flex flex-col gap-1">
@@ -166,7 +182,11 @@ function LayoutSection({ editor }: SectionProps) {
               // Mixed directions press no button, rather than the default.
               value={[mixed("display") || mixed("direction") ? "" : mode]}
               onValueChange={([value]) => {
-                if (!value) return
+                if (!value) {
+                  return
+                }
+
+                // SAFETY: the group's items are "row", "column" and "grid", and an empty value returned above.
                 const next = value as "row" | "column" | "grid"
                 set("layoutType", layoutTypeEdit(next), next === "grid" ? "Use a grid" : "Change direction")
               }}
@@ -218,7 +238,7 @@ function LayoutSection({ editor }: SectionProps) {
                   "tracks",
                   "Change columns",
                   (style) => style.columns,
-                  (columns) => ({ columns: columns as number | undefined })
+                  (columns) => ({ columns: numberOf(columns) })
                 )}
               />
               <CompactNumber
@@ -231,7 +251,7 @@ function LayoutSection({ editor }: SectionProps) {
                   "tracks",
                   "Change rows",
                   (style) => style.rows,
-                  (rows) => ({ rows: rows as number | undefined })
+                  (rows) => ({ rows: numberOf(rows) })
                 )}
               />
             </div>
@@ -323,6 +343,7 @@ function AlignmentGrid({
   const spots = ["start", "center", "end"] as const
   const justify = distributed ? undefined : (style.justify ?? "start")
   const align = style.align === "stretch" ? undefined : (style.align ?? "stretch")
+
   return (
     <div className="grid size-[60px] shrink-0 grid-cols-3 grid-rows-3 rounded-md border bg-muted/40 p-0.5">
       {spots.flatMap((row) =>
@@ -331,6 +352,7 @@ function AlignmentGrid({
           const main = direction === "column" ? row : column
           const cross = direction === "column" ? column : row
           const active = (distributed || justify === main) && align === cross
+
           return (
             <Hint
               key={`${row}-${column}`}
@@ -376,11 +398,14 @@ function SidesField({ editor, name, label }: { editor: StyleEditor; name: "paddi
   const { style } = editor.selection
   const sides = sidesOf(style[name])
   const [perSide, setPerSide] = useState(Array.isArray(style[name]) && style[name].length === 4)
+
   /** Edits of some sides, read from the first of them, in each layer's own padding or margin. */
   const sideEdits = (indices: number[]) => {
     const { read, write } = sidesField(name, indices)
+
     return fieldEdits(editor, name, `Change ${name}`, read, (value, layer) => write(asLength(value), layer))
   }
+
   return (
     <Field label={label} {...rowOf(editor, name)}>
       <div className="flex items-center gap-1">
@@ -434,11 +459,14 @@ function SidesField({ editor, name, label }: { editor: StyleEditor; name: "paddi
 function SizeSection({ editor, node, parent }: SectionProps) {
   const { set } = editor
   const { style } = editor.selection
+
   const [limits, setLimits] = useState(
     [style.minWidth, style.maxWidth, style.minHeight, style.maxHeight].some((value) => value !== undefined)
   )
+
   const sizeRow = (axis: "width" | "height", label: string) => {
     const { read, write } = sizeField(axis, parent)
+
     return (
       <Field label={label} {...rowOf(editor, axis)}>
         <SizeInput
@@ -453,6 +481,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
       </Field>
     )
   }
+
   const lengthEdits = (row: "min" | "max", name: RowKey<"min"> | RowKey<"max">, label: string) =>
     fieldEdits(
       editor,
@@ -461,6 +490,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
       (layer) => layer[name],
       (value) => ({ [name]: asLength(value) })
     )
+
   return (
     <PanelSection
       title="Size"
@@ -550,7 +580,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   "span",
                   "Change span",
                   (layer) => layer.colSpan,
-                  (colSpan) => ({ colSpan: colSpan as number | undefined })
+                  (colSpan) => ({ colSpan: numberOf(colSpan) })
                 )}
               />
               <CompactNumber
@@ -564,7 +594,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   "span",
                   "Change span",
                   (layer) => layer.rowSpan,
-                  (rowSpan) => ({ rowSpan: rowSpan as number | undefined })
+                  (rowSpan) => ({ rowSpan: numberOf(rowSpan) })
                 )}
               />
             </div>
@@ -600,8 +630,13 @@ function SizeInput({
   const fixed = value !== undefined && value !== "fill" && value !== "hug"
   const mode = fixed ? "fixed" : (value ?? "auto")
   let placeholder = "Hug"
-  if (mode === "auto") placeholder = "Auto"
-  else if (mode === "fill") placeholder = "Fill"
+
+  if (mode === "auto") {
+    placeholder = "Auto"
+  } else if (mode === "fill") {
+    placeholder = "Fill"
+  }
+
   // The length keeps room for four digits and px beside the mode; a narrower panel puts the mode under it instead.
   return (
     <div className="@container">
@@ -624,8 +659,11 @@ function SizeInput({
           ]}
           placeholder="Auto"
           onChange={(next) => {
-            if (next === "fixed") onChange(fixed ? value : (editor.measure(axis) ?? 64))
-            else onChange(next)
+            if (next === "fixed") {
+              onChange(fixed ? value : (editor.measure(axis) ?? 64))
+            } else {
+              onChange(next)
+            }
           }}
         />
       </div>
@@ -637,8 +675,13 @@ function PositionSection({ editor, parent }: SectionProps) {
   const { set } = editor
   const { style } = editor.selection
   const absolute = style.position === "absolute"
-  if (!parent && !absolute) return null
+
+  if (!parent && !absolute) {
+    return null
+  }
+
   const sides = ["top", "right", "bottom", "left"] as const
+
   return (
     <PanelSection title="Position">
       <div className="flex flex-col gap-1">
@@ -699,6 +742,7 @@ function PositionSection({ editor, parent }: SectionProps) {
 function AppearanceSection({ editor }: SectionProps) {
   const { set, tokens } = editor
   const { style } = editor.selection
+
   return (
     <PanelSection title="Appearance">
       <div className="flex flex-col gap-1">
@@ -743,7 +787,7 @@ function AppearanceSection({ editor }: SectionProps) {
               "opacity",
               "Change opacity",
               (layer) => layer.opacity,
-              (opacity) => ({ opacity: opacity as number | undefined })
+              (opacity) => ({ opacity: numberOf(opacity) })
             )}
           />
         </Field>
@@ -764,6 +808,7 @@ function StrokeSection({ editor }: SectionProps) {
   const { set, tokens } = editor
   const { style } = editor.selection
   const on = style.border !== undefined || style.borderWidth !== undefined
+
   return (
     <PanelSection
       title="Stroke"
@@ -837,6 +882,7 @@ function StrokeSection({ editor }: SectionProps) {
 function TextSection({ editor, node }: SectionProps) {
   const { set, tokens } = editor
   const { style } = editor.selection
+
   return (
     <PanelSection
       title={node.type === "text" ? "Text" : "Text inside"}
@@ -905,7 +951,12 @@ function TextSection({ editor, node }: SectionProps) {
             spacing={0}
             value={[style.textAlign ?? ""]}
             onValueChange={([value]) =>
-              set("textAlign", { textAlign: (value || undefined) as NodeStyle["textAlign"] }, "Change text alignment")
+              set(
+                "textAlign",
+                // SAFETY: the group's items come from `textAlignOptions`, each a text alignment; none pressed is "".
+                { textAlign: (value || undefined) as NodeStyle["textAlign"] },
+                "Change text alignment"
+              )
             }
           >
             {textAlignOptions.map(({ value, label, Icon }) => (
@@ -982,7 +1033,7 @@ function TextSection({ editor, node }: SectionProps) {
                 "lines",
                 "Change max lines",
                 (layer) => layer.lines,
-                (lines) => ({ lines: lines as number | undefined })
+                (lines) => ({ lines: numberOf(lines) })
               )}
             />
           </Field>
@@ -1000,6 +1051,7 @@ function TextResizing({ editor }: { editor: StyleEditor }) {
   const { set } = editor
   const { style } = editor.selection
   const row = rowOf(editor, "resizing")
+
   return (
     <Field
       label="Resizing"
@@ -1013,7 +1065,11 @@ function TextResizing({ editor }: { editor: StyleEditor }) {
         value={[row.mixed ? "" : textSizing(style)]}
         onValueChange={([value]) => {
           const sizing = textSizingOptions.find((option) => option.value === value)
-          if (!sizing) return
+
+          if (!sizing) {
+            return
+          }
+
           // Only the text layers of a mixed selection, each by its own parent.
           set("resizing", textSizingEdit(sizing.value), sizing.edit)
         }}
@@ -1070,17 +1126,26 @@ export function LengthInput({
 } & Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit">) {
   const { tokens, unit } = editor
   const [open, setOpen] = useState(false)
+
   const lengthTokens = tokens.filter(
     (token) => (token.category === "spacing" || token.category === "container") && token.name !== "spacing"
   )
+
   const scale = lengthTokens.filter((token) => token.derived)
   const named = lengthTokens.filter((token) => !token.derived)
-  const rules: FieldRules = { kind: "length", unit, min, label: title, ...(offScale ? { offScale } : {}) }
+
+  const rules: FieldRules = offScale
+    ? { kind: "length", unit, min, label: title, offScale }
+    : { kind: "length", unit, min, label: title }
+
   const pick = (picked: Length) => {
     onCommit(() => picked)
     setOpen(false)
   }
+
   const off = offScaleFlag(value, rules)
+  const steps = numberValue.safeParse(value).data
+
   const flag: FieldFlag | undefined = off && {
     text: off.text,
     action: {
@@ -1089,6 +1154,7 @@ export function LengthInput({
       run: () => onCommit(() => off.nearest)
     }
   }
+
   return (
     <NumberField
       value={value}
@@ -1098,9 +1164,9 @@ export function LengthInput({
       placeholder={placeholder}
       blank={blank}
       inner={label}
-      hint={typeof value === "number" ? `${title}, ${off ? "off the spacing scale" : lengthLabel(value)}` : title}
+      hint={steps === undefined ? title : `${title}, ${off ? "off the spacing scale" : lengthLabel(steps)}`}
       flag={flag}
-      suffix={typeof value === "number" ? "px" : undefined}
+      suffix={steps === undefined ? undefined : "px"}
       onPreview={onPreview}
       onCancel={onCancel}
       onCommit={onCommit}
@@ -1206,7 +1272,9 @@ function CompactNumber({
 
 /** A step's token name, for showing it the way the Tokens panel does. */
 export function lengthLabel(value: Length): string {
-  return typeof value === "number" ? spacingStepName(value) : value
+  const steps = numberValue.safeParse(value)
+
+  return steps.success ? spacingStepName(steps.data) : String(value)
 }
 
 function formatPx(value: number): string {
@@ -1218,25 +1286,30 @@ const distributeOptions = [
   { value: "around" as const, label: "Space around" },
   { value: "evenly" as const, label: "Space evenly" }
 ]
+
 const selfOptions = [
   { value: "start" as const, label: "Start" },
   { value: "center" as const, label: "Center" },
   { value: "end" as const, label: "End" },
   { value: "stretch" as const, label: "Stretch" }
 ]
+
 const overflowOptions = [
   { value: "hidden" as const, label: "Clip content" },
   { value: "scroll" as const, label: "Scroll" }
 ]
+
 const borderStyleOptions = [
   { value: "dashed" as const, label: "Dashed" },
   { value: "dotted" as const, label: "Dotted" }
 ]
+
 const transformOptions = [
   { value: "uppercase" as const, label: "Uppercase" },
   { value: "lowercase" as const, label: "Lowercase" },
   { value: "capitalize" as const, label: "Title case" }
 ]
+
 const weightOptions = [
   [100, "Thin"],
   [200, "Extra light"],
@@ -1248,6 +1321,7 @@ const weightOptions = [
   [800, "Extra bold"],
   [900, "Black"]
 ].map(([weight, name]) => ({ value: String(weight), label: `${name} ${weight}` }))
+
 const textAlignOptions = [
   { value: "start", label: "Align left", Icon: AlignLeft },
   { value: "center", label: "Align center", Icon: AlignCenter },

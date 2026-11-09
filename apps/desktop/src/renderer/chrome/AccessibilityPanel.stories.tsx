@@ -28,6 +28,7 @@ const meta = {
 } satisfies Meta<typeof AccessibilityPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Opens the example on the Accessibility tab with a design selected, after `change` edits it when given. */
@@ -35,6 +36,7 @@ const checking = (designName: string, change?: (key: string) => void) =>
   inspecting("accessibility", () => {
     const key = design(designName)
     change?.(key)
+
     return { design: key }
   })
 
@@ -54,7 +56,11 @@ export const Checking: Story = {
     const panel = within(canvasElement)
     // Checked already while Storybook runs: checks again, as slowly.
     const again = panel.queryByRole("button", { name: "Check again" })
-    if (again) await userEvent.click(again)
+
+    if (again) {
+      await userEvent.click(again)
+    }
+
     // The first check, or checking again with the last check's findings faded below.
     await panel.findByText(/^Checking (every state and mode|again)$/, undefined, slowly)
     // Only this check is slow; later requests answer as usual.
@@ -134,7 +140,8 @@ export const ManyFindings: Story = {
   play: ({ canvasElement }) =>
     checkAgain(canvasElement, "Target is too small", () =>
       answerNext("accessibility.check", async (_, real) => {
-        const result = (await real()) as { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
+        const result = await real()
+
         return { ...result, findings: [...result.findings, ...moreFindings()], frames: 9 }
       })
     )
@@ -176,7 +183,8 @@ export const NoPassingToken: Story = {
   play: ({ canvasElement }) =>
     checkAgain(canvasElement, /None of the project.s colors pass/, () =>
       answerNext("accessibility.check", async (_, real) => {
-        const result = (await real()) as { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
+        const result = await real()
+
         return {
           ...result,
           findings: result.findings.map((finding) =>
@@ -256,19 +264,29 @@ function moreFindings(): AccessibilityFinding[] {
     detail: string,
     frames: [string, string][]
   ): AccessibilityFinding[] =>
-    frames.map(([state, mode]) => ({
-      state,
-      mode,
-      rule,
-      impact,
-      help,
-      helpUrl: `https://dequeuniversity.com/rules/axe/4.10/${rule}`,
-      ...(layerName ? { node: node("Dashboard", layerName), name: layerName } : {}),
-      detail
-    }))
+    frames.map(([state, mode]) => {
+      const result: AccessibilityFinding = {
+        state,
+        mode,
+        rule,
+        impact,
+        help,
+        helpUrl: `https://dequeuniversity.com/rules/axe/4.10/${rule}`,
+        detail
+      }
+
+      if (layerName) {
+        result.node = node("Dashboard", layerName)
+        result.name = layerName
+      }
+
+      return result
+    })
+
   const everywhere: [string, string][] = ["default", "loading", "empty-workspace"].flatMap((state) =>
     ["desktop-light", "desktop-dark", "mobile-light"].map((mode): [string, string] => [state, mode])
   )
+
   return [
     ...finding(
       "target-size",

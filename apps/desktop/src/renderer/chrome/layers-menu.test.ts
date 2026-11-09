@@ -36,13 +36,17 @@ const other = "app.par#stat-card"
 /** Each entry as a line: an item's action and whether it's available, and a line between groups. */
 function outline(menu: MenuEntry[]): string[] {
   return menu.map((entry) => {
-    if (entry.kind !== "item") return "---"
+    if (entry.kind !== "item") {
+      return "---"
+    }
+
     return `${entry.action}${entry.enabled ? "" : " (unavailable)"}`
   })
 }
 
 function labelOf(menu: MenuEntry[], action: string): string | undefined {
   const found = menu.find((entry) => entry.kind === "item" && entry.action === action)
+
   return found?.kind === "item" ? found.label : undefined
 }
 

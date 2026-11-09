@@ -7,8 +7,10 @@ import type { ProjectSession } from "./workspace.ts"
 
 /** How long after the project opens, or after a save, its picture is taken, so a run of saves takes one. */
 const pictureDelayMs = 2000
+
 /** How often it looks again whether the canvas has drawn the frames and has their bitmaps. */
 const checkMs = 500
+
 /** How long it waits for them at most, before taking what it can. */
 const waitAtMostMs = 30_000
 
@@ -30,31 +32,47 @@ export function keepProjectPicture(session: ProjectSession): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined
   let taking = false
   let again = false
+
   const schedule = () => {
     clearTimeout(timer)
     timer = setTimeout(take, pictureDelayMs)
   }
+
   const take = () => {
     if (taking) {
       again = true
+
       return
     }
+
     taking = true
     void takePicture(session, () => stopped)
-      .catch((error: unknown) => console.warn(`Couldn't keep ${session.info.name}'s picture`, error))
+      .catch((cause: unknown) => console.warn(`Couldn't keep ${session.info.name}'s picture`, cause))
       .finally(() => {
         taking = false
-        if (again && !stopped) schedule()
+
+        if (again && !stopped) {
+          schedule()
+        }
+
         again = false
       })
   }
+
   let status = session.store.getSaveState().status
+
   const unsubscribe = session.store.subscribe(() => {
     const next = session.store.getSaveState().status
-    if (status === "saving" && next === "saved") schedule()
+
+    if (status === "saving" && next === "saved") {
+      schedule()
+    }
+
     status = next
   })
+
   schedule()
+
   return () => {
     stopped = true
     clearTimeout(timer)
@@ -64,14 +82,23 @@ export function keepProjectPicture(session: ProjectSession): () => void {
 
 async function takePicture(session: ProjectSession, stopped: () => boolean): Promise<void> {
   const screens = await framesDrawn(session, stopped)
-  if (stopped() || session.store.hasUnsaved()) return
+
+  if (stopped() || session.store.hasUnsaved()) {
+    return
+  }
+
   const taken = await Promise.all(screens.map(screenPicture))
+
   // An edit made while the bitmaps were gathered may be in them.
-  if (stopped() || session.store.hasUnsaved()) return
+  if (stopped() || session.store.hasUnsaved()) {
+    return
+  }
+
   const picture: ProjectPicture = {
     taken: Date.now(),
     screens: taken.filter((screen): screen is PictureScreen => screen !== undefined)
   }
+
   const { root } = session.info
   const kept = await request("pictures.store", { root, picture })
   keptPictures.set(root, kept)
@@ -83,16 +110,24 @@ async function takePicture(session: ProjectSession, stopped: () => boolean): Pro
  */
 async function framesDrawn(session: ProjectSession, stopped: () => boolean): Promise<ScreenFrames[]> {
   const started = performance.now()
+
   for (;;) {
-    const screens = picturedScreens(session.store.getEntries(), session.store.getModes()).map(
-      (screen): ScreenFrames => ({
-        screen,
-        main: firstRowFrame(session.id, screen.design, screen.main.id),
-        ...(screen.phone ? { phone: firstRowFrame(session.id, screen.design, screen.phone.id) } : {})
-      })
-    )
+    const screens = picturedScreens(session.store.getEntries(), session.store.getModes()).map((screen) => {
+      const frames: ScreenFrames = { screen, main: firstRowFrame(session.id, screen.design, screen.main.id) }
+
+      if (screen.phone) {
+        frames.phone = firstRowFrame(session.id, screen.design, screen.phone.id)
+      }
+
+      return frames
+    })
+
     const drawn = screens.every(({ screen, main, phone }) => main && (!screen.phone || phone))
-    if (stopped() || (drawn && bitmapsWaiting() === 0) || performance.now() - started > waitAtMostMs) return screens
+
+    if (stopped() || (drawn && bitmapsWaiting() === 0) || performance.now() - started > waitAtMostMs) {
+      return screens
+    }
+
     await new Promise((resolve) => setTimeout(resolve, checkMs))
   }
 }
@@ -100,16 +135,23 @@ async function framesDrawn(session: ProjectSession, stopped: () => boolean): Pro
 /** A screen's frames as its picture shows them; nothing when its main frame has no bitmap. */
 async function screenPicture({ screen, main, phone }: ScreenFrames): Promise<PictureScreen | undefined> {
   const [mainSrc, phoneSrc] = await Promise.all([main && frameBitmap(main), phone && frameBitmap(phone)])
-  if (!main || !mainSrc) return undefined
-  return {
-    name: screen.name,
-    main: pictureFrame(mainSrc, screen.main.name, main.job),
-    ...(screen.phone && phone && phoneSrc ? { phone: pictureFrame(phoneSrc, screen.phone.name, phone.job) } : {})
+
+  if (!main || !mainSrc) {
+    return undefined
   }
+
+  const picture: PictureScreen = { name: screen.name, main: pictureFrame(mainSrc, screen.main.name, main.job) }
+
+  if (screen.phone && phone && phoneSrc) {
+    picture.phone = pictureFrame(phoneSrc, screen.phone.name, phone.job)
+  }
+
+  return picture
 }
 
 /** A frame in a picture, which shows the top of it, as tall as its window or its own height when that's less. */
 function pictureFrame(src: string, mode: string, job: RenderJob): PictureFrame {
   const { width, height, viewport } = job.mode
+
   return { src, mode, width, height: Math.min(height ?? viewport.height, viewport.height) }
 }

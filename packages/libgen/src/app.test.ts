@@ -7,15 +7,21 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { generateLibrary } from "./index.ts"
 
 /** Detection's parse, reduced to what these projects export: function components. */
-const renderer = {
+const renderer: RendererAdapter = {
+  id: "test",
+  name: "Test",
+  detect: () => true,
+  guestModule: "",
+  runtimePackages: [],
+  runtimeImports: [],
   componentExtensions: [".tsx"],
-  findComponents: (source: string) =>
+  findComponents: (source) =>
     [...source.matchAll(/export function ([A-Z]\w*)/g)].map((match) => ({
       name: match[1]!,
       export: match[1]!,
       as: "function"
     }))
-} as unknown as RendererAdapter
+}
 
 let root: string
 
@@ -64,14 +70,15 @@ async function writeSources() {
 async function both() {
   const project = await discoverProject(root, renderer)
   const { manifest, report } = await generateLibrary({ root })
-  const list = (manifest.components as { list: Record<string, { declaration: string }> } | undefined)?.list ?? {}
+  const list = manifest.components?.list ?? {}
+
   return {
     detected: {
       files: [...new Set(Object.values(project.components).map((source) => source.path))].sort(),
       styles: project.styles
     },
     generated: {
-      files: [...new Set(Object.values(list).map((component) => component.declaration))].sort(),
+      files: [...new Set(Object.values(list).map((component) => component.declaration ?? ""))].sort(),
       // Each DTCG token keeps the custom property it came from.
       tokens: [...JSON.stringify(manifest.tokens ?? {}).matchAll(/"var":"([^"]+)"/g)].map((match) => match[1]).sort(),
       notes: report.notes

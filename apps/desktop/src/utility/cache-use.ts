@@ -11,6 +11,9 @@ export const cacheUse = cacheCounter()
 export function reportCacheUse(): void {
   setInterval(() => {
     const used = cacheUse.report()
-    if (used) track("bitmapCache.used", used, undefined)
+
+    if (used) {
+      track("bitmapCache.used", used, undefined)
+    }
   }, cacheEveryMs).unref()
 }

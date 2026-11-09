@@ -15,6 +15,7 @@ const meta = {
 } satisfies Meta<typeof DesignTab>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** An instance of a component design, Pricing's Pro plan: which state of Plan card it shows, and each of its params. */
@@ -35,7 +36,20 @@ export const InstanceOfMissingComponent: Story = {
           current.type === "instance" ? { ...current, design: "enterprise-plan-card" } : current
         )
       }))
+
       return layersSelection(key, [id])
     })
+  ]
+}
+
+/**
+ * A layer inside an instance, the value in Dashboard's Users card: it belongs to Stat card, so its edits change only this
+ * copy, and Edit in Stat card opens the component.
+ */
+export const LayerInsideAnInstance: Story = {
+  loaders: [
+    inspecting("design", () =>
+      layersSelection(design("Dashboard"), [`${node("Dashboard", "Users card")}/${node("Stat card", "Value")}`])
+    )
   ]
 }

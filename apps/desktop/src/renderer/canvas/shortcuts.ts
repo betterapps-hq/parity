@@ -3,6 +3,7 @@ import { actions } from "../chrome/actions.ts"
 import { type Command, keymap, shortcutFor } from "../chrome/keymap.ts"
 import type { ProjectSession } from "../workspace.ts"
 
+// SAFETY: `keymap` has a key for each command and no others.
 const commands = Object.keys(keymap) as Command[]
 const appCommands = commands.filter((command) => actions[command].scope === "app")
 const canvasCommands = commands.filter((command) => actions[command].scope !== "app")
@@ -15,13 +16,19 @@ export function useAppShortcuts(): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const command = shortcutFor(event, appCommands)
-      if (!command) return
+
+      if (!command) {
+        return
+      }
+
       event.preventDefault()
       event.stopImmediatePropagation()
       // One that doesn't apply is recorded as tried, as a Ctrl shortcut on the canvas is.
       void actions[command].run("key", { event })
     }
+
     window.addEventListener("keydown", onKeyDown, { capture: true })
+
     return () => window.removeEventListener("keydown", onKeyDown, { capture: true })
   }, [])
 }
@@ -32,7 +39,10 @@ export function useAppShortcuts(): void {
  */
 export function useShortcuts(session: ProjectSession | undefined, active: boolean): void {
   useEffect(() => {
-    if (!active || !session) return undefined
+    if (!active || !session) {
+      return undefined
+    }
+
     // tldraw acts on Tab and Enter when they're released, so a key handled here is taken from it on the way up too.
     const handledKeys = new Set<string>()
     let pointerHeld = false
@@ -45,16 +55,27 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
       ) {
         return
       }
+
+      // SAFETY: key events reach the window from the focused element, or from the body when nothing has focus.
       const target = event.target as HTMLElement | null
       // A menu or dialog playing its closing animation still holds focus for a moment, but its keys, a field's in it
       // included, are the canvas's again: Ctrl+Z straight after picking an item undoes it (PAR-424).
       const closing = !!target?.closest(":is([role=menu], [role=listbox], [role=dialog])[data-closed]")
+
       const typing =
         !closing && !!target?.closest("input, textarea, select, [contenteditable='true'], [contenteditable='']")
+
       const inMenu = !closing && !!target?.closest("[role=menu], [role=listbox], [role=dialog]")
-      if (typing || inMenu) return
+
+      if (typing || inMenu) {
+        return
+      }
+
       // Escape mid-drag cancels the drag, a layer's or a design's, rather than selecting the parent.
-      if (pointerHeld && event.key === "Escape") return
+      if (pointerHeld && event.key === "Escape") {
+        return
+      }
+
       // Enter, Tab and the arrows on a focused button, tab, Layers row or other control are that control's: they press
       // it, move focus on, or move within it. They're the canvas's when the canvas, or nothing, has focus, and on a
       // design's title, where Enter selects the layers inside; a title's menus and a board's captions and state labels
@@ -65,8 +86,13 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
         target !== document.body &&
         (!target.closest(".tl-container") || !!target.closest("[data-canvas-control]")) &&
         !!target.closest("button, a[href], [role], [tabindex]")
-      if (control && (event.key === "Enter" || event.key === "Tab" || event.key.startsWith("Arrow"))) return
+
+      if (control && (event.key === "Enter" || event.key === "Tab" || event.key.startsWith("Arrow"))) {
+        return
+      }
+
       const mod = event.ctrlKey || event.metaKey
+
       const handled = () => {
         event.preventDefault()
         event.stopImmediatePropagation()
@@ -74,22 +100,33 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
       }
 
       const command = shortcutFor(event, canvasCommands)
+
       if (command) {
         const action = actions[command]
+
         // A key that doesn't apply now does what it would anyway, as Enter on a button, unless it's a Ctrl shortcut.
         if (action.available?.() === false) {
-          if (!mod) return
+          if (!mod) {
+            return
+          }
+
           handled()
           // Tried while it doesn't apply: recorded, without running.
           void action.run("key", { event })
+
           return
         }
+
         handled()
         void action.run("key", { event })
+
         return
       }
+
       // The browser's own Ctrl shortcuts for these would select the page's text or act on nothing here.
-      if (mod && ["c", "x", "v", "d", "g", "a"].includes(event.key.toLowerCase())) handled()
+      if (mod && ["c", "x", "v", "d", "g", "a"].includes(event.key.toLowerCase())) {
+        handled()
+      }
       // Nudging is the keymap's: tldraw would move the selected design with the arrows the keymap doesn't bind.
       else if (event.key.startsWith("Arrow") && (session.selection.get().design || session.selection.get().note)) {
         handled()
@@ -97,13 +134,18 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
     }
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (!handledKeys.delete(event.code)) return
+      if (!handledKeys.delete(event.code)) {
+        return
+      }
+
       event.preventDefault()
       event.stopImmediatePropagation()
     }
+
     const onPointerDown = () => {
       pointerHeld = true
     }
+
     const onPointerUp = () => {
       pointerHeld = false
     }
@@ -115,6 +157,7 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
     window.addEventListener("pointercancel", onPointerUp, { capture: true })
     // A release outside the window never arrives, so leaving it ends the hold too.
     window.addEventListener("blur", onPointerUp)
+
     return () => {
       window.removeEventListener("blur", onPointerUp)
       window.removeEventListener("keydown", onKeyDown, { capture: true })

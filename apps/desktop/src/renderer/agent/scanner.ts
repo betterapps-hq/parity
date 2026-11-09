@@ -130,12 +130,16 @@ export class Scanner {
     canvas.style.visibility = "hidden"
     this.gl = canvas.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: false })
     const gl = this.gl
+
     if (!gl || gl.isContextLost()) {
       this.lost = true
+
       return
     }
+
     canvas.addEventListener("webglcontextlost", this.loseContext)
     const program = gl.createProgram()
+
     for (const [type, source] of [
       [gl.VERTEX_SHADER, vertex],
       [gl.FRAGMENT_SHADER, fragment]
@@ -143,9 +147,14 @@ export class Scanner {
       const shader = gl.createShader(type)!
       gl.shaderSource(shader, source)
       gl.compileShader(shader)
-      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(shader))
+
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(shader))
+      }
+
       gl.attachShader(program, shader)
     }
+
     gl.linkProgram(program)
     gl.useProgram(program)
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer())
@@ -155,15 +164,21 @@ export class Scanner {
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+
     for (const name of ["r", "quad", "t", "e", "d", "duo", "dpr", "rad", "still", "rect"]) {
       this.uniforms.set(name, gl.getUniformLocation(program, name))
     }
-    for (const name of ["a0", "a1", "a2", "b0", "b1", "b2"])
+
+    for (const name of ["a0", "a1", "a2", "b0", "b1", "b2"]) {
       this.uniforms.set(name, gl.getUniformLocation(program, name))
+    }
   }
 
   scan(scan: Scan): void {
-    if (!this.gl || this.lost) return
+    if (!this.gl || this.lost) {
+      return
+    }
+
     this.scans.push({ ...scan, start: performance.now() })
     this.frame ||= requestAnimationFrame(this.draw)
   }
@@ -188,26 +203,36 @@ export class Scanner {
   private readonly draw = (now: number) => {
     const gl = this.gl!
     this.scans = this.scans.filter((scan) => now - scan.start < scan.ms)
+
     if (this.lost || this.scans.length === 0) {
       this.canvas.style.visibility = "hidden"
       this.frame = 0
+
       return
     }
+
     const dpr = Math.min(2, devicePixelRatio || 1)
     const width = Math.round(this.canvas.clientWidth * dpr)
     const height = Math.round(this.canvas.clientHeight * dpr)
+
     if (this.canvas.width !== width || this.canvas.height !== height) {
       this.canvas.width = width
       this.canvas.height = height
     }
+
     gl.viewport(0, 0, width, height)
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     this.canvas.style.visibility = "visible"
     const boxes = this.scans.map((scan) => scan.box())
+
     for (const [index, scan] of this.scans.entries()) {
       const box = boxes[index]!
-      if (box.w <= 0 || box.h <= 0) continue
+
+      if (box.w <= 0 || box.h <= 0) {
+        continue
+      }
+
       const partner = this.scans.find((other, at) => other.agent !== scan.agent && sameTarget(box, boxes[at]!))
       const rect = [box.x * dpr, box.y * dpr, (box.x + box.w) * dpr, (box.y + box.h) * dpr] as const
       const reach = margin * dpr
@@ -222,20 +247,26 @@ export class Scanner {
       this.set("rad", (u) => gl.uniform1f(u, scan.radius * dpr))
       this.set("still", (u) => gl.uniform1f(u, this.still ? 1 : 0))
       const other = (partner ?? scan).palette.stops
+
       for (const [stop, color] of [
         ...scan.palette.stops.map((c, i) => [`a${i}`, c]),
         ...other.map((c, i) => [`b${i}`, c])
       ]) {
         this.set(stop!, (u) => gl.uniform3f(u, ...rgb(color!)))
       }
+
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
     }
+
     this.frame = requestAnimationFrame(this.draw)
   }
 
   private set(name: string, apply: (location: WebGLUniformLocation) => void): void {
     const location = this.uniforms.get(name)
-    if (location) apply(location)
+
+    if (location) {
+      apply(location)
+    }
   }
 }
 
@@ -243,10 +274,16 @@ export class Scanner {
 function sameTarget(a: Box, b: Box): boolean {
   const width = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)
   const height = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y)
-  if (width <= 0 || height <= 0) return false
+
+  if (width <= 0 || height <= 0) {
+    return false
+  }
+
   return (width * height) / Math.min(a.w * a.h, b.w * b.h) > 0.6
 }
 
 function rgb(hex: string): [number, number, number] {
-  return [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16) / 255) as [number, number, number]
+  const channel = (at: number) => Number.parseInt(hex.slice(at, at + 2), 16) / 255
+
+  return [channel(1), channel(3), channel(5)]
 }

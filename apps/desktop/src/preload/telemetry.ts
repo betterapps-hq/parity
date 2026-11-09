@@ -14,6 +14,7 @@ export interface TelemetryHost {
 /** Gives the page `window.parityTelemetry`. */
 export function exposeTelemetry(): void {
   const argument = process.argv.find((value) => value.startsWith(telemetryRunArgument))
+
   const host: TelemetryHost = {
     run: readTelemetryRun(argument?.slice(telemetryRunArgument.length)),
     record: (envelope) => ipcRenderer.send(ipc.telemetry, envelope),
@@ -22,5 +23,6 @@ export function exposeTelemetry(): void {
       void ipcRenderer.invoke(ipc.telemetrySecrets).then((secrets: string[]) => listener(secrets))
     }
   }
+
   contextBridge.exposeInMainWorld("parityTelemetry", host)
 }

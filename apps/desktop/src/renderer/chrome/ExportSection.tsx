@@ -16,14 +16,18 @@ import { setPreferences, usePreferences } from "./preferences.ts"
 export function ExportSection({ targets, label }: { targets: ExportTarget[]; label: string }) {
   const session = useProject()
   const { exportSizes: sizes } = usePreferences()
+
   const files = exportFiles(
     targets.map((target) => target.name),
     sizes
   )
+
   const next = nextExportSize(sizes)
   const setSizes = (exportSizes: ExportSize[]) => setPreferences({ exportSizes })
+
   const change = (index: number, size: Partial<ExportSize>) =>
     setSizes(sizes.map((current, at) => (at === index ? { ...current, ...size } : current)))
+
   return (
     <PanelSection
       title="Export"
@@ -36,25 +40,25 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
       <ul aria-label="Sizes" className="flex flex-col gap-1.5">
         {sizes.map((size, index) => (
           <li key={index} className="flex items-center gap-1.5">
-            <Select<string>
-              value={String(size.scale)}
-              onValueChange={(scale) => scale && change(index, { scale: Number(scale) as ExportSize["scale"] })}
+            <Select<ExportSize["scale"]>
+              value={size.scale}
+              onValueChange={(scale) => scale && change(index, { scale })}
             >
               <SelectTrigger size="sm" className="h-7 w-20 text-xs" aria-label="Scale">
-                <SelectValue>{(value: string) => `${value}x`}</SelectValue>
+                <SelectValue>{(value: ExportSize["scale"]) => `${value}x`}</SelectValue>
               </SelectTrigger>
               <PanelSelectContent>
-                <SelectItem value="1">1x</SelectItem>
-                <SelectItem value="2">2x</SelectItem>
-                <SelectItem value="3">3x</SelectItem>
+                <SelectItem value={1}>1x</SelectItem>
+                <SelectItem value={2}>2x</SelectItem>
+                <SelectItem value={3}>3x</SelectItem>
               </PanelSelectContent>
             </Select>
-            <Select<string>
+            <Select<ExportSize["format"]>
               value={size.format}
-              onValueChange={(format) => format && change(index, { format: format as ExportSize["format"] })}
+              onValueChange={(format) => format && change(index, { format })}
             >
               <SelectTrigger size="sm" className="h-7 min-w-0 flex-1 text-xs" aria-label="Format">
-                <SelectValue>{(value: string) => value.toUpperCase()}</SelectValue>
+                <SelectValue>{(value: ExportSize["format"]) => value.toUpperCase()}</SelectValue>
               </SelectTrigger>
               <PanelSelectContent>
                 <SelectItem value="png">PNG</SelectItem>

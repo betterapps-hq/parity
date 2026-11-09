@@ -15,16 +15,24 @@ export interface DesignSlot {
  * inside another one's placeholder isn't one of them: an instance that fills the outer slot replaces it.
  */
 export function designSlots(container: ContainerSpec): DesignSlot[] {
-  if (container.kind !== "component") return []
+  if (container.kind !== "component") {
+    return []
+  }
+
   const slots: DesignSlot[] = []
+
   const visit = (node: DesignNode): void => {
     if (node.type === "layout" && node.slot !== undefined) {
       slots.push({ name: node.slot, node })
+
       return
     }
+
     childNodes(node).forEach(visit)
   }
+
   visit(container.root)
+
   return slots
 }
 
@@ -37,7 +45,11 @@ export interface InstanceSlot extends DesignSlot {
 /** The slots of an instance's component, in its order, each with what the instance fills it with. */
 export function instanceSlots(instance: InstanceNode, library: ComponentLibrary): InstanceSlot[] {
   const component = library.get(instance.design)
-  if (!component) return []
+
+  if (!component) {
+    return []
+  }
+
   return designSlots(component).map((slot) => ({ ...slot, fill: instance.slots?.[slot.name] ?? [] }))
 }
 
@@ -51,19 +63,32 @@ export function slotAtPath(
   library: ComponentLibrary
 ): { instance: InstanceNode; slot: InstanceSlot } | undefined {
   const [instanceId, layoutId, ...deeper] = path.split("/")
-  if (!instanceId || !layoutId || deeper.length > 0) return undefined
+
+  if (!instanceId || !layoutId || deeper.length > 0) {
+    return undefined
+  }
+
   const instance = findNode(root, instanceId)
-  if (instance?.type !== "instance") return undefined
+
+  if (instance?.type !== "instance") {
+    return undefined
+  }
+
   const slot = instanceSlots(instance, library).find((each) => each.node.id === layoutId)
+
   return slot ? { instance, slot } : undefined
 }
 
 /** Empties the slot an instance fills, deleting its layers, so it shows the placeholder again. */
 export function clearSlot(root: DesignNode, instanceId: string, slot: string): DesignNode {
   return mapNode(root, instanceId, (node) => {
-    if (node.type !== "instance") throw new Error(`"${instanceId}" isn't an instance`)
+    if (node.type !== "instance") {
+      throw new Error(`"${instanceId}" isn't an instance`)
+    }
+
     const { [slot]: _cleared, ...rest } = node.slots ?? {}
     const { slots: _slots, ...instance } = node
+
     return Object.keys(rest).length > 0 ? { ...instance, slots: rest } : instance
   })
 }
@@ -80,15 +105,25 @@ function layersBelow(node: DesignNode): number {
  */
 export function childrenSlot(slots: DesignSlot[]): DesignSlot | undefined {
   let nested: DesignSlot | undefined
-  for (const slot of slots) if (!nested || layersBelow(slot.node) > layersBelow(nested.node)) nested = slot
+
+  for (const slot of slots) {
+    if (!nested || layersBelow(slot.node) > layersBelow(nested.node)) {
+      nested = slot
+    }
+  }
+
   return nested
 }
 
 /** The slot whose placeholder content holds a layer, if one does. */
 export function enclosingSlot(container: ContainerSpec, nodeId: string): string | undefined {
-  if (container.kind !== "component") return undefined
+  if (container.kind !== "component") {
+    return undefined
+  }
+
   const location = locateNode(container.root, nodeId)
   const holder = location?.ancestors.find((node) => node.type === "layout" && node.slot !== undefined)
+
   return holder?.type === "layout" ? holder.slot : undefined
 }
 
@@ -98,10 +133,21 @@ export function enclosingSlot(container: ContainerSpec, nodeId: string): string 
  */
 export function slotProblem(container: ContainerSpec, nodeId: string, name: string): string | undefined {
   const unusable = slotNameProblem(name)
-  if (unusable) return `A slot's name ${unusable}.`
-  if (container.params?.[name]) return `A param is already called ${name}. Give the slot another name.`
+
+  if (unusable) {
+    return `A slot's name ${unusable}.`
+  }
+
+  if (container.params?.[name]) {
+    return `A param is already called ${name}. Give the slot another name.`
+  }
+
   const other = designSlots(container).find((slot) => slot.name === name && slot.node.id !== nodeId)
-  if (other) return `${other.node.name ?? "Another layout"} is already the ${name} slot.`
+
+  if (other) {
+    return `${other.node.name ?? "Another layout"} is already the ${name} slot.`
+  }
+
   return slotPlaceProblem(container, nodeId)
 }
 
@@ -111,9 +157,17 @@ export function slotProblem(container: ContainerSpec, nodeId: string, name: stri
  */
 export function slotPlaceProblem(container: ContainerSpec, nodeId: string): string | undefined {
   const holder = enclosingSlot(container, nodeId)
-  if (holder) return `This layout is inside the ${holder} slot, so an instance that fills that slot replaces it.`
+
+  if (holder) {
+    return `This layout is inside the ${holder} slot, so an instance that fills that slot replaces it.`
+  }
+
   const inner = slotsInside(locateNode(container.root, nodeId)?.node)
-  if (inner) return `A layout inside this one is already the ${inner} slot.`
+
+  if (inner) {
+    return `A layout inside this one is already the ${inner} slot.`
+  }
+
   return undefined
 }
 
@@ -123,13 +177,24 @@ export function slotPlaceProblem(container: ContainerSpec, nodeId: string): stri
  * `slotPlaceProblem`).
  */
 export function freeSlotName(container: ContainerSpec, nodeId: string, preferred?: string): string | undefined {
-  if (slotPlaceProblem(container, nodeId)) return undefined
+  if (slotPlaceProblem(container, nodeId)) {
+    return undefined
+  }
+
   const node = locateNode(container.root, nodeId)?.node
   const free = (name: string) => name !== "" && !slotProblem(container, nodeId, name)
   const named = [preferred ?? "", slotName(node?.name ?? ""), "content"].find(free)
-  if (named) return named
+
+  if (named) {
+    return named
+  }
+
   let counter = 2
-  while (!free(`content${counter}`)) counter++
+
+  while (!free(`content${counter}`)) {
+    counter++
+  }
+
   return `content${counter}`
 }
 
@@ -138,28 +203,57 @@ export function freeSlotName(container: ContainerSpec, nodeId: string, preferred
  * children stay, as the placeholder content.
  */
 export function setSlot(container: ContainerSpec, nodeId: string, name: string | undefined): ContainerSpec {
-  if (container.kind !== "component") throw new Error("Only a component design has slots")
+  if (container.kind !== "component") {
+    throw new Error("Only a component design has slots")
+  }
+
   const node = locateNode(container.root, nodeId)?.node
-  if (node?.type !== "layout") throw new Error(`"${nodeId}" isn't a layout, and only a layout can be a slot`)
+
+  if (node?.type !== "layout") {
+    throw new Error(`"${nodeId}" isn't a layout, and only a layout can be a slot`)
+  }
+
   if (name !== undefined) {
     const problem = slotProblem(container, nodeId, name)
-    if (problem) throw new Error(problem)
+
+    if (problem) {
+      throw new Error(problem)
+    }
   }
+
   const root = mapNode(container.root, nodeId, (current) => {
-    const next = { ...current } as LayoutNode
-    if (name === undefined) delete next.slot
-    else next.slot = name
+    // This only ever gets the layout checked above; any other node would go back as it was.
+    if (current.type !== "layout") {
+      return current
+    }
+
+    const next: LayoutNode = { ...current }
+
+    if (name === undefined) {
+      delete next.slot
+    } else {
+      next.slot = name
+    }
+
     return next
   })
+
   return { ...container, root }
 }
 
 /** The name of the first slot among a layer's descendants. */
 function slotsInside(node: DesignNode | undefined): string | undefined {
   for (const child of node ? childNodes(node) : []) {
-    if (child.type === "layout" && child.slot !== undefined) return child.slot
+    if (child.type === "layout" && child.slot !== undefined) {
+      return child.slot
+    }
+
     const found = slotsInside(child)
-    if (found) return found
+
+    if (found) {
+      return found
+    }
   }
+
   return undefined
 }

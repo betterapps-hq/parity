@@ -5,7 +5,13 @@ import type { RendererAdapter } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { discoverProject } from "./index.ts"
 
-const renderer = {
+const renderer: RendererAdapter = {
+  id: "test",
+  name: "Test",
+  detect: () => true,
+  guestModule: "",
+  runtimePackages: [],
+  runtimeImports: [],
   componentExtensions: [".tsx"],
   findComponents: (source: string) =>
     [...source.matchAll(/export function ([A-Z]\w*)/g)].map((match) => ({
@@ -13,7 +19,7 @@ const renderer = {
       export: match[1]!,
       as: "function"
     }))
-} as unknown as RendererAdapter
+}
 
 let root: string
 
@@ -180,6 +186,7 @@ describe("libraries", () => {
     const pkg = { dependencies: { "@acme/ui": "1.0.0" } }
     await write("node_modules/@acme/ui/package.json", '{ "name": "@acme/ui", "types": "index.d.ts" }')
     await write("node_modules/@acme/ui/index.d.ts", "export function Switch(): unknown")
+
     const row = {
       id: "settings-row",
       name: "Settings row",
@@ -188,6 +195,7 @@ describe("libraries", () => {
       root: { type: "component", id: "switch", component: "acme/Switch" },
       states: [{ id: "default", name: "Default" }]
     }
+
     const screen = { ...row, id: "showcase", name: "Showcase", kind: "screen" }
     await write(
       "node_modules/@acme/ui/acme.lib.par",

@@ -68,30 +68,50 @@ export function pressLayers(
 ): void {
   const current = session.selection.get()
   const entry = current.design ? session.store.getEntry(current.design) : undefined
-  if (!entry) return
+
+  if (!entry) {
+    return
+  }
+
   const ids = topmostNodes(entry.container.root, selectedNodes(current))
     .map((node) => node.id)
     .filter((id) => id !== entry.container.root.id)
-  if (ids.length === 0) return
+
+  if (ids.length === 0) {
+    return
+  }
+
   const host = findFrames(area, entry.key, { mode: current.mode, state: current.state })[0]
   // Everything each layer draws at its top level, so a component returning a fragment moves whole.
   const elements = host ? ids.flatMap((id) => findNodeElements(host, id)) : []
-  if (!host || elements.length === 0) return
+
+  if (!host || elements.length === 0) {
+    return
+  }
+
   const rects = ids.flatMap((id) => nodeBox(host, id) ?? [])
+
   const union = {
     left: Math.min(...rects.map((rect) => rect.left)),
     top: Math.min(...rects.map((rect) => rect.top)),
     right: Math.max(...rects.map((rect) => rect.right)),
     bottom: Math.max(...rects.map((rect) => rect.bottom))
   }
+
   const edited = session.store.editFrame(current)
-  if (!edited) return
+
+  if (!edited) {
+    return
+  }
+
   const { state, viewport } = edited
   const primary = findNode(entry.container.root, ids.at(-1)!)
+
   const absolute =
     ids.length === 1 &&
     primary &&
     boardReader(entry.container, { state, viewport })(primary).style?.position === "absolute"
+
   const origin = area.getBoundingClientRect()
   let target: MoveTarget | undefined
 
@@ -107,34 +127,38 @@ export function pressLayers(
     moves,
     cursor: "grabbing",
     start(drag) {
-      if (absolute) placed = followAbsolute(session, area, entry, ids[0]!, host, drag)
-      else {
+      if (absolute) {
+        placed = followAbsolute(session, area, entry, ids[0]!, host, drag)
+      } else {
         layouts.measure(host, entry.container.root)
         preview = new DropPreview(elements)
       }
     },
     move(event) {
       const delta = { x: event.clientX - start.clientX, y: event.clientY - start.clientY }
+
       if (absolute) {
         placed?.move(delta, event)
         view = {}
+
         return
       }
+
       const ghost = {
         x: union.left + delta.x - origin.left,
         y: union.top + delta.y - origin.top,
         w: union.right - union.left,
         h: union.bottom - union.top
       }
+
       const found = moveTarget(area, session, { x: event.clientX, y: event.clientY }, entry, ids, layouts)
       target = found?.target
       // The layouts reflow around a copy of the layers where they'd land; the line is only for when they can't.
       const shown = found ? preview!.show(found.host, found.target, found.siblings) : (preview!.clear(), false)
-      view = {
-        ghost,
-        ...(found && !shown
-          ? { line: { ...found.line, x: found.line.x - origin.left, y: found.line.y - origin.top } }
-          : {})
+      view = { ghost }
+
+      if (found && !shown) {
+        view.line = { ...found.line, x: found.line.x - origin.left, y: found.line.y - origin.top }
       }
     },
     // Dropped, layers in a layout move, and so does an absolutely placed layer, which was previewed as it moved.
@@ -142,7 +166,11 @@ export function pressLayers(
       preview?.end()
       view = undefined
       placed?.end(kept)
-      if (!kept || absolute || !target) return
+
+      if (!kept || absolute || !target) {
+        return
+      }
+
       if (moveLayers(session, entry, ids, target, drag.gesture) && target.design !== entry.key) {
         moves.designs.push(target.design)
       }
@@ -164,6 +192,7 @@ export function moveTarget(
   layouts: DragLayouts
 ): DropAt | undefined {
   const frame = frameAt(area, session.store, point, session.editor)
+
   return frame && dropInFrame(layouts, frame.entry, frame.host, point, source.key, ids)
 }
 
@@ -180,41 +209,66 @@ class DropPreview {
 
   constructor(private readonly originals: HTMLElement[]) {
     this.templates = originals.map((original) => {
+      // SAFETY: a deep clone of an element is an element of the same kind.
       const copy = original.cloneNode(true) as HTMLElement
+
       // Copies aren't layers: hit testing and outlines must not find them.
       for (const element of [copy, ...copy.querySelectorAll<HTMLElement>("[data-canvas-node]")]) {
         element.removeAttribute("data-canvas-node")
       }
+
       copy.dataset.dropPreview = ""
       copy.style.opacity = "0.55"
       copy.style.outline = `1.5px dashed ${kindColors.layer}`
       copy.style.outlineOffset = "1px"
       copy.style.pointerEvents = "none"
+
       return copy
     })
     this.displays = originals.map((original) => original.style.getPropertyValue("display"))
-    for (const original of originals) original.style.setProperty("display", "none", "important")
+
+    for (const original of originals) {
+      original.style.setProperty("display", "none", "important")
+    }
   }
 
   /** Puts the copies at a target. Returns false when the layout isn't in the frame, so nothing could be shown. */
   show(host: HTMLElement, target: MoveTarget, siblings: readonly string[]): boolean {
     const key = `${host.dataset.design}:${host.dataset.mode}:${host.dataset.state}:${target.parent}:${target.index}`
-    if (key === this.at) return true
+
+    if (key === this.at) {
+      return true
+    }
+
     this.clear()
     const parent = findNodeElement(host, target.parent)
-    if (!parent) return false
+
+    if (!parent) {
+      return false
+    }
+
     const before = siblings
       .slice(target.index)
       .map((id) => findNodeElement(host, id))
       .find((element) => element && element.parentElement === parent && !this.originals.includes(element))
+
+    // SAFETY: a deep clone of an element is an element of the same kind.
     this.copies = this.templates.map((template) => template.cloneNode(true) as HTMLElement)
-    for (const copy of this.copies) parent.insertBefore(copy, before ?? null)
+
+    for (const copy of this.copies) {
+      parent.insertBefore(copy, before ?? null)
+    }
+
     this.at = key
+
     return true
   }
 
   clear(): void {
-    for (const copy of this.copies) copy.remove()
+    for (const copy of this.copies) {
+      copy.remove()
+    }
+
     this.copies = []
     this.at = ""
   }
@@ -223,8 +277,12 @@ class DropPreview {
     this.clear()
     this.originals.forEach((original, index) => {
       const display = this.displays[index]
-      if (display) original.style.setProperty("display", display)
-      else original.style.removeProperty("display")
+
+      if (display) {
+        original.style.setProperty("display", display)
+      } else {
+        original.style.removeProperty("display")
+      }
     })
   }
 }
@@ -244,16 +302,30 @@ export function moveLayers(
   const { store, selection } = session
   const frame = { mode: selection.get().mode, state: selection.get().state }
   const label = ids.length === 1 ? "Move layer" : `Move ${ids.length} layers`
+
   if (target.design === source.key) {
-    if (moveLayersWithin(source.container, ids, target) === source.container) return false
+    if (moveLayersWithin(source.container, ids, target) === source.container) {
+      return false
+    }
+
     store.updateContainer(source.key, label, (container) => moveLayersWithin(container, ids, target), { gesture })
     selection.set(layersSelection(source.key, [...ids], frame))
+
     return true
   }
+
   const destination = store.getEntry(target.design)
-  if (!destination) return false
+
+  if (!destination) {
+    return false
+  }
+
   const edited = store.editFrame({ design: source.key, ...frame })
-  if (!edited) return false
+
+  if (!edited) {
+    return false
+  }
+
   const { state, viewport } = edited
   let copies: string[] = []
   store.updateContainers(
@@ -262,12 +334,18 @@ export function moveLayers(
     ([from, to]) => {
       const moved = moveLayersAcross(from!, to!, ids, target, state, viewport)
       copies = moved.copies
+
       return [moved.source, moved.destination]
     },
     { gesture }
   )
-  if (copies.length === 0) return false
+
+  if (copies.length === 0) {
+    return false
+  }
+
   selection.set(layersSelection(containerKey(destination.path, destination.container.id), copies))
+
   return true
 }
 
@@ -292,11 +370,16 @@ function followAbsolute(
   const unit = spacingUnit(session.tokens.get())
   const edited = store.editFrame(current)
   const location = locateNode(entry.container.root, id)
-  if (!location || !edited) return undefined
+
+  if (!location || !edited) {
+    return undefined
+  }
+
   const { state, viewport } = edited
   // Screen pixels per pixel of the design.
   const scale = frameScale(host) * (editor?.getZoomLevel() ?? 1)
   const snapping = LayerSnapping.measure(editor, host, entry.container, id, scale)
+
   const follow = absoluteDrag({
     style: boardReader(entry.container, { state, viewport })(location.node).style ?? {},
     // Where its sides are drawn, for those set by a token or not at all.
@@ -305,10 +388,13 @@ function followAbsolute(
     scale,
     snapping
   })
+
   const moved = (style: NodeStyle) => (container: ContainerSpec) =>
     editNode(container, boardTarget(container, state.id), id, { style })
+
   const write = (style: NodeStyle) =>
     store.updateContainer(entry.key, "Move layer", moved(style), { gesture: drag.gesture })
+
   const preview = new StylePreview(session, entry.key)
   // Whether the move is written as it goes, for a layer the preview can't show.
   let live = false
@@ -318,26 +404,43 @@ function followAbsolute(
     move(delta, held) {
       const { change, snapped } = follow({ dx: delta.x, dy: delta.y, snaps: snapping?.snaps(held) ?? false })
       snapping?.show(snapped)
-      if (JSON.stringify(change) === JSON.stringify(shown)) return
+
+      if (JSON.stringify(change) === JSON.stringify(shown)) {
+        return
+      }
+
       const moving = Object.keys(change).length > 0
+
       if (live) {
         // A side moved back to where it began goes back to what was written, which only the drag's checkpoint has.
-        if (Object.keys(shown).some((side) => !(side in change))) drag.revert()
-        if (moving) write(change)
+        if (Object.keys(shown).some((side) => !(side in change))) {
+          drag.revert()
+        }
+
+        if (moving) {
+          write(change)
+        }
       } else {
         preview.show(moving ? moved(change) : (container) => container)
         live = moving && !preview.active
-        if (live) write(change)
+
+        if (live) {
+          write(change)
+        }
       }
+
       shown = change
     },
     end(kept) {
       snapping?.clear()
       const moving = Object.keys(shown).length > 0
+
       if (live || !kept || !moving) {
         preview.cancel()
+
         return
       }
+
       // The frames already show the move, so they're left as they are while the design draws it.
       preview.settle(moved(shown))
       write(shown)

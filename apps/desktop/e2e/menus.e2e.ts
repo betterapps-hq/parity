@@ -9,7 +9,9 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 const menu = () => app.page.getByRole("menu", { name: "Canvas" })
@@ -23,6 +25,7 @@ async function closed(): Promise<void> {
 /** The open menu's items, each its label and then its keys. */
 async function items(): Promise<string[]> {
   await expect.poll(() => menu().getByRole("menuitem").count()).toBeGreaterThan(0)
+
   return normalized(await menu().getByRole("menuitem").allInnerTexts())
 }
 
@@ -64,18 +67,37 @@ describe("right-click menus", () => {
   it("undoes with Ctrl+Z pressed while the menu is still closing", async () => {
     await app.show("Members", 1)
     await app.rightClick(center(await app.box("Members", "ada")))
-    await menu()
-      .getByRole("menuitem", { name: /^Duplicate/ })
-      .click()
-    // At once, while the menu plays its closing animation and still has focus (PAR-424). The canvas's own listener comes
-    // first and stops the key, so where focus is gets read just before it rather than as it arrives.
-    const focusIn = await app.page.evaluate(() => {
-      const menu = document.activeElement?.closest("[role=menu]")
-      if (!menu) return "outside a menu"
-      return menu.hasAttribute("data-closed") ? "closed" : "open"
+
+    // The menu closes in 100 ms, and whether the test's next step lands inside that depends on how busy the page is
+    // after Duplicate: it stopped landing once the toolbar no longer redrew Undo and Redo (PAR-795). A longer closing
+    // animation, for this test only, leaves a window the key always lands in.
+    const slowClose = await app.page.addStyleTag({
+      content: "[role=menu][data-closed] { animation-duration: 2s !important; }"
     })
-    await app.page.keyboard.press("Control+z")
-    expect(focusIn).toBe("closed")
+
+    try {
+      await menu()
+        .getByRole("menuitem", { name: /^Duplicate/ })
+        .click()
+
+      // While the menu plays its closing animation and still has focus (PAR-424). The canvas's own listener comes first
+      // and stops the key, so where focus is gets read just before it rather than as it arrives.
+      const focusIn = await app.page.evaluate(() => {
+        const menu = document.activeElement?.closest("[role=menu]")
+
+        if (!menu) {
+          return "outside a menu"
+        }
+
+        return menu.hasAttribute("data-closed") ? "closed" : "open"
+      })
+
+      await app.page.keyboard.press("Control+z")
+      expect(focusIn).toBe("closed")
+    } finally {
+      await slowClose.evaluate((style) => style.parentNode?.removeChild(style))
+    }
+
     await closed()
     await expect.poll(() => app.children("Members", "page")).toEqual(["ada", "lin", "grace", "names", "email"])
     expect(await app.undoLabel()).toBeUndefined()
@@ -114,20 +136,26 @@ describe("right-click menus", () => {
     // Ctrl and a click select the deepest layer under the pointer: the Users card's value, inside the instance.
     await app.click(center(await app.box("Dashboard", "BtvqI/BSm2g")), ["Control"])
     await expect.poll(async () => (await app.selection()).node).toMatch(/^BtvqI\//)
+
     const unavailable = async (menuName: string, items: RegExp[]) => {
       await app.page.getByRole("menubar", { name: "Application" }).getByRole("menuitem", { name: menuName }).click()
       const open = app.page.getByRole("menu")
       await expect.poll(() => open.count()).toBe(1)
       const states: (string | null)[] = []
+
       for (const item of items) {
         states.push(await open.getByRole("menuitem").filter({ hasText: item }).getAttribute("aria-disabled"))
       }
+
       await app.page.keyboard.press("Escape")
       await closed()
+
       return states
     }
+
     const edit = [/^\s*Copy\s*Ctrl/, /^\s*Duplicate/, /^\s*Paste over selection/, /^\s*Paste to replace/]
     expect(await unavailable("Edit", edit)).toEqual(["true", "true", null, null])
+
     const object = [
       /Wrap in layout/,
       /Bring forward/,
@@ -136,6 +164,7 @@ describe("right-click menus", () => {
       /Send to back/,
       /Hide or show/
     ]
+
     expect(await unavailable("Object", object)).toEqual(object.map(() => "true"))
   })
 
@@ -223,6 +252,7 @@ describe("right-click menus", () => {
       .poll(() =>
         app.page.evaluate(() => {
           const e2e = window.e2e!
+
           return e2e.frame(e2e.key("Sign in")).dataset.e2eMenus
         })
       )

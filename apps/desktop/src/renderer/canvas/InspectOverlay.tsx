@@ -39,39 +39,70 @@ export function InspectOverlay() {
 
   // While picking, the pointer's moves find the element under it, and a press picks it before the canvas sees it.
   useEffect(() => {
-    if (!inspecting.picking) return undefined
+    if (!inspecting.picking) {
+      return undefined
+    }
+
     const area = rootRef.current?.parentElement
-    if (!area) return undefined
+
+    if (!area) {
+      return undefined
+    }
+
     area.dataset.inspecting = ""
+
     const under = (event: PointerEvent) => {
-      if (!area.contains(event.target as Node)) return undefined
+      if (!(event.target instanceof Node && area.contains(event.target))) {
+        return undefined
+      }
+
       const host = frameAt(allFrames(area), event.clientX, event.clientY)
       const element = host && sourcedElementAt(host, event.clientX, event.clientY)
+
       return host && element ? { host, element } : undefined
     }
+
     const move = (event: PointerEvent) => setPointed(under(event))
+
     const press = (event: PointerEvent) => {
-      if (event.button !== 0 || !area.contains(event.target as Node)) return
+      if (event.button !== 0 || !(event.target instanceof Node && area.contains(event.target))) {
+        return
+      }
+
       const found = under(event)
       event.preventDefault()
       event.stopPropagation()
-      if (!found) return
+
+      if (!found) {
+        return
+      }
+
       const { host, element } = found
       const design = host.dataset.design
       const node = nodeOfElement(host, element.element)
-      if (!design || !node) return
+
+      if (!design || !node) {
+        return
+      }
+
       session.selection.set(layersSelection(design, [node], { mode: host.dataset.mode, state: host.dataset.state }))
       pickElement({ node, at: element.at })
       setPointed(undefined)
     }
+
     const key = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
+      if (event.key !== "Escape") {
+        return
+      }
+
       event.stopPropagation()
       setPicking(false)
     }
+
     window.addEventListener("pointermove", move, { capture: true })
     window.addEventListener("pointerdown", press, { capture: true })
     window.addEventListener("keydown", key, { capture: true })
+
     return () => {
       delete area.dataset.inspecting
       window.removeEventListener("pointermove", move, { capture: true })
@@ -86,24 +117,35 @@ export function InspectOverlay() {
   useEffect(() => {
     let frame = 0
     let last = ""
+
     const tick = () => {
       frame = requestAnimationFrame(tick)
       const area = rootRef.current?.parentElement
-      if (!area || area.closest("[hidden]")) return
+
+      if (!area || area.closest("[hidden]")) {
+        return
+      }
+
       let origin: DOMRect | undefined
+
       const box = (element: Element): Box => {
         origin ??= area.getBoundingClientRect()
         const rect = element.getBoundingClientRect()
+
         return { x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height }
       }
+
       const next = measure(getInspecting(), selected, pointed, box)
       const serialized = JSON.stringify(next)
+
       if (serialized !== last) {
         last = serialized
         setMarks(next)
       }
     }
+
     frame = requestAnimationFrame(tick)
+
     return () => cancelAnimationFrame(frame)
   }, [pointed, selected])
 
@@ -153,29 +195,46 @@ function measure(
   box: (element: Element) => Box
 ): Marks {
   if (inspecting.picking) {
-    if (!pointed) return none
+    if (!pointed) {
+      return none
+    }
+
     const at = box(pointed.element.element)
+
     return {
       boxes: [{ ...at, dashed: false }],
       label: { box: at, tag: pointed.element.tag, where: shortSource(pointed.element.source) }
     }
   }
+
   const node = selected.node
-  if (!selected.design || !node) return none
+
+  if (!selected.design || !node) {
+    return none
+  }
+
   const marks: Marks = { boxes: [] }
+
   const shown = [
     { mark: inspecting.picked, dashed: false },
     { mark: inspecting.hovered, dashed: true }
   ].filter(({ mark }) => mark?.node === node && !(mark === inspecting.hovered && mark.at === inspecting.picked?.at))
+
   for (const host of findFrames(document, selected.design)) {
     const roots = findNodeElements(host, node)
+
     for (const { mark, dashed } of shown) {
       for (const element of elementsWrittenAt(roots, mark!.at)) {
         const at = box(element)
-        if (at.width === 0 && at.height === 0) continue
+
+        if (at.width === 0 && at.height === 0) {
+          continue
+        }
+
         marks.boxes.push({ ...at, dashed })
       }
     }
   }
+
   return marks
 }

@@ -2,6 +2,7 @@
 import type {
   ComponentRenderStatus,
   DrawnNodes,
+  ElementAttributes,
   Guest,
   GuestDecorators,
   GuestIconSet,
@@ -13,7 +14,14 @@ import type {
 } from "@parity-app/core"
 // Only modules that import nothing at runtime, since this file runs in the project's own bundle (`evaluate.ts`).
 import { iconAliases, shorterName } from "@parity-app/core/icon-names"
-import { evaluateValue, exportOf, readRenderSlotKey, type ValueHost } from "@parity-app/core/values/evaluate"
+import {
+  evaluateValue,
+  exportOf,
+  isComposite,
+  isText,
+  readRenderSlotKey,
+  type ValueHost
+} from "@parity-app/core/values/evaluate"
 import {
   Component,
   type ComponentType,
@@ -30,10 +38,22 @@ import {
 } from "react"
 import { flushSync } from "react-dom"
 import { createRoot, type Root } from "react-dom/client"
-import { currentRootFiber, type Fiber, indexDrawnNodes, type StylePlacement, stylePlacement } from "./drawn-nodes.ts"
+import {
+  currentRootFiber,
+  type Fiber,
+  indexDrawnNodes,
+  type StylePlacement,
+  styleOf,
+  stylePlacement
+} from "./drawn-nodes.ts"
 import { FrameWindowContext, frameWindow } from "./viewport.ts"
 
+/** The props of a project's or a library's component, which can take anything. */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a customer's component takes whatever props it declares
 type Props = Record<string, unknown>
+
+/** A value in a library's decorator, worked out against the frame. Core's schema leaves its shape open. */
+type DecoratorValue = LibraryDecorator["class"]
 
 /**
  * The project's dev server, which serves its public files. Frames live in the canvas's own page, so a path like
@@ -41,8 +61,11 @@ type Props = Record<string, unknown>
  */
 const projectOrigin = new URL(import.meta.url).origin
 
-function attributesFor(tag: string, attributes: Record<string, string> | undefined): Record<string, string> {
-  if (tag !== "img" || !attributes?.src?.startsWith("/") || attributes.src.startsWith("//")) return attributes ?? {}
+function attributesFor(tag: string, attributes: ElementAttributes | undefined): ElementAttributes {
+  if (tag !== "img" || !attributes?.src?.startsWith("/") || attributes.src.startsWith("//")) {
+    return attributes ?? {}
+  }
+
   return { ...attributes, src: new URL(attributes.src, projectOrigin).href }
 }
 
@@ -100,7 +123,7 @@ function failedBox(name: string, message: string) {
 
 /** Function components, and the objects `forwardRef`, `memo` and `lazy` return. */
 function isComponent(value: unknown): value is ComponentType<Props> {
-  return typeof value === "function" || (typeof value === "object" && value !== null && "$$typeof" in value)
+  return value instanceof Function || (isComposite(value) && "$$typeof" in value)
 }
 
 /** What a component's boundaries tell the guest: it drew, it failed, or a boundary that failed no longer shows it. */
@@ -128,8 +151,8 @@ interface BoundaryProps {
 
 /** The failing layers of one frame, which its boundaries tell when they fail and when they draw again. */
 interface FrameFailures {
-  failed(boundary: object, failure: LayerFailure): void
-  cleared(boundary: object): void
+  failed(boundary: ComponentBoundary, failure: LayerFailure): void
+  cleared(boundary: ComponentBoundary): void
 }
 
 const FrameFailuresContext = createContext<FrameFailures | undefined>(undefined)
@@ -140,29 +163,45 @@ const FrameFailuresContext = createContext<FrameFailures | undefined>(undefined)
  * drawn more than once fails as one layer). It stops once the frame is disposed.
  */
 function frameFailures(listener: ((failures: readonly LayerFailure[]) => void) | undefined) {
-  const failing = new Map<object, LayerFailure>()
+  const failing = new Map<ComponentBoundary, LayerFailure>()
   let pending = false
   let disposed = false
+
   const changed = () => {
-    if (!listener || pending) return
+    if (!listener || pending) {
+      return
+    }
+
     pending = true
     queueMicrotask(() => {
       pending = false
-      if (disposed) return
+
+      if (disposed) {
+        return
+      }
+
       const byNode = new Map<string, LayerFailure>()
-      for (const failure of failing.values()) byNode.set(failure.nodeId, failure)
+
+      for (const failure of failing.values()) {
+        byNode.set(failure.nodeId, failure)
+      }
+
       listener([...byNode.values()])
     })
   }
+
   const failures: FrameFailures = {
     failed(boundary, failure) {
       failing.set(boundary, failure)
       changed()
     },
     cleared(boundary) {
-      if (failing.delete(boundary)) changed()
+      if (failing.delete(boundary)) {
+        changed()
+      }
     }
   }
+
   return {
     failures,
     committed: changed,
@@ -182,8 +221,8 @@ class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
   static override contextType = FrameFailuresContext
   declare context: FrameFailures | undefined
   override state: BoundaryState = {}
-  static getDerivedStateFromError(error: unknown) {
-    return { error: error instanceof Error ? error : new Error(String(error)) }
+  static getDerivedStateFromError(cause: unknown) {
+    return { error: cause instanceof Error ? cause : new Error(String(cause)) }
   }
   // Boundaries are keyed by position, so one whose node was removed draws the next component: it starts over. So does
   // one whose component now comes from another file, which may not fail.
@@ -193,25 +232,36 @@ class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
       : { name: props.name, source: props.source, error: undefined }
   }
   override componentDidMount() {
-    if (!this.state.error) this.props.report.drawn(this.props.name)
+    if (!this.state.error) {
+      this.props.report.drawn(this.props.name)
+    }
   }
   override componentDidCatch(error: Error) {
     this.props.report.failed(this.props.name, error)
     this.context?.failed(this, { nodeId: this.props.nodeId, component: this.props.name, error: error.message })
   }
-  override componentDidUpdate(_props: unknown, previous: BoundaryState) {
-    if (previous.error && previous.error !== this.state.error) this.props.report.cleared(previous.name!)
+  override componentDidUpdate(_props: BoundaryProps, previous: BoundaryState) {
+    if (previous.error && previous.error !== this.state.error) {
+      this.props.report.cleared(previous.name!)
+    }
+
     if (!this.state.error) {
       this.props.report.drawn(this.props.name)
       this.context?.cleared(this)
     }
   }
   override componentWillUnmount() {
-    if (this.state.error) this.props.report.cleared(this.state.name!)
+    if (this.state.error) {
+      this.props.report.cleared(this.state.name!)
+    }
+
     this.context?.cleared(this)
   }
   override render() {
-    if (!this.state.error) return this.props.children
+    if (!this.state.error) {
+      return this.props.children
+    }
+
     return failedBox(this.props.name, this.state.error.message)
   }
 }
@@ -235,29 +285,44 @@ function ComponentLayer({ layer, ...given }: { layer: LayerDrawing } & Props) {
   const props = Object.keys(given).length === 0 ? layer.props : mergeGiven(given, layer.props)
   const { name, nodeId } = layer.boundary
   const styles = useContext(LayerStylesContext)
-  const styled = hasStyle(props.style)
+  const styled = hasStyle(props)
   const inner = useSyncExternalStore(styles.subscribe, () => styles.placement(name) === "inner")
   useLayoutEffect(() => {
-    if (styled && styles.placement(name) === undefined) styles.check()
+    if (styled && styles.placement(name) === undefined) {
+      styles.check()
+    }
   })
+
   const draw = (props: Props) =>
     layer.children ? createElement(layer.component, props, ...layer.children) : createElement(layer.component, props)
-  if (!(inner && styled)) return createElement(ComponentBoundary, layer.boundary, draw(props))
+
+  if (!(inner && styled)) {
+    return createElement(ComponentBoundary, layer.boundary, draw(props))
+  }
+
   // It puts its style on an element inside it, so the style goes on a div around it instead, which it fills.
   const { style, ...rest } = props
+
   const wrapper = createElement(
     "div",
-    { style: { ...wrapperStyle, ...(style as object) }, "data-canvas-node": nodeId },
+    { style: Object.assign({}, wrapperStyle, style), "data-canvas-node": nodeId },
     draw(rest)
   )
+
   return createElement(ComponentBoundary, layer.boundary, wrapper)
 }
 
 /** A one-cell grid, so the component in it fills the div however the div is sized, and can shrink with it. */
 const wrapperStyle = { display: "grid", gridTemplate: "minmax(0, 1fr) / minmax(0, 1fr)" }
 
-function hasStyle(style: unknown): boolean {
-  return typeof style === "object" && style !== null && Object.keys(style).length > 0
+/** Whether props have a `style` with any values. */
+function hasStyle(props: Props): boolean {
+  return isComposite(props.style) && Object.keys(props.style).length > 0
+}
+
+/** Whether a prop's value can be spread into a style, as an object or null can. */
+function isSpreadable(value: unknown): value is object | null {
+  return value === null || (isComposite(value) && !(value instanceof Function))
 }
 
 /**
@@ -277,32 +342,40 @@ const LayerStylesContext = createContext<LayerStyles>({
 })
 
 /** What a parent gives a layer, under the layer's own props, as Radix's Slot merges them. */
-function mergeGiven(given: Props, own: Props): Props {
-  const merged: Props = { ...given, ...own }
+function mergeGiven(given: Props, own: Props) {
+  const merged = { ...given, ...own }
+
   for (const [name, value] of Object.entries(own)) {
     const outer = given[name]
-    if (outer === undefined) continue
-    if (/^on[A-Z]/.test(name) && typeof value === "function" && typeof outer === "function") {
+
+    if (outer === undefined) {
+      continue
+    }
+
+    if (/^on[A-Z]/.test(name) && value instanceof Function && outer instanceof Function) {
       merged[name] = (...args: unknown[]) => {
         const result: unknown = value(...args)
         outer(...args)
+
         return result
       }
-    } else if (name === "style" && typeof value === "object" && typeof outer === "object") {
+    } else if (name === "style" && isSpreadable(value) && isSpreadable(outer)) {
       merged.style = { ...outer, ...value }
-    } else if (name === "className" && typeof value === "string" && typeof outer === "string") {
+    } else if (name === "className" && isText(value) && isText(outer)) {
       merged.className = [outer, value].filter(Boolean).join(" ")
     }
   }
+
   return merged
 }
 
 export function createGuest(init: GuestInit): Guest {
+  // SAFETY: the builder lists the exports it found to be components; one that isn't fails in its boundary when drawn.
   const components = init.components as Record<string, ComponentType<Props>>
-  const loaders: Record<string, () => Promise<unknown>> = { ...init.lazyComponents }
-  const names = [...Object.keys(components), ...Object.keys(loaders)]
+  const loaders = new Map(Object.entries(init.lazyComponents ?? {}))
+  const names = [...Object.keys(components), ...loaders.keys()]
   /** What the guest loaded with, for a component added over one of them to go back to once its new source goes. */
-  const loadedWith = { components: { ...components }, loaders: { ...loaders } }
+  const loadedWith = { components: { ...components }, loaders: new Map(loaders) }
   const iconSets = init.iconSets ?? {}
   const drawn = new Map<unknown, ComponentType<Props>>()
   const deferred = new Map<string, ComponentType<Props>>()
@@ -329,8 +402,12 @@ export function createGuest(init: GuestInit): Guest {
   const revisionListeners = new Set<() => void>()
   let statuses: Record<string, ComponentRenderStatus> = {}
   let pending = false
+
   const changed = () => {
-    if (pending) return
+    if (pending) {
+      return
+    }
+
     pending = true
     queueMicrotask(() => {
       pending = false
@@ -338,12 +415,19 @@ export function createGuest(init: GuestInit): Guest {
         ...[...drawnOnce].map((name) => [name, { drawn: true as const }]),
         ...[...failing].map(([name, { error }]) => [name, { error }])
       ])
-      for (const listener of listeners) listener()
+
+      for (const listener of listeners) {
+        listener()
+      }
     })
   }
+
   const report: RenderReport = {
     drawn(name) {
-      if (drawnOnce.has(name) || (name in loaders && !loadedOnDemand.has(name))) return
+      if (drawnOnce.has(name) || (loaders.has(name) && !loadedOnDemand.has(name))) {
+        return
+      }
+
       drawnOnce.add(name)
       changed()
     },
@@ -353,9 +437,17 @@ export function createGuest(init: GuestInit): Guest {
     },
     cleared(name) {
       const now = failing.get(name)
-      if (!now) return
-      if (now.count > 1) failing.set(name, { ...now, count: now.count - 1 })
-      else failing.delete(name)
+
+      if (!now) {
+        return
+      }
+
+      if (now.count > 1) {
+        failing.set(name, { ...now, count: now.count - 1 })
+      } else {
+        failing.delete(name)
+      }
+
       changed()
     }
   }
@@ -366,54 +458,83 @@ export function createGuest(init: GuestInit): Guest {
    * which an offscreen render waiting on `loaded()` would miss.
    */
   const onDemand = (name: string): ComponentType<Props> | undefined => {
-    const load = loaders[name]
-    if (!load) return undefined
+    const load = loaders.get(name)
+
+    if (!load) {
+      return undefined
+    }
+
     let component = deferred.get(name)
+
     if (!component) {
       let ready: ComponentType<Props> | undefined
       let failure: { error: unknown } | undefined
       let loading: Promise<void> | undefined
+
       const start = () => {
-        if (loading) return loading
+        if (loading) {
+          return loading
+        }
+
         loading = load().then(
           (value) => {
+            // SAFETY: a module's export the builder found to be a component; one that isn't fails in its boundary.
             ready = value as ComponentType<Props>
             loadedOnDemand.add(name)
           },
-          (error: unknown) => void (failure = { error })
+          (cause: unknown) => void (failure = { error: cause })
         )
         inFlight.add(loading)
         void loading.finally(() => inFlight.delete(loading!))
+
         return loading
       }
+
       component = function OnDemand(props: Props) {
         const [, redraw] = useState(0)
         const own = useContext(FrameWindowContext)
         useEffect(() => {
-          if (ready || failure) return
+          if (ready || failure) {
+            return
+          }
+
           void start().then(() => {
             // In the frame's window, as the rest of the frame first drew.
             const again = () => redraw((count) => count + 1)
-            if (own) own.run(() => flushSync(again))
-            else again()
+
+            if (own) {
+              own.run(() => flushSync(again))
+            } else {
+              again()
+            }
           })
         }, [own])
         // Its boundary only hears it drew when the boundary draws, so once loaded it says so itself. A component that
         // throws never gets here.
         useEffect(() => {
-          if (ready) report.drawn(name)
+          if (ready) {
+            report.drawn(name)
+          }
         })
         // Its layer looked for where its style went before it loaded, so it looks again once it has.
         const styles = useContext(LayerStylesContext)
         useLayoutEffect(() => {
-          if (ready && hasStyle(props.style) && styles.placement(name) === undefined) styles.check()
+          if (ready && hasStyle(props) && styles.placement(name) === undefined) {
+            styles.check()
+          }
         })
+
         // Thrown while drawing, so the component's boundary shows why it couldn't load.
-        if (failure) throw failure.error
+        if (failure) {
+          throw failure.error
+        }
+
         return ready ? createElement(ready, props) : null
       }
+
       deferred.set(name, component)
     }
+
     return component
   }
 
@@ -422,14 +543,29 @@ export function createGuest(init: GuestInit): Guest {
    * `heroicons/16/solid/CogIcon` in a style its set keeps in a module of its own.
    */
   const lookup = (name: string): ComponentType<Props> | undefined => {
-    if (components[name]) return components[name]
-    if (name in loaders) return onDemand(name)
+    if (components[name]) {
+      return components[name]
+    }
+
+    if (loaders.has(name)) {
+      return onDemand(name)
+    }
+
     const slash = name.indexOf("/")
-    if (slash === -1) return undefined
+
+    if (slash === -1) {
+      return undefined
+    }
+
     const set = iconSets[name.slice(0, slash)]
-    if (!set) return undefined
+
+    if (!set) {
+      return undefined
+    }
+
     const rest = name.slice(slash + 1)
     const last = rest.lastIndexOf("/")
+
     return last === -1 ? icon(set, rest) : icon(set, rest.slice(last + 1), rest.slice(0, last))
   }
 
@@ -439,38 +575,62 @@ export function createGuest(init: GuestInit): Guest {
   /** An icon component; for a set of icon data, one that draws the data with the set's renderer. */
   const icon = (set: GuestIconSet, name: string, style?: string): ComponentType<Props> | undefined => {
     const value = moduleOf(set, style)?.[name]
-    if (!set.renderer) return isComponent(value) ? value : undefined
-    if (value === undefined || isComponent(value) || !isComponent(set.renderer.component)) return undefined
+
+    if (!set.renderer) {
+      return isComponent(value) ? value : undefined
+    }
+
+    if (value === undefined || isComponent(value) || !isComponent(set.renderer.component)) {
+      return undefined
+    }
+
     let component = drawn.get(value)
+
     if (!component) {
       const { component: renderer, prop } = set.renderer
       component = (props: Props) => createElement(renderer, { ...props, [prop]: value })
       drawn.set(value, component)
     }
+
     return component
   }
 
-  const iconLists = new Map<string, { names: string[]; aliases: Record<string, string[]> }>()
+  const iconLists = new Map<string, IconList>()
+
   /**
    * An icon set's icons, each once: aliases of one icon (`Heart`, `HeartIcon`) keep the shortest name the set's
    * pattern matches, which keeps the others for search, as `TriangleAlert` keeps Lucide's older `AlertTriangle` and
    * Hugeicons' `Settings01Icon` keeps `Gear` and `Cog`, which its pattern leaves out of the list.
    */
-  const iconList = (library: string, style?: string): { names: string[]; aliases: Record<string, string[]> } => {
+  const iconList = (library: string, style?: string): IconList => {
     const set = iconSets[library]
     const module = set && moduleOf(set, style)
-    if (!module) return { names: [], aliases: {} }
+
+    if (!module) {
+      return { names: [], aliases: {} }
+    }
+
     const key = style ? `${library}/${style}` : library
     let list = iconLists.get(key)
-    if (list) return list
+
+    if (list) {
+      return list
+    }
+
     list = { names: [], aliases: {} }
+
     for (const { name, names } of iconAliases(module, set, (_, each) => icon(set, each, style) !== undefined)) {
       const others = names.filter((each) => each !== name).sort(shorterName)
       list.names.push(name)
-      if (others.length > 0) list.aliases[name] = others
+
+      if (others.length > 0) {
+        list.aliases[name] = others
+      }
     }
+
     list.names.sort((a, b) => a.localeCompare(b, "en", { numeric: true }))
     iconLists.set(key, list)
+
     return list
   }
 
@@ -481,13 +641,18 @@ export function createGuest(init: GuestInit): Guest {
    */
   const sampleHost: ValueHost = {
     exported: (specifier, path) => {
-      if (!init.decorators) throw new Error(`${specifier} isn't loaded`)
+      if (!init.decorators) {
+        throw new Error(`${specifier} isn't loaded`)
+      }
+
       return exported(init.decorators, specifier, path)
     },
     global: () => undefined,
     frame: () => undefined,
     made: new Map()
   }
+
+  // SAFETY: working out an object of props gives an object with the same props, each worked out.
   const madeProps = (props: Props | undefined): Props => evaluateValue(props ?? {}, sampleHost, "sample") as Props
 
   /**
@@ -497,7 +662,9 @@ export function createGuest(init: GuestInit): Guest {
    */
   const toReact = (node: RenderNode, key?: Key, extra?: Props): ReactNode => {
     const { key: given, style: givenStyle, ...passed } = extra ?? {}
+    // SAFETY: what a render function passes on as `key` is the key React gave the element it returns.
     const keyed = (given as Key | undefined) ?? key
+
     switch (node.kind) {
       case "text":
         return node.text
@@ -506,15 +673,21 @@ export function createGuest(init: GuestInit): Guest {
           ...attributesFor(node.tag, node.attributes),
           ...passed,
           key: keyed,
-          style: givenStyle ? { ...node.style, ...(givenStyle as object) } : node.style,
+          style: givenStyle ? Object.assign({}, node.style, givenStyle) : node.style,
           "data-canvas-node": node.nodeId
         }
+
         // Void elements like img take no children, not even an empty list; nor does one given its children.
-        if (node.children.length === 0 || "children" in passed) return createElement(node.tag, props)
+        if (node.children.length === 0 || "children" in passed) {
+          return createElement(node.tag, props)
+        }
+
         return createElement(node.tag, props, ...node.children.map((child, index) => toReact(child, index)))
       }
+
       case "component": {
         const component = lookup(node.component)
+
         if (!component) {
           return createElement(
             "div",
@@ -522,50 +695,72 @@ export function createGuest(init: GuestInit): Guest {
             `Unknown component "${node.component}"`
           )
         }
+
         // The canvas finds a component by its boundary, below, not by this prop: a component may not render it, or
         // render it on an inner element. It still marks the DOM of components that pass it on, for scripts that look.
-        const props: Props = { ...madeProps(node.props), "data-canvas-node": node.nodeId }
-        if (givenStyle) props.style = { ...(props.style as object | undefined), ...(givenStyle as object) }
+        const props: Props = Object.assign({}, madeProps(node.props), { "data-canvas-node": node.nodeId })
+
+        if (givenStyle) {
+          props.style = Object.assign({}, props.style, givenStyle)
+        }
+
         let children: ReactNode[] | undefined
+
         for (const [slot, nodes] of Object.entries(node.slots)) {
           // A `$render:` slot is a function the component calls (`renderInput`, function children); `$renderWith:`
           // spreads what it's called with onto the one element it returns, and `?pass=a,b` gives it to those props, over
           // what's spread, as JSX would.
           const render = readRenderSlotKey(slot)
+
           if (render) {
             const { spread, prop, pass } = render
+            // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the customer's component calls it with anything
             props[prop] = (argument: unknown) => {
-              const spreadProps = spread && typeof argument === "object" && argument ? (argument as Props) : {}
+              const spreadProps = spread && isComposite(argument) && !(argument instanceof Function) ? argument : {}
               const named = pass ? Object.fromEntries(pass.map((name) => [name, argument])) : {}
               const passing = spread || pass ? { ...spreadProps, ...named } : undefined
+
               // Only the one element a function returns takes what it's called with.
               const rendered = nodes.map((child, index) =>
                 toReact(child, index, nodes.length === 1 ? passing : undefined)
               )
+
               return rendered.length === 1 ? rendered[0] : rendered
             }
+
             continue
           }
+
           const rendered = nodes.map((child, index) => toReact(child, index))
+
           // The default slot becomes children; any other slot is a node-valued prop.
-          if (slot === "children") children = rendered
-          else props[slot] = rendered.length === 1 ? rendered[0] : rendered
+          if (slot === "children") {
+            children = rendered
+          } else {
+            props[slot] = rendered.length === 1 ? rendered[0] : rendered
+          }
         }
+
         Object.assign(props, passed)
+
         // Children it's given replace the slot's.
-        if ("children" in passed) children = undefined
+        if ("children" in passed) {
+          children = undefined
+        }
+
         const layer: LayerDrawing = {
           component,
           props,
           children,
           boundary: { name: node.component, source: moves.get(node.component) ?? 0, nodeId: node.nodeId, report }
         }
+
         return createElement(ComponentLayer, { key: keyed, layer })
       }
     }
   }
 
-  return {
+  const guest: Guest = {
     renderer: "react",
     components: names,
     hasComponent: (name) => lookup(name) !== undefined,
@@ -574,63 +769,100 @@ export function createGuest(init: GuestInit): Guest {
       for (let pass = 0; pass < 10; pass++) {
         if (inFlight.size === 0) {
           await new Promise((resolve) => setTimeout(resolve, 16))
-          if (inFlight.size === 0) return
+
+          if (inFlight.size === 0) {
+            return
+          }
         }
+
         await Promise.allSettled(inFlight)
       }
     },
     addComponents(sources) {
       let moved = false
+
       for (const [id, source] of Object.entries(sources)) {
         // A new version is the same file with changed code, which the dev server builds afresh at a new address.
         const address = `/${source.path.replace(/^\.?\//, "")}${source.version === undefined ? "" : `?t=${source.version}`}`
         const from = `${address}#${source.export}`
-        if (added.get(id) === from) continue
+
+        if (added.get(id) === from) {
+          continue
+        }
+
         added.set(id, from)
         moves.set(id, (moves.get(id) ?? 0) + 1)
         moved = true
         // The dev server builds any of the project's files when it's asked for one, as it does for the app.
-        loaders[id] = () =>
-          import(/* @vite-ignore */ new URL(address, projectOrigin).href).then((module: Record<string, unknown>) =>
-            source.export.split(".").reduce<unknown>((value, key) => (value as Record<string, unknown>)?.[key], module)
+        loaders.set(id, () =>
+          import(/* @vite-ignore */ new URL(address, projectOrigin).href).then((module) =>
+            exportOf(module, source.export)
           )
+        )
         // One it had already has moved to another file, so it's drawn from there from now on.
         delete components[id]
         deferred.delete(id)
         loadedOnDemand.delete(id)
         placements.delete(id)
-        if (!names.includes(id)) names.push(id)
+
+        if (!names.includes(id)) {
+          names.push(id)
+        }
       }
-      if (!moved) return
+
+      if (!moved) {
+        return
+      }
+
       revision++
-      for (const listener of revisionListeners) listener()
+
+      for (const listener of revisionListeners) {
+        listener()
+      }
     },
     removeComponents(ids) {
       let moved = false
+
       for (const id of ids) {
-        if (!added.delete(id)) continue
+        if (!added.delete(id)) {
+          continue
+        }
+
         moves.set(id, (moves.get(id) ?? 0) + 1)
         moved = true
-        delete loaders[id]
+        loaders.delete(id)
         delete components[id]
         deferred.delete(id)
         loadedOnDemand.delete(id)
         placements.delete(id)
         // One the guest loaded with is drawn as it loaded again; one it was only given is gone.
         const component = loadedWith.components[id]
-        const loader = loadedWith.loaders[id]
-        if (component) components[id] = component
-        else if (loader) loaders[id] = loader
-        else names.splice(names.indexOf(id), 1)
+        const loader = loadedWith.loaders.get(id)
+
+        if (component) {
+          components[id] = component
+        } else if (loader) {
+          loaders.set(id, loader)
+        } else {
+          names.splice(names.indexOf(id), 1)
+        }
       }
-      if (!moved) return
+
+      if (!moved) {
+        return
+      }
+
       revision++
-      for (const listener of revisionListeners) listener()
+
+      for (const listener of revisionListeners) {
+        listener()
+      }
     },
     revision: {
       get: () => revision,
       subscribe(listener) {
         revisionListeners.add(listener)
+
         return () => revisionListeners.delete(listener)
       }
     },
@@ -638,33 +870,39 @@ export function createGuest(init: GuestInit): Guest {
       get: () => statuses,
       subscribe(listener) {
         listeners.add(listener)
+
         return () => listeners.delete(listener)
       }
     },
     iconNames: (library, style) => iconList(library, style).names,
     iconAliases: (library, style) => iconList(library, style).aliases,
     css: init.css,
-    ...(init.packageCss ? { packageCss: init.packageCss } : {}),
-    ...(init.tokenCategories ? { tokenCategories: init.tokenCategories } : {}),
     mount(target, tree, options = {}): MountHandle {
-      const report = (error: unknown) => options.onError?.(error)
+      const report = (cause: unknown) => options.onError?.(cause)
       const frame = frameOf(target, options.globals ?? {})
       const decorate = options.bare ? (content: ReactNode) => content : decorators(init.decorators, frame, report)
       const failing = frameFailures(options.onFailures && ((failures) => options.onFailures?.(failures)))
+
       const root = createRoot(target, {
         onUncaughtError: report,
         // An error a component's boundary caught names the component, so a frame says which one failed.
         onCaughtError: (error, info) => {
-          const boundary = info.errorBoundary as ComponentBoundary | null | undefined
+          const boundary = info.errorBoundary instanceof ComponentBoundary ? info.errorBoundary : undefined
           const message = error instanceof Error ? error.message : String(error)
-          if (!boundary) return report(error)
+
+          if (!boundary) {
+            return report(error)
+          }
+
           const { name, nodeId } = boundary.props
           options.onError?.(new Error(`${name}: ${message}`), { nodeId, component: name })
         }
       })
+
       const own = options.viewport && frameWindow(target, options.viewport)
       const drawn = watchDrawnNodes(root, target)
       const styles = frameStyles(root, target, placements, (work) => (own ? own.run(() => flushSync(work)) : work()))
+
       const draw = (nodes: RenderNode[]) =>
         createElement(
           FrameWindowContext.Provider,
@@ -688,8 +926,10 @@ export function createGuest(init: GuestInit): Guest {
             )
           )
         )
+
       if (!own) {
         root.render(draw(tree))
+
         return {
           update: (nodes) => root.render(draw(nodes)),
           unmount: () => {
@@ -707,10 +947,14 @@ export function createGuest(init: GuestInit): Guest {
       // just after it's asked, so never inside one of the canvas's renders, should the canvas and project share a React.
       let unmounted = false
       let next: RenderNode[] | undefined
+
       const soon = (work: () => void) =>
         queueMicrotask(() => {
-          if (!unmounted) own.run(() => flushSync(work))
+          if (!unmounted) {
+            own.run(() => flushSync(work))
+          }
         })
+
       const render = (nodes: RenderNode[]) => {
         if (next === undefined) {
           soon(() => {
@@ -719,9 +963,12 @@ export function createGuest(init: GuestInit): Guest {
             root.render(draw(latest))
           })
         }
+
         next = nodes
       }
+
       render(tree)
+
       return {
         update: render,
         resize: (viewport) => soon(() => own.resize(viewport)),
@@ -738,11 +985,28 @@ export function createGuest(init: GuestInit): Guest {
       }
     }
   }
+
+  if (init.packageCss) {
+    guest.packageCss = init.packageCss
+  }
+
+  if (init.tokenCategories) {
+    guest.tokenCategories = init.tokenCategories
+  }
+
+  return guest
+}
+
+/** An icon set's icons, each once, and the other names of each that has any. */
+interface IconList {
+  names: string[]
+  aliases: Record<string, string[]>
 }
 
 /** Tells a frame's node index that React committed the frame, which can move a node's id to other DOM. */
 function Committed({ onCommit, children }: { onCommit: () => void; children?: ReactNode }) {
   useLayoutEffect(onCommit)
+
   return children
 }
 
@@ -753,19 +1017,29 @@ function Committed({ onCommit, children }: { onCommit: () => void; children?: Re
  */
 function watchDrawnNodes(root: Root, target: HTMLElement) {
   const shadow = target.getRootNode()
-  const frame: Node = shadow instanceof ShadowRoot ? shadow : target
+  const frame = shadow instanceof ShadowRoot ? shadow : target
   let stale = true
   let drawn: DrawnNodes | undefined
+
   const observer = new MutationObserver(() => {
     stale = true
   })
+
   observer.observe(frame, { childList: true, subtree: true })
+
   return {
     read: (): DrawnNodes | undefined => {
-      if (observer.takeRecords().length > 0) stale = true
-      if (!stale) return drawn
+      if (observer.takeRecords().length > 0) {
+        stale = true
+      }
+
+      if (!stale) {
+        return drawn
+      }
+
       stale = false
       drawn = readDrawnNodes(root, target, frame)
+
       return drawn
     },
     changed: () => {
@@ -781,14 +1055,22 @@ function watchDrawnNodes(root: Root, target: HTMLElement) {
  * The frame's design nodes as React's tree has them. A component node is the fiber of its boundary, and an element
  * node the element the guest drew for it. Undefined when the tree isn't the shape React 19 gives it.
  */
-function readDrawnNodes(root: Root, target: HTMLElement, frame: Node): DrawnNodes | undefined {
+function readDrawnNodes(root: Root, target: HTMLElement, frame: ShadowRoot | HTMLElement): DrawnNodes | undefined {
   const fiber = currentRootFiber(root, target)
-  if (!fiber) return undefined
+
+  if (!fiber) {
+    return undefined
+  }
+
   const drawn = indexDrawnNodes(fiber, { nodeOf: nodeOfFiber, inside: (element) => frame.contains(element) })
   // An element the guest drew always carries its node's id. If the index puts it in another node, it's misreading
   // React's tree, and the attribute is the better guide.
-  const marked = (frame as ParentNode).querySelector("[data-canvas-node]")
-  if (!drawn || (marked && drawn.nodeOf(marked) !== marked.getAttribute("data-canvas-node"))) return undefined
+  const marked = frame.querySelector("[data-canvas-node]")
+
+  if (!drawn || (marked && drawn.nodeOf(marked) !== marked.getAttribute("data-canvas-node"))) {
+    return undefined
+  }
+
   return drawn
 }
 
@@ -807,20 +1089,31 @@ function frameStyles(
   const listeners = new Set<() => void>()
   let looking = false
   let disposed = false
+
   return {
     placement: (name) => placements.get(name),
     subscribe(listener) {
       listeners.add(listener)
+
       return () => void listeners.delete(listener)
     },
     check() {
-      if (looking) return
+      if (looking) {
+        return
+      }
+
       looking = true
       queueMicrotask(() => {
         looking = false
-        if (disposed || !readPlacements(root, target, placements)) return
+
+        if (disposed || !readPlacements(root, target, placements)) {
+          return
+        }
+
         run(() => {
-          for (const listener of listeners) listener()
+          for (const listener of listeners) {
+            listener()
+          }
         })
       })
     },
@@ -838,38 +1131,63 @@ function frameStyles(
  */
 function readPlacements(root: Root, target: HTMLElement, placements: Map<string, StylePlacement>): boolean {
   const fiber = currentRootFiber(root, target)
-  if (!fiber) return false
+
+  if (!fiber) {
+    return false
+  }
+
   const isLayer = (fiber: Fiber) => fiber.stateNode instanceof ComponentBoundary
   let unwrapped = false
+
   const visit = (first: Fiber | null): void => {
     for (let fiber = first; fiber; fiber = fiber.sibling) {
       // A layer draws its component straight inside its boundary, or a div around it, or the box of an error.
-      const component = isLayer(fiber) ? fiber.child : null
-      if (component && typeof component.type !== "string") {
-        const name = (fiber.stateNode as ComponentBoundary).props.name
+      const boundary = fiber.stateNode instanceof ComponentBoundary ? fiber.stateNode : undefined
+      const component = boundary ? fiber.child : null
+
+      if (boundary && component && !isText(component.type)) {
+        const { name } = boundary.props
         let placement = placements.get(name)
+
         if (placement === undefined) {
           placement = stylePlacement(component, isLayer)
-          if (placement) placements.set(name, placement)
+
+          if (placement) {
+            placements.set(name, placement)
+          }
         }
-        if (placement === "inner" && hasStyle((component.memoizedProps as Props | null)?.style)) unwrapped = true
+
+        if (placement === "inner" && styleOf(component)) {
+          unwrapped = true
+        }
       }
+
       visit(fiber.child)
     }
   }
+
   try {
     visit(fiber.child)
   } catch {
     return false
   }
+
   return unwrapped
 }
 
 function nodeOfFiber(fiber: Fiber): string | undefined {
-  if (fiber.stateNode instanceof ComponentBoundary) return fiber.stateNode.props.nodeId
-  if (typeof fiber.type !== "string") return undefined
-  const id = (fiber.memoizedProps as Record<string, unknown> | null)?.["data-canvas-node"]
-  return typeof id === "string" ? id : undefined
+  if (fiber.stateNode instanceof ComponentBoundary) {
+    return fiber.stateNode.props.nodeId
+  }
+
+  if (!isText(fiber.type)) {
+    return undefined
+  }
+
+  const props = fiber.memoizedProps
+  const id = isComposite(props) && "data-canvas-node" in props ? props["data-canvas-node"] : undefined
+
+  return isText(id) ? id : undefined
 }
 
 /** Every frame's stand-in body has this attribute (core's `bodyAttribute`), which the project's CSS is rewritten to. */
@@ -891,16 +1209,26 @@ interface Frame {
 
 function frameOf(target: HTMLElement, globals: Record<string, string>): Frame {
   const undos: (() => void)[] = []
+
   return {
     globals,
-    root: target.getRootNode() as ShadowRoot | Document,
+    root: shadowOf(target) ?? target.ownerDocument,
     body: target.parentElement ?? target,
     made: new Map(),
     undos,
     undo: () => {
-      for (const undo of undos.splice(0).reverse()) undo()
+      for (const undo of undos.splice(0).reverse()) {
+        undo()
+      }
     }
   }
+}
+
+/** The shadow root an element is in, if it's in one. */
+function shadowOf(element: Element): ShadowRoot | undefined {
+  const root = element.getRootNode()
+
+  return root instanceof ShadowRoot ? root : undefined
 }
 
 /**
@@ -916,22 +1244,34 @@ type StoryDecorator = (Story: () => ReactNode, context: { globals: Record<string
 function decorators(
   setup: GuestDecorators | undefined,
   frame: Frame,
-  report: (error: unknown) => void
+  report: (cause: unknown) => void
 ): (content: ReactNode) => ReactNode {
-  if (!setup || setup.list.length === 0) return (content) => content
+  if (!setup || setup.list.length === 0) {
+    return (content) => content
+  }
+
   const compiled: StoryDecorator[] = []
+
   for (const { library, decorator } of setup.list) {
-    if (!applies(decorator, frame.globals)) continue
+    if (!applies(decorator, frame.globals)) {
+      continue
+    }
+
     try {
       const made = compile(decorator, setup, frame)
-      if (made) compiled.push(made)
+
+      if (made) {
+        compiled.push(made)
+      }
     } catch (error) {
       report(
         new Error(`${library}'s decorator didn't apply: ${error instanceof Error ? error.message : String(error)}`)
       )
     }
   }
+
   const context = { globals: frame.globals }
+
   return (content) =>
     compiled.reduceRight<() => ReactNode>(
       (story, decorator) => () => decorator(story, context),
@@ -945,43 +1285,80 @@ function applies(decorator: LibraryDecorator, globals: Record<string, string>): 
 
 function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Frame): StoryDecorator | undefined {
   const host = frameHost(setup, frame)
-  const value = (raw: unknown) => evaluateValue(raw, host)
+  const value = (raw: DecoratorValue) => evaluateValue(raw, host)
   const { undos } = frame
+
   if (decorator.class !== undefined) {
-    const names = String((value(decorator.class) ?? "") as unknown)
+    const names = asText(value(decorator.class) ?? "")
       .split(/\s+/)
       .filter((name) => name && !frame.body.classList.contains(name))
+
     frame.body.classList.add(...names)
     undos.push(() => frame.body.classList.remove(...names))
+
     return undefined
   }
+
   if (decorator.attributes) {
     for (const [name, raw] of Object.entries(decorator.attributes)) {
       const previous = frame.body.getAttribute(name)
       const next = value(raw)
-      if (next === undefined || next === null || next === false) continue
-      frame.body.setAttribute(name, String(next as unknown))
+
+      if (next === undefined || next === null || next === false) {
+        continue
+      }
+
+      frame.body.setAttribute(name, asText(next))
       undos.push(() => (previous === null ? frame.body.removeAttribute(name) : frame.body.setAttribute(name, previous)))
     }
+
     return undefined
   }
+
   if (decorator.style) {
     for (const [name, raw] of Object.entries(decorator.style)) {
       const next = value(raw)
-      if (next === undefined || next === null) continue
+
+      if (next === undefined || next === null) {
+        continue
+      }
+
       const previous = frame.body.style.getPropertyValue(name)
-      frame.body.style.setProperty(name, String(next as unknown))
+      frame.body.style.setProperty(name, asText(next))
       undos.push(() => frame.body.style.setProperty(name, previous))
     }
+
     return undefined
   }
+
   const spec = decorator.wrap ?? decorator.add
-  if (!spec) return undefined
+
+  if (!spec) {
+    return undefined
+  }
+
   const component = exported(setup, spec.import, spec.component)
-  if (!isComponent(component)) throw new Error(`${spec.import} has no component ${spec.component}`)
+
+  if (!isComponent(component)) {
+    throw new Error(`${spec.import} has no component ${spec.component}`)
+  }
+
+  // SAFETY: working out an object of props gives an object with the same props, each worked out.
   const props = (spec.props ? value(spec.props) : {}) as Props
-  if (decorator.wrap) return (Story) => createElement(component, props, Story())
+
+  if (decorator.wrap) {
+    return (Story) => createElement(component, props, Story())
+  }
+
   return (Story) => createElement(Fragment, null, Story(), createElement(component, props))
+}
+
+/**
+ * A decorator's worked-out value as the text a class, attribute or style takes: text as it is, and anything else, which
+ * a manifest gives as a number or a boolean, as JSON.
+ */
+function asText<T>(value: T): string {
+  return isText(value) ? value : JSON.stringify(value)
 }
 
 /** What a decorator's values are worked out against: the frame, and the modules the builder loaded for them. */
@@ -1014,11 +1391,17 @@ function frameHost(setup: GuestDecorators, frame: Frame): ValueHost {
 }
 
 /** An export of a decorator's module, following dots into namespaces (`Tooltip.Provider`). */
+// oxlint-disable-next-line anti-slop/no-unknown-returns -- a module's export is whatever its package exports
 function exported(setup: GuestDecorators, specifier: string, path: string): unknown {
   const module = setup.modules[specifier]
-  if (!module) throw new Error(`${specifier} isn't loaded`)
-  if ("loadError" in module && typeof module.loadError === "string") {
+
+  if (!module) {
+    throw new Error(`${specifier} isn't loaded`)
+  }
+
+  if ("loadError" in module && isText(module.loadError)) {
     throw new Error(`${specifier} couldn't load: ${module.loadError}`)
   }
+
   return exportOf(module, path)
 }

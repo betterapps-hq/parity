@@ -71,6 +71,7 @@ export function PanelSectionTitle({
       )}
     </>
   )
+
   return (
     <div className={`flex items-center justify-between gap-2 ${spacing ?? (onToggle ? "" : "mb-3 pl-1")}`}>
       <Heading id={id} className={`flex min-w-0 flex-1 items-center gap-1.5 text-xs ${tones[tone]}`}>

@@ -19,7 +19,9 @@ export function findRepeatedParts(root: string, entry: ContainerEntry): void {
 
 /** Forgets a screen's repeated parts, so its section offers Find repeated parts again. */
 export function clearRepeatedParts(root: string, key: string): void {
-  if (found.delete(keyOf(root, key))) notify()
+  if (found.delete(keyOf(root, key))) {
+    notify()
+  }
 }
 
 const holders = new Map<string, number>()
@@ -32,12 +34,19 @@ const holders = new Map<string, number>()
 export function holdRepeatedParts(root: string, key: string): () => void {
   const id = keyOf(root, key)
   holders.set(id, (holders.get(id) ?? 0) + 1)
+
   return () => {
     holders.set(id, (holders.get(id) ?? 1) - 1)
     setTimeout(() => {
-      if ((holders.get(id) ?? 0) > 0) return
+      if ((holders.get(id) ?? 0) > 0) {
+        return
+      }
+
       holders.delete(id)
-      if (found.delete(id)) notify()
+
+      if (found.delete(id)) {
+        notify()
+      }
     })
   }
 }
@@ -47,6 +56,7 @@ export function useRepeatedParts(root: string, key: string): RepeatCandidate[] |
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => found.get(keyOf(root, key))

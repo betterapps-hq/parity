@@ -8,7 +8,7 @@ import {
   DialogTitle
 } from "@buildkitgg/shadcn-baseui-kit"
 import { CircleAlert, RotateCcw, RotateCw, TriangleAlert, X } from "lucide-react"
-import { Component, type CSSProperties, type ErrorInfo, type ReactNode, type Ref, useRef } from "react"
+import { Component, type CSSProperties, type ReactNode, type Ref, useRef } from "react"
 import parityIcon from "../../../../../brand/parity-icon.svg?url"
 import { ErrorDetails } from "../ProjectStatus.tsx"
 import { CopyButton } from "./Copy.tsx"
@@ -60,7 +60,8 @@ interface BoundaryState {
 }
 
 /** Opens Report a problem with what a boundary caught, once Help > Report a problem is there to open (PAR-635). */
-type Reporter = (error: unknown, boundary: string) => void
+type Reporter = (cause: unknown, boundary: Pick<BoundaryProps, "name" | "label">) => void
+
 let reporter: Reporter | undefined
 
 /** Gives every boundary's fallback a Report a problem button, which calls `report`. Undefined takes it away. */
@@ -80,7 +81,10 @@ export function tripBoundary(name: string, times = 1): void {
 }
 
 function Tripwire({ name }: { name: string }) {
-  if ((tripped.get(name) ?? 0) > 0) throw new Error(`The ${name} boundary was tripped on purpose`)
+  if ((tripped.get(name) ?? 0) > 0) {
+    throw new Error(`The ${name} boundary was tripped on purpose`)
+  }
+
   return null
 }
 
@@ -92,15 +96,19 @@ function Tripwire({ name }: { name: string }) {
 export class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
   override state: BoundaryState = { error: undefined, failed: false, retries: 0 }
 
-  static getDerivedStateFromError(error: unknown): Partial<BoundaryState> {
-    return { error, failed: true }
+  static getDerivedStateFromError(cause: unknown): Partial<BoundaryState> {
+    return { error: cause, failed: true }
   }
 
-  override componentDidCatch(_error: unknown, _info: ErrorInfo): void {
+  override componentDidCatch(): void {
     const left = tripped.get(this.props.name)
+
     if (left !== undefined) {
-      if (left <= 1) tripped.delete(this.props.name)
-      else tripped.set(this.props.name, left - 1)
+      if (left <= 1) {
+        tripped.delete(this.props.name)
+      } else {
+        tripped.set(this.props.name, left - 1)
+      }
     }
   }
 
@@ -108,7 +116,9 @@ export class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
     // A try that drew without failing starts the count again.
     if (previous.failed && !this.state.failed && this.state.retries > 0) {
       queueMicrotask(() => {
-        if (!this.state.failed) this.setState({ retries: 0 })
+        if (!this.state.failed) {
+          this.setState({ retries: 0 })
+        }
       })
     }
   }
@@ -122,15 +132,21 @@ export class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
   }
 
   /** Opens Report a problem; a dialog that failed closes first, so the report's dialog takes its place. */
-  private report(report: Reporter, error: unknown, name: string, kind: BoundaryKind): void {
-    if (kind === "dialog") this.close()
-    report(error, name)
+  private report(report: Reporter, cause: unknown): void {
+    const { name, label, kind } = this.props
+
+    if (kind === "dialog") {
+      this.close()
+    }
+
+    report(cause, { name, label })
   }
 
   override render() {
     const { name, kind = "region", children, ...shown } = this.props
     const report = reporter
     const { error, failed, retries } = this.state
+
     if (!failed) {
       return (
         <>
@@ -139,7 +155,11 @@ export class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
         </>
       )
     }
-    if (kind === "silent") return null
+
+    if (kind === "silent") {
+      return null
+    }
+
     return (
       <ErrorFallback
         {...shown}
@@ -148,7 +168,7 @@ export class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
         again={retries > 0}
         onRetry={this.retry}
         onClose={this.props.onClose ? this.close : undefined}
-        onReport={report ? () => this.report(report, error, name, kind) : undefined}
+        onReport={report ? () => this.report(report, error) : undefined}
       />
     )
   }
@@ -179,11 +199,27 @@ interface FallbackProps {
  */
 export function ErrorFallback(props: FallbackProps) {
   const { kind } = props
-  if (kind === "strip") return <StripFallback {...props} />
-  if (kind === "docked") return <ConsoleFallback {...props} />
-  if (kind === "dialog") return <DialogFallback {...props} />
-  if (kind === "page") return <TabFallback {...props} />
-  if (kind === "window") return <WindowFallback {...props} />
+
+  if (kind === "strip") {
+    return <StripFallback {...props} />
+  }
+
+  if (kind === "docked") {
+    return <ConsoleFallback {...props} />
+  }
+
+  if (kind === "dialog") {
+    return <DialogFallback {...props} />
+  }
+
+  if (kind === "page") {
+    return <TabFallback {...props} />
+  }
+
+  if (kind === "window") {
+    return <WindowFallback {...props} />
+  }
+
   return <PanelFallback {...props} />
 }
 
@@ -197,8 +233,8 @@ function wayOn({ again, onReopen, reopenLabel = "Reopen project" }: FallbackProp
 }
 
 /** The stack, which starts with the message, or what was thrown, for Copy details and reports. */
-function errorText(error: unknown): string {
-  return error instanceof Error && error.stack ? error.stack : String(error)
+function errorText(cause: unknown): string {
+  return cause instanceof Error && cause.stack ? cause.stack : String(cause)
 }
 
 /**
@@ -209,6 +245,7 @@ function errorText(error: unknown): string {
 function PanelFallback(props: FallbackProps) {
   const { label, error, again, onReopen, onReport, hidden, className } = props
   const reopen = again && onReopen
+
   return (
     <div
       role="alert"
@@ -249,6 +286,7 @@ function PanelFallback(props: FallbackProps) {
 function ConsoleFallback(props: FallbackProps) {
   const { label, error, again, onClose, closeLabel, hidden, className, style, edge } = props
   const reopen = again && props.onReopen
+
   return (
     <section
       hidden={hidden}
@@ -297,8 +335,15 @@ function TabFallback(props: FallbackProps) {
   const { label, error, again, onReopen, onReport, hidden, className } = props
   const reopen = again && onReopen
   let description = "Your changes are kept. Try again to draw it afresh."
-  if (onReopen) description = "Your changes are kept. Try again, and if it happens again, reopen the project."
-  if (reopen) description = "Reopening the project may fix it. Your changes are saved first."
+
+  if (onReopen) {
+    description = "Your changes are kept. Try again, and if it happens again, reopen the project."
+  }
+
+  if (reopen) {
+    description = "Reopening the project may fix it. Your changes are saved first."
+  }
+
   return (
     <div hidden={hidden} className={`flex min-h-0 flex-1 overflow-y-auto p-6 ${className ?? ""}`}>
       <div role="alert" className="m-auto flex w-full max-w-2xl flex-col gap-5">
@@ -334,6 +379,7 @@ function TabFallback(props: FallbackProps) {
 function WindowFallback(props: FallbackProps) {
   const { error, again, onReopen, onReport } = props
   const reload = again && onReopen
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <div className="h-10 shrink-0 [-webkit-app-region:drag]" />
@@ -389,6 +435,7 @@ function Actions(
   const { size = "sm", className, primary, reportApart } = props
   const reopen = again && onReopen
   const strip = kind === "strip"
+
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className ?? ""}`}>
       {onReport && (
@@ -417,6 +464,7 @@ function Actions(
 
 function StripFallback(props: FallbackProps) {
   const { label, again, hidden, className } = props
+
   return (
     <div
       role="alert"
@@ -434,6 +482,7 @@ function DialogFallback(props: FallbackProps) {
   const { label, error, again, onClose } = props
   // The way on has the keyboard, as a dialog's main button does.
   const primary = useRef<HTMLButtonElement>(null)
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose?.()}>
       <DialogContent role="alertdialog" className="sm:max-w-md" initialFocus={primary}>
@@ -454,6 +503,7 @@ function DialogFallback(props: FallbackProps) {
 /** What was thrown, in a box of a fixed height that scrolls, so the dialog never changes size. It copies whole. */
 function Thrown({ error }: { error: unknown }) {
   const text = errorText(error)
+
   return (
     <div className="relative min-w-0">
       {/* Long addresses in a stack can't wrap at a space, so they break anywhere rather than widening the dialog. */}

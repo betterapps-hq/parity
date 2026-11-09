@@ -1,4 +1,10 @@
-import { collectCustomProperties, type DescribedToken, type ThemeVariable, type TokenCategory } from "@parity-app/core"
+import {
+  collectCustomProperties,
+  type DescribedToken,
+  type GuestInit,
+  type ThemeVariable,
+  type TokenCategory
+} from "@parity-app/core"
 import { categorize, isTokenName, themedProperties } from "./policy.ts"
 
 export interface Token {
@@ -40,21 +46,34 @@ export function extractTokens(
   const themeValues = new Map(theme.map((variable) => [variable.name, variable.value]))
   const tokens = new Map<string, Token>()
   const categoryOf = (name: string, value: string) => categories[name] ?? categorize(name, value)
+
   // Which rule is which theme's, and which category a name is in, are shared with libgen: see `policy.ts`.
   for (const { name, values, first } of themedProperties(collectCustomProperties(css))) {
-    if (!isTokenName(name)) continue
+    if (!isTokenName(name)) {
+      continue
+    }
+
     const source = themeValues.has(name) ? "theme" : "semantic"
     tokens.set(name, { name, category: categoryOf(name, first), source, values })
   }
+
   for (const [name, value] of themeValues) {
-    if (tokens.has(name) || !isTokenName(name) || aliasOfSemantic(name, value, tokens)) continue
+    if (tokens.has(name) || !isTokenName(name) || aliasOfSemantic(name, value, tokens)) {
+      continue
+    }
+
     tokens.set(name, { name, category: categoryOf(name, value), source: "theme", values: { default: value } })
   }
+
   // The scale itself is one variable; its steps are what designs use, so each is listed as a token of its own.
   if (tokens.get("spacing")?.category === "spacing") {
     for (const step of spacingScale) {
       const name = spacingStepName(step)
-      if (tokens.has(name)) continue
+
+      if (tokens.has(name)) {
+        continue
+      }
+
       tokens.set(name, {
         name,
         category: "spacing",
@@ -64,6 +83,7 @@ export function extractTokens(
       })
     }
   }
+
   return [...tokens.values()].sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }))
 }
 
@@ -74,13 +94,18 @@ export function extractTokens(
 export function themeFallbackCss(css: string, theme: readonly ThemeVariable[]): string {
   const defined = new Set(collectCustomProperties(css).map((declaration) => declaration.name))
   const missing = theme.filter((variable) => !defined.has(variable.name))
-  if (missing.length === 0) return ""
+
+  if (missing.length === 0) {
+    return ""
+  }
+
   return `:host {\n${missing.map(({ name, value }) => `  --${name}: ${value};`).join("\n")}\n}\n`
 }
 
 /** shadcn maps `--color-primary` to `var(--primary)` so Tailwind classes see it; the semantic name is the token. */
 function aliasOfSemantic(name: string, value: string, tokens: Map<string, Token>): boolean {
   const target = /^var\(--([\w-]+)\)$/.exec(value.trim())?.[1]
+
   return target !== undefined && tokens.get(target)?.source === "semantic" && name.endsWith(target)
 }
 
@@ -102,51 +127,56 @@ export const tokenCategories: readonly TokenCategory[] = [
 ]
 
 /** DTCG group names libraries use, by the category Parity shows them in. */
-const groupCategories: Record<string, TokenCategory> = {
-  color: "color",
-  colors: "color",
-  palette: "color",
-  spacing: "spacing",
-  space: "spacing",
-  radius: "radius",
-  radii: "radius",
-  "border-radius": "radius",
-  borderradius: "radius",
-  "font-size": "font-size",
-  fontsize: "font-size",
-  fontsizes: "font-size",
-  font: "font",
-  fonts: "font",
-  fontfamily: "font",
-  "font-weight": "font-weight",
-  fontweight: "font-weight",
-  fontweights: "font-weight",
-  tracking: "tracking",
-  letterspacing: "tracking",
-  leading: "leading",
-  lineheight: "leading",
-  lineheights: "leading",
-  shadow: "shadow",
-  shadows: "shadow",
-  breakpoint: "breakpoint",
-  breakpoints: "breakpoint",
-  container: "container",
-  motion: "motion",
-  duration: "motion",
-  durations: "motion",
-  easing: "motion",
-  easings: "motion"
-}
+const groupCategories = new Map(
+  Object.entries({
+    color: "color",
+    colors: "color",
+    palette: "color",
+    spacing: "spacing",
+    space: "spacing",
+    radius: "radius",
+    radii: "radius",
+    "border-radius": "radius",
+    borderradius: "radius",
+    "font-size": "font-size",
+    fontsize: "font-size",
+    fontsizes: "font-size",
+    font: "font",
+    fonts: "font",
+    fontfamily: "font",
+    "font-weight": "font-weight",
+    fontweight: "font-weight",
+    fontweights: "font-weight",
+    tracking: "tracking",
+    letterspacing: "tracking",
+    leading: "leading",
+    lineheight: "leading",
+    lineheights: "leading",
+    shadow: "shadow",
+    shadows: "shadow",
+    breakpoint: "breakpoint",
+    breakpoints: "breakpoint",
+    container: "container",
+    motion: "motion",
+    duration: "motion",
+    durations: "motion",
+    easing: "motion",
+    easings: "motion"
+  } satisfies Record<string, TokenCategory>)
+)
 
-const typeCategories: Record<string, TokenCategory> = {
-  color: "color",
-  shadow: "shadow",
-  fontFamily: "font",
-  fontWeight: "font-weight",
-  duration: "motion",
-  cubicBezier: "motion",
-  transition: "motion"
-}
+/** DTCG types, by the category Parity shows them in. */
+const typeCategories = new Map(
+  Object.entries({
+    color: "color",
+    shadow: "shadow",
+    fontFamily: "font",
+    fontWeight: "font-weight",
+    duration: "motion",
+    cubicBezier: "motion",
+    transition: "motion"
+  } satisfies Record<string, TokenCategory>)
+)
 
 /** The custom property a described token compiles to: the one its extension names, else its whole path. */
 export function describedTokenVar(token: DescribedToken): string {
@@ -158,19 +188,32 @@ export function describedTokenVar(token: DescribedToken): string {
  * else its type. This is how a library's `--mantine-spacing-md` lands with Parity's spacing, not under Other.
  */
 export function describedTokenCategory(token: DescribedToken): TokenCategory | undefined {
-  const explicit = token.parity?.category
-  if (explicit && (tokenCategories as readonly string[]).includes(explicit)) return explicit as TokenCategory
+  const explicit = tokenCategories.find((category) => category === token.parity?.category)
+
+  if (explicit) {
+    return explicit
+  }
+
   const group = token.path.split(".")[0]!.toLowerCase()
-  return groupCategories[group] ?? (token.type ? typeCategories[token.type] : undefined)
+
+  return groupCategories.get(group) ?? (token.type ? typeCategories.get(token.type) : undefined)
 }
 
+/** Categories by custom property, for the tokens libraries describe, as a guest is given them. */
+export type DescribedCategories = NonNullable<GuestInit["tokenCategories"]>
+
 /** Categories by custom property, for the tokens libraries describe. */
-export function describedCategories(tokens: readonly DescribedToken[]): Record<string, TokenCategory> {
-  const categories: Record<string, TokenCategory> = {}
+export function describedCategories(tokens: readonly DescribedToken[]): DescribedCategories {
+  const categories: DescribedCategories = {}
+
   for (const token of tokens) {
     const category = describedTokenCategory(token)
-    if (category) categories[describedTokenVar(token)] = category
+
+    if (category) {
+      categories[describedTokenVar(token)] = category
+    }
   }
+
   return categories
 }
 
@@ -182,21 +225,32 @@ export function describedCategories(tokens: readonly DescribedToken[]): Record<s
  */
 export function describedTokenCss(tokens: readonly DescribedToken[]): string {
   const byContext = new Map<string, string[]>()
+
   const declare = (context: string, line: string) => {
     const lines = byContext.get(context) ?? []
     lines.push(line)
     byContext.set(context, lines)
   }
+
   const names = new Set(tokens.map(describedTokenVar))
+
   for (const token of tokens) {
-    if (!token.parity?.var) continue
-    for (const [context, value] of Object.entries(token.values)) declare(context, `  --${token.parity.var}: ${value};`)
+    if (!token.parity?.var) {
+      continue
+    }
+
+    for (const [context, value] of Object.entries(token.values)) {
+      declare(context, `  --${token.parity.var}: ${value};`)
+    }
+
     const lineHeight = token.parity.lineHeight
+
     if (lineHeight) {
       const value = names.has(lineHeight) ? `var(--${lineHeight})` : lineHeight
       declare("default", `  --${token.parity.var}--line-height: ${value};`)
     }
   }
+
   return [...byContext]
     .map(([context, lines]) => `${context === "default" ? ":host" : `.${context}`} {\n${lines.join("\n")}\n}\n`)
     .join("")

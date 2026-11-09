@@ -39,14 +39,21 @@ export type ComponentRole = "kit" | "app" | "page"
 
 /** The project's own component's role; unset for a library's. */
 export function componentRole(source: ComponentSource): ComponentRole | undefined {
-  if (source.library) return undefined
-  if (isPage(source.path)) return "page"
+  if (source.library) {
+    return undefined
+  }
+
+  if (isPage(source.path)) {
+    return "page"
+  }
+
   return source.lazy ? "app" : "kit"
 }
 
 /** Next.js's app router makes pages, layouts and their error and loading states from files with these names. */
 const nextRouteFile =
   /(?:^|\/)app\/(?:(.+)\/)?(?:page|layout|template|default|loading|error|global-error|not-found)\.[cm]?[jt]sx?$/
+
 /** File-based routers (Next's pages router, React Router, Remix, TanStack Router) make a page of each file here. */
 const routesFolder = /(?:^|\/)(?:pages|routes)\/(.+)\.[cm]?[jt]sx?$/
 
@@ -55,17 +62,29 @@ const routesFolder = /(?:^|\/)(?:pages|routes)\/(.+)\.[cm]?[jt]sx?$/
  * `-` are the router's own (`_app`, `__root`) or ones it skips, and `api` holds server routes.
  */
 function isPage(path: string): boolean {
-  if (nextRouteFile.test(path)) return true
+  if (nextRouteFile.test(path)) {
+    return true
+  }
+
   const route = routesFolder.exec(path)?.[1]
+
   return route !== undefined && !/(?:^|\/)[-_]/.test(route) && !route.startsWith("api/")
 }
 
 /** A page's route, from its file: `src/app/(shop)/orders/[id]/page.tsx` is `/(shop)/orders/[id]`. */
 export function pageRoute(path: string): string {
   const next = nextRouteFile.exec(path)
-  if (next) return `/${next[1] ?? ""}`
+
+  if (next) {
+    return `/${next[1] ?? ""}`
+  }
+
   const route = routesFolder.exec(path)?.[1]
-  if (route === undefined) return folderOf(path)
+
+  if (route === undefined) {
+    return folderOf(path)
+  }
+
   return `/${route.replace(/(?:^|\/)_?index$/, "")}`
 }
 
@@ -86,20 +105,25 @@ export function groupComponents(
   by: "file" | "folder" | "route"
 ): ComponentGroup[] {
   const fileOf = (source: ComponentSource) => source.declaration ?? source.path
+
   const names = entries.map(([, source]) => {
-    if (by === "file")
+    if (by === "file") {
       return fileOf(source)
         .split("/")
         .at(-1)!
         .replace(/(\.d)?\.[cm]?[jt]sx?$/, "")
+    }
+
     return by === "route" ? pageRoute(source.path) : folderOf(source.path)
   })
+
   const shared = by === "folder" ? sharedFolders(names) : 0
   const groups = new Map<string, [string, ComponentSource][]>()
   entries.forEach(([id, source], index) => {
     const name = by === "folder" ? names[index]!.split("/").slice(shared).join("/") : names[index]!
     groups.set(name, [...(groups.get(name) ?? []), [id, source]])
   })
+
   return [...groups]
     .sort(([a], [b]) => a.localeCompare(b, "en"))
     .map(([name, members]) => ({
@@ -115,14 +139,22 @@ export function groupComponents(
 
 function folderOf(path: string): string {
   const slash = path.lastIndexOf("/")
+
   return slash === -1 ? "" : path.slice(0, slash)
 }
 
 /** How many leading folders every path has in common, keeping at least each one's last. */
 function sharedFolders(folders: string[]): number {
-  if (folders.length === 0) return 0
+  if (folders.length === 0) {
+    return 0
+  }
+
   const split = folders.map((folder) => folder.split("/"))
   let count = 0
-  while (split.every((parts) => parts.length > count + 1 && parts[count] === split[0]![count])) count++
+
+  while (split.every((parts) => parts.length > count + 1 && parts[count] === split[0]![count])) {
+    count++
+  }
+
   return count
 }

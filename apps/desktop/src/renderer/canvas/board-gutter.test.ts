@@ -58,6 +58,7 @@ describe("boardParts", () => {
     for (const part of ["firstFrame", "dividedFrame", "nextFrame"] as const) {
       expect(Object.keys(boardParts[part](1)).toSorted()).toEqual(["marginLeft", "paddingLeft"])
     }
+
     expect(Object.keys(boardParts.firstRow(1)).toSorted()).toEqual(Object.keys(boardParts.nextRow(1)).toSorted())
     expect(Object.keys(boardParts.firstRowFrames(1))).toEqual(Object.keys(boardParts.nextRowFrames()))
     expect(Object.keys(boardParts.firstStateLabel(1)).toSorted()).toEqual(
@@ -67,6 +68,7 @@ describe("boardParts", () => {
 
   it("lays a board out as the agent's estimate of it, at 40% and further out, and smaller closer in", () => {
     const [desktop, , , mobile] = resolveModes(defaultModeSettings)
+
     const design: ContainerSpec = {
       id: "page",
       name: "Page",
@@ -78,31 +80,38 @@ describe("boardParts", () => {
       ],
       view: { allStates: true }
     }
+
     // A laptop's frame 1280 by 800, then a phone's 390 by 844, and a second laptop's shrunk to half.
     const frames = [
       { width: 1280, height: 800 },
       { width: 390, height: 844 },
       { width: 1280 * companionScale(1280), height: 800 * companionScale(1280) }
     ]
+
     const drawn = (zoom: number) => {
       const side = length(boardParts.board(zoom).padding?.split(" ")[1])
       const divided = boardParts.dividedFrame(zoom)
       const row = boardParts.nextRow(zoom)
+
       const width =
         2 * side +
         frames.reduce((total, frame) => total + frame.width, 0) +
         length(divided.marginLeft) +
         length(divided.paddingLeft) +
         length(boardParts.nextFrame(zoom).marginLeft)
+
       const tallest = Math.max(...frames.map((frame) => frame.height))
+
       const height =
         length(boardParts.firstRow(zoom).paddingTop) +
         2 * tallest +
         length(row.marginTop) +
         length(row.paddingTop) +
         side
+
       return { width: Math.ceil(width), height: Math.ceil(height) }
     }
+
     const estimate = boardSize(design, [desktop!, mobile!, desktop!])
     expect(drawn(0.4)).toEqual(estimate)
     expect(drawn(0.05)).toEqual(estimate)

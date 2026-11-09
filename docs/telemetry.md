@@ -27,8 +27,9 @@ up.
 
 Every error, span, log and replay is tagged so a test pass can be found and filtered in Sentry:
 
-- **`environment`:** `development` for `pnpm dev` and agent drives, `ci` wherever `CI` is set, `tester` for installed
-  builds.
+- **`environment`:** `development` for `pnpm dev` and agent drives, `ci` wherever `CI` is set, `preview` for a pull
+  request's installer or a pkg.pr.new CLI, `release` for the published app and CLI (PAR-778), and `production` for a
+  published app or CLI that's been promoted to everyone, from the start after it learns so (PAR-779, PAR-799).
 - **`release`:** the published version, or the commit any other build was made from.
 - **`test_run`:** from `PARITY_TEST_RUN`, when it's set. The end-to-end suite sets it to `github-<run>-<attempt>` in
   GitHub Actions, and `pnpm perf` to `perf-<time>` unless it's already set. An agent that starts a copy to drive with
@@ -84,6 +85,38 @@ One action is one trace in Sentry, across every process that works on it (PAR-62
 
 To find one, open a span's trace in Sentry, or search spans by `trace` from an error.
 
+## Checking it in the end-to-end tests
+
+The end-to-end suite reads back what the app recorded and checks the main workflows' events (PAR-648), in
+`apps/desktop/e2e/telemetry.e2e.ts`. Like the rest of the suite it runs only in CI, through `.github/workflows/app.yml`.
+
+- **It reads the local copy,** from the copy's own profile, since main writes every event and span from every process
+  there at every level. That's the same thing Sentry gets, without asking Sentry for it. `e2e/events.ts` reads it and
+  finds events by name, envelope field and attribute. Main writes each second, so a test waits for an event with
+  `expect.poll`.
+- **What it checks:** opening the project, from `project.opening` to `project.opened`, `project.loaded` and
+  `project.drawn`; a layer drag, as `gesture.ran` and `gesture.ended`; Duplicate and Save from the keyboard, as
+  `command.ran` from `key`; the file write as `document.saved`; and an agent's `parity state`, as `cli.ran` in the CLI's
+  log and `agent.called` in the app's.
+- **It checks the traces across processes:** the service's `project.opened` and its answers are in the trace of
+  `project.opening`, with `project.loaded` and `project.drawn`. The service's answer to `document.save` is in the trace
+  of Save. `agent.called` continues the command's `cli.ran` span. The drag and Duplicate each start a trace of their
+  own; with autosave off, as it is by default, neither asks the service for anything. `gesture.ended` is under the
+  drag's `gesture.ran` span and the window's `document.saved` under Save's `command.ran`, though each is recorded after
+  that span ends (PAR-752).
+- **CI's runs send only their errors and reports to Sentry** (PAR-777), as `environment: ci` with `test_run` set to
+  `github-<run>-<attempt>`, each error with its breadcrumbs. Spans and logs stay in the local copy, which is written in
+  full, and every line of it carries that `testRun`, which the suite checks. The editor window doesn't start Session
+  Replay. The `parity` command it runs does the same, with the same tags, and writes its log and outbox inside the
+  copy's profile.
+- **A CI run's spans and logs are kept as an artifact of its run** (PAR-785), named `telemetry-github-<run>-<attempt>`
+  after its `test_run` and kept for 7 days, whether the tests passed or not. Before the suite removes the copy's
+  profile, `e2e/launch.ts` copies the app's `logs/`, the `parity` commands' `cli-logs/` and the app's output, `app.log`,
+  to the folder `PARITY_E2E_TELEMETRY` names, which `app.yml` uploads. Download it from the run's summary page or with
+  `gh run download <run> -n telemetry-github-<run>-<attempt>`, and read it with
+  `PARITY_USER_DATA=<folder> parity logs --session all`, which takes the same filters as the app's own copy. The CLI's
+  files are JSON lines too, read directly.
+
 ## Agents and the CLI
 
 Agents' calls are recorded where they're answered, once for every operation, whichever way they came (PAR-641):
@@ -110,8 +143,19 @@ Agents' calls are recorded where they're answered, once for every operation, whi
   send, writes it to `~/.parity/outbox` as it exits (`PARITY_CLI_OUTBOX` names another folder), and starts a detached
   `parity` process that sends it and exits. That costs a command about 20 ms. `parity mcp` hands over what's waiting
   every 10 seconds as well. One sender runs at a time, and a batch a day old is dropped.
-- **The CLI's release** is `parity-cli@<version>` when it's installed from npm, reported as `tester`, and the commit
-  when it runs from a checkout, from source or its own `dist`, reported as `development`.
+- **The CLI's release** is `parity-cli@<version>` when `npm publish` built it, and otherwise the commit it was built
+  from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Published to npm, it reports as
+  `release` while its version is on `next`, and `production` once it's been `latest` (PAR-799): the sender asks npm's
+  registry after it sends and keeps the answer in `~/.parity/installed-cli.json`, which the next command reads, so no
+  command waits on npm. From a pkg.pr.new preview URL it reports as `preview`; from a checkout, as `development`.
+- **Agents report what they find** with `parity report "<what's wrong>"` or MCP's `report_problem` (PAR-646), above all
+  when nothing threw: a test pass that sees a wrong result. The service draws the frames of the design it names, asks
+  the window to flush its replay, and passes both to main, which sends a Sentry user feedback from `parity-desktop` as
+  Help > Report a problem does: the window's screenshot, the frames, the last hour of the local copy, versions and
+  projects, with the replay beside it. It's tied to the call's trace, so it sits under the command's `cli.ran` span, and
+  tagged `report: agent` with `tab`, `design`, `state`, `node` and the CLI's `test_run`. The answer is the feedback's ID
+  and link (`https://sentry.io/organizations/better-apps/projects/parity-desktop/events/<id>/`, which finds its issue);
+  Sentry's alert files it in Linear. Unlike the person's own report, it isn't sent while Telemetry is off.
 
 ## Frames, previews and the bitmap cache
 
@@ -123,10 +167,11 @@ Every frame and component preview drawn offscreen is recorded, so a slow or brok
   settling and capturing took after (`captureMs`), its size and how many layers were measured. A frame that failed ends
   as `error` with why.
 - **`frame.failed`** records a frame whose guest failed, with its error message, its stack and why: `module not found`,
-  `render threw`, or `timed out` when it's still drawing 30 seconds after its turn came, which is left to finish. It's a
-  warning, a log rather than a Sentry issue, since a project's own component failing isn't Parity's bug. Main keeps a
-  picture of what the window showed, and the Sentry errors in the 10 minutes after carry it as `failed-frame.png`, until
-  another frame fails.
+  `render threw`, or `timed out` when it's still drawing 30 seconds after its turn came, which is left to finish. A
+  failure the render page throws while the frame is settled, checked or measured is recorded the same way, with the
+  page's own message and stack rather than Electron's "Script failed to execute". It's a warning, a log rather than a
+  Sentry issue, since a project's own component failing isn't Parity's bug. Main keeps a picture of what the window
+  showed, and the Sentry errors in the 10 minutes after carry it as `failed-frame.png`, until another frame fails.
 - **`preview.made` and `preview.failed`** come from the service: each preview's component, size and time, or why it
   couldn't be made.
 - **`bitmapCache.used`** gives the session's hits and misses for frame bitmaps and component previews kept on disk, each
@@ -139,8 +184,10 @@ two minutes, once; opening it again drew none.
 ## Turning it off
 
 Telemetry is on by default everywhere Parity runs, development and CI included, each tagged with its environment. It's
-either sent or not: errors, crashes, traces, events, replays and failure bitmaps all go, or nothing does. The local copy
-is written either way. Unit tests leave it off.
+either sent or not: errors, crashes, traces, events, replays and failure bitmaps all go, or nothing does. CI is the one
+exception: wherever `CI` is set, only errors and reports go, whatever the level, since its end-to-end runs sent nine in
+ten of `parity-desktop`'s spans (PAR-777). `resolveTelemetry` in `@parity-app/telemetry` decides this with the level, as
+`errorsOnly`. The local copy is written either way. Unit tests leave it off.
 
 - **Settings > Privacy > Share diagnostics** turns it off or on again, at once, with no restart. It's kept with the
   install ID in `<userData>/telemetry.json`, which the CLI reads too, as each command starts (`desktopDataFolder` in
@@ -156,13 +203,22 @@ is written either way. Unit tests leave it off.
 ## Replays and frame bitmaps
 
 Sentry's Session Replay records the editor window, so a bug's event links to what happened before it: the panels, the
-canvas, selections, menus and dialogs, as they looked, with what was clicked and typed. Nothing is masked, as with every
-other event. The offscreen render windows aren't recorded, and neither are Storybook or the CLI.
+canvas, selections, menus and dialogs, as they looked, with what was clicked and typed. Only secrets are hidden, as in
+every other event (see "Secrets are scrubbed" below). The offscreen render windows aren't recorded, and neither are
+Storybook or the CLI.
 
 - **While diagnostics are on, every session is recorded.** The share is `replaySessionRate` in
   `apps/desktop/src/renderer/replay.ts`, 1 for now; lower it when replay volume or Sentry's quota says so.
 - **While they're off, nothing is recorded,** and the recorder isn't loaded. Turning them off in Settings stops it at
   once, and turning them on starts it.
+- **While a project's canvas mounts, the page isn't recorded,** from the tab being ready until its first frame shows, or
+  5 seconds at most. The replay keeps the page as it was before, then a snapshot of the canvas once the frame shows, in
+  the same replay. Clicks and requests are still recorded meanwhile.
+- **Recording doesn't grow the window's memory over a session.** Over an hour of zooming, selecting and editing, the JS
+  heap and the window's private memory stayed level with Replay on, as with it off. The page counts about 21,000 more
+  DOM nodes while recording: one for each attribute of each element the recorder reads, which go with their elements.
+  `pnpm perf --soak <minutes>` measures it again; see "Session Replay's memory stays level over an hour" in
+  [decisions.md](decisions.md).
 
 A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
 shadow roots: it kept every one it saw, and with a frame's the closed project's canvas. The offscreen windows that draw
@@ -176,8 +232,7 @@ their bitmaps aren't recorded either, so failures carry the frames themselves:
 
 The frames are noted in `apps/desktop/src/renderer/canvas/frames-on-screen.ts`.
 
-The window asks main whether diagnostics are on as it starts, so the recorder starts a moment after the page. Replay
-recordings aren't scrubbed for secrets yet; Sentry's server-side scrubbing is the only net there (PAR-679).
+The window asks main whether diagnostics are on as it starts, so the recorder starts a moment after the page.
 
 ## Secrets are scrubbed
 
@@ -187,7 +242,9 @@ server-side scrubbing stays on as a second net.
 
 `createScrubber()` in `@parity-app/telemetry` does it. `createTelemetry` runs one on every event's attributes before its
 sinks, and each process's Sentry setup (`main/telemetry.ts`, `renderer/telemetry.ts`, `utility/telemetry.ts`, and the
-CLI's `send.ts`) runs one in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`. It replaces:
+CLI's `send.ts`) starts Sentry with `sentryScrubbing()`, which runs one in `beforeSend`, `beforeSendTransaction`,
+`beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`. It sends spans inside their transaction
+(`traceLifecycle: 'static'`), since a span Sentry streams on its own skips `beforeSendTransaction`. It replaces:
 
 - keys and tokens with a known shape: `sk-…`, Stripe, GitHub, Slack, AWS access key IDs, Google, npm and Sentry tokens,
   JWTs and private key blocks
@@ -203,7 +260,19 @@ and passes them to each window, which asks for them as its telemetry starts. Eac
 `setSecrets()`. The CLI reads none: it scrubs keys, tokens and passwords, as every process does, but not a project's
 `.env` values, which only the service reads.
 
-What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process".
+Replays are scrubbed in the editor window as they're recorded, by the window's own scrubber, so they lose the same
+secrets, `.env` values included (`replayPrivacy` in `apps/desktop/src/renderer/replay.ts`):
+
+- **Text on screen** passes through the scrubber, node by node, as the recorder reads it and each time it changes.
+  Styles and scripts don't.
+- **What's typed into a field is recorded as written,** since Replay can only show a field's value or stars. A password
+  field, and a field in a row whose name says it's secret, such as an `apiKey` prop in the inspector, show as stars
+  (`Field` in `apps/desktop/src/renderer/chrome/fields.tsx`). Anything else marked `data-sentry-mask` does too.
+- **Replay's own clicks, requests and spans** are scrubbed as they're added, since they don't pass `beforeBreadcrumb`.
+- **Titles, placeholders and accessible names** show as stars, as Replay masks them by default.
+
+What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process" and
+"Replays are scrubbed as they're recorded".
 
 ## Editing
 
@@ -221,7 +290,8 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
   are JSON; a style row whose layers differ was `mixed`. Its `field` is one of:
   - a style row, `style.*`, from `chrome/style-editor.ts`, and a layer's `text`, `hidden` and props, `props.*`, from
     `chrome/LayerPanel.tsx`, as each is set or reset;
-  - `name`, a layer's or, with no layers, the design's (`chrome/LayerPanel.tsx`, `chrome/DesignPanel.tsx`);
+  - `name`, a layer's or, with no layers, the design's, wherever it's renamed: the inspector, a Layers row or a board's
+    title on the canvas, through `renameAndRecord` (PAR-728);
   - an image's `image.src`, `image.alt` and `image.fit`, and an instance's `instance.state` and `instance.design`, the
     component it was swapped to;
   - `overrides`, what a state, variant or copy changes about a layer, when they're reset all at once, from Reset, Reset
@@ -234,8 +304,14 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
   - `token.*`, a token's values by theme, from the Tokens panel, with no design or layers.
 
   `updateAndRecord` in `chrome/inspector-events.ts` makes a change through the design store and reads the field back
-  from the store before and after, so a change the store refuses records nothing. Buttons that act on a whole layer,
-  such as Detach, Push to main, Make component and Wrap, aren't fields, so they aren't `inspector.changed`.
+  from the store before and after, so a change the store refuses records nothing. Buttons that act on a whole layer
+  aren't fields, so they aren't `inspector.changed`.
+
+- **`component.changed` comes from Detach, Push to main and Make component** (PAR-728), once each changes the designs:
+  `detach` from the instance section's Detach and Object > Detach instance, `push` from Push to main on an instance or
+  on a layer inside a copy, and `extract` from Make component in the inspector, the menu or Components' suggestions.
+  `chrome/component-events.ts` makes each change through the design store and records the design, the layers and the
+  component by id. As key presses and menus, Detach instance and Make component are `command.ran` too.
 
 - **`insert.done` comes from `canvas/insert.ts`, `canvas/drop-files.ts` and `canvas/clipboard.ts`,** so an item from the
   Assets panel or Quick insert, files dropped and a paste are each one. A paste is `clipboard.pasted` too, and a paste
@@ -262,8 +338,10 @@ so recording never stops the work it describes.
 - **In the editor window,** `track` from `renderer/report-error.ts` records an event, under a span when given. Every
   action in `chrome/actions.ts` runs in its own `command.ran` trace through `tracedCommand`, and a canvas drag starts a
   `gesture.ran` trace with `startTrace`, both in `renderer/tracing.ts`. Work that runs later, such as a save an edit
-  scheduled, keeps the trace with `keepTrace`. Tabs, panels, dialogs, the mode, settings and the start page are recorded
-  by the store that owns them, through `recordInterface`, not at each control.
+  scheduled, keeps the trace with `keepTrace`. An event recorded after its trace has moved on passes the span it belongs
+  to as `track`'s `span`: `gesture.ended` its drag's, from the trace's `context`, and `document.saved` the one its write
+  was asked in, from `currentTraceContext()` before it waits on the service (PAR-752). Tabs, panels, dialogs, the mode,
+  settings and the start page are recorded by the store that owns them, through `recordInterface`, not at each control.
 - **In main and the service,** `track` and `inSpan` from `shared/tracing.ts` record under the span the process is
   working in, followed across `await`s. A request to another process carries it with `currentTraceHeaders()`, and queued
   work keeps it with `currentTrace()`. A channel's handlers each run in a `request.handled` span through `handleInSpan`.
@@ -312,6 +390,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `clipboard.failed`    | info  | all  | renderer                                | A paste pastes nothing, and says why.                                                                        |
 | `clipboard.pasted`    | info  | all  | renderer                                | A paste puts something on the canvas.                                                                        |
 | `command.ran`         | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                               |
+| `component.changed`   | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                |
 | `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                      |
 | `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                          |
 | `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                                             |
@@ -330,6 +409,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                                                      |
 | `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                                             |
 | `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                     |
+| `main.blocked`        | warn  | all  | main                                    | Main's event loop runs again after being blocked for over 2 seconds.                                         |
 | `mcp.session`         | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                                            |
 | `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.                          |
 | `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                                        |
@@ -347,10 +427,11 @@ Some failures are recorded for you, so code doesn't record them again:
 | `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                                                   |
 | `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                                          |
 | `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                            |
-| `report.sent`         | info  | all  | main                                    | Help > Report a problem sends a report.                                                                      |
+| `report.sent`         | info  | all  | main                                    | Help > Report a problem, parity report or report_problem sends a report.                                     |
 | `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                                                       |
 | `server.failed`       | warn  | all  | service                                 | A server the process manager started can't start.                                                            |
 | `server.started`      | info  | all  | service                                 | A server the process manager started answers at its address.                                                 |
+| `service.exited`      | warn  | all  | main                                    | The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits.   |
 | `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                     |
 | `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                              |
 | `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                                         |
@@ -364,6 +445,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                                              |
 | `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                     |
 | `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                                                |
+| `window.hung`         | warn  | all  | main                                    | A window that stopped answering answers again.                                                               |
 
 ### `agent.called`
 
@@ -413,14 +495,14 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `bitmapCache.used`
 
-| Attribute          | Type      | Meaning                                                           |
-| ------------------ | --------- | ----------------------------------------------------------------- |
-| `frames.hits`      | `integer` | Frame bitmaps found kept for the code they draw                   |
-| `frames.misses`    | `integer` | Frame bitmaps looked for and not kept for the code they draw      |
-| `frames.hitRate`   | `number`  | The share of lookups found, from 0 to 1                           |
-| `previews.hits`    | `integer` | Component previews found kept for the code they draw              |
-| `previews.misses`  | `integer` | Component previews looked for and not kept for the code they draw |
-| `previews.hitRate` | `number`  | The share of lookups found, from 0 to 1                           |
+| Attribute        | Type      | Meaning                                                                                 |
+| ---------------- | --------- | --------------------------------------------------------------------------------------- |
+| `frameHits`      | `integer` | Frame bitmaps found kept on disk for the code they draw, this session                   |
+| `frameMisses`    | `integer` | Frame bitmaps looked for on disk and not kept for the code they draw, this session      |
+| `frameHitRate`   | `number`  | The share of frame bitmap lookups found this session, from 0 to 1                       |
+| `previewHits`    | `integer` | Component previews found kept on disk for the code they draw, this session              |
+| `previewMisses`  | `integer` | Component previews looked for on disk and not kept for the code they draw, this session |
+| `previewHitRate` | `number`  | The share of component preview lookups found this session, from 0 to 1                  |
 
 ### `builder.crashed`
 
@@ -507,6 +589,15 @@ Some failures are recorded for you, so code doesn't record them again:
 | `designs` | `integer`                                                                             | How many designs were selected, with no layer inside one                                                                          |
 | `code`    | `string`, optional                                                                    | The error code, when it failed                                                                                                    |
 
+### `component.changed`
+
+| Attribute   | Type                              | Meaning                                                                                                                       |
+| ----------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `action`    | `"detach" \| "push" \| "extract"` | What was done: an instance detached into plain layers, a copy's overrides pushed to its component, or layers made a component |
+| `design`    | `string`                          | The design whose layers it changed, by key                                                                                    |
+| `layers`    | `string[]`                        | The layers: the instance detached or pushed, a layer inside one by path, or the layers made a component                       |
+| `component` | `string`                          | The component, by id: the one the copy follows, or the one made                                                               |
+
 ### `data.invalid`
 
 | Attribute | Type       | Meaning                                                       |
@@ -572,54 +663,56 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `export.done`
 
-| Attribute | Type                    | Meaning                                                          |
-| --------- | ----------------------- | ---------------------------------------------------------------- |
-| `kind`    | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images |
-| `formats` | `("png" \| "jpg")[]`    | The formats written                                              |
-| `scales`  | `number[]`              | The scales written                                               |
-| `designs` | `integer`               | The designs and layers exported                                  |
-| `states`  | `integer`, optional     | The states exported, when they're counted                        |
-| `files`   | `integer`               | The files written                                                |
+| Attribute    | Type                    | Meaning                                                                                        |
+| ------------ | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `kind`       | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images                               |
+| `formats`    | `("png" \| "jpg")[]`    | The formats written                                                                            |
+| `scales`     | `number[]`              | The scales written                                                                             |
+| `designs`    | `integer`               | The designs and layers exported                                                                |
+| `states`     | `integer`, optional     | The states exported, when they're counted                                                      |
+| `durationMs` | `integer`               | From asking for the export, once its folder is picked, until its files are written or it fails |
+| `files`      | `integer`               | The files written                                                                              |
 
 ### `export.failed`
 
-| Attribute | Type                    | Meaning                                                          |
-| --------- | ----------------------- | ---------------------------------------------------------------- |
-| `kind`    | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images |
-| `formats` | `("png" \| "jpg")[]`    | The formats written                                              |
-| `scales`  | `number[]`              | The scales written                                               |
-| `designs` | `integer`               | The designs and layers exported                                  |
-| `states`  | `integer`, optional     | The states exported, when they're counted                        |
-| `code`    | `string`, optional      | The `CodedError` code, when the failure has one                  |
+| Attribute    | Type                    | Meaning                                                                                        |
+| ------------ | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `kind`       | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images                               |
+| `formats`    | `("png" \| "jpg")[]`    | The formats written                                                                            |
+| `scales`     | `number[]`              | The scales written                                                                             |
+| `designs`    | `integer`               | The designs and layers exported                                                                |
+| `states`     | `integer`, optional     | The states exported, when they're counted                                                      |
+| `durationMs` | `integer`               | From asking for the export, once its folder is picked, until its files are written or it fails |
+| `code`       | `string`, optional      | The `CodedError` code, when the failure has one                                                |
 
 ### `frame.failed`
 
-| Attribute  | Type                                                  | Meaning                                                                                |
-| ---------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `design`   | `string`, optional                                    | The design's key, as the document names it. None for a component preview               |
-| `state`    | `string`, optional                                    | The design's state, when it draws one                                                  |
-| `mode`     | `string`, optional                                    | The mode it draws in, by ID                                                            |
-| `priority` | `string`                                              | The queue it waited in: render, visible or idle                                        |
-| `failure`  | `"module not found" \| "render threw" \| "timed out"` | Why: its module didn't load, its code threw while drawing, or it didn't finish in time |
-| `message`  | `string`                                              | The guest's error message                                                              |
-| `stack`    | `string`, optional                                    | The guest's stack, when it threw an error that has one                                 |
+| Attribute  | Type                                                               | Meaning                                                                                                               |
+| ---------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `design`   | `string`, optional                                                 | The design's key, as the document names it. None for a component preview                                              |
+| `state`    | `string`, optional                                                 | The design's state, when it draws one                                                                                 |
+| `mode`     | `string`, optional                                                 | The mode it draws in, by ID                                                                                           |
+| `priority` | `string`                                                           | The queue it waited in: render, visible or idle                                                                       |
+| `failure`  | `"module not found" \| "render threw" \| "timed out" \| "crashed"` | Why: its module didn't load, its code threw while drawing, it didn't finish in time, or its window's renderer crashed |
+| `message`  | `string`                                                           | The guest's error message, or what happened to its window                                                             |
+| `stack`    | `string`, optional                                                 | The guest's stack, when it threw an error that has one                                                                |
 
 ### `frame.rendered`
 
-| Attribute   | Type                                                            | Meaning                                                                                |
-| ----------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `design`    | `string`, optional                                              | The design's key, as the document names it. None for a component preview               |
-| `state`     | `string`, optional                                              | The design's state, when it draws one                                                  |
-| `mode`      | `string`, optional                                              | The mode it draws in, by ID                                                            |
-| `priority`  | `string`                                                        | The queue it waited in: render, visible or idle                                        |
-| `queuedMs`  | `integer`                                                       | How long it waited for an offscreen window                                             |
-| `whole`     | `boolean`                                                       | Whether it was drawn whole, to capture or check it                                     |
-| `renderMs`  | `integer`, optional                                             | How long the guest took to draw and measure it                                         |
-| `captureMs` | `integer`, optional                                             | How long settling, checking and capturing it took after that, when it was drawn whole  |
-| `width`     | `number`, optional                                              | Its width in CSS pixels                                                                |
-| `height`    | `number`, optional                                              | Its height in CSS pixels                                                               |
-| `nodes`     | `integer`, optional                                             | How many layers were measured                                                          |
-| `failure`   | `"module not found" \| "render threw" \| "timed out"`, optional | Why: its module didn't load, its code threw while drawing, or it didn't finish in time |
+| Attribute   | Type                                                                         | Meaning                                                                                                               |
+| ----------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `design`    | `string`, optional                                                           | The design's key, as the document names it. None for a component preview                                              |
+| `state`     | `string`, optional                                                           | The design's state, when it draws one                                                                                 |
+| `mode`      | `string`, optional                                                           | The mode it draws in, by ID                                                                                           |
+| `priority`  | `string`                                                                     | The queue it waited in: render, visible or idle                                                                       |
+| `queuedMs`  | `integer`                                                                    | How long it waited for an offscreen window                                                                            |
+| `whole`     | `boolean`                                                                    | Whether it was drawn whole, to capture or check it                                                                    |
+| `renderMs`  | `integer`, optional                                                          | How long the guest took to draw and measure it                                                                        |
+| `captureMs` | `integer`, optional                                                          | How long settling, checking and capturing it took after that, when it was drawn whole                                 |
+| `width`     | `number`, optional                                                           | Its width in CSS pixels                                                                                               |
+| `height`    | `number`, optional                                                           | Its height in CSS pixels                                                                                              |
+| `nodes`     | `integer`, optional                                                          | How many layers were measured                                                                                         |
+| `failure`   | `"module not found" \| "render threw" \| "timed out" \| "crashed"`, optional | Why: its module didn't load, its code threw while drawing, it didn't finish in time, or its window's renderer crashed |
 
 ### `gesture.ended`
 
@@ -688,6 +781,12 @@ Some failures are recorded for you, so code doesn't record them again:
 | `version` | `string`, optional | The version installed, when known               |
 | `code`    | `string`, optional | The `CodedError` code, when the failure has one |
 
+### `main.blocked`
+
+| Attribute | Type      | Meaning                                                                 |
+| --------- | --------- | ----------------------------------------------------------------------- |
+| `stuckMs` | `integer` | How late main's timer ran, which is how long its event loop was blocked |
+
 ### `mcp.session`
 
 | Attribute         | Type               | Meaning                                                        |
@@ -730,10 +829,15 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `process.memory`
 
-| Attribute   | Type                   | Meaning                                                                            |
-| ----------- | ---------------------- | ---------------------------------------------------------------------------------- |
-| `reason`    | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                     |
-| `processes` | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it |
+| Attribute      | Type                   | Meaning                                                                                   |
+| -------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
+| `reason`       | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                            |
+| `mainBytes`    | `integer`              | The app's main process's private memory in bytes                                          |
+| `serviceBytes` | `integer`              | The project service's private memory in bytes, or 0 while none runs                       |
+| `editorBytes`  | `integer`              | Every editor window's private memory together, in bytes                                   |
+| `renderBytes`  | `integer`              | The offscreen renderers' private memory together, in bytes                                |
+| `totalBytes`   | `integer`              | Every process's private memory together, in bytes, counting builders, the GPU and helpers |
+| `processes`    | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it        |
 
 ### `project.closed`
 
@@ -781,6 +885,11 @@ Some failures are recorded for you, so code doesn't record them again:
 | `builderMs`   | `number`, optional         | How long the builder took to answer, when it did                                   |
 | `framework`   | `string`, optional         | The renderer's ID, as `react`, once one was found                                  |
 | `builder`     | `string`, optional         | The builder's ID, as `vite`, once one was found                                    |
+| `react`       | `string`, optional         | The React version installed, once detection found it                               |
+| `vite`        | `string`, optional         | The Vite version installed, once detection found it                                |
+| `tailwind`    | `string`, optional         | The Tailwind version installed, once detection found it                            |
+| `storybook`   | `string`, optional         | The Storybook version installed, once detection found it                           |
+| `typescript`  | `string`, optional         | The TypeScript version installed, once detection found it                          |
 | `step`        | `"detection" \| "builder"` | The step that failed                                                               |
 | `message`     | `string`                   | Why, as the tab says it                                                            |
 | `code`        | `string`, optional         | The `CodedError` code, when the failure has one                                    |
@@ -797,12 +906,12 @@ Some failures are recorded for you, so code doesn't record them again:
 | `builderMs`   | `number`, optional | How long the builder took to answer, when it did                                   |
 | `framework`   | `string`, optional | The renderer's ID, as `react`, once one was found                                  |
 | `builder`     | `string`, optional | The builder's ID, as `vite`, once one was found                                    |
+| `react`       | `string`, optional | The React version installed, once detection found it                               |
+| `vite`        | `string`, optional | The Vite version installed, once detection found it                                |
+| `tailwind`    | `string`, optional | The Tailwind version installed, once detection found it                            |
+| `storybook`   | `string`, optional | The Storybook version installed, once detection found it                           |
+| `typescript`  | `string`, optional | The TypeScript version installed, once detection found it                          |
 | `cached`      | `boolean`          | Whether its components and props came from the last detection, as nothing changed  |
-| `react`       | `string`, optional | The React version installed, when it has one                                       |
-| `vite`        | `string`, optional | The Vite version installed, when it has one                                        |
-| `tailwind`    | `string`, optional | The Tailwind version installed, when it has one                                    |
-| `storybook`   | `string`, optional | The Storybook version installed, when it has one                                   |
-| `typescript`  | `string`, optional | The TypeScript version installed, when it has one                                  |
 | `components`  | `integer`          | The components it has                                                              |
 | `designs`     | `integer`          | The designs in its project files                                                   |
 | `tokens`      | `integer`          | The theme variables its styles have                                                |
@@ -849,11 +958,12 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `report.sent`
 
-| Attribute    | Type      | Meaning                                                    |
-| ------------ | --------- | ---------------------------------------------------------- |
-| `feedbackId` | `string`  | The Sentry event ID of the user feedback the report became |
-| `screenshot` | `boolean` | Whether the person included a screenshot of the window     |
-| `afterCrash` | `boolean` | Whether it was offered on start after the last run crashed |
+| Attribute    | Type                  | Meaning                                                         |
+| ------------ | --------------------- | --------------------------------------------------------------- |
+| `feedbackId` | `string`              | The Sentry event ID of the user feedback the report became      |
+| `screenshot` | `boolean`             | Whether a screenshot of the window went with it                 |
+| `afterCrash` | `boolean`             | Whether it was offered on start after the last run crashed      |
+| `by`         | `"person" \| "agent"` | Who sent it: a person from Help, or an agent with parity report |
 
 ### `request.handled`
 
@@ -879,6 +989,14 @@ Some failures are recorded for you, so code doesn't record them again:
 | `kind`       | `string` | The kind of server, as `storybook`       |
 | `name`       | `string` | Its name, as the processes list shows it |
 | `durationMs` | `number` | How long it took, in milliseconds        |
+
+### `service.exited`
+
+| Attribute   | Type      | Meaning                                                                                                  |
+| ----------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `exitCode`  | `integer` | The code the project service exited with                                                                 |
+| `ranMs`     | `integer` | How long it ran before it exited                                                                         |
+| `restarted` | `boolean` | Whether a fresh service takes its place: one replaced it, or a crash starts one, with back-off (PAR-788) |
 
 ### `service.lag`
 
@@ -981,5 +1099,12 @@ Some failures are recorded for you, so code doesn't record them again:
 | `channel`   | `"stable" \| "beta"` | The update channel this install takes |
 | `version`   | `string`             | The version running now               |
 | `available` | `string`             | The version being installed           |
+
+### `window.hung`
+
+| Attribute | Type                     | Meaning                                                                                 |
+| --------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| `window`  | `"renderer" \| "render"` | Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames |
+| `stuckMs` | `integer`                | How long the window didn't answer                                                       |
 
 <!-- End of the generated events. -->

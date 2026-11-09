@@ -1,4 +1,5 @@
 import {
+  type Attributes,
   endWhenSettled,
   errorCode,
   type EventAttributes,
@@ -13,6 +14,7 @@ import {
 } from "@parity-app/telemetry"
 
 type Events = typeof registeredEvents
+
 type TraceName = EventName<Events>
 
 /**
@@ -33,29 +35,47 @@ export function currentTraceHeaders(): TraceHeaders | undefined {
   return current ? traceHeaders(current) : undefined
 }
 
+/**
+ * Where an event recorded now sits, in the action or gesture under way, for `track`'s `span` when the event is
+ * recorded after it has ended or outside it, as a write's is once the service answers (PAR-752).
+ */
+export function currentTraceContext(): TraceContext | undefined {
+  return current && contextOf(current)
+}
+
+const contextOf = ({ traceId, spanId }: Span): TraceContext => ({ traceId, spanId })
+
 /** A trace the window is in until `end`, with how it ended and what was learned on the way. */
 export interface Trace {
-  end(outcome?: Outcome, attributes?: Record<string, unknown>): void
+  /** Where it sits in its trace, for events recorded in it, even after it ends. None before telemetry starts. */
+  readonly context: TraceContext | undefined
+  end(outcome?: Outcome, attributes?: Attributes): void
 }
 
 /** Starts a trace of its own for an action or gesture. */
 export function startTrace<Name extends TraceName>(name: Name, attributes: EventAttributes<Events, Name>): Trace {
-  if (!telemetry) return { end: () => undefined }
+  if (!telemetry) {
+    return { context: undefined, end: () => undefined }
+  }
+
   const span = telemetry.startSpan(name, attributes)
   const previous = current
   current = span
+
   return {
+    context: contextOf(span),
     end(outcome, learned) {
       span.end(outcome, learned)
-      if (current === span) current = previous
+
+      if (current === span) {
+        current = previous
+      }
     }
   }
 }
 
 /** A span the window started in the trace it's in, which `within` makes the trace work runs in. */
 export interface Step extends Trace {
-  /** Where it sits in its trace, for events recorded in it, even after it ends. None before telemetry starts. */
-  readonly context: TraceContext | undefined
   /** Runs work in the span, so the requests it asks before it first waits carry it. */
   within<T>(work: () => T): T
 }
@@ -65,14 +85,19 @@ export interface Step extends Trace {
  * started it, such as opening a project. Unlike `startTrace`, it isn't the trace the window is in until `within` says.
  */
 export function startStep<Name extends TraceName>(name: Name, attributes: EventAttributes<Events, Name>): Step {
-  if (!telemetry) return { context: undefined, end: () => undefined, within: (work) => work() }
+  if (!telemetry) {
+    return { context: undefined, end: () => undefined, within: (work) => work() }
+  }
+
   const span = telemetry.startSpan(name, attributes, current ? { parent: current } : undefined)
+
   return {
-    context: { traceId: span.traceId, spanId: span.spanId },
+    context: contextOf(span),
     end: (outcome, learned) => span.end(outcome, learned),
     within(work) {
       const previous = current
       current = span
+
       try {
         return work()
       } finally {
@@ -88,9 +113,11 @@ export function startStep<Name extends TraceName>(name: Name, attributes: EventA
  */
 export function keepTrace(): <T>(work: () => T) => T {
   const kept = current
+
   return (work) => {
     const previous = current
     current = kept
+
     try {
       return work()
     } finally {
@@ -109,6 +136,7 @@ export type CommandAttributes = EventAttributes<Events, "command.ran">
 export function tracedCommand<T>(attributes: CommandAttributes, work: () => T): T {
   const trace = startTrace("command.ran", attributes)
   let result: T
+
   try {
     result = work()
   } catch (error) {
@@ -116,10 +144,14 @@ export function tracedCommand<T>(attributes: CommandAttributes, work: () => T): 
     trace.end("error", code === undefined ? undefined : { code })
     throw error
   }
+
   if (result instanceof Promise) {
     endWhenSettled(trace, () => result).catch(() => {
       // Its caller has the failure.
     })
-  } else trace.end("ok")
+  } else {
+    trace.end("ok")
+  }
+
   return result
 }

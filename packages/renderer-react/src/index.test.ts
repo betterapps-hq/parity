@@ -21,6 +21,7 @@ describe("findComponents", () => {
       }
       export { Other } from "./other"
     `
+
     expect(names(source).sort()).toEqual(["Arrow:function", "Card:function", "Header:function", "Standalone:function"])
   })
 
@@ -33,6 +34,7 @@ describe("findComponents", () => {
       export class Legacy extends React.Component { render() { return <div /> } }
       export class Store extends Base {}
     `
+
     expect(names(source)).toEqual(["Input:forwardRef", "Row:memo", "Page:lazy", "Legacy:class", "Store?"])
   })
 
@@ -46,6 +48,7 @@ describe("findComponents", () => {
       export function Title(text: string) { return <h1>{text}</h1> }
       function Orders() { return <main /> }
     `
+
     expect(names(source, "src/routes/orders.tsx")).toEqual(["Route?", "GET?"])
   })
 
@@ -67,6 +70,7 @@ describe("findComponents", () => {
       export function ForAdmins({ children }) { return children }
       export { SelectPrimitive as Primitive }
     `
+
     expect(names(source)).toEqual(["Select?", "ForAdmins?", "Primitive?"])
   })
 

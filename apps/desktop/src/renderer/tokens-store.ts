@@ -34,7 +34,7 @@ export class TokenStore {
     /** The tokens as the project's stylesheet had them when its guest loaded. */
     private readonly loaded: Token[],
     private readonly sheet: CSSStyleSheet,
-    write: (changes: TokenWrite[]) => Promise<unknown>,
+    write: (changes: TokenWrite[]) => Promise<void>,
     private readonly history: DesignStore,
     /** The stylesheet the tokens are written to, as the project names it. */
     readonly stylesheet = "the stylesheet",
@@ -54,6 +54,7 @@ export class TokenStore {
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener)
+
     return () => this.listeners.delete(listener)
   }
 
@@ -72,6 +73,7 @@ export class TokenStore {
       this.ordered = inTokenOrder(this.tokens, this.described)
       this.orderedFrom = this.tokens
     }
+
     return this.ordered
   }
 
@@ -91,7 +93,10 @@ export class TokenStore {
 
   /** Changes token values as one undoable step, unsaved until the project is saved. */
   set(changes: TokenChange[], label = editLabel(changes)): void {
-    if (changes.length === 0) return
+    if (changes.length === 0) {
+      return
+    }
+
     this.history.changeTokens(label, this.edits(changes))
   }
 
@@ -99,6 +104,7 @@ export class TokenStore {
   edits(changes: readonly TokenChange[]): TokenEdit[] {
     return changes.map((change) => {
       const original = this.loaded.find((token) => token.name === change.name)?.values[change.theme]
+
       return original === undefined ? { ...change } : { ...change, original }
     })
   }
@@ -106,14 +112,25 @@ export class TokenStore {
   /** Shows the store's token edits in the shared stylesheet and the token list, after an edit, undo or redo. */
   private follow(): void {
     const edits = this.history.getTokenEdits()
-    if (edits === this.shown) return
+
+    if (edits === this.shown) {
+      return
+    }
+
     const differences = tokenDifferences(this.shown, edits)
+
     // A value set to nothing takes the declaration out again, which a value the sheet never had leaves alone.
-    for (const { name, theme, value } of differences) previewToken(this.sheet, name, theme, value ?? "")
+    for (const { name, theme, value } of differences) {
+      previewToken(this.sheet, name, theme, value ?? "")
+    }
+
     this.shown = edits
     this.tokens = tokensWithEdits(this.loaded, edits)
     this.overrides = withTokenOverrides(this.overrides, differences, this.loaded)
-    for (const listener of this.listeners) listener()
+
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }
 
@@ -124,42 +141,68 @@ export class TokenStore {
  */
 export function keyframesNamed(rules: CSSRuleList, name: string): Keyframe[] | undefined {
   let found: Keyframe[] | undefined
+
   for (const rule of rules) {
     if (rule instanceof CSSKeyframesRule) {
-      if (rule.name === name) found = keyframesOf(rule)
+      if (rule.name === name) {
+        found = keyframesOf(rule)
+      }
     } else if (rule instanceof CSSGroupingRule) {
       found = keyframesNamed(rule.cssRules, name) ?? found
     }
   }
+
   return found
 }
 
 function keyframesOf(rule: CSSKeyframesRule): Keyframe[] {
   const frames = [...rule.cssRules].flatMap((step) => {
-    const { keyText, style } = step as CSSKeyframeRule
+    if (!(step instanceof CSSKeyframeRule)) {
+      return []
+    }
+
+    const { keyText, style } = step
     const declared: Keyframe = {}
+
     for (let index = 0; index < style.length; index++) {
       const property = style.item(index)
+
       // A custom property means nothing to the element the preview animates.
-      if (property.startsWith("--")) continue
+      if (property.startsWith("--")) {
+        continue
+      }
+
       const value = style.getPropertyValue(property)
-      if (property === "animation-timing-function") declared.easing = value
-      else declared[property.replaceAll(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())] = value
+
+      if (property === "animation-timing-function") {
+        declared.easing = value
+      } else {
+        declared[property.replaceAll(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())] = value
+      }
     }
+
     return keyText.split(",").map((key) => {
       const at = key.trim()
       let offset: number
-      if (at === "from") offset = 0
-      else if (at === "to") offset = 1
-      else offset = Number.parseFloat(at) / 100
+
+      if (at === "from") {
+        offset = 0
+      } else if (at === "to") {
+        offset = 1
+      } else {
+        offset = Number.parseFloat(at) / 100
+      }
+
       return { ...declared, offset }
     })
   })
+
   return frames.toSorted((a, b) => (a.offset ?? 0) - (b.offset ?? 0))
 }
 
 function editLabel(changes: readonly TokenChange[]): string {
   const names = new Set(changes.map((change) => change.name))
+
   return names.size === 1 ? `Edit ${[...names][0]}` : `Edit ${names.size} tokens`
 }
 
@@ -178,6 +221,7 @@ export function resolveTokenValue(tokens: readonly Token[], name: string, theme 
   const token = tokens.find((candidate) => candidate.name === name)
   const value = token?.values[theme] ?? token?.values.default ?? ""
   const reference = /^var\(--([\w-]+)\)$/.exec(value.trim())
+
   return reference && depth < 6 ? resolveTokenValue(tokens, reference[1]!, theme, depth + 1) || value : value
 }
 
@@ -185,6 +229,10 @@ export function resolveTokenValue(tokens: readonly Token[], name: string, theme 
 export function spacingUnit(tokens: readonly Token[]): number {
   const value = tokens.find((token) => token.name === "spacing")?.values.default ?? "0.25rem"
   const match = /^([\d.]+)(rem|px)$/.exec(value.trim())
-  if (!match) return 4
+
+  if (!match) {
+    return 4
+  }
+
   return Number(match[1]) * (match[2] === "rem" ? 16 : 1)
 }

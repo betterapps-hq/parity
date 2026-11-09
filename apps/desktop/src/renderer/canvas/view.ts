@@ -14,8 +14,15 @@ export interface ContainerModes {
   all: ResolvedMode[]
 }
 
+/** The modes a board shows frames of, by id, and its main one. */
+export interface ShownModes {
+  main: string
+  shown: string[]
+}
+
 export function containerModes(settings: ModeSettings, container: ContainerSpec): ContainerModes {
   const { main, beside, all } = shownModes(settings, container)
+
   return { primary: main, companions: beside, all }
 }
 
@@ -25,8 +32,13 @@ export function containerModes(settings: ModeSettings, container: ContainerSpec)
  */
 export function withMainMode(view: ContainerViewSettings, mode: string, all: ResolvedMode[]): ContainerViewSettings {
   const next: ContainerViewSettings = { ...view, modes: (view.modes ?? []).filter((id) => id !== mode) }
-  if (mode === all[0]?.id) delete next.mode
-  else next.mode = mode
+
+  if (mode === all[0]?.id) {
+    delete next.mode
+  } else {
+    next.mode = mode
+  }
+
   return next
 }
 
@@ -42,10 +54,15 @@ export function withShownModes(
 ): ContainerViewSettings {
   const next: ContainerViewSettings = {
     ...view,
-    modes: all.filter((mode) => mode.id !== main && shown.includes(mode.id)).map((mode) => mode.id)
+    modes: all.flatMap((mode) => (mode.id !== main && shown.includes(mode.id) ? [mode.id] : []))
   }
-  if (main === all[0]?.id) delete next.mode
-  else next.mode = main
+
+  if (main === all[0]?.id) {
+    delete next.mode
+  } else {
+    next.mode = main
+  }
+
   return next
 }
 
@@ -53,20 +70,23 @@ export function withShownModes(
  * The board's frames once a mode is checked or unchecked. A board always shows a frame, so the last one stays, and
  * hiding the main frame makes the first of the rest main.
  */
-export function toggleShownMode(
-  main: string,
-  shown: string[],
-  mode: string,
-  all: ResolvedMode[]
-): { main: string; shown: string[] } {
-  if (!shown.includes(mode)) return { main, shown: [...shown, mode] }
+export function toggleShownMode(main: string, shown: string[], mode: string, all: ResolvedMode[]): ShownModes {
+  if (!shown.includes(mode)) {
+    return { main, shown: [...shown, mode] }
+  }
+
   const rest = shown.filter((id) => id !== mode)
-  if (rest.length === 0) return { main, shown }
+
+  if (rest.length === 0) {
+    return { main, shown }
+  }
+
   return { main: mode === main ? all.find((candidate) => rest.includes(candidate.id))!.id : main, shown: rest }
 }
 
 /** The modes with these ids, named in project order for a label: "Desktop Light and Mobile Light". */
 export function modeNames(all: readonly ResolvedMode[], ids: readonly string[]): string {
-  const names = all.filter((mode) => ids.includes(mode.id)).map((mode) => mode.name)
+  const names = all.flatMap((mode) => (ids.includes(mode.id) ? [mode.name] : []))
+
   return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
 }

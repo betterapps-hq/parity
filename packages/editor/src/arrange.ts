@@ -12,12 +12,14 @@ import {
   locateNode,
   moveNode,
   nodeIds,
+  type NodeStyle,
   type StateSpec,
   topmostNodes,
   unwrapNode,
   withFreshIds,
   wrapNodes
 } from "@parity-app/core"
+import type { Pasted } from "./clipboard.ts"
 import { boardReader } from "./shown.ts"
 
 /**
@@ -53,36 +55,49 @@ export function topLayers(container: ContainerSpec, ids: Iterable<string>): stri
     .filter((id) => id !== container.root.id)
 }
 
+/** A design with layers deleted, and the layout that held the last of them, when it isn't the root. */
+export interface LayersRemoved {
+  container: ContainerSpec
+  parent?: string
+}
+
 /**
  * Deletes the layers `ids`. Returns the design, and the layout that held the last of them, to select next; none when
  * that's the design's root.
  */
-export function removeLayers(
-  container: ContainerSpec,
-  ids: readonly string[]
-): { container: ContainerSpec; parent?: string } {
+export function removeLayers(container: ContainerSpec, ids: readonly string[]): LayersRemoved {
   const parent = ids.length > 0 ? locateNode(container.root, ids.at(-1)!)?.ancestors.at(-1) : undefined
   const next = ids.reduce((current, id) => (findNode(current.root, id) ? deleteNode(current, id) : current), container)
-  return { container: next, ...(parent && parent.id !== container.root.id ? { parent: parent.id } : {}) }
+
+  const removed: LayersRemoved = { container: next }
+
+  if (parent && parent.id !== container.root.id) {
+    removed.parent = parent.id
+  }
+
+  return removed
 }
 
 /** Copies each of the layers `ids` in place, just after itself, with fresh ids. Returns the copies' ids in order. */
-export function copyLayersInPlace(
-  container: ContainerSpec,
-  ids: readonly string[]
-): { container: ContainerSpec; copies: string[] } {
+export function copyLayersInPlace(container: ContainerSpec, ids: readonly string[]): Pasted {
   const taken = nodeIds(container.root)
   const copies: string[] = []
   let root = container.root
+
   // Last first, so inserting a copy never moves a later original.
   for (const id of ids.toReversed()) {
     const location = locateNode(root, id)
     const parent = location?.ancestors.at(-1)
-    if (!location || !parent) continue
+
+    if (!location || !parent) {
+      continue
+    }
+
     const copy = withFreshIds(location.node, taken)
     copies.unshift(copy.id)
     root = insertNode(root, parent.id, copy, { index: location.index + 1, slot: location.slot })
   }
+
   return { container: copies.length > 0 ? { ...container, root } : container, copies }
 }
 
@@ -92,14 +107,20 @@ export function removeDesigns(
   designs: readonly DesignRef[]
 ): ReadonlyMap<string, CanvasDocument> {
   const next = new Map(documents)
+
   for (const design of designs) {
     const document = next.get(design.path)
-    if (!document) continue
+
+    if (!document) {
+      continue
+    }
+
     next.set(design.path, {
       ...document,
       containers: document.containers.filter((container) => container.id !== design.id)
     })
   }
+
   return next
 }
 
@@ -108,7 +129,14 @@ export function siblingsOf(root: DesignNode, id: string): string[] | undefined {
   const location = locateNode(root, id)
   const parent = location?.ancestors.at(-1)
   const siblings = parent && childEntries(parent).find((candidate) => candidate.slot === location?.slot)?.nodes
+
   return siblings?.map((node) => node.id)
+}
+
+/** A design with a layer added, and the layer's id. */
+export interface AddedLayer {
+  container: ContainerSpec
+  id: string
 }
 
 /**
@@ -121,17 +149,23 @@ export function wrapInLayout(
   ids: readonly string[],
   state: StateSpec,
   viewport?: string
-): { container: ContainerSpec; id: string } {
+): AddedLayer {
   const parent = ids.length > 0 ? locateNode(container.root, ids[0]!)?.ancestors.at(-1) : undefined
   const parentStyle = parent ? boardReader(container, { state, viewport })(parent).style : undefined
   const id = generateId(nodeIds(container.root))
-  const next = wrapNodes(container, ids, {
-    id,
-    style: {
-      ...(parentStyle?.direction === "row" ? { direction: "row" as const } : {}),
-      ...(parentStyle?.gap !== undefined ? { gap: parentStyle.gap } : {})
-    }
-  })
+
+  const style: NodeStyle = {}
+
+  if (parentStyle?.direction === "row") {
+    style.direction = "row"
+  }
+
+  if (parentStyle?.gap !== undefined) {
+    style.gap = parentStyle.gap
+  }
+
+  const next = wrapNodes(container, ids, { id, style })
+
   return { container: next, id }
 }
 
@@ -144,7 +178,11 @@ export function unwrapLayout(
   id: string
 ): { container: ContainerSpec; children: string[] } | undefined {
   const node = findNode(container.root, id)
-  if (node?.type !== "layout") return undefined
+
+  if (node?.type !== "layout") {
+    return undefined
+  }
+
   return { container: unwrapNode(container, id), children: node.children.map((child) => child.id) }
 }
 
@@ -156,15 +194,24 @@ export function reorderLayer(container: ContainerSpec, id: string, order: Order)
   const location = locateNode(container.root, id)
   const parent = location?.ancestors.at(-1)
   const siblings = parent && childEntries(parent).find((candidate) => candidate.slot === location?.slot)?.nodes
-  if (!location || !parent || !siblings) return container
+
+  if (!location || !parent || !siblings) {
+    return container
+  }
+
   const last = siblings.length - 1
+
   const index = {
     forward: Math.min(location.index + 1, last),
     backward: Math.max(location.index - 1, 0),
     front: last,
     back: 0
   }[order]
-  if (index === location.index) return container
+
+  if (index === location.index) {
+    return container
+  }
+
   return {
     ...container,
     // Moving later counts the siblings before the layer leaves its place.
@@ -188,13 +235,20 @@ export function alignInLayouts(
   viewport?: string
 ): ContainerSpec {
   const horizontal = alignment === "left" || alignment === "center" || alignment === "right"
+
   const position = (
     { left: "start", center: "center", right: "end", top: "start", middle: "center", bottom: "end" } as const
   )[alignment]
+
   let next = container
+
   for (const id of ids) {
     const parent = locateNode(next.root, id)?.ancestors.at(-1)
-    if (parent?.type !== "layout") continue
+
+    if (parent?.type !== "layout") {
+      continue
+    }
+
     const row = boardReader(next, { state, viewport })(parent).style?.direction === "row"
     // A column's cross axis is horizontal; a row's is vertical.
     const crossAxis = row ? !horizontal : horizontal
@@ -202,6 +256,7 @@ export function alignInLayouts(
       ? editNode(next, boardTarget(next, state.id), id, { style: { self: position } })
       : editNode(next, boardTarget(next, state.id), parent.id, { style: { justify: position } })
   }
+
   return next
 }
 
@@ -211,23 +266,41 @@ export function alignInLayouts(
  */
 export function alignBoxes(boxes: readonly DesignBox[], alignment: Alignment): Map<string, { x: number; y: number }> {
   const moves = new Map<string, { x: number; y: number }>()
-  if (boxes.length < 2) return moves
+
+  if (boxes.length < 2) {
+    return moves
+  }
+
   const left = Math.min(...boxes.map((box) => box.minX))
   const right = Math.max(...boxes.map((box) => box.maxX))
   const top = Math.min(...boxes.map((box) => box.minY))
   const bottom = Math.max(...boxes.map((box) => box.maxY))
+
   for (const box of boxes) {
     const { x, y } = box.position
     let dx = 0
-    if (alignment === "left") dx = left - box.minX
-    else if (alignment === "right") dx = right - box.maxX
-    else if (alignment === "center") dx = (left + right) / 2 - (box.minX + box.maxX) / 2
+
+    if (alignment === "left") {
+      dx = left - box.minX
+    } else if (alignment === "right") {
+      dx = right - box.maxX
+    } else if (alignment === "center") {
+      dx = (left + right) / 2 - (box.minX + box.maxX) / 2
+    }
+
     let dy = 0
-    if (alignment === "top") dy = top - box.minY
-    else if (alignment === "bottom") dy = bottom - box.maxY
-    else if (alignment === "middle") dy = (top + bottom) / 2 - (box.minY + box.maxY) / 2
+
+    if (alignment === "top") {
+      dy = top - box.minY
+    } else if (alignment === "bottom") {
+      dy = bottom - box.maxY
+    } else if (alignment === "middle") {
+      dy = (top + bottom) / 2 - (box.minY + box.maxY) / 2
+    }
+
     moves.set(box.key, { x: x + dx, y: y + dy })
   }
+
   return moves
 }
 
@@ -240,7 +313,11 @@ export function distributeBoxes(
   axis: "horizontal" | "vertical"
 ): Map<string, { x: number; y: number }> {
   const moves = new Map<string, { x: number; y: number }>()
-  if (boxes.length < 3) return moves
+
+  if (boxes.length < 3) {
+    return moves
+  }
+
   const horizontal = axis === "horizontal"
   const sorted = boxes.toSorted((a, b) => (horizontal ? a.minX - b.minX : a.minY - b.minY))
   const start = horizontal ? sorted[0]!.minX : sorted[0]!.minY
@@ -248,11 +325,13 @@ export function distributeBoxes(
   const total = sorted.reduce((sum, box) => sum + (horizontal ? box.maxX - box.minX : box.maxY - box.minY), 0)
   const gap = (end - start - total) / (sorted.length - 1)
   let cursor = start
+
   for (const box of sorted) {
     const { x, y } = box.position
     moves.set(box.key, horizontal ? { x: x + cursor - box.minX, y } : { x, y: y + cursor - box.minY })
     cursor += (horizontal ? box.maxX - box.minX : box.maxY - box.minY) + gap
   }
+
   return moves
 }
 
@@ -266,19 +345,27 @@ export function repositionDesigns(
 ): ReadonlyMap<string, CanvasDocument> {
   const next = new Map(documents)
   let changed = false
+
   for (const { path, id, position } of moves) {
     const document = next.get(path)
-    if (!document) continue
+
+    if (!document) {
+      continue
+    }
+
     const rounded = { x: Math.round(position.x), y: Math.round(position.y) }
+
     const containers = document.containers.map((container): ContainerSpec =>
       container.id === id && (container.position.x !== rounded.x || container.position.y !== rounded.y)
         ? { ...container, position: rounded }
         : container
     )
+
     if (containers.some((container, index) => container !== document.containers[index])) {
       next.set(path, { ...document, containers })
       changed = true
     }
   }
+
   return changed ? next : documents
 }

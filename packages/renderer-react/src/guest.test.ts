@@ -20,6 +20,7 @@ describe("createGuest with icon sets", () => {
         }
       }
     })
+
     expect(guest.hasComponent("heroicons/CogIcon")).toBe(true)
     expect(guest.hasComponent("heroicons/16/solid/CogIcon")).toBe(true)
     expect(guest.hasComponent("heroicons/16/solid/BellIcon")).toBe(false)
@@ -99,25 +100,41 @@ describe("taking back added components", () => {
 function packagesLoaded(entry: string): Set<string> {
   const packages = new Set<string>()
   const seen = new Set<string>()
+
   const visit = (file: string) => {
-    if (seen.has(file)) return
+    if (seen.has(file)) {
+      return
+    }
+
     seen.add(file)
     const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest)
+
     for (const statement of source.statements) {
       const typeOnly = ts.isImportDeclaration(statement)
         ? statement.importClause?.isTypeOnly
         : ts.isExportDeclaration(statement) && statement.isTypeOnly
+
       const specifier =
         (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) && !typeOnly
           ? statement.moduleSpecifier
           : undefined
-      if (!specifier || !ts.isStringLiteral(specifier)) continue
+
+      if (!specifier || !ts.isStringLiteral(specifier)) {
+        continue
+      }
+
       const name = specifier.text
-      if (name.startsWith(".") || name.startsWith("@parity-app/")) visit(createRequire(file).resolve(name))
-      else packages.add(name)
+
+      if (name.startsWith(".") || name.startsWith("@parity-app/")) {
+        visit(createRequire(file).resolve(name))
+      } else {
+        packages.add(name)
+      }
     }
   }
+
   visit(entry)
+
   return packages
 }
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { currentTraceHeaders, keepTrace, startTrace, traceWith, tracedCommand } from "./tracing.ts"
 
 const sink = createTestSink()
+
 traceWith(
   createTelemetry({
     events: registeredEvents,
@@ -20,11 +21,14 @@ describe("tracedCommand", () => {
     sink.clear()
     let finish: () => void = () => undefined
     const asked: unknown[] = []
+
     const running = tracedCommand(command("save"), async () => {
       await new Promise<void>((resolve) => (finish = resolve))
       asked.push(currentTraceHeaders())
+
       return "saved"
     })
+
     finish()
     expect(await running).toBe("saved")
     await Promise.resolve()

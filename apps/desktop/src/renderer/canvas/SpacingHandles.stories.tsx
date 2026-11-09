@@ -1,4 +1,4 @@
-import type { Length, NodeStyle } from "@parity-app/core"
+import { isNamedLength, type Length, type NodeStyle } from "@parity-app/core"
 import {
   type Edge,
   type LayerResizeStart,
@@ -25,9 +25,10 @@ import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState }
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { Name } from "../chrome/Name.tsx"
-import { followPress, gestures, type GestureStore } from "./gesture.ts"
+import { followPress, gestures } from "./gesture.ts"
 import { chipColors, kindColors } from "./kinds.tsx"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
+import type { SpacingValue } from "./spacing-edit.ts"
 import { sidesHeld, spacingKey, SpacingHandles } from "./SpacingHandles.tsx"
 
 /**
@@ -44,6 +45,7 @@ const meta = {
 } satisfies Meta<typeof Playground>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const unit = 4
@@ -138,10 +140,12 @@ export const SeveralLayers: Story = {
 function Playground({ scene: initial, tokens = [], selected: initiallySelected = "layout" }: PlaygroundProps) {
   const [scene, setSceneState] = useState(initial)
   const sceneRef = useRef(scene)
+
   const setScene = (next: Scene) => {
     sceneRef.current = next
     setSceneState(next)
   }
+
   const [selected, setSelected] = useState(initiallySelected)
   const [dragging, setDragging] = useState<{ key: string } & Pick<SpacingEdit, "px" | "token" | "sides">>()
   const [note, setNote] = useState<string>()
@@ -153,25 +157,31 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
   // Measured after every change, as the canvas measures the frames.
   useLayoutEffect(() => {
     const next = measure(rootRef.current, layoutRef.current, scene, childRefs.current)
-    if (next) setMeasured((current) => (JSON.stringify(next) === JSON.stringify(current) ? current : next))
+
+    if (next) {
+      setMeasured((current) => (JSON.stringify(next) === JSON.stringify(current) ? current : next))
+    }
   }, [scene])
 
   // The stand-in for the design store a gesture writes to, so Escape takes a drag back to where it began.
+  // SAFETY: the spacing gestures call only these, and only with the checkpoints this stand-in gives them.
   const store = {
     beginGesture: () => "story",
     endGesture: () => undefined,
     checkpoint: () => ({ container: sceneRef.current }),
     revert: (checkpoint: { container: Scene }) => setScene(checkpoint.container),
     getEntry: () => ({ container: sceneRef.current })
-  } as unknown as GestureStore
+  } as never
 
   const editLayout = (change: StyleChange) =>
     setScene({ ...sceneRef.current, layout: apply(sceneRef.current.layout, change) })
+
   const editLayers = (changes: Map<string, StyleChange | undefined>) =>
     setScene({
       ...sceneRef.current,
       children: sceneRef.current.children.map((layer) => {
         const change = changes.get(layer.id)
+
         return change ? { ...layer, style: apply(layer.style, change) } : layer
       })
     })
@@ -186,37 +196,50 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
   })
 
   const layerIds = selected === "layout" ? [] : selected
+
   const union =
     measured && unionOf(selected === "layout" ? [measured.layout] : layerIds.map((id) => measured.children[id]!))
 
   const startResize = (edge: Edge, event: { clientX: number; clientY: number }) => {
-    if (!measured || !union) return
+    if (!measured || !union) {
+      return
+    }
+
     const start = { clientX: event.clientX, clientY: event.clientY }
+
     const resizeStart = (rect: Rect, style: NodeStyle, inner: Rect, parentDirection?: "row" | "column") =>
       ({ edge, rect, inner, scale: 1, unit, layer: { style, parentDirection } }) satisfies LayerResizeStart
+
     const follow =
       selected === "layout"
         ? (() => {
             const resize = layerResize(
               resizeStart(measured.layout, sceneRef.current.layout, measured.frameInner, "column")
             )
+
             return (move: Parameters<typeof resize>[0]) => {
               const { style } = resize(move)
-              if (style) editLayout(style)
+
+              if (style) {
+                editLayout(style)
+              }
             }
           })()
         : (() => {
             const direction = sceneRef.current.layout.direction ?? "column"
             const layers = layerIds.map((id) => sceneRef.current.children.find((layer) => layer.id === id)!)
+
             const resize = layersResize(
               layers.map((layer) => resizeStart(measured.children[layer.id]!, layer.style, measured.inner, direction)),
               union
             )
+
             return (move: Parameters<typeof resize>[0]) => {
               const styles = resize(move)
               editLayers(new Map(layers.map((layer, index) => [layer.id, styles[index]])))
             }
           })()
+
     followPress(gestures.resize, store, start, {
       design: "story",
       cursor: resizeCursors[edge],
@@ -233,18 +256,21 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
   }
 
   const resetSize = (edge: Edge, fill: boolean) => {
-    if (selected === "layout") editLayout(layerSizeReset(edge, fill))
-    else {
+    if (selected === "layout") {
+      editLayout(layerSizeReset(edge, fill))
+    } else {
       const direction = sceneRef.current.layout.direction ?? "column"
       editLayers(
         new Map(
           layerIds.map((id) => {
             const layer = sceneRef.current.children.find((candidate) => candidate.id === id)!
+
             return [id, layerSizeReset(edge, fill, { style: layer.style, parentDirection: direction })]
           })
         )
       )
     }
+
     setNote(fill ? "Filled" : "Hugged")
   }
 
@@ -269,16 +295,25 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
               <div
                 key={layer.id}
                 ref={(element) => {
-                  if (element) childRefs.current.set(layer.id, element)
-                  else childRefs.current.delete(layer.id)
+                  if (element) {
+                    childRefs.current.set(layer.id, element)
+                  } else {
+                    childRefs.current.delete(layer.id)
+                  }
                 }}
                 className="flex min-w-28 flex-col justify-center rounded-md bg-white px-4 py-3 text-base shadow-sm outline outline-1 outline-neutral-200"
                 style={childCss(layer.style, row, tokens)}
                 onPointerDown={(event) => {
                   event.stopPropagation()
                   setSelected((current) => {
-                    if (!event.shiftKey || current === "layout") return [layer.id]
-                    if (current.includes(layer.id)) return current.filter((id) => id !== layer.id)
+                    if (!event.shiftKey || current === "layout") {
+                      return [layer.id]
+                    }
+
+                    if (current.includes(layer.id)) {
+                      return current.filter((id) => id !== layer.id)
+                    }
+
                     return [...current, layer.id]
                   })
                 }}
@@ -299,7 +334,6 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
                 layerIds.length > 1 &&
                 layerIds.map((id) => <Outline key={id} rect={measured.children[id]!} thin />)}
               <SizeLabel rect={union} name={selectionName(scene, selected)} />
-              {selected === "layout" && <Hatching layout={measured.spacing} />}
               <SpacingHandles
                 handles={handles}
                 unit={unit}
@@ -318,7 +352,11 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
                         dy: moveEvent.clientY - start.clientY,
                         ...sidesHeld(moveEvent)
                       })
-                      if (!edit) return
+
+                      if (!edit) {
+                        return
+                      }
+
                       editLayout(edit.change)
                       setDragging({ key: spacingKey(handle), px: edit.px, token: edit.token, sides: edit.sides })
                     },
@@ -331,8 +369,13 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
                 }}
                 onType={(handle, text, keys) => {
                   const edit = typedSpacing(spacingStart(handle), text, keys)
-                  if ("reason" in edit) return edit.reason
+
+                  if ("reason" in edit) {
+                    return edit.reason
+                  }
+
                   editLayout(edit.change)
+
                   return undefined
                 }}
                 onPick={(handle, value, keys) => editLayout(pickedSpacing(spacingStart(handle), value, keys).change)}
@@ -383,10 +426,15 @@ function measure(
   scene: Scene,
   children: Map<string, HTMLElement>
 ): Measured | undefined {
-  if (!root || !layout) return undefined
+  if (!root || !layout) {
+    return undefined
+  }
+
   const origin = root.getBoundingClientRect()
+
   const rectOf = (element: Element): Rect => {
     const rect = element.getBoundingClientRect()
+
     return {
       left: rect.left - origin.left,
       top: rect.top - origin.top,
@@ -394,35 +442,45 @@ function measure(
       bottom: rect.bottom - origin.top
     }
   }
+
   const style = getComputedStyle(layout)
   const read = (name: string) => parseFloat(style.getPropertyValue(name)) || 0
+
   const padding = {
     top: read("padding-top"),
     right: read("padding-right"),
     bottom: read("padding-bottom"),
     left: read("padding-left")
   }
+
   const border = {
     top: read("border-top-width"),
     right: read("border-right-width"),
     bottom: read("border-bottom-width"),
     left: read("border-left-width")
   }
+
   const rect = rectOf(layout)
+
   const inner = {
     left: rect.left + border.left + padding.left,
     top: rect.top + border.top + padding.top,
     right: rect.right - border.right - padding.right,
     bottom: rect.bottom - border.bottom - padding.bottom
   }
+
   const frame = rectOf(layout.parentElement!)
+
   const childRects = Object.fromEntries(
     scene.children.flatMap((layer) => {
       const element = children.get(layer.id)
+
       return element ? [[layer.id, rectOf(element)]] : []
     })
   )
+
   const direction = scene.layout.direction ?? "column"
+
   return {
     layout: rect,
     inner,
@@ -442,7 +500,10 @@ function measure(
 }
 
 function unionOf(rects: Rect[]): Rect | undefined {
-  if (rects.length === 0) return undefined
+  if (rects.length === 0) {
+    return undefined
+  }
+
   return {
     left: Math.min(...rects.map((rect) => rect.left)),
     top: Math.min(...rects.map((rect) => rect.top)),
@@ -456,18 +517,28 @@ const toBox = (rect: Rect) => ({ x: rect.left, y: rect.top, w: rect.right - rect
 // Drawing the stand-in from its style, as Tailwind would: lengths in steps of 4px, or a token's value.
 
 function px(length: Length | undefined, tokens: readonly LengthToken[]): number {
-  if (typeof length === "number") return length * unit
+  if (length !== undefined && !isNamedLength(length)) {
+    return length * unit
+  }
+
   return tokens.find((token) => token.name === length)?.px ?? 0
 }
 
 function size(length: Length | undefined, tokens: readonly LengthToken[]): string | undefined {
-  if (length === undefined || length === "hug") return "max-content"
-  if (length === "fill") return undefined
+  if (length === undefined || length === "hug") {
+    return "max-content"
+  }
+
+  if (length === "fill") {
+    return undefined
+  }
+
   return `${px(length, tokens)}px`
 }
 
 function layoutCss(style: NodeStyle, tokens: readonly LengthToken[]): CSSProperties {
   const [top, right, bottom, left] = (sidesOf(style.padding) ?? [0, 0, 0, 0]).map((side) => px(side, tokens))
+
   return {
     flexDirection: style.direction ?? "column",
     padding: `${top}px ${right}px ${bottom}px ${left}px`,
@@ -482,6 +553,7 @@ function layoutCss(style: NodeStyle, tokens: readonly LengthToken[]): CSSPropert
 function childCss(style: NodeStyle, row: boolean, tokens: readonly LengthToken[]): CSSProperties {
   const main = row ? style.width : style.height
   const cross = row ? style.height : style.width
+
   // A size that fills is left to `flex` along the layout and to `align-self` across it.
   return {
     width: style.width === "fill" ? undefined : size(style.width, tokens),
@@ -492,31 +564,51 @@ function childCss(style: NodeStyle, row: boolean, tokens: readonly LengthToken[]
 }
 
 function selectionName(scene: Scene, selected: "layout" | string[]): string {
-  if (selected === "layout") return "Stats"
-  if (selected.length > 1) return `${selected.length} layers`
+  if (selected === "layout") {
+    return "Stats"
+  }
+
+  if (selected.length > 1) {
+    return `${selected.length} layers`
+  }
+
   return scene.children.find((layer) => layer.id === selected[0])?.name ?? ""
 }
 
 function spacingCursor(handle: SpacingHandle): string {
-  if (handle.kind === "gap") return handle.direction === "row" ? "ew-resize" : "ns-resize"
+  if (handle.kind === "gap") {
+    return handle.direction === "row" ? "ew-resize" : "ns-resize"
+  }
+
   return handle.side === "top" || handle.side === "bottom" ? "ns-resize" : "ew-resize"
 }
 
 function apply(style: NodeStyle, change: StyleChange): NodeStyle {
-  const next: Record<string, unknown> = { ...style }
+  const next: NodeStyle = { ...style, ...change }
+
   for (const [key, value] of Object.entries(change)) {
-    if (value === undefined) delete next[key]
-    else next[key] = value
+    if (value === undefined) {
+      Reflect.deleteProperty(next, key)
+    }
   }
-  return next as NodeStyle
+
+  return next
 }
 
 function valueOf(handle: SpacingHandle, style: NodeStyle, measured: Measured, tokens: readonly LengthToken[]) {
   const written = handle.kind === "gap" ? style.gap : sidesOf(style.padding)?.[paddingSides.indexOf(handle.side)]
   const drawn = handle.kind === "gap" ? measured.gap : measured.padding[handle.side]
-  const token =
-    typeof written === "string" && tokens.some((candidate) => candidate.name === written) ? written : undefined
-  return { px: drawn, ...(token ? { token } : {}) }
+
+  const named = isNamedLength(written) ? written : undefined
+  const token = tokens.some((candidate) => candidate.name === named) ? named : undefined
+
+  const value: SpacingValue = { px: drawn }
+
+  if (token) {
+    value.token = token
+  }
+
+  return value
 }
 
 // What the canvas draws, as `CanvasOverlay` draws it.
@@ -549,28 +641,6 @@ function SizeLabel({ rect, name }: { rect: Rect; name: string }) {
   )
 }
 
-/** The hatching a selected layout's padding and gaps already show. */
-function Hatching({ layout }: { layout: SpacingLayout }) {
-  return spacingHandles(layout).map((handle) => (
-    <div
-      key={spacingKey(handle)}
-      className="absolute"
-      style={{
-        ...place({
-          left: handle.area.x,
-          top: handle.area.y,
-          right: handle.area.x + handle.area.w,
-          bottom: handle.area.y + handle.area.h
-        }),
-        background:
-          handle.kind === "padding"
-            ? "repeating-linear-gradient(-45deg, oklch(0.7 0.2 350 / 0.28) 0 1px, oklch(0.7 0.2 350 / 0.1) 1px 5px)"
-            : "repeating-linear-gradient(45deg, oklch(0.7 0.2 350 / 0.35) 0 1px, oklch(0.7 0.2 350 / 0.14) 1px 5px)"
-      }}
-    />
-  ))
-}
-
 function place(rect: Rect): CSSProperties {
   return { left: rect.left, top: rect.top, width: rect.right - rect.left, height: rect.bottom - rect.top }
 }
@@ -578,7 +648,7 @@ function place(rect: Rect): CSSProperties {
 /** Beside the prototype: what to try, and the style each change writes. */
 function Written({ scene, selected, note }: { scene: Scene; selected: "layout" | string[]; note?: string }) {
   const keys: [string, ReactNode][] = [
-    ["Drag a pink bar", "padding or gap, by 4px steps"],
+    ["Drag a bar", "padding or gap, by 4px steps"],
     ["Click a bar", "type a value: 20, +8, a token's name"],
     ["Alt while dragging", "the opposite side too"],
     ["Alt+Shift", "every side"],
@@ -588,6 +658,7 @@ function Written({ scene, selected, note }: { scene: Scene; selected: "layout" |
     ["Alt while resizing", "from the middle"],
     ["Escape mid-drag", "takes it back"]
   ]
+
   return (
     <div className="flex w-80 flex-col gap-4 text-xs">
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">

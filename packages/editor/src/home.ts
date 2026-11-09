@@ -34,6 +34,7 @@ export function openingDesigns(
   if (files.length === 0) {
     return [{ path: mainPath, document: { version: 3, containers: [homeScreen(components, modes)] } }]
   }
+
   return files.flatMap(({ path, document }) => (document ? [{ path, document }] : []))
 }
 
@@ -48,11 +49,14 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
   const rootId = generateId(ids)
   ids.add(rootId)
   const component = homeComponent(components)
+
   const content: DesignNode = component
     ? { type: "component", id: generateId(ids), component }
     : { type: "text", id: generateId(ids), tag: "h1", text: "Home", style: { size: "text-2xl", weight: 600 } }
+
   const beside = besideMode(modes)
-  return {
+
+  const home: ContainerSpec = {
     id: "home",
     name: "Home",
     kind: "screen",
@@ -66,9 +70,14 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
         : { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
       children: [content]
     },
-    states: [{ id: "default", name: "Default" }],
-    ...(beside ? { view: { modes: [beside] } } : {})
+    states: [{ id: "default", name: "Default" }]
   }
+
+  if (beside) {
+    home.view = { modes: [beside] }
+  }
+
+  return home
 }
 
 /**
@@ -80,6 +89,7 @@ export function homeComponent(components: Readonly<Record<string, ComponentSourc
   const own = Object.entries(components).filter(([, source]) => !source.library)
   const pages = own.filter(([, source]) => rendersRoot(source))
   const apps = own.filter(([, source]) => componentRole(source) !== "page" && isApp(source))
+
   return (pages.length > 0 ? pages : apps).sort(nearestFirst)[0]?.[0]
 }
 
@@ -88,9 +98,13 @@ export function homeComponent(components: Readonly<Record<string, ComponentSourc
  * `routes` folder. Layouts, error pages and the like for `/` are parts of a page, not the page.
  */
 function rendersRoot(source: ComponentSource): boolean {
-  if (componentRole(source) !== "page") return false
+  if (componentRole(source) !== "page") {
+    return false
+  }
+
   const route = pageRoute(source.path).replaceAll(/\/\([^/]+\)/g, "") || "/"
   const file = baseName(source.path)
+
   return route === "/" && (file === "page" || file === "index")
 }
 
@@ -103,6 +117,7 @@ function isApp(source: ComponentSource): boolean {
 function nearestFirst([a, one]: [string, ComponentSource], [b, other]: [string, ComponentSource]): number {
   const isDefault = (source: ComponentSource) => (source.export === "default" ? 0 : 1)
   const depth = (source: ComponentSource) => source.path.split("/").length
+
   return (
     isDefault(one) - isDefault(other) ||
     depth(one) - depth(other) ||
@@ -117,20 +132,33 @@ function nearestFirst([a, one]: [string, ComponentSource], [b, other]: [string, 
  */
 function besideMode(settings: ModeSettings): string | undefined {
   const [primary, ...others] = resolveModes(settings)
-  if (!primary) return undefined
+
+  if (!primary) {
+    return undefined
+  }
+
   const wanted: DeviceKind[] = deviceOf(primary) === "phone" ? ["laptop", "desktop"] : ["phone"]
   const candidates = others.filter((mode) => wanted.includes(deviceOf(mode)))
+
   const matching = (mode: ResolvedMode) =>
     mode.options.filter(
       ({ variable, option }, index) => variable.kind !== "viewport" && primary.options[index]?.option.id === option.id
     ).length
+
   let best: ResolvedMode | undefined
-  for (const mode of candidates) if (!best || matching(mode) > matching(best)) best = mode
+
+  for (const mode of candidates) {
+    if (!best || matching(mode) > matching(best)) {
+      best = mode
+    }
+  }
+
   return best?.id
 }
 
 function deviceOf(mode: ResolvedMode): DeviceKind {
   const viewport = mode.options.find(({ variable }) => variable.kind === "viewport")?.option
+
   return viewport?.device ?? deviceForWidth(mode.width)
 }
 

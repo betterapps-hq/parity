@@ -49,10 +49,12 @@ const container = {
   },
   states: [{ id: "default", name: "Default" }]
 }
+
 const card = { type: "text", id: "pasted", text: "Pasted" }
 
 beforeAll(async () => {
   const canvas = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: canvas, loader: "ts", sourcefile: "entry.ts" },
     bundle: true,
@@ -61,6 +63,7 @@ beforeAll(async () => {
     globalName: "here",
     platform: "browser"
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
   await page.setContent(
@@ -81,8 +84,10 @@ beforeEach(async () => {
     const host = document.querySelector<HTMLElement>("#host")!
     host.style.width = "832px"
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" })
+
     const cell = (id: string, hidden = false) =>
       `<span data-canvas-node="${id}" style="height: 100px; ${hidden ? "display: none" : ""}">${id}</span>`
+
     shadow.innerHTML = `<div data-canvas-node="root" style="position: relative; height: 600px">
       <div data-canvas-node="stats" style="display: grid; grid-template-columns: repeat(4, 200px); gap: 16px">
         ${cell("revenue")}${cell("users")}${cell("hidden", true)}${cell("issues")}${cell("uptime")}
@@ -107,12 +112,15 @@ function pasteAt(chain: string[], point: { x: number; y: number }) {
   return page.evaluate(
     ({ container, chain, point, card }) => {
       type Node = { id: string; style?: unknown; children?: Node[]; slots?: Record<string, Node[]> }
+
       const host = document.querySelector<HTMLElement>("#host")!
       const inside = (node: Node) => [...(node.children ?? []), ...Object.values(node.slots ?? {}).flat()]
+
       const find = (node: Node, id: string): Node | undefined =>
         node.id === id
           ? node
           : inside(node).reduce<Node | undefined>((found, child) => found ?? find(child, id), undefined)
+
       const hit = {
         entry: { key: "app.par#dashboard", path: "app.par", container },
         host,
@@ -121,6 +129,7 @@ function pasteAt(chain: string[], point: { x: number; y: number }) {
         chain: chain.map((id) => find(container.root, id)),
         path: chain
       }
+
       // Frame pixels to the screen's, at the camera's half size.
       const screen = { x: point.x / 2, y: point.y / 2 }
       // @ts-expect-error The bundle's global.
@@ -129,6 +138,7 @@ function pasteAt(chain: string[], point: { x: number; y: number }) {
       const pasted = here.pasteHere(container, [card], measured, container.states[0])
       const parent = find(pasted.container.root, measured.layout)
       const siblings = (measured.slot ? parent?.slots?.[measured.slot] : parent?.children) ?? []
+
       return {
         layout: measured.layout,
         slot: measured.slot,
@@ -186,6 +196,7 @@ describe("paste here, measured in a frame", () => {
       const host = document.querySelector<HTMLElement>("#host")!
       const camera = document.querySelector<HTMLElement>("#camera")!
       const stats = container.root.children[0]!
+
       const hit = {
         entry: { key: "app.par#dashboard", path: "app.par", container },
         host,
@@ -194,14 +205,17 @@ describe("paste here, measured in a frame", () => {
         chain: [container.root, stats],
         path: ["root", "stats"]
       }
+
       // @ts-expect-error The bundle's global.
       const measures = new here.HereMeasures()
       // @ts-expect-error The bundle's global.
       const children = (x: number) => here.measureHere(hit, { x, y: 25 }, 4, measures).children.length
+
       const hide = (id: string) => {
         const cell = host.shadowRoot!.querySelector<HTMLElement>(`[data-canvas-node="${id}"]`)!
         cell.style.display = "none"
       }
+
       const first = children(100)
       // Hidden after it was measured: the drag goes on with what was measured, at another point in the same grid.
       hide("revenue")
@@ -209,8 +223,10 @@ describe("paste here, measured in a frame", () => {
       // Panned, so the frame is somewhere else on screen: measured again.
       camera.style.transform = "translate(10px, 0) scale(0.5)"
       const panned = children(170)
+
       return { first, kept, panned }
     }, container)
+
     expect(counts).toEqual({ first: 4, kept: 4, panned: 3 })
   })
 

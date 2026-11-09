@@ -31,6 +31,7 @@ export interface LabelRoom {
 
 /** The smallest a name gets, as a share of its screen size. */
 const smallestName = 0.6
+
 /** Detail has faded out by this zoom, from `shrinkBelow`. */
 const detailGone = 0.25
 
@@ -55,8 +56,13 @@ export const smallestLabelled = 24
 export function labelLook(kind: LabelKind, zoom: number, room: LabelRoom = {}): LabelLook {
   const shrunk = Math.min(1, zoom / shrinkBelow)
   const roomy = [room.width, room.height].every((side) => side === undefined || side * zoom >= smallestLabelled)
-  if (kind === "name") return { scale: Math.max(smallestName, shrunk), opacity: roomy ? 1 : 0 }
+
+  if (kind === "name") {
+    return { scale: Math.max(smallestName, shrunk), opacity: roomy ? 1 : 0 }
+  }
+
   const faded = Math.min(1, Math.max(0, (zoom - detailGone) / (shrinkBelow - detailGone)))
+
   return { scale: shrunk, opacity: roomy ? faded : 0 }
 }
 
@@ -72,5 +78,50 @@ export function labelLook(kind: LabelKind, zoom: number, room: LabelRoom = {}): 
  */
 export function stateLabelSpace(height: number, captioned: boolean): number {
   const { caption, rowDivider } = boardLayoutAt(shrinkBelow)
+
   return (captioned ? caption : 0) + height + rowDivider.before + rowDivider.line + rowDivider.after
+}
+
+/** Where a board sits on the canvas, in page pixels. */
+export interface BoardBox {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** How tall a board's title is at screen size, with the gap below it. */
+const titleHeight = 42
+
+/** The screen pixels a title that reaches past its board keeps clear of the next board. */
+const titleClearance = 8
+
+/**
+ * How wide a board's title may be on the canvas, in page pixels, at a zoom, once it draws at `scale` of its screen
+ * size (see `labelLook`): to the next board to its right, short of `titleClearance` on screen, where that board or its
+ * own title is level with this title. So zoomed out, a narrow board's name runs into the free canvas beside it rather
+ * than truncating at the board's edge, and stops before it would cross another board or that board's name. It's never
+ * narrower than the board, and `undefined` with nothing level to its right, where the name can run its full length.
+ *
+ * Titles sit above their boards, `titleHeight` tall on screen, which is more of the canvas the further out it's zoomed,
+ * so what's level depends on the zoom.
+ */
+export function titleReach(
+  board: BoardBox,
+  others: readonly BoardBox[],
+  zoom: number,
+  scale: number
+): number | undefined {
+  const band = (titleHeight * scale) / zoom
+  const top = board.y - band
+
+  const next = others
+    .filter((other) => other.x > board.x && other.y - band < board.y && other.y + other.h > top)
+    .reduce((nearest, other) => Math.min(nearest, other.x), Infinity)
+
+  if (next === Infinity) {
+    return undefined
+  }
+
+  return Math.max(board.w, next - board.x - titleClearance / zoom)
 }

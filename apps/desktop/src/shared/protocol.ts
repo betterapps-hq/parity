@@ -134,12 +134,14 @@ export interface ServiceMethods {
   /** The bitmap as a data URL, a lossless WebP as it's kept (PAR-535), and the frame's height kept with it. */
   "frames.capture": { params: { job: RenderJob; height?: number }; result: { src?: string; height?: number } }
   /**
-   * The bitmap of a frame kept on disk from an earlier capture of the same job with the same code, if there is one
-   * (PAR-158). It's asked for before anything is captured, so a project opened again shows its frames zoomed out at once.
-   * `height` is the frame's height as it was captured, in its own CSS pixels, which a frame that hasn't drawn yet takes
-   * while it shows the bitmap (PAR-179).
+   * The bitmaps of frames kept on disk from earlier captures of the same jobs with the same code, where there are any
+   * (PAR-158), in the jobs' order. They're asked for before anything is captured, so a project opened again shows its
+   * frames zoomed out at once. The frames a canvas mounts ask together, with their jobs as JSON text (`RenderJob[]`),
+   * since text crosses the preload bridge and the port as one copy, where the jobs' trees as objects took about 0.14 s of
+   * the window's thread (PAR-759). `height` is the frame's height as it was captured, in its own CSS pixels, which a
+   * frame that hasn't drawn yet takes while it shows the bitmap (PAR-179).
    */
-  "frames.stored": { params: { job: RenderJob }; result: { src?: string; height?: number } }
+  "frames.stored": { params: { jobs: string }; result: { kept: { src?: string; height?: number }[] } }
   /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
   "frames.clearStored": { params: undefined; result: undefined }
   /**
@@ -221,7 +223,7 @@ export interface ProjectProcess {
   id: string
   kind: ServerKind | TaskKind
   /** A server runs until it's stopped; a task runs once and finishes with a result. */
-  shape: "server" | "task"
+  lifetime: "server" | "task"
   name: string
   /** The open project it runs for. */
   projectId: string
@@ -276,6 +278,8 @@ export interface WindowMethods {
   "agent.iconNames": { params: { tab: string; set: string; module?: string }; result: IconNames }
   /** Whether the browser takes each value for its CSS property, for checking an agent's `SetTokens` (PAR-584). */
   "agent.supports": { params: { property: string; value: string }[]; result: boolean[] }
+  /** The window's replay, sent so far, and trace, which an agent's report is tied to (PAR-646). */
+  "agent.reportIds": { params: undefined; result: { replayId?: string; traceId?: string } }
   /** A project file changed on disk, not by this window. */
   "project.fileChanged": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
   /**
@@ -308,9 +312,14 @@ export type Answer<Result> = { result: Result } | { error: string; details?: unk
 export type ServeAnswer = Answer<unknown>
 
 export type ServiceMethod = keyof ServiceMethods
+
 export type WindowMethod = keyof WindowMethods
 
+/** What the service sends with any of the window's methods. */
+export type WindowParams = WindowMethods[WindowMethod]["params"]
+
 /** The window's methods by name, for the preload script, which answers each through the page's one handler. */
+// SAFETY: `satisfies` checks the object has exactly one key for each window method, so its keys are those methods.
 export const windowMethods = Object.keys({
   "agent.tabs": true,
   "agent.copy": true,
@@ -321,6 +330,7 @@ export const windowMethods = Object.keys({
   "agent.open": true,
   "agent.iconNames": true,
   "agent.supports": true,
+  "agent.reportIds": true,
   "project.fileChanged": true,
   "project.componentsChanged": true,
   "project.guestMoved": true,
@@ -376,6 +386,8 @@ export interface ProblemReportRequest {
   afterCrash: boolean
   replayId?: string
   traceId?: string
+  /** The Sentry event of the error a part of the window caught, when the report is sent from its fallback (PAR-704). */
+  eventId?: string
 }
 
 /** Exposed on `window.canvasHost` by the preload script. */
@@ -409,7 +421,9 @@ export interface CanvasHost {
    * `accountState` in `shared/account.ts` as it arrives.
    */
   account: {
+    // oxlint-disable-next-line anti-slop/no-unknown-returns -- account state as main sends it, which the window checks as it arrives
     get: () => Promise<unknown>
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- account state as main sends it, which the window checks as it arrives
     subscribe: (listener: (state: unknown) => void) => () => void
     signIn: (request: SignInRequest) => Promise<void>
     /** Opens the waiting sign-in's page in the browser again. */
@@ -436,7 +450,7 @@ export interface CanvasHost {
     trace?: TraceHeaders
   ): Promise<Answer<ServiceMethods[M]["result"]>>
   /** Answers the service's requests. One handler per window. */
-  serve(handler: (method: WindowMethod, params: unknown) => Promise<ServeAnswer>): void
+  serve(handler: (method: WindowMethod, params: WindowParams) => Promise<ServeAnswer>): void
   /**
    * Runs when the window is connected to a fresh project service, after the old one was restarted: its projects need
    * opening again. Requests the old service hadn't answered fail.

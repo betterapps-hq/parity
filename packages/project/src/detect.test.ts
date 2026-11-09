@@ -1,6 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import type { JsonValue } from "@parity-app/core/schema"
+import { isText } from "@parity-app/core/values/evaluate"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
 import { findLockfiles } from "./lockfile.ts"
@@ -8,10 +10,10 @@ import { findLockfiles } from "./lockfile.ts"
 let root: string
 
 /** Writes a fixture folder: each key a path under the root, each value its JSON or text. */
-async function fixture(files: Record<string, unknown>) {
+async function fixture(files: Record<string, JsonValue>) {
   for (const [path, content] of Object.entries(files)) {
     await mkdir(dirname(join(root, path)), { recursive: true })
-    await writeFile(join(root, path), typeof content === "string" ? content : JSON.stringify(content))
+    await writeFile(join(root, path), isText(content) ? content : JSON.stringify(content))
   }
 }
 
@@ -126,13 +128,13 @@ describe("addCommand", () => {
 })
 
 describe("cutoff", () => {
-  const vite = {
+  const vite: Parameters<typeof cutoff>[0] = {
     majors: [
       [5, "2023-11-16"],
       [6, "2024-11-26"],
       [7, "2025-06-24"],
       [8, "2026-03-12"]
-    ] as [number, string][]
+    ]
   }
 
   it("drops a major two years after its own release", () => {
@@ -158,12 +160,14 @@ describe("detectProject", () => {
       ...installed("vite", "8.3.5"),
       ...installed("tailwindcss", "4.3.3")
     })
+
     const detection = await detectProject(
       root,
       pkg,
       { id: "vite", detection: { found: true, version: "8.3.5", config: "vite.config.cts", summary: "" } },
       today
     )
+
     expect(detection.packageManager.agent).toBe("pnpm")
     expect(detection.tools.map((tool) => tool.summary)).toEqual([
       "React 19.2.0 from node_modules/react",
@@ -179,6 +183,7 @@ describe("detectProject", () => {
       dependencies: { react: "^18.2.0" },
       devDependencies: { vite: "^5.0.0", tailwindcss: "^3.4.0", storybook: "^8.0.0" }
     }
+
     await fixture({
       "package.json": pkg,
       ...installed("react", "18.3.1"),

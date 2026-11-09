@@ -84,6 +84,7 @@ export interface OpenedProject {
 export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
   const { config } = opened
   const modes = opened.documents.find((entry) => entry.path === opened.mainDocument)?.document?.modes
+
   return {
     id: opened.root,
     root: opened.root,
@@ -94,8 +95,8 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
     theme: opened.styles.theme,
     guestUrl: opened.guestUrl,
     libraries: config.libraries,
-    ...(config.storybook ? { storybook: config.storybook } : {}),
-    ...(config.describedTokens ? { describedTokens: config.describedTokens } : {}),
+    storybook: config.storybook,
+    describedTokens: config.describedTokens,
     notes: config.notes,
     detection: opened.detection,
     documents: opened.documents,
@@ -107,6 +108,7 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
 /** An open project's info with its component list as it is now. */
 export function withComponentList(info: OpenedProjectInfo, list: ComponentList): ProjectInfo {
   const { sources, leftOut } = list
+
   return { ...info, sources, componentCount: Object.keys(sources).length, leftOut }
 }
 
@@ -117,23 +119,30 @@ export function withComponentList(info: OpenedProjectInfo, list: ComponentList):
  */
 export function pickMainDocument(documents: string[], name: string): string {
   const library = (path: string) => path.endsWith(libraryManifestExtension)
+
   const found =
     documents.find((path) => !path.includes("/") && !library(path)) ??
     documents.find(library) ??
     documents.find((path) => !library(path))
-  if (found) return found
+
+  if (found) {
+    return found
+  }
+
   const slug = name
     .split("/")
     .at(-1)!
     .toLowerCase()
     .replaceAll(/[^a-z0-9-]+/g, "-")
     .replaceAll(/^-|-$/g, "")
+
   return `${slug || "project"}.par`
 }
 
 /** A project file's designs: a `.par` is them, and a library's `.lib.par` keeps them in its `canvas`. */
 export function readDesigns(path: string, text: string): CanvasDocument {
   const value: unknown = JSON.parse(text)
+
   return path.endsWith(libraryManifestExtension)
     ? libraryCanvas(parseLibraryManifest(value))
     : parseCanvasDocument(value)
@@ -144,9 +153,13 @@ export function readDesigns(path: string, text: string): CanvasDocument {
  * whose name starts with the root's, as `D:\shop-old` for `D:\shop`, isn't inside it.
  */
 export function documentTarget(root: string, path: string): string | undefined {
-  if (!path.endsWith(".par")) return undefined
+  if (!path.endsWith(".par")) {
+    return undefined
+  }
+
   const target = resolve(root, path)
   const inside = relative(root, target)
+
   return inside && !inside.startsWith("..") && !isAbsolute(inside) ? target : undefined
 }
 
@@ -160,13 +173,27 @@ export function projectFileChange(
   path: string,
   { componentExtensions, configInput }: { componentExtensions: readonly string[]; configInput: boolean }
 ): "config" | "component" | "document" | undefined {
-  if (configInput) return "config"
+  if (configInput) {
+    return "config"
+  }
+
   const parts = path.split("/")
-  if (parts.includes("node_modules")) return undefined
+
+  if (parts.includes("node_modules")) {
+    return undefined
+  }
+
   if (componentExtensions.some((extension) => path.endsWith(extension))) {
     return parts.some((part) => part.startsWith(".")) ? undefined : "component"
   }
-  if (!path.endsWith(".par")) return undefined
-  if (path.endsWith(libraryManifestExtension) && path.includes("/")) return undefined
+
+  if (!path.endsWith(".par")) {
+    return undefined
+  }
+
+  if (path.endsWith(libraryManifestExtension) && path.includes("/")) {
+    return undefined
+  }
+
   return "document"
 }

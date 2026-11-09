@@ -24,31 +24,47 @@ interface Answer {
   thread: number
 }
 
+/** What the echo worker is asked to do before it answers, as its comment above says. */
+interface EchoParams {
+  wait?: number
+  fail?: string
+  crash?: boolean
+  exit?: number
+}
+
 /** The echo worker's one method. */
 interface EchoMethods {
-  echo: { params: Record<string, unknown>; result: Answer }
+  echo: { params: EchoParams; result: Answer }
 }
 
 const stops: Array<() => void> = []
 
 afterEach(() => {
-  for (const stop of stops.splice(0)) stop()
+  for (const stop of stops.splice(0)) {
+    stop()
+  }
 })
 
 function setup(options: Partial<WorkerClientOptions> = {}) {
   let stoppedIdle = 0
   const waiting: Array<() => void> = []
+
   const client = workerClient<EchoMethods>({
     start: () => new Worker(echo, { eval: true }),
     idleMs: 40,
     stopped: () => {
       stoppedIdle++
-      for (const resolve of waiting.splice(0)) resolve()
+
+      for (const resolve of waiting.splice(0)) {
+        resolve()
+      }
     },
     ...options
   })
+
   stops.push(() => client.stop(new Error("The test ended")))
-  const ask = (message: Record<string, unknown> = {}) => client.request("echo", message)
+  const ask = (message: EchoParams = {}) => client.request("echo", message)
+
   return {
     client,
     ask,
@@ -89,11 +105,11 @@ describe("workerClient", () => {
 
   it("sends a request made while the old worker is stopping to a new one", async () => {
     // Asked for the moment the idle worker is told to stop, before it has.
-    let send: (request: Promise<unknown>) => void = () => undefined
-    const during = new Promise<unknown>((resolve) => (send = resolve))
+    let send: (request: Promise<Answer>) => void = () => undefined
+    const during = new Promise<Answer>((resolve) => (send = resolve))
     const { client, ask } = setup({ stopped: () => send(client.request("echo", {})) })
     const first = await ask()
-    const answer = (await during) as Answer
+    const answer = await during
     expect(answer.answered).toBe(1)
     expect(answer.thread).not.toBe(first.thread)
     expect(client.running).toBe(true)

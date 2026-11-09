@@ -415,3 +415,22 @@ export interface DiscardedNode {
   /** Variant options, as `param=option`. */
   variants?: string[]
 }
+
+/** A problem an agent reports (PAR-646), as the app sends it on to Sentry: what's wrong, what it's about, and frames. */
+export interface AgentReport {
+  message: string
+  /** What it's about, as Sentry tags: tab, design, state, node and test_run, where known. */
+  tags: Record<string, string>
+  /** The frames of the design it names, as PNG files to attach. */
+  frames: { name: string; png: string }[]
+}
+
+/** The Sentry user feedback a report became. */
+export interface ReportSent {
+  feedbackId: string
+  link: string
+  traceId?: string
+  replayId?: string
+  /** The files that went with it, by name. */
+  attachments: string[]
+}

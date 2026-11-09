@@ -8,6 +8,7 @@ import {
   finiteNumber,
   type InvalidData,
   jsonText,
+  type JsonValue,
   nonBlankString,
   onInvalidData,
   parseData,
@@ -15,12 +16,17 @@ import {
   plainObject
 } from "./schema.ts"
 
-function thrown(run: () => unknown): unknown {
+function thrown(run: () => void): Error {
   try {
     run()
   } catch (error) {
-    return error
+    if (error instanceof Error) {
+      return error
+    }
+
+    throw error
   }
+
   throw new Error("Expected it to throw")
 }
 
@@ -35,7 +41,7 @@ describe("parseData", () => {
   })
 
   it("throws a TypeError naming the first problem by its JSON pointer, in the words of core's old validate.ts", () => {
-    const fails = (schema: z.ZodType, value: unknown) => () => parseData(schema, value)
+    const fails = (schema: z.ZodType, value: JsonValue) => () => parseData(schema, value)
     expect(fails(plainObject, [])).toThrow(new TypeError("/: expected an object"))
     expect(fails(z.object({ list: z.array(z.object({ on: z.boolean() })) }), { list: [{ on: 1 }] })).toThrow(
       "/list/0/on: expected true or false"
@@ -59,10 +65,12 @@ describe("parseData", () => {
   it("says which kinds a union takes, or follows the option that came closest", () => {
     expect(() => parseData(node, { type: "image" })).toThrow('/type: expected one of "layout", "text"')
     expect(() => parseData(z.union([z.string(), z.number()]), true)).toThrow("/: expected a string or a number")
+
     const either = z.union([
       z.object({ kind: z.literal("size"), width: z.number() }),
       z.object({ kind: z.literal("ratio"), ratio: z.number() })
     ])
+
     expect(() => parseData(either, { kind: "ratio", ratio: "16/9" })).toThrow("/ratio: expected a number")
   })
 
@@ -132,6 +140,7 @@ describe("packageManifest", () => {
       "./styles/*": ["./dist/*.css", "./src/*.css"],
       "./internal/*": null
     }
+
     expect(parseData(packageManifest, { exports }).exports).toEqual(exports)
     expect(parseData(packageManifest, { exports: "./index.js" }).exports).toBe("./index.js")
     expect(() => parseData(packageManifest, { exports: { ".": { import: 1 } } })).toThrow("/exports")
@@ -178,10 +187,12 @@ describe("onInvalidData", () => {
 
   it("names a schema by its description when it has no id, and a listener that throws changes nothing", () => {
     const names: string[] = []
+
     const stop = onInvalidData((failure) => {
       names.push(failure.schema)
       throw new Error("The listener broke")
     })
+
     expect(() => parseData(z.string().describe("A name"), 1)).toThrow("/: expected a string")
     stop()
     expect(names).toEqual(["A name"])

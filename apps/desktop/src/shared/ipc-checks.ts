@@ -69,19 +69,20 @@ export const consoleAnnouncement = z.strictObject({
 export const consoleOrigin = z.url()
 
 /** `handler` with its argument checked by `schema` first, so a bad one never reaches it. */
-/** A report from Help > Report a problem (PAR-635): what happened, and the IDs that tie it to the window's replay and trace. */
+/** A Sentry ID: a replay's, a trace's or an event's, 32 lowercase hex digits. */
+const sentryId = z.string().regex(/^[0-9a-f]{32}$/)
+
+/**
+ * A report from Help > Report a problem (PAR-635): what happened, and the IDs that tie it to the window's replay and
+ * trace, and to the error a part of the window caught when it's sent from that part's fallback (PAR-704).
+ */
 export const problemReport = z.strictObject({
   message: nonBlankString,
   screenshot: z.boolean(),
   afterCrash: z.boolean(),
-  replayId: z
-    .string()
-    .regex(/^[0-9a-f]{32}$/)
-    .optional(),
-  traceId: z
-    .string()
-    .regex(/^[0-9a-f]{32}$/)
-    .optional()
+  replayId: sentryId.optional(),
+  traceId: sentryId.optional(),
+  eventId: sentryId.optional()
 })
 
 export type ProblemReport = z.infer<typeof problemReport>
@@ -89,6 +90,7 @@ export type ProblemReport = z.infer<typeof problemReport>
 export function checked<Event, Schema extends z.ZodType, Result>(
   schema: Schema,
   handler: (event: Event, argument: z.output<Schema>) => Result
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent over IPC, parsed here
 ): (event: Event, argument: unknown) => Result {
   return (event, argument) => handler(event, parseData(schema, argument))
 }

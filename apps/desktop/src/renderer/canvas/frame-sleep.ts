@@ -43,25 +43,40 @@ export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: 
   const awake = slept === undefined
   const changed = !awake && slept !== shows
   useEffect(() => {
-    if (!rest) return undefined
+    if (!rest) {
+      return undefined
+    }
+
     if (awake) {
-      if (!canSleep) return undefined
+      if (!canSleep) {
+        return undefined
+      }
+
       // It falls asleep just after the effects run, not while they do. Waking a project's frames one by one, each
       // falling asleep from its effect kept React's effect pass scheduling another render dozens of times in a row,
       // which React's development build reports as "Maximum update depth exceeded" (PAR-606).
       let live = true
+
       const stop = react("frame sleeps", () => {
-        if (!rest.dormant.get()) return
+        if (!rest.dormant.get()) {
+          return
+        }
+
         queueMicrotask(() => {
-          if (live && rest.dormant.get()) setSlept(shows)
+          if (live && rest.dormant.get()) {
+            setSlept(shows)
+          }
         })
       })
+
       return () => {
         live = false
         stop()
       }
     }
+
     let cancel: (() => void) | undefined
+
     const stop = react("frame wakes", () => {
       if (changed || (rest.near.get() && !(canSleep && rest.dormant.get()))) {
         cancel ??= wakeSoon(() => setSlept(undefined))
@@ -70,17 +85,20 @@ export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: 
         cancel = undefined
       }
     })
+
     return () => {
       stop()
       cancel?.()
     }
   }, [awake, canSleep, rest, shows, changed])
+
   return awake
 }
 
 function wakeSoon(wake: () => void): () => void {
   waking.add(wake)
   frame ||= requestAnimationFrame(wakeNext)
+
   return () => {
     waking.delete(wake)
   }
@@ -89,8 +107,15 @@ function wakeSoon(wake: () => void): () => void {
 function wakeNext(): void {
   frame = 0
   const [next] = waking
-  if (!next) return
+
+  if (!next) {
+    return
+  }
+
   waking.delete(next)
   next()
-  if (waking.size > 0) frame = requestAnimationFrame(wakeNext)
+
+  if (waking.size > 0) {
+    frame = requestAnimationFrame(wakeNext)
+  }
 }

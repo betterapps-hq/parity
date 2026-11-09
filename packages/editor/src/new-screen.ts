@@ -9,6 +9,7 @@ import {
   withFreshIds
 } from "@parity-app/core"
 import { fitBindings } from "./clipboard.ts"
+import type { NewFrame } from "./frames.ts"
 import { componentLabel, type InsertContext, insertIntoDesign, type InsertItem } from "./insert.ts"
 
 /**
@@ -41,10 +42,18 @@ export type DesignName = (id: string) => string | undefined
  */
 export function layersName(nodes: readonly DesignNode[], designName?: DesignName): string {
   const [first] = nodes
-  if (!first) return "Untitled frame"
-  if (nodes.length > 1 && nodes.every((node) => node.type === "image")) return "Images"
+
+  if (!first) {
+    return "Untitled frame"
+  }
+
+  if (nodes.length > 1 && nodes.every((node) => node.type === "image")) {
+    return "Images"
+  }
+
   const name =
     first.type === "component" && !first.name ? componentLabel(first.component) : nodeLabel(first, designName)
+
   return nodes.length === 1 ? name : `${name} and ${nodes.length - 1} more`
 }
 
@@ -65,6 +74,7 @@ export function designOfLayers(
   const rootId = generateId(ids)
   ids.add(rootId)
   const name = layersName(nodes, designName)
+
   const design: ContainerSpec = {
     id: uniqueId(name, taken),
     name,
@@ -73,7 +83,9 @@ export function designOfLayers(
     root: { type: "layout", id: rootId, style: { ...landedStyle }, children: [] },
     states: [{ id: "default", name: "Default" }]
   }
+
   const children = nodes.map((node) => withFreshIds(fitBindings(node, design), ids))
+
   return { ...design, root: { type: "layout", id: rootId, style: { ...landedStyle }, children } }
 }
 
@@ -88,10 +100,11 @@ export function designOfItem(
   taken: Iterable<string>,
   at: { x: number; y: number },
   designName?: DesignName
-): { design: ContainerSpec; node: string } {
+): NewFrame {
   const empty = designOfLayers([], [], at)
   const { container, node } = insertIntoDesign(empty, { parent: empty.root.id }, item, context)
   const placed = findNode(container.root, node)
   const name = layersName(placed ? [placed] : [], designName)
+
   return { design: { ...container, id: uniqueId(name, taken), name }, node }
 }

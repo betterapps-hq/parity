@@ -8,20 +8,30 @@ let open: AppDialog | undefined
 const listeners = new Set<() => void>()
 
 export function openDialog(dialog: AppDialog): void {
-  if (open !== dialog) recordInterface("dialog.opened", { dialog })
+  if (open !== dialog) {
+    recordInterface("dialog.opened", { dialog })
+  }
+
   open = dialog
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 export function closeDialog(): void {
   open = undefined
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 export function useOpenDialog(): AppDialog | undefined {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => open

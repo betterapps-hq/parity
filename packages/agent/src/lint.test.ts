@@ -35,6 +35,7 @@ describe("lintDocument", () => {
         { type: "component" as const, id: "heart", component: "lucide/Heart" }
       ]
     }
+
     expect(lintDocument(design(root), context)).toEqual([])
   })
 
@@ -50,10 +51,12 @@ describe("lintDocument", () => {
         { type: "instance" as const, id: "nav", design: "navbar" }
       ]
     }
+
     const states = [
       { id: "default", name: "Default" },
       { id: "dark", name: "Dark", overrides: { page: { style: { border: "ink" } } } }
     ]
+
     expect(lintDocument(design(root, states), context)).toEqual([
       {
         category: "not_a_token",
@@ -89,6 +92,7 @@ describe("lintDocument", () => {
         { type: "component" as const, id: "old", component: "Button", props: { variant: "ghost" } }
       ]
     }
+
     const found = lintDocument(design(root), { ...context, inserted: new Set(["page", "save"]) })
     expect(found.map((warning) => [warning.category, warning.at])).toEqual([
       ["unnamed_layout", "home/page"],

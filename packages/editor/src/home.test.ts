@@ -8,11 +8,11 @@ import {
 import { describe, expect, it } from "vite-plus/test"
 import { homeComponent, homeScreen, openingDesigns } from "./home.ts"
 
-const viteApp: Record<string, ComponentSource> = {
+const viteApp = {
   Button: { path: "src/components/ui/button.tsx", export: "Button" },
   Card: { path: "src/components/Card.tsx", export: "Card", lazy: true, as: "function" },
   App: { path: "src/App.tsx", export: "App", lazy: true, as: "function" }
-}
+} satisfies Record<string, ComponentSource>
 
 describe("the designs a project opens with", () => {
   it("puts a Home screen in the main file when the project has no file yet", () => {
@@ -25,10 +25,12 @@ describe("the designs a project opens with", () => {
 
   it("opens a project's own files as they are, and none of them broken ones", () => {
     const document: CanvasDocument = { version: 3, containers: [] }
+
     const files = [
       { path: "shop.par", document },
       { path: "flows/broken.par", error: "Unexpected token" }
     ]
+
     expect(openingDesigns(files, "shop.par", viteApp, defaultModeSettings)).toEqual([{ path: "shop.par", document }])
   })
 
@@ -77,6 +79,7 @@ describe("the Home screen", () => {
         { id: "mobile-light", name: "Mobile Light", values: { viewport: "mobile", theme: "light" } }
       ]
     }
+
     expect(homeScreen(viteApp, modes).view).toEqual({ modes: ["mobile-light"] })
   })
 
@@ -89,6 +92,7 @@ describe("the Home screen", () => {
         { id: "desktop-light", name: "Desktop Light", values: { viewport: "desktop", theme: "light" } }
       ]
     }
+
     expect(homeScreen(viteApp, modes).view).toEqual({ modes: ["desktop-light"] })
   })
 
@@ -100,6 +104,7 @@ describe("the Home screen", () => {
         { id: "desktop-dark", name: "Desktop Dark", values: { viewport: "desktop", theme: "dark" } }
       ]
     }
+
     expect(homeScreen(viteApp, modes)).not.toHaveProperty("view")
   })
 })
@@ -112,6 +117,7 @@ describe("what renders the app's `/`", () => {
       HomePage: { path: "src/app/page.tsx", export: "default" },
       OrdersPage: { path: "src/app/orders/page.tsx", export: "default" }
     }
+
     expect(homeComponent(next)).toBe("HomePage")
     expect(homeComponent({ ...viteApp, Index: { path: "src/pages/index.tsx", export: "default" } })).toBe("Index")
     expect(homeComponent({ ...viteApp, Home: { path: "src/routes/index.tsx", export: "Home" } })).toBe("Home")
@@ -127,15 +133,18 @@ describe("what renders the app's `/`", () => {
       ErrorBoundary: { path: "app/routes/index.tsx", export: "ErrorBoundary" },
       Index: { path: "app/routes/index.tsx", export: "default" }
     }
+
     expect(homeComponent(remix)).toBe("Index")
   })
 
   it("is App, by its export or its file, the one nearest the root", () => {
     expect(homeComponent({ App: { path: "src/App.tsx", export: "default" } })).toBe("App")
+
     const two = {
       "admin/App": { path: "src/admin/App.tsx", export: "App" },
       App: { path: "src/App.tsx", export: "App" }
     }
+
     expect(homeComponent(two)).toBe("App")
   })
 

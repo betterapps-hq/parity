@@ -33,7 +33,10 @@ export function findLayer(
   id: string,
   state?: StateSpec
 ): DesignNode | undefined {
-  if (!isInnerPath(id)) return findNode(container.root, id)
+  if (!isInnerPath(id)) {
+    return findNode(container.root, id)
+  }
+
   return locateInner(container, id, projectLibrary(store), { state, variants: container.view?.variants })?.shown
 }
 
@@ -65,11 +68,19 @@ export function resetLayer(
 
 /** The layer a layer sits in, inside instances too, where the component's root stands for the instance itself. */
 export function parentLayer(store: DesignStore, container: ContainerSpec, id: string): string | undefined {
-  if (!isInnerPath(id)) return locateNode(container.root, id)?.ancestors.at(-1)?.id
+  if (!isInnerPath(id)) {
+    return locateNode(container.root, id)?.ancestors.at(-1)?.id
+  }
+
   const inner = locateInner(container, id, projectLibrary(store))
-  if (!inner) return undefined
+
+  if (!inner) {
+    return undefined
+  }
+
   const holder = id.slice(0, id.lastIndexOf("/"))
   const parent = inner.location.ancestors.at(-1)
+
   return !parent || parent.id === inner.component.root.id ? holder : `${holder}/${parent.id}`
 }
 
@@ -86,11 +97,19 @@ export function siblingLayer(
   const inner = isInnerPath(id) ? locateInner(container, id, projectLibrary(store)) : undefined
   const location = inner ? inner.location : locateNode(container.root, id)
   const parent = location?.ancestors.at(-1)
-  if (!location || !parent) return undefined
+
+  if (!location || !parent) {
+    return undefined
+  }
+
   const siblings = childNodes(parent)
   const index = siblings.findIndex((node) => node.id === location.node.id)
   const next = siblings[(index + step + siblings.length) % siblings.length]
-  if (!next || next.id === location.node.id) return undefined
+
+  if (!next || next.id === location.node.id) {
+    return undefined
+  }
+
   return inner ? `${id.slice(0, id.lastIndexOf("/"))}/${next.id}` : next.id
 }
 
@@ -101,11 +120,18 @@ export function siblingLayer(
 export function childLayers(store: DesignStore, container: ContainerSpec, id: string): string[] {
   const library = projectLibrary(store)
   const node = isInnerPath(id) ? locateInner(container, id, library)?.node : findNode(container.root, id)
-  if (!node) return []
+
+  if (!node) {
+    return []
+  }
+
   if (node.type === "instance") {
     const root = library.get(node.design)?.root
+
     return root ? childNodes(root).map((child) => `${id}/${child.id}`) : []
   }
+
   const prefix = isInnerPath(id) ? id.slice(0, id.lastIndexOf("/") + 1) : ""
+
   return childNodes(node).map((child) => `${prefix}${child.id}`)
 }

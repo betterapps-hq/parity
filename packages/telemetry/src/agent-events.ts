@@ -1,4 +1,5 @@
 import { z } from "zod"
+import type { Attributes } from "./envelope.ts"
 import { defineEvent } from "./events.ts"
 import { createScrubber, type Scrubber } from "./scrub.ts"
 import { errorCode, type SpanEnd } from "./trace.ts"
@@ -13,6 +14,7 @@ const count = (meaning: string) => z.number().int().nonnegative().describe(meani
 
 /** How an agent reached the app: the `parity` command, or the MCP server it serves. */
 export const agentTransports = ["cli", "mcp"] as const
+
 export type AgentTransport = (typeof agentTransports)[number]
 
 export const agentCalled = defineEvent(
@@ -113,13 +115,47 @@ function cut(text: string, limit: number): string {
   return text.length > limit ? `${text.slice(0, limit)}…` : text
 }
 
-function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined
-}
+/** Text with something besides spaces in it, as given, or nothing for anything else. */
+const someText = z
+  .string()
+  .refine((value) => value.trim() !== "")
+  .optional()
+  .catch(undefined)
 
-const text = (value: unknown) => (typeof value === "string" && value.trim() ? value : undefined)
+/** What a call's body says, each part read when it's the kind expected. */
+const callBody = z.object({
+  method: someText,
+  agent: someText,
+  client: someText,
+  transport: z.enum(agentTransports).optional().catch(undefined),
+  params: z.record(z.string(), z.json()).optional().catch(undefined)
+})
+
+/** What a failure's `details` says: its code, whether to retry, and the alternatives it offers. */
+const failureDetails = z
+  .object({
+    code: someText,
+    retryable: z.boolean().optional().catch(undefined),
+    alternatives: z.array(z.unknown()).optional().catch(undefined)
+  })
+  .catch({})
+
+/** A warning group's category and how many places it has, when they're the kinds expected. */
+const warningGroup = z
+  .object({ category: z.string().optional().catch(undefined), count: z.number().optional().catch(undefined) })
+  .catch({})
+
+/** The parts of an answer that its span reads. */
+const callAnswer = z
+  .object({
+    ok: z.unknown().optional(),
+    details: failureDetails.optional(),
+    warningGroups: z.array(warningGroup).optional().catch(undefined)
+  })
+  .catch({})
+
+/** The details a failed call's error carries. */
+const failedCall = z.object({ details: failureDetails.optional() }).catch({})
 
 /** Scrubs without a project's `.env` values, for callers that have none. */
 const scrubWithoutSecrets = createScrubber()
@@ -137,52 +173,81 @@ export type AgentCallStart = z.input<typeof agentCalled.schema>
  * every event gets later couldn't find it.
  */
 export function agentCallStart(body: string, scrubber: Pick<Scrubber, "value"> = scrubWithoutSecrets): AgentCallStart {
-  let sent: Record<string, unknown> | undefined
+  let read: z.ZodSafeParseResult<z.output<typeof callBody>>
+
   try {
-    sent = record(scrubber.value(JSON.parse(body) as unknown))
+    read = callBody.safeParse(scrubber.value(JSON.parse(body)))
   } catch {
-    sent = undefined
+    return { method: "unreadable", transport: "cli" }
   }
-  if (!sent) return { method: "unreadable", transport: "cli" }
-  const method = text(sent.method) ?? "unreadable"
-  const agent = text(sent.agent)
-  const client = text(sent.client)
-  let transport: AgentTransport = client === undefined ? "cli" : "mcp"
-  if (sent.transport === "cli" || sent.transport === "mcp") transport = sent.transport
-  const params = record(sent.params)
-  const snippet = method === "exec" ? text(params?.code) : undefined
+
+  if (!read.success) {
+    return { method: "unreadable", transport: "cli" }
+  }
+
+  const sent = read.data
+  const method = sent.method ?? "unreadable"
+  const { agent, client, params } = sent
+  const transport: AgentTransport = sent.transport ?? (client === undefined ? "cli" : "mcp")
+  const snippet = method === "exec" ? someText.parse(params?.code) : undefined
   const rest = snippet === undefined ? params : { ...params, code: undefined }
   const json = rest ? JSON.stringify(rest) : "{}"
   const input = json === "{}" ? undefined : cut(json, inputLimit)
-  return {
-    method,
-    transport,
-    ...(agent ? { agent: cut(agent, 80) } : {}),
-    ...(client ? { client: cut(client, 80) } : {}),
-    ...(input ? { input } : {}),
-    ...(snippet ? { snippet: cut(snippet, snippetLimit) } : {})
+  const start: AgentCallStart = { method, transport }
+
+  if (agent) {
+    start.agent = cut(agent, 80)
   }
+
+  if (client) {
+    start.client = cut(client, 80)
+  }
+
+  if (input) {
+    start.input = input
+  }
+
+  if (snippet) {
+    start.snippet = cut(snippet, snippetLimit)
+  }
+
+  return start
 }
 
 /** A failure's code, whether it says to retry and how many alternatives it offers, from its `details`. */
-function failureAttributes(details: unknown, code: string | undefined): Record<string, unknown> {
-  const { retryable, alternatives } = record(details) ?? {}
-  return {
-    ...(code ? { code } : {}),
-    ...(typeof retryable === "boolean" ? { retryable } : {}),
-    ...(Array.isArray(alternatives) ? { alternatives: alternatives.length } : {})
+function failureAttributes(
+  { retryable, alternatives }: z.output<typeof failureDetails>,
+  code: string | undefined
+): Attributes {
+  const attributes: Attributes = {}
+
+  if (code) {
+    attributes.code = code
   }
+
+  if (retryable !== undefined) {
+    attributes.retryable = retryable
+  }
+
+  if (alternatives) {
+    attributes.alternatives = alternatives.length
+  }
+
+  return attributes
 }
 
 /** The warning groups' categories with how many places each, in the order they came: `overlap:2 unknown_prop:1`. */
-function warningCategories(groups: unknown): string | undefined {
-  if (!Array.isArray(groups)) return undefined
+function warningCategories(groups: readonly z.output<typeof warningGroup>[] | undefined): string | undefined {
   const counts = new Map<string, number>()
-  for (const group of groups) {
-    const { category, count: places } = record(group) ?? {}
-    if (typeof category !== "string") continue
-    counts.set(category, (counts.get(category) ?? 0) + (typeof places === "number" ? places : 1))
+
+  for (const { category, count: places } of groups ?? []) {
+    if (category === undefined) {
+      continue
+    }
+
+    counts.set(category, (counts.get(category) ?? 0) + (places ?? 1))
   }
+
   return counts.size > 0 ? [...counts].map(([category, places]) => `${category}:${places}`).join(" ") : undefined
 }
 
@@ -190,18 +255,29 @@ function warningCategories(groups: unknown): string | undefined {
  * How an answered call's span ends: its size and warnings, and, for a snippet or screenshot that failed without
  * throwing, `error` with the failure's code, `retryable` and alternatives.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: any method's answer, which this reads
 export function agentCallAnswered(result: unknown, resultBytes: number): SpanEnd {
-  const answer = record(result)
-  const warnings = warningCategories(answer?.warningGroups)
-  const attributes: Record<string, unknown> = { resultBytes, ...(warnings ? { warnings } : {}) }
-  if (answer?.ok !== false) return { outcome: "ok", attributes }
-  const details = record(answer.details)
-  const code = text(details?.code) ?? "execution_failed"
+  const answer = callAnswer.parse(result)
+  const warnings = warningCategories(answer.warningGroups)
+  const attributes: Attributes = { resultBytes }
+
+  if (warnings) {
+    attributes.warnings = warnings
+  }
+
+  if (answer.ok !== false) {
+    return { outcome: "ok", attributes }
+  }
+
+  const details = answer.details ?? {}
+  const code = details.code ?? "execution_failed"
+
   return { outcome: "error", attributes: { ...attributes, ...failureAttributes(details, code) } }
 }
 
 /** How a failed call's span ends: its code, whether to retry, and how many alternatives it offered. */
-export function agentCallFailed(error: unknown): SpanEnd {
-  const details = record(error)?.details
-  return { outcome: "error", attributes: failureAttributes(details, errorCode(error)) }
+export function agentCallFailed(cause: unknown): SpanEnd {
+  const { details = {} } = failedCall.parse(cause)
+
+  return { outcome: "error", attributes: failureAttributes(details, errorCode(cause)) }
 }

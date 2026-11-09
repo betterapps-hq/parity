@@ -14,11 +14,13 @@ import {
 function tab(root: string, active = false): RoutedTab {
   return { id: root, name: root.split(/[\\/]/).at(-1)!, root, active }
 }
+
 function entry(app: number, startedAt: number): CopyEntry {
   return { version: 1, url: `http://127.0.0.1:${4000 + app}`, token: `token-${app}`, app, startedAt }
 }
+
 function copy(app: number, startedAt: number, tabs: RoutedTab[], focusedAt?: number): Copy {
-  return { entry: entry(app, startedAt), report: { tabs, ...(focusedAt === undefined ? {} : { focusedAt }) } }
+  return { entry: entry(app, startedAt), report: focusedAt === undefined ? { tabs } : { tabs, focusedAt } }
 }
 
 /** The person's app, started first, and a copy a session started later. */
@@ -30,6 +32,7 @@ const anywhere = "/home/person"
 
 function goes(copies: Copy[], request: Parameters<typeof route>[1]) {
   const result = route(copies, request)
+
   return result.kind === "copy" ? { app: result.copy.entry.app, tab: result.tab?.id } : result.code
 }
 
@@ -115,6 +118,17 @@ describe("route", () => {
     expect(goes([person(5000), session(6000)], { kind: "open", root: "/work/docs" })).toEqual({
       app: 20,
       tab: undefined
+    })
+  })
+
+  it("sends a report that names no tab to the copy used last when no project is open anywhere (PAR-646)", () => {
+    const empty = [person(5000, []), session(6000, [])]
+    expect(goes(empty, { kind: "tab", folder: anywhere, anyCopy: true })).toEqual({ app: 20, tab: undefined })
+    expect(goes(empty, { kind: "tab", folder: anywhere })).toBe("unknown_tab")
+    expect(goes(empty, { kind: "tab", tab: "shop", folder: anywhere, anyCopy: true })).toBe("unknown_tab")
+    expect(goes([person(5000), session(6000, [])], { kind: "tab", folder: anywhere, anyCopy: true })).toEqual({
+      app: 10,
+      tab: shop
     })
   })
 

@@ -37,6 +37,7 @@ export interface ContrastFixOptions {
 /** A color laid over an opaque one, as the text is drawn on its background. */
 export function composite(top: Rgba, bottom: Rgba): Rgba {
   const mix = (a: number, b: number) => a * top.a + b * (1 - top.a)
+
   return { r: mix(top.r, bottom.r), g: mix(top.g, bottom.g), b: mix(top.b, bottom.b), a: 1 }
 }
 
@@ -48,6 +49,7 @@ export function luminance({ r, g, b }: Rgba): number {
 /** WCAG 2's contrast ratio of text over an opaque background, with the text's alpha laid over it first. */
 export function contrastRatio(foreground: Rgba, background: Rgba): number {
   const [light, dark] = [luminance(composite(foreground, background)), luminance(background)].sort((a, b) => b - a)
+
   return (light! + 0.05) / (dark! + 0.05)
 }
 
@@ -63,29 +65,50 @@ export function contrastFix(
   const measured = frames.map((frame) => {
     const background = parseHex(frame.background)
     const foreground = parseHex(frame.foreground)
+
     return background && foreground
       ? { ...frame, background, foreground: composite(foreground, background) }
       : undefined
   })
-  if (frames.length === 0 || measured.some((frame) => !frame)) return undefined
+
+  if (frames.length === 0 || measured.some((frame) => !frame)) {
+    return undefined
+  }
+
   const names = Object.keys(frames[0]!.tokens).filter((name) => name !== options.current)
   const candidates: { token: string; ratios: number[]; distance: number; preferred: boolean }[] = []
+
   for (const token of names) {
     let distance = 0
     const ratios: number[] = []
+
     for (const frame of measured) {
       const color = parseHex(frame!.tokens[token] ?? "")
-      if (!color) break
+
+      if (!color) {
+        break
+      }
+
       const ratio = contrastRatio(color, frame!.background)
-      if (ratio < frame!.required) break
+
+      if (ratio < frame!.required) {
+        break
+      }
+
       ratios.push(Math.floor(ratio * 100) / 100)
       distance += colorDistance(composite(color, frame!.background), frame!.foreground)
     }
-    if (ratios.length < frames.length) continue
+
+    if (ratios.length < frames.length) {
+      continue
+    }
+
     candidates.push({ token, ratios, distance, preferred: options.preferred?.has(token) ?? false })
   }
+
   const best = candidates.sort(
     (a, b) => Number(b.preferred) - Number(a.preferred) || a.distance - b.distance || a.token.localeCompare(b.token)
   )[0]
+
   return best && { token: best.token, ratios: best.ratios }
 }

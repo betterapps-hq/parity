@@ -24,9 +24,13 @@ export const tailwindStyles: StylesAdapter = {
     const tailwind = await loadTailwindNode(root)
     const system = await tailwind.__unstable__loadDesignSystem(await readFile(path, "utf8"), { base: dirname(path) })
     const variables: ThemeVariable[] = []
+
     for (const [name, { value }] of system.theme.entries()) {
-      if (name.startsWith("--")) variables.push({ name: name.slice(2), value })
+      if (name.startsWith("--")) {
+        variables.push({ name: name.slice(2), value })
+      }
     }
+
     return variables
   }
 }
@@ -41,7 +45,12 @@ async function loadTailwindNode(root: string): Promise<TailwindNode> {
     const from = via ? (await findPackage(root, via))?.dir : root
     const tailwind = from && (await findPackage(from, "@tailwindcss/node"))
     const entry = tailwind && packageEntry(tailwind, "runtime")
-    if (entry) return (await import(pathToFileURL(entry).href)) as TailwindNode
+
+    if (entry) {
+      // A dynamic import is untyped; this is the project's own copy of the package `TailwindNode` describes.
+      return await import(pathToFileURL(entry).href)
+    }
   }
+
   throw new Error(`Tailwind's @tailwindcss/node is not installed in ${root}`)
 }

@@ -15,6 +15,7 @@ describe("the selection", () => {
       mode: "mobile-light",
       state: "error"
     })
+
     expect(picked).toEqual({
       design: "main/sign-in",
       node: "email",

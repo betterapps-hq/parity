@@ -38,11 +38,29 @@ jobs:
       pull-requests: write
     uses: betterapps-hq/pipelines/.github/workflows/preview-desktop.yml@main
     with:
+      # Electron is installed before the build loads it, and the installers are made, with up to 3 tries each, since
+      # GitHub's releases time out now and then (PAR-789).
+      build-command: node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron && pnpm build
+      package-command: node ../../scripts/retry.ts pnpm exec electron-builder --publish never
       build-secret-env: VITE_TLDRAW_LICENSE_KEY
       retention-days: 14
       comment: false
     secrets:
       BUILD_SECRET: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
+
+  # The template builds the installers without Sentry's token, so this builds the same commit again and uploads its maps,
+  # for the release the installers report, the commit (PAR-685). Forks get no secrets, so it skips them.
+  sourcemaps:
+    name: Source maps
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    uses: ./.github/workflows/upload-sourcemaps.yml
+    with:
+      build-command: node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron && pnpm build
+      package: apps/desktop
+      project: parity-desktop
+    secrets:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      VITE_TLDRAW_LICENSE_KEY: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
 
   storybook:
     name: Storybook

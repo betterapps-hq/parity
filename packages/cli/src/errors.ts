@@ -1,4 +1,4 @@
-import { CodedError, errorCodes, errorDetails } from "@parity-app/core/errors"
+import { CodedError, errorCodes, errorDetails, type ErrorDetails } from "@parity-app/core/errors"
 import { z } from "zod"
 
 /**
@@ -23,32 +23,51 @@ export type OperationError = z.output<typeof failure>
 
 /** A request field that isn't valid, rejected before anything reaches the app. */
 export function invalidInput(field: string | undefined, message: string): CodedError {
-  return new CodedError(message, { code: "invalid_input", ...(field ? { field } : {}) })
+  const details: ErrorDetails = { code: "invalid_input", retryable: false }
+
+  if (field) {
+    details.field = field
+  }
+
+  return new CodedError(message, details)
 }
 
 /**
  * A thrown value as an operation error. Invalid input always points at the request; a field the app names becomes a
  * path only when the operation has that input: an unknown design inside a snippet has no `design` input to point at.
  */
-export function operationError(error: unknown, fields?: readonly string[]): OperationError {
-  const message = error instanceof Error ? error.message : String(error)
-  const details = errorDetails(error) ?? { code: "app_error", retryable: false }
+export function operationError(cause: unknown, fields?: readonly string[]): OperationError {
+  const message = cause instanceof Error ? cause.message : String(cause)
+  const details = errorDetails(cause) ?? { code: "app_error", retryable: false }
   const field = details.field
+
   const known =
     field !== undefined && (details.code === "invalid_input" || !fields || fields.includes(field.split("/")[0]!))
-  return {
-    code: details.code,
-    message,
-    retryable: details.retryable,
-    ...(known ? { path: `/${field}` } : {}),
-    ...(details.alternatives?.length ? { alternatives: details.alternatives } : {})
+
+  const result: OperationError = { code: details.code, message, retryable: details.retryable }
+
+  if (known) {
+    result.path = `/${field}`
   }
+
+  if (details.alternatives?.length) {
+    result.alternatives = details.alternatives
+  }
+
+  return result
 }
 
 /** Renames the top-level field a path points at, for an adapter whose names differ from the contract's. */
 export function renamePath(error: OperationError, names: Record<string, string>): OperationError {
-  if (!error.path) return error
+  if (!error.path) {
+    return error
+  }
+
   const [, first = "", ...rest] = error.path.split("/")
-  if (!Object.hasOwn(names, first)) return error
+
+  if (!Object.hasOwn(names, first)) {
+    return error
+  }
+
   return { ...error, path: ["", names[first], ...rest].join("/") }
 }

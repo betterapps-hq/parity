@@ -2,6 +2,285 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 13:05:07 GMT",
+      "version": "0.31.0",
+      "tag": "@parity-app/cli_v0.31.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c1d629545de2329688db91ac013bedd2655e1ff4",
+            "comment": "Duplicate lint disables are gone: one guard tells a named length from steps, the renderer keeps one set of bit helpers, and module exports are checked with instanceof Function"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "cebe1620a315a3eb7f89a30f2a0ae9ed3c981de7",
+            "comment": "The canvas draws padding and gaps in modes' green and hatches them as Figma does, only while a handle is hovered, focused or dragged, with value chips in dark text"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0aba5f352906a36662f444280c6459e9273f9ead",
+            "comment": "Publish to npm's next tag first, and report production once a version has been promoted to latest"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 12:29:45 GMT",
+      "version": "0.30.0",
+      "tag": "@parity-app/cli_v0.30.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "9f75a30063b702cc9d93219e599be6821f10950a",
+            "comment": "Rebuild the canvas toolbar: tools with menus, a review button whose Comment and annotation tools warp the toolbar into their own bars, and Zoom in its own corner"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 12:11:43 GMT",
+      "version": "0.29.1",
+      "tag": "@parity-app/cli_v0.29.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6605317673a5c9a56f127c19b56af04ea5f492da",
+            "comment": "The shared environment decision can name production, which the CLI doesn't report yet (PAR-779)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "145dfbaa2493119d05b9272394d5ced18d06ee59",
+            "comment": "Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows (PAR-788)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 10:50:18 GMT",
+      "version": "0.29.0",
+      "tag": "@parity-app/cli_v0.29.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a8fd2dfe5a0686a4969ffc5a8aaf257bb4dfc6db",
+            "comment": "Bring packages/code up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b54dd5f2ae76cb033c174c8c10f1082fbddb5eb5",
+            "comment": "Bring packages/project up to Buildkit's lint rules, with no change in behavior"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "985028a41d6f5f6d0d3408a10235ecd3243941be",
+            "comment": "Bring registry, fixtures, models, icons, account and styles-tailwind up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f5bd98d487215c2598a2911e30b85d285ba259af",
+            "comment": "Bring packages/telemetry up to Buildkit's lint rules"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "510b7ea8e2022018ade95992291d19bf8682a2f2",
+            "comment": "Reads its files, the app's answers and MCP arguments through schemas, with no change to what it prints or exits with"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "053d38576acb17c3b27137699db40cbbc1c2620b",
+            "comment": "CI sends only errors and reports to Sentry; its spans, logs and replays stay in the local copy (PAR-777)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5c6e9e74e9ecaa90acdc0943d8018b7c5f4e7ed4",
+            "comment": "Bring the tokens package up to Buildkit's lint rules, with no change in behavior"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "78c006d65e82d6d408f567c4f955c814675b3784",
+            "comment": "Exports record how long they took, as durationMs on export.done and export.failed (PAR-773)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "328b857240a410aa5c7d2a1d3751ed123f07f0fc",
+            "comment": "Zoomed out, a narrow board's title runs into the free canvas beside it instead of truncating at the board's edge"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "55a96f08618692a952c05ffcd8506f3b63342d69",
+            "comment": "Installed builds report to Sentry as preview or release instead of tester, so a pull request's preview installer no longer reads as the published app"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b7d02403f2ad569ca438f8641a06a46f2d1e59be",
+            "comment": "process.memory sends each role's memory and bitmapCache.used each hit rate as numbers Sentry can chart"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3d10f01fb4da39cd201513f4393c26698fa6f217",
+            "comment": "Record the project service exiting, windows hanging and main's loop blocked as events with how long they lasted (PAR-771)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 06:57:43 GMT",
+      "version": "0.28.3",
+      "tag": "@parity-app/cli_v0.28.3",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "02e8d18242be3dd1b3bb2d1c3350e82b246c8f14",
+            "comment": "Brace every if and space statements apart, as Buildkit's lint rules ask"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5eb588c75bd9b26ae53cbc99759fe1ab3b2894fd",
+            "comment": "Core meets Buildkit's lint rules; nothing users see changes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "41506c104e0d0991aa95f80d430e78ed4257a0bc",
+            "comment": "Bring packages/agent up to Buildkit's lint rules (PAR-735)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b7d97abb9cc576114f13739c94f6595cf8d88385",
+            "comment": "Read the file being replaced as libgen's Live type"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dc00f9766be3aba52362ea8660a2924a392e83b5",
+            "comment": "Read image extensions through the editor's imageExtension (PAR-734)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "41a10c667dde16dceadf60578f2aac46c74dbeb2",
+            "comment": "Stop a call failing because the CLI was too busy to read a copy's answer in time"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 04:18:08 GMT",
+      "version": "0.28.2",
+      "tag": "@parity-app/cli_v0.28.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "58a8095f7462152f44b302ebc144d47d192e5198",
+            "comment": "Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the interrupted frame as crashed"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "96991922db733841c38f62ede47602b733c5e246",
+            "comment": "Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 03:07:25 GMT",
+      "version": "0.28.1",
+      "tag": "@parity-app/cli_v0.28.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e81a717f95b8ecaa974225cb76e9415211a1e018",
+            "comment": "Upload the published CLI's source maps to Sentry, and name a pkg.pr.new preview's release by its commit (PAR-719)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6d00d3fe8a86ac5d5d7717f0e7367a63896dfeb5",
+            "comment": "A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on Windows."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 02:25:19 GMT",
+      "version": "0.28.0",
+      "tag": "@parity-app/cli_v0.28.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "8560ac2bb40513109a1f397bdd5a86f46c924802",
+            "comment": "Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component as component.changed"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "973519fd631ce53c69e9c5a80940a221c1f2377d",
+            "comment": "project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the builder can't load the project's config"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 00:29:58 GMT",
+      "version": "0.27.0",
+      "tag": "@parity-app/cli_v0.27.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "56bd9c2ce2b7fb3e082add1adafe35c02111ff80",
+            "comment": "Agents report problems in Parity with parity report and MCP's report_problem: a Sentry feedback with the window's screenshot and replay, the call's trace and the design's frames, returning its link"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 23:45:46 GMT",
       "version": "0.26.0",
       "tag": "@parity-app/cli_v0.26.0",

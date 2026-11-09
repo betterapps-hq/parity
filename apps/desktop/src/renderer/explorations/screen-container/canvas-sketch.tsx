@@ -8,6 +8,7 @@ import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../../
 import { containerModes } from "../../canvas/view.ts"
 import { selectChildren, selectParent, stepBack } from "../../chrome/commands.ts"
 import { formatKeys } from "../../chrome/keys.ts"
+import { numberValue } from "../../chrome/prop-values.ts"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { type ContainerEntry, useContainerEntries, useContainerEntry, useModeSettings } from "../../design-store.ts"
 import { useHover, useSelection } from "../../selection.ts"
@@ -29,14 +30,24 @@ export function CanvasSketch() {
   const selected = useSelection(selection)
   // Keeps showing the last design selected once nothing is, so the board doesn't vanish on Esc.
   const [shown, setShown] = useState(selected.design)
-  if (selected.design && selected.design !== shown) setShown(selected.design)
+
+  if (selected.design && selected.design !== shown) {
+    setShown(selected.design)
+  }
+
   const entry = useContainerEntry(store, shown)
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Enter" && event.shiftKey) selectParent(session)
-    else if (event.key === "Enter") selectChildren(session)
-    else if (event.key === "Escape") stepBack(session)
-    else return
+    if (event.key === "Enter" && event.shiftKey) {
+      selectParent(session)
+    } else if (event.key === "Enter") {
+      selectChildren(session)
+    } else if (event.key === "Escape") {
+      stepBack(session)
+    } else {
+      return
+    }
+
     event.preventDefault()
   }
 
@@ -68,7 +79,7 @@ function BoardSketch({ entry, selected }: { entry: ContainerEntry; selected: Sel
   const { primary } = containerModes(settings, container)
   const width = container.frames?.[primary.viewport]?.width ?? primary.width
   const scale = Math.min(1, sketchWidth / width)
-  const px = (length: Length | undefined) => (typeof length === "number" ? length * spacingUnit(tokens) * scale : 0)
+  const px = (length: Length | undefined) => (fixedLength(length) ?? 0) * spacingUnit(tokens) * scale
   // A component at the root, such as a Card, draws its own padding and gap, which the sketch stands in for with Card's.
   const drawsOwn: NodeStyle = root.type === "component" ? { padding: [6, 0], gap: 6 } : {}
   const style: NodeStyle = { ...drawsOwn, ...root.style }
@@ -152,19 +163,26 @@ function LayerSketch({
   const style: NodeStyle = node.style ?? {}
   const color = nodeColor(node)
   let width: CSSProperties["width"]
-  if (style.width === "fill") width = "100%"
-  else if (typeof style.width === "number") width = px(style.width)
+
+  if (style.width === "fill") {
+    width = "100%"
+  } else if (fixedLength(style.width) !== undefined) {
+    width = px(style.width)
+  }
+
   const sized: CSSProperties = {
     width,
-    maxWidth: typeof style.maxWidth === "number" ? px(style.maxWidth) : undefined,
+    maxWidth: fixedLength(style.maxWidth) === undefined ? undefined : px(style.maxWidth),
     flexGrow: style.width === "fill" || style.grow ? 1 : undefined,
     outline: outlineFor(color, selected, hovered) || undefined,
     outlineOffset: 1
   }
+
   const select = (event: MouseEvent) => {
     event.stopPropagation()
     onSelect()
   }
+
   if (node.type === "text") {
     return (
       <p
@@ -173,7 +191,7 @@ function LayerSketch({
         style={{
           ...sized,
           fontSize: Math.min(22, Math.max(10, textSize(style.size) * scale * 1.6)),
-          fontWeight: typeof style.weight === "number" ? style.weight : undefined,
+          fontWeight: style.weight,
           textAlign: style.textAlign,
           color: token(style.foreground, "inherit")
         }}
@@ -182,6 +200,7 @@ function LayerSketch({
       </p>
     )
   }
+
   return (
     <div
       onClick={select}
@@ -208,6 +227,7 @@ const hatchTile = `url("data:image/svg+xml,${encodeURIComponent(
  */
 function PaddingHatch({ padding, color, name }: { padding: number[]; color: string; name: string }) {
   const [top, right, bottom, left] = padding
+
   const hatch: CSSProperties = {
     padding: `${top}px ${right}px ${bottom}px ${left}px`,
     background: `color-mix(in oklch, ${color} 60%, transparent)`,
@@ -217,6 +237,7 @@ function PaddingHatch({ padding, color, name }: { padding: number[]; color: stri
     maskClip: "border-box, content-box, border-box",
     maskComposite: "intersect, exclude"
   }
+
   return (
     <>
       <span aria-hidden className="pointer-events-none absolute inset-0" style={hatch} />
@@ -245,6 +266,7 @@ function SelectingNote({ entry, selected }: { entry: ContainerEntry; selected: S
   const onAllInside = picked.length === top.length && top.every((node) => picked.includes(node.id))
   const onOneInside = picked.length > 0 && !onAllInside && picked.every((id) => top.some((node) => node.id === id))
   const noun = container.kind === "component" ? "component" : "screen"
+
   return (
     <aside
       aria-label="How selecting works here"
@@ -292,13 +314,22 @@ function Step({ at, keys, children }: { at: boolean; keys: ReactNode; children: 
 
 /** A selection's outline: solid when selected, thin while hovered in Layers, none otherwise. */
 function outlineFor(color: string, selected: boolean, hovered: boolean): string {
-  if (selected) return `2px solid ${color}`
-  if (hovered) return `1px solid ${color}`
+  if (selected) {
+    return `2px solid ${color}`
+  }
+
+  if (hovered) {
+    return `1px solid ${color}`
+  }
+
   return ""
 }
 
 function list(names: string[]): string {
-  if (names.length < 2) return names.join("")
+  if (names.length < 2) {
+    return names.join("")
+  }
+
   return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
 }
 
@@ -307,35 +338,58 @@ function descendants(node: DesignNode): number {
 }
 
 /** A color token as the chrome's own variable of that name, so the sketch follows the app's theme; else as written. */
-function token(value: unknown, fallback: string): string {
-  if (typeof value !== "string") return fallback
+function token(value: string | undefined, fallback: string): string {
+  if (value === undefined) {
+    return fallback
+  }
+
   return /^[a-z][a-z0-9-]*$/.test(value) ? `var(--${value})` : value
 }
 
-const textSizes: Record<string, number> = {
-  "text-xs": 12,
-  "text-sm": 14,
-  "text-base": 16,
-  "text-lg": 18,
-  "text-xl": 20,
-  "text-2xl": 24,
-  "text-3xl": 30,
-  "text-4xl": 36
+/** A length in spacing steps, or undefined when it names a token, fills or hugs. */
+function fixedLength(length: Length | undefined): number | undefined {
+  return numberValue.safeParse(length).data
 }
 
-function textSize(size: unknown): number {
-  return (typeof size === "string" && textSizes[size]) || 16
+const textSizes = new Map([
+  ["text-xs", 12],
+  ["text-sm", 14],
+  ["text-base", 16],
+  ["text-lg", 18],
+  ["text-xl", 20],
+  ["text-2xl", 24],
+  ["text-3xl", 30],
+  ["text-4xl", 36]
+])
+
+function textSize(size: string | undefined): number {
+  return (size && textSizes.get(size)) || 16
 }
 
 function flexAlign(align: NodeStyle["align"]): CSSProperties["alignItems"] {
-  if (align === "start") return "flex-start"
-  if (align === "end") return "flex-end"
+  if (align === "start") {
+    return "flex-start"
+  }
+
+  if (align === "end") {
+    return "flex-end"
+  }
+
   return align ?? "stretch"
 }
 
 function flexJustify(justify: NodeStyle["justify"]): CSSProperties["justifyContent"] {
-  if (justify === "start") return "flex-start"
-  if (justify === "end") return "flex-end"
-  if (justify === "between" || justify === "around" || justify === "evenly") return `space-${justify}`
+  if (justify === "start") {
+    return "flex-start"
+  }
+
+  if (justify === "end") {
+    return "flex-end"
+  }
+
+  if (justify === "between" || justify === "around" || justify === "evenly") {
+    return `space-${justify}`
+  }
+
   return justify ?? "flex-start"
 }

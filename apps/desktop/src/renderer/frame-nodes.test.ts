@@ -1,7 +1,10 @@
 import { fileURLToPath } from "node:url"
+import type { MountHandle, PropValues, RenderComponent, RenderElement, RenderNode } from "@parity-app/core"
+import type { createGuest } from "@parity-app/renderer-react/guest"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
+import type * as frameModule from "./frame.ts"
 
 // How the canvas finds the DOM each design node draws, in Chrome with React itself, as frame.test.ts lays frames out.
 // The guest reads React's tree, so these fail when a React release changes what the walk relies on. It needs Chrome.
@@ -122,6 +125,7 @@ export function Tag(props) {
 
 beforeAll(async () => {
   const renderer = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: renderer, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
@@ -132,10 +136,13 @@ beforeAll(async () => {
     // React's production build, as frames run it (see builder-vite's productionDependencies).
     define: { "process.env.NODE_ENV": '"production"', "import.meta.url": '"http://project.test/frame.js"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1000, height: 900 } })
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
+    if (message.type() === "error") {
+      errors.push(message.text())
+    }
   })
   page.on("pageerror", (error) => errors.push(error.message))
   await page.route("http://project.test/frame.js", (route) =>
@@ -148,9 +155,11 @@ beforeAll(async () => {
     })
   )
   await page.goto("http://parity.test/")
-  // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof frame === "object")))
+
+  if (!(await page.evaluate(() => "frame" in window))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
+  }
+
   await mount(design)
 })
 
@@ -158,15 +167,26 @@ afterAll(async () => {
   await browser?.close()
 })
 
-type Node = Record<string, unknown>
-const text = (nodeId: string, value: string): Node => ({
+/** The bundle's global in the page, as `entry` exports it: the frame code, `createGuest` and the components. */
+declare const frame: typeof frameModule & { createGuest: typeof createGuest }
+
+/** The handle `mount` keeps on the page's window, for a test to update the tree it drew. */
+declare const mounted: MountHandle
+
+const text = (nodeId: string, value: string): RenderElement => ({
   kind: "element",
   nodeId,
   tag: "p",
   style: { margin: "0", height: "18px" },
   children: [{ kind: "text", text: value }]
 })
-const component = (nodeId: string, name: string, props: Node = {}, slots: Record<string, Node[]> = {}): Node => ({
+
+const component = (
+  nodeId: string,
+  name: string,
+  props: PropValues = {},
+  slots: Record<string, RenderNode[]> = {}
+): RenderComponent => ({
   kind: "component",
   nodeId,
   component: name,
@@ -175,7 +195,7 @@ const component = (nodeId: string, name: string, props: Node = {}, slots: Record
 })
 
 /** A screen of components that each take their props differently, in a column. */
-const design: Node[] = [
+const design: RenderNode[] = [
   {
     kind: "element",
     nodeId: "page",
@@ -205,26 +225,19 @@ const design: Node[] = [
 ]
 
 /** Mounts a guest in the frame at `#host` and lets the canvas's lookups go through it, as ModeView does. */
-async function mount(tree: Node[]) {
+async function mount(tree: RenderNode[]) {
   await page.evaluate((tree) => {
-    const host = document.querySelector("#host")!
-    // @ts-expect-error The bundle's global.
-    const bundle = frame as Record<string, unknown>
-    const { createGuest, prepareFrame, setDrawnNodes } = bundle as unknown as {
-      createGuest: (init: unknown) => {
-        mount(target: unknown, tree: unknown, options: unknown): { drawnNodes?: () => unknown }
-      }
-      prepareFrame: (host: Element, sheet: CSSStyleSheet, environment: unknown) => HTMLElement
-      setDrawnNodes: (host: Element, read: unknown) => void
-    }
+    const host = document.querySelector<HTMLElement>("#host")!
+    const { createGuest, prepareFrame, setDrawnNodes } = frame
+
     // The bundle's components are its exports named in capitals.
-    const components = Object.fromEntries(Object.entries(bundle).filter(([name]) => /^[A-Z]/.test(name)))
+    const components = Object.fromEntries(Object.entries(frame).filter(([name]) => /^[A-Z]/.test(name)))
     const guest = createGuest({ components, css: "" })
     const viewport = { width: 390, height: 844 }
     const target = prepareFrame(host, new CSSStyleSheet(), { classNames: [], attributes: {}, viewport })
     const handle = guest.mount(target, tree, { viewport })
-    setDrawnNodes(host, handle.drawnNodes)
-    ;(window as unknown as { handle: unknown }).handle = handle
+    setDrawnNodes(host, () => handle.drawnNodes?.())
+    Object.assign(window, { mounted: handle })
   }, tree)
   await page.waitForTimeout(50)
 }
@@ -236,14 +249,14 @@ function lookup(id: string, ...selectors: string[]) {
   return page.evaluate(
     ({ id, selectors }) => {
       const host = document.querySelector("#host")!
+
       const box = (rect: DOMRect | undefined): Box | undefined =>
         rect && { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }
-      // @ts-expect-error The bundle's global.
+
       const { findNodeElements, nodeBox } = frame
+
       return {
-        elements: (findNodeElements(host, id) as HTMLElement[]).map(
-          (element) => element.className || element.localName
-        ),
+        elements: findNodeElements(host, id).map((element) => element.className || element.localName),
         box: box(nodeBox(host, id)),
         expected: selectors.map((selector) => box(host.shadowRoot!.querySelector(selector)!.getBoundingClientRect())!)
       }
@@ -267,8 +280,8 @@ function at(selector: string) {
   return page.evaluate((selector) => {
     const host = document.querySelector("#host")!
     const rect = host.shadowRoot!.querySelector(selector)!.getBoundingClientRect()
-    // @ts-expect-error The bundle's global.
-    return frame.nodesAt(host, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) as string[]
+
+    return frame.nodesAt(host, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
   }, selector)
 }
 
@@ -301,13 +314,15 @@ describe("finding a design node's DOM", () => {
     expect(card.box).toEqual(card.expected[0])
     expect(await at(".card p")).toEqual(["page", "card", "title"])
     expect(await at(".card .member .name")).toEqual(["page", "card", "inner"])
+
     const parents = await page.evaluate(() => {
       const host = document.querySelector("#host")!
-      // @ts-expect-error The bundle's global.
       const { nodeParent, nodeOfElement } = frame
       const name = host.shadowRoot!.querySelector(".card .member .name")!
+
       return [nodeParent(host, "inner"), nodeParent(host, "card"), nodeParent(host, "page"), nodeOfElement(host, name)]
     })
+
     expect(parents).toEqual(["card", "page", undefined, "inner"])
   })
 
@@ -317,10 +332,11 @@ describe("finding a design node's DOM", () => {
     expect(await at("[data-canvas-node=b]")).toEqual(["page", "group", "b"])
     const nothing = await lookup("nothing")
     expect(nothing).toMatchObject({ elements: [], box: undefined })
+
     const ids = await page.evaluate(() => {
-      // @ts-expect-error The bundle's global.
-      return frame.drawnNodeIds(document.querySelector("#host")) as string[]
+      return frame.drawnNodeIds(document.querySelector("#host")!)
     })
+
     expect(ids).toEqual([
       "page",
       "member",
@@ -346,16 +362,17 @@ describe("finding a design node's DOM", () => {
       const range = document.createRange()
       range.selectNodeContents(text)
       const rect = range.getBoundingClientRect()
-      // @ts-expect-error The bundle's global.
       const { nodeBox, nodesAt, findNodeElements } = frame
-      const box = nodeBox(host, "label") as DOMRect
+      const box = nodeBox(host, "label")!
+
       return {
         box: [box.left, box.top, box.width, box.height],
         text: [rect.left, rect.top, rect.width, rect.height],
-        elements: (findNodeElements(host, "label") as Element[]).length,
-        under: nodesAt(host, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) as string[]
+        elements: findNodeElements(host, "label").length,
+        under: nodesAt(host, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
       }
     })
+
     expect(found.box).toEqual(found.text)
     expect(found.text[2]).toBeGreaterThan(0)
     expect(found.elements).toBe(0)
@@ -366,7 +383,8 @@ describe("finding a design node's DOM", () => {
     expect((await lookup("grows")).elements).toEqual(["grow"])
     await page.evaluate(() => {
       const host = document.querySelector("#host")!
-      ;(host.shadowRoot!.querySelector(".grow") as HTMLElement).click()
+
+      host.shadowRoot!.querySelector<HTMLElement>(".grow")!.click()
     })
     await page.waitForTimeout(50)
     const found = await lookup("grows", ".grow", ".extra")
@@ -377,12 +395,20 @@ describe("finding a design node's DOM", () => {
   it("follows ids the canvas moves to other DOM without adding or removing any", async () => {
     const swapped = structuredClone(design)
     // React keeps the two paragraphs and changes their ids and text, which adds or removes nothing.
-    swapped[0]!.children = (swapped[0]!.children as Node[]).map((node) =>
-      node.nodeId === "group" ? component("group", "Group", {}, { children: [text("b", "B"), text("a", "A")] }) : node
+    const top = swapped[0]
+
+    if (top?.kind !== "element") {
+      throw new Error("The design's first node is the page element.")
+    }
+
+    top.children = top.children.map((node) =>
+      node.kind === "component" && node.nodeId === "group"
+        ? component("group", "Group", {}, { children: [text("b", "B"), text("a", "A")] })
+        : node
     )
     const before = await lookup("a")
     await page.evaluate((tree) => {
-      ;(window as unknown as { handle: { update(tree: unknown): void } }).handle.update(tree)
+      mounted.update(tree)
     }, swapped)
     await page.waitForTimeout(50)
     const after = await lookup("a")
@@ -393,13 +419,15 @@ describe("finding a design node's DOM", () => {
 
   it("falls back to the attribute when the guest can't read React's tree", async () => {
     await mount(design)
+
     const fallback = await page.evaluate(() => {
       const host = document.querySelector("#host")!
-      // @ts-expect-error The bundle's global.
       const { setDrawnNodes, drawnNodeIds, findNodeElement } = frame
       setDrawnNodes(host, () => undefined)
-      return { ids: drawnNodeIds(host) as string[], email: (findNodeElement(host, "email") as HTMLElement).className }
+
+      return { ids: drawnNodeIds(host), email: findNodeElement(host, "email")!.className }
     })
+
     // As before the canvas read React's tree: the field is found by the input its props reach, MemberRow not at all.
     expect(fallback.ids).not.toContain("member")
     expect(fallback.email).toBe("input")
@@ -412,7 +440,7 @@ describe("finding a design node's DOM", () => {
  * boundary, so these check that what the parent hands it still reaches the component.
  */
 describe("props a component hands to its slot", () => {
-  const slots: Node[] = [
+  const slots: RenderNode[] = [
     {
       kind: "element",
       nodeId: "slots",
@@ -478,8 +506,10 @@ describe("props a component hands to its slot", () => {
   /** The class and `data-` attributes of the elements a selector picks in the frame. */
   async function drawn(selector: string) {
     await mount(slots)
+
     return page.evaluate((selector) => {
       const elements = [...document.querySelector("#host")!.shadowRoot!.querySelectorAll<HTMLElement>(selector)]
+
       return elements.map((element) => ({
         className: element.className,
         slot: element.dataset.slot,
@@ -502,17 +532,22 @@ describe("props a component hands to its slot", () => {
 
   it("gives a component in an asChild slot the button's handler and ref, its own class kept", async () => {
     await mount(slots)
+
     const press = () =>
       page.evaluate(() => {
         const link = document.querySelector("#host")!.shadowRoot!.querySelector<HTMLElement>("a.pressed")!
         link.click()
+
         return { className: link.className, ref: link.dataset.ref }
       })
+
     expect(await press()).toEqual({ className: "link pressed", ref: "a" })
     await page.waitForTimeout(50)
+
     const presses = await page.evaluate(
       () => document.querySelector("#host")!.shadowRoot!.querySelector<HTMLElement>("a.pressed")!.dataset.presses
     )
+
     expect(presses).toBe("1")
   })
 
@@ -526,13 +561,16 @@ describe("props a component hands to its slot", () => {
 
   it("keeps the error of a component in an asChild slot to itself", async () => {
     await mount(slots)
+
     const shown = await page.evaluate(() => {
       const root = document.querySelector("#host")!.shadowRoot!
+
       return {
         error: root.querySelector("[data-failed-component=Broken]")?.getAttribute("data-error") === "Broken on purpose",
         links: root.querySelectorAll("a").length
       }
     })
+
     expect(shown).toEqual({ error: true, links: 3 })
     expect((await lookup("broken")).elements).toHaveLength(1)
   })
@@ -546,6 +584,7 @@ describe("props a component hands to its slot", () => {
 
   it("keeps the node's style with the one it's rendered with, and each copy's own key", async () => {
     await mount(slots)
+
     const styles = await page.evaluate(() =>
       [
         ...document
@@ -553,6 +592,7 @@ describe("props a component hands to its slot", () => {
           .shadowRoot!.querySelectorAll<HTMLElement>("li[data-canvas-node=item-element]")
       ].map((element) => [element.style.paddingTop, element.style.marginLeft])
     )
+
     expect(styles).toEqual([
       ["1px", "0px"],
       ["1px", "1px"]
@@ -562,11 +602,13 @@ describe("props a component hands to its slot", () => {
 
   it("gives what's spread and what's named both, when a slot does both", async () => {
     await mount(slots)
+
     const both = await page.evaluate(() =>
       [
         ...document.querySelector("#host")!.shadowRoot!.querySelectorAll<HTMLElement>("li[data-canvas-node=item-both]")
       ].map((element) => [element.className, element.dataset.arg])
     )
+
     expect(both).toEqual([
       ["given", "[object Object]"],
       ["given", "[object Object]"]
@@ -585,7 +627,8 @@ describe("props a component hands to its slot", () => {
 
 describe("a component that puts its style on an element inside it (PAR-201)", () => {
   const sized = { width: "320px", marginTop: "4px" }
-  const styled: Node[] = [
+
+  const styled: RenderNode[] = [
     {
       kind: "element",
       nodeId: "page",
@@ -603,14 +646,14 @@ describe("a component that puts its style on an element inside it (PAR-201)", ()
   function measure(id: string) {
     return page.evaluate((id) => {
       const host = document.querySelector("#host")!
-      // @ts-expect-error The bundle's global.
       const { findNodeElements, nodeBox } = frame
-      const elements = findNodeElements(host, id) as HTMLElement[]
+      const elements = findNodeElements(host, id)
       const field = elements[0]!.querySelector<HTMLElement>(".field") ?? elements[0]!
       const input = field.querySelector<HTMLInputElement>("input")
+
       return {
         elements: elements.map((element) => element.className || element.localName),
-        width: (nodeBox(host, id) as DOMRect).width,
+        width: nodeBox(host, id)!.width,
         field: field.getBoundingClientRect().width,
         input: input && { width: input.getBoundingClientRect().width, inline: input.style.width }
       }

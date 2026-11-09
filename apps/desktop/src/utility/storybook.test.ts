@@ -12,6 +12,8 @@ async function serve(body: string): Promise<string> {
     response.end(body)
   })
   await new Promise<void>((done) => server!.listen(0, "127.0.0.1", done))
+
+  // SAFETY: a server listening on a TCP port gives its address as an object, not a pipe's path.
   return `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 }
 
@@ -33,6 +35,7 @@ describe("storyIndex", () => {
         }
       })
     )
+
     expect((await storyIndex(base)).map((entry) => entry.id)).toEqual(["button--docs", "button--primary"])
   })
 

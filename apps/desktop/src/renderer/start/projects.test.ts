@@ -11,6 +11,7 @@ describe("knownProjects", () => {
       "/apps/older": { opened: 5, starred: true },
       "/apps/newer": { opened: 20, starred: true }
     })
+
     expect(projects.map(({ root, recent, starred }) => ({ root, recent, starred }))).toEqual([
       { root: "/apps/site", recent: true, starred: false },
       { root: "/apps/shop", recent: true, starred: true },
@@ -32,6 +33,7 @@ describe("knownProjects", () => {
       { "/apps/old": { starred: true } },
       new Set(["/apps/gone", "/apps/old"])
     )
+
     expect(projects.map(({ root, missing }) => ({ root, missing }))).toEqual([
       { root: "/apps/site", missing: undefined },
       { root: "/apps/gone", missing: true },
@@ -42,6 +44,7 @@ describe("knownProjects", () => {
 
 describe("inScope", () => {
   const projects = knownProjects(["/a", "/b"], { "/b": { starred: true }, "/c": { starred: true } })
+
   const roots = (scope: Parameters<typeof inScope>[1], skip?: string) =>
     inScope(projects, scope, skip).map(({ root }) => root)
 

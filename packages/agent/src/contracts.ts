@@ -19,19 +19,22 @@ import { z } from "zod"
  * fields are flat, so a bad item in a list of modes points at `mode`. A field set to `undefined` counts as left out,
  * as a terminal's missing options leave it.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what an agent sent, read here
 export function readRequest<T extends z.ZodType>(schema: T, input: unknown, depth = Infinity): z.output<T> {
-  const checked = checkData(schema, withoutUnset(input))
-  if (checked.success) return checked.data
+  const sent = plainObject.safeParse(input).data
+  const given = sent ? Object.fromEntries(Object.entries(sent).filter(([, value]) => value !== undefined)) : input
+  const checked = checkData(schema, given)
+
+  if (checked.success) {
+    return checked.data
+  }
+
   const field = checked.problem.pointer
     .split("/")
     .slice(1, depth + 1)
     .join("/")
-  throw new CodedError(checked.problem.message, { code: "invalid_input", ...(field ? { field } : {}) })
-}
 
-function withoutUnset(input: unknown): unknown {
-  const fields = plainObject.safeParse(input).data
-  return fields ? Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) : input
+  throw new CodedError(checked.problem.message, field ? { code: "invalid_input", field } : { code: "invalid_input" })
 }
 
 /**
@@ -40,6 +43,7 @@ function withoutUnset(input: unknown): unknown {
  */
 export function requestJsonSchema(schema: z.ZodType) {
   const { $schema: _dialect, ...json } = z.toJSONSchema(schema, { io: "input" })
+
   return json
 }
 
@@ -56,6 +60,7 @@ function text(name: string, description: string) {
 function selector(name: string) {
   const message = `${name} must be a nonblank string or a nonempty list of nonblank strings`
   const item = nonblank(message)
+
   return z.union([item, z.array(item, message).min(1, message)], message)
 }
 
@@ -71,12 +76,16 @@ function flag(name: string, description: string) {
 /** How many items a list read returns at most: a default that keeps a reply small, and a ceiling. */
 function limit(description: string, fallback: number, most: number) {
   const message = `limit must be a whole number from 1 to ${most}`
+
   return z.int(message).min(1, message).max(most, message).default(fallback).describe(description)
 }
 
+// The fields `z.strictObject` takes, by its own parameter rather than zod's internal name for them.
+type ObjectFields = NonNullable<Parameters<typeof z.strictObject>[0]>
+
 /** An operation's input: these fields and no others, in an object. */
-function fields<Shape extends z.ZodRawShape>(shape: Shape) {
-  return z.strictObject(shape, {
+function fields<Fields extends ObjectFields>(entries: Fields) {
+  return z.strictObject(entries, {
     error: (issue) =>
       issue.code === "unrecognized_keys"
         ? `Unknown input field ${issue.keys[0] ?? ""}`
@@ -95,6 +104,7 @@ const scaleMessage = "scale must be a finite number from 0.25 to 3"
 const scale = z.number(scaleMessage).min(0.25, scaleMessage).max(3, scaleMessage).default(1).describe("Pixel density.")
 const absoluteRoot = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/
 const blankRoot = "root must be a nonblank string"
+
 /** A project folder. Being absolute already rules out blank text, so the schema publishes only that pattern. */
 const root = z
   .string(blankRoot)
@@ -102,6 +112,7 @@ const root = z
   .refine((path) => /\S/.test(path), blankRoot)
   .regex(absoluteRoot, "root must be an absolute project folder path")
   .describe("Absolute project folder path.")
+
 /** A render's frames: every state and the modes the design shows, unless the call narrows them. */
 const checks = {
   tab,
@@ -145,13 +156,19 @@ const execute = {
 
 /** A field only the other kind of request takes: a snippet with an editId, or retry edits with no editId. */
 function misplaced(keys: readonly string[]): string {
-  if (keys.includes("editId") || keys.includes("code")) return "Pass a snippet or an editId, not both"
-  if (keys.includes("edits")) return "edits requires an editId"
+  if (keys.includes("editId") || keys.includes("code")) {
+    return "Pass a snippet or an editId, not both"
+  }
+
+  if (keys.includes("edits")) {
+    return "edits requires an editId"
+  }
+
   return `Unknown input field ${keys[0] ?? ""}`
 }
 
-function executeKind<Shape extends z.ZodRawShape>(shape: Shape) {
-  return z.strictObject(shape, {
+function executeKind<Fields extends ObjectFields>(entries: Fields) {
+  return z.strictObject(entries, {
     error: (issue) => (issue.code === "unrecognized_keys" ? misplaced(issue.keys) : "Operation input must be an object")
   })
 }
@@ -205,6 +222,14 @@ export const requests = {
     tab,
     component: text("component", "Component id or name."),
     all: flag("all", "Include passed-through attributes.")
+  }),
+  report: fields({
+    tab,
+    message: text("message", "What you did, expected and saw."),
+    design: text("design", "Design id or name; its frames go with it.").optional(),
+    state: text("state", "State id. Defaults to the shown one.").optional(),
+    node: text("node", "Node id.").optional(),
+    testRun: text("testRun", "Test pass. Defaults to PARITY_TEST_RUN.").optional()
   }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
@@ -637,6 +662,22 @@ const propsReply = z.looseObject({
   composition: composition.optional()
 })
 
+/** A problem an agent reported (PAR-646): the Sentry user feedback it became, and what went with it. */
+const reportReply = z.looseObject({
+  feedbackId: z.string().describe("The Sentry event ID of the feedback."),
+  link: z
+    .string()
+    .describe(
+      "The feedback in Sentry, beside its replay and trace. Sentry files it in Linear and links the issue there."
+    ),
+  traceId: z.string().optional().describe("The trace it's tied to: the call's, from the command on."),
+  replayId: z.string().optional().describe("The window's replay, when it records one."),
+  tags: z
+    .record(z.string(), z.string())
+    .describe("What it's about, as Sentry tags: tab, design, state, node, test_run."),
+  attachments: strings.describe("The files sent with it: the window's screenshot, the frames and the diagnostics.")
+})
+
 /**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,
  * which calls are routed by (PAR-514): its tabs, and when its window last had focus, missing from a copy too old to
@@ -656,7 +697,8 @@ export const replies = {
   console: consoleReply,
   tokens: z.array(tokenInfo),
   components: componentsReply,
-  props: propsReply
+  props: propsReply,
+  report: reportReply
 }
 
 /**

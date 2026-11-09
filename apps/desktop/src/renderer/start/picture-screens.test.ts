@@ -6,12 +6,25 @@ import { isPhone, picturedScreens } from "./picture-screens.ts"
 
 /** A design as the store lists it, showing these modes beside its main one. */
 function design(name: string, kind?: ContainerSpec["kind"], beside: string[] = [], main?: string) {
-  const container = {
+  const view: NonNullable<ContainerSpec["view"]> = { modes: beside }
+
+  if (main) {
+    view.mode = main
+  }
+
+  const container: ContainerSpec = {
     id: name.toLowerCase(),
     name,
-    ...(kind ? { kind } : {}),
-    view: { modes: beside, ...(main ? { mode: main } : {}) }
-  } as unknown as ContainerSpec
+    position: { x: 0, y: 0 },
+    root: { type: "layout", id: "root", children: [] },
+    states: [{ id: "default", name: "Default" }],
+    view
+  }
+
+  if (kind) {
+    container.kind = kind
+  }
+
   return { key: `app.par#${container.id}`, container }
 }
 
@@ -27,6 +40,7 @@ describe("picturedScreens", () => {
       design("Settings", "screen", ["tablet-light"]),
       design("Pricing", undefined, ["mobile-light"])
     ]
+
     expect(shown(designs)).toEqual([
       ["Dashboard", "desktop-light", "mobile-light"],
       ["Pricing", "desktop-light", "mobile-light"],
@@ -41,6 +55,7 @@ describe("picturedScreens", () => {
       design("Hero", "frame"),
       ...["A", "B", "C"].map((name) => design(name))
     ]
+
     expect(shown(designs, defaultModeSettings, 2).map(([name]) => name)).toEqual(["A", "B"])
     expect(shown([design("Card", "component")])).toEqual([])
   })
@@ -70,6 +85,7 @@ describe("isPhone", () => {
       ],
       modes: ["narrow", "fold", "wide"].map((id) => ({ id, name: id, values: { viewport: id } }))
     }
+
     expect(resolveModes(settings).map(isPhone)).toEqual([true, true, false])
   })
 })

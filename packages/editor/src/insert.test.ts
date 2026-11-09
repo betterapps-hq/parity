@@ -75,6 +75,7 @@ const context = (fields: Partial<InsertContext> = {}): InsertContext => ({
 /** The ids of a layout's children, by its id. */
 function childIds(container: ContainerSpec, id: string): string[] {
   const node = findNode(container.root, id)
+
   return node?.type === "layout" ? node.children.map((child) => child.id) : []
 }
 
@@ -94,6 +95,7 @@ describe("the layer an item becomes", () => {
       { name: "Heart", path: "@phosphor-icons/react", props: [{ name: "children", kind: "node", group: "own" }] },
       new Set()
     )
+
     expect(node).toMatchObject({ props: { weight: "fill", children: "Heart" } })
   })
 
@@ -106,11 +108,13 @@ describe("the layer an item becomes", () => {
 
   it("gives an image 80 steps of width and its own shape's height, with its alt text and credit", () => {
     const credit = { name: "Ada", url: "https://example.com/ada" }
+
     const node = nodeForItem(
       { kind: "image", src: "images/hill.png", alt: "A hill", credit, width: 1600, height: 900 },
       undefined,
       new Set()
     )
+
     expect(node).toMatchObject({ type: "image", src: "images/hill.png", alt: "A hill", credit })
     expect(node.style).toEqual({ width: 80, height: 45 })
   })
@@ -156,12 +160,14 @@ describe("labels", () => {
 describe("inserting into a design", () => {
   it("puts the item where it's told among a layout's children, or at the end", () => {
     const design = page()
+
     const between = insertIntoDesign(
       design,
       { parent: "actions", index: 1 },
       { kind: "component", component: "Button" },
       context({ info: button })
     )
+
     expect(childIds(between.container, "actions")).toEqual(["save", between.node, "cancel"])
     expect(findNode(between.container.root, between.node)).toMatchObject({ props: { variant: "default" } })
     const last = insertIntoDesign(design, { parent: "root" }, { kind: "instance", design: "badge" }, context())
@@ -176,6 +182,7 @@ describe("inserting into a design", () => {
       { kind: "instance", design: "badge" },
       context()
     )
+
     const card = findNode(placed.container.root, "card")
     expect(card?.type === "component" && card.slots?.header?.map((node) => node.id)).toEqual([placed.node, "title"])
   })
@@ -187,6 +194,7 @@ describe("inserting into a design", () => {
       { kind: "component", component: "Button" },
       context({ info: button })
     )
+
     expect(childIds(placed.container, "root").at(-1)).toBe(placed.node)
     expect(findNode(placed.container.root, placed.node)?.style).toEqual({ position: "absolute", left: 12.5, top: 30 })
   })
@@ -198,16 +206,19 @@ describe("inserting into a design", () => {
       library: "acme",
       ...fields
     })
+
     const sources = {
       "acme/Tabs": source({}),
       "acme/Tab": source({ parents: ["acme/Tabs"] })
     }
+
     const outside = insertIntoDesign(
       page(),
       { parent: "root" },
       { kind: "component", component: "acme/Tab" },
       context({ sources })
     )
+
     const added = findNode(outside.container.root, "root")
     const wrapper = added?.type === "layout" ? added.children.at(-1) : undefined
     expect(wrapper).toMatchObject({ type: "component", component: "acme/Tabs" })
@@ -222,12 +233,14 @@ describe("inserting into a design", () => {
         slots: { children: [{ type: "layout", id: "list", children: [] }] }
       }
     }
+
     const inside = insertIntoDesign(
       tabs,
       { parent: "list" },
       { kind: "component", component: "acme/Tab" },
       context({ sources })
     )
+
     expect(childIds(inside.container, "list")).toEqual([inside.node])
     expect(findNode(inside.container.root, inside.node)).toMatchObject({ component: "acme/Tab" })
   })
@@ -239,6 +252,7 @@ describe("inserting into a design", () => {
       { kind: "instance", design: "badge", detached: true },
       context()
     )
+
     const copy = findNode(placed.container.root, placed.node)
     expect(copy).toMatchObject({ type: "layout", name: "Badge" })
     expect(copy?.type === "layout" && copy.children[0]).toMatchObject({ type: "text", text: "New" })
@@ -274,11 +288,13 @@ describe("where a click inserts", () => {
       root: { type: "layout", id: "frame", children: [{ type: "layout", id: "body", slot: "body", children: [] }] },
       states: [{ id: "default", name: "Default" }]
     }
+
     const placed: DesignNode = {
       type: "layout",
       id: "page",
       children: [{ type: "instance", id: "p", design: "panel" }]
     }
+
     const library = componentLibrary([panel])
     expect(whereToInsert(placed, "p/body", library)).toEqual({ parent: "p", slot: "body" })
     expect(whereToInsert(placed, "p/frame", library)).toBeUndefined()

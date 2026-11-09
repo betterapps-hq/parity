@@ -2,6 +2,529 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 13:35:47 GMT",
+      "version": "0.45.1",
+      "tag": "@parity-app/desktop_v0.45.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dd1f05959c1e1569a351842304e4645c3758b34d",
+            "comment": "Keep a thin padding or gap handle hovered, with its hatching and value, while its hint opens over a still pointer"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9cf1bb3880ac91188de8a59a71478cb09b6e75d2",
+            "comment": "Make two end-to-end tests hold up after the toolbar refresh"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 13:04:55 GMT",
+      "version": "0.45.0",
+      "tag": "@parity-app/desktop_v0.45.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c1d629545de2329688db91ac013bedd2655e1ff4",
+            "comment": "Duplicate lint disables are gone: one guard tells a named length from steps, the renderer keeps one set of bit helpers, and module exports are checked with instanceof Function"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0aba5f352906a36662f444280c6459e9273f9ead",
+            "comment": "Keep what GitHub says about the installed version through the cache it now shares with the CLI"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cebe1620a315a3eb7f89a30f2a0ae9ed3c981de7",
+            "comment": "The canvas draws padding and gaps in modes' green and hatches them as Figma does, only while a handle is hovered, focused or dragged, with value chips in dark text"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 12:29:40 GMT",
+      "version": "0.44.0",
+      "tag": "@parity-app/desktop_v0.44.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9f75a30063b702cc9d93219e599be6821f10950a",
+            "comment": "Rebuild the canvas toolbar: tools with menus, a review button whose Comment and annotation tools warp the toolbar into their own bars, and Zoom in its own corner"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 12:11:34 GMT",
+      "version": "0.43.0",
+      "tag": "@parity-app/desktop_v0.43.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e2865513ea55de22f05edf0ea8eaa37ecced5ef8",
+            "comment": "Bring the canvas code up to Buildkit's lint rules, renaming tldraw's shape names for the canvas's own"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "145dfbaa2493119d05b9272394d5ced18d06ee59",
+            "comment": "Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows (PAR-788)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ad2a09d42f95318253c43dabebb0457d34d58b35",
+            "comment": "Unnamed icon layers are called by their icon, as Plus rather than lucide/Plus, in Layers, search and the inspector."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6605317673a5c9a56f127c19b56af04ea5f492da",
+            "comment": "Report a published app whose release has been promoted to everyone as the production environment in Sentry (PAR-779)"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e5a97c0b268b69136e9ea1349931b0bd3d46675c",
+            "comment": "Bring the scripts, end-to-end tests and Storybook config up to Buildkit's lint rules"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 11:25:40 GMT",
+      "version": "0.42.0",
+      "tag": "@parity-app/desktop_v0.42.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0489958385e202df129f03ac2480acdf7f5c8c26",
+            "comment": "Icon layers show the Smile icon wherever a layer's kind shows, instead of the component box"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "69b23d77dd7c998a2e4aa5e42b14b648083abc45",
+            "comment": "Brings the rest of the desktop renderer up to Buildkit's lint rules: its top-level files and its agent, stories, start and account folders"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "31fe4d1b8dd1f5e961f02651eb25abcb201fa0ac",
+            "comment": "Bring the desktop main process, preload and shared code up to Buildkit's lint rules"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 10:50:00 GMT",
+      "version": "0.41.0",
+      "tag": "@parity-app/desktop_v0.41.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "55a96f08618692a952c05ffcd8506f3b63342d69",
+            "comment": "Installed builds report to Sentry as preview or release instead of tester, so a pull request's preview installer no longer reads as the published app"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b71cc861ccb4976e20f8766a2ef7fa2247cf9624",
+            "comment": "Text layers are green in the layers tree, the design panel and their outline on the canvas, so they stand out among a design's layers."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3d10f01fb4da39cd201513f4393c26698fa6f217",
+            "comment": "Record the project service exiting, windows hanging and main's loop blocked as events with how long they lasted (PAR-771)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b7d02403f2ad569ca438f8641a06a46f2d1e59be",
+            "comment": "process.memory sends each role's memory and bitmapCache.used each hit rate as numbers Sentry can chart"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a8fd2dfe5a0686a4969ffc5a8aaf257bb4dfc6db",
+            "comment": "Bring packages/code up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dcbe1c582015e7c971a7dc50b92b6e06412b88b6",
+            "comment": "Keep the end-to-end run's local telemetry copy as an artifact of its CI run"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9f53e07a96e496ddf674d03c8f7ffd1cef64c79f",
+            "comment": "Bring the desktop utility process up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "985028a41d6f5f6d0d3408a10235ecd3243941be",
+            "comment": "Bring registry, fixtures, models, icons, account and styles-tailwind up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5648c25e3e88467f5c9fab354217281084b825ac",
+            "comment": "Bring builder-vite up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b24c0f9bab8f767534b9c43b0a24b85edf5c12a1",
+            "comment": "Bring packages/channel up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f5bd98d487215c2598a2911e30b85d285ba259af",
+            "comment": "Bring packages/telemetry up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b54dd5f2ae76cb033c174c8c10f1082fbddb5eb5",
+            "comment": "Bring packages/project up to Buildkit's lint rules, with no change in behavior"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d9910422fc3b26d99adcacadfd34b3820d6079ee",
+            "comment": "Colored icons keep their color when their menu, menubar, select or combobox item is highlighted"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5c6e9e74e9ecaa90acdc0943d8018b7c5f4e7ed4",
+            "comment": "Bring the tokens package up to Buildkit's lint rules, with no change in behavior"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "053d38576acb17c3b27137699db40cbbc1c2620b",
+            "comment": "CI sends only errors and reports to Sentry; its spans, logs and replays stay in the local copy (PAR-777)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "78c006d65e82d6d408f567c4f955c814675b3784",
+            "comment": "Exports record how long they took, as durationMs on export.done and export.failed (PAR-773)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "328b857240a410aa5c7d2a1d3751ed123f07f0fc",
+            "comment": "Zoomed out, a narrow board's title runs into the free canvas beside it instead of truncating at the board's edge"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 06:57:27 GMT",
+      "version": "0.40.5",
+      "tag": "@parity-app/desktop_v0.40.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "147097532dc7de4671d2a8dbbe163b54c959d81c",
+            "comment": "Ask for a project's kept frame bitmaps in one request, as JSON text, so reopening a project spends less of the window's time before its first frame"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "912120ca9276e3d19d3d67a018275ba6cf7563a3",
+            "comment": "Open projects sooner: a design's title mounts its menus and hint only once it's hovered, focused, right-clicked or selected"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "eb5d55992c591f2a0872d40709eeddeb62e9b1af",
+            "comment": "Bring renderer-react up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "41506c104e0d0991aa95f80d430e78ed4257a0bc",
+            "comment": "Bring packages/agent up to Buildkit's lint rules (PAR-735)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 05:37:21 GMT",
+      "version": "0.40.4",
+      "tag": "@parity-app/desktop_v0.40.4",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dc00f9766be3aba52362ea8660a2924a392e83b5",
+            "comment": "Read image extensions through the editor's imageExtension (PAR-734)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5eb588c75bd9b26ae53cbc99759fe1ab3b2894fd",
+            "comment": "Core meets Buildkit's lint rules; nothing users see changes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "02e8d18242be3dd1b3bb2d1c3350e82b246c8f14",
+            "comment": "Brace every if and space statements apart, as Buildkit's lint rules ask"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "afdeb9604454374459552f61ee90ba9ab30d2198",
+            "comment": "Brings the desktop app's chrome folder up to Buildkit's lint rules, and names tldraw shape IDs canvasIdFor and a process's server-or-task field lifetime"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 04:17:56 GMT",
+      "version": "0.40.3",
+      "tag": "@parity-app/desktop_v0.40.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1816fff9c11c11c926c8a1f6e6eb449444b55d13",
+            "comment": "Panels' scrollbars are a thin 6px rounded thumb with no track or arrows, in place of Chromium's wide Windows scrollbar."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "76f24799a8bd374af1a34207d1ec09a737a4ba6b",
+            "comment": "Report a problem opened from a part's fallback lists the error it sends, such as The"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "96991922db733841c38f62ede47602b733c5e246",
+            "comment": "Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "58a8095f7462152f44b302ebc144d47d192e5198",
+            "comment": "Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the interrupted frame as crashed"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 03:41:24 GMT",
+      "version": "0.40.2",
+      "tag": "@parity-app/desktop_v0.40.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "22faaae589564a87af4840b7fb117b4bd3746269",
+            "comment": "Record gesture.ended and document.saved in the trace of the drag or edit they belong to"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 03:07:10 GMT",
+      "version": "0.40.1",
+      "tag": "@parity-app/desktop_v0.40.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e81a717f95b8ecaa974225cb76e9415211a1e018",
+            "comment": "Separate and upload the app's source maps with the scripts the CLI now shares (PAR-719)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6d00d3fe8a86ac5d5d7717f0e7367a63896dfeb5",
+            "comment": "A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on Windows."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1bebed8fc7e44ca4cdbc4b3d4a5e00bb19141dd3",
+            "comment": "Session Replay no longer records a project's canvas as it mounts, so the first frame shows sooner"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 02:25:03 GMT",
+      "version": "0.40.0",
+      "tag": "@parity-app/desktop_v0.40.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8560ac2bb40513109a1f397bdd5a86f46c924802",
+            "comment": "Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component as component.changed"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "973519fd631ce53c69e9c5a80940a221c1f2377d",
+            "comment": "project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the builder can't load the project's config"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "65b17fe472b52723a39ee66f9226f499f5f58b4c",
+            "comment": "A report sent from an error's fallback is linked in Sentry to the error it caught"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e561267a2b95c422bcbac8d60facede717a13300",
+            "comment": "Use Buildkit's Storybook config without the app listing its addons"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 01:50:16 GMT",
+      "version": "0.39.2",
+      "tag": "@parity-app/desktop_v0.39.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5a04f62e10d82a2b9e84fcd38f870c4476de4fd0",
+            "comment": "Session Replay recordings scrub secrets from the window's text, and mask fields named as secrets"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f69127b5e2771a2c792ea93a9f25b9a7960a1ffe",
+            "comment": "Side panel tabs sit on a transparent strip, so they blend into the panel"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 01:32:26 GMT",
+      "version": "0.39.1",
+      "tag": "@parity-app/desktop_v0.39.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "fa9ba7a2e7896f5bdfcb879fd0f074eaf55f7e78",
+            "comment": "Lint with Buildkit's base config and run Storybook on its shared config"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "063eea25b98b3d598029e12cf21031a196c15a92",
+            "comment": "Check the main workflows' events and traces in the end-to-end tests"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c31ad9cb6d7c7cc98195b595eade0a7f6f4d1382",
+            "comment": "Show a project's first frame sooner when it opens: its boards measure their sizes together, laying the page out once rather than once per board"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "253ba7e90cd3e1de808af824b9ca1cd8695c13b8",
+            "comment": "A frame that fails offscreen reports the render page's own error message and stack, not Electron's \"Script failed to execute\""
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 00:29:40 GMT",
+      "version": "0.39.0",
+      "tag": "@parity-app/desktop_v0.39.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "56bd9c2ce2b7fb3e082add1adafe35c02111ff80",
+            "comment": "Agents report problems in Parity with parity report and MCP's report_problem: a Sentry feedback with the window's screenshot and replay, the call's trace and the design's frames, returning its link"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "473b65b96db0b603afc70ba0d97b3fcb16394c90",
+            "comment": "Set the interface in Inter, on four sizes for the chrome with nothing under 11px, regular text a step heavier, sentence-case section titles, and code in each system's monospace."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "eb0df003b5acebba7485e93b60c54536961a9c08",
+            "comment": "The inspector's Design tab starts with what's selected, as its icon and kind in the kind's color above its name, with which component or file on hover"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 23:45:38 GMT",
       "version": "0.38.0",
       "tag": "@parity-app/desktop_v0.38.0",

@@ -20,10 +20,22 @@ import { linuxAnonymous, macFootprints, windowsAnswer } from "./memory-readings.
 
 /** The memory each process asked about uses on its own, in bytes, where the system says. */
 export async function privateMemory(pids: number[]): Promise<ReadonlyMap<number, number>> {
-  if (pids.length === 0) return new Map()
-  if (process.platform === "win32") return windows(pids)
-  if (process.platform === "linux") return linux(pids)
-  if (process.platform === "darwin") return mac(pids)
+  if (pids.length === 0) {
+    return new Map()
+  }
+
+  if (process.platform === "win32") {
+    return windows(pids)
+  }
+
+  if (process.platform === "linux") {
+    return linux(pids)
+  }
+
+  if (process.platform === "darwin") {
+    return mac(pids)
+  }
+
   return new Map()
 }
 
@@ -32,9 +44,13 @@ async function linux(pids: number[]): Promise<Map<number, number>> {
   await Promise.all(
     pids.map(async (pid) => {
       const bytes = await readFile(`/proc/${pid}/status`, "utf8").then(linuxAnonymous, () => undefined)
-      if (bytes) sizes.set(pid, bytes)
+
+      if (bytes) {
+        sizes.set(pid, bytes)
+      }
     })
   )
+
   return sizes
 }
 
@@ -53,7 +69,9 @@ async function mac(pids: number[]): Promise<Map<number, number>> {
       })
     }
   }
+
   const all = await footprints.sizes
+
   return new Map(pids.flatMap((pid) => (all.has(pid) ? [[pid, all.get(pid)!] as const] : [])))
 }
 
@@ -92,6 +110,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
 
 /** How long an answer is waited for: the first takes a second or two while PowerShell starts. */
 const answerMs = 3000
+
 /** How long after the last question the PowerShell is stopped. */
 const idleMs = 15_000
 
@@ -102,24 +121,35 @@ interface Reader {
 }
 
 let reader: Reader | undefined
+
 /** PowerShell couldn't start, so the working set stands in until the app restarts. */
 let unavailable = false
 let lastAsked = 0
+
 /** The latest answer, for a question that isn't answered in time. */
 let latest = new Map<number, number>()
 
 async function windows(pids: number[]): Promise<Map<number, number>> {
-  if (unavailable) return new Map()
+  if (unavailable) {
+    return new Map()
+  }
+
   lastAsked = Date.now()
   const current = (reader ??= start())
+
   return new Promise((resolve) => {
     let answered = false
+
     const answer = (sizes: Map<number, number>) => {
-      if (answered) return
+      if (answered) {
+        return
+      }
+
       answered = true
       clearTimeout(timer)
       resolve(sizes)
     }
+
     const timer = setTimeout(() => answer(latest), answerMs)
     current.waiting.push(answer)
     current.child.stdin.write(`${pids.join(" ")}\n`)
@@ -132,6 +162,7 @@ function start(): Reader {
     ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")],
     { windowsHide: true }
   )
+
   const started: Reader = { child, waiting: [] }
   let answered = false
   child.stderr.resume()
@@ -144,15 +175,29 @@ function start(): Reader {
   child.on("error", () => {
     unavailable = true
   })
+
   const idle = setInterval(() => {
-    if (Date.now() - lastAsked > idleMs) child.kill()
+    if (Date.now() - lastAsked > idleMs) {
+      child.kill()
+    }
   }, 5000).unref()
+
   child.on("exit", () => {
     clearInterval(idle)
+
     // One that never answered would fail the same way each time it started.
-    if (!answered) unavailable = true
-    for (const answer of started.waiting.splice(0)) answer(latest)
-    if (reader === started) reader = undefined
+    if (!answered) {
+      unavailable = true
+    }
+
+    for (const answer of started.waiting.splice(0)) {
+      answer(latest)
+    }
+
+    if (reader === started) {
+      reader = undefined
+    }
   })
+
   return started
 }

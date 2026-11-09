@@ -3,12 +3,14 @@ import type { RenderJob } from "../../shared/protocol.ts"
 import { preloadAnswers } from "../service.ts"
 import { capture, failed, holdsFirstDraw, stored, type UndrawnFrame, want } from "./frame-bitmaps.ts"
 
+// SAFETY: the functions under test only pass the job on, to the stubbed service.
 const job = {} as RenderJob
 
 /** Answers each capture the offscreen window is asked for with the next of `answers`. */
 function offscreen(...answers: (() => Promise<{ src?: string }>)[]) {
   const request = vi.fn<() => Promise<{ src?: string }>>(() => answers.shift()!())
   vi.stubGlobal("window", { canvasHost: { ask: preloadAnswers(request) } })
+
   return request
 }
 
@@ -20,6 +22,7 @@ describe("capture", () => {
       () => Promise.reject(new Error("UnknownVizError")),
       () => Promise.resolve({ src: "data:image/webp;base64,AAAA" })
     )
+
     want("failing", 1)
     expect(await capture("failing", job)).toBe(failed)
     expect(await capture("failing", job)).toBe("data:image/webp;base64,AAAA")
@@ -40,12 +43,29 @@ describe("capture", () => {
 })
 
 describe("stored", () => {
-  /** Answers each method the service is asked with `answers[method]`, counting what's asked. */
-  function service(answers: Record<string, () => Promise<{ src?: string; height?: number }>>) {
-    const request = vi.fn<(method: string) => Promise<{ src?: string; height?: number }>>((method) =>
-      answers[method]!()
-    )
+  type Kept = { src?: string; height?: number }
+
+  /**
+   * Answers each method the service is asked with `answers[method]`, counting what's asked: a capture with what it
+   * gives, and each job asked for kept bitmaps with what it gives for that job.
+   */
+  function service(answers: Record<string, (job?: RenderJob) => Promise<Kept>>) {
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- it stands in for the service across IPC, whose messages preloadAnswers leaves unparsed
+    const request = vi.fn<(method: string, params: unknown) => Promise<unknown>>((method, params) => {
+      // SAFETY: the two methods asked are frames.capture, whose params have no jobs, and frames.stored, whose jobs are
+      // JSON of the RenderJob[] asked for.
+      const { jobs } = params as { jobs?: string }
+
+      return jobs === undefined
+        ? answers[method]!()
+        : // SAFETY: as above.
+          Promise.all((JSON.parse(jobs) as RenderJob[]).map((asked) => answers[method]!(asked))).then((kept) => ({
+            kept
+          }))
+    })
+
     vi.stubGlobal("window", { canvasHost: { ask: preloadAnswers(request) } })
+
     return request
   }
 
@@ -53,6 +73,7 @@ describe("stored", () => {
     const request = service({
       "frames.stored": () => Promise.resolve({ src: "data:image/webp;base64,KEPT", height: 640 })
     })
+
     want("kept", 1)
     expect(await stored("kept", job)).toEqual({ src: "data:image/webp;base64,KEPT", height: 640 })
     expect(await capture("kept", job)).toBe("data:image/webp;base64,KEPT")
@@ -65,6 +86,28 @@ describe("stored", () => {
     const [a, b] = await Promise.all([stored("shared", job), stored("shared", job)])
     expect(a).toBe(b)
     expect(request).toHaveBeenCalledTimes(1)
+  })
+
+  it("asks once for the frames that mount together, giving each its own bitmap", async () => {
+    // SAFETY: the stubbed service tells jobs apart by tree, and nothing else reads them.
+    const first = { tree: "first" } as RenderJob
+    // SAFETY: as above.
+    const second = { tree: "second" } as RenderJob
+
+    const request = service({
+      "frames.stored": (asked) =>
+        Promise.resolve(asked?.tree === "first" ? { src: "data:image/webp;base64,FIRST", height: 320 } : {})
+    })
+
+    const [a, b] = await Promise.all([stored("first", first), stored("second", second)])
+    expect(a).toEqual({ src: "data:image/webp;base64,FIRST", height: 320 })
+    expect(b).toBeUndefined()
+    expect(request.mock.calls).toEqual([["frames.stored", { jobs: JSON.stringify([first, second]) }]])
+  })
+
+  it("has none when the service couldn't say", async () => {
+    service({ "frames.stored": () => Promise.reject(new Error("closed")) })
+    expect(await stored("unanswered", job)).toBeUndefined()
   })
 
   it("has none when none was kept", async () => {

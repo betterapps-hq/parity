@@ -1,8 +1,118 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 08 Nov 2026 23:45:46 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 13:05:07 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.31.0
+
+Mon, 09 Nov 2026 13:05:07 GMT
+
+### Minor changes
+
+- The canvas draws padding and gaps in modes' green and hatches them as Figma does, only while a handle is hovered,
+  focused or dragged, with value chips in dark text (ajcraswell@gmail.com)
+- Publish to npm's next tag first, and report production once a version has been promoted to latest
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Duplicate lint disables are gone: one guard tells a named length from steps, the renderer keeps one set of bit
+  helpers, and module exports are checked with instanceof Function (ajcraswell@gmail.com)
+
+## 0.30.0
+
+Mon, 09 Nov 2026 12:29:45 GMT
+
+### Minor changes
+
+- Rebuild the canvas toolbar: tools with menus, a review button whose Comment and annotation tools warp the toolbar into
+  their own bars, and Zoom in its own corner (ajcraswell@gmail.com)
+
+## 0.29.1
+
+Mon, 09 Nov 2026 12:11:43 GMT
+
+### Patches
+
+- Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows
+  (PAR-788) (ajcraswell@gmail.com)
+
+## 0.29.0
+
+Mon, 09 Nov 2026 10:50:18 GMT
+
+### Minor changes
+
+- Installed builds report to Sentry as preview or release instead of tester, so a pull request's preview installer no
+  longer reads as the published app (ajcraswell@gmail.com)
+- process.memory sends each role's memory and bitmapCache.used each hit rate as numbers Sentry can chart
+  (ajcraswell@gmail.com)
+- Record the project service exiting, windows hanging and main's loop blocked as events with how long they lasted
+  (PAR-771) (ajcraswell@gmail.com)
+
+### Patches
+
+- Reads its files, the app's answers and MCP arguments through schemas, with no change to what it prints or exits with
+  (ajcraswell@gmail.com)
+- CI sends only errors and reports to Sentry; its spans, logs and replays stay in the local copy (PAR-777)
+  (ajcraswell@gmail.com)
+- Bring the tokens package up to Buildkit's lint rules, with no change in behavior (ajcraswell@gmail.com)
+- Exports record how long they took, as durationMs on export.done and export.failed (PAR-773) (ajcraswell@gmail.com)
+- Zoomed out, a narrow board's title runs into the free canvas beside it instead of truncating at the board's edge
+  (ajcraswell@gmail.com)
+
+## 0.28.3
+
+Mon, 09 Nov 2026 06:57:43 GMT
+
+### Patches
+
+- Stop a call failing because the CLI was too busy to read a copy's answer in time (ajcraswell@gmail.com)
+
+## 0.28.2
+
+Mon, 09 Nov 2026 04:18:08 GMT
+
+### Patches
+
+- Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the
+  interrupted frame as crashed (ajcraswell@gmail.com)
+- Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756) (ajcraswell@gmail.com)
+
+## 0.28.1
+
+Mon, 09 Nov 2026 03:07:25 GMT
+
+### Patches
+
+- Upload the published CLI's source maps to Sentry, and name a pkg.pr.new preview's release by its commit (PAR-719)
+  (ajcraswell@gmail.com)
+- A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on
+  Windows. (ajcraswell@gmail.com)
+
+## 0.28.0
+
+Mon, 09 Nov 2026 02:25:19 GMT
+
+### Minor changes
+
+- Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component
+  as component.changed (ajcraswell@gmail.com)
+
+### Patches
+
+- project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the
+  builder can't load the project's config (ajcraswell@gmail.com)
+
+## 0.27.0
+
+Mon, 09 Nov 2026 00:29:58 GMT
+
+### Minor changes
+
+- Agents report problems in Parity with parity report and MCP's report_problem: a Sentry feedback with the window's
+  screenshot and replay, the call's trace and the design's frames, returning its link (ajcraswell@gmail.com)
 
 ## 0.26.0
 

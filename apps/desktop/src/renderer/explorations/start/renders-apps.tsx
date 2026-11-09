@@ -88,6 +88,7 @@ const levelNodes = [
 /** A game's world map: levels along a path, with stars and the next one to play. */
 export function Levels({ look }: { look: Look }) {
   const h = look.hue
+
   return (
     <div
       className="relative size-full overflow-hidden"
@@ -123,12 +124,22 @@ export function Levels({ look }: { look: Look }) {
       </svg>
       {levelNodes.map((node, index) => {
         let size = 64
-        if (node.boss) size = 92
-        else if (node.current) size = 78
+
+        if (node.boss) {
+          size = 92
+        } else if (node.current) {
+          size = 78
+        }
+
         const locked = index > 5
         let mark: ReactNode = index + 1
-        if (node.boss) mark = <Skull className="size-10" />
-        else if (locked) mark = <Lock className="size-6" />
+
+        if (node.boss) {
+          mark = <Skull className="size-10" />
+        } else if (locked) {
+          mark = <Lock className="size-6" />
+        }
+
         return (
           <div
             key={index}
@@ -215,7 +226,7 @@ const tiles = [
 ]
 
 function Tile({ kind, top, hue }: { kind: string; top: boolean; hue: number }) {
-  if (kind === "#")
+  if (kind === "#") {
     return (
       <span
         className="absolute inset-0"
@@ -227,7 +238,9 @@ function Tile({ kind, top, hue }: { kind: string; top: boolean; hue: number }) {
         }}
       />
     )
-  if (kind === "=")
+  }
+
+  if (kind === "=") {
     return (
       <span
         className="absolute inset-x-0 top-0 h-7 rounded-md"
@@ -236,7 +249,9 @@ function Tile({ kind, top, hue }: { kind: string; top: boolean; hue: number }) {
         }}
       />
     )
-  if (kind === "L")
+  }
+
+  if (kind === "L") {
     return (
       <span
         className="absolute inset-0"
@@ -246,18 +261,24 @@ function Tile({ kind, top, hue }: { kind: string; top: boolean; hue: number }) {
         }}
       />
     )
-  if (kind === "C")
+  }
+
+  if (kind === "C") {
     return (
       <span className="absolute inset-3.5 rounded-full border-4 border-[oklch(0.7_0.15_75)] bg-[oklch(0.87_0.17_90)] shadow-[0_0_20px_oklch(0.87_0.17_90/0.7)]" />
     )
-  if (kind === "E")
+  }
+
+  if (kind === "E") {
     return (
       <span className="absolute inset-x-2 top-4 bottom-0 rounded-t-[28px] bg-[oklch(0.3_0.08_300)] shadow-[0_0_0_3px_oklch(0.2_0.06_300)]">
         <span className="absolute top-4 left-3 h-3 w-4 rounded-full bg-[oklch(0.85_0.2_25)]" />
         <span className="absolute top-4 right-3 h-3 w-4 rounded-full bg-[oklch(0.85_0.2_25)]" />
       </span>
     )
-  if (kind === "P")
+  }
+
+  if (kind === "P") {
     return (
       <span
         className="absolute inset-x-2.5 -top-6 bottom-0 rounded-[20px] shadow-[0_0_0_3px_oklch(0.3_0.1_30)]"
@@ -268,13 +289,17 @@ function Tile({ kind, top, hue }: { kind: string; top: boolean; hue: number }) {
         <span className="absolute inset-x-0 top-[52px] h-3 bg-[oklch(0.6_0.2_25)]" />
       </span>
     )
-  if (kind === "F")
+  }
+
+  if (kind === "F") {
     return (
       <span className="absolute inset-0">
         <span className="absolute top-0 bottom-0 left-3 w-1.5 rounded bg-white/80" />
         <span className="absolute top-1 left-4.5 h-8 w-10 rounded-r-md bg-[oklch(0.7_0.2_150)]" />
       </span>
     )
+  }
+
   return null
 }
 
@@ -282,6 +307,7 @@ function Tile({ kind, top, hue }: { kind: string; top: boolean; hue: number }) {
 export function Play({ look }: { look: Look }) {
   const h = look.hue
   const size = 64
+
   return (
     <div
       className="relative size-full overflow-hidden"
@@ -346,6 +372,7 @@ export function Arena({ look }: { look: Look }) {
   const floor = `oklch(0.3 0.05 ${h})`
   const line = `oklch(0.7 0.12 ${h} / 0.35)`
   const rows = [0, 0.06, 0.14, 0.25, 0.4, 0.6, 0.85]
+
   return (
     <div
       className="relative size-full overflow-hidden"
@@ -358,6 +385,7 @@ export function Arena({ look }: { look: Look }) {
         {rows.map((t) => {
           const y = horizon + t * (800 - horizon)
           const inset = 280 * (1 - t)
+
           return <line key={t} x1={inset} x2={1280 - inset} y1={y} y2={y} stroke={line} strokeWidth="2" />
         })}
         {[-4, -3, -2, -1, 0, 1, 2, 3, 4].map((column) => (
@@ -497,6 +525,7 @@ function Btn({
   children: ReactNode
 }) {
   const sizes = { sm: "h-8 px-3 text-[13px]", md: "h-9 px-4 text-[14px]", lg: "h-11 px-5 text-[15px]" }
+
   const variants = {
     primary: "bg-(--r-brand) text-(--r-brand-fg)",
     secondary: "bg-(--r-raised)",
@@ -504,6 +533,7 @@ function Btn({
     ghost: "text-(--r-muted)",
     danger: "bg-(--r-bad) text-white"
   }
+
   return (
     <span className={`flex items-center gap-1.5 rounded-lg font-medium ${sizes[size]} ${variants[variant]}`}>
       {children}
@@ -844,13 +874,17 @@ export function MobileListings({ look }: { look: Look }) {
 
 /** A day in the booking calendar: the chosen one in the brand color, the days before it faint. */
 function dayTone(day: number | undefined): string {
-  if (day === 28) return "bg-(--r-brand) font-semibold text-(--r-brand-fg)"
+  if (day === 28) {
+    return "bg-(--r-brand) font-semibold text-(--r-brand-fg)"
+  }
+
   return day && day < 28 ? "text-(--r-faint)" : ""
 }
 
 /** A listing: the walker, their reviews, and booking a walk. */
 export function Walker({ look }: { look: Look }) {
   const days = Array.from({ length: 30 }, (_, index) => index + 1)
+
   return (
     <div className="flex size-full flex-col bg-(--r-bg) text-[14px]">
       <nav className="flex h-16 shrink-0 items-center justify-between border-b border-(--r-line) px-10">
@@ -1013,14 +1047,16 @@ export function Board({ look }: { look: Look }) {
             <Timer className="size-4" /> 4:12
           </span>
           <span className="flex">
-            {[
-              ["Priya Raman", 162],
-              ["Jonas Weber", 30],
-              ["Lena Fischer", 290],
-              ["Sam Okafor", 80]
-            ].map(([name, hue], index) => (
+            {(
+              [
+                ["Priya Raman", 162],
+                ["Jonas Weber", 30],
+                ["Lena Fischer", 290],
+                ["Sam Okafor", 80]
+              ] as const
+            ).map(([name, hue], index) => (
               <span key={name} className={`rounded-full ring-2 ring-(--r-card) ${index ? "-ml-2" : ""}`}>
-                <Face name={name as string} hue={hue as number} size={30} />
+                <Face name={name} hue={hue} size={30} />
               </span>
             ))}
           </span>

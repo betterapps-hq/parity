@@ -1,4 +1,4 @@
-import type { Envelope, EventContext, Outcome, SpanEnvelope, TraceContext } from "./envelope.ts"
+import type { Attributes, Envelope, EventContext, Outcome, SpanEnvelope, TraceContext } from "./envelope.ts"
 import type { EventAttributes, EventDefinition, EventName } from "./events.ts"
 import { RingBuffer, recentEvents } from "./ring-buffer.ts"
 import { createScrubber } from "./scrub.ts"
@@ -11,8 +11,8 @@ export class TelemetryError extends Error {
 }
 
 /** A copy of an event's attributes, so a later change to the object the caller passed doesn't reach its sinks. */
-function copyOf(attributes: unknown): Record<string, unknown> {
-  return typeof attributes === "object" && attributes !== null ? { ...attributes } : {}
+function copyOf(attributes: Attributes): Attributes {
+  return { ...attributes }
 }
 
 /** A span under way: its place in the trace, for spans and events under it, and `end` to record it. */
@@ -22,7 +22,7 @@ export interface Span extends TraceContext {
    * Records the span as one event with its duration, with `attributes` learned on the way, such as a failure's code,
    * added to those it started with. Only the first call counts.
    */
-  end(outcome?: Outcome, attributes?: Record<string, unknown>): void
+  end(outcome?: Outcome, attributes?: Attributes): void
 }
 
 export interface TelemetryOptions<Events extends readonly EventDefinition[]> {
@@ -40,7 +40,7 @@ export interface TelemetryOptions<Events extends readonly EventDefinition[]> {
   /** How many recent events to keep, 500 unless given. */
   keep?: number
   /** Called with what a sink threw. A sink's failure never reaches the code that recorded the event. */
-  onSinkError?: (error: unknown) => void
+  onSinkError?: (cause: unknown) => void
   /** The time in milliseconds since 1970, for tests. */
   now?: () => number
   /** A number from 0 up to 1, for sampling, for tests. */
@@ -90,25 +90,40 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
     randomBytes = cryptoBytes,
     keep = recentEvents
   } = options
+
   const definitions = new Map<string, EventDefinition>()
+
   for (const definition of options.events) {
-    if (definitions.has(definition.name)) throw new Error(`${definition.name} is registered twice`)
+    if (definitions.has(definition.name)) {
+      throw new Error(`${definition.name} is registered twice`)
+    }
+
     definitions.set(definition.name, definition)
   }
+
   let context: EventContext = { ...options.context }
   let scrubber = createScrubber({ secrets: options.secrets })
   const kept = new RingBuffer<Envelope>(keep)
 
   /** The event's definition, once its attributes are checked when checking. Undefined for an unknown name. */
-  function definitionOf(name: string, attributes: unknown): EventDefinition | undefined {
+  function definitionOf(name: string, attributes: Attributes): EventDefinition | undefined {
     const definition = definitions.get(name)
-    if (!check) return definition
-    if (!definition) throw new TelemetryError(`${name} isn't a registered event`)
+
+    if (!check) {
+      return definition
+    }
+
+    if (!definition) {
+      throw new TelemetryError(`${name} isn't a registered event`)
+    }
+
     const result = definition.schema.safeParse(attributes)
+
     if (!result.success) {
       const problems = result.error.issues.map((issue) => `${issue.path.join(".") || "attributes"}: ${issue.message}`)
       throw new TelemetryError(`${name}'s attributes don't match its schema: ${problems.join("; ")}`)
     }
+
     return definition
   }
 
@@ -125,7 +140,7 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
   function envelope(
     definition: EventDefinition,
     time: number,
-    attributes: Record<string, unknown>,
+    attributes: Attributes,
     at: EventContext = context
   ): Envelope {
     return { ...at, name: definition.name, time: new Date(time).toISOString(), level: definition.level, attributes }
@@ -134,9 +149,17 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
   return {
     track(name, attributes, { span } = {}) {
       const definition = definitionOf(name, attributes)
-      if (!definition || random() >= definition.sample) return
+
+      if (!definition || random() >= definition.sample) {
+        return
+      }
+
       const recorded = envelope(definition, now(), scrubber.value(copyOf(attributes)))
-      if (span) Object.assign(recorded, { traceId: span.traceId, spanId: span.spanId })
+
+      if (span) {
+        Object.assign(recorded, { traceId: span.traceId, spanId: span.spanId })
+      }
+
       kept.push(recorded)
       deliver((sink) => sink.event(recorded))
     },
@@ -152,22 +175,34 @@ export function createTelemetry<const Events extends readonly EventDefinition[]>
       const startContext = context
       const copy = copyOf(attributes)
       let ended = false
+
       return {
         name,
         traceId,
         spanId,
         end(outcome = "ok", learned) {
-          if (ended) return
+          if (ended) {
+            return
+          }
+
           ended = true
-          if (!sampled || !definition) return
-          const recorded: SpanEnvelope = {
+
+          if (!sampled || !definition) {
+            return
+          }
+
+          const head = {
             ...envelope(definition, start, scrubber.value({ ...copy, ...learned }), startContext),
             traceId,
-            spanId,
-            ...(parent ? { parentSpanId: parent.spanId } : {}),
-            durationMs: Math.max(0, now() - start),
-            outcome
+            spanId
           }
+
+          const durationMs = Math.max(0, now() - start)
+
+          const recorded: SpanEnvelope = parent
+            ? { ...head, parentSpanId: parent.spanId, durationMs, outcome }
+            : { ...head, durationMs, outcome }
+
           kept.push(recorded)
           deliver((sink) => sink.span(recorded))
         }

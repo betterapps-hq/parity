@@ -33,6 +33,7 @@ export type ConfigChange = "none" | "config" | "dependencies"
  */
 export function configInputs(tsconfig: ProjectTsconfig, lockfiles: readonly string[]): ConfigInputs {
   const configs = new Set([...tsconfig.read, ...rootConfigNames, "package.json"])
+
   return { configs: [...configs].sort(), lockfiles: [...lockfiles].sort() }
 }
 
@@ -41,12 +42,19 @@ export function configInputs(tsconfig: ProjectTsconfig, lockfiles: readonly stri
  * appearing (a switch of package manager) or a base config dropped from an `extends` chain is a change too.
  */
 export function configChange(before: ConfigStamps, after: ConfigStamps): ConfigChange {
-  if (!sameStamps(before.lockfiles, after.lockfiles)) return "dependencies"
-  if (!sameStamps(before.configs, after.configs)) return "config"
+  if (!sameStamps(before.lockfiles, after.lockfiles)) {
+    return "dependencies"
+  }
+
+  if (!sameStamps(before.configs, after.configs)) {
+    return "config"
+  }
+
   return "none"
 }
 
 function sameStamps(a: Record<string, string>, b: Record<string, string>): boolean {
   const keys = Object.keys(a)
+
   return keys.length === Object.keys(b).length && keys.every((key) => key in b && a[key] === b[key])
 }

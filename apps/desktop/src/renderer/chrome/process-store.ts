@@ -11,6 +11,7 @@ let processes: ProjectProcess[] = []
 const listeners = new Set<() => void>()
 let watching = 0
 let timer: ReturnType<typeof setTimeout> | undefined
+
 /**
  * Processes asked to stop or restart: shown as stopping or starting until the service reports a status other than the
  * one it had when asked.
@@ -23,14 +24,26 @@ function poll(): void {
     (next) => {
       processes = next.map((process) => {
         const asked = pending.get(process.id)
-        if (!asked) return process
-        if (process.status !== asked.was) {
-          pending.delete(process.id)
+
+        if (!asked) {
           return process
         }
+
+        if (process.status !== asked.was) {
+          pending.delete(process.id)
+
+          return process
+        }
+
         return { ...process, status: asked.status }
       })
-      for (const id of pending.keys()) if (!next.some((process) => process.id === id)) pending.delete(id)
+
+      for (const id of pending.keys()) {
+        if (!next.some((process) => process.id === id)) {
+          pending.delete(id)
+        }
+      }
+
       notify()
       schedule()
     },
@@ -39,19 +52,30 @@ function poll(): void {
 }
 
 function schedule(): void {
-  if (listeners.size > 0) timer = setTimeout(poll, watching > 0 ? shownInterval : idleInterval)
+  if (listeners.size > 0) {
+    timer = setTimeout(poll, watching > 0 ? shownInterval : idleInterval)
+  }
 }
 
 function notify(): void {
-  for (const listener of listeners) listener()
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
-  if (listeners.size === 1) poll()
+
+  if (listeners.size === 1) {
+    poll()
+  }
+
   return () => {
     listeners.delete(listener)
-    if (listeners.size === 0) clearTimeout(timer)
+
+    if (listeners.size === 0) {
+      clearTimeout(timer)
+    }
   }
 }
 
@@ -61,13 +85,18 @@ function subscribe(listener: () => void): () => void {
  */
 export function useProcesses(shown: boolean): ProjectProcess[] {
   useEffect(() => {
-    if (!shown) return
+    if (!shown) {
+      return
+    }
+
     watching += 1
     poll()
+
     return () => {
       watching -= 1
     }
   }, [shown])
+
   return useSyncExternalStore(subscribe, () => processes)
 }
 
@@ -75,10 +104,15 @@ export function useProcesses(shown: boolean): ProjectProcess[] {
 export function useNow(ticking: boolean): number {
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
-    if (!ticking) return
+    if (!ticking) {
+      return
+    }
+
     const interval = setInterval(() => setNow(Date.now()), 1000)
+
     return () => clearInterval(interval)
   }, [ticking])
+
   return now
 }
 
@@ -87,7 +121,7 @@ export async function stopProcess(process: ProjectProcess): Promise<void> {
 }
 
 export async function restartProcess(process: ProjectProcess): Promise<void> {
-  const task = process.shape === "task"
+  const task = process.lifetime === "task"
   await act(
     process,
     task ? "running" : "starting",
@@ -103,7 +137,9 @@ const runOf = (process: ProjectProcess) => `${process.id}@${process.stoppedAt ??
 
 /** Marks finished tasks' results as seen, so the status bar stops showing them. */
 export function markSeen(processes: ProjectProcess[]): void {
-  for (const process of processes) seen.add(runOf(process))
+  for (const process of processes) {
+    seen.add(runOf(process))
+  }
 }
 
 export function isSeen(process: ProjectProcess): boolean {
@@ -125,22 +161,36 @@ async function act(
   pending.set(process.id, { status, was: process.status })
   processes = processes.map((candidate) => (candidate.id === process.id ? { ...candidate, status } : candidate))
   notify()
+
   try {
     await request(method, { id: process.id })
   } catch (error) {
     pending.delete(process.id)
     reportError(error, { operation: method, title: failure, description: errorMessage(error) })
   }
+
   poll()
 }
 
 /** How long something has run: "42s", "12m 04s", "2h 14m", "3d 4h". */
 export function formatUptime(milliseconds: number): string {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000))
-  if (seconds < 60) return `${seconds}s`
+
+  if (seconds < 60) {
+    return `${seconds}s`
+  }
+
   const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`
+
+  if (minutes < 60) {
+    return `${minutes}m ${String(seconds % 60).padStart(2, "0")}s`
+  }
+
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ${String(minutes % 60).padStart(2, "0")}m`
+
+  if (hours < 24) {
+    return `${hours}h ${String(minutes % 60).padStart(2, "0")}m`
+  }
+
   return `${Math.floor(hours / 24)}d ${hours % 24}h`
 }

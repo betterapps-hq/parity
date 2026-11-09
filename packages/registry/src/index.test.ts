@@ -1,7 +1,8 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { applyLibraryEdits, type LibraryEdits } from "@parity-app/core"
+import { applyLibraryEdits, isSampleText, type JsonValue, jsonValue, type LibraryEdits } from "@parity-app/core"
+import { isComposite, isText } from "@parity-app/core/values/evaluate"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test"
 import { covers, newestEntries, registryDir, registryEntries, registryEntryFor, withEdits } from "./index.ts"
 
@@ -9,12 +10,14 @@ let dir: string
 
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "parity-registry-"))
+
   const file = (version: string, range: string) => ({
     version: 3,
     id: "mui",
     name: "Material UI",
     package: { name: "@mui/material", version, range }
   })
+
   await writeFile(join(dir, "mui.lib.par"), JSON.stringify(file("9.5.0", "^9.0.0")))
   await writeFile(join(dir, "mui-7.lib.par"), JSON.stringify(file("7.3.4", "^7.0.0")))
   await writeFile(join(dir, "broken.lib.par"), JSON.stringify({ version: 3, name: "No package" }))
@@ -55,14 +58,17 @@ describe("registryEntryFor", () => {
 describe("newestEntries", () => {
   it("keeps each package's newest file by semver, with its hand edits applied", async () => {
     const newest = await mkdtemp(join(tmpdir(), "parity-registry-newest-"))
-    const file = (version: string, edits?: unknown) => ({
+
+    // JSON.stringify leaves `edits` out when it's undefined.
+    const file = (version: string, edits?: string) => ({
       version: 3,
       id: "mui",
       name: `Material UI ${version}`,
       package: { name: "@mui/material", version },
       components: { list: { Button: { as: "function" }, Fab: { as: "function" } } },
-      ...(edits === undefined ? {} : { edits })
+      edits
     })
+
     // As text, 9.5.0 is newer than 10.0.0, and "mui-10" sorts before "mui-9".
     await writeFile(join(newest, "mui-9.lib.par"), JSON.stringify(file("9.5.0")))
     await writeFile(join(newest, "mui-10.lib.par"), JSON.stringify(file("10.0.0", "shared.edits.json")))
@@ -70,6 +76,7 @@ describe("newestEntries", () => {
       join(newest, "shared.edits.json"),
       '{\n  // Fab is gone from 10.\n  "components": { "Fab": false, "Button": { "group": "Actions" } },\n}'
     )
+
     try {
       const [entry, ...rest] = await newestEntries(newest)
       expect(rest).toEqual([])
@@ -88,6 +95,7 @@ describe("withEdits", () => {
       name: "Acme",
       components: { list: { Button: { as: "function" as const } } }
     }
+
     const edited = await withEdits(join(dir, "acme.lib.par"), { ...manifest, edits: { components: { Gone: false } } })
     expect(edited.orphans).toEqual(["Gone"])
     expect(edited.manifest.components).toEqual(manifest.components)
@@ -109,6 +117,7 @@ describe("the registry", () => {
   it("has a valid file for each library Parity describes, each naming the version it was generated from", async () => {
     const entries = await registryEntries(registryDir())
     const packages = Object.fromEntries(entries.map((entry) => [entry.manifest.package!.name, entry.manifest]))
+
     for (const name of [
       "@buildkitgg/shadcn-baseui-luma",
       "@buildkitgg/shadcn-baseui-lyra",
@@ -144,17 +153,29 @@ describe("the registry", () => {
 
   it("keeps sample text that ends at a sentence or a whole word, not cut mid-word at 60 characters", async () => {
     const cut: string[] = []
-    const visit = (value: unknown, text: boolean) => {
-      if (typeof value === "string") {
-        if (text && value.length === 60 && !value.endsWith("…")) cut.push(value)
-      } else if (Array.isArray(value)) for (const item of value) visit(item, text)
-      else if (value && typeof value === "object") {
-        for (const [key, item] of Object.entries(value)) visit(item, ["children", "$render", "$element"].includes(key))
+
+    const visit = (value: JsonValue, text: boolean) => {
+      if (isText(value)) {
+        if (text && value.length === 60 && !value.endsWith("…")) {
+          cut.push(value)
+        }
+      } else if (Array.isArray(value)) {
+        for (const item of value) {
+          visit(item, text)
+        }
+      } else if (value !== null && isComposite(value)) {
+        for (const [key, item] of Object.entries(value)) {
+          visit(item, ["children", "$render", "$element"].includes(key))
+        }
       }
     }
+
     for (const entry of await registryEntries(registryDir())) {
-      for (const component of Object.values(entry.manifest.components?.list ?? {})) visit(component.sample, false)
+      for (const component of Object.values(entry.manifest.components?.list ?? {})) {
+        visit(jsonValue.parse(component.sample ?? null), false)
+      }
     }
+
     expect(cut).toEqual([])
     const nova = (await registryEntries(registryDir())).find((each) => each.manifest.id === "nova")!
     expect(JSON.stringify(nova.manifest.components!.list.Accordion!.sample)).toContain(
@@ -165,10 +186,15 @@ describe("the registry", () => {
   it("samples Recharts' bar, line and area charts with data, sized by what holds them", async () => {
     const entry = (await registryEntries(registryDir())).find((each) => each.manifest.package?.name === "recharts")!
     const edits = entry.manifest.edits
-    if (typeof edits !== "object") throw new Error("Recharts' file keeps its edits in itself")
+
+    if (edits === undefined || isText(edits)) {
+      throw new Error("Recharts' file keeps its edits in itself")
+    }
+
     const { manifest, orphans } = applyLibraryEdits(entry.manifest, edits satisfies LibraryEdits)
     expect(orphans).toEqual([])
     const list = manifest.components!.list
+
     for (const [chart, series] of [
       ["BarChart", "Bar"],
       ["LineChart", "Line"],
@@ -179,13 +205,16 @@ describe("the registry", () => {
       expect(sample.props).toMatchObject({ responsive: true, width: "100%" })
       expect(sample.props!.data).toHaveLength(6)
       expect(sample.props!.data).toEqual(expect.arrayContaining([expect.objectContaining({ month: "January" })]))
-      expect(
-        sample.children!.map((child) => typeof child === "object" && "component" in child && child.component)
-      ).toEqual(["CartesianGrid", "XAxis", series])
+      expect(sample.children!.map((child) => !isSampleText(child) && "component" in child && child.component)).toEqual([
+        "CartesianGrid",
+        "XAxis",
+        series
+      ])
       expect(list[series]!.parents).toEqual([chart])
       // Frames are still pictures, so a series draws whole rather than mid-animation.
       expect(list[series]!.sample!.props).toMatchObject({ isAnimationActive: false })
     }
+
     expect([list.XAxis!.group, list.YAxis!.group, list.CartesianGrid!.group, list.Bar!.group]).toEqual([
       "Axes",
       "Axes",

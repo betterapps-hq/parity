@@ -15,6 +15,7 @@ import {
   type ComponentProp,
   type DesignNode,
   isMadeValue,
+  type MadeValue as Made,
   nodePropInput,
   propsPanel
 } from "@parity-app/core"
@@ -30,7 +31,16 @@ import {
   ValueInput
 } from "./fields.tsx"
 import { PanelSection } from "./PanelSection.tsx"
-import { parseLooseValue, valueKind } from "./prop-values.ts"
+import {
+  booleanValue,
+  numberValue,
+  parseLooseValue,
+  plainText,
+  type PropValue,
+  readPropValue,
+  textValue,
+  valueKind
+} from "./prop-values.ts"
 
 interface PropsSectionProps {
   node: Extract<DesignNode, { type: "component" }>
@@ -40,7 +50,7 @@ interface PropsSectionProps {
   /** Props the state being edited takes away, still listed so they can be set or reset there. */
   taken?: readonly string[]
   /** Sets a prop, as part of a gesture's one undo step when given (a number field's run of Up and Down presses). */
-  onChange: (name: string, value: unknown, gesture?: string) => void
+  onChange: (name: string, value: PropValue | undefined, gesture?: string) => void
   /** Shows a number prop on the canvas while it's typed or scrubbed, before it's made. */
   onPreview?: (name: string, value: number | undefined) => void
   /** Takes the preview back. */
@@ -48,7 +58,11 @@ interface PropsSectionProps {
   onReset: (name: string) => void
 }
 
-const groupTitles = { html: "Attributes", aria: "Accessibility", event: "Events" } as const
+const groupTitles = new Map([
+  ["html", "Attributes"],
+  ["aria", "Accessibility"],
+  ["event", "Events"]
+])
 
 /**
  * A component's props, from what its source declares: variants offer their options, booleans a switch, and every prop
@@ -72,6 +86,7 @@ export function PropsSection({
   const { main, addable, inSlot } = panel
   const listed = new Set([...main.map((prop) => prop.name), ...panel.extra])
   const extra = [...panel.extra, ...taken.filter((name) => !listed.has(name))]
+
   const preview = (name: string): NumberPreview | undefined =>
     onPreview && onCancel ? { onPreview: (value) => onPreview(name, value), onCancel } : undefined
 
@@ -105,33 +120,39 @@ export function PropsSection({
         {extra.map((name) => {
           const prop = known.get(name)
           let input: ReactNode
-          if (isMadeValue(values[name])) input = <MadeValue value={values[name]} />
-          else if (prop)
+
+          const value = values[name]
+
+          if (isMadeValue(value)) {
+            input = <MadeValue value={value} />
+          } else if (prop) {
             input = (
               <PropInput
                 prop={prop}
-                value={values[name]}
+                value={value}
                 inSlot={inSlot.has(name)}
                 preview={preview(name)}
                 onChange={(value, gesture) => onChange(name, value, gesture)}
               />
             )
-          else
+          } else {
             input = (
               <ValueInput
-                value={values[name]}
+                value={readPropValue(value)}
                 title={name}
                 preview={preview(name)}
                 onCommit={(value, gesture) => onChange(name, value, gesture)}
               />
             )
+          }
+
           return (
             <div key={name} className="group relative">
               <Field
                 label={name}
                 changed={changed(name)}
                 onReset={() => onReset(name)}
-                hint={prop ? groupTitles[prop.group as keyof typeof groupTitles] : "Not a prop this component declares"}
+                hint={prop ? groupTitles.get(prop.group) : "Not a prop this component declares"}
               >
                 {input}
               </Field>
@@ -157,8 +178,9 @@ export function PropsSection({
  * A value the library's package makes (`createTreeCollection(...)`), which the canvas makes the way the example did. It
  * isn't edited here; removing it leaves the prop unset.
  */
-function MadeValue({ value }: { value: unknown }) {
-  const call = isMadeValue(value) ? value.$call : undefined
+function MadeValue({ value }: { value: Made }) {
+  const call = value.$call
+
   return (
     <span
       className="truncate px-1 text-xs text-muted-foreground"
@@ -172,26 +194,33 @@ function MadeValue({ value }: { value: unknown }) {
 /** The right control for a prop's kind of value, with its default as the placeholder. */
 function PropInput({
   prop,
-  value,
+  value: held,
   inSlot = false,
   preview,
   onChange
 }: {
   prop: ComponentProp
+  /** The prop's value as the layer holds it, which can be one the library's package makes. */
   value: unknown
   /** Whether its layers are in a slot of its name, which the canvas passes in place of the value. */
   inSlot?: boolean
   /** Shows a number on the canvas while it's typed or scrubbed. */
   preview?: NumberPreview
-  onChange: (value: unknown, gesture?: string) => void
+  onChange: (value: PropValue | undefined, gesture?: string) => void
 }) {
-  if (isMadeValue(value)) return <MadeValue value={value} />
+  if (isMadeValue(held)) {
+    return <MadeValue value={held} />
+  }
+
+  const value = readPropValue(held)
+
   const fallback = prop.default === undefined || prop.default === null ? undefined : String(prop.default)
+
   switch (prop.kind) {
     case "enum":
       return (
         <ChoiceInput
-          value={value === undefined ? undefined : String(value as unknown)}
+          value={value === undefined ? undefined : plainText(value)}
           // Options that print the same, such as `true` and `"true"`, are one choice.
           options={[...new Set((prop.options ?? []).map(String))].map((option) => ({ value: option, label: option }))}
           placeholder={fallback ? `${fallback} (default)` : "Not set"}
@@ -204,7 +233,7 @@ function PropInput({
     case "boolean":
       return (
         <SwitchInput
-          value={typeof value === "boolean" ? value : prop.default === true}
+          value={booleanValue.safeParse(value).data ?? prop.default === true}
           label={prop.name}
           onChange={(next) => onChange(next === (prop.default ?? false) ? undefined : next)}
         />
@@ -216,7 +245,7 @@ function PropInput({
           title={prop.name}
           placeholder={fallback ?? ""}
           // Maths that works from the value there starts from the default when the prop isn't set.
-          blank={() => (typeof prop.default === "number" ? prop.default : undefined)}
+          blank={() => numberValue.safeParse(prop.default).data}
           preview={preview}
           onCommit={onChange}
         />
@@ -224,17 +253,18 @@ function PropInput({
     case "string":
       return (
         <TextInput
-          value={typeof value === "string" ? value : ""}
+          value={textValue.safeParse(value).data ?? ""}
           placeholder={fallback ?? ""}
           onCommit={(next) => onChange(next === "" ? undefined : next)}
         />
       )
     case "node":
-      if (nodePropInput(value, inSlot) === "layers") {
+      if (nodePropInput(held, inSlot) === "layers") {
         return <span className="text-xs text-muted-foreground">Set in layers</span>
       }
+
       // A value that isn't text (a number, `null`) is edited as one, as before slots were nodes.
-      if (nodePropInput(value, inSlot) === "value") {
+      if (nodePropInput(held, inSlot) === "value") {
         return (
           <ValueInput
             value={value}
@@ -245,9 +275,10 @@ function PropInput({
           />
         )
       }
+
       return (
         <TextInput
-          value={typeof value === "string" ? value : ""}
+          value={textValue.safeParse(value).data ?? ""}
           placeholder="Text, or layers in its slot"
           onCommit={(next) => onChange(next === "" ? undefined : next)}
         />
@@ -274,16 +305,18 @@ function AddProp({
 }: {
   props: ComponentProp[]
   free: boolean
-  onAdd: (name: string, value: unknown) => void
+  onAdd: (name: string, value: PropValue | undefined) => void
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
   const groups = Map.groupBy(props, (prop) => prop.group)
-  const add = (name: string, value: unknown) => {
+
+  const add = (name: string, value: PropValue | undefined) => {
     onAdd(name, value)
     setOpen(false)
     setSearch("")
   }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -308,11 +341,15 @@ function AddProp({
             </CommandEmpty>
             {(["own", "variant", "html", "aria"] as const).map((group) => {
               const list = groups.get(group)
-              if (!list?.length) return null
+
+              if (!list?.length) {
+                return null
+              }
+
               return (
                 <CommandGroup
                   key={group}
-                  heading={group === "own" || group === "variant" ? "Props" : groupTitles[group]}
+                  heading={group === "own" || group === "variant" ? "Props" : groupTitles.get(group)}
                 >
                   {list.map((prop) => (
                     <CommandItem
@@ -347,10 +384,22 @@ function AddProp({
 }
 
 /** A starting value for a newly added prop, so it shows something right away. */
-function initialValue(prop: ComponentProp): unknown {
-  if (prop.default !== undefined && prop.default !== null) return prop.default
-  if (prop.kind === "boolean") return true
-  if (prop.kind === "enum") return prop.options?.[0]
-  if (prop.kind === "number") return 0
+function initialValue(prop: ComponentProp): PropValue | undefined {
+  if (prop.default !== undefined && prop.default !== null) {
+    return prop.default
+  }
+
+  if (prop.kind === "boolean") {
+    return true
+  }
+
+  if (prop.kind === "enum") {
+    return prop.options?.[0]
+  }
+
+  if (prop.kind === "number") {
+    return 0
+  }
+
   return ""
 }

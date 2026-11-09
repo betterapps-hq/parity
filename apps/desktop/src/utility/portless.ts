@@ -38,15 +38,20 @@ export async function readPortless(
       (text) => text.trim(),
       () => ""
     )
+
   const [routesText, portText, tlsText] = await Promise.all(["routes.json", "proxy.port", "proxy.tls"].map(read))
+
   // A half-written file reads again on the next poll.
   const routes = (routesFile.safeParse(routesText || "[]").data ?? []).flatMap((value) => {
     const read = route.safeParse(value)
+
     return read.success && alive(read.data.pid) ? [read.data] : []
   })
+
   const port = proxyPort.safeParse(portText).data ?? 443
   const tls = proxyTls.safeParse(tlsText).data ?? false
   const standard = port === (tls ? 443 : 80)
+
   return {
     routes,
     address: (hostname) => `${tls ? "https" : "http"}://${hostname}${standard ? "" : `:${port}`}`
@@ -55,13 +60,17 @@ export async function readPortless(
 
 /** A route left behind by a process that was killed isn't live. Portless keeps routes without one, numbered 0. */
 function alive(pid: number | undefined): boolean {
-  if (pid === undefined || pid === 0) return true
+  if (pid === undefined || pid === 0) {
+    return true
+  }
+
   try {
     process.kill(pid, 0)
+
     return true
   } catch (error) {
     // It's running, as another user's.
-    return (error as NodeJS.ErrnoException).code === "EPERM"
+    return error instanceof Error && "code" in error && error.code === "EPERM"
   }
 }
 
@@ -80,13 +89,19 @@ export async function findRoutedServer(
   const ports = [...new Set(portless.routes.map((route) => route.port))]
   const serving = await passing(ports, serves)
   const mine = serving.length > 1 ? await passing(serving, ours) : serving
-  if (mine.length !== 1) return undefined
+
+  if (mine.length !== 1) {
+    return undefined
+  }
+
   const route = portless.routes.find((candidate) => candidate.port === mine[0])!
+
   return { url: local(route.port), address: portless.address(route.hostname) }
 }
 
 async function passing(ports: number[], test: (base: string) => Promise<boolean>): Promise<number[]> {
   const passed = await Promise.all(ports.map((port) => test(local(port))))
+
   return ports.filter((_, index) => passed[index])
 }
 

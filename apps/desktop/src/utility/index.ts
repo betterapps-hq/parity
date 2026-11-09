@@ -1,10 +1,13 @@
 import { portFree, viteBuilder } from "@parity-app/builder-vite"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
+import { parseInput } from "@parity-app/core"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { errorCode } from "@parity-app/telemetry"
 import type { MessagePortMain } from "electron"
+import { z } from "zod"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
+import { storedJobs } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
 import { checkAccessibility, exportDesigns, exportLayers, layersPicture, startAgentServer } from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
@@ -15,6 +18,7 @@ import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
+import type { Attributes } from "./event-attributes.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
@@ -67,12 +71,15 @@ const projects = openProjects({
         : Promise.resolve(false)
   }
 })
+
 const previews = componentPreviews(projects)
 
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
   file: environment().PARITY_REOPEN_FILE,
-  open: (root) => projects.open(root, { reopen: true }).finally(rememberOpen),
+  open: async (root) => {
+    await projects.open(root, { reopen: true }).finally(rememberOpen)
+  },
   close: (root) => projects.close(root).finally(rememberOpen)
 })
 
@@ -85,7 +92,9 @@ function rememberOpen(): void {
   // reads them again, so only the latest read is used.
   const reading = ++secretsRead
   void projectEnvSecrets(roots).then((secrets) => {
-    if (reading === secretsRead) useProjectSecrets(secrets)
+    if (reading === secretsRead) {
+      useProjectSecrets(secrets)
+    }
   })
 }
 
@@ -93,6 +102,7 @@ const handlers: Handlers<ServiceMethods> = {
   "project.open": ({ root }) => {
     const projectRoot = projects.rootFor(root)
     reopening.claim(projectRoot)
+
     return projects.open(projectRoot).finally(rememberOpen)
   },
   "project.close": ({ projectId }) => projects.close(projectId).finally(rememberOpen),
@@ -106,23 +116,43 @@ const handlers: Handlers<ServiceMethods> = {
   "layers.picture": (params) => layersPicture(editorWindow(), params),
   "frames.capture": async ({ job, height }) => {
     const { frame, png } = await renderOffscreen(job, true)
-    if (frame.error || !png) return {}
+
+    if (frame.error || !png) {
+      return {}
+    }
+
     // The height kept with it, which a frame that hasn't drawn its design takes when it shows the bitmap (PAR-525): the
     // live frame's, or else the offscreen window's, measured at full size as the canvas lays it out.
     const kept = height ?? frame.canvasHeight ?? frame.height
     // Kept and shown as a lossless WebP (PAR-535); where sharp can't load, the PNG shows and nothing's kept.
     const webp = await losslessWebp(Buffer.from(png, "base64")).catch(() => undefined)
-    if (!webp) return { src: `data:image/png;base64,${png}`, height: kept }
+
+    if (!webp) {
+      return { src: `data:image/png;base64,${png}`, height: kept }
+    }
+
     const served = projects.codeServedAt(job.projectId, job.guestUrl)
-    if (served) void storeBitmap(served, job, webp, kept)
+
+    if (served) {
+      void storeBitmap(served, job, webp, kept)
+    }
+
     return { src: `data:image/webp;base64,${webp.toString("base64")}`, height: kept }
   },
-  "frames.stored": async ({ job }) => {
-    const served = projects.codeServedAt(job.projectId, job.guestUrl)
-    const kept = served && (await storedBitmap(served, job))
-    if (served) cacheUse.frame(kept !== undefined)
-    return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
-  },
+  "frames.stored": async ({ jobs }) => ({
+    kept: await Promise.all(
+      parseInput(storedJobs, jobs).map(async (job) => {
+        const served = projects.codeServedAt(job.projectId, job.guestUrl)
+        const kept = served && (await storedBitmap(served, job))
+
+        if (served) {
+          cacheUse.frame(kept !== undefined)
+        }
+
+        return kept ? { src: `data:image/webp;base64,${kept.webp}`, height: kept.height } : {}
+      })
+    )
+  }),
   "frames.clearStored": clearBitmaps,
   "pictures.store": ({ root, picture }) => storePicture(root, picture),
   "pictures.read": ({ roots }) => readPictures(roots),
@@ -153,7 +183,10 @@ export interface WindowChannel {
 }
 
 export function editorWindow(): WindowChannel {
-  if (!editor) throw new Error("The canvas window isn't open")
+  if (!editor) {
+    throw new Error("The canvas window isn't open")
+  }
+
   return editor
 }
 
@@ -164,28 +197,47 @@ export function editorWindow(): WindowChannel {
 function connect(port: MessagePortMain): void {
   const channel = windowChannel(handlers, nodePort(port, { wrapped: true }))
   port.on("close", () => {
-    if (editor === channel) editor = undefined
+    if (editor === channel) {
+      editor = undefined
+    }
+
     channel.close(windowClosed())
   })
   editor = channel
 }
 
+/** Main's message handing the service the editor window's port. */
+const connectMessage: z.ZodType<ConnectMessage> = z.object({ type: z.literal("connect") })
+
 process.parentPort.on("message", (event: { data: unknown; ports: MessagePortMain[] }) => {
-  if ((event.data as ConnectMessage | undefined)?.type !== "connect") return
+  if (!connectMessage.safeParse(event.data).success) {
+    return
+  }
+
   const [port] = event.ports
-  if (port) connect(port)
+
+  if (port) {
+    connect(port)
+  }
 })
+
 mainProcess.serve({ builders: () => builderReadings() })
+
 mainProcess.connect(nodePort(process.parentPort, { wrapped: true }))
 
 // Kept bitmaps past their limits go when the service starts, so a session never begins over them.
 void sweepBitmaps()
+
 reportCacheUse()
-void startAgentServer(editorWindow).catch((error: unknown) => {
-  console.error("[service] agent server failed to start", error)
-  const code = errorCode(error)
-  telemetry.track("agent.serverFailed", {
-    message: error instanceof Error ? error.message : String(error),
-    ...(code === undefined ? {} : { code })
-  })
+
+void startAgentServer(editorWindow).catch((cause: unknown) => {
+  console.error("[service] agent server failed to start", cause)
+  const code = errorCode(cause)
+  const failed: Attributes<"agent.serverFailed"> = { message: cause instanceof Error ? cause.message : String(cause) }
+
+  if (code !== undefined) {
+    failed.code = code
+  }
+
+  telemetry.track("agent.serverFailed", failed)
 })

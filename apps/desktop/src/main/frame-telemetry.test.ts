@@ -5,6 +5,7 @@ import { inSpan, traceWith } from "../shared/tracing.ts"
 import { watchFrame } from "./frame-telemetry.ts"
 
 const sink = createTestSink()
+
 traceWith(
   createTelemetry({
     events: registeredEvents,
@@ -14,7 +15,7 @@ traceWith(
   })
 )
 
-const job = {
+const job: RenderJob = {
   projectId: "D:/shop",
   guestUrl: "http://localhost:5001",
   theme: [],
@@ -22,7 +23,7 @@ const job = {
   mode: { width: 400, viewport: { width: 1280, height: 800 }, classNames: [], attributes: {} },
   scale: 0.25,
   design: { key: "card", state: "empty", mode: "light" }
-} as RenderJob
+}
 
 const frame = (extra: Partial<RenderedFrame> = {}): RenderedFrame => ({
   width: 400,
@@ -39,9 +40,11 @@ function draw(
   failed = vi.fn<() => void>()
 ) {
   let time = 1000
+
   const tick = (ms: number) => {
     time += ms
   }
+
   return inSpan("frame.rendered", { priority: "render", queuedMs: 12, whole: true }, (span) =>
     steps(
       watchFrame(job, "render", span, failed, () => time),
@@ -51,6 +54,7 @@ function draw(
 }
 
 beforeEach(() => sink.clear())
+
 afterEach(() => vi.useRealTimers())
 
 describe("watchFrame", () => {
@@ -87,6 +91,7 @@ describe("watchFrame", () => {
         error: "Cannot find module './theme'",
         errorStack: "Error: Cannot find module\n  at Card"
       })
+
       watch.rendered(broken)
       watch.end(broken)
     }, failed)
@@ -110,6 +115,7 @@ describe("watchFrame", () => {
     vi.useFakeTimers()
     const failed = vi.fn<() => void>()
     let finish: () => void = () => undefined
+
     const drawing = draw(
       (watch) =>
         new Promise<void>((resolve) => {
@@ -121,6 +127,7 @@ describe("watchFrame", () => {
         }),
       failed
     )
+
     await vi.advanceTimersByTimeAsync(frameTimeoutMs)
     expect(sink.named("frame.failed")[0]?.attributes).toMatchObject({ failure: "timed out" })
     finish()
@@ -139,5 +146,41 @@ describe("watchFrame", () => {
     ).rejects.toThrow("The render window closed")
     expect(sink.named("frame.rendered")[0]).toMatchObject({ outcome: "error" })
     expect(sink.named("frame.failed")).toEqual([])
+  })
+
+  it("records a frame whose window's renderer crashed as crashed, without picturing the dead window", async () => {
+    const failed = vi.fn<() => void>()
+    await expect(
+      draw((watch) => {
+        watch.crashed()
+        watch.end(undefined, true)
+        throw new Error("Render frame was disposed before the request completed")
+      }, failed)
+    ).rejects.toThrow("Render frame was disposed")
+    expect(sink.named("frame.failed")[0]?.attributes).toMatchObject({
+      design: "card",
+      failure: "crashed",
+      message: "Its offscreen window's renderer crashed while drawing it"
+    })
+    expect(sink.named("frame.rendered")[0]).toMatchObject({ outcome: "error" })
+    expect(failed).toHaveBeenCalledOnce()
+  })
+
+  it("records what the render page threw after the guest drew, with the page's message and stack", async () => {
+    const failed = vi.fn<() => void>()
+    await expect(
+      draw((watch) => {
+        watch.rendered(frame())
+        watch.threw({ error: "canvasHeight is broken", errorStack: "TypeError: canvasHeight is broken\n  at measure" })
+        watch.end(undefined, true)
+        throw new Error("canvasHeight is broken")
+      }, failed)
+    ).rejects.toThrow("canvasHeight is broken")
+    expect(sink.named("frame.failed")[0]?.attributes).toMatchObject({
+      failure: "render threw",
+      message: "canvasHeight is broken",
+      stack: "TypeError: canvasHeight is broken\n  at measure"
+    })
+    expect(failed).toHaveBeenCalledOnce()
   })
 })

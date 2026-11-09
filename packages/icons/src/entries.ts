@@ -22,19 +22,30 @@ export function preferredExport(
   prefer: ReadonlySet<string>
 ): { insert: string; label: string } | undefined {
   const insert = [name, ...aliases].find((candidate) => prefer.has(candidate))
-  if (!insert || insert === name) return undefined
+
+  if (!insert || insert === name) {
+    return undefined
+  }
+
   const names = new Set([name, ...aliases])
+
   const bare = [insert.replace(/Icon$/, ""), insert.replace(/^Icon/, "")].find(
     (candidate) => candidate !== insert && names.has(candidate)
   )
+
   return { insert, label: bare ?? insert }
 }
 
+export interface IconStyles {
+  styles: string[]
+  initial?: string
+}
+
 /** The styles a set offers, such as Regular and Filled, with the one shown first. */
-export function iconStyles(icons: LibraryIcons | undefined): { styles: string[]; initial?: string } {
+export function iconStyles(icons: LibraryIcons | undefined): IconStyles {
   const variants = icons?.variants
-  const styles = variants?.styles ?? []
-  return { styles, ...(variants?.default?.style ? { initial: variants.default.style } : {}) }
+
+  return { styles: variants?.styles ?? [], initial: variants?.default?.style || undefined }
 }
 
 /**
@@ -51,24 +62,34 @@ export function iconEntries(
   const variants = icons?.variants
   const fallback = variants?.default?.style
   const props = variants?.prop && style && style !== fallback ? { [variants.prop]: style } : undefined
+
   if (!variants?.pattern) {
     const prefer = new Set(icons?.prefer)
+
     return names.map((name) => {
       const preferred = preferredExport(name, aliases[name] ?? [], prefer)
+
       return {
         label: preferred?.label ?? name,
         name,
-        ...(preferred ? { insert: preferred.insert } : {}),
-        ...(props ? { props } : {})
+        insert: preferred?.insert,
+        props
       }
     })
   }
+
   const read = iconVariants(names, variants)
   const entries: IconEntry[] = []
+
   for (const name of names) {
     const variant = read.get(name)
-    if (!variant?.listed || (variant.style ?? fallback) !== (style ?? fallback)) continue
-    entries.push({ label: variant.label, name, ...(props ? { props } : {}) })
+
+    if (!variant?.listed || (variant.style ?? fallback) !== (style ?? fallback)) {
+      continue
+    }
+
+    entries.push({ label: variant.label, name, props })
   }
+
   return entries
 }

@@ -8,6 +8,7 @@ export class ComponentStore {
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener)
+
     return () => this.listeners.delete(listener)
   }
 
@@ -15,7 +16,10 @@ export class ComponentStore {
 
   set(components: Record<string, ComponentInfo>): void {
     this.components = components
-    for (const listener of this.listeners) listener()
+
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }
 

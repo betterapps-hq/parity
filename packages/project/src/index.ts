@@ -19,6 +19,7 @@ import { type ShadcnConfig, shadcnConfig, stylesWith } from "./styles.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
+
 export {
   appFiles,
   type CheckedComponent,
@@ -28,7 +29,9 @@ export {
   type ParsedComponent,
   readChangedFiles
 } from "@parity-app/code"
+
 export { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
+
 export {
   diffFile,
   EditConflict,
@@ -39,7 +42,9 @@ export {
   type ProjectEdit,
   reverseEdit
 } from "./edits.ts"
+
 export { type CodeSnapshot, codeSnapshot } from "./code-fingerprint.ts"
+
 export {
   type DocumentEntry,
   documentTarget,
@@ -52,6 +57,7 @@ export {
   readDesigns,
   withComponentList
 } from "./open-project.ts"
+
 export {
   importedFiles,
   moduleClosure,
@@ -60,9 +66,13 @@ export {
   resolveModule,
   sharedPreviewFiles
 } from "./preview-key.ts"
+
 export { detectionFingerprint, fingerprintInputs } from "./fingerprint.ts"
+
 export { changesLockfiles, findLockfiles, lockfileFolders } from "./lockfile.ts"
+
 export { type LibraryDefinition, libraryCatalog, withStylesImport } from "./libraries.ts"
+
 export {
   type EntryUse,
   type ExportedComponent,
@@ -75,9 +85,13 @@ export {
   readPackage,
   splitSpecifier
 } from "./packages.ts"
+
 export { parseStoryFile } from "./storybook.ts"
+
 export { type AppStyles, findStyles, readStylesheet } from "./styles.ts"
+
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"
+
 export { findWorkspace, type Workspace } from "./workspace.ts"
 
 export interface DiscoveredProject extends ProjectConfig {
@@ -114,42 +128,52 @@ export async function discoverProject(
   // A library's own project names its components as the apps that install it do, so its canvas's designs work there.
   let namespace: string | undefined
   const own = documents.find((path) => !path.includes("/") && path.endsWith(libraryManifestExtension))
+
   if (own) {
     try {
       const manifest = parseLibraryManifest(parseJsonc(await readFile(join(root, own), "utf8")))
       const described = await describedTokens(root, join(root, own), manifest, notes)
-      if (described) tokens.unshift(described)
+
+      if (described) {
+        tokens.unshift(described)
+      }
+
       namespace = libraryId(manifest, pkg.name ?? basename(root))
       notes.push(`a library, described by ${own}, whose components are named like ${namespace}/Button`)
     } catch (error) {
       notes.push(`${own} can't be read: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
+
   const components = componentIds(app.found, new Set(Object.keys(libraries.components)), namespace)
+
   for (const library of libraries.libraries) {
     const found = Object.values(libraries.components).filter((source) => source.library === library.id).length
     notes.push(`${count(found, "component")} from ${library.name} (${library.importName})`)
   }
+
   notes.push(documents.length === 0 ? "no .par project file yet" : `designs in ${documents.join(", ")}`)
   const all = { ...components, ...libraries.components }
   const storybook = await findStorybook(root, pkg, all, async (specifier) => resolveAlias(root, tsconfig, specifier))
+
   if (storybook) {
     notes.push(
       `Storybook in ${storybook.configDir}, with stories for ${Object.keys(storybook.stories).length} components`
     )
   }
+
   return {
     styles,
-    ...(packageStyles.length > 0 ? { packageStyles } : {}),
+    packageStyles: packageStyles.length > 0 ? packageStyles : undefined,
     components: all,
     libraries: libraries.libraries,
     documents,
-    ...(storybook ? { storybook } : {}),
-    ...(tokens.length > 0 ? { describedTokens: tokens } : {}),
-    ...(namespace ? { namespace } : {}),
+    storybook,
+    describedTokens: tokens.length > 0 ? tokens : undefined,
+    namespace: namespace || undefined,
     notes,
     componentFiles: app.files,
-    ...(uiKit ? { uiKit } : {})
+    uiKit: uiKit || undefined
   }
 }
 
@@ -165,21 +189,36 @@ async function addWorkspacePackages(
   notes: string[]
 ): Promise<void> {
   const workspace = await findWorkspace(root)
-  if (!workspace) return
+
+  if (!workspace) {
+    return
+  }
+
   const described = new Set(found.libraries.flatMap((library) => [library.package, library.importName]))
   const packages = workspaceDependencies(workspace, pkg, described)
   const sections: string[] = []
+
   for (const entry of packages) {
     const section = await workspaceSection(root, entry, renderer, new Set(Object.keys(found.components)))
-    if (!section) continue
+
+    if (!section) {
+      continue
+    }
+
     found.libraries.push(section.library)
     Object.assign(found.components, section.components)
     sections.push(entry.name)
   }
+
   const where = `a workspace at ${toPosix(relative(root, workspace.root))}`
-  if (packages.length === 0) notes.push(`${where}, though the app depends on none of its packages`)
-  else if (sections.length === 0) notes.push(`${where}, though none of the app's packages from it export components`)
-  else notes.push(`${where}, with components from ${sections.join(", ")}`)
+
+  if (packages.length === 0) {
+    notes.push(`${where}, though the app depends on none of its packages`)
+  } else if (sections.length === 0) {
+    notes.push(`${where}, though none of the app's packages from it export components`)
+  } else {
+    notes.push(`${where}, with components from ${sections.join(", ")}`)
+  }
 }
 
 /**
@@ -195,16 +234,27 @@ async function findUiKit(
 ): Promise<string | undefined> {
   const candidates: string[] = []
   const alias = shadcn?.aliases?.ui
+
   if (alias !== undefined) {
     const resolved = resolveAlias(root, tsconfig, alias)
-    if (resolved) candidates.push(resolved)
+
+    if (resolved) {
+      candidates.push(resolved)
+    }
   }
+
   candidates.push("src/components/ui", "components/ui", "src/components")
+
   for (const folder of candidates) {
-    if ((await listFiles(join(root, folder), renderer.componentExtensions)).length === 0) continue
+    if ((await listFiles(join(root, folder), renderer.componentExtensions)).length === 0) {
+      continue
+    }
+
     notes.push(`the UI kit is in ${folder}`)
+
     return folder
   }
+
   return undefined
 }
 
@@ -217,23 +267,30 @@ const skippedFolders = new Set(["node_modules", ".git", "dist", "build", "out", 
 
 async function findDocuments(root: string): Promise<string[]> {
   const found: string[] = []
+
   const walk = async (folder: string) => {
     const entries = await readdir(folder, { withFileTypes: true }).catch(() => [])
+
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (!skippedFolders.has(entry.name) && !entry.name.startsWith(".")) await walk(join(folder, entry.name))
+        if (!skippedFolders.has(entry.name) && !entry.name.startsWith(".")) {
+          await walk(join(folder, entry.name))
+        }
       } else if (entry.name.endsWith(".par") && (folder === root || !entry.name.endsWith(libraryManifestExtension))) {
         // A `.lib.par` only holds this project's designs at its root; anywhere else it describes another package.
         found.push(toPosix(relative(root, join(folder, entry.name))))
       }
     }
   }
+
   await walk(root)
+
   return found.sort()
 }
 
 async function listFiles(folder: string, extensions: string[]): Promise<string[]> {
   const entries = await readdir(folder, { withFileTypes: true }).catch(() => [])
+
   return entries
     .filter((entry) => entry.isFile() && extensions.includes(extname(entry.name)))
     .map((entry) => join(folder, entry.name))

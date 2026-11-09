@@ -98,6 +98,7 @@ export function reset() {
 
 beforeAll(async () => {
   const canvas = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: canvas, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
@@ -107,6 +108,7 @@ beforeAll(async () => {
     platform: "browser",
     define: { "process.env.NODE_ENV": '"development"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage()
   const failures: string[] = []
@@ -121,9 +123,11 @@ beforeAll(async () => {
     })
   )
   await page.goto("http://parity.test/")
+
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof sleep === "object")))
+  if (!(await page.evaluate(() => globalThis.sleep !== undefined))) {
     throw new Error(`The page didn't load: ${failures.join(",")}`)
+  }
 }, 30_000)
 
 afterAll(async () => {
@@ -155,10 +159,13 @@ async function change(count: number, before: string, after: string) {
     count
   )
   await page.evaluate(() => new Promise((done) => setTimeout(done, 200)))
+
   return page.evaluate(() => ({
     // @ts-expect-error The bundle's global.
+    // SAFETY: the page records each turn as a string.
     turns: Object.values(sleep.turns) as string[],
     // @ts-expect-error The bundle's global.
+    // SAFETY: the page records each error as its message.
     errors: sleep.errors as string[]
   }))
 }

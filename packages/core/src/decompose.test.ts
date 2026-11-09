@@ -94,6 +94,7 @@ describe("extractComponent", () => {
       ...design,
       states: [...design.states, { id: "renamed", name: "Renamed", overrides: { "a-name": { text: "Ava" } } }]
     }
+
     expect(() => extractComponent(changed, ["row-a", "row-j", "row-s"], options)).toThrow("Renamed state changes")
   })
 
@@ -111,6 +112,7 @@ describe("extractComponent", () => {
       },
       view: { variants: { density: "compact" } }
     })
+
     // Compact changes Avery's badge, which the instance wouldn't carry, so the board would change.
     const badge = density({ "a-badge": { props: { variant: "outline" } } })
     expect(() => extractComponent(badge, ["row-a", "row-j", "row-s"], options)).toThrow(
@@ -150,6 +152,7 @@ describe("extractComponent", () => {
         }
       }
     }
+
     expect(() => extractComponent(twoParams, ["row-a", "row-j", "row-s"], options)).toThrow(
       "Extracting would change how Team looks (Default, desktop, Bold)"
     )
@@ -161,6 +164,7 @@ describe("extractComponent", () => {
       params: { lead: { type: "text", default: "Ava" } },
       root: mapNode(design.root, "a-name", (node) => ({ ...node, bind: { text: "lead" } }))
     }
+
     // The board shows Ava from the param's default; the component would show the layer's own Avery.
     expect(() => extractComponent(bound, ["row-a"], { ...options, paramNames: {} })).toThrow(
       "Extracting would change how Team looks"

@@ -32,53 +32,75 @@ export function useHoverCard(initial = false) {
   const id = useId()
   const content = () => document.getElementById(id)
   useEffect(() => () => clearTimeout(timer.current), [])
+
   const enter = () => {
     clearTimeout(timer.current)
     timer.current = setTimeout(() => setOpen(true), rest)
   }
+
   const leave = () => {
     clearTimeout(timer.current)
-    if (!held.current) timer.current = setTimeout(() => setOpen(false), linger)
+
+    if (!held.current) {
+      timer.current = setTimeout(() => setOpen(false), linger)
+    }
   }
+
   const stay = () => clearTimeout(timer.current)
+
   const hold = () => {
     clearTimeout(timer.current)
     held.current = true
   }
+
   const change = (next: boolean) => {
     clearTimeout(timer.current)
+
     if (!next) {
       held.current = false
       keyed.current = false
     }
+
     setOpen(next)
   }
+
   const openWithKeyboard = () => {
-    if (document.activeElement instanceof HTMLElement) cameFrom.current = document.activeElement
+    if (document.activeElement instanceof HTMLElement) {
+      cameFrom.current = document.activeElement
+    }
+
     hold()
     // Already open from a hover, the card won't mount again to take the keyboard, so it's given it here.
     const card = content()
+
     if (open && card) {
       card.querySelector<HTMLElement>(focusable)?.focus()
+
       return
     }
+
     keyed.current = true
     setOpen(true)
   }
+
   /** Whether opening moves focus into the card, as only a key does. */
   const takesFocus = (): boolean => {
     const moves = keyed.current
     keyed.current = false
+
     return moves
   }
+
   /** Where focus goes as the card closes: back to the item a key opened it from, or nowhere. */
   const returnFocus = (): HTMLElement | false => {
     const item = cameFrom.current
     cameFrom.current = undefined
     // Focus that went somewhere else, as with a click on another field, stays there.
     const lost = !document.activeElement || document.activeElement === document.body
+
     return item?.isConnected && (lost || content()?.contains(document.activeElement)) ? item : false
   }
+
   return {
     open,
     setOpen: change,

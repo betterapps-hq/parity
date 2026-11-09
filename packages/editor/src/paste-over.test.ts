@@ -33,18 +33,26 @@ function form(): ContainerSpec {
 }
 
 const button: DesignNode = { type: "component", id: "button", component: "ui/Button", props: { variant: "outline" } }
+
 const icon: DesignNode = {
   type: "layout",
   id: "icon",
   style: { position: "absolute", bottom: 1 },
   children: [text("glyph")]
 }
+
 const base = form().states[0]!
+
 const children = (container: ContainerSpec, id = "root") => {
   const node = findNode(container.root, id)!
   let nodes: DesignNode[] = []
-  if (node.type === "layout") nodes = node.children
-  else if (node.type === "component") nodes = node.slots!.children!
+
+  if (node.type === "layout") {
+    nodes = node.children
+  } else if (node.type === "component") {
+    nodes = node.slots!.children!
+  }
+
   return nodes.map((child) => (child.type === "component" ? child.component : child.id))
 }
 
@@ -81,6 +89,7 @@ describe("paste over selection", () => {
       ...text("hint"),
       responsive: { mobile: { style: { position: "absolute", bottom: 0, left: 2 } } }
     }
+
     const responsive: ContainerSpec = { ...form(), root: { type: "layout", id: "root", children: [hint] } }
     const mobile = placeOver(responsive, ["hint"], [icon], base, "mobile")
     expect(findNode(mobile.container.root, mobile.copies[0]!)?.style).toEqual({

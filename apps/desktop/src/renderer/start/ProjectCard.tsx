@@ -8,7 +8,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { AppWindow, Ellipsis, FolderX, Link, Star, X } from "lucide-react"
 import { type CSSProperties, useId, useRef, useState } from "react"
-import { toast } from "sonner"
+import { type ExternalToast, toast } from "sonner"
 import { Hint } from "../chrome/Hint.tsx"
 import { Name } from "../chrome/Name.tsx"
 import { ProjectArt, useScreenCount, useScreenName } from "./ProjectArt.tsx"
@@ -16,11 +16,19 @@ import { type KnownProject, whenLabel } from "./projects.ts"
 import { notReady, useStartActions } from "./start-actions.ts"
 
 /** Parity's own accent, from its mark, for the ring round a project or template under the pointer. */
-export const accent = { "--parity": "oklch(0.7 0.16 275)" } as CSSProperties
+export const accent: AccentStyle = { "--parity": "oklch(0.7 0.16 275)" }
+
+/** A style that sets Parity's accent as a custom property, which React's own style type has no key for. */
+interface AccentStyle extends CSSProperties {
+  "--parity": string
+}
 
 /** When it was opened, or where it is when that isn't known. */
 function openedLine(project: KnownProject, now: number): string {
-  if (project.opened === undefined) return project.root.slice(0, -project.name.length - 1) || project.root
+  if (project.opened === undefined) {
+    return project.root.slice(0, -project.name.length - 1) || project.root
+  }
+
   return `Opened ${whenLabel(project.opened, now)}`
 }
 
@@ -29,10 +37,15 @@ function openedLine(project: KnownProject, now: number): string {
  * drive that isn't plugged in comes back.
  */
 export function folderMissing(project: KnownProject, remove?: () => void): void {
-  toast(`Parity can't find ${project.name}`, {
-    description: `Its folder isn't at ${project.root} any more. Put it back, or remove it from Recent.`,
-    ...(remove ? { action: { label: "Remove", onClick: remove } } : {})
-  })
+  const options: ExternalToast = {
+    description: `Its folder isn't at ${project.root} any more. Put it back, or remove it from Recent.`
+  }
+
+  if (remove) {
+    options.action = { label: "Remove", onClick: remove }
+  }
+
+  toast(`Parity can't find ${project.name}`, options)
 }
 
 /** What can be done with a project from the start page. */
@@ -46,6 +59,7 @@ function ProjectMenu({
   className?: string
 }) {
   const actions = useStartActions()
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -99,6 +113,7 @@ export function ProjectCard({
   const [hovered, setHovered] = useState(false)
   const name = useScreenName(project, screen)
   const open = () => (project.missing ? folderMissing(project, onRemove) : actions.open(project.root))
+
   return (
     <article
       className="group/card relative flex min-w-0 flex-col gap-2.5"
@@ -173,6 +188,10 @@ export function ProjectCard({
  */
 function screenUnder(art: HTMLElement | null, x: number, y: number, count: number): number {
   const box = art?.getBoundingClientRect()
-  if (!box || count < 2 || y > box.bottom || box.width === 0) return 0
+
+  if (!box || count < 2 || y > box.bottom || box.width === 0) {
+    return 0
+  }
+
   return Math.min(count - 1, Math.max(0, Math.floor(((x - box.left) / box.width) * count)))
 }

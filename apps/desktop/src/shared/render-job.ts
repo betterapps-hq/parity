@@ -5,7 +5,9 @@ import {
   modeGlobals,
   type ResolvedMode
 } from "@parity-app/core"
+import { isComposite } from "@parity-app/core/values/evaluate"
 import type { TokenChange } from "@parity-app/tokens"
+import { z } from "zod"
 import type { RenderJob } from "./protocol.ts"
 
 /**
@@ -14,6 +16,9 @@ import type { RenderJob } from "./protocol.ts"
  * the device pixels it's drawn at. Each name picks the fields it's made of, so a field added to the job is in none of
  * them until it's added here.
  */
+
+/** A node of a design tree that draws a component, by its id. */
+const componentNode = z.looseObject({ kind: z.literal("component"), component: z.string() })
 
 /** Where a job is drawn: the project, its guest, and what the guest draws with. */
 export interface JobGuest {
@@ -45,20 +50,41 @@ export interface JobFrame {
 /** The job that draws `frame` with `guest`. */
 export function renderJob(guest: JobGuest, frame: JobFrame): RenderJob {
   const { audit, colorTokens, tokens } = frame
-  return {
+
+  const job: RenderJob = {
     projectId: guest.projectId,
     guestUrl: guest.guestUrl,
-    ...(guest.components ? { components: guest.components } : {}),
     theme: guest.theme,
     tree: frame.tree,
     mode: renderJobMode(frame.mode, frame.frame),
-    scale: frame.scale,
-    ...(audit ? { audit } : {}),
-    ...(audit && colorTokens?.length ? { colorTokens } : {}),
-    ...(frame.inlinePortals ? { inlinePortals: true as const } : {}),
-    ...(tokens?.length ? { previews: [...tokens] } : {}),
-    ...(frame.design ? { design: frame.design } : {})
+    scale: frame.scale
   }
+
+  if (guest.components) {
+    job.components = guest.components
+  }
+
+  if (audit) {
+    job.audit = audit
+
+    if (colorTokens?.length) {
+      job.colorTokens = colorTokens
+    }
+  }
+
+  if (frame.inlinePortals) {
+    job.inlinePortals = true
+  }
+
+  if (tokens?.length) {
+    job.previews = [...tokens]
+  }
+
+  if (frame.design) {
+    job.design = frame.design
+  }
+
+  return job
 }
 
 /**
@@ -66,14 +92,19 @@ export function renderJob(guest: JobGuest, frame: JobFrame): RenderJob {
  * so it draws as the live frame does, and the mode's classes, attributes and options.
  */
 export function renderJobMode(mode: ResolvedMode, frame: FrameGeometry): RenderJob["mode"] {
-  return {
+  const jobMode: RenderJob["mode"] = {
     width: frame.width,
-    ...(frame.height === undefined ? {} : { height: frame.height }),
     viewport: { width: frame.viewport.width, height: frame.viewport.height },
     classNames: mode.classNames,
     attributes: mode.attributes,
     globals: modeGlobals(mode)
   }
+
+  if (frame.height !== undefined) {
+    jobMode.height = frame.height
+  }
+
+  return jobMode
 }
 
 // The three names, side by side. The canvas names a frame in memory for as long as its guest lives, so it goes by the
@@ -106,6 +137,7 @@ export interface FrameKeys {
 /** A frame's names in the canvas's memory, for the job that draws it with `guest`. */
 export function frameKeys(job: RenderJob, guest: DrawingGuest): FrameKeys {
   const { mode } = job
+
   const drawn = [
     guest.id,
     JSON.stringify(drawnComponents(job.tree, {}, job.components)),
@@ -113,6 +145,7 @@ export function frameKeys(job: RenderJob, guest: DrawingGuest): FrameKeys {
     JSON.stringify([mode.classNames, mode.attributes, mode.globals]),
     JSON.stringify(job.tree)
   ].join("|")
+
   const key = [
     drawn,
     JSON.stringify(job.previews ?? []),
@@ -122,6 +155,7 @@ export function frameKeys(job: RenderJob, guest: DrawingGuest): FrameKeys {
     mode.viewport.height,
     job.scale
   ].join("|")
+
   return { drawn, key }
 }
 
@@ -134,15 +168,17 @@ export function bitmapName(
   job: RenderJob,
   served: Readonly<Record<string, Pick<ComponentSource, "path" | "export">>>
 ): string {
+  // JSON leaves out a field that's `undefined`, so a job without one has the name it had before the field existed.
   const drawn = {
     projectId: job.projectId,
     theme: job.theme,
     tree: job.tree,
     mode: drawnMode(job.mode),
     scale: job.scale,
-    ...(job.inlinePortals ? { inlinePortals: true } : {}),
-    ...(job.previews ? { previews: job.previews } : {})
+    inlinePortals: job.inlinePortals,
+    previews: job.previews
   }
+
   return `${JSON.stringify(drawn)}\0${JSON.stringify(drawnComponents(job.tree, served, job.components))}`
 }
 
@@ -150,25 +186,29 @@ export function bitmapName(
  * What a component preview is named by, beside the files it depends on (PAR-207): what it draws and how, less where
  * it's drawn from, what the guest was given and the tokens previewed.
  */
-export function previewName(job: RenderJob): unknown {
+export function previewName(job: RenderJob) {
+  // JSON leaves out a field that's `undefined`, as `bitmapName` relies on.
   return {
     theme: job.theme,
     tree: job.tree,
     mode: drawnMode(job.mode),
     scale: job.scale,
-    ...(job.inlinePortals ? { inlinePortals: true } : {})
+    inlinePortals: job.inlinePortals
   }
 }
 
-/** A job's mode as the disk names have it, field by field, so a field added to the mode is in neither. */
+/**
+ * A job's mode as the disk names have it, field by field, so a field added to the mode is in neither. The names are
+ * JSON, which leaves out `height` and `globals` when they're `undefined`.
+ */
 function drawnMode(mode: RenderJob["mode"]): RenderJob["mode"] {
   return {
     width: mode.width,
-    ...(mode.height === undefined ? {} : { height: mode.height }),
+    height: mode.height,
     viewport: { width: mode.viewport.width, height: mode.viewport.height },
     classNames: mode.classNames,
     attributes: mode.attributes,
-    ...(mode.globals ? { globals: mode.globals } : {})
+    globals: mode.globals
   }
 }
 
@@ -180,26 +220,42 @@ function drawnMode(mode: RenderJob["mode"]): RenderJob["mode"] {
  * source for is listed as `null`.
  */
 export function drawnComponents(
-  tree: unknown,
+  tree: RenderJob["tree"],
   served: Readonly<Record<string, Pick<ComponentSource, "path" | "export">>>,
   given: RenderJob["components"] = {}
 ): [string, string | null][] {
   const ids = new Set<string>()
-  const visit = (value: unknown): void => {
+
+  const visit = (value: RenderJob["tree"]): void => {
     if (Array.isArray(value)) {
-      for (const item of value) visit(item)
-    } else if (value && typeof value === "object") {
-      const node = value as { kind?: unknown; component?: unknown }
-      if (node.kind === "component" && typeof node.component === "string") ids.add(node.component)
-      for (const child of Object.values(value)) visit(child)
+      for (const item of value) {
+        visit(item)
+      }
+    } else if (isComposite(value)) {
+      const component = componentNode.safeParse(value).data?.component
+
+      if (component !== undefined) {
+        ids.add(component)
+      }
+
+      for (const child of Object.values(value)) {
+        visit(child)
+      }
     }
   }
+
   visit(tree)
+
   const own = <T>(record: Readonly<Record<string, T>>, id: string) =>
     Object.hasOwn(record, id) ? record[id] : undefined
+
   return [...ids].sort().map((id) => {
     const source: GuestComponentSource | undefined = own(given, id) ?? own(served, id)
-    if (!source) return [id, null]
+
+    if (!source) {
+      return [id, null]
+    }
+
     // A component whose code changed since its guest loaded (PAR-165) names the version, so its old bitmap isn't kept.
     return [id, `${source.path}#${source.export}${source.version === undefined ? "" : `@${source.version}`}`]
   })
@@ -213,11 +269,16 @@ export function devicePixels(length: number, scale: number): number {
   return Math.max(1, Math.ceil(length * scale))
 }
 
+/** A rectangle in the frame, by its top left corner and size. */
+export interface FrameRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 /** A box in the frame, in CSS pixels, as the device pixels that cover it, to crop a capture to. */
-export function deviceBox(
-  box: { x: number; y: number; width: number; height: number },
-  scale: number
-): { x: number; y: number; width: number; height: number } {
+export function deviceBox(box: FrameRect, scale: number): FrameRect {
   return {
     x: Math.floor(box.x * scale),
     y: Math.floor(box.y * scale),
@@ -231,8 +292,9 @@ export function frameBox(
   box: { left: number; top: number; width: number; height: number },
   origin: { left: number; top: number },
   scale: number
-): { x: number; y: number; width: number; height: number } {
+): FrameRect {
   const css = (value: number) => Math.round((value / scale) * 10) / 10
+
   return {
     x: css(box.left - origin.left),
     y: css(box.top - origin.top),

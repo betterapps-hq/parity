@@ -1,4 +1,5 @@
 import { availableParallelism } from "node:os"
+import base from "@buildkitgg/oxlint-config/base"
 import { defineConfig } from "vite-plus"
 
 /*
@@ -45,6 +46,7 @@ const fileWrites = [
   "utimes",
   "writeFile"
 ]
+
 const readOnly =
   "Reader packages read files but never write them: return a project edit and let the project service apply it."
 
@@ -91,16 +93,13 @@ export default defineConfig({
     ]
   },
   lint: {
-    plugins: ["eslint", "typescript", "react", "vitest", "jsx-a11y", "import", "oxc", "unicorn", "promise"],
-    jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
-    categories: {
-      correctness: "error"
-    },
-    // Types are checked on push and in CI, not on commit or in `pnpm verify`: `pnpm check:types` runs this lint with
-    // `--type-aware --type-check`, which adds the type-aware rules and what `tsc -p tsconfig.json` did, on TypeScript 7.
-    options: {
-      reportUnusedDisableDirectives: "error"
-    },
+    // Buildkit's base rules, with every anti-slop rule, `curly`, `no-console` and `no-bitwise` (PAR-730). A rule is
+    // turned off on one line, with a comment saying why, only where there's a very good reason. Types are checked on
+    // push and in CI, not on commit or in `pnpm verify`: `pnpm check:types` runs this lint with `--type-aware
+    // --type-check`, which adds the type-aware rules and what `tsc -p tsconfig.json` did, on TypeScript 7.
+    extends: [base],
+    // A list of JS plugins replaces the one base registers, so it's kept.
+    jsPlugins: [...(base.jsPlugins ?? []), { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     ignorePatterns: [
       ".agents/skills/**",
       ".claude/skills/**",
@@ -114,59 +113,10 @@ export default defineConfig({
       "*.md"
     ],
     rules: {
-      // The agency monorepo's rules beyond the correctness category (PAR-396, docs/proposals/repository.md: From the
-      // agency monorepo), without `curly`, `no-console`, `no-bitwise` and the React Compiler rule.
-      "typescript/no-inferrable-types": "error",
-      "typescript/adjacent-overload-signatures": "error",
-      "typescript/no-empty-interface": "error",
-      "typescript/no-namespace": "error",
-      "typescript/no-unnecessary-type-constraint": "error",
-      "typescript/restrict-plus-operands": "error",
-      "eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }
-      ],
-      "eslint/no-new-wrappers": "error",
-      "eslint/no-empty": "error",
-      "eslint/no-new": "error",
-      "eslint/no-var": "error",
-      "eslint/prefer-const": "error",
-      "eslint/radix": "error",
-      "eslint/eqeqeq": "error",
-      "eslint/no-new-func": "error",
-      "eslint/prefer-rest-params": "error",
-      "eslint/prefer-spread": "error",
-      "eslint/no-fallthrough": "error",
-      "eslint/no-inner-declarations": "error",
-      "eslint/no-prototype-builtins": "error",
-      "eslint/no-regex-spaces": "error",
-      "eslint/no-empty-function": "error",
-      "eslint/no-array-constructor": "error",
-      "eslint/no-implied-eval": "error",
-      "eslint/no-nested-ternary": "error",
-      "unicorn/prefer-array-find": "error",
-      "unicorn/prefer-array-flat": "error",
-      "unicorn/prefer-array-flat-map": "error",
-      "unicorn/prefer-array-some": "error",
-      "unicorn/prefer-includes": "error",
-      "unicorn/prefer-logical-operator-over-ternary": "error",
-      "unicorn/prefer-structured-clone": "error",
-      "unicorn/throw-new-error": "error",
-      "unicorn/no-zero-fractions": "error",
-      "react/no-danger": "error",
-      "react/rules-of-hooks": "error",
-      "react/display-name": "error",
-      "react/no-unstable-nested-components": "error",
-      "react/jsx-no-comment-textnodes": "error",
-      "react/jsx-no-target-blank": "error",
-      "react/no-unescaped-entities": "error",
-      "react/no-unknown-property": "error",
-      "react/require-render-return": "error",
-      "typescript/no-explicit-any": "error",
-      "typescript/ban-ts-comment": "error",
+      // Parity's rules beyond base.
       "typescript/consistent-type-imports": "error",
-      "eslint/no-console": "off",
       "vite-plus/prefer-vite-plus-imports": "error",
+      "react/exhaustive-deps": "error",
       // An error notification goes through `reportError`, which records it as well as showing it (PAR-632, PAR-644).
       "eslint/no-restricted-properties": [
         "error",

@@ -27,7 +27,9 @@ beforeAll(async () => {
   await writeFile(files.text, "Not an image")
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(async () => {
   await app?.close()
   await rm(folder, { recursive: true, force: true })
@@ -40,6 +42,7 @@ const [badge, headline, lede, billing] = ["P07mQ", "crd2J", "so61t", "UKxSY"]
 /** The point in the gap between the lede and the billing period, where a layer dragged there would land. */
 async function belowLede(): Promise<{ x: number; y: number }> {
   const below = await app.box("Pricing", lede)
+
   return { x: center(below).x, y: below.y + below.height + 4 }
 }
 
@@ -54,8 +57,10 @@ function png(width: number, height: number): Buffer {
     length.writeUInt32BE(data.length)
     const check = Buffer.alloc(4)
     check.writeUInt32BE(crc32(body))
+
     return Buffer.concat([length, body, check])
   }
+
   const header = Buffer.alloc(13)
   header.writeUInt32BE(width, 0)
   header.writeUInt32BE(height, 4)
@@ -63,6 +68,7 @@ function png(width: number, height: number): Buffer {
   header.set([8, 2, 0, 0, 0], 8)
   const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(width * 3, Buffer.from([220, 80, 40]))])
   const pixels = Buffer.concat(Array.from({ length: height }, () => row))
+
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk("IHDR", header),
@@ -75,18 +81,22 @@ describe("dropping image files", () => {
   it("puts a PNG and an SVG side by side in the slot under the pointer, saved into the project, as one undo step", async () => {
     await app.show("Pricing", 0.5, hero)
     const point = await belowLede()
+
     // While they're dragged over the Hero, the canvas outlines it, marks the slot and says what a drop does.
     const shown = await app.dropFiles([files.png, files.svg], [{ x: point.x, y: point.y - 60 }, point], async () => {
       await expect.poll(() => hint().innerText()).toBe("Add 2 images here")
+
       return {
         line: await app.page.locator("[data-drop-line]").count(),
         outline: await app.page.locator("[data-drop-outline]").count()
       }
     })
+
     expect(shown).toEqual({ line: 1, outline: 1 })
     await expect.poll(async () => (await app.children("Pricing", hero)).length, { timeout: 10_000 }).toBe(6)
     expect(await hint().count()).toBe(0)
     const children = await app.children("Pricing", hero)
+    // SAFETY: the poll above waited for all six children, so the fourth and fifth are there.
     const [wide, logo] = children.slice(3, 5) as [string, string]
     expect(children).toEqual([badge, headline, lede, wide, logo, billing])
     // Each at its own proportions, 80 steps wide, and saved under public/images/ named after its file.
@@ -99,14 +109,17 @@ describe("dropping image files", () => {
     expect(vector).toMatchObject({ type: "image", src: expect.stringMatching(/^\/images\/logo-[0-9a-f]{8}\.svg$/) })
     expect(vector?.style).toEqual({ width: 80, height: 80 })
     const { project } = inject("app")
+
     for (const image of [banner, vector]) {
       expect(existsSync(join(project, "public", image?.type === "image" ? image.src : "missing"))).toBe(true)
     }
+
     expect((await app.selection()).nodes).toEqual([wide, logo])
     expect(await app.undoLabel()).toBe("Drop 2 images")
     // One undo takes both out, and leaves the files, as undoing a paste does.
     await app.page.keyboard.press("Control+z")
     await expect.poll(() => app.children("Pricing", hero)).toEqual([badge, headline, lede, billing])
+
     for (const image of [banner, vector]) {
       expect(existsSync(join(project, "public", image?.type === "image" ? image.src : "missing"))).toBe(true)
     }
@@ -115,10 +128,13 @@ describe("dropping image files", () => {
   it("makes a frame with the image where it's dropped on the empty canvas", async () => {
     const { screen, page } = await app.showEmptyCanvas()
     const before = await app.designs()
+
     const shown = await app.dropFiles([files.svg], screen, async () => {
       await expect.poll(() => hint().innerText()).toBe("New frame with the image")
+
       return app.page.locator("[data-drop-corner]").count()
     })
+
     expect(shown).toBe(1)
     await expect.poll(async () => (await app.designs()).length, { timeout: 10_000 }).toBe(before.length + 1)
     const added = (await app.designs()).find((design) => !before.some((old) => old.key === design.key))!
@@ -166,23 +182,28 @@ describe("dropping a component from the panel", () => {
     await app.show("Projects", 0.5, grid)
     await app.page.keyboard.press("Alt+2")
     await app.page.getByRole("textbox", { name: "Search components" }).fill("Badge")
+
     const badge = app.page
       .getByRole("button")
       .filter({ hasText: /^Badge$/ })
       .first()
+
     const from = center((await badge.boundingBox())!)
     // The left of the second row's middle card: before it, where one line along every card would put it second.
     const fifth = await app.box("Projects", cards[4]!)
     const to = { x: fifth.x + fifth.width / 4, y: fifth.y + fifth.height / 2 }
+
     const shown = await app.drag(from, to, async () => {
       await expect.poll(() => app.page.locator("[data-drop-line]").count()).toBe(1)
       const line = (await app.page.locator("[data-drop-line]").boundingBox())!
+
       return {
         outline: await app.page.locator("[data-drop-outline]").count(),
         // The line stands just left of the fifth card, in its row.
         beside: Math.abs(line.x + line.width - fifth.x) < 6 && line.y >= fifth.y - 1 && line.y < fifth.y + fifth.height
       }
     })
+
     expect(shown).toEqual({ outline: 1, beside: true })
     await expect.poll(async () => (await app.children("Projects", grid)).length).toBe(7)
     const children = await app.children("Projects", grid)
@@ -198,17 +219,22 @@ describe("dropping a component from the panel", () => {
   it("makes a frame named after it where it's dropped on the empty canvas (PAR-546, PAR-545)", async () => {
     await app.page.keyboard.press("Alt+2")
     await app.page.getByRole("textbox", { name: "Search components" }).fill("Badge")
+
     const badge = app.page
       .getByRole("button")
       .filter({ hasText: /^Badge$/ })
       .first()
+
     const from = center((await badge.boundingBox())!)
     const { screen, page } = await app.showEmptyCanvas()
     const before = await app.designs()
+
     const shown = await app.drag(from, screen, async () => {
       await expect.poll(() => app.page.locator("[data-drop-corner]").count()).toBe(1)
+
       return app.page.locator("[data-drop-outline]").count()
     })
+
     // A corner marks where the frame starts, and there's no layout to outline.
     expect(shown).toBe(0)
     await expect.poll(async () => (await app.designs()).length).toBe(before.length + 1)
@@ -230,21 +256,26 @@ describe("dropping a component from the panel", () => {
     await app.show("Calendar", 1, planning)
     await app.page.keyboard.press("Alt+2")
     await app.page.getByRole("textbox", { name: "Search components" }).fill("Badge")
+
     const badge = app.page
       .getByRole("button")
       .filter({ hasText: /^Badge$/ })
       .first()
+
     const from = center((await badge.boundingBox())!)
     // Above the Planning slot, 40px of the design right of Events' left and 24px below its top: 10 and 6 steps.
     const box = await app.box("Calendar", events)
     const to = { x: box.x + 40, y: box.y + 24 }
+
     const shown = await app.drag(from, to, async () => {
       await expect.poll(() => app.page.locator("[data-drop-corner]").count()).toBe(1)
+
       return {
         outline: await app.page.locator("[data-drop-outline]").count(),
         line: await app.page.locator("[data-drop-line]").count()
       }
     })
+
     // A corner marks where it goes, and no line, as there's no slot among children placed absolutely.
     expect(shown).toEqual({ outline: 1, line: 0 })
     await expect.poll(async () => (await app.children("Calendar", events)).length).toBe(before.length + 1)
@@ -267,6 +298,7 @@ describe("dropping a component from the panel", () => {
 function rootOf(design: string): Promise<string> {
   return app.page.evaluate((design) => {
     const e2e = window.e2e!
+
     return e2e.session().store.getEntry(e2e.key(design))!.container.root.id
   }, design)
 }

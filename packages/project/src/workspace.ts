@@ -17,16 +17,28 @@ export interface Workspace {
 export async function findWorkspace(root: string): Promise<Workspace | undefined> {
   for (let folder = dirname(resolve(root)); ; folder = dirname(folder)) {
     const patterns = await workspacePatterns(folder)
+
     if (patterns) {
       const packages = new Map<string, PackageFolder>()
+
       for (const dir of await expand(folder, patterns)) {
         const found = await readWorkspacePackage(dir)
-        if (found?.manifest.name) packages.set(found.manifest.name, found)
+
+        if (found?.manifest.name) {
+          packages.set(found.manifest.name, found)
+        }
       }
+
       const app = resolve(root)
-      if ([...packages.values()].some((entry) => resolve(entry.dir) === app)) return { root: folder, packages }
+
+      if ([...packages.values()].some((entry) => resolve(entry.dir) === app)) {
+        return { root: folder, packages }
+      }
     }
-    if (dirname(folder) === folder) return undefined
+
+    if (dirname(folder) === folder) {
+      return undefined
+    }
   }
 }
 
@@ -37,8 +49,10 @@ export function workspaceDependencies(
   described: ReadonlySet<string>
 ): (PackageFolder & { name: string })[] {
   const names = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
+
   return names.flatMap((name) => {
     const found = workspace.packages.get(name)
+
     return found && !described.has(name) ? [{ name, ...found }] : []
   })
 }
@@ -60,10 +74,19 @@ export async function workspaceSection(
   taken: ReadonlySet<string>
 ): Promise<WorkspaceSection | undefined> {
   const source = packageEntry(entry, "source")
-  if (!source) return undefined
+
+  if (!source) {
+    return undefined
+  }
+
   const exported = [...(await exportedComponents(source, renderer))].filter(([, component]) => component.as)
-  if (exported.length === 0) return undefined
+
+  if (exported.length === 0) {
+    return undefined
+  }
+
   const id = sectionId(entry.name, taken)
+
   const library: LibraryInfo = {
     id,
     name: entry.name,
@@ -71,20 +94,23 @@ export async function workspaceSection(
     description: "A package in this workspace",
     package: entry.name,
     importName: entry.name,
-    ...(entry.manifest.version ? { version: entry.manifest.version } : {}),
+    version: entry.manifest.version || undefined,
     stylesImported: true,
     workspace: slashes(relative(root, entry.dir))
   }
+
   const components: Record<string, ComponentSource> = {}
+
   for (const [name, found] of exported) {
     components[`${id}/${name === "default" ? found.name : name}`] = {
       path: entry.name,
       export: name,
       library: id,
       declaration: slashes(relative(root, found.file)),
-      ...(found.as ? { as: found.as } : {})
+      as: found.as
     }
   }
+
   return { library, components }
 }
 
@@ -92,14 +118,23 @@ export async function workspaceSection(
 function sectionId(name: string, taken: ReadonlySet<string>): string {
   const short = name.replace(/^@[^/]+\//, "")
   const prefixed = (id: string) => [...taken].some((key) => key.startsWith(`${id}/`))
-  if (!prefixed(short)) return short
+
+  if (!prefixed(short)) {
+    return short
+  }
+
   return name.replace(/^@/, "").replace("/", "-")
 }
 
 async function workspacePatterns(folder: string): Promise<string[] | undefined> {
   const yaml = await readFile(join(folder, "pnpm-workspace.yaml"), "utf8").catch(() => undefined)
-  if (yaml !== undefined) return pnpmPackages(yaml)
+
+  if (yaml !== undefined) {
+    return pnpmPackages(yaml)
+  }
+
   const workspaces = (await readWorkspacePackage(folder))?.manifest.workspaces
+
   return Array.isArray(workspaces) ? workspaces : workspaces?.packages
 }
 
@@ -107,16 +142,26 @@ async function workspacePatterns(folder: string): Promise<string[] | undefined> 
 export function pnpmPackages(yaml: string): string[] {
   const patterns: string[] = []
   let inPackages = false
+
   for (const line of yaml.split(/\r?\n/)) {
     if (/^packages\s*:/.test(line)) {
       inPackages = true
       continue
     }
-    if (!inPackages) continue
+
+    if (!inPackages) {
+      continue
+    }
+
     const item = /^\s+-\s*["']?([^"'#]+?)["']?\s*(#.*)?$/.exec(line)
-    if (item) patterns.push(item[1]!)
-    else if (/^\S/.test(line)) break
+
+    if (item) {
+      patterns.push(item[1]!)
+    } else if (/^\S/.test(line)) {
+      break
+    }
   }
+
   return patterns
 }
 
@@ -124,34 +169,52 @@ export function pnpmPackages(yaml: string): string[] {
 async function expand(root: string, patterns: string[]): Promise<string[]> {
   const included = new Set<string>()
   const excluded = new Set<string>()
+
   for (const pattern of patterns) {
     const negated = pattern.startsWith("!")
     const parts = pattern.replace(/^!/, "").replace(/\/+$/, "").split("/")
-    for (const dir of await match(root, parts)) (negated ? excluded : included).add(dir)
+
+    for (const dir of await match(root, parts)) {
+      ;(negated ? excluded : included).add(dir)
+    }
   }
+
   return [...included].filter((dir) => !excluded.has(dir)).sort()
 }
 
 async function match(folder: string, parts: string[], depth = 0): Promise<string[]> {
-  if (parts.length === 0) return existsSync(join(folder, "package.json")) ? [folder] : []
-  const [part, ...rest] = parts as [string, ...string[]]
+  const [part, ...rest] = parts
+
+  if (part === undefined) {
+    return existsSync(join(folder, "package.json")) ? [folder] : []
+  }
+
   if (part === "**") {
-    if (depth > 4) return []
+    if (depth > 4) {
+      return []
+    }
+
     const here = await match(folder, rest, depth)
     const below = await Promise.all((await subfolders(folder)).map((dir) => match(dir, parts, depth + 1)))
+
     return [...here, ...below.flat()]
   }
+
   if (part.includes("*")) {
     const pattern = new RegExp(`^${part.replaceAll(/[.+^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]*")}$`)
     const dirs = (await subfolders(folder)).filter((dir) => pattern.test(posix.basename(slashes(dir))))
+
     return (await Promise.all(dirs.map((dir) => match(dir, rest, depth)))).flat()
   }
+
   const next = join(folder, part)
+
   return existsSync(next) ? match(next, rest, depth) : []
 }
 
 async function subfolders(folder: string): Promise<string[]> {
   const entries = await readdir(folder, { withFileTypes: true }).catch(() => [])
+
   return entries
     .filter((entry) => entry.isDirectory() && entry.name !== "node_modules" && !entry.name.startsWith("."))
     .map((entry) => join(folder, entry.name))

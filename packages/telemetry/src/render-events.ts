@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { ms } from "./attributes.ts"
 import { defineEvent } from "./events.ts"
 
 /*
@@ -7,19 +8,23 @@ import { defineEvent } from "./events.ts"
  * are here, so they're tested without Electron.
  */
 
-const ms = (meaning: string) => z.number().int().nonnegative().describe(meaning)
 const design = {
   design: z.string().optional().describe("The design's key, as the document names it. None for a component preview"),
   state: z.string().optional().describe("The design's state, when it draws one"),
   mode: z.string().optional().describe("The mode it draws in, by ID")
 }
 
-/** Why a frame failed: its module didn't load, its code threw while drawing, or it didn't finish in time. */
-export type FrameFailure = "module not found" | "render threw" | "timed out"
+/**
+ * Why a frame failed: its module didn't load, its code threw while drawing, it didn't finish in time, or its window's
+ * renderer crashed under it.
+ */
+export type FrameFailure = "module not found" | "render threw" | "timed out" | "crashed"
 
 const failure = z
-  .enum(["module not found", "render threw", "timed out"])
-  .describe("Why: its module didn't load, its code threw while drawing, or it didn't finish in time")
+  .enum(["module not found", "render threw", "timed out", "crashed"])
+  .describe(
+    "Why: its module didn't load, its code threw while drawing, it didn't finish in time, or its window's renderer crashed"
+  )
 
 export const frameRendered = defineEvent(
   "frame.rendered",
@@ -48,7 +53,7 @@ export const frameFailed = defineEvent(
     ...design,
     priority: z.string().describe("The queue it waited in: render, visible or idle"),
     failure,
-    message: z.string().describe("The guest's error message"),
+    message: z.string().describe("The guest's error message, or what happened to its window"),
     stack: z.string().optional().describe("The guest's stack, when it threw an error that has one")
   }),
   {
@@ -85,18 +90,19 @@ export const previewFailed = defineEvent(
   { level: "warn", sentBy: ["service"], when: "A component's preview can't be made." }
 )
 
-const counts = (what: string) =>
-  z
-    .object({
-      hits: z.number().int().nonnegative().describe(`${what} found kept for the code they draw`),
-      misses: z.number().int().nonnegative().describe(`${what} looked for and not kept for the code they draw`),
-      hitRate: z.number().min(0).max(1).describe("The share of lookups found, from 0 to 1")
-    })
-    .describe(`${what} looked up on disk this session`)
+const count = (meaning: string) => z.number().int().nonnegative().describe(meaning)
+const share = (meaning: string) => z.number().min(0).max(1).describe(meaning)
 
 export const bitmapCacheUsed = defineEvent(
   "bitmapCache.used",
-  z.object({ frames: counts("Frame bitmaps"), previews: counts("Component previews") }),
+  z.object({
+    frameHits: count("Frame bitmaps found kept on disk for the code they draw, this session"),
+    frameMisses: count("Frame bitmaps looked for on disk and not kept for the code they draw, this session"),
+    frameHitRate: share("The share of frame bitmap lookups found this session, from 0 to 1"),
+    previewHits: count("Component previews found kept on disk for the code they draw, this session"),
+    previewMisses: count("Component previews looked for on disk and not kept for the code they draw, this session"),
+    previewHitRate: share("The share of component preview lookups found this session, from 0 to 1")
+  }),
   {
     level: "info",
     sentBy: ["service"],
@@ -117,7 +123,7 @@ const moduleMissing =
   /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed|cannot find module|failed to resolve (import|module specifier)|does not provide an export named|module not found/i
 
 /** Why a frame's guest failed, from its error message: a module that didn't load, or its code throwing. */
-export function frameFailure(message: string): Exclude<FrameFailure, "timed out"> {
+export function frameFailure(message: string): Exclude<FrameFailure, "timed out" | "crashed"> {
   return moduleMissing.test(message) ? "module not found" : "render threw"
 }
 
@@ -127,35 +133,53 @@ interface Tally {
   misses: number
 }
 
+/** Counts the bitmap cache's lookups, and reports them when there are new ones. */
+export interface CacheCounter {
+  frame(hit: boolean): void
+  preview(hit: boolean): void
+  report(): z.input<typeof bitmapCacheUsed.schema> | undefined
+}
+
 /**
  * Counts the bitmap cache's lookups for a session, and gives `bitmapCache.used`'s attributes when `report` is called
  * after any lookup since the last report; nothing otherwise, so an idle session sends nothing.
  */
-export function cacheCounter(): {
-  frame(hit: boolean): void
-  preview(hit: boolean): void
-  report(): z.input<typeof bitmapCacheUsed.schema> | undefined
-} {
+export function cacheCounter(): CacheCounter {
   const frames: Tally = { hits: 0, misses: 0 }
   const previews: Tally = { hits: 0, misses: 0 }
   let changed = false
+
   const count = (tally: Tally, hit: boolean) => {
-    if (hit) tally.hits++
-    else tally.misses++
+    if (hit) {
+      tally.hits++
+    } else {
+      tally.misses++
+    }
+
     changed = true
   }
-  const rate = ({ hits, misses }: Tally) => ({
-    hits,
-    misses,
-    hitRate: hits + misses === 0 ? 0 : Math.round((hits / (hits + misses)) * 1000) / 1000
-  })
+
+  const rate = ({ hits, misses }: Tally) =>
+    hits + misses === 0 ? 0 : Math.round((hits / (hits + misses)) * 1000) / 1000
+
   return {
     frame: (hit) => count(frames, hit),
     preview: (hit) => count(previews, hit),
     report() {
-      if (!changed) return undefined
+      if (!changed) {
+        return undefined
+      }
+
       changed = false
-      return { frames: rate(frames), previews: rate(previews) }
+
+      return {
+        frameHits: frames.hits,
+        frameMisses: frames.misses,
+        frameHitRate: rate(frames),
+        previewHits: previews.hits,
+        previewMisses: previews.misses,
+        previewHitRate: rate(previews)
+      }
     }
   }
 }

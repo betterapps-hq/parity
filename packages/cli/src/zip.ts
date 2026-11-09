@@ -9,6 +9,7 @@ export function zipFiles(files: readonly { name: string; text: string }[], modif
   const locals: Buffer[] = []
   const centrals: Buffer[] = []
   let offset = 0
+
   for (const file of files) {
     const name = Buffer.from(file.name, "utf8")
     const data = Buffer.from(file.text, "utf8")
@@ -42,6 +43,7 @@ export function zipFiles(files: readonly { name: string; text: string }[], modif
     centrals.push(central, name)
     offset += local.length + name.length + packed.length
   }
+
   const directory = Buffer.concat(centrals)
   const end = Buffer.alloc(22)
   end.writeUInt32LE(0x06054b50, 0)
@@ -49,14 +51,24 @@ export function zipFiles(files: readonly { name: string; text: string }[], modif
   end.writeUInt16LE(files.length, 10)
   end.writeUInt32LE(directory.length, 12)
   end.writeUInt32LE(offset, 16)
+
   return Buffer.concat([...locals, directory, end])
 }
 
+/** A time and date as zip stores them: two 16-bit fields. */
+interface DosTime {
+  time: number
+  date: number
+}
+
 /** A time as zip has it: local time, to two seconds, from 1980. */
-function dosTime(at: Date): { time: number; date: number } {
+function dosTime(at: Date): DosTime {
   const year = Math.max(at.getFullYear(), 1980)
+
   return {
+    // oxlint-disable-next-line no-bitwise -- zip packs hours, minutes and seconds into bit fields of one 16-bit word
     time: (at.getHours() << 11) | (at.getMinutes() << 5) | Math.floor(at.getSeconds() / 2),
+    // oxlint-disable-next-line no-bitwise -- zip packs year, month and day into bit fields of one 16-bit word
     date: ((year - 1980) << 9) | ((at.getMonth() + 1) << 5) | at.getDate()
   }
 }

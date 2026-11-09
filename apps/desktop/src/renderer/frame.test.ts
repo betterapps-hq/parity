@@ -1,7 +1,11 @@
 import { fileURLToPath } from "node:url"
+import type { MountHandle, prepareCanvasCss } from "@parity-app/core"
+import type { createGuest } from "@parity-app/renderer-react/guest"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
+import type { ComponentType } from "react"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
+import type * as frameModule from "./frame.ts"
 
 // Frames are real DOM, so this lays them out and renders into them in Chrome: Node has no layout. It needs Chrome
 // installed.
@@ -108,6 +112,7 @@ export function Probe() {
 
 beforeAll(async () => {
   const renderer = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: renderer, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
@@ -118,10 +123,13 @@ beforeAll(async () => {
     // React's production build, as frames run it (see builder-vite's productionDependencies).
     define: { "process.env.NODE_ENV": '"production"', "import.meta.url": '"http://project.test/frame.js"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
+    if (message.type() === "error") {
+      errors.push(message.text())
+    }
   })
   page.on("pageerror", (error) => errors.push(error.message))
   await page.route("http://project.test/frame.js", (route) =>
@@ -147,14 +155,25 @@ beforeAll(async () => {
     })
   )
   await page.goto("http://parity.test/")
-  // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof frame === "object")))
+
+  if (!(await page.evaluate(() => "frame" in window))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
+  }
 })
 
 afterAll(async () => {
   await browser?.close()
 })
+
+/** The bundle's global in the page, as `entry` exports it. */
+declare const frame: typeof frameModule & {
+  prepareCanvasCss: typeof prepareCanvasCss
+  createGuest: typeof createGuest
+  Probe: ComponentType
+}
+
+/** The handles of the frames "a frame's window" mounts, by id, which it keeps on the page's window. */
+declare const handles: Record<string, MountHandle>
 
 /** Prepares the frame at `#host` with a project's stylesheet, a 390 by 844 window, and HTML in place of a design. */
 function frameWith(projectCss: string, html = "", hostStyle = "", attributes: Record<string, string> = {}) {
@@ -165,14 +184,14 @@ function frameWith(projectCss: string, html = "", hostStyle = "", attributes: Re
       host.id = "host"
       host.style.cssText = `width: 390px; ${hostStyle}`
       const sheet = new CSSStyleSheet()
-      // @ts-expect-error The bundle's global.
       sheet.replaceSync(frame.prepareCanvasCss(projectCss, { baseUrl: "http://project.test" }).scoped)
-      // @ts-expect-error The bundle's global.
+
       const target = frame.prepareFrame(host, sheet, {
         classNames: [],
         attributes,
         viewport: { width: 390, height: 844 }
-      }) as HTMLElement
+      })
+
       target.innerHTML = html
     },
     { projectCss, html, hostStyle, attributes }
@@ -182,11 +201,15 @@ function frameWith(projectCss: string, html = "", hostStyle = "", attributes: Re
 /** Text styles of a frame's body, with the project's stylesheet, next to a fresh page's body. */
 async function inherited(projectCss: string) {
   await frameWith(projectCss)
+
   return page.evaluate(() => {
     const properties = ["font-size", "line-height", "font-family", "letter-spacing", "color", "color-scheme"]
+
     const read = (element: Element) =>
       Object.fromEntries(properties.map((name) => [name, getComputedStyle(element).getPropertyValue(name)]))
+
     const body = document.querySelector("#host")!.shadowRoot!.firstElementChild!
+
     return {
       frame: read(body),
       page: read(document.querySelector("iframe")!.contentDocument!.body),
@@ -218,21 +241,26 @@ describe("a frame's custom properties", () => {
   async function box(projectCss: string) {
     const html = '<div class="box"></div>'
     await frameWith(projectCss, html)
+
     return page.evaluate(
       ({ projectCss, html }) => {
         const document_ = document.querySelector("iframe")!.contentDocument!
         document_.open()
         document_.write(`<!doctype html><style>${projectCss}</style>${html}`)
         document_.close()
+
         const read = (element: Element) => {
           const style = getComputedStyle(element)
+
           return {
             background: style.backgroundColor,
             border: style.borderTopWidth,
             zoom: style.getPropertyValue("--tl-zoom")
           }
         }
+
         const host = document.querySelector("#host")!
+
         return {
           frame: read(host.shadowRoot!.querySelector(".box")!),
           page: read(document_.querySelector(".box")!),
@@ -260,6 +288,7 @@ describe("a frame's custom properties", () => {
     const { frame, page } = await box(
       `${usesFallbacks} :root { --background: rgb(0, 0, 255) } @layer base { html { --border: 2px } }`
     )
+
     expect(frame).toEqual(page)
     expect(frame).toMatchObject({ background: "rgb(0, 0, 255)", border: "2px" })
   })
@@ -269,16 +298,19 @@ describe("a frame's body", () => {
   /** Where a heading's top is in a frame and on a fresh page, and the frame body's margin and height. */
   async function heading(projectCss: string, hostStyle = "") {
     await frameWith(projectCss, "<h1>Title</h1>", hostStyle)
+
     return page.evaluate(() => {
       const host = document.querySelector("#host")!
-      const body = host.shadowRoot!.firstElementChild as HTMLElement
+      const body = host.shadowRoot!.firstElementChild!
       // A project's page has a doctype: without one, a browser drops a body's first margin.
       const document_ = document.querySelector("iframe")!.contentDocument!
       document_.open()
       document_.write("<!doctype html><h1>Title</h1>")
       document_.close()
+
       const top = (element: Element, origin: Element) =>
         element.getBoundingClientRect().top - origin.getBoundingClientRect().top
+
       return {
         frame: top(host.shadowRoot!.querySelector("h1")!, host),
         page: top(document_.querySelector("h1")!, document_.documentElement),
@@ -315,8 +347,10 @@ describe("a frame's colour scheme (PAR-138)", () => {
 
   async function drawn(scheme: string) {
     await frameWith(css, '<p class="note">Note</p>', "", { "data-canvas-color-scheme": scheme })
+
     return page.evaluate(() => {
       const body = document.querySelector("#host")!.shadowRoot!.firstElementChild!
+
       return {
         background: getComputedStyle(body).backgroundColor,
         color: getComputedStyle(body.querySelector(".note")!).color
@@ -326,11 +360,13 @@ describe("a frame's colour scheme (PAR-138)", () => {
 
   it("draws the project's prefers-color-scheme blocks for the frame's scheme, not Parity's window's", async () => {
     await page.emulateMedia({ colorScheme: "dark" })
+
     try {
       expect(await drawn("light")).toEqual({ background: "rgb(255, 255, 255)", color: "rgb(0, 0, 0)" })
     } finally {
       await page.emulateMedia({ colorScheme: "light" })
     }
+
     expect(await drawn("dark")).toEqual({ background: "rgb(0, 0, 0)", color: "rgb(255, 255, 255)" })
   })
 })
@@ -341,18 +377,23 @@ describe("a frame's viewport", () => {
       ".box { width: 10px } @media (max-width: 767px) { .box { width: 20px } }",
       '<div class="box"></div>'
     )
+
     const width = await page.evaluate(
       () => document.querySelector("#host")!.shadowRoot!.querySelector(".box")!.getBoundingClientRect().width
     )
+
     expect(width).toBe(20)
   })
 
   it("measures the project's viewport units, not Parity's window", async () => {
     await frameWith(".box { width: 50vw; height: 25dvh; min-height: 10vmax }", '<div class="box"></div>')
+
     const size = await page.evaluate(() => {
       const box = document.querySelector("#host")!.shadowRoot!.querySelector(".box")!.getBoundingClientRect()
+
       return { width: box.width, height: box.height }
     })
+
     expect(size).toEqual({ width: 195, height: 211 })
   })
 })
@@ -367,6 +408,7 @@ describe("a frame's rem", () => {
    */
   async function sizes(projectCss: string) {
     await frameWith(projectCss, html)
+
     return page.evaluate(
       ({ projectCss, html }) => {
         const added = ".added { width: 3rem; height: 3rem }"
@@ -380,14 +422,17 @@ describe("a frame's rem", () => {
         shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, sheet]
         const target = shadow.querySelector("[data-canvas-body] > div")!
         target.insertAdjacentHTML("beforeend", '<div class="added"></div>')
+
         const read = (root: ParentNode) =>
           Object.fromEntries(
             [".box", ".spaced", ".inline", ".added"].map((selector) => {
               const element = root.querySelector(selector)!
               const box = element.getBoundingClientRect()
+
               return [selector, `${box.width}x${box.height} ${getComputedStyle(element).fontSize}`]
             })
           )
+
         return {
           frame: read(shadow),
           page: read(document_),
@@ -436,16 +481,20 @@ describe("a frame's rem", () => {
 describe("styles written while the project runs", () => {
   it("measure viewport units against the frame, however they're written", async () => {
     await frameWith("", '<div class="h-[100vh]"></div><div style="height: 20vh"></div>')
+
     const heights = await page.evaluate(async () => {
       const shadow = document.querySelector("#host")!.shadowRoot!
       const target = shadow.querySelector("[data-canvas-body] > div")!
-      const [selector, markup] = [...target.children] as HTMLElement[]
+      const [selector, markup] = [...target.querySelectorAll<HTMLElement>(":scope > *")]
+
       const add = (style: (element: HTMLElement) => void) => {
         const element = document.createElement("div")
         style(element)
         target.append(element)
+
         return element
       }
+
       const inline = {
         property: add((element) => (element.style.height = "50vh")),
         setProperty: add((element) => element.style.setProperty("height", "25dvh")),
@@ -455,6 +504,7 @@ describe("styles written while the project runs", () => {
         // As a re-render changes it.
         changed: add((element) => (element.style.height = "1vh"))
       }
+
       inline.changed.style.height = "45vh"
       // Rules CSS-in-JS adds: text in a <style>, as in development, and inserted rules, as in production.
       const text = document.createElement("style")
@@ -467,18 +517,22 @@ describe("styles written while the project runs", () => {
       const constructed = new CSSStyleSheet()
       constructed.replaceSync(".constructed { height: 35vh }")
       shadow.adoptedStyleSheets = [...shadow.adoptedStyleSheets, constructed]
+
       const rules = Object.fromEntries(
         ["text", "appended", "inserted", "constructed"].map((name) => [
           name,
           add((element) => element.classList.add(name))
         ])
       )
+
       await new Promise((resolve) => setTimeout(resolve))
       const height = (element: Element) => Math.round(element.getBoundingClientRect().height * 10) / 10
+
       return Object.fromEntries(
         Object.entries({ ...inline, ...rules, selector: selector! }).map(([name, element]) => [name, height(element)])
       )
     })
+
     expect(heights).toEqual({
       property: 422,
       setProperty: 211,
@@ -502,8 +556,10 @@ describe("styles written while the project runs", () => {
       other.setAttribute("style", "height: 10vh")
       document.body.append(element, other)
       const height = (element: Element) => element.getBoundingClientRect().height
+
       return [height(element), height(other)]
     })
+
     expect(heights).toEqual([350, 70])
   })
 })
@@ -514,17 +570,17 @@ describe("a frame's window", () => {
   /** Mounts frames together, as the canvas does in one commit. */
   function mount(frames: Record<string, Viewport>) {
     return page.evaluate((frames) => {
-      // @ts-expect-error The bundle's global.
       const guest = frame.createGuest({ components: { Probe: frame.Probe }, css: "" })
-      const handles = ((window as unknown as { handles?: Record<string, unknown> }).handles ??= {})
+      const mounted: Record<string, MountHandle> = {}
+      Object.assign(window, { handles: mounted })
+
       for (const [id, viewport] of Object.entries(frames)) {
         const host = document.createElement("div")
         host.id = id
         host.style.width = `${viewport.width}px`
         document.querySelector("#frames")!.append(host)
-        // @ts-expect-error The bundle's global.
         const target = frame.prepareFrame(host, new CSSStyleSheet(), { classNames: [], attributes: {}, viewport })
-        handles[id] = guest.mount(
+        mounted[id] = guest.mount(
           target,
           [{ kind: "component", component: "Probe", nodeId: id, props: {}, slots: {} }],
           { viewport }
@@ -536,8 +592,10 @@ describe("a frame's window", () => {
   /** What the frame's component saw, once its renders have settled. */
   async function probe(id: string) {
     await page.waitForTimeout(50)
+
     return page.evaluate((id) => {
       const button = document.querySelector(`#${id}`)!.shadowRoot!.querySelector("button")!
+
       return {
         ...Object.fromEntries(Object.entries(button.dataset)),
         height: String(Math.round(button.getBoundingClientRect().height * 10) / 10)
@@ -595,12 +653,10 @@ describe("a frame's window", () => {
 
   it("tells a frame's media queries and resize listeners when its window resizes", async () => {
     await page.evaluate(() => {
-      const handles = (window as unknown as { handles: Record<string, { resize(viewport: Viewport): void }> }).handles
       const viewport = { width: 1280, height: 800 }
       // As ModeView does.
-      // @ts-expect-error The bundle's global.
-      frame.setFrameViewport(document.querySelector("#phone"), viewport)
-      handles.phone!.resize(viewport)
+      frame.setFrameViewport(document.querySelector<HTMLElement>("#phone")!, viewport)
+      handles.phone!.resize!(viewport)
     })
     expect(await probe("phone")).toMatchObject({
       mobile: "false",

@@ -1,5 +1,5 @@
 import { execute, type FrameRequest } from "@parity-app/agent"
-import { type ContainerSpec, frameGeometry, type ModeSettings, resolveModes } from "@parity-app/core"
+import { type ContainerSpec, frameGeometry, type ModeSettings, parseInput, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { RenderJob } from "./protocol.ts"
 import {
@@ -16,7 +16,7 @@ import {
   renderJob,
   renderJobMode
 } from "./render-job.ts"
-import { serviceChecks } from "./service-checks.ts"
+import { serviceChecks, storedJobs } from "./service-checks.ts"
 
 /** A 1280px screen 1234px tall, whose height is the mode's own rather than the nearest device's 800. */
 const modes: ModeSettings = {
@@ -31,22 +31,29 @@ const modes: ModeSettings = {
   ],
   modes: [{ id: "desktop", name: "Desktop", values: { viewport: "desktop" } }]
 }
+
 const mode = resolveModes(modes)[0]!
 
 function design(height?: number): ContainerSpec {
-  return {
+  const container: ContainerSpec = {
     id: "page",
     name: "Page",
     position: { x: 0, y: 0 },
     root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }],
-    ...(height === undefined ? {} : { frames: { desktop: { height } } })
+    states: [{ id: "default", name: "Default" }]
   }
+
+  if (height !== undefined) {
+    container.frames = { desktop: { height } }
+  }
+
+  return container
 }
 
 /** The frame an agent's call asks the offscreen window for, as `Measure` sends it. */
 async function agentRequest(container: ContainerSpec): Promise<FrameRequest> {
   const requests: FrameRequest[] = []
+
   const result = await execute(
     { label: "Measure", code: `await Measure("page")` },
     {
@@ -67,11 +74,14 @@ async function agentRequest(container: ContainerSpec): Promise<FrameRequest> {
       presence: () => undefined,
       render: async (request) => {
         requests.push(request)
+
         return { width: request.mode.width, height: 100, nodes: [], overflowsX: false, unknownComponents: [] }
       }
     }
   )
+
   expect(result.ok).toBe(true)
+
   return requests[0]!
 }
 
@@ -85,11 +95,13 @@ describe("renderJobMode", () => {
     const bitmap = renderJobMode(mode, live)
     const request = await agentRequest(container)
     expect(request.viewport).toEqual(live.viewport)
+
     const agent = renderJobMode(request.mode, {
       width: request.mode.width,
-      ...(request.height === undefined ? {} : { height: request.height }),
+      height: request.height,
       viewport: request.viewport
     })
+
     for (const job of [bitmap, agent]) {
       expect(job.width).toBe(1280)
       expect(job.height).toBeUndefined()
@@ -112,6 +124,7 @@ describe("drawnComponents", () => {
     Card: { path: "src/card.tsx", export: "Card", library: undefined },
     Unused: { path: "src/unused.tsx", export: "Unused" }
   }
+
   const tree = [
     {
       kind: "component",
@@ -154,22 +167,26 @@ const guest: JobGuest = {
   guestUrl: "http://localhost:5001",
   theme: [{ name: "--x", value: "1" }]
 }
+
 const drawsText: JobFrame = {
   tree: [{ nodeId: "a", type: "text", text: "Sign in" }],
   mode,
   frame: { width: 320, height: 200, viewport: { width: 320, height: 200 } },
   scale: 0.25
 }
+
 const token = { name: "--x", theme: "light", value: "2" }
 
 describe("renderJob", () => {
   it("leaves out what a frame doesn't have: given components, previewed tokens, and colors when not auditing", () => {
     const job = renderJob(guest, { ...drawsText, tokens: [], colorTokens: ["--x"] })
     expect(Object.keys(job)).toEqual(["projectId", "guestUrl", "theme", "tree", "mode", "scale"])
+
     const audited = renderJob(
       { ...guest, components: { Card: { path: "src/card.tsx", export: "Card" } } },
       { ...drawsText, tokens: [token], audit: true, colorTokens: ["--x"], inlinePortals: true }
     )
+
     expect(audited).toMatchObject({ audit: true, colorTokens: ["--x"], inlinePortals: true, previews: [token] })
     expect(audited.components).toEqual({ Card: { path: "src/card.tsx", export: "Card" } })
   })
@@ -187,7 +204,9 @@ describe("renderJob", () => {
         design: { key: "app.par#pricing", state: "default", mode: "desktop" }
       }
     )
+
     expect(serviceChecks["frames.capture"]({ job }).job).toEqual(job)
+    expect(parseInput(storedJobs, JSON.stringify([job]))).toEqual([job])
     expect(
       serviceChecks["previews.make"]({ preview: { component: "Card", job }, priority: "idle" }).preview.job
     ).toEqual(job)
@@ -197,6 +216,7 @@ describe("renderJob", () => {
 describe("a job's names", () => {
   const job = renderJob(guest, drawsText)
   const drawing = { id: 1 }
+
   const names = (named: RenderJob) => ({
     memory: frameKeys(named, drawing),
     bitmap: bitmapName(named, {}),
@@ -204,6 +224,7 @@ describe("a job's names", () => {
   })
 
   it("leave out a field the job gains, in the job or its mode, until this module names it", () => {
+    // SAFETY: a job with more fields than `RenderJob` names is still one; the extra fields are what's being tested.
     const grown = { ...job, opacity: 0.5, mode: { ...job.mode, safeArea: 20 } } as RenderJob
     expect(names(grown)).toEqual(names(job))
   })
@@ -234,6 +255,7 @@ describe("a job's names", () => {
       { ...job, mode: { ...job.mode, viewport: { width: 320, height: 640 } } },
       { ...job, scale: 0.5 }
     ]
+
     for (const changed of changes) {
       const [before, after] = [names(job), names(changed)]
       expect(after.memory.key).not.toBe(before.memory.key)
@@ -288,7 +310,7 @@ describe("a job's names", () => {
 
   it("name a bitmap as before PAR-575, so the bitmaps kept already are found", () => {
     // The job as the service read it, less the address and the components, then where each component comes from.
-    const checked = serviceChecks["frames.stored"]({ job: renderJob(guest, { ...drawsText, tokens: [token] }) }).job
+    const checked = parseInput(storedJobs, JSON.stringify([renderJob(guest, { ...drawsText, tokens: [token] })]))[0]!
     const { guestUrl: _address, components: _given, ...drawn } = checked
     expect(bitmapName(checked, {})).toBe(`${JSON.stringify(drawn)}\0${JSON.stringify([])}`)
   })

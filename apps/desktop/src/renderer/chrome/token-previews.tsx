@@ -5,6 +5,7 @@ import type { PreviewKind } from "@parity-app/tokens"
 import { px } from "../lengths.ts"
 
 export { px }
+
 import {
   Ban,
   CircleQuestionMark,
@@ -27,6 +28,7 @@ import {
 } from "lucide-react"
 import {
   createContext,
+  createElement,
   type CSSProperties,
   type ReactNode,
   type RefObject,
@@ -35,6 +37,7 @@ import {
   useRef,
   useState
 } from "react"
+import { textValue } from "./prop-values.ts"
 
 /** A token as its preview draws it. */
 export interface PreviewToken {
@@ -108,6 +111,7 @@ export const tokenSections: { title: string; kinds: { kind: PreviewKind; heading
 /** A duration in milliseconds, from ms or s. */
 export function ms(value: string): number {
   const match = /^([\d.]+)(ms|s)$/.exec(value.trim())
+
   return match ? Number(match[1]) * (match[2] === "s" ? 1000 : 1) : Number.NaN
 }
 
@@ -146,24 +150,24 @@ export const onPaper = new Set<PreviewKind>([
 export const moving = new Set<PreviewKind>(["duration", "easing", "animation"])
 
 /** Each cursor keyword drawn as the pointer it is; any other draws as the arrow. */
-const cursorIcons: Record<string, LucideIcon> = {
-  pointer: Pointer,
-  "not-allowed": Ban,
-  text: TextCursor,
-  wait: Loader,
-  progress: LoaderCircle,
-  move: Move,
-  grab: Hand,
-  grabbing: HandGrab,
-  help: CircleQuestionMark,
-  crosshair: Crosshair,
-  "zoom-in": ZoomIn,
-  "zoom-out": ZoomOut,
-  copy: Copy,
-  "ew-resize": MoveHorizontal,
-  "ns-resize": MoveVertical,
-  none: EyeOff
-}
+const cursorIcons = new Map<string, LucideIcon>([
+  ["pointer", Pointer],
+  ["not-allowed", Ban],
+  ["text", TextCursor],
+  ["wait", Loader],
+  ["progress", LoaderCircle],
+  ["move", Move],
+  ["grab", Hand],
+  ["grabbing", HandGrab],
+  ["help", CircleQuestionMark],
+  ["crosshair", Crosshair],
+  ["zoom-in", ZoomIn],
+  ["zoom-out", ZoomOut],
+  ["copy", Copy],
+  ["ew-resize", MoveHorizontal],
+  ["ns-resize", MoveVertical],
+  ["none", EyeOff]
+])
 
 const checkerboard = "repeating-conic-gradient(oklch(0.88 0 0) 0 25%, transparent 0 50%)"
 
@@ -184,6 +188,7 @@ export const checker: CSSProperties = {
  */
 export function swatch(value: string): CSSProperties & { "--swatch": string } {
   const color = typeof document !== "undefined" && CSS.supports("color", value) ? value : "transparent"
+
   return {
     "--swatch": color,
     backgroundColor: "#fff",
@@ -213,8 +218,10 @@ export function useReducedMotion(): boolean {
     const query = matchMedia("(prefers-reduced-motion: reduce)")
     const change = () => setReduced(query.matches)
     query.addEventListener("change", change)
+
     return () => query.removeEventListener("change", change)
   }, [])
+
   return forced ?? reduced
 }
 
@@ -228,6 +235,7 @@ export function useHoverPlay(kind: PreviewKind, forced = false) {
   const playing = moving.has(kind) && !reduced && (hovered || forced)
   const on = () => setHovered(true)
   const off = () => setHovered(false)
+
   return { playing, handlers: { onPointerEnter: on, onPointerLeave: off, onFocus: on, onBlur: off } }
 }
 
@@ -243,11 +251,21 @@ function usePlayback(
   const key = motion ? JSON.stringify(motion) : ""
   useEffect(() => {
     const element = ref.current
-    if (!element || !key || !playing) return
+
+    if (!element || !key || !playing) {
+      return
+    }
+
+    // SAFETY: `key` is the motion above as JSON, so it reads back as the same frames and timing, Infinity aside.
     const { frames, timing } = JSON.parse(key) as { frames: Keyframe[]; timing: KeyframeAnimationOptions }
+
     // JSON writes Infinity as null, and every motion here that repeats repeats for as long as it plays.
-    if (timing.iterations === null) timing.iterations = Number.POSITIVE_INFINITY
+    if (timing.iterations === null) {
+      timing.iterations = Number.POSITIVE_INFINITY
+    }
+
     const animation = element.animate(frames, timing)
+
     return () => animation.cancel()
   }, [ref, key, playing])
 }
@@ -261,6 +279,7 @@ export const rest = 700
  */
 function looped(from: Keyframe, to: Keyframe, duration: number, easing: string, period = duration + rest): Keyframe[] {
   const end = duration / period
+
   return [
     { ...from, offset: 0, easing },
     { ...to, offset: end },
@@ -268,59 +287,78 @@ function looped(from: Keyframe, to: Keyframe, duration: number, easing: string, 
   ]
 }
 
-const easingKeywords: Record<string, [number, number, number, number]> = {
-  linear: [0, 0, 1, 1],
-  ease: [0.25, 0.1, 0.25, 1],
-  "ease-in": [0.42, 0, 1, 1],
-  "ease-out": [0, 0, 0.58, 1],
-  "ease-in-out": [0.42, 0, 0.58, 1]
-}
+const easingKeywords = new Map([
+  ["linear", [0, 0, 1, 1]],
+  ["ease", [0.25, 0.1, 0.25, 1]],
+  ["ease-in", [0.42, 0, 1, 1]],
+  ["ease-out", [0, 0, 0.58, 1]],
+  ["ease-in-out", [0.42, 0, 0.58, 1]]
+])
 
 const bezierAt = (t: number, a: number, b: number) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t ** 2 * b + t ** 3
 
 /** Points along an easing, time across and progress up, from `cubic-bezier()`, `linear()` or a keyword. */
 export function easingPoints(value: string, steps = 48): [number, number][] {
-  const bezier = /cubic-bezier\(([^)]+)\)/.exec(value)?.[1]?.split(",").map(Number) ?? easingKeywords[value.trim()]
+  const bezier = /cubic-bezier\(([^)]+)\)/.exec(value)?.[1]?.split(",").map(Number) ?? easingKeywords.get(value.trim())
+
   if (bezier) {
-    const [x1, y1, x2, y2] = bezier as [number, number, number, number]
+    // One missing a number draws nothing, as the browser refuses it.
+    const [x1 = Number.NaN, y1 = Number.NaN, x2 = Number.NaN, y2 = Number.NaN] = bezier
+
     return Array.from({ length: steps + 1 }, (_, index) => {
       const t = index / steps
+
       return [bezierAt(t, x1, x2), bezierAt(t, y1, y2)]
     })
   }
+
   const stops = /linear\((.+)\)/.exec(value)?.[1]
-  if (!stops)
+
+  if (!stops) {
     return [
       [0, 0],
       [1, 1]
     ]
+  }
+
   // Each stop is an output and maybe where it falls; one without a place sits evenly between its neighbours.
   const parsed = stops.split(",").map((stop) => {
     const [output, at] = stop.trim().split(/\s+/)
+
     return { y: Number(output), x: at ? Number.parseFloat(at) / 100 : undefined }
   })
+
   parsed[0]!.x ??= 0
   parsed.at(-1)!.x ??= 1
+
   for (let index = 1; index < parsed.length - 1; index++) {
-    if (parsed[index]!.x !== undefined) continue
+    if (parsed[index]!.x !== undefined) {
+      continue
+    }
+
     const next = parsed.findIndex((stop, at) => at > index && stop.x !== undefined)
     const before = parsed[index - 1]!.x!
     parsed[index]!.x = before + (parsed[next]!.x! - before) / (next - index + 1)
   }
+
   return parsed.map((stop) => [stop.x!, stop.y])
 }
 
 /** An animation shorthand's parts: the keyframes' name, how long, the easing, and whether it repeats. */
-export function animationParts(value: string): {
+export interface AnimationParts {
   name: string
   /** Undefined when the value doesn't say. */
   duration?: number
   easing: string
   infinite: boolean
-} {
+}
+
+/** Reads an animation shorthand into its {@link AnimationParts}. */
+export function animationParts(value: string): AnimationParts {
   const parts: string[] = value.match(/[\w-]+\([^)]*\)|\S+/g) ?? []
   const duration = parts.map(ms).find((time) => !Number.isNaN(time))
-  const easing = parts.find((part) => /^(cubic-bezier|linear)\(/.test(part) || part in easingKeywords) ?? "ease"
+  const easing = parts.find((part) => /^(cubic-bezier|linear)\(/.test(part) || easingKeywords.has(part)) ?? "ease"
+
   return { name: parts[0] ?? "", duration, easing, infinite: parts.includes("infinite") }
 }
 
@@ -328,6 +366,7 @@ export function animationParts(value: string): {
 export function easingPath(value: string, width: number, height: number, pad = 0.18): string {
   const top = height * pad
   const span = height - top * 2
+
   return easingPoints(value)
     .map(([x, y], index) => `${index === 0 ? "M" : "L"}${(x * width).toFixed(2)},${(top + (1 - y) * span).toFixed(2)}`)
     .join(" ")
@@ -375,6 +414,7 @@ export function EasingDot({
     },
     playing
   )
+
   return (
     <span
       ref={across}
@@ -413,6 +453,7 @@ export function EasingArt({
   const top = height * pad
   const span = height - top * 2
   const dot = Math.max(4, stroke * 3)
+
   return (
     <span className="relative block" style={{ width, height }}>
       <svg width={width} height={height} className="absolute inset-0 overflow-visible" aria-hidden>
@@ -482,6 +523,7 @@ export function DurationArt({
         },
     playing
   )
+
   return (
     <span className="relative flex items-center" style={{ width, height }}>
       <span className="absolute inset-x-0 h-px bg-current opacity-20" />
@@ -528,6 +570,7 @@ export function AnimationArt({ value, size, playing }: { value: string; size: nu
       : undefined,
     playing
   )
+
   return (
     <span className="relative grid place-items-center" style={{ width: size, height: size }}>
       <span
@@ -548,13 +591,28 @@ function runnable(frames: Keyframe[], size: { width: number; height: number }): 
   return frames.map((frame) =>
     Object.fromEntries(
       Object.entries(frame).flatMap(([property, value]) => {
-        if (typeof value !== "string" || !value.includes("var(")) return [[property, value]]
-        const filled = value.replaceAll(/var\(\s*--[\w-]+\s*(?:,\s*([^()]*))?\)/g, (whole, fallback?: string) =>
+        const text = textValue.safeParse(value)
+
+        if (!text.success || !text.data.includes("var(")) {
+          return [[property, value]]
+        }
+
+        const filled = text.data.replaceAll(/var\(\s*--[\w-]+\s*(?:,\s*([^()]*))?\)/g, (whole, fallback?: string) =>
           fallback?.trim() ? fallback.trim() : whole
         )
-        if (!filled.includes("var(")) return [[property, filled]]
-        if (/height|blocksize/i.test(property)) return [[property, `${size.height}px`]]
-        if (/width|inlinesize/i.test(property)) return [[property, `${size.width}px`]]
+
+        if (!filled.includes("var(")) {
+          return [[property, filled]]
+        }
+
+        if (/height|blocksize/i.test(property)) {
+          return [[property, `${size.height}px`]]
+        }
+
+        if (/width|inlinesize/i.test(property)) {
+          return [[property, `${size.width}px`]]
+        }
+
         return []
       })
     )
@@ -609,11 +667,13 @@ export function TokenArt({
   const value = drawn(token, theme)
   const large = height > 40
   const small = Math.min(width, height)
+
   switch (token.kind) {
     case "color": {
       // Rounded as the box it's drawn in, so its hairline follows the corners.
       return <span className="block size-full rounded-[inherit]" style={swatch(value)} />
     }
+
     case "spacing":
       return (
         <span className={`flex size-full items-center ${large ? "px-2" : "px-0.5"}`}>
@@ -623,6 +683,7 @@ export function TokenArt({
     case "radius": {
       const radius = px(value)
       const corner = small - 4
+
       if (large) {
         return (
           <span className="grid size-full place-items-center">
@@ -633,6 +694,7 @@ export function TokenArt({
           </span>
         )
       }
+
       return (
         <span className="grid size-full place-items-center">
           <span className="relative overflow-hidden" style={{ width: corner, height: corner }}>
@@ -644,9 +706,11 @@ export function TokenArt({
         </span>
       )
     }
+
     case "border-width":
     case "border": {
       const thickness = px(value.split(" ")[0]!)
+
       return token.kind === "border" ? (
         <span className="grid size-full place-items-center">
           <span
@@ -665,6 +729,7 @@ export function TokenArt({
         </span>
       )
     }
+
     case "shadow":
     case "inset-shadow": {
       // Shadows are drawn at full size on a card, then the whole sheet is scaled, which scales the shadow with it. The
@@ -672,6 +737,7 @@ export function TokenArt({
       // card's corner, nearly full size, so the shadow falls across the box rather than shrinking to a smudge.
       const scale = large ? 1 : 0.75
       const inner = { width: width / scale, height: height / scale }
+
       return (
         <Shrunk scale={scale} width={width} height={height}>
           <span className="relative block" style={{ ...inner, background: paper.soft }}>
@@ -689,10 +755,12 @@ export function TokenArt({
         </Shrunk>
       )
     }
+
     case "drop-shadow": {
       // A drop shadow follows a shape, not its box, so it falls from a star, drawn small enough that a deep one fits.
       const scale = large ? 0.6 : 0.35
       const box = Math.min(width, height) / scale
+
       return (
         <Shrunk scale={scale} width={width} height={height}>
           <svg
@@ -713,6 +781,7 @@ export function TokenArt({
         </Shrunk>
       )
     }
+
     case "text-shadow":
       return (
         <span
@@ -733,6 +802,7 @@ export function TokenArt({
       // The style's own family and weight, at its size up to what the box holds.
       const size = fontSizePx(value)
       const most = large ? 34 : 15
+
       // Keyed by the value, so a new one sets every property again: the shorthand alone would undo the size.
       return (
         <span
@@ -749,6 +819,7 @@ export function TokenArt({
         </span>
       )
     }
+
     case "font":
       // At the font's own regular: at the interface's 450 a variable font would show a weight nobody chose, and a
       // static face its 500.
@@ -763,6 +834,7 @@ export function TokenArt({
     case "font-size": {
       const size = px(value)
       const shown = large ? Math.min(size, height * 0.8) : Math.min(size, height - 6)
+
       return (
         <span
           className="flex size-full items-center justify-center overflow-hidden leading-none"
@@ -772,6 +844,7 @@ export function TokenArt({
         </span>
       )
     }
+
     case "font-weight":
       return (
         <span
@@ -795,6 +868,7 @@ export function TokenArt({
       const size = large ? 12 : 5
       const pitch = (Number(value) || 1.5) * size
       const lines = Math.max(2, Math.floor((height - 4) / pitch))
+
       return (
         <span className="flex size-full flex-col justify-center px-[15%]">
           {Array.from({ length: lines }, (_, index) => (
@@ -808,6 +882,7 @@ export function TokenArt({
         </span>
       )
     }
+
     case "opacity":
       return (
         <span className="grid size-full place-items-center" style={checker}>
@@ -822,6 +897,7 @@ export function TokenArt({
       // Drawn at a third of a 120px-wide element's size, since blur is in pixels: big blurs wipe small things out.
       const scale = width / 120
       const inner = { width: width / scale, height: height / scale }
+
       return (
         <Shrunk scale={scale} width={width} height={height}>
           {token.kind === "blur" ? (
@@ -853,8 +929,10 @@ export function TokenArt({
         </Shrunk>
       )
     }
+
     case "perspective": {
       const scale = width / 160
+
       return (
         <Shrunk scale={scale} width={width} height={height}>
           <span className="block" style={{ perspective: value }}>
@@ -873,9 +951,11 @@ export function TokenArt({
         </Shrunk>
       )
     }
+
     case "aspect": {
       const [w = 1, h = 1] = value.split("/").map((part) => Number(part.trim()) || 1)
       const fit = Math.min((width - 6) / w, (height - 6) / h)
+
       return (
         <span className="grid size-full place-items-center">
           <span
@@ -885,6 +965,7 @@ export function TokenArt({
         </span>
       )
     }
+
     case "duration":
       return (
         <span className="flex size-full items-center px-1 text-muted-foreground">
@@ -909,6 +990,7 @@ export function TokenArt({
     case "container": {
       const widest = token.kind === "breakpoint" ? 1536 : 1280
       const share = Math.min(1, Math.max(0, px(value) / widest || 0))
+
       return token.kind === "breakpoint" ? (
         <span className="relative flex size-full items-center text-muted-foreground">
           <span className="absolute inset-x-0.5 h-px bg-current opacity-30" />
@@ -929,15 +1011,15 @@ export function TokenArt({
         </span>
       )
     }
-    case "cursor": {
-      const Icon = cursorIcons[value] ?? MousePointer2
+
+    case "cursor":
       // The box takes the cursor itself, so hovering it shows the real thing.
       return (
         <span className="grid size-full place-items-center text-muted-foreground" style={{ cursor: value }}>
-          <Icon className={large ? "size-7" : "size-3.5"} />
+          {createElement(cursorIcons.get(value) ?? MousePointer2, { className: large ? "size-7" : "size-3.5" })}
         </span>
       )
-    }
+
     case "number":
       // Nothing says what a bare number is for, so a tile shows the number and a row shows nothing.
       return large ? (
@@ -953,6 +1035,7 @@ function LayersArt({ token, width, height }: { token: PreviewToken; width: numbe
   const rank = order.findIndex((name) => token.name.toLowerCase().endsWith(name))
   const lit = rank < 0 ? 0 : Math.round(((order.length - 1 - rank) / (order.length - 1)) * 3)
   const sheet = { width: width * 0.46, height: height * 0.42 }
+
   return (
     <span className="relative block size-full">
       {[0, 1, 2, 3].map((level) => (
@@ -973,6 +1056,12 @@ function LayersArt({ token, width, height }: { token: PreviewToken; width: numbe
   )
 }
 
+/** How a length's bar is drawn: `solid` pixels at its true size, then `squeezed` pixels for the rest of it. */
+export interface BarLength {
+  solid: number
+  squeezed: number
+}
+
 /** The length a squeezed tail ends at, Tailwind's `--spacing-96`, longer than most themes' last step. */
 const squeezedTo = 384
 
@@ -981,12 +1070,17 @@ const squeezedTo = 384
  * past it, the first part is drawn at its true size and the rest squeezed into those last pixels, on a log scale up to
  * 384 pixels, so a longer length always ends further along.
  */
-export function barLength(length: number, room: number): { solid: number; squeezed: number } {
+export function barLength(length: number, room: number): BarLength {
   const tail = Math.min(16, Math.max(0, room) / 2)
   const knee = Math.max(1, room - tail)
   const size = Number.isFinite(length) ? Math.max(0, length) : 0
-  if (!(size > knee)) return { solid: Math.max(1, size), squeezed: 0 }
+
+  if (!(size > knee)) {
+    return { solid: Math.max(1, size), squeezed: 0 }
+  }
+
   const share = Math.log(size / knee) / Math.log(Math.max(squeezedTo, size) / knee)
+
   return { solid: knee, squeezed: tail * Math.min(1, share) }
 }
 
@@ -1009,6 +1103,7 @@ export function SpacingBar({
   const { solid, squeezed } = barLength(length, room)
   const color = dim ? "currentColor" : shown
   const opacity = dim ? 0.35 : 0.85
+
   return (
     <span className="relative block h-2.5 shrink-0 text-muted-foreground" style={{ width: solid + squeezed }}>
       <span className="absolute inset-y-0 left-0 w-px bg-current" />
@@ -1033,35 +1128,43 @@ export function SpacingBar({
 }
 
 /** The browser's sizes for the font-size keywords, in pixels, at the default 16px. */
-const fontSizeKeywords: Record<string, number> = {
-  "xx-small": 9,
-  "x-small": 10,
-  small: 13,
-  medium: 16,
-  large: 18,
-  "x-large": 24,
-  "xx-large": 32,
-  "xxx-large": 48,
-  smaller: 16 / 1.2,
-  larger: 16 * 1.2
-}
+const fontSizeKeywords = new Map([
+  ["xx-small", 9],
+  ["x-small", 10],
+  ["small", 13],
+  ["medium", 16],
+  ["large", 18],
+  ["x-large", 24],
+  ["xx-large", 32],
+  ["xxx-large", 48],
+  ["smaller", 16 / 1.2],
+  ["larger", 16 * 1.2]
+])
 
 /**
  * The font size a `font` shorthand gives, as written: the first length, percentage or size keyword, with or without a
  * line height after it (`600 12px Inter`, `400 1ch/1.5 …`, `400 120%/1.2 …`, `bold large serif`).
  */
 export function fontSizeText(font: string): string | undefined {
-  const keywords = Object.keys(fontSizeKeywords).join("|")
+  const keywords = [...fontSizeKeywords.keys()].join("|")
   const size = new RegExp(String.raw`(?:^|\s)(\d*\.?\d+(?:[a-z]+|%)|${keywords})(?=\s*\/|\s|$)`, "i")
+
   return size.exec(font)?.[1]
 }
 
 /** The font size a `font` shorthand gives, in pixels: a percentage or keyword is of the default 16px. NaN for none. */
 export function fontSizePx(font: string): number {
   const text = fontSizeText(font)?.toLowerCase()
-  if (!text) return Number.NaN
-  if (text.endsWith("%")) return (Number.parseFloat(text) / 100) * 16
-  return fontSizeKeywords[text] ?? px(text)
+
+  if (!text) {
+    return Number.NaN
+  }
+
+  if (text.endsWith("%")) {
+    return (Number.parseFloat(text) / 100) * 16
+  }
+
+  return fontSizeKeywords.get(text) ?? px(text)
 }
 
 /**
@@ -1074,6 +1177,7 @@ export function spacingPx(value: string): number {
     .split(/\s+(?![^(]*\))/)
     .map((side) => px(side))
     .filter((side) => Number.isFinite(side))
+
   return sides.length > 0 ? Math.max(...sides) : Number.NaN
 }
 
@@ -1083,6 +1187,7 @@ export function spacingPx(value: string): number {
  */
 export function valueLabel(token: PreviewToken): string | undefined {
   const value = drawn(token)
+
   switch (token.kind) {
     case "color":
     case "gradient":
@@ -1101,12 +1206,16 @@ export function valueLabel(token: PreviewToken): string | undefined {
     case "backdrop-blur":
     case "border-width": {
       const length = px(value)
+
       return Number.isNaN(length) ? value : `${Number(length.toFixed(2))}px`
     }
+
     case "opacity": {
       const share = Number(value)
+
       return Number.isNaN(share) ? value : `${Math.round(share * 100)}%`
     }
+
     case "leading":
       return Number.isNaN(Number(value)) ? value : `${value}×`
     case "aspect":
@@ -1115,13 +1224,17 @@ export function valueLabel(token: PreviewToken): string | undefined {
       return value.split(",")[0]!.replaceAll(/['"]/g, "").replace(" Variable", "")
     case "duration": {
       const time = ms(value)
+
       return Number.isNaN(time) ? value : `${Number(time.toFixed(2))}ms`
     }
+
     case "animation": {
       const { duration, infinite } = animationParts(value)
       const time = duration === undefined ? undefined : `${duration}ms`
+
       return [time, infinite ? "loops" : undefined].filter(Boolean).join(", ") || undefined
     }
+
     default:
       return value
   }
@@ -1155,12 +1268,15 @@ export function TokenGlyph({
       </span>
     )
   }
+
   return (
     <span
       className="relative h-6 shrink-0 overflow-hidden rounded-[4px]"
       style={{
         width,
-        ...(onPaper.has(token.kind) ? { background: paper.sheet, boxShadow: `inset 0 0 0 1px ${paper.edge}` } : {})
+        // React leaves out a style that's undefined, so only a token drawn on paper gets the sheet.
+        background: onPaper.has(token.kind) ? paper.sheet : undefined,
+        boxShadow: onPaper.has(token.kind) ? `inset 0 0 0 1px ${paper.edge}` : undefined
       }}
     >
       <TokenArt token={token} width={width} height={24} playing={playing} />
@@ -1184,6 +1300,7 @@ export function TokenTile({
   theme?: string
 }) {
   const themes = Object.keys(token.values)
+
   if (token.kind === "color" && theme === undefined) {
     // The swatches are the tile, one for each theme, each with its own edge, split by a gap as a row's are.
     return (
@@ -1196,6 +1313,7 @@ export function TokenTile({
       </span>
     )
   }
+
   return (
     <span
       className="relative block shrink-0 overflow-hidden rounded-md border"

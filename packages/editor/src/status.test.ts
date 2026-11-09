@@ -29,6 +29,7 @@ function design(id: string): ContainerSpec {
 
 function open(): DesignHistory {
   const containers = [design("home"), design("about")]
+
   return withStylesheet(
     openDesigns([{ path: "app.par", document: { version: 3, containers } }], defaultModeSettings, "app.par"),
     "src/index.css"
@@ -36,12 +37,16 @@ function open(): DesignHistory {
 }
 
 function taken(step: DesignStep | undefined): DesignHistory {
-  if (!step) throw new Error("Expected a step")
+  if (!step) {
+    throw new Error("Expected a step")
+  }
+
   return step.history
 }
 
 function rename(history: DesignHistory, id: string, name: string): DesignHistory {
   const next = changeDesign(history.current, { path: "app.par", id }, (container) => ({ ...container, name }))
+
   return taken(recordChange(history, `Rename ${id}`, next))
 }
 
@@ -96,10 +101,12 @@ describe("editStatus", () => {
     history = taken(
       recordChange(history, "Delete about", deleteDesign(history.current, { path: "app.par", id: "about" }))
     )
+
     const edits = withTokenEdits(history.current.tokens, [
       { name: "primary", theme: "default", value: "red", original: "blue" },
       { name: "primary", theme: "dark", value: "pink", original: "navy" }
     ])
+
     history = taken(recordChange(history, "Edit --primary", { ...history.current, tokens: edits }))
     expect(editStatus(history, { summary: true })).toEqual({
       revision: 4,
@@ -126,6 +133,7 @@ describe("editStatus", () => {
     const history = taken(
       recordChange(open(), "Rename a mode", { ...open().current, modes: { ...defaultModeSettings, modes: [] } })
     )
+
     expect(editStatus(history, { summary: true }).unsaved).toEqual([
       { path: "app.par", kind: "document", designs: { added: [], changed: [], removed: [] }, modes: true }
     ])

@@ -26,10 +26,15 @@ const slowAfter = 30_000
 function useSlow(url: string | undefined): boolean {
   const [slow, setSlow] = useState<string>()
   useEffect(() => {
-    if (!url) return
+    if (!url) {
+      return
+    }
+
     const timer = setTimeout(() => setSlow(url), slowAfter)
+
     return () => clearTimeout(timer)
   }, [url])
+
   return url !== undefined && slow === url
 }
 
@@ -37,6 +42,7 @@ function useSlow(url: string | undefined): boolean {
 function staying(state: AccountState): string {
   const signedIn = state.accounts.filter((each) => !each.ended)
   const [only] = signedIn
+
   return signedIn.length === 1 && only ? `You stay signed in as ${only.email}.` : "Your accounts stay signed in."
 }
 
@@ -48,6 +54,7 @@ function staying(state: AccountState): string {
 export function SignInFlow({ state, dialog }: { state: AccountState; dialog?: boolean }) {
   const { account, attempt, ended } = state
   const slow = useSlow(attempt?.at === "waiting" ? attempt.url : undefined)
+
   if (attempt?.at === "waiting") {
     return (
       <WaitingPanel
@@ -59,8 +66,10 @@ export function SignInFlow({ state, dialog }: { state: AccountState; dialog?: bo
       />
     )
   }
+
   if (attempt?.at === "problem") {
     const { problem } = attempt
+
     if (problem === "choose-organization") {
       return (
         <ChooseOrganizationPanel
@@ -71,6 +80,7 @@ export function SignInFlow({ state, dialog }: { state: AccountState; dialog?: bo
         />
       )
     }
+
     return (
       <ProblemPanel
         dialog={dialog}
@@ -80,6 +90,7 @@ export function SignInFlow({ state, dialog }: { state: AccountState; dialog?: bo
       />
     )
   }
+
   if (ended) {
     return (
       <SessionEndedPanel
@@ -91,11 +102,13 @@ export function SignInFlow({ state, dialog }: { state: AccountState; dialog?: bo
       />
     )
   }
+
   if (dialog && account) {
     return (
       <SignInPanel dialog title="Add another account" description={staying(state)} onSignIn={accountActions.signIn} />
     )
   }
+
   return <SignInPanel dialog={dialog} onSignIn={accountActions.signIn} />
 }
 
@@ -105,6 +118,7 @@ export function SignInFlow({ state, dialog }: { state: AccountState; dialog?: bo
  */
 export function SignInScreen({ state }: { state: AccountState }) {
   const form = !state.attempt && !state.ended
+
   return (
     <main
       aria-label="Sign in"
@@ -133,6 +147,7 @@ export function SignInScreen({ state }: { state: AccountState }) {
  */
 export function SignInDialog() {
   const { place, state } = useAccount()
+
   return (
     <Dialog open={place === "dialog"} disablePointerDismissal onOpenChange={(open) => !open && accountActions.close()}>
       <DialogContent className="max-h-[calc(100vh-2rem)] gap-0 overflow-y-auto p-8 sm:max-w-[28rem]">
@@ -145,6 +160,7 @@ export function SignInDialog() {
 /** Why signing in lasts only until Parity quits, from the account menu or the toast after signing in. */
 export function UntilQuitDialog() {
   const { untilQuit } = useAccount()
+
   return (
     <Dialog open={untilQuit} onOpenChange={accountActions.explainUntilQuit}>
       <DialogContent className="sm:max-w-md">

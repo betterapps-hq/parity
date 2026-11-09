@@ -11,6 +11,7 @@ import { reactBuildConfig, reactProductionMode } from "./scripts/react-build.ts"
  * the two servers never rewrite each other's.
  */
 const port = Number(process.env.PARITY_UI_PORT ?? 5310)
+
 /** Serves the code as it was when the server started, so edits made meanwhile can't reload a page being measured. */
 const frozen = process.env.PARITY_UI_FROZEN === "1"
 
@@ -20,6 +21,7 @@ export default defineConfig(({ mode }) => {
   // and the development build otherwise; see scripts/react-build.ts. Vite keys its prebundled dependencies by the alias
   // and the optimizer's options among the rest, so switching builds bundles them again rather than serving the other's.
   const react = reactBuildConfig(mode === reactProductionMode ? "production" : "development")
+
   return {
     root: "src/renderer",
     // Settings such as the tldraw license key come from `.env.local` beside this file, for the app and Storybook alike.
@@ -32,11 +34,14 @@ export default defineConfig(({ mode }) => {
     // Prebundled dependencies are minified, which halves what the window holds of tldraw and React DOM. Their source
     // maps still lead DevTools to the code as published; only the app's own code is served as written.
     optimizeDeps: { rolldownOptions: { output: { minify: true }, ...react.dependencies } },
-    ...(port === 5310 ? {} : { cacheDir: resolve(import.meta.dirname, `node_modules/.vite-${port}`) }),
+    // Unset on the usual port, where Vite keeps its default cache.
+    cacheDir: port === 5310 ? undefined : resolve(import.meta.dirname, `node_modules/.vite-${port}`),
     server: {
       port,
       strictPort: true,
-      ...(frozen ? { hmr: false, watch: null } : {}),
+      // Unset unless frozen, which leaves Vite's defaults: reloading on edits, and watching for them.
+      hmr: frozen ? false : undefined,
+      watch: frozen ? null : undefined,
       // Forwarding wraps console.error and warn, so every message would seem to come from Vite's client. Parity tells a
       // project's messages from its own by the script that wrote them.
       forwardConsole: false

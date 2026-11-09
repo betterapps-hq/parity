@@ -6,20 +6,25 @@ import { setWindowTelemetry } from "./report-error.ts"
 import { currentTraceHeaders, startTrace, traceWith } from "./tracing.ts"
 
 const sink = createTestSink()
+
 const telemetry = createTelemetry({
   events: registeredEvents,
   context: { process: "renderer", installId: "install", sessionId: "session" },
   sinks: [sink],
   check: true
 })
+
 traceWith(telemetry)
+
 setWindowTelemetry(telemetry)
 
+// SAFETY: an opening reads only the project's root and name.
 const info = { id: "/work/site", root: "/work/site", name: "site" } as ProjectInfo
 
 /** A clock that reads what `at` was last set to. */
 function clock() {
   const time = { at: 1000 }
+
   return { time, now: () => time.at }
 }
 

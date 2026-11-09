@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test"
+import type { z } from "zod"
 import { readAccessToken } from "./index.ts"
 
-const jwt = (claims: unknown) =>
+const jwt = (claims: z.core.util.JSONType) =>
   ["header", JSON.stringify(claims), "signature"].map((part) => Buffer.from(part).toString("base64url")).join(".")
 
 const claims = {

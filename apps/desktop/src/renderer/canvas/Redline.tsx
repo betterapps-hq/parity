@@ -19,6 +19,7 @@ const labelGap = 8
  */
 export function redlineLabel(line: Redline): { left: number; top: number; transform: string } {
   const mid = { x: (line.x1 + line.x2) / 2, y: (line.y1 + line.y2) / 2 }
+
   return horizontal(line)
     ? { left: mid.x, top: mid.y + 1 + labelGap, transform: "translateX(-50%)" }
     : { left: mid.x + 1 + labelGap, top: mid.y, transform: "translateY(-50%)" }
@@ -34,9 +35,11 @@ function horizontal(line: Redline): boolean {
  */
 export function RedlineView({ line }: { line: Redline }) {
   const color = line.steps === undefined ? "oklch(0.64 0.21 25)" : "oklch(0.66 0.2 20)"
+
   const box = horizontal(line)
     ? { left: Math.min(line.x1, line.x2), top: line.y1, width: Math.abs(line.x2 - line.x1), height: 1 }
     : { left: line.x1, top: Math.min(line.y1, line.y2), width: 1, height: Math.abs(line.y2 - line.y1) }
+
   return (
     <>
       <div className="absolute" style={{ ...box, background: color }} />
@@ -57,6 +60,7 @@ export function RedlineView({ line }: { line: Redline }) {
 
 export function formatPx(value: number): string {
   const rounded = Math.round(value * 10) / 10
+
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
 }
 

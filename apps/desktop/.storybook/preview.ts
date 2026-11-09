@@ -1,5 +1,5 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
-import type { Preview } from "@storybook/react-vite"
+import { definePreview } from "@buildkitgg/storybook-config/preview"
 import { createElement } from "react"
 import { setPreferences } from "../src/renderer/chrome/preferences.ts"
 import { installClassMerger } from "../src/renderer/class-merger.ts"
@@ -12,10 +12,13 @@ import "../src/renderer/styles.css"
 
 // Stories run against a stand-in for the desktop host, follow the app's theme and merge classes as the app does.
 installHost()
+
 startTheme()
+
 installClassMerger()
 
-const preview: Preview = {
+// Buildkit's base preview matches color and date controls by argument name (PAR-730).
+export default definePreview({
   parameters: { layout: "fullscreen" },
   // The app's chrome comes in light and dark, dark by default; designs choose their own theme through their modes.
   globalTypes: {
@@ -39,10 +42,9 @@ const preview: Preview = {
     (Story, context) => {
       // Set as the person would in Preferences, so everything that follows the theme, toasts among them, does here too.
       setPreferences({ theme: context.globals.theme === "light" ? "light" : "dark" })
+
       // Tooltips need a provider, which the app puts around everything.
       return createElement(TooltipProvider, null, Story())
     }
   ]
-}
-
-export default preview
+})

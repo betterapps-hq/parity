@@ -38,7 +38,7 @@ import {
 import { type ReactNode, useRef, useState } from "react"
 import { formatKeys } from "../../chrome/keys.ts"
 import { me } from "../explore-data.ts"
-import { AzureDevOpsMark, GitHubMark } from "../parts.tsx"
+import { AzureDevOpsMark, GitHubMark, withVariables } from "../parts.tsx"
 import {
   type AudienceId,
   audiences,
@@ -77,11 +77,12 @@ export function NewProjectDialog({
   onOpenChange?: (open: boolean) => void
 }) {
   const [tab, setTab] = useState(start.tab)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="flex h-[min(780px,calc(100vh-72px))] w-[1180px] max-w-[calc(100vw-72px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw-72px)]"
-        style={{ ["--parity" as string]: parity }}
+        style={withVariables({ "--parity": parity })}
       >
         <header className="flex h-14 shrink-0 items-center gap-5 border-b pr-14 pl-5">
           <DialogTitle className="text-[15px] font-semibold">New project</DialogTitle>
@@ -171,7 +172,7 @@ function made(fields: Pick<StartProject, "name" | "org" | "look" | "stack" | "so
 
 /** Nothing but the stack, set up: no designs to start from. */
 function blankOn(stack: Stack): Template {
-  return {
+  const blank: Template = {
     id: `blank-${stack.id}`,
     name: "Blank app",
     blurb: `Just ${stack.name}, set up`,
@@ -180,17 +181,27 @@ function blankOn(stack: Stack): Template {
     look: { hue: 0, brand: "Acme", icon: Plus, mono: true },
     adds: [],
     database: "None",
-    jobs: "None",
-    ...(stack.modes[0] ? { mode: stack.modes[0] } : {})
+    jobs: "None"
   }
+
+  if (stack.modes[0]) {
+    blank.mode = stack.modes[0]
+  }
+
+  return blank
 }
 
 /** Pick a stack, then a template on it. */
 function TemplateFlow({ initialStack, initialTemplate }: { initialStack?: StackId; initialTemplate?: string }) {
   const [stackId, setStackId] = useState<StackId>(initialStack ?? "tanstack-start")
   const [picked, setPicked] = useState(() => templates.find((template) => template.id === initialTemplate))
-  if (picked) return <TemplateSetup key={picked.id} template={picked} onBack={() => setPicked(undefined)} />
+
+  if (picked) {
+    return <TemplateSetup key={picked.id} template={picked} onBack={() => setPicked(undefined)} />
+  }
+
   const stack = findStack(stackId)
+
   return (
     <div className="flex min-h-0 flex-1">
       <SideList
@@ -259,6 +270,7 @@ function TemplateFlow({ initialStack, initialTemplate }: { initialStack?: StackI
 function TemplateTile({ template, onPick }: { template: Template; onPick: (template: Template) => void }) {
   const extra = template.adds.length - 3
   const first = template.designs[0]
+
   return (
     <button
       type="button"
@@ -304,6 +316,7 @@ function PreviewStage({ template, index }: { template: Template; index: number }
   const design = template.designs[index]
   const label = "absolute -top-5 left-0 text-[11px] font-medium whitespace-nowrap text-white/45"
   const shadow = "shadow-[0_24px_60px_-12px_rgb(0_0_0/0.7)] ring-1 ring-white/10"
+
   return (
     <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-xl bg-[#0f0f12] ring-1 ring-white/[0.06]">
       <div
@@ -406,23 +419,26 @@ const extras: Record<StackId, { id: string; label: string; detail: string; on?: 
   ]
 }
 
-const starterNames: Record<string, string> = {
-  saas: "Acme dashboard",
-  ai: "Acme assistant",
-  marketing: "Acme website",
-  marketplace: "Acme market",
-  collab: "Acme boards",
-  docs: "Acme docs",
-  platformer: "Cave run",
-  arena: "Arena",
-  map: "World map",
-  library: "Acme UI",
-  "next-starter": "Acme app"
-}
+const starterNames = new Map([
+  ["saas", "Acme dashboard"],
+  ["ai", "Acme assistant"],
+  ["marketing", "Acme website"],
+  ["marketplace", "Acme market"],
+  ["collab", "Acme boards"],
+  ["docs", "Acme docs"],
+  ["platformer", "Cave run"],
+  ["arena", "Arena"],
+  ["map", "World map"],
+  ["library", "Acme UI"],
+  ["next-starter", "Acme app"]
+])
 
 /** "A, B and C". */
 function sentence(items: string[]): string {
-  if (items.length < 2) return items.join("")
+  if (items.length < 2) {
+    return items.join("")
+  }
+
   return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`
 }
 
@@ -435,7 +451,10 @@ function slugOf(name: string): string {
 
 /** The physics a template starts with, from what it adds. */
 function startingPhysics(adds: readonly string[]): string {
-  if (adds.includes("Rapier 3D")) return "Rapier 3D"
+  if (adds.includes("Rapier 3D")) {
+    return "Rapier 3D"
+  }
+
   return adds.includes("Arcade physics") ? "Arcade" : "None"
 }
 
@@ -443,7 +462,7 @@ function startingPhysics(adds: readonly string[]): string {
 function TemplateSetup({ template, onBack }: { template: Template; onBack: () => void }) {
   const stack = findStack(template.stack)
   const [shown, setShown] = useState(0)
-  const [name, setName] = useState(starterNames[template.id] ?? "New app")
+  const [name, setName] = useState(starterNames.get(template.id) ?? "New app")
   const [org, setOrg] = useState<OrgId>("kestrel")
   const [audience, setAudience] = useState<AudienceId>(template.audience ?? "b2b")
   const [mode, setMode] = useState(template.mode ?? stack.modes[0] ?? "")
@@ -453,6 +472,7 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack: () =>
   const start = useStart()
   const chosen = audiences.find((candidate) => candidate.id === audience)!
   const owner = org === "kestrel" ? "kestrel" : "andrew-craswell"
+
   const adds = [
     ...(template.audience
       ? [chosen.signIn, ...(chosen.billing === "None" ? [] : [chosen.billing.split(",")[0]!])]
@@ -460,7 +480,9 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack: () =>
     ...(stack.id === "tanstack-start" && database !== "None" ? [database] : []),
     ...(stack.id === "spawnkit" && physics !== "None" ? [`${physics} physics`] : [])
   ]
+
   const designs = template.designs.length
+
   return (
     <div className="flex min-h-0 flex-1">
       <div className="flex w-[56%] min-w-0 flex-col gap-4 overflow-y-auto border-r bg-[#0b0b0d] p-5">
@@ -574,7 +596,13 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack: () =>
               <legend className="mb-2 text-sm font-medium">Who it&apos;s for</legend>
               <RadioGroup
                 value={audience}
-                onValueChange={(value) => setAudience(value as AudienceId)}
+                onValueChange={(value) => {
+                  const picked = audiences.find((candidate) => candidate.id === value)
+
+                  if (picked) {
+                    setAudience(picked.id)
+                  }
+                }}
                 className="grid-cols-3"
               >
                 {audiences.map((candidate) => (
@@ -681,6 +709,7 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack: () =>
 function ExistingFlow({ initialSource, initialProject }: { initialSource?: ExistingSource; initialProject?: string }) {
   const [source, setSource] = useState<ExistingSource>(initialSource ?? "projects")
   const tile = "grid size-7 shrink-0 place-items-center rounded-md bg-muted/80"
+
   const sources: { id: ExistingSource; icon: ReactNode; title: string; detail: string }[] = [
     {
       id: "projects",
@@ -697,6 +726,7 @@ function ExistingFlow({ initialSource, initialProject }: { initialSource?: Exist
       detail: "A folder with a React app"
     }
   ]
+
   return (
     <div className="flex min-h-0 flex-1">
       <SideList
@@ -740,6 +770,7 @@ function FromProject({ initial }: { initial: string }) {
   const [picked, setPicked] = useState(initial)
   const chosen = projects.find((candidate) => candidate.id === picked) ?? projects[0]!
   const stack = findStack(chosen.stack)
+
   const create = () => {
     const name = nameField.current?.value.trim() || `${chosen.name} copy`
     const owner = chosen.source.path.split("/")[0]
@@ -757,6 +788,7 @@ function FromProject({ initial }: { initial: string }) {
       })
     )
   }
+
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
@@ -835,17 +867,18 @@ function FromProject({ initial }: { initial: string }) {
 }
 
 /** The stack a repository's detected framework builds on, as near as the samples go. */
-const detectedStacks: Record<string, StackId> = {
-  "Next.js": "nextjs",
-  "React library": "react-library",
-  "TanStack Start": "tanstack-start"
-}
+const detectedStacks = new Map<string, StackId>([
+  ["Next.js", "nextjs"],
+  ["React library", "react-library"],
+  ["TanStack Start", "tanstack-start"]
+])
 
 function RepositoryRow({ repo, source, account }: { repo: Repository; source: "github" | "azure"; account: string }) {
   const start = useStart()
   const usable = !!repo.detected
   const path = `${account.split(" / ")[0]}/${repo.name}`
   const existing = projects.find((candidate) => candidate.source.type === source && candidate.source.path === path)
+
   const open = () =>
     existing
       ? start.openProject?.(existing.id)
@@ -854,11 +887,12 @@ function RepositoryRow({ repo, source, account }: { repo: Repository; source: "g
             name: repo.name,
             org: "kestrel",
             look: { hue: 220, brand: repo.name, icon: FolderGit2 },
-            stack: detectedStacks[repo.detected ?? ""] ?? "tanstack-start",
+            stack: detectedStacks.get(repo.detected ?? "") ?? "tanstack-start",
             source: { type: source, path, branch: "main" },
             designs: []
           })
         )
+
   return (
     <li className={`flex items-center gap-4 rounded-lg px-3 py-3 ${usable ? "hover:bg-muted/40" : ""}`}>
       <FolderGit2 className={`size-5 shrink-0 ${usable ? "text-muted-foreground" : "text-muted-foreground/40"}`} />
@@ -901,6 +935,7 @@ function FromRepository({ source }: { source: "github" | "azure" }) {
   const { account, repos } = repositories[source]
   const [query, setQuery] = useState("")
   const shown = repos.filter((repo) => repo.name.includes(query.trim().toLowerCase()))
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex items-center gap-4 border-b px-6 py-4">
@@ -945,11 +980,14 @@ const recentFolders = [
 /** A folder on this computer: choose one, or reopen a recent one. */
 function FromFolder() {
   const start = useStart()
+
   const open = (path: string) => {
     const existing = projects.find((candidate) => candidate.source.path === path)
     const name = path.split("\\").at(-1)!
-    if (existing) start.openProject?.(existing.id)
-    else
+
+    if (existing) {
+      start.openProject?.(existing.id)
+    } else {
       start.create?.(
         made({
           name,
@@ -960,7 +998,9 @@ function FromFolder() {
           designs: []
         })
       )
+    }
   }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-6 p-6">
       <div className="flex flex-col gap-1">

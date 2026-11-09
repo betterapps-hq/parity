@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { openProjects } from "../stories/fixtures.tsx"
-import { workspace } from "../workspace.ts"
 import { HomePrototype } from "./home/prototype.tsx"
 
 /**
@@ -20,8 +19,9 @@ import { HomePrototype } from "./home/prototype.tsx"
  *   checked and the others saying where they open, and signs out of the one you're in. For you covers every account,
  *   and names the organization a note is from when it isn't where you are.
  *
- * Each story is the same working prototype, started at a different point, in the whole window: the title bar over the
- * page.
+ * The workspace and account menus, several accounts and the new tab are built (Parity / Sign in, Parity / Start page),
+ * so their stories are gone; the prototype still opens them. Each story is the same working prototype, started at a
+ * different point, in the whole window: the title bar over the page.
  */
 const meta = {
   title: "Parity/Explorations/Home",
@@ -31,6 +31,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** In Kestrel, where you're an admin: Maya mentioned you, Sam wants a review, Lena replied. */
@@ -42,29 +43,11 @@ export const HomeInPersonal: Story = { render: () => <HomePrototype workspace="p
 /** In Kestrel with your work account signed in too: For you covers both, and says when a note is from Contoso. */
 export const HomeWithTwoAccounts: Story = { render: () => <HomePrototype twoAccounts /> }
 
-/** Where you work, at the top left: Personal, Kestrel and Halcyon Labs, and New organization. */
-export const WorkspaceMenu: Story = { render: () => <HomePrototype menuOpen="workspaces" /> }
-
-/** Your account, from your picture at the end of the title bar: your name and email, Sign out, Add another account. */
-export const AccountMenu: Story = { render: () => <HomePrototype menuOpen="accounts" /> }
-
-/**
- * Your own account, shaded since you're in it, and your work one, which says where it opens: where you were last in it.
- * Choosing it switches; each has its own Sign out, so either can go without switching to it first.
- */
-export const AccountMenuWithTwoAccounts: Story = { render: () => <HomePrototype twoAccounts menuOpen="accounts" /> }
-
 /**
  * Contoso's policy ended your work account's session. It keeps its row, dimmed: choosing it signs in again, and Remove
  * forgets it. For you says so in place of its notes; you stay where you are.
  */
 export const WorkAccountSessionEnded: Story = { render: () => <HomePrototype workEnded menuOpen="accounts" /> }
-
-/**
- * Adding another account: the ways in, then the browser. Microsoft or a work email brings back your Contoso account;
- * Google or GitHub a Gmail one.
- */
-export const AddAnotherAccount: Story = { render: () => <HomePrototype dialog="add-account" /> }
 
 /** Invited to Northwind Studio: Join moves you into it, Decline can be undone. */
 export const Invited: Story = { render: () => <HomePrototype invitation="waiting" /> }
@@ -80,17 +63,6 @@ export const SignedOut: Story = { render: () => <HomePrototype signedOut /> }
 
 /** Before Parity knows who's signed in: the account menu and For you hold their shape. */
 export const Loading: Story = { render: () => <HomePrototype loading /> }
-
-/** A new tab, as the start page has it: search first, New project and Open, then your projects. */
-export const NewTab: Story = {
-  loaders: [
-    async () => {
-      await openProjects()
-      workspace.newTab()
-    }
-  ],
-  render: () => <HomePrototype page="new-tab" />
-}
 
 /** Kestrel's people, with the invite field ready. */
 export const People: Story = { render: () => <HomePrototype dialog="people" /> }

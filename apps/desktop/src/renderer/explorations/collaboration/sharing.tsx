@@ -32,7 +32,9 @@ interface RoleInfo {
   detail: string
 }
 
-export type Role = "edit" | "comment" | "view"
+export const roleOrder = ["edit", "comment", "view"] as const
+
+export type Role = (typeof roleOrder)[number]
 
 export const roles: Record<Role, RoleInfo> = {
   edit: { title: "Can edit", detail: "Change designs and their code" },
@@ -40,7 +42,9 @@ export const roles: Record<Role, RoleInfo> = {
   view: { title: "Can view", detail: "Look, and follow along" }
 }
 
-export type AgentRole = "edit" | "propose" | "view"
+export const agentRoleOrder = ["edit", "propose", "view"] as const
+
+export type AgentRole = (typeof agentRoleOrder)[number]
 
 /** Agents get their own roles: one that asks before each change suits an agent better than a person. */
 export const agentRoles: Record<AgentRole, RoleInfo> = {
@@ -53,11 +57,14 @@ export const agentRoles: Record<AgentRole, RoleInfo> = {
 export function RoleMenu<T extends string>({
   value,
   options,
+  order,
   onChange,
   onRemove
 }: {
   value: T
   options: Record<T, RoleInfo>
+  /** The roles in the menu's order. */
+  order: readonly T[]
   onChange?: (value: T) => void
   onRemove?: () => void
 }) {
@@ -72,7 +79,7 @@ export function RoleMenu<T extends string>({
         }
       />
       <DropdownMenuContent align="end" className="w-60">
-        {(Object.keys(options) as T[]).map((key) => (
+        {order.map((key) => (
           <DropdownMenuItem key={key} onClick={() => onChange?.(key)} className="items-start">
             <span className="flex min-w-0 flex-1 flex-col">
               <span>{options[key].title}</span>
@@ -141,11 +148,16 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
 
   const add = () => {
     const value = draft.trim().replace(/,$/, "")
-    if (!value) return
+
+    if (!value) {
+      return
+    }
+
     const person = mentionable.find(({ person }) => person.name.toLowerCase() === value.toLowerCase())?.person
     setChips([...chips, person?.name ?? value])
     setDraft("")
   }
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault()
@@ -154,9 +166,11 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
       setChips(chips.slice(0, -1))
     }
   }
+
   const invite = () => {
     const invited = chips.map((chip): Member => {
       const person = mentionable.find((option) => option.person.name === chip)?.person
+
       return {
         person,
         email: person ? `${chip.split(" ")[0]!.toLowerCase()}@buildkit.dev` : chip,
@@ -164,9 +178,11 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
         invited: "Just now"
       }
     })
+
     setMembers([...members, ...invited])
     setChips([])
   }
+
   const noPush = members.filter((member) => member.noPush && member.role === "edit")
 
   return (
@@ -206,7 +222,7 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
             onBlur={add}
             className="h-6 min-w-24 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
           />
-          <RoleMenu value={inviteRole} options={roles} onChange={setInviteRole} />
+          <RoleMenu value={inviteRole} options={roles} order={roleOrder} onChange={setInviteRole} />
         </div>
         <Button className="h-9" disabled={!chips.length} onClick={invite}>
           Invite
@@ -248,6 +264,7 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
                 <RoleMenu
                   value={member.role}
                   options={roles}
+                  order={roleOrder}
                   onChange={(role) =>
                     setMembers(members.map((other) => (other === member ? { ...other, role } : other)))
                   }
@@ -271,6 +288,7 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
               <RoleMenu
                 value={entry.role}
                 options={agentRoles}
+                order={agentRoleOrder}
                 onChange={(role) => setAgents(agents.map((other) => (other === entry ? { ...other, role } : other)))}
                 onRemove={() => setAgents(agents.filter((other) => other !== entry))}
               />
@@ -308,7 +326,9 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
                   : "Only the people above can open it"}
               </span>
             </span>
-            {access === "organization" && <RoleMenu value={accessRole} options={roles} onChange={setAccessRole} />}
+            {access === "organization" && (
+              <RoleMenu value={accessRole} options={roles} order={roleOrder} onChange={setAccessRole} />
+            )}
           </div>
         </section>
         {noPush.length > 0 && (
@@ -380,11 +400,13 @@ const targets = [
 export function CopyLinkMenu() {
   const [copied, setCopied] = useState<string>()
   const target = targets.find((candidate) => candidate.id === copied)
+
   return (
     <div className="flex flex-col gap-3">
       <div className="w-80 rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl">
         {targets.map((candidate) => {
           const Icon = candidate.icon
+
           return (
             <button
               key={candidate.id}
@@ -454,6 +476,7 @@ export function LinkUnfurl() {
 export function RequestAccess() {
   const [role, setRole] = useState<Role>("comment")
   const [sent, setSent] = useState(false)
+
   return (
     <div className="flex w-96 flex-col items-center gap-5 rounded-xl border bg-popover p-6 text-center text-popover-foreground shadow-2xl">
       <span className="grid size-11 place-items-center rounded-full bg-muted">
@@ -470,7 +493,7 @@ export function RequestAccess() {
       {!sent && (
         <>
           <div className="flex w-full rounded-lg bg-muted p-0.5 text-xs">
-            {(Object.keys(roles) as Role[]).map((key) => (
+            {roleOrder.map((key) => (
               <button
                 key={key}
                 type="button"
@@ -501,6 +524,7 @@ export function RequestAccess() {
 /** A request for access, as the owner gets it: who, what they asked for and why, and the answer. */
 export function AccessRequest() {
   const [answer, setAnswer] = useState<string>()
+
   return (
     <div className="flex w-[26rem] flex-col gap-3 rounded-xl border bg-popover p-4 text-popover-foreground shadow-2xl">
       <div className="flex items-start gap-2.5">

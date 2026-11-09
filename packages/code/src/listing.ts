@@ -6,9 +6,23 @@ import type {
   ComponentSource,
   DetectionCorrections,
   LeftOutExport,
+  ProjectConfig,
   RendererAdapter
 } from "@parity-app/core"
 import { type ProjectTsconfig, resolvePathAlias } from "./tsconfig.ts"
+
+/** The components a project lists, by id, as its config keeps them. */
+export type ComponentSources = ProjectConfig["components"]
+
+/** What of a renderer adapter reads an app's components: which files hold them, and its parse of one. */
+export type ComponentReader = Pick<RendererAdapter, "componentExtensions" | "findComponents">
+
+/** A file that wasn't read: it mounts the app, which the canvas must never run, or it's gone. */
+type Unread = "mounts" | "gone"
+
+function isUnread<Read>(read: Read | Unread): read is Unread {
+  return read === "mounts" || read === "gone"
+}
 
 /** A component found in the app's source, before it has an id. */
 export interface ParsedComponent {
@@ -36,8 +50,10 @@ const skippedFolders = new Set([
   "tmp",
   "temp"
 ])
+
 /** Stories, tests, generated and config files sit beside components and export everything but components. */
 const notComponents = /\.(stories|story|test|spec|gen|generated|config)\.[cm]?[jt]sx?$|\.d\.[cm]?ts$/
+
 /** Code that mounts the app into the page, which the canvas must never run. */
 const mountsApp = /\b(createRoot|hydrateRoot)\s*\(|\bReactDOM\.render\s*\(/
 
@@ -52,7 +68,7 @@ const mountsApp = /\b(createRoot|hydrateRoot)\s*\(|\bReactDOM\.render\s*\(/
  */
 export async function findAppComponents(
   root: string,
-  renderer: RendererAdapter,
+  renderer: ComponentReader,
   tsconfig: ProjectTsconfig,
   uiKit: string | undefined,
   notes: string[]
@@ -64,18 +80,32 @@ export async function findAppComponents(
   await Promise.all(
     unique.map(async (path) => {
       const parsed = await parseFile(root, renderer, path, uiKit)
-      if (parsed === "mounts") entries.push(path)
-      if (typeof parsed === "string") return
+
+      if (parsed === "mounts") {
+        entries.push(path)
+      }
+
+      if (isUnread(parsed)) {
+        return
+      }
+
       read.push(path)
       found.push(...parsed.filter((component) => component.as || component.uiKit))
     })
   )
   found.sort((a, b) => {
-    if (a.path === b.path) return a.name.localeCompare(b.name, "en")
+    if (a.path === b.path) {
+      return a.name.localeCompare(b.name, "en")
+    }
+
     return a.path < b.path ? -1 : 1
   })
   notes.push(`${count(found.length, "component")} in ${count(unique.length, "file")} from ${from}`)
-  if (entries.length > 0) notes.push(`not read, since they mount the app: ${entries.sort().join(", ")}`)
+
+  if (entries.length > 0) {
+    notes.push(`not read, since they mount the app: ${entries.sort().join(", ")}`)
+  }
+
   return { found, files: read.sort() }
 }
 
@@ -89,10 +119,13 @@ export async function appFiles(
   tsconfig: ProjectTsconfig
 ): Promise<{ files: string[]; from: string }> {
   const fromConfigs = tsconfig.configs.flatMap((config) => config.files)
+
   const files = (fromConfigs.length > 0 ? fromConfigs : await walk(root, renderer.componentExtensions))
     .map((file) => slashes(relative(root, file)))
     .filter((path) => isCandidate(path, renderer.componentExtensions))
+
   const from = fromConfigs.length > 0 ? (tsconfig.app?.path ?? tsconfig.configs[0]!.path) : "the project's files"
+
   return { files: [...new Set(files)].sort(), from }
 }
 
@@ -107,27 +140,37 @@ export async function checkedAppFiles(
 ): Promise<string[]> {
   const { files } = await appFiles(root, renderer, tsconfig)
   const sources = await Promise.all(files.map((path) => appSource(root, path)))
-  return files.filter((_path, index) => typeof sources[index] === "object")
+
+  return files.filter((_path, index) => !isUnread(sources[index]))
 }
 
 /** A file's source, unless it mounts the app (`mounts`), which the canvas must never run, or can't be read (`gone`). */
-async function appSource(root: string, path: string): Promise<{ source: string } | "mounts" | "gone"> {
+async function appSource(root: string, path: string): Promise<{ source: string } | Unread> {
   const source = await readFile(join(root, path), "utf8").catch(() => undefined)
-  if (source === undefined) return "gone"
+
+  if (source === undefined) {
+    return "gone"
+  }
+
   return mountsApp.test(source) ? "mounts" : { source }
 }
 
 /** A file's exports the renderer recognises, decided or not; `mounts` for the app's entry, `gone` when it can't be read. */
 async function parseFile(
   root: string,
-  renderer: RendererAdapter,
+  renderer: ComponentReader,
   path: string,
   uiKit: string | undefined
-): Promise<ParsedComponent[] | "mounts" | "gone"> {
+): Promise<ParsedComponent[] | Unread> {
   const read = await appSource(root, path)
-  if (typeof read === "string") return read
+
+  if (isUnread(read)) {
+    return read
+  }
+
   const { source } = read
   const inUiKit = uiKit !== undefined && posix.dirname(path) === uiKit
+
   return renderer.findComponents(source, path).map((component) => ({ ...component, path, uiKit: inUiKit }))
 }
 
@@ -137,7 +180,7 @@ async function parseFile(
  */
 export async function readChangedFiles(
   root: string,
-  renderer: RendererAdapter,
+  renderer: ComponentReader,
   files: readonly string[],
   uiKit: string | undefined,
   changed: Iterable<string>
@@ -147,9 +190,10 @@ export async function readChangedFiles(
   await Promise.all(
     [...new Set(changed)].map(async (path) => {
       const parsed = inApp.has(path) ? await parseFile(root, renderer, path, uiKit) : "gone"
-      read.set(path, typeof parsed === "string" ? undefined : parsed)
+      read.set(path, isUnread(parsed) ? undefined : parsed)
     })
   )
+
   return read
 }
 
@@ -160,33 +204,47 @@ export async function readChangedFiles(
  * stays listed for the type checker to settle, as do new ones in the UI kit, and other new undecided exports wait for
  * it. Libraries' components and other files' aren't touched. New ids start with a library project's `namespace`.
  */
+/** The list after files changed, with the ids of the components added and removed. */
+interface ChangedFiles {
+  sources: ComponentSources
+  added: string[]
+  removed: string[]
+}
+
 export function filesChanged(
-  sources: Record<string, ComponentSource>,
+  sources: ComponentSources,
   read: ReadonlyMap<string, ParsedComponent[] | undefined>,
   namespace?: string
-): { sources: Record<string, ComponentSource>; added: string[]; removed: string[] } {
+): ChangedFiles {
   const key = (path: string, name: string) => `${path}#${name}`
-  const next: Record<string, ComponentSource> = {}
+  const next: ComponentSources = {}
   const removed: string[] = []
   const listed = new Set<string>()
+
   for (const [id, source] of Object.entries(sources)) {
     if (source.library || !read.has(source.path)) {
       next[id] = source
       continue
     }
+
     const now = read.get(source.path)?.find((component) => component.export === source.export)
+
     if (!now) {
       removed.push(id)
       continue
     }
+
     listed.add(key(source.path, source.export))
     const { as: _, ...undecided } = source
     next[id] = now.as ? { ...source, as: now.as } : undecided
   }
+
   const fresh = [...read.values()]
     .flatMap((found) => found ?? [])
     .filter((component) => (component.as || component.uiKit) && !listed.has(key(component.path, component.export)))
+
   const added = componentIds(fresh, new Set(Object.keys(next)), namespace)
+
   return { sources: { ...next, ...added }, added: Object.keys(added), removed }
 }
 
@@ -199,15 +257,17 @@ export function filesChanged(
  */
 export async function rediscoveredFiles(
   root: string,
-  renderer: RendererAdapter,
+  renderer: ComponentReader,
   tsconfig: ProjectTsconfig,
   uiKit: string | undefined,
-  sources: Record<string, ComponentSource>
+  sources: ComponentSources
 ): Promise<Map<string, ParsedComponent[] | undefined>> {
   const { files } = await appFiles(root, renderer, tsconfig)
+
   const listed = Object.values(sources)
     .filter((source) => !source.library)
     .map((source) => source.path)
+
   return readChangedFiles(root, renderer, files, uiKit, [...files, ...listed])
 }
 
@@ -225,19 +285,26 @@ export async function importersOf(
   const found: string[] = []
   await Promise.all(
     files.map(async (path) => {
-      if (targets.has(moduleId(path))) return
+      if (targets.has(moduleId(path))) {
+        return
+      }
+
       const source = await readFile(join(root, path), "utf8").catch(() => "")
+
       for (const specifier of importSpecifiers(source)) {
         const target = specifier.startsWith(".")
           ? posix.join(posix.dirname(path), specifier)
           : resolvePathAlias(root, tsconfig, specifier)
+
         if (target && targets.has(moduleId(target))) {
           found.push(path)
+
           return
         }
       }
     })
   )
+
   return found.sort()
 }
 
@@ -250,6 +317,7 @@ export function importSpecifiers(source: string, stylesheet = false): string[] {
   const pattern = stylesheet
     ? /@import\s+(?:url\(\s*)?["']([^"']+)["']/g
     : /(?:\bfrom|\bimport)\s*\(?\s*["']([^"']+)["']/g
+
   return [...source.matchAll(pattern)].map((match) => match[1]!)
 }
 
@@ -290,29 +358,51 @@ export function leftOutChanges(
  * When the checker read only some `files`, only their components are settled. New ids start with a library project's
  * `namespace`.
  */
+/** What the type checker changes in the list: components it added, ones it confirmed, and the ids it removed. */
+interface CheckedChanges {
+  added: ComponentSources
+  confirmed: ComponentSources
+  removed: string[]
+}
+
 export function checkedChanges(
-  sources: Record<string, ComponentSource>,
+  sources: ComponentSources,
   checked: CheckedComponent[],
   files?: ReadonlySet<string>,
   namespace?: string
-): { added: Record<string, ComponentSource>; confirmed: Record<string, ComponentSource>; removed: string[] } {
+): CheckedChanges {
   const key = (path: string, name: string) => `${path}#${name}`
   const byKey = new Map(checked.map((component) => [key(component.path, component.export), component]))
   const listed = new Set<string>()
-  const confirmed: Record<string, ComponentSource> = {}
+  const confirmed: ComponentSources = {}
   const removed: string[] = []
+
   for (const [id, source] of Object.entries(sources)) {
-    if (source.library) continue
+    if (source.library) {
+      continue
+    }
+
     listed.add(key(source.path, source.export))
-    if (source.as || source.included || (files && !files.has(source.path))) continue
+
+    if (source.as || source.included || (files && !files.has(source.path))) {
+      continue
+    }
+
     const found = byKey.get(key(source.path, source.export))
-    if (found) confirmed[id] = { ...source, as: found.as }
-    else removed.push(id)
+
+    if (found) {
+      confirmed[id] = { ...source, as: found.as }
+    } else {
+      removed.push(id)
+    }
   }
-  const missed = checked
-    .filter((component) => !listed.has(key(component.path, component.export)))
-    .map((component) => ({ ...component, uiKit: false }))
+
+  const missed = checked.flatMap((component) =>
+    listed.has(key(component.path, component.export)) ? [] : [{ ...component, uiKit: false }]
+  )
+
   const added = componentIds(missed, new Set(Object.keys(sources).filter((id) => !removed.includes(id))), namespace)
+
   return { added, confirmed, removed }
 }
 
@@ -324,36 +414,51 @@ export function checkedChanges(
  * project's `namespace`.
  */
 export function correctedSources(
-  sources: Record<string, ComponentSource>,
+  sources: ComponentSources,
   corrections: DetectionCorrections | undefined,
   namespace?: string
-): Record<string, ComponentSource> {
+): ComponentSources {
   const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
   const include = corrections?.include ?? []
   const kept = new Set(include.map(key))
   const listed = new Set(Object.values(sources).map(key))
   const missing = include.filter((ref) => !listed.has(key(ref)))
   const takenBack = Object.entries(sources).filter(([, source]) => source.included && !kept.has(key(source)))
-  if (missing.length === 0 && takenBack.length === 0) return sources
+
+  if (missing.length === 0 && takenBack.length === 0) {
+    return sources
+  }
+
   const next = { ...sources }
-  for (const [id, { included: _, ...detected }] of takenBack) next[id] = detected
+
+  for (const [id, { included: _, ...detected }] of takenBack) {
+    next[id] = detected
+  }
+
   const added = componentIds(
     missing.map((ref) => ({ name: refName(ref), path: ref.path, export: ref.export, uiKit: false })),
     new Set(Object.keys(next)),
     namespace
   )
-  for (const [id, source] of Object.entries(added)) next[id] = { ...source, included: true }
+
+  for (const [id, source] of Object.entries(added)) {
+    next[id] = { ...source, included: true }
+  }
+
   return next
 }
 
 /** What an export is called: its name, or for a default export, its file's (`user-card.tsx` is `UserCard`). */
 function refName(ref: ComponentRef): string {
-  if (ref.export !== "default") return ref.export
+  if (ref.export !== "default") {
+    return ref.export
+  }
+
   const base = posix.basename(ref.path).replace(/\.[cm]?[jt]sx?$/, "")
+
   return (base === "index" ? posix.basename(posix.dirname(ref.path)) : base)
     .split(/[^A-Za-z0-9_$]+/)
-    .filter(Boolean)
-    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .flatMap((part) => (part ? [part[0]!.toUpperCase() + part.slice(1)] : []))
     .join("")
 }
 
@@ -368,42 +473,68 @@ export function componentIds(
   found: ParsedComponent[],
   taken: ReadonlySet<string> = new Set(),
   namespace?: string
-): Record<string, ComponentSource> {
-  if (!namespace) return localIds(found, taken)
+): ComponentSources {
+  if (!namespace) {
+    return localIds(found, taken)
+  }
+
   const prefix = `${namespace}/`
-  const local = new Set([...taken].filter((id) => id.startsWith(prefix)).map((id) => id.slice(prefix.length)))
+  const local = new Set([...taken].flatMap((id) => (id.startsWith(prefix) ? [id.slice(prefix.length)] : [])))
+
   return Object.fromEntries(Object.entries(localIds(found, local)).map(([id, source]) => [prefix + id, source]))
 }
 
-function localIds(found: ParsedComponent[], taken: ReadonlySet<string>): Record<string, ComponentSource> {
+function localIds(found: ParsedComponent[], taken: ReadonlySet<string>): ComponentSources {
   const byName = new Map<string, ParsedComponent[]>()
+
   for (const component of found) {
     const same = byName.get(component.name) ?? []
+
     // One component exported twice from its file, by name and as the default, is listed once.
-    if (same.some((other) => other.path === component.path)) continue
+    if (same.some((other) => other.path === component.path)) {
+      continue
+    }
+
     byName.set(component.name, [...same, component])
   }
-  const ids: Record<string, ComponentSource> = {}
+
+  const ids: [string, ComponentSource][] = []
+
   // The UI kit loads with the canvas; the rest of the app, which can import much more, loads as it's drawn.
   const add = (id: string, component: ParsedComponent) => {
-    ids[id] = {
-      path: component.path,
-      export: component.export,
-      ...(component.as ? { as: component.as } : {}),
-      ...(component.uiKit ? {} : { lazy: true })
+    const source: ComponentSource = { path: component.path, export: component.export }
+
+    if (component.as) {
+      source.as = component.as
     }
+
+    if (!component.uiKit) {
+      source.lazy = true
+    }
+
+    ids.push([id, source])
   }
+
   for (const [name, group] of byName) {
     if (group.length === 1 && !taken.has(name)) {
       add(name, group[0]!)
       continue
     }
+
     const kept = group.find((component) => component.uiKit)
-    if (kept && !taken.has(name)) add(name, kept)
+
+    if (kept && !taken.has(name)) {
+      add(name, kept)
+    }
+
     const rest = group.filter((component) => component !== kept)
-    for (const component of rest) add(`${qualifier(component, rest, taken, name)}/${name}`, component)
+
+    for (const component of rest) {
+      add(`${qualifier(component, rest, taken, name)}/${name}`, component)
+    }
   }
-  return ids
+
+  return Object.fromEntries(ids)
 }
 
 /**
@@ -418,15 +549,21 @@ function qualifier(
   name: string
 ): string {
   const own = folders(component.path)
-  const others = group.filter((other) => other !== component).map((other) => folders(other.path))
+  const others = group.flatMap((other) => (other === component ? [] : [folders(other.path)]))
   const free = (id: string) => !taken.has(`${id}/${name}`)
+
   for (let count = 1; count <= own.length; count++) {
     const suffix = own.slice(-count).join("/")
     const shared = others.some((path) => path.length >= count && path.slice(-count).join("/") === suffix)
-    if (!shared && free(suffix)) return suffix
+
+    if (!shared && free(suffix)) {
+      return suffix
+    }
   }
+
   const near = folderAndFile(component.path)
   const clashes = group.some((other) => other !== component && folderAndFile(other.path) === near)
+
   return clashes || !free(near) ? withoutExtension(component.path) : near
 }
 
@@ -447,22 +584,32 @@ function folders(path: string): string[] {
 }
 
 function isCandidate(path: string, extensions: string[]): boolean {
-  if (path.startsWith("../") || path.includes(":")) return false
-  if (!extensions.includes(extname(path)) || notComponents.test(path)) return false
+  if (path.startsWith("../") || path.includes(":")) {
+    return false
+  }
+
+  if (!extensions.includes(extname(path)) || notComponents.test(path)) {
+    return false
+  }
+
   return !path.split("/").some((part) => skippedFolders.has(part) || part.startsWith("."))
 }
 
 async function walk(folder: string, extensions: string[]): Promise<string[]> {
   const entries = await readdir(folder, { withFileTypes: true }).catch(() => [])
+
   const files = await Promise.all(
     entries.map(async (entry) => {
       const path = join(folder, entry.name)
+
       if (entry.isDirectory()) {
         return skippedFolders.has(entry.name) || entry.name.startsWith(".") ? [] : walk(path, extensions)
       }
+
       return extensions.includes(extname(entry.name)) ? [path] : []
     })
   )
+
   return files.flat()
 }
 

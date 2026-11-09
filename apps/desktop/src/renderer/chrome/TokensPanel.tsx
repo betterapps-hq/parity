@@ -49,6 +49,7 @@ import {
 import { keepEditing, TokenDetail } from "./TokenDetail.tsx"
 
 type Source = "all" | "semantic" | "theme"
+
 type View = "list" | "tiles"
 
 /** A token with what its preview draws. */
@@ -69,13 +70,21 @@ function themesOf(token: Token, themes: string[]): string[] {
  */
 function themeNamesOf(settings: ModeSettings): Map<string, string> {
   const names = new Map<string, string>()
+
   for (const variable of settings.variables) {
-    if (variable.kind !== "theme") continue
+    if (variable.kind !== "theme") {
+      continue
+    }
+
     for (const option of variable.options) {
       const key = option.className?.trim() || "default"
-      if (!names.has(key)) names.set(key, option.name)
+
+      if (!names.has(key)) {
+        names.set(key, option.name)
+      }
     }
   }
+
   return names
 }
 
@@ -96,6 +105,7 @@ function previewOf({ token, kind }: Kinded, tokens: TokenMap, themes: string[]):
   const values = Object.fromEntries(
     themesOf(token, themes).map((theme) => [theme, comesTo(tokens, token.name, theme) ?? ""])
   )
+
   return { name: token.name, kind, values }
 }
 
@@ -152,28 +162,39 @@ export function TokensPanel() {
       }),
     [info.root]
   )
+
   const toggle = (title: string) =>
     setCollapsed((current) => {
       const next = new Set(current)
-      if (!next.delete(title)) next.add(title)
+
+      if (!next.delete(title)) {
+        next.add(title)
+      }
+
       return next
     })
+
   const byName = useMemo(() => new Map(tokens.map((token) => [token.name, token])), [tokens])
   const themes = useMemo(() => [...new Set(tokens.flatMap((token) => Object.keys(token.values)))], [tokens])
   const described = useMemo(() => matchDescribed(info.describedTokens, tokens), [info.describedTokens, tokens])
+
   const kinded = useMemo(() => {
     const lookup = defaultValues(tokens)
+
     return tokens.map((token) => ({ token, kind: previewKind(token, described.byName.get(token.name)?.type, lookup) }))
   }, [tokens, described])
+
   const matches = kinded.filter(
     ({ token }) =>
       (source === "all" || token.source === source) && (!needle || token.name.toLowerCase().includes(needle))
   )
+
   const counts = { semantic: tokens.filter((t) => t.source === "semantic").length, theme: 0 }
   counts.theme = tokens.length - counts.semantic
   const unmatched = described.unmatched.filter((token) => !needle || token.path.toLowerCase().includes(needle))
   const modes = useModeSettings(session.store)
   const themeNames = useMemo(() => themeNamesOf(modes), [modes])
+
   const items = panelItems({
     matches,
     view,
@@ -183,6 +204,7 @@ export function TokensPanel() {
   })
 
   const scroller = useRef<HTMLDivElement>(null)
+
   // The app doesn't use the React Compiler, whose memoizing this rule guards against.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -192,17 +214,24 @@ export function TokensPanel() {
     getItemKey: (index) => items[index]!.key,
     overscan: 8
   })
+
   // Tiles are two to a row, each as wide as its column: the list's width less its padding and the gap, halved, less the
   // tile button's own padding. A fixed width ran each tile into the next in a narrow panel.
   const [tileWidth, setTileWidth] = useState(104)
   useLayoutEffect(() => {
     const element = scroller.current
-    if (!element) return undefined
+
+    if (!element) {
+      return undefined
+    }
+
     const observer = new ResizeObserver(([entry]) => {
       const column = (entry!.contentRect.width - 24 - 4) / 2
       setTileWidth(Math.max(48, Math.floor(column - 8)))
     })
+
     observer.observe(element)
+
     return () => observer.disconnect()
   }, [])
 
@@ -292,7 +321,11 @@ export function TokensPanel() {
               value={query}
               onChange={(event) => {
                 const next = event.currentTarget.value
-                if (Boolean(next.trim()) !== Boolean(needle)) setCollapsed(new Set())
+
+                if (Boolean(next.trim()) !== Boolean(needle)) {
+                  setCollapsed(new Set())
+                }
+
                 setQuery(next)
               }}
               placeholder="Search tokens"
@@ -304,6 +337,7 @@ export function TokensPanel() {
             size="sm"
             spacing={0}
             value={[view]}
+            // SAFETY: the group's items are "list" and "tiles", the two views.
             onValueChange={([value]) => value && setView(value as View)}
             aria-label="Show tokens as"
           >
@@ -324,6 +358,7 @@ export function TokensPanel() {
           size="sm"
           spacing={0}
           value={[source]}
+          // SAFETY: the group's items are "all", "semantic" and "theme", the three sources.
           onValueChange={([value]) => value && setSource(value as Source)}
           className="w-full"
         >
@@ -415,20 +450,25 @@ function panelItems({
   collapsed: ReadonlySet<string>
 }): Item[] {
   const items: Item[] = []
+
   /** Adds a section's title, and says whether it's open, so its lines follow. */
   const section = (title: string, count: number) => {
     const open = !collapsed.has(title)
     items.push({ type: "section", key: `section ${title}`, title, count, first: items.length === 0, open })
+
     return open
   }
+
   const list = (entries: Kinded[], gap = false) => {
     if (view === "tiles" && entries.every((entry) => entry.kind !== "number")) {
       for (let index = 0; index < entries.length; index += 2) {
         const pair = entries.slice(index, index + 2)
         items.push({ type: "tiles", key: `tiles ${pair[0]!.token.name}`, entries: pair })
       }
+
       return
     }
+
     for (const [index, entry] of entries.entries()) {
       items.push({
         type: "row",
@@ -438,57 +478,85 @@ function panelItems({
       })
     }
   }
+
   const end = (title: string) => items.push({ type: "end", key: `end ${title}` })
 
   for (const { title, kinds } of tokenSections) {
     const groups = kinds
       .map(({ kind, heading }) => ({ heading, entries: matches.filter((entry) => entry.kind === kind) }))
       .filter((group) => group.entries.length > 0)
+
     const count = groups.reduce((sum, group) => sum + group.entries.length, 0)
-    if (count === 0) continue
+
+    if (count === 0) {
+      continue
+    }
+
     if (title === "Colors") {
       const own = groups[0]!.entries.filter((entry) => entry.token.source === "semantic")
       const scale = groups[0]!.entries.filter((entry) => entry.token.source === "theme")
+
       if (own.length > 0 && section("Semantic colors", own.length)) {
         list(own)
         end("Semantic colors")
       }
+
       if (scale.length > 0 && section("Palette", scale.length)) {
-        if (searching) list(scale)
-        else {
+        if (searching) {
+          list(scale)
+        } else {
           const hues = Map.groupBy(scale, (entry) => /^color-([a-z]+)-\d+$/.exec(entry.token.name)?.[1] ?? "")
           const loose = hues.get("") ?? []
           hues.delete("")
+
           for (const [hue, shades] of hues) {
             items.push({ type: "hue", key: `hue ${hue}`, hue, shades: shades.map((entry) => entry.token) })
           }
-          if (loose.length > 0) list(loose, hues.size > 0)
+
+          if (loose.length > 0) {
+            list(loose, hues.size > 0)
+          }
         }
+
         end("Palette")
       }
+
       continue
     }
-    if (!section(title, count)) continue
+
+    if (!section(title, count)) {
+      continue
+    }
+
     for (const [index, { heading, entries }] of groups.entries()) {
       if (heading && groups.length > 1) {
         items.push({ type: "heading", key: `heading ${title} ${heading}`, text: heading, first: index === 0 })
       }
+
       list(entries)
     }
+
     end(title)
   }
+
   if (unmatched.length > 0 && section("Described only", unmatched.length)) {
     items.push({
       type: "note",
       key: "note described only",
       text: "A .lib.par describes these, but no custom property in the stylesheet matches them, so previews can't use them."
     })
+
     for (const token of unmatched) {
       items.push({ type: "described", key: `described ${token.library}:${token.path}`, token })
     }
+
     end("Described only")
   }
-  if (items.length === 0) items.push({ type: "empty", key: "empty" })
+
+  if (items.length === 0) {
+    items.push({ type: "empty", key: "empty" })
+  }
+
   return items
 }
 
@@ -516,6 +584,7 @@ function tokenKeys(copy: () => void, card: ReturnType<typeof useHoverCard>) {
 /** Where a row or tile shows its value, a click on it says it copied, or couldn't, for a moment. */
 function Copied({ copying }: { copying: ReturnType<typeof useCopy> }) {
   const ok = copying.status?.ok
+
   return (
     <span className={`flex items-center gap-0.5 ${ok ? "text-(--process-running)" : "text-destructive"}`}>
       {ok ? <Check className="size-3" /> : <X className="size-3" />}
@@ -550,6 +619,7 @@ function TokenRow({
   const card = useHoverCard()
   const name = token.name
   const value = valueLabel(preview)
+
   return (
     <div {...handlers} className="group/token relative flex items-center">
       <TokenPopover entry={entry} card={card}>
@@ -616,6 +686,7 @@ function TokenTileButton({
   const card = useHoverCard()
   const name = token.name
   const value = unwritten ? "Not written" : valueLabel(preview)
+
   return (
     <div {...handlers} className="group/token relative flex min-w-0">
       <TokenPopover entry={entry} card={card}>
@@ -661,6 +732,7 @@ function TokenTileButton({
  */
 function PaletteShade({ token, value, unwritten }: { token: Token; value: string; unwritten: boolean }) {
   const name = token.name
+
   return (
     <CopyOnClick text={name} hint={name}>
       <button
@@ -684,6 +756,7 @@ function PaletteShade({ token, value, unwritten }: { token: Token; value: string
 /** A token a `.lib.par` describes but the stylesheet doesn't have, with its value in each context. */
 function DescribedRow({ token }: { token: LibraryToken }) {
   const contexts = Object.entries(token.values)
+
   return (
     <div className="flex min-h-7 min-w-0 items-center gap-2 px-1.5 py-1 text-xs">
       {token.type === "color" ? (
@@ -735,7 +808,10 @@ function TokenPopover({
       open={card.open}
       onOpenChange={(open, details) => {
         keepEditing(details)
-        if (!details.isCanceled) card.setOpen(open)
+
+        if (!details.isCanceled) {
+          card.setOpen(open)
+        }
       }}
     >
       {/* The row opens its detail by resting on it or by a key; a click copies the token instead. */}
@@ -769,10 +845,12 @@ function Detail({ entry }: { entry: Kinded }) {
   const { undoLabel } = useHistory(session.store)
   const { token, kind } = entry
   const described = panel.described.get(token.name)
+
   // A theme the token sets no value in has the root's.
   const values = Object.fromEntries(
     themesOf(token, panel.themes).map((theme) => [theme, token.values[theme] ?? token.values.default ?? ""])
   )
+
   return (
     <TokenDetail
       token={{
@@ -799,5 +877,6 @@ function Detail({ entry }: { entry: Kinded }) {
 /** The tokens a save couldn't write, by name: one, or how many. */
 function failedNames(changes: readonly TokenWrite[]): string {
   const names = [...new Set(changes.map((change) => change.name))]
+
   return names.length === 1 ? names[0]! : `${names.length} tokens`
 }

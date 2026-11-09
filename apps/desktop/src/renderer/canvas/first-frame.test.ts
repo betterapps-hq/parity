@@ -7,25 +7,30 @@ function watch() {
   const recorded: FirstFrame[] = []
   const visible = new Set<Element>()
   let next: (() => void) | undefined
+
   const firstFrame = watchFirstFrame((from) => recorded.push(from), {
     seen: (element) => visible.has(element),
     schedule: (tick) => {
       next = tick
+
       return 1
     },
     cancel: () => {
       next = undefined
     }
   })
+
   const frame = () => {
     const tick = next
     next = undefined
     tick?.()
   }
+
   return { recorded, visible, firstFrame, frame, waiting: () => next !== undefined }
 }
 
-const element = (name: string) => ({ name }) as unknown as Element
+// SAFETY: the watch only tells elements apart and hands them back to `seen` and `recorded`.
+const element = (name: string): Element => ({ name }) as never
 
 describe("watchFirstFrame", () => {
   it("records the first frame seen, not the first offered, and only once", () => {

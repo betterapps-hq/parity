@@ -35,6 +35,7 @@ export class HereMeasures {
   get(hit: Hit, at: DOMRect, unit: number, key: string, measure: () => Measured | undefined): Measured | undefined {
     const where = `${at.left}:${at.top}:${at.width}:${at.height}`
     const frame = this.frame
+
     if (!frame || frame.host !== hit.host || frame.container !== hit.entry.container || frame.unit !== unit) {
       this.frame = { host: hit.host, container: hit.entry.container, unit, at: where }
       this.kept = undefined
@@ -42,9 +43,14 @@ export class HereMeasures {
       frame.at = where
       this.kept = undefined
     }
-    if (this.kept?.key === key) return this.kept.measured
+
+    if (this.kept?.key === key) {
+      return this.kept.measured
+    }
+
     const measured = measure()
     this.kept = measured ? { key, measured } : undefined
+
     return measured
   }
 
@@ -79,10 +85,15 @@ export function placeAtPoint(
 ): PointPlace {
   const { store, editor } = session
   const hit = hitTest(area, store, point, editor)
-  if (!hit) return { kind: "canvas" }
+
+  if (!hit) {
+    return { kind: "canvas" }
+  }
+
   const here = measureHere(hit, point, spacingUnit(session.tokens.get()), measures)
   const frame = store.editFrame(pickedIn(hit))
   const slot = here && frame && slotHere(frame.container, here, frame.state, frame.viewport)
+
   return here && frame && slot ? { kind: "layout", hit, here, frame, slot } : { kind: "none", hit }
 }
 
@@ -94,30 +105,54 @@ export function placeAtPoint(
  */
 export function measureHere(hit: Hit, point: Point, unit: number, measures?: HereMeasures): HereLayout | undefined {
   const width = parseFloat(hit.host.style.width)
-  if (!(width > 0)) return undefined
+
+  if (!(width > 0)) {
+    return undefined
+  }
+
   const at = hit.host.getBoundingClientRect()
   const scale = at.width / width
+
   const kept = (key: string, measure: () => Measured | undefined) =>
     measures ? measures.get(hit, at, unit, key, measure) : measure()
+
   for (let depth = hit.chain.length - 1; depth >= 0; depth--) {
     const node = hit.chain[depth]!
+
     if (node.type === "layout") {
       const box = nodeBox(hit.host, node.id)
       const measured = box && kept(node.id, () => measureLayout(hit, node, scale, unit))
+
       return measured && { ...measured, box, point }
     }
-    if (node.type !== "component") continue
+
+    if (node.type !== "component") {
+      continue
+    }
+
     const slot = slotUnder(hit, node, hit.chain[depth + 1], point)
-    if (!slot) continue
+
+    if (!slot) {
+      continue
+    }
+
     const measured = kept(`${node.id}/${slot.slot}`, () => measureSlot(hit, node, slot, scale, unit))
-    if (measured) return { ...measured, box: slot.box, point }
+
+    if (measured) {
+      return { ...measured, box: slot.box, point }
+    }
   }
+
   return undefined
 }
 
 function measureLayout(hit: Hit, layout: LayoutNode, scale: number, unit: number): Measured | undefined {
   const element = findNodeElement(hit.host, layout.id)
-  if (!element) return undefined
+
+  if (!element) {
+    return undefined
+  }
+
   return {
     layout: layout.id,
     children: drawnChildren(hit, layout.children),
@@ -150,14 +185,23 @@ function slotUnder(
 ): SlotUnder | undefined {
   const first = under && locateNode(component, under.id)?.slot
   const slots = childEntries(component).toSorted((a, b) => Number(b.slot === first) - Number(a.slot === first))
+
   for (const { slot, nodes } of slots) {
     const drawn = nodes.map((node) => findNodeElement(hit.host, node.id)).find((element) => element !== undefined)
     const element = drawn && drawnIn(drawn)
     const around = drawn?.offsetParent
-    if (!slot || !element || !(around instanceof HTMLElement)) continue
+
+    if (!slot || !element || !(around instanceof HTMLElement)) {
+      continue
+    }
+
     const box = element.getBoundingClientRect()
-    if (inside(box, point)) return { slot, nodes, element, around, box }
+
+    if (inside(box, point)) {
+      return { slot, nodes, element, around, box }
+    }
   }
+
   return undefined
 }
 
@@ -177,7 +221,11 @@ function measureSlot(hit: Hit, component: ComponentNode, under: SlotUnder, scale
 /** The element a layer is drawn in: its parent element, through those that draw no box of their own. */
 function drawnIn(element: HTMLElement): HTMLElement | undefined {
   let parent = element.parentElement
-  while (parent && getComputedStyle(parent).display === "contents") parent = parent.parentElement
+
+  while (parent && getComputedStyle(parent).display === "contents") {
+    parent = parent.parentElement
+  }
+
   return parent ?? undefined
 }
 
@@ -185,6 +233,7 @@ function drawnIn(element: HTMLElement): HTMLElement | undefined {
 function drawnChildren(hit: Hit, nodes: readonly DesignNode[]): HereLayout["children"] {
   return nodes.flatMap((child, index) => {
     const childBox = nodeBox(hit.host, child.id)
+
     // A child that isn't drawn (hidden in this state) has an empty box at the frame's corner: it's no slot.
     return childBox && (childBox.width > 0 || childBox.height > 0) ? [{ index, box: childBox }] : []
   })
@@ -194,6 +243,7 @@ function drawnChildren(hit: Hit, nodes: readonly DesignNode[]): HereLayout["chil
 function insideBorder(element: HTMLElement, scale: number): Point {
   const style = getComputedStyle(element)
   const rect = element.getBoundingClientRect()
+
   return {
     x: rect.left + (parseFloat(style.borderLeftWidth) || 0) * scale,
     y: rect.top + (parseFloat(style.borderTopWidth) || 0) * scale

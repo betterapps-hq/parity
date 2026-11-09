@@ -27,12 +27,14 @@ const meta = {
 } satisfies Meta<typeof SelectedStates>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The selected design's states. */
 function SelectedStates() {
   const { store, selection } = useProject()
   const entry = useContainerEntry(store, useSelection(selection).design)
+
   return entry ? <StatesSection entry={entry} /> : null
 }
 
@@ -41,7 +43,11 @@ const showing = (designName: string, state?: string, change?: (key: string) => v
   inspecting("design", () => {
     const key = design(designName)
     change?.(key)
-    if (state) example().store.updateView(key, `Show ${state}`, (view) => ({ ...view, state, allStates: false }))
+
+    if (state) {
+      example().store.updateView(key, `Show ${state}`, (view) => ({ ...view, state, allStates: false }))
+    }
+
     return { design: key }
   })
 
@@ -101,6 +107,7 @@ export const EveryStateShown: Story = {
     inspecting("design", () => {
       const key = design("Sign in")
       example().store.updateView(key, "Show every state", (view) => ({ ...view, allStates: true }))
+
       return { design: key }
     })
   ]

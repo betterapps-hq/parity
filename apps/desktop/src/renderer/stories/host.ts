@@ -1,9 +1,15 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
-import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity-app/core"
-import type { TokenWrite } from "@parity-app/tokens"
+import {
+  type ComponentInfo,
+  type ContainerSpec,
+  defaultModeSettings,
+  type DesignNode,
+  parseData
+} from "@parity-app/core"
 import discovered from "virtual:parity/example-project"
+import { z } from "zod"
 import desktop from "../../../package.json"
-import { type AccountState, type SignedInAccount, signedOut } from "../../shared/account.ts"
+import { type AccountState, type SignedInAccount, type SignInAttempt, signedOut } from "../../shared/account.ts"
 import type {
   CanvasHost,
   ProjectEditResult,
@@ -20,6 +26,8 @@ import { preloadAnswers } from "../service.ts"
  * What the service's `project.open` and `project.components` answer for the example. Its guest URL is the module
  * Storybook serves or builds for it, as the project's builder would serve it.
  */
+// SAFETY: Storybook's `exampleProject` plugin builds this module from the same discovery and inference that answer the
+// service's `project.open` and `project.components`, so it holds a ProjectInfo and its components.
 const example = discovered as { info: ProjectInfo; components: Record<string, ComponentInfo> }
 
 /**
@@ -49,19 +57,37 @@ export type Answer<M extends ServiceMethod> = (
   usual: () => Promise<ServiceMethods[M]["result"]>
 ) => ServiceMethods[M]["result"] | Promise<ServiceMethods[M]["result"]>
 
-/** Answers a story gave, by method, and whether each is for the next request only. */
-const overrides = new Map<ServiceMethod, { answer: Answer<never>; once: boolean }>()
+/** A story's own answers, by method. */
+type Answers = { [M in ServiceMethod]?: Answer<M> }
+
+/** Answers a story gave, by method. */
+const overrides: Answers = {}
+
+/** The methods whose story answer is for the next request only. */
+const onceOnly = new Set<string>()
 
 /** Answers some requests another way until the story ends; the service answers the rest as usual. */
-export function answering(answers: { [M in ServiceMethod]?: Answer<M> }): void {
-  for (const [method, answer] of Object.entries(answers)) {
-    overrides.set(method as ServiceMethod, { answer: answer as unknown as Answer<never>, once: false })
+export function answering(answers: Answers): void {
+  Object.assign(overrides, answers)
+
+  for (const method of Object.keys(answers)) {
+    onceOnly.delete(method)
   }
 }
 
 /** Answers the next request for a method another way, once: a check that fails, a project without its own modes. */
 export function answerNext<M extends ServiceMethod>(method: M, answer: Answer<M>): void {
-  overrides.set(method, { answer: answer as unknown as Answer<never>, once: true })
+  Object.assign(overrides, { [method]: answer })
+  onceOnly.add(method)
+}
+
+/** Forgets every answer a story gave. */
+function clearOverrides(): void {
+  for (const method of Object.keys(overrides)) {
+    Reflect.deleteProperty(overrides, method)
+  }
+
+  onceOnly.clear()
 }
 
 /** The system dialogs, which answer as if the person cancelled unless a story picks something. */
@@ -80,7 +106,7 @@ export function pickingWith(dialogs: Partial<Pick<CanvasHost, keyof typeof cance
  * What the stand-in service runs besides each open project's build server, which it starts as projects open: a story
  * adds Storybooks, servers Portless routes and its proxy.
  */
-export const running: { processes: ProjectProcess[] } = { processes: [] }
+export const running = { processes: new Array<ProjectProcess>() }
 
 let accountNow: AccountState = signedOut
 
@@ -92,8 +118,12 @@ export function setStoryAccount(next: AccountState): void {
 
 /** You're in `chosen` now, as main says it: who, without how they signed in. */
 function inAccount(chosen: SignedInAccount | undefined): AccountState["account"] {
-  if (!chosen) return null
+  if (!chosen) {
+    return null
+  }
+
   const { provider: _provider, ended: _ended, ...person } = chosen
+
   return { ...person, untilQuit: accountNow.account?.untilQuit ?? false }
 }
 
@@ -104,17 +134,19 @@ function inAccount(chosen: SignedInAccount | undefined): AccountState["account"]
 const storyAccount: CanvasHost["account"] = {
   get: () => Promise.resolve(accountNow),
   subscribe: () => () => undefined,
-  signIn: async ({ provider, email }) =>
-    setStoryAccount({
-      ...accountNow,
-      attempt: {
-        at: "waiting",
-        provider,
-        url: "https://api.workos.com/user_management/authorize?client_id=client_story",
-        ...(email === undefined ? {} : { email })
-      },
-      ended: null
-    }),
+  signIn: async ({ provider, email }) => {
+    const attempt: Extract<SignInAttempt, { at: "waiting" }> = {
+      at: "waiting",
+      provider,
+      url: "https://api.workos.com/user_management/authorize?client_id=client_story"
+    }
+
+    if (email !== undefined) {
+      attempt.email = email
+    }
+
+    setStoryAccount({ ...accountNow, attempt, ended: null })
+  },
   reopen: () => Promise.resolve(),
   cancel: async () => setStoryAccount({ ...accountNow, attempt: null, ended: null }),
   signOut: async (email) => {
@@ -126,7 +158,11 @@ const storyAccount: CanvasHost["account"] = {
   },
   switchOrganization: async (organizationId) => {
     const { account, accounts } = accountNow
-    if (!account) return
+
+    if (!account) {
+      return
+    }
+
     setStoryAccount({
       ...accountNow,
       account: { ...account, organizationId },
@@ -135,7 +171,10 @@ const storyAccount: CanvasHost["account"] = {
   },
   use: async (email) => {
     const chosen = accountNow.accounts.find((each) => each.email === email && !each.ended)
-    if (chosen) setStoryAccount({ ...accountNow, account: inAccount(chosen) })
+
+    if (chosen) {
+      setStoryAccount({ ...accountNow, account: inAccount(chosen) })
+    }
   }
 }
 
@@ -145,6 +184,7 @@ export const defaultTelemetry: TelemetryState = {
   setting: "all",
   installId: "3f9c2a71-8d4e-4b6a-9e15-c07d2f84b913"
 }
+
 let telemetryNow: TelemetryState = defaultTelemetry
 
 /** Starts the stand-in Telemetry setting somewhere else, as a variable overriding it. */
@@ -162,6 +202,7 @@ const storyTelemetry: CanvasHost["telemetry"] = {
       installId,
       level: telemetryNow.overriddenBy ? telemetryNow.level : setting
     }
+
     return telemetryNow
   }
 }
@@ -171,7 +212,7 @@ export function resetHost(): void {
   telemetryNow = defaultTelemetry
   Object.assign(service, defaultService)
   running.processes = []
-  overrides.clear()
+  clearOverrides()
   Object.assign(window.canvasHost, cancelled)
   accountNow = signedOut
   resetAccountView()
@@ -202,12 +243,20 @@ export function installHost(): void {
     },
     ask: preloadAnswers(<M extends ServiceMethod>(method: M, params: ServiceMethods[M]["params"]) => {
       requests.push({ method, params })
+
       return delay(service.latency).then(() => {
         const usual = () => answer(method, params)
-        const override = overrides.get(method)
-        if (!override) return usual()
-        if (override.once) overrides.delete(method)
-        return (override.answer as unknown as Answer<M>)(params, usual)
+        const override: Answer<M> | undefined = overrides[method]
+
+        if (!override) {
+          return usual()
+        }
+
+        if (onceOnly.delete(method)) {
+          Reflect.deleteProperty(overrides, method)
+        }
+
+        return override(params, usual)
       })
     }),
     account: storyAccount,
@@ -237,16 +286,19 @@ export function installHost(): void {
       subscribe: () => () => undefined
     }
   }
+
   window.canvasHost = host
 }
 
 /** A fresh copy of a project, as opening it again reads it again. */
 export function projectInfo(root: string): ProjectInfo {
   const info = structuredClone(example.info)
+
   if (root === roots.empty || root === roots.designless) {
     const name = root.split("/").at(-1)!
     const file = `${name}.par`
     const empty = root === roots.empty
+
     return {
       ...info,
       id: root,
@@ -261,16 +313,18 @@ export function projectInfo(root: string): ProjectInfo {
       ]
     }
   }
+
   return info
 }
 
 /** A project's build server, as the service starts it when the project opens, a few seconds ago. */
 function buildServer(info: ProjectInfo): ProjectProcess {
   const started = Date.now() - 4000
+
   return {
     id: `builder:${info.root}`,
     kind: "builder",
-    shape: "server",
+    lifetime: "server",
     name: info.builder.name,
     projectId: info.root,
     project: info.name,
@@ -290,23 +344,38 @@ function buildServer(info: ProjectInfo): ProjectProcess {
  */
 function settle(id: string, action: "stop" | "restart"): void {
   const process = running.processes.find((candidate) => candidate.id === id)
-  if (!process) return
-  const task = process.shape === "task"
+
+  if (!process) {
+    return
+  }
+
+  const task = process.lifetime === "task"
+
   const move = (next: ProjectProcess["status"]) => {
     const at = Date.now()
     process.status = next
+
     if (next === "stopped" || next === "canceled" || next === "passed") {
       process.stoppedAt = at
       process.canStop = false
       delete process.progress
-      if (next === "passed") process.summary = "Passed"
+
+      if (next === "passed") {
+        process.summary = "Passed"
+      }
     }
+
     if (next === "starting" || (task && next === "running")) {
       process.startedAt = at
-      for (const key of ["stoppedAt", "error", "summary"] as const) delete process[key]
+
+      for (const key of ["stoppedAt", "error", "summary"] as const) {
+        delete process[key]
+      }
+
       process.canStop = true
     }
   }
+
   if (action === "stop") {
     move("stopping")
     setTimeout(() => move(task ? "canceled" : "stopped"), 900)
@@ -316,43 +385,61 @@ function settle(id: string, action: "stop" | "restart"): void {
   }
 }
 
+/** A request to the service: a method and its params, which a switch on the method narrows. */
+type ServiceRequest = { [M in ServiceMethod]: { method: M; params: ServiceMethods[M]["params"] } }[ServiceMethod]
+
 async function answer<M extends ServiceMethod>(
   method: M,
   params: ServiceMethods[M]["params"]
 ): Promise<ServiceMethods[M]["result"]> {
-  const result = await respond(method, params as never)
+  // SAFETY: `method` and `params` are typed by the same M, so together they're the request for that method.
+  const result = await respond({ method, params } as ServiceRequest)
+
+  // SAFETY: `respond` answers each method with that method's result.
   return result as ServiceMethods[M]["result"]
 }
 
-async function respond(method: ServiceMethod, params: Record<string, unknown>): Promise<unknown> {
-  switch (method) {
+async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceMethod]["result"]> {
+  switch (request.method) {
     case "project.open": {
-      const root = (params.root as string | undefined) ?? roots.example
-      if (root === roots.slow) return new Promise(() => undefined)
+      const root = request.params.root ?? roots.example
+
+      if (root === roots.slow) {
+        return new Promise(() => undefined)
+      }
+
       if (root === roots.broken) {
         throw new Error("No renderer supports broken-app: its package.json depends on neither react nor react-dom")
       }
+
       const info = projectInfo(root)
+
       if (!running.processes.some((process) => process.id === `builder:${root}`)) {
         running.processes.push(buildServer(info))
       }
+
       return info
     }
+
     case "project.close":
-      running.processes = running.processes.filter((process) => process.projectId !== params.projectId)
+      running.processes = running.processes.filter((process) => process.projectId !== request.params.projectId)
+
       return undefined
     case "project.components":
       return structuredClone(example.components)
     case "processes.list":
       return structuredClone(running.processes)
     case "processes.stop":
-      settle(String(params.id), "stop")
+      settle(String(request.params.id), "stop")
+
       return undefined
     case "processes.restart":
-      settle(String(params.id), "restart")
+      settle(String(request.params.id), "restart")
+
       return undefined
     case "processes.dismiss":
-      running.processes = running.processes.filter((process) => process.id !== params.id)
+      running.processes = running.processes.filter((process) => process.id !== request.params.id)
+
       return undefined
     case "library.catalog":
       return [
@@ -423,18 +510,27 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       ]
     case "library.add":
       await delay(1200)
+
       if (service.installFails) {
-        throw new Error(`pnpm add ${String(params.library)} failed: ERR_PNPM_FETCH_404 Not Found - 404`)
+        throw new Error(`pnpm add ${String(request.params.library)} failed: ERR_PNPM_FETCH_404 Not Found - 404`)
       }
-      return { log: `+ ${String(params.library)}\nDone in 1.2s` }
+
+      return { log: `+ ${String(request.params.library)}\nDone in 1.2s` }
     case "document.save":
     case "document.saveCopy":
-      if (service.saveFails) throw new Error("EPERM: operation not permitted, open 'shadcn-vite.par'")
+      if (service.saveFails) {
+        throw new Error("EPERM: operation not permitted, open 'shadcn-vite.par'")
+      }
+
       return undefined
     case "tokens.save": {
-      if (service.saveFails) throw new Error("EPERM: operation not permitted, open 'src/index.css'")
-      const changes = params.changes as TokenWrite[]
+      if (service.saveFails) {
+        throw new Error("EPERM: operation not permitted, open 'src/index.css'")
+      }
+
+      const changes = request.params.changes
       const [change] = changes
+
       return edited(changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`, [
         "@@ -7,7 +7,7 @@",
         " :root {",
@@ -446,6 +542,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
         "   --secondary: oklch(0.97 0 0);"
       ])
     }
+
     case "library.importStyles":
       return edited("Import Shadcn Nova's styles", [
         "@@ -1,3 +1,4 @@",
@@ -455,22 +552,28 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
         " "
       ])
     case "project.undoEdit": {
-      const edit = edits.get(String(params.id))
-      if (!edit) throw new Error("That change is too old to undo, or was undone already")
+      const edit = edits.get(String(request.params.id))
+
+      if (!edit) {
+        throw new Error("That change is too old to undo, or was undone already")
+      }
+
       edits.delete(edit.id)
+
       return {
         ...edit,
         label: `Undo ${edit.label.charAt(0).toLowerCase()}${edit.label.slice(1)}`,
         files: edit.files.map((file) => ({ path: file.path, diff: reversed(file.diff) }))
       }
     }
+
     case "images.import":
-      return { src: `/images/${String(params.name)}`, path: `public/images/${String(params.name)}` }
+      return { src: `/images/${String(request.params.name)}`, path: `public/images/${String(request.params.name)}` }
     case "storybook.open":
       return { url: "http://localhost:6006/?path=/docs/components-button--docs" }
     case "layers.export":
       return {
-        files: (params.files as { name: string }[]).map((file) => `D:/exports/${file.name}`),
+        files: request.params.files.map((file) => `D:/exports/${file.name}`),
         warnings: []
       }
     case "layers.picture":
@@ -481,22 +584,27 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       }
     case "designs.export":
       return {
-        files: (params.designs as string[]).map((design) => `D:/exports/${design.split("#").at(-1)}.png`),
+        files: request.params.designs.map((design) => `D:/exports/${design.split("#").at(-1)}.png`),
         warnings: []
       }
     case "code.read": {
       const { default: files } = await import("virtual:parity/example-sources")
-      const text = files[String(params.path)]
-      if (text === undefined) throw new Error(`${String(params.path)} isn't in the project's folder`)
+      const text = files[String(request.params.path)]
+
+      if (text === undefined) {
+        throw new Error(`${String(request.params.path)} isn't in the project's folder`)
+      }
+
       return { text }
     }
+
     case "accessibility.check":
-      return { findings: findingsFor(String(params.design)), frames: 4, warnings: [] }
+      return { findings: findingsFor(String(request.params.design)), frames: 4, warnings: [] }
     case "frames.stored":
       // No bitmap kept, as on a first launch: a frame that sleeps draws first, or waits on its placeholder.
-      return {}
+      return { kept: parseData(z.array(z.json()), JSON.parse(request.params.jobs)).map(() => ({})) }
     case "pictures.store":
-      return params.picture
+      return request.params.picture
     case "pictures.read":
       // No project's picture kept, as on a first launch: the start page shows placeholders.
       return {}
@@ -514,12 +622,15 @@ const edits = new Map<string, ProjectEditResult>()
 /** An edit to the example's stylesheet, as the service describes one it made, with its diff's hunks. */
 function edited(label: string, hunk: string[]): ProjectEditResult {
   const path = "src/index.css"
+
   const edit = {
     id: `edit-${edits.size + 1}`,
     label,
     files: [{ path, diff: [`--- a/${path}`, `+++ b/${path}`, ...hunk].join("\n") }]
   }
+
   edits.set(edit.id, edit)
+
   return edit
 }
 
@@ -529,9 +640,19 @@ function reversed(diff: string): string {
     .split("\n")
     .map((line) => {
       const hunk = /^@@ -(\S+) \+(\S+) @@$/.exec(line)
-      if (hunk) return `@@ -${hunk[2]} +${hunk[1]} @@`
-      if (line.startsWith("+") && !line.startsWith("+++")) return `-${line.slice(1)}`
-      if (line.startsWith("-") && !line.startsWith("---")) return `+${line.slice(1)}`
+
+      if (hunk) {
+        return `@@ -${hunk[2]} +${hunk[1]} @@`
+      }
+
+      if (line.startsWith("+") && !line.startsWith("+++")) {
+        return `-${line.slice(1)}`
+      }
+
+      if (line.startsWith("-") && !line.startsWith("---")) {
+        return `+${line.slice(1)}`
+      }
+
       return line
     })
     .join("\n")
@@ -543,12 +664,18 @@ function reversed(diff: string): string {
  */
 function findingsFor(key: string): AccessibilityFinding[] {
   const [path, id] = key.split("#")
+
   const container = example.info.documents
     .find((entry) => entry.path === path)
     ?.document?.containers.find((candidate) => candidate.id === id)
-  if (!container) return []
+
+  if (!container) {
+    return []
+  }
+
   const nodes = componentNodes(container)
   const states = container.states.slice(0, 2)
+
   return states.flatMap((state): AccessibilityFinding[] => [
     ...nodes.slice(0, 2).map((node) => ({
       state: state.id,
@@ -586,14 +713,27 @@ function findingsFor(key: string): AccessibilityFinding[] {
 
 function componentNodes(container: ContainerSpec): { id: string; name: string }[] {
   const found: { id: string; name: string }[] = []
+
   const walk = (node: DesignNode) => {
     if (node.type === "component") {
       found.push({ id: node.id, name: node.name ?? node.component })
-      for (const slot of Object.values(node.slots ?? {})) for (const child of slot) walk(child)
+
+      for (const slot of Object.values(node.slots ?? {})) {
+        for (const child of slot) {
+          walk(child)
+        }
+      }
     }
-    if (node.type === "layout") for (const child of node.children) walk(child)
+
+    if (node.type === "layout") {
+      for (const child of node.children) {
+        walk(child)
+      }
+    }
   }
+
   walk(container.root)
+
   return found
 }
 

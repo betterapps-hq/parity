@@ -16,7 +16,9 @@ beforeAll(async () => {
     { timeout: 150_000, polling: 500 }
   )
 }, 180_000)
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 /** Every board's size, as tldraw has it and agents' snapshots give it. */
@@ -26,9 +28,9 @@ const boards = () =>
       window
         .e2e!.session()
         .editor!.getCurrentPageShapes()
-        .flatMap((shape) =>
-          shape.type === "canvas-container" && "key" in shape.props && "w" in shape.props && "h" in shape.props
-            ? [[shape.props.key, [Math.round(Number(shape.props.w)), Math.round(Number(shape.props.h))]]]
+        .flatMap((item) =>
+          item.type === "canvas-container" && "key" in item.props && "w" in item.props && "h" in item.props
+            ? [[item.props.key, [Math.round(Number(item.props.w)), Math.round(Number(item.props.h))]]]
             : []
         )
     )
@@ -50,6 +52,7 @@ const frameSizes = () =>
 const frames = () =>
   app.page.evaluate(() => {
     const hosts = [...document.querySelectorAll("[data-frame]")]
+
     return {
       all: hosts.length,
       bitmaps: hosts.filter((host) => host.closest("[data-bitmap]")).length,
@@ -63,6 +66,7 @@ const frames = () =>
 const drawn = (design: string) =>
   app.page.evaluate((design) => {
     const host = window.e2e!.frame(window.e2e!.key(design))
+
     return !host.closest("[data-asleep]") && !!host.shadowRoot?.querySelector("*")
   }, design)
 
@@ -70,9 +74,14 @@ const drawn = (design: string) =>
 async function nodes(): Promise<number> {
   const cdp = await app.page.context().newCDPSession(app.page)
   await cdp.send("Runtime.discardConsoleEntries")
-  for (let pass = 0; pass < 3; pass++) await cdp.send("HeapProfiler.collectGarbage")
+
+  for (let pass = 0; pass < 3; pass++) {
+    await cdp.send("HeapProfiler.collectGarbage")
+  }
+
   const { nodes } = await cdp.send("Memory.getDOMCounters")
   await cdp.detach()
+
   return nodes
 }
 
@@ -86,6 +95,7 @@ async function zoomOut(): Promise<void> {
     .poll(
       async () => {
         const { bitmaps, asleep } = await frames()
+
         return asleep > 0 && asleep === bitmaps
       },
       { timeout: 30_000 }

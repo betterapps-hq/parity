@@ -47,6 +47,7 @@ describe("traceparent", () => {
       "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01-later",
       "00-4bf92f3577b34da6a3ce929d0e0e473-00f067aa0ba902b7-01"
     ]
+
     expect(Object.fromEntries(invalid.map((header) => [header, parseTraceparent(header)]))).toEqual(
       Object.fromEntries(invalid.map((header) => [header, undefined]))
     )
@@ -106,10 +107,12 @@ describe("endWhenSettled", () => {
   it("ends the span as it's told, when told how", async () => {
     const ended: unknown[] = []
     const span = { end: (...args: unknown[]) => void ended.push(args) }
+
     const settled = {
       result: (value: number) => ({ outcome: value > 0 ? ("ok" as const) : ("error" as const), attributes: { value } }),
       error: () => ({ outcome: "cancelled" as const })
     }
+
     expect(await endWhenSettled(span, () => -1, settled)).toBe(-1)
     await expect(endWhenSettled(span, () => Promise.reject(new Error("Stopped")), settled)).rejects.toThrow("Stopped")
     expect(ended).toEqual([

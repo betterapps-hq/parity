@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import type { ContainerSpec } from "./document.ts"
+import type { ContainerSpec, NodeStyle } from "./document.ts"
 import { resolveDesign } from "./render.ts"
 import { inlineStyles, styleChanges } from "./style-changes.ts"
 
@@ -26,10 +26,16 @@ function render(root: ContainerSpec["root"], state = design.states[0]) {
   return resolveDesign(root, state, "desktop")
 }
 
-function withStyle(id: string, style: Record<string, unknown>): ContainerSpec["root"] {
-  const root = structuredClone(design.root) as Extract<ContainerSpec["root"], { type: "layout" }>
+function withStyle(id: string, style: NodeStyle): ContainerSpec["root"] {
+  const root = structuredClone(design.root)
+
+  if (root.type !== "layout") {
+    throw new Error("The card's root is a layout")
+  }
+
   const node = id === "root" ? root : root.children.find((child) => child.id === id)!
   node.style = { ...node.style, ...style }
+
   return root
 }
 

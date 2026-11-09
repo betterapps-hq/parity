@@ -27,6 +27,7 @@ function Hearts() {
 /** In game, as the design or as the code draws it. */
 export function InGameAt({ look, as }: { look: Look; as: "design" | "code" }) {
   const h = look.hue
+
   return (
     <div className="relative">
       <DesignRender kind="play" look={look} />

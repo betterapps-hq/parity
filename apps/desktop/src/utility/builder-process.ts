@@ -8,6 +8,7 @@ const serve = serveBuilderProcess(
     send: (reply) => process.send?.(reply),
     usage: () => {
       const { user, system } = process.cpuUsage()
+
       return { cpu: user + system, uptime: process.uptime() * 1000, memory: process.memoryUsage.rss() }
     },
     exit: () => process.exit(0)
@@ -16,7 +17,9 @@ const serve = serveBuilderProcess(
 )
 
 process.on("message", (request: BuilderProcessRequest) => serve(request))
+
 // The service ended, even killed outright: nothing can reach this builder any more.
 process.on("disconnect", () => process.exit(0))
+
 // A project's plugin that drops a promise shouldn't take its builder down, as it didn't in the service.
 process.on("unhandledRejection", (reason) => console.error("[builder]", reason))

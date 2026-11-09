@@ -57,16 +57,18 @@ function form(): ContainerSpec {
   }
 }
 
-const [base, error] = form().states as [ContainerSpec["states"][0], ContainerSpec["states"][0]]
+const [base, error] = form().states
 
 /** The shared fixture's card, its board showing the variant options `variants`: Inline turns its body into a row. */
 function card(variants: Record<string, string> = {}): ContainerSpec {
   const found = effectiveFixture.designs.find((design) => design.id === "card")!
+
   return { ...found, view: { variants } }
 }
 
 const childIds = (container: ContainerSpec, id: string) => {
   const node = findNode(container.root, id)
+
   return node?.type === "layout" ? node.children.map((child) => child.id) : undefined
 }
 
@@ -92,8 +94,9 @@ describe("the clipboard's envelope", () => {
   })
 
   it("reads nothing when a payload doesn't hold the list its kind pastes, or it's empty", () => {
-    const envelope = (kind: string, extra: object) =>
+    const envelope = <Extra>(kind: string, extra: Extra) =>
       readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload: { kind, ...extra } }))
+
     expect(envelope("layers", {})).toBeUndefined()
     expect(envelope("layers", { nodes: "heading" })).toBeUndefined()
     expect(envelope("designs", { nodes: [] })).toBeUndefined()
@@ -104,8 +107,9 @@ describe("the clipboard's envelope", () => {
   })
 
   it("reads nothing when what it holds doesn't match the .par schema", () => {
-    const envelope = (payload: object) =>
+    const envelope = <Payload>(payload: Payload) =>
       readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload }))
+
     expect(envelope({ kind: "layers", nodes: [null] })).toBeUndefined()
     expect(envelope({ kind: "layers", nodes: [{}] })).toBeUndefined()
     expect(envelope({ kind: "layers", nodes: [{ type: "layout", id: "row" }] })).toBeUndefined()
@@ -115,8 +119,9 @@ describe("the clipboard's envelope", () => {
   })
 
   it("reads nothing from a newer version's copy whose layers this one can't read", () => {
-    const envelope = (payload: object) =>
+    const envelope = <Payload>(payload: Payload) =>
       readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload }))
+
     expect(envelope({ kind: "layers", nodes: [{ ...text("heading"), blur: 4 }] })).toBeUndefined()
     expect(envelope({ kind: "layers", nodes: [{ type: "video", id: "intro" }] })).toBeUndefined()
     const repeated = { type: "layout", id: "row", children: [text("a"), text("a")] }
@@ -134,10 +139,12 @@ describe("the clipboard's envelope", () => {
 
   it("reads back designs and notes that match it", () => {
     const note: NoteSpec = { id: "note-a", text: "Flow starts here", position: { x: 1, y: 2 } }
+
     const payloads: ClipboardPayload[] = [
       { kind: "designs", designs: [form()] },
       { kind: "notes", notes: [note] }
     ]
+
     for (const payload of payloads) {
       const { text: written } = writeEnvelope("D:/acme", payload)
       expect(readEnvelope(written)?.payload).toEqual(payload)
@@ -201,6 +208,7 @@ describe("copying layers", () => {
 describe("pasting a bound layer", () => {
   const title = () => {
     const payload = copyLayers(card(), ["title"], card().states[0])
+
     return payload?.kind === "layers" ? payload.nodes : []
   }
 
@@ -231,6 +239,7 @@ describe("pasting a bound layer", () => {
         }
       ]
     }
+
     const destination: ContainerSpec = { ...form(), params: { label: { type: "text" } } }
     const fitted = fitBindings(node, destination)
     expect(fitted.type === "layout" && fitted.children[0]?.bind).toEqual({ props: { children: "label" } })
@@ -272,7 +281,11 @@ describe("pasting layers", () => {
     const { container, copies } = pasteLayers(original, { parent: "root", index: 1 }, nodes)
     expect(copies).toHaveLength(2)
     expect(childIds(container, "root")).toEqual(["heading", ...copies, "fields", "card"])
-    for (const id of copies) expect(nodeIds(original.root).has(id)).toBe(false)
+
+    for (const id of copies) {
+      expect(nodeIds(original.root).has(id)).toBe(false)
+    }
+
     expect(findNode(container.root, copies[0]!)).toEqual({ type: "text", id: copies[0], text: "heading" })
   })
 
@@ -331,7 +344,11 @@ describe("pasting notes", () => {
       { x: 324, y: 104 }
     ])
     expect(copies[1]).toMatchObject({ text: "Then here", width: 200 })
-    for (const copy of copies) expect(copy.id).toMatch(/^note-/)
+
+    for (const copy of copies) {
+      expect(copy.id).toMatch(/^note-/)
+    }
+
     expect(new Set([...copies.map((copy) => copy.id), "note-a", "note-b"]).size).toBe(4)
   })
 
@@ -405,6 +422,7 @@ describe("components missing from the project", () => {
         ]
       }
     ]
+
     expect(missingComponents(nodes, { "ui/Button": {} })).toEqual(["ui/Card", "ui/Badge"])
   })
 

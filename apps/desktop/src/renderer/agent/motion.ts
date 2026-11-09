@@ -20,6 +20,7 @@ export function easeInOutCubic(t: number): number {
 /** How long travelling between two points takes: farther is longer, though not in proportion. */
 export function travelMs(from: Point, to: Point): number {
   const distance = Math.hypot(to.x - from.x, to.y - from.y)
+
   return Math.min(2200, 700 + 240 * Math.log2(1 + distance / 40))
 }
 
@@ -40,6 +41,7 @@ export function arcPoint(from: Point, to: Point, t: number, bend: number): Point
   const dy = to.y - from.y
   const control = { x: from.x + dx / 2 - dy * bend, y: from.y + dy / 2 + dx * bend }
   const u = 1 - t
+
   return {
     x: u * u * from.x + 2 * u * t * control.x + t * t * to.x,
     y: u * u * from.y + 2 * u * t * control.y + t * t * to.y
@@ -52,6 +54,7 @@ export function arcPoint(from: Point, to: Point, t: number, bend: number): Point
  */
 export function easeInOutSettle(t: number, overshoot = 0.5): number {
   const s = overshoot * 1.525
+
   return t < 0.5 ? ((2 * t) ** 2 * ((s + 1) * 2 * t - s)) / 2 : ((2 * t - 2) ** 2 * ((s + 1) * (t * 2 - 2) + s) + 2) / 2
 }
 
@@ -65,6 +68,7 @@ export function curvePoint(from: Point, to: Point, t: number, bendA: number, ben
   const a = { x: from.x + dx / 3 - dy * bendA, y: from.y + dy / 3 + dx * bendA }
   const b = { x: from.x + (dx * 2) / 3 - dy * bendB, y: from.y + (dy * 2) / 3 + dx * bendB }
   const u = 1 - t
+
   return {
     x: u ** 3 * from.x + 3 * u * u * t * a.x + 3 * u * t * t * b.x + t ** 3 * to.x,
     y: u ** 3 * from.y + 3 * u * u * t * a.y + 3 * u * t * t * b.y + t ** 3 * to.y
@@ -77,6 +81,7 @@ export function curvePoint(from: Point, to: Point, t: number, bendA: number, ben
  */
 export function breathe(seconds: number, radius: number, seed = 0): Point {
   const swell = 0.7 + 0.3 * Math.sin(seconds * 0.45 + seed)
+
   return {
     x: radius * swell * (0.75 * Math.sin(seconds * 0.83 + seed) + 0.25 * Math.sin(seconds * 1.97 + seed * 2.1)),
     y: radius * swell * (0.7 * Math.sin(seconds * 1.13 + seed * 2.9) + 0.3 * Math.sin(seconds * 2.41 + seed * 1.3))
@@ -98,6 +103,7 @@ export function glanceOffset(box: Box, random: () => number = Math.random): Poin
   const angle = random() * Math.PI * 2
   const distance = radius * Math.sqrt(random())
   const inset = Math.min(2, box.w / 2, box.h / 2)
+
   return {
     x: clamp(focus.x + Math.cos(angle) * distance, inset, box.w - inset),
     y: clamp(focus.y + Math.sin(angle) * distance, inset, box.h - inset)

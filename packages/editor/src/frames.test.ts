@@ -3,6 +3,7 @@ import {
   componentLibrary,
   defaultModeSettings,
   findNode,
+  type NodeStyle,
   parseCanvasDocument,
   resolveModes
 } from "@parity-app/core"
@@ -63,7 +64,10 @@ describe("the frame tool's sizes", () => {
     expect(new Set(names).size).toBe(names.length)
     const modes = resolveModes(defaultModeSettings)
     expect(presets.flatMap((preset) => preset.modes).sort()).toEqual(modes.map((mode) => mode.name).sort())
-    for (const preset of presets) expect(preset.height).toBeGreaterThan(0)
+
+    for (const preset of presets) {
+      expect(preset.height).toBeGreaterThan(0)
+    }
   })
 
   it("resizes a frame, which stops hugging its content", () => {
@@ -112,10 +116,12 @@ describe("a frame's size in the inspector", () => {
   })
 
   it("puts a fixed width or height back as the frame's size, and anything else as its default", () => {
-    const edit = (style: Record<string, unknown>) => {
+    const edit = (style: NodeStyle) => {
       const shown = frameRootShown(frame, 4)
+
       return frameRootStored({ ...shown, root: { ...shown.root, style: { ...shown.root.style, ...style } } }, 4)
     }
+
     const wider = edit({ width: 200 })
     expect(wider.size).toEqual({ width: 800, height: 400 })
     expect(wider.root.style).not.toHaveProperty("width")
@@ -140,6 +146,7 @@ describe("instances of a component that becomes a frame", () => {
     },
     states: [{ id: "default", name: "Default" }]
   }
+
   const home: ContainerSpec = {
     id: "home",
     name: "Home",
@@ -165,10 +172,17 @@ describe("instances of a component that becomes a frame", () => {
     expect(instanceCount(detached, "badge")).toBe(0)
     expect(findNode(detached.root, "first")).toMatchObject({ type: "layout" })
     const texts: string[] = []
+
     const visit = (node: ContainerSpec["root"]) => {
-      if (node.type === "text") texts.push(node.text)
-      if (node.type === "layout") node.children.forEach(visit)
+      if (node.type === "text") {
+        texts.push(node.text)
+      }
+
+      if (node.type === "layout") {
+        node.children.forEach(visit)
+      }
     }
+
     visit(detached.root)
     expect(texts).toEqual(["Sale", "New"])
   })

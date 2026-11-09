@@ -69,30 +69,40 @@ export class LayerSnapping implements LayerSnapStart {
     const element = findNodeElement(host, layer)
     const around = element?.offsetParent
     const own = nodeBox(host, layer)
-    if (!location || !parent || !own || !(around instanceof HTMLElement)) return undefined
+
+    if (!location || !parent || !own || !(around instanceof HTMLElement)) {
+      return undefined
+    }
+
     const origin = host.getBoundingClientRect()
+
     const toBox = (rect: DOMRect): SnapBox => ({
       x: (rect.left - origin.left) / scale,
       y: (rect.top - origin.top) / scale,
       w: rect.width / scale,
       h: rect.height / scale
     })
+
     const siblings = (childEntries(parent).find((entry) => entry.slot === location.slot)?.nodes ?? [])
       .filter((node) => node.id !== layer)
       .flatMap((node) => {
         const rect = nodeBox(host, node.id)
+
         return rect && (rect.width > 0 || rect.height > 0) ? [toBox(rect)] : []
       })
+
     const style = getComputedStyle(around)
     // The border is in the frame's own pixels, as the boxes are.
     const border = (side: string) => parseFloat(style.getPropertyValue(`border-${side}-width`)) || 0
     const outer = toBox(around.getBoundingClientRect())
+
     const inner = {
       x: outer.x + border("left"),
       y: outer.y + border("top"),
       w: outer.w - border("left") - border("right"),
       h: outer.h - border("top") - border("bottom")
     }
+
     // The siblings stay where they are through the gesture, so where they'd space the layer evenly is kept.
     return new LayerSnapping(editor, host, scale, toBox(own), {
       siblings,
@@ -110,22 +120,32 @@ export class LayerSnapping implements LayerSnapStart {
   show(snapped: LayerSnapped | undefined): void {
     if (!snapped) {
       this.clear()
+
       return
     }
+
     const origin = this.host.getBoundingClientRect()
+
     const client = (point: SnapPoint) => ({
       x: origin.left + point.x * this.scale,
       y: origin.top + point.y * this.scale
     })
+
     measures = snapped.distances.map(({ from, to, length }) => ({ from: client(from), to: client(to), length }))
     const editor = this.editor
-    if (!editor) return
+
+    if (!editor) {
+      return
+    }
+
     const page = (point: SnapPoint) => editor.screenToPage(client(point))
+
     const line = (guide: SnapGuide): PointsSnapIndicator => ({
       id: `layer-snap-${guide.axis}`,
       type: "points",
       points: [page(guide.from), page(guide.to)]
     })
+
     const marks = (spacing: SnapSpacing): GapsSnapIndicator => ({
       id: `layer-spacing-${spacing.axis}`,
       type: "gaps",
@@ -135,12 +155,16 @@ export class LayerSnapping implements LayerSnapStart {
         endEdge: [page(gap.end[0]), page(gap.end[1])]
       }))
     })
+
     editor.snaps.setIndicators([...snapped.guides.map(line), ...snapped.spacing.map(marks)])
   }
 
   /** Takes the guides and distances away, when the gesture ends, however it ends, or moves freely. */
   clear(): void {
     measures = []
-    if (this.editor) clearSnaps(this.editor)
+
+    if (this.editor) {
+      clearSnaps(this.editor)
+    }
   }
 }

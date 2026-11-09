@@ -69,13 +69,18 @@ export function normalizeRoot(path: string): string {
   const windows = /^(?:[A-Za-z]:|[\\/]{2})/.test(path)
   let normal = windows ? path.replaceAll("\\", "/") : path
   normal = normal.replace(/(?<!^)\/{2,}/g, "/")
-  if (normal.length > 1 && !/^[A-Za-z]:\/$/.test(normal)) normal = normal.replace(/\/+$/, "")
+
+  if (normal.length > 1 && !/^[A-Za-z]:\/$/.test(normal)) {
+    normal = normal.replace(/\/+$/, "")
+  }
+
   return windows ? normal.toLowerCase() : normal
 }
 
 /** The tab a reference names: its id, then its project folder, then its name. */
 export function matchTab<T extends Omit<RoutedTab, "active">>(tabs: readonly T[], reference: string): T | undefined {
   const root = normalizeRoot(reference)
+
   return (
     tabs.find((tab) => tab.id === reference) ??
     tabs.find((tab) => normalizeRoot(tab.root) === root) ??
@@ -95,18 +100,26 @@ export function projectFor<T extends Pick<RoutedTab, "root">>(
 ): T | undefined {
   const inside = normalizeRoot(real(folder))
   let best: T | undefined
+
   for (const tab of tabs) {
     const root = normalizeRoot(real(tab.root))
     const holds = inside === root || inside.startsWith(root.endsWith("/") ? root : `${root}/`)
-    if (holds && (!best || root.length > normalizeRoot(real(best.root)).length)) best = tab
+
+    if (holds && (!best || root.length > normalizeRoot(real(best.root)).length)) {
+      best = tab
+    }
   }
+
   return best
 }
 
 /** What an agent's call asks for. */
 export type Request =
-  /** A call on one tab, named by `tab` or else by the folder the agent works in. */
-  | { kind: "tab"; tab?: string; folder: string; real?: (path: string) => string }
+  /**
+   * A call on one tab, named by `tab` or else by the folder the agent works in. With `anyCopy`, a call that names no
+   * tab goes to the copy the person used last when no project is open anywhere, as a report does (PAR-646).
+   */
+  | { kind: "tab"; tab?: string; folder: string; real?: (path: string) => string; anyCopy?: boolean }
   /** Opening a project: the copy that has it open already, or else the one the person used last. */
   | { kind: "open"; root: string }
 
@@ -124,18 +137,28 @@ export type Route<T extends RoutedTab = RoutedTab> =
  */
 export function route<T extends RoutedTab>(copies: readonly Copy<T>[], request: Request): Route<T> {
   const open = openTabs(copies)
+
   if (copies.length === 0) {
     return { kind: "none", code: "not_running", message: "Parity isn't running. Start the app, then try again.", open }
   }
+
   if (request.kind === "open") {
     const holding = holdersOf(copies, request.root)
+
     return { kind: "copy", copy: holding[0]?.copy ?? lastUsed(copies)! }
   }
+
   const reference = request.tab?.trim()
+
   if (reference && reference !== activeTab) {
     const holding = holdersOf(copies, reference)
-    if (holding[0]) return { kind: "copy", copy: holding[0].copy, tab: holding[0].tab }
+
+    if (holding[0]) {
+      return { kind: "copy", copy: holding[0].copy, tab: holding[0].tab }
+    }
+
     const ids = open.map((tab) => tab.id)
+
     return {
       kind: "none",
       code: "unknown_tab",
@@ -143,16 +166,30 @@ export function route<T extends RoutedTab>(copies: readonly Copy<T>[], request: 
       open
     }
   }
+
   if (!reference) {
     const project = projectFor(request.folder, open, request.real)
+
     if (project) {
       const holding = holdersOf(copies, project.root)
-      if (holding[0]) return { kind: "copy", copy: holding[0].copy, tab: holding[0].tab }
+
+      if (holding[0]) {
+        return { kind: "copy", copy: holding[0].copy, tab: holding[0].tab }
+      }
     }
   }
+
   const looking = [...copies].sort(byLastUsed).find((copy) => copy.report.tabs.some((tab) => tab.active))
   const tab = looking?.report.tabs.find((candidate) => candidate.active)
-  if (looking && tab) return { kind: "copy", copy: looking, tab }
+
+  if (looking && tab) {
+    return { kind: "copy", copy: looking, tab }
+  }
+
+  if (!reference && request.anyCopy && open.length === 0) {
+    return { kind: "copy", copy: lastUsed(copies)! }
+  }
+
   return { kind: "none", code: "unknown_tab", message: "No project is open in Parity", open }
 }
 
@@ -164,13 +201,19 @@ export function openTabs<T extends RoutedTab>(copies: readonly Copy<T>[]): T[] {
   const looking = [...copies].sort(byLastUsed).find((copy) => copy.report.tabs.some((tab) => tab.active))
   const shown = looking?.report.tabs.find((tab) => tab.active)
   const tabs = new Map<string, T>()
+
   for (const copy of [...copies].sort(byAge)) {
     for (const tab of copy.report.tabs) {
       const key = normalizeRoot(tab.root)
-      if (tabs.has(key)) continue
+
+      if (tabs.has(key)) {
+        continue
+      }
+
       tabs.set(key, { ...tab, active: !!shown && normalizeRoot(shown.root) === key })
     }
   }
+
   return [...tabs.values()]
 }
 
@@ -178,6 +221,7 @@ export function openTabs<T extends RoutedTab>(copies: readonly Copy<T>[]): T[] {
 function holdersOf<T extends RoutedTab>(copies: readonly Copy<T>[], reference: string): { copy: Copy<T>; tab: T }[] {
   return [...copies].sort(byAge).flatMap((copy) => {
     const tab = matchTab(copy.report.tabs, reference)
+
     return tab ? [{ copy, tab }] : []
   })
 }

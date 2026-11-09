@@ -5,14 +5,17 @@ import { turns } from "./turns.ts"
 function held(log: string[], name: string) {
   let release!: () => void
   let fail!: (error: Error) => void
+
   const done = new Promise<void>((resolve, reject) => {
     release = resolve
     fail = reject
   })
+
   return {
     task: async () => {
       log.push(name)
       await done
+
       return name
     },
     release: () => release(),

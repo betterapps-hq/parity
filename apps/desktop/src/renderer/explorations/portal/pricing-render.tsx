@@ -41,6 +41,7 @@ function PlanCard({ plan, version, compact }: { plan: (typeof plans)[number]; ve
   const team = plan.name === "Team"
   const popular = team && version >= popularTeam
   const badge = team && version < savingInToggle
+
   return (
     <div
       data-mark={team ? "team-card" : undefined}

@@ -1,5 +1,6 @@
 import { BatteryFull, type LucideIcon, Signal, Wifi } from "lucide-react"
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react"
+import { withVariables } from "../parts.tsx"
 import type { Look } from "./data.ts"
 
 /** The sizes designs are drawn at, as the canvas draws a desktop frame and a phone frame. */
@@ -13,6 +14,7 @@ export const phone = { width: 390, height: 844 }
 export function lookVars(look: Look): CSSProperties {
   const h = look.hue
   const c = look.mono ? 0 : 1
+
   const vars = look.dark
     ? {
         "--r-bg": `oklch(0.155 ${0.012 * c} ${h})`,
@@ -46,11 +48,11 @@ export function lookVars(look: Look): CSSProperties {
         "--r-warn": "oklch(0.7 0.16 70)",
         "--r-bad": "oklch(0.6 0.2 25)"
       }
-  return {
-    ...vars,
-    "--r-display": look.serif ? 'Georgia, "Times New Roman", serif' : "inherit",
-    colorScheme: look.dark ? "dark" : "light"
-  } as CSSProperties
+
+  return withVariables(
+    { ...vars, "--r-display": look.serif ? 'Georgia, "Times New Roman", serif' : "inherit" },
+    { colorScheme: look.dark ? "dark" : "light" }
+  )
 }
 
 /** Headings in the look's display face. */
@@ -79,8 +81,10 @@ export function Scaled({
     const element = box.current!
     const observer = new ResizeObserver(() => setScale(element.clientWidth / width))
     observer.observe(element)
+
     return () => observer.disconnect()
   }, [width])
+
   return (
     <div
       ref={box}
@@ -102,6 +106,7 @@ export function Scaled({
 /** The app's mark: its icon on its brand. */
 export function BrandMark({ look, size = 28 }: { look: Look; size?: number }) {
   const Icon = look.icon
+
   return (
     <span
       className="grid shrink-0 place-items-center rounded-[28%] text-(--r-brand-fg)"
@@ -131,6 +136,7 @@ export function Face({ name, hue, size = 32 }: { name: string; hue: number; size
     .map((part) => part[0])
     .join("")
     .slice(0, 2)
+
   return (
     <span
       className="grid shrink-0 place-items-center rounded-full font-semibold"
@@ -151,6 +157,7 @@ export function Face({ name, hue, size = 32 }: { name: string; hue: number; size
 export function plot(values: number[], width: number, height: number): [number, number][] {
   const max = Math.max(...values)
   const min = Math.min(...values)
+
   return values.map((value, index) => [
     (index / (values.length - 1)) * width,
     height - ((value - min) / (max - min || 1)) * height * 0.86 - 2
@@ -160,6 +167,7 @@ export function plot(values: number[], width: number, height: number): [number, 
 /** A smooth line through points, as charting libraries draw them. */
 export function curve(points: [number, number][]): string {
   let path = `M${points[0]![0]},${points[0]![1]}`
+
   for (let index = 0; index < points.length - 1; index++) {
     const [x0, y0] = points[index - 1] ?? points[index]!
     const [x1, y1] = points[index]!
@@ -167,6 +175,7 @@ export function curve(points: [number, number][]): string {
     const [x3, y3] = points[index + 2] ?? points[index + 1]!
     path += ` C${x1 + (x2 - x0) / 6},${y1 + (y2 - y0) / 6} ${x2 - (x3 - x1) / 6},${y2 - (y3 - y1) / 6} ${x2},${y2}`
   }
+
   return path
 }
 

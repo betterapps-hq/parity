@@ -7,6 +7,7 @@ const laptop = { width: 1280, height: 800 }
 /** Whether a media query holds in a frame, with the real window saying yes to `hover` and no to anything else. */
 function matches(query: string, viewport: { width: number; height: number }): boolean | undefined {
   const parsed = sizeQuery(query)
+
   return parsed && matchesQuery(parsed, viewport, (condition) => condition === "(hover: hover)")
 }
 

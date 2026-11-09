@@ -15,6 +15,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const swatches = ["oklch(0.637 0.237 25.331)", "oklch(0.705 0.213 47.604)", "oklch(0.723 0.219 149.579)"]
@@ -63,6 +64,7 @@ export const ButtonCopied: Story = {
   play: async ({ canvasElement }) => {
     // Stands in for the clipboard while the checks run, then puts it back so the story copies for real.
     const writes = spyOn(navigator.clipboard, "writeText").mockResolvedValue()
+
     try {
       const button = within(canvasElement).getByRole("button", { name: "Copy --radius-md" })
       await userEvent.click(button)
@@ -79,6 +81,7 @@ export const ClickCopied: Story = {
   render: () => <Sheet />,
   play: async ({ canvasElement }) => {
     const writes = spyOn(navigator.clipboard, "writeText").mockResolvedValue()
+
     try {
       await userEvent.click(within(canvasElement).getByRole("button", { name: `Copy ${swatches[1]}` }))
       await expect(writes).toHaveBeenLastCalledWith(swatches[1])
@@ -96,6 +99,7 @@ export const Refused: Story = {
     const writes = spyOn(navigator.clipboard, "writeText").mockRejectedValue(new Error("Document is not focused."))
     // The fallback, copying from a hidden field, refuses too.
     const fallback = spyOn(document, "execCommand").mockReturnValue(false)
+
     try {
       const button = within(canvasElement).getByRole("button", { name: "Copy --radius-md" })
       await userEvent.click(button)

@@ -19,9 +19,14 @@ export function UnsavedPrompt() {
   const saveRef = useRef<HTMLButtonElement>(null)
   // Keeps the last question's wording while the dialog fades out once it's answered.
   const [shown, setShown] = useState(question)
-  if (question && question !== shown) setShown(question)
+
+  if (question && question !== shown) {
+    setShown(question)
+  }
+
   const names = shown?.names ?? []
   const subject = names.length === 1 ? names[0] : `${names.length} projects`
+
   return (
     <Dialog open={!!question} onOpenChange={(open) => !open && question?.answer("cancel")}>
       <DialogContent

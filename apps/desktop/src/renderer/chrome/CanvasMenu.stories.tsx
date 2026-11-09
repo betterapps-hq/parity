@@ -24,14 +24,22 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
+
+/** A point in the window, in CSS pixels from its top left, as pointer events give one. */
+interface ClientPoint {
+  x: number
+  y: number
+}
 
 const body = () => within(document.body)
 const selected = () => example().selection.get()
 
 /** Presses and releases the right button at a point, as the mouse does. */
-function pressRight(point: { x: number; y: number }): void {
+function pressRight(point: ClientPoint): void {
   const target = document.elementFromPoint(point.x, point.y) ?? document.body
+
   const init = {
     bubbles: true,
     cancelable: true,
@@ -43,39 +51,52 @@ function pressRight(point: { x: number; y: number }): void {
     pointerType: "mouse",
     isPrimary: true
   }
+
   target.dispatchEvent(new PointerEvent("pointerdown", { ...init, buttons: 2 }))
   target.dispatchEvent(new PointerEvent("pointerup", { ...init, buttons: 0 }))
 }
 
 /** Right-clicks at a point, and waits for the menu tldraw opens once the button comes up. */
-async function rightClick(point: { x: number; y: number }): Promise<HTMLElement> {
+async function rightClick(point: ClientPoint): Promise<HTMLElement> {
   pressRight(point)
+
   return body().findByRole("menu", { name: "Canvas" })
 }
 
 /** The middle of a layer of the example, as its first frame draws it. */
-function middleOf(designName: string, layerName: string): { x: number; y: number } {
+function middleOf(designName: string, layerName: string): ClientPoint {
   const box = layerElement(designName, layerName).getBoundingClientRect()
+
   return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
 }
 
 /** A point on the canvas left of a design, clear of every design. */
-function leftOf(designName: string): { x: number; y: number } {
+function leftOf(designName: string): ClientPoint {
   const board = document.querySelector(`[data-design="${CSS.escape(design(designName))}"]`)?.getBoundingClientRect()
   const canvas = document.querySelector(".canvas-area")?.getBoundingClientRect()
-  if (!board || !canvas) throw new Error(`${designName} isn't on the canvas`)
+
+  if (!board || !canvas) {
+    throw new Error(`${designName} isn't on the canvas`)
+  }
+
   return { x: (canvas.left + board.left) / 2, y: board.top + board.height / 2 }
 }
 
 /** What a menu lists: each item's name, `(unavailable)` after one that is, and `---` between sections. */
 function items(menu: HTMLElement): string[] {
   return [...menu.querySelectorAll(":scope > [role=menuitem], :scope > [role=separator]")].map((item) => {
-    if (item.getAttribute("role") === "separator") return "---"
+    if (item.getAttribute("role") === "separator") {
+      return "---"
+    }
+
     const name = [...item.childNodes]
-      .filter((child) => !(child instanceof Element && child.matches("[data-slot=context-menu-shortcut], svg")))
-      .map((child) => child.textContent)
+      // A shortcut or icon inside an item isn't part of its name.
+      .flatMap((child) =>
+        child instanceof Element && child.matches("[data-slot=context-menu-shortcut], svg") ? [] : [child.textContent]
+      )
       .join("")
       .trim()
+
     return item.hasAttribute("data-disabled") ? `${name} (unavailable)` : name
   })
 }
@@ -83,6 +104,7 @@ function items(menu: HTMLElement): string[] {
 /** The keys an item of a menu shows. */
 function keysOf(menu: HTMLElement, name: string): string | undefined {
   const item = within(menu).getByRole("menuitem", { name: new RegExp(`^${name}`) })
+
   return item.querySelector("[data-slot=context-menu-shortcut]")?.textContent ?? undefined
 }
 
@@ -206,11 +228,17 @@ export const NewScreenHere: Story = onCanvas(["Pricing"], undefined, async () =>
   // Where the right-click was on the page, as the item reads it; the camera may still be settling from framing Pricing.
   const page = example().editor!.screenToPage(point)
   await userEvent.click(within(menu).getByRole("menuitem", { name: /^New screen/ }))
+
   const made = await waitFor(() => {
     const found = example().store.getEntry(selected().design ?? "")?.container
-    if (found?.name !== "Untitled screen") throw new Error("No new screen is selected")
+
+    if (found?.name !== "Untitled screen") {
+      throw new Error("No new screen is selected")
+    }
+
     return found
   })
+
   await expect(Math.abs(made.position.x - page.x)).toBeLessThan(8)
   await expect(Math.abs(made.position.y - page.y)).toBeLessThan(8)
 })

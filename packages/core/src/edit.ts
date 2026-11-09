@@ -1,4 +1,4 @@
-import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, PatchUnset, StateSpec } from "./document.ts"
+import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, PatchUnset, PropValues, StateSpec } from "./document.ts"
 import { alternativeLimit, closest, CodedError } from "./errors.ts"
 import { uniqueId } from "./modes.ts"
 import {
@@ -28,9 +28,14 @@ export interface NodeLocation {
  * layers it fills its component's slots with.
  */
 export function childEntries(node: DesignNode): { slot?: string; nodes: DesignNode[] }[] {
-  if (node.type === "layout") return [{ nodes: node.children }]
-  if (node.type === "component" || node.type === "instance")
+  if (node.type === "layout") {
+    return [{ nodes: node.children }]
+  }
+
+  if (node.type === "component" || node.type === "instance") {
     return Object.entries(node.slots ?? {}).map(([slot, nodes]) => ({ slot, nodes }))
+  }
+
   return []
 }
 
@@ -45,15 +50,23 @@ export function locateNode(root: DesignNode, id: string): NodeLocation | undefin
     slot: string | undefined,
     index: number
   ): NodeLocation | undefined => {
-    if (node.id === id) return { node, ancestors, slot, index }
+    if (node.id === id) {
+      return { node, ancestors, slot, index }
+    }
+
     for (const entry of childEntries(node)) {
       for (const [childIndex, child] of entry.nodes.entries()) {
         const found: NodeLocation | undefined = search(child, [...ancestors, node], entry.slot, childIndex)
-        if (found) return found
+
+        if (found) {
+          return found
+        }
       }
     }
+
     return undefined
   }
+
   return search(root, [], undefined, 0)
 }
 
@@ -63,11 +76,17 @@ export function findNode(root: DesignNode, id: string): DesignNode | undefined {
 
 export function nodeIds(root: DesignNode): Set<string> {
   const ids = new Set<string>()
+
   const visit = (node: DesignNode) => {
     ids.add(node.id)
-    for (const child of childNodes(node)) visit(child)
+
+    for (const child of childNodes(node)) {
+      visit(child)
+    }
   }
+
   visit(root)
+
   return ids
 }
 
@@ -76,11 +95,26 @@ export function nodeIds(root: DesignNode): Set<string> {
  * `designName` knows it, and by the design's id otherwise.
  */
 export function nodeLabel(node: DesignNode, designName?: (id: string) => string | undefined): string {
-  if (node.name) return node.name
-  if (node.type === "component") return node.component
-  if (node.type === "instance") return designName?.(node.design) ?? node.design
-  if (node.type === "text") return node.text.length > 40 ? `${node.text.slice(0, 40)}…` : node.text
-  if (node.type === "image") return node.alt || "Image"
+  if (node.name) {
+    return node.name
+  }
+
+  if (node.type === "component") {
+    return node.component
+  }
+
+  if (node.type === "instance") {
+    return designName?.(node.design) ?? node.design
+  }
+
+  if (node.type === "text") {
+    return node.text.length > 40 ? `${node.text.slice(0, 40)}…` : node.text
+  }
+
+  if (node.type === "image") {
+    return node.alt || "Image"
+  }
+
   return node.style?.direction === "row" ? "Row" : "Column"
 }
 
@@ -95,37 +129,56 @@ export function mapNode(
 ): DesignNode {
   if (root.id === id) {
     const next = update(root)
-    if (!next) throw new Error("The root of a design can't be removed")
+
+    if (!next) {
+      throw new Error("The root of a design can't be removed")
+    }
+
     return next
   }
+
   const visit = (node: DesignNode): DesignNode | undefined => {
-    if (node.id === id) return update(node)
+    if (node.id === id) {
+      return update(node)
+    }
+
     if (node.type === "layout") {
       const children = mapChildren(node.children, visit)
+
       return children === node.children ? node : { ...node, children }
     }
+
     if ((node.type === "component" || node.type === "instance") && node.slots) {
       let changed = false
       const slots: Record<string, DesignNode[]> = {}
+
       for (const [slot, nodes] of Object.entries(node.slots)) {
         slots[slot] = mapChildren(nodes, visit)
         changed ||= slots[slot] !== nodes
       }
+
       return changed ? { ...node, slots } : node
     }
+
     return node
   }
+
   return visit(root)!
 }
 
 function mapChildren(nodes: DesignNode[], visit: (node: DesignNode) => DesignNode | undefined): DesignNode[] {
   let changed = false
   const next: DesignNode[] = []
+
   for (const node of nodes) {
     const mapped = visit(node)
     changed ||= mapped !== node
-    if (mapped) next.push(mapped)
+
+    if (mapped) {
+      next.push(mapped)
+    }
   }
+
   return changed ? next : nodes
 }
 
@@ -140,33 +193,57 @@ export function insertNode(
   options: { index?: number; slot?: string } = {}
 ): DesignNode {
   const taken = nodeIds(root)
+
   for (const id of nodeIds(node)) {
-    if (taken.has(id)) throw new Error(`A node with id "${id}" already exists in this design`)
+    if (taken.has(id)) {
+      throw new Error(`A node with id "${id}" already exists in this design`)
+    }
   }
+
   const at = (list: DesignNode[]) => {
     const index = Math.max(0, Math.min(options.index ?? list.length, list.length))
+
     return [...list.slice(0, index), node, ...list.slice(index)]
   }
+
   let found = false
+
   const next = mapNode(root, parentId, (parent) => {
     found = true
-    if (parent.type === "layout") return { ...parent, children: at(parent.children) }
+
+    if (parent.type === "layout") {
+      return { ...parent, children: at(parent.children) }
+    }
+
     if (parent.type === "component") {
       const slot = options.slot ?? "children"
+
       return { ...parent, slots: { ...parent.slots, [slot]: at(parent.slots?.[slot] ?? []) } }
     }
+
     if (parent.type === "instance") {
-      if (!options.slot) throw new Error(`Say which of "${parentId}"'s slots to fill`)
+      if (!options.slot) {
+        throw new Error(`Say which of "${parentId}"'s slots to fill`)
+      }
+
       return { ...parent, slots: { ...parent.slots, [options.slot]: at(parent.slots?.[options.slot] ?? []) } }
     }
+
     throw new Error(`"${parentId}" is a ${parent.type} node and can't contain other nodes`)
   })
-  if (!found) throw new Error(`No node "${parentId}" in this design`)
+
+  if (!found) {
+    throw new Error(`No node "${parentId}" in this design`)
+  }
+
   return next
 }
 
 export function removeNode(root: DesignNode, id: string): DesignNode {
-  if (!locateNode(root, id)) throw new Error(`No node "${id}" in this design`)
+  if (!locateNode(root, id)) {
+    throw new Error(`No node "${id}" in this design`)
+  }
+
   return mapNode(root, id, () => undefined)
 }
 
@@ -178,13 +255,27 @@ export function moveNode(
   options: { index?: number; slot?: string } = {}
 ): DesignNode {
   const location = locateNode(root, id)
-  if (!location) throw new Error(`No node "${id}" in this design`)
-  if (location.ancestors.length === 0) throw new Error("The root of a design can't be moved")
-  if (findNode(location.node, parentId)) throw new Error("A node can't be moved inside itself")
+
+  if (!location) {
+    throw new Error(`No node "${id}" in this design`)
+  }
+
+  if (location.ancestors.length === 0) {
+    throw new Error("The root of a design can't be moved")
+  }
+
+  if (findNode(location.node, parentId)) {
+    throw new Error("A node can't be moved inside itself")
+  }
+
   const parent = location.ancestors.at(-1)!
   let index = options.index
+
   // Removing the node first shifts later siblings in the same list up by one.
-  if (index !== undefined && parent.id === parentId && location.slot === options.slot && location.index < index) index--
+  if (index !== undefined && parent.id === parentId && location.slot === options.slot && location.index < index) {
+    index--
+  }
+
   return insertNode(removeNode(root, id), parentId, location.node, { index, slot: options.slot })
 }
 
@@ -194,8 +285,14 @@ const idAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567
 export function generateId(taken: ReadonlySet<string>, length = 5): string {
   for (;;) {
     let id = idAlphabet[Math.floor(Math.random() * 52)]!
-    while (id.length < length) id += idAlphabet[Math.floor(Math.random() * idAlphabet.length)]
-    if (!taken.has(id)) return id
+
+    while (id.length < length) {
+      id += idAlphabet[Math.floor(Math.random() * idAlphabet.length)]
+    }
+
+    if (!taken.has(id)) {
+      return id
+    }
   }
 }
 
@@ -203,17 +300,24 @@ export function generateId(taken: ReadonlySet<string>, length = 5): string {
 export function withFreshIds(node: DesignNode, taken: Set<string>): DesignNode {
   const id = generateId(taken)
   taken.add(id)
+
   if (node.type === "layout") {
     // A copy is a plain layout, keeping the slot's placeholder content: a component has one slot by each name.
     const { slot: _slot, ...layout } = node
+
     return { ...layout, id, children: node.children.map((child) => withFreshIds(child, taken)) }
   }
+
   if ((node.type === "component" || node.type === "instance") && node.slots) {
     const slots: Record<string, DesignNode[]> = {}
-    for (const [slot, nodes] of Object.entries(node.slots))
+
+    for (const [slot, nodes] of Object.entries(node.slots)) {
       slots[slot] = nodes.map((child) => withFreshIds(child, taken))
+    }
+
     return { ...node, id, slots }
   }
+
   return { ...node, id }
 }
 
@@ -230,16 +334,25 @@ export function isBaseState(container: ContainerSpec, stateId: string): boolean 
  */
 export function findState(container: ContainerSpec, stateId: string): StateSpec {
   const state = container.states.find((candidate) => candidate.id === stateId)
-  if (state) return state
+
+  if (state) {
+    return state
+  }
+
   const wanted = stateId.trim().toLowerCase()
   const named = container.states.filter((candidate) => candidate.name.trim().toLowerCase() === wanted)
   const listed = container.states.map((candidate) => `${candidate.id} (${candidate.name})`).join(", ")
   let hint = ""
-  if (named.length === 1) hint = ` "${stateId}" is the name of state "${named[0]!.id}"; use that id.`
+
+  if (named.length === 1) {
+    hint = ` "${stateId}" is the name of state "${named[0]!.id}"; use that id.`
+  }
+
   if (named.length > 1) {
     const ids = named.map((candidate) => `"${candidate.id}"`).join(" and ")
     hint = ` "${stateId}" names ${named.length} states, ${ids}; use the id of the one you mean.`
   }
+
   // The ids a matching name points to lead the alternatives, so an agent reading only those picks the state it meant.
   const ids = container.states.map((candidate) => candidate.id)
   const alternatives = [...new Set([...named.map((candidate) => candidate.id), ...closest(stateId, ids)])]
@@ -273,9 +386,10 @@ export function nodeInState(
   node: DesignNode,
   state: StateSpec | undefined,
   variants: readonly PatchLayer[] = [],
-  args?: Record<string, unknown>
+  args?: PropValues
 ): DesignNode {
   const patch = layeredPatch([...variants, state?.overrides], node.id)
+
   return applyPatch(node, patch, args)
 }
 
@@ -297,8 +411,8 @@ export function nodeOnBoard(container: ContainerSpec, node: DesignNode, state: S
 export interface NodeChange {
   hidden?: boolean
   text?: string
-  props?: Record<string, unknown>
-  style?: { [K in keyof NodeStyle]?: NodeStyle[K] | undefined }
+  props?: PropValues
+  style?: Changes<NodeStyle>
   unset?: PatchUnset
 }
 
@@ -307,7 +421,7 @@ export interface NodeChange {
  * the base state that removes it from the design, as clearing always did; in another state the state turns it off,
  * even where the design sets it. Taking back a state's change is Reset (`resetOverride`).
  */
-export function propChange(name: string, value: unknown): NodeChange {
+export function propChange(name: string, value: PropValues[string]): NodeChange {
   return value === undefined ? { unset: { props: [name] } } : { props: { [name]: value } }
 }
 
@@ -321,7 +435,8 @@ export interface EditTarget {
 }
 
 export function toEditTarget(target: string | EditTarget): EditTarget {
-  return typeof target === "string" ? { state: target } : target
+  // An `EditTarget` is always an object, and a state id a string, which isn't one.
+  return target instanceof Object ? target : { state: target }
 }
 
 /**
@@ -332,6 +447,7 @@ export function boardTarget(container: ContainerSpec, stateId: string): EditTarg
   const shown = variantChoices(container.params, container.view?.variants)
   const defaults = variantChoices(container.params)
   const param = Object.keys(shown).find((name) => shown[name] !== defaults[name])
+
   return param ? { state: stateId, variant: { param, option: shown[param]! } } : { state: stateId }
 }
 
@@ -341,21 +457,33 @@ export function boardTarget(container: ContainerSpec, stateId: string): EditTarg
  */
 export function editTargetName(container: ContainerSpec, target: string | EditTarget): string {
   const { state, variant } = toEditTarget(target)
-  if (variant && isBaseState(container, state)) return findOption(container, variant.param, variant.option).name
+
+  if (variant && isBaseState(container, state)) {
+    return findOption(container, variant.param, variant.option).name
+  }
+
   return findState(container, state).name
 }
 
 /** Whether an edit to `target` changes the design itself, rather than a state's or a variant's patches. */
 export function editsDesign(container: ContainerSpec, target: string | EditTarget): boolean {
   const { state, variant } = toEditTarget(target)
+
   return isBaseState(container, state) && !variant
 }
 
 /** The patches an edit target writes: its state's, or its variant option's. Undefined for the design itself. */
 export function targetPatches(container: ContainerSpec, target: string | EditTarget): PatchLayer {
   const { state, variant } = toEditTarget(target)
-  if (!isBaseState(container, state)) return findState(container, state).overrides
-  if (!variant) return undefined
+
+  if (!isBaseState(container, state)) {
+    return findState(container, state).overrides
+  }
+
+  if (!variant) {
+    return undefined
+  }
+
   return findOption(container, variant.param, variant.option).overrides
 }
 
@@ -367,21 +495,38 @@ export function withTargetPatches(
 ): ContainerSpec {
   const { state: stateId, variant } = toEditTarget(target)
   const overrides = patches && Object.keys(patches).length > 0 ? patches : undefined
-  if (!isBaseState(container, stateId)) return replaceState(container, { ...findState(container, stateId), overrides })
-  if (!variant) throw new Error("The design itself has no patches")
+
+  if (!isBaseState(container, stateId)) {
+    return replaceState(container, { ...findState(container, stateId), overrides })
+  }
+
+  if (!variant) {
+    throw new Error("The design itself has no patches")
+  }
+
   findOption(container, variant.param, variant.option)
   const param = container.params![variant.param]!
+
   const options = param.options!.map((option) => {
-    if (option.id !== variant.option) return option
+    if (option.id !== variant.option) {
+      return option
+    }
+
     const next = { id: option.id, name: option.name }
+
     return overrides ? { ...next, overrides } : next
   })
+
   return { ...container, params: { ...container.params, [variant.param]: { ...param, options } } }
 }
 
 function findOption(container: ContainerSpec, param: string, option: string) {
   const found = container.params?.[param]?.options?.find((candidate) => candidate.id === option)
-  if (!found) throw new Error(`No option "${option}" for ${param} in ${container.name}`)
+
+  if (!found) {
+    throw new Error(`No option "${option}" for ${param} in ${container.name}`)
+  }
+
   return found
 }
 
@@ -396,20 +541,30 @@ export function editNode(
   change: NodeChange
 ): ContainerSpec {
   const base = findNode(container.root, nodeId)
-  if (!base) throw new Error(`No node "${nodeId}" in ${container.name}`)
+
+  if (!base) {
+    throw new Error(`No node "${nodeId}" in ${container.name}`)
+  }
+
   if (editsDesign(container, target)) {
     const root = mapNode(container.root, nodeId, (node) => applyChange(node, change))
+
     return withBoundDefaults({ ...container, root }, base, change)
   }
+
   // A state's or variant's patch is kept against the node as the board shows it, with the params it binds filled in,
   // a state's over the variants shown, which it sits above, and a variant option's over the options before its param.
   const choices = variantChoices(container.params, container.view?.variants)
   const { state, variant } = toEditTarget(target)
   const shown = optionPatches(container.params, choices)
   let variants = shown
-  if (isBaseState(container, state))
+
+  if (isBaseState(container, state)) {
     variants = variant ? shown.slice(0, Object.keys(choices).indexOf(variant.param)) : []
+  }
+
   const under = nodeInState(base, undefined, variants, boardArgs(container.params, choices))
+
   return withTargetPatches(container, target, patchWith(targetPatches(container, target), nodeId, under, change))
 }
 
@@ -420,8 +575,10 @@ export function editNode(
  */
 export function hiddenOnBoard(container: ContainerSpec, stateId: string, ids: readonly string[]): boolean {
   const state = findState(container, stateId)
+
   return ids.every((id) => {
     const node = findNode(container.root, id)
+
     return node ? (nodeOnBoard(container, node, state).hidden ?? false) : false
   })
 }
@@ -432,6 +589,7 @@ export function hiddenOnBoard(container: ContainerSpec, stateId: string, ids: re
  */
 export function toggleHidden(container: ContainerSpec, stateId: string, ids: readonly string[]): ContainerSpec {
   const hide = !hiddenOnBoard(container, stateId, ids)
+
   return ids.reduce((next, id) => editNode(next, boardTarget(next, stateId), id, { hidden: hide }), container)
 }
 
@@ -443,22 +601,52 @@ export function toggleHidden(container: ContainerSpec, stateId: string, ids: rea
 function withBoundDefaults(container: ContainerSpec, node: DesignNode, change: NodeChange): ContainerSpec {
   const bind = node.bind
   const params = container.params
-  if (!bind || !params) return container
-  const values: [param: string, value: unknown][] = []
-  if (Object.hasOwn(change, "text") && bind.text && change.text !== undefined) values.push([bind.text, change.text])
-  if (Object.hasOwn(change, "hidden") && bind.visible) values.push([bind.visible, !change.hidden])
-  for (const [prop, param] of Object.entries(bind.props ?? {})) {
-    if (change.props && Object.hasOwn(change.props, prop)) values.push([param, change.props[prop]])
+
+  if (!bind || !params) {
+    return container
   }
+
+  const values: [param: string, value: unknown][] = []
+
+  if (Object.hasOwn(change, "text") && bind.text && change.text !== undefined) {
+    values.push([bind.text, change.text])
+  }
+
+  if (Object.hasOwn(change, "hidden") && bind.visible) {
+    values.push([bind.visible, !change.hidden])
+  }
+
+  for (const [prop, param] of Object.entries(bind.props ?? {})) {
+    if (change.props && Object.hasOwn(change.props, prop)) {
+      values.push([param, change.props[prop]])
+    }
+  }
+
   let next = params
+
   for (const [name, value] of values) {
     const param = next[name]
-    if (!param || param.type === "variant" || param.default === undefined || sameValue(param.default, value)) continue
+
+    if (!param || param.type === "variant" || param.default === undefined || sameValue(param.default, value)) {
+      continue
+    }
+
     const updated = { ...param }
-    if (value === undefined) delete updated.default
-    else updated.default = value
-    next = { ...next, [name]: updated }
+
+    if (value === undefined) {
+      delete updated.default
+    } else {
+      updated.default = value
+    }
+
+    // Copied once, on the first default that changes, so a design whose defaults all stay is returned as it was.
+    if (next === params) {
+      next = { ...params }
+    }
+
+    next[name] = updated
   }
+
   return next === params ? container : { ...container, params: next }
 }
 
@@ -473,28 +661,43 @@ export function patchWith(
   change: NodeChange
 ): Record<string, NodePatch> | undefined {
   const patch: NodePatch = { ...patches?.[key] }
+
   if (Object.hasOwn(change, "hidden")) {
     patch.hidden = change.hidden === undefined || change.hidden === (under.hidden ?? false) ? undefined : change.hidden
   }
+
   if (Object.hasOwn(change, "text")) {
     patch.text =
       change.text === undefined || (under.type === "text" && change.text === under.text) ? undefined : change.text
   }
+
   if (change.props) {
-    let baseProps: Record<string, unknown> = {}
-    if (under.type === "component") baseProps = under.props ?? {}
-    else if (under.type === "instance") baseProps = under.args ?? {}
-    patch.props = mergeValues(patch.props, change.props, baseProps)
+    patch.props = mergeValues<PropValues>(patch.props, change.props, ownProps(under))
   }
-  if (change.style) patch.style = mergeValues(patch.style as Values, change.style, (under.style ?? {}) as Values)
+
+  if (change.style) {
+    patch.style = mergeValues<NodeStyle>(patch.style, change.style, under.style ?? {})
+  }
+
   if (patch.unset || change.unset) {
     patch.unset = unsetWith(patch, under, change)
+
     // What's taken away isn't also set.
-    if (change.unset?.props) patch.props = without(patch.props, change.unset.props)
-    if (change.unset?.style) patch.style = without(patch.style, change.unset.style)
+    if (change.unset?.props) {
+      patch.props = without(patch.props, change.unset.props)
+    }
+
+    if (change.unset?.style) {
+      patch.style = without(patch.style, change.unset.style)
+    }
   }
+
   const next = { ...patches, [key]: tidyPatch(patch) }
-  if (patchSize(next[key]!) === 0) delete next[key]
+
+  if (patchSize(next[key]!) === 0) {
+    delete next[key]
+  }
+
   return Object.keys(next).length > 0 ? next : undefined
 }
 
@@ -504,36 +707,85 @@ export function patchWith(
  * shows as taken away already, so there's nothing to keep.
  */
 function unsetWith(patch: NodePatch, under: DesignNode, change: NodeChange): PatchUnset | undefined {
-  let baseProps: Record<string, unknown> = {}
-  if (under.type === "component") baseProps = under.props ?? {}
-  else if (under.type === "instance") baseProps = under.args ?? {}
+  // Each takes the keys the change sets and the keys `under` has, which are all it needs of their values.
   const keys = <K extends string>(
     kept: readonly K[] | undefined,
-    changed: object | undefined,
+    changed: readonly string[],
     taken: readonly K[] | undefined,
-    base: object
+    base: readonly string[]
   ) => {
-    const next = new Set((kept ?? []).filter((key) => !Object.hasOwn(changed ?? {}, key)))
+    const next = new Set((kept ?? []).filter((key) => !changed.includes(key)))
+
     for (const key of taken ?? []) {
-      if (Object.hasOwn(base, key)) next.add(key)
-      else next.delete(key)
+      if (base.includes(key)) {
+        next.add(key)
+      } else {
+        next.delete(key)
+      }
     }
+
     return next.size > 0 ? [...next] : undefined
   }
-  const props = keys(patch.unset?.props, change.props, change.unset?.props, baseProps)
-  const style = keys(patch.unset?.style, change.style, change.unset?.style, under.style ?? {})
-  if (!props && !style) return undefined
-  return { ...(props ? { props } : {}), ...(style ? { style } : {}) }
+
+  const props = keys(
+    patch.unset?.props,
+    Object.keys(change.props ?? {}),
+    change.unset?.props,
+    Object.keys(ownProps(under))
+  )
+
+  const style = keys(
+    patch.unset?.style,
+    Object.keys(change.style ?? {}),
+    change.unset?.style,
+    Object.keys(under.style ?? {})
+  )
+
+  return unsetOf(props, style)
+}
+
+/** What a patch takes away: these props and style keys, or nothing when there are none. */
+function unsetOf(props: PatchUnset["props"], style: PatchUnset["style"]): PatchUnset | undefined {
+  if (!props && !style) {
+    return undefined
+  }
+
+  const unset: PatchUnset = {}
+
+  if (props) {
+    unset.props = props
+  }
+
+  if (style) {
+    unset.style = style
+  }
+
+  return unset
+}
+
+/** The props a node sets itself: a component's props, or an instance's args. Other nodes have none. */
+function ownProps(node: DesignNode): PropValues {
+  if (node.type === "component") {
+    return node.props ?? {}
+  }
+
+  return node.type === "instance" ? (node.args ?? {}) : {}
 }
 
 /** Whether a patch changes a field: sets it, or for a prop or style key, takes it away. */
 export function changesField(patch: NodePatch | undefined, field: PatchField): boolean {
-  if (!patch) return false
-  if (field.kind === "props" || field.kind === "style") {
-    const values: Values = { ...patch[field.kind] }
-    const unset: readonly string[] = patch.unset?.[field.kind] ?? []
-    return values[field.key] !== undefined || unset.includes(field.key)
+  if (!patch) {
+    return false
   }
+
+  if (field.kind === "props" || field.kind === "style") {
+    const unset: readonly string[] = patch.unset?.[field.kind] ?? []
+
+    const set = Object.entries(patch[field.kind] ?? {}).some(([key, value]) => key === field.key && value !== undefined)
+
+    return set || unset.includes(field.key)
+  }
+
   return patch[field.kind] !== undefined
 }
 
@@ -543,31 +795,54 @@ export type PatchField = { kind: "hidden" | "text" } | { kind: "props" | "style"
 /** Drops a node's patch among `patches`, or one field of it. */
 export function patchWithout(patches: PatchLayer, key: string, field?: PatchField): PatchLayer {
   const existing = patches?.[key]
-  if (!existing) return patches
+
+  if (!existing) {
+    return patches
+  }
+
   const next = { ...patches }
-  if (!field) delete next[key]
-  else {
+
+  if (!field) {
+    delete next[key]
+  } else {
     const patch: NodePatch = { ...existing }
+
     if (field.kind === "props") {
       patch.props = without(patch.props, [field.key])
       patch.unset = withoutUnset(patch.unset, "props", field.key)
     } else if (field.kind === "style") {
       patch.style = without(patch.style, [field.key])
       patch.unset = withoutUnset(patch.unset, "style", field.key)
-    } else delete patch[field.kind]
+    } else {
+      delete patch[field.kind]
+    }
+
     next[key] = tidyPatch(patch)
-    if (patchSize(next[key]!) === 0) delete next[key]
+
+    if (patchSize(next[key]!) === 0) {
+      delete next[key]
+    }
   }
+
   return Object.keys(next).length > 0 ? next : undefined
 }
 
 /** What a patch takes away, less one key. */
 function withoutUnset(unset: PatchUnset | undefined, kind: keyof PatchUnset, key: string): PatchUnset | undefined {
   const keys: readonly string[] = unset?.[kind] ?? []
-  if (!unset || !keys.includes(key)) return unset
+
+  if (!unset || !keys.includes(key)) {
+    return unset
+  }
+
   const next: PatchUnset = { ...unset }
-  if (kind === "props") next.props = unset.props!.filter((name) => name !== key)
-  else next.style = unset.style!.filter((name) => name !== key)
+
+  if (kind === "props") {
+    next.props = unset.props!.filter((name) => name !== key)
+  } else {
+    next.style = unset.style!.filter((name) => name !== key)
+  }
+
   return next
 }
 
@@ -578,128 +853,240 @@ export function resetOverride(
   nodeId: string,
   field?: PatchField
 ): ContainerSpec {
-  if (editsDesign(container, target)) return container
+  if (editsDesign(container, target)) {
+    return container
+  }
+
   const patches = targetPatches(container, target)
   const next = patchWithout(patches, nodeId, field)
+
   return next === patches ? container : withTargetPatches(container, target, next)
 }
 
 function applyChange(node: DesignNode, change: NodeChange): DesignNode {
-  const next = { ...node } as DesignNode & Record<string, unknown>
+  const next: DesignNode = { ...node }
+
   if (Object.hasOwn(change, "hidden")) {
-    if (change.hidden) next.hidden = true
-    else delete next.hidden
+    if (change.hidden) {
+      next.hidden = true
+    } else {
+      delete next.hidden
+    }
   }
-  if (Object.hasOwn(change, "text") && next.type === "text" && change.text !== undefined) next.text = change.text
-  if (change.props && next.type === "component") next.props = mergeValues(next.props, change.props, {})
-  if (change.props && next.type === "instance") next.args = mergeValues(next.args, change.props, {})
-  if (change.style) next.style = mergeValues(next.style as Values, change.style, {})
+
+  if (Object.hasOwn(change, "text") && next.type === "text" && change.text !== undefined) {
+    next.text = change.text
+  }
+
+  if (change.props && next.type === "component") {
+    next.props = mergeValues<PropValues>(next.props, change.props, {})
+  }
+
+  if (change.props && next.type === "instance") {
+    next.args = mergeValues<PropValues>(next.args, change.props, {})
+  }
+
+  if (change.style) {
+    next.style = mergeValues<NodeStyle>(next.style, change.style, {})
+  }
+
   // In the design, taking a key away removes it.
   const taken = change.unset
-  if (taken?.props && next.type === "component") next.props = emptyAsUndefined(without(next.props, taken.props))
-  if (taken?.props && next.type === "instance") next.args = emptyAsUndefined(without(next.args, taken.props))
-  if (taken?.style) next.style = emptyAsUndefined(without(next.style, taken.style))
-  if (next.type === "component" && next.props === undefined) delete next.props
-  if (next.type === "instance" && next.args === undefined) delete next.args
-  if (next.style === undefined) delete next.style
+
+  if (taken?.props && next.type === "component") {
+    next.props = emptyAsUndefined(without(next.props, taken.props))
+  }
+
+  if (taken?.props && next.type === "instance") {
+    next.args = emptyAsUndefined(without(next.args, taken.props))
+  }
+
+  if (taken?.style) {
+    next.style = emptyAsUndefined(without(next.style, taken.style))
+  }
+
+  if (next.type === "component" && next.props === undefined) {
+    delete next.props
+  }
+
+  if (next.type === "instance" && next.args === undefined) {
+    delete next.args
+  }
+
+  if (next.style === undefined) {
+    delete next.style
+  }
+
   return next
 }
 
-type Values = Record<string, unknown>
+/** A change to some values by key, as props or style: a key set to `undefined` clears it. */
+type Changes<T> = { [K in keyof T]?: T[K] | undefined }
 
 /** Applies `change` over `current`; undefined clears a key, and a value equal to `base` isn't kept as an override. */
-function mergeValues<T extends object>(current: T | undefined, change: object, base: Values): T | undefined {
-  const next: Values = { ...current }
-  for (const [key, value] of Object.entries(change)) {
-    if (value === undefined || (Object.hasOwn(base, key) && sameValue(base[key], value))) delete next[key]
-    else next[key] = value
+function mergeValues<T extends object>(
+  current: Changes<T> | undefined,
+  change: Changes<T>,
+  base: Changes<T>
+): Changes<T> | undefined {
+  const next: Changes<T> = { ...current }
+
+  for (const key in change) {
+    if (!Object.hasOwn(change, key)) {
+      continue
+    }
+
+    const value = change[key]
+
+    if (value === undefined || (Object.hasOwn(base, key) && sameValue(base[key], value))) {
+      delete next[key]
+    } else {
+      next[key] = value
+    }
   }
-  return Object.keys(next).length > 0 ? (next as T) : undefined
+
+  return Object.keys(next).length > 0 ? next : undefined
 }
 
 function emptyAsUndefined<T extends object>(values: T): T | undefined {
   return Object.keys(values).length > 0 ? values : undefined
 }
 
-function sameValue(a: unknown, b: unknown): boolean {
+function sameValue<T>(a: T, b: T): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
 export function tidyPatch(patch: NodePatch): NodePatch {
   const next: NodePatch = {}
-  if (patch.hidden !== undefined) next.hidden = patch.hidden
-  if (patch.text !== undefined) next.text = patch.text
-  if (patch.props && Object.keys(patch.props).length > 0) next.props = patch.props
-  if (patch.style && Object.keys(patch.style).length > 0) next.style = patch.style
+
+  if (patch.hidden !== undefined) {
+    next.hidden = patch.hidden
+  }
+
+  if (patch.text !== undefined) {
+    next.text = patch.text
+  }
+
+  if (patch.props && Object.keys(patch.props).length > 0) {
+    next.props = patch.props
+  }
+
+  if (patch.style && Object.keys(patch.style).length > 0) {
+    next.style = patch.style
+  }
+
   const props = patch.unset?.props?.length ? patch.unset.props : undefined
   const style = patch.unset?.style?.length ? patch.unset.style : undefined
-  if (props || style) next.unset = { ...(props ? { props } : {}), ...(style ? { style } : {}) }
+
+  const unset = unsetOf(props, style)
+
+  if (unset) {
+    next.unset = unset
+  }
+
   return next
 }
 
 function replaceState(container: ContainerSpec, state: StateSpec): ContainerSpec {
   const next: StateSpec = { id: state.id, name: state.name }
-  if (state.overrides) next.overrides = state.overrides
+
+  if (state.overrides) {
+    next.overrides = state.overrides
+  }
+
   return { ...container, states: container.states.map((candidate) => (candidate.id === state.id ? next : candidate)) }
 }
 
 /** Refuses to give a frame what only screens and components have, such as states and variants, saying why. */
 function refuseOnFrame(container: ContainerSpec, why: string): void {
-  if (container.kind !== "frame") return
+  if (container.kind !== "frame") {
+    return
+  }
+
   throw new CodedError(`${container.name} is a frame, ${why}`, { code: "invalid_input", field: "design" })
 }
 
 const oneState = "which has one state. Make it a screen or a component to add states."
 
-export function addState(container: ContainerSpec, name: string): { container: ContainerSpec; id: string } {
+/** A design with a state or option added, and the new one's id. */
+interface Added {
+  container: ContainerSpec
+  id: string
+}
+
+export function addState(container: ContainerSpec, name: string): Added {
   refuseOnFrame(container, oneState)
+
   const id = uniqueId(
     name,
     container.states.map((state) => state.id)
   )
+
   return { container: { ...container, states: [...container.states, { id, name }] }, id }
 }
 
 export function renameState(container: ContainerSpec, stateId: string, name: string): ContainerSpec {
   const state = findState(container, stateId)
+
   return replaceState(container, { ...state, name })
 }
 
-export function duplicateState(container: ContainerSpec, stateId: string): { container: ContainerSpec; id: string } {
+export function duplicateState(container: ContainerSpec, stateId: string): Added {
   refuseOnFrame(container, oneState)
   const state = findState(container, stateId)
   const name = `${state.name} copy`
+
   const id = uniqueId(
     name,
     container.states.map((candidate) => candidate.id)
   )
+
   const copy: StateSpec = isBaseState(container, stateId) ? { id, name } : { ...structuredClone(state), id, name }
   const index = container.states.indexOf(state)
   const states = [...container.states.slice(0, index + 1), copy, ...container.states.slice(index + 1)]
+
   return { container: { ...container, states }, id }
 }
 
 export function removeState(container: ContainerSpec, stateId: string): ContainerSpec {
-  if (isBaseState(container, stateId)) throw new Error("The base state can't be deleted")
+  if (isBaseState(container, stateId)) {
+    throw new Error("The base state can't be deleted")
+  }
+
   findState(container, stateId)
   const states = container.states.filter((state) => state.id !== stateId)
   const view = container.view?.state === stateId ? { ...container.view, state: states[0]!.id } : container.view
-  return { ...container, states, ...(view ? { view } : {}) }
+
+  const next: ContainerSpec = { ...container, states }
+
+  if (view) {
+    next.view = view
+  }
+
+  return next
 }
 
 /** Moves a state to a new position. The base state stays first. */
 export function moveState(container: ContainerSpec, stateId: string, index: number): ContainerSpec {
-  if (isBaseState(container, stateId)) throw new Error("The base state stays first")
+  if (isBaseState(container, stateId)) {
+    throw new Error("The base state stays first")
+  }
+
   const state = findState(container, stateId)
   const rest = container.states.filter((candidate) => candidate !== state)
   const at = Math.max(1, Math.min(index, rest.length))
+
   return { ...container, states: [...rest.slice(0, at), state, ...rest.slice(at)] }
 }
 
 /** Removes a node from the design and from every state and variant that patches it, or anything inside it. */
 export function deleteNode(container: ContainerSpec, nodeId: string): ContainerSpec {
   const location = locateNode(container.root, nodeId)
-  if (!location) throw new Error(`No node "${nodeId}" in ${container.name}`)
+
+  if (!location) {
+    throw new Error(`No node "${nodeId}" in ${container.name}`)
+  }
+
   return dropPatches({ ...container, root: removeNode(container.root, nodeId) }, nodeIds(location.node))
 }
 
@@ -717,38 +1104,79 @@ export function dropPatches(container: ContainerSpec, removed: ReadonlySet<strin
  */
 export function mapPatches(container: ContainerSpec, rename: (key: string) => string | undefined): ContainerSpec {
   let changed = false
+
   const remap = (patches: PatchLayer): PatchLayer => {
-    if (!patches) return patches
+    if (!patches) {
+      return patches
+    }
+
     const next: Record<string, NodePatch> = {}
+
     for (const [key, patch] of Object.entries(patches)) {
       const renamed = rename(key)
-      if (renamed !== key) changed = true
-      if (renamed !== undefined) next[renamed] = patch
+
+      if (renamed !== key) {
+        changed = true
+      }
+
+      if (renamed !== undefined) {
+        next[renamed] = patch
+      }
     }
+
     return Object.keys(next).length > 0 ? next : undefined
   }
+
   const states = container.states.map((state) => {
     const overrides = remap(state.overrides)
-    if (overrides === state.overrides) return state
+
+    if (overrides === state.overrides) {
+      return state
+    }
+
     const next: StateSpec = { id: state.id, name: state.name }
-    if (overrides) next.overrides = overrides
+
+    if (overrides) {
+      next.overrides = overrides
+    }
+
     return next
   })
+
   const params = container.params && { ...container.params }
+
   for (const [name, param] of Object.entries(params ?? {})) {
-    if (!param.options) continue
+    if (!param.options) {
+      continue
+    }
+
     params![name] = {
       ...param,
       options: param.options.map((option) => {
         const overrides = remap(option.overrides)
-        if (overrides === option.overrides) return option
+
+        if (overrides === option.overrides) {
+          return option
+        }
+
         const next = { id: option.id, name: option.name }
+
         return overrides ? { ...next, overrides } : next
       })
     }
   }
-  if (!changed) return container
-  return { ...container, states, ...(params ? { params } : {}) }
+
+  if (!changed) {
+    return container
+  }
+
+  const next: ContainerSpec = { ...container, states }
+
+  if (params) {
+    next.params = params
+  }
+
+  return next
 }
 
 // Several nodes at once ------------------------------------------------------------------------------------------------
@@ -760,14 +1188,21 @@ export function mapPatches(container: ContainerSpec, rename: (key: string) => st
 export function topmostNodes(root: DesignNode, ids: Iterable<string>): DesignNode[] {
   const wanted = new Set(ids)
   const found: DesignNode[] = []
+
   const visit = (node: DesignNode) => {
     if (wanted.has(node.id)) {
       found.push(node)
+
       return
     }
-    for (const child of childNodes(node)) visit(child)
+
+    for (const child of childNodes(node)) {
+      visit(child)
+    }
   }
+
   visit(root)
+
   return found
 }
 
@@ -782,28 +1217,47 @@ export function moveNodes(
   options: { index?: number; slot?: string } = {}
 ): DesignNode {
   const nodes = topmostNodes(root, ids).filter((node) => node.id !== root.id)
+
   for (const node of nodes) {
-    if (findNode(node, parentId)) throw new Error("A node can't be moved inside itself")
+    if (findNode(node, parentId)) {
+      throw new Error("A node can't be moved inside itself")
+    }
   }
+
   const parent = findNode(root, parentId)
-  if (!parent) throw new Error(`No node "${parentId}" in this design`)
+
+  if (!parent) {
+    throw new Error(`No node "${parentId}" in this design`)
+  }
+
   let index = options.index
+
   if (index !== undefined) {
     let siblings: DesignNode[] = []
-    if (parent.type === "layout") siblings = parent.children
-    else if (parent.type === "component" || parent.type === "instance")
+
+    if (parent.type === "layout") {
+      siblings = parent.children
+    } else if (parent.type === "component" || parent.type === "instance") {
       siblings = parent.slots?.[options.slot ?? "children"] ?? []
+    }
+
     const moving = new Set(nodes.map((node) => node.id))
     index = siblings.slice(0, index).filter((node) => !moving.has(node.id)).length
   }
+
   let next = root
-  for (const node of nodes) next = removeNode(next, node.id)
+
+  for (const node of nodes) {
+    next = removeNode(next, node.id)
+  }
+
   for (const [offset, node] of nodes.entries()) {
     next = insertNode(next, parentId, node, {
       index: index === undefined ? undefined : index + offset,
       slot: options.slot
     })
   }
+
   return next
 }
 
@@ -819,16 +1273,27 @@ export function wrapNodes(
   const nodes = topmostNodes(container.root, ids)
   const first = nodes[0] && locateNode(container.root, nodes[0].id)
   const parent = first?.ancestors.at(-1)
-  if (!first || !parent) throw new Error("Pick layers inside a design to wrap them")
+
+  if (!first || !parent) {
+    throw new Error("Pick layers inside a design to wrap them")
+  }
+
   for (const node of nodes) {
     const location = locateNode(container.root, node.id)
+
     if (location?.ancestors.at(-1)?.id !== parent.id || location.slot !== first.slot) {
       throw new Error("Only layers in the same layout can be wrapped together")
     }
   }
+
   let root = container.root
-  for (const node of nodes) root = removeNode(root, node.id)
+
+  for (const node of nodes) {
+    root = removeNode(root, node.id)
+  }
+
   const wrapper: DesignNode = { type: "layout", ...layout, children: nodes }
+
   return { ...container, root: insertNode(root, parent.id, wrapper, { index: first.index, slot: first.slot }) }
 }
 
@@ -838,14 +1303,27 @@ export function wrapNodes(
  */
 export function unwrapNode(container: ContainerSpec, id: string): ContainerSpec {
   const location = locateNode(container.root, id)
-  if (!location) throw new Error(`No node "${id}" in ${container.name}`)
+
+  if (!location) {
+    throw new Error(`No node "${id}" in ${container.name}`)
+  }
+
   const parent = location.ancestors.at(-1)
-  if (!parent) throw new Error("The root of a design can't be unwrapped")
-  if (location.node.type !== "layout") throw new Error("Only layouts can be unwrapped")
+
+  if (!parent) {
+    throw new Error("The root of a design can't be unwrapped")
+  }
+
+  if (location.node.type !== "layout") {
+    throw new Error("Only layouts can be unwrapped")
+  }
+
   let root = removeNode(container.root, id)
+
   for (const [offset, child] of location.node.children.entries()) {
     root = insertNode(root, parent.id, child, { index: location.index + offset, slot: location.slot })
   }
+
   return dropPatches({ ...container, root }, new Set([id]))
 }
 
@@ -854,35 +1332,45 @@ export function unwrapNode(container: ContainerSpec, id: string): ContainerSpec 
 /** Adds a variant param to a component design, with one option per name. The first option is the default. */
 export function addVariant(container: ContainerSpec, name: string, options: readonly string[]): ContainerSpec {
   refuseOnFrame(container, "which has no variants. Make it a component to add them.")
-  if (container.params?.[name]) throw new Error(`${container.name} already has a param "${name}"`)
-  if (options.length === 0) throw new Error("A variant needs at least one option")
+
+  if (container.params?.[name]) {
+    throw new Error(`${container.name} already has a param "${name}"`)
+  }
+
+  if (options.length === 0) {
+    throw new Error("A variant needs at least one option")
+  }
+
   const ids: string[] = []
+
   const list = options.map((option) => {
     const id = uniqueId(option, ids)
     ids.push(id)
+
     return { id, name: option }
   })
+
   return { ...container, params: { ...container.params, [name]: { type: "variant", options: list } } }
 }
 
 /** Adds an option to a variant, last. */
-export function addVariantOption(
-  container: ContainerSpec,
-  param: string,
-  name: string
-): { container: ContainerSpec; id: string } {
+export function addVariantOption(container: ContainerSpec, param: string, name: string): Added {
   const spec = variantParam(container, param)
+
   const id = uniqueId(
     name,
     spec.options.map((option) => option.id)
   )
+
   const options = [...spec.options, { id, name }]
+
   return { container: { ...container, params: { ...container.params, [param]: { ...spec, options } } }, id }
 }
 
 export function renameVariantOption(container: ContainerSpec, param: string, option: string, name: string) {
   const spec = variantParam(container, param)
   const options = spec.options.map((candidate) => (candidate.id === option ? { ...candidate, name } : candidate))
+
   return { ...container, params: { ...container.params, [param]: { ...spec, options } } }
 }
 
@@ -892,37 +1380,69 @@ export function renameVariantOption(container: ContainerSpec, param: string, opt
  */
 export function removeVariantOption(container: ContainerSpec, param: string, option: string): ContainerSpec {
   const spec = variantParam(container, param)
-  if (spec.options.length === 1) throw new Error("A variant needs at least one option")
+
+  if (spec.options.length === 1) {
+    throw new Error("A variant needs at least one option")
+  }
+
   const next = { ...spec, options: spec.options.filter((candidate) => candidate.id !== option) }
-  if (next.default === option) delete next.default
+
+  if (next.default === option) {
+    delete next.default
+  }
+
   return withoutViewChoice({ ...container, params: { ...container.params, [param]: next } }, param, option)
 }
 
 /** Removes a param. Nodes bound to it show their own values again. */
 export function removeParam(container: ContainerSpec, name: string): ContainerSpec {
-  if (!container.params?.[name]) return container
+  if (!container.params?.[name]) {
+    return container
+  }
+
   const params = { ...container.params }
   delete params[name]
   const next: ContainerSpec = { ...container, params }
-  if (Object.keys(params).length === 0) delete next.params
+
+  if (Object.keys(params).length === 0) {
+    delete next.params
+  }
+
   return withoutViewChoice(next, name)
 }
 
 function withoutViewChoice(container: ContainerSpec, param: string, option?: string): ContainerSpec {
   const choice = container.view?.variants?.[param]
-  if (choice === undefined || (option !== undefined && choice !== option)) return container
+
+  if (choice === undefined || (option !== undefined && choice !== option)) {
+    return container
+  }
+
   const variants = { ...container.view!.variants }
   delete variants[param]
   const view = { ...container.view }
-  if (Object.keys(variants).length > 0) view.variants = variants
-  else delete view.variants
+
+  if (Object.keys(variants).length > 0) {
+    view.variants = variants
+  } else {
+    delete view.variants
+  }
+
   const next: ContainerSpec = { ...container, view }
-  if (Object.keys(view).length === 0) delete next.view
+
+  if (Object.keys(view).length === 0) {
+    delete next.view
+  }
+
   return next
 }
 
 function variantParam(container: ContainerSpec, param: string) {
   const spec = container.params?.[param]
-  if (spec?.type !== "variant" || !spec.options) throw new Error(`${container.name} has no variant "${param}"`)
-  return spec as typeof spec & { options: NonNullable<typeof spec.options> }
+
+  if (spec?.type !== "variant" || !spec.options) {
+    throw new Error(`${container.name} has no variant "${param}"`)
+  }
+
+  return { ...spec, options: spec.options }
 }

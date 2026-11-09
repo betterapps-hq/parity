@@ -1,4 +1,11 @@
-import { type ContainerSpec, type DesignNode, findNode, nodeOnBoard, toggleHidden } from "@parity-app/core"
+import {
+  type ContainerSpec,
+  type DesignNode,
+  findNode,
+  type LibraryInfo,
+  nodeOnBoard,
+  toggleHidden
+} from "@parity-app/core"
 import { designsSelection, layersSelection, type Selection } from "@parity-app/editor"
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
@@ -55,6 +62,7 @@ const entries: ContainerEntry[] = [
   { key: "app.par#dashboard", path: "app.par", container: dashboard },
   { key: "app.par#stat-card", path: "app.par", container: statCard }
 ]
+
 const design = "app.par#dashboard"
 const component = "app.par#stat-card"
 
@@ -65,20 +73,31 @@ const overUsers: MenuTarget = {
   mode: "desktop",
   state: "default"
 }
+
 const overTitle: MenuTarget = { design, path: ["root", "header", "title"], mode: "desktop", state: "default" }
 
 /** Each entry as a line: an item's action and whether it's available, a line between sections, the submenu. */
 function outline(entries: MenuEntry[]): string[] {
   return entries.map((entry) => {
-    if (entry.kind === "separator") return "---"
-    if (entry.kind === "select-layer") return `${entry.label} >`
-    if (entry.kind === "open-source") return `open ${entry.source.path}:${entry.source.line}`
+    if (entry.kind === "separator") {
+      return "---"
+    }
+
+    if (entry.kind === "select-layer") {
+      return `${entry.label} >`
+    }
+
+    if (entry.kind === "open-source") {
+      return `open ${entry.source.path}:${entry.source.line}`
+    }
+
     return `${entry.action}${entry.enabled ? "" : " (unavailable)"}`
   })
 }
 
 function labelOf(entries: MenuEntry[], action: string): string | undefined {
   const found = entries.find((entry) => entry.kind === "item" && entry.action === action)
+
   return found?.kind === "item" ? found.label : undefined
 }
 
@@ -183,8 +202,10 @@ describe("the canvas menu", () => {
       },
       view: { variants: { density: "compact" } }
     }
+
     const menuFor = (container: ContainerSpec) =>
       canvasMenu(overTitle, layersSelection(design, ["title"]), [{ ...entries[0]!, container }, entries[1]!])
+
     expect(labelOf(menuFor(compact), "hide")).toBe("Show")
     const shown = toggleHidden(compact, "default", ["title"])
     expect(nodeOnBoard(shown, findNode(shown.root, "title")!, shown.states[0]).hidden ?? false).toBe(false)
@@ -319,6 +340,7 @@ describe("the commands for layers, which the menubar shares", () => {
 describe("select layer", () => {
   const choices = (target: MenuTarget, selection: Selection) => {
     const entry = canvasMenu(target, selection, entries)[0]
+
     return entry?.kind === "select-layer" ? entry.choices : []
   }
 
@@ -342,6 +364,20 @@ describe("select layer", () => {
       label: "Stat card",
       kind: "component"
     })
+  })
+
+  it("names an unnamed icon by its icon, as Layers does, once it knows the project's icon sets", () => {
+    const overChart: MenuTarget = { design, path: ["root", "chart"], mode: "desktop", state: "default" }
+
+    const label = (libraries: readonly Pick<LibraryInfo, "id" | "kind">[]) => {
+      const entry = canvasMenu(overChart, {}, entries, 0, libraries)[0]
+
+      return entry?.kind === "select-layer" ? entry.choices.at(-1)?.label : undefined
+    }
+
+    // The fixture's chart comes from `ui`, which counts as an icon set here.
+    expect(label([{ id: "ui", kind: "icons" }])).toBe("Chart")
+    expect(label([{ id: "ui", kind: "components" }])).toBe("ui/Chart")
   })
 
   it("lists the design alone around its frames, and nothing for a design that's gone", () => {

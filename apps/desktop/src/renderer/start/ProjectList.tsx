@@ -35,6 +35,7 @@ const empty: Record<ProjectScope, { icon: LucideIcon; title: string; description
 /** A list with nothing in it: what will show up there, in a dashed box the height of a row of cards. */
 function EmptyList({ scope }: { scope: ProjectScope }) {
   const { icon: Icon, title, description } = empty[scope]
+
   return (
     <Empty className="min-h-[220px] border">
       <EmptyHeader>
@@ -68,6 +69,7 @@ export function ProjectList({
   const [more, setMore] = useState(false)
   const listed = inScope(projects, scope, skip)
   const shown = more ? listed : listed.slice(0, limit)
+
   const toggle = listed.length > limit && (
     <button
       type="button"
@@ -77,6 +79,7 @@ export function ProjectList({
       {more ? "Show less" : `Show ${listed.length - shown.length} more`}
     </button>
   )
+
   return (
     <section aria-labelledby={heading} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-4">
       <h2 id={heading} className="sr-only">

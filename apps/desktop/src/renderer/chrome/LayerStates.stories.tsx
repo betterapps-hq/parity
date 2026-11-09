@@ -16,6 +16,7 @@ const meta = {
 } satisfies Meta<typeof DesignTab>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**
@@ -40,6 +41,7 @@ export const TurningAPropOffInAState: Story = {
           current.type === "component" ? { ...current, props: { ...current.props, disabled: true } } : current
         )
       }))
+
       return layersSelection(key, [id], { state: "wrong-password" })
     })
   ],

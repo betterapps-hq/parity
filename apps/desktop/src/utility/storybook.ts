@@ -3,7 +3,9 @@ import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import { parseManifest } from "@parity-app/core"
 import { parseData } from "@parity-app/core"
+import { isText } from "@parity-app/core/values/evaluate"
 import { z } from "zod"
+import { logNote } from "../shared/log.ts"
 import type { ServiceMethods } from "../shared/protocol.ts"
 import { findRoutedServer, readPortless } from "./portless.ts"
 import { adoptServer, choosePort, knownServers, startServer, stopServer } from "./process-manager.ts"
@@ -35,21 +37,36 @@ export async function openStorybook(
   { component }: ServiceMethods["storybook.open"]["params"]
 ): Promise<ServiceMethods["storybook.open"]["result"]> {
   const storybook = info.storybook
-  if (!storybook) throw new Error(`${info.name} has no Storybook`)
+
+  if (!storybook) {
+    throw new Error(`${info.name} has no Storybook`)
+  }
+
   const files = component ? (storybook.stories[component] ?? []) : []
-  if (component && files.length === 0) throw new Error(`${component} has no stories`)
+
+  if (component && files.length === 0) {
+    throw new Error(`${component} has no stories`)
+  }
+
   // A Storybook that stopped since it was last used, closed by hand or crashed, is started again.
   let served = await ensureStorybook(info)
   let entries = await storyIndex(served.url).catch(() => undefined)
+
   if (!entries) {
     stopStorybook(info.id)
     served = await ensureStorybook(info)
     entries = await storyIndex(served.url)
   }
+
   const { address } = served
-  if (!component) return { url: address }
+
+  if (!component) {
+    return { url: address }
+  }
+
   const mine = entries.filter((entry) => files.some((file) => sameFile(entry.importPath, file.path)))
   const target = mine.find((entry) => entry.type === "docs") ?? mine.find((entry) => entry.type === "story")
+
   return { url: target ? `${address}/?path=/${target.type}/${target.id}` : address }
 }
 
@@ -74,12 +91,21 @@ function ensureStorybook(info: OpenProject["info"]): Promise<Served> {
   const existing = serving.get(projectId)
   // One the process manager no longer knows has stopped since, or crashed, or its project closed.
   const known = knownServers(projectId).some((server) => server.id === processId(projectId))
-  if (existing && known) return existing
-  const ready: Promise<Served> = start(info).catch((error: unknown) => {
-    if (serving.get(projectId) === ready) serving.delete(projectId)
-    throw error
+
+  if (existing && known) {
+    return existing
+  }
+
+  const ready: Promise<Served> = start(info).catch((cause: unknown) => {
+    if (serving.get(projectId) === ready) {
+      serving.delete(projectId)
+    }
+
+    throw cause
   })
+
   serving.set(projectId, ready)
+
   return ready
 }
 
@@ -87,6 +113,7 @@ async function start(info: OpenProject["info"]): Promise<Served> {
   const projectId = info.id
   const storybook = info.storybook!
   const storyPaths = Object.values(storybook.stories).flatMap((files) => files.map((file) => file.path))
+
   /** Whether a Storybook answers at `base` with this project's stories. With none to check, any Storybook does. */
   const servesProject = (base: string) =>
     storyIndex(base).then(
@@ -94,6 +121,7 @@ async function start(info: OpenProject["info"]): Promise<Served> {
         storyPaths.length === 0 || served.some((item) => storyPaths.some((path) => sameFile(item.importPath, path))),
       () => false
     )
+
   const listing = {
     id: processId(projectId),
     kind: "storybook",
@@ -106,13 +134,17 @@ async function start(info: OpenProject["info"]): Promise<Served> {
   // one on its usual port. Without stories to check, a routed Storybook could be any project's.
   const wanted = storybook.port ?? 6006
   const usual = `http://localhost:${wanted}`
+
   const routed =
     storyPaths.length > 0
       ? await findRoutedServer(await readPortless(), servesProject, (base) => servesFrom(base, info.root))
       : undefined
+
   const existing = routed ?? ((await servesProject(usual)) ? { url: usual, address: usual } : undefined)
+
   if (existing) {
     adoptServer({ ...listing, url: existing.url })
+
     return existing
   }
 
@@ -120,16 +152,23 @@ async function start(info: OpenProject["info"]): Promise<Served> {
   const url = `http://localhost:${port}`
   const require = createRequire(join(info.root, "package.json"))
   let manifestPath: string
+
   try {
     manifestPath = require.resolve("storybook/package.json")
   } catch {
     throw new Error("Storybook isn't installed in the project. Install its dependencies first.")
   }
+
   const manifest = parseManifest(readFileSync(manifestPath, "utf8"), manifestPath)
-  const bin =
-    typeof manifest.bin === "string" ? manifest.bin : (manifest.bin?.storybook ?? Object.values(manifest.bin ?? {})[0])
-  if (!bin) throw new Error("Storybook's command line couldn't be found")
-  console.log(`[service] starting Storybook for ${info.name} at ${url}`)
+
+  const bin = isText(manifest.bin) ? manifest.bin : (manifest.bin?.storybook ?? Object.values(manifest.bin ?? {})[0])
+
+  if (!bin) {
+    throw new Error("Storybook's command line couldn't be found")
+  }
+
+  logNote(`[service] starting Storybook for ${info.name} at ${url}`)
+
   // Storybook's command line runs on Parity's own Node, in the project's folder: Electron runs as plain Node here.
   const server = startServer({
     ...listing,
@@ -150,17 +189,25 @@ async function start(info: OpenProject["info"]): Promise<Served> {
     ready: (base) => storyIndex(base).then(() => true),
     restart: () => restartStorybook(info)
   })
+
   await server.ready
+
   return { url, address: url }
 }
 
 /** The stories and docs pages a Storybook at `base` serves, from its `/index.json`. Rejects when it serves none. */
 export async function storyIndex(base: string): Promise<IndexEntry[]> {
   const response = await fetch(`${base}/index.json`, { signal: AbortSignal.timeout(3000) })
-  if (!response.ok) throw new Error(`Storybook answered ${response.status}`)
+
+  if (!response.ok) {
+    throw new Error(`Storybook answered ${response.status}`)
+  }
+
   const body = parseData(storyIndexFile, await response.json(), "/index.json")
+
   return Object.values(body.entries ?? {}).flatMap((value) => {
     const entry = indexEntry.safeParse(value)
+
     return entry.success ? [entry.data] : []
   })
 }
@@ -172,6 +219,7 @@ export async function storyIndex(base: string): Promise<IndexEntry[]> {
  */
 function servesFrom(base: string, root: string): Promise<boolean> {
   const file = `${root.replaceAll("\\", "/").replace(/^\//, "")}/package.json`
+
   return fetch(`${base}/@fs/${file}`, { signal: AbortSignal.timeout(5000) }).then(
     (response) => response.ok,
     () => false

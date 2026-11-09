@@ -17,6 +17,7 @@ function projectOf(tab: Tab): { name?: string; folder?: string } {
 export function OpeningProject({ tab }: { tab: Tab }) {
   const { name, folder } = projectOf(tab)
   const { steps, current } = tab.progress ?? { steps: ["Opening the project"], current: 0 }
+
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <EditorOutline />
@@ -45,14 +46,22 @@ export function OpeningProject({ tab }: { tab: Tab }) {
 
 /** Where a step is, given the step under way. */
 function stepState(index: number, current: number): "done" | "active" | "pending" {
-  if (index < current) return "done"
+  if (index < current) {
+    return "done"
+  }
+
   return index === current ? "active" : "pending"
 }
 
 function Step({ label, state }: { label: string; state: "done" | "active" | "pending" }) {
   let Icon = Circle
-  if (state === "done") Icon = Check
-  else if (state === "active") Icon = LoaderCircle
+
+  if (state === "done") {
+    Icon = Check
+  } else if (state === "active") {
+    Icon = LoaderCircle
+  }
+
   return (
     <li
       className={`flex items-center gap-2.5 ${state === "active" ? "text-foreground" : "text-muted-foreground"} ${
@@ -71,6 +80,7 @@ function Step({ label, state }: { label: string; state: "done" | "active" | "pen
 /** The editor's panels, canvas and status bar as faint shapes, sized as the project's will be. */
 function EditorOutline() {
   const layout = useLayout()
+
   return (
     <div aria-hidden className="absolute inset-0 flex flex-col">
       <div className="flex min-h-0 flex-1">
@@ -93,7 +103,11 @@ const rows = [72, 56, 64, 40, 68, 52, 60, 36, 48]
 
 function OutlinePanel({ side, open, width }: { side: "left" | "right"; open: boolean; width: number }) {
   const border = side === "left" ? "border-r" : "border-l"
-  if (!open) return <div className={`w-12 shrink-0 ${border}`} />
+
+  if (!open) {
+    return <div className={`w-12 shrink-0 ${border}`} />
+  }
+
   return (
     <div className={`flex shrink-0 flex-col ${border}`} style={{ width }}>
       <div className="h-12 shrink-0 border-b" />
@@ -122,6 +136,7 @@ function OutlineBoard({ className }: { className: string }) {
  */
 export function ProjectFailed({ tab }: { tab: Tab }) {
   const { name, folder } = projectOf(tab)
+
   return (
     <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
       <div role="alert" className="m-auto flex w-full max-w-lg flex-col gap-5">
@@ -170,10 +185,15 @@ export function ProjectFailed({ tab }: { tab: Tab }) {
 export function ErrorDetails({ message }: { message: string }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => {
-    if (!copied) return
+    if (!copied) {
+      return
+    }
+
     const timer = setTimeout(() => setCopied(false), 1500)
+
     return () => clearTimeout(timer)
   }, [copied])
+
   return (
     <div className="overflow-hidden rounded-lg border bg-muted/40">
       <div className="flex items-center justify-between border-b py-1 pr-1 pl-3 text-xs text-muted-foreground">

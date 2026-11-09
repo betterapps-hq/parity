@@ -35,7 +35,17 @@ import {
   traceHeaders
 } from "@parity-app/telemetry"
 import { cliVersion } from "./diagnostics.ts"
-import { type BatchRun, createOutbox, type Outbox, startSender, writeBatch } from "./outbox.ts"
+import {
+  type Batch,
+  type BatchRun,
+  createOutbox,
+  loadedDebugIds,
+  type Outbox,
+  startSender,
+  writeBatch
+} from "./outbox.ts"
+import { stderr } from "./output.ts"
+import { type CliBuild, cliBuild, cliPromotion } from "./promotion.ts"
 
 /*
  * The CLI's own events (PAR-641): each command it runs, the copies of the app it can't reach or can't read, and the MCP
@@ -45,11 +55,17 @@ import { type BatchRun, createOutbox, type Outbox, startSender, writeBatch } fro
  */
 
 type CliEvents = typeof cliEvents
+
 export type CliTelemetry = Telemetry<CliEvents>
 
+/** What one of the CLI's events records, by its name. */
+export type CliAttributes<Name extends EventName<CliEvents>> = EventAttributes<CliEvents, Name>
+
 let telemetry: CliTelemetry | undefined
+
 /** The command running, whose trace the CLI's calls to the app continue. */
 let run: Span | undefined
+
 /** The last command's trace, which a failure it ends with is reported in, after its span has ended. */
 let lastRun: TraceContext | undefined
 
@@ -58,26 +74,39 @@ let lastRun: TraceContext | undefined
  * `PARITY_CLI_LOGS` names. Under Vitest only that folder, so tests never write to the person's own.
  */
 export function cliLogFolder(env: NodeJS.ProcessEnv = process.env): string | undefined {
-  if (env.PARITY_CLI_LOGS) return env.PARITY_CLI_LOGS
+  if (env.PARITY_CLI_LOGS) {
+    return env.PARITY_CLI_LOGS
+  }
+
   return env.VITEST ? undefined : join(homedir(), ".parity", "logs")
 }
+
 const keptFiles = 10
 const fileName = /^parity-cli-\d{4}-\d{2}-\d{2}\.jsonl$/
 
 /** A sink that appends each event as a line to the day's file, and drops the oldest past 10. Synchronous, and small. */
 export function fileSink(folder: string): Sink {
   let pruned = false
+
   const write = (envelope: Envelope) => {
     mkdirSync(folder, { recursive: true })
     appendFileSync(join(folder, `parity-cli-${envelope.time.slice(0, 10)}.jsonl`), `${JSON.stringify(envelope)}\n`)
-    if (pruned) return
+
+    if (pruned) {
+      return
+    }
+
     pruned = true
+
     const files = readdirSync(folder)
       .filter((name) => fileName.test(name))
       .sort()
-    for (const name of files.slice(0, Math.max(0, files.length - keptFiles)))
+
+    for (const name of files.slice(0, Math.max(0, files.length - keptFiles))) {
       rmSync(join(folder, name), { force: true })
+    }
   }
+
   return { event: write, span: write }
 }
 
@@ -91,11 +120,13 @@ export function cliTelemetrySetting(
   saved: string | undefined
 ): ResolvedTelemetry & { installId: string } {
   const read = readSavedTelemetry(saved)
+
   return { ...resolveTelemetry(variables, read.level), installId: read.installId ?? "none" }
 }
 
 function savedTelemetry(): string | undefined {
   const folder = desktopDataFolder({ platform: process.platform, env: process.env, home: homedir() })
+
   try {
     return readFileSync(join(folder, telemetryFileName), "utf8")
   } catch {
@@ -108,7 +139,10 @@ function savedTelemetry(): string | undefined {
  * shared and how to stop it. Nothing when they're off, or once it's been shown.
  */
 export function telemetryNotice(level: TelemetryLevel, shown: boolean): string | undefined {
-  if (level === "off" || shown) return undefined
+  if (level === "off" || shown) {
+    return undefined
+  }
+
   return "Parity shares diagnostics to help fix bugs. To stop sharing them, turn off Settings > Privacy > Share diagnostics in the app, or set PARITY_TELEMETRY=off."
 }
 
@@ -116,8 +150,13 @@ export function telemetryNotice(level: TelemetryLevel, shown: boolean): string |
 function showNotice(level: TelemetryLevel): void {
   const file = join(homedir(), ".parity", "telemetry-notice")
   const notice = telemetryNotice(level, existsSync(file))
-  if (!notice) return
-  console.error(notice)
+
+  if (!notice) {
+    return
+  }
+
+  stderr(notice)
+
   try {
     mkdirSync(dirname(file), { recursive: true })
     writeFileSync(file, `${new Date().toISOString()}\n`)
@@ -139,17 +178,45 @@ export function cliCallerChanged(next: AgentCaller): void {
   caller = next
 }
 
-/** What a batch reports as: environment, version, the test pass and who's driving, read as it's written. */
-export function batchRun(env: NodeJS.ProcessEnv, installId: string, installed: boolean): BatchRun {
+/** What names an unpublished build's release: the commit it was built from, or a checkout's folder run from source. */
+function releaseSource(build: CliBuild | undefined): Pick<BatchRun, "commit" | "source"> {
+  if (!build) {
+    return { source: fileURLToPath(new URL(".", import.meta.url)) }
+  }
+
+  return build.commit ? { commit: build.commit } : {}
+}
+
+/**
+ * What a batch reports as: environment, version, release, the test pass and who's driving, read as it's written. Only
+ * the build `npm publish` made reports as its version; a pkg.pr.new preview or a checkout's own `dist` is named by the
+ * commit it was built from, and a checkout run from source by its commit, which the sender reads off the command's path.
+ * A published version npm has promoted to `latest` reports as `production` (PAR-799).
+ */
+export function batchRun(
+  env: NodeJS.ProcessEnv,
+  installId: string,
+  installed: boolean,
+  build: CliBuild | undefined = cliBuild(),
+  promoted = false
+): BatchRun {
   const variables: RunVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }
   const driver: Driver = { kind: "agent", caller }
-  const tags: Record<string, string> = { ...runTags(variables) }
-  for (const [key, value] of Object.entries(driverTags(driver))) if (value !== undefined) tags[key] = value
+  const tags: BatchRun["tags"] = { ...runTags(variables) }
+
+  for (const [key, value] of Object.entries(driverTags(driver))) {
+    if (value !== undefined) {
+      tags[key] = value
+    }
+  }
+
+  const published = build?.published ?? false
+
   return {
-    environment: telemetryEnvironment(env, installed),
+    environment: telemetryEnvironment(env, { installed, published, promoted }),
     version: cliVersion(),
-    installed,
-    ...(installed ? {} : { source: fileURLToPath(new URL(".", import.meta.url)) }),
+    published,
+    ...releaseSource(build),
     tags,
     user: telemetryUser(installId, variables, driver)
   }
@@ -165,12 +232,17 @@ export function startCliTelemetry({ serving = false }: { serving?: boolean } = {
   const setting = cliTelemetrySetting(process.env, savedTelemetry())
   const installed = installedFromNpm()
   const sinks: Sink[] = folder ? [fileSink(folder)] : []
+
   if (setting.level === "all") {
     const outbox = createOutbox()
-    sinks.push(createSentrySink(outbox.target, { upload: true }))
-    hand(outbox, setting.installId, installed, serving)
+    // CI sends only errors and reports, with their breadcrumbs; its spans and logs stay in the local copy (PAR-777).
+    sinks.push(createSentrySink(outbox.target, { upload: !setting.errorsOnly }))
+    // As the sender last heard from npm: a version promoted since reports `production` from the next command.
+    const promoted = installed && cliPromotion().known === "stable"
+    hand(outbox, setting.installId, installed, promoted, serving)
     showNotice(setting.level)
   }
+
   return setCliTelemetry(
     createTelemetry({
       events: cliEvents,
@@ -184,8 +256,9 @@ export function startCliTelemetry({ serving = false }: { serving?: boolean } = {
 }
 
 /**
- * Whether this CLI was installed from npm, which reports as `tester` and names its release by version, as the app's
- * installed builds do. A checkout's, from source or its own `dist`, reports as `development`, named by its commit.
+ * Whether this CLI was installed from npm: `release` for the package `npm publish` made, named by its version, and
+ * `preview` for a pkg.pr.new one, as the app's installed builds do. A checkout's, from source or its own `dist`, reports
+ * as `development`, named by its commit.
  */
 function installedFromNpm(): boolean {
   return fileURLToPath(import.meta.url)
@@ -197,33 +270,49 @@ function installedFromNpm(): boolean {
 const sender = fileURLToPath(new URL(import.meta.url.endsWith(".ts") ? "./send.ts" : "./send.mjs", import.meta.url))
 
 /** Writes the outbox's batch and starts the sender, as the process exits, and every 10 seconds while it serves. */
-function hand(outbox: Outbox, installId: string, installed: boolean, serving: boolean): void {
+function hand(outbox: Outbox, installId: string, installed: boolean, promoted: boolean, serving: boolean): void {
   const folder = cliOutboxFolder()
+
   const write = () => {
     try {
-      if (writeBatch(folder, { run: batchRun(process.env, installId, installed), items: outbox.take() })) {
+      const run = batchRun(process.env, installId, installed, cliBuild(), promoted)
+      const debugIds = loadedDebugIds()
+
+      const batch: Batch = { run, items: outbox.take() }
+
+      if (debugIds) {
+        batch.debugIds = debugIds
+      }
+
+      if (writeBatch(folder, batch)) {
         startSender(folder, sender)
       }
     } catch {
       // Diagnostics that can't be written never fail a command.
     }
   }
+
   // An uncaught error is kept with the command's trace, then sent as the process exits with it.
   process.on("uncaughtExceptionMonitor", (error) => outbox.exception(error, run ?? lastRun, true))
   process.on("exit", write)
   thrown = (error) => outbox.exception(error, run ?? lastRun)
-  if (serving) setInterval(write, 10_000).unref()
+
+  if (serving) {
+    setInterval(write, 10_000).unref()
+  }
 }
 
 /** Keeps a command's failure that isn't one of Parity's coded errors, which is a bug, to send as a Sentry error. */
-let thrown: ((error: unknown) => void) | undefined
+let thrown: ((cause: unknown) => void) | undefined
 
 /**
  * Reports an error a command failed with, once its telemetry has started. Coded errors, such as invalid input or an app
  * that isn't running, are the command's answer, recorded on `cli.ran`; anything else is a bug in the CLI.
  */
-export function reportCliFailure(error: unknown): void {
-  if (errorDetails(error) === undefined) thrown?.(error)
+export function reportCliFailure(cause: unknown): void {
+  if (errorDetails(cause) === undefined) {
+    thrown?.(cause)
+  }
 }
 
 /** Records the CLI's events through `given`, or stops recording them with none, as tests do. */
@@ -231,6 +320,7 @@ export function setCliTelemetry<T extends CliTelemetry | undefined>(given: T): T
   telemetry = given
   run = undefined
   lastRun = undefined
+
   return given
 }
 
@@ -247,7 +337,10 @@ export function recordCli<Name extends EventName<CliEvents>>(
  * continues its trace.
  */
 export async function inCliRun(command: string, flags: string[], work: () => Promise<void>): Promise<void> {
-  if (!telemetry) return work()
+  if (!telemetry) {
+    return work()
+  }
+
   const span = telemetry.startSpan("cli.ran", { command, flags })
   run = span
   lastRun = { traceId: span.traceId, spanId: span.spanId }
@@ -255,11 +348,13 @@ export async function inCliRun(command: string, flags: string[], work: () => Pro
   await endWhenSettled(span, () => work().finally(() => (run = undefined)), {
     result: () => {
       const exitCode = Number(process.exitCode ?? 0)
+
       return { outcome: exitCode === 0 ? "ok" : "error", attributes: { exitCode } }
     },
     error: (error) => {
       const code = errorCode(error)
-      return { outcome: "error", attributes: { exitCode: 1, ...(code === undefined ? {} : { code }) } }
+
+      return { outcome: "error", attributes: code === undefined ? { exitCode: 1 } : { exitCode: 1, code } }
     }
   })
 }

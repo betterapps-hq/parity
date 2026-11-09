@@ -78,9 +78,11 @@ describe("Fluent's slots", () => {
     root = (await mkdtemp(join(tmpdir(), "canvas-slots-"))).replaceAll("\\", "/")
     await mkdir(join(root, "node_modules", "slots"), { recursive: true })
     await writeFile(join(root, "node_modules", "slots", "index.d.ts"), declarations.join("\n"))
+
     const found = inferProps(root, {
       Button: { path: "slots", export: "Button", library: "slots", declaration: "node_modules/slots/index.d.ts" }
     })
+
     props = found.Button?.props ?? []
   })
 
@@ -120,6 +122,7 @@ describe("components that pass their props to a void element", () => {
     "export interface HTMLAttributes extends DOMAttributes { id?: string }",
     "export interface InputHTMLAttributes extends HTMLAttributes { value?: string }"
   ]
+
   const components = [
     'import type { HTMLAttributes, InputHTMLAttributes, ReactNode, Ref } from "fake-react"',
     "export function TextField(props: InputHTMLAttributes) { return null }",
@@ -171,6 +174,7 @@ describe("a library's own props, declared beside the attributes it passes on (PA
     "export interface ButtonHTMLAttributes extends DOMAttributes { disabled?: boolean; type?: 'submit' | 'button' }",
     "export interface HTMLAttributes extends DOMAttributes { hidden?: boolean; id?: string }"
   ]
+
   const declarations = [
     'import type { ButtonHTMLAttributes, HTMLAttributes } from "fake-react"',
     "export declare function MenuButton({ isActive, variant, size, ...props }: ButtonHTMLAttributes & {",
@@ -182,6 +186,7 @@ describe("a library's own props, declared beside the attributes it passes on (PA
     "  open?: boolean",
     "}): null"
   ]
+
   const implementation = [
     'import { cva } from "class-variance-authority"',
     'const menuButtonVariants = cva("", {',
@@ -200,12 +205,14 @@ describe("a library's own props, declared beside the attributes it passes on (PA
     await writeFile(join(root, "node_modules", "fake-react", "index.d.ts"), react.join("\n"))
     await writeFile(join(root, "node_modules", "kit", "index.d.ts"), declarations.join("\n"))
     await writeFile(join(root, "node_modules", "kit", "index.js"), implementation.join("\n"))
+
     const source = (name: string) => ({
       path: "kit",
       export: name,
       library: "kit",
       declaration: "node_modules/kit/index.d.ts"
     })
+
     found = inferProps(root, { MenuButton: source("MenuButton"), Panel: source("Panel"), Provider: source("Provider") })
   })
 
@@ -215,6 +222,7 @@ describe("a library's own props, declared beside the attributes it passes on (PA
 
   const listed = (name: string) =>
     found[name]?.props.filter((prop) => prop.group === "variant" || prop.group === "own").map((prop) => prop.name)
+
   const prop = (component: string, name: string) => found[component]?.props.find((each) => each.name === name)
 
   it("lists a prop the component's own file adds to its element's attributes, with its default from the JavaScript", () => {
@@ -246,19 +254,23 @@ describe("a library's own props, declared beside the attributes it passes on (PA
   it("reads Nova's sidebar as it ships in the example", () => {
     // Where the package really is, as discovery finds it: pnpm links it from the store.
     const folder = realpathSync(join(example, "node_modules/@buildkitgg/shadcn-baseui-nova"))
+
     const nova = (name: string) => ({
       path: "@buildkitgg/shadcn-baseui-nova",
       export: name,
       library: "nova",
       declaration: relative(example, join(folder, "dist/ui/sidebar.d.ts")).replaceAll("\\", "/")
     })
+
     const sidebar = inferProps(example, {
       SidebarMenuButton: nova("SidebarMenuButton"),
       SidebarProvider: nova("SidebarProvider"),
       Sidebar: nova("Sidebar")
     })
+
     const own = (name: string) =>
       sidebar[name]?.props.filter((each) => each.group === "variant" || each.group === "own").map((each) => each.name)
+
     expect(sidebar.SidebarMenuButton?.props.find((each) => each.name === "isActive")).toMatchObject({
       kind: "boolean",
       group: "own",
@@ -298,10 +310,12 @@ describe("whether a component takes a style", () => {
 
   it("is false when the props have no style, and unknown when they could have any key", () => {
     const names = ["MemberRow", "Styled", "Logo", "Loose", "Open"]
+
     const found = inferProps(
       root,
       Object.fromEntries(names.map((name) => [name, { path: "components.tsx", export: name }]))
     )
+
     expect(names.map((name) => found[name]?.takesStyle)).toEqual([false, true, false, undefined, undefined])
   })
 })
@@ -323,6 +337,7 @@ describe("components that set their own size (PAR-518)", () => {
     "}",
     "export { Icon, Rule, Panel }"
   ]
+
   const parts = ["Icon", "Rule", "Panel"]
 
   beforeAll(async () => {
@@ -339,6 +354,7 @@ describe("components that set their own size (PAR-518)", () => {
 
   it("says so for a width, a height under a line or @container on its own element, in a project's code", () => {
     const file = (name: string, path: string) => [name, { path: `src/components/ui/${path}.tsx`, export: name }]
+
     const found = inferProps(
       example,
       Object.fromEntries([
@@ -351,6 +367,7 @@ describe("components that set their own size (PAR-518)", () => {
         file("Button", "button")
       ])
     )
+
     const sized = Object.entries(found).flatMap(([name, info]) => (info.fixedSize ? [name] : []))
     // `size-8`, `size-8`, `@container/card-header` and `data-horizontal:h-px`. Badge's `h-5` holds a line of text, and
     // Button's size comes from a cva variant, not classes written on its element.
@@ -362,6 +379,7 @@ describe("components that set their own size (PAR-518)", () => {
       name,
       { path: "kit", export: name, library: "kit", declaration: "node_modules/kit/index.d.ts" }
     ]
+
     const found = inferProps(root, Object.fromEntries(parts.map(part)))
     expect(parts.map((name) => found[name]?.fixedSize)).toEqual([true, true, undefined])
   })

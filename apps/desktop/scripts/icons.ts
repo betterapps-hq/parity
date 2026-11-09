@@ -4,10 +4,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { chromium } from "playwright-core"
+import { print } from "../../../scripts/output.ts"
 
 const brandDir = resolve(import.meta.dirname, "../../../brand")
 const outDir = resolve(import.meta.dirname, "../resources")
 const full = readFileSync(join(brandDir, "parity-icon.svg"), "utf8")
+
 // Drawn for small sizes, with heavier lines and no glow.
 const small = readFileSync(join(brandDir, "parity-icon-small.svg"), "utf8")
 
@@ -19,6 +21,7 @@ interface Drawn {
 }
 
 const browser = await chromium.launch({ channel: "msedge" })
+
 try {
   const page = await browser.newPage()
 
@@ -27,6 +30,7 @@ try {
     // Drawn at the size it's shown, rather than scaled from the size its file gives.
     const inner = size - margin * 2
     const source = svg.replace(/ width="\d+" height="\d+"/, ` width="${inner}" height="${inner}"`)
+
     const drawn = await page.evaluate(
       async ({ source, size, margin }) => {
         const image = new Image()
@@ -36,32 +40,43 @@ try {
         canvas.width = size
         canvas.height = size
         const context = canvas.getContext("2d")!
+
         if (margin > 0) {
           // The soft shadow under the dock's other icons.
           context.shadowColor = "rgba(0, 0, 0, 0.3)"
           context.shadowBlur = size / 50
           context.shadowOffsetY = size / 100
         }
+
         context.drawImage(image, margin, margin)
         let pixels = ""
-        for (const byte of context.getImageData(0, 0, size, size).data) pixels += String.fromCharCode(byte)
+
+        for (const byte of context.getImageData(0, 0, size, size).data) {
+          pixels += String.fromCharCode(byte)
+        }
+
         return { png: canvas.toDataURL("image/png").split(",")[1], pixels: btoa(pixels) }
       },
       { source, size, margin }
     )
+
     return { size, png: Buffer.from(drawn.png, "base64"), pixels: Buffer.from(drawn.pixels, "base64") }
   }
 
   // Windows picks the size nearest to each place it shows the icon: the title bar, the taskbar, File Explorer. The
   // taskbar shrinks what it picks, 32 to 24 pixels and 40 to 30, so those take the small drawing too.
   const sizes: Drawn[] = []
-  for (const size of [16, 20, 24, 32, 40, 48, 64, 256]) sizes.push(await draw(size <= 40 ? small : full, size))
+
+  for (const size of [16, 20, 24, 32, 40, 48, 64, 256]) {
+    sizes.push(await draw(size <= 40 ? small : full, size))
+  }
+
   mkdirSync(outDir, { recursive: true })
   writeFileSync(join(outDir, "icon.ico"), ico(sizes))
   writeFileSync(join(outDir, "icon.png"), (await draw(full, 512)).png)
   // macOS draws app icons inside a margin, so each stands at the same size in the dock: 100 of 1024 on each side.
   writeFileSync(join(outDir, "dock.png"), (await draw(full, 512, 50)).png)
-  console.log(outDir)
+  print(outDir)
 } finally {
   await browser.close()
 }
@@ -87,6 +102,7 @@ function ico(sizes: Drawn[]): Buffer {
     header.writeUInt32LE(offset, entry + 12)
     offset += images[index].length
   })
+
   return Buffer.concat([header, ...images])
 }
 
@@ -103,8 +119,10 @@ function bitmap(size: number, pixels: Buffer): Buffer {
   data.writeUInt16LE(1, 12)
   data.writeUInt16LE(32, 14)
   data.writeUInt32LE(data.length - colors, 20)
+
   for (let y = 0; y < size; y++) {
     const row = size - 1 - y
+
     for (let x = 0; x < size; x++) {
       const from = (y * size + x) * 4
       const to = colors + (row * size + x) * 4
@@ -112,8 +130,14 @@ function bitmap(size: number, pixels: Buffer): Buffer {
       data[to + 1] = pixels[from + 1]
       data[to + 2] = pixels[from]
       data[to + 3] = pixels[from + 3]
-      if (pixels[from + 3] === 0) data[mask + row * maskRow + (x >> 3)] |= 0x80 >> (x & 7)
+
+      if (pixels[from + 3] === 0) {
+        // The mask packs eight pixels a byte, the first in its highest bit. Each pixel's bit starts clear and is set
+        // once, so adding it sets it.
+        data[mask + row * maskRow + Math.floor(x / 8)]! += 0x80 / 2 ** (x % 8)
+      }
     }
   }
+
   return data
 }

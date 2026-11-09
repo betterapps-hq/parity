@@ -5,7 +5,7 @@ import { AppWindow } from "../App.tsx"
 import { showConsole } from "../chrome/ConsolePanel.tsx"
 import { setLayout } from "../chrome/layout.ts"
 import { design, example, onCanvas } from "../stories/fixtures.tsx"
-import { shapeIdFor } from "./CanvasEditor.tsx"
+import { canvasIdFor } from "./CanvasEditor.tsx"
 
 /**
  * Designs on the canvas, each on its board: the title above it, then a frame for each mode it shows, side by side, and
@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Screens in the modes they show beside their main one: dark desktop and light mobile next to light desktop. */
@@ -46,8 +47,11 @@ export const EveryStateZoomedOut: Story = onCanvas(
   () => example().store.updateView(design("Button"), "Show every state", (view) => ({ ...view, allStates: true })),
   () => {
     const { editor } = example()
-    const bounds = editor?.getShapePageBounds(shapeIdFor(design("Button")))
-    if (editor && bounds) editor.zoomToBounds(bounds, { targetZoom: 1 / 3 })
+    const bounds = editor?.getShapePageBounds(canvasIdFor(design("Button")))
+
+    if (editor && bounds) {
+      editor.zoomToBounds(bounds, { targetZoom: 1 / 3 })
+    }
   }
 )
 
@@ -62,8 +66,8 @@ export const OneState: Story = onCanvas(["Sign in"], () =>
 )
 
 /**
- * Zoomed far out: boards are small, and their titles shrink with them, clipped to each board, and stay above every board
- * at least 24 pixels wide on screen. Frame captions have faded out, and state labels show only beside rows tall enough
+ * Zoomed far out: boards are small, and their titles shrink with them, running into the free canvas beside each board up
+ * to the next one, and stay above every board at least 24 pixels wide on screen. Frame captions have faded out, and state labels show only beside rows tall enough
  * on screen to hold them, so they don't crowd the boards around them.
  */
 export const ZoomedOut: Story = onCanvas(
@@ -76,37 +80,31 @@ export const ZoomedOut: Story = onCanvas(
   () => example().editor?.zoomToFit()
 )
 
-/**
- * Frames, the light kind (PAR-539), on today's board until PAR-545 gives them their own: a new one at 480 by 320, and the
- * Sign in screen turned into one. Each shows one preview, in the primary mode, at its own size.
- */
-export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], () => {
+/** Adds two frames: a new one at 480 by 320, and the Sign in screen turned into one. */
+function addFrames(): void {
   const { store } = example()
   const taken = store.getEntries().map((entry) => entry.container.id)
   const blank = newDesign("frame", taken, { x: -1400, y: -900 }, { size: { width: 480, height: 320 } })
-  store.addContainer(store.mainPath, {
-    ...blank,
-    id: "pricing-ideas",
-    name: "Pricing ideas",
-    root: {
-      ...blank.root,
-      ...(blank.root.type === "layout"
-        ? {
-            children: [
-              {
-                id: "fp-title",
-                type: "text",
-                tag: "h2",
-                text: "Pricing ideas",
-                style: { size: "text-xl", weight: 600 }
-              },
-              { id: "fp-body", type: "text", text: "Three tiers, yearly discount up front?" },
-              { id: "fp-cta", type: "component", component: "Button", props: { children: "Compare plans" } }
-            ]
-          }
-        : {})
-    }
-  })
+
+  const root =
+    blank.root.type === "layout"
+      ? {
+          ...blank.root,
+          children: [
+            {
+              id: "fp-title",
+              type: "text" as const,
+              tag: "h2" as const,
+              text: "Pricing ideas",
+              style: { size: "text-xl", weight: 600 }
+            },
+            { id: "fp-body", type: "text" as const, text: "Three tiers, yearly discount up front?" },
+            { id: "fp-cta", type: "component" as const, component: "Button", props: { children: "Compare plans" } }
+          ]
+        }
+      : blank.root
+
+  store.addContainer(store.mainPath, { ...blank, id: "pricing-ideas", name: "Pricing ideas", root })
   const signIn = store.getEntries().find((entry) => entry.container.name === "Sign in")!.container
   const { design: turned } = turnInto(signIn, "frame", store.getModes())
   store.addContainer(store.mainPath, {
@@ -115,13 +113,28 @@ export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], () =>
     name: "Sign in sketch",
     position: { x: -1400, y: -300 }
   })
-})
+}
+
+/**
+ * Frames, the light kind (PAR-539, PAR-545): no board, just the name above, smaller than a board's title, and the
+ * design at its own size in the primary mode.
+ */
+export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], addFrames)
+
+/** A frame selected: its name and icon in the layer color, its size under it, and handles on the right and bottom. */
+export const SelectedFrame: Story = onCanvas(["Pricing ideas", "Sign in sketch"], addFrames, () =>
+  example().selection.set({ design: design("Pricing ideas") })
+)
 
 /** Free text notes beside a design, for comments and to-dos on the canvas. */
 export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {
   const { store, editor } = example()
-  const bounds = editor?.getShapePageBounds(shapeIdFor(design("Pricing")))
-  if (!editor || !bounds) return
+  const bounds = editor?.getShapePageBounds(canvasIdFor(design("Pricing")))
+
+  if (!editor || !bounds) {
+    return
+  }
+
   const notes = [
     store.addNote(store.mainPath, {
       id: "story-note-plans",
@@ -135,8 +148,9 @@ export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {
       position: { x: bounds.maxX + 80, y: bounds.y + 260 }
     })
   ]
+
   await new Promise((resolve) => setTimeout(resolve, 300))
-  const boxes = [bounds, ...notes.flatMap((key) => editor.getShapePageBounds(shapeIdFor(key)) ?? [])]
+  const boxes = [bounds, ...notes.flatMap((key) => editor.getShapePageBounds(canvasIdFor(key)) ?? [])]
   editor.zoomToBounds(Box.Common(boxes), { inset: 48 })
 })
 

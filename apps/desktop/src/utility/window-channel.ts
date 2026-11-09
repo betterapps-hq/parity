@@ -23,6 +23,8 @@ export function windowChannel(handlers: Handlers<ServiceMethods>, port: Port): C
     trace: currentTraceHeaders,
     around: handleInSpan
   })
+
   channel.connect(port)
+
   return channel
 }

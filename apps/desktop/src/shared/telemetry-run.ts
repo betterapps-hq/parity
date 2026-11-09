@@ -1,3 +1,5 @@
+import { isComposite, isText } from "@parity-app/core/values/evaluate"
+
 /**
  * What main tells the other processes about this run for their telemetry: the install and session every event carries,
  * and whether events are checked against their schemas, as they are outside installed builds.
@@ -24,14 +26,26 @@ export function writeTelemetryRun(run: TelemetryRun): string {
 export function readTelemetryRun(text: string | undefined): TelemetryRun {
   try {
     const run: unknown = text ? JSON.parse(decodeURIComponent(text)) : undefined
-    if (typeof run === "object" && run !== null) {
-      const { installId, sessionId, check } = run as Record<string, unknown>
-      if (typeof installId === "string" && typeof sessionId === "string" && typeof check === "boolean") {
-        return { installId, sessionId, check }
-      }
+
+    if (isTelemetryRun(run)) {
+      return { installId: run.installId, sessionId: run.sessionId, check: run.check }
     }
   } catch {
     // Not passed as main writes it.
   }
+
   return { installId: "unknown", sessionId: "unknown", check: false }
+}
+
+/** Whether what main passed is a run, checked by hand since zod can't load here. */
+function isTelemetryRun(value: unknown): value is TelemetryRun {
+  return (
+    isComposite(value) &&
+    "installId" in value &&
+    isText(value.installId) &&
+    "sessionId" in value &&
+    isText(value.sessionId) &&
+    "check" in value &&
+    (value.check === true || value.check === false)
+  )
 }

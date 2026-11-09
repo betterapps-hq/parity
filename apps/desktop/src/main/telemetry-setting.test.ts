@@ -8,6 +8,7 @@ const second = "7a1d2c3b-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
 function setup(file: string | undefined, env = {}) {
   const disk = { file }
   const ids = [first, second]
+
   const setting = new TelemetrySetting({
     env,
     read: () => disk.file,
@@ -16,6 +17,7 @@ function setup(file: string | undefined, env = {}) {
     },
     newId: () => ids.shift() ?? "none-left"
   })
+
   return { setting, disk }
 }
 
@@ -57,6 +59,7 @@ describe("TelemetrySetting", () => {
       },
       newId: () => first
     })
+
     expect(setting.get().installId).toBe(first)
     expect(() => setting.setLevel("off")).toThrow("read-only")
     expect(setting.get().setting).toBe("all")

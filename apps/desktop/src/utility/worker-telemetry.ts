@@ -1,5 +1,5 @@
 import type { MessagePort } from "node:worker_threads"
-import { createTelemetry, registeredEvents, type Telemetry } from "@parity-app/telemetry"
+import { createTelemetry, type Envelope, registeredEvents, type Telemetry } from "@parity-app/telemetry"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { readTelemetryRun, telemetryRunVariable } from "../shared/telemetry-run.ts"
 
@@ -12,7 +12,8 @@ export const workerTelemetryKey = "parityTelemetry"
  */
 export function startWorkerTelemetry(port: Pick<MessagePort, "postMessage">): Telemetry<typeof registeredEvents> {
   const run = readTelemetryRun(process.env[telemetryRunVariable])
-  const post = (envelope: unknown) => port.postMessage({ [workerTelemetryKey]: envelope })
+  const post = (envelope: Envelope) => port.postMessage({ [workerTelemetryKey]: envelope })
+
   return recordInvalidData(
     createTelemetry({
       events: registeredEvents,

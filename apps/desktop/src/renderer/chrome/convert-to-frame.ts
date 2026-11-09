@@ -31,6 +31,7 @@ export function frameDrops(
   const modes = resolveModes(settings)
   const { dropped } = turnInto(design, "frame", settings)
   const placing = design.kind === "component" ? designs.filter((other) => other.id !== design.id) : []
+
   return {
     kept: design.states[0]?.name ?? "Default",
     primary: modes[0]?.name ?? "the primary mode",
@@ -39,6 +40,7 @@ export function frameDrops(
     params: [...dropped.params, ...dropped.variants],
     instances: placing.flatMap((other) => {
       const count = instanceCount(other, design.id)
+
       return count ? [{ design: other.name, count }] : []
     })
   }
@@ -46,7 +48,10 @@ export function frameDrops(
 
 /** "a", "a and b", "a, b and c". */
 function listed(items: readonly string[]): string {
-  if (items.length < 2) return items.join("")
+  if (items.length < 2) {
+    return items.join("")
+  }
+
   return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`
 }
 
@@ -57,17 +62,24 @@ function counted(count: number, one: string): string {
 /** The message's lines, one for each kind of thing that goes, saying what goes. None means nothing goes. */
 export function dropLines(drops: FrameDrops): string[] {
   const lines: string[] = []
-  if (drops.states.length) lines.push(`${counted(drops.states.length, "state")}: ${listed(drops.states)}`)
+
+  if (drops.states.length) {
+    lines.push(`${counted(drops.states.length, "state")}: ${listed(drops.states)}`)
+  }
+
   if (drops.previews.length) {
     lines.push(`${counted(drops.previews.length, "preview")} beside it: ${listed(drops.previews)}`)
   }
+
   if (drops.params.length) {
     const shown = drops.params.slice(0, 3)
     const more = drops.params.length - shown.length
     lines.push(`${counted(drops.params.length, "param")}: ${shown.join(", ")}${more ? ` and ${more} more` : ""}`)
   }
+
   for (const { design, count } of drops.instances) {
     lines.push(`${counted(count, "instance")} in ${design}, which ${count === 1 ? "becomes" : "become"} plain layers`)
   }
+
   return lines
 }

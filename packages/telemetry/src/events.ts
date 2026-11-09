@@ -1,8 +1,8 @@
 import type { z } from "zod"
-import type { Level, Process } from "./envelope.ts"
+import type { Attributes, Level, Process } from "./envelope.ts"
 
 /** An event's attributes: an object of named fields, so each is searchable in Sentry and listed in the catalog. */
-export type AttributesSchema = z.ZodType<Record<string, unknown>>
+export type AttributesSchema = z.ZodType<Attributes, Attributes>
 
 /**
  * A registered event: its name, the schema its attributes follow, its level, the share of them kept, the processes that
@@ -33,8 +33,14 @@ export function defineEvent<const Name extends string, Schema extends Attributes
   schema: Schema,
   { level, sample = 1, sentBy, when }: { level: Level; sample?: number; sentBy: readonly Process[]; when: string }
 ): EventDefinition<Name, Schema> {
-  if (!eventName.test(name)) throw new Error(`An event's name is dotted and camelCase, area first, not "${name}"`)
-  if (!(sample >= 0 && sample <= 1)) throw new Error(`${name} keeps a share from 0 to 1, not ${sample}`)
+  if (!eventName.test(name)) {
+    throw new Error(`An event's name is dotted and camelCase, area first, not "${name}"`)
+  }
+
+  if (!(sample >= 0 && sample <= 1)) {
+    throw new Error(`${name} keeps a share from 0 to 1, not ${sample}`)
+  }
+
   return { name, schema, level, sample, sentBy, when }
 }
 

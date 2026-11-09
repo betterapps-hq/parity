@@ -26,6 +26,12 @@ export interface MakeComponentOptions {
   paramNames?: Record<string, string>
 }
 
+/** The documents with a component made, and the component's id. */
+export interface MadeComponent {
+  documents: Map<string, CanvasDocument>
+  id: string
+}
+
 /**
  * Makes a component design from layers of a design (`occurrences`, one or more with the same structure), and puts an
  * instance of it in place of each. The component goes at the end of the `into` document, which is started if there
@@ -37,15 +43,20 @@ export function makeComponent(
   source: DesignRef,
   occurrences: string[],
   options: MakeComponentOptions
-): { documents: Map<string, CanvasDocument>; id: string } {
+): MadeComponent {
   const designs = [...documents.values()].flatMap((document) => document.containers)
   const from = documents.get(source.path)
   const original = from?.containers.find((container) => container.id === source.id)
-  if (!from || !original) throw new Error(`No design "${source.id}" in ${source.path}`)
+
+  if (!from || !original) {
+    throw new Error(`No design "${source.id}" in ${source.path}`)
+  }
+
   const id = uniqueId(
     options.name,
     designs.map((design) => design.id)
   )
+
   const { component, design } = extractComponent(original, occurrences, {
     id,
     name: options.name,
@@ -54,6 +65,7 @@ export function makeComponent(
     library: componentLibrary(designs),
     paramNames: options.paramNames
   })
+
   const next = new Map(documents)
   next.set(source.path, {
     ...from,
@@ -61,6 +73,7 @@ export function makeComponent(
   })
   const target = next.get(options.into) ?? { version: 3, containers: [] }
   next.set(options.into, { ...target, containers: [...target.containers, component] })
+
   return { documents: next, id }
 }
 
@@ -73,10 +86,14 @@ export function instancesOf<Design extends { container: ContainerSpec }>(
   componentId: string
 ): { entry: Design; node: string }[] {
   const found: { entry: Design; node: string }[] = []
+
   for (const entry of designs) {
     walkNodes(entry.container.root, (node) => {
-      if (node.type === "instance" && node.design === componentId) found.push({ entry, node: node.id })
+      if (node.type === "instance" && node.design === componentId) {
+        found.push({ entry, node: node.id })
+      }
     })
   }
+
   return found
 }

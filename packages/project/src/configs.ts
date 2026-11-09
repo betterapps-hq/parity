@@ -33,7 +33,11 @@ export interface FoundConfig<T = unknown> {
  */
 export async function findConfig(root: string, folder: string, source: ConfigSource): Promise<string | undefined> {
   const [found] = await loader(folder, { ...source, packageKey: undefined }).findConfigs()
-  if (found !== undefined) return toPosix(relative(root, found))
+
+  if (found !== undefined) {
+    return toPosix(relative(root, found))
+  }
+
   return source.packageKey ? (await loadConfig(root, folder, source, z.unknown()))?.path : undefined
 }
 
@@ -48,15 +52,22 @@ export async function loadConfig<T extends z.ZodType>(
   schema: T
 ): Promise<FoundConfig<z.output<T>> | undefined> {
   let result: { config: unknown; sources: string[] }
+
   try {
     result = await loader(folder, source).load()
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     throw new Error(`Couldn't load ${source.files.join(" or ")}: ${reason}`, { cause: error })
   }
+
   const [found] = result.sources
-  if (found === undefined) return undefined
+
+  if (found === undefined) {
+    return undefined
+  }
+
   const path = toPosix(relative(root, found))
+
   try {
     return { path, value: parseData(schema, result.config) }
   } catch (error) {
@@ -66,19 +77,19 @@ export async function loadConfig<T extends z.ZodType>(
 
 function loader(folder: string, source: ConfigSource) {
   const cwd = resolve(folder)
+
   const sources: LoadConfigSource[] = [
     {
       files: source.files,
-      ...(source.extensions ? { extensions: source.extensions } : {}),
-      ...(source.jsonc
-        ? {
-            parser: async (path: string) =>
-              path.endsWith(".json") ? parseJsonc(await readFile(path, "utf8")) : undefined
-          }
-        : {})
+      extensions: source.extensions,
+      parser: source.jsonc
+        ? async (path: string) => (path.endsWith(".json") ? parseJsonc(await readFile(path, "utf8")) : undefined)
+        : undefined
     }
   ]
+
   const key = source.packageKey
+
   if (key) {
     sources.push({
       files: ["package"],
@@ -88,8 +99,9 @@ function loader(folder: string, source: ConfigSource) {
       rewrite: (value) => packageManifest.safeParse(value).data?.[key]
     })
   }
+
   // unconfig stops before `stopAt`, so the folder's parent keeps the search in the folder.
-  return createConfigLoader({ sources, cwd, ...(source.here ? { stopAt: dirname(cwd) } : {}) })
+  return createConfigLoader({ sources, cwd, stopAt: source.here ? dirname(cwd) : undefined })
 }
 
 function toPosix(path: string): string {

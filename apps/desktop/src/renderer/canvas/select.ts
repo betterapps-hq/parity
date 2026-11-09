@@ -27,17 +27,25 @@ import type { ContainerEntry, DesignStore } from "../design-store.ts"
  */
 export function inverseSelection(store: DesignStore, current: Selection): Selection {
   const entry = current.design ? store.getEntry(current.design) : undefined
+
   if (entry && current.node) {
     const location = locateNode(entry.container.root, current.node)
     const parent = location?.ancestors.at(-1)
     const siblings = parent && childEntries(parent).find((candidate) => candidate.slot === location?.slot)?.nodes
+
     // Inside an instance, as for Select all, there's nothing to invert.
-    if (!siblings) return current
+    if (!siblings) {
+      return current
+    }
+
     const selected = new Set(selectedNodes(current))
     const rest = siblings.filter((node) => !selected.has(node.id)).map((node) => node.id)
+
     return rest.length > 0 ? layersSelection(entry.key, rest, current) : {}
   }
+
   const selected = new Set(current.mode && current.design ? [current.design] : selectedDesigns(current))
+
   return designsSelection(
     store
       .getEntries()
@@ -76,12 +84,20 @@ const placement = new Set<keyof NodeStyle>([
  */
 export function matchKey(node: DesignNode): string {
   let kind: string = node.type
-  if (node.type === "component") kind = `component:${node.component}`
-  else if (node.type === "instance") kind = `instance:${node.design}`
-  else if (node.type === "text") kind = `text:${node.tag ?? ""}`
+
+  if (node.type === "component") {
+    kind = `component:${node.component}`
+  } else if (node.type === "instance") {
+    kind = `instance:${node.design}`
+  } else if (node.type === "text") {
+    kind = `text:${node.tag ?? ""}`
+  }
+
+  // SAFETY: the keys are a node style's own.
   const style = Object.entries(node.style ?? {})
     .filter(([key, value]) => value !== undefined && !placement.has(key as keyof NodeStyle))
     .toSorted(([a], [b]) => a.localeCompare(b))
+
   return JSON.stringify([kind, style])
 }
 
@@ -101,8 +117,11 @@ export function matchingLayers(
   const wanted = new Set(topmostNodes(container.root, ids).map(key))
   const found: string[] = []
   walkNodes(container.root, (node) => {
-    if (node.id !== container.root.id && wanted.has(key(node))) found.push(node.id)
+    if (node.id !== container.root.id && wanted.has(key(node))) {
+      found.push(node.id)
+    }
   })
+
   return found
 }
 
@@ -113,24 +132,38 @@ export function matchingLayers(
 export function matchingSelection(store: DesignStore, current: Selection): Selection | undefined {
   const frame = store.editFrame(current)
   const layers = selectedNodes(current)
+
   if (frame && layers.length > 0) {
     const found = matchingLayers(frame.container, layers, frame.state, frame.viewport)
-    if (found.length === 0) return undefined
+
+    if (found.length === 0) {
+      return undefined
+    }
+
     // The layer picked last stays the one the inspector shows.
     const ordered =
       current.node && found.includes(current.node)
         ? [...found.filter((id) => id !== current.node), current.node]
         : found
+
     return layersSelection(frame.design, ordered, current)
   }
+
   const designs = selectedDesigns(current)
-  if (designs.length === 0) return undefined
+
+  if (designs.length === 0) {
+    return undefined
+  }
+
   const kinds = new Set(designs.map((key) => isComponent(store.getEntry(key))))
+
   const found = store
     .getEntries()
     .filter((candidate) => kinds.has(isComponent(candidate)))
     .map((candidate) => candidate.key)
+
   const last = current.design
+
   return designsSelection(last && found.includes(last) ? [...found.filter((key) => key !== last), last] : found)
 }
 
@@ -153,8 +186,16 @@ export function adjacentDesign(
   step: 1 | -1
 ): string | undefined {
   const order = designOrder(entries)
-  if (order.length === 0) return undefined
+
+  if (order.length === 0) {
+    return undefined
+  }
+
   const index = current.design ? order.findIndex((entry) => entry.key === current.design) : -1
-  if (index === -1) return (step === 1 ? order[0] : order.at(-1))!.key
+
+  if (index === -1) {
+    return (step === 1 ? order[0] : order.at(-1))!.key
+  }
+
   return order[(index + step + order.length) % order.length]!.key
 }

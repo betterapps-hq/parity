@@ -28,21 +28,28 @@ export function pressBackground(session: ProjectSession, start: PointerEvent, hi
         right: Math.max(start.clientX, event.clientX),
         bottom: Math.max(start.clientY, event.clientY)
       }
+
       if (editor) {
         const from = editor.screenToPage({ x: box.left, y: box.top })
         const to = editor.screenToPage({ x: box.right, y: box.bottom })
         editor.updateInstanceState({ brush: { x: from.x, y: from.y, w: to.x - from.x, h: to.y - from.y } })
       }
+
       // Measured on every move, since the camera can move while the box is drawn.
       const boxes = layers.flatMap((id) => {
         const rect = nodeBox(hit.host, id)
+
         return rect ? [{ id, box: rect }] : []
       })
+
       selection.set(boxSelection(before, design, frame, touchedBy(box, boxes), event.shiftKey))
     },
     end(kept) {
       editor?.updateInstanceState({ brush: null })
-      if (!kept) selection.set(before)
+
+      if (!kept) {
+        selection.set(before)
+      }
     },
     click: () => selection.set(boardClick(before, design, start.shiftKey))
   })

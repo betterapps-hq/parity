@@ -3,10 +3,8 @@ import {
   type BindableField,
   boardTarget,
   changesField,
-  type ComponentLibrary,
   type ContainerSpec,
   type DesignNode,
-  detachInstance,
   editNode,
   type EditTarget,
   editsDesign,
@@ -24,7 +22,6 @@ import {
   type PatchField,
   propChange,
   patchSize,
-  pushOverrides,
   resetInstance,
   resetOverride,
   slotAtPath,
@@ -38,13 +35,14 @@ import { type ReactNode, useMemo, useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
-import { focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
+import { designNamer, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
+import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
@@ -57,16 +55,19 @@ import {
   type LayerChange,
   PreviewedProp,
   recordLayerChange,
+  renameAndRecord,
   updateAndRecord
 } from "./inspector-events.ts"
 import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
+import { layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
-import { valueKind } from "./prop-values.ts"
+import { type PropValue, readPropValue, textValue, valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
+import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
 import { useStyleEditor } from "./style-editor.ts"
@@ -79,9 +80,14 @@ import { StyleSections } from "./StyleSections.tsx"
  */
 export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
   const { store } = useProject()
-  if (!isInnerPath(nodeId)) return <DesignLayerPanel entry={entry} nodeId={nodeId} />
+
+  if (!isInnerPath(nodeId)) {
+    return <DesignLayerPanel entry={entry} nodeId={nodeId} />
+  }
+
   // A slot of one of the design's instances is selected as a layer is, and has a panel of its own (PAR-84).
   const slot = slotAtPath(entry.container.root, nodeId, projectLibrary(store))
+
   return slot ? <SlotPanel entry={entry} {...slot} /> : <InnerLayerPanel entry={entry} path={nodeId} />
 }
 
@@ -93,81 +99,88 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
   const entries = useContainerEntries(store)
   const { container, key } = entry
   const location = locateNode(container.root, nodeId)
+
   if (!location) {
     return <p className="p-4 text-sm text-muted-foreground">This layer no longer exists.</p>
   }
+
   const state = editingState(container, selected.state)
   const target = boardTarget(container, state.id)
   const node = nodeOnBoard(container, location.node, state)
   const override = targetPatches(container, target)?.[nodeId]
+  const kind = layerKind(location.node, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
 
   const change: LayerChange = (label, value, gesture, shown = node) => {
     store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
       gesture
     })
-    if (shown) recordLayerChange(key, [nodeId], state.id, shown, value, gesture)
+
+    if (shown) {
+      recordLayerChange(key, [nodeId], state.id, shown, value, gesture)
+    }
   }
+
   // The layer as a design shows it in the state being edited, to read what a reset changed.
   const shownIn = (current: ContainerSpec) => {
     const layer = locateNode(current.root, nodeId)?.node
+
     return layer && nodeOnBoard(current, layer, editingState(current, state.id))
   }
-  const reset = (field?: PatchField) =>
-    updateAndRecord(
-      store,
-      key,
-      "Reset change",
-      (current) => resetOverride(current, boardTarget(current, state.id), nodeId, field),
-      field
-        ? {
-            field: fieldName(field),
-            layers: [nodeId],
-            state: state.id,
-            read: (current) => fieldValue(shownIn(current), field)
-          }
-        : {
-            field: "overrides",
-            layers: [nodeId],
-            state: state.id,
-            read: (current) => targetPatches(current, boardTarget(current, state.id))?.[nodeId]
-          }
-    )
+
+  const reset = (field?: PatchField) => {
+    const update = (current: ContainerSpec) => resetOverride(current, boardTarget(current, state.id), nodeId, field)
+
+    if (field) {
+      updateAndRecord(store, key, "Reset change", update, {
+        field: fieldName(field),
+        layers: [nodeId],
+        state: state.id,
+        read: (current) => fieldValue(shownIn(current), field)
+      })
+
+      return
+    }
+
+    updateAndRecord(store, key, "Reset change", update, {
+      field: "overrides",
+      layers: [nodeId],
+      state: state.id,
+      read: (current) => targetPatches(current, boardTarget(current, state.id))?.[nodeId]
+    })
+  }
 
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex items-center gap-2">
-          <NodeIcon node={location.node} className="size-4 shrink-0" style={{ color: nodeColor(location.node) }} />
-          {/* The selection's title, at 15px semibold on every tab; md:text-base replaces the kit's md:text-sm. */}
-          <NameInput
-            key={`${nodeId}:${location.node.name ?? ""}`}
-            defaultValue={location.node.name ?? ""}
-            placeholder={layerLabel(location.node, entries, store.getComponentLibrary())}
-            aria-label="Layer name"
-            className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input md:text-base dark:bg-transparent"
-            onBlur={(event) => {
-              const name = event.currentTarget.value.trim()
-              if (name === (location.node.name ?? "")) return
-              updateAndRecord(
-                store,
-                key,
-                "Rename layer",
-                (current) => renameLayer(current, nodeId, name || undefined),
-                {
-                  field: "name",
-                  layers: [nodeId],
-                  read: (current) => findNode(current.root, nodeId)?.name
+        <SelectionHeading
+          icon={<NodeIcon node={location.node} className={headingIcon} />}
+          color={nodeColor(location.node)}
+          name={
+            <NameInput
+              key={`${nodeId}:${location.node.name ?? ""}`}
+              defaultValue={location.node.name ?? ""}
+              placeholder={layerLabel(location.node, entries, store.getComponentLibrary(), session.info.libraries)}
+              aria-label="Layer name"
+              className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
+              onBlur={(event) => {
+                const name = event.currentTarget.value.trim()
+
+                if (name === (location.node.name ?? "")) {
+                  return
                 }
-              )
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") event.currentTarget.blur()
-            }}
-          />
-        </div>
-        <p className="mt-0.5 pl-6 text-xs text-muted-foreground">
-          {describeNode(location.node, entries, store.getComponentLibrary())} in {container.name}
-        </p>
+
+                renameAndRecord(store, key, name || undefined, nodeId)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur()
+                }
+              }}
+            />
+          }
+          kind={kind.label}
+          detail={kind.description}
+        />
         <StateTarget entry={entry} state={state} target={target} />
         {location.ancestors.length > 0 && location.node.type !== "instance" && (
           <MakeComponent
@@ -191,7 +204,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
         <InstanceSection
           entry={entry}
           node={node}
-          own={location.node as InstanceNode}
+          own={location.node.type === "instance" ? location.node : undefined}
           changed={(name) => changesField(override, { kind: "props", key: name })}
           onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
           onReset={(name) => reset({ kind: "props", key: name })}
@@ -217,9 +230,11 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
   const state = editingState(container, selected.state)
   const target = boardTarget(container, state.id)
   const inner = locateInner(container, path, library, { state, variants: container.view?.variants })
+
   if (!inner) {
     return <p className="p-4 text-sm text-muted-foreground">This layer no longer exists.</p>
   }
+
   const node = inner.shown
   const override = innerChanges(container, target, path, library)
   const own = inner.instance.overrides?.[inner.key]
@@ -232,55 +247,58 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
       (current) => editLayer(store, current, boardTarget(current, state.id), path, value),
       { gesture }
     )
-    if (shown) recordLayerChange(key, [path], state.id, shown, value, gesture)
+
+    if (shown) {
+      recordLayerChange(key, [path], state.id, shown, value, gesture)
+    }
   }
+
   // The layer as the copy shows it in the state being edited, to read what a reset changed.
   const shownIn = (current: ContainerSpec) =>
     locateInner(current, path, library, { state: editingState(current, state.id), variants: current.view?.variants })
       ?.shown
-  const reset = (field?: PatchField) =>
-    updateAndRecord(
-      store,
-      key,
-      "Reset change",
-      (current) => resetLayer(store, current, boardTarget(current, state.id), path, field),
-      field
-        ? {
-            field: fieldName(field),
-            layers: [path],
-            state: state.id,
-            read: (current) => fieldValue(shownIn(current), field)
-          }
-        : {
-            field: "overrides",
-            layers: [path],
-            state: state.id,
-            read: (current) => innerChanges(current, boardTarget(current, state.id), path, library)
-          }
-    )
-  const push = () => {
-    if (!main) return
-    store.updateContainers([key, main.key], `Push to ${main.container.name}`, ([design, component]) => {
-      const pushed = pushOverrides(design!, inner.instance.id, component!, [inner.key])
-      return [pushed.container, pushed.component]
+
+  const reset = (field?: PatchField) => {
+    const update = (current: ContainerSpec) => resetLayer(store, current, boardTarget(current, state.id), path, field)
+
+    if (field) {
+      updateAndRecord(store, key, "Reset change", update, {
+        field: fieldName(field),
+        layers: [path],
+        state: state.id,
+        read: (current) => fieldValue(shownIn(current), field)
+      })
+
+      return
+    }
+
+    updateAndRecord(store, key, "Reset change", update, {
+      field: "overrides",
+      layers: [path],
+      state: state.id,
+      read: (current) => innerChanges(current, boardTarget(current, state.id), path, library)
     })
   }
+
+  const push = () => main && pushAndRecord(store, key, main.key, inner.instance.id, { key: inner.key, path })
   // The component this layer belongs to: the nested one for a layer inside a nested instance.
   const owner = entries.find((candidate) => candidate.container.id === inner.component.id)
+  const kind = layerKind(inner.node, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
 
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex h-7 items-center gap-2">
-          <NodeIcon node={inner.node} className="size-4 shrink-0" style={{ color: kindColors.component }} />
-          <Name className="px-1.5 text-base font-semibold">
-            {layerLabel(inner.node, entries, store.getComponentLibrary())}
-          </Name>
-        </div>
-        <p className="mt-0.5 pl-6 text-xs text-muted-foreground">
-          {describeNode(inner.node, entries, store.getComponentLibrary())} in{" "}
-          {layerLabel(inner.instance, entries, store.getComponentLibrary())}
-        </p>
+        <SelectionHeading
+          icon={<NodeIcon node={inner.node} className={headingIcon} />}
+          color={kindColors.component}
+          name={
+            <Name className={`px-1.5 ${headingName}`}>
+              {layerLabel(inner.node, entries, store.getComponentLibrary(), session.info.libraries)}
+            </Name>
+          }
+          kind={kind.label}
+          detail={kind.description}
+        />
         {editsDesign(container, target) ? (
           <div
             className="mt-3 rounded-md border px-2.5 py-2 text-xs"
@@ -379,13 +397,14 @@ function LayerSections({
   const session = useProject()
   const components = useComponents(session.components)
   const entries = useContainerEntries(session.store)
-  const name = layerLabel(node, entries, session.store.getComponentLibrary())
+  const name = layerLabel(node, entries, session.store.getComponentLibrary(), session.info.libraries)
   const styleEditor = useStyleEditor(entry, [nodeId])
   // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
   const propPreview = useChangePreview(session.store, entry.key)
   const previewedProp = useMemo(() => new PreviewedProp(propPreview), [propPreview])
   // A component design's own layers can use its props for their text and visibility; a copy's can't.
   const usesProps = entry.container.kind === "component" && !inner && !isInnerPath(nodeId)
+
   const withProp = (field: BindableField, input: ReactNode) =>
     usesProps ? (
       <FieldWithProp entry={entry} nodeId={nodeId} field={field} bound={node.bind?.[field]}>
@@ -394,9 +413,10 @@ function LayerSections({
     ) : (
       input
     )
+
   return (
     <>
-      {(node.type === "text" || (node.type === "component" && typeof node.props?.children === "string")) && (
+      {(node.type === "text" || (node.type === "component" && textValue.safeParse(node.props?.children).success)) && (
         <PanelSection title="Content">
           {node.type === "text" ? (
             <Field label="Text" changed={override?.text !== undefined} onReset={() => reset({ kind: "text" })}>
@@ -413,7 +433,7 @@ function LayerSections({
             >
               <TextInput
                 multiline
-                value={String((node.props?.children ?? "") as unknown)}
+                value={textValue.safeParse(node.props?.children).data ?? ""}
                 onCommit={(children) => change("Edit label", { props: { children } })}
               />
             </Field>
@@ -502,6 +522,7 @@ function MakeComponent({ entry, nodeId, beside }: { entry: ContainerEntry; nodeI
   const session = useProject()
   const [naming, setNaming] = useState(false)
   const [error, setError] = useState<string>()
+
   if (!naming) {
     return (
       <div className="mt-2 flex gap-1.5">
@@ -512,14 +533,19 @@ function MakeComponent({ entry, nodeId, beside }: { entry: ContainerEntry; nodeI
       </div>
     )
   }
+
   return (
     <form
       className="mt-2 flex flex-col gap-1.5"
       onSubmit={(event) => {
         event.preventDefault()
         const field = new FormData(event.currentTarget).get("name")
-        const name = (typeof field === "string" ? field : "").trim()
-        if (!name) return
+        const name = (field instanceof File ? "" : (field ?? "")).trim()
+
+        if (!name) {
+          return
+        }
+
         try {
           const key = extractIntoComponent(session, entry, [nodeId], name)
           session.selection.set({ design: key })
@@ -558,7 +584,7 @@ function InstanceSection({
   /** The instance as the design has it, when it's one of the design's own nodes rather than a nested one. */
   own?: InstanceNode
   changed: (name: string) => boolean
-  onChange: (name: string, value: unknown) => void
+  onChange: (name: string, value: PropValue | undefined) => void
   onReset: (name: string) => void
 }) {
   const session = useProject()
@@ -567,9 +593,11 @@ function InstanceSection({
   const component = entries.find((candidate) => candidate.container.id === node.design)
   // A library's design isn't one of the project's, so it's placed and detached here but edited in the library.
   const design = component?.container ?? store.getComponentLibrary().get(node.design)
+
   const from = component
     ? undefined
     : session.info.libraries.find((candidate) => candidate.designs?.some((placed) => placed.id === node.design))
+
   if (!design) {
     return (
       <PanelSection title="Instance">
@@ -579,27 +607,24 @@ function InstanceSection({
       </PanelSection>
     )
   }
+
   const params = Object.entries(design.params ?? {})
   const overrides = own ? overrideCount(own) : 0
   const library = projectLibrary(store)
-  const replace = (label: string, update: (container: ContainerSpec) => ContainerSpec) =>
-    store.updateContainer(entry.key, label, update)
+
   // The instance's own field, as the design has it, to record what a change to it did.
   const instanceField = (name: "state" | "design") => ({
     field: `instance.${name}`,
     layers: [node.id],
     read: (container: ContainerSpec) => {
       const instance = findNode(container.root, node.id)
+
       return instance?.type === "instance" ? instance[name] : undefined
     }
   })
-  const push = () => {
-    if (!component) return
-    store.updateContainers([entry.key, component.key], `Push to ${design.name}`, ([placed, main]) => {
-      const pushed = pushOverrides(placed!, node.id, main!)
-      return [pushed.container, pushed.component]
-    })
-  }
+
+  const push = () => component && pushAndRecord(store, entry.key, component.key, node.id)
+
   // Another component this copy could become: not the design it's in, which can't contain itself.
   const swappable = entries.filter(
     (candidate) => candidate.container.kind === "component" && candidate.container.id !== entry.container.id
@@ -648,9 +673,18 @@ function InstanceSection({
                   (container) => ({
                     ...container,
                     root: mapNode(container.root, node.id, (current) => {
-                      const next = { ...current } as InstanceNode
-                      if (state) next.state = state
-                      else delete next.state
+                      if (current.type !== "instance") {
+                        return current
+                      }
+
+                      const next = { ...current }
+
+                      if (state) {
+                        next.state = state
+                      } else {
+                        delete next.state
+                      }
+
                       return next
                     })
                   }),
@@ -664,7 +698,7 @@ function InstanceSection({
           param.type === "variant" ? (
             <Field key={name} label={name} changed={changed(name)} onReset={() => onReset(name)}>
               <ChoiceInput
-                value={typeof node.args?.[name] === "string" ? (node.args[name] as string) : undefined}
+                value={textValue.safeParse(node.args?.[name]).data}
                 options={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
                 placeholder={
                   param.options?.find((option) => option.id === param.default)?.name ?? param.options?.[0]?.name
@@ -675,8 +709,8 @@ function InstanceSection({
           ) : (
             <Field key={name} label={name} changed={changed(name)} onReset={() => onReset(name)}>
               <ValueInput
-                value={node.args?.[name] ?? param.default}
-                kind={valueKind(node.args?.[name] ?? param.default, param.type)}
+                value={readPropValue(node.args?.[name] ?? param.default)}
+                kind={valueKind(readPropValue(node.args?.[name] ?? param.default), param.type)}
                 title={name}
                 onCommit={(value) => onChange(name, value)}
               />
@@ -710,6 +744,7 @@ function InstanceSection({
                         layers: [node.id],
                         read: (container) => {
                           const instance = findNode(container.root, node.id)
+
                           return instance?.type === "instance" ? instance.overrides : undefined
                         }
                       }
@@ -730,7 +765,10 @@ function InstanceSection({
             <Select<string>
               value={null}
               onValueChange={(design) => {
-                if (!design) return
+                if (!design) {
+                  return
+                }
+
                 updateAndRecord(
                   store,
                   entry.key,
@@ -758,7 +796,7 @@ function InstanceSection({
                 variant="outline"
                 size="sm"
                 className="h-7 px-2 text-xs"
-                onClick={() => replace("Detach instance", (container) => detachInstance(container, node.id, library))}
+                onClick={() => detachAndRecord(store, entry.key, node.id)}
               >
                 <Unlink /> Detach
               </Button>
@@ -775,13 +813,20 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const base = editsDesign(entry.container, target)
+
   const variant =
     target.variant &&
     entry.container.params?.[target.variant.param]?.options?.find((option) => option.id === target.variant!.option)
+
   const variantOnly = !base && variant && state.id === entry.container.states[0]!.id
   let changes = "changes only this state"
-  if (base) changes = "changes every state"
-  else if (variantOnly) changes = `changes only the ${variant.name} variant`
+
+  if (base) {
+    changes = "changes every state"
+  } else if (variantOnly) {
+    changes = `changes only the ${variant.name} variant`
+  }
+
   return (
     <div
       className="mt-3 flex items-center gap-1 rounded-md border px-2 py-1.5 text-xs"
@@ -796,7 +841,10 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
         items={entry.container.states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
-          if (!id) return
+          if (!id) {
+            return
+          }
+
           const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
           store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
@@ -832,22 +880,14 @@ export function measureNode(
   const area = session.editor?.getContainer().closest(".canvas-area")
   const host = area ? selectionFrame(area, design, picked) : undefined
   const rect = host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.rect : undefined
-  if (!host || !rect || !session.editor) return undefined
-  const scale = session.editor.getZoomLevel() * frameScale(host)
-  return { width: rect.width / scale, height: rect.height / scale }
-}
 
-function describeNode(node: DesignNode, entries: readonly ContainerEntry[], library: ComponentLibrary): string {
-  if (node.type === "component") return `${node.component} component`
-  if (node.type === "instance") {
-    const name =
-      entries.find((entry) => entry.container.id === node.design)?.container.name ?? library.get(node.design)?.name
-    return `Instance of ${name ?? node.design}`
+  if (!host || !rect || !session.editor) {
+    return undefined
   }
-  if (node.type === "text") return `Text${node.tag ? `, ${node.tag}` : ""}`
-  if (node.type === "image") return "Image"
-  const layout = node.style?.direction === "row" ? "Row layout" : "Column layout"
-  return node.slot === undefined ? layout : `${layout}, the ${node.slot} slot`
+
+  const scale = session.editor.getZoomLevel() * frameScale(host)
+
+  return { width: rect.width / scale, height: rect.height / scale }
 }
 
 /**
@@ -859,7 +899,11 @@ function BaseDesignNote({ entry, what }: { entry: ContainerEntry; what: string }
   const { selection } = useProject()
   const selected = useSelection(selection)
   const note = baseDesignNote(entry.container, editingState(entry.container, selected.state), what)
-  if (!note) return null
+
+  if (!note) {
+    return null
+  }
+
   return (
     <p
       className="type-message mb-2 flex items-start gap-1.5 rounded-md border px-2.5 py-1.5"
@@ -874,6 +918,7 @@ function BaseDesignNote({ entry, what }: { entry: ContainerEntry; what: string }
 /** An image's file, its description for screen readers, how it fills its box, and who to credit. */
 function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode }) {
   const { store } = useProject()
+
   const edit = (label: string, field: "src" | "alt" | "fit", update: (image: ImageNode) => ImageNode) =>
     updateAndRecord(
       store,
@@ -888,10 +933,12 @@ function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode 
         layers: [node.id],
         read: (container) => {
           const image = findNode(container.root, node.id)
+
           return image?.type === "image" ? image[field] : undefined
         }
       }
     )
+
   return (
     <PanelSection title="Image">
       <BaseDesignNote entry={entry} what="File, alt text and fit" />
@@ -908,7 +955,11 @@ function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode 
           onCommit={(alt) =>
             edit("Describe image", "alt", (image) => {
               const next: ImageNode = { ...image, alt }
-              if (!alt) delete next.alt
+
+              if (!alt) {
+                delete next.alt
+              }
+
               return next
             })
           }
@@ -926,7 +977,11 @@ function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode 
           onChange={(fit) =>
             edit("Change fit", "fit", (image) => {
               const next: ImageNode = { ...image, fit }
-              if (!fit) delete next.fit
+
+              if (!fit) {
+                delete next.fit
+              }
+
               return next
             })
           }
@@ -946,13 +1001,3 @@ function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode 
 }
 
 type ImageFit = NonNullable<ImageNode["fit"]>
-
-export function renameLayer(container: ContainerSpec, nodeId: string, name: string | undefined): ContainerSpec {
-  const root = mapNode(container.root, nodeId, (node) => {
-    const next = { ...node }
-    if (name) next.name = name
-    else delete next.name
-    return next
-  })
-  return { ...container, root }
-}

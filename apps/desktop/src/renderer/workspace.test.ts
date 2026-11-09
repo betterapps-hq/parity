@@ -1,18 +1,29 @@
-import { defaultModeSettings } from "@parity-app/core"
+import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import {
+  type Attributes,
+  createTelemetry,
+  createTestSink,
+  registeredEvents,
+  type TraceContext
+} from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import type { ProjectInfo } from "../shared/protocol.ts"
+import type { ProjectInfo, ServiceMethods } from "../shared/protocol.ts"
 import type * as ReportError from "./report-error.ts"
 import { preloadAnswers } from "./service.ts"
+import { tracedCommand, traceWith } from "./tracing.ts"
 import type { ProjectSession } from "./workspace.ts"
 
 // docs/editor.md, Opening and closing projects: a tab closed while its project opens, as tabs restored at launch can
 // be, closes the project once the service has it, so its builder doesn't run on with no tab (PAR-427).
 
-const guest = vi.hoisted(() => ({
-  loads: [] as Array<(value: unknown) => void>,
-  failures: [] as Array<(error: Error) => void>,
-  released: [] as string[]
-}))
+const guest = vi.hoisted(() => {
+  const loads: Array<(value: typeof loaded) => void> = []
+  const failures: Array<(error: Error) => void> = []
+  const released: string[] = []
+
+  return { loads, failures, released }
+})
+
 vi.mock("./guest.ts", () => ({
   loadGuest: () =>
     new Promise((resolve, reject) => {
@@ -23,36 +34,59 @@ vi.mock("./guest.ts", () => ({
   previewToken: () => undefined
 }))
 
-const tracked = vi.hoisted(() => [] as Array<{ name: string; attributes: Record<string, unknown> }>)
+/** An event the workspace tracked. */
+interface Tracked {
+  name: string
+  attributes: Attributes
+  span?: TraceContext | undefined
+}
+
+const tracked = vi.hoisted(() => {
+  const events: Tracked[] = []
+
+  return events
+})
+
 vi.mock("./report-error.ts", async (original) => ({
   ...(await original<typeof ReportError>()),
-  track: (name: string, attributes: Record<string, unknown>) => tracked.push({ name, attributes })
+  track: (name: string, attributes: Attributes, options?: { span?: TraceContext }) =>
+    tracked.push({ name, attributes, span: options?.span })
 }))
 
 const { homeTab, Workspace } = await import("./workspace.ts")
 
-const info = {
+const info: ProjectInfo = {
   id: "/projects/app",
   root: "/projects/app",
   name: "app",
+  renderer: { id: "react", name: "React" },
   guestUrl: "http://127.0.0.1:5000/guest",
-  builder: { id: "vite", name: "Vite" },
+  builder: { id: "vite", name: "Vite", toolVersion: "8" },
   theme: [],
+  componentCount: 0,
+  notes: [],
+  detection: { packageManager: { id: "pnpm", name: "pnpm", agent: "pnpm", summary: "" }, tools: [] },
   documents: [],
   mainDocument: "app.par",
   modes: { settings: defaultModeSettings, custom: false },
   sources: {},
   libraries: []
-} as unknown as ProjectInfo
+}
+
 const loaded = { guest: {}, sheet: {}, tokens: [] }
 
 let opens: Array<(value: ProjectInfo) => void>
 let closes: string[]
+
 /** The projects whose pictures the service was told to keep, each time it was told. */
 let picturesKept: string[][]
+
 /** The projects whose folders the start page asked about, each time, and what the service answers. */
 let checked: string[][]
-let folders: { missing: string[]; example?: string }
+let folders: ServiceMethods["start.check"]["result"]
+
+/** How the service answers a design file's write. */
+const saving = { answer: (): Promise<undefined> => Promise.resolve(undefined) }
 
 beforeEach(() => {
   tracked.length = 0
@@ -67,26 +101,42 @@ beforeEach(() => {
   vi.stubGlobal("window", {
     canvasHost: {
       ask: preloadAnswers((method, answerParams) => {
+        // SAFETY: each method below reads only what its params have: `projectId` closing a project, `roots` the others.
         const params = answerParams as { projectId?: string; roots?: string[] }
-        if (method === "project.open") return new Promise((resolve) => opens.push(resolve))
+
+        if (method === "project.open") {
+          return new Promise((resolve) => opens.push(resolve))
+        }
+
         if (method === "project.close") {
           closes.push(params.projectId!)
+
           return Promise.resolve(undefined)
         }
+
         if (method === "pictures.keepOnly") {
           picturesKept.push(params.roots!)
+
           return Promise.resolve(undefined)
         }
+
+        if (method === "document.save") {
+          return saving.answer()
+        }
+
         if (method === "start.check") {
           checked.push(params.roots!)
+
           return Promise.resolve(folders)
         }
+
         // Nothing else the tab asks for answers, as nothing the test checks waits on it.
         return new Promise(() => undefined)
       })
     }
   })
 })
+
 afterEach(() => vi.unstubAllGlobals())
 
 /** Lets the workspace's awaits run on. */
@@ -219,6 +269,7 @@ describe("a closed tab", () => {
     await settle()
     guest.loads[0]!(loaded)
     await opening
+    // SAFETY: the workspace only holds the editor and lets it go; nothing here calls it.
     const editor = {} as NonNullable<ProjectSession["editor"]>
     workspace.setEditor(info.id, editor)
     const held = workspace.getTabs()
@@ -263,7 +314,11 @@ describe("a tab closed while its project opens", () => {
     opens[0]!(info)
     opens[1]!(info)
     await settle()
-    for (const load of guest.loads) load(loaded)
+
+    for (const load of guest.loads) {
+      load(loaded)
+    }
+
     await Promise.all([first, second])
     expect(closes).toEqual([])
     expect(workspace.getTab(info.id)?.status).toBe("ready")
@@ -461,6 +516,7 @@ describe("a tab closed while its project opens", () => {
 /** Storage that keeps what's set, as the window's does. */
 function memoryStorage(): Pick<Storage, "getItem" | "setItem"> {
   const items = new Map<string, string>()
+
   return { getItem: (key) => items.get(key) ?? null, setItem: (key, value) => void items.set(key, value) }
 }
 
@@ -567,6 +623,7 @@ describe("moveGuest", () => {
     await settle()
     guest.loads[0]!(loaded)
     await opening
+
     return workspace
   }
 
@@ -625,9 +682,17 @@ describe("moveGuest", () => {
       const later = workspace.moveGuest(info.id, latest)
       const loadEarlier = () => guest.loads[1]!({ guest: { earlier: true }, sheet: {}, tokens: [] })
       const loadLater = () => guest.loads[2]!({ guest: { later: true }, sheet: {}, tokens: [] })
-      if (order === "first") loadEarlier()
+
+      if (order === "first") {
+        loadEarlier()
+      }
+
       loadLater()
-      if (order === "last") loadEarlier()
+
+      if (order === "last") {
+        loadEarlier()
+      }
+
       expect(await Promise.all([earlier, later])).toEqual([false, true])
       expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(latest)
       expect(workspace.getTab(info.id)!.session!.loaded.guest).toEqual({ later: true })
@@ -649,5 +714,56 @@ describe("moveGuest", () => {
     expect(await moving).toBe(false)
     expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(reopened.guestUrl)
     expect(guest.released).toEqual([info.guestUrl, moved])
+  })
+})
+
+// docs/telemetry.md: a write's `document.saved` or `document.saveFailed` is in the trace it was asked in (PAR-752).
+describe("recording a save", () => {
+  const sink = createTestSink()
+  traceWith(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: "renderer", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
+  )
+
+  const about: ContainerSpec = {
+    id: "about",
+    name: "About",
+    position: { x: 0, y: 0 },
+    root: { type: "layout", id: "root", children: [] },
+    states: [{ id: "default", name: "Default" }]
+  }
+
+  const save = { action: "save", from: "key" as const, enabled: true, layers: 0, designs: 0 }
+
+  /** Saves an added design with Save, giving where `command.ran` sat and what the save recorded. */
+  async function saveWith(answer: () => Promise<undefined>) {
+    sink.clear()
+    saving.answer = answer
+    vi.stubGlobal("localStorage", memoryStorage())
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const { store } = workspace.getTab(info.id)!.session!
+    store.addContainer(info.mainDocument, about)
+    await tracedCommand(save, () => store.flush()).catch(() => undefined)
+    const ran = sink.spans.find(({ name }) => name === "command.ran")
+
+    return {
+      command: { traceId: ran!.traceId, spanId: ran!.spanId },
+      recorded: tracked.filter(({ name }) => name.startsWith("document.save"))
+    }
+  }
+
+  it("records a write in the trace Save asked for it in", async () => {
+    const { command, recorded } = await saveWith(() => Promise.resolve(undefined))
+    expect(recorded).toMatchObject([{ name: "document.saved", attributes: { file: "app.par" }, span: command }])
+  })
+
+  it("records a failed write in that trace too", async () => {
+    const { command, recorded } = await saveWith(() => Promise.reject(new Error("Disk full")))
+    expect(recorded).toMatchObject([{ name: "document.saveFailed", attributes: { file: "app.par" }, span: command }])
   })
 })

@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react"
-import { toast } from "sonner"
+import { type ExternalToast, toast } from "sonner"
 import type { ProjectPicture } from "../../shared/protocol.ts"
 import { actions } from "../chrome/actions.ts"
 import { recordInterface } from "../interface-events.ts"
@@ -69,12 +69,25 @@ export function useStartActions(): StartActions {
  * designed with, so their places are there before what they do is.
  */
 export function notReady(title: string, description?: string, action?: { label: string; onClick: () => void }): void {
-  toast(title, { ...(description ? { description } : {}), ...(action ? { action } : {}) })
+  const options: ExternalToast = {}
+
+  if (description) {
+    options.description = description
+  }
+
+  if (action) {
+    options.action = action
+  }
+
+  toast(title, options)
 }
 
 /** New project waits on the Buildkit scaffolder (PAR-284); until then, a project starts from a folder. */
 export function newProjectNotReady(actions: StartActions): void {
-  if (actions === workspaceActions) recordStart("new-project")
+  if (actions === workspaceActions) {
+    recordStart("new-project")
+  }
+
   notReady("New project isn't ready yet", "For now, open a React app's folder.", {
     label: "Open a folder",
     onClick: actions.openFolder

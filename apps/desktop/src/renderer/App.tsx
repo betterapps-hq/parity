@@ -28,7 +28,10 @@ let started = false
 
 export function App() {
   useEffect(() => {
-    if (started) return
+    if (started) {
+      return
+    }
+
     started = true
     serveAgents()
     workspace.restore()
@@ -61,7 +64,7 @@ export function WindowBoundary({ children }: { children: ReactNode }) {
 function reloadWindow(): void {
   void workspace.flush().then(
     () => location.reload(),
-    (error: unknown) => console.error("[window] couldn't save before reloading:", error)
+    (cause: unknown) => console.error("[window] couldn't save before reloading:", cause)
   )
 }
 
@@ -78,7 +81,9 @@ export function AppWindow() {
   const signInScreen = account.place === "screen"
   useAppShortcuts()
   useEffect(() => {
-    if (signInScreen && tabs.length > 0) accountActions.leaveScreen()
+    if (signInScreen && tabs.length > 0) {
+      accountActions.leaveScreen()
+    }
   }, [signInScreen, tabs.length])
 
   return (

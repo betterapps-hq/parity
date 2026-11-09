@@ -45,6 +45,7 @@ const meta = {
 } satisfies Meta<typeof Badge>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Between calls, only who the agent is. */

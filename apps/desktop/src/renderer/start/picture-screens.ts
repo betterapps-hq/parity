@@ -23,18 +23,28 @@ export function picturedScreens(
   settings: ModeSettings,
   most = picturedScreenCount
 ): PicturedScreen[] {
-  const screens = designs
-    .filter(({ container }) => (container.kind ?? "screen") === "screen")
-    .map(({ key, container }): PicturedScreen => {
-      const { primary, companions } = containerModes(settings, container)
-      const phone = isPhone(primary) ? undefined : companions.find(isPhone)
-      return { design: key, name: container.name, main: primary, ...(phone ? { phone } : {}) }
-    })
+  const screens = designs.flatMap(({ key, container }) => {
+    if ((container.kind ?? "screen") !== "screen") {
+      return []
+    }
+
+    const { primary, companions } = containerModes(settings, container)
+    const phone = isPhone(primary) ? undefined : companions.find(isPhone)
+    const screen: PicturedScreen = { design: key, name: container.name, main: primary }
+
+    if (phone) {
+      screen.phone = phone
+    }
+
+    return [screen]
+  })
+
   return [...screens.filter(({ phone }) => phone), ...screens.filter(({ phone }) => !phone)].slice(0, most)
 }
 
 /** Whether a mode draws a phone's screen: its viewport says so, or else its width suggests it. */
 export function isPhone(mode: ResolvedMode): boolean {
   const option = mode.options.find(({ variable }) => variable.kind === "viewport")?.option
+
   return (option?.device ?? deviceForWidth(mode.width)) === "phone"
 }

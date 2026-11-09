@@ -19,6 +19,7 @@ function Board({ main: initialMain, shown: initialShown }: { main: string; shown
   const [shown, setShown] = useState(initialShown)
   const mainMode = modes.find((mode) => mode.id === main)!
   const beside = modes.filter((mode) => mode.id !== main && shown.includes(mode.id))
+
   return (
     <div className="flex min-h-[28rem] flex-col items-start gap-3 bg-[#0e0e10] p-12">
       <div className="flex h-8 w-[36rem] items-center gap-3">
@@ -62,6 +63,7 @@ const meta = {
 } satisfies Meta<typeof Board>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const openMenu: Story["play"] = async ({ canvasElement }) => {

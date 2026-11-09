@@ -19,9 +19,9 @@ import { HandoffPill, Pills, PortalHeader, PortalPage, PullRequestLink } from ".
 import { PricingAt } from "./pricing-render.tsx"
 
 /** Boards that can be drawn at an earlier version, so the side shows the version that was approved. */
-const versioned: Record<string, (look: Look, version: number) => ReactNode> = {
-  "website/Pricing": (look, version) => <PricingAt look={look} version={version} />
-}
+const versioned = new Map<string, (look: Look, version: number) => ReactNode>([
+  ["website/Pricing", (look, version) => <PricingAt look={look} version={version} />]
+])
 
 /** Who's editing a board now: their edits are drafts until they mark a version ready, so the status doesn't move. */
 function editing(board: Deliverable) {
@@ -40,7 +40,10 @@ function Code({ children }: { children: ReactNode }) {
 
 /** You, someone's first name, or an agent's whole name. */
 function who(person: { name: string; agent?: boolean }): string {
-  if (person === me) return "you"
+  if (person === me) {
+    return "you"
+  }
+
   return person.agent ? person.name : person.name.split(" ")[0]!
 }
 
@@ -82,11 +85,14 @@ function Cell({ avatar, top, bottom }: { avatar?: { name: string; hue: number };
 
 /** Who approved the version, or while it's in review, who it waits on, who asked and how long ago. */
 function Approval({ board }: { board: Deliverable }) {
-  if (board.approved)
+  if (board.approved) {
     return (
       <Cell avatar={board.approved.who} top={`Approved by ${who(board.approved.who)}`} bottom={board.approved.when} />
     )
+  }
+
   const asked = board.review!
+
   return (
     <Cell
       avatar={asked.reviewer}
@@ -99,7 +105,8 @@ function Approval({ board }: { board: Deliverable }) {
 /** Who's writing the code: building it, built it, or made it with the design, with the pull request. */
 function CodeCell({ board }: { board: Deliverable }) {
   const code = board.code
-  if (board.drift)
+
+  if (board.drift) {
     return (
       <Cell
         avatar={board.drift.who}
@@ -107,13 +114,22 @@ function CodeCell({ board }: { board: Deliverable }) {
         bottom={<PullRequestLink pr={board.drift.pr} />}
       />
     )
-  if (!code)
+  }
+
+  if (!code) {
     return (
       <Cell top={<span className="text-muted-foreground">Nobody yet</span>} bottom={board.issue ?? "Not tracked"} />
     )
+  }
+
   let top: string
-  if (code.doing === "Building") top = code.who === me ? "You're building it" : `${who(code.who)} is building it`
-  else top = code.doing === "Built" ? `Built by ${who(code.who)}` : "Already in code"
+
+  if (code.doing === "Building") {
+    top = code.who === me ? "You're building it" : `${who(code.who)} is building it`
+  } else {
+    top = code.doing === "Built" ? `Built by ${who(code.who)}` : "Already in code"
+  }
+
   return <Cell avatar={code.who} top={top} bottom={code.pr ? <PullRequestLink pr={code.pr} /> : code.when} />
 }
 
@@ -125,6 +141,7 @@ function BoardRow({ board, status }: { board: Deliverable; status: Handoff }) {
   const selected = key === picked
   const now = editing(board)
   const behind = board.parts.find((part) => part.library && part.library !== `Kestrel UI ${libraryLatest}`)
+
   return (
     <div
       className={`group/row ${columns} cursor-pointer rounded-lg px-2 py-2 ${selected ? "bg-muted/60 ring-1 ring-border" : "hover:bg-muted/30"} ${status === "Built" ? "opacity-60" : ""}`}
@@ -182,13 +199,15 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
 function Detail({ board }: { board: Deliverable }) {
   const shown = portalProject(board.project)
   const design = designOf(shown, board.design)
-  const status = handoff[`${board.project}/${board.design}`]!
+  const status = handoff.get(`${board.project}/${board.design}`)!
   const changed = board.parts.filter((part) => part.change)
   const also = board.parts.filter((part) => !part.change)
   const latest = board.since?.at(-1)?.version
   const yours = board.code?.doing === "Building" && board.code.who === me
+
   const main =
     status === "Changed since approval" ? `See what changed, v${board.version} to v${latest}` : mainAction[status]
+
   return (
     <aside className="flex w-[24rem] shrink-0 flex-col border-l bg-background">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -211,7 +230,7 @@ function Detail({ board }: { board: Deliverable }) {
             </Button>
           </div>
           <div className="overflow-hidden rounded-md ring-1 ring-border">
-            {versioned[`${board.project}/${board.design}`]?.(shown.look, board.version) ?? (
+            {versioned.get(`${board.project}/${board.design}`)?.(shown.look, board.version) ?? (
               <DesignRender kind={design.kind} look={shown.look} />
             )}
           </div>
@@ -328,8 +347,9 @@ function Detail({ board }: { board: Deliverable }) {
 }
 
 export function HandoffPage() {
-  const rows = Object.values(deliverables)
-  const statusOf = (board: Deliverable) => handoff[`${board.project}/${board.design}`]!
+  const rows = [...deliverables.values()]
+  const statusOf = (board: Deliverable) => handoff.get(`${board.project}/${board.design}`)!
+
   return (
     <PortalPage active="handoff" path="kestrel/handoff/kestrel-website/pricing">
       <div className="flex h-full">
@@ -359,7 +379,11 @@ export function HandoffPage() {
               </div>
               {order.map((status) => {
                 const group = rows.filter((board) => statusOf(board) === status)
-                if (!group.length) return null
+
+                if (!group.length) {
+                  return null
+                }
+
                 return (
                   <section key={status} className="flex flex-col gap-1">
                     <h2 className="flex items-center gap-2 px-2 pb-1 text-sm font-semibold">

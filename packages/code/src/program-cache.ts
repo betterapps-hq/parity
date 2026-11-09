@@ -2,11 +2,11 @@ import { createHash } from "node:crypto"
 import { readFileSync, realpathSync, statSync } from "node:fs"
 import { freemem } from "node:os"
 import { dirname, resolve } from "node:path"
-import type { ComponentInfo, ComponentSource } from "@parity-app/core"
+import type { ComponentInfo } from "@parity-app/core"
 import ts from "typescript"
 import { type ConfigChange, configChange, type ConfigInputs, configInputs, type ConfigStamps } from "./config-inputs.ts"
 import type { ComponentFinder } from "./finder.ts"
-import type { CheckResult } from "./listing.ts"
+import type { CheckResult, ComponentSources } from "./listing.ts"
 import { readTsconfig } from "./tsconfig.ts"
 
 /** A request for a project's program. Files are relative to the root, or absolute; lockfiles are relative to it. */
@@ -29,7 +29,7 @@ export interface CheckRequest {
 /** Each of `components`' props. `files` are the app's files the checker reads next, read now so both share a program. */
 export interface PropsRequest {
   root: string
-  components: Record<string, ComponentSource>
+  components: ComponentSources
   files?: readonly string[]
   known?: readonly string[]
   lockfiles: readonly string[]
@@ -103,22 +103,35 @@ export function programCache(finder: ComponentFinder, settings: ProgramCacheOpti
     const setup = finder.programSetup(root, tsconfig)
     const inputs = configInputs(tsconfig, [...lockfiles])
     const stamps = stampInputs(root, inputs)
+
     // An input stamped before the configs were read keeps that stamp, so a change made while they were read is seen next.
     for (const kind of ["configs", "lockfiles"] as const) {
       for (const path of Object.keys(stamps[kind])) {
         const before = previous?.stamps[kind][path]
-        if (before !== undefined) stamps[kind][path] = before
+
+        if (before !== undefined) {
+          stamps[kind][path] = before
+        }
       }
     }
+
     const parsed: ParseCache = new Map()
+
     if (previous) {
       // TypeScript's own lib files come with Parity's TypeScript, not the project's dependencies, so they're kept too.
       const lib = `${dirname(ts.getDefaultLibFilePath(setup.options)).replaceAll("\\", "/")}/`
+
       for (const [key, kept] of previous.checker.parsed) {
-        if (kept.time !== 0) continue
-        if (previous.change === "config" || kept.file.fileName.startsWith(lib)) parsed.set(key, kept)
+        if (kept.time !== 0) {
+          continue
+        }
+
+        if (previous.change === "config" || kept.file.fileName.startsWith(lib)) {
+          parsed.set(key, kept)
+        }
       }
     }
+
     const checker: Checker = {
       options: setup.options,
       host: setup.host(cachingHost(setup.options, parsed)),
@@ -130,35 +143,57 @@ export function programCache(finder: ComponentFinder, settings: ProgramCacheOpti
       stamps,
       used: 0
     }
+
     checkers.set(root, checker)
+
     return checker
   }
 
   function program({ root, files, lockfiles }: ProgramRequest): ts.Program {
     let checker = checkers.get(root)
-    if (!checker) checker = newChecker(root, lockfiles)
-    else {
+
+    if (!checker) {
+      checker = newChecker(root, lockfiles)
+    } else {
       const stamps = stampInputs(root, { ...checker.inputs, lockfiles: [...lockfiles] })
       const change = configChange(checker.stamps, stamps)
-      if (change !== "none") checker = newChecker(root, lockfiles, { checker, change, stamps })
+
+      if (change !== "none") {
+        checker = newChecker(root, lockfiles, { checker, change, stamps })
+      }
     }
+
     checker.used = ++uses
     const before = checker.rootNames.size
-    for (const file of files) checker.rootNames.add(resolve(root, file).replaceAll("\\", "/"))
-    if (checker.program && checker.rootNames.size === before && !changed(checker)) return checker.program
+
+    for (const file of files) {
+      checker.rootNames.add(resolve(root, file).replaceAll("\\", "/"))
+    }
+
+    if (checker.program && checker.rootNames.size === before && !changed(checker)) {
+      return checker.program
+    }
+
     // Files deleted since aren't asked for again.
-    for (const name of checker.rootNames) if (modified(name) === -1) checker.rootNames.delete(name)
+    for (const name of checker.rootNames) {
+      if (modified(name) === -1) {
+        checker.rootNames.delete(name)
+      }
+    }
+
     const free = freeMb()
+
     if (free < minimumFreeMb) {
       throw new Error(
         `Only ${Math.round(free)} MB of memory is free, so the type checker didn't run. Components are as the parse found them.`
       )
     }
+
     checker.program = ts.createProgram({
       rootNames: [...checker.rootNames, ...checker.extraRoots],
       options: checker.options,
       host: checker.host,
-      ...(checker.program ? { oldProgram: checker.program } : {})
+      oldProgram: checker.program
     })
     checker.read = new Map(
       checker.program
@@ -166,9 +201,13 @@ export function programCache(finder: ComponentFinder, settings: ProgramCacheOpti
         .filter((file) => !isInstalled(file.fileName))
         .map((file) => [file.fileName, modified(file.fileName)])
     )
+
     for (const [other] of [...checkers].sort(([, a], [, b]) => b.used - a.used).slice(kept)) {
-      if (other !== root) checkers.delete(other)
+      if (other !== root) {
+        checkers.delete(other)
+      }
     }
+
     return checker.program
   }
 
@@ -190,8 +229,10 @@ export function programCache(finder: ComponentFinder, settings: ProgramCacheOpti
 /** How each config input stands now. Tsconfigs are relative to the root's real path, as the config reader lists them. */
 function stampInputs(root: string, inputs: ConfigInputs): ConfigStamps {
   const realRoot = realPath(root)
+
   const stamp = (base: string, paths: string[]) =>
     Object.fromEntries(paths.map((path) => [path, stampOf(resolve(base, path))]))
+
   return { configs: stamp(realRoot, inputs.configs), lockfiles: stamp(root, inputs.lockfiles) }
 }
 
@@ -203,7 +244,11 @@ function stampOf(path: string): string {
   try {
     const stats = statSync(path)
     const stamp = `${stats.mtimeMs}:${stats.size}`
-    if (stats.size > hashedBytes) return stamp
+
+    if (stats.size > hashedBytes) {
+      return stamp
+    }
+
     return `${stamp}:${createHash("sha1").update(readFileSync(path)).digest("hex")}`
   } catch {
     return "missing"
@@ -220,7 +265,12 @@ function realPath(path: string): string {
 
 /** Whether any of the project's own files the program read has changed since. */
 function changed(checker: Checker): boolean {
-  for (const [file, time] of checker.read) if (modified(file) !== time) return true
+  for (const [file, time] of checker.read) {
+    if (modified(file) !== time) {
+      return true
+    }
+  }
+
   return false
 }
 
@@ -234,15 +284,26 @@ function cachingHost(options: ts.CompilerOptions, parsed: ParseCache): ts.Compil
   const getSourceFile = host.getSourceFile.bind(host)
   host.getSourceFile = (fileName, language, onError, create) => {
     const time = isInstalled(fileName) ? 0 : modified(fileName)
+
     const settings =
-      typeof language === "object" ? `${language.languageVersion}:${language.impliedNodeFormat ?? ""}` : `${language}`
+      language instanceof Object ? `${language.languageVersion}:${language.impliedNodeFormat ?? ""}` : `${language}`
+
     const key = `${settings}:${fileName}`
     const kept = parsed.get(key)
-    if (kept && kept.time === time) return kept.file
+
+    if (kept && kept.time === time) {
+      return kept.file
+    }
+
     const file = getSourceFile(fileName, language, onError, create)
-    if (file) parsed.set(key, { time, file })
+
+    if (file) {
+      parsed.set(key, { time, file })
+    }
+
     return file
   }
+
   return host
 }
 

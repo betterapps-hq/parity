@@ -94,6 +94,7 @@ function transient(status: number): boolean {
 export async function authenticate(fetch: Fetch, body: CodeRequest | RefreshRequest): Promise<AuthenticateResult> {
   let response: Response
   let json: unknown
+
   try {
     response = await fetch(new URL("/user_management/authenticate", workosApi).href, {
       method: "POST",
@@ -106,12 +107,15 @@ export async function authenticate(fetch: Fetch, body: CodeRequest | RefreshRequ
   }
 
   if (!response.ok) {
-    if (transient(response.status))
+    if (transient(response.status)) {
       return { kind: "unavailable", status: response.status, message: `WorkOS answered ${response.status}` }
+    }
+
     const details = workosError.safeParse(json).data
     const code = details?.code ?? details?.error
     const message = details?.message ?? details?.error_description
     const email = details?.email ?? details?.user?.email
+
     return {
       kind: "refused",
       status: response.status,
@@ -123,16 +127,23 @@ export async function authenticate(fetch: Fetch, body: CodeRequest | RefreshRequ
   }
 
   const parsed = authenticateResponse.safeParse(json)
-  if (!parsed.success) return { kind: "unavailable", message: "WorkOS's answer didn't have a user and tokens" }
+
+  if (!parsed.success) {
+    return { kind: "unavailable", message: "WorkOS's answer didn't have a user and tokens" }
+  }
+
   const answer = parsed.data
   let token: AccessToken
+
   try {
     token = readAccessToken(answer.access_token)
   } catch (error) {
     return { kind: "unavailable", message: error instanceof Error ? error.message : String(error) }
   }
+
   const user = answer.user
   const organizationId = answer.organization_id ?? token.organizationId
+
   return {
     kind: "session",
     session: {

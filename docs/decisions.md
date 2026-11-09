@@ -1,5 +1,39 @@
 # Decisions
 
+- **The CLI goes to npm's `next` tag, and to `latest` when you approve it (PAR-799).** You chose on 2026-11-09 to
+  promote the CLI the way the desktop app is promoted, with its own approval. Every merge publishes the CLI to `next`,
+  and `cd-npm.yml`'s Production job then waits in the `production` environment; approving it runs
+  `npm dist-tag add @parity-app/cli@<version> latest`, so nothing is rebuilt or republished. Running `cd-npm.yml` by
+  hand with a version promotes one already on npm. My calls:
+  - **The steps are in this repository, not the shared template.** `cd-npm-release` already takes a `tag` and reports
+    the versions it published, so publishing to `next` is one input, and the promotion is one job that has to sit in
+    `cd-npm.yml` anyway, since npm's trusted publishers name that file. Pipelines and its other users are unchanged.
+  - **The promotion uses trusted publishing, with no npm token.** Since 2026-09-30 a trusted publisher can be allowed
+    `npm dist-tag`. @parity-app/cli gets a second trusted publisher for `cd-npm.yml` in the `production` environment,
+    allowed only dist-tags, so the job that changes `latest` can't publish, and the one that publishes can't change
+    `latest`.
+  - **The CLI reports `production` once its version has been `latest`.** The CLI's detached sender asks npm's registry
+    for the dist-tags after it sends, and keeps the answer in `~/.parity/installed-cli.json`, so a command never waits
+    on npm and offline keeps the last answer. The next command reports from it. A version newer than `latest` is a beta;
+    an older one keeps what was saved, so a version that was `latest` stays `production` after a newer one is promoted,
+    as a promoted desktop release does. Moving `latest` back to an older version makes the newer one a beta again, since
+    a rollback pulls it.
+  - **The desktop's cache is shared, not copied.** `Promotion` in `@parity-app/telemetry` keeps a version's answer, asks
+    again after five minutes, shares one request between callers and survives files it can't read or write. The desktop
+    app's `InstalledBuild` asks GitHub through it, and the CLI asks npm.
+
+- **CI installs Electron up front, caches its downloads, and tries them up to 3 times (PAR-789).** GitHub's releases
+  answered Electron's downloads with 504s often enough to fail CI, the app tests and the preview installers, where a
+  re-run passed. Electron 45 downloads its binary the first time something loads it, so `pnpm build` and the app tests
+  did, with one try. Now each workflow runs `install-electron` first, and electron-builder's packaging, which downloads
+  the zips it builds from, through `scripts/retry.ts`: up to 3 tries, 15 and then 30 seconds apart. CI and the app tests
+  keep the downloads in `~/.cache/parity-ci/` (`electron_config_cache`, `ELECTRON_BUILDER_CACHE`) between runs, outside
+  the checkout, since its `package.json` makes the scripts electron-builder unpacks into its cache ES modules, which
+  broke the macOS icon tool. The shared `ci-verify` template keeps one cache per call, so in `ci.yml` they share the
+  fixtures' key: after Electron's version changes, it downloads again on each run, with retries, until a fixture's
+  lockfile changes. The preview and release templates have no cache input, so their builds retry without one; adding one
+  would change Pipelines for every repository.
+
 - **Agents read a component's composition from `Props`, built from its library file (PAR-454).** `Props`, and through it
   `parity props` and `get_props`, returns a `composition` beside the props, rather than a new operation, so agents that
   already check `Props` before inserting learn what a part goes inside. It comes from `componentComposition` in
@@ -551,9 +585,9 @@ still need your call.
   layer does, and only its corners, top and bottom move out. Where handles go is `handleBoxes` in `@parity-app/editor`.
 - **A selected layout's padding and gaps are handles on the canvas** (PAR-169), approved in Storybook (Parity/Canvas/
   Spacing handles) on 2026-11-05. My calls, several of them Andrew's in that review:
-  - The bars show whenever a single layout is selected, over its hatching, rather than only on hover as in Figma, so
-    padding of 0 can be dragged out of nothing. A side's press target starts 4px inside its edge, clear of the resize
-    strip there.
+  - The bars show whenever a single layout is selected, rather than only on hover as in Figma, so padding of 0 can be
+    dragged out of nothing. Since PAR-797 nothing is hatched until a bar is used, as in Figma. A side's press target
+    starts 4px inside its edge, clear of the resize strip there.
   - No press target covers a child, so a click inside a selected layout still selects what's under it, as before. A
     target is cut back to the free space and dropped under 4px, so padding of 0 drags out only where no child is against
     that edge. This narrows the No padding story Andrew approved, whose children fill their row: clicks on children
@@ -573,6 +607,29 @@ still need your call.
   - The modifiers are gestures in the keymap (`gestures` in `chrome/keymap.ts`), which the Keyboard shortcuts dialog
     lists, the hints show with `Kbd`, and the handles read through `holds`, so what's shown is what works. The rules in
     `@parity-app/editor` take what they mean (`{ opposite, every }`, `centre`, `fill`), not keys.
+  - A bar's hint lets the pointer through it (PAR-801), my call: on a bar 12px thick, the hint's arrow slid in over a
+    still pointer and took the hover, and the hatching with it. So the hint can't be hovered, and it closes as the
+    pointer leaves the bar, onto the hint too. It holds nothing to point at, and it no longer covers the canvas under
+    it. Other hints can still be hovered.
+- **Padding and gaps are modes' green, hatched as Figma hatches them, and margin is pink** (PAR-797), Andrew's calls:
+  - Padding takes modes' green and margin the pink the canvas drew padding in, as the Design panel's box model draws
+    them (PAR-186). Gaps go green with padding rather than staying pink, so pink means margin only.
+  - Margin keeps our pink, `oklch(0.66 0.22 350)`, rather than Figma's, about `oklch(0.66 0.265 347)`, compared side by
+    side in Storybook on 2026-11-09. Figma has no margin; its pink marks padding. Ours stays within the chroma of the
+    canvas's other colors (0.16 to 0.23), where Figma's would outshout the selection, and the two look nearly alike
+    hatched.
+  - The hatching follows Figma's, in these colors. Nothing is hatched while a layout is only selected; a bar hatches the
+    space it changes while it's hovered, focused, typed in or dragged, in place of the flat tint it had: one padding
+    side, or every gap at once. The lines are 1px, rising to the right for padding and gaps alike, 8px apart along an
+    edge, over a faint tint, in screen pixels. Measured on Figma's canvas on 2026-11-09. The always-on hatching over a
+    selected layout, with gaps hatched the other way, is gone.
+  - A padding side's area runs its whole edge, corners included, as Figma hatches a side. Sides hatched together, as Alt
+    and Alt+Shift change, are one shape, so a corner is hatched once.
+  - A value's chip is the bar's color with near-black text, 7.9:1, as modes' chips are, in place of a darker pink step
+    under white.
+  - The colors and the hatching are defined once, in `canvas/spacing-colors.ts`, so a change reaches the bars, hatching,
+    chips and the token list's bars together. A chip takes its text from `chipFor`, and a test in Chrome fails any
+    canvas chip whose text is under 4.5:1.
 - **A double-click on a layer's resize handle hugs, and Alt+double-click fills** (PAR-169), as in Figma. It used to take
   the size away, which drew as hug for most layers but left the layout to decide. A size along the layout's direction
   takes `grow` away, as a drag does. A frame's handles still go back to the viewport's width or the content's height.
@@ -1813,6 +1870,13 @@ recommended answer to each of its questions.
   queued until it ends (`main/idle-close.ts`), so it never closes during a job or with one waiting. The first job after
   it opens again waits for the page and the project's modules to load, 0.4 to 0.9 s more than a capture's usual 133 ms
   on the example project; bitmaps are kept in the canvas, so a canvas that's settled rarely asks again.
+- **An offscreen window whose renderer crashed is opened again for its next job** (PAR-681). Crashing the windows with
+  `Page.crash` in the running app showed that a capture in flight doesn't wait: Electron rejects the call into the page
+  at once, and the canvas tries the frame again and reports the failure. But Electron keeps the crashed window, and
+  every later call into it failed in a few milliseconds. The canvas's retries kept the renderer from going idle, so it
+  never closed, and captures were still failing four minutes later. Now the job that gets a crashed window's slot
+  destroys it and opens a fresh one, and the job the crash interrupted records `frame.failed` as `crashed`. No timer
+  watches for crashes: the queue already gives the slot to the next job, and the canvas already retries.
 - **Prop inference uses the TypeScript 6 compiler in a worker thread,** from cva variants, destructured defaults and the
   component's own props type.
 - **The CLI and MCP check accessibility:** `parity a11y <design>` and the `check_accessibility` tool, in every state and
@@ -2162,10 +2226,24 @@ the Repository, CI and releases stream in Linear.
     alias.
   - **No two files in a folder may differ only by case and extension.** Beside `Processes.tsx`, `processes.ts` made the
     checker on Windows mistake one for the other, so it's now `process-store.ts`.
-- **The agency monorepo's stricter lint rules are on** (PAR-396), from its `@repo/oxlint-config`, without `curly`,
-  `no-console` and `no-bitwise` as you chose, and without the React Compiler rule, since Parity doesn't run the
-  compiler. My calls:
-  - **Only the rules beyond oxlint's correctness category are listed** in `vite.config.ts`, since that category is on
+- **Lint extends Buildkit's base config, `@buildkitgg/oxlint-config/base`** (PAR-730), which you asked for on
+  2026-11-08. It brings every anti-slop rule, and `curly`, `no-console` and `no-bitwise` are now on, as you decided
+  then: no rule is relaxed. A line can still turn one off, with a comment saying why, where there's a very good reason,
+  such as a bitwise hash or a CLI that prints. My calls:
+  - **Code that doesn't pass yet is listed in `notYetClean` in `vite.config.ts`,** one entry per PAR-730 sub-issue,
+    naming only the rules that part still breaks. New code and every path outside the list get every rule. The list only
+    shrinks, and goes when it's empty. It went with PAR-751, the last entry, on 2026-11-09, so all the code gets every
+    rule.
+  - **`vite.config.ts` lists only Parity's rules beyond base:** `consistent-type-imports`, Vite+'s imports rule and the
+    `toast.error` restriction. `react/exhaustive-deps` stays an error rather than base's warning.
+  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility
+    and Vitest addons by path, so the app doesn't list them (PAR-753). Chromatic is app-specific and Parity doesn't use
+    it. Story tests, once the Vitest addon's runs are wired up, run in CI only, as you decided on 2026-11-08: they're
+    too slow for local test passes.
+- **The agency monorepo's stricter lint rules were on before Buildkit's** (PAR-396), from its `@repo/oxlint-config`,
+  without `curly`, `no-console` and `no-bitwise` as you chose then, and without the React Compiler rule, since Parity
+  doesn't run the compiler. The calls below still stand, apart from those three rules. My calls:
+  - **Only the rules beyond oxlint's correctness category were listed** in `vite.config.ts`, since that category is on
     already. `react/exhaustive-deps` stays an error there rather than the agency's warning.
   - **Unused names starting with `_` are allowed,** as the agency allows them.
   - **A nested ternary becomes an `if` chain or a small named function,** not a disable comment. A callback that does
@@ -2202,7 +2280,8 @@ the Repository, CI and releases stream in Linear.
   - **It needs Node 24,** as the repository does.
   - **Provenance comes from trusted publishing in CI, not `publishConfig`,** since npm only makes it in CI and the first
     version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on 2026-10-30,
-    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher, which releases it still.
+    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its publisher, which releases it still. A
+    second publisher, for the `production` environment and allowed only dist-tags, promotes it (PAR-799).
   - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
     it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
@@ -4683,8 +4762,8 @@ out. What they are and how they behave is in [sentry.md](sentry.md#alerts). My c
 - **Spikes don't file.** Every Sentry issue already has its bug from its first event, and a spike would only file a
   second one for it. Rate alerts, such as crash-free sessions and failing agent operations, are PAR-643's.
 - **A regression keeps its bug.** Linear reopens the linked issue when Sentry marks a regression, and the alert's action
-  doesn't file a second one, so the regression trigger only matters for an issue with no bug yet. It reopens in Backlog,
-  not Todo. PAR-668 will fix that, and add the release, environment and `test_run` Linear's action leaves out.
+  doesn't file a second one, so the regression trigger only matters for an issue with no bug yet. It reopened in Backlog
+  until PAR-668 made Todo the team's default.
 - **At most once in 30 minutes for errors,** Sentry's default, so an issue going in and out of resolved doesn't churn.
 - **Written down, not in Terraform,** like the rest of Sentry's setup until the pipelines can pass a Sentry token.
 - **They depend on the plan.** If the trial ends on 2026-11-19 without an upgrade, these alerts may stop filing, as
@@ -4694,6 +4773,29 @@ Tried on 2026-11-06 by sending an error and two reports to `parity-desktop`'s DS
 PAR-666). Closing PAR-663 resolved its Sentry issue, resolving that closed PAR-663 again, and the error from a later
 release reopened it without a second bug. PAR-620's own check in a development build filed its errors too (PAR-659 to
 PAR-661 and PAR-665), along with a real one it hit (PAR-662).
+
+## Regressions reopen in Todo, and agents read the rest in Sentry (PAR-668)
+
+PAR-668 asked for the release, environment and `test_run` on the Linear bugs Sentry files, and for regressions to reopen
+in Todo. Neither has a setting: Sentry's "Create a Linear issue" action has no description field, and Linear's Sentry
+integration has no settings, its reopen state included. Linear's Loops could do both, but they spend AI credits, which
+the workspace on Linear's Basic plan doesn't have. You chose on 2026-11-09 to make Todo the default and nothing more. My
+calls:
+
+- **Todo is the Parity team's default status,** in place of Backlog. Linear reopens a linked issue in the team's
+  default, so a regression lands in Todo. Issues created without a status land there too, which matches
+  [work.md](work.md#statuses-priorities-and-labels): Todo is planned work, and Backlog is set on purpose.
+- **The release, environment and `test_run` stay in Sentry.** Agents read them through Sentry's MCP server, as
+  [work.md](work.md#bugs-from-sentry) already says. Putting them on the bug would need a Sentry internal integration
+  whose webhook reaches a small worker that comments on the Linear issue, with a Linear API key: code and a service of
+  its own, for what an agent reads in one call.
+- **Written down, not in Terraform.** It's a Linear team setting, recorded in [sentry.md](sentry.md#done-by-hand).
+  Nothing here depends on Sentry's Business trial.
+
+Tried on 2026-11-09 by sending an error to `parity-desktop`'s DSN from release `parity-desktop@0.0.668-a`: it filed
+PAR-762 in Todo. Resolving its Sentry issue closed PAR-762, and the same error from `parity-desktop@0.0.668-b` reopened
+it in Todo. Sentry's MCP server showed that event's release, environment `development` and `test_run` `par-668-check`.
+PAR-762 was then canceled as a test.
 
 ## Sessions read Sentry through its MCP server (PAR-628)
 
@@ -4771,8 +4873,12 @@ How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
   as `win32-x64`, and an installed build tags its events with `update_channel`, stable or beta, the update preference,
   which changes as the person changes it.
 - **Maps are matched by debug ID, not by file name and release.** `sentry-cli sourcemaps inject` gives each bundle an ID
-  from its contents, so the same code gets the same ID on every system and every run. One upload then covers all three
-  installers, and a renamed or moved file still resolves.
+  from its contents and its map, so the same code gets the same ID on every system and every run. One upload then covers
+  all three installers, and a renamed or moved file still resolves.
+- **Every system names pnpm's folders the same (PAR-685).** pnpm shortens `node_modules/.pnpm`'s folder names to 60
+  characters on Windows and 120 elsewhere, so the window's map listed different paths on Windows and its debug ID
+  differed: the Windows installer's stacks stayed minified while macOS's and Linux's resolved. `pnpm-workspace.yaml`
+  sets `virtualStoreDirMaxLength: 60` everywhere, Windows' own length, so Windows installs don't change.
 - **The release workflow builds the published version again to upload its maps.** The shared release template builds the
   installers with one secret, the tldraw key, and changing it was out of scope, so a job after it checks out the
   version's tag, builds it on Ubuntu with the same key and channel, and uploads. Its bundles match the installers'
@@ -4780,13 +4886,20 @@ How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
 - **CI uploads the Windows build's maps,** the build it installs and starts, as the commit's release. Only main's
   commits are tied to their release, since a pull request's merge commit isn't kept. A failed upload doesn't fail CI's
   run, which releases wait on.
+- **Preview installers' maps come from the same rebuild (PAR-685).** `preview.yml` builds the pull request's commit
+  again with the tldraw key, as the template does, and uploads as the commit's release, through the reusable
+  `upload-sourcemaps.yml` that the release workflows use too. The tldraw key changes the window's bundles, so CI's
+  upload of the same commit, built without it, doesn't cover them. Changing the shared preview template to keep the maps
+  would touch every repository that uses it, for the same result.
 - **Development builds resolve without an upload.** `pnpm dev` starts Electron with `--enable-source-maps`, so main's
   and the service's stacks name the source files and lines before Sentry sees them; the window's modules are already the
   source files Vite serves. A frozen copy, which `pnpm perf` measures, leaves it off.
 - **Electron's own native symbols come from Sentry's built-in Electron symbol server,** a project setting, not an
   upload. Parity ships no native code of its own yet; sharp's prebuilt binaries come without debug files.
 - **`@sentry/cli` 3.8.2 is a devDependency of the app** (your call, 2026-11-06), run from `scripts/build.ts` and
-  `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it.
+  `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it. PAR-719 moved it, with
+  those scripts' Sentry parts, to the workspace's root, where the CLI's build uses them too; see "The published CLI's
+  source maps go to parity-cli" below.
 
 ## Sentry watches agent failures and crash-free sessions (PAR-643)
 
@@ -4817,8 +4930,8 @@ links are in [sentry.md](sentry.md#alerts). My calls:
 
 ## The rest of signing in is designed (PAR-614)
 
-You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
-Parity/Explorations/Sign in, and the screens they settle are in
+You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories were under
+Parity/Explorations/Sign in until the app built them (Parity/Sign in, PAR-798), and the screens they settle are in
 [proposals/sign-in.md](proposals/sign-in.md#the-screens). My calls:
 
 - **The stories are one prototype,** each starting at a different point, as the start page's are. The browser can't be
@@ -4854,7 +4967,8 @@ Parity/Explorations/Sign in, and the screens they settle are in
 - **A `pnpm dev` copy's loopback answers once the code is traded,** so its page can say whether that worked: "You're
   signed in to Parity" or "Parity couldn't sign you in", and that the tab can be closed. It's plain HTML with no
   scripts, light or dark as the system is, and says nothing about which copy it came from (your call). `handBackHtml` in
-  the exploration is the page. Installed apps hand back through `parity://`, where the browser shows its own prompt.
+  `shared/hand-back-page.ts` is the page. Installed apps hand back through `parity://`, where the browser shows its own
+  prompt.
 - **Without a keyring, a toast says so once,** right after signing in: "You're signed in until you quit Parity", with
   What to do. The account menu keeps saying it under your name, and both open a dialog that explains and names GNOME
   Keyring and KWallet. The sign-in screen says nothing beforehand, since most people never meet it.
@@ -5607,7 +5721,8 @@ its shape on almost every frame of a zoom: 190 to 280 ms of `getClientRects` in 
 written, as "Parity's own telemetry goes to Sentry, on by default" decided. `createTelemetry` runs it on every event's
 attributes before its sinks and the kept events. Main, the windows and the service run one in their Sentry `beforeSend`,
 `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb` hooks, and the CLI will once it sends (PAR-642).
-Sentry's server-side scrubbing stays on as a second net. My calls:
+Sentry's server-side scrubbing stays on as a second net. PAR-756 has since put those hooks, with `beforeSendSpan`, in
+one shared `sentryScrubbing`; see "Spans are sent in their transaction, so the scrubber sees them" below. My calls:
 
 - **Keys and tokens with a known shape are replaced whole:** OpenAI and Anthropic `sk-…`, Stripe `sk_live_`/`rk_live_`,
   GitHub `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and `github_pat_`, Slack `xox…-`, AWS access key IDs, Google `AIza…`,
@@ -5730,10 +5845,11 @@ window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `
 - **What it costs:** the editor window's bundle grows by 153 kB (49 kB gzipped); `render.js` doesn't change. On the
   example project, a minute of selecting after opening left the JS heap within 0 to 6 MB of the 110 MB it holds with
   telemetry off, after garbage collection, over two runs each. With the project open, the page held about 27,600 DOM
-  nodes against 6,700, which closing it gives back. PAR-683 watches that over longer sessions. `pnpm perf` couldn't give
-  its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
-- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. A render failure
-  thrown in the page arrives as Electron's "Script failed to execute", without the page's message; that's PAR-680.
+  nodes against 6,700, which closing it gives back. PAR-683 found that level over an hour and the gap to be attributes,
+  not removed nodes; see "Session Replay's memory stays level over an hour" below. `pnpm perf` couldn't give its
+  numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
+- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. PAR-679 has since
+  scrubbed them; see "Replays are scrubbed as they're recorded" below.
 
 ## sharp isn't loaded in the app on Linux (PAR-688)
 
@@ -6225,8 +6341,8 @@ default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My 
   (`Terminal` unless `PARITY_AGENT_NAME` or MCP names it) and `agent_client` the MCP client.
 - **Installed means installed from npm.** A CLI under `node_modules` reports as `tester` and names its release
   `parity-cli@<version>`; one run from a checkout, from source or its own `dist`, reports as `development`, named by the
-  checkout's commit, which the sender reads with Git. A pkg.pr.new preview is installed too, so it reports as its
-  version.
+  checkout's commit, which the sender reads with Git. A pkg.pr.new preview is installed too, so it reported as its
+  version until PAR-719 named it by its commit; see "The published CLI's source maps go to parity-cli" below.
 - **The notice is one line on stderr, once:** "Parity shares diagnostics to help fix bugs. To stop sharing them, turn
   off Settings > Privacy > Share diagnostics in the app, or set PARITY_TELEMETRY=off." It names the switch by its path
   in the app, not Sentry, as PAR-626 asked, reviewed with the writing-style-guide skill, and stays off stdout, which
@@ -6276,3 +6392,384 @@ describes its roles and their classes. My calls, and Andrew's where named:
   stays as Parity/Type/Scale.
 - **The lint rule lands on its own,** as PAR-729: it can only pass once every class is on a role, and it's a plugin with
   tests of its own, so it follows this build rather than holding it up.
+
+  stay provisional until the check on a Mac and on Windows at 150% that the proposal sets out. PAR-710 builds it into
+  the app.
+
+## Agents report problems through the app, as user feedback (PAR-646)
+
+`parity report` and MCP's `report_problem` send what an agent saw as a Sentry user feedback, the same kind as Help >
+Report a problem. My calls:
+
+- **The app sends it, not the CLI.** The report needs the window's screenshot and replay, which only the app has, and
+  has to arrive before the command returns its link, which the CLI's outbox (PAR-642) doesn't. So `report` is an agent
+  method like the others: the service draws the frames, the window flushes its replay, and main sends the feedback to
+  `parity-desktop` with `report.sent` marking it `by: agent`.
+- **It's tied to the call's trace,** the CLI's `cli.ran`, not the window's, so the trace shows the command, the call and
+  the report's own request together. The window's replay goes beside it.
+- **The tags are what the agent names, checked:** a design or state that isn't there fails as a screenshot of it would
+  (`unknown_design`, `unknown_state`), so a tag always names a real one. A node is passed through, since an agent
+  reporting a wrong node may name one that's gone. Without a design it needs no ready tab, so a project that failed to
+  open can be reported, and with no tab named it works with no project open: the CLI routes it as `tab-or-any`, to the
+  copy the person used last when no copy has a project open.
+- **It isn't sent while Telemetry is off.** The person's own report goes regardless, since they chose to send it and see
+  what goes; an agent's would override their setting. It fails with `app_error`, saying to tell the person instead or
+  run `parity diagnostics`.
+- **The link is the feedback's, by event ID,** in the `sentry.io/organizations/...` form, which Sentry redirects to the
+  issue; the subdomain form of the same path doesn't. The Linear issue isn't known when the command returns, since
+  Sentry's alert files it afterwards; the feedback links it.
+- **The MCP tool list grew to 13.6 KB,** and its budget to 14 KB, for a tool agents are meant to reach for unprompted.
+
+## The end-to-end suite checks the main workflows' events through the local copy (PAR-648)
+
+`telemetry.e2e.ts` checks the events and traces of opening a project, a drag, a command from the keyboard, Save and an
+agent's call, in CI only, as the rest of the suite runs. My calls:
+
+- **It reads the local copy, not a test sink or Sentry.** The copy runs as `pnpm dev` does, and the local copy already
+  holds every event and span from every process, so the app needs no test mode, and the events checked are the ones that
+  leave. Asking Sentry would make a test wait on ingestion and need a token in CI.
+- **CI's runs keep sending to Sentry,** under `environment: ci` and the run's `test_run`, so a failing test still links
+  to its events and replay. The suite checks that every line of the local copy carries the run.
+- **The agent's call goes through the real `parity` command,** from this checkout, against the copy's own agent file, so
+  the test covers the CLI's trace reaching the app: `agent.called` must continue `cli.ran`. It runs in the checkout, not
+  the project's temporary folder, so the sender it leaves behind can't stop the suite removing that folder.
+- **Save's test is the one that writes,** since autosave is off by default and an edit alone writes nothing. It
+  duplicates, saves, then undoes and saves again, so the file is back as it was and the reset after it finds nothing
+  unsaved.
+- **`gesture.ended` and the window's `document.saved` are checked by trace,** under the drag's `gesture.ran` and Save's
+  `command.ran` spans. Both are recorded after that span has ended, so at first they carried no trace; PAR-752 passes
+  each the span it belongs to through `track`'s `span`: the drag's trace's `context`, and for a write the trace it was
+  asked in, the edit's that `keepTrace` kept or Save's, read before it waits on the service.
+
+## Boards measure together as the canvas opens (PAR-726)
+
+Called on 2026-11-08. `project.drawn` (PAR-711) showed a project's first frame coming 1 to 3 seconds after its tab was
+ready. A profile of reopening the example project (61 designs, 119 frames) in the same window, on React's production
+build, found no single cause. Everything between the tab being ready and the first frame was the window's own thread,
+mostly one task of about a second that mounted tldraw, every board and every frame. In it: Session Replay recording the
+new elements (0.2 to 0.3 s), asking the service for each frame's kept bitmap (0.16 s, each render job copied across the
+preload bridge and then the port), the Base UI parts each board's title mounts (0.12 s), drawing the boards and frames
+(about 0.4 s), and boards measuring themselves (0.15 s). My calls:
+
+- **Boards measure together.** Each board read its size and wrote it to its shape at once, and the write moved the page,
+  so the next board's read laid it out again: 68 to 70 layouts before the first frame. Now `measureTogether` in
+  `canvas/measure-together.ts` runs the measures asked for in a task once it's done, every read and then every write,
+  the writes as one change to the canvas: 8 layouts. They still run before the page is painted, as a microtask, so no
+  board shows at a size it's about to leave.
+- **The rest are issues of their own:** PAR-758 for Session Replay, PAR-759 for the kept bitmaps' requests and PAR-760
+  for the boards' title controls. Drawing the boards and frames themselves is left as it is.
+
+## Kept bitmaps are asked for together, as JSON text (PAR-759)
+
+Called on 2026-11-08. Reopening the example project (119 frames) sent 119 `frames.stored` requests as its canvas
+mounted, each with its frame's render job, and copying them across the preload bridge and onto the port took 196 to 250
+ms of the window's thread before the first frame. My calls:
+
+- **The frames a canvas mounts ask in one request.** `askStored` in `canvas/frame-bitmaps.ts` gathers the jobs asked for
+  in a task and sends them once it's done, and the service answers each job's bitmap in order. Alone, this cut the cost
+  to 159 to 184 ms: the bridge and the port copy the theme the jobs share once, but the trees, 94 different ones
+  totalling 2.5 MB as JSON, were still copied object by object.
+- **The jobs go as JSON text.** Text crosses the bridge and the port as one copy: stringifying the batch and sending it
+  takes 37 to 59 ms in all. The service reads it with `storedJobs`, the render job's own check under `jsonText`, so a
+  page sending anything else is refused as before. Sending only what the disk name needs wasn't simpler, since the name
+  takes nearly all of the job, the theme and tree included.
+- **Other requests keep their objects.** `frames.capture` sends one job at a time, and `previews.lookup` waits until the
+  canvas's bitmaps are in, so neither was in the profile.
+
+## Replays are scrubbed as they're recorded (PAR-679)
+
+Session Replay recordings lose the same secrets as every other event, `.env` values included, through the editor
+window's own scrubber (`replayPrivacy` in `renderer/replay.ts`), as "Secrets are scrubbed before any event leaves a
+process" has it, and nothing else is hidden that wasn't before. My calls:
+
+- **Text is scrubbed through Replay's `maskFn`, not `beforeAddRecordingEvent`.** The issue expected the second, but
+  Replay calls it only for its own custom events (clicks, requests, spans), never for the page's snapshots and changes.
+  `maskAllText` with a `maskFn` is the one hook that sees each text node, as the recorder reads it and each time it
+  changes; the scrubber leaves everything but secrets as it was. Styles and scripts don't pass through it.
+- **`beforeAddRecordingEvent` scrubs the custom events too,** since Replay adds them without `beforeBreadcrumb`: a
+  click's breadcrumb carries the clicked element's text.
+- **Fields are masked by name, not scrubbed.** Replay shows a masked field's value as stars whatever `maskFn` returns,
+  and an unmasked one as written, so what's typed can't be scrubbed. `Field` marks a row whose name `isSecretName` calls
+  secret, such as an `apiKey` prop, with `data-sentry-mask`, so its value shows as stars; password fields already do.
+  Other fields keep their values, which is what makes a bug in the inspector findable. Parity has no integration
+  settings or `.env` editor yet; when it does, they mask the same way.
+- **What it costs:** scrubbing every text node in a full snapshot of the example project, open at the start (574 text
+  nodes among 5,544 elements, and the 2,410-mutation change as it opens), takes about 2 ms in the window.
+  `pnpm perf --open-only` against main, with replay recording in both, measured no slower opening: launch, reopen and
+  restart were within run-to-run noise (main's 12.1 s against 10.6 s with scrubbing to a usable launch, 4.9 s against
+  4.2 s to reopen, 6.7 s against 6.8 s to restart). So the scrubber runs on everything, rather than only on the fields
+  that can hold secrets, which was the issue's fallback.
+- **Checked in the app:** keys put on screen, clicked and changed came back as `[redacted]` in Sentry's stored recording
+  segments, with the rest of the window's text as written (replay `c3060db5…`).
+- **`.env` values reach the window a moment after it starts,** so text recorded before main passes them isn't scrubbed
+  of them, though known shapes and long random strings are. They come as a project opens, before its panels show it.
+
+## Session Replay waits for a project's first frame (PAR-758)
+
+Called on 2026-11-08. PAR-726 found Session Replay recording every board, title and tldraw layer in the task that mounts
+a project's canvas, before its first frame showed. Replay now holds off recording the page from the tab being ready
+(`project.loaded`) until the first frame shows (`project.drawn`), and goes on with the same replay after. My calls:
+
+- **Pause and resume the recorder, rather than block more of the canvas or lower the limits.** Blocking the boards would
+  leave them out of every replay, and an element unblocked later shows as an empty box until the next full snapshot.
+  Lower mutation limits stop the replay outright. Replay's page recorder pauses and resumes within one replay, and
+  resuming takes a full snapshot, so the replay jumps from the page before the open to the drawn canvas. Clicks,
+  requests and breadcrumbs go on being recorded meanwhile, and Replay resumes on its own if someone clicks.
+- **Replay keeps `pause` and `resume` to itself.** The integration's `_replay` is reached from `holdRecording` in
+  `renderer/replay.ts`, the module that sets Replay up. It only pauses a recorder that's enabled and recording, and only
+  resumes the one it paused, if it's still Replay's and still paused, so a Sentry upgrade that renames it costs the
+  saving, not the recording. PAR-679's scrubbing is unchanged, since the resumed recorder takes the same options.
+- **The hold lasts until the first frame, or 5 seconds.** A project with no designs has no first frame, and a background
+  tab records its first frame only when it's shown. `pageHolds` counts holds, so tabs opening together keep it paused
+  until the last one draws.
+- **It resumes in a task of its own,** after the frame that let go of it is painted. Resuming in the same animation
+  frame put the snapshot, about 0.2 s, between the frame being seen and being painted.
+
+Measured on `examples/shadcn-vite` (61 designs, 119 frames), React's production build, five reopens in the same window
+each, before and after in fresh `pnpm perf --open-only --keep` copies, with the page's JavaScript sampled every 0.1 ms
+and the profile cut at `project.loaded` and `project.drawn`:
+
+| Tab ready to first frame | Before         | After          |
+| ------------------------ | -------------- | -------------- |
+| Time                     | 2.71 to 3.01 s | 2.29 to 2.53 s |
+| Window thread busy       | 2.17 to 2.42 s | 1.79 to 2.00 s |
+| Sentry's own code        | 406 to 508 ms  | 21 to 28 ms    |
+| In the 2 s after         | 20 to 33 ms    | 206 to 232 ms  |
+
+The snapshot taken on resuming moves after the first frame, 15 to 45 ms after it. The replay recorded over those reopens
+(`f507a317…`) stayed one replay, with a full snapshot after each reopen of about 6,130 nodes, boards and canvas
+included. Tests: `apps/desktop/src/renderer/replay.test.ts` (4: paused until the last hold is let go of and resumed
+after that task, staying paused for a hold taken before it resumes, the 5-second limit, and leaving alone a recorder
+that isn't recording or that Replay resumed or replaced). Gaps: that the hold starts at `firstFrameOf` in `workspace.ts`
+and ends at the first frame was checked by profiling, not by a test.
+
+## A render page's failure keeps its own message (PAR-680)
+
+When the render page threw inside main's `executeJavaScript`, as `canvasHeight()` or `canvasAudit()` can, Electron
+rejected with only "Script failed to execute", so the Sentry error for the failed capture and the error the service gave
+an agent never said what went wrong. My calls:
+
+- **Main's calls into the page answer with data.** `pageCall` wraps each one in the page in a `try`, and answers with
+  `{ value }` or with `{ error, errorStack }`, the fields a frame's own failure already takes. `pageAnswer` checks the
+  answer, as every other render answer is checked, and throws a `PageError` with the page's message and stack. Wrapping
+  the call in main's script, not in `render.ts`, holds for project code that replaces `window.canvasHeight` too.
+- **The error goes on as it did, with a better message.** The thrown `PageError` crosses to the service and the editor
+  window through `codedErrors`, which carries its message, so the window's `render: failed` Sentry error and the
+  service's answer to an agent say what the page said. No error route was added.
+- **The page's stack goes with `frame.failed`,** recorded under the frame's span as `render threw`, as a guest's own
+  error is. The stack doesn't cross processes, since `codedErrors` sends messages, and an agent never gets the guest's
+  stack.
+
+## A report from an error's fallback is linked to the error (PAR-704)
+
+Report a problem in a fallback (PAR-667) opens the same dialog as Help > Report a problem (PAR-635), and the feedback it
+sends names the error that fallback caught as its associated event, so Sentry shows the report on that error's issue. My
+calls:
+
+- **One report path.** The event ID rides along the existing one: `openReport({ eventId })`, the `problemReport` check
+  (32 lowercase hex digits, like the replay and trace IDs) and `sendFeedback`'s `associatedEventId`. No second dialog or
+  channel.
+- **The window keeps the ID by the error it caught,** in a `WeakMap` beside `reactErrorHandlers`, since the boundary's
+  reporter is handed the error, and the fallback's Report a problem is clicked after `onCaughtError` ran. An error
+  thrown as a string or another primitive can't be a key, so its report goes unlinked, as before.
+- **Its tag says where it came from:** `report: error fallback`, beside `help menu` and `after crash`.
+- **The dialog doesn't name the error yet.** The issue's optional "The error from Layers" line in Also sent waits for
+  Andrew's approval of the copy in Storybook.
+
+## The published CLI's source maps go to parity-cli (PAR-719)
+
+A stack from the published CLI named its bundled chunks (`dist/client-<hash>.mjs`), since `vp pack` wrote no maps. It
+now resolves to `packages/cli/src`, as the app's does to its source (PAR-625). How it runs is in
+[sentry.md](sentry.md#releases-and-source-maps). My calls:
+
+- **One way to separate and upload maps, for both.** The app's build steps moved to the workspace's root:
+  `separateSourceMaps` in `scripts/sourcemaps.ts` gives the bundles debug IDs and moves their maps out of what ships,
+  and `scripts/upload-sourcemaps.ts` takes the package and the Sentry project (`apps/desktop --project parity-desktop`,
+  `packages/cli --project parity-cli`). The app's `build.ts` and the CLI's `vite.config.ts` both call the first, from
+  `vp pack`'s `build:done` hook for the CLI, so the `prepack` that `npm publish` and pkg.pr.new run does it too. That
+  moved `@sentry/cli` from the app's devDependencies to the root's, which also takes `@parity-app/telemetry` for
+  `telemetryRelease`, so the release names stay in one place.
+- **Only the build `npm publish` makes is the published version's release.** `vp pack` writes `dist/build.json`, with
+  `published` true only when `npm_command` is `publish`, which npm sets for the `prepack` it runs, and the commit it
+  built from. The CLI reads it: published is `parity-cli@<version>`; a pkg.pr.new preview, which `pnpm pack` builds, and
+  a checkout's own `dist` are named by their commit; from source, by the checkout's commit, as before. Being under
+  `node_modules` still makes it `tester`. The file is outside the bundles, so their debug IDs don't depend on it.
+- **`cd-npm.yml` builds the published version again from its tag to upload,** as `cd-desktop.yml` does for the app,
+  since the shared release template runs without Sentry's token. Two builds of the same commit gave the same debug IDs.
+  The release is tied to the tag's commit on main. Previews' maps aren't uploaded; their stacks name the bundled files.
+- **Each batch carries the command's debug IDs to the sender.** Sentry's SDK attaches a frame's debug ID from what the
+  capturing process's bundles registered (`_sentryDebugIds`), and the detached sender never loads the command's bundles.
+  So the command writes its registry into the batch, and the sender adds it to its own before capturing. Without that,
+  an error from `bin.mjs` carried no debug ID and couldn't resolve, as the OpenAI review found.
+- **Chunks that only re-export get no map,** so only the bundles with one get a debug ID. They hold no code to resolve.
+- **Checked before release:** the packed CLI ships `dist/build.json` and no maps; `bin.mjs`'s call to `reportCliFailure`
+  resolves through its map to `packages/cli/src/bin.ts` line 159; and `sentry-cli sourcemaps upload`, pointed at a
+  stand-in server, paired each of the 9 bundles with its map and debug ID. A sender-like process that adopted a
+  command's debug IDs gave a frame in `client-<hash>.mjs` that chunk's debug ID in `debug_meta`; without them, none.
+  Whether an event from the installed CLI resolves in Sentry can only be seen once a version is published.
+
+## Spans are sent in their transaction, so the scrubber sees them (PAR-756)
+
+Sentry 11.8 streams spans by default (`traceLifecycle: 'stream'`), one by one, and warns at every start that
+`beforeSendTransaction` is then ignored. Every process now starts Sentry with `sentryScrubbing(scrubber, Sentry)` from
+`@parity-app/telemetry`, which sets `traceLifecycle: 'static'` and scrubs in `beforeSend`, `beforeSendTransaction`,
+`beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`. A process puts its own `beforeSend` or `beforeSendTransaction`
+after it to add tags or attachments. My calls:
+
+- **What got through, checked in Sentry with a fake `sk-…` key** in each span's name and attributes, sent through the
+  Node SDK that main, the service and the CLI run and the browser SDK the windows run, set up with their hooks. Parity's
+  own spans arrived as `[redacted]` either way: they're transactions built by hand and sent with `captureEvent`, which
+  passes `beforeSendTransaction` whatever the lifecycle. Sentry's own spans, from `startSpan` as its integrations make
+  them, arrived with the key as written once tracing was on, since a streamed span skips `beforeSendTransaction`. Parity
+  sets no `tracesSampleRate`, so Sentry makes none today, and nothing had leaked. It would have the day tracing is
+  turned on.
+- **Static, not `beforeSendSpan` on streamed spans.** Streaming needs `beforeSendTransaction` gone for the warning to
+  stop, and Parity's spans need it, as they're transactions. Static sends Sentry's spans in their transaction, through
+  the same hook as Parity's, so one hook covers both. Spans Parity sends are its own, with its own IDs, so streaming
+  gains it nothing.
+- **`beforeSendSpan` is set too, wrapped in `withStaticSpan`,** for the spans Sentry sends on their own, outside a
+  transaction, such as Web Vitals'. Parity turns none of those on, but they'd leave unscrubbed if it did.
+- **One hook, in the package, with the SDK passed in.** `@parity-app/telemetry` still never imports Sentry, so each
+  process passes its own module, whose `withStaticSpan` marks the span hook. The CLI's tests check it against the real
+  SDK: a span holding a key leaves scrubbed, and Sentry starts without the warning.
+
+## Session Replay's memory stays level over an hour (PAR-683)
+
+The editor window held about 28,000 DOM nodes with Replay recording against 6,700 with diagnostics off, which looked
+like the recorder keeping nodes the canvas had removed. It isn't: over an hour the count doesn't grow, and the gap is
+the attributes of elements still on the page. Nothing in `renderer/replay.ts` changed. My calls:
+
+- **Measured with `pnpm perf --soak 60`,** a mode added for this: on the example project, round after round of zooming
+  the whole project in and out, waking every board at 100% so its frames mount and the rest go to sleep, then selecting
+  and editing 20 designs, reading the window after each round once garbage is collected. `PARITY_TELEMETRY` chose the
+  level; both copies ran side by side on 2026-11-09, 92 and 93 rounds.
+
+  | Replay | DOM nodes, rounds 5 to the end | JS heap, round 5 → the end | Window's private memory, rounds 5 to the end |
+  | ------ | ------------------------------ | -------------------------- | -------------------------------------------- |
+  | All    | 27,398 to 27,605               | 121 → 126 MB               | 451 to 531 MB                                |
+  | Off    | 6,763 to 6,779                 | 116 → 118 MB               | 415 to 504 MB                                |
+
+  Both settle after the first round and stay there. The heap creeps by a few megabytes an hour either way, and private
+  memory wanders within about the same band for both.
+
+- **Replay was recording all the while.** It pauses after five minutes without a click or a key, and the soak works
+  through the editor, so each round presses Shift and each reading asks Replay's recorder whether it's paused: all 93
+  were recording. A first run without the key press, as the OpenAI review pointed out, may have measured a recorder
+  paused for most of the hour; its numbers matched these.
+- **The extra 21,000 nodes are `Attr` objects.** Chromium makes one for an element's attribute the first time a script
+  reads `element.attributes`, keeps it while the element lives, and counts it as a node. The recorder reads every
+  attribute as it snapshots the page. With Replay on, the window had 6,136 nodes in its tree and 93 detached ones, and
+  its 20,195 attributes made up the rest; reading every attribute again added 119. With Replay off, reading them took
+  the count from 6,167 to 26,362. So the count follows the page that's showing, not the session's length.
+- **No `block` or `ignore` selectors for sleeping frames.** Frames are already blocked and their shadow roots hidden
+  from the recorder (PAR-624), and there's no growth left for more selectors to stop.
+- **Sentry's own limits bound the rest.** A replay ends after an hour, or 15 minutes idle, and the next one starts from
+  a fresh snapshot, so nothing the recorder keeps outlives that.
+
+## On-call watches four dashboards, and only production alerts (PAR-716)
+
+You approved [proposals/on-call-health.md](proposals/on-call-health.md) on 2026-11-09, which sets out what on-call
+watches across every process and surface. The dashboards are linked in [sentry.md](sentry.md#dashboards). Your calls and
+mine:
+
+- **Four dashboards, one question each,** rather than PAR-643's one: Parity (is anything wrong now?), Parity performance
+  (is anything slow?), Parity workflows (which step is failing?) and Parity releases and telemetry (is the latest build
+  healthy, and is the data coming in?). The first stays on one screen, and each of the others is where its numbers lead.
+  PAR-727's time to first frame is on Parity performance, so it closes with this.
+- **Only `production` alerts.** Development is agents' and your own drives, CI fails on purpose, and installed builds
+  are testers', so none of them should file a monitor bug. No monitor is on until a public build sends `production`
+  (PAR-779), and "Agent calls failing over 5%" is off until then. The issue alerts for new issues, regressions and
+  feedback still file from every environment.
+- **CI sends errors and reports only (PAR-777).** It sent 90% of last week's spans, which no plan's quota covers. The
+  end-to-end suite reads the local copy, so its checks don't need Sentry.
+- **`tester` splits into `preview` and `release` (PAR-778),** so a preview installer's bugs don't read as the published
+  app's.
+- **Every dashboard covers all projects.** `admin@betterapps.io` isn't a member of the `parity` team, and Sentry refuses
+  a dashboard that names projects its maker can't open. Only Parity's projects are in `better-apps`, so all of them is
+  the same set, and the web, dashboard and API projects join when they send.
+- **Made through Sentry's API from a signed-in browser,** not by hand in the UI: the same calls the UI makes, so the
+  widgets match the spec exactly and were checked against live data as they were made. Two planned widgets were left
+  out, since Sentry can't read what they need: the bitmap cache's hit rate (PAR-772) and a count of scrubbed secrets.
+- **Signals not sent yet are their own issues,** PAR-771 to PAR-776: service restarts and hang lengths, memory and the
+  cache as numbers, export times, a check that releases have their maps and commits, and the CLI's dropped batches. A
+  scrubbing canary in CI (PAR-775) was proposed too, and you dropped it.
+
+## CI sends only its errors and reports (PAR-777)
+
+CI sent 718,000 of `parity-desktop`'s 794,000 spans in the week to 2026-11-09, which runs past every Sentry plan's 5
+million spans a month. You decided on 2026-11-09 that CI sends only its errors and reports. This narrows "on by default,
+at its fullest level, everywhere Parity runs" above for CI alone.
+
+- **Wherever `CI` is set, errors and reports go, with their breadcrumbs; spans, logs and Session Replay don't.** The
+  local copy is still written in full, so the end-to-end suite's checks of it don't change.
+- **`resolveTelemetry` decides it, with the level,** as `errorsOnly`, so the app and the CLI read it from the same place
+  as on or off. My call: `PARITY_TELEMETRY=all` doesn't override it, so a run in CI can't send its spans by accident.
+- **Main's Sentry hooks drop transactions and logs,** through `sentryScrubbing`'s `errorsOnly`, which covers every
+  process, since windows and the service send through main. The editor window doesn't start Replay. The CLI's sink keeps
+  logs and spans out of its outbox.
+
+## Installed builds report as `preview` or `release` (PAR-778)
+
+A pull request's preview installer and the published app both reported as `tester`, so a preview's bugs read as the
+release's. You decided on 2026-11-09 to split them. This replaces `tester` in "Environments" under PAR-624 above.
+
+- **`release` is a build the release workflow published; `preview` is any other installed build.**
+  `telemetryEnvironment` reads the same `published` that names the release by version (PAR-625), so an environment and
+  its release never disagree: the app's installer from `cd-desktop.yml` and the CLI `npm publish` made are `release`,
+  and a pull request's installer or a pkg.pr.new CLI is `preview`. `ci` and `development` don't change.
+- **My call: `release`, not `published`.** The spec left it open since `environment:release` sits oddly beside Sentry's
+  own `release` field. `release` is the name the spec, its widgets and PAR-779 already use.
+- **Both still offer the last run's crash,** since testers run both.
+- **Nothing in Sentry needed changing.** No dashboard widget, monitor or alert filtered on `tester`. Events sent before
+  this keep `tester`.
+
+## Icon layers show Smile (PAR-793)
+
+You picked on 2026-11-09, from five in the Icon layers exploration (Smile, Sticker, Heart, Asterisk and Feather), that
+every icon layer shows Lucide's Smile, the Icons tab's icon, whatever the icon draws. PAR-794 built it.
+
+- **One fixed icon, not each icon's own glyph.** Lucide draws the kind icons Layers already uses (AppWindow, Type,
+  Image, Frame, Rows3), so an icon of one would read as that kind, and glyphs such as X, Plus and Trash2 look like a
+  row's buttons. The layer's name says which icon it is.
+- **The component purple, not a color of its own.** An icon comes from a library and is changed through its props, as a
+  component is, and a seventh kind color would make the six harder to learn.
+- **Wherever a layer's kind shows:** Layers, the inspector's heading, the Code, Accessibility and States panels, Search
+  actions and Select layer in the canvas menu. A library's other components keep the Box.
+- My calls: Star and Shapes weren't among the five, since Star marks a favorite project on the start page and Shapes is
+  Insert. The exploration was removed when the pick was built, since choosing among the five was all it was for.
+
+## A crashed project service starts again by itself (PAR-788)
+
+Until 2026-11-09 a project service that crashed stayed stopped until a window loaded, so every request failed until the
+person reloaded. My calls:
+
+- **Main starts a fresh service through `restartService`,** the path the dev runner's code changes take, so open windows
+  get a new port and reopen their projects without reloading, and keep their designs and unsaved changes.
+- **It backs off on repeated crashes.** `serviceRestarts` in `@parity-app/core` decides: at once, then after 1, 5, 15
+  and 30 seconds, and after five crashes that each came within a minute of starting, it stops until a window loads. One
+  that ran a minute or more starts the count again. A clean exit (code 0), a service a fresh one replaced and the app
+  quitting don't restart it.
+- **`service.exited`'s `restarted` is true when a fresh service takes its place,** whether it replaced the old one or
+  started after it crashed.
+
+## The toolbar and review tools (PAR-780, PAR-795)
+
+You settled the toolbar in its exploration (Parity/Explorations/Toolbar) and asked on 2026-11-09 for it to be built into
+the app, with the exploration's bars removed. PAR-795 builds it;
+[editor.md](editor.md#the-toolbar-review-tools-and-zoom-par-780-par-795) says how it works.
+
+- **The toolbar is what the pointer does, Frame, Text and Insert, then the review button, then Search actions.** Move
+  and select, Hand and Interact share one button with a menu, as Figma's Move holds Hand. Frame's icon is in the layer
+  blue and Text's in text's green (PAR-792); Insert's stays plain. In Frame's menu New screen is screen blue and New
+  component component purple.
+- **Zoom has its own corner, at the top right:** Zoom out, the level, Zoom in and Zoom to fit. Undo and Redo leave the
+  canvas, as designed, for the Edit menu and their keys.
+- **Every review tool, Comment included, warps the toolbar into its own bar,** with the same warp for each. A kind of
+  annotation's bar has its options as stamps, Suggest and Done.
+- **The review tools are in the app before annotations and comments can be placed.** You chose on 2026-11-09 to wire
+  them in now: picking one warps the toolbar and puts the canvas on Move and select, so a click only selects until
+  PAR-184 places annotations.
+- **The icons:** Content is a pilcrow, so it doesn't read as the Text tool, and Behaviour keeps MousePointerClick.
+  Changes state is ToggleRight, Data is Braces, Analytics is ChartColumn, Landmark is PanelsTopLeft and Motion is Film.
+- **The bar beside the toolbar stays in the stories** (Parity/Collaboration/Annotations/Toolbar, WhileReviewing), as you
+  may use it later. The PAR-184 bars from the exploration are gone.

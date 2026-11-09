@@ -1,0 +1,71 @@
+name: Upload source maps
+
+# Builds a commit again and uploads a package's bundles and source maps to Sentry with scripts/upload-sourcemaps.ts, for
+# builds made by the shared templates, which run without Sentry's token: published desktop versions and CLI versions
+# (PAR-625, PAR-719) and pull requests' preview installers (PAR-685). Each bundle's debug ID comes from its contents, and
+# the build is the same on every system, so these maps match what the template built, on whichever system it ran.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit, branch or tag to build. Empty builds the commit that started the run.
+        type: string
+        default: ""
+      build-command:
+        description: What builds the package, the same command the template ran.
+        type: string
+      package:
+        description: The package folder whose sourcemaps/ to upload, such as apps/desktop.
+        type: string
+      project:
+        description: The Sentry project its events go to, such as parity-desktop.
+        type: string
+      published:
+        description:
+          A published version, whose release is named by its version and tied to its commit. Otherwise the release is
+          the commit.
+        type: boolean
+        default: false
+    secrets:
+      SENTRY_AUTH_TOKEN:
+        required: true
+      VITE_TLDRAW_LICENSE_KEY:
+        description: The desktop app's build bakes it in, so its bundles match the installers' only with it.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    name: Upload source maps
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: betterapps-hq/pipelines/github/actions/setup@main
+        with:
+          ref: ${{ inputs.ref }}
+      # Set only when there is one, as the templates do, since an empty value would change the bundles too.
+      - name: Build
+        env:
+          LICENSE_KEY: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
+          BUILD_COMMAND: ${{ inputs.build-command }}
+        run: |
+          if [ -n "$LICENSE_KEY" ]; then export VITE_TLDRAW_LICENSE_KEY="$LICENSE_KEY"; fi
+          bash -e -o pipefail -c "$BUILD_COMMAND"
+      - name: Upload to Sentry
+        id: upload
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          PACKAGE: ${{ inputs.package }}
+          PROJECT: ${{ inputs.project }}
+          PUBLISHED: ${{ inputs.published && '--published --link-commits' || '' }}
+        run: node scripts/upload-sourcemaps.ts "$PACKAGE" --project "$PROJECT" $PUBLISHED
+      # The upload only warns when the commit link fails, which went unseen on every published build until 2026-11-09,
+      # so a published version's run fails here instead when Sentry has no maps or no commits for it (PAR-774).
+      - name: Check the release in Sentry
+        if: inputs.published
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          RELEASE: ${{ steps.upload.outputs.release }}
+        run: node scripts/check-release.ts "$RELEASE"

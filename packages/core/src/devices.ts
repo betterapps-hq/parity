@@ -43,18 +43,31 @@ export const devicePresets: readonly DevicePreset[] = [
 
 /** A width's likely device, for viewports that don't say. */
 export function deviceForWidth(width: number): DeviceKind {
-  if (width < 600) return "phone"
-  if (width < 1024) return "tablet"
-  if (width < 1600) return "laptop"
+  if (width < 600) {
+    return "phone"
+  }
+
+  if (width < 1024) {
+    return "tablet"
+  }
+
+  if (width < 1600) {
+    return "laptop"
+  }
+
   return "desktop"
 }
 
 /** A screen height for a width, for viewports that don't say: the device whose width is nearest, the earlier on a tie. */
 export function screenHeightForWidth(width: number): number {
   let nearest = devicePresets[0]!
+
   for (const preset of devicePresets) {
-    if (Math.abs(preset.width - width) < Math.abs(nearest.width - width)) nearest = preset
+    if (Math.abs(preset.width - width) < Math.abs(nearest.width - width)) {
+      nearest = preset
+    }
   }
+
   return nearest.height
 }
 
@@ -64,8 +77,16 @@ export function screenHeightForWidth(width: number): number {
  */
 export function lengthToPixels(value: string): number | undefined {
   const match = /^\s*(-?[\d.]+)(px|rem|em)?\s*$/.exec(value)
-  if (!match) return undefined
+
+  if (!match) {
+    return undefined
+  }
+
   const number = Number(match[1])
-  if (!Number.isFinite(number)) return undefined
+
+  if (!Number.isFinite(number)) {
+    return undefined
+  }
+
   return match[2] === "rem" || match[2] === "em" ? number * 16 : number
 }

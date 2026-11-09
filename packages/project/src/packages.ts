@@ -8,6 +8,7 @@ import {
   parseManifest,
   type RendererAdapter
 } from "@parity-app/core"
+import { isComposite, isText } from "@parity-app/core/values/evaluate"
 
 /**
  * The one reader of installed packages (PAR-573): where a package is installed, its manifest and version, the file
@@ -39,11 +40,16 @@ export async function findPackage(from: string, name: string): Promise<Installed
   for (let folder = resolve(from); ; folder = dirname(folder)) {
     const installedAt = join(folder, "node_modules", name)
     const text = await readFile(join(installedAt, "package.json"), "utf8").catch(() => undefined)
+
     if (text !== undefined) {
       const manifest = parseManifest(text, join(installedAt, "package.json"))
+
       return { dir: await realpath(installedAt), installedAt, manifest }
     }
-    if (dirname(folder) === folder) return undefined
+
+    if (dirname(folder) === folder) {
+      return undefined
+    }
   }
 }
 
@@ -51,14 +57,22 @@ export async function findPackage(from: string, name: string): Promise<Installed
 export async function readPackage(dir: string): Promise<PackageFolder | undefined> {
   const file = join(dir, "package.json")
   const text = await readFile(file, "utf8").catch(() => undefined)
+
   return text === undefined ? undefined : { dir, manifest: parseManifest(text, file) }
 }
 
+/** A bare specifier's package and the entry point in it. */
+export interface SplitSpecifier {
+  name: string
+  subpath: string
+}
+
 /** A bare specifier's package and the entry point in it: `@acme/ui/button` is `@acme/ui` and `./button`. */
-export function splitSpecifier(specifier: string): { name: string; subpath: string } {
+export function splitSpecifier(specifier: string): SplitSpecifier {
   const parts = specifier.split("/")
   const length = specifier.startsWith("@") ? 2 : 1
   const rest = parts.slice(length).join("/")
+
   return { name: parts.slice(0, length).join("/"), subpath: rest ? `./${rest}` : "." }
 }
 
@@ -95,10 +109,15 @@ const accepts: Record<EntryUse, (file: string) => boolean> = {
  */
 export function packageEntry(pkg: PackageFolder, use: EntryUse, subpath = "."): string | undefined {
   const entry = subpath === "." || subpath.startsWith("./") ? subpath : `./${subpath}`
+
   for (const candidate of entryCandidates(pkg.manifest, use, entry)) {
     const file = candidate && join(pkg.dir, candidate)
-    if (file && isFile(file)) return file
+
+    if (file && isFile(file)) {
+      return file
+    }
   }
+
   return undefined
 }
 
@@ -106,6 +125,7 @@ function entryCandidates(manifest: PackageManifest, use: EntryUse, entry: string
   const root = entry === "."
   const path = entry.slice(2)
   const exported = exportTarget(manifest.exports, entry, conditions[use], accepts[use])
+
   switch (use) {
     case "types":
       return [
@@ -126,11 +146,13 @@ function entryCandidates(manifest: PackageManifest, use: EntryUse, entry: string
     case "source": {
       const fields = root ? [manifest.types, manifest.typings, manifest.module, manifest.main] : []
       const named = [exported, ...fields].find((file) => file !== undefined)
+
       return [
         ...(named && isBuilt(named) ? sourcesOf(named) : [named]),
         ...(root ? ["src/index.tsx", "src/index.ts", "src/index.jsx", "src/index.js", "index.tsx", "index.ts"] : [])
       ]
     }
+
     case "style":
       return root ? [manifest.style, exported] : [exported, path]
   }
@@ -149,18 +171,32 @@ const stylesheetNames = ["tailwind.css", "styles.css", "style.css", "index.css",
  */
 export function packageStylesheet(pkg: PackageFolder): string | undefined {
   const { style, exports } = pkg.manifest
-  if (style && isFile(join(pkg.dir, style))) return style
-  const css = Object.keys(exports === undefined ? {} : subpaths(exports))
-    .filter((key) => key.endsWith(".css") && !key.includes("*"))
-    .map((key) => key.slice(2))
+
+  if (style && isFile(join(pkg.dir, style))) {
+    return style
+  }
+
+  const css =
+    exports === undefined
+      ? []
+      : subpaths(exports)
+          .keys()
+          .filter((key) => key.endsWith(".css") && !key.includes("*"))
+          .map((key) => key.slice(2))
+          .toArray()
+
   const pick = stylesheetNames.find((name) => css.includes(name)) ?? css[0]
+
   return pick && packageEntry(pkg, "style", pick) ? pick : undefined
 }
 
 /** `exports` by subpath: a map as written, or the package's one entry point, which is `.`. */
-function subpaths(exports: ExportsTarget): Record<string, ExportsTarget> {
-  if (typeof exports !== "object" || exports === null || Array.isArray(exports)) return { ".": exports }
-  return Object.keys(exports).some((key) => key.startsWith(".")) ? exports : { ".": exports }
+function subpaths(exports: ExportsTarget): Map<string, ExportsTarget> {
+  if (!isComposite(exports) || Array.isArray(exports) || !Object.keys(exports).some((key) => key.startsWith("."))) {
+    return new Map([[".", exports]])
+  }
+
+  return new Map(Object.entries(exports))
 }
 
 /**
@@ -173,23 +209,46 @@ function exportTarget(
   wanted: readonly string[],
   accept: (file: string) => boolean
 ): string | undefined {
-  if (exports === undefined) return undefined
+  if (exports === undefined) {
+    return undefined
+  }
+
   const map = subpaths(exports)
-  if (Object.hasOwn(map, entry)) return resolveTarget(map[entry]!, wanted, accept)
+
+  const exact = map.get(entry)
+
+  if (exact !== undefined) {
+    return resolveTarget(exact, wanted, accept)
+  }
+
   let best: { key: string; prefix: string; match: string } | undefined
-  for (const key of Object.keys(map)) {
+
+  for (const key of map.keys()) {
     const star = key.indexOf("*")
-    if (star === -1) continue
+
+    if (star === -1) {
+      continue
+    }
+
     const [prefix, suffix] = [key.slice(0, star), key.slice(star + 1)]
+
     // `*` stands for something, never nothing.
-    if (entry.length < key.length || !entry.startsWith(prefix) || !entry.endsWith(suffix)) continue
+    if (entry.length < key.length || !entry.startsWith(prefix) || !entry.endsWith(suffix)) {
+      continue
+    }
+
     if (!best || prefix.length > best.prefix.length) {
       best = { key, prefix, match: entry.slice(prefix.length, entry.length - suffix.length) }
     }
   }
-  if (!best) return undefined
+
+  if (!best) {
+    return undefined
+  }
+
   const { key, match } = best
-  return resolveTarget(map[key]!, wanted, (file) => accept(file.replaceAll("*", match)))?.replaceAll("*", match)
+
+  return resolveTarget(map.get(key)!, wanted, (file) => accept(file.replaceAll("*", match)))?.replaceAll("*", match)
 }
 
 /** The first file a target leads to under the wanted conditions, taken in the order they're wanted. */
@@ -198,19 +257,34 @@ function resolveTarget(
   wanted: readonly string[],
   accept: (file: string) => boolean
 ): string | undefined {
-  if (typeof target === "string") return accept(target) ? target : undefined
-  if (target === null) return undefined
+  if (isText(target)) {
+    return accept(target) ? target : undefined
+  }
+
+  if (target === null) {
+    return undefined
+  }
+
   if (Array.isArray(target)) {
     for (const each of target) {
       const found = resolveTarget(each, wanted, accept)
-      if (found) return found
+
+      if (found) {
+        return found
+      }
     }
+
     return undefined
   }
+
   for (const condition of wanted) {
     const found = Object.hasOwn(target, condition) ? resolveTarget(target[condition]!, wanted, accept) : undefined
-    if (found) return found
+
+    if (found) {
+      return found
+    }
   }
+
   return undefined
 }
 
@@ -221,6 +295,7 @@ function isDeclaration(file: string): boolean {
 /** The declarations TypeScript looks for beside a module: `index.d.ts` for `index.js`, `index.d.mts` for `index.mjs`. */
 function declarationOf(file: string): string | undefined {
   const match = /\.([cm]?)jsx?$/.exec(file)
+
   return match ? `${file.slice(0, match.index)}.d.${match[1]}ts` : undefined
 }
 
@@ -241,12 +316,18 @@ const sourceExtensions = [".tsx", ".ts", ".jsx", ".js"]
 function sourcesOf(file: string): string[] {
   const parts = file.replace(/^\.\//, "").split("/")
   let start = 0
-  while (start < parts.length - 1 && builtFolders.has(parts[start]!)) start++
+
+  while (start < parts.length - 1 && builtFolders.has(parts[start]!)) {
+    start++
+  }
+
   const rest = parts
     .slice(start)
     .join("/")
     .replace(/\.d\.[cm]?ts$|\.[cm]?jsx?$/, "")
+
   const stem = start > 0 ? `src/${rest}` : rest
+
   return sourceExtensions.map((extension) => stem + extension)
 }
 
@@ -280,46 +361,80 @@ async function exportsOf(
 ): Promise<Map<string, ExportedComponent>> {
   // A file read before gives what it found, and one still being read (an import cycle) what it has so far.
   const known = read.get(file)
-  if (known) return known
+
+  if (known) {
+    return known
+  }
+
   const found = new Map<string, ExportedComponent>()
   read.set(file, found)
   const source = await readFile(file, "utf8").catch(() => undefined)
-  if (source === undefined) return found
-  for (const component of renderer.findComponents(source, file)) {
-    found.set(component.export, { name: component.name, file, ...(component.as ? { as: component.as } : {}) })
+
+  if (source === undefined) {
+    return found
   }
+
+  for (const component of renderer.findComponents(source, file)) {
+    found.set(component.export, { name: component.name, file, as: component.as })
+  }
+
   for (const reexport of reexportsOf(source)) {
     const target = resolveRelative(file, reexport.from)
-    if (!target) continue
-    const inner = await exportsOf(target, renderer, read)
-    if (!reexport.names) {
-      for (const [name, value] of inner) if (name !== "default" && !found.has(name)) found.set(name, value)
+
+    if (!target) {
       continue
     }
+
+    const inner = await exportsOf(target, renderer, read)
+
+    if (!reexport.names) {
+      for (const [name, value] of inner) {
+        if (name !== "default" && !found.has(name)) {
+          found.set(name, value)
+        }
+      }
+
+      continue
+    }
+
     for (const [name, as] of reexport.names) {
       const value = inner.get(name)
-      if (value) found.set(as, as === "default" ? value : { ...value, name: as })
+
+      if (value) {
+        found.set(as, as === "default" ? value : { ...value, name: as })
+      }
     }
   }
+
   return found
 }
 
 /** A module's re-exports: `export * from "./x"` (every name), and `export { A, B as C } from "./x"`. Types are left out. */
 function reexportsOf(source: string): { from: string; names?: [string, string][] }[] {
   const found: { from: string; names?: [string, string][] }[] = []
-  for (const match of source.matchAll(/export\s+\*\s+from\s+["']([^"']+)["']/g)) found.push({ from: match[1]! })
+
+  for (const match of source.matchAll(/export\s+\*\s+from\s+["']([^"']+)["']/g)) {
+    found.push({ from: match[1]! })
+  }
+
   for (const match of source.matchAll(/export\s+(type\s+)?\{([^}]*)\}\s*from\s+["']([^"']+)["']/g)) {
-    if (match[1]) continue
+    if (match[1]) {
+      continue
+    }
+
     const names = match[2]!
       .split(",")
       .map((part) => part.trim())
       .filter((part) => part && !part.startsWith("type "))
       .map((part): [string, string] => {
         const [name, as] = part.split(/\s+as\s+/).map((text) => text.trim())
+
         return [name!, as ?? name!]
       })
+
     found.push({ from: match[3]!, names })
   }
+
   return found
 }
 
@@ -330,9 +445,13 @@ const declarationExtensions = [".d.ts", ".d.mts", ".d.cts"]
  * declaration file, it's the declarations: `./button.d.ts` for `./button.js`.
  */
 function resolveRelative(from: string, specifier: string): string | undefined {
-  if (!specifier.startsWith(".")) return undefined
+  if (!specifier.startsWith(".")) {
+    return undefined
+  }
+
   const base = join(dirname(from), specifier)
   const stem = base.replace(/\.[cm]?jsx?$/, "")
+
   const candidates = isDeclaration(from)
     ? [...declarationExtensions.map((extension) => stem + extension), join(stem, "index.d.ts")]
     : [
@@ -340,6 +459,7 @@ function resolveRelative(from: string, specifier: string): string | undefined {
         ...sourceExtensions.map((extension) => stem + extension),
         ...sourceExtensions.map((extension) => join(stem, `index${extension}`))
       ]
+
   return candidates.find((candidate) => /\.[cm]?[jt]sx?$/.test(candidate) && isFile(candidate))
 }
 

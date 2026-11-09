@@ -30,6 +30,7 @@ export function AgentPointer({ palette, pressed }: { palette?: AgentPalette; pre
   const gradient = `agent-pointer-${useId().replaceAll(/[^\w-]/g, "")}`
   const color = palette?.color ?? fallbackColor
   const [from, through, to] = palette?.stops ?? [color, color, color]
+
   return (
     <>
       <span
@@ -44,7 +45,7 @@ export function AgentPointer({ palette, pressed }: { palette?: AgentPalette; pre
         className="relative -mt-0.5 -ml-0.5 origin-top-left transition-transform duration-150 group-data-[idle=true]/cursor:animate-[agent-breathe_2.8s_ease-in-out_infinite]"
         style={{
           filter: `drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.35)) drop-shadow(0 0 5px color-mix(in oklch, ${color} 55%, transparent))`,
-          ...(pressed ? { transform: "scale(0.82)" } : {})
+          transform: pressed ? "scale(0.82)" : undefined
         }}
       >
         <defs>
@@ -102,14 +103,41 @@ export function AgentBadge({
 
 /** The icon for a kind of action an agent takes. */
 export function ActionIcon({ kind, className }: { kind?: PresenceEvent["kind"]; className?: string }) {
-  if (kind === "read") return <Eye className={className} />
-  if (kind === "write") return <PenLine className={className} />
-  if (kind === "move") return <Move className={className} />
-  if (kind === "screenshot") return <Camera className={className} />
-  if (kind === "measure") return <Ruler className={className} />
-  if (kind === "accessibility") return <Accessibility className={className} />
-  if (kind === "problems") return <TriangleAlert className={className} />
-  if (kind === "console") return <SquareTerminal className={className} />
-  if (kind === "board") return <LayoutGrid className={className} />
+  if (kind === "read") {
+    return <Eye className={className} />
+  }
+
+  if (kind === "write") {
+    return <PenLine className={className} />
+  }
+
+  if (kind === "move") {
+    return <Move className={className} />
+  }
+
+  if (kind === "screenshot") {
+    return <Camera className={className} />
+  }
+
+  if (kind === "measure") {
+    return <Ruler className={className} />
+  }
+
+  if (kind === "accessibility") {
+    return <Accessibility className={className} />
+  }
+
+  if (kind === "problems") {
+    return <TriangleAlert className={className} />
+  }
+
+  if (kind === "console") {
+    return <SquareTerminal className={className} />
+  }
+
+  if (kind === "board") {
+    return <LayoutGrid className={className} />
+  }
+
   return <Sparkles className={className} />
 }

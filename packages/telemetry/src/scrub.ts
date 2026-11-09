@@ -1,3 +1,5 @@
+import { z } from "zod"
+
 /** What a secret is replaced with. */
 export const redacted = "[redacted]"
 
@@ -60,6 +62,7 @@ const urlCredentials = /\b([a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:)(?!\[redacted\])[^\s
  * `?access_token=…`, `"password": "…"`, `secret: …`. The value is replaced when the name says it's secret.
  */
 const namedValueStart = /(["']?)([A-Za-z_][A-Za-z0-9_.-]*)\1\s*[:=]\s*/g
+
 /** The value after a name: quoted, or up to a space or the punctuation that ends one in a URL, JSON or a list. */
 const valueAt = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|[^\s&,;"'<>(){}[\]]+/y
 
@@ -68,14 +71,17 @@ const randomRun = /[A-Za-z0-9+/_=-]{32,}/g
 
 /** Hex with or without dashes: hashes, commit SHAs, UUIDs and trace IDs, which are never secret on their own. */
 const hex = /^[0-9a-fA-F-]+$/
+
 /** A file name's extension after a run, as content hashes in file names have. */
 const extension = /^\.[A-Za-z0-9]{1,5}\b/
+
 /**
  * The most of a run that may be in lowercase words of 4 letters or more for it to count as random. Paths and
  * identifiers, such as `useHighlightedCodeForComponentPreview2`, are half words or more; a random 32-character key is
  * under this 99 times in 100.
  */
 const randomWordShare = 0.4
+
 /** The fewest bits per character a random run has, so `AAAABBBB1111…` isn't one. Random keys have 4 or more. */
 const randomEntropy = 3.5
 
@@ -107,24 +113,40 @@ const credentialTokenPrefixes = new Set([
 /** Whether a field or variable of this name holds a secret, so its whole value is replaced. */
 export function isSecretName(name: string): boolean {
   // `GITHUB_TOKEN`, `STRIPE_KEY`, `DB_PASSWORD`: an environment variable's name says what it holds.
-  if (/^[A-Z0-9_]+$/.test(name) && /(?:^|_)(?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|CREDENTIALS?)$/.test(name)) return true
-  const normal = name.toLowerCase().replace(/[^a-z0-9]/g, "")
-  if (/password|passwd|passphrase|secret|apikey|accesskey|privatekey|credential|authorization|cookie/.test(normal))
+  if (/^[A-Z0-9_]+$/.test(name) && /(?:^|_)(?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|CREDENTIALS?)$/.test(name)) {
     return true
-  if (normal === "auth") return true
+  }
+
+  const normal = name.toLowerCase().replace(/[^a-z0-9]/g, "")
+
+  if (/password|passwd|passphrase|secret|apikey|accesskey|privatekey|credential|authorization|cookie/.test(normal)) {
+    return true
+  }
+
+  if (normal === "auth") {
+    return true
+  }
+
   const token = /^(.+?)tokens?$/.exec(normal)
+
   return token !== null && credentialTokenPrefixes.has(token[1] ?? "")
 }
 
 /** Shannon entropy in bits per character. */
 function entropyOf(text: string): number {
   const counts = new Map<string, number>()
-  for (const character of text) counts.set(character, (counts.get(character) ?? 0) + 1)
+
+  for (const character of text) {
+    counts.set(character, (counts.get(character) ?? 0) + 1)
+  }
+
   let bits = 0
+
   for (const count of counts.values()) {
     const share = count / text.length
     bits -= share * Math.log2(share)
   }
+
   return bits
 }
 
@@ -133,10 +155,20 @@ function entropyOf(text: string): number {
  * digits, mostly not in words. Hex is left alone, as are runs in a file name or a `data:` URL's base64.
  */
 function isRandom(run: string, before: string, after: string): boolean {
-  if (hex.test(run)) return false
-  if (before.endsWith("base64,") || extension.test(after)) return false
-  if (!/[a-z]/.test(run) || !/[A-Z]/.test(run) || !/[0-9]/.test(run)) return false
+  if (hex.test(run)) {
+    return false
+  }
+
+  if (before.endsWith("base64,") || extension.test(after)) {
+    return false
+  }
+
+  if (!/[a-z]/.test(run) || !/[A-Z]/.test(run) || !/[0-9]/.test(run)) {
+    return false
+  }
+
   const inWords = (run.match(/[a-z]{4,}/g) ?? []).join("").length
+
   return inWords / run.length < randomWordShare && entropyOf(run) >= randomEntropy
 }
 
@@ -147,26 +179,44 @@ function isRandom(run: string, before: string, after: string): boolean {
 function redactNamedValues(input: string): string {
   let output = ""
   let last = 0
+
   for (const match of input.matchAll(namedValueStart)) {
     const [start, , name = ""] = match
-    if (match.index < last || !isSecretName(name)) continue
+
+    if (match.index < last || !isSecretName(name)) {
+      continue
+    }
+
     const valueStart = match.index + start.length
     valueAt.lastIndex = valueStart
     const value = valueAt.exec(input)?.[0]
-    if (value === undefined || value.startsWith(redacted)) continue
+
+    if (value === undefined || value.startsWith(redacted)) {
+      continue
+    }
+
     const quote = value.startsWith('"') || value.startsWith("'") ? value.charAt(0) : ""
     output += `${input.slice(last, valueStart)}${quote}${redacted}${quote}`
     last = valueStart + value.length
   }
+
   return output + input.slice(last)
 }
+
+/** An error's field, when it's text. */
+const errorText = z.string()
 
 function escapeForRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
-function isPlainObject(value: object): value is Record<string, unknown> {
+/** A plain object as the scrubber finds it, whose fields can hold anything. */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- the scrubber walks any value an event or Sentry holds, so a field can be anything
+type PlainObject = Record<string, unknown>
+
+function isPlainObject(value: unknown): value is PlainObject {
   const prototype: unknown = Object.getPrototypeOf(value)
+
   return prototype === Object.prototype || prototype === null
 }
 
@@ -183,13 +233,19 @@ export function createScrubber(options: ScrubOptions = {}): Scrubber {
 
   function text(input: string): string {
     let output = given ? input.replace(given, redacted) : input
-    for (const pattern of keyPatterns) output = output.replace(pattern, redacted)
+
+    for (const pattern of keyPatterns) {
+      output = output.replace(pattern, redacted)
+    }
+
     output = output.replace(bearer, `$1${redacted}`)
     output = output.replace(urlCredentials, `$1${redacted}@`)
     output = redactNamedValues(output)
+
     return output.replace(randomRun, (run, offset: number, whole: string) => {
       const before = whole.slice(Math.max(0, offset - 7), offset)
       const after = whole.slice(offset + run.length, offset + run.length + 7)
+
       return isRandom(run, before, after) ? redacted : run
     })
   }
@@ -197,40 +253,79 @@ export function createScrubber(options: ScrubOptions = {}): Scrubber {
   function value<T>(input: T): T {
     const seen = new WeakMap<object, unknown>()
 
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- walks any value an event or Sentry holds, whatever each part is
     function scrub(item: unknown): unknown {
-      if (typeof item === "string") return text(item)
-      if (typeof item !== "object" || item === null) return item
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the walk takes any value, and text is the one kind it changes
+      if (typeof item === "string") {
+        return text(item)
+      }
+
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the walk takes any value, and only objects have parts to walk
+      if (typeof item !== "object" || item === null) {
+        return item
+      }
+
       const done = seen.get(item)
-      if (done !== undefined) return done
+
+      if (done !== undefined) {
+        return done
+      }
+
       if (Array.isArray(item)) {
-        const copy: unknown[] = []
-        seen.set(item, copy)
-        for (const element of item) copy.push(scrub(element))
-        return copy
+        return scrubArray(item)
       }
+
       if (item instanceof Error) {
-        const copy: Error = Object.create(Object.getPrototypeOf(item))
-        seen.set(item, copy)
-        copyFields(item, copy)
-        for (const field of ["name", "message", "stack"] as const) {
-          const own = item[field]
-          if (typeof own === "string")
-            Object.defineProperty(copy, field, { value: text(own), writable: true, configurable: true })
-        }
-        if (item.cause !== undefined)
-          Object.defineProperty(copy, "cause", { value: scrub(item.cause), writable: true, configurable: true })
-        return copy
+        return scrubError(item)
       }
-      if (!isPlainObject(item)) return item
-      const copy: Record<string, unknown> = {}
+
+      return isPlainObject(item) ? scrubObject(item) : item
+    }
+
+    function scrubArray(item: readonly unknown[]): unknown[] {
+      const copy: unknown[] = []
       seen.set(item, copy)
-      copyFields(item, copy)
+
+      for (const element of item) {
+        copy.push(scrub(element))
+      }
+
       return copy
     }
 
-    function copyFields(from: object, to: object): void {
+    function scrubError(item: Error): Error {
+      const copy: Error = Object.create(Object.getPrototypeOf(item))
+      seen.set(item, copy)
+      copyFields(item, copy)
+
+      for (const field of ["name", "message", "stack"] as const) {
+        // An error's own fields can hold anything at run time, whatever its type says.
+        const own = errorText.safeParse(item[field])
+
+        if (own.success) {
+          Object.defineProperty(copy, field, { value: text(own.data), writable: true, configurable: true })
+        }
+      }
+
+      if (item.cause !== undefined) {
+        Object.defineProperty(copy, "cause", { value: scrub(item.cause), writable: true, configurable: true })
+      }
+
+      return copy
+    }
+
+    function scrubObject(item: PlainObject): PlainObject {
+      const copy: PlainObject = {}
+      seen.set(item, copy)
+
+      return copyFields(item, copy)
+    }
+
+    /** Copies each field, scrubbed, from `from` to `to`, and gives `to` back. */
+    function copyFields<To extends Error | PlainObject>(from: Error | PlainObject, to: To): To {
       for (const [name, field] of Object.entries(from)) {
-        const secret = isSecretName(name) && field !== null && field !== undefined && typeof field !== "boolean"
+        const secret = isSecretName(name) && field !== null && field !== undefined && field !== true && field !== false
+
         Object.defineProperty(to, name, {
           value: secret ? redacted : scrub(field),
           writable: true,
@@ -238,9 +333,11 @@ export function createScrubber(options: ScrubOptions = {}): Scrubber {
           configurable: true
         })
       }
+
+      return to
     }
 
-    // `scrub` gives back what it's given with only strings changed, so the copy has the input's type.
+    // SAFETY: `scrub` gives back what it's given with only strings changed, so the copy has the input's type.
     return scrub(input) as T
   }
 
@@ -253,16 +350,29 @@ export function createScrubber(options: ScrubOptions = {}): Scrubber {
  */
 export function envSecrets(file: string): string[] {
   const values: string[] = []
+
   for (const line of file.split(/\r?\n/)) {
     const match = /^\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_.-]*\s*=\s*(.*)$/.exec(line)
-    if (!match) continue
+
+    if (!match) {
+      continue
+    }
+
     let raw = (match[1] ?? "").trim()
     const quote = raw.charAt(0)
-    if ((quote === '"' || quote === "'" || quote === "`") && raw.indexOf(quote, 1) > 0)
+
+    if ((quote === '"' || quote === "'" || quote === "`") && raw.indexOf(quote, 1) > 0) {
       raw = raw.slice(1, raw.indexOf(quote, 1))
-    else raw = raw.replace(/\s+#.*$/, "")
-    if (raw.length < shortestSecret || /^(?:-?\d+(?:\.\d+)?|true|false)$/i.test(raw)) continue
+    } else {
+      raw = raw.replace(/\s+#.*$/, "")
+    }
+
+    if (raw.length < shortestSecret || /^(?:-?\d+(?:\.\d+)?|true|false)$/i.test(raw)) {
+      continue
+    }
+
     values.push(raw)
   }
+
   return values
 }

@@ -27,8 +27,8 @@ export function startReopening({
   waitMs = 60_000
 }: {
   file: string | undefined
-  open: (root: string) => Promise<unknown>
-  close: (root: string) => Promise<unknown>
+  open: (root: string) => Promise<void>
+  close: (root: string) => Promise<void>
   waitMs?: number
 }): Reopening {
   const unclaimed = new Map<string, ReturnType<typeof setTimeout>>()
@@ -44,9 +44,16 @@ export function startReopening({
       unclaimed.delete(root)
     },
     remember(roots) {
-      if (!file) return
+      if (!file) {
+        return
+      }
+
       const text = JSON.stringify({ roots: [...roots] })
-      if (text === last) return
+
+      if (text === last) {
+        return
+      }
+
       last = text
       writing = writing.then(() => write(file, text))
     },
@@ -58,7 +65,10 @@ export function startReopening({
     reading = remembered(file).then((roots) => {
       for (const root of roots) {
         // A window that asked first is opening it already, and keeps it.
-        if (claimed.has(root) || unclaimed.has(root)) continue
+        if (claimed.has(root) || unclaimed.has(root)) {
+          continue
+        }
+
         unclaimed.set(
           root,
           setTimeout(() => {
@@ -71,12 +81,14 @@ export function startReopening({
       }
     })
   }
+
   return reopening
 }
 
 /** The roots kept last time; none when there's no list or it can't be read. */
 async function remembered(file: string): Promise<string[]> {
   const text = await readFile(file, "utf8").catch(() => undefined)
+
   return (text === undefined ? undefined : openProjectsFile.safeParse(text).data?.roots) ?? []
 }
 
@@ -86,6 +98,7 @@ const openProjectsFile = jsonText(z.object({ roots: z.array(z.string()) }))
 /** Written beside the list and renamed over it, so a reader never finds half a list. */
 async function write(file: string, text: string): Promise<void> {
   const partial = `${file}.${process.pid}.partial`
+
   try {
     await writeFile(partial, text)
     await rename(partial, file)

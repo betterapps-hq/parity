@@ -8,6 +8,9 @@ export function watchServiceLag(telemetry: Telemetry<typeof registeredEvents>): 
   const check = lagCheck({ every, threshold: slowThresholdMs, start: performance.now() })
   setInterval(() => {
     const lateMs = check.tick(performance.now())
-    if (lateMs !== undefined) telemetry.track("service.lag", { lateMs })
+
+    if (lateMs !== undefined) {
+      telemetry.track("service.lag", { lateMs })
+    }
   }, every).unref()
 }

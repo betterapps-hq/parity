@@ -7,8 +7,12 @@ import { z } from "zod"
  */
 export type TelemetryLevel = "all" | "off"
 
-/** Which runs an event came from: a checkout, CI, or an installed build a tester runs. */
-export type TelemetryEnvironment = "development" | "ci" | "tester"
+/**
+ * Which runs an event came from: a checkout, CI, a pull request's preview installer, the published app and CLI, which
+ * testers install (PAR-778), or a published build promoted to everyone (PAR-779). `preview` and `release` were one
+ * `tester` environment until 2026-11-09.
+ */
+export type TelemetryEnvironment = "development" | "ci" | "preview" | "release" | "production"
 
 /** The environment variables that decide what's sent. Empty counts as unset, as a shell's `NAME=` means. */
 export interface TelemetryVariables {
@@ -32,24 +36,45 @@ export interface ResolvedTelemetry {
   level: TelemetryLevel
   setting: TelemetryLevel
   overriddenBy?: TelemetryOverride
+  /**
+   * Set in CI, which sends only its errors and reports, with their breadcrumbs: no spans, logs or Session Replay, which
+   * stay in the local copy (PAR-777). CI's end-to-end runs sent nine in ten of `parity-desktop`'s spans.
+   */
+  errorsOnly?: true
 }
 
 /**
  * The level for this run, from the variables and the saved setting (PAR-626). Unit tests and `DO_NOT_TRACK` turn it
  * off whatever else says; then `PARITY_TELEMETRY`; then the setting, which is `all` until someone changes it. A
  * `PARITY_TELEMETRY` that isn't a level throws a `TypeError` naming it, so a typo never sends what someone meant to turn
- * off.
+ * off. In CI, whatever the level, only errors and reports are sent (PAR-777).
  */
 export function resolveTelemetry(variables: TelemetryVariables, setting: TelemetryLevel = "all"): ResolvedTelemetry {
-  const asked = variables.PARITY_TELEMETRY?.trim().toLowerCase() || undefined
-  if (asked !== undefined && !telemetryLevels.includes(asked as TelemetryLevel)) {
+  const resolved = resolveLevel(variables, setting)
+
+  return inCi(variables) ? { ...resolved, errorsOnly: true } : resolved
+}
+
+function resolveLevel(variables: TelemetryVariables, setting: TelemetryLevel): ResolvedTelemetry {
+  const given = variables.PARITY_TELEMETRY?.trim().toLowerCase() || undefined
+  const asked = z.enum(telemetryLevels).optional().safeParse(given).data
+
+  if (given !== undefined && asked === undefined) {
     throw new TypeError(`PARITY_TELEMETRY is "${variables.PARITY_TELEMETRY}"; expected all or off`)
   }
-  if (variables.VITEST) return { level: "off", setting, overriddenBy: "VITEST" }
+
+  if (variables.VITEST) {
+    return { level: "off", setting, overriddenBy: "VITEST" }
+  }
+
   if (/^(1|true)$/i.test(variables.DO_NOT_TRACK?.trim() ?? "")) {
     return { level: "off", setting, overriddenBy: "DO_NOT_TRACK" }
   }
-  if (asked !== undefined) return { level: asked as TelemetryLevel, setting, overriddenBy: "PARITY_TELEMETRY" }
+
+  if (asked !== undefined) {
+    return { level: asked, setting, overriddenBy: "PARITY_TELEMETRY" }
+  }
+
   return { level: setting, setting }
 }
 
@@ -75,13 +100,18 @@ export type SavedTelemetry = z.infer<typeof savedTelemetry>
  * counts as unset: the level is then `all`, and the app makes a new install ID.
  */
 export function readSavedTelemetry(text: string | undefined): SavedTelemetry {
-  let value: unknown = {}
+  const saved = savedTelemetry.catch({ level: "all" })
+
+  if (text === undefined) {
+    return saved.parse({})
+  }
+
   try {
-    if (text !== undefined) value = JSON.parse(text)
+    return saved.parse(JSON.parse(text))
   } catch {
     // Unreadable counts as unset.
+    return saved.parse({})
   }
-  return savedTelemetry.catch({ level: "all" }).parse(value)
 }
 
 /** What decides where the desktop app keeps its data: the system, its variables and the home folder. */
@@ -96,16 +126,57 @@ export interface DataFolderContext {
  * `telemetry.json` (PAR-642). `PARITY_USER_DATA` names another copy's folder, as it does for the app.
  */
 export function desktopDataFolder({ platform, env, home }: DataFolderContext): string {
-  if (env.PARITY_USER_DATA) return env.PARITY_USER_DATA
+  if (env.PARITY_USER_DATA) {
+    return env.PARITY_USER_DATA
+  }
+
   const separator = platform === "win32" ? "\\" : "/"
   let appData = env.XDG_CONFIG_HOME || [home, ".config"].join(separator)
-  if (platform === "win32") appData = env.APPDATA || [home, "AppData", "Roaming"].join(separator)
-  else if (platform === "darwin") appData = [home, "Library", "Application Support"].join(separator)
+
+  if (platform === "win32") {
+    appData = env.APPDATA || [home, "AppData", "Roaming"].join(separator)
+  } else if (platform === "darwin") {
+    appData = [home, "Library", "Application Support"].join(separator)
+  }
+
   return [appData, "@parity", "desktop"].join(separator)
 }
 
-/** Which environment a run reports as: `ci` wherever CI is set, else `tester` for an installed build. */
-export function telemetryEnvironment(variables: TelemetryVariables, installed: boolean): TelemetryEnvironment {
-  if (variables.CI && !/^(0|false)$/i.test(variables.CI.trim())) return "ci"
-  return installed ? "tester" : "development"
+/**
+ * What kind of build a run is: installed, or run from a checkout; whether the release workflow published it; and
+ * whether that release has since been promoted to everyone, as a GitHub release that's no longer a pre-release.
+ */
+export interface TelemetryBuild {
+  installed: boolean
+  published: boolean
+  promoted?: boolean
+}
+
+/**
+ * Which environment a run reports as: `ci` wherever CI is set; else `production` for a published build that's been
+ * promoted to everyone (PAR-779), `release` for any other published app or CLI, `preview` for any other installed
+ * build, such as a pull request's installer or a pkg.pr.new package, and `development` for a checkout (PAR-778).
+ */
+export function telemetryEnvironment(
+  variables: TelemetryVariables,
+  { installed, published, promoted = false }: TelemetryBuild
+): TelemetryEnvironment {
+  if (inCi(variables)) {
+    return "ci"
+  }
+
+  if (!installed) {
+    return "development"
+  }
+
+  if (!published) {
+    return "preview"
+  }
+
+  return promoted ? "production" : "release"
+}
+
+/** Whether this run is in CI: `CI` is set, and not to `0` or `false`. */
+function inCi(variables: TelemetryVariables): boolean {
+  return Boolean(variables.CI) && !/^(0|false)$/i.test(variables.CI?.trim() ?? "")
 }

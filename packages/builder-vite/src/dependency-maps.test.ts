@@ -46,7 +46,8 @@ describe("dependencySourceMaps", () => {
   beforeEach(async () => {
     // The real path: Windows runners' tmpdir can use a short (8.3) name, which crashes libuv's watcher.
     root = await realpath(await mkdtemp(join(tmpdir(), "parity-maps-")))
-    const files: Record<string, string> = {
+
+    const files = {
       "package.json": JSON.stringify({ name: "fixture", type: "module" }),
       "main.js":
         'import { greeting } from "bundled"\nimport { plain } from "plain"\nexport const message = greeting + plain\n',
@@ -56,6 +57,7 @@ describe("dependencySourceMaps", () => {
       // No imports, so nothing else changes its code.
       "node_modules/plain/index.js": "export const plain = 1\n"
     }
+
     for (const [path, content] of Object.entries(files)) {
       await mkdir(dirname(join(root, path)), { recursive: true })
       await writeFile(join(root, path), content)
@@ -76,14 +78,19 @@ describe("dependencySourceMaps", () => {
       optimizeDeps: { include: ["bundled"], exclude: ["plain"], noDiscovery: true },
       plugins: [dependencySourceMaps()]
     })
+
     await server.listen()
+
     try {
       const origin = server.resolvedUrls!.local[0]
+
       const get = async (url: string | URL) => {
         const response = await fetch(new URL(url, origin))
         expect(response.status).toBe(200)
+
         return response.text()
       }
+
       const main = await get("/main.js")
       expect(main).toContain("//# sourceMappingURL=data:application/json;base64,")
 
@@ -92,9 +99,10 @@ describe("dependencySourceMaps", () => {
       expect(bundled).toContain('"hello"')
       expect(bundled).not.toContain("sourceMappingURL=data:")
       expect(bundled.trimEnd().endsWith("//# sourceMappingURL=bundled.js.map")).toBe(true)
-      const map = JSON.parse(await get(new URL("bundled.js.map", bundledUrl))) as { version: number; sources: string[] }
-      expect(map.version).toBe(3)
-      expect(map.sources.some((source) => source.endsWith("bundled/index.js"))).toBe(true)
+      expect(JSON.parse(await get(new URL("bundled.js.map", bundledUrl)))).toMatchObject({
+        version: 3,
+        sources: expect.arrayContaining([expect.stringMatching(/bundled\/index\.js$/)])
+      })
 
       const plain = await get(main.match(/"(\/node_modules\/plain\/index\.js[^"]*)"/)![1])
       expect(plain).toContain("export const plain = 1")

@@ -19,19 +19,28 @@ export interface AccessToken {
 export function readAccessToken(token: string): AccessToken {
   const parts = token.split(".")
   const payload = parts[1]
-  if (parts.length !== 3 || !payload) throw new TypeError("The access token isn't a JWT")
+
+  if (parts.length !== 3 || !payload) {
+    throw new TypeError("The access token isn't a JWT")
+  }
+
   let json: unknown
+
   try {
     json = JSON.parse(decodeBase64Url(payload))
   } catch {
     throw new TypeError("The access token's claims aren't JSON")
   }
+
   const parsed = accessTokenClaims.safeParse(json)
+
   if (!parsed.success) {
     const issue = parsed.error.issues[0]
     throw new TypeError(`The access token's ${issue?.path.join(".") || "claims"}: ${issue?.message ?? "invalid"}`)
   }
+
   const claims = parsed.data
+
   return {
     userId: claims.sub,
     sessionId: claims.sid,
@@ -48,6 +57,8 @@ function decodeBase64Url(text: string): string {
     .replaceAll("-", "+")
     .replaceAll("_", "/")
     .padEnd(Math.ceil(text.length / 4) * 4, "=")
+
   const binary = atob(base64)
+
   return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)))
 }

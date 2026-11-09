@@ -1,37 +1,68 @@
+import { isComposite, isText } from "@parity-app/core/values/evaluate"
+import type { Root } from "react-dom/client"
 import { describe, expect, it } from "vite-plus/test"
 import { currentRootFiber, type Fiber, indexDrawnNodes, stylePlacement } from "./drawn-nodes.ts"
 
 // Fibers shaped as React 19 makes them, with stand-ins for DOM elements. frame.test.ts checks the same walk on React
 // itself, in Chrome.
 
+/** The parts of a DOM element the walk reads. */
 interface FakeElement {
-  nodeType: 1
-  tag: string
+  nodeType: number
+  localName: string
   parentElement: FakeElement | null
+}
+
+/** A stand-in for a DOM element, with no DOM to make one in. */
+function fakeElement(localName: string, parentElement: Element | null = null): Element {
+  const fake: FakeElement = { nodeType: 1, localName, parentElement }
+
+  // SAFETY: the walk and these tests read only an element's nodeType, localName and parentElement.
+  return fake as Element
+}
+
+/** The props the specs give, as a component or an element takes them. */
+interface FakeProps {
+  id?: string
+  "data-canvas-node"?: string
+  member?: { name?: string }
+  style?: Record<string, string>
 }
 
 /** A spec of a fiber: a host element, a component, a design node's boundary, a portal, or bare text. */
 type Spec =
-  | { host: string; props?: Record<string, unknown>; outside?: boolean; children?: Spec[] }
-  | { component: string; props?: Record<string, unknown>; children?: Spec[] }
+  | { host: string; props?: FakeProps; outside?: boolean; children?: Spec[] }
+  | { component: string; props?: FakeProps; children?: Spec[] }
   | { boundary: string; children?: Spec[] }
   | { portal: true; children?: Spec[] }
   | { text: string }
 
-const Boundary = class Boundary {}
+class Boundary {
+  readonly nodeId: string
+
+  constructor(nodeId: string) {
+    this.nodeId = nodeId
+  }
+}
 
 /** Builds the fibers for a spec, with host elements nested as the DOM would nest them, and the root above them. */
 function build(specs: Spec[]) {
-  const elements = new Map<string, FakeElement>()
-  const outside = new Set<FakeElement>()
-  const make = (spec: Spec, parent: FakeElement | null): Fiber => {
+  const elements = new Map<string, Element>()
+  const outside = new Set<Node>()
+
+  const make = (spec: Spec, parent: Element | null): Fiber => {
     const fiber: Fiber = { child: null, sibling: null, type: null, stateNode: null, memoizedProps: {} }
     let children: Spec[] = []
     let below = parent
+
     if ("host" in spec) {
-      const element: FakeElement = { nodeType: 1, tag: spec.host, parentElement: spec.outside ? null : parent }
-      elements.set(String((spec.props?.id ?? spec.host) as unknown), element)
-      if (spec.outside) outside.add(element)
+      const element = fakeElement(spec.host, spec.outside ? null : parent)
+      elements.set(spec.props?.id ?? spec.host, element)
+
+      if (spec.outside) {
+        outside.add(element)
+      }
+
       Object.assign(fiber, { type: spec.host, stateNode: element, memoizedProps: spec.props ?? {} })
       children = spec.children ?? []
       below = element
@@ -39,7 +70,7 @@ function build(specs: Spec[]) {
       Object.assign(fiber, { type: () => null, memoizedProps: spec.props ?? {} })
       children = spec.children ?? []
     } else if ("boundary" in spec) {
-      Object.assign(fiber, { type: Boundary, stateNode: Object.assign(new Boundary(), { nodeId: spec.boundary }) })
+      Object.assign(fiber, { type: Boundary, stateNode: new Boundary(spec.boundary) })
       children = spec.children ?? []
     } else if ("portal" in spec) {
       Object.assign(fiber, { stateNode: { containerInfo: {} } })
@@ -47,11 +78,14 @@ function build(specs: Spec[]) {
     } else {
       Object.assign(fiber, { stateNode: { nodeType: 3, data: spec.text }, memoizedProps: spec.text })
     }
+
     const made = children.map((child) => make(child, below))
     fiber.child = made[0] ?? null
     made.forEach((child, index) => (child.sibling = made[index + 1] ?? null))
+
     return fiber
   }
+
   const root: Fiber & { tag: number } = {
     tag: 3,
     child: null,
@@ -60,25 +94,31 @@ function build(specs: Spec[]) {
     stateNode: {},
     memoizedProps: {}
   }
+
   const top = specs.map((spec) => make(spec, null))
   root.child = top[0] ?? null
   top.forEach((child, index) => (child.sibling = top[index + 1] ?? null))
+
   const drawn = indexDrawnNodes(root, {
     nodeOf: (fiber) => {
-      if (fiber.stateNode instanceof Boundary) return (fiber.stateNode as { nodeId: string }).nodeId
-      const id =
-        typeof fiber.type === "string"
-          ? (fiber.memoizedProps as Record<string, unknown>)["data-canvas-node"]
-          : undefined
-      return typeof id === "string" ? id : undefined
+      if (fiber.stateNode instanceof Boundary) {
+        return fiber.stateNode.nodeId
+      }
+
+      const props = fiber.memoizedProps
+      const id = isComposite(props) && "data-canvas-node" in props ? props["data-canvas-node"] : undefined
+
+      return isText(fiber.type) && isText(id) ? id : undefined
     },
-    inside: (element) => !outside.has(element as unknown as FakeElement)
+    inside: (element) => !outside.has(element)
   })
-  const element = (id: string) => elements.get(id) as unknown as Element
+
+  const element = (id: string) => elements.get(id)!
+
   return { drawn: drawn!, element, root }
 }
 
-const tags = (elements: readonly Element[]) => elements.map((element) => (element as unknown as FakeElement).tag)
+const tags = (elements: readonly Element[]) => elements.map((element) => element.localName)
 
 const words = (texts: readonly Text[]) => texts.map((text) => text.data)
 
@@ -92,6 +132,7 @@ describe("text a design node draws outside its elements", () => {
         children: [{ component: "Price", children: [{ text: "$" }, { host: "strong", children: [{ text: "24" }] }] }]
       }
     ])
+
     expect(words(drawn.texts("label"))).toEqual(["Email"])
     expect(drawn.elements("label")).toEqual([])
     expect(words(drawn.texts("price"))).toEqual(["$"])
@@ -113,6 +154,7 @@ describe("text a design node draws outside its elements", () => {
         ]
       }
     ])
+
     expect(drawn.texts("title")).toEqual([])
     expect(words(drawn.texts("caption"))).toEqual(["Everyone"])
     expect(words(drawn.texts("group"))).toEqual(["Everyone"])
@@ -134,6 +176,7 @@ describe("finding the DOM a design node draws", () => {
         ]
       }
     ])
+
     expect(drawn.ids).toEqual(["row"])
     expect(tags(drawn.elements("row"))).toEqual(["tr"])
     expect(drawn.nodeOf(element("td"))).toBe("row")
@@ -144,6 +187,7 @@ describe("finding the DOM a design node draws", () => {
       { boundary: "pair", children: [{ component: "Pair", children: [{ host: "h3" }, { host: "p" }] }] },
       { boundary: "nothing", children: [{ component: "Nothing" }] }
     ])
+
     expect(tags(drawn.elements("pair"))).toEqual(["h3", "p"])
     expect(drawn.elements("nothing")).toEqual([])
     expect(drawn.ids).toEqual(["pair", "nothing"])
@@ -167,6 +211,7 @@ describe("finding the DOM a design node draws", () => {
         ]
       }
     ])
+
     expect(drawn.ids).toEqual(["email"])
     expect(tags(drawn.elements("email"))).toEqual(["label"])
     expect(drawn.nodeOf(element("input"))).toBe("email")
@@ -197,6 +242,7 @@ describe("finding the DOM a design node draws", () => {
         ]
       }
     ])
+
     expect(drawn.ids).toEqual(["row", "card", "title"])
     expect(tags(drawn.elements("row"))).toEqual(["div"])
     expect(tags(drawn.elements("card"))).toEqual(["section"])
@@ -221,6 +267,7 @@ describe("finding the DOM a design node draws", () => {
         ]
       }
     ])
+
     expect(tags(drawn.elements("provider"))).toEqual(["p", "p"])
     expect(drawn.nodeOf(element("second"))).toBe("second")
     expect(drawn.parent("second")).toBe("provider")
@@ -247,30 +294,37 @@ describe("finding the DOM a design node draws", () => {
         ]
       }
     ])
+
     expect(tags(drawn.elements("dialog"))).toEqual(["button", "nav"])
     expect(drawn.ids).toEqual(["dialog"])
   })
 
   it("makes one node of a slot drawn twice, with both copies", () => {
     const item = { host: "li", props: { "data-canvas-node": "item" } }
+
     const { drawn } = build([
       { boundary: "list", children: [{ component: "List", children: [{ host: "ul", children: [item, item] }] }] }
     ])
+
     expect(drawn.ids).toEqual(["list", "item"])
     expect(tags(drawn.elements("item"))).toEqual(["li", "li"])
   })
 
   it("gives up on a tree that isn't made of fibers", () => {
-    const root = { child: { child: null, type: "div" }, sibling: null, type: null, stateNode: {}, memoizedProps: {} }
-    expect(indexDrawnNodes(root as unknown as Fiber, { nodeOf: () => undefined, inside: () => true })).toBeUndefined()
+    const root: Fiber = { child: null, sibling: null, type: null, stateNode: {}, memoizedProps: {} }
+    // A child without a sibling or a DOM node.
+    Object.assign(root, { child: { child: null, type: "div" } })
+    expect(indexDrawnNodes(root, { nodeOf: () => undefined, inside: () => true })).toBeUndefined()
   })
 })
 
 describe("where a component puts the style it's given", () => {
   const style = { width: "320px", margin: "8px" }
+
   /** The component fiber of a layer whose component draws `drawn`, given `props`. */
-  const layer = (drawn: Spec[], props: Record<string, unknown> = { style }) =>
+  const layer = (drawn: Spec[], props: FakeProps = { style }) =>
     build([{ boundary: "field", children: [{ component: "Field", props, children: drawn }] }]).root.child!.child!
+
   const isLayer = (fiber: Fiber) => fiber.stateNode instanceof Boundary
 
   it("finds it on the root, with the component's own styles beside it", () => {
@@ -278,6 +332,7 @@ describe("where a component puts the style it's given", () => {
     const card = layer([
       { host: "section", props: { style: { padding: "12px", ...style } }, children: [{ text: "Hi" }] }
     ])
+
     expect(stylePlacement(card, isLayer)).toBe("root")
   })
 
@@ -292,6 +347,7 @@ describe("where a component puts the style it's given", () => {
         ]
       }
     ])
+
     expect(stylePlacement(field, isLayer)).toBe("inner")
   })
 
@@ -300,6 +356,7 @@ describe("where a component puts the style it's given", () => {
       { host: "h3", children: [{ host: "span", props: { style } }] },
       { host: "p", props: { style } }
     ])
+
     expect(stylePlacement(pair, isLayer)).toBe("root")
   })
 
@@ -313,6 +370,7 @@ describe("where a component puts the style it's given", () => {
     const card = layer([
       { host: "section", children: [{ boundary: "inner", children: [{ host: "div", props: { style } }] }] }
     ])
+
     expect(stylePlacement(card, isLayer)).toBe("none")
   })
 
@@ -324,21 +382,27 @@ describe("where a component puts the style it's given", () => {
 })
 
 describe("reaching a root's fibers", () => {
-  const container = {} as Element
+  const container = fakeElement("div")
   const hostRoot = { tag: 3, child: null, sibling: null, type: null, stateNode: {}, memoizedProps: null }
 
+  /** A root as `createRoot` returns one, with React's own root when given one. */
+  const rootWith = (internal: { _internalRoot?: { current: { tag: number } } } = {}): Root =>
+    Object.assign({ render: () => undefined, unmount: () => undefined }, internal)
+
   it("goes through the root createRoot returns", () => {
-    expect(currentRootFiber({ _internalRoot: { current: hostRoot } }, container)).toBe(hostRoot)
+    expect(currentRootFiber(rootWith({ _internalRoot: { current: hostRoot } }), container)).toBe(hostRoot)
   })
 
   it("goes through the container's key when the root doesn't say", () => {
-    const marked = { __reactContainer$abc: { stateNode: { current: hostRoot } } } as unknown as Element
-    expect(currentRootFiber({}, marked)).toBe(hostRoot)
+    const marked = Object.assign(fakeElement("div"), { __reactContainer$abc: { stateNode: { current: hostRoot } } })
+    expect(currentRootFiber(rootWith(), marked)).toBe(hostRoot)
   })
 
   it("gives up when neither leads to a root fiber", () => {
-    expect(currentRootFiber({}, container)).toBeUndefined()
-    expect(currentRootFiber({ _internalRoot: { current: { ...hostRoot, tag: 5 } } }, container)).toBeUndefined()
-    expect(currentRootFiber({ _internalRoot: { current: { tag: 3 } } }, container)).toBeUndefined()
+    expect(currentRootFiber(rootWith(), container)).toBeUndefined()
+    expect(
+      currentRootFiber(rootWith({ _internalRoot: { current: { ...hostRoot, tag: 5 } } }), container)
+    ).toBeUndefined()
+    expect(currentRootFiber(rootWith({ _internalRoot: { current: { tag: 3 } } }), container)).toBeUndefined()
   })
 })

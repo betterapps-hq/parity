@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import type { ContainerSpec, TextNode } from "./document.ts"
+import type { ContainerSpec } from "./document.ts"
 import { findNode } from "./edit.ts"
 import { addValueProp, bindableProps, bindField, freePropName, propFromField, propNameProblem } from "./prop-binding.ts"
 import { setSlot } from "./slots.ts"
@@ -29,6 +29,7 @@ describe("adding a value prop", () => {
       "wide",
       "boolean"
     )
+
     expect(added.params).toMatchObject({
       price: { type: "number", default: 0 },
       subtitle: { type: "text", default: "Text" },
@@ -76,7 +77,7 @@ describe("a layer's field using a prop", () => {
     const made = propFromField(card, "note", "text")
     expect(made.name).toBe("note")
     expect(made.container.params?.note).toEqual({ type: "text", default: "Cancel any time" })
-    expect((findNode(made.container.root, "note") as TextNode).bind).toEqual({ text: "note" })
+    expect(findNode(made.container.root, "note")?.bind).toEqual({ text: "note" })
     const shown = propFromField(card, "note", "visible")
     expect(shown.name).toBe("showNote")
     expect(shown.container.params?.showNote).toEqual({ type: "boolean", default: true })

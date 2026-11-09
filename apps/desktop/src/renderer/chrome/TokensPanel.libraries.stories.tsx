@@ -2,6 +2,7 @@ import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { describedCategories, describedTokenCss, extractTokens, readDesignTokens } from "@parity-app/tokens"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { within } from "storybook/test"
+import { z } from "zod"
 import { ProjectContext } from "../canvas/context.ts"
 import { example, openProjects } from "../stories/fixtures.tsx"
 import { TokenStore } from "../tokens-store.ts"
@@ -19,18 +20,24 @@ import { TokensPanel } from "./TokensPanel.tsx"
 const meta = {
   title: "Parity/Left panel/Tokens/Libraries",
   component: TokensPanel,
-  render: (_, { loaded }) => (
-    <TooltipProvider>
-      <ProjectContext value={(loaded as Loaded).session}>
-        <div className="flex h-screen bg-background text-foreground">
-          <LeftPanel />
-        </div>
-      </ProjectContext>
-    </TooltipProvider>
-  )
+  render: (_, { loaded }) => {
+    // SAFETY: every story here loads through `openLibrary`, which resolves to a `Loaded`.
+    const { session } = loaded as Loaded
+
+    return (
+      <TooltipProvider>
+        <ProjectContext value={session}>
+          <div className="flex h-screen bg-background text-foreground">
+            <LeftPanel />
+          </div>
+        </ProjectContext>
+      </TooltipProvider>
+    )
+  }
 } satisfies Meta<typeof TokensPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 interface Loaded {
@@ -43,6 +50,9 @@ const libraries = import.meta.glob<string>("../../../../../packages/registry/lib
   import: "default"
 })
 
+/** What these stories read of a `.lib.par`: its name and its tokens, which `readDesignTokens` checks itself. */
+const libraryManifest = z.object({ name: z.string(), tokens: z.unknown() })
+
 /**
  * Opens the example on the Tokens tab with only a library's tokens in place of its own: the tokens, the descriptions
  * and the categories its `.lib.par` gives, read as the app reads a library that creates its variables at run time.
@@ -50,11 +60,17 @@ const libraries = import.meta.glob<string>("../../../../../packages/registry/lib
 function openLibrary(file: string) {
   return async (): Promise<Loaded> => {
     const path = Object.keys(libraries).find((candidate) => candidate.endsWith(`/${file}`))
-    if (!path) throw new Error(`The registry has no ${file}`)
-    const manifest = JSON.parse(await libraries[path]!()) as { name: string; tokens: unknown }
+
+    if (!path) {
+      throw new Error(`The registry has no ${file}`)
+    }
+
+    const manifest = libraryManifest.parse(JSON.parse(await libraries[path]!()))
+
     const described = await readDesignTokens(manifest.tokens, () =>
       Promise.reject(new Error("The registry's tokens are inline"))
     )
+
     const css = describedTokenCss(described)
     const tokens = extractTokens(css, [], describedCategories(described))
     await openProjects("example")
@@ -63,12 +79,14 @@ function openLibrary(file: string) {
     const sheet = new CSSStyleSheet()
     sheet.replaceSync(css)
     const describedTokens = [{ name: manifest.name, manifest: `node_modules/${file}`, tokens: described }]
+
     const session: ProjectSession = {
       ...project,
       info: { ...project.info, styles: undefined, describedTokens },
       // Edits go nowhere: the story is for looking.
       tokens: new TokenStore(tokens, sheet, () => Promise.resolve(), project.store, file, describedTokens)
     }
+
     return { session }
   }
 }

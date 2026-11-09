@@ -27,7 +27,16 @@ import {
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
-import { activeState, fittedFrame, hugsContent, kindName, kindTitle, stateLabelSpace } from "@parity-app/editor"
+import {
+  activeState,
+  type BoardBox,
+  fittedFrame,
+  hugsContent,
+  kindName,
+  kindTitle,
+  stateLabelSpace,
+  titleReach
+} from "@parity-app/editor"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
@@ -62,8 +71,9 @@ import { type BoardRest, useAwake } from "./frame-sleep.ts"
 import { useFrameOnScreen } from "./frames-on-screen.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
-import { useCanvasLabel } from "./labels.ts"
+import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
+import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
 import { containerModes, modeNames, withShownModes } from "./view.ts"
 
 interface ContainerViewProps {
@@ -73,9 +83,13 @@ interface ContainerViewProps {
   /** The pointer is over the board: its controls show. */
   hovered: boolean
   /** Starts dragging the design by its title. */
-  onTitlePointerDown: (event: ReactPointerEvent) => void
-  /** Where the title draws: the canvas's title layer, and the board's place and width on the canvas. */
-  title?: { layer: HTMLElement; x: number; y: number; width: number }
+  onTitlePointerDown: (event: ReactPointerEvent<HTMLElement>) => void
+  /**
+   * Where the title draws: the canvas's title layer, the board's place and size on the canvas, and what else is on the
+   * page, which a title zoomed out runs up to (see `titleReach`). `others` reads the canvas, so the title follows as
+   * things around it move without the board drawing again.
+   */
+  title?: { layer: HTMLElement; x: number; y: number; width: number; height: number; others: () => readonly BoardBox[] }
   /** When the board's frames sleep and wake (see frame-sleep.ts). Without it, as in stories, they never sleep. */
   rest?: BoardRest
 }
@@ -89,7 +103,7 @@ export function ContainerView(props: ContainerViewProps) {
  * A frame on the canvas, the light kind: no board, previews or menus. Its name sits above it, smaller and quieter than
  * a board's, and the design is drawn at its own size in the project's primary mode, in its one state (PAR-545).
  */
-function FrameView({ ref, entry, onTitlePointerDown, title, rest }: ContainerViewProps) {
+function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: ContainerViewProps) {
   const own = useRef<HTMLDivElement>(null)
   const board = ref ?? own
   const { store, loaded, selection } = useProject()
@@ -100,9 +114,10 @@ function FrameView({ ref, entry, onTitlePointerDown, title, rest }: ContainerVie
   const { primary } = useMemo(() => containerModes(settings, container), [settings, container])
   const state = container.states[0]!
   useFitToContent(board, entry)
+
   const titleBar = (
     // Its name runs past a narrow frame rather than being cut off, since there's no board for it to fit.
-    <TitleBar showControls={false} width={undefined} quiet>
+    <TitleBar active={hovered || isSelected} width={undefined} quiet>
       <TitleButton
         entry={entry}
         selected={isSelected}
@@ -112,6 +127,7 @@ function FrameView({ ref, entry, onTitlePointerDown, title, rest }: ContainerVie
       />
     </TitleBar>
   )
+
   return (
     <div ref={board} className="container-view frame-view relative w-max font-sans" data-design={key}>
       {title
@@ -152,42 +168,68 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
   const { key } = entry
   useEffect(() => {
     const host = board.current?.querySelector<HTMLElement>("[data-frame]")
-    if (!hugs || !host) return undefined
+
+    if (!hugs || !host) {
+      return undefined
+    }
+
     const rootElement = () => {
       const current = store.getEntry(key)?.container
+
       return current && findNodeElement(host, current.root.id)
     }
+
     const fit = () => {
       const width = contentWidth(rootElement())
       const current = store.getEntry(key)?.container
-      if (!width || !current || !fittedFrame(current, width)) return
+
+      if (!width || !current || !fittedFrame(current, width)) {
+        return
+      }
+
       store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width) ?? design, { history: false })
     }
+
     const observer = new ResizeObserver(fit)
     let watched: Element | undefined
+
     const watch = () => {
       const root = rootElement()
-      if (root === watched) return
+
+      if (root === watched) {
+        return
+      }
+
       observer.disconnect()
       watched = root
-      if (root) observer.observe(root)
+
+      if (root) {
+        observer.observe(root)
+      }
     }
+
     // The design is drawn into the frame's shadow root, once the frame has made it, and its root element can be drawn
     // again as it changes.
     const drawn = new MutationObserver(() => {
       watch()
       fit()
     })
+
     let frame = 0
+
     const start = () => {
       if (!host.shadowRoot) {
         frame = requestAnimationFrame(start)
+
         return
       }
+
       drawn.observe(host.shadowRoot, { childList: true, subtree: true, characterData: true })
       watch()
     }
+
     start()
+
     return () => {
       cancelAnimationFrame(frame)
       drawn.disconnect()
@@ -203,17 +245,23 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
  * being drawn so.
  */
 function contentWidth(element: HTMLElement | undefined): number | undefined {
-  if (!element) return undefined
+  if (!element) {
+    return undefined
+  }
+
   const { width } = element.style
   element.style.width = "max-content"
   const style = getComputedStyle(element)
   const side = (name: string) => parseFloat(style.getPropertyValue(name)) || 0
+
   const sides =
     style.boxSizing === "border-box"
       ? 0
       : side("padding-left") + side("padding-right") + side("border-left-width") + side("border-right-width")
+
   const measured = parseFloat(style.width) + sides
   element.style.width = width
+
   return measured > 0 ? Math.ceil(measured - 0.01) : undefined
 }
 
@@ -243,13 +291,15 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const width = title?.width
 
   const stateName = (id: string) => container.states.find((state) => state.id === id)?.name ?? id
+
   const selectState = (state: string) =>
     store.updateView(key, `Show ${stateName(state)}`, (view) => ({ ...view, state, allStates: false }))
+
   const showModes = (main: string, shown: string[]) =>
     store.updateView(key, `Show ${modeNames(all, shown)}`, (view) => withShownModes(view, main, shown, all))
 
   const titleBar = (
-    <TitleBar showControls={hovered || isSelected} width={width}>
+    <TitleBar active={hovered || isSelected} width={width} board={title}>
       <TitleButton
         entry={entry}
         selected={isSelected}
@@ -349,7 +399,10 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
 
 /** Where a frame is in its row, by its column: the main frame, then the first companion, after the dashed line. */
 function framePlace(column: number): FrameTileProps["place"] {
-  if (column === 0) return "firstFrame"
+  if (column === 0) {
+    return "firstFrame"
+  }
+
   return column === 1 ? "dividedFrame" : "nextFrame"
 }
 
@@ -357,6 +410,7 @@ function framePlace(column: number): FrameTileProps["place"] {
 function BoardEdge() {
   const ref = useRef<HTMLDivElement>(null)
   useGutterStyle(ref, "edge")
+
   return (
     <div
       ref={ref}
@@ -370,6 +424,7 @@ function BoardEdge() {
 function DashedLine({ part }: { part: "rowLine" | "frameLine" }) {
   const ref = useRef<HTMLSpanElement>(null)
   useGutterStyle(ref, part)
+
   return (
     <span
       ref={ref}
@@ -401,6 +456,7 @@ function StateRow({
   const frames = useRef<HTMLDivElement>(null)
   useGutterStyle(row, first ? "firstRow" : "nextRow")
   useGutterStyle(frames, first ? "firstRowFrames" : "nextRowFrames")
+
   return (
     <section ref={row} className="state-row relative" data-state={state}>
       {!first && <DashedLine part="rowLine" />}
@@ -415,46 +471,93 @@ function StateRow({
 /**
  * Sits above the board, as wide on screen as the board, and follows the zoom as a name does (see `labelLook`): at
  * screen size up close, then shrinking down to 60%, so names don't swamp the boards they name. The name is clipped to
- * the board's width, and shows until the board is too narrow on screen to read it; the controls only while the board
+ * the board's width, or zoomed out to the free canvas beside it (see `useTitleReach`), and shows until the board is too
+ * narrow on screen to read it; the controls only while the board
  * is hovered or selected, or one of their menus is open, and there's room for them, so a canvas of designs stays quiet.
+ * Its menus and hints mount once it's first used (see `useMountOnUse`), so a canvas of designs opens sooner.
  */
 function TitleBar({
-  showControls,
+  active,
   width,
   quiet = false,
+  board,
   children
 }: {
-  showControls: boolean
+  /** The design is hovered or selected: its controls show. */
+  active: boolean
   /** How wide the board is on the canvas. */
   width: number | undefined
   /** A frame's: closer to it, as it has no board around it. */
   quiet?: boolean
+  /** Where the board is on the canvas, and what else is there, which its name runs up to zoomed out. */
+  board?: TitleBoard
   children: ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  useCanvasLabel(ref, "name", { fit: true, width })
+  const reach = useTitleReach(board)
+  useCanvasLabel(ref, "name", { fit: true, width, reach })
+  const { used, area } = useMountOnUse(active)
+
   return (
     <div
       ref={ref}
       className={`design-title group/title pointer-events-auto absolute bottom-full left-0 origin-bottom-left ${
         quiet ? "w-max pb-1" : "pb-2.5"
       }`}
-      data-controls={showControls}
+      data-controls={active}
+      {...area}
     >
-      <div className={`@container flex min-w-0 items-center gap-3 ${quiet ? "h-6" : "h-8"}`}>{children}</div>
+      <div className={`@container flex min-w-0 items-center gap-3 ${quiet ? "h-6" : "h-8"}`}>
+        <Used value={used}>{children}</Used>
+      </div>
     </div>
   )
 }
 
+/** A board's place on the canvas for its title, with what else is on the page. */
+type TitleBoard = { x: number; y: number; width: number; height: number; others: () => readonly BoardBox[] }
+
+/** Below this many pixels across at its drawn size, a title has no room for its controls: Tailwind's 22rem. */
+const controlsRoom = 352
+
+/**
+ * How wide a board's title may be at a zoom (see `titleReach`). While the board is too narrow on screen for the
+ * title's controls, it's out to the next board beside it, or as wide as the controls would need with nothing there, so
+ * a name zoomed out isn't cut off at a narrow board's edge, and the controls hide (see `TitleControls`). With room for
+ * them, it's the board's width, so they sit at its edge.
+ */
+function useTitleReach(board: TitleBoard | undefined): LabelReach | undefined {
+  const { x, y, width, height, others } = board ?? {}
+
+  return useMemo(() => {
+    if (x === undefined || y === undefined || width === undefined || height === undefined || !others) {
+      return undefined
+    }
+
+    const box = { x, y, w: width, h: height }
+
+    return (zoom, scale) => {
+      const open = (controlsRoom * scale) / zoom
+
+      return width < open ? (titleReach(box, others(), zoom, scale) ?? open) : width
+    }
+  }, [x, y, width, height, others])
+}
+
+/** A board's menus, mounted once its title is used: until then they'd be hidden anyway. */
 function TitleControls({ children }: { children: ReactNode }) {
+  const used = useUsed()
+
   return (
     <div
-      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex @max-[22rem]:hidden!"
+      // Out of the layout while the name runs past a narrow board, where they'd sit beyond its edge and take the name's
+      // room (see useTitleReach).
+      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex group-data-past-edge/title:hidden! @max-[22rem]:hidden!"
       // Enter and the arrows on its menus open them, rather than going to the canvas (see shortcuts.ts).
       data-canvas-control
       onPointerDown={stopEventPropagation}
     >
-      {children}
+      {used && children}
     </div>
   )
 }
@@ -476,19 +579,25 @@ function TitleButton({
   color: string | undefined
   /** A frame's name: regular, with a smaller icon, and neutral until it's selected. */
   quiet?: boolean
-  onPointerDown: (event: ReactPointerEvent) => void
+  onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
 }) {
   const session = useProject()
+  const used = useUsed()
   const [renaming, setRenaming] = useState(false)
   const { container } = entry
 
   // Edit > Rename, or F2, with the design selected.
   const renameRequest = useRenameRequest(session.selection)
   const [renameHandled, setRenameHandled] = useState(() => session.selection.getRename()?.id)
+
   if (renameRequest && renameRequest.id !== renameHandled) {
     setRenameHandled(renameRequest.id)
-    if (renameRequest.design === entry.key && !renameRequest.node) setRenaming(true)
+
+    if (renameRequest.design === entry.key && !renameRequest.node) {
+      setRenaming(true)
+    }
   }
+
   const icon = (
     <DesignIcon
       kind={container.kind}
@@ -496,7 +605,9 @@ function TitleButton({
       style={{ color: color ?? (quiet ? undefined : designColor(container.kind)) }}
     />
   )
+
   const others = convertKinds.filter((kind) => kind !== (container.kind ?? "screen"))
+
   if (renaming) {
     return (
       <div className="flex min-w-0 items-center gap-1.5 px-1" onPointerDown={stopEventPropagation}>
@@ -512,35 +623,51 @@ function TitleButton({
           }}
           onKeyDown={(event) => {
             event.stopPropagation()
-            if (event.key === "Enter") event.currentTarget.blur()
-            if (event.key === "Escape") setRenaming(false)
+
+            if (event.key === "Enter") {
+              event.currentTarget.blur()
+            }
+
+            if (event.key === "Escape") {
+              setRenaming(false)
+            }
           }}
         />
       </div>
     )
   }
+
+  // Until the title is used it's the button alone, without the menu and hint, which would only slow the canvas opening.
+  const button = (
+    <button
+      type="button"
+      tabIndex={selected ? 0 : -1}
+      onPointerDown={onPointerDown}
+      onContextMenu={stopEventPropagation}
+      onDoubleClick={(event) => {
+        event.stopPropagation()
+        setRenaming(true)
+      }}
+      className={`flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 text-sm hover:text-foreground ${
+        quiet ? "text-muted-foreground" : "font-medium text-foreground/90"
+      }`}
+      style={color ? { color } : undefined}
+    >
+      {icon}
+      <Name>{container.name}</Name>
+    </button>
+  )
+
+  if (!used) {
+    return button
+  }
+
   return (
     <ContextMenu>
       <ContextMenuTrigger
         render={
           <Hint label={`${container.name}, in ${entry.path}`} detail="Double-click to rename." wait>
-            <button
-              type="button"
-              tabIndex={selected ? 0 : -1}
-              onPointerDown={onPointerDown}
-              onContextMenu={stopEventPropagation}
-              onDoubleClick={(event) => {
-                event.stopPropagation()
-                setRenaming(true)
-              }}
-              className={`flex min-w-0 cursor-default items-center gap-1.5 overflow-hidden rounded-md px-1 py-0.5 text-sm hover:text-foreground ${
-                quiet ? "text-muted-foreground" : "font-medium text-foreground/90"
-              }`}
-              style={color ? { color } : undefined}
-            >
-              {icon}
-              <Name>{container.name}</Name>
-            </button>
+            {button}
           </Hint>
         }
       />
@@ -589,9 +716,11 @@ function VariantMenu({
   onSelect: (param: string, option: string) => void
 }) {
   const variants = Object.entries(params).filter(([name]) => choices[name] !== undefined)
+
   const label = variants
     .map(([name, param]) => param.options?.find((option) => option.id === choices[name])?.name ?? choices[name])
     .join(", ")
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className={menuTrigger} aria-label="Variant">
@@ -635,6 +764,7 @@ function StateMenu({
   onShowAll: (on: boolean) => void
 }) {
   const current = states.find((state) => state.id === active)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className={menuTrigger} aria-label="State">
@@ -651,6 +781,7 @@ function StateMenu({
           <DropdownMenuLabel>State</DropdownMenuLabel>
           {states.map((state, index) => {
             const changes = changeCount(state)
+
             return (
               <DropdownMenuRadioItem key={state.id} value={state.id}>
                 <Name className="flex-1">{state.name}</Name>
@@ -697,6 +828,7 @@ function StateLabel({
   const height = useLabelSpace(ref, base)
   useCanvasLabel(ref, "name", { width: boardWidth, height })
   useGutterStyle(ref, base ? "firstStateLabel" : "nextStateLabel")
+
   return (
     <Hint label={`Show only ${state.name}`} wait>
       <button
@@ -726,13 +858,22 @@ function useLabelSpace(label: RefObject<HTMLElement | null>, first: boolean): nu
   const [height, setHeight] = useState<number>()
   useLayoutEffect(() => {
     const row = label.current?.closest<HTMLElement>(".state-row")
-    if (!row) return undefined
+
+    if (!row) {
+      return undefined
+    }
+
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) setHeight(stateLabelSpace(entry.contentRect.height, first))
+      if (entry) {
+        setHeight(stateLabelSpace(entry.contentRect.height, first))
+      }
     })
+
     observer.observe(row)
+
     return () => observer.disconnect()
   }, [label, first])
+
   return height
 }
 
@@ -746,6 +887,7 @@ function FrameCaption({ width, children }: { width: number; children: ReactNode 
   const ref = useRef<HTMLDivElement>(null)
   useGutterStyle(band, "caption")
   useCanvasLabel(ref, "detail", { fit: true, width })
+
   return (
     <figcaption ref={band} className="relative">
       {/* Out of the flow, so a long caption doesn't widen a narrow frame's board. */}
@@ -803,6 +945,7 @@ const FrameTile = memo(function FrameTile({
   const interactions = useInteractions(selection)
   const interactive = useInteracting(selection)
   const { container } = entry
+
   const tree = useMemo(
     () =>
       resolveDesign(boardRoot(container), state, mode.viewport, library, {
@@ -811,6 +954,7 @@ const FrameTile = memo(function FrameTile({
       }),
     [container, state, mode.viewport, library]
   )
+
   const figure = useRef<HTMLElement>(null)
   useGutterStyle(figure, place)
   const tile = useRef<HTMLDivElement>(null)
@@ -821,12 +965,14 @@ const FrameTile = memo(function FrameTile({
   useFirstRowFrame(session.id, entry.key, mode.id, shows, caption)
   // Whether the frame is holding off drawing its design for its bitmap, which then needn't wait to be captured.
   const holding = useRef(false)
+
   // The live frame's height as it's drawn when its bitmap is taken, which is kept with it.
   const kept = useFrameBitmap(
     shows,
     () => drawnHeight(tile.current, frame.width),
     () => holding.current
   )
+
   const bitmap = kept.src
   // Listed with Parity's errors, and its bitmap sent with a render of it that fails (PAR-624).
   useFrameOnScreen({
@@ -838,15 +984,18 @@ const FrameTile = memo(function FrameTile({
     mode: mode.name,
     modeId: mode.id,
     width: frame.width,
-    ...(frame.height === undefined ? {} : { height: frame.height }),
+    height: frame.height,
     key,
-    ...(bitmap === undefined ? {} : { bitmap })
+    bitmap
   })
   // The bitmap shows once it's decoded, so the frame doesn't go blank in between: until then, the last one decoded, or
   // its skeleton, which then leaves the page.
   const [decoded, setDecoded] = useState<string>()
   useEffect(() => {
-    if (!bitmap) return undefined
+    if (!bitmap) {
+      return undefined
+    }
+
     let live = true
     const image = new Image()
     image.src = bitmap
@@ -854,6 +1003,7 @@ const FrameTile = memo(function FrameTile({
       .decode()
       .catch(() => undefined)
       .then(() => live && setDecoded(bitmap))
+
     return () => {
       live = false
     }
@@ -865,7 +1015,10 @@ const FrameTile = memo(function FrameTile({
   const { firstFrame } = session
   const shownBitmap = useRef<HTMLImageElement>(null)
   useEffect(() => {
-    if (!showing || !firstFrame || !shownBitmap.current) return undefined
+    if (!showing || !firstFrame || !shownBitmap.current) {
+      return undefined
+    }
+
     return firstFrame.offer(shownBitmap.current, "bitmap")
   }, [showing, firstFrame])
   const drawnLive = useCallback((drawn: HTMLElement) => session.firstFrame?.offer(drawn, "live"), [session])
@@ -883,6 +1036,18 @@ const FrameTile = memo(function FrameTile({
   const placeholder = waiting && !showing && !skeleton
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
+  const tileStyle: CSSProperties = {}
+
+  if (selected) {
+    tileStyle.boxShadow = `0 0 0 3px ${kindColors.mode}`
+  }
+
+  // How tall the frame was measured, or kept with its bitmap, for when it skips drawing before the browser has noted its
+  // size.
+  if (height !== undefined) {
+    Object.assign(tileStyle, { [frameHeightProperty]: `${height}px` })
+  }
+
   return (
     <figure ref={figure} className="mode-tile relative m-0" data-mode={mode.id} data-primary={primary}>
       {place === "dividedFrame" && <DashedLine part="frameLine" />}
@@ -915,14 +1080,7 @@ const FrameTile = memo(function FrameTile({
       <div
         ref={tile}
         className="relative transition-shadow"
-        style={
-          {
-            ...(selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : {}),
-            // How tall the frame was measured, or kept with its bitmap, for when it skips drawing before the browser has
-            // noted its size.
-            ...(height === undefined ? {} : { [frameHeightProperty]: `${height}px` })
-          } as CSSProperties
-        }
+        style={tileStyle}
         data-bitmap={showing ? "" : undefined}
         data-skeleton={skeleton ? "" : undefined}
         data-measured={height === undefined ? undefined : ""}

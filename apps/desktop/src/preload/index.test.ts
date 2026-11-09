@@ -4,14 +4,16 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { runInNewContext } from "node:vm"
+import type { Envelope } from "@parity-app/telemetry"
 import { build } from "esbuild"
 import { beforeAll, describe, expect, it, vi } from "vite-plus/test"
-import type { CanvasHost } from "../shared/protocol.ts"
+import type { BuildInfo, CanvasHost } from "../shared/protocol.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { projectEnvSecrets } from "../utility/env-secrets.ts"
 import type { TelemetryHost } from "./telemetry.ts"
 
 let code = ""
+
 beforeAll(async () => {
   const result = await build({
     entryPoints: [fileURLToPath(new URL("./index.ts", import.meta.url))],
@@ -21,33 +23,54 @@ beforeAll(async () => {
     external: ["electron"],
     write: false
   })
+
   code = result.outputFiles[0]!.text
 })
 
 /** Run the real preload against Electron's IPC boundary, without a browser or an app process. */
 function preload() {
   const ipc = new EventEmitter()
-  const invoke = vi.fn<(channel: string) => Promise<unknown>>(async () => ({ version: "0.3.0", channel: "beta" }))
-  const send = vi.fn<(channel: string, value: unknown) => void>()
+
+  const invoke = vi.fn<(channel: string) => Promise<Partial<BuildInfo> | string[] | undefined>>(async () => ({
+    version: "0.3.0",
+    channel: "beta"
+  }))
+
+  const send = vi.fn<(channel: string, value?: Envelope) => void>()
   let host: CanvasHost | undefined
   let telemetry: TelemetryHost | undefined
   runInNewContext(code, {
     require: (name: string) => {
-      if (name !== "electron") throw new Error(`Unexpected preload dependency ${name}`)
+      if (name !== "electron") {
+        throw new Error(`Unexpected preload dependency ${name}`)
+      }
+
       return {
         ipcRenderer: Object.assign(ipc, { invoke, send }),
         contextBridge: {
-          exposeInMainWorld: (key: string, value: unknown) => {
-            if (key === "canvasHost") host = value as CanvasHost
-            if (key === "parityTelemetry") telemetry = value as TelemetryHost
+          exposeInMainWorld: (key: string, value: CanvasHost | TelemetryHost) => {
+            if (key === "canvasHost" && "ask" in value) {
+              host = value
+            }
+
+            if (key === "parityTelemetry" && "record" in value) {
+              telemetry = value
+            }
           }
         }
       }
     },
     process: { argv: [`--parity-telemetry-run=${encodeURIComponent(JSON.stringify(run))}`] }
   })
-  if (!host) throw new Error("Preload did not expose the canvas host")
-  if (!telemetry) throw new Error("Preload did not expose telemetry")
+
+  if (!host) {
+    throw new Error("Preload did not expose the canvas host")
+  }
+
+  if (!telemetry) {
+    throw new Error("Preload did not expose telemetry")
+  }
+
   return { ipc, host, invoke, send, telemetry }
 }
 
@@ -75,6 +98,7 @@ it("scrubs a value from the open project's .env from what a window sends", async
     message: "Couldn't connect with hunter2-correct-horse",
     extra: { shop: "quiet-meadow-shop", port: "5173" }
   }
+
   const sent = scrubber.value(event)
   expect(JSON.stringify(sent)).not.toMatch(/hunter2|quiet-meadow/)
   expect(sent.extra.port).toBe("5173")
@@ -84,6 +108,7 @@ it("scrubs a value from the open project's .env from what a window sends", async
 it("gives the page main's run and sends main what it records", () => {
   const { telemetry, send } = preload()
   expect(telemetry.run).toEqual(run)
+
   const envelope = {
     installId: "install",
     sessionId: "session",
@@ -93,6 +118,7 @@ it("gives the page main's run and sends main what it records", () => {
     level: "info",
     attributes: {}
   } as const
+
   telemetry.record(envelope)
   expect(send).toHaveBeenCalledExactlyOnceWith("canvas:telemetry", envelope)
 })
@@ -138,21 +164,33 @@ describe("native update menu handoff", () => {
   })
 })
 
+/** A message on the window's port to the service, as the channel sends and answers them. */
+interface PortMessage {
+  type: string
+  id: number
+  method?: string
+  params?: object
+  result?: object
+}
+
 /** A DOM `MessagePort` the test holds the other end of: what the preload sends, and a way to answer. */
 function fakePort() {
-  const listeners = new Map<string, ((event: { data?: unknown }) => void)[]>()
-  const sent: { type: string; id: number; method?: string }[] = []
+  const listeners = new Map<string, ((event: { data?: PortMessage }) => void)[]>()
+  const sent: PortMessage[] = []
+
   return {
     sent,
     port: {
-      postMessage: (message: { type: string; id: number; method?: string }) => sent.push(message),
-      addEventListener: (type: string, listener: (event: { data?: unknown }) => void) =>
+      postMessage: (message: PortMessage) => sent.push(message),
+      addEventListener: (type: string, listener: (event: { data?: PortMessage }) => void) =>
         listeners.set(type, [...(listeners.get(type) ?? []), listener]),
       start: () => undefined,
       close: () => undefined
     },
-    deliver: (data: unknown) => {
-      for (const listener of listeners.get("message") ?? []) listener({ data })
+    deliver: (data: PortMessage) => {
+      for (const listener of listeners.get("message") ?? []) {
+        listener({ data })
+      }
     }
   }
 }

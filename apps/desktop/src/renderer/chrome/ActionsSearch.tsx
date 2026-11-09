@@ -13,6 +13,7 @@ import { walkNodes } from "@parity-app/core"
 import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
 import { FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
+import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import {
   type ProjectSession,
@@ -22,7 +23,7 @@ import {
   useTabs,
   workspace
 } from "../workspace.ts"
-import { actions } from "./actions.ts"
+import { type ActionResult, actions } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { activeSession, clearBitmapCache, exportImages, selectedDesign } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
@@ -39,7 +40,7 @@ import { showToken } from "./shown-token.ts"
 type Heading = Group | "Designs" | "Layers" | "Components" | "Tokens" | "Projects"
 
 interface Item extends FindItem<Heading> {
-  run(): unknown
+  run(): ActionResult
   available?(): boolean
   /** Shown at the end of the row: an action's keys, a layer's design, a component's source. */
   detail?: string
@@ -102,20 +103,28 @@ const selectedScreen = () => {
   const entry = selectedDesign()
   // Components and frames have no Repeated parts section; a design with no kind is a screen.
   const screen = entry && (entry.container.kind ?? "screen") === "screen"
+
   return screen && !activeSession()?.selection.get().node ? entry : undefined
 }
 
 /** Inserts a component again in the active tab's project, through its offer as it stands now. */
 function repeatInsert(key: string): void {
   const session = activeSession()
-  if (session) insertOption(session, offerOf(session, session.store.getEntries()), key)
+
+  if (session) {
+    insertOption(session, offerOf(session, session.store.getEntries()), key)
+  }
 }
 
 /** Finds the repeated parts in the selected screen and shows them in the inspector. */
 function findInSelectedScreen(): void {
   const entry = selectedScreen()
   const session = activeSession()
-  if (!entry || !session) return
+
+  if (!entry || !session) {
+    return
+  }
+
   setLayout({ right: true, rightTab: "design" })
   findRepeatedParts(session.info.root, entry)
 }
@@ -135,16 +144,23 @@ function scrolledEdges(list: HTMLElement): Edges {
  * or tucked under, the search field.
  */
 function edgeFade({ top, bottom }: Edges): string | undefined {
-  if (!top && !bottom) return undefined
+  if (!top && !bottom) {
+    return undefined
+  }
+
   return `linear-gradient(to bottom, ${top ? "transparent, black 1.5rem" : "black"}, ${bottom ? "black calc(100% - 1.5rem), transparent" : "black"})`
 }
 
 const recentKey = "parity.recentSearches"
 
+/** What's saved as recent: a list of IDs, where anything that isn't one is skipped rather than losing the rest. */
+const recentPicks = z.array(z.string().nullable().catch(null)).catch([])
+
 function readRecent(): string[] {
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem(recentKey) ?? "[]")
-    return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : []
+    const saved = recentPicks.parse(JSON.parse(localStorage.getItem(recentKey) ?? "[]"))
+
+    return saved.filter((id) => id !== null)
   } catch {
     // Storage can be unavailable, or hold something else; nothing's recent then.
     return []
@@ -166,6 +182,7 @@ function saveRecent(recent: readonly string[]): void {
 
 /** Every action in the keymap that the search can run, with its first keys. */
 function commandItems(): Item[] {
+  // SAFETY: the keymap has an entry for every command, so its own keys are the commands.
   return (Object.keys(keymap) as KeyCommand[])
     .filter((id) => id !== "actions" && !actions[id].byKey)
     .map((id) => ({
@@ -184,6 +201,7 @@ function projectItems(session: ProjectSession): Item[] {
   const entries = session.store.getEntries()
   const library = session.store.getComponentLibrary()
   const items: Item[] = []
+
   for (const entry of entries) {
     items.push({
       id: `design:${entry.key}`,
@@ -197,17 +215,22 @@ function projectItems(session: ProjectSession): Item[] {
       }
     })
   }
+
   for (const entry of entries) {
     walkNodes(entry.container.root, (node, depth) => {
-      if (depth === 0) return
+      if (depth === 0) {
+        return
+      }
+
       items.push({
         id: `layer:${entry.key}/${node.id}`,
         group: "Layers",
-        label: layerLabel(node, entries, library),
+        label: layerLabel(node, entries, library, session.info.libraries),
         keywords: entry.container.name,
         detail: entry.container.name,
         searchOnly: true,
-        icon: <NodeIcon node={node} style={{ color: nodeColor(node) }} />,
+        // The search is drawn outside the project's tab, so its icons are told which libraries are icon sets.
+        icon: <NodeIcon node={node} libraries={session.info.libraries} style={{ color: nodeColor(node) }} />,
         run: () => {
           session.selection.set(layersSelection(entry.key, [node.id]))
           // The layer's frame lays out first, then it's scrolled into view.
@@ -216,9 +239,14 @@ function projectItems(session: ProjectSession): Item[] {
       })
     })
   }
+
   const offer = offerOf(session, entries)
+
   for (const option of offer.options) {
-    if (option.origin === "basic" || option.hidden) continue
+    if (option.origin === "basic" || option.hidden) {
+      continue
+    }
+
     items.push({
       id: `component:${option.key}`,
       group: "Components",
@@ -237,6 +265,7 @@ function projectItems(session: ProjectSession): Item[] {
       }
     })
   }
+
   for (const token of session.tokens.inOrder()) {
     items.push({
       id: `token:${token.name}`,
@@ -249,6 +278,7 @@ function projectItems(session: ProjectSession): Item[] {
       run: () => showToken(session.info.root, token.name)
     })
   }
+
   return items
 }
 
@@ -291,23 +321,30 @@ export function ActionsSearch() {
   // Gathered once each time it opens, as what's in the project can't change while it's open, and kept while it closes
   // so its rows stay put as it fades.
   const [items, setItems] = useState(() => (open ? gatherItems(activeSession(), projects) : []))
+
   if (open !== wasOpen) {
     setWasOpen(open)
+
     if (open) {
       setQuery("")
       setRecent(readRecent())
       setItems(gatherItems(activeSession(), projects))
     }
   }
+
   const order: Heading[] = starting
     ? ["Projects", "Designs", "Layers", ...groups, "Components", "Tokens"]
     : ["Designs", "Layers", ...groups, "Components", "Tokens", "Projects"]
+
   const found = findAnything(items, query, { recent, groups: order, limits })
   // A new search lists other rows from the top, so the edges are measured again once they're drawn.
   const list = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    if (list.current) setScrolled(scrolledEdges(list.current))
+    if (list.current) {
+      setScrolled(scrolledEdges(list.current))
+    }
   }, [query, items])
+
   const run = (item: Item) => {
     closeDialog()
     const next = rememberPick(recent, item.id)
@@ -315,6 +352,7 @@ export function ActionsSearch() {
     saveRecent(next)
     void item.run()
   }
+
   return (
     <CommandDialog
       open={open}

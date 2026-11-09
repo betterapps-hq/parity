@@ -1,6 +1,8 @@
 // Compiled by the customer's build tool, with the guest: this runs in the same window as the canvas, and `react` is the
 // customer's copy.
 import type { FrameViewport } from "@parity-app/core"
+// Imports nothing at runtime, so it runs in the project's own bundle with the guest.
+import { isComposite } from "@parity-app/core/values/evaluate"
 import * as React from "react"
 
 /**
@@ -26,7 +28,7 @@ export interface FrameWindow {
 }
 
 interface Scope {
-  container: unknown
+  container: Element
   viewport: FrameViewport
   /** Media query lists with change listeners. */
   queries: Set<FrameQueryList>
@@ -35,12 +37,15 @@ interface Scope {
 
 /** The frames whose code is running, innermost last. */
 const running: Scope[] = []
+
 /** The frame last drawn, pointed at, typed in or focused. */
 let active: Scope | undefined
+
 /** Frames by the element React renders them into, to tell which one an event or a component is in. */
-const frames = new Map<unknown, Scope>()
-/** Frames by the window their provider passes down. */
-const windows = new WeakMap<FrameWindow, Scope>()
+const frames = new Map<object, Scope>()
+
+/** Frames by the window their provider passes down, which React keeps untyped. */
+const windows = new WeakMap<object, Scope>()
 
 /** The window of the frame a component is drawn in, which the guest provides at the top of each frame. */
 export const FrameWindowContext = React.createContext<FrameWindow | undefined>(undefined)
@@ -51,38 +56,57 @@ export function frameWindow(container: Element, viewport: FrameViewport): FrameW
   const self: Scope = { container, viewport, queries: new Set(), resizeListeners: new Set() }
   frames.set(container, self)
   watchCommits(container, self)
+
   const run = <T>(work: () => T): T => {
     draw(self)
     running.push(self)
+
     try {
       return work()
     } finally {
       running.pop()
     }
   }
+
   const own: FrameWindow = {
     run,
     resize(next) {
-      if (next.width === self.viewport.width && next.height === self.viewport.height) return
+      if (next.width === self.viewport.width && next.height === self.viewport.height) {
+        return
+      }
+
       self.viewport = next
       run(() => {
-        for (const query of self.queries) query.update()
+        for (const query of self.queries) {
+          query.update()
+        }
+
         const event = new Event("resize")
+
         for (const listener of self.resizeListeners) {
-          if (typeof listener === "function") listener.call(window, event)
-          else listener.handleEvent(event)
+          if ("handleEvent" in listener) {
+            listener.handleEvent(event)
+          } else {
+            listener.call(window, event)
+          }
         }
       })
     },
     dispose() {
       Reflect.deleteProperty(container, "ownerDocument")
       frames.delete(container)
-      if (active === self) active = undefined
+
+      if (active === self) {
+        active = undefined
+      }
+
       self.queries.clear()
       self.resizeListeners.clear()
     }
   }
+
   windows.set(own, self)
+
   return own
 }
 
@@ -95,20 +119,27 @@ const ownerDocument =
  * update sets no dispatcher in the frame, so this is how its `componentDidUpdate` asks about the right frame.
  */
 function watchCommits(container: Element, frame: Scope): void {
-  if (!ownerDocument?.get) return
+  if (!ownerDocument?.get) {
+    return
+  }
+
   Object.defineProperty(container, "ownerDocument", {
     configurable: true,
     enumerable: ownerDocument.enumerable ?? true,
     get() {
       draw(frame)
-      return Reflect.get(Node.prototype, "ownerDocument", container) as Document
+
+      // The real getter, run for this element.
+      return ownerDocument?.get?.call(container)
     }
   })
 }
 
 /** Makes a frame that's still open the one last drawn. */
 function draw(frame: Scope): void {
-  if (frames.get(frame.container) === frame) active = frame
+  if (frames.get(frame.container) === frame) {
+    active = frame
+  }
 }
 
 /**
@@ -117,7 +148,13 @@ function draw(frame: Scope): void {
  */
 function asking(): Scope | undefined {
   const fiber = workingOn()
-  if (fiber) return frames.get(rootOf(fiber))
+
+  if (fiber) {
+    const root = rootOf(fiber)
+
+    return root && frames.get(root)
+  }
+
   return renderingIn() ?? running.at(-1) ?? (active && projectIsAsking() ? active : undefined)
 }
 
@@ -126,19 +163,27 @@ interface Fiber {
   stateNode: unknown
 }
 
-const shared = (
-  React as unknown as {
-    __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-      A?: { getOwner?(): Fiber | null } | null
-      /** The hooks dispatcher: set while React renders, and unset again when it's done or stops to yield. */
-      H?: unknown
-    }
-  }
-).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE
+const internalsKey = "__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE"
+
+/**
+ * React's internals, shared by its packages: `A`, which asks the development build for the component it's working on,
+ * and `H`, the hooks dispatcher, set while React renders and unset again when it's done or stops to yield. They're
+ * untyped, so each is looked for where it's read.
+ */
+const shared = internalsKey in React && isComposite(React[internalsKey]) ? React[internalsKey] : undefined
 
 /** The component React's development build is rendering or running effects for, as its warnings name it. */
 function workingOn(): Fiber | null {
-  return shared?.A?.getOwner?.() ?? null
+  const owner = shared && "A" in shared ? shared.A : undefined
+
+  return isComposite(owner) && "getOwner" in owner && owner.getOwner instanceof Function
+    ? (owner.getOwner() ?? null)
+    : null
+}
+
+/** Whether React has a dispatcher out, as it does while it renders. */
+function rendering(): boolean {
+  return Boolean(shared && "H" in shared && shared.H)
 }
 
 /**
@@ -147,9 +192,13 @@ function workingOn(): Fiber | null {
  * (`_currentValue`, since React 16.3) as it goes down the tree.
  */
 function renderingIn(): Scope | undefined {
-  if (!shared?.H) return undefined
-  const own = (FrameWindowContext as unknown as { _currentValue?: FrameWindow })._currentValue
-  const frame = own && windows.get(own)
+  if (!rendering()) {
+    return undefined
+  }
+
+  const own = "_currentValue" in FrameWindowContext ? FrameWindowContext._currentValue : undefined
+  const frame = isComposite(own) ? windows.get(own) : undefined
+
   return frame && frames.get(frame.container) === frame ? frame : undefined
 }
 
@@ -159,25 +208,41 @@ function renderingIn(): Scope | undefined {
  * whose effects it runs, so those of a render React started itself, after a state change, ask about this frame.
  */
 function watchRenders(): void {
-  if (!shared || !Object.getOwnPropertyDescriptor(shared, "H")?.writable) return
-  let dispatcher = shared.H
+  const descriptor = shared && Object.getOwnPropertyDescriptor(shared, "H")
+
+  if (!shared || !descriptor?.writable) {
+    return
+  }
+
+  let dispatcher: unknown = descriptor.value
   Object.defineProperty(shared, "H", {
     configurable: true,
     enumerable: true,
     get: () => dispatcher,
-    set(value: unknown) {
+    // `defineProperty` types what's set as `any`: it's React's dispatcher, or null.
+    set(value) {
       dispatcher = value
       const frame = value ? renderingIn() : undefined
-      if (frame) active = frame
+
+      if (frame) {
+        active = frame
+      }
     }
   })
 }
 
 /** The element a component's React root renders into. */
-function rootOf(fiber: Fiber): unknown {
+function rootOf(fiber: Fiber): object | undefined {
   let top = fiber
-  while (top.return) top = top.return
-  return (top.stateNode as { containerInfo?: unknown } | null)?.containerInfo
+
+  while (top.return) {
+    top = top.return
+  }
+
+  const root = top.stateNode
+  const container = isComposite(root) && "containerInfo" in root ? root.containerInfo : undefined
+
+  return isComposite(container) ? container : undefined
 }
 
 /**
@@ -190,6 +255,7 @@ const stackLine = /([^\s()]+):\d+:\d+\)?$/
 function callers(): string[] {
   return (new Error().stack ?? "").split("\n").flatMap((line) => {
     const url = stackLine.exec(line)?.[1]
+
     return url ? [url] : []
   })
 }
@@ -197,6 +263,7 @@ function callers(): string[] {
 function siteOf(url: string): string | undefined {
   try {
     const { protocol, host } = new URL(url)
+
     return protocol + host
   } catch {
     return undefined
@@ -219,7 +286,10 @@ let installed = false
 
 /** Answers the window's size questions for the frame asking. Once per window; with no frame asking, nothing changes. */
 function install(): void {
-  if (installed) return
+  if (installed) {
+    return
+  }
+
   installed = true
   const own = siteOf(callers()[0] ?? "")
   // In Parity's own Storybook the project and Parity share a server, so only a frame's own work gets its window.
@@ -231,8 +301,13 @@ function install(): void {
   window.matchMedia = (query: string) => {
     const parsed = sizeQuery(query)
     const frame = parsed ? asking() : undefined
-    if (!frame || !parsed) return realMatchMedia(query)
-    return new FrameQueryList(query, parsed, frame, real) as unknown as MediaQueryList
+
+    if (!frame || !parsed) {
+      return realMatchMedia(query)
+    }
+
+    // SAFETY: a FrameQueryList has every member of a MediaQueryList, answered for the frame.
+    return new FrameQueryList(query, parsed, frame, real) as MediaQueryList
   }
 
   for (const [name, side] of [
@@ -243,62 +318,95 @@ function install(): void {
   ] as const) {
     answer(window, name, (frame) => frame.viewport[side])
   }
+
   answer(document.documentElement, "clientWidth", (frame) => frame.viewport.width)
   answer(document.documentElement, "clientHeight", (frame) => frame.viewport.height)
 
   // A frame's resize listeners hear its window resize, not Parity's.
   const add = window.addEventListener.bind(window)
   const remove = window.removeEventListener.bind(window)
+  // SAFETY: it takes any listener and options the window's own does, typed by event or not, and passes them on.
   window.addEventListener = ((
     type: string,
     listener: EventListenerOrEventListenerObject | null,
     options?: boolean | AddEventListenerOptions
   ) => {
-    const frame = type === "resize" && listener ? asking() : undefined
-    if (!frame || !listener) return add(type, listener as EventListenerOrEventListenerObject, options)
+    if (!listener) {
+      return
+    }
+
+    const frame = type === "resize" ? asking() : undefined
+
+    if (!frame) {
+      return add(type, listener, options)
+    }
+
     frame.resizeListeners.add(listener)
-    if (typeof options === "object") {
+
+    if (options && options !== true) {
       options.signal?.addEventListener("abort", () => frame.resizeListeners.delete(listener), { once: true })
     }
   }) as typeof window.addEventListener
+  // SAFETY: as `addEventListener` above, it takes whatever the window's own does.
   window.removeEventListener = ((
     type: string,
     listener: EventListenerOrEventListenerObject | null,
     options?: boolean | EventListenerOptions
   ) => {
-    if (type === "resize" && listener) for (const frame of frames.values()) frame.resizeListeners.delete(listener)
-    remove(type, listener as EventListenerOrEventListenerObject, options)
+    if (!listener) {
+      return
+    }
+
+    if (type === "resize") {
+      for (const frame of frames.values()) {
+        frame.resizeListeners.delete(listener)
+      }
+    }
+
+    remove(type, listener, options)
   }) as typeof window.removeEventListener
 
   // Using a frame makes it the one its project's later code is about, as in a handler's timer or the render it causes.
   const use = (event: Event) => {
     for (const node of event.composedPath()) {
       const frame = frames.get(node)
-      if (frame) return void (active = frame)
+
+      if (frame) {
+        return void (active = frame)
+      }
     }
   }
+
   for (const type of ["pointerdown", "pointerover", "keydown", "focusin", "wheel", "touchstart"]) {
     add(type, use, { capture: true, passive: true })
   }
 }
 
 /** Makes a size property read the frame asking's, and the real one otherwise. */
-function answer(target: object, name: string, value: (frame: Scope) => number): void {
+function answer(target: EventTarget, name: string, value: (frame: Scope) => number): void {
   let owner: object | null = target
   let real: PropertyDescriptor | undefined
-  while (owner && !(real = Object.getOwnPropertyDescriptor(owner, name))) owner = Object.getPrototypeOf(owner)
+
+  while (owner && !(real = Object.getOwnPropertyDescriptor(owner, name))) {
+    owner = Object.getPrototypeOf(owner)
+  }
+
   Object.defineProperty(target, name, {
     configurable: true,
     enumerable: real?.enumerable ?? true,
-    get() {
+    get(): number {
       const frame = asking()
-      if (frame) return value(frame)
-      return real?.get ? real.get.call(target) : (real?.value as number)
+
+      if (frame) {
+        return value(frame)
+      }
+
+      return real?.get ? real.get.call(target) : real?.value
     }
   })
 }
 
-type ChangeListener = ((this: MediaQueryList, event: MediaQueryListEvent) => unknown) | null
+type ChangeListener = ((this: MediaQueryList, event: MediaQueryListEvent) => void) | null
 
 /** A media query about size, answered for its frame, which tells its listeners when the frame's answer changes. */
 class FrameQueryList extends EventTarget {
@@ -338,7 +446,11 @@ class FrameQueryList extends EventTarget {
     options?: boolean | AddEventListenerOptions
   ): void {
     super.addEventListener(type, listener, options)
-    if (type === "change" && listener) this.#listeners.add(listener)
+
+    if (type === "change" && listener) {
+      this.#listeners.add(listener)
+    }
+
     this.#watch()
   }
 
@@ -348,31 +460,49 @@ class FrameQueryList extends EventTarget {
     options?: boolean | EventListenerOptions
   ): void {
     super.removeEventListener(type, listener, options)
-    if (type === "change") this.#listeners.delete(listener)
+
+    if (type === "change") {
+      this.#listeners.delete(listener)
+    }
+
     this.#watch()
   }
 
   addListener(listener: ChangeListener): void {
-    if (listener) this.addEventListener("change", listener as EventListener)
+    if (listener) {
+      // SAFETY: the list only sends `change` events as MediaQueryListEvents, and stands in for a MediaQueryList.
+      this.addEventListener("change", listener as EventListener)
+    }
   }
 
   removeListener(listener: ChangeListener): void {
-    if (listener) this.removeEventListener("change", listener as EventListener)
+    if (listener) {
+      // SAFETY: as in `addListener`, the listener is only ever sent `change` events.
+      this.removeEventListener("change", listener as EventListener)
+    }
   }
 
   update(): void {
     const matches = matchesQuery(this.#query, this.#frame.viewport, this.#real)
-    if (matches === this.#matches) return
+
+    if (matches === this.#matches) {
+      return
+    }
+
     this.#matches = matches
     const event = new MediaQueryListEvent("change", { matches, media: this.media })
-    this.#onchange?.call(this as unknown as MediaQueryList, event)
+    // SAFETY: the list stands in for a MediaQueryList, with every member of one.
+    this.#onchange?.call(this as MediaQueryList, event)
     this.dispatchEvent(event)
   }
 
   /** Lists are made on every render by some hooks, so the frame keeps only the ones listened to. */
   #watch(): void {
-    if (this.#onchange || this.#listeners.size > 0) this.#frame.queries.add(this)
-    else this.#frame.queries.delete(this)
+    if (this.#onchange || this.#listeners.size > 0) {
+      this.#frame.queries.add(this)
+    } else {
+      this.#frame.queries.delete(this)
+    }
   }
 }
 
@@ -390,24 +520,39 @@ type Condition = ((viewport: FrameViewport) => boolean) | string
 export function sizeQuery(query: string): SizeQuery | undefined {
   let sized = false
   const alternatives: SizeQuery = []
+
   for (const alternative of query.toLowerCase().split(",")) {
     let text = alternative.trim()
     const negate = text.startsWith("not ")
     text = text.replace(/^(not|only)\s+/, "")
     const conditions: Condition[] = []
+
     for (const part of text.split(/\s+and\s+/)) {
-      if (part === "all" || part === "screen") continue
+      if (part === "all" || part === "screen") {
+        continue
+      }
+
       if (/^[a-z-]+$/.test(part)) {
         conditions.push(part)
         continue
       }
+
       const size = sizeCondition(part)
-      if (size === null) return undefined
-      if (size) sized = true
+
+      if (size === null) {
+        return undefined
+      }
+
+      if (size) {
+        sized = true
+      }
+
       conditions.push(size ?? part)
     }
+
     alternatives.push({ negate, conditions })
   }
+
   return sized ? alternatives : undefined
 }
 
@@ -415,7 +560,7 @@ export function matchesQuery(query: SizeQuery, viewport: FrameViewport, real: (c
   return query.some(
     ({ negate, conditions }) =>
       negate !==
-      conditions.every((condition) => (typeof condition === "string" ? real(condition) : condition(viewport)))
+      conditions.every((condition) => (condition instanceof Function ? condition(viewport) : real(condition)))
   )
 }
 
@@ -423,43 +568,76 @@ export function matchesQuery(query: SizeQuery, viewport: FrameViewport, real: (c
 function sizeCondition(part: string): ((viewport: FrameViewport) => boolean) | undefined | null {
   const inner = /^\((.*)\)$/.exec(part)?.[1]?.trim()
   const onSize = /\b(width|height|aspect-ratio|orientation)\b/
-  if (inner === undefined || /[()]|\bor\b|\bnot\b/.test(inner))
+
+  if (inner === undefined || /[()]|\bor\b|\bnot\b/.test(inner)) {
     return inner !== undefined && !onSize.test(inner) ? undefined : null
+  }
+
   const feature = /^(min-|max-)?(width|height|aspect-ratio)\s*:\s*(.+)$/.exec(inner)
+
   if (feature) {
     const [, bound, name, raw] = feature
     const value = (name === "aspect-ratio" ? ratio : length)(raw!)
-    if (value === undefined) return null
+
+    if (value === undefined) {
+      return null
+    }
+
     const measure = measurer(name!)
+
     return (viewport) => {
-      if (bound === "min-") return measure(viewport) >= value
-      if (bound === "max-") return measure(viewport) <= value
+      if (bound === "min-") {
+        return measure(viewport) >= value
+      }
+
+      if (bound === "max-") {
+        return measure(viewport) <= value
+      }
+
       return measure(viewport) === value
     }
   }
+
   const orientation = /^orientation\s*:\s*(portrait|landscape)$/.exec(inner)?.[1]
-  if (orientation) return (viewport) => (viewport.height >= viewport.width ? "portrait" : "landscape") === orientation
+
+  if (orientation) {
+    return (viewport) => (viewport.height >= viewport.width ? "portrait" : "landscape") === orientation
+  }
+
   // Range syntax: `width >= 40rem`, `400px <= width < 800px`.
   const range = /^(?:([^<>=]+?)\s*(<=|<|>=|>|=)\s*)?(width|height|aspect-ratio)(?:\s*(<=|<|>=|>|=)\s*([^<>=]+))?$/.exec(
     inner
   )
+
   if (range && (range[1] !== undefined || range[5] !== undefined)) {
     const [, low, lowOperator, name, highOperator, high] = range
     const parse = name === "aspect-ratio" ? ratio : length
     const lowValue = low === undefined ? undefined : parse(low)
     const highValue = high === undefined ? undefined : parse(high)
-    if ((low !== undefined && lowValue === undefined) || (high !== undefined && highValue === undefined)) return null
+
+    if ((low !== undefined && lowValue === undefined) || (high !== undefined && highValue === undefined)) {
+      return null
+    }
+
     const measure = measurer(name!)
+
     return (viewport) =>
       (lowValue === undefined || compare(lowValue, lowOperator!, measure(viewport))) &&
       (highValue === undefined || compare(measure(viewport), highOperator!, highValue))
   }
+
   return onSize.test(inner) ? null : undefined
 }
 
 function measurer(name: string): (viewport: FrameViewport) => number {
-  if (name === "width") return (viewport) => viewport.width
-  if (name === "height") return (viewport) => viewport.height
+  if (name === "width") {
+    return (viewport) => viewport.width
+  }
+
+  if (name === "height") {
+    return (viewport) => viewport.height
+  }
+
   return (viewport) => viewport.width / viewport.height
 }
 
@@ -482,12 +660,17 @@ function compare(left: number, operator: string, right: number): boolean {
 function length(raw: string): number | undefined {
   const match = /^(-?[\d.]+)(px|rem|em)?$/.exec(raw.trim())
   const number = Number(match?.[1])
-  if (!match || !Number.isFinite(number)) return undefined
+
+  if (!match || !Number.isFinite(number)) {
+    return undefined
+  }
+
   return match[2] === "rem" || match[2] === "em" ? number * 16 : number
 }
 
 function ratio(raw: string): number | undefined {
   const match = /^([\d.]+)\s*(?:\/\s*([\d.]+))?$/.exec(raw.trim())
   const value = Number(match?.[1]) / Number(match?.[2] ?? 1)
+
   return match && Number.isFinite(value) ? value : undefined
 }

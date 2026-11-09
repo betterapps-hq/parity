@@ -26,11 +26,15 @@ export class TelemetrySetting {
 
   constructor(private readonly options: TelemetrySettingOptions) {
     const saved = readSavedTelemetry(options.read())
+
     if (saved.installId) {
       this.saved = { ...saved, installId: saved.installId }
+
       return
     }
+
     this.saved = { ...saved, installId: options.newId() }
+
     try {
       this.write(this.saved)
     } catch {
@@ -52,6 +56,7 @@ export class TelemetrySetting {
     const next = { ...this.saved, level, installId }
     this.write(next)
     this.saved = next
+
     return this.get()
   }
 

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { Envelope } from "./envelope.ts"
+import type { Attributes, Envelope } from "./envelope.ts"
 import { defineEvent } from "./events.ts"
 
 /*
@@ -17,18 +17,31 @@ export const reportLogsMs = 60 * 60 * 1000
 /** How many of a crashed run's last events go with its crash. */
 const crashEventsKept = 200
 
+/** What a line needs to count as an event: its name and time, as text. */
+const loggedLine = z.object({ name: z.string(), time: z.string() })
+
 /** The events in a log file's text, one JSON object a line. Lines that aren't events, as one cut short, are skipped. */
 export function parseLogLines(text: string): LoggedEvent[] {
   const events: LoggedEvent[] = []
+
   for (const line of text.split("\n")) {
-    if (!line.trim()) continue
+    if (!line.trim()) {
+      continue
+    }
+
     try {
-      const event = JSON.parse(line) as LoggedEvent
-      if (typeof event?.name === "string" && typeof event.time === "string") events.push(event)
+      const event = JSON.parse(line)
+
+      if (loggedLine.safeParse(event).success) {
+        // SAFETY: main writes each line from an envelope, so a line with a name and a time is one; only those are
+        // checked, so a line from another version still reads.
+        events.push(event as LoggedEvent)
+      }
     } catch {
       // A line cut short by a crash or a full disk.
     }
   }
+
   return events
 }
 
@@ -38,7 +51,7 @@ export interface Crash {
   /** The time of its last event, in ISO 8601: as close as the local copy gets to when it stopped. */
   time: string
   /** Its last error, if it recorded one before it stopped. */
-  lastError?: { name: string; time: string; attributes: Record<string, unknown> }
+  lastError?: { name: string; time: string; attributes: Attributes }
   /** Its last events, oldest first. */
   events: LoggedEvent[]
 }
@@ -49,21 +62,37 @@ export interface Crash {
  */
 export function lastRunCrash(events: readonly LoggedEvent[], current: string): Crash | undefined {
   let last: string | undefined
+
   for (const event of events) {
-    if (event.sessionId !== current && event.process === "main") last = event.sessionId
+    if (event.sessionId !== current && event.process === "main") {
+      last = event.sessionId
+    }
   }
-  if (!last) return undefined
+
+  if (!last) {
+    return undefined
+  }
+
   const run = events.filter((event) => event.sessionId === last)
-  if (run.some((event) => event.name === "app.quit")) return undefined
-  const lastEvent = run.at(-1)
-  if (!lastEvent) return undefined
-  const error = run.findLast((event) => event.level === "error" || event.level === "fatal")
-  return {
-    sessionId: last,
-    time: lastEvent.time,
-    ...(error ? { lastError: { name: error.name, time: error.time, attributes: error.attributes } } : {}),
-    events: run.slice(-crashEventsKept)
+
+  if (run.some((event) => event.name === "app.quit")) {
+    return undefined
   }
+
+  const lastEvent = run.at(-1)
+
+  if (!lastEvent) {
+    return undefined
+  }
+
+  const error = run.findLast((event) => event.level === "error" || event.level === "fatal")
+
+  const crash = { sessionId: last, time: lastEvent.time }
+  const kept = run.slice(-crashEventsKept)
+
+  return error
+    ? { ...crash, lastError: { name: error.name, time: error.time, attributes: error.attributes }, events: kept }
+    : { ...crash, events: kept }
 }
 
 /** The versions a report names: Parity's, and what it runs on. */
@@ -96,6 +125,7 @@ export function diagnosticFiles({
 }): DiagnosticFile[] {
   const since = now - reportLogsMs
   const recent = events.filter((event) => Date.parse(event.time) >= since)
+
   const files: DiagnosticFile[] = [
     {
       name: "logs.jsonl",
@@ -105,14 +135,24 @@ export function diagnosticFiles({
     { name: "versions.json", contentType: "application/json", text: JSON.stringify(versions, null, 2) },
     { name: "projects.json", contentType: "application/json", text: JSON.stringify(openProjects(recent), null, 2) }
   ]
-  if (crash) files.push({ name: "crash.json", contentType: "application/json", text: JSON.stringify(crash, null, 2) })
+
+  if (crash) {
+    files.push({ name: "crash.json", contentType: "application/json", text: JSON.stringify(crash, null, 2) })
+  }
+
   return files
 }
 
 /** The projects events were recorded in, by root, in the order they first appear. */
 export function openProjects(events: readonly LoggedEvent[]): string[] {
   const roots = new Set<string>()
-  for (const event of events) if (event.project) roots.add(event.project)
+
+  for (const event of events) {
+    if (event.project) {
+      roots.add(event.project)
+    }
+  }
+
   return [...roots]
 }
 
@@ -120,8 +160,9 @@ export const reportSent = defineEvent(
   "report.sent",
   z.object({
     feedbackId: z.string().describe("The Sentry event ID of the user feedback the report became"),
-    screenshot: z.boolean().describe("Whether the person included a screenshot of the window"),
-    afterCrash: z.boolean().describe("Whether it was offered on start after the last run crashed")
+    screenshot: z.boolean().describe("Whether a screenshot of the window went with it"),
+    afterCrash: z.boolean().describe("Whether it was offered on start after the last run crashed"),
+    by: z.enum(["person", "agent"]).describe("Who sent it: a person from Help, or an agent with parity report")
   }),
-  { level: "info", sentBy: ["main"], when: "Help > Report a problem sends a report." }
+  { level: "info", sentBy: ["main"], when: "Help > Report a problem, parity report or report_problem sends a report." }
 )

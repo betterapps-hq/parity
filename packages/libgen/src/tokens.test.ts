@@ -97,12 +97,14 @@ function readBoth(css: string) {
   const library = new Map(cssTokens(css).map((token) => [token.var, token]))
   const compiled = prepareCanvasCss(css, { baseUrl: "http://localhost", units: false, colorSchemes: false }).scoped
   const project = new Map(extractTokens(compiled).map((token) => [token.name, token]))
+
   return { library, project }
 }
 
 describe("libgen and the app reading the same CSS", () => {
   it.each(cases)("agree on $name", ({ css, expected }) => {
     const { library, project } = readBoth(css)
+
     for (const [name, want] of Object.entries(expected)) {
       const fromLibrary = library.get(name)
       const fromProject = project.get(name)

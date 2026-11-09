@@ -6,14 +6,28 @@ import { builtOn, checkTokenEdit, type CssSupports, loopProblem, valueProblem } 
  * filter a `blur()` of one; anything else it's asked about it takes.
  */
 const supports: CssSupports = (property, value) => {
-  if (property === "color") return /^(#[\da-f]{3,8}|oklch\(.+\))$/i.test(value)
-  if (property === "border-radius" || property === "width") return /^\d*\.?\d+(px|rem)$/.test(value)
-  if (property === "filter") return /^blur\(\d*\.?\d+(px|rem)\)$/.test(value)
+  if (property === "color") {
+    return /^(#[\da-f]{3,8}|oklch\(.+\))$/i.test(value)
+  }
+
+  if (property === "border-radius" || property === "width") {
+    return /^\d*\.?\d+(px|rem)$/.test(value)
+  }
+
+  if (property === "filter") {
+    return /^blur\(\d*\.?\d+(px|rem)\)$/.test(value)
+  }
+
   return true
 }
 
-const tokens: Record<string, string> = { radius: "0.5rem", primary: "#2563eb", card: "var(--radius)" }
-const lookup = (name: string) => tokens[name]
+const tokens = new Map([
+  ["radius", "0.5rem"],
+  ["primary", "#2563eb"],
+  ["card", "var(--radius)"]
+])
+
+const lookup = (name: string) => tokens.get(name)
 
 describe("valueProblem", () => {
   it("passes a value of the token's kind, references filled in", () => {
@@ -54,8 +68,13 @@ describe("valueProblem", () => {
 })
 
 describe("loopProblem", () => {
-  const built: Record<string, string[]> = { a: ["b"], b: ["c"], c: [] }
-  const references = (name: string) => built[name] ?? []
+  const built = new Map([
+    ["a", ["b"]],
+    ["b", ["c"]],
+    ["c", []]
+  ])
+
+  const references = (name: string) => built.get(name) ?? []
 
   it("refuses a token built on itself", () => {
     expect(loopProblem("c", "var(--c)", references)).toBe("c can't be built on itself.")
@@ -84,7 +103,7 @@ describe("checkTokenEdit", () => {
     name: "radius",
     kind: "radius" as const,
     values: { default: "0.5rem", dark: "0.25rem" },
-    lookup: (name: string, theme: string) => (theme === "dark" && name === "radius" ? "0.25rem" : tokens[name]),
+    lookup: (name: string, theme: string) => (theme === "dark" && name === "radius" ? "0.25rem" : tokens.get(name)),
     references: (name: string) => (name === "card" ? ["radius"] : []),
     supports
   }

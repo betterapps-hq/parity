@@ -23,12 +23,36 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 
 - **No `any`.** A value that's truly unknown is `unknown`, narrowed before use (lint enforces this).
 - **Avoid `as` assertions.** Narrow with a type guard, or check and throw when the assumption fails. `as const` is fine.
+  One that stays has a `// SAFETY:` comment before it saying why it holds (lint enforces this).
+- **No `typeof` checks, even in a type guard** (lint enforces this). Parse a value with its zod schema, or tell values
+  apart with `instanceof`, `Array.isArray` or `in`. Values from running code, such as the modules libgen loads, are
+  libgen's `Live`, checked with the guards in `packages/libgen/src/live.ts`.
+- **Lint rules aren't relaxed.** Buildkit's base config, with its anti-slop rules, applies everywhere. Turn a rule off
+  on one line only for a very good reason, such as a bitwise hash, with a comment saying why.
+- **TypeScript's bit flags are read through one helper.** Where TypeScript's compiler API has a predicate, use it
+  (`type.isUnion()`, `checker.isArrayType`). Otherwise test `ts.SymbolFlags` and `ts.TypeFlags` with a small helper that
+  holds the package's one `no-bitwise` disable, as `hasFlag` in `packages/code/src/flags.ts` does.
+- **Scripts print a line with `print`** from `scripts/output.ts`, which holds their one `no-console` disable, as the
+  CLI's `stdout` does for it. Failures and warnings still go through `console.error` and `console.warn`.
+- **A library's names that break a naming rule are renamed where they come in.** tldraw names its records and utils
+  after shapes (`TLShapeId`, `ShapeUtil`), which `no-shape-in-symbol-names` forbids, so
+  `renderer/canvas/tldraw-names.ts` re-exports them under the canvas's names (`CanvasId`, `CanvasUtil`) with the one
+  disable. Names a library's API fixes, such as tldraw's `shapeUtils` prop, keep a one-line disable where they're
+  written.
 - **String-literal unions, not enums,** which Node can't strip anyway (see decisions.md, "Developing Parity").
 - **Named exports.** Default exports are for what a tool requires, such as a story file's `meta`.
 - **No barrel files,** apart from a package's own entry, `src/index.ts`.
 - **Components are function declarations,** not arrow functions or `React.FC`.
 - **Data from outside is checked where it comes in:** a file, an IPC message or a project's config is checked against
-  its schema once, and trusted after that.
+  its schema once, and trusted after that. Build a reader for one with `parserFor(schema)` from
+  `@parity-app/core/schema`. It and `parseData`, `parseInput` and `checkData` are core's only functions that take
+  `unknown` data, so the rest of the code takes the parsed types.
+- **`unknown` stays only where a customer's module is read:** what a package exports (`ModuleExports`, `evaluateValue`,
+  `exportOf`) can be anything. Each of those lines has a one-line lint disable saying so.
+- **A channel carries what it doesn't read as `unknown`.** `@parity-app/channel` passes a request's params, a reply's
+  result, a failure's details and a request's trace from one port to the other. Its `checks`, `ErrorCodec` and `around`
+  read them where they arrive, and the channel itself reads only a message's envelope, in `readMessage`. Those lines
+  have one-line lint disables too.
 
 ## Tests
 

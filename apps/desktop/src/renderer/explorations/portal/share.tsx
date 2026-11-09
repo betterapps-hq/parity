@@ -6,7 +6,7 @@ import { Button } from "@buildkitgg/shadcn-baseui-kit"
  */
 import { Building2, Link, Lock, Mail, Send, X } from "lucide-react"
 import type { ReactNode } from "react"
-import { agentRoles, RoleMenu, roles } from "../collaboration/sharing.tsx"
+import { agentRoleOrder, agentRoles, RoleMenu, roleOrder, roles } from "../collaboration/sharing.tsx"
 import { me, type Person, people } from "../explore-data.ts"
 import { Avatar, GitHubMark, ParityMark } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
@@ -47,7 +47,9 @@ function ShareDialog() {
     { person: maya, why: "Through the Web team", role: "edit" },
     { person: noah, why: "Through the Web team, waiting on an editor seat", role: "view" }
   ]
+
   const request = event("ivy-access")
+
   return (
     <div className="flex w-[32rem] flex-col rounded-xl border bg-popover text-popover-foreground shadow-2xl">
       <div className="flex items-start gap-3 px-5 pt-4 pb-3">
@@ -64,7 +66,7 @@ function ShareDialog() {
       <div className="flex items-start gap-2 px-5">
         <div className="flex min-h-9 flex-1 items-center gap-1 rounded-lg border bg-background px-2.5 py-1 text-sm text-muted-foreground">
           <span className="flex-1">Add people, teams or emails</span>
-          <RoleMenu value="comment" options={roles} />
+          <RoleMenu value="comment" options={roles} order={roleOrder} />
         </div>
         <Button className="h-9" disabled>
           Invite
@@ -101,7 +103,7 @@ function ShareDialog() {
             name="Web team"
             why={`${teams.web.people.length} people, and anyone who joins it`}
           >
-            <RoleMenu value="edit" options={roles} />
+            <RoleMenu value="edit" options={roles} order={roleOrder} />
           </Row>
           {people.map((entry) => (
             <Row
@@ -118,7 +120,7 @@ function ShareDialog() {
               {entry.role === "owner" ? (
                 <span className="px-2 text-xs text-muted-foreground">Owner</span>
               ) : (
-                <RoleMenu value={entry.role} options={roles} />
+                <RoleMenu value={entry.role} options={roles} order={roleOrder} />
               )}
             </Row>
           ))}
@@ -131,12 +133,12 @@ function ShareDialog() {
             name="ren@kestrel.dev"
             why="Invited as an editor, waiting for an admin to approve the seat"
           >
-            <RoleMenu value="edit" options={roles} />
+            <RoleMenu value="edit" options={roles} order={roleOrder} />
           </Row>
         </Section>
         <Section title="Agents">
           <Row who={<Avatar person={cursor} size={28} />} name="Cursor" why="Yours, so it can do what you can here">
-            <RoleMenu value="propose" options={agentRoles} />
+            <RoleMenu value="propose" options={agentRoles} order={agentRoleOrder} />
           </Row>
         </Section>
         <Section title="Who else can open it">
@@ -149,7 +151,7 @@ function ShareDialog() {
             name="Anyone at Kestrel"
             why="From the link. Public links are off, in Security"
           >
-            <RoleMenu value="comment" options={roles} />
+            <RoleMenu value="comment" options={roles} order={roleOrder} />
           </Row>
         </Section>
       </div>

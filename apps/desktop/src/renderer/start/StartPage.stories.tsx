@@ -20,7 +20,7 @@ import { Home } from "./HomePage.tsx"
 import { NewTab } from "./NewTabPage.tsx"
 import { type PictureSource, PictureSourceProvider } from "./pictures.ts"
 import { type KnownProject, knownProjects, type ProjectNote } from "./projects.ts"
-import { StartActionsProvider } from "./start-actions.ts"
+import { type StartActions, StartActionsProvider } from "./start-actions.ts"
 
 /**
  * The start page as the window shows it, built from the explorations (Parity/Explorations/Start page): Home, pinned
@@ -35,6 +35,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const minutes = (count: number) => Date.now() - count * 60_000
@@ -52,7 +53,7 @@ const sampleRecent = [
   "D:\\apps\\notebook"
 ]
 
-const sampleNotes: Record<string, ProjectNote> = {
+const sampleNotes = {
   "D:\\apps\\kestrel-website": { opened: minutes(12) },
   "D:\\apps\\cloud-console": { opened: minutes(180), starred: true },
   "D:\\apps\\walkies": { opened: minutes(60 * 22) },
@@ -64,7 +65,7 @@ const sampleNotes: Record<string, ProjectNote> = {
   "D:\\apps\\team-chat": { opened: minutes(60 * 24 * 400) },
   "D:\\apps\\notebook": { opened: minutes(60 * 24 * 420) },
   "D:\\archive\\old-portal": { opened: minutes(60 * 24 * 500), starred: true }
-}
+} satisfies Record<string, ProjectNote>
 
 const desktop = (src: string, width = 1280): PictureFrame => ({ src, mode: "Desktop Light", width, height: 800 })
 const mobile = (src: string): PictureFrame => ({ src, mode: "Mobile Light", width: 390, height: 844 })
@@ -85,14 +86,14 @@ const exampleRoot = "D:\\canvas\\examples\\shadcn-vite"
  * Pictures for most of the sample projects: several screens to flip through, one screen, one without a phone frame,
  * and a phone alone. The rest haven't opened since pictures were kept, so they show the placeholder.
  */
-const samplePictures: Record<string, ProjectPicture> = {
+const samplePictures = {
   "D:\\apps\\kestrel-website": picture(teamMembers, dashboard, signIn, settings, pricing),
   "D:\\apps\\cloud-console": picture(dashboard, settings, pricing),
   "D:\\apps\\walkies": picture(signIn, settings),
   "D:\\apps\\ember-caves": picture(pricing),
   "D:\\apps\\pocket-vet": picture({ name: "Settings", main: settings.main }),
   "D:\\apps\\team-chat": picture({ name: "Sign in", main: signIn.phone })
-}
+} satisfies Record<string, ProjectPicture>
 
 /** The pictures a story shows, as the service would give them. */
 function staticPictures(pictures: Record<string, ProjectPicture>): PictureSource {
@@ -125,19 +126,23 @@ function Sample({
   const source = useMemo(() => staticPictures(pictures), [pictures])
   const theme = useResolvedTheme()
   const ignore = () => undefined
+
+  const actions: StartActions = {
+    open: ignore,
+    openFolder: ignore,
+    openFile: ignore,
+    search: ignore,
+    star: (root, starred) => setKept((current) => ({ ...current, [root]: { ...current[root], starred } })),
+    forget: (root) => setListed((current) => current.filter((candidate) => candidate !== root))
+  }
+
+  if (example) {
+    actions.example = { root: exampleRoot, name: "Acme", picture: examplePicture }
+  }
+
   return (
     <PictureSourceProvider value={source}>
-      <StartActionsProvider
-        value={{
-          open: ignore,
-          ...(example ? { example: { root: exampleRoot, name: "Acme", picture: examplePicture } } : {}),
-          openFolder: ignore,
-          openFile: ignore,
-          search: ignore,
-          star: (root, starred) => setKept((current) => ({ ...current, [root]: { ...current[root], starred } })),
-          forget: (root) => setListed((current) => current.filter((candidate) => candidate !== root))
-        }}
-      >
+      <StartActionsProvider value={actions}>
         <div className="flex h-screen flex-col bg-background text-foreground">
           {children(
             knownProjects(listed, kept).map((project) =>
@@ -180,10 +185,12 @@ export const CardFlipsThroughScreens: Story = {
   play: async ({ canvasElement }) => {
     const card = within(canvasElement).getByRole("button", { name: "cloud-console" }).closest("article")!
     const art = card.firstElementChild!
+
     const across = async (share: number) => {
       const box = art.getBoundingClientRect()
       await fireEvent.pointerMove(card, { clientX: box.left + box.width * share, clientY: box.top + box.height / 2 })
     }
+
     await userEvent.hover(card)
     await across(0.9)
     await expect(within(card).getByText("Pricing")).toBeInTheDocument()

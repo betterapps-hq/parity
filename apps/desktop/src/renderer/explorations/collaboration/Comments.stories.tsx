@@ -16,6 +16,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Labeled({ label, children }: { label: string; children: ReactNode }) {
@@ -244,6 +245,7 @@ export const NewComment: Story = {
 export const LongThread: Story = {
   render: () => {
     const long = thread("toggle")
+
     return (
       <Stage>
         <Thread

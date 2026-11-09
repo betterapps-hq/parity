@@ -48,37 +48,48 @@ export async function findStyles(root: string, notes: string[] = []): Promise<Ap
 /** `findStyles`, with `components.json` already read. */
 export async function stylesWith(root: string, shadcn: ShadcnConfig | undefined, notes: string[]): Promise<AppStyles> {
   const fromShadcn = shadcn?.tailwind?.css
+
   if (fromShadcn) {
     notes.push(`styles from components.json: ${fromShadcn}`)
+
     return { styles: [toPosix(fromShadcn)], packageStyles: [] }
   }
 
   // Otherwise follow the app entry: index.html → module script → its stylesheet imports.
   const html = await readText(join(root, "index.html"))
   const entry = html && /<script[^>]*type=["']module["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]
+
   if (entry) {
     const entryPath = join(root, entry.replace(/^\//, ""))
     const specifiers = stylesheetImports((await readText(entryPath)) ?? "")
     // A path is the project's own stylesheet; a bare specifier is a package's, as `@mantine/core/styles.css` is.
     const local = (specifier: string) => specifier.startsWith(".") || specifier.startsWith("/")
+
     const imports = specifiers
       .filter(local)
       .map((specifier) =>
         toPosix(specifier.startsWith("/") ? specifier.slice(1) : relative(root, join(dirname(entryPath), specifier)))
       )
+
     const packageStyles = specifiers.filter((specifier) => !local(specifier))
+
     if (specifiers.length > 0) {
       notes.push(`styles from ${toPosix(entry)}: ${[...packageStyles, ...imports].join(", ")}`)
+
       return { styles: imports, packageStyles }
     }
   }
 
   const conventional = conventionalStylesheets.filter((path) => existsSync(join(root, path)))
+
   if (conventional.length > 0) {
     notes.push(`styles from the conventional place: ${conventional.join(", ")}`)
+
     return { styles: conventional, packageStyles: [] }
   }
+
   notes.push("no global styles found")
+
   return { styles: [], packageStyles: [] }
 }
 
@@ -87,9 +98,11 @@ export async function stylesWith(root: string, shadcn: ShadcnConfig | undefined,
  * or Sass. CSS modules (`.module.css`) are scoped to the component that imports them, so they aren't global styles.
  */
 export function stylesheetImports(source: string): string[] {
-  return [...source.matchAll(/\bimport\s+(?:[\w$*{}\s,]+?\s+from\s+)?["']([^"'?]+\.s?css)["']/g)]
+  return source
+    .matchAll(/\bimport\s+(?:[\w$*{}\s,]+?\s+from\s+)?["']([^"'?]+\.s?css)["']/g)
     .map((match) => match[1]!)
     .filter((specifier) => !/\.module\.s?css$/.test(specifier))
+    .toArray()
 }
 
 /**
@@ -98,16 +111,22 @@ export function stylesheetImports(source: string): string[] {
  * empty.
  */
 export async function readStylesheet(path: string, seen = new Set<string>()): Promise<string> {
-  if (seen.has(path)) return ""
+  if (seen.has(path)) {
+    return ""
+  }
+
   seen.add(path)
   const source = (await readText(path)) ?? ""
   const parts: string[] = []
   let last = 0
+
   for (const match of source.matchAll(/@import\s+(?:url\()?["'](\.{1,2}\/[^"']+\.s?css)["']\)?[^;]*;/g)) {
     parts.push(source.slice(last, match.index), await readStylesheet(join(dirname(path), match[1]!), seen))
     last = match.index + match[0].length
   }
+
   parts.push(source.slice(last))
+
   return parts.join("")
 }
 
@@ -115,11 +134,16 @@ export async function readStylesheet(path: string, seen = new Set<string>()): Pr
 export async function shadcnConfig(root: string, notes: string[]): Promise<ShadcnConfig | undefined> {
   // Read directly rather than through `loadConfig`, whose config loader the CLI's bundle (through libgen) doesn't carry.
   const text = await readText(join(root, "components.json"))
-  if (text === undefined) return undefined
+
+  if (text === undefined) {
+    return undefined
+  }
+
   try {
     return parseData(shadcnComponents, parseJsonc(text))
   } catch (error) {
     notes.push(`Couldn't load components: ${error instanceof Error ? error.message : String(error)}`)
+
     return undefined
   }
 }

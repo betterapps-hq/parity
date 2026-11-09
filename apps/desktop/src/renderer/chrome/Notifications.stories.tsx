@@ -33,6 +33,7 @@ const meta = {
 } satisfies Meta<typeof SonnerToaster>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The example with Pricing selected, as most commands here need. */
@@ -215,6 +216,7 @@ export const CopiedAsPng: Story = {
     // The story's frame isn't focused, so the real clipboard would refuse the picture. Its own `write` hides the
     // clipboard's until the story ends.
     Object.defineProperty(navigator.clipboard, "write", { value: () => Promise.resolve(), configurable: true })
+
     return () => {
       Reflect.deleteProperty(navigator.clipboard, "write")
     }
@@ -299,13 +301,18 @@ export const CouldntReopen: Story = {
 function importNovaStyles(): Promise<void> {
   const session = example()
   const nova = session.info.libraries.find((library) => library.id === "nova") ?? session.info.libraries[0]!
+
   return importStyles(session, nova)
 }
 
 /** A button on the notification showing, since the window has an Undo of its own. */
 function notificationButton(name: string): HTMLElement {
   const notification = document.querySelector<HTMLElement>("[data-sonner-toast]")
-  if (!notification) throw new Error("No notification is showing")
+
+  if (!notification) {
+    throw new Error("No notification is showing")
+  }
+
   return within(notification).getByRole("button", { name })
 }
 

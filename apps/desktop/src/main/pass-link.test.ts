@@ -1,5 +1,6 @@
 import type { Fetch } from "@parity-app/account"
 import type { CopyEntry } from "@parity-app/agent/routing"
+import { isText } from "@parity-app/core/values/evaluate"
 import { describe, expect, it } from "vite-plus/test"
 import { launchLink, passLink } from "./pass-link.ts"
 
@@ -24,15 +25,21 @@ describe("launchLink", () => {
 describe("passLink", () => {
   it("asks each other copy's service in turn, with its token, until one takes it", async () => {
     const asked: { url: string; auth: unknown; body: unknown }[] = []
+
     const fetch: Fetch = async (url, init) => {
       asked.push({
         url,
         auth: new Headers(init.headers).get("authorization"),
-        body: JSON.parse(typeof init.body === "string" ? init.body : "{}")
+        body: JSON.parse(isText(init.body) ? init.body : "{}")
       })
-      if (url.includes(":4002")) throw new Error("connection refused")
+
+      if (url.includes(":4002")) {
+        throw new Error("connection refused")
+      }
+
       return Response.json({ taken: url.includes(":4003") })
     }
+
     const link = "parity://auth/callback?code=1&state=2"
     expect(await passLink(link, [copy(1), copy(2), copy(3), copy(4)], 1, fetch)).toBe(true)
     expect(asked).toEqual([

@@ -17,18 +17,22 @@ import { describedCategories, describedTokenCss, describedTokenVar, extractToken
 function kinds(css: string, theme: { name: string; value: string }[] = [], types = new Map<string, string>()) {
   const tokens = extractTokens(css, theme)
   const lookup = defaultValues(tokens)
+
   return Object.fromEntries(tokens.map((token) => [token.name, previewKind(token, types.get(token.name), lookup)]))
 }
 
 /** A registry library's tokens, read and categorized as the app reads them, by name. */
 async function registryKinds(library: string): Promise<Record<string, PreviewKind>> {
   const file = new URL(`../../registry/libraries/${library}.lib.par`, import.meta.url)
+
   const described = await readDesignTokens(JSON.parse(readFileSync(file, "utf8")).tokens, () =>
     Promise.reject(new Error("The registry's tokens are inline"))
   )
+
   const types = new Map(described.map((token) => [describedTokenVar(token), token.type]))
   const tokens = extractTokens(describedTokenCss(described), [], describedCategories(described))
   const lookup = defaultValues(tokens)
+
   return Object.fromEntries(tokens.map((token) => [token.name, previewKind(token, types.get(token.name), lookup)]))
 }
 
@@ -38,6 +42,7 @@ describe("defaultValues", () => {
       { name: "radius", values: { default: "4px" } },
       { name: "glow", values: { dark: "0 0 8px white" } }
     ])
+
     expect([lookup("radius"), lookup("glow"), lookup("missing")]).toEqual(["4px", "0 0 8px white", undefined])
   })
 
@@ -46,6 +51,7 @@ describe("defaultValues", () => {
       { name: "radius", values: { default: "4px", dark: "6px" } },
       { name: "glow", values: { dark: "0 0 8px white" } }
     ])
+
     expect([lookup("radius", "dark"), lookup("radius", "contrast"), lookup("glow", "default")]).toEqual([
       "6px",
       "4px",
@@ -60,6 +66,7 @@ describe("defaultValues", () => {
       { name: "hero", values: { dark: "var(--hero-fill)" } },
       { name: "hero-fill", values: { default: "linear-gradient(black, navy)" } }
     ]
+
     const lookup = defaultValues(tokens)
     expect(previewKind({ ...tokens[0]!, category: "other" }, undefined, lookup)).toBe("gradient")
     expect(previewKind({ ...tokens[2]!, category: "other" }, undefined, lookup)).toBe("gradient")
@@ -89,6 +96,7 @@ describe("previewKind", () => {
       "breakpoint-md": "48rem",
       "container-md": "28rem"
     }).map(([name, value]) => ({ name, value }))
+
     // The spacing scale's steps come too, as spacing.
     expect(kinds("", theme)).toMatchObject({
       "spacing-4": "spacing",
@@ -117,6 +125,7 @@ describe("previewKind", () => {
   it("reads a project's own tokens by name and value, whatever Other holds them under", () => {
     const css = `:root { --opacity-scrim: 0.8; --layer-modal: 50; --z-index-toast: 60; --cursor-grab: grab;
       --duration-slow: 300ms; --border-width-thick: 2px; --sidebar-scale: 1.2 }`
+
     expect(kinds(css)).toMatchObject({
       "opacity-scrim": "opacity",
       "z-index-toast": "z-index",
@@ -176,6 +185,7 @@ describe("a value that is a duration", () => {
       category,
       values: { default: value }
     })
+
     expect(previewKind(token("animation-delay-75", "75ms", "motion"))).toBe("duration")
     expect(previewKind(token("animation-delay-1000", "1s", "other"))).toBe("duration")
     expect(previewKind(token("animate-spin", "spin 1s linear infinite", "motion"))).toBe("animation")
@@ -213,8 +223,8 @@ describe("values", () => {
 
   it("lists the tokens a value refers to, and replaces them with what they come to", () => {
     expect(tokenReferences("calc(var(--radius) * 0.8 + var(--gap, 2px))")).toEqual(["radius", "gap"])
-    const values: Record<string, string> = { radius: "0.625rem" }
-    expect(substituteReferences("calc(var(--radius) * 0.8 + var(--gap, 2px))", (name) => values[name])).toBe(
+    const values = new Map([["radius", "0.625rem"]])
+    expect(substituteReferences("calc(var(--radius) * 0.8 + var(--gap, 2px))", (name) => values.get(name))).toBe(
       "calc(0.625rem * 0.8 + 2px)"
     )
   })
@@ -223,8 +233,8 @@ describe("values", () => {
     expect(tokenReferences("var(--chart-1, var(--safe))")).toEqual(["chart-1", "safe"])
     expect(tokenReferences("calc(var(--a, calc(var(--b) * 2)) + var(--c))")).toEqual(["a", "b", "c"])
     expect(tokenReferences("var(--a, var(--b)")).toEqual(["a", "b"])
-    const values: Record<string, string> = { radius: "0.625rem" }
-    const lookup = (name: string) => values[name]
+    const values = new Map([["radius", "0.625rem"]])
+    const lookup = (name: string) => values.get(name)
     expect(substituteReferences("var(--missing, var(--radius))", lookup)).toBe("0.625rem")
     expect(substituteReferences("calc(var(--missing, calc(var(--radius) * 2)) + 1px)", lookup)).toBe(
       "calc(calc(0.625rem * 2) + 1px)"

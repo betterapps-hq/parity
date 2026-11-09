@@ -4,6 +4,7 @@ import {
   type ComponentSource,
   type ContainerSpec,
   type DesignNode,
+  type ImageNode,
   findNode,
   nodeIds
 } from "@parity-app/core"
@@ -12,12 +13,16 @@ import type { InsertContext } from "./insert.ts"
 import { designOfItem, designOfLayers, layersName } from "./new-screen.ts"
 
 const text = (id: string, words = id): DesignNode => ({ type: "text", id, text: words })
-const image = (id: string, alt?: string): DesignNode => ({
-  type: "image",
-  id,
-  src: `${id}.png`,
-  ...(alt ? { alt } : {})
-})
+
+const image = (id: string, alt?: string): DesignNode => {
+  const node: ImageNode = { type: "image", id, src: `${id}.png` }
+
+  if (alt) {
+    node.alt = alt
+  }
+
+  return node
+}
 
 /** A badge component design, with a param its instances fill. */
 const badge: ContainerSpec = {
@@ -120,12 +125,14 @@ describe("an item with nothing to go into", () => {
       path: "src/components/ui/button.tsx",
       props: [{ name: "children", kind: "node", group: "own" }]
     }
+
     const { design, node } = designOfItem(
       { kind: "component", component: "nova/Button" },
       context({ info: button }),
       ["button"],
       { x: 300, y: -120 }
     )
+
     expect(design).toMatchObject({ id: "button-2", name: "Button", kind: "frame", position: { x: 300, y: -120 } })
     expect(inside(design)).toEqual([findNode(design.root, node)])
     expect(findNode(design.root, node)).toMatchObject({ component: "nova/Button", props: { children: "Button" } })
@@ -135,12 +142,14 @@ describe("an item with nothing to go into", () => {
     const instance = designOfItem({ kind: "instance", design: "badge" }, context(), [], { x: 0, y: 0 }, designName)
     expect(instance.design.name).toBe("Badge")
     expect(findNode(instance.design.root, instance.node)).toMatchObject({ type: "instance", design: "badge" })
+
     const picture = designOfItem(
       { kind: "image", src: "images/hill.png", alt: "A hill", width: 1600, height: 900 },
       context(),
       [],
       { x: 0, y: 0 }
     )
+
     expect(picture.design.name).toBe("A hill")
   })
 
@@ -151,11 +160,14 @@ describe("an item with nothing to go into", () => {
       library: "acme",
       ...fields
     })
+
     const sources = { "acme/Tabs": source({}), "acme/Tab": source({ parents: ["acme/Tabs"] }) }
+
     const { design, node } = designOfItem({ kind: "component", component: "acme/Tab" }, context({ sources }), [], {
       x: 0,
       y: 0
     })
+
     expect(design.name).toBe("Tab")
     expect(inside(design)).toMatchObject([{ type: "component", component: "acme/Tabs" }])
     expect(findNode(design.root, node)).toMatchObject({ component: "acme/Tab" })

@@ -6,6 +6,8 @@ import {
   type BuilderDetection,
   type ComponentSource,
   type Detection,
+  type JsonValue,
+  type LibraryInfo,
   type PackageManagerDetection,
   prepareCanvasCss,
   type RendererAdapter,
@@ -13,6 +15,7 @@ import {
   type StylesAdapter,
   type ThemeVariable
 } from "@parity-app/core"
+import { isText } from "@parity-app/core/values/evaluate"
 import { detectProject, discoverProject, readPackage } from "@parity-app/project"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
@@ -57,8 +60,8 @@ export interface ProjectSnapshot {
   themes: string[]
   breakpoints: Record<string, string>
   components: Record<string, ComponentSource>
-  libraries: Record<string, unknown>[]
-  icons: Record<string, unknown>[]
+  libraries: (Pick<LibraryInfo, "id" | "package" | "version" | "stylesImported"> & { components: number })[]
+  icons: Pick<LibraryInfo, "id" | "package" | "version">[]
   storybook: StorybookInfo | null
   notes: string[]
 }
@@ -71,47 +74,70 @@ export interface ProjectSnapshot {
  */
 export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
   const pkg = (await readPackage(root))?.manifest
-  if (!pkg) throw new Error(`There's no package.json in ${root}`)
+
+  if (!pkg) {
+    throw new Error(`There's no package.json in ${root}`)
+  }
+
   const problems: string[] = []
   const renderer = renderers.find((adapter) => adapter.detect(pkg))
-  if (!renderer) problems.push(`No renderer supports ${pkg.name ?? root}`)
+
+  if (!renderer) {
+    problems.push(`No renderer supports ${pkg.name ?? root}`)
+  }
 
   let builder: ProjectSnapshot["builder"] = null
   const misses: string[] = []
+
   for (const adapter of builders) {
     try {
       const detection = await adapter.detect(root)
+
       if (detection.found) {
         builder = { id: adapter.id, ...detection }
         break
       }
+
       misses.push(`${adapter.name}: ${detection.summary}`)
     } catch (error) {
       problems.push(message(error))
     }
   }
+
   const detection = await detectProject(
     root,
     pkg,
     builder ? { id: builder.id, detection: builder } : undefined,
     checkedOn
   )
-  if (!builder && misses.length > 0) problems.push(`No builder supports ${root}.\n${misses.join("\n")}`)
+
+  if (!builder && misses.length > 0) {
+    problems.push(`No builder supports ${root}.\n${misses.join("\n")}`)
+  }
 
   const config = renderer ? await discoverProject(root, renderer, pkg) : undefined
   const stylesheets = config?.styles ?? []
+
   const sources = await Promise.all(
     stylesheets.map((path) => readFile(join(root, path), "utf8").catch(() => undefined))
   )
+
   const styles: ProjectSnapshot["styles"] = {
     stylesheets,
     missing: stylesheets.filter((_, index) => sources[index] === undefined)
   }
+
   let theme: ThemeVariable[] = []
+
   for (const [index, stylesheet] of stylesheets.entries()) {
     const adapter = stylesAdapters.find((candidate) => candidate.detect(sources[index] ?? ""))
-    if (!adapter) continue
+
+    if (!adapter) {
+      continue
+    }
+
     styles.adapter = adapter.id
+
     // As the app does: an untested version is tried like any other, and a failure says it's untested.
     try {
       theme = await adapter.loadTheme(root, stylesheet)
@@ -119,6 +145,7 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
       const tool = detection.tools.find((candidate) => candidate.id === adapter.id)
       styles.error = `${message(error)}${tool?.status === "dropped" ? ` (${tool.summary})` : ""}`
     }
+
     break
   }
 
@@ -127,30 +154,40 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
     units: false,
     colorSchemes: false
   }).scoped
+
   const tokens = extractTokens(css, theme)
   const categories: Record<string, number> = {}
-  for (const token of tokens) categories[token.category] = (categories[token.category] ?? 0) + 1
+
+  for (const token of tokens) {
+    categories[token.category] = (categories[token.category] ?? 0) + 1
+  }
+
   const themes = new Set(tokens.flatMap((token) => Object.keys(token.values)))
   const breakpoints: Record<string, string> = {}
+
   for (const token of tokens.filter((candidate) => candidate.category === "breakpoint")) {
     breakpoints[token.name] = token.values.default ?? Object.values(token.values)[0] ?? ""
   }
+
   const libraries = config?.libraries ?? []
+
   for (const library of libraries) {
-    for (const breakpoint of library.breakpoints ?? [])
+    for (const breakpoint of library.breakpoints ?? []) {
       breakpoints[`${library.id}/${breakpoint.id}`] = `${breakpoint.width}px`
+    }
   }
 
   const components = Object.entries(config?.components ?? {})
   // The app ends any error with the note naming untested versions, which may be the cause.
   const error = problems.length > 0 ? [...problems, detection.notice].filter(Boolean).join("\n\n") : undefined
+
   const snapshot: ProjectSnapshot = {
     opens: error ?? true,
     renderer: renderer?.id ?? null,
     builder,
     packageManager: detection.packageManager,
     tools: detection.tools,
-    ...(detection.notice ? { notice: detection.notice } : {}),
+    notice: detection.notice || undefined,
     styles,
     tokens: {
       count: tokens.length,
@@ -177,13 +214,20 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
     storybook: config?.storybook ?? null,
     notes: config?.notes ?? []
   }
+
   return withoutRoot(snapshot, root)
 }
 
 /** Compares theme names alphabetically, with the default theme first. */
 function defaultFirst(a: string, b: string): number {
-  if (a === "default") return -1
-  if (b === "default") return 1
+  if (a === "default") {
+    return -1
+  }
+
+  if (b === "default") {
+    return 1
+  }
+
   return a.localeCompare(b, "en")
 }
 
@@ -194,11 +238,13 @@ function sorted<T>(record: Record<string, T>): Record<string, T> {
 /** The snapshot with the project's folder, a temporary copy, written as `<project>` wherever it appears. */
 function withoutRoot<T>(value: T, root: string): T {
   const forms = [root, root.replaceAll("\\", "/")]
-  return JSON.parse(JSON.stringify(value), (_key, item: unknown) =>
-    typeof item === "string" ? forms.reduce((text, form) => text.replaceAll(form, "<project>"), item) : item
-  ) as T
+
+  // The snapshot is plain data, so the round trip through JSON gives back a `T` with only its text changed.
+  return JSON.parse(JSON.stringify(value), (_key, item: JsonValue) =>
+    isText(item) ? forms.reduce((text, form) => text.replaceAll(form, "<project>"), item) : item
+  )
 }
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function message(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }

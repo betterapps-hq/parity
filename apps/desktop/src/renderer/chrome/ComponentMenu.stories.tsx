@@ -28,6 +28,7 @@ const meta = {
 } satisfies Meta<typeof ComponentMenu>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A row of the panel with its menu, which the story's play opens. */

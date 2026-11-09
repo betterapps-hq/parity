@@ -23,6 +23,7 @@ export function StatusBar() {
   const openTab = (tab: string) => setLayout({ left: true, leftTab: tab })
   const stories = info.storybook ? Object.keys(info.storybook.stories).length : 0
   const themed = tokens.length - semantic
+
   return (
     <footer className="@container/footer flex h-7 shrink-0 items-center gap-1 border-t bg-background px-1.5 text-xs text-muted-foreground">
       <Item
@@ -90,13 +91,18 @@ export function StatusBar() {
 /** A tool's name with its version, when detection found one. */
 function titled(info: ProjectInfo, id: string, name: string): string {
   const version = info.detection.tools.find((tool) => tool.id === id)?.version
+
   return version ? `${name} ${version}` : name
 }
 
 /** A tooltip's line, with a note when the tool's version is one Parity doesn't test. */
 function withStatus(info: ProjectInfo, id: string, line: string): string {
   const status = info.detection.tools.find((tool) => tool.id === id)?.status
-  if (status === "dropped" || status === "newer") return `${line}. Parity doesn't test this version`
+
+  if (status === "dropped" || status === "newer") {
+    return `${line}. Parity doesn't test this version`
+  }
+
   return line
 }
 
@@ -134,6 +140,7 @@ function Item({
   children: ReactNode
 }) {
   const className = "flex h-6 shrink-0 items-center gap-1.5 rounded px-1.5"
+
   return (
     <Hint label={hint} detail={detail}>
       {onClick ? (
@@ -164,6 +171,7 @@ function ConsoleStatus({ projectId }: { projectId: string }) {
   const { errors, warnings } = tally(useConsole(projectId))
   const open = !!useLayout().console
   const detail = open ? "Click to close the console" : "Click to show the console"
+
   if (errors === 0 && warnings === 0) {
     return (
       <Item
@@ -177,7 +185,9 @@ function ConsoleStatus({ projectId }: { projectId: string }) {
       </Item>
     )
   }
+
   const said = [errors > 0 && plural(errors, "error"), warnings > 0 && plural(warnings, "warning")].filter(Boolean)
+
   return (
     <Item
       icon={
@@ -212,7 +222,11 @@ function ConsoleStatus({ projectId }: { projectId: string }) {
  */
 function SaveFailure({ store }: { store: DesignStore }) {
   const state = useSaveState(store)
-  if (state.status !== "failed") return null
+
+  if (state.status !== "failed") {
+    return null
+  }
+
   return (
     <Item
       icon={<TriangleAlert className="size-3.5 text-destructive" />}

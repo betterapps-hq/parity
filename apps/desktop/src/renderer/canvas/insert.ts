@@ -9,6 +9,7 @@ import {
   type Point,
   whereToInsert
 } from "@parity-app/editor"
+import type { Attributes } from "../chrome/event-attributes.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { track } from "../report-error.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -26,28 +27,43 @@ function recordInsert(
   design: string | undefined,
   newDesign: boolean
 ): void {
-  track("insert.done", {
+  const done: Attributes<"insert.done"> = {
     source: insertSource(session, item),
     via,
     kind: item.kind,
     item: itemName(item),
     count: 1,
-    ...(design ? { design } : {}),
     newDesign
-  })
+  }
+
+  if (design) {
+    done.design = design
+  }
+
+  track("insert.done", done)
 }
 
 /** Which item it is: the component, the design an instance places, or the image's file. */
 function itemName(item: InsertItem): string {
-  if (item.kind === "component") return item.component
+  if (item.kind === "component") {
+    return item.component
+  }
+
   return item.kind === "instance" ? item.design : item.src
 }
 
 /** The Assets panel section an item is from: an icon set's icons, images, or components. */
 function insertSource(session: ProjectSession, item: InsertItem): "components" | "icons" | "images" {
-  if (item.kind === "image") return "images"
-  if (item.kind !== "component") return "components"
+  if (item.kind === "image") {
+    return "images"
+  }
+
+  if (item.kind !== "component") {
+    return "components"
+  }
+
   const icons = session.info.libraries.filter((library) => library.kind === "icons")
+
   return icons.some((library) => item.component.startsWith(`${library.id}/`)) ? "icons" : "components"
 }
 
@@ -84,20 +100,36 @@ export function dropTarget(
   measures?: HereMeasures
 ): DropTarget | undefined {
   const place = placeAtPoint(session, area, point, measures)
-  if (place.kind !== "layout") return undefined
+
+  if (place.kind !== "layout") {
+    return undefined
+  }
+
   const { hit, slot } = place
   const { box } = place.here
-  return {
+
+  const target: DropTarget = {
     entry: hit.entry,
     parent: slot.layout,
     index: slot.index,
-    ...(slot.slot ? { slot: slot.slot } : {}),
     mode: hit.mode,
     state: hit.state,
-    box: { x: box.left, y: box.top, w: box.right - box.left, h: box.bottom - box.top },
-    ...(slot.line ? { line: slot.line } : {}),
-    ...(slot.free ? { at: slot.at } : {})
+    box: { x: box.left, y: box.top, w: box.right - box.left, h: box.bottom - box.top }
   }
+
+  if (slot.slot) {
+    target.slot = slot.slot
+  }
+
+  if (slot.line) {
+    target.line = slot.line
+  }
+
+  if (slot.free) {
+    target.at = slot.at
+  }
+
+  return target
 }
 
 /** What inserting an item needs to know from the project: its component's props, the sources and the library. */
@@ -122,12 +154,15 @@ export function insertItem(
   store.updateContainer(target.entry.key, insertLabel(item), (container) => {
     const inserted = insertIntoDesign(container, target, item, context)
     node = inserted.node
+
     return inserted.container
   })
+
   if (node) {
     selection.set({ design: target.entry.key, node, mode: target.mode, state: target.state })
     recordInsert(session, item, via, target.entry.key, false)
   }
+
   return node
 }
 
@@ -143,6 +178,7 @@ export function addFrameOfItem(
   via: InsertVia = "drag"
 ): string {
   const { store, selection } = session
+
   const { design } = designOfItem(
     item,
     insertContext(session, item),
@@ -150,9 +186,11 @@ export function addFrameOfItem(
     at,
     designNames(session)
   )
+
   const key = store.addContainer(store.mainPath, design, insertLabel(item))
   selection.set({ design: key })
   recordInsert(session, item, via, key, true)
+
   return key
 }
 
@@ -163,14 +201,26 @@ export function addFrameOfItem(
  */
 export function insertAtSelection(session: ProjectSession, item: InsertItem, via: InsertVia = "click"): boolean {
   const current = session.selection.get()
+
   if (!current.design) {
     addFrameOfItem(session, item, viewCenter(session), via)
+
     return true
   }
+
   const entry = session.store.getEntry(current.design)
-  if (!entry) return false
+
+  if (!entry) {
+    return false
+  }
+
   const at = whereToInsert(entry.container.root, current.node, session.store.getComponentLibrary())
-  if (!at) return false
+
+  if (!at) {
+    return false
+  }
+
   insertItem(session, { entry, ...at, mode: current.mode, state: current.state }, item, via)
+
   return true
 }

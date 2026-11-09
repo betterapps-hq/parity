@@ -1,6 +1,16 @@
 import { EventEmitter } from "node:events"
 import { describe, expect, it } from "vite-plus/test"
-import { type Checks, createChannel, type ErrorCodec, type Handlers } from "./channel.ts"
+import {
+  type Channel,
+  type ChannelMessage,
+  type Checks,
+  createChannel,
+  type ErrorCodec,
+  errorMessage,
+  type Handlers,
+  type Method
+} from "./channel.ts"
+import { isObject } from "./guards.ts"
 import { memoryPorts, nodePort } from "./ports.ts"
 
 /** What the service end answers in these tests. */
@@ -15,6 +25,23 @@ interface WindowSide {
   "window.title": { params: undefined; result: string }
 }
 
+/** Any method, with any params: what a sender typed by another map than the service's can ask. */
+type Anything = Record<string, Method>
+
+/** The codes these tests' failures carry. */
+const codes = ["invalid_input", "conflict", "locked"] as const
+
+/** Whether `value` holds one of the tests' codes, as core's checks read a coded error's details. */
+function isCoded(value: unknown): value is { code: (typeof codes)[number] } {
+  if (!isObject(value) || !("code" in value)) {
+    return false
+  }
+
+  const { code } = value
+
+  return codes.some((known) => known === code)
+}
+
 /** An error with a code, as core's `CodedError` carries one. */
 class CodedFailure extends Error {
   readonly details: { code: string }
@@ -27,32 +54,59 @@ class CodedFailure extends Error {
 
 /** Carries a code both ways, and refuses details without one, as the app's codec does with core's checks. */
 const codedErrors: ErrorCodec = {
-  encode: (error) => ({
-    error: error instanceof Error ? error.message : String(error),
-    ...(error instanceof CodedFailure ? { details: error.details } : {})
-  }),
-  decode: (message, details) => {
-    const code = (details as { code?: unknown } | undefined)?.code
-    return typeof code === "string" ? new CodedFailure(message, { code }) : new Error(message)
-  }
+  encode: (error) =>
+    error instanceof CodedFailure ? { error: error.message, details: error.details } : { error: errorMessage(error) },
+  decode: (message, details) =>
+    isCoded(details) ? new CodedFailure(message, { code: details.code }) : new Error(message)
 }
 
 const checks: Checks<ServiceSide> = {
   "notes.add": (params) => {
-    const text = (params as { text?: unknown } | undefined)?.text
-    if (typeof text !== "string") throw new CodedFailure("/text: expected a string", { code: "invalid_input" })
+    const text = isObject(params) && "text" in params ? params.text : undefined
+
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- these checks read params without zod, and text is a primitive
+    if (typeof text !== "string") {
+      throw new CodedFailure("/text: expected a string", { code: "invalid_input" })
+    }
+
     return { text }
   },
   "notes.slow": () => undefined,
-  "notes.fail": (params) => params as { code: string }
+  "notes.fail": (params) => {
+    if (!isCoded(params)) {
+      throw new CodedFailure("/code: expected a code", { code: "invalid_input" })
+    }
+
+    return { code: params.code }
+  }
+}
+
+/** Not asked in these tests. */
+function notAsked(): never {
+  throw new Error("Not asked in this test")
+}
+
+/**
+ * A sender typed by another map than the service's, as code in another process could be, which can ask for what the
+ * service doesn't answer. It moves the service to a port of its own.
+ */
+function stranger(service: Channel<ServiceSide, WindowSide>): Channel<WindowSide, Anything> {
+  const [servicePort, port] = memoryPorts()
+  service.connect(servicePort)
+  const sender = createChannel<WindowSide, Anything>({ errors: codedErrors })
+  sender.connect(port)
+
+  return sender
 }
 
 function connected(options: { checks?: boolean } = {}) {
   let later: () => void = () => undefined
   const added: string[] = []
+
   const handlers: Handlers<ServiceSide> = {
     "notes.add": ({ text }) => {
       added.push(text)
+
       return { id: added.length }
     },
     "notes.slow": () => new Promise((resolve) => (later = () => resolve("done"))),
@@ -60,20 +114,24 @@ function connected(options: { checks?: boolean } = {}) {
       throw new CodedFailure("That note is locked", { code })
     }
   }
+
   const service = createChannel<ServiceSide, WindowSide>({
     handlers,
     errors: codedErrors,
-    ...(options.checks ? { checks } : {}),
+    checks: options.checks ? checks : undefined,
     unknownMethod: (method) => new CodedFailure(`Unknown method ${method}`, { code: "invalid_input" }),
     disconnected: () => new Error("The canvas window closed")
   })
+
   const window = createChannel<WindowSide, ServiceSide>({
     errors: codedErrors,
     notServing: () => new Error("The canvas window isn't ready yet")
   })
+
   const [servicePort, windowPort] = memoryPorts()
   service.connect(servicePort)
   window.connect(windowPort)
+
   return { service, window, servicePort, windowPort, added, finishSlow: () => later() }
 }
 
@@ -108,7 +166,7 @@ describe("createChannel", () => {
       handlers: {
         "notes.add": ({ text }) => ({ id: added.push(text) }),
         "notes.slow": () => "",
-        "notes.fail": () => undefined as never
+        "notes.fail": notAsked
       }
     }).connect(servicePort)
     window.connect(windowPort)
@@ -136,6 +194,7 @@ describe("createChannel", () => {
     const window = createChannel<WindowSide, ServiceSide>({
       disconnected: () => new Error("The project service restarted")
     })
+
     const [silent] = memoryPorts()
     window.connect(silent)
     const lost = window.request("notes.add", { text: "Lost" })
@@ -147,18 +206,16 @@ describe("createChannel", () => {
   })
 
   it("refuses a method the other end doesn't answer, with the codec's details", async () => {
-    const { window } = connected()
-    const asked = window.request("notes.delete" as "notes.add", { text: "x" })
+    const { service } = connected()
+    const asked = stranger(service).request("notes.delete", { text: "x" })
     await expect(asked).rejects.toThrow("Unknown method notes.delete")
     await expect(asked).rejects.toMatchObject({ details: { code: "invalid_input" } })
   })
 
   it("never calls what an object inherits as though it were a method", async () => {
-    const { window } = connected({ checks: true })
-    await expect(window.request("constructor" as "notes.add", { text: "x" })).rejects.toThrow(
-      "Unknown method constructor"
-    )
-    await expect(window.request("__proto__" as "notes.add", { text: "x" })).rejects.toThrow("Unknown method __proto__")
+    const sender = stranger(connected({ checks: true }).service)
+    await expect(sender.request("constructor", { text: "x" })).rejects.toThrow("Unknown method constructor")
+    await expect(sender.request("__proto__", { text: "x" })).rejects.toThrow("Unknown method __proto__")
   })
 
   it("carries a coded error's details back to the caller", async () => {
@@ -169,39 +226,45 @@ describe("createChannel", () => {
   })
 
   it("checks params where they arrive and refuses them before the handler runs", async () => {
-    const { window, added } = connected({ checks: true })
-    const refused = window.request("notes.add", { text: 3 } as unknown as { text: string })
+    const { service, added } = connected({ checks: true })
+    const sender = stranger(service)
+    const refused = sender.request("notes.add", { text: 3 })
     await expect(refused).rejects.toMatchObject({
       message: "/text: expected a string",
       details: { code: "invalid_input" }
     })
     expect(added).toEqual([])
-    expect(await window.request("notes.add", { text: "Fine" })).toEqual({ id: 1 })
+    expect(await sender.request("notes.add", { text: "Fine" })).toEqual({ id: 1 })
   })
 
   it("passes what its checks read to the handler, not what was sent", async () => {
     const seen: unknown[] = []
+
     const service = createChannel<ServiceSide, WindowSide>({
       checks: { ...checks, "notes.add": () => ({ text: "trimmed" }) },
       handlers: {
         "notes.add": (params) => ({ id: seen.push(params) }),
         "notes.slow": () => "",
-        "notes.fail": () => undefined as never
+        "notes.fail": notAsked
       }
     })
+
     const window = createChannel<WindowSide, ServiceSide>()
     const [a, b] = memoryPorts()
     service.connect(a)
     window.connect(b)
-    await window.request("notes.add", { text: "  trimmed  ", extra: true } as { text: string })
+    const sent = { text: "  trimmed  ", extra: true }
+    await window.request("notes.add", sent)
     expect(seen).toEqual([{ text: "trimmed" }])
   })
 
   it("ignores what isn't a channel message, and a reply nobody asked for", async () => {
     const { window, windowPort } = connected()
+
     for (const stray of [undefined, "hello", { type: "connect" }, { type: "response", id: 99, result: 1 }]) {
       windowPort.deliver(stray)
     }
+
     expect(await window.request("notes.add", { text: "Still works" })).toEqual({ id: 1 })
   })
 
@@ -216,6 +279,7 @@ describe("createChannel", () => {
 
   it("passes the trace a request was sent in to the other end's `around`, which runs its handler", async () => {
     const seen: { method: string; trace: unknown }[] = []
+
     const service = createChannel<ServiceSide, WindowSide>({
       handlers: {
         "notes.add": ({ text }) => ({ id: text.length }),
@@ -227,10 +291,12 @@ describe("createChannel", () => {
       errors: codedErrors,
       around: async (request, answer) => {
         seen.push(request)
+
         return answer()
       }
     })
-    let current: unknown = { "sentry-trace": "action" }
+
+    let current: { "sentry-trace": string } | undefined = { "sentry-trace": "action" }
     const window = createChannel<WindowSide, ServiceSide>({ errors: codedErrors, trace: () => current })
     const [servicePort, windowPort] = memoryPorts()
     service.connect(servicePort)
@@ -256,6 +322,7 @@ describe("createChannel", () => {
       sent.push(message)
       post(message)
     }
+
     expect(await window.request("notes.add", { text: "Old" })).toEqual({ id: 1 })
     expect(sent).toEqual([{ type: "request", id: 1, method: "notes.add", params: { text: "Old" } }])
   })
@@ -263,21 +330,26 @@ describe("createChannel", () => {
 
 describe("nodePort", () => {
   it("unwraps Electron's `{ data }` messages and fails what was sent when its close event says why", async () => {
-    const emitter = Object.assign(new EventEmitter(), { posted: [] as unknown[], started: false })
-    const port = nodePort(
-      Object.assign(emitter, {
-        postMessage: (message: unknown) => emitter.posted.push(message),
-        start: () => {
-          emitter.started = true
-        }
-      }),
-      { wrapped: true, closedBy: { exit: (code) => new Error(`The service stopped with code ${String(code)}`) } }
-    )
+    const posted: ChannelMessage[] = []
+    let started = false
+
+    const emitter = Object.assign(new EventEmitter(), {
+      postMessage: (message: ChannelMessage) => posted.push(message),
+      start: () => {
+        started = true
+      }
+    })
+
+    const port = nodePort(emitter, {
+      wrapped: true,
+      closedBy: { exit: (code) => new Error(`The service stopped with code ${String(code)}`) }
+    })
+
     const channel = createChannel<WindowSide, ServiceSide>()
     channel.connect(port)
-    expect(emitter.started).toBe(true)
+    expect(started).toBe(true)
     const added = channel.request("notes.add", { text: "One" })
-    expect(emitter.posted).toEqual([{ type: "request", id: 1, method: "notes.add", params: { text: "One" } }])
+    expect(posted).toEqual([{ type: "request", id: 1, method: "notes.add", params: { text: "One" } }])
     emitter.emit("message", { data: { type: "response", id: 1, result: { id: 7 } } })
     expect(await added).toEqual({ id: 7 })
 

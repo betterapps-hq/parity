@@ -14,6 +14,7 @@ import {
   parseData,
   parseLibraryEdits
 } from "@parity-app/core"
+import { isText } from "@parity-app/core/values/evaluate"
 import semver from "semver"
 import { z } from "zod"
 
@@ -52,7 +53,11 @@ const registryManifest = fileObject({
  */
 export function registryDir(): string {
   const bundled = join(import.meta.dirname, "libraries")
-  if (existsSync(bundled)) return bundled
+
+  if (existsSync(bundled)) {
+    return bundled
+  }
+
   return join(dirname(require.resolve("@parity-app/registry/package.json")), "libraries")
 }
 
@@ -60,18 +65,25 @@ let cache: Promise<RegistryEntry[]> | undefined
 
 /** Every file in the registry, read once. One that doesn't parse is skipped with a warning. */
 export function registryEntries(dir = registryDir()): Promise<RegistryEntry[]> {
-  if (dir !== registryDir()) return readEntries(dir)
+  if (dir !== registryDir()) {
+    return readEntries(dir)
+  }
+
   cache ??= readEntries(dir)
+
   return cache
 }
 
 async function readEntries(dir: string): Promise<RegistryEntry[]> {
-  const files = (await readdir(dir).catch(() => [] as string[]))
+  const files = (await readdir(dir).catch((): string[] => []))
     .filter((file) => file.endsWith(libraryManifestExtension))
     .sort()
+
   const entries: RegistryEntry[] = []
+
   for (const file of files) {
     const path = join(dir, file)
+
     try {
       const { $schema: _schema, ...manifest } = parseData(registryManifest, JSON.parse(await readFile(path, "utf8")))
       entries.push({ file, path, manifest })
@@ -79,6 +91,7 @@ async function readEntries(dir: string): Promise<RegistryEntry[]> {
       console.warn(`Skipping registry file ${file}: ${errorText(error)}`)
     }
   }
+
   return entries
 }
 
@@ -96,14 +109,21 @@ export async function registryEntryFor(
   const candidates = (await registryEntries(dir)).filter((entry) => entry.manifest.package?.name === packageName)
   const covering = candidates.filter((entry) => covers(entry.manifest, version))
   const best = covering.sort((a, b) => compareGenerated(b.manifest, a.manifest))[0]
-  if (best || !version) return best
+
+  if (best || !version) {
+    return best
+  }
+
   const installed = semver.coerce(version, { includePrerelease: true })
+
   const older = candidates
     .filter((entry) => {
       const generated = semver.coerce(entry.manifest.package?.version)
+
       return installed && generated && semver.gt(installed, generated)
     })
     .sort((a, b) => compareGenerated(b.manifest, a.manifest))[0]
+
   return older && { ...older, older: true }
 }
 
@@ -113,17 +133,23 @@ export async function registryEntryFor(
  */
 export async function newestEntries(dir?: string): Promise<RegistryEntry[]> {
   const newest = new Map<string, RegistryEntry>()
+
   for (const entry of await registryEntries(dir)) {
     const name = entry.manifest.package!.name
     const current = newest.get(name)
-    if (!current || compareGenerated(entry.manifest, current.manifest) > 0) newest.set(name, entry)
+
+    if (!current || compareGenerated(entry.manifest, current.manifest) > 0) {
+      newest.set(name, entry)
+    }
   }
+
   return Promise.all(
     [...newest.values()].map(async (entry) => {
       try {
         return { ...entry, manifest: (await withEdits(entry.path, entry.manifest)).manifest }
       } catch (error) {
         console.warn(`Using registry file ${entry.file} without its edits: ${errorText(error)}`)
+
         return entry
       }
     })
@@ -139,7 +165,10 @@ export async function withEdits(
   path: string,
   manifest: LibraryManifest
 ): Promise<{ manifest: LibraryManifest; orphans: string[] }> {
-  if (manifest.edits === undefined) return { manifest, orphans: [] }
+  if (manifest.edits === undefined) {
+    return { manifest, orphans: [] }
+  }
+
   return applyLibraryEdits(manifest, await readLibraryEdits(manifest.edits, dirname(path)))
 }
 
@@ -147,29 +176,45 @@ export async function withEdits(
  * Hand edits as a library file writes them: inline, or the path of a shared file, which is read from `from` and may
  * have comments.
  */
-export async function readLibraryEdits(edits: unknown, from: string): Promise<LibraryEdits> {
-  return parseLibraryEdits(typeof edits === "string" ? parseJsonc(await readFile(resolve(from, edits), "utf8")) : edits)
+export async function readLibraryEdits(
+  edits: NonNullable<LibraryManifest["edits"]>,
+  from: string
+): Promise<LibraryEdits> {
+  return parseLibraryEdits(isText(edits) ? parseJsonc(await readFile(resolve(from, edits), "utf8")) : edits)
 }
 
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function errorText(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }
 
 /** Whether a manifest describes this version of its package. A manifest without a range covers every version. */
 export function covers(manifest: Pick<LibraryManifest, "package">, version: string | undefined): boolean {
   const range = manifest.package?.range
-  if (!range) return true
-  if (!version) return false
+
+  if (!range) {
+    return true
+  }
+
+  if (!version) {
+    return false
+  }
+
   const parsed = semver.coerce(version, { includePrerelease: true })
+
   return parsed !== null && semver.satisfies(parsed, range, { includePrerelease: true })
 }
 
 function compareGenerated(a: LibraryManifest, b: LibraryManifest): number {
   const left = semver.coerce(a.package?.version)
   const right = semver.coerce(b.package?.version)
+
   if (!left || !right) {
-    if (left) return 1
+    if (left) {
+      return 1
+    }
+
     return right ? -1 : 0
   }
+
   return semver.compare(left, right)
 }

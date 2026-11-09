@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { type CanvasDocument, type ContainerSpec, type DesignNode, canvasDocument } from "./document.ts"
-import { fileObject, finiteNumber, parseData, plainObject } from "./schema.ts"
+import { fileObject, finiteNumber, parseData, parserFor, plainObject } from "./schema.ts"
+import { isComposite, isText } from "./values/evaluate.ts"
 import { decoratorProps, decoratorValue, sampleProps } from "./values/grammar.ts"
 
 // A library file is checked by the schemas below, leaves first, as a `.par` is in `document.ts`. Its `canvas` is a
@@ -12,6 +13,7 @@ const libraryBreakpoint = fileObject({
   /** The width where it starts, in CSS pixels. */
   width: finiteNumber
 })
+
 export type LibraryBreakpoint = z.infer<typeof libraryBreakpoint>
 
 /** The package a manifest describes. */
@@ -23,10 +25,12 @@ export const libraryPackage = fileObject({
   /** The versions it describes, as a semver range such as `^9.0.0`. Unset means any. */
   range: z.string().optional()
 })
+
 export type LibraryPackage = z.infer<typeof libraryPackage>
 
 /** How a component was recognised, which is also why it's believed to be one. */
 export const componentEvidence = ["function", "forwardRef", "memo", "lazy", "class", "exotic"] as const
+
 export type ComponentEvidence = (typeof componentEvidence)[number]
 
 /**
@@ -35,6 +39,7 @@ export type ComponentEvidence = (typeof componentEvidence)[number]
  * (`AccordionItem` under `Accordion`), or a hand edit.
  */
 export const parentSignals = ["example", "source", "namespace", "error", "prefix", "edit", "app"] as const
+
 export type ParentSignal = (typeof parentSignals)[number]
 
 /**
@@ -49,6 +54,7 @@ const sampleRender = fileObject({
   spread: z.literal(true).optional(),
   pass: z.array(z.string()).optional()
 })
+
 export type SampleRender = z.infer<typeof sampleRender>
 
 /** A component of the same library, by its name in `components.list`, with its props and children. */
@@ -60,18 +66,28 @@ const sampleComponent = fileObject({
   }
 })
 
+export type SampleComponent = z.infer<typeof sampleComponent>
+
 /**
  * Text, a component of the same library by its name in `components.list`, or a render function: what a part calls to
  * draw, as children (`Field.Validity`) or as a prop's value (`renderInput`).
  */
 const sampleChild = z.union([z.string(), sampleRender, sampleComponent])
+
 export type SampleChild = z.infer<typeof sampleChild>
+
+/** Whether a sample's child is text, rather than a component or a render function. */
+export function isSampleText(child: SampleChild): child is string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the other kinds are objects; text is the one kind JSON holds as a string
+  return typeof child === "string"
+}
 
 /**
  * A prop whose value is elements, as MUI's `control={<Checkbox />}` or an `icon`: inserted as a named slot of that
  * prop, which the canvas passes as the prop's value.
  */
 const sampleElement = z.object({ $element: z.array(sampleChild) })
+
 export type SampleElement = z.infer<typeof sampleElement>
 
 /** What a component needs to draw something: props with sample values, and children, as for a collection's items. */
@@ -79,6 +95,7 @@ const componentSample = fileObject({
   props: sampleProps.optional(),
   children: z.array(sampleChild).optional()
 })
+
 export type ComponentSample = z.infer<typeof componentSample>
 
 /** A regular expression's source, checked by compiling it. */
@@ -86,6 +103,7 @@ const pattern = z.string().refine((source) => {
   try {
     // oxlint-disable-next-line eslint/no-new -- constructing the expression is the check: it throws when it's invalid
     new RegExp(source)
+
     return true
   } catch {
     return false
@@ -137,9 +155,11 @@ const libraryComponent = fileObject({
   /** Its own props (not the HTML attributes it passes on), each with a hash of its type; `?` marks an optional one. */
   props: z.record(z.string(), z.string()).optional()
 })
+
 export type LibraryComponent = z.infer<typeof libraryComponent>
 
 const libraryComponentEdit = fileObject({ as: z.enum(componentEvidence).optional(), ...componentFields })
+
 export type LibraryComponentEdit = z.infer<typeof libraryComponentEdit>
 
 const libraryComponents = fileObject({
@@ -151,10 +171,12 @@ const libraryComponents = fileObject({
    */
   list: z.record(z.string(), libraryComponent)
 })
+
 export type LibraryComponents = z.infer<typeof libraryComponents>
 
 /** One React component that draws an icon given as data, as Hugeicons' `HugeiconsIcon` does with its `icon` prop. */
 const iconRenderer = fileObject({ import: z.string(), component: z.string(), prop: z.string() })
+
 export type IconRenderer = z.infer<typeof iconRenderer>
 
 const iconVariants = fileObject({
@@ -175,6 +197,7 @@ const iconVariants = fileObject({
   /** What the picker shows first. An icon without a size in its name scales with the text. */
   default: fileObject({ style: z.string().optional(), size: finiteNumber.optional() }).optional()
 })
+
 export type IconVariants = z.infer<typeof iconVariants>
 
 const libraryIcons = fileObject({
@@ -207,6 +230,7 @@ const libraryIcons = fileObject({
   /** Where `tags` were read from, as `package@version/path`. */
   tagSource: z.string().optional()
 })
+
 export type LibraryIcons = z.infer<typeof libraryIcons>
 
 const decoratorElement = fileObject({
@@ -215,6 +239,7 @@ const decoratorElement = fileObject({
   component: z.string(),
   props: decoratorProps.optional()
 })
+
 export type DecoratorElement = z.infer<typeof decoratorElement>
 
 const decoratorEffects = ["wrap", "add", "class", "attributes", "style"] as const
@@ -235,10 +260,12 @@ const libraryDecorator = fileObject({
   style: decoratorProps.optional()
 }).superRefine((decorator, context) => {
   const effects = decoratorEffects.filter((key) => decorator[key] !== undefined)
+
   if (effects.length !== 1) {
     context.addIssue({ code: "custom", message: "expected one of wrap, add, class, attributes or style" })
   }
 })
+
 export type LibraryDecorator = z.infer<typeof libraryDecorator>
 
 /**
@@ -252,6 +279,7 @@ const libraryEdits = fileObject({
   components: z.record(z.string(), z.union([z.boolean().pipe(z.literal(false)), libraryComponentEdit])).optional(),
   decorators: z.array(libraryDecorator).optional()
 })
+
 export type LibraryEdits = Omit<z.infer<typeof libraryEdits>, "$schema">
 
 /**
@@ -293,58 +321,90 @@ export const libraryManifest = fileObject({
   /** The library's own canvas: its designs where its author placed them, its notes and its modes, as in a `.par`. */
   canvas: canvasDocument.optional()
 })
+
 export type LibraryManifest = Omit<z.infer<typeof libraryManifest>, "$schema">
 
 /** A library manifest's extension. It describes a library, and its `canvas` holds the library's own designs. */
 export const libraryManifestExtension = ".lib.par"
 
 /** Reads a library file, or throws `TypeError` with the first problem as `/json/pointer: message`. */
-export function parseLibraryManifest(value: unknown): LibraryManifest {
-  const { $schema: _schema, ...manifest } = parseData(libraryManifest, value)
-  return manifest
-}
+export const parseLibraryManifest = parserFor(
+  libraryManifest,
+  ({ $schema: _schema, ...manifest }): LibraryManifest => manifest
+)
 
 /** Reads hand edits to a library file, from its `edits` or a shared file of them. */
-export function parseLibraryEdits(value: unknown, at = ""): LibraryEdits {
-  const { $schema: _schema, ...edits } = parseData(libraryEdits, value, at)
-  return edits
+export const parseLibraryEdits = parserFor(libraryEdits, ({ $schema: _schema, ...edits }): LibraryEdits => edits)
+
+/** A manifest with hand edits merged in, and the exports edits name that it doesn't have. */
+export interface EditedLibrary {
+  manifest: LibraryManifest
+  orphans: string[]
 }
 
 /**
  * The manifest with hand edits merged over what was generated, and the edited exports it no longer has, which are
  * reported rather than dropped silently. An edit can add a component the checker missed, if it says what it's `as`.
  */
-export function applyLibraryEdits(
-  manifest: LibraryManifest,
-  edits: LibraryEdits | undefined
-): { manifest: LibraryManifest; orphans: string[] } {
-  if (!edits) return { manifest, orphans: [] }
+export function applyLibraryEdits(manifest: LibraryManifest, edits: LibraryEdits | undefined): EditedLibrary {
+  if (!edits) {
+    return { manifest, orphans: [] }
+  }
+
   const orphans: string[] = []
   let components = manifest.components
+
   if (edits.components) {
     const list = { ...components?.list }
+
     for (const [name, edit] of Object.entries(edits.components)) {
       const generated = list[name]
+
       if (edit === false) {
-        if (generated) delete list[name]
-        else orphans.push(name)
+        if (generated) {
+          delete list[name]
+        } else {
+          orphans.push(name)
+        }
+
         continue
       }
-      if (!generated && !edit.as) {
+
+      // A generated component always says what it's `as`, so only an edit adding one can lack it.
+      const as = edit.as ?? generated?.as
+
+      if (!as) {
         orphans.push(name)
         continue
       }
-      const merged = { ...generated, ...edit } as LibraryComponent
-      if (edit.parents && !edit.parentsFrom) merged.parentsFrom = "edit"
+
+      const merged: LibraryComponent = { ...generated, ...edit, as }
+
+      if (edit.parents && !edit.parentsFrom) {
+        merged.parentsFrom = "edit"
+      }
+
       // Hand-edited parents replace the generated ones, and which of those were optional with them.
-      if (edit.parents && !edit.optionalParents) delete merged.optionalParents
+      if (edit.parents && !edit.optionalParents) {
+        delete merged.optionalParents
+      }
+
       list[name] = merged
     }
+
     components = { ...components, list }
   }
+
   const merged: LibraryManifest = { ...manifest, components, decorators: edits.decorators ?? manifest.decorators }
-  if (!merged.components) delete merged.components
-  if (!merged.decorators) delete merged.decorators
+
+  if (!merged.components) {
+    delete merged.components
+  }
+
+  if (!merged.decorators) {
+    delete merged.decorators
+  }
+
   return { manifest: merged, orphans }
 }
 
@@ -367,6 +427,7 @@ export function libraryDesigns(manifest: Pick<LibraryManifest, "canvas">, id: st
   const components = (manifest.canvas?.containers ?? []).filter((container) => container.kind === "component")
   const own = new Set(components.map((container) => container.id))
   const rename = (design: string) => (own.has(design) ? `${id}/${design}` : design)
+
   return components.map((container) => ({
     ...container,
     id: `${id}/${container.id}`,
@@ -375,16 +436,23 @@ export function libraryDesigns(manifest: Pick<LibraryManifest, "canvas">, id: st
 }
 
 function withDesignsRenamed(node: DesignNode, rename: (design: string) => string): DesignNode {
-  if (node.type === "instance") return { ...node, design: rename(node.design) }
-  if (node.type === "layout")
+  if (node.type === "instance") {
+    return { ...node, design: rename(node.design) }
+  }
+
+  if (node.type === "layout") {
     return { ...node, children: node.children.map((child) => withDesignsRenamed(child, rename)) }
+  }
+
   if (node.type === "component" && node.slots) {
     const slots = Object.entries(node.slots).map(([slot, nodes]) => [
       slot,
       nodes.map((child) => withDesignsRenamed(child, rename))
     ])
+
     return { ...node, slots: Object.fromEntries(slots) }
   }
+
   return node
 }
 
@@ -397,10 +465,12 @@ export function libraryCanvas(manifest: LibraryManifest): CanvasDocument {
  * A `.lib.par` file's JSON with its canvas replaced, ready to write. Everything else in the file stays as it was, so
  * saving designs never touches what the author wrote about the library. The file must use the current format.
  */
-export function withLibraryCanvas(file: unknown, canvas: CanvasDocument): Record<string, unknown> {
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: the file's JSON as read, which this parses
+export function withLibraryCanvas(file: unknown, canvas: CanvasDocument): z.output<typeof plainObject> {
   parseLibraryManifest(file)
-  // A file that reads as a manifest is an object.
-  const { canvas: _previous, ...rest } = file as Record<string, unknown>
+  // The file's own object, not the manifest read from it, which leaves out `$schema`, so the rest stays as written.
+  const { canvas: _previous, ...rest } = parseData(plainObject, file)
+
   return { ...rest, canvas }
 }
 
@@ -413,27 +483,37 @@ export function remapLibraryImports<T extends Pick<LibraryManifest, "components"
   manifest: T,
   map: (specifier: string) => string
 ): T {
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- walks a whole manifest, whatever each field holds, including decorator values that hold module exports' arguments
   const visit = (value: unknown, path: readonly string[]): unknown => {
-    if (Array.isArray(value)) return value.map((entry, index) => visit(entry, [...path, String(index)]))
-    if (typeof value !== "object" || value === null) return value
+    if (Array.isArray(value)) {
+      return value.map((entry, index) => visit(entry, [...path, String(index)]))
+    }
+
+    if (!isComposite(value)) {
+      return value
+    }
+
     const location = path.join(".")
+
     const module =
       location === "components" ||
       location === "icons" ||
       location === "icons.render" ||
       (path.length === 3 && path[0] === "decorators" && (path[2] === "wrap" || path[2] === "add")) ||
       path.at(-1) === "$call"
+
     return Object.fromEntries(
       Object.entries(value).map(([key, entry]) => [
         key,
-        typeof entry === "string" &&
-        (key === "$import" || (key === "import" && module) || location === "icons.variants.modules")
+        isText(entry) && (key === "$import" || (key === "import" && module) || location === "icons.variants.modules")
           ? map(entry)
           : visit(entry, [...path, key])
       ])
     )
   }
-  // Rewriting string values preserves the manifest's structure and its caller's more specific type.
+
+  // SAFETY: `visit` rebuilds every array and object as it was and only swaps module strings for other strings, so the
+  // result has the manifest's structure and its caller's more specific type.
   return visit(manifest, []) as T
 }
 
@@ -442,7 +522,9 @@ export function libraryImports(manifest: Pick<LibraryManifest, "decorators" | "i
   const found = new Set<string>()
   remapLibraryImports({ decorators: manifest.decorators, icons: manifest.icons }, (specifier) => {
     found.add(specifier)
+
     return specifier
   })
+
   return [...found]
 }

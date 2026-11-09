@@ -12,6 +12,7 @@ import {
   viewportHeightProperty,
   viewportWidthProperty
 } from "@parity-app/core"
+import { hasFlag } from "./bits.ts"
 import { unrecordedShadow } from "./shadow.ts"
 
 export interface FrameEnvironment {
@@ -88,10 +89,14 @@ function frameRootCss(): string {
 }
 
 function frameRootSheet(): CSSStyleSheet {
-  if (rootSheet) return rootSheet
+  if (rootSheet) {
+    return rootSheet
+  }
+
   registerRootFontSize()
   rootSheet = new CSSStyleSheet()
   rootSheet.replaceSync(frameRootCss())
+
   return rootSheet
 }
 
@@ -104,7 +109,9 @@ function registerRootFontSize(): void {
   try {
     CSS.registerProperty({ name: rootFontSizeProperty, syntax: "<length>", inherits: false, initialValue: "16px" })
   } catch (error) {
-    if (!(error instanceof DOMException && error.name === "InvalidModificationError")) throw error
+    if (!(error instanceof DOMException && error.name === "InvalidModificationError")) {
+      throw error
+    }
   }
 }
 
@@ -119,16 +126,28 @@ function registerRootFontSize(): void {
  */
 function keepOutInherited(host: HTMLElement): void {
   const parent = host.parentNode instanceof ShadowRoot ? host.parentNode.host : host.parentElement
-  if (!parent) return
+
+  if (!parent) {
+    return
+  }
+
   const style = getComputedStyle(parent)
   let added = false
+
   for (let index = 0; index < style.length; index++) {
     const name = style.item(index)
-    if (!name.startsWith("--") || name === frameHeightProperty || resetNames.has(name)) continue
+
+    if (!name.startsWith("--") || name === frameHeightProperty || resetNames.has(name)) {
+      continue
+    }
+
     resetNames.add(name)
     added = true
   }
-  if (added) frameRootSheet().replaceSync(frameRootCss())
+
+  if (added) {
+    frameRootSheet().replaceSync(frameRootCss())
+  }
 }
 
 /**
@@ -141,10 +160,18 @@ export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environmen
   watchFrameStyles(shadow)
   shadow.adoptedStyleSheets = [frameRootSheet(), sheet]
   keepOutInherited(host)
-  if (environment.viewport) setFrameViewport(host, environment.viewport)
+
+  if (environment.viewport) {
+    setFrameViewport(host, environment.viewport)
+  }
+
   const body = document.createElement("div")
   body.setAttribute(bodyAttribute, "")
-  for (const [name, value] of Object.entries(environment.attributes)) body.setAttribute(name, value)
+
+  for (const [name, value] of Object.entries(environment.attributes)) {
+    body.setAttribute(name, value)
+  }
+
   body.classList.add(...environment.classNames)
   // A frame with a fixed height passes it down, so a design's root can fill it. Its margin box fills the frame, so a
   // body margin doesn't push it past the bottom.
@@ -153,6 +180,7 @@ export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environmen
   target.style.height = "100%"
   body.append(target)
   shadow.replaceChildren(body)
+
   return target
 }
 
@@ -171,7 +199,10 @@ let rewritingRules = false
  * measure Parity's window and root.
  */
 function rewriteAddedRules(): void {
-  if (rewritingRules) return
+  if (rewritingRules) {
+    return
+  }
+
   rewritingRules = true
   // The originals, called with each sheet as `this`.
   const original = Object.getOwnPropertyDescriptors(CSSStyleSheet.prototype)
@@ -181,9 +212,11 @@ function rewriteAddedRules(): void {
   CSSStyleSheet.prototype.insertRule = function (rule, index) {
     return insertRule.call(this, rewriteSheetFrameUnits(rule), index)
   }
+
   CSSStyleSheet.prototype.replace = function (text) {
     return replace.call(this, rewriteSheetFrameUnits(text))
   }
+
   CSSStyleSheet.prototype.replaceSync = function (text) {
     replaceSync.call(this, rewriteSheetFrameUnits(text))
   }
@@ -200,36 +233,66 @@ const watched = new WeakSet<ShadowRoot>()
  * style Parity sets.
  */
 function watchFrameStyles(shadow: ShadowRoot): void {
-  if (watched.has(shadow)) return
+  if (watched.has(shadow)) {
+    return
+  }
+
   watched.add(shadow)
   new MutationObserver((records) => {
     for (const record of records) {
-      if (record.type === "attributes") rewriteStyleAttribute(record.target as Element)
-      else if (record.type === "characterData") rewriteStyleText(record.target)
-      else for (const node of record.addedNodes) rewriteAdded(node)
+      if (record.type === "attributes" && record.target instanceof Element) {
+        rewriteStyleAttribute(record.target)
+      } else if (record.type === "characterData") {
+        rewriteStyleText(record.target)
+      } else {
+        for (const node of record.addedNodes) {
+          rewriteAdded(node)
+        }
+      }
     }
   }).observe(shadow, { childList: true, characterData: true, attributeFilter: ["style"], subtree: true })
 }
 
 function rewriteAdded(node: Node): void {
-  if (!(node instanceof Element)) return rewriteStyleText(node)
+  if (!(node instanceof Element)) {
+    return rewriteStyleText(node)
+  }
+
   for (const element of [node, ...node.querySelectorAll("[style], style")]) {
-    if (element.localName !== "style") rewriteStyleAttribute(element)
-    else for (const text of element.childNodes) rewriteStyleText(text)
+    if (element.localName !== "style") {
+      rewriteStyleAttribute(element)
+    } else {
+      for (const text of element.childNodes) {
+        rewriteStyleText(text)
+      }
+    }
   }
 }
 
 function rewriteStyleAttribute(element: Element): void {
   const style = element.getAttribute("style")
-  if (style === null) return
+
+  if (style === null) {
+    return
+  }
+
   const rewritten = rewriteFrameUnits(style)
-  if (rewritten !== style) element.setAttribute("style", rewritten)
+
+  if (rewritten !== style) {
+    element.setAttribute("style", rewritten)
+  }
 }
 
 function rewriteStyleText(node: Node): void {
-  if (!(node instanceof Text) || node.parentElement?.localName !== "style") return
+  if (!(node instanceof Text) || node.parentElement?.localName !== "style") {
+    return
+  }
+
   const rewritten = rewriteSheetFrameUnits(node.data)
-  if (rewritten !== node.data) node.data = rewritten
+
+  if (rewritten !== node.data) {
+    node.data = rewritten
+  }
 }
 
 /** How each frame's guest says where its design nodes are drawn, by the frame's host element. */
@@ -241,10 +304,16 @@ const drawnBy = new WeakMap<Element, () => DrawnNodes | undefined>()
  * their `data-canvas-node` attribute, which a component that ignores its props never renders.
  */
 export function setDrawnNodes(host: Element, drawnNodes: (() => DrawnNodes | undefined) | undefined): void {
-  if (drawnNodes) drawnBy.set(host, drawnNodes)
-  else drawnBy.delete(host)
+  if (drawnNodes) {
+    drawnBy.set(host, drawnNodes)
+  } else {
+    drawnBy.delete(host)
+  }
+
   // Its layers are found another way now, and the overlay measures them again.
-  if (host instanceof HTMLElement && isRegistered(host)) tellFrameListeners(host, true)
+  if (host instanceof HTMLElement && isRegistered(host)) {
+    tellFrameListeners(host, true)
+  }
 }
 
 /**
@@ -254,14 +323,21 @@ export function setDrawnNodes(host: Element, drawnNodes: (() => DrawnNodes | und
 export function whenDrawn(target: HTMLElement, drawn: () => void): () => void {
   if (target.firstChild) {
     drawn()
+
     return () => undefined
   }
+
   const observer = new MutationObserver(() => {
-    if (!target.firstChild) return
+    if (!target.firstChild) {
+      return
+    }
+
     observer.disconnect()
     drawn()
   })
+
   observer.observe(target, { childList: true })
+
   return () => observer.disconnect()
 }
 
@@ -272,8 +348,15 @@ function drawnNodes(host: Element): DrawnNodes | undefined {
 /** The elements a node draws at its top level, in order: several for a fragment, none when it draws nothing. */
 export function findNodeElements(host: Element, nodeId: string): HTMLElement[] {
   const drawn = drawnNodes(host)
-  if (drawn) return drawn.elements(nodeId) as HTMLElement[]
+
+  if (drawn) {
+    // SAFETY: read as HTML elements, as the fallback's `querySelector<HTMLElement>` below reads them; an SVG element at
+    // a node's top level has the style and layout callers read.
+    return drawn.elements(nodeId) as HTMLElement[]
+  }
+
   const element = host.shadowRoot?.querySelector<HTMLElement>(`[data-canvas-node="${CSS.escape(nodeId)}"]`)
+
   return element ? [element] : []
 }
 
@@ -289,6 +372,7 @@ export function findNodeElement(host: Element, nodeId: string): HTMLElement | un
  */
 export function nodeBox(host: Element, nodeId: string): DOMRect | undefined {
   const drawn = drawnNodes(host)
+
   return drawn ? boxAround(drawnBoxes(drawn, nodeId)) : boxAround(findNodeElements(host, nodeId).map(elementBox))
 }
 
@@ -301,6 +385,7 @@ function drawnBoxes(drawn: DrawnNodes, nodeId: string): DOMRect[] {
 function textBox(text: Text): DOMRect {
   const range = document.createRange()
   range.selectNodeContents(text)
+
   return range.getBoundingClientRect()
 }
 
@@ -315,11 +400,13 @@ const clippedAway = new WeakMap<Element, boolean>()
 export function elementBox(element: Element): DOMRect {
   const rect = element.getBoundingClientRect()
   let hidden = clippedAway.get(element)
+
   if (hidden === undefined) {
     const style = getComputedStyle(element)
     hidden = style.clip === "rect(0px, 0px, 0px, 0px)" || style.clipPath === "inset(50%)"
     clippedAway.set(element, hidden)
   }
+
   return hidden ? new DOMRect(rect.left, rect.top, 0, 0) : rect
 }
 
@@ -330,9 +417,17 @@ export function elementBox(element: Element): DOMRect {
 export function flowingBoxes(layout: Element): DOMRect[] {
   return [...layout.children].flatMap((child) => {
     const style = getComputedStyle(child)
-    if (style.display === "contents") return flowingBoxes(child)
-    if (style.display === "none" || style.position === "absolute" || style.position === "fixed") return []
+
+    if (style.display === "contents") {
+      return flowingBoxes(child)
+    }
+
+    if (style.display === "none" || style.position === "absolute" || style.position === "fixed") {
+      return []
+    }
+
     const box = child.getBoundingClientRect()
+
     return box.width > 0 || box.height > 0 ? [box] : []
   })
 }
@@ -340,19 +435,31 @@ export function flowingBoxes(layout: Element): DOMRect[] {
 /** The box around a node's elements' boxes, leaving out empty ones unless they're all empty. */
 export function boxAround(rects: readonly DOMRect[]): DOMRect | undefined {
   const drawn = rects.filter((rect) => rect.width > 0 || rect.height > 0)
-  if (drawn.length === 0) return rects[0]
-  if (drawn.length === 1) return drawn[0]
+
+  if (drawn.length === 0) {
+    return rects[0]
+  }
+
+  if (drawn.length === 1) {
+    return drawn[0]
+  }
+
   const left = Math.min(...drawn.map((rect) => rect.left))
   const top = Math.min(...drawn.map((rect) => rect.top))
   const right = Math.max(...drawn.map((rect) => rect.right))
   const bottom = Math.max(...drawn.map((rect) => rect.bottom))
+
   return new DOMRect(left, top, right - left, bottom - top)
 }
 
 /** Every node a frame draws, parents before their children. */
 export function drawnNodeIds(host: Element): string[] {
   const drawn = drawnNodes(host)
-  if (drawn) return [...drawn.ids]
+
+  if (drawn) {
+    return [...drawn.ids]
+  }
+
   return attributeElements(host).map((element) => element.dataset.canvasNode!)
 }
 
@@ -360,10 +467,13 @@ export function drawnNodeIds(host: Element): string[] {
 export function nodesAt(host: Element, point: { x: number; y: number }): string[] {
   const holds = (rect: DOMRect | undefined) =>
     !!rect && point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+
   const drawn = drawnNodes(host)
+
   if (drawn) {
     return drawn.ids.filter((id) => holds(boxAround(drawnBoxes(drawn, id))))
   }
+
   return attributeElements(host)
     .filter((element) => holds(boxAround([elementBox(element)])))
     .map((element) => element.dataset.canvasNode!)
@@ -372,14 +482,22 @@ export function nodesAt(host: Element, point: { x: number; y: number }): string[
 /** The node a node is drawn inside, in the frame. */
 export function nodeParent(host: Element, nodeId: string): string | undefined {
   const drawn = drawnNodes(host)
-  if (drawn) return drawn.parent(nodeId)
+
+  if (drawn) {
+    return drawn.parent(nodeId)
+  }
+
   return findNodeElement(host, nodeId)?.parentElement?.closest<HTMLElement>("[data-canvas-node]")?.dataset.canvasNode
 }
 
 /** The node an element in a frame belongs to: the innermost one drawing it or an element around it. */
 export function nodeOfElement(host: Element, element: Element): string | undefined {
   const drawn = drawnNodes(host)
-  if (drawn) return drawn.nodeOf(element)
+
+  if (drawn) {
+    return drawn.nodeOf(element)
+  }
+
   return element.closest<HTMLElement>("[data-canvas-node]")?.dataset.canvasNode
 }
 
@@ -403,12 +521,21 @@ const frameListeners = new Set<(host: HTMLElement, mounted: boolean) => void>()
  */
 export function registerFrame(host: HTMLElement, design: string): () => void {
   let hosts = framesByDesign.get(design)
-  if (!hosts) framesByDesign.set(design, (hosts = new Set()))
+
+  if (!hosts) {
+    framesByDesign.set(design, (hosts = new Set()))
+  }
+
   hosts.add(host)
   tellFrameListeners(host, true)
+
   return () => {
     hosts.delete(host)
-    if (hosts.size === 0 && framesByDesign.get(design) === hosts) framesByDesign.delete(design)
+
+    if (hosts.size === 0 && framesByDesign.get(design) === hosts) {
+      framesByDesign.delete(design)
+    }
+
     tellFrameListeners(host, false)
   }
 }
@@ -419,33 +546,55 @@ export function registerFrame(host: HTMLElement, design: string): () => void {
  */
 export function subscribeFrames(listener: (host: HTMLElement, mounted: boolean) => void): () => void {
   frameListeners.add(listener)
+
   return () => frameListeners.delete(listener)
 }
 
 function tellFrameListeners(host: HTMLElement, mounted: boolean): void {
-  for (const listener of frameListeners) listener(host, mounted)
+  for (const listener of frameListeners) {
+    listener(host, mounted)
+  }
 }
 
 function isRegistered(host: HTMLElement): boolean {
   const design = host.dataset.design
+
   return design !== undefined && !!framesByDesign.get(design)?.has(host)
 }
 
 /** The frames drawn for a design inside `root`, in the page's order, optionally one mode or state. */
 export function findFrames(root: Node, design: string, filter: { mode?: string; state?: string } = {}): HTMLElement[] {
   const found: HTMLElement[] = []
+
   for (const host of framesByDesign.get(design) ?? []) {
-    if (filter.mode !== undefined && host.dataset.mode !== filter.mode) continue
-    if (filter.state !== undefined && host.dataset.state !== filter.state) continue
-    if (root.contains(host)) found.push(host)
+    if (filter.mode !== undefined && host.dataset.mode !== filter.mode) {
+      continue
+    }
+
+    if (filter.state !== undefined && host.dataset.state !== filter.state) {
+      continue
+    }
+
+    if (root.contains(host)) {
+      found.push(host)
+    }
   }
+
   return inPageOrder(found)
 }
 
 /** Every frame drawn inside `root`, in the page's order. */
 export function allFrames(root: Node): HTMLElement[] {
   const found: HTMLElement[] = []
-  for (const hosts of framesByDesign.values()) for (const host of hosts) if (root.contains(host)) found.push(host)
+
+  for (const hosts of framesByDesign.values()) {
+    for (const host of hosts) {
+      if (root.contains(host)) {
+        found.push(host)
+      }
+    }
+  }
+
   return inPageOrder(found)
 }
 
@@ -453,5 +602,5 @@ export function allFrames(root: Node): HTMLElement[] {
 function inPageOrder(hosts: HTMLElement[]): HTMLElement[] {
   return hosts.length < 2
     ? hosts
-    : hosts.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
+    : hosts.sort((a, b) => (hasFlag(a.compareDocumentPosition(b), Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1))
 }

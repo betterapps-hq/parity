@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import { createContext, Script, type Context } from "node:vm"
 import { CodedError, describeConflicts, errorDetails } from "@parity-app/core"
 import type { AgentHooks, AgentSnapshot, ExecResult } from "./types.ts"
-import { AgentWorkspace } from "./workspace.ts"
+import { type AgentApi, AgentWorkspace } from "./workspace.ts"
 
 export interface ExecRequest {
   label: string
@@ -15,6 +15,7 @@ export interface ExecRequest {
 
 /** Each tab keeps one context, so values assigned without `const` or `let` carry over to the next call. */
 const contexts = new Map<string, Context>()
+
 /** Snippets that failed, kept so a retry can patch them instead of resending. */
 const failed = new Map<string, string>()
 
@@ -25,12 +26,14 @@ const failed = new Map<string, string>()
  */
 export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hooks: AgentHooks): Promise<ExecResult> {
   const code = request.editId ? patch(request.editId, request.edits ?? []) : request.code
+
   if (!code?.trim()) {
     throw new CodedError("Nothing to run: pass a snippet, or an editId with edits", {
       code: "invalid_input",
       field: "code"
     })
   }
+
   const workspace = new AgentWorkspace(snapshot, hooks, request.label)
   workspace.emit({ kind: "start" })
 
@@ -39,15 +42,22 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
     await workspace.checkTokenKinds()
     const result = workspace.result()
     const { designs, modes, tokens } = result.changes
+
     if (hooks.apply && (designs.length > 0 || modes || tokens.length > 0)) {
       const conflicts = await hooks.apply(result.changes)
+
       if (conflicts.length > 0) {
         throw new CodedError(describeConflicts(conflicts), { code: "conflict", retryable: true })
       }
     }
-    if (request.editId) failed.delete(request.editId)
+
+    if (request.editId) {
+      failed.delete(request.editId)
+    }
+
     workspace.emit({ kind: "end" })
     workspace.flush()
+
     return { ok: true, ...result }
   } catch (error) {
     const editId = request.editId ?? randomUUID().slice(0, 8)
@@ -55,6 +65,7 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
     const message = describeError(error)
     workspace.emit({ kind: "end", error: message })
     workspace.flush()
+
     return {
       ok: false,
       error: message,
@@ -70,45 +81,58 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
   }
 }
 
-async function run(tab: string, code: string, api: Record<string, unknown>): Promise<void> {
+async function run(tab: string, code: string, api: AgentApi): Promise<void> {
   let context = contexts.get(tab)
+
   if (!context) {
     context = createContext({})
     contexts.set(tab, context)
   }
+
   Object.assign(context, api, { console: { log: api.Print, warn: api.Print, error: api.Print } })
   // The wrapper adds one line before the snippet, so line numbers in errors match what the agent wrote.
   const script = new Script(`(async () => {\n${code}\n})()`, { filename: "snippet.js", lineOffset: -1 })
+  // SAFETY: the script is an async arrow called at once, so what it evaluates to is the promise of its run.
   await (script.runInContext(context, { timeout: 5000 }) as Promise<void>)
 }
 
 function patch(editId: string, edits: { find: string; replace: string; all?: boolean }[]): string {
   let code = failed.get(editId)
+
   if (code === undefined) {
     throw new CodedError(`No failed snippet with editId ${editId}; send the whole snippet again`, {
       code: "unknown_edit_id",
       field: "editId"
     })
   }
+
   for (const [index, edit] of edits.entries()) {
     const count = code.split(edit.find).length - 1
     const field = `edits/${index}/find`
+
     if (count === 0) {
       throw new CodedError(`Edit ${index + 1}: "${edit.find}" isn't in the snippet`, { code: "invalid_input", field })
     }
+
     if (count > 1 && !edit.all) {
       throw new CodedError(`Edit ${index + 1}: "${edit.find}" appears ${count} times; make it unique or set all`, {
         code: "invalid_input",
         field
       })
     }
+
     code = edit.all ? code.replaceAll(edit.find, edit.replace) : code.replace(edit.find, edit.replace)
   }
+
   return code
 }
 
-function describeError(error: unknown): string {
-  if (!(error instanceof Error)) return String(error)
-  const line = /snippet\.js:(\d+)(?::(\d+))?/.exec(error.stack ?? "")
-  return line ? `${error.message} (line ${line[1]}${line[2] ? `, column ${line[2]}` : ""})` : error.message
+function describeError(cause: unknown): string {
+  if (!(cause instanceof Error)) {
+    return String(cause)
+  }
+
+  const line = /snippet\.js:(\d+)(?::(\d+))?/.exec(cause.stack ?? "")
+
+  return line ? `${cause.message} (line ${line[1]}${line[2] ? `, column ${line[2]}` : ""})` : cause.message
 }

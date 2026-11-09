@@ -2,12 +2,19 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { RendererAdapter } from "@parity-app/core"
+import type { JsonValue } from "@parity-app/core/schema"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { discoverProject } from "./index.ts"
 import { findWorkspace, pnpmPackages } from "./workspace.ts"
 
 /** Exported functions are components; `export const X = Y.Z` is one the parse can't decide. */
-const renderer = {
+const renderer: RendererAdapter = {
+  id: "test",
+  name: "Test",
+  detect: () => true,
+  guestModule: "",
+  runtimePackages: [],
+  runtimeImports: [],
   componentExtensions: [".tsx"],
   findComponents: (source: string) => [
     ...[...source.matchAll(/export function ([A-Z]\w*)/g)].map((match) => ({
@@ -20,7 +27,7 @@ const renderer = {
       export: match[1]!
     }))
   ]
-} as unknown as RendererAdapter
+}
 
 let root: string
 
@@ -29,7 +36,7 @@ async function write(path: string, content: string) {
   await writeFile(join(root, path), content)
 }
 
-const manifest = (fields: Record<string, unknown>) => JSON.stringify(fields)
+const manifest = (fields: Record<string, JsonValue>) => JSON.stringify(fields)
 
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "canvas-workspace-"))
@@ -124,9 +131,11 @@ describe("reading a monorepo's packages", () => {
         workspace: "../../packages/ui"
       }
     ])
+
     const fromUi = Object.fromEntries(
       Object.entries(project.components).filter(([, source]) => source.library === "ui")
     )
+
     expect(fromUi).toEqual({
       "ui/Button": {
         path: "@acme/ui",

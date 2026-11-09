@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline"
 import { requestJsonSchema } from "@parity-app/agent/contracts"
-import { checkData, jsonText, plainObject } from "@parity-app/core/schema"
+import { checkData, jsonText, jsonValue, plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
 import { mcpCallerName, mcpClientName, mcpClientVersion } from "./caller.ts"
 import {
@@ -12,6 +12,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeReport,
   describeStatus,
   describeTokens,
   setCaller
@@ -19,26 +20,35 @@ import {
 import { operationError, renamePath } from "./errors.ts"
 import { executeOperation } from "./execute.ts"
 import { describeLogs, logsFields, logsInputSchema, readLogs } from "./logs.ts"
-import { type Operation, operations, skillOperation } from "./operations.ts"
+import {
+  type InputSchema,
+  inputFields,
+  type Operation,
+  type OperationInput,
+  operations,
+  skillOperation
+} from "./operations.ts"
 import { readSkill } from "./skills.ts"
-import { recordCli } from "./telemetry.ts"
+import { type CliAttributes, recordCli } from "./telemetry.ts"
 
 interface Tool {
   name: string
   description: string
-  inputSchema: Record<string, unknown>
+  inputSchema: InputSchema
   /** The input fields an error's path can point at, in this tool's names. */
   fields: readonly string[]
   /** Renames the contract's fields to this tool's, in error paths. */
   names?: Record<string, string>
   /** Runs the tool on its arguments, which its contract checks. */
-  run(input: unknown): Promise<Reply>
+  run(input: OperationInput): Promise<Reply>
 }
+
 interface Reply {
   content: Content[]
-  structuredContent?: Record<string, unknown>
+  structuredContent?: object
   isError?: boolean
 }
+
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }
 
 /**
@@ -62,6 +72,7 @@ function operationTool<Result>(
     fields: operation.fields,
     async run(input) {
       const result = await operation.run(input, call)
+
       return {
         content: format(result),
         structuredContent: operation.structured(result),
@@ -70,18 +81,34 @@ function operationTool<Result>(
     }
   }
 }
+
 /** Results that are data to begin with, as compact JSON text for clients that don't read structuredContent. */
-const json = (value: unknown): Content[] => [text(JSON.stringify(value))]
+const json = <Value>(value: Value): Content[] => [text(JSON.stringify(value))]
+
 /** MCP's names for execute's label and code. */
 const executeNames = { label: "description", code: "input" }
 
 /** MCP's execute arguments under the contract's names: description is label and input is code. */
-function contractNames(input: unknown): unknown {
-  const fields = plainObject.safeParse(input).data
-  if (!fields) return input
-  const { description: label, input: code, ...rest } = fields
-  return { ...rest, ...(label === undefined ? {} : { label }), ...(code === undefined ? {} : { code }) }
+function contractNames(input: OperationInput): OperationInput {
+  const fields = inputFields.safeParse(input).data
+
+  if (!fields) {
+    return input
+  }
+
+  const { description: label, input: code, ...renamed } = fields
+
+  if (label !== undefined) {
+    renamed.label = label
+  }
+
+  if (code !== undefined) {
+    renamed.code = code
+  }
+
+  return renamed
 }
+
 const tools: Tool[] = [
   operationTool(
     "get_tabs",
@@ -117,6 +144,7 @@ const tools: Tool[] = [
     async run(input) {
       const result = await executeOperation.run(contractNames(input), call)
       const structured = executeOperation.structured(result)
+
       return {
         content: [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))],
         structuredContent: result.error ? { ...structured, error: renamePath(result.error, executeNames) } : structured,
@@ -172,6 +200,12 @@ const tools: Tool[] = [
     operations.props,
     (result) => [text(describeProps(result))]
   ),
+  operationTool(
+    "report_problem",
+    "Report a problem in Parity itself, not the project, even when nothing failed: a wrong result or render. Sends Sentry the window's screenshot and replay, this call's trace and the design's frames; returns the link.",
+    operations.report,
+    (result) => [text(describeReport(result))]
+  ),
   {
     name: "get_logs",
     description:
@@ -180,6 +214,7 @@ const tools: Tool[] = [
     fields: logsFields,
     run: async (input) => {
       const result = readLogs(input)
+
       return { content: [text(describeLogs(result))], structuredContent: { ...result } }
     }
   },
@@ -215,45 +250,70 @@ const initializeParams = z.looseObject({
 })
 
 /** `tools/call`'s params: which tool, and its arguments, which the tool's own schema checks. */
-const toolCall = z.looseObject({ name: z.string(), arguments: z.unknown() })
+const toolCall = z.looseObject({ name: z.string(), arguments: jsonValue.optional() })
+
+/** A request's params, which each method reads as it needs. */
+type Params = NonNullable<z.output<typeof message>["params"]>
 
 /** Serves Parity's tools over MCP on stdin and stdout. */
 export function serveMcp(): void {
   const lines = createInterface({ input: process.stdin })
-  const send = (reply: unknown) => process.stdout.write(`${JSON.stringify(reply)}\n`)
+  const send = <Reply>(reply: Reply) => process.stdout.write(`${JSON.stringify(reply)}\n`)
   lines.on("line", (line) => {
-    if (!line.trim()) return
-    const json = jsonText(z.unknown()).safeParse(line)
-    if (!json.success) {
-      send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } })
+    if (!line.trim()) {
       return
     }
+
+    const json = jsonText(z.unknown()).safeParse(line)
+
+    if (!json.success) {
+      send({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } })
+
+      return
+    }
+
     const read = checkData(message, json.data)
+
     if (!read.success) {
       const id = z.union([z.string(), z.number()]).safeParse(plainObject.safeParse(json.data).data?.id).data ?? null
       const { pointer, message: problem } = read.problem
       send({ jsonrpc: "2.0", id, error: { code: -32600, message: `Invalid request: ${pointer || "/"}: ${problem}` } })
+
       return
     }
+
     const request = read.data
     void respond(request.method, request.params).then((reply) => {
-      if (request.id !== undefined && reply) send({ jsonrpc: "2.0", id: request.id, ...reply })
+      if (request.id !== undefined && reply) {
+        send({ jsonrpc: "2.0", id: request.id, ...reply })
+      }
     })
   })
 }
 
-async function respond(method: string, params: Record<string, unknown> = {}) {
+async function respond(method: string, params: Params = {}) {
   switch (method) {
     case "initialize": {
       const { clientInfo, protocolVersion } = initializeParams.parse(params)
       const client = mcpClientName(clientInfo)
       setCaller(mcpCallerName(clientInfo), true, client)
       const version = mcpClientVersion(clientInfo)
-      recordCli("mcp.session", {
-        ...(client ? { client } : {}),
-        ...(version ? { clientVersion: version } : {}),
-        ...(protocolVersion ? { protocolVersion } : {})
-      })
+      const session: CliAttributes<"mcp.session"> = {}
+
+      if (client) {
+        session.client = client
+      }
+
+      if (version) {
+        session.clientVersion = version
+      }
+
+      if (protocolVersion) {
+        session.protocolVersion = protocolVersion
+      }
+
+      recordCli("mcp.session", session)
+
       return {
         result: {
           protocolVersion: protocolVersion ?? "2025-06-18",
@@ -263,6 +323,7 @@ async function respond(method: string, params: Record<string, unknown> = {}) {
         }
       }
     }
+
     case "ping":
       return { result: {} }
     case "tools/list":
@@ -273,19 +334,28 @@ async function respond(method: string, params: Record<string, unknown> = {}) {
       }
     case "tools/call": {
       const called = checkData(toolCall, params)
+
       if (!called.success) {
         const { pointer, message: problem } = called.problem
+
         return { error: { code: -32602, message: `Invalid params: ${pointer}: ${problem}` } }
       }
+
       const tool = tools.find((candidate) => candidate.name === called.data.name)
-      if (!tool) return { error: { code: -32602, message: `Unknown tool ${called.data.name}` } }
+
+      if (!tool) {
+        return { error: { code: -32602, message: `Unknown tool ${called.data.name}` } }
+      }
+
       try {
         return { result: await tool.run(called.data.arguments ?? {}) }
       } catch (error) {
         const failure = renamePath(operationError(error, tool.fields), tool.names ?? {})
+
         return { result: { content: [text(failure.message)], structuredContent: { error: failure }, isError: true } }
       }
     }
+
     default:
       return method.startsWith("notifications/")
         ? undefined

@@ -4,20 +4,24 @@ import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/t
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import { setWindowTelemetry } from "../report-error.ts"
+import { traceWith } from "../tracing.ts"
 import { CameraGestures, followPress, GestureRun, gestures, InsertDrag, onGestureEnd, type Press } from "./gesture.ts"
 
 /** Where the gestures' events go, checked against their schemas (PAR-640). */
 const sink = createTestSink()
+
 beforeEach(() => {
-  setWindowTelemetry(
-    createTelemetry({
-      events: registeredEvents,
-      context: { process: "renderer", installId: "install", sessionId: "session" },
-      sinks: [sink],
-      check: true
-    })
-  )
+  const telemetry = createTelemetry({
+    events: registeredEvents,
+    context: { process: "renderer", installId: "install", sessionId: "session" },
+    sinks: [sink],
+    check: true
+  })
+
+  setWindowTelemetry(telemetry)
+  traceWith(telemetry)
 })
+
 afterEach(() => {
   setWindowTelemetry(undefined)
   sink.clear()
@@ -38,6 +42,7 @@ function follow() {
   const target = new EventTarget()
   const ends: string[] = []
   const stop = onGestureEnd(target, (how) => ends.push(how))
+
   return { target, ends, stop }
 }
 
@@ -49,13 +54,16 @@ describe("how a pointer gesture ends", () => {
       [new Event("blur"), "interrupted"],
       [press("Escape"), "escape"]
     ]
+
     for (const [event, how] of cases) {
       const { target, ends } = follow()
       target.dispatchEvent(event)
+
       // Whatever comes after belongs to no gesture, so nothing is left listening for it.
       for (const after of [new Event("pointerup"), new Event("pointercancel"), new Event("blur"), press("Escape")]) {
         target.dispatchEvent(after)
       }
+
       expect(ends).toEqual([how])
     }
   })
@@ -96,6 +104,7 @@ const home: ContainerSpec = {
   root: { type: "layout", id: "root", children: [] },
   states: [{ id: "default", name: "Default" }]
 }
+
 const design = "app.par#home"
 
 /** A project with one design, Home, and a stand-in window whose held cursors are listed. */
@@ -106,19 +115,26 @@ function setup() {
     "app.par",
     { saveDocument: async () => undefined, autosave: () => false }
   )
+
   const target = new EventTarget()
   const cursors: string[] = []
+
   const holdCursor = (cursor: string) => {
     cursors.push(cursor)
+
     return () => cursors.splice(cursors.indexOf(cursor), 1)
   }
+
   const name = () => store.getEntry(design)!.container.name
+
   const rename = (to: string, gesture?: string) =>
     store.updateContainer(design, "Rename", (container) => ({ ...container, name: to }), { gesture })
+
   // A clock that moves on 10ms each time it's read, and a frame counter that saw 60 a second.
   let time = 0
   const now = () => (time += 10)
   const countFrames = () => () => 60
+
   return { store, target, cursors, at: { target, holdCursor, now, countFrames }, name, rename }
 }
 
@@ -208,8 +224,11 @@ describe("a press on the canvas", () => {
       {
         design,
         move: (event, drag) => {
-          if (event.clientX === 20) drag.revert()
-          else rename(`Home ${event.clientX}`, drag.gesture)
+          if (event.clientX === 20) {
+            drag.revert()
+          } else {
+            rename(`Home ${event.clientX}`, drag.gesture)
+          }
         }
       },
       at
@@ -254,21 +273,33 @@ function drag(gesture: keyof typeof gestures, writes: (typeof canvasGestures)[nu
   const project = setup()
   const { store, target, cursors, at, rename } = project
   const kept: boolean[] = []
+
   const handlers: Press = {
     design: writes === "moving" ? design : undefined,
     cursor: "grabbing",
     move: (event, { gesture: undoStep }) => {
-      if (writes === "moving") rename(`Home ${event.clientX}`, undoStep)
+      if (writes === "moving") {
+        rename(`Home ${event.clientX}`, undoStep)
+      }
     },
     end: (isKept, { gesture: undoStep }) => {
       kept.push(isKept)
-      if (isKept && writes === "kept") rename("Moved", undoStep)
+
+      if (isKept && writes === "kept") {
+        rename("Moved", undoStep)
+      }
     }
   }
+
   followPress(gestures[gesture], store, { clientX: 0, clientY: 0 }, handlers, at)
-  for (const x of [10, 20]) target.dispatchEvent(pointer("pointermove", x))
+
+  for (const x of [10, 20]) {
+    target.dispatchEvent(pointer("pointermove", x))
+  }
+
   target.dispatchEvent(ending)
   expect(cursors).toEqual([])
+
   return { ...project, kept }
 }
 
@@ -319,17 +350,21 @@ describe("a run of presses", () => {
   function running() {
     const log: string[] = []
     let count = 0
+
     const run = new GestureRun({
       beginGesture: () => {
         count += 1
         log.push(`begin g${count}`)
+
         return `g${count}`
       },
       endGesture: (gesture) => {
         log.push(`end ${gesture}`)
+
         return true
       }
     })
+
     return { run, log }
   }
 
@@ -356,10 +391,13 @@ describe("a run of presses", () => {
   it("follows the selection while a run lasts, and stops when it ends", () => {
     const { run } = running()
     const watching: string[] = []
+
     const watch = () => {
       watching.push("start")
+
       return () => watching.push("stop")
     }
+
     run.gesture("badge", watch)
     run.gesture("badge", watch)
     run.end()
@@ -378,7 +416,11 @@ describe("gesture.ended", () => {
       { design, move: (event, drag) => rename(`Home ${event.clientX}`, drag.gesture) },
       at
     )
-    for (const x of [10, 20, 30]) target.dispatchEvent(pointer("pointermove", x))
+
+    for (const x of [10, 20, 30]) {
+      target.dispatchEvent(pointer("pointermove", x))
+    }
+
     // Nothing per move.
     expect(ended()).toEqual([])
     target.dispatchEvent(new Event("pointerup"))
@@ -407,6 +449,22 @@ describe("gesture.ended", () => {
     ])
   })
 
+  it("records a drag in the trace of the gesture.ran it ends (PAR-752)", () => {
+    const { target, at, store, rename } = setup()
+    followPress(
+      gestures.resize,
+      store,
+      { clientX: 0, clientY: 0 },
+      { design, move: (event, drag) => rename(`Home ${event.clientX}`, drag.gesture) },
+      at
+    )
+    target.dispatchEvent(pointer("pointermove", 10))
+    target.dispatchEvent(new Event("pointerup"))
+    const [ran] = sink.spans
+    expect(ran?.name).toBe("gesture.ran")
+    expect(sink.named("gesture.ended")).toMatchObject([{ traceId: ran!.traceId, spanId: ran!.spanId }])
+  })
+
   it("counts a step a drag makes as it ends, outside its undo gesture, as a design dragged by its title does", () => {
     const { target, at, store, rename } = setup()
     followPress(
@@ -431,7 +489,11 @@ describe("gesture.ended", () => {
       { design, move: (event, drag) => rename(event.clientX === 20 ? was : `Home ${event.clientX}`, drag.gesture) },
       at
     )
-    for (const x of [10, 20]) target.dispatchEvent(pointer("pointermove", x))
+
+    for (const x of [10, 20]) {
+      target.dispatchEvent(pointer("pointermove", x))
+    }
+
     target.dispatchEvent(new Event("pointerup"))
     expect({ canUndo: store.getHistory().canUndo, ended: ended() }).toMatchObject({
       canUndo: false,
@@ -461,10 +523,12 @@ describe("gesture.ended", () => {
 
   it("records a pan or zoom once the camera has settled, as a zoom when it zoomed on the way", () => {
     vi.useFakeTimers()
+
     try {
       let time = 0
       const camera = new CameraGestures(300, () => time)
       camera.moved({ x: 0, y: 0, z: 1 })
+
       for (const [x, z] of [
         [10, 1],
         [20, 1],
@@ -473,6 +537,7 @@ describe("gesture.ended", () => {
         time += 16
         camera.moved({ x, y: 0, z })
       }
+
       vi.advanceTimersByTime(200)
       expect(ended()).toEqual([])
       time += 400
@@ -491,10 +556,12 @@ describe("gesture.ended", () => {
 
   it("records an item dragged from the Assets panel as dropped where it went in, or called off", () => {
     let time = 0
+
     const drag = new InsertDrag(
       () => (time += 250),
       () => () => undefined
     )
+
     drag.start()
     drag.dropped(design)
     drag.end()

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { fnv1a } from "../bits.ts"
 
 /**
  * The frames on the canvas, for Parity's errors and failed renders (PAR-624). An error from the window carries the list
@@ -43,11 +44,22 @@ export function useFrameOnScreen(frame: FrameOnScreen): void {
   const { project, design, designKey, state, stateId, mode, modeId, width, height, key, bitmap } = frame
   const last = useRef<string>(undefined)
   useEffect(() => {
-    if (bitmap !== undefined) last.current = bitmap
+    if (bitmap !== undefined) {
+      last.current = bitmap
+    }
+
     const noted: FrameOnScreen = { project, design, designKey, state, stateId, mode, modeId, width, key }
-    if (height !== undefined) noted.height = height
-    if (last.current !== undefined) noted.bitmap = last.current
+
+    if (height !== undefined) {
+      noted.height = height
+    }
+
+    if (last.current !== undefined) {
+      noted.bitmap = last.current
+    }
+
     onScreen.add(noted)
+
     return () => {
       onScreen.delete(noted)
     }
@@ -63,6 +75,7 @@ export function framesOnScreen(): FrameOnScreen[] {
 export function framesAttachment(frames: FrameOnScreen[]): FrameAttachment {
   // Without its key, which holds the whole design it draws.
   const listed = frames.map(({ bitmap, key: _key, ...frame }) => ({ ...frame, bitmap: bitmap !== undefined }))
+
   return { filename: "frames.json", data: JSON.stringify(listed, undefined, 2), contentType: "application/json" }
 }
 
@@ -72,15 +85,23 @@ export function bitmapAttachment(frames: FrameOnScreen[], drawn: RenderedDesign)
     ({ designKey, stateId, modeId, bitmap }) =>
       bitmap !== undefined && designKey === drawn.key && stateId === drawn.state && modeId === drawn.mode
   )
+
   const picture = frame?.bitmap && /^data:(image\/(?:webp|png));base64,(.*)$/s.exec(frame.bitmap)
-  if (!picture) return undefined
+
+  if (!picture) {
+    return undefined
+  }
+
   const [, contentType = "image/webp", base64 = ""] = picture
   const data = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))
+
   return { filename: contentType === "image/png" ? "frame.png" : "frame.webp", data, contentType }
 }
 
-type FailedRenderListener = (error: unknown, drawn: RenderedDesign) => void
+type FailedRenderListener = (cause: unknown, drawn: RenderedDesign) => void
+
 const failedRenderListeners = new Set<FailedRenderListener>()
+
 /**
  * What's been reported failing, by a hash of its key, so a capture tried again until it works is reported once. A key
  * holds the whole design it draws, too much to keep for each.
@@ -90,26 +111,28 @@ const reported = new Set<number>()
 /** Calls `listener` with each frame render that fails, once for each thing it shows. */
 export function onFailedRender(listener: FailedRenderListener): () => void {
   failedRenderListeners.add(listener)
+
   return () => {
     failedRenderListeners.delete(listener)
   }
 }
 
 /** Tells listeners a frame's render failed, unless it already failed showing the same thing. */
-export function failedRender(key: string, error: unknown, drawn: RenderedDesign | undefined): void {
-  const hash = hashOf(key)
-  if (!drawn || reported.has(hash)) return
-  if (reported.size >= 1000) reported.clear()
-  reported.add(hash)
-  for (const listener of failedRenderListeners) listener(error, drawn)
-}
+export function failedRender(key: string, cause: unknown, drawn: RenderedDesign | undefined): void {
+  // A key that collides with another reported one only goes unreported.
+  const hash = fnv1a(key)
 
-/** FNV-1a, 32 bits: a key that collides with another reported one only goes unreported. */
-function hashOf(text: string): number {
-  let hash = 0x811c9dc5
-  for (let index = 0; index < text.length; index++) {
-    hash ^= text.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193)
+  if (!drawn || reported.has(hash)) {
+    return
   }
-  return hash >>> 0
+
+  if (reported.size >= 1000) {
+    reported.clear()
+  }
+
+  reported.add(hash)
+
+  for (const listener of failedRenderListeners) {
+    listener(cause, drawn)
+  }
 }

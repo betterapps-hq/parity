@@ -94,6 +94,26 @@ export const editingEvents = [
     { level: "info", sentBy, when: "A field in the inspector changes a layer, a design or a token." }
   ),
   defineEvent(
+    "component.changed",
+    z.object({
+      action: z
+        .enum(["detach", "push", "extract"])
+        .describe(
+          "What was done: an instance detached into plain layers, a copy's overrides pushed to its component, or layers made a component"
+        ),
+      design: z.string().describe("The design whose layers it changed, by key"),
+      layers: layerIds.describe(
+        "The layers: the instance detached or pushed, a layer inside one by path, or the layers made a component"
+      ),
+      component: z.string().describe("The component, by id: the one the copy follows, or the one made")
+    }),
+    {
+      level: "info",
+      sentBy,
+      when: "Detach, Push to main or Make component changes how layers follow a component."
+    }
+  ),
+  defineEvent(
     "insert.done",
     z.object({
       source: z

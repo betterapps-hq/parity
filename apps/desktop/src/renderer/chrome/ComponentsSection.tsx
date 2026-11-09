@@ -20,7 +20,7 @@ import { Hint } from "./Hint.tsx"
 import { paramValue, updateAndRecord } from "./inspector-events.ts"
 import { NameInput } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
-import { valueKind } from "./prop-values.ts"
+import { readPropValue, textValue, valueKind } from "./prop-values.ts"
 import { clearRepeatedParts, findRepeatedParts, holdRepeatedParts, useRepeatedParts } from "./repeated-parts.ts"
 import { revealSelection } from "./reveal.ts"
 import { AddProp, CodeLines, NewPropRow, PropTile, SlotPropRow } from "./slot-props.tsx"
@@ -35,6 +35,7 @@ export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
   const candidates = useRepeatedParts(root, entry.key)
   useEffect(() => holdRepeatedParts(root, entry.key), [root, entry.key])
   let content: ReactNode
+
   if (candidates === undefined) {
     content = (
       <Button variant="outline" size="sm" onClick={() => findRepeatedParts(root, entry)}>
@@ -61,6 +62,7 @@ export function ComponentsSection({ entry }: { entry: ContainerEntry }) {
       </ul>
     )
   }
+
   return (
     <PanelSection
       title="Repeated parts"
@@ -83,6 +85,7 @@ function CandidateCard({
   const session = useProject()
   const [name, setName] = useState(candidate.name)
   const [error, setError] = useState<string>()
+
   return (
     <li className="rounded-md border p-2.5">
       <div className="mb-2 flex items-center gap-2">
@@ -148,6 +151,7 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
   const params = all.filter(([, param]) => param.type !== "variant")
   const variants = all.filter(([, param]) => param.type === "variant")
   const slots = designSlots(entry.container)
+
   return (
     <>
       <VariantsSection entry={entry} variants={variants} />
@@ -160,13 +164,13 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
         <div className="flex flex-col gap-1">
           {params.map(([name, param]) => (
             <div key={name} className="grid grid-cols-[20px_96px_1fr] items-center gap-2 px-1">
-              <PropTile kind={valueKind(param.default, param.type)} />
+              <PropTile kind={valueKind(readPropValue(param.default), param.type)} />
               <Hint label={`${name}: ${param.type}`} wait>
                 <span className="truncate font-mono text-xs">{name}</span>
               </Hint>
               <ValueInput
-                value={param.default}
-                kind={valueKind(param.default, param.type)}
+                value={readPropValue(param.default)}
+                kind={valueKind(readPropValue(param.default), param.type)}
                 title={`${name} default`}
                 onCommit={(value) =>
                   updateAndRecord(
@@ -210,6 +214,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
   const { store } = useProject()
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<string>()
+
   // Each change records the variant's param, its options by id and name, before and after (PAR-713).
   const update = (
     label: string,
@@ -226,6 +231,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
       setError(reason instanceof Error ? reason.message : String(reason))
     }
   }
+
   return (
     <PanelSection
       title="Variants"
@@ -245,16 +251,24 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
           onSubmit={(event) => {
             event.preventDefault()
             const data = new FormData(event.currentTarget)
+
             const text = (field: string) => {
               const entry = data.get(field)
-              return typeof entry === "string" ? entry : ""
+
+              return entry instanceof File ? "" : (entry ?? "")
             }
+
             const name = text("name").trim()
+
             const options = text("options")
               .split(",")
               .map((option) => option.trim())
               .filter(Boolean)
-            if (!name || options.length === 0) return
+
+            if (!name || options.length === 0) {
+              return
+            }
+
             update(`Add ${name} variant`, name, (container) => addVariant(container, name, options))
             setAdding(false)
           }}
@@ -290,14 +304,19 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
             <div className="grid grid-cols-[96px_1fr] items-center gap-2">
               <span className="px-1 text-xs text-muted-foreground">Default</span>
               <ChoiceInput
-                value={typeof param.default === "string" ? param.default : undefined}
+                value={textValue.safeParse(param.default).data}
                 options={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
                 placeholder={param.options?.[0]?.name}
                 onChange={(option) =>
                   update(`Change ${name} default`, name, (container) => {
                     const spec = { ...container.params![name]! }
-                    if (option) spec.default = option
-                    else delete spec.default
+
+                    if (option) {
+                      spec.default = option
+                    } else {
+                      delete spec.default
+                    }
+
                     return { ...container, params: { ...container.params, [name]: spec } }
                   })
                 }
@@ -313,13 +332,17 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
                     className="h-7 flex-1 border-transparent bg-transparent px-1 text-xs shadow-none hover:border-input dark:bg-transparent"
                     onBlur={(event) => {
                       const next = event.currentTarget.value.trim()
-                      if (next && next !== option.name)
+
+                      if (next && next !== option.name) {
                         update("Rename option", name, (container) =>
                           renameVariantOption(container, name, option.id, next)
                         )
+                      }
                     }}
                     onKeyDown={(event) => {
-                      if (event.key === "Enter") event.currentTarget.blur()
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur()
+                      }
                     }}
                   />
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
@@ -347,9 +370,18 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
               className="flex gap-1"
               onSubmit={(event) => {
                 event.preventDefault()
-                const input = event.currentTarget.elements.namedItem("option") as HTMLInputElement
+                const input = event.currentTarget.elements.namedItem("option")
+
+                if (!(input instanceof HTMLInputElement)) {
+                  return
+                }
+
                 const option = input.value.trim()
-                if (!option) return
+
+                if (!option) {
+                  return
+                }
+
                 update(`Add ${option}`, name, (container) => addVariantOption(container, name, option).container)
                 input.value = ""
               }}

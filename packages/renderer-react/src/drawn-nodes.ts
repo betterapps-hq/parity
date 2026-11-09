@@ -1,4 +1,7 @@
 import type { DrawnNodes } from "@parity-app/core"
+// Imports nothing at runtime, so it runs in the project's own bundle with the guest.
+import { isComposite } from "@parity-app/core/values/evaluate"
+import type { Root } from "react-dom/client"
 
 /**
  * Finds the DOM each design node draws from React's own tree, the way React DevTools highlights a component, so a
@@ -28,19 +31,36 @@ const hostRootTag = 3
  * The current fiber tree of a root `createRoot` made: through the root object (React 18 and 19), else through the
  * container's own key (`__reactContainer$…`), which React puts on it. Undefined when neither is there.
  */
-export function currentRootFiber(root: unknown, container: Element): Fiber | undefined {
-  const fromRoot = (root as { _internalRoot?: { current?: unknown } } | undefined)?._internalRoot?.current
-  const key = fromRoot ? undefined : Object.keys(container).find((name) => name.startsWith("__reactContainer$"))
-  const fromContainer = key
-    ? (container as unknown as Record<string, { stateNode?: { current?: unknown } } | undefined>)[key]?.stateNode
-        ?.current
-    : undefined
-  const fiber = (fromRoot ?? fromContainer) as (Fiber & { tag?: unknown }) | undefined
-  return fiber && fiber.tag === hostRootTag && isFiber(fiber) ? fiber : undefined
+export function currentRootFiber(root: Root, container: Element): Fiber | undefined {
+  const internal = "_internalRoot" in root ? root._internalRoot : undefined
+  const fromRoot = isComposite(internal) && "current" in internal ? internal.current : undefined
+
+  const holder = fromRoot
+    ? undefined
+    : Object.entries(container).find(([name]) => name.startsWith("__reactContainer$"))?.[1]
+
+  const stateNode = isComposite(holder) && "stateNode" in holder ? holder.stateNode : undefined
+  const fromContainer = isComposite(stateNode) && "current" in stateNode ? stateNode.current : undefined
+  const fiber = fromRoot ?? fromContainer
+
+  return isFiber(fiber) && "tag" in fiber && fiber.tag === hostRootTag ? fiber : undefined
 }
 
+// React's internals are untyped, so these look for the fields the walk reads rather than parsing them: they're read on
+// every hover and commit.
+
 function isFiber(value: unknown): value is Fiber {
-  return typeof value === "object" && value !== null && "child" in value && "sibling" in value && "stateNode" in value
+  return isComposite(value) && "child" in value && "sibling" in value && "stateNode" in value
+}
+
+/** A host fiber's DOM element. */
+function isElement(stateNode: unknown): stateNode is Element {
+  return isComposite(stateNode) && "nodeType" in stateNode && stateNode.nodeType === 1
+}
+
+/** A text fiber's DOM text. */
+function isText(stateNode: unknown): stateNode is Text {
+  return isComposite(stateNode) && "nodeType" in stateNode && stateNode.nodeType === 3
 }
 
 interface Drawn {
@@ -80,36 +100,59 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
 
   const visit = (first: Fiber | null, open: readonly Drawn[]): void => {
     for (let fiber = first; fiber; fiber = fiber.sibling) {
-      if (!isFiber(fiber)) throw new Error("Not a fiber")
+      if (!isFiber(fiber)) {
+        throw new Error("Not a fiber")
+      }
+
       let here = open
       let entered = false
       const id = options.nodeOf(fiber)
+
       if (id !== undefined && !within.includes(id)) {
         let node = byId.get(id)
+
         if (!node) {
-          node = { id, ...(within.length > 0 ? { parent: within.at(-1) } : {}), elements: [], texts: [] }
+          const parent = within.at(-1)
+          node = parent === undefined ? { id, elements: [], texts: [] } : { id, parent, elements: [], texts: [] }
           nodes.push(node)
           byId.set(id, node)
         }
+
         here = [...open, node]
         within.push(id)
         entered = true
       }
-      const element = elementOf(fiber.stateNode)
-      const text = element ? undefined : textOf(fiber.stateNode)
+
+      const element = isElement(fiber.stateNode) ? fiber.stateNode : undefined
+      const text = element || !isText(fiber.stateNode) ? undefined : fiber.stateNode
+
       if (element) {
         if (options.inside(element)) {
-          for (const node of here) node.elements.push(element)
+          for (const node of here) {
+            node.elements.push(element)
+          }
+
           const owner = within.at(-1)
-          if (owner !== undefined) owners.set(element, owner)
+
+          if (owner !== undefined) {
+            owners.set(element, owner)
+          }
+
           visit(fiber.child, [])
         }
       } else if (text) {
-        if (options.inside(text)) for (const node of here) node.texts.push(text)
+        if (options.inside(text)) {
+          for (const node of here) {
+            node.texts.push(text)
+          }
+        }
       } else {
         visit(fiber.child, here)
       }
-      if (entered) within.pop()
+
+      if (entered) {
+        within.pop()
+      }
     }
   }
 
@@ -127,8 +170,12 @@ export function indexDrawnNodes(root: Fiber, options: IndexOptions): DrawnNodes 
     nodeOf(element) {
       for (let current: Element | null = element; current; current = current.parentElement) {
         const owner = owners.get(current)
-        if (owner !== undefined) return owner
+
+        if (owner !== undefined) {
+          return owner
+        }
       }
+
       return undefined
     }
   }
@@ -147,52 +194,73 @@ export type StylePlacement = "root" | "inner" | "none"
  */
 export function stylePlacement(component: Fiber, isLayer: (fiber: Fiber) => boolean): StylePlacement | undefined {
   const given = styleOf(component)
-  if (!given) return undefined
+
+  if (!given) {
+    return undefined
+  }
+
   const top: Fiber[] = []
+
   const collect = (first: Fiber | null): void => {
     for (let fiber = first; fiber; fiber = fiber.sibling) {
-      if (!isFiber(fiber)) throw new Error("Not a fiber")
-      if (isLayer(fiber)) continue
-      if (elementOf(fiber.stateNode)) top.push(fiber)
-      else collect(fiber.child)
+      if (!isFiber(fiber)) {
+        throw new Error("Not a fiber")
+      }
+
+      if (isLayer(fiber)) {
+        continue
+      }
+
+      if (isElement(fiber.stateNode)) {
+        top.push(fiber)
+      } else {
+        collect(fiber.child)
+      }
     }
   }
+
   const carries = (fiber: Fiber) => {
     const style = styleOf(fiber)
-    return style !== undefined && Object.entries(given).every(([key, value]) => style[key] === value)
+
+    return style !== undefined && [...given].every(([key, value]) => style.get(key) === value)
   }
+
   const inside = (first: Fiber | null): boolean => {
     for (let fiber = first; fiber; fiber = fiber.sibling) {
-      if (!isFiber(fiber)) throw new Error("Not a fiber")
-      if (isLayer(fiber)) continue
-      if ((elementOf(fiber.stateNode) && carries(fiber)) || inside(fiber.child)) return true
+      if (!isFiber(fiber)) {
+        throw new Error("Not a fiber")
+      }
+
+      if (isLayer(fiber)) {
+        continue
+      }
+
+      if ((isElement(fiber.stateNode) && carries(fiber)) || inside(fiber.child)) {
+        return true
+      }
     }
+
     return false
   }
+
   collect(component.child)
-  if (top.length === 0) return undefined
-  if (top.some(carries)) return "root"
+
+  if (top.length === 0) {
+    return undefined
+  }
+
+  if (top.some(carries)) {
+    return "root"
+  }
+
   return top.some((fiber) => inside(fiber.child)) ? "inner" : "none"
 }
 
-/** The `style` a fiber was given, when it has any values. */
-function styleOf(fiber: Fiber): Record<string, unknown> | undefined {
-  const style = (fiber.memoizedProps as { style?: unknown } | null)?.style
-  return typeof style === "object" && style !== null && Object.keys(style).length > 0
-    ? (style as Record<string, unknown>)
-    : undefined
-}
+/** The `style` a fiber was given, by property, when it has any values. */
+export function styleOf(fiber: Fiber): ReadonlyMap<string, unknown> | undefined {
+  const props = fiber.memoizedProps
+  const style = isComposite(props) && "style" in props ? props.style : undefined
+  const entries = isComposite(style) ? Object.entries(style) : []
 
-/** A host fiber's DOM element. */
-function elementOf(stateNode: unknown): Element | undefined {
-  return typeof stateNode === "object" && stateNode !== null && (stateNode as Node).nodeType === 1
-    ? (stateNode as Element)
-    : undefined
-}
-
-/** A text fiber's DOM text. */
-function textOf(stateNode: unknown): Text | undefined {
-  return typeof stateNode === "object" && stateNode !== null && (stateNode as Node).nodeType === 3
-    ? (stateNode as Text)
-    : undefined
+  return entries.length > 0 ? new Map(entries) : undefined
 }

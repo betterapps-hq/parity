@@ -1,16 +1,18 @@
+import type { JsonValue } from "@parity-app/core"
 import { describe, expect, it, vi } from "vite-plus/test"
-import { builtRelease, InstalledBuild } from "./build-info.ts"
+import { builtRelease, InstalledBuild, type SavedBuild } from "./build-info.ts"
 
 function release(prerelease: boolean, tag = "v0.3.0") {
   return Response.json({ tag_name: tag, prerelease, draft: false })
 }
 
-function setup(saved?: unknown) {
+function setup(saved: JsonValue = null) {
   let now = 1_000_000
   const request = vi.fn<typeof fetch>().mockResolvedValue(release(true))
-  const save = vi.fn<(value: unknown) => void>()
-  const options = { version: "0.3.0", packaged: true, read: () => saved, save, request, now: () => now }
+  const save = vi.fn<(value: SavedBuild) => void>()
+  const options = { version: "0.3.0", packaged: true, read: () => JSON.stringify(saved), save, request, now: () => now }
   const build = new InstalledBuild(options)
+
   return {
     build,
     request,
@@ -45,6 +47,13 @@ describe("builtRelease", () => {
 })
 
 describe("installed build identity", () => {
+  it("knows a promoted version from the saved answer before asking GitHub", () => {
+    const { build, request } = setup({ version: "0.3.0", channel: "stable", checkedAt: 1 })
+    expect(build.known.channel).toBe("stable")
+    expect(setup({ version: "0.2.0", channel: "stable" }).build.known.channel).toBe("unknown")
+    expect(request).not.toHaveBeenCalled()
+  })
+
   it("labels a release-workflow beta on its first offline launch, then observes promotion", async () => {
     const { options, request, advance } = setup()
     const build = new InstalledBuild({ ...options, metadata: () => ({ releaseChannel: "beta" }) })
@@ -63,9 +72,7 @@ describe("installed build identity", () => {
 
   it("shares concurrent requests and observes promotion of the same artifacts after the cache expires", async () => {
     const { build, request, advance } = setup()
-    const first = build.get()
-    expect(build.get()).toBe(first)
-    await first
+    await Promise.all([build.get(), build.get()])
     expect(await build.get()).toEqual({ version: "0.3.0", channel: "beta" })
     expect(request).toHaveBeenCalledOnce()
     advance()
@@ -92,8 +99,8 @@ describe("installed build identity", () => {
     expect(request).toHaveBeenCalledTimes(2)
   })
 
-  it.each([
-    undefined,
+  it.each<JsonValue>([
+    null,
     { version: "0.2.0", channel: "beta", checkedAt: 999_999 },
     { version: "0.3.0", channel: "development", checkedAt: 999_999 },
     { beta: true }
@@ -124,6 +131,7 @@ describe("installed build identity", () => {
 
   it("survives unreadable and unwritable cache files", async () => {
     const { options } = setup()
+
     const build = new InstalledBuild({
       ...options,
       read: () => {
@@ -133,14 +141,17 @@ describe("installed build identity", () => {
         throw new Error("Read-only directory")
       }
     })
+
     expect((await build.get()).channel).toBe("beta")
   })
 
   it("never fetches release metadata for development builds", async () => {
     const { options, request } = setup()
-    const metadata = vi.fn<() => unknown>(() => {
+
+    const metadata = vi.fn<() => JsonValue>(() => {
       throw new Error("The dev output has no package.json")
     })
+
     const build = new InstalledBuild({ ...options, packaged: false, metadata })
     expect((await build.get()).channel).toBe("development")
     expect(request).not.toHaveBeenCalled()
@@ -149,12 +160,14 @@ describe("installed build identity", () => {
 
   it("keeps a confirmed cache when optional build metadata is unreadable", async () => {
     const { options, request } = setup({ version: "0.3.0", channel: "stable", checkedAt: 999_999 })
+
     const build = new InstalledBuild({
       ...options,
       metadata: () => {
         throw new Error("Unreadable build metadata")
       }
     })
+
     expect((await build.get()).channel).toBe("stable")
     expect(request).not.toHaveBeenCalled()
   })

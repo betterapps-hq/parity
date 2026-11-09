@@ -4,13 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 const platform = vi.hoisted(() => ({
   check: vi.fn<() => Promise<{ isUpdateAvailable: boolean; updateInfo: { version: string } }>>(),
   download: vi.fn<() => Promise<void>>(),
-  confirmEmpty: vi.fn<(error: unknown, beta: boolean) => Promise<boolean>>()
+  confirmEmpty: vi.fn<(cause: unknown, beta: boolean) => Promise<boolean>>()
 }))
 
 vi.mock("electron", () => ({ app: { isPackaged: true, getPath: () => "." } }))
+
 vi.mock("node:fs", () => ({ readFileSync: () => '{"beta":false}', writeFileSync: vi.fn<() => void>() }))
+
 vi.mock("./github-releases.ts", () => ({ noStableRelease: platform.confirmEmpty }))
+
 vi.mock("./telemetry.ts", () => ({ tagUpdateChannel: vi.fn<(beta: boolean) => void>() }))
+
 vi.mock("electron-updater", () => ({
   default: {
     autoUpdater: Object.assign(new EventEmitter(), {

@@ -35,6 +35,16 @@ describe("telemetryLevel", () => {
 })
 
 describe("resolveTelemetry", () => {
+  it("sends only errors and reports from CI, at whatever level", () => {
+    expect(resolveTelemetry({ CI: "true" })).toEqual({ level: "all", setting: "all", errorsOnly: true })
+    expect(resolveTelemetry({ CI: "1", PARITY_TELEMETRY: "all" }, "off")).toMatchObject({
+      level: "all",
+      errorsOnly: true
+    })
+    expect(resolveTelemetry({ CI: "false" })).not.toHaveProperty("errorsOnly")
+    expect(resolveTelemetry({})).not.toHaveProperty("errorsOnly")
+  })
+
   it("uses the saved setting when no variable asks otherwise", () => {
     expect(resolveTelemetry({}, "off")).toEqual({ level: "off", setting: "off" })
   })
@@ -94,14 +104,27 @@ describe("desktopDataFolder", () => {
 })
 
 describe("telemetryEnvironment", () => {
-  it("names CI runs, installed builds and checkouts", () => {
-    expect(telemetryEnvironment({ CI: "true" }, true)).toBe("ci")
-    expect(telemetryEnvironment({}, true)).toBe("tester")
-    expect(telemetryEnvironment({}, false)).toBe("development")
+  it("names the published app and CLI release, and any other installed build a preview", () => {
+    expect(telemetryEnvironment({}, { installed: true, published: true })).toBe("release")
+    expect(telemetryEnvironment({}, { installed: true, published: false })).toBe("preview")
+  })
+
+  it("names a published build promoted to everyone production, and nothing else", () => {
+    expect(telemetryEnvironment({}, { installed: true, published: true, promoted: true })).toBe("production")
+    expect(telemetryEnvironment({}, { installed: true, published: true, promoted: false })).toBe("release")
+    expect(telemetryEnvironment({}, { installed: true, published: false, promoted: true })).toBe("preview")
+    expect(telemetryEnvironment({}, { installed: false, published: true, promoted: true })).toBe("development")
+    expect(telemetryEnvironment({ CI: "1" }, { installed: true, published: true, promoted: true })).toBe("ci")
+  })
+
+  it("names a checkout development, and a run in CI ci, whatever the build", () => {
+    expect(telemetryEnvironment({}, { installed: false, published: false })).toBe("development")
+    expect(telemetryEnvironment({ CI: "true" }, { installed: true, published: true })).toBe("ci")
+    expect(telemetryEnvironment({ CI: "true" }, { installed: true, published: false })).toBe("ci")
   })
 
   it("doesn't count CI set to false", () => {
-    expect(telemetryEnvironment({ CI: "false" }, false)).toBe("development")
-    expect(telemetryEnvironment({ CI: "" }, true)).toBe("tester")
+    expect(telemetryEnvironment({ CI: "false" }, { installed: false, published: false })).toBe("development")
+    expect(telemetryEnvironment({ CI: "" }, { installed: true, published: false })).toBe("preview")
   })
 })

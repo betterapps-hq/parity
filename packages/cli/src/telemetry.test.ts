@@ -18,12 +18,14 @@ import {
 
 function testTelemetry() {
   const sink = createTestSink()
+
   const telemetry = createTelemetry({
     events: cliEvents,
     context: { process: "cli", installId: "install", sessionId: "session" },
     sinks: [sink],
     check: true
   })
+
   return { sink, telemetry }
 }
 
@@ -74,11 +76,14 @@ describe("inCliRun", () => {
 describe("fileSink", () => {
   it("writes each event as a line to the day's file, and keeps the newest 10 days", () => {
     const folder = mkdtempSync(join(tmpdir(), "parity-cli-logs-"))
+
     try {
       for (let day = 1; day <= 11; day++) {
         writeFileSync(join(folder, `parity-cli-2026-10-${String(day).padStart(2, "0")}.jsonl`), "")
       }
+
       writeFileSync(join(folder, "notes.txt"), "")
+
       const envelope = {
         process: "cli" as const,
         installId: "install",
@@ -88,6 +93,7 @@ describe("fileSink", () => {
         level: "info" as const,
         attributes: { client: "claude-code" }
       }
+
       const sink = fileSink(folder)
       sink.event(envelope)
       sink.event(envelope)
@@ -97,7 +103,7 @@ describe("fileSink", () => {
       expect(names).not.toContain("parity-cli-2026-10-02.jsonl")
       expect(names).toContain("notes.txt")
       const lines = readFileSync(join(folder, "parity-cli-2026-11-08.jsonl"), "utf8").trim().split("\n")
-      expect(lines.map((line) => JSON.parse(line) as unknown)).toEqual([envelope, envelope])
+      expect(lines.map((line) => JSON.parse(line))).toEqual([envelope, envelope])
     } finally {
       rmSync(folder, { recursive: true, force: true })
     }
@@ -139,6 +145,10 @@ describe("cliTelemetrySetting", () => {
     expect(cliTelemetrySetting({ VITEST: "true" }, saved("all"))).toMatchObject({ level: "off" })
   })
 
+  it("sends only errors and reports from CI, as the app does (PAR-777)", () => {
+    expect(cliTelemetrySetting({ CI: "true" }, saved("all"))).toMatchObject({ level: "all", errorsOnly: true })
+  })
+
   it("refuses a PARITY_TELEMETRY that isn't a level, rather than sending what was meant to be off", () => {
     expect(() => cliTelemetrySetting({ PARITY_TELEMETRY: "of" }, undefined)).toThrow(/PARITY_TELEMETRY is "of"/)
   })
@@ -163,10 +173,10 @@ describe("batchRun", () => {
 
   it("tags a batch as the app tags its events: environment, test pass, and the agent calling", () => {
     cliCallerChanged({ name: "Claude", id: "Claude#1a2b3c4d", client: "claude-code" })
-    const run = batchRun({ CI: "true", PARITY_TEST_RUN: "ci-7" }, "install", true)
+    const run = batchRun({ CI: "true", PARITY_TEST_RUN: "ci-7" }, "install", true, { published: true })
     expect(run).toMatchObject({
       environment: "ci",
-      installed: true,
+      published: true,
       tags: { test_run: "ci-7", driver: "agent", agent: "Claude", agent_client: "claude-code" },
       user: { id: "install", username: "Claude#1a2b3c4d" }
     })
@@ -175,9 +185,31 @@ describe("batchRun", () => {
   })
 
   it("names a checkout's folder, whose commit names its release, and the tester as the user", () => {
-    const run = batchRun({ PARITY_TESTER: "Andrew" }, "install", false)
+    const run = batchRun({ PARITY_TESTER: "Andrew" }, "install", false, undefined)
     expect(run).toMatchObject({ environment: "development", user: { id: "install", username: "Andrew" } })
     expect(run.tags).toEqual({ driver: "agent", agent: "Terminal" })
+    expect(run.published).toBe(false)
     expect(run.source).toBeDefined()
+  })
+
+  it("names a build that npm didn't publish, such as a pkg.pr.new preview, by the commit it was built from", () => {
+    const run = batchRun({}, "install", true, { published: false, commit: "9a6440b" })
+    expect(run).toMatchObject({ environment: "preview", published: false, commit: "9a6440b" })
+    expect(run.source).toBeUndefined()
+  })
+
+  it("reports the package npm published as the release", () => {
+    expect(batchRun({}, "install", true, { published: true })).toMatchObject({
+      environment: "release",
+      published: true
+    })
+  })
+
+  it("reports the package npm published as production once it's been promoted to latest", () => {
+    expect(batchRun({}, "install", true, { published: true }, true)).toMatchObject({
+      environment: "production",
+      published: true
+    })
+    expect(batchRun({}, "install", true, { published: false }, true).environment).toBe("preview")
   })
 })

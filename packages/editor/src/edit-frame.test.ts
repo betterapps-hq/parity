@@ -33,6 +33,7 @@ const designs = new Map([
   ["main/sign-in", signIn()],
   ["main/pricing", pricing()]
 ])
+
 const target = (picked: Selection) => editFrame(picked, (key) => designs.get(key), defaultModeSettings)
 
 describe("editFrame", () => {

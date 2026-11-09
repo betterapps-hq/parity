@@ -24,10 +24,11 @@ const job = (guestUrl: string): RenderJob => ({
   projectId: "D:/shop",
   guestUrl,
   theme: [],
-  tree: [{ nodeId: "a", type: "text", text: "Sign in" }] as unknown as RenderJob["tree"],
-  mode: { width: 320, height: 200, viewport: { width: 320, height: 200 } } as RenderJob["mode"],
+  tree: [{ nodeId: "a", type: "text", text: "Sign in" }],
+  mode: { width: 320, height: 200, viewport: { width: 320, height: 200 }, classNames: [], attributes: {} },
   scale: 0.25
 })
+
 /** What a guest's address was served: its code, and the components it was served with. */
 const code = (fingerprint: string, sources: Record<string, { path: string; export: string }> = {}) => ({
   code: Promise.resolve({ fingerprint, files: new Map<string, string>(), salt: "" }),
@@ -100,6 +101,7 @@ function webpOf(width: number, height: number): Buffer {
   header.writeUInt32LE(10, 16)
   header.writeUIntLE(width - 1, 24, 3)
   header.writeUIntLE(height - 1, 27, 3)
+
   return header
 }
 
@@ -149,12 +151,14 @@ describe("the component preview store", () => {
   it("leaves out only the records of an index it can't read", async () => {
     await store.storePreview("D:/shop", "ui/Button", { key }, pictures(), { width: 600, height: 100 })
     const [project] = await readdir(folder)
+
     const components = {
       "ui/Button": { key },
       "ui/Card": { key: "not a key" },
       "ui/Badge": { key: newer, empty: false },
       "ui/Menu": { key: newer, error: "Menu needs a MenuProvider" }
     }
+
     await writeFile(join(folder, project!, "previews", "index.json"), JSON.stringify({ format: 1, components }))
     vi.resetModules()
     const restarted: typeof BitmapStore = await import("./bitmap-store.ts")
@@ -183,7 +187,11 @@ describe("the component preview store", () => {
     const [project] = await readdir(folder)
     const previews = join(folder, project!, "previews")
     const old = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)
-    for (const name of await readdir(previews)) await utimes(join(previews, name), old, old)
+
+    for (const name of await readdir(previews)) {
+      await utimes(join(previews, name), old, old)
+    }
+
     await store.sweepBitmaps()
     expect(await readdir(folder)).toEqual([])
     expect(await store.previewIndex("D:/shop")).toEqual(new Map())

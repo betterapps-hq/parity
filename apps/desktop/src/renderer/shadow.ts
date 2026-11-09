@@ -6,6 +6,7 @@ type AttachShadow = (this: Element, init: ShadowRootInit) => ShadowRoot
  * where its host is left out of the replay. So a frame, and with it the closed project's whole canvas, stayed in memory.
  * None where there's no DOM, as in tests that only read this module.
  */
+// SAFETY: the DOM defines `attachShadow` on Element's prototype as this method.
 const nativeAttachShadow =
   typeof Element === "undefined"
     ? undefined
@@ -16,6 +17,9 @@ const nativeAttachShadow =
  * out (`replay.ts`).
  */
 export function unrecordedShadow(host: Element): ShadowRoot {
-  if (host.shadowRoot) return host.shadowRoot
+  if (host.shadowRoot) {
+    return host.shadowRoot
+  }
+
   return nativeAttachShadow ? nativeAttachShadow.call(host, { mode: "open" }) : host.attachShadow({ mode: "open" })
 }

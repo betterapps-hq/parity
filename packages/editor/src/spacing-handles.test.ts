@@ -58,12 +58,14 @@ describe("where the padding and gap handles go", () => {
 
   it("centres a padding's bar in it, with its press target clear of the resize strip on the edge", () => {
     const top = find(spacingHandles(stats), "top")
-    // The top padding runs between the sides' padding, 16 deep.
-    expect(top.area).toEqual({ x: 24, y: 0, w: 360, h: 16 })
+    // The top padding is shaded along the whole edge, 16 deep, its bar centred between the sides' padding.
+    expect(top.area).toEqual({ x: 0, y: 0, w: 408, h: 16 })
     expect(top.bar).toEqual({ x: 196, y: 7, w: 16, h: 2 })
     // From 4px inside the edge, past the resize strip, to the padding's inside, 24 along.
     expect(top.hit).toEqual({ x: 192, y: 4, w: 24, h: 12 })
     const right = find(spacingHandles(stats), "right")
+    // Corner to corner too, so a side shaded alone reads as Figma's does.
+    expect(right.area).toEqual({ x: 384, y: 0, w: 24, h: 88 })
     expect(right.bar).toEqual({ x: 395, y: 36, w: 2, h: 16 })
     expect(right.hit).toEqual({ x: 384, y: 32, w: 20, h: 24 })
   })
@@ -113,6 +115,7 @@ describe("where the padding and gap handles go", () => {
       children: [rect(24, 24, 112, 40), rect(24, 76, 112, 40)],
       direction: "column"
     }
+
     expect(find(spacingHandles(column), "gap 0").area).toEqual({ x: 24, y: 64, w: 112, h: 12 })
   })
 
@@ -125,7 +128,7 @@ describe("where the padding and gap handles go", () => {
 
   it("measures inside the border", () => {
     const bordered = { ...stats, border: sides(2) }
-    expect(find(spacingHandles(bordered), "top").area).toEqual({ x: 26, y: 2, w: 356, h: 16 })
+    expect(find(spacingHandles(bordered), "top").area).toEqual({ x: 2, y: 2, w: 404, h: 16 })
   })
 })
 
@@ -223,6 +226,7 @@ describe("dragging a padding or gap handle", () => {
     const drag = spacingDrag(
       start({ kind: "padding", side: "top" }, { padding: "card-padding" }, { drawn: { padding: sides(24), gap: 12 } })
     )
+
     // 24 + 8 is 32: card-padding-lg and gutter are both 32; the first listed wins.
     expect(drag({ dx: 0, dy: -8, ...still })).toMatchObject({
       change: { padding: ["card-padding-lg", "card-padding", "card-padding", "card-padding"] },
@@ -233,10 +237,12 @@ describe("dragging a padding or gap handle", () => {
       padding: [7, "card-padding", "card-padding", "card-padding"]
     })
     expect(drag({ dx: 0, dy: 0, ...still })?.change).toEqual({ padding: "card-padding" })
+
     // Its own token comes before another with the same value.
     const gutter = spacingDrag(
       start({ kind: "padding", side: "top" }, { padding: "gutter" }, { drawn: { padding: sides(32), gap: 12 } })
     )
+
     expect(gutter({ dx: 0, dy: 4, ...still })).toMatchObject({ px: 28 })
     expect(gutter({ dx: 0, dy: 0, ...still })?.token).toBe("gutter")
   })
@@ -245,6 +251,7 @@ describe("dragging a padding or gap handle", () => {
     const drag = spacingDrag(
       start({ kind: "gap", direction: "row" }, { gap: 1 }, { drawn: { padding: sides(0), gap: 4 } })
     )
+
     expect(drag({ dx: 8, dy: 0, ...still })).toEqual({ change: { gap: 3 }, px: 12 })
   })
 
@@ -278,6 +285,7 @@ describe("stepping a padding or gap handle from the keyboard", () => {
       { gap: "stack-gap" },
       { drawn: { padding: sides(0), gap: 8 } }
     )
+
     expect(spacingStep(bound, 1, still)).toEqual({ change: { gap: "stack-gap" }, px: 12, token: "stack-gap" })
   })
 })

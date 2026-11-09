@@ -1,11 +1,19 @@
 import { createTelemetry, registeredEvents, type Sink, type Telemetry } from "@parity-app/telemetry"
-import { createSentrySink } from "@parity-app/telemetry"
+import { createSentrySink, sentryScrubbing } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/renderer"
 import type { Component, ErrorInfo } from "react"
+import { z } from "zod"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { readTelemetryRun } from "../shared/telemetry-run.ts"
 import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } from "./canvas/frames-on-screen.ts"
+
+/**
+ * Scrubs secrets from what this window sends before it leaves, and main scrubs them again (PAR-621), the open projects'
+ * `.env` values included, which main passes on from the service (PAR-672). The editor window's replays use it too
+ * (`replay.ts`, PAR-679).
+ */
+export const scrubber = secretScrubbing()
 
 /**
  * Sends this window's uncaught errors to Sentry through main, which decides whether anything leaves the computer
@@ -16,30 +24,31 @@ import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } fr
 export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}): Telemetry<typeof registeredEvents> {
   // Named on each event, since this window's scope is copied into main's: the editor window, or an offscreen renderer.
   const kind = location.pathname.endsWith("/render.html") ? "render" : "renderer"
-  // Secrets are scrubbed before an event leaves the window, and again in main (PAR-621), the open projects' `.env`
-  // values included, which main passes on from the service (PAR-672).
-  const scrubber = secretScrubbing()
   window.parityTelemetry?.onSecrets((secrets) => scrubber.use(secrets))
   Sentry.init({
     ...options,
     allowUrls: [location.origin],
+    ...sentryScrubbing(scrubber, Sentry),
     beforeSend: (event, hint) => {
       // An error says which frames were on the canvas (PAR-624).
       const frames = framesOnScreen()
-      if (frames.length > 0) hint.attachments = [...(hint.attachments ?? []), framesAttachment(frames)]
+
+      if (frames.length > 0) {
+        hint.attachments = [...(hint.attachments ?? []), framesAttachment(frames)]
+      }
+
       return scrubber.value({ ...event, tags: { ...event.tags, process: kind } })
-    },
-    beforeSendTransaction: (event) => scrubber.value(event),
-    beforeSendLog: (log) => scrubber.value(log),
-    beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb)
+    }
   })
   onFailedRender(reportFailedRender)
   // Events are this window's breadcrumbs and errors, and go to main for the local copy, Sentry's logs and spans.
   const host = window.parityTelemetry
   const run = host?.run ?? readTelemetryRun(undefined)
+
   const toMain: Sink[] = host
     ? [{ event: (envelope) => host.record(envelope), span: (envelope) => host.record(envelope) }]
     : []
+
   const telemetry = recordInvalidData(
     createTelemetry({
       events: registeredEvents,
@@ -55,17 +64,25 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
       onSinkError: (error) => console.warn("[telemetry] a sink failed:", error)
     })
   )
+
   scrubber.follow(telemetry)
+
   return telemetry
 }
 
 /** Reports a frame that couldn't be drawn offscreen, with the bitmap it last showed. */
-function reportFailedRender(error: unknown, drawn: { key: string; state?: string; mode?: string }): void {
+function reportFailedRender(cause: unknown, drawn: { key: string; state?: string; mode?: string }): void {
   const bitmap = bitmapAttachment(framesOnScreen(), drawn)
-  Sentry.captureException(error, {
-    captureContext: { tags: { render: "failed" }, contexts: { render: { ...drawn, bitmap: bitmap !== undefined } } },
-    ...(bitmap ? { attachments: [bitmap] } : {})
-  })
+
+  const hint: Sentry.EventHint = {
+    captureContext: { tags: { render: "failed" }, contexts: { render: { ...drawn, bitmap: bitmap !== undefined } } }
+  }
+
+  if (bitmap) {
+    hint.attachments = [bitmap]
+  }
+
+  Sentry.captureException(cause, hint)
 }
 
 /**
@@ -73,8 +90,8 @@ function reportFailedRender(error: unknown, drawn: { key: string; state?: string
  * itself only when a root has none, so they're logged here too.
  */
 export const reactErrorHandlers = {
-  onUncaughtError: (error: unknown, info: CaughtInfo) => report(error, info, false),
-  onCaughtError: (error: unknown, info: CaughtInfo) => report(error, info, true)
+  onUncaughtError: (cause: unknown, info: CaughtInfo) => report(cause, info, false),
+  onCaughtError: (cause: unknown, info: CaughtInfo) => report(cause, info, true)
 }
 
 /** What React says about an error, with the boundary that caught it, if one did. */
@@ -82,34 +99,67 @@ type CaughtInfo = ErrorInfo & { errorBoundary?: Component<unknown> }
 
 /** The name of the error boundary that caught an error (`chrome/ErrorBoundary.tsx`, PAR-667), for its Sentry tag. */
 function boundaryName(info: CaughtInfo): string | undefined {
-  const props = info.errorBoundary?.props as { name?: unknown } | undefined
-  return typeof props?.name === "string" ? props.name : undefined
+  return namedBoundary.safeParse(info.errorBoundary?.props).data?.name
 }
 
-function report(error: unknown, info: CaughtInfo, caught: boolean): void {
-  console.error(error)
+/** An error boundary's props, read only for its name, since React types any component as the boundary. */
+const namedBoundary = z.object({ name: z.string() })
+
+/** The Sentry event of each error a boundary caught, so a report from its fallback can name it (PAR-704). */
+const caughtEvents = new WeakMap<object, string>()
+
+/** The Sentry event an error a boundary caught was sent as, if it was an object and was sent. */
+export function caughtEventId(cause: unknown): string | undefined {
+  return cause instanceof Object ? caughtEvents.get(cause) : undefined
+}
+
+function report(cause: unknown, info: CaughtInfo, caught: boolean): void {
+  console.error(cause)
   const boundary = boundaryName(info)
-  Sentry.captureException(error, {
+
+  const contexts = { react: { componentStack: info.componentStack } }
+
+  const eventId = Sentry.captureException(cause, {
     mechanism: { type: "react", handled: caught },
-    captureContext: {
-      contexts: { react: { componentStack: info.componentStack } },
-      ...(boundary ? { tags: { boundary } } : {})
-    }
+    captureContext: boundary ? { contexts, tags: { boundary } } : { contexts }
   })
+
+  if (caught && eventId && cause instanceof Object) {
+    caughtEvents.set(cause, eventId)
+  }
+}
+
+/** The replay and trace a report is tied to, each when there is one. */
+interface ReportIds {
+  replayId?: string
+  traceId?: string
 }
 
 /**
  * The replay and trace a report is tied to (PAR-635). The replay's buffer is sent first, so the feedback can name it.
  * Neither is there when the window records no replay.
  */
-export async function reportIds(): Promise<{ replayId?: string; traceId?: string }> {
+export async function reportIds(): Promise<ReportIds> {
   const replay = Sentry.getReplay()
+
   try {
     await replay?.flush()
   } catch {
     // The report goes without its replay.
   }
+
   const replayId = replay?.getReplayId()
   const traceId = Sentry.getCurrentScope().getPropagationContext().traceId
-  return { ...(replayId ? { replayId } : {}), ...(traceId ? { traceId } : {}) }
+
+  const ids: ReportIds = {}
+
+  if (replayId) {
+    ids.replayId = replayId
+  }
+
+  if (traceId) {
+    ids.traceId = traceId
+  }
+
+  return ids
 }

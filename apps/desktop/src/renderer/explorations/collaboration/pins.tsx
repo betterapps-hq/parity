@@ -1,10 +1,10 @@
 import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { Check, Component, Eye, ListFilter, MessageSquarePlus, Plus } from "lucide-react"
-import type { CSSProperties, ReactNode } from "react"
+import type { ReactNode } from "react"
 import { agentPalettes } from "../../agent/agent-colors.ts"
 import { formatKeys } from "../../chrome/keys.ts"
 import { me, type Person } from "../explore-data.ts"
-import { Avatar, AvatarStack } from "../parts.tsx"
+import { Avatar, AvatarStack, withVariables } from "../parts.tsx"
 import type { ThreadData } from "./collab-data.ts"
 import { CommentText, commentBlue } from "./comments.tsx"
 
@@ -45,6 +45,7 @@ export function CommentPin({
   className?: string
 }) {
   const palette = agentPalettes[7]!
+
   const ring = {
     default: "ring-1 ring-white/15",
     unread: "ring-2 ring-[oklch(0.65_0.18_250)]",
@@ -56,21 +57,23 @@ export function CommentPin({
     elsewhere: "ring-1 ring-white/10 opacity-55",
     waiting: "ring-2 ring-[oklch(0.8_0.14_75)]"
   }[state]
+
   let faces: ReactNode
-  if (state === "resolved")
+
+  if (state === "resolved") {
     faces = (
       <span className="grid size-[22px] place-items-center rounded-full bg-emerald-500/20 text-emerald-400">
         <Check className="size-3.5" />
       </span>
     )
-  else if (state === "draft")
+  } else if (state === "draft") {
     faces = (
       <>
         <Avatar person={me} size={22} />
         <Plus className="mx-1 size-3.5" />
       </>
     )
-  else
+  } else {
     faces = people
       .slice(0, 3)
       .map((person, index) => (
@@ -83,6 +86,8 @@ export function CommentPin({
           }
         />
       ))
+  }
+
   return (
     <span
       className={`relative inline-flex items-center p-[3px] shadow-[0_4px_14px_rgb(0_0_0/0.45)] transition-[scale,background-color,box-shadow,opacity] duration-200 ease-out ${teardrop} ${ring} ${
@@ -90,10 +95,12 @@ export function CommentPin({
       } origin-bottom-left ${className}`}
       style={
         state === "working"
-          ? ({
-              "--tw-ring-color": palette.color,
-              boxShadow: `0 0 0 5px color-mix(in oklch, ${palette.color} 22%, transparent), 0 4px 14px rgb(0 0 0 / 0.45)`
-            } as CSSProperties)
+          ? withVariables(
+              { "--tw-ring-color": palette.color },
+              {
+                boxShadow: `0 0 0 5px color-mix(in oklch, ${palette.color} 22%, transparent), 0 4px 14px rgb(0 0 0 / 0.45)`
+              }
+            )
           : undefined
       }
     >
@@ -134,6 +141,7 @@ export function PinPreview({ thread }: { thread: ThreadData }) {
   const first = thread.comments[0]!
   const people = [...new Set(thread.comments.map((comment) => comment.author))]
   const replies = thread.comments.length - 1
+
   return (
     <div className="flex w-72 flex-col gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-2xl">
       <div className="flex items-baseline gap-1.5 text-xs">

@@ -12,6 +12,7 @@ describe("the saved panel layout", () => {
       console: true,
       consoleHeight: 320
     }
+
     expect(readLayout(JSON.stringify(saved))).toEqual(saved)
   })
 

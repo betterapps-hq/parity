@@ -1,4 +1,4 @@
-import { Badge, Button, Label, RadioGroup, RadioGroupItem, Switch } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Label, RadioGroup, RadioGroupItem, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import { kindName, kindTitle, selectionKey } from "@parity-app/editor"
 import { Crown, MousePointerClick } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
@@ -10,11 +10,12 @@ import { ComponentsSection, InCodeSection, ParamsSection } from "./ComponentsSec
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldTarget, FirstStateName } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
-import { updateAndRecord } from "./inspector-events.ts"
+import { renameAndRecord } from "./inspector-events.ts"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
+import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { StatesSection } from "./StatesSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
@@ -28,6 +29,7 @@ export function DesignTab() {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
+
   return (
     <FieldTarget value={selectionKey(selected)}>
       <FirstStateName value={entry?.container.states[0]?.name ?? "Default"}>
@@ -41,7 +43,11 @@ function SelectedPanel() {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
-  if (selected.note) return <NotePanel noteKey={selected.note} />
+
+  if (selected.note) {
+    return <NotePanel noteKey={selected.note} />
+  }
+
   if (!entry) {
     return (
       <div className="type-empty flex flex-col items-center gap-2 px-6 py-12 text-center text-muted-foreground">
@@ -52,12 +58,20 @@ function SelectedPanel() {
       </div>
     )
   }
+
   if (selected.nodes && selected.nodes.length > 1) {
     // Another set of layers starts its fields afresh, as another layer does, rather than keeping what was typed.
     return <MultiLayerPanel key={selected.nodes.join(",")} entry={entry} ids={selected.nodes} />
   }
-  if (selected.designs && selected.designs.length > 1) return <ArrangePanel keys={selected.designs} />
-  if (selected.node) return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+
+  if (selected.designs && selected.designs.length > 1) {
+    return <ArrangePanel keys={selected.designs} />
+  }
+
+  if (selected.node) {
+    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+  }
+
   return <DesignPanel entry={entry} />
 }
 
@@ -66,46 +80,38 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
   const settings = useModeSettings(store)
   const { container, key } = entry
   const { primary } = containerModes(settings, container)
-  const kind = kindName(container.kind)
 
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex items-center gap-2">
-          <DesignIcon
-            kind={container.kind}
-            className="size-4 shrink-0"
-            style={{ color: designColor(container.kind) }}
-          />
-          {/* The selection's title, at 15px semibold on every tab; md:text-base replaces the kit's md:text-sm. */}
-          <NameInput
-            key={container.name}
-            defaultValue={container.name}
-            aria-label={`${kindTitle(container.kind)} name`}
-            className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input md:text-base dark:bg-transparent"
-            onBlur={(event) => {
-              const name = event.currentTarget.value.trim()
-              if (name && name !== container.name) {
-                updateAndRecord(store, key, `Rename ${kind}`, (current) => ({ ...current, name }), {
-                  field: "name",
-                  read: (current) => current.name
-                })
-              }
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") event.currentTarget.blur()
-            }}
-          />
-        </div>
-        <div className="mt-2 flex items-center gap-2 pl-6">
-          <Hint label={entry.path} wait>
-            <Badge variant="outline" className="min-w-0 shrink justify-start font-normal">
-              <span className="truncate">{entry.path}</span>
-            </Badge>
-          </Hint>
-        </div>
+        <SelectionHeading
+          icon={<DesignIcon kind={container.kind} className={headingIcon} />}
+          color={designColor(container.kind)}
+          kind={kindTitle(container.kind)}
+          detail={`${kindTitle(container.kind)}, saved in ${entry.path}`}
+          name={
+            <NameInput
+              key={container.name}
+              defaultValue={container.name}
+              aria-label={`${kindTitle(container.kind)} name`}
+              className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
+              onBlur={(event) => {
+                const name = event.currentTarget.value.trim()
+
+                if (name && name !== container.name) {
+                  renameAndRecord(store, key, name)
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur()
+                }
+              }}
+            />
+          }
+        />
         {container.kind === "frame" && (
-          <div className="mt-2 flex flex-col gap-2 pl-6">
+          <div className="mt-2 flex flex-col gap-2 pl-1.5">
             <Hint label="Frames are drawn in the project's primary mode" wait>
               <span className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground">
                 <Crown className="size-3 shrink-0 text-amber-400" aria-hidden />
@@ -133,6 +139,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
  */
 function FrameStyles({ entry }: { entry: ContainerEntry }) {
   const editor = useStyleEditor(entry, [entry.container.root.id])
+
   return editor ? <StyleSections editor={editor} node={entry.container.root} /> : null
 }
 
@@ -145,6 +152,7 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
   const { primary, all } = containerModes(settings, container)
   const shown = new Set(container.view?.modes ?? [])
   const kind = kindName(container.kind)
+
   const setModes = (modes: string[]) =>
     store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
 
@@ -168,6 +176,7 @@ function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
           {all.map((mode, index) => {
             const isMain = mode.id === primary.id
             const isSelected = selected.mode === mode.id
+
             return (
               <div
                 key={mode.id}
@@ -242,7 +251,11 @@ function OptionChip({ children }: { children: React.ReactNode }) {
 function NotePanel({ noteKey }: { noteKey: string }) {
   const { store } = useProject()
   const note = useNotes(store).find((entry) => entry.key === noteKey)
-  if (!note) return null
+
+  if (!note) {
+    return null
+  }
+
   return (
     <PanelSection title="Text on the canvas">
       <textarea
@@ -251,6 +264,7 @@ function NotePanel({ noteKey }: { noteKey: string }) {
         rows={5}
         onBlur={(event) => {
           const text = event.currentTarget.value
+
           if (text !== note.note.text) {
             store.updateNote(noteKey, text.trim() ? "Edit text" : "Delete text", (current) =>
               text.trim() ? { ...current, text } : undefined

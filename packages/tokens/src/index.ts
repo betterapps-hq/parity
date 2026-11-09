@@ -1,10 +1,19 @@
 export * from "./checks.ts"
+
 export * from "./color.ts"
+
 export * from "./contrast.ts"
+
 export * from "./dtcg.ts"
+
 export * from "./kinds.ts"
+
 export * from "./matching.ts"
+
 export * from "./policy.ts"
+
 export * from "./stylesheet.ts"
+
 export * from "./token-order.ts"
+
 export * from "./tokens.ts"

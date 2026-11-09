@@ -20,6 +20,14 @@ jobs:
       # they're installed only when one is missing. Bun (for mantine) and Corepack (which brings react-aria's Yarn)
       # come from npm at pinned versions, the same on every system.
       prepare: |
+        # Electron's binary and what electron-builder downloads to package it go where the cache below keeps them. Electron
+        # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
+        # Outside the checkout, whose package.json would make the scripts electron-builder unpacks there ES modules.
+        home=$(node -p "require('os').homedir()")
+        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+        echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
+        export electron_config_cache="$home/.cache/parity-ci/electron"
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
         missing=
         for project in fixtures/*/; do
           if [ ! -d "${project}node_modules" ]; then missing=1; fi
@@ -32,7 +40,12 @@ jobs:
         else
           echo "Every fixture project came from the cache."
         fi
-      cache-path: fixtures/*/node_modules
+      # Electron's downloads share the fixtures' cache and its key, as the template keeps one. After Electron's version
+      # changes, the new one downloads on each run until a fixture's lockfile changes too.
+      cache-path: |
+        fixtures/*/node_modules
+        ~/.cache/parity-ci/electron
+        ~/.cache/parity-ci/electron-builder
       cache-key-files: fixtures/*/*lock*
       # Then the CLI's packed tarball, installed in an empty folder, has to run on each system (PAR-13).
       command: |
@@ -46,7 +59,7 @@ jobs:
         fi
         # Every installer target must build before this can merge. Signing is a separate release task.
         export CSC_IDENTITY_AUTO_DISCOVERY=false
-        pnpm --filter @parity-app/desktop package
+        node scripts/retry.ts pnpm --filter @parity-app/desktop package
         if [ "$RUNNER_OS" = Windows ]; then
           pnpm --filter @parity-app/desktop try-installed
         fi
@@ -115,7 +128,7 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           LINK_COMMITS: ${{ github.event_name == 'push' && '--link-commits' || '' }}
-        run: node apps/desktop/scripts/upload-sourcemaps.ts $LINK_COMMITS
+        run: node scripts/upload-sourcemaps.ts apps/desktop --project parity-desktop $LINK_COMMITS
 
   # The one check the main branch's ruleset requires, so it needn't change when jobs or systems do.
   ci-passes:

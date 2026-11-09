@@ -24,6 +24,8 @@ export const keymap = {
   frame: { group: "Tools", label: "Frame", keys: ["F", "A"] },
   text: { group: "Tools", label: "Text", keys: ["T"] },
   interact: { group: "Tools", label: "Interact with previews", keys: ["I"] },
+  comment: { group: "Tools", label: "Comment", keys: ["C"] },
+  annotate: { group: "Tools", label: "Annotate", keys: ["Shift T"] },
 
   selectAll: { group: "Selection", label: "Select all", keys: ["Ctrl A"] },
   selectInverse: { group: "Selection", label: "Select inverse", keys: ["Ctrl Shift A"] },
@@ -136,6 +138,11 @@ function isShortcut(event: KeyboardEvent, command: Command): boolean {
 
 /** The binding, if any, a key event matches. */
 export function shortcutFor(event: KeyboardEvent, commands: Iterable<Command>): Command | undefined {
-  for (const command of commands) if (isShortcut(event, command)) return command
+  for (const command of commands) {
+    if (isShortcut(event, command)) {
+      return command
+    }
+  }
+
   return undefined
 }

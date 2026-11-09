@@ -5,6 +5,7 @@ import { Worker } from "node:worker_threads"
 import type { CheckResult } from "@parity-app/code"
 import type { ComponentInfo, ComponentSource } from "@parity-app/core"
 import { findLockfiles } from "@parity-app/project"
+import { logNote } from "../shared/log.ts"
 import { environment } from "./environment.ts"
 import type { CheckerMethods } from "./props-worker.ts"
 import { recordFromWorker, reportWorkerError } from "./telemetry.ts"
@@ -72,44 +73,62 @@ export function typeChecker(
   ): Promise<CheckerMethods[M]["result"]> => {
     const closed = closes.get(root) ?? 0
     const locks = await lockfiles(root)
-    if ((closes.get(root) ?? 0) !== closed) throw new Error("The project closed")
-    if (!client.running) primed.clear()
+
+    if ((closes.get(root) ?? 0) !== closed) {
+      throw new Error("The project closed")
+    }
+
+    if (!client.running) {
+      primed.clear()
+    }
+
     const known = primed.has(root) ? [] : [...(read.get(root) ?? [])]
     primed.add(root)
     const kept = read.get(root) ?? new Set<string>()
-    for (const file of files) kept.add(file)
+
+    for (const file of files) {
+      kept.add(file)
+    }
+
     read.set(root, kept)
-    return client.request(method, {
-      ...params,
-      root,
-      lockfiles: locks,
-      ...(known.length > 0 ? { known } : {})
-    } as CheckerMethods[M]["params"])
+
+    const sent = { ...params, root, lockfiles: locks }
+
+    // SAFETY: `params` is `M`'s own params less the three fields filled in here; TypeScript can't see that `Omit` and
+    // the fields put back make the whole type again for a generic `M`.
+    return client.request(method, (known.length > 0 ? { ...sent, known } : sent) as CheckerMethods[M]["params"])
   }
 
   return {
     async inferComponents(root, components, files = []) {
       const started = Date.now()
       const result = (await ask("props", root, { components, files }, files)) ?? {}
-      console.log(`[service] props for ${Object.keys(result).length} components in ${Date.now() - started}ms`)
+      logNote(`[service] props for ${Object.keys(result).length} components in ${Date.now() - started}ms`)
+
       return result
     },
     async checkComponents(root, files) {
       const started = Date.now()
       const result = await ask("check", root, { files }, files)
-      console.log(`[service] the type checker read ${files.length} files in ${Date.now() - started}ms`)
+      logNote(`[service] the type checker read ${files.length} files in ${Date.now() - started}ms`)
+
       return result
     },
     closeChecker(root, lastProject) {
       closes.set(root, (closes.get(root) ?? 0) + 1)
       read.delete(root)
       primed.delete(root)
+
       if (lastProject) {
         read.clear()
         client.stop(new Error("The project closed"))
+
         return
       }
-      if (client.running) void client.request("close", { root }).catch(() => undefined)
+
+      if (client.running) {
+        void client.request("close", { root }).catch(() => undefined)
+      }
     }
   }
 }
@@ -122,19 +141,22 @@ export const checker = typeChecker(
       const worker = new Worker(workerUrl, {
         resourceLimits: { maxOldGenerationSizeMb: Math.round(totalmem() / 2 ** 20 / 2) }
       })
+
       // The worker's events come beside its channel's messages (PAR-627).
       worker.on("message", recordFromWorker)
+
       return worker
     },
     idleMs: checkerIdleMs,
     failed: (error: Error & { code?: string }) => {
       reportWorkerError(error)
+
       return error.code === "ERR_WORKER_OUT_OF_MEMORY"
         ? new Error("The type checker ran out of memory. Components are as the parse found them.", { cause: error })
         : error
     },
     stopped: () =>
-      console.log(
+      logNote(
         `[service] the type checker stopped after ${checkerIdleMs / 1000}s with nothing to do, freeing its memory`
       )
   })

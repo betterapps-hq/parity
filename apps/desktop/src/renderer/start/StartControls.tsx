@@ -30,8 +30,11 @@ export function SearchButton({ large, takeFocus = false }: { large?: boolean; ta
   const actions = useStartActions()
   const button = useRef<HTMLButtonElement>(null)
   useEffect(() => {
-    if (takeFocus) button.current?.focus({ preventScroll: true })
+    if (takeFocus) {
+      button.current?.focus({ preventScroll: true })
+    }
   }, [takeFocus])
+
   return (
     <button
       ref={button}
@@ -54,6 +57,7 @@ export function SearchButton({ large, takeFocus = false }: { large?: boolean; ta
 export function OpenMenu() {
   const actions = useStartActions()
   const clone = () => notReady("Cloning isn't ready yet", "For now, clone the repository yourself and open its folder.")
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -84,6 +88,7 @@ export function OpenMenu() {
 
 export function NewProjectButton() {
   const actions = useStartActions()
+
   return (
     <Button onClick={() => newProjectNotReady(actions)}>
       <Plus /> New project
@@ -115,7 +120,11 @@ export function WorkspaceMenu() {
   // The organization a switch is moving to, while main refreshes.
   const [switching, setSwitching] = useState<string>()
   const [said, setSaid] = useState("")
-  if (!loaded) return <span className="h-10" />
+
+  if (!loaded) {
+    return <span className="h-10" />
+  }
+
   if (!account) {
     return (
       <Button variant="ghost" className="-ml-2.5 gap-2" onClick={accountActions.open}>
@@ -123,16 +132,23 @@ export function WorkspaceMenu() {
       </Button>
     )
   }
+
   const current = currentOrganization(account)
   const organizations = knownOrganizations(account)
+
   const switchTo = (id: string) => {
-    if (id === (current?.id ?? "personal")) return
+    if (id === (current?.id ?? "personal")) {
+      return
+    }
+
     // Personal is one more organization, just yours, which Parity's service makes (PAR-616). A session can't leave an
     // organization, so until then there's no Personal to switch to.
     if (id === "personal") {
       notReady("Personal isn't ready yet", "It needs an organization of your own, which Parity can't make yet.")
+
       return
     }
+
     const name = organizations.find((organization) => organization.id === id)?.name ?? "your organization"
     setSwitching(name)
     setSaid(`Switching to ${name}`)
@@ -141,6 +157,7 @@ export function WorkspaceMenu() {
       setSaid("")
     })
   }
+
   return (
     <>
       <DropdownMenu>

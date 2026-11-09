@@ -63,6 +63,7 @@ beforeAll(async () => {
     platform: "browser",
     define: { "process.env.NODE_ENV": '"production"' }
   })
+
   // Headless Chrome hides scrollbars unless asked not to; the offscreen window draws them.
   browser = await chromium.launch({ channel: "chrome", headless: true, ignoreDefaultArgs: ["--hide-scrollbars"] })
   // Shorter than the frame's window, so a height that came from this window rather than the job's would show.
@@ -84,8 +85,10 @@ beforeAll(async () => {
     })
   )
   await page.goto("http://parity.test/")
-  if (!(await page.evaluate(() => typeof window.canvasRender === "function")))
+
+  if (!(await page.evaluate(() => "canvasRender" in window))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
+  }
 })
 
 afterAll(async () => {
@@ -102,12 +105,14 @@ async function render(mode: Pick<RenderJob["mode"], "width" | "height" | "viewpo
     mode: { ...mode, classNames: [], attributes: {} },
     scale: 1
   }
+
   return page.evaluate(async (job) => {
     const frame: RenderedFrame = await window.canvasRender(job)
     const tall = document.querySelector("div")?.shadowRoot?.querySelector(".tall")
+
     return {
       frame,
-      mountedIn: (window as unknown as { mountedIn: unknown }).mountedIn,
+      mountedIn: "mountedIn" in window ? window.mountedIn : undefined,
       vh: tall?.getBoundingClientRect().height
     }
   }, job)
@@ -138,12 +143,15 @@ describe("canvasRender", () => {
     expect(frame.height).toBeLessThan(20)
     // As the main process sizes the window for a capture: as wide and as tall as the frame.
     await page.setViewportSize({ width: frame.width, height: frame.height })
+
     try {
       const scrollbars = await page.evaluate(async () => {
         await window.canvasSettle()
         const root = document.documentElement
+
         return { vertical: innerWidth - root.clientWidth, horizontal: innerHeight - root.clientHeight }
       })
+
       expect(scrollbars).toEqual({ vertical: 0, horizontal: 0 })
     } finally {
       await page.setViewportSize({ width: 1280, height: 800 })
@@ -159,15 +167,20 @@ async function renderPortal(inline: boolean) {
     theme: [],
     tree: [{ kind: "element", nodeId: "preview", tag: "div", style: {}, children: [] }],
     mode: { width: 656, viewport: { width: 1280, height: 800 }, classNames: [], attributes: {} },
-    scale: 1,
-    ...(inline ? { inlinePortals: true as const } : {})
+    scale: 1
   }
+
+  if (inline) {
+    job.inlinePortals = true
+  }
+
   return page.evaluate(async (job) => {
     const frame: RenderedFrame = await window.canvasRender(job)
     const shadow = document.querySelector("div")!.shadowRoot!
     const inFrame = (selector: string) => shadow.querySelector<HTMLElement>(selector)
     const popup = inFrame(".popup") ?? document.querySelector<HTMLElement>(".popup")!
     const box = popup.getBoundingClientRect()
+
     return {
       frame,
       inFrame: inFrame(".popup") !== null,

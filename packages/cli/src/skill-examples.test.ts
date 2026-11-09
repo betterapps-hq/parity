@@ -8,29 +8,39 @@ import { readSkill, skillFiles } from "./skills.ts"
 function snippets(markdown: string): { line: number; code: string }[] {
   const found: { line: number; code: string }[] = []
   const lines = markdown.split(/\r?\n/)
+
   for (let index = 0; index < lines.length; index++) {
-    if (lines[index] !== "```js") continue
+    if (lines[index] !== "```js") {
+      continue
+    }
+
     const end = lines.indexOf("```", index + 1)
     found.push({ line: index + 1, code: lines.slice(index + 1, end).join("\n") })
     index = end
   }
+
   return found
 }
 
 const text = (id: string, words: string): DesignNode => ({ type: "text", id, name: id, text: words })
-const layout = (name: string, children: DesignNode[] = [], hidden?: boolean): DesignNode => ({
-  type: "layout",
-  id: name.toLowerCase().replaceAll(" ", "-"),
-  name,
-  ...(hidden ? { hidden } : {}),
-  children
-})
+
+const layout = (name: string, children: DesignNode[] = [], hidden?: boolean): DesignNode => {
+  const node: DesignNode = { type: "layout", id: name.toLowerCase().replaceAll(" ", "-"), name, children }
+
+  if (hidden) {
+    node.hidden = hidden
+  }
+
+  return node
+}
+
 const row = (id: string, name: string, email: string): DesignNode => ({
   type: "layout",
   id,
   style: { direction: "row", gap: 4 },
   children: [text(`${id}-name`, name), text(`${id}-email`, email)]
 })
+
 const screen = (id: string, name: string, x: number, root: DesignNode): ContainerSpec => ({
   id,
   name,
@@ -90,6 +100,7 @@ const nova = (name: string, fields: Partial<ComponentSource> = {}): [string, Com
   `nova/${name}`,
   { path: "@buildkitgg/shadcn-baseui-nova", export: name, library: "nova", ...fields }
 ]
+
 const novaSidebar: Record<string, ComponentSource> = Object.fromEntries([
   nova("SidebarProvider", { visual: false, sample: { children: [{ component: "nova/Sidebar" }] } }),
   nova("Sidebar", { parents: ["nova/SidebarProvider"], sample: { children: [{ component: "nova/SidebarContent" }] } }),
@@ -141,18 +152,16 @@ function project(tab: string): AgentSnapshot {
 
 const hooks: AgentHooks = {
   presence: () => undefined,
-  render: async ({ mode, capture }) => ({
-    width: mode.width,
-    height: 600,
-    nodes: [],
-    overflowsX: false,
-    unknownComponents: [],
-    ...(capture ? { png: "iVBOR" } : {})
-  }),
+  render: async ({ mode, capture }) => {
+    const rendered = { width: mode.width, height: 600, nodes: [], overflowsX: false, unknownComponents: [] }
+
+    return capture ? { ...rendered, png: "iVBOR" } : rendered
+  },
   iconNames: async () => ({ names: ["Bell", "Heart", "Settings"], aliases: { Settings: ["Cog"] } })
 }
 
 const files = await skillFiles()
+
 const examples = (
   await Promise.all(files.map(async (file) => snippets(await readSkill(file)).map((snippet) => ({ file, ...snippet }))))
 ).flat()
@@ -171,11 +180,14 @@ describe("the skill's examples", () => {
     "runs every example in %s against the example project",
     async (file) => {
       const tab = `skill-${file}`
+
       for (const { line, code } of examples.filter((example) => example.file === file)) {
         const result = await execute({ label: "Example", code }, project(tab), hooks)
+
         const warnings = result.warnings.filter(
           (_, index) => !boardCategories.has(result.warningGroups?.[index]?.category ?? "")
         )
+
         expect({ at: `${file}:${line}`, error: result.error, warnings }).toEqual({
           at: `${file}:${line}`,
           error: undefined,

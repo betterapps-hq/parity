@@ -1,10 +1,13 @@
 import { type DrawnBox, type FrameSkeleton, frameSkeleton } from "@parity-app/core"
 import { type RefObject, useEffect, useState } from "react"
+import { flagsOf } from "../bits.ts"
 
 /** How long a frame stays the same before it's measured, as long as before its bitmap is taken. */
 const settleMs = 1000
+
 /** How long until trying again to measure a frame that hasn't drawn yet, or is out of view. */
 const retryMs = 2000
+
 /** Skeletons kept, most recently asked for last. Each is a few paths. */
 const kept = 400
 
@@ -30,41 +33,60 @@ export function useFrameSkeleton(
   const known = skeletons.get(key)
 
   useEffect(() => {
-    if (known || !measure) return
+    if (known || !measure) {
+      return
+    }
+
     let idle: number | undefined
+
     const attempt = () => {
       idle = requestIdleCallback(
         () => {
           const host = tile.current?.querySelector<HTMLElement>("[data-frame]")
           // A frame out of view isn't laid out, so measuring it would lay it out just for this.
           const measured = host && !host.closest("[data-away]") ? measureFrame(host, width) : undefined
+
           if (!measured) {
             timer = setTimeout(attempt, retryMs)
+
             return
           }
+
           const skeleton = frameSkeleton({ width, height: measured.height }, measured.drawn)
           skeletons.set(key, skeleton)
+
           for (const old of skeletons.keys()) {
-            if (skeletons.size <= kept) break
+            if (skeletons.size <= kept) {
+              break
+            }
+
             skeletons.delete(old)
           }
+
           setShown({ key, skeleton })
         },
         { timeout: retryMs }
       )
     }
+
     let timer = setTimeout(attempt, settleMs)
+
     return () => {
       clearTimeout(timer)
-      if (idle !== undefined) cancelIdleCallback(idle)
+
+      if (idle !== undefined) {
+        cancelIdleCallback(idle)
+      }
     }
   }, [key, known, measure, tile, width])
 
   if (known) {
     skeletons.delete(key)
     skeletons.set(key, known)
+
     return known
   }
+
   return shown?.key === key ? shown.skeleton : undefined
 }
 
@@ -74,61 +96,105 @@ export function useFrameSkeleton(
  */
 export function measureFrame(host: HTMLElement, width: number): { height: number; drawn: DrawnBox[] } | undefined {
   const root = host.shadowRoot
-  if (!root?.querySelector("[data-canvas-node]")) return undefined
+
+  if (!root?.querySelector("[data-canvas-node]")) {
+    return undefined
+  }
+
   const frame = host.getBoundingClientRect()
   // The frame is drawn scaled, by the canvas's zoom and its own; boxes are measured as drawn and scaled back.
   const ratio = frame.width / width
-  if (!(ratio > 0)) return undefined
+
+  if (!(ratio > 0)) {
+    return undefined
+  }
+
   const local = (rect: DOMRect) => ({
     x: (rect.left - frame.left) / ratio,
     y: (rect.top - frame.top) / ratio,
     width: rect.width / ratio,
     height: rect.height / ratio
   })
+
   const drawn: DrawnBox[] = []
   const range = document.createRange()
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+
+  const walker = document.createTreeWalker(root, flagsOf(NodeFilter.SHOW_ELEMENT, NodeFilter.SHOW_TEXT), {
     acceptNode: (node) => {
       // What an icon or picture is made of is drawn as the one box.
-      if (node.parentElement?.closest(insideMedia)) return NodeFilter.FILTER_REJECT
-      if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT
+      if (node.parentElement?.closest(insideMedia)) {
+        return NodeFilter.FILTER_REJECT
+      }
+
+      if (node.nodeType === Node.TEXT_NODE) {
+        return NodeFilter.FILTER_ACCEPT
+      }
+
+      // SAFETY: the walker shows only elements and text, and text was accepted above.
       const style = getComputedStyle(node as Element)
+
       return style.display === "none" || style.visibility === "hidden" || style.opacity === "0"
         ? NodeFilter.FILTER_REJECT
         : NodeFilter.FILTER_ACCEPT
     }
   })
+
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     if (node.nodeType === Node.TEXT_NODE) {
-      if (!node.textContent?.trim() || !node.parentElement) continue
+      if (!node.textContent?.trim() || !node.parentElement) {
+        continue
+      }
+
       const color = getComputedStyle(node.parentElement).color
-      if (!shows(color)) continue
+
+      if (!shows(color)) {
+        continue
+      }
+
       range.selectNodeContents(node)
-      for (const line of range.getClientRects()) drawn.push({ kind: "text", ...local(line), color })
+
+      for (const line of range.getClientRects()) {
+        drawn.push({ kind: "text", ...local(line), color })
+      }
+
       continue
     }
+
+    // SAFETY: the walker shows only elements and text, and text was handled above.
     const element = node as Element
     const style = getComputedStyle(element)
     const box = local(element.getBoundingClientRect())
-    if (box.width === 0 || box.height === 0) continue
+
+    if (box.width === 0 || box.height === 0) {
+      continue
+    }
+
     if (media.has(element.tagName)) {
       drawn.push({ kind: "media", ...box, color: style.color, radius: radius(style, box) })
       continue
     }
+
     const background = shows(style.backgroundColor) ? style.backgroundColor : undefined
     const border = bordered(style) ? style.borderTopColor : undefined
+
     if (background || border) {
-      drawn.push({
-        kind: "surface",
-        ...box,
-        ...(background ? { color: background } : {}),
-        ...(border ? { border } : {}),
-        radius: radius(style, box)
-      })
+      const surface: DrawnBox = { kind: "surface", ...box }
+
+      if (background) {
+        surface.color = background
+      }
+
+      if (border) {
+        surface.border = border
+      }
+
+      surface.radius = radius(style, box)
+      drawn.push(surface)
     } else if (style.backgroundImage !== "none") {
       drawn.push({ kind: "media", ...box, color: style.color, radius: radius(style, box) })
     }
   }
+
   return { height: frame.height / ratio, drawn }
 }
 
@@ -150,5 +216,6 @@ function bordered(style: CSSStyleDeclaration): boolean {
 function radius(style: CSSStyleDeclaration, box: { width: number; height: number }): number {
   const corner = style.borderTopLeftRadius.split(" ")[0] ?? "0"
   const value = parseFloat(corner) || 0
+
   return corner.endsWith("%") ? (Math.min(box.width, box.height) * value) / 100 : value
 }

@@ -7,6 +7,7 @@ import {
   requests,
   skillRequest
 } from "@parity-app/agent/contracts"
+import { type JsonValue, jsonValue } from "@parity-app/core/schema"
 import { z } from "zod"
 import type { Routing } from "./client.ts"
 import { type ExecResponse, execResponse, executionFailed, structuredExec } from "./execute.ts"
@@ -21,6 +22,23 @@ export type Send = <M extends AgentMethod>(
   routing: Routing
 ) => Promise<AgentMethods[M]["result"]>
 
+/**
+ * What a caller sends an operation, before its contract checks it: MCP's arguments, which are JSON of any shape, or the
+ * CLI's flags by field, with the unset ones undefined.
+ */
+export type OperationInput = JsonValue | OperationFields
+
+/** An operation's input as fields, with the unset ones undefined, as the CLI gives them. */
+export interface OperationFields {
+  readonly [field: string]: JsonValue | undefined
+}
+
+/** An operation's input as fields, when it's an object, which the CLI's flags always are. */
+export const inputFields = z.record(z.string(), jsonValue.optional())
+
+/** An input's JSON Schema, which MCP publishes. */
+export type InputSchema = z.core.JSONSchema.JSONSchema
+
 /** The methods an agent asks with input of its own: every one but `copy`, which the CLI asks on its own. */
 type Requested = AgentMethod & keyof typeof requests
 
@@ -31,7 +49,7 @@ type Requested = AgentMethod & keyof typeof requests
  */
 export interface Operation<Result> {
   /** The input's JSON Schema, which MCP publishes. */
-  inputSchema: Record<string, unknown>
+  inputSchema: InputSchema
   /** The input fields, which an error's path can point at. */
   fields: readonly string[]
   /**
@@ -39,14 +57,16 @@ export interface Operation<Result> {
    * a root to the copy that has that project or the one the person used last, and one with neither asks every copy.
    */
   routing: Routing
-  run(input: unknown, send: Send): Promise<Result>
+  run(input: OperationInput, send: Send): Promise<Result>
   failed(result: Result): boolean
-  structured(result: Result): Record<string, unknown>
+  structured(result: Result): object
 }
 
 interface Options<Result> {
+  /** Which copy the call goes to, when it isn't the one its fields say. */
+  routing?: Routing
   failed?: (result: Result) => boolean
-  structured?: (result: Result) => Record<string, unknown>
+  structured?: (result: Result) => object
 }
 
 /**
@@ -60,24 +80,34 @@ function mapped<M extends Exclude<Requested, "exec">, Result extends object>(
 ): Operation<Result> {
   const input: z.ZodObject = requests[method]
   const fields = Object.keys(input.shape)
-  const routing = routingFor(fields)
+  const routing = options.routing ?? routingFor(fields)
+
   return {
     inputSchema: requestJsonSchema(input),
     fields,
     routing,
     async run(given, send) {
+      // SAFETY: `input` is `requests[method]`, the schema `AgentMethods[M]["params"]` is inferred from; it's typed as a
+      // plain object schema only so its shape can be read.
       const request = readRequest(input, given, 1) as AgentMethods[M]["params"]
+
       return result(await send(method, request, routing), request)
     },
     failed: options.failed ?? (() => false),
-    structured: options.structured ?? ((value) => Object.fromEntries(Object.entries(value)))
+    structured: options.structured ?? ((value) => value)
   }
 }
 
 /** Which copy a call goes to, from its fields: see `Operation.routing`. */
 function routingFor(fields: readonly string[]): Routing {
-  if (fields.includes("tab")) return "tab"
-  if (fields.includes("root")) return "open"
+  if (fields.includes("tab")) {
+    return "tab"
+  }
+
+  if (fields.includes("root")) {
+    return "open"
+  }
+
   return "copies"
 }
 
@@ -92,6 +122,7 @@ function operation<M extends Exclude<Requested, "exec" | "tabs" | "tokens">>(
 /** The first `count` items, with how many there were, so a reply says when it left some out. */
 export function bounded<T>(items: T[], count: number, keep: "first" | "last" = "first") {
   const kept = keep === "first" ? items.slice(0, count) : items.slice(Math.max(0, items.length - count))
+
   return { items: kept, total: items.length, truncated: kept.length < items.length }
 }
 
@@ -100,14 +131,20 @@ const truncation = {
   total: z.int().describe("How many there were before the limit."),
   truncated: z.boolean().describe("Some were left out; narrow the read or raise limit.")
 }
+
 const tabsResult = z.looseObject({ tabs: replies.tabs })
+
 const consoleResult = replies.console.extend({
   entries: replies.console.shape.entries.describe("The newest entries, up to the limit, oldest first."),
   ...truncation
 })
+
 const tokensResult = z.looseObject({ tokens: replies.tokens, ...truncation })
+
 export type TabsResponse = z.output<typeof tabsResult>
+
 export type ConsoleResponse = z.output<typeof consoleResult>
+
 export type TokensResponse = z.output<typeof tokensResult>
 
 export const operations = {
@@ -129,20 +166,44 @@ export const operations = {
   }),
   console: mapped("console", ({ tab, entries }, request): ConsoleResponse => {
     const { items, total, truncated } = bounded(entries, request.limit, "last")
+
     return { tab, entries: items, total, truncated }
   }),
   tokens: mapped("tokens", (tokens, request): TokensResponse => {
     const { items, total, truncated } = bounded(tokens, request.limit)
+
     return { tokens: items, total, truncated }
   }),
   components: operation("components"),
-  props: operation("props")
+  props: operation("props"),
+  // A report goes to a running copy even with no project open, as long as it names no tab.
+  report: withTestRun(operation("report", { routing: "tab-or-any" }))
+}
+
+/**
+ * A report names the test pass `PARITY_TEST_RUN` names, unless the agent says another, so it groups with the pass's
+ * events in Sentry (PAR-646).
+ */
+function withTestRun<Result>(operation: Operation<Result>, env: NodeJS.ProcessEnv = process.env): Operation<Result> {
+  return {
+    ...operation,
+    run(input, send) {
+      const testRun = env.PARITY_TEST_RUN?.trim()
+      const fields = inputFields.safeParse(input).data
+
+      if (!testRun || !fields || fields.testRun !== undefined) {
+        return operation.run(input, send)
+      }
+
+      return operation.run({ ...fields, testRun }, send)
+    }
+  }
 }
 
 export const skillOperation = {
   inputSchema: requestJsonSchema(skillRequest),
   fields: Object.keys(skillRequest.shape),
-  async run(input: unknown, read: (path: string) => Promise<string>): Promise<string> {
+  async run(input: OperationInput, read: (path: string) => Promise<string>): Promise<string> {
     return read(readRequest(skillRequest, input, 1).path)
   }
 }

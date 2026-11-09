@@ -35,13 +35,16 @@ const unsafe = /[<>:"/\\|?*\p{Cc}]/gu
  */
 export function exportFiles(layers: readonly string[], sizes: readonly ExportSize[]): ExportFile[] {
   const taken = new Map<string, number>()
+
   const names = layers.map((layer) => {
     const base = safeName(layer)
     const key = base.toLowerCase()
     const count = (taken.get(key) ?? 0) + 1
     taken.set(key, count)
+
     return count === 1 ? base : `${base} ${count}`
   })
+
   return names.flatMap((name, layer) =>
     uniqueSizes(sizes).map((size) => ({ layer, size, name: `${name}${suffix(size)}.${size.format}` }))
   )
@@ -63,13 +66,18 @@ export function safeName(name: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/[. ]+$/, "")
+
   return safe || "Layer"
 }
 
 /** A short list of the files, for the Export section: the first few, then how many more. */
 export function describeFiles(files: readonly ExportFile[], shown = 3): string {
   const names = files.map((file) => file.name)
-  if (names.length <= shown) return names.join(", ")
+
+  if (names.length <= shown) {
+    return names.join(", ")
+  }
+
   return `${names.slice(0, shown).join(", ")} and ${names.length - shown} more`
 }
 
@@ -111,17 +119,31 @@ export function planExport(
 ): { file: ExportFile; frame?: number; crop?: PictureCrop; problem?: string }[] {
   return files.map((file) => {
     const layer = layers[file.layer]
+
     const frame = frames.findIndex(
       (candidate) => candidate.design === layer?.design && candidate.scale === file.size.scale
     )
+
     const drawn = frames[frame]
-    if (!layer || !drawn) return { file, problem: `${file.name}: its design didn't draw` }
+
+    if (!layer || !drawn) {
+      return { file, problem: `${file.name}: its design didn't draw` }
+    }
+
     const box = layer.node
       ? drawn.nodes?.find((node) => node.id === layer.node)
       : { x: 0, y: 0, width: drawn.width, height: drawn.height }
-    if (!box) return { file, problem: `${file.name}: the layer isn't drawn in the state the canvas shows` }
+
+    if (!box) {
+      return { file, problem: `${file.name}: the layer isn't drawn in the state the canvas shows` }
+    }
+
     const crop = pictureCrop(box, drawn)
-    if (!crop) return { file, problem: `${file.name}: the layer has no size` }
+
+    if (!crop) {
+      return { file, problem: `${file.name}: the layer has no size` }
+    }
+
     return { file, frame, crop }
   })
 }
@@ -139,7 +161,11 @@ export function pictureCrop(
   const top = Math.max(0, Math.floor(box.y * scale))
   const right = Math.min(Math.floor(frame.width * scale), Math.ceil((box.x + box.width) * scale))
   const bottom = Math.min(Math.floor(frame.height * scale), Math.ceil((box.y + box.height) * scale))
-  if (right <= left || bottom <= top) return undefined
+
+  if (right <= left || bottom <= top) {
+    return undefined
+  }
+
   return { left, top, width: right - left, height: bottom - top }
 }
 
@@ -183,31 +209,44 @@ export function planPicture(
 ): PicturePlan {
   const problems: string[] = []
   const placed: PicturePiece[] = []
+
   for (const design of new Set(layers.map((layer) => layer.design))) {
     const selected = layers.filter((layer) => layer.design === design)
     const frame = frames.findIndex((candidate) => candidate.design === design && candidate.scale === scale)
     const drawn = frames[frame]
+
     if (!drawn) {
       problems.push(...selected.map((layer) => `${layer.name}: its design didn't draw`))
       continue
     }
+
     const boxes = selected.flatMap((layer) => {
       const box = layer.node
         ? drawn.nodes?.find((node) => node.id === layer.node)
         : { x: 0, y: 0, width: drawn.width, height: drawn.height }
-      if (!box) problems.push(`${layer.name}: the layer isn't drawn in the state the canvas shows`)
+
+      if (!box) {
+        problems.push(`${layer.name}: the layer isn't drawn in the state the canvas shows`)
+      }
+
       return box ? [box] : []
     })
-    if (boxes.length === 0) continue
+
+    if (boxes.length === 0) {
+      continue
+    }
+
     const left = Math.min(...boxes.map((box) => box.x))
     const top = Math.min(...boxes.map((box) => box.y))
     const right = Math.max(...boxes.map((box) => box.x + box.width))
     const bottom = Math.max(...boxes.map((box) => box.y + box.height))
     const crop = pictureCrop({ x: left, y: top, width: right - left, height: bottom - top }, drawn)
+
     if (!crop) {
       problems.push(...selected.map((layer) => `${layer.name}: the layer has no size`))
       continue
     }
+
     const { at } = selected[0]!
     placed.push({
       frame,
@@ -216,16 +255,23 @@ export function planPicture(
       top: Math.round(at.y * scale) + crop.top
     })
   }
-  if (placed.length === 0) return { width: 0, height: 0, pieces: [], problems }
+
+  if (placed.length === 0) {
+    return { width: 0, height: 0, pieces: [], problems }
+  }
+
   const originX = Math.min(...placed.map((piece) => piece.left))
   const originY = Math.min(...placed.map((piece) => piece.top))
   const pieces = placed.map((piece) => ({ ...piece, left: piece.left - originX, top: piece.top - originY }))
   const width = Math.max(...pieces.map((piece) => piece.left + piece.crop.width))
   const height = Math.max(...pieces.map((piece) => piece.top + piece.crop.height))
+
   if (Math.max(width, height) > largestPicture) {
     const limit = largestPicture.toLocaleString("en-US")
     problems.push(`At ${scale}x it's over ${limit} pixels wide or tall, too big to copy. Select less, or export it.`)
+
     return { width: 0, height: 0, pieces: [], problems }
   }
+
   return { width, height, pieces, problems }
 }

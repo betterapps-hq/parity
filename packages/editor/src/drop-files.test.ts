@@ -58,6 +58,7 @@ describe("which dropped files are taken", () => {
       file("logo.svg", ""),
       file("edge.jpg", "image/jpeg", imageLimit)
     ])
+
     expect(images).toEqual([
       { index: 1, type: "image/png" },
       { index: 3, type: "image/svg+xml" },
@@ -145,7 +146,11 @@ describe("a new design of dropped images", () => {
     expect(design.name).toBe("Images")
     expect(design.id).toBe("images-2")
     const root = design.root
-    if (root.type !== "layout") throw new Error("The root should be a layout")
+
+    if (root.type !== "layout") {
+      throw new Error("The root should be a layout")
+    }
+
     expect(root.children.map((child) => child.type === "image" && child.src)).toEqual([
       "/images/a.png",
       "/images/b.png"

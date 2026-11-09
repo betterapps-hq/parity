@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { deviceKinds } from "./devices.ts"
 import type { ContainerSpec } from "./document.ts"
-import { fileObject, finiteNumber, parseData } from "./schema.ts"
+import { fileObject, finiteNumber, parserFor } from "./schema.ts"
 
 const variableKinds = ["viewport", "theme", "locale", "custom"] as const
 
@@ -57,8 +57,10 @@ export const modeSettings = fileObject({
     for (const [variableId, optionId] of Object.entries(mode.values)) {
       const path = ["modes", index, "values", variableId]
       const variable = settings.variables.find((candidate) => candidate.id === variableId)
-      if (!variable) context.addIssue({ code: "custom", message: "unknown variable", path, input: variableId })
-      else if (!variable.options.some((option) => option.id === optionId)) {
+
+      if (!variable) {
+        context.addIssue({ code: "custom", message: "unknown variable", path, input: variableId })
+      } else if (!variable.options.some((option) => option.id === optionId)) {
         const message = `"${optionId}" is not an option of ${variable.name}`
         context.addIssue({ code: "custom", message, path, input: optionId })
       }
@@ -129,14 +131,16 @@ export function resolveMode(settings: ModeSettings, mode: ModeSpec): ResolvedMod
     variable,
     option: variable.options.find((option) => option.id === mode.values[variable.id]) ?? variable.options[0]!
   }))
+
   const viewport = options.find(({ variable }) => variable.kind === "viewport")?.option
+
   return {
     id: mode.id,
     name: mode.name,
     width: options.find(({ option }) => option.width !== undefined)?.option.width ?? defaultWidth,
     viewport: viewport?.id ?? "default",
     classNames: options.flatMap(({ option }) => (option.className ? [option.className] : [])),
-    attributes: Object.assign({}, ...options.map(({ option }) => option.attributes ?? {})) as Record<string, string>,
+    attributes: Object.fromEntries(options.flatMap(({ option }) => Object.entries(option.attributes ?? {}))),
     options
   }
 }
@@ -149,19 +153,28 @@ export function modeGlobals(mode: Pick<ResolvedMode, "options">): Record<string,
   return Object.fromEntries(mode.options.map(({ variable, option }) => [variable.id, option.id]))
 }
 
+/** The modes a design shows, and every mode the project has. */
+export interface ShownModes {
+  main: ResolvedMode
+  beside: ResolvedMode[]
+  all: ResolvedMode[]
+}
+
 /**
  * The modes a design shows: its main frame's (its own pick, else the project's primary mode), and the ones beside it
  * in project order. A frame shows the primary mode alone.
  */
-export function shownModes(
-  settings: ModeSettings,
-  design: Pick<ContainerSpec, "kind" | "view">
-): { main: ResolvedMode; beside: ResolvedMode[]; all: ResolvedMode[] } {
+export function shownModes(settings: ModeSettings, design: Pick<ContainerSpec, "kind" | "view">): ShownModes {
   const all = resolveModes(settings)
-  if (design.kind === "frame") return { main: all[0]!, beside: [], all }
+
+  if (design.kind === "frame") {
+    return { main: all[0]!, beside: [], all }
+  }
+
   const { view } = design
   const main = all.find((mode) => mode.id === view?.mode) ?? all[0]!
   const beside = new Set(view?.modes ?? [])
+
   return { main, beside: all.filter((mode) => mode !== main && beside.has(mode.id)), all }
 }
 
@@ -179,10 +192,15 @@ export type Appearance = "light" | "dark"
  */
 export function modeAppearance(mode: Pick<ResolvedMode, "options">): Appearance | undefined {
   const themes = mode.options.filter(({ variable }) => variable.kind === "theme")
-  if (themes.length === 0) return undefined
+
+  if (themes.length === 0) {
+    return undefined
+  }
+
   const dark = themes.some(({ option }) =>
     [option.id, option.name, option.className ?? ""].some((word) => /\bdark\b/i.test(word))
   )
+
   return dark ? "dark" : "light"
 }
 
@@ -194,15 +212,25 @@ export function modeAppearance(mode: Pick<ResolvedMode, "options">): Appearance 
  */
 export function previewMode(modes: readonly ResolvedMode[], appearance: Appearance): ResolvedMode | undefined {
   const primary = modes[0]
-  if (!primary) return undefined
+
+  if (!primary) {
+    return undefined
+  }
+
   const theirs = modeAppearance(primary)
-  if (theirs === undefined || theirs === appearance) return primary
+
+  if (theirs === undefined || theirs === appearance) {
+    return primary
+  }
+
   const matching = modes.filter((mode) => modeAppearance(mode) === appearance)
+
   const others = (mode: ResolvedMode) =>
     mode.options
       .filter(({ variable }) => variable.kind !== "theme")
       .map(({ variable, option }) => `${variable.id}=${option.id}`)
       .join("&")
+
   return (
     matching.find((mode) => others(mode) === others(primary)) ??
     matching.find((mode) => mode.viewport === primary.viewport) ??
@@ -218,13 +246,16 @@ export function uniqueId(name: string, taken: Iterable<string>): string {
       .toLowerCase()
       .replaceAll(/[^a-z0-9]+/g, "-")
       .replaceAll(/^-|-$/g, "") || "mode"
+
   const used = new Set(taken)
   let id = base
-  for (let index = 2; used.has(id); index++) id = `${base}-${index}`
+
+  for (let index = 2; used.has(id); index++) {
+    id = `${base}-${index}`
+  }
+
   return id
 }
 
 /** Reads a project's modes, or throws `TypeError` with the first problem as `/json/pointer: message`. */
-export function parseModeSettings(value: unknown): ModeSettings {
-  return parseData(modeSettings, value)
-}
+export const parseModeSettings = parserFor(modeSettings)

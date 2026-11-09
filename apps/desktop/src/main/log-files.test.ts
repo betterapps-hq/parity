@@ -6,9 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { createLogFileSink, createLogFiles } from "./log-files.ts"
 
 let folder = ""
+
 beforeEach(() => {
   folder = mkdtempSync(join(tmpdir(), "parity-logs-"))
 })
+
 afterEach(() => {
   vi.useRealTimers()
   rmSync(folder, { recursive: true, force: true })
@@ -43,7 +45,11 @@ describe("createLogFiles", () => {
     writeFileSync(join(folder, "parity-2026-11-05.jsonl"), "older\n")
     writeFileSync(join(folder, "notes.txt"), "mine\n")
     const logs = createLogFiles({ folder, maxBytes: 4, keep: 3, now: at("2026-11-06T09:00:00Z") })
-    for (const line of ["a\n", "b\n", "c\n", "d\n", "e\n"]) logs.append(line)
+
+    for (const line of ["a\n", "b\n", "c\n", "d\n", "e\n"]) {
+      logs.append(line)
+    }
+
     // Two lines fill each file: a and b, c and d, then e.
     expect(files()).toEqual([
       "notes.txt",
@@ -76,6 +82,7 @@ describe("createLogFileSink", () => {
     sink.event(envelope("tab.closed", "info"))
     sink.event(envelope("app.crashed", "fatal"))
     const lines = readFileSync(file, "utf8").trimEnd().split("\n")
+    // SAFETY: the sink writes each line from an envelope it was given.
     expect(lines.map((line) => (JSON.parse(line) as Envelope).name)).toEqual([
       "tab.opened",
       "tab.closed",
@@ -86,11 +93,13 @@ describe("createLogFileSink", () => {
 
   it("loses the local copy, not the app, when the folder can't be written", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+
     const sink = createLogFileSink({
       append: () => {
         throw new Error("The disk is full")
       }
     })
+
     expect(() => sink.event(envelope("app.crashed", "fatal"))).not.toThrow()
     expect(warn).toHaveBeenCalledOnce()
     warn.mockRestore()
@@ -101,6 +110,7 @@ describe("createLogFileSink", () => {
     const sink = createLogFileSink(logs, { testRun: "ci-42" })
     sink.event(envelope("tab.opened", "info"))
     sink.flush()
+    // SAFETY: the sink writes the line from an envelope, with the run's `testRun` beside it.
     const line = JSON.parse(readFileSync(join(folder, "parity-2026-11-06.jsonl"), "utf8")) as { testRun?: string }
     expect(line.testRun).toBe("ci-42")
   })

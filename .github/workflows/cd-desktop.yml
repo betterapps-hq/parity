@@ -50,32 +50,33 @@ jobs:
     with:
       ci-workflow: ci.yml
       build-secret-env: VITE_TLDRAW_LICENSE_KEY
-      build-command: PARITY_RELEASE_CHANNEL=beta pnpm build
+      # Electron is installed before the build loads it, and the installers are made, with up to 3 tries each, since
+      # GitHub's releases time out now and then (PAR-789).
+      build-command: >-
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron && PARITY_RELEASE_CHANNEL=beta
+        pnpm build
+      package-command: node ../../scripts/retry.ts pnpm exec electron-builder --publish never
     secrets:
       BUILD_SECRET: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
 
   # The shared release template builds each installer without Sentry's token, so this builds the published version again
-  # and uploads its bundles and source maps (PAR-625). The build is the same on every system, and each bundle's debug ID
-  # comes from its contents, so these maps match all three installers.
+  # and uploads its bundles and source maps (PAR-625); its maps match all three installers.
   sourcemaps:
-    name: Upload source maps
+    name: Source maps
     needs: release
     if: needs.release.outputs.published == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: betterapps-hq/pipelines/github/actions/setup@main
-        with:
-          ref: v${{ needs.release.outputs.version }}
-      - name: Build the published version
-        env:
-          VITE_TLDRAW_LICENSE_KEY: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
-          PARITY_RELEASE_CHANNEL: beta
-        run: pnpm build
-      - name: Upload to Sentry
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: node apps/desktop/scripts/upload-sourcemaps.ts --published --link-commits
+    uses: ./.github/workflows/upload-sourcemaps.yml
+    with:
+      ref: v${{ needs.release.outputs.version }}
+      build-command: >-
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron && PARITY_RELEASE_CHANNEL=beta
+        pnpm build
+      package: apps/desktop
+      project: parity-desktop
+      published: true
+    secrets:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      VITE_TLDRAW_LICENSE_KEY: ${{ secrets.VITE_TLDRAW_LICENSE_KEY }}
 
   beta:
     name: Beta available

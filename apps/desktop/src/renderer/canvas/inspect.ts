@@ -24,12 +24,17 @@ export function getInspecting(): Inspecting {
 
 function update(change: Partial<Inspecting>): void {
   state = { ...state, ...change }
-  for (const listener of listeners) listener()
+
+  for (const listener of listeners) {
+    listener()
+  }
 }
 
 /** Starts or stops picking on the canvas. */
 export function setPicking(picking: boolean): void {
-  if (state.picking !== picking) update({ picking })
+  if (state.picking !== picking) {
+    update({ picking })
+  }
 }
 
 /** Shows an element of a layer in the Code section, or none. Picking one on the canvas stops picking. */
@@ -38,13 +43,16 @@ export function pickElement(picked: Inspecting["picked"]): void {
 }
 
 export function hoverElement(hovered: Inspecting["hovered"]): void {
-  if (state.hovered?.at !== hovered?.at || state.hovered?.node !== hovered?.node) update({ hovered })
+  if (state.hovered?.at !== hovered?.at || state.hovered?.node !== hovered?.node) {
+    update({ hovered })
+  }
 }
 
 export function useInspecting(): Inspecting {
   return useSyncExternalStore(
     (listener) => {
       listeners.add(listener)
+
       return () => listeners.delete(listener)
     },
     () => state

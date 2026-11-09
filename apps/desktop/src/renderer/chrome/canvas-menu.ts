@@ -7,6 +7,7 @@ import {
   findNode,
   hiddenOnBoard,
   isInnerPath,
+  type LibraryInfo,
   locateInner,
   nodeLabel
 } from "@parity-app/core"
@@ -21,6 +22,7 @@ import {
 } from "@parity-app/editor"
 import type { ContainerEntry } from "../design-store.ts"
 import { type Command, keymap } from "./keymap.ts"
+import { unnamedIconLabel } from "./layer-kind.ts"
 
 /**
  * What the canvas's right-click menu shows, and what a right-click selects first, as Figma's canvas menu does. These
@@ -90,16 +92,19 @@ export function canvasMenu(
   target: MenuTarget | undefined,
   selection: Selection,
   entries: readonly ContainerEntry[],
-  notes = 0
+  notes = 0,
+  libraries: readonly Pick<LibraryInfo, "id" | "kind">[] = []
 ): MenuEntry[] {
   if (!target) {
     const something = entries.length > 0 || notes > 0
+
     return sections([
       [item("newScreen", true), item("newComponent", true), item("insert", true, "Insert…")],
       [item("pasteHere", true)],
       [item("selectAll", something), item("zoomToFit", something)]
     ])
   }
+
   const entry = selection.design ? entries.find((candidate) => candidate.key === selection.design) : undefined
   const ids = entry ? selectedNodes(selection) : []
   const root = entry?.container.root
@@ -114,13 +119,16 @@ export function canvasMenu(
   // As Hide decides: every selected layer hidden as the board shows it, with its variant, the state and the params.
   const ownIds = own.map((node) => node.id)
   const hidden = !!entry && !!state && ownIds.length > 0 && hiddenOnBoard(entry.container, state.id, ownIds)
+
   // As Lock decides: every selected layer locked by its own lock, or every selected design locked.
   const locked = layers
     ? !!entry && layersLocked(entry.container, ownIds)
     : designsLocked(selectedDesigns(selection).flatMap((key) => entries.find((e) => e.key === key)?.container ?? []))
+
   const order: Command[] = ["bringToFront", "bringForward", "sendBackward", "sendToBack"]
+
   return sections([
-    [{ kind: "select-layer", label: "Select layer", choices: layerChoices(target, selection, entries) }],
+    [{ kind: "select-layer", label: "Select layer", choices: layerChoices(target, selection, entries, libraries) }],
     [
       item("copy", layers ? can.copy : !!selection.design),
       item("pasteHere", true),
@@ -156,6 +164,7 @@ export type LayerCommand = "copy" | "duplicate" | "order" | "wrap" | "hide" | "l
 export function layerCommands(selection: Selection, root: DesignNode | undefined): Record<LayerCommand, boolean> {
   const own = ownLayers(selection, root).length
   const one = own === 1 && selectedNodes(selection).length === 1
+
   return { copy: own > 0, duplicate: own > 0, order: one, wrap: own > 0, hide: own > 0, lock: own > 0 }
 }
 
@@ -166,6 +175,7 @@ export function layerCommands(selection: Selection, root: DesignNode | undefined
 export function ownLayers(selection: Selection, root: DesignNode | undefined): DesignNode[] {
   return selectedNodes(selection).flatMap((id) => {
     const node = root && !isInnerPath(id) && id !== root.id ? findNode(root, id) : undefined
+
     return node ? [node] : []
   })
 }
@@ -183,24 +193,43 @@ export function rightClickSelection(
   root: string | undefined
 ): Selection {
   const layers = current.design === target.design ? selectedNodes(current) : []
+
   const inside =
     layers.length > 0 ? layers.some((id) => target.path.includes(id)) : selectedDesigns(current).includes(target.design)
-  if (inside) return current
-  if (!clicked || clicked === root) return { design: target.design }
+
+  if (inside) {
+    return current
+  }
+
+  if (!clicked || clicked === root) {
+    return { design: target.design }
+  }
+
   return layersSelection(target.design, [clicked], target)
 }
 
 /** Every layer under the pointer, outermost first, the design itself at the top, named as the Layers panel names them. */
-function layerChoices(target: MenuTarget, selection: Selection, entries: readonly ContainerEntry[]): LayerChoice[] {
+function layerChoices(
+  target: MenuTarget,
+  selection: Selection,
+  entries: readonly ContainerEntry[],
+  libraries: readonly Pick<LibraryInfo, "id" | "kind">[]
+): LayerChoice[] {
   const entry = entries.find((candidate) => candidate.key === target.design)
-  if (!entry) return []
+
+  if (!entry) {
+    return []
+  }
+
   const { container } = entry
   const picked = selection.design === entry.key ? selectedNodes(selection) : []
   const library = componentLibrary(entries.map((candidate) => candidate.container))
+
   const view = {
     state: editingState(container, selection.design === entry.key ? selection.state : target.state),
     variants: container.view?.variants
   }
+
   const choices: LayerChoice[] = [
     {
       id: container.root.id,
@@ -210,30 +239,45 @@ function layerChoices(target: MenuTarget, selection: Selection, entries: readonl
       selected: picked.length === 0 && selectedDesigns(selection).includes(entry.key)
     }
   ]
+
   for (const id of target.path) {
-    if (id === container.root.id) continue
+    if (id === container.root.id) {
+      continue
+    }
+
     const layer = isInnerPath(id) ? locateInner(container, id, library, view)?.shown : findNode(container.root, id)
-    if (!layer) continue
+
+    if (!layer) {
+      continue
+    }
+
     choices.push({
       id,
       whole: false,
-      label: nodeLabel(layer, (design) => designName(entries, design)),
+      label: unnamedIconLabel(layer, libraries) ?? nodeLabel(layer, (design) => designName(entries, design)),
       layer,
       selected: picked.includes(id)
     })
   }
+
   return choices
 }
 
 /** What Make component says for a design picked alone: Convert to component, or Convert to screen for a component. */
 function makeLabel(alone: ContainerSpec | undefined): string | undefined {
-  if (alone?.kind === "component") return "Convert to screen"
+  if (alone?.kind === "component") {
+    return "Convert to screen"
+  }
+
   return alone ? "Convert to component" : undefined
 }
 
 /** An item for a command, labelled and with keys from the keymap unless `label` says otherwise. */
 export function item(action: MenuAction, enabled: boolean, label?: string): MenuItem {
-  if (action === "pasteHere") return { kind: "item", action, label: label ?? "Paste here", enabled }
+  if (action === "pasteHere") {
+    return { kind: "item", action, label: label ?? "Paste here", enabled }
+  }
+
   return { kind: "item", action, label: label ?? keymap[action].label, keys: keymap[action].keys[0], enabled }
 }
 

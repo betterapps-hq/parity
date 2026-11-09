@@ -5,6 +5,7 @@ import {
   type ComponentSource,
   type ContainerSpec,
   type DesignNode,
+  type ImageNode,
   detachInstance,
   finiteNumber,
   generateId,
@@ -70,8 +71,14 @@ export function componentLabel(component: string): string {
 
 /** The undo step's label for inserting an item: "Add Button", "Add component", "Add copy" or "Add image". */
 export function insertLabel(item: InsertItem): string {
-  if (item.kind === "component") return `Add ${componentLabel(item.component)}`
-  if (item.kind === "instance") return item.detached ? "Add copy" : "Add component"
+  if (item.kind === "component") {
+    return `Add ${componentLabel(item.component)}`
+  }
+
+  if (item.kind === "instance") {
+    return item.detached ? "Add copy" : "Add component"
+  }
+
   return "Add image"
 }
 
@@ -81,18 +88,28 @@ export function insertLabel(item: InsertItem): string {
  * `componentNode`).
  */
 export function nodeForItem(item: InsertItem, info: ComponentInfo | undefined, taken: Set<string>): DesignNode {
-  if (item.kind === "instance") return { type: "instance", id: generateId(taken), design: item.design }
+  if (item.kind === "instance") {
+    return { type: "instance", id: generateId(taken), design: item.design }
+  }
+
   if (item.kind === "image") {
     const height = Math.max(1, Math.round((imageSteps * item.height) / Math.max(1, item.width)))
-    return {
-      type: "image",
-      id: generateId(taken),
-      src: item.src,
-      ...(item.alt ? { alt: item.alt } : {}),
-      ...(item.credit ? { credit: item.credit } : {}),
-      style: { width: imageSteps, height }
+
+    const image: ImageNode = { type: "image", id: generateId(taken), src: item.src }
+
+    if (item.alt) {
+      image.alt = item.alt
     }
+
+    if (item.credit) {
+      image.credit = item.credit
+    }
+
+    image.style = { width: imageSteps, height }
+
+    return image
   }
+
   return componentNode(item.component, info, taken, item.props)
 }
 
@@ -119,6 +136,12 @@ export interface InsertContext {
   library: ComponentLibrary
 }
 
+/** A design with an item inserted, and the inserted layer's id. */
+export interface Inserted {
+  container: ContainerSpec
+  node: string
+}
+
 /**
  * Inserts an item into a design, inside the library parents it needs that aren't around it already. A detached copy
  * becomes the plain layers its design shows. Returns the design, and the inserted layer's id, which a detached copy
@@ -129,19 +152,23 @@ export function insertIntoDesign(
   at: InsertAt,
   item: InsertItem,
   context: InsertContext
-): { container: ContainerSpec; node: string } {
+): Inserted {
   const taken = nodeIds(container.root)
   const part = nodeForItem(item, context.info, taken)
   const location = locateNode(container.root, at.parent)
+
   const around = location
     ? [...location.ancestors, location.node].flatMap((node) => (node.type === "component" ? [node.component] : []))
     : []
+
   const inContext = withLibraryContext(part, context.sources, around, taken)
   const node = at.at ? placedAt(inContext, at.at) : inContext
+
   const placed = {
     ...container,
     root: insertNode(container.root, at.parent, node, { index: at.index, slot: at.slot })
   }
+
   return {
     container: item.kind === "instance" && item.detached ? detachInstance(placed, part.id, context.library) : placed,
     node: part.id
@@ -156,14 +183,36 @@ export function insertIntoDesign(
  */
 export function whereToInsert(root: DesignNode, node?: string, library?: ComponentLibrary): InsertAt | undefined {
   const slot = node && library ? slotAtPath(root, node, library) : undefined
-  if (slot) return { parent: slot.instance.id, slot: slot.slot.name }
+
+  if (slot) {
+    return { parent: slot.instance.id, slot: slot.slot.name }
+  }
+
   if (node) {
     const location = locateNode(root, node)
-    if (!location) return undefined
-    if (location.node.type === "layout") return { parent: location.node.id }
+
+    if (!location) {
+      return undefined
+    }
+
+    if (location.node.type === "layout") {
+      return { parent: location.node.id }
+    }
+
     const parent = location.ancestors.at(-1)
-    if (!parent) return undefined
-    return { parent: parent.id, index: location.index + 1, ...(location.slot ? { slot: location.slot } : {}) }
+
+    if (!parent) {
+      return undefined
+    }
+
+    const after: InsertAt = { parent: parent.id, index: location.index + 1 }
+
+    if (location.slot) {
+      after.slot = location.slot
+    }
+
+    return after
   }
+
   return root.type === "layout" ? { parent: root.id } : undefined
 }

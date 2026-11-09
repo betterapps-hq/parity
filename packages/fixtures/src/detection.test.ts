@@ -6,6 +6,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { snapshotProject } from "./detect.ts"
 
 const fixturesDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../../fixtures")
+
 const projects = (await readdir(fixturesDir, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
@@ -19,10 +20,13 @@ const projects = (await readdir(fixturesDir, { withFileTypes: true }))
 describe("detection snapshot", { timeout: 120_000 }, () => {
   it.each(projects)("%s", async (name) => {
     const source = join(fixturesDir, name)
+
     if (!(await exists(join(source, "node_modules")))) {
       throw new Error(`fixtures/${name} isn't installed. Run: pnpm --filter @parity-app/fixtures install-projects`)
     }
+
     const root = await copyProject(source)
+
     try {
       const snapshot = await snapshotProject(root)
       await expect(`${JSON.stringify(snapshot, null, 2)}\n`).toMatchFileSnapshot(join(source, "expected.json"))
@@ -44,6 +48,7 @@ async function copyProject(source: string): Promise<string> {
   })
   // A junction on Windows needs no special rights; elsewhere the type is ignored and it's a plain symlink.
   await symlink(join(source, "node_modules"), join(root, "node_modules"), "junction")
+
   return root
 }
 

@@ -28,8 +28,10 @@ const sketch = {
   root: { type: "layout", id: "root", children: [{ type: "text", id: "note", text: "Idea" }] },
   states: [{ id: "default", name: "Default" }]
 }
+
 const parFile = (text: string) =>
   `${JSON.stringify({ version: 3, containers: [{ ...sketch, name: text }] }, null, 2)}\n`
+
 const designs = (name: string) => parseCanvasDocument(JSON.parse(parFile(name)))
 
 let folder: string
@@ -40,46 +42,71 @@ async function write(path: string, contents: string): Promise<void> {
   await writeFile(join(root, path), contents)
 }
 
+/** The steps a test makes the fake builder fail at, and how. */
+interface Failures {
+  detection?: Error
+  start?: Error
+}
+
 /** A builder that serves at the port it's given, and what it was asked. */
 function fakeBuilder() {
   const started: number[] = []
   const closed: string[] = []
   const crashes: Parameters<ProjectAdapters["startBuilder"]>[1]["onCrash"][] = []
+  const failures: Failures = {}
+
   const builder: BuilderAdapter = {
     id: "fake",
     name: "Fake builder",
-    detect: () => Promise.resolve({ found: true, version: "1.0.0", summary: "Fake builder 1.0.0" }),
+    detect: () =>
+      failures.detection
+        ? Promise.reject(failures.detection)
+        : Promise.resolve({ found: true, version: "1.0.0", summary: "Fake builder 1.0.0" }),
     start: () => Promise.reject(new Error("started in its own process"))
   }
+
   const startBuilder: ProjectAdapters["startBuilder"] = (options, { onCrash }) => {
     const port = options.port!
     started.push(port)
     crashes.push(onCrash)
+
     const session: BuilderProcessSession = {
       guestUrl: `http://localhost:${port}/@parity/guest.js`,
       toolVersion: "1.0.0",
       close: () => {
         closed.push(session.guestUrl)
+
         return Promise.resolve()
       },
       setComponents: () => undefined,
       usage: () => Promise.resolve(undefined)
     }
-    return { pid: 1, session: Promise.resolve(session) }
+
+    return { pid: 1, session: failures.start ? Promise.reject(failures.start) : Promise.resolve(session) }
   }
+
   /** Crashes the builder started last, as its process stopping by itself does. */
   const crash = (exitCode: number, output: string) =>
     crashes.at(-1)?.(`Fake builder stopped by itself, with exit code ${exitCode}`, { exitCode, output })
-  return { builder, startBuilder, started, closed, crash }
+
+  /** Makes the builder fail from now on with this error: reading the project's config, or answering once started. */
+  const fail = (at: "detection" | "start", error: Error) => {
+    failures[at] = error
+  }
+
+  return { builder, startBuilder, started, closed, crash, fail }
 }
 
 /** A watcher whose changes the test reports, as `fs.watch` reports them: names relative to the folder. */
 function fakeWatcher() {
   const watching = new Map<string, (event: string, name: string | null) => void>()
+
   const watch: WatchFolder = (watched, _options, listener) => {
     watching.set(watched, listener)
+
     return { close: () => watching.delete(watched) }
   }
+
   return { watch, change: (name: string) => watching.get(root)?.("change", name), watching }
 }
 
@@ -87,15 +114,18 @@ function fakeWatcher() {
 function memoryDetections(): DetectionCache & { kept: Map<string, SavedDetection> } {
   const kept = new Map<string, SavedDetection>()
   const fingerprintOf = (sources: Record<string, ComponentSource>) => JSON.stringify(sources)
+
   return {
     kept,
     saved: (at, _files, discovered) => {
       const fingerprint = fingerprintOf(discovered)
       const saved = kept.get(at)
+
       return Promise.resolve(saved?.fingerprint === fingerprint ? { fingerprint, saved } : { fingerprint })
     },
     save: (at, _files, _discovered, fingerprint, found) => {
       kept.set(at, { fingerprint, ...found })
+
       return Promise.resolve()
     }
   }
@@ -105,13 +135,16 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
   const builder = fakeBuilder()
   const watcher = fakeWatcher()
   const detections = memoryDetections()
+
   const checker = {
     inferComponents: vi.fn<TypeChecker["inferComponents"]>(() => Promise.resolve({})),
     checkComponents: vi.fn<TypeChecker["checkComponents"]>(() => Promise.resolve({ components: [], leftOut: [] })),
     closeChecker: vi.fn<TypeChecker["closeChecker"]>()
   }
+
   const fileChanged: WindowMethods["project.fileChanged"]["params"][] = []
   let port = 5100
+
   const projects = openProjects({
     renderers: [reactRenderer],
     builders: [builder.builder],
@@ -130,6 +163,7 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
     environment,
     unsupported
   })
+
   return { projects, builder, watcher, detections, checker, fileChanged }
 }
 
@@ -268,6 +302,21 @@ describe("what opening a project records", () => {
     expect(sink.named("project.opened")).toEqual([])
   })
 
+  it.each([
+    { at: "detection", step: "detection" },
+    { at: "start", step: "builder" }
+  ] as const)("records the tools' versions when the builder fails at $at", async ({ at, step }) => {
+    await write("node_modules/react/package.json", JSON.stringify({ name: "react", version: "19.1.0" }))
+    await write("node_modules/typescript/package.json", JSON.stringify({ name: "typescript", version: "5.9.2" }))
+    const { projects, builder } = setUp()
+    builder.fail(at, new Error("The builder failed"))
+    await expect(projects.open(root)).rejects.toThrow("The builder failed")
+
+    expect(attributes("project.openFailed")).toEqual([
+      expect.objectContaining({ step, framework: "react", react: "19.1.0", typescript: "5.9.2" })
+    ])
+  })
+
   it("records a builder that crashed, with its exit code and output, and starting it again", async () => {
     const { projects, builder } = setUp()
     await projects.open(root)
@@ -287,13 +336,16 @@ describe("what opening a project records", () => {
 describe("a project Parity doesn't support", () => {
   function recorded() {
     const sink = createTestSink()
+
     const telemetry = createTelemetry({
       events: registeredEvents,
       context: { process: "service", installId: "install", sessionId: "session" },
       sinks: [sink],
       check: true
     })
+
     const { projects } = setUp({}, (reason, detail) => telemetry.track("project.unsupported", { reason, detail }))
+
     return { projects, unsupported: () => sink.named("project.unsupported").map((event) => event.attributes) }
   }
 

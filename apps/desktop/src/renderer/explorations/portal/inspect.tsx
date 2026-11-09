@@ -16,12 +16,14 @@ import { HandoffPill, Pills, PortalWindow, PullRequestLink } from "./parts.tsx"
 
 const selection = "oklch(0.64 0.19 255)"
 const added = "oklch(0.72 0.16 290)"
+
 /** Measurements, in Dev Mode's red. */
 const measure = "oklch(0.68 0.21 25)"
 
 /** The render's own size: level tiles sit at points on a 1280 by 800 map. */
 const map = { width: 1280, height: 800 }
 const tile = { x: 570, y: 440, size: 64 }
+
 /** The tile you're hovering: level 5, to measure to. */
 const next = { x: 710, y: 520, size: 64 }
 
@@ -111,6 +113,7 @@ export function InspectPage() {
   const part = board.parts.find((candidate) => candidate.name === selected)!
   const tokens = board.tokens.filter((token) => token.usedBy.includes(selected))
   const gap = next.x - next.size / 2 - (tile.x + tile.size / 2)
+
   return (
     <PortalWindow path="kestrel/ember-caves/level-select/inspect?v=8">
       <div className="flex h-full flex-col">
@@ -124,7 +127,7 @@ export function InspectPage() {
           <span className="ml-1 rounded-md bg-muted px-1.5 py-px text-[11px] font-medium tabular-nums">
             Inspect v{board.version}
           </span>
-          <HandoffPill status={handoff["spawnkit/Level select"]!} />
+          <HandoffPill status={handoff.get("spawnkit/Level select")!} />
           <div className="ml-auto flex items-center gap-1">
             <Button size="sm" variant="ghost" className="gap-1.5">
               <Monitor /> Open in the desktop app

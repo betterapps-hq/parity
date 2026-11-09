@@ -14,7 +14,9 @@ unless someone is looking at it.
 
 ## The explorations
 
-In Parity's Storybook, under Parity/Explorations/Previews. Drawings stand in for the component bitmaps.
+In Parity's Storybook, under Parity/Explorations/Previews. Drawings stand in for the component bitmaps. Once the app had
+them, the Tokens panel's and detail's stories and every Components story went (PAR-798); the app's own are under Parity
+/ Left panel. Reduced Motion On, Inspector Fields and the pickers remain.
 
 | Story                                           | What it settles                                                                                                |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |

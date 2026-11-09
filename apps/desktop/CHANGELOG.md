@@ -1,8 +1,198 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 08 Nov 2026 23:45:38 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 13:35:47 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.45.1
+
+Mon, 09 Nov 2026 13:35:47 GMT
+
+### Patches
+
+- Keep a thin padding or gap handle hovered, with its hatching and value, while its hint opens over a still pointer
+  (ajcraswell@gmail.com)
+
+## 0.45.0
+
+Mon, 09 Nov 2026 13:04:55 GMT
+
+### Minor changes
+
+- The canvas draws padding and gaps in modes' green and hatches them as Figma does, only while a handle is hovered,
+  focused or dragged, with value chips in dark text (ajcraswell@gmail.com)
+
+### Patches
+
+- Duplicate lint disables are gone: one guard tells a named length from steps, the renderer keeps one set of bit
+  helpers, and module exports are checked with instanceof Function (ajcraswell@gmail.com)
+- Keep what GitHub says about the installed version through the cache it now shares with the CLI (ajcraswell@gmail.com)
+
+## 0.44.0
+
+Mon, 09 Nov 2026 12:29:40 GMT
+
+### Minor changes
+
+- Rebuild the canvas toolbar: tools with menus, a review button whose Comment and annotation tools warp the toolbar into
+  their own bars, and Zoom in its own corner (ajcraswell@gmail.com)
+
+## 0.43.0
+
+Mon, 09 Nov 2026 12:11:34 GMT
+
+### Minor changes
+
+- Unnamed icon layers are called by their icon, as Plus rather than lucide/Plus, in Layers, search and the inspector.
+  (ajcraswell@gmail.com)
+- Report a published app whose release has been promoted to everyone as the production environment in Sentry (PAR-779)
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Bring the canvas code up to Buildkit's lint rules, renaming tldraw's shape names for the canvas's own
+  (ajcraswell@gmail.com)
+- Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows
+  (PAR-788) (ajcraswell@gmail.com)
+
+## 0.42.0
+
+Mon, 09 Nov 2026 11:25:40 GMT
+
+### Minor changes
+
+- Icon layers show the Smile icon wherever a layer's kind shows, instead of the component box (ajcraswell@gmail.com)
+
+### Patches
+
+- Brings the rest of the desktop renderer up to Buildkit's lint rules: its top-level files and its agent, stories, start
+  and account folders (ajcraswell@gmail.com)
+
+## 0.41.0
+
+Mon, 09 Nov 2026 10:50:00 GMT
+
+### Minor changes
+
+- Installed builds report to Sentry as preview or release instead of tester, so a pull request's preview installer no
+  longer reads as the published app (ajcraswell@gmail.com)
+- Text layers are green in the layers tree, the design panel and their outline on the canvas, so they stand out among a
+  design's layers. (ajcraswell@gmail.com)
+- Record the project service exiting, windows hanging and main's loop blocked as events with how long they lasted
+  (PAR-771) (ajcraswell@gmail.com)
+- process.memory sends each role's memory and bitmapCache.used each hit rate as numbers Sentry can chart
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Colored icons keep their color when their menu, menubar, select or combobox item is highlighted (ajcraswell@gmail.com)
+- Bring the tokens package up to Buildkit's lint rules, with no change in behavior (ajcraswell@gmail.com)
+- CI sends only errors and reports to Sentry; its spans, logs and replays stay in the local copy (PAR-777)
+  (ajcraswell@gmail.com)
+- Exports record how long they took, as durationMs on export.done and export.failed (PAR-773) (ajcraswell@gmail.com)
+- Zoomed out, a narrow board's title runs into the free canvas beside it instead of truncating at the board's edge
+  (ajcraswell@gmail.com)
+
+## 0.40.5
+
+Mon, 09 Nov 2026 06:57:27 GMT
+
+### Patches
+
+- Ask for a project's kept frame bitmaps in one request, as JSON text, so reopening a project spends less of the
+  window's time before its first frame (ajcraswell@gmail.com)
+- Open projects sooner: a design's title mounts its menus and hint only once it's hovered, focused, right-clicked or
+  selected (ajcraswell@gmail.com)
+
+## 0.40.4
+
+Mon, 09 Nov 2026 05:37:21 GMT
+
+### Patches
+
+- Brings the desktop app's chrome folder up to Buildkit's lint rules, and names tldraw shape IDs canvasIdFor and a
+  process's server-or-task field lifetime (ajcraswell@gmail.com)
+
+## 0.40.3
+
+Mon, 09 Nov 2026 04:17:56 GMT
+
+### Patches
+
+- Panels' scrollbars are a thin 6px rounded thumb with no track or arrows, in place of Chromium's wide Windows
+  scrollbar. (ajcraswell@gmail.com)
+- Report a problem opened from a part's fallback lists the error it sends, such as The (ajcraswell@gmail.com)
+- Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756) (ajcraswell@gmail.com)
+- Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the
+  interrupted frame as crashed (ajcraswell@gmail.com)
+
+## 0.40.2
+
+Mon, 09 Nov 2026 03:41:24 GMT
+
+### Patches
+
+- Record gesture.ended and document.saved in the trace of the drag or edit they belong to (ajcraswell@gmail.com)
+
+## 0.40.1
+
+Mon, 09 Nov 2026 03:07:10 GMT
+
+### Patches
+
+- A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on
+  Windows. (ajcraswell@gmail.com)
+- Session Replay no longer records a project's canvas as it mounts, so the first frame shows sooner
+  (ajcraswell@gmail.com)
+
+## 0.40.0
+
+Mon, 09 Nov 2026 02:25:03 GMT
+
+### Minor changes
+
+- Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component
+  as component.changed (ajcraswell@gmail.com)
+
+### Patches
+
+- project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the
+  builder can't load the project's config (ajcraswell@gmail.com)
+- A report sent from an error's fallback is linked in Sentry to the error it caught (ajcraswell@gmail.com)
+
+## 0.39.2
+
+Mon, 09 Nov 2026 01:50:16 GMT
+
+### Patches
+
+- Session Replay recordings scrub secrets from the window's text, and mask fields named as secrets
+  (ajcraswell@gmail.com)
+- Side panel tabs sit on a transparent strip, so they blend into the panel (ajcraswell@gmail.com)
+
+## 0.39.1
+
+Mon, 09 Nov 2026 01:32:26 GMT
+
+### Patches
+
+- Show a project's first frame sooner when it opens: its boards measure their sizes together, laying the page out once
+  rather than once per board (ajcraswell@gmail.com)
+- A frame that fails offscreen reports the render page's own error message and stack, not Electron's "Script failed to
+  execute" (ajcraswell@gmail.com)
+
+## 0.39.0
+
+Mon, 09 Nov 2026 00:29:40 GMT
+
+### Minor changes
+
+- Agents report problems in Parity with parity report and MCP's report_problem: a Sentry feedback with the window's
+  screenshot and replay, the call's trace and the design's frames, returning its link (ajcraswell@gmail.com)
+- Set the interface in Inter, on four sizes for the chrome with nothing under 11px, regular text a step heavier,
+  sentence-case section titles, and code in each system's monospace. (ajcraswell@gmail.com)
+- The inspector's Design tab starts with what's selected, as its icon and kind in the kind's color above its name, with
+  which component or file on hover (ajcraswell@gmail.com)
 
 ## 0.38.0
 

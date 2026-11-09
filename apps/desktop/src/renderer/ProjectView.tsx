@@ -11,11 +11,12 @@ import { TabOrderOverlay } from "./canvas/TabOrderOverlay.tsx"
 import { CanvasMenu } from "./chrome/CanvasMenu.tsx"
 import { ConsolePanel, ResizeTop } from "./chrome/ConsolePanel.tsx"
 import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
+import { FloatingToolbar } from "./chrome/FloatingToolbar/FloatingToolbar.tsx"
 import { Inspector } from "./chrome/Inspector.tsx"
 import { setLayout, useLayout } from "./chrome/layout.ts"
 import { LeftPanel } from "./chrome/LeftPanel.tsx"
 import { StatusBar } from "./chrome/StatusBar.tsx"
-import { FloatingToolbar, ViewControls } from "./chrome/Toolbar.tsx"
+import { ZoomControls } from "./chrome/ZoomControls.tsx"
 import { startPreviews } from "./component-previews.ts"
 import { keepProjectPicture } from "./project-picture.ts"
 import { OpeningProject, ProjectFailed } from "./ProjectStatus.tsx"
@@ -34,7 +35,11 @@ export function ProjectView({ id, active }: { id: string; active: boolean }) {
   useShortcuts(session, active)
   // The start page's picture of the project, taken as it opens and after each save (PAR-607).
   useEffect(() => (session ? keepProjectPicture(session) : undefined), [session])
-  if (!tab) return null
+
+  if (!tab) {
+    return null
+  }
+
   const reopen = () => void workspace.reload(id)
 
   if (!session) {
@@ -79,6 +84,7 @@ export function ProjectView({ id, active }: { id: string; active: boolean }) {
 /** The console's boundary: says it failed in the console's own height, and can hide it. */
 function ConsoleBoundary({ onReopen, children }: { onReopen: () => void; children: ReactNode }) {
   const { consoleHeight } = useLayout()
+
   return (
     <ErrorBoundary
       name="console"
@@ -107,7 +113,11 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
 
   useEffect(() => {
     const editor = session?.editor
-    if (!editor) return
+
+    if (!editor) {
+      return
+    }
+
     editor.setCurrentTool(tool === "hand" ? "hand" : "select")
   }, [session?.editor, tool])
 
@@ -139,8 +149,8 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
         <ErrorBoundary name="canvas.toolbar" label="Toolbar" kind="silent">
           <FloatingToolbar />
         </ErrorBoundary>
-        <ErrorBoundary name="canvas.view-controls" label="View controls" kind="silent">
-          <ViewControls />
+        <ErrorBoundary name="canvas.view-controls" label="Zoom" kind="silent">
+          <ZoomControls />
         </ErrorBoundary>
       </div>
     </CanvasMenu>

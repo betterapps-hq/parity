@@ -5,12 +5,13 @@ import {
   elementSourceAttribute,
   finiteNumber,
   guestChanges,
+  type MountOptions,
   parseElementSource,
   type RenderNode,
   renderedComponents
 } from "@parity-app/core"
 import { frameAttributes } from "@parity-app/tokens"
-import axe, { type NodeResult, type RunOptions } from "axe-core"
+import axe, { type CheckResult, type NodeResult, type RunOptions } from "axe-core"
 import { z } from "zod"
 import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { frameBox, frameHeight } from "../shared/render-job.ts"
@@ -44,12 +45,16 @@ declare global {
 document.documentElement.style.overflow = "hidden"
 
 let current: { unmount(): void } | undefined
+
 /** Puts what the last frame portaled out of it, and a preview drew inside it, back where its library put it. */
 let putBack: (() => void) | undefined
+
 /** The frame drawn last, for the audit that may follow once the window is as tall as the frame. */
 let currentHost: HTMLElement | undefined
+
 /** The guest each project's frames were drawn with last, to let go of when its project reopens at a new address. */
 const projectGuests = new Map<string, string>()
+
 /** The components each guest was given by the last job that carried them, to take back the ones a later job drops. */
 const givenComponents = new Map<string, NonNullable<RenderJob["components"]>>()
 
@@ -66,22 +71,27 @@ window.canvasRender = async (job) => {
   currentHost = undefined
   document.body.replaceChildren()
   const last = projectGuests.get(job.projectId)
+
   if (last !== job.guestUrl) {
     if (last) {
       releaseGuest(last)
       givenComponents.delete(last)
     }
+
     projectGuests.set(job.projectId, job.guestUrl)
   }
+
   try {
     const loaded = await loadGuest(job.guestUrl, job.theme)
     showTokenOverrides(loaded.sheet, job.previews ?? [])
     const host = document.createElement("div")
     host.style.width = `${job.mode.width}px`
+
     if (job.mode.height !== undefined) {
       host.style.height = `${job.mode.height}px`
       host.style.overflow = "hidden"
     }
+
     host.style.zoom = String(job.scale)
     document.body.append(host)
     currentHost = host
@@ -92,28 +102,46 @@ window.canvasRender = async (job) => {
     const { viewport } = job.mode
     const attributes = frameAttributes(job.mode, loaded.themeAttributes)
     const target = prepareFrame(host, loaded.sheet, { ...job.mode, attributes, viewport })
+    // SAFETY: jobs are made from the canvas's frames, whose trees are `RenderNode[]` (frame-bitmaps.ts), and main hands
+    // them on unchanged.
     const tree = job.tree as RenderNode[]
+
     // A job that carries no components says nothing about them.
     if (job.components) {
       // Ones whose source went away are taken back first, so a frame using one draws as the canvas's does.
       const { add, drop } = guestChanges(givenComponents.get(job.guestUrl) ?? {}, job.components)
-      if (drop.length > 0) loaded.guest.removeComponents?.(drop)
+
+      if (drop.length > 0) {
+        loaded.guest.removeComponents?.(drop)
+      }
+
       loaded.guest.addComponents?.(add)
       givenComponents.set(job.guestUrl, job.components)
     }
-    const handle = loaded.guest.mount(target, tree, {
+
+    const options: MountOptions = {
       viewport,
       onError: (error) => {
         errors.push(error instanceof Error ? error.message : String(error))
-        if (error instanceof Error) stack ??= error.stack
-      },
-      ...(job.mode.globals ? { globals: job.mode.globals } : {})
-    })
+
+        if (error instanceof Error) {
+          stack ??= error.stack
+        }
+      }
+    }
+
+    if (job.mode.globals) {
+      options.globals = job.mode.globals
+    }
+
+    const handle = loaded.guest.mount(target, tree, options)
+
     setDrawnNodes(host, handle.drawnNodes?.bind(handle))
     current = handle
     // Let React commit, components that load on demand arrive, images and fonts load, and layout settle.
     await new Promise((resolve) => setTimeout(resolve, 30))
     await loaded.guest.loaded?.()
+
     if (job.inlinePortals) {
       // A component preview draws what its component portals out of the frame inside it, after the rest (PAR-517).
       const shadow = host.shadowRoot!
@@ -121,54 +149,90 @@ window.canvasRender = async (job) => {
       const root = (tree[0] && "nodeId" in tree[0] && findNodeElement(host, tree[0].nodeId)) || target
       putBack = inlinePortals(host, root)
     }
+
     await window.canvasSettle()
     await Promise.race([imagesLoaded(host), new Promise((resolve) => setTimeout(resolve, 1500))])
 
+    // SAFETY: `prepareFrame` puts the frame's body first in the host's shadow root.
     const body = host.shadowRoot!.firstElementChild as HTMLElement
     const origin = host.getBoundingClientRect()
     const nodes: MeasuredNode[] = []
+
     // Each node as the canvas finds it: from React's tree, so components that ignore their props are measured too.
     for (const id of drawnNodeIds(host)) {
       const element = findNodeElement(host, id)
       const rect = nodeBox(host, id)
-      if (!element || !rect) continue
+
+      if (!element || !rect) {
+        continue
+      }
+
       const inFrame = (box: DOMRect) => frameBox(box, origin, job.scale)
       const measured: MeasuredNode = { id, ...inFrame(rect) }
       const parent = nodeParent(host, id)
-      if (parent) measured.parent = parent
+
+      if (parent) {
+        measured.parent = parent
+      }
+
       // Where the project's code writes the node's own element, for agents (PAR-167).
       const written = element.getAttribute(elementSourceAttribute)
-      if (written && parseElementSource(written)) measured.source = written
+
+      if (written && parseElementSource(written)) {
+        measured.source = written
+      }
+
       const clip = clipper(element, rect, body)
+
       if (clip) {
         const by = nodeOfElement(host, clip)
         measured.clipped = true
-        measured.clip = { ...inFrame(clip.getBoundingClientRect()), ...(by && by !== id ? { node: by } : {}) }
+        measured.clip = inFrame(clip.getBoundingClientRect())
+
+        if (by && by !== id) {
+          measured.clip.node = by
+        }
       }
+
       nodes.push(measured)
     }
+
     const known = new Set(loaded.guest.components)
-    return {
+
+    const frame: RenderedFrame = {
       width: job.mode.width,
       height: job.mode.height ?? frameHeight(origin.height, job.scale),
       nodes,
       overflowsX: body.scrollWidth > body.clientWidth + 1,
       unknownComponents: [
         ...new Set(renderedComponents(tree).filter((name) => !known.has(name) && !loaded.guest.hasComponent(name)))
-      ],
-      ...(errors.length > 0 ? { error: errors.join("\n") } : {}),
-      ...(stack ? { errorStack: stack } : {})
+      ]
     }
+
+    if (errors.length > 0) {
+      frame.error = errors.join("\n")
+    }
+
+    if (stack) {
+      frame.errorStack = stack
+    }
+
+    return frame
   } catch (error) {
-    return {
+    const failed: RenderedFrame = {
       width: job.mode.width,
       height: 0,
       nodes: [],
       overflowsX: false,
       unknownComponents: [],
-      error: error instanceof Error ? error.message : String(error),
-      ...(error instanceof Error && error.stack ? { errorStack: error.stack } : {})
+      error: error instanceof Error ? error.message : String(error)
     }
+
+    if (error instanceof Error && error.stack) {
+      failed.errorStack = error.stack
+    }
+
+    return failed
   }
 }
 
@@ -202,14 +266,24 @@ const auditOptions: RunOptions = {
  */
 window.canvasAudit = async (colorTokens = []) => {
   const host = currentHost
-  if (!host) return { issues: [] }
+
+  if (!host) {
+    return { issues: [] }
+  }
+
   const results = await axe.run(host, auditOptions)
+
   const issues = results.violations.map((violation) => {
     const nodes = new Map<string, AccessibilityIssue["nodes"][number]>()
+
     for (const node of violation.nodes) {
       const id = (node.element && nodeOfElement(host, node.element)) ?? ""
-      if (!nodes.has(id)) nodes.set(id, { id, ...detailOf(node) })
+
+      if (!nodes.has(id)) {
+        nodes.set(id, { id, ...detailOf(node) })
+      }
     }
+
     return {
       rule: violation.id,
       impact: violation.impact ?? "minor",
@@ -218,26 +292,41 @@ window.canvasAudit = async (colorTokens = []) => {
       nodes: [...nodes.values()]
     }
   })
-  if (colorTokens.length === 0) return { issues }
+
+  if (colorTokens.length === 0) {
+    return { issues }
+  }
+
   const contrastNodes = [...results.violations, ...results.passes]
     .filter((result) => result.id === "color-contrast")
     .flatMap((result) => result.nodes)
+
   return { issues, contrast: { tokens: tokenColors(host, colorTokens), texts: contrastReadings(host, contrastNodes) } }
 }
 
 /** Per node, its text with the lowest contrast, and whether coloring the node's own element reaches that text. */
 function contrastReadings(host: HTMLElement, results: NodeResult[]): ContrastReading[] {
   const lowest = new Map<string, ContrastReading>()
+
   for (const result of results) {
     const element = result.element
     const id = element && nodeOfElement(host, element)
-    const contrast = contrastOf([...result.any, ...result.all].find((check) => check.id === "color-contrast")?.data)
-    if (!element || !id || !contrast) continue
+    const contrast = contrastOf([...result.any, ...result.all])
+
+    if (!element || !id || !contrast) {
+      continue
+    }
+
     const known = lowest.get(id)
-    if (known && known.ratio <= contrast.ratio) continue
+
+    if (known && known.ratio <= contrast.ratio) {
+      continue
+    }
+
     const { foreground, background, ratio, required } = contrast
     lowest.set(id, { id, foreground, background, ratio, required, follows: follows(host, id, element) })
   }
+
   return [...lowest.values()]
 }
 
@@ -247,26 +336,36 @@ function contrastReadings(host: HTMLElement, results: NodeResult[]): ContrastRea
  */
 function follows(host: HTMLElement, id: string, text: Element): boolean {
   const element = findNodeElement(host, id)
-  if (!element) return false
+
+  if (!element) {
+    return false
+  }
+
   const { style } = element
   const [value, priority] = [style.getPropertyValue("color"), style.getPropertyPriority("color")]
   style.setProperty("color", "rgb(1, 2, 3)", "important")
   const reached = getComputedStyle(text).color === "rgb(1, 2, 3)"
   style.setProperty("color", value, priority)
+
   return reached
 }
 
 /** Each named token's color in the frame, in its theme, as hex: `#rrggbb`, or `#rrggbbaa` when it's see-through. */
-function tokenColors(host: HTMLElement, names: string[]): Record<string, string> {
+function tokenColors(host: HTMLElement, names: string[]): FrameContrast["tokens"] {
+  // SAFETY: `prepareFrame` puts the frame's body first in the host's shadow root.
   const body = host.shadowRoot!.firstElementChild as HTMLElement
   const probe = document.createElement("span")
   body.append(probe)
   const canvas = document.createElement("canvas")
   canvas.width = canvas.height = 1
   const context = canvas.getContext("2d", { willReadFrequently: true })!
-  const colors: Record<string, string> = {}
+  const colors: FrameContrast["tokens"] = {}
+
   for (const name of names) {
-    if (!getComputedStyle(probe).getPropertyValue(`--${name}`).trim()) continue
+    if (!getComputedStyle(probe).getPropertyValue(`--${name}`).trim()) {
+      continue
+    }
+
     probe.style.color = `var(--${name})`
     // The browser keeps colors such as oklch() as written, so a pixel drawn in it gives the sRGB value.
     context.clearRect(0, 0, 1, 1)
@@ -276,8 +375,16 @@ function tokenColors(host: HTMLElement, names: string[]): Record<string, string>
     const hex = (channel: number) => channel.toString(16).padStart(2, "0")
     colors[name] = `#${hex(r!)}${hex(g!)}${hex(b!)}${a === 255 ? "" : hex(a!)}`
   }
+
   probe.remove()
+
   return colors
+}
+
+/** What's wrong with one element, and what axe-core measured when it's contrast. */
+interface IssueDetail {
+  detail: string
+  contrast?: ContrastDetail
 }
 
 /** ARIA attributes whose value is the id of another element. */
@@ -296,30 +403,41 @@ const idReferences = new Set([
  * What's wrong with one element, in a sentence. Contrast and ARIA values are put in plain words from what axe-core
  * measured; anything else is axe-core's own message. Code is quoted in backticks.
  */
-function detailOf(node: NodeResult): { detail: string; contrast?: ContrastDetail } {
+function detailOf(node: NodeResult): IssueDetail {
   const checks = [...node.any, ...node.all, ...node.none]
-  const contrast = contrastOf(checks.find((check) => check.id === "color-contrast")?.data)
+  const contrast = contrastOf(checks)
+
   if (contrast) {
     const text = `${contrast.fontSize}px${contrast.bold ? " bold" : ""} text`
+
     return {
       detail: `${contrast.foreground} on ${contrast.background} is ${contrast.ratio}:1, and ${text} needs ${contrast.required}:1.`,
       contrast
     }
   }
-  const values = checks.find((check) => check.id === "aria-valid-attr-value")?.data as unknown
+
+  const values: unknown = checks.find((check) => check.id === "aria-valid-attr-value")?.data
+
   if (Array.isArray(values) && values.length > 0) {
     const detail = values
       .map((pair) => {
         const [, name, value] = /^([\w-]+)="(.*)"$/s.exec(String(pair)) ?? []
-        if (!name) return `\`${String(pair)}\` isn't valid.`
+
+        if (!name) {
+          return `\`${String(pair)}\` isn't valid.`
+        }
+
         return idReferences.has(name)
           ? `\`${name}\` points at an element that isn't on the page.`
           : `\`${name}\` can't be \`${value}\`.`
       })
       .join(" ")
+
     return { detail }
   }
+
   const message = checks.map((check) => check.message).find(Boolean) ?? node.failureSummary ?? ""
+
   return { detail: message.replace(/([\w-]+="[^"]*")/g, "`$1`") }
 }
 
@@ -343,8 +461,9 @@ const contrastMeasure = z
     bold: measured.fontWeight === "bold"
   }))
 
-function contrastOf(data: unknown): ContrastDetail | undefined {
-  return contrastMeasure.safeParse(data).data
+/** What the checks' color-contrast check measured, when there is one. */
+function contrastOf(checks: CheckResult[]): ContrastDetail | undefined {
+  return contrastMeasure.safeParse(checks.find((check) => check.id === "color-contrast")?.data).data
 }
 
 /** Half a CSS pixel, for subpixel layout: the agent's `overflowTolerance`, which judges what this reports. */
@@ -352,11 +471,19 @@ const overflowTolerance = 0.5
 
 /** The nearest ancestor that hides overflow and cuts part of the element off, past `overflowTolerance`. */
 function clipper(element: HTMLElement, rect: DOMRect, body: HTMLElement): HTMLElement | undefined {
-  if (rect.width === 0 || rect.height === 0) return undefined
+  if (rect.width === 0 || rect.height === 0) {
+    return undefined
+  }
+
   for (let parent = element.parentElement; parent && parent !== body; parent = parent.parentElement) {
     const style = getComputedStyle(parent)
-    if (style.overflowX === "visible" && style.overflowY === "visible") continue
+
+    if (style.overflowX === "visible" && style.overflowY === "visible") {
+      continue
+    }
+
     const outer = parent.getBoundingClientRect()
+
     if (
       rect.left < outer.left - overflowTolerance ||
       rect.right > outer.right + overflowTolerance ||
@@ -366,6 +493,7 @@ function clipper(element: HTMLElement, rect: DOMRect, body: HTMLElement): HTMLEl
       return parent
     }
   }
+
   return undefined
 }
 
@@ -379,14 +507,18 @@ function clipper(element: HTMLElement, rect: DOMRect, body: HTMLElement): HTMLEl
  */
 window.canvasHeight = () => {
   const host = currentHost
-  if (!host || host.style.zoom === "" || host.style.zoom === "1") return undefined
+
+  if (!host || host.style.zoom === "" || host.style.zoom === "1") {
+    return undefined
+  }
+
   host.style.zoom = "1"
+
   return Math.round(host.getBoundingClientRect().height * 100) / 100
 }
 
-function imagesLoaded(host: HTMLElement): Promise<unknown> {
+async function imagesLoaded(host: HTMLElement): Promise<void> {
   const images = [...(host.shadowRoot?.querySelectorAll("img") ?? [])]
-  return Promise.all(
-    images.map((image) => (image.complete ? Promise.resolve() : image.decode().catch(() => undefined)))
-  )
+
+  await Promise.all(images.map((image) => (image.complete ? Promise.resolve() : image.decode().catch(() => undefined))))
 }

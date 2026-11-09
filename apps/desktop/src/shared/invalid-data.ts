@@ -19,13 +19,15 @@ export function invalidDataAttributes(failure: InvalidData): EventAttributes<[ty
 }
 
 /** Data as JSON, cut short, or as text when it isn't JSON. */
-function dataText(value: unknown): string {
+function dataText(value: InvalidData["value"]): string {
   let text: string
+
   try {
     text = JSON.stringify(value) ?? String(value)
   } catch {
     text = String(value)
   }
+
   return text.length > dataLimit ? `${text.slice(0, dataLimit)}…` : text
 }
 
@@ -35,5 +37,6 @@ function dataText(value: unknown): string {
  */
 export function recordInvalidData(telemetry: Telemetry<typeof registeredEvents>): Telemetry<typeof registeredEvents> {
   onInvalidData((failure) => telemetry.track("data.invalid", invalidDataAttributes(failure)))
+
   return telemetry
 }

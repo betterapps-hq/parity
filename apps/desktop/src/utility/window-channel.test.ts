@@ -1,8 +1,8 @@
-import { createChannel, type Handlers, memoryPorts, plainErrors } from "@parity-app/channel"
+import { createChannel, type Handlers, memoryPorts, type Method, plainErrors } from "@parity-app/channel"
 import { CodedError, unknownReference } from "@parity-app/core"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { settled } from "../renderer/service.ts"
-import type { ServiceMethod, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
+import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { windowChannel } from "./window-channel.ts"
 
 /**
@@ -11,17 +11,21 @@ import { windowChannel } from "./window-channel.ts"
  */
 function connected(handlers: Partial<Handlers<ServiceMethods>>) {
   const [servicePort, windowPort] = memoryPorts()
-  // The checks refuse a request before it reaches a handler the test left out.
+  // SAFETY: the checks refuse a request before it reaches a handler the test left out.
   windowChannel(handlers as Handlers<ServiceMethods>, servicePort)
-  const preload = createChannel<WindowMethods, ServiceMethods>()
+  // Typed by any map, so a test can ask for what the service's own map forbids: params that don't match, or a method
+  // it doesn't have.
+  const preload = createChannel<WindowMethods, Record<string, Method>>()
   preload.connect(windowPort)
-  return async <M extends ServiceMethod>(method: M, params: unknown): Promise<ServiceMethods[M]["result"]> =>
+
+  return async <Params>(method: string, params: Params): Promise<void> => {
     settled(
-      await preload.request(method, params as ServiceMethods[M]["params"]).then(
+      await preload.request(method, params).then(
         (result) => ({ result }),
-        (error: unknown) => plainErrors.encode(error)
+        (cause: unknown) => plainErrors.encode(cause)
       )
     )
+  }
 }
 
 describe("the window's requests to the project service", () => {
@@ -46,7 +50,7 @@ describe("the window's requests to the project service", () => {
 
   it("refuses a method the service doesn't have", async () => {
     const request = connected({})
-    const refused = request("files.delete" as ServiceMethod, { path: "C:/" })
+    const refused = request("files.delete", { path: "C:/" })
     await expect(refused).rejects.toMatchObject({
       message: 'The project service has no method "files.delete"',
       details: { code: "invalid_input", field: "method" }
@@ -55,7 +59,7 @@ describe("the window's requests to the project service", () => {
 
   it("never calls what an object inherits as though it were a method", async () => {
     const request = connected({})
-    await expect(request("constructor" as ServiceMethod, {})).rejects.toMatchObject({
+    await expect(request("constructor", {})).rejects.toMatchObject({
       details: { code: "invalid_input", field: "method" }
     })
   })
@@ -66,6 +70,7 @@ describe("the window's requests to the project service", () => {
         throw unknownReference("unknown_design", "No design named Pricng", "Pricng", ["Pricing", "Home"], "design")
       }
     })
+
     const failed = request("accessibility.check", { projectId: "D:/shop", design: "Pricng" })
     await expect(failed).rejects.toBeInstanceOf(CodedError)
     await expect(failed).rejects.toMatchObject({
@@ -78,6 +83,7 @@ describe("the window's requests to the project service", () => {
     const request = connected({
       "storybook.open": () => Promise.reject(new Error("Storybook didn't start"))
     })
+
     const failed = request("storybook.open", { projectId: "D:/shop" })
     await expect(failed).rejects.toThrow("Storybook didn't start")
     await expect(failed).rejects.not.toBeInstanceOf(CodedError)

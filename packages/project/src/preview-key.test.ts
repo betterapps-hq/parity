@@ -3,7 +3,14 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { type CodeSnapshot, codeSnapshot } from "./code-fingerprint.ts"
-import { importedFiles, moduleClosure, previewKey, resolveModule, sharedPreviewFiles } from "./preview-key.ts"
+import {
+  importedFiles,
+  moduleClosure,
+  previewKey,
+  type PreviewKeyInput,
+  resolveModule,
+  sharedPreviewFiles
+} from "./preview-key.ts"
 
 const files = new Map(
   [
@@ -15,6 +22,7 @@ const files = new Map(
     "src/theme.css"
   ].map((path) => [path, "1:1"])
 )
+
 const alias = (specifier: string) => (specifier.startsWith("@/") ? `src/${specifier.slice(2)}` : undefined)
 
 describe("resolveModule", () => {
@@ -52,20 +60,23 @@ describe("importedFiles", () => {
 })
 
 describe("moduleClosure", () => {
-  const graph: Record<string, string[]> = {
-    "a.tsx": ["b.ts", "c.ts"],
-    "b.ts": ["c.ts"],
-    "c.ts": ["a.tsx"],
-    "d.ts": []
-  }
-  const importsOf = async (path: string) => graph[path] ?? []
+  const graph = new Map([
+    ["a.tsx", ["b.ts", "c.ts"]],
+    ["b.ts", ["c.ts"]],
+    ["c.ts", ["a.tsx"]],
+    ["d.ts", []]
+  ])
+
+  const importsOf = async (path: string) => graph.get(path) ?? []
 
   it("reaches every file through imports, once, even round a cycle", async () => {
     expect(await moduleClosure(["a.tsx"], importsOf)).toEqual(["a.tsx", "b.ts", "c.ts"])
   })
 
   it("treats a file that can't be read as importing nothing", async () => {
-    const failing = async (path: string) => (path === "b.ts" ? Promise.reject(new Error("gone")) : (graph[path] ?? []))
+    const failing = async (path: string) =>
+      path === "b.ts" ? Promise.reject(new Error("gone")) : (graph.get(path) ?? [])
+
     expect(await moduleClosure(["b.ts", "d.ts"], failing)).toEqual(["b.ts", "d.ts"])
   })
 })
@@ -87,6 +98,7 @@ describe("sharedPreviewFiles", () => {
         ].map((path) => [path, "1:1"])
       )
     }
+
     expect(sharedPreviewFiles(snapshot)).toEqual([
       "package.json",
       "tsconfig.app.json",
@@ -125,10 +137,16 @@ describe("previewKey", () => {
   }
 
   /** A component's key as the service works it out: its file and what it imports, the stylesheets, shared files. */
-  async function keyOf(component: string, snapshot: CodeSnapshot, drawn: unknown = { tree: component }) {
+  async function keyOf(
+    component: string,
+    snapshot: CodeSnapshot,
+    drawn: PreviewKeyInput["drawn"] = { tree: component }
+  ) {
     const importsOf = async (path: string) =>
       importedFiles(path, await readFile(join(root, path), "utf8"), snapshot.files, () => undefined)
+
     const closure = await moduleClosure([component, "src/index.css"], importsOf)
+
     return previewKey({ drawn, files: [...closure, ...sharedPreviewFiles(snapshot)], snapshot, salt: "1" })
   }
 

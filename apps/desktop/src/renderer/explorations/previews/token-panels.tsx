@@ -55,6 +55,7 @@ import {
   valueLabel
 } from "../../chrome/token-previews.tsx"
 import { keepEditing } from "../../chrome/TokenDetail.tsx"
+import { optionNamed } from "../parts.tsx"
 import {
   allTokens,
   breakpoints,
@@ -72,11 +73,15 @@ const themesOf = (token: SampleToken) => (token.source === "semantic" ? Object.k
 
 /** A token as edited: a changed value draws as typed, so its previews show what every frame now shows. */
 function edited(token: SampleToken, values: Record<string, string>): SampleToken {
-  if (Object.entries(values).every(([theme, value]) => token.values[theme] === value)) return token
+  if (Object.entries(values).every(([theme, value]) => token.values[theme] === value)) {
+    return token
+  }
+
   const value = substituteReferences(values.default ?? "", sampleValue)
   // A length the token showed in pixels still comes to pixels, as the browser works it out.
   const length = token.resolved?.endsWith("px") ? px(value) : Number.NaN
   const resolved = Number.isFinite(length) ? `${Number(length.toFixed(2))}px` : value
+
   return { ...token, values, resolved, via: tokenReferences(values.default ?? "") }
 }
 
@@ -106,6 +111,7 @@ function CopyMenu({ token }: { token: SampleToken }) {
   const copying = useCopy()
   const name = cssName(token)
   const groups = Map.groupBy(codeForms(token.name, token.kind, drawn(token)), (form) => form.group)
+
   return (
     <div className="flex items-center rounded-lg border bg-background shadow-xs dark:border-input dark:bg-input/30">
       <CopyButton text={name} copying={copying} className="rounded-r-none">
@@ -157,6 +163,7 @@ export function TokenRow({
   const value = valueLabel(token)
   const copying = useCopy()
   const name = cssName(token)
+
   return (
     <li {...handlers} className="group/token relative flex items-center">
       <Popover defaultOpen={open} onOpenChange={(_open, details) => keepEditing(details)}>
@@ -199,6 +206,7 @@ function TokenTileButton({ token: original, playing: forced }: { token: SampleTo
   const value = valueLabel(token)
   const copying = useCopy()
   const name = cssName(token)
+
   return (
     <div {...handlers} className="group/token relative flex min-w-0">
       <Popover onOpenChange={(_open, details) => keepEditing(details)}>
@@ -243,6 +251,7 @@ function TokenTileButton({ token: original, playing: forced }: { token: SampleTo
 /** A shade in the palette grid: a click copies it, as there's little else to do with one of 242. */
 function PaletteShade({ shade }: { shade: SampleToken }) {
   const name = cssName(shade)
+
   return (
     <CopyOnClick text={name} hint={`${shade.name}: ${shade.values.default}`} detail="Click to copy">
       <button
@@ -258,6 +267,7 @@ function PaletteShade({ shade }: { shade: SampleToken }) {
 /** Tailwind's palette as a grid: one row per hue, its shades across, as the panel draws it today. */
 function PaletteGrid({ tokens }: { tokens: SampleToken[] }) {
   const hues = Map.groupBy(tokens, (token) => /^color-([a-z]+)-\d+$/.exec(token.name)?.[1] ?? "")
+
   return (
     <div className="flex flex-col gap-1">
       {[...hues].map(([hue, shades]) => (
@@ -274,7 +284,14 @@ function PaletteGrid({ tokens }: { tokens: SampleToken[] }) {
   )
 }
 
-type Source = "all" | "semantic" | "theme"
+const sources = ["all", "semantic", "theme"] as const
+
+type Source = (typeof sources)[number]
+
+/** How the panel shows tokens: rows, or tiles for a closer look. */
+const tokenViews = ["list", "tiles"] as const
+
+type TokenView = (typeof tokenViews)[number]
 
 /**
  * The Tokens tab with a preview for every kind: rows by default, or tiles for a closer look. Sections follow what a
@@ -288,7 +305,7 @@ export function TokensPanel({
   open,
   only
 }: {
-  view?: "list" | "tiles"
+  view?: TokenView
   query?: string
   /** A token shown as hovered, so its motion plays. */
   playing?: string
@@ -301,10 +318,13 @@ export function TokensPanel({
   const [query, setQuery] = useState(initialQuery)
   const [source, setSource] = useState<Source>("all")
   const needle = query.trim().toLowerCase()
+
   const matches = allTokens.filter(
     (token) => (source === "all" || token.source === source) && (!needle || token.name.toLowerCase().includes(needle))
   )
+
   const project = allTokens.filter((token) => token.source === "semantic").length
+
   return (
     <>
       <div className="flex flex-col gap-2 border-b p-3">
@@ -323,7 +343,13 @@ export function TokensPanel({
             size="sm"
             spacing={0}
             value={[view]}
-            onValueChange={([value]) => value && setView(value as "list" | "tiles")}
+            onValueChange={([value]) => {
+              const next = optionNamed(tokenViews, value)
+
+              if (next) {
+                setView(next)
+              }
+            }}
             aria-label="Show tokens as"
           >
             <Hint label="List">
@@ -344,7 +370,13 @@ export function TokensPanel({
             size="sm"
             spacing={0}
             value={[source]}
-            onValueChange={([value]) => value && setSource(value as Source)}
+            onValueChange={([value]) => {
+              const next = optionNamed(sources, value)
+
+              if (next) {
+                setSource(next)
+              }
+            }}
             className="min-w-0 flex-1"
           >
             <ToggleGroupItem value="all" className="h-7 flex-1 text-xs">
@@ -366,11 +398,17 @@ export function TokensPanel({
             const groups = section.kinds
               .map(({ kind, heading }) => ({ heading, list: tokensOfKind(kind, matches) }))
               .filter((group) => group.list.length > 0)
+
             const count = groups.reduce((sum, group) => sum + group.list.length, 0)
-            if (count === 0) return null
+
+            if (count === 0) {
+              return null
+            }
+
             if (section.title === "Colors") {
               const own = groups[0]!.list.filter((token) => token.source === "semantic")
               const scale = groups[0]!.list.filter((token) => token.source === "theme")
+
               return (
                 <div key="colors">
                   {own.length > 0 && (
@@ -386,6 +424,7 @@ export function TokensPanel({
                 </div>
               )
             }
+
             return (
               <PanelSection key={section.title} title={section.title} count={count}>
                 <div className="flex flex-col gap-2">
@@ -414,7 +453,7 @@ function TokenList({
   open
 }: {
   tokens: SampleToken[]
-  view: "list" | "tiles"
+  view: TokenView
   playing?: string
   open?: string
 }) {
@@ -428,6 +467,7 @@ function TokenList({
       </div>
     )
   }
+
   return (
     <ul className="flex flex-col">
       {tokens.map((token) => (
@@ -471,6 +511,7 @@ export function TokenDetail({
   const [replaced, setReplaced] = useState<Record<string, string>>()
   const themes = themesOf(token)
   const editing = editor && drafts !== undefined
+
   const problems: Record<string, string | undefined> = Object.fromEntries(
     themes.map((theme) => [
       theme,
@@ -479,6 +520,7 @@ export function TokenDetail({
         : undefined
     ])
   )
+
   const valid = themes.every((theme) => !problems[theme])
   const changed = drafts !== undefined && themes.some((theme) => (drafts[theme] ?? "").trim() !== saved[theme])
   // While editing, the preview follows what's typed, as long as it's a value it can draw.
@@ -489,7 +531,11 @@ export function TokenDetail({
   const playing = moving.has(token.kind) && (play ?? !reduced)
   const cancel = () => setDrafts(undefined)
   let saving = "Fix the value to save"
-  if (valid) saving = changed ? `Saves to ${stylesheet}` : "Nothing to save yet"
+
+  if (valid) {
+    saving = changed ? `Saves to ${stylesheet}` : "Nothing to save yet"
+  }
+
   return (
     <div className="flex flex-col">
       <div className="group/preview relative px-3 pt-3">
@@ -521,7 +567,11 @@ export function TokenDetail({
         data-token-editing={editing || undefined}
         onSubmit={(event) => {
           event.preventDefault()
-          if (!drafts || !changed || !valid) return
+
+          if (!drafts || !changed || !valid) {
+            return
+          }
+
           setReplaced(saved)
           save(trimmed(drafts))
           setDrafts(undefined)
@@ -549,7 +599,9 @@ export function TokenDetail({
                         aria-invalid={problems[theme] ? true : undefined}
                         onChange={(event) => setDrafts({ ...drafts, [theme]: event.currentTarget.value })}
                         onKeyDown={(event) => {
-                          if (event.key === "Escape") cancel()
+                          if (event.key === "Escape") {
+                            cancel()
+                          }
                         }}
                         className="h-7 font-mono text-xs"
                       />
@@ -654,6 +706,7 @@ export function TokenDetail({
  */
 function ValueText({ value }: { value: string }) {
   const parts = valueParts(value)
+
   return (
     <code className="flex min-w-0 flex-col font-mono wrap-anywhere">
       {parts.map((part, index) => (
@@ -675,8 +728,14 @@ const stylesheet = "src/index.css"
  * one value has no theme to name, so its row is just its Value.
  */
 function themeLabel(theme: string, themes: string[]): string {
-  if (theme !== "default") return theme.charAt(0).toUpperCase() + theme.slice(1)
-  if (themes.length === 1) return "Value"
+  if (theme !== "default") {
+    return theme.charAt(0).toUpperCase() + theme.slice(1)
+  }
+
+  if (themes.length === 1) {
+    return "Value"
+  }
+
   return themes.includes("dark") ? "Light" : "Default"
 }
 
@@ -687,6 +746,7 @@ function trimmed(values: Record<string, string>): Record<string, string> {
 /** The detail's large preview: the tile for most kinds, and for a few, the token among the rest of its scale. */
 function DetailPreview({ token, playing }: { token: SampleToken; playing: boolean }) {
   const width = 296
+
   switch (token.kind) {
     case "color":
       return (
@@ -747,11 +807,13 @@ function DetailPreview({ token, playing }: { token: SampleToken; playing: boolea
 function SpacingScale({ token, width }: { token: SampleToken; width: number }) {
   const steps = tokensOfKind("spacing").filter((step) => step.library === token.library)
   const scale = steps.some((step) => step.name === token.name) ? steps : [token]
+
   return (
     <div className="flex flex-col gap-0.5 rounded-md border bg-muted/40 px-3 py-2">
       {scale.map((step) => {
         const current = step.name === token.name
         const length = px(drawn(current ? token : step))
+
         return (
           <div key={step.name} className="flex h-4 items-center gap-2">
             <span
@@ -771,6 +833,7 @@ function SpacingScale({ token, width }: { token: SampleToken; width: number }) {
 function DurationRace({ token, playing, width }: { token: SampleToken; playing: boolean; width: number }) {
   const scale = token.library ? durations.filter((other) => other.library === token.library) : [token]
   const period = Math.max(...scale.map((other) => ms(drawn(other)))) + rest
+
   return (
     <div className="flex flex-col gap-1 rounded-md border bg-muted/40 px-3 py-2">
       {scale.map((other) => (
@@ -790,6 +853,7 @@ function DurationRace({ token, playing, width }: { token: SampleToken; playing: 
 function TypeSpecimen({ token, width }: { token: SampleToken; width: number }) {
   const size = token.kind === "font-size" ? px(drawn(token)) : 15
   const family = token.kind === "font" ? drawn(token) : "'Geist Variable', sans-serif"
+
   return (
     <div
       className="flex flex-col gap-2 overflow-hidden rounded-md border p-3"
@@ -813,6 +877,7 @@ function TypeSpecimen({ token, width }: { token: SampleToken; width: number }) {
 /** The whole z-index scale as a stack, top layer first, with this one marked. */
 function LayerStack({ token }: { token: SampleToken }) {
   const scale = zIndexes.filter((other) => other.library === token.library)
+
   return (
     <div className="flex flex-col gap-px rounded-md border bg-muted/40 p-2">
       {scale.map((other, index) => (
@@ -835,6 +900,7 @@ function LayerStack({ token }: { token: SampleToken }) {
 function BreakpointRuler({ token, width }: { token: SampleToken; width: number }) {
   const widest = 1536
   const at = (value: number) => (value / widest) * (width - 24)
+
   return (
     <div className="relative h-24 rounded-md border bg-muted/40 px-3">
       <div className="absolute inset-x-3 top-12 h-px bg-muted-foreground/40" />
@@ -854,6 +920,7 @@ function BreakpointRuler({ token, width }: { token: SampleToken; width: number }
       {breakpoints.map((other) => {
         const left = 12 + at(px(drawn(other)))
         const mine = other === token
+
         return (
           <span key={other.name} className="absolute top-4 flex flex-col items-center" style={{ left: left - 12 }}>
             <span className={`text-[10px] ${mine ? "text-foreground" : "text-muted-foreground"}`}>
@@ -878,6 +945,7 @@ function TriggerGlyph({ token }: { token: SampleToken }) {
   if (token.kind === "color") {
     return <span className="size-3.5 shrink-0 rounded-sm border border-white/15" style={{ background: drawn(token) }} />
   }
+
   return (
     <span
       className="relative h-4 w-6 shrink-0 overflow-hidden rounded-[3px] bg-white/5"
@@ -913,6 +981,7 @@ export function TokenPicker({
   const groups = Map.groupBy(choices, (token) => token.source)
   // A list row is enough for a color or a length; shadows, blur and motion want a closer look.
   const footer = highlighted && !["color", "spacing", "font-weight", "z-index"].includes(highlighted.kind)
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -983,6 +1052,7 @@ export function InspectorPickers({ open }: { open?: string }) {
       <TokenPicker label={label} kinds={kinds} value={value} defaultOpen={open === label} />
     </Field>
   )
+
   return (
     <aside className="flex w-[320px] shrink-0 flex-col overflow-hidden rounded-lg border bg-background">
       <div className="flex h-12 items-center gap-2 border-b px-4 text-sm">
@@ -1064,13 +1134,17 @@ const exemplars = [
 ]
 
 /** Where the panel puts a kind today when that's a catch-all rather than a section of its own. */
-const catchAll: Partial<Record<string, string>> = { other: "Under Other today", effect: "Under Effects today" }
+const catchAll = new Map([
+  ["other", "Under Other today"],
+  ["effect", "Under Effects today"]
+])
 
 function KindCard({ token }: { token: SampleToken }) {
   const { playing, handlers } = useHoverPlay(token.kind)
-  const today = catchAll[token.category]
+  const today = catchAll.get(token.category)
   const section = tokenSections.find((entry) => entry.kinds.some((kind) => kind.kind === token.kind))
   const heading = section?.kinds.find((kind) => kind.kind === token.kind)?.heading
+
   return (
     <div {...handlers} className="flex flex-col gap-2 rounded-lg border bg-background p-3">
       <div className="flex items-baseline justify-between gap-2">

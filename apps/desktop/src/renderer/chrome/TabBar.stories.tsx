@@ -27,6 +27,7 @@ const meta = {
 } satisfies Meta<typeof TabBar>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Folders of made-up projects, for stories with more tabs than the stand-in service knows. */

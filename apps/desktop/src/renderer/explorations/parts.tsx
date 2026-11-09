@@ -4,6 +4,21 @@ import { agentPalettes } from "../agent/agent-colors.ts"
 import { AgentPointer } from "../agent/AgentPointer.tsx"
 import { initials, type Person, type Project, type ScreenKind } from "./explore-data.ts"
 
+/** CSS custom properties by name, which a style's own type doesn't list. */
+export interface CssVariables {
+  [name: `--${string}`]: string
+}
+
+/** The option a control's value names, or undefined when it names none of them. */
+export function optionNamed<Option extends string>(options: readonly Option[], value: string | undefined) {
+  return options.find((option) => option === value)
+}
+
+/** A style with CSS custom properties set in it. */
+export function withVariables(variables: CssVariables, style: CSSProperties = {}): CSSProperties {
+  return { ...style, ...variables }
+}
+
 /** A color from a hue, at the app's usual lightness and chroma for accents. */
 export function accent(hue: number, lightness = 0.7, chroma = 0.15): string {
   return `oklch(${lightness} ${chroma} ${hue})`
@@ -57,11 +72,13 @@ export function ExploreWindow({
         </div>
         {tabs.map((tab) => {
           const selected = tab.id === active
+
           const label = tab.home ? (
             <House className="size-4" aria-label="Home" />
           ) : (
             <span className="min-w-0 flex-1 truncate">{tab.title}</span>
           )
+
           return (
             <div
               key={tab.id}
@@ -157,6 +174,7 @@ export function Avatar({ person, size = 24, className = "" }: { person: Person; 
 /** A few people, overlapping. */
 export function AvatarStack({ people, size = 22, max = 4 }: { people: Person[]; size?: number; max?: number }) {
   const shown = people.slice(0, max)
+
   return (
     <span className="flex items-center">
       {shown.map((person, index) => (
@@ -184,6 +202,7 @@ export function AvatarStack({ people, size = 22, max = 4 }: { people: Person[]; 
 export function ParityMark({ size = 32 }: { size?: number }) {
   const id = `parity-${useId().replaceAll(/[^\w-]/g, "")}`
   const full = size > 40
+
   return (
     <svg width={size} height={size} viewBox="0 0 1024 1024" fill="none" aria-label="Parity">
       <defs>
@@ -319,8 +338,14 @@ export function MicrosoftMark({ size = 16 }: { size?: number }) {
 
 /** Where a project lives: GitHub, Azure DevOps or a folder on this computer. */
 export function SourceIcon({ type, className = "size-3.5" }: { type: Project["source"]["type"]; className?: string }) {
-  if (type === "github") return <GitHubMark className={className} />
-  if (type === "azure") return <AzureDevOpsMark className={className} />
+  if (type === "github") {
+    return <GitHubMark className={className} />
+  }
+
+  if (type === "azure") {
+    return <AzureDevOpsMark className={className} />
+  }
+
   return <HardDrive className={className} />
 }
 
@@ -357,6 +382,7 @@ function Bar({
 /** A screen of the given kind, drawn small in plain blocks: enough to tell a dashboard from a docs page at a glance. */
 export function MiniScreen({ kind, hue, dark = false }: { kind: ScreenKind; hue: number; dark?: boolean }) {
   const c = screenColors(hue, dark)
+
   return (
     <div className="absolute inset-0 flex overflow-hidden" style={{ background: c.page }}>
       {screens[kind](c)}
@@ -583,7 +609,7 @@ const screens: Record<ScreenKind, (c: Colors) => ReactNode> = {
             <div
               key={index}
               className="aspect-square w-[12px] rounded-full ring-2"
-              style={{ background: color, marginLeft: index ? -3 : 0, ["--tw-ring-color" as string]: c.page }}
+              style={withVariables({ "--tw-ring-color": c.page }, { background: color, marginLeft: index ? -3 : 0 })}
             />
           ))}
         </div>
@@ -620,6 +646,7 @@ function dark(c: Colors): boolean {
  */
 export function ProjectThumb({ project, className = "" }: { project: Project; className?: string }) {
   const glow = accent(project.hue, 0.6, 0.14)
+
   return (
     <div
       className={`relative aspect-[16/10] overflow-hidden rounded-lg bg-[#0f0f12] ${className}`}

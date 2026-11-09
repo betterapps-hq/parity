@@ -92,7 +92,11 @@ function Frame({ board }: { board: MockBoard }) {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const host = ref.current
-    if (!host) return undefined
+
+    if (!host) {
+      return undefined
+    }
+
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" })
     shadow.innerHTML = board.nodes
       .map(
@@ -100,9 +104,11 @@ function Frame({ board }: { board: MockBoard }) {
           `<div data-canvas-node="${node.id}" style="position:absolute;left:${node.x}px;top:${node.y}px;width:${node.w}px;height:${node.h}px;border-radius:6px;background:${node.color}"></div>`
       )
       .join("")
+
     // Agents' presence finds a board's frames from the index frames register in, as ModeView's do.
     return registerFrame(host, board.key)
   }, [board])
+
   return (
     <div
       ref={ref}
@@ -122,7 +128,8 @@ function Frame({ board }: { board: MockBoard }) {
  */
 function Stage({ calls, note }: { calls: Call[]; note: string }) {
   const tab = `story-${useId()}`
-  const session = useMemo(() => ({ id: tab }) as unknown as ProjectSession, [tab])
+  // SAFETY: AgentPresence reads only the session's id, and its editor, which a story without tldraw leaves out.
+  const session = useMemo(() => ({ id: tab }) as ProjectSession, [tab])
   const [positions, setPositions] = useState(() => new Map(boards.map((board) => [board.key, board])))
   const [run, replay] = useReducer((count: number) => count + 1, 0)
   const [, redraw] = useReducer((count: number) => count + 1, 0)
@@ -131,24 +138,34 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
 
   useEffect(() => {
     let at = 0
+
     const timers = calls.map((call) => {
       at += call.after
+
       return setTimeout(() => {
         const agent = call.agent ?? claude
+
         const events = [{ kind: "start" as const }, ...call.steps, { kind: "end" as const }].map(
           (step): PresenceEvent => ({ tab, agent: agent.name, agentId: agent.id, label: call.label, ...step })
         )
+
         presence.push(events)
         setPositions((current) => {
           const next = new Map(current)
+
           for (const event of events) {
             const board = event.kind === "move" && event.design ? next.get(event.design) : undefined
-            if (board && event.to) next.set(board.key, { ...board, ...event.to })
+
+            if (board && event.to) {
+              next.set(board.key, { ...board, ...event.to })
+            }
           }
+
           return next
         })
       }, at)
     })
+
     return () => timers.forEach(clearTimeout)
   }, [calls, run, tab])
 
@@ -157,6 +174,7 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
       <div className="relative h-[600px] w-full overflow-hidden bg-[#0e0e10] font-sans text-foreground">
         {[...positions.values()].map((board) => {
           const at = heldBoards.at(tab, board.key) ?? board
+
           return (
             <div
               key={board.key}
@@ -195,6 +213,7 @@ const meta = {
 } satisfies Meta<typeof Stage>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const pricing = "demo.par#pricing"
@@ -331,6 +350,7 @@ export const SixAgents: Story = {
     calls: six.map((agent, index) => {
       const targets = boards.flatMap((board) => board.nodes.map((node) => ({ design: board.key, node: node.id })))
       const pick = (offset: number) => targets[(index * 3 + offset) % targets.length]!
+
       return {
         after: index === 0 ? 400 : 350,
         label: ["Review pricing", "Check settings", "Audit sign in", "Tidy copy", "Check spacing", "Review layout"][

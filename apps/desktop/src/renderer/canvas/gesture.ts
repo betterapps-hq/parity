@@ -1,5 +1,5 @@
 import { type Checkpoint, dragThreshold, type HistoryEntry } from "@parity-app/editor"
-import type { EventAttributes, registeredEvents } from "@parity-app/telemetry"
+import type { EventAttributes, registeredEvents, TraceContext } from "@parity-app/telemetry"
 import type { DesignStore } from "../design-store.ts"
 import { track } from "../report-error.ts"
 import { startTrace, type Trace } from "../tracing.ts"
@@ -17,9 +17,9 @@ import { startTrace, type Trace } from "../tracing.ts"
 /** What `gesture.ended` says about a gesture. */
 export type GestureEnded = EventAttributes<typeof registeredEvents, "gesture.ended">
 
-/** Records a gesture that has ended. Every kind is recorded through here. */
-export function recordGesture(ended: GestureEnded): void {
-  track("gesture.ended", ended)
+/** Records a gesture that has ended, under the `gesture.ran` span of a drag. Every kind is recorded through here. */
+export function recordGesture(ended: GestureEnded, span?: TraceContext): void {
+  track("gesture.ended", ended, { span })
 }
 
 /**
@@ -27,16 +27,22 @@ export function recordGesture(ended: GestureEnded): void {
  * second over that time. Undefined where there are no animation frames, as in unit tests, or no time has passed.
  */
 export function countFrames(now: () => number = () => performance.now()): () => number | undefined {
-  if (typeof requestAnimationFrame !== "function") return () => undefined
+  if (!("requestAnimationFrame" in globalThis)) {
+    return () => undefined
+  }
+
   const started = now()
   let frames = 0
+
   let frame = requestAnimationFrame(function tick() {
     frames += 1
     frame = requestAnimationFrame(tick)
   })
+
   return () => {
     cancelAnimationFrame(frame)
     const seconds = (now() - started) / 1000
+
     return seconds > 0 ? Math.round((frames / seconds) * 10) / 10 : undefined
   }
 }
@@ -54,29 +60,38 @@ export type GestureEnd = "release" | "escape" | "interrupted"
  */
 export function onGestureEnd(target: EventTarget, onEnd: (how: GestureEnd) => void): () => void {
   const capture = { capture: true }
+
   const stop = () => {
     target.removeEventListener("pointerup", release, capture)
     target.removeEventListener("pointercancel", interrupt, capture)
     target.removeEventListener("blur", interrupt)
     target.removeEventListener("keydown", key, capture)
   }
+
   const end = (how: GestureEnd) => {
     stop()
     onEnd(how)
   }
+
   const release = () => end("release")
   const interrupt = () => end("interrupted")
+
   const key = (event: Event) => {
-    if (!("key" in event) || event.key !== "Escape") return
+    if (!("key" in event) || event.key !== "Escape") {
+      return
+    }
+
     event.preventDefault()
     event.stopImmediatePropagation()
     end("escape")
   }
+
   target.addEventListener("pointerup", release, capture)
   target.addEventListener("pointercancel", interrupt, capture)
   // Not capturing, so it's the window's own focus going, not a field's inside it.
   target.addEventListener("blur", interrupt)
   target.addEventListener("keydown", key, capture)
+
   return stop
 }
 
@@ -183,16 +198,28 @@ export function followPress(
   let began = 0
   let frames: (() => number | undefined) | undefined
   let step: HistoryEntry | undefined
+
   // Only once the design has changed, since a revert writes its file again.
   const revert = () => {
-    if (!checkpoint || press.design === undefined) return
-    if (store.getEntry(press.design)?.container !== checkpoint.container) store.revert(checkpoint)
+    if (!checkpoint || press.design === undefined) {
+      return
+    }
+
+    if (store.getEntry(press.design)?.container !== checkpoint.container) {
+      store.revert(checkpoint)
+    }
   }
 
   const onMove = (event: Event) => {
-    if (!isPointer(event)) return
+    if (!isPointer(event)) {
+      return
+    }
+
     if (!drag) {
-      if (Math.hypot(event.clientX - start.clientX, event.clientY - start.clientY) < dragThreshold) return
+      if (Math.hypot(event.clientX - start.clientX, event.clientY - start.clientY) < dragThreshold) {
+        return
+      }
+
       // Each drag is a trace of its own, by the gesture's kind (PAR-629).
       trace = startTrace("gesture.ran", { gesture: gestureKind(policy) ?? "other" })
       began = now()
@@ -204,20 +231,31 @@ export function followPress(
       drag = { gesture, revert }
       press.start?.(drag, event)
     }
+
     event.preventDefault()
     press.move(event, drag)
   }
+
   // As an object, since Node's EventTarget, which the tests use, doesn't match `true` to remove it.
   const capture = { capture: true }
   at.target.addEventListener("pointermove", onMove, capture)
   onGestureEnd(at.target, (how) => {
     at.target.removeEventListener("pointermove", onMove, capture)
+
     if (!drag) {
-      if (how === "release") press.click?.()
+      if (how === "release") {
+        press.click?.()
+      }
+
       return
     }
+
     const outcome = how === "release" ? "keep" : policy[how]
-    if (outcome === "revert") revert()
+
+    if (outcome === "revert") {
+      revert()
+    }
+
     releaseCursor?.()
     press.end?.(outcome === "keep", drag)
     // A drag that writes once it's kept, as a design dragged by its title does, makes its step as it ends. A drag
@@ -225,25 +263,35 @@ export function followPress(
     const undoStep = store.endGesture(drag.gesture) || (outcome === "keep" && store.getUndoStep() !== step)
     trace?.end(outcome === "cancel" ? "cancelled" : "ok", { how })
     const kind = gestureKind(policy)
-    if (!kind) return
+
+    if (!kind) {
+      return
+    }
+
     const fps = frames?.()
     const designs = press.moves?.designs ?? (press.design === undefined ? undefined : [press.design])
     const layers = press.moves?.layers
-    recordGesture({
-      kind,
-      how,
-      kept: outcome === "keep",
-      durationMs: Math.round(now() - began),
-      ...(designs ? { designs: [...designs] } : {}),
-      ...(layers ? { layers: [...layers] } : {}),
-      ...(fps === undefined ? {} : { fps }),
-      undoStep
-    })
+    const ended: GestureEnded = { kind, how, kept: outcome === "keep", durationMs: Math.round(now() - began), undoStep }
+
+    if (designs) {
+      ended.designs = [...designs]
+    }
+
+    if (layers) {
+      ended.layers = [...layers]
+    }
+
+    if (fps !== undefined) {
+      ended.fps = fps
+    }
+
+    recordGesture(ended, trace?.context)
   })
 }
 
 /** A policy's name in `gestures`, which names its traces and `gesture.ended`. */
 function gestureKind(policy: GesturePolicy): keyof typeof gestures | undefined {
+  // SAFETY: `gestures` is a literal object declared here, so its keys are exactly these.
   return (Object.keys(gestures) as (keyof typeof gestures)[]).find((name) => gestures[name] === policy)
 }
 
@@ -266,6 +314,7 @@ export function holdCursor(cursor: string): () => void {
   layer.dataset.heldCursor = cursor
   layer.style.cssText = `position: fixed; inset: 0; z-index: 2147483647; cursor: ${cursor}`
   document.body.append(layer)
+
   return () => layer.remove()
 }
 
@@ -297,18 +346,23 @@ export class GestureRun {
   gesture(key: string | undefined, watch?: () => () => void): string {
     if (this.open && this.open.key === key) {
       this.open.presses += 1
+
       return this.open.gesture
     }
+
     this.end()
     const gesture = this.store.beginGesture()
     this.open = { key, gesture, began: this.now(), presses: 1 }
     this.open.stop = watch?.()
+
     return gesture
   }
 
   /** The selection is now `key`: a run on another one ends, so its step takes nothing more. */
   select(key: string | undefined): void {
-    if (this.open && this.open.key !== key) this.finish("selection")
+    if (this.open && this.open.key !== key) {
+      this.finish("selection")
+    }
   }
 
   /** Ends the run, so the next press starts another. */
@@ -318,7 +372,11 @@ export class GestureRun {
 
   private finish(how: "selection" | "ended"): void {
     const open = this.open
-    if (!open) return
+
+    if (!open) {
+      return
+    }
+
     this.open = undefined
     open.stop?.()
     const undoStep = this.store.endGesture(open.gesture)
@@ -360,15 +418,25 @@ export class CameraGestures {
   moved(camera: CameraPlace): void {
     const last = this.last
     this.last = { x: camera.x, y: camera.y, z: camera.z }
-    if (!last || (last.x === camera.x && last.y === camera.y && last.z === camera.z)) return
+
+    if (!last || (last.x === camera.x && last.y === camera.y && last.z === camera.z)) {
+      return
+    }
+
     const zoomed = last.z !== camera.z
     const time = this.now()
+
     if (this.open) {
       this.open.moved = time
       this.open.frames += 1
-      if (zoomed) this.open.kind = "zoom"
+
+      if (zoomed) {
+        this.open.kind = "zoom"
+      }
+
       return
     }
+
     this.open = { kind: zoomed ? "zoom" : "pan", began: time, moved: time, frames: 0 }
     this.wait(this.settleMs)
   }
@@ -382,28 +450,46 @@ export class CameraGestures {
   private wait(ms: number): void {
     this.timer = setTimeout(() => {
       const open = this.open
-      if (!open) return
+
+      if (!open) {
+        return
+      }
+
       const still = this.now() - open.moved
-      if (still < this.settleMs) this.wait(this.settleMs - still)
-      else this.settle()
+
+      if (still < this.settleMs) {
+        this.wait(this.settleMs - still)
+      } else {
+        this.settle()
+      }
     }, ms)
   }
 
   private settle(): void {
     const open = this.open
-    if (!open) return
+
+    if (!open) {
+      return
+    }
+
     this.open = undefined
     // The changes after the first, over the time between it and the last; none for a camera that moved once.
     const seconds = (open.moved - open.began) / 1000
     const fps = open.frames > 0 && seconds > 0 ? Math.round((open.frames / seconds) * 10) / 10 : undefined
-    recordGesture({
+
+    const ended: GestureEnded = {
       kind: open.kind,
       how: "settled",
       kept: true,
       durationMs: Math.round(open.moved - open.began),
-      ...(fps === undefined ? {} : { fps }),
       undoStep: false
-    })
+    }
+
+    if (fps !== undefined) {
+      ended.fps = fps
+    }
+
+    recordGesture(ended)
   }
 }
 
@@ -426,25 +512,41 @@ export class InsertDrag {
 
   /** The canvas took the drop, inserting into `design`, or nothing when it had nowhere to put it. */
   dropped(design: string | undefined): void {
-    if (!this.open || design === undefined) return
+    if (!this.open || design === undefined) {
+      return
+    }
+
     this.open.inserted = true
     this.open.designs.push(design)
   }
 
   end(): void {
     const open = this.open
-    if (!open) return
+
+    if (!open) {
+      return
+    }
+
     this.open = undefined
     const fps = open.frames()
-    recordGesture({
+
+    const ended: GestureEnded = {
       kind: "insertDrag",
       how: open.inserted ? "release" : "cancelled",
       kept: open.inserted,
       durationMs: Math.round(this.now() - open.began),
-      ...(open.designs.length > 0 ? { designs: open.designs } : {}),
-      ...(fps === undefined ? {} : { fps }),
       undoStep: open.inserted
-    })
+    }
+
+    if (open.designs.length > 0) {
+      ended.designs = open.designs
+    }
+
+    if (fps !== undefined) {
+      ended.fps = fps
+    }
+
+    recordGesture(ended)
   }
 }
 

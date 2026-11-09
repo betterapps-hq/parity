@@ -15,11 +15,13 @@ const entry = `export { DragLayouts, dropInFrame } from "./drop-target.ts"`
  * could take a drop itself.
  */
 const cards = ["revenue", "users", "issues", "uptime"]
+
 function board(kind: "instance" | "layout") {
   const card = (id: string) =>
     kind === "instance"
       ? { type: "instance", id, design: "stat-card" }
       : { type: "layout", id, children: [{ type: "text", id: `${id}-label`, text: id }] }
+
   return {
     key: "board",
     path: "board.par",
@@ -37,10 +39,12 @@ function board(kind: "instance" | "layout") {
     }
   }
 }
+
 type Board = ReturnType<typeof board>
 
 beforeAll(async () => {
   const canvas = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: canvas, loader: "ts", sourcefile: "entry.ts" },
     bundle: true,
@@ -49,6 +53,7 @@ beforeAll(async () => {
     globalName: "drop",
     platform: "browser"
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1000, height: 700 } })
   await page.setContent(
@@ -90,9 +95,11 @@ type Box = { left: number; top: number; width: number; height: number }
 function boxes(): Promise<Record<string, Box>> {
   return page.evaluate(() => {
     const shadow = document.querySelector("#host")!.shadowRoot!
+
     return Object.fromEntries(
       [...shadow.querySelectorAll<HTMLElement>("[data-canvas-node]")].map((element) => {
         const { left, top, width, height } = element.getBoundingClientRect()
+
         return [element.dataset.canvasNode!, { left, top, width, height }]
       })
     )
@@ -110,17 +117,28 @@ function startDrag(design: Board, card: string, before: string | null, late = fa
       const shadow = host.shadowRoot!
       // @ts-expect-error The bundle's global.
       const layouts = new drop.DragLayouts()
-      if (!late) layouts.measure(host, design.container.root)
+
+      if (!late) {
+        layouts.measure(host, design.container.root)
+      }
+
       const original = shadow.querySelector<HTMLElement>(`[data-canvas-node="${card}"]`)!
+      // SAFETY: a deep clone of an element is an element of the same kind.
       const copy = original.cloneNode(true) as HTMLElement
+
       for (const element of [copy, ...copy.querySelectorAll("[data-canvas-node]")]) {
         element.removeAttribute("data-canvas-node")
       }
+
       original.style.setProperty("display", "none", "important")
       const stats = shadow.querySelector('[data-canvas-node="stats"]')!
       stats.insertBefore(copy, before ? shadow.querySelector(`[data-canvas-node="${before}"]`) : null)
-      if (late) layouts.measure(host, design.container.root)
-      ;(window as unknown as { layouts: unknown }).layouts = layouts
+
+      if (late) {
+        layouts.measure(host, design.container.root)
+      }
+
+      Object.assign(window, { layouts })
     },
     { design, card, before, late }
   )
@@ -131,9 +149,9 @@ function dropAt(design: Board, card: string, point: { x: number; y: number }) {
   return page.evaluate(
     ({ design, card, point }) => {
       const host = document.querySelector<HTMLElement>("#host")!
-      const layouts = (window as unknown as { layouts: unknown }).layouts
-      // @ts-expect-error The bundle's global.
-      const found = drop.dropInFrame(layouts, design, host, point, "board", [card])
+      // @ts-expect-error The bundle's global, and the layouts the page measured.
+      const found = drop.dropInFrame(window.layouts, design, host, point, "board", [card])
+
       return found && { parent: found.target.parent, index: found.target.index, line: found.line }
     },
     { design, card, point }

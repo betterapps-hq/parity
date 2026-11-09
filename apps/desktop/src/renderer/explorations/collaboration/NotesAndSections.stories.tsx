@@ -11,6 +11,7 @@ import {
   Section,
   StickyNote,
   stickyColors,
+  type StickyColor,
   TextNote
 } from "./notes.tsx"
 import { Board, PricingDesign, Stage } from "./stage.tsx"
@@ -26,9 +27,10 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
-const stickyText: Record<string, string> = {
+const stickyText: Record<StickyColor, string> = {
   yellow: "Should Team be the default plan?",
   orange: "Copy for the annual savings badge",
   pink: "Try a version without the toggle",
