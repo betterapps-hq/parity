@@ -77,10 +77,17 @@ export const updateFailed = defineEvent(
   { level: "warn", sentBy: ["main"], when: "Checking for, downloading or installing an update fails." }
 )
 
+const bytes = (meaning: string) => z.number().int().nonnegative().describe(meaning)
+
 export const processMemory = defineEvent(
   "process.memory",
   z.object({
     reason: z.enum(["interval", "hang"]).describe("Whether it's the regular reading or one taken as a window hung"),
+    mainBytes: bytes("The app's main process's private memory in bytes"),
+    serviceBytes: bytes("The project service's private memory in bytes, or 0 while none runs"),
+    editorBytes: bytes("Every editor window's private memory together, in bytes"),
+    renderBytes: bytes("The offscreen renderers' private memory together, in bytes"),
+    totalBytes: bytes("Every process's private memory together, in bytes, counting builders, the GPU and helpers"),
     processes: z
       .array(
         z.object({
@@ -126,6 +133,45 @@ export const slowThresholdMs = 200
 
 /** How often each process's memory is recorded, in milliseconds. */
 export const memoryEveryMs = 5 * 60_000
+
+/** A process's role, as the performance stats name it, and its private memory in bytes. */
+export interface ProcessMemory {
+  role: string
+  memory: number
+}
+
+/** Which of `process.memory`'s totals each role counts toward, besides `totalBytes`. */
+const roleTotals: Record<string, "mainBytes" | "serviceBytes" | "editorBytes" | "renderBytes"> = {
+  app: "mainBytes",
+  service: "serviceBytes",
+  window: "editorBytes",
+  "this-window": "editorBytes",
+  offscreen: "renderBytes"
+}
+
+/**
+ * `process.memory`'s attributes from each process's memory: a whole number of bytes per role, which Sentry's logs can
+ * chart, and the list they're summed from.
+ */
+export function memoryRecord(
+  reason: "interval" | "hang",
+  readings: readonly ProcessMemory[]
+): z.input<typeof processMemory.schema> {
+  const processes = readings.map(({ role, memory }) => ({ role, memory: Math.round(memory) }))
+  const totals = { mainBytes: 0, serviceBytes: 0, editorBytes: 0, renderBytes: 0, totalBytes: 0 }
+
+  for (const { role, memory } of processes) {
+    const total = roleTotals[role]
+
+    if (total) {
+      totals[total] += memory
+    }
+
+    totals.totalBytes += memory
+  }
+
+  return { reason, ...totals, processes }
+}
 
 /** The steps `app.started` times, and `firstProject`, which `app.first_project` times. */
 export type StartupStep = "mainReady" | "windowShown" | "firstPaint" | "serviceReady" | "firstProject"
