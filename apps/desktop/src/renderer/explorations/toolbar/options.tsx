@@ -104,7 +104,7 @@ function Tip({ command, label, children }: { command: Command; label?: string; c
 }
 
 /** A full-height line between groups. */
-function Divider() {
+export function Divider() {
   return <Separator orientation="vertical" className="mx-1" />
 }
 
@@ -124,9 +124,16 @@ function Bar({ label, children }: { label: string; children: ReactNode }) {
 
 /**
  * The tools as one group you move through with the arrow keys: Frame with its menu beside it, and Insert after Text,
- * since it makes things too.
+ * since it makes things too. The review tools in `warps` don't show the bar above; `onReview` hears each review tool
+ * picked and put down, with the way to put it down, so the bar can warp into that tool's own bar instead.
  */
-function Tools() {
+export function Tools({
+  warps = [],
+  onReview
+}: {
+  warps?: readonly ReviewTool[]
+  onReview?: (picked: ReviewTool | undefined, done: () => void) => void
+}) {
   const { selection } = useProject()
   const tool = useTool(selection)
   const [reviewing, setReviewing] = useState<ReviewTool>()
@@ -153,10 +160,13 @@ function Tools() {
     if (tool !== "select") {
       void actions.select.run("toolbar")
     }
+
+    onReview?.(id, stopReview)
   }
 
   const stopReview = () => {
     setReviewing(undefined)
+    onReview?.(undefined, stopReview)
 
     if (before && before !== "select") {
       void actions[before].run("toolbar")
@@ -197,6 +207,7 @@ function Tools() {
         } else if (value) {
           setReviewing(undefined)
           setBefore(undefined)
+          onReview?.(undefined, stopReview)
           void actions[value as Tool].run("toolbar")
         }
       }}
@@ -226,7 +237,12 @@ function Tools() {
         </Fragment>
       ))}
       <Divider />
-      <ReviewTools current={lastReview} picked={reviewing} onPick={pickReview} onDone={stopReview} />
+      <ReviewTools
+        current={lastReview}
+        picked={reviewing && !warps.includes(reviewing) ? reviewing : undefined}
+        onPick={pickReview}
+        onDone={stopReview}
+      />
     </ToggleGroup>
   )
 }
@@ -248,7 +264,7 @@ export type AnnotationKind = keyof typeof annotationKinds
  * What the review button can be: Comment, or annotating in one of the kinds. The list is all that changes if Comment
  * waits for the comments service (PAR-372).
  */
-type ReviewTool = "comment" | AnnotationKind
+export type ReviewTool = "comment" | AnnotationKind
 
 const isReviewTool = (value: string): value is ReviewTool => value === "comment" || value in annotationKinds
 
@@ -330,7 +346,7 @@ function ReviewTools({
               }
             }}
           >
-            <DropdownMenuRadioItem value="comment">
+            <DropdownMenuRadioItem value="comment" closeOnClick>
               <MessageCircle />
               Comment
               <DropdownMenuShortcut>{formatKeys("C")}</DropdownMenuShortcut>
@@ -344,7 +360,7 @@ function ReviewTools({
               const { label: name, icon: KindIcon } = annotationKinds[kind]
 
               return (
-                <DropdownMenuRadioItem key={kind} value={kind}>
+                <DropdownMenuRadioItem key={kind} value={kind} closeOnClick>
                   <KindIcon style={{ color: reviewSpec(kind).color }} />
                   {name}
                 </DropdownMenuRadioItem>
@@ -423,8 +439,8 @@ window.addEventListener(
   { capture: true }
 )
 
-/** What a click does while a review tool is picked, and the way out, which Esc takes too. */
-function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
+/** Has Esc call `onDone` while it's set, ahead of the canvas's own use of Esc. */
+export function useReviewEscape(onDone: (() => void) | undefined) {
   useEffect(() => {
     escapeReview = onDone
 
@@ -432,6 +448,11 @@ function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
       escapeReview = undefined
     }
   }, [onDone])
+}
+
+/** What a click does while a review tool is picked, and the way out, which Esc takes too. */
+function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
+  useReviewEscape(onDone)
 
   return <ReviewBarLook tool={tool} onDone={onDone} />
 }
@@ -608,7 +629,7 @@ function ZoomCorner() {
   )
 }
 
-function SearchActions() {
+export function SearchActions() {
   return (
     <Tip command="actions">
       <Button

@@ -48,6 +48,16 @@ export const Proposed: Story = {
   render: () => <ToolbarStage proposed />
 }
 
+/**
+ * An experiment on Proposed: pick Accessibility in the review menu and the toolbar warps into Accessibility's own bar,
+ * its options as stamps, from the Accessibility annotations exploration. Done or Esc warps it back. The other kinds
+ * still show the bar above, until PAR-184 gives them options of their own.
+ */
+export const Warp: Story = {
+  ...onCanvas,
+  render: () => <ToolbarStage proposed warp />
+}
+
 const audit: { control: string; today: string; proposed: string }[] = [
   {
     control: "Move and select (V), Hand (H), Interact (I)",
