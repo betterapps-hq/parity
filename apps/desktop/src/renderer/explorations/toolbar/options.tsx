@@ -86,8 +86,8 @@ const isPointerTool = (tool: Tool): tool is PointerTool => (pointerTools as read
  * The picked tool, in the canvas's selection blue at the step its chips use, so the white icon on it reads at about
  * 4.9:1, as tldraw and Figma pick theirs out in blue. Switches like Code keep the kit's quieter pressed look.
  */
-/** The arrow that opens a tool's menu, pulled in against its square tool button. */
-const chevron = "-ml-1.5 h-full w-3.5 text-muted-foreground"
+/** The arrow that opens a tool's menu, beside its tool. */
+const chevron = "-ml-0.5 h-full w-4 text-muted-foreground"
 
 export const pickedTool =
   "h-full aria-pressed:bg-(--canvas-layer-chip) aria-pressed:text-white aria-pressed:hover:bg-(--canvas-layer-chip)/90"
