@@ -11,6 +11,7 @@ import type { ReactNode } from "react"
 import { ProjectContext } from "../../canvas/context.ts"
 import { FloatingToolbar } from "../../chrome/Toolbar.tsx"
 import { example } from "../../stories/fixtures.tsx"
+import { A11yToolbar, a11yKindOrder, a11yKinds } from "../collaboration/a11y.tsx"
 import excalidrawToolbar from "./competitors/excalidraw-toolbar.png?url"
 import excalidrawZoom from "./competitors/excalidraw-zoom.png?url"
 import figmaToolbar from "./competitors/figma-toolbar.png?url"
@@ -26,9 +27,13 @@ import {
   annotationKinds,
   OneBarToolbar,
   ReviewToolbar,
+  ReviewBarLook,
   reviewSpec,
-  TidiedToolbar
+  TidiedToolbar,
+  ZoomCorner,
+  ZoomMenu
 } from "./options.tsx"
+import { Par184Bar } from "./par-184-bar.tsx"
 
 /*
  * The toolbars on their own, ours live and the others as screenshots at their actual size, taken on 2026-11-09. Ours
@@ -266,6 +271,104 @@ function Section({ entry }: { entry: Entry }) {
   )
 }
 
+/** The bars that show while a review tool is picked, and the one kind of annotation that has options of its own. */
+function SecondBars() {
+  return (
+    <section className="border-t py-6">
+      <h2 className="font-medium">The second bars</h2>
+      <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+        While Comment or an annotation is picked, C shows a bar just above the toolbar: what a click does, and Done. The
+        kinds have no options inside them; each is a name, an icon and a color.
+      </p>
+      <h3 className="mt-6 text-sm font-medium">C&rsquo;s bar, one for each pick</h3>
+      <div className="mt-4 grid w-fit gap-3">
+        {(["comment", ...Object.keys(annotationKinds)] as ("comment" | AnnotationKind)[]).map((tool) => (
+          <Live key={tool}>
+            <ReviewBarLook tool={tool} />
+          </Live>
+        ))}
+      </div>
+      <h3 className="mt-8 text-sm font-medium">PAR-184&rsquo;s bar</h3>
+      <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+        A copy of the bar in PAR-184&rsquo;s annotations design, which isn&rsquo;t approved or on main yet. Its toolbar
+        has Annotate and Comment as two buttons, so the kind is picked on this bar instead of in a menu, and only the
+        picked kind shows its name. Commenting adds Resolved, to show settled threads.
+      </p>
+      <div className="mt-4 grid w-fit gap-3">
+        <Par184Bar mode="annotate" />
+        <Par184Bar mode="comment" />
+      </div>
+      <h3 className="mt-8 text-sm font-medium">Accessibility&rsquo;s options</h3>
+      <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+        An older exploration, Accessibility annotations, splits accessibility into kinds of its own. Its bar picks which
+        one to place, like a stamp, and Suggest has an agent draft them from the render to confirm. PAR-184&rsquo;s
+        design doesn&rsquo;t use them yet. In C, this bar could take the place of the hint while annotating
+        accessibility.
+      </p>
+      <div className="mt-4">
+        <A11yToolbar active="focus" />
+      </div>
+      <Table className="mt-4 max-w-5xl">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Option</TableHead>
+            <TableHead>What it&rsquo;s for</TableHead>
+            <TableHead>How Parity checks it</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {a11yKindOrder.map((kind) => {
+            const { title, hint, check, icon: Icon, bg, ink } = a11yKinds[kind]
+
+            return (
+              <TableRow key={kind}>
+                <TableCell className="align-top font-medium">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="grid size-5 place-items-center rounded-[5px]"
+                      style={{ background: bg, color: ink }}
+                    >
+                      <Icon className="size-3" />
+                    </span>
+                    {title}
+                  </span>
+                </TableCell>
+                <TableCell className="align-top whitespace-normal">{hint}</TableCell>
+                <TableCell className="align-top whitespace-normal text-muted-foreground">{check}</TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </section>
+  )
+}
+
+/** Zoom as A and C have it, in the canvas's top-right corner, and as B has it, a menu at the end of the toolbar. */
+function ZoomBars() {
+  return (
+    <section className="grid gap-3 border-t py-6 md:grid-cols-[14rem_1fr]">
+      <div>
+        <h2 className="font-medium">Zoom</h2>
+        <ul className="mt-2 grid gap-1.5 text-sm text-muted-foreground">
+          <li>A and C: a bar in the top-right corner. The level goes to 100%, and the last button fits the page.</li>
+          <li>B: the level at the end of the toolbar, with the zoom commands in its menu.</li>
+        </ul>
+      </div>
+      <div className="flex min-w-0 flex-wrap items-end gap-4">
+        <Live>
+          <ZoomCorner />
+        </Live>
+        <Live>
+          <div className="flex rounded-xl border bg-popover p-1 shadow-lg">
+            <ZoomMenu />
+          </div>
+        </Live>
+      </div>
+    </section>
+  )
+}
+
 /** Ours and the others, one after another, with what they have in common. */
 export function ToolbarComparison() {
   return (
@@ -280,7 +383,9 @@ export function ToolbarComparison() {
         {ours.map((entry) => (
           <Section key={entry.name} entry={entry} />
         ))}
+        <ZoomBars />
         <ReviewKinds />
+        <SecondBars />
         {others.map((entry) => (
           <Section key={entry.name} entry={entry} />
         ))}

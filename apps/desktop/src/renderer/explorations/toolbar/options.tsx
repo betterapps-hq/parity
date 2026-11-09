@@ -434,8 +434,6 @@ window.addEventListener(
 
 /** What a click does while a review tool is picked, and the way out, which Esc takes too. */
 function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
-  const { doing, hint, icon: Icon, color } = reviewSpec(tool)
-
   useEffect(() => {
     escapeReview = onDone
 
@@ -443,6 +441,13 @@ function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
       escapeReview = undefined
     }
   }, [onDone])
+
+  return <ReviewBarLook tool={tool} onDone={onDone} />
+}
+
+/** How the bar above the toolbar looks while a review tool is picked, without taking Esc. */
+function ReviewBarLook({ tool, onDone }: { tool: ReviewTool; onDone?: () => void }) {
+  const { doing, hint, icon: Icon, color } = reviewSpec(tool)
 
   return (
     <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 items-center gap-2 rounded-xl border bg-popover p-1 pl-3 text-sm whitespace-nowrap text-popover-foreground shadow-lg">
@@ -711,4 +716,4 @@ export const options: Record<ToolbarOption, { Toolbar: () => ReactNode; zoomInCo
   review: { Toolbar: ReviewToolbar, zoomInCorner: true }
 }
 
-export { ZoomCorner }
+export { ReviewBarLook, ZoomCorner, ZoomMenu }
