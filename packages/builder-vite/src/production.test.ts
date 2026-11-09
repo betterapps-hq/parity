@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promis
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { BuilderSession, BuilderStartOptions, RendererAdapter } from "@parity-app/core"
+import type { BuilderSession, BuilderStartOptions } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { developmentStandIn, productionDependencies, viteBuilder } from "./index.ts"
 
@@ -20,7 +20,7 @@ beforeEach(async () => {
   root = await realpath(await mkdtemp(join(tmpdir(), "parity-production-")))
 
   // A stand-in for React, which says which build it is, as React picks its build by `process.env.NODE_ENV`.
-  const files: Record<string, string> = {
+  const files = {
     "package.json": JSON.stringify({ name: "fixture", type: "module" }),
     "guest.js": "export function createGuest(init) { return init }\n",
     "src/button.js": [
@@ -94,10 +94,13 @@ beforeEach(async () => {
       libraries: []
     },
     renderer: {
+      id: "react",
+      name: "React",
+      guestModule: "",
       runtimePackages: ["react"],
       runtimeImports: ["react", "react/jsx-runtime", "devlib"],
       developmentStandIns: standIns
-    } as unknown as RendererAdapter,
+    },
     rendererGuestPath: join(root, "guest.js"),
     allowedOrigins: []
   }
@@ -200,25 +203,40 @@ describe("productionDependencies", () => {
   it("names its optimizer plugin after the stand-ins, so other stand-ins bundle dependencies again", () => {
     const vite = { version: "8.3.5", rolldownVersion: "1.0.0" }
 
-    const name = (given: Record<string, string>) =>
-      (productionDependencies(vite, root, given) as { rolldownOptions: { plugins: { name: string }[] } })
-        .rolldownOptions.plugins[0]!.name
+    const name = (given: Record<string, string>) => {
+      const { rolldownOptions } = productionDependencies(vite, root, given)
+
+      if (!rolldownOptions) {
+        throw new Error("Vite 8 bundles dependencies with Rolldown")
+      }
+
+      return rolldownOptions.plugins[0]!.name
+    }
 
     expect(name(standIns)).toBe(name({ ...standIns }))
     expect(name(standIns)).not.toBe(name({ "/jsx-dev-runtime": 'export { jsx as jsxDEV } from "$base/jsx-runtime"' }))
   })
 
   it("serves the stand-in through esbuild's plugin before Vite 8", () => {
-    const { esbuildOptions } = productionDependencies({ version: "7.1.0" }, root, standIns) as {
-      esbuildOptions: { plugins: { setup(build: unknown): void }[] }
+    const { esbuildOptions } = productionDependencies({ version: "7.1.0" }, root, standIns)
+
+    if (!esbuildOptions) {
+      throw new Error("Vite 7 bundles dependencies with esbuild")
     }
 
-    let resolve: { filter: RegExp; to(args: { path: string; importer: string }): unknown } | undefined
-    let load: ((args: { path: string }) => unknown) | undefined
-    esbuildOptions.plugins[0]!.setup({
-      onResolve: (options: { filter: RegExp }, to: (args: { path: string; importer: string }) => unknown) =>
-        (resolve = { ...options, to }),
-      onLoad: (_options: unknown, made: (args: { path: string }) => unknown) => (load = made)
+    const plugin = esbuildOptions.plugins[0]!
+
+    type Build = Parameters<typeof plugin.setup>[0]
+
+    let resolve: { filter: RegExp; to: Parameters<Build["onResolve"]>[1] } | undefined
+    let load: Parameters<Build["onLoad"]>[1] | undefined
+    plugin.setup({
+      onResolve: (options, to) => {
+        resolve = { ...options, to }
+      },
+      onLoad: (_options, made) => {
+        load = made
+      }
     })
     expect(resolve!.filter.test("react/jsx-dev-runtime")).toBe(true)
     expect(resolve!.filter.test("react/jsx-runtime")).toBe(false)

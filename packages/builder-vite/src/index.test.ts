@@ -28,31 +28,33 @@ describe("guestModuleSource", () => {
       libraries: []
     })
 
-    const modules: Record<string, unknown> = {
-      "virtual:canvas/renderer": { createGuest: (init: unknown) => init },
-      "/src/fine.tsx": { Fine: "fine" }
-    }
+    const modules = new Map<string, object>([
+      ["virtual:canvas/renderer", { createGuest: <Init>(init: Init) => init }],
+      ["/src/fine.tsx", { Fine: "fine" }]
+    ])
 
     // Runs the module with `load` standing in for the dev server, which fails on the broken file as on a syntax error.
     const body = source.replace("export default ", "return ").replaceAll("import(", "load(")
 
+    // SAFETY: the guest module's default export is what `createGuest` returns, which here is the init it was given, and
+    // its components are the project modules' exports, with a stand-in that throws for the one that failed to load.
     // oxlint-disable-next-line eslint/no-new-func -- the test runs the generated module's source, which is a string
     const run = new Function("load", `return (async () => { ${body} })()`) as (
-      load: (id: string) => Promise<unknown>
-    ) => Promise<{ components: Record<string, unknown> }>
+      load: (id: string) => Promise<object>
+    ) => Promise<{ components: { Fine: string; Broken: () => void } }>
 
     const guest = await run(async (id) => {
-      if (id in modules) {
-        return modules[id]
+      const module = modules.get(id)
+
+      if (module) {
+        return module
       }
 
       throw new Error(`Failed to parse ${id}`)
     })
 
     expect(guest.components.Fine).toBe("fine")
-    expect(() => (guest.components.Broken as () => unknown)()).toThrow(
-      "its module didn't load: Failed to parse /src/broken.tsx"
-    )
+    expect(() => guest.components.Broken()).toThrow("its module didn't load: Failed to parse /src/broken.tsx")
   })
 
   it("loads the rest of the app's components when they're first drawn", () => {
