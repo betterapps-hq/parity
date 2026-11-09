@@ -32,6 +32,7 @@ import {
   Minus,
   MousePointer2,
   MousePointerClick,
+  Pilcrow,
   SquarePlus,
   Plus,
   Search,
@@ -264,12 +265,13 @@ export function Tools({ onReview }: { onReview?: (picked: ReviewTool | undefined
 }
 
 /**
- * The kinds of annotation, as PAR-184's design names, draws and colors them (its `categories`). Each is its own item in
- * the review menu, so picking one starts annotating in it.
+ * The kinds of annotation, as PAR-184's design names, draws and colors them (its `categories`), except that Content is
+ * a pilcrow rather than a T, which read as the Text tool. Each is its own item in the review menu, so picking one starts
+ * annotating in it.
  */
 export const annotationKinds = {
   behaviour: { label: "Behaviour", icon: MousePointerClick, hue: 250 },
-  content: { label: "Content", icon: Type, hue: 150 },
+  content: { label: "Content", icon: Pilcrow, hue: 150 },
   accessibility: { label: "Accessibility", icon: Accessibility, hue: 300 },
   development: { label: "Development", icon: CodeXml, hue: 60 }
 } as const
