@@ -5,6 +5,7 @@ import { dirname, join } from "node:path"
 import { promisify } from "node:util"
 import { gunzipSync } from "node:zlib"
 import { parseManifest } from "@parity-app/core"
+import { isText } from "./live.ts"
 import { packageDocument, versionDocument } from "./npm.ts"
 
 const run = promisify(execFile)
@@ -97,21 +98,30 @@ export async function installedVersion(
   return dir
 }
 
+/** Where a package's version was published from: the repository git fetches, and the commit. */
+export interface PublishedSource {
+  repository?: string
+  commit?: string
+}
+
 /**
  * The repository a package's version was published from and its commit, as npm records them, when it does. The
  * repository is the URL git fetches, whichever way the package wrote it (`git+https://….git`, `github:owner/name`).
  */
-export async function publishedSource(
-  name: string,
-  version: string
-): Promise<{ repository?: string; commit?: string }> {
+export async function publishedSource(name: string, version: string): Promise<PublishedSource> {
   const { gitHead, repository } = await versionDocument(name, version)
-  const url = typeof repository === "string" ? repository : repository?.url
+  const url = isText(repository) ? repository : repository?.url
+  const source: PublishedSource = {}
 
-  return {
-    ...(url ? { repository: repositoryUrl(url) } : {}),
-    ...(gitHead && /^[0-9a-f]{40}$/.test(gitHead) ? { commit: gitHead } : {})
+  if (url) {
+    source.repository = repositoryUrl(url)
   }
+
+  if (gitHead && /^[0-9a-f]{40}$/.test(gitHead)) {
+    source.commit = gitHead
+  }
+
+  return source
 }
 
 /** A repository as npm may record it, as the https URL git fetches. */

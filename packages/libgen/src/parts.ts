@@ -16,10 +16,35 @@ import {
   type ValueHost,
   valueImports
 } from "@parity-app/core"
-import { type ExampleUse, exampleLevels, familyOf } from "./examples.ts"
+import { type ExampleItem, type ExampleUse, exampleLevels, familyOf } from "./examples.ts"
 import type { RenderCall, RenderedChild } from "./hosts.ts"
+import {
+  exported,
+  isFunction,
+  isObject,
+  isRecord,
+  isText,
+  type Live,
+  live,
+  type LiveObject,
+  type Load
+} from "./live.ts"
 
-export type Load = (specifier: string) => Promise<Record<string, unknown>>
+export type { Load } from "./live.ts"
+
+/** A sample's props, as core reads them. */
+type SampleProps = NonNullable<ComponentSample["props"]>
+
+/** A sample prop's value, as core reads it. */
+type SampleValue = SampleProps[string]
+
+/** A part placed inside a sample, with its own props and children. */
+type SampleElementChild = Exclude<SampleChild, string | SampleRender>
+
+/** Whether a sample's child is a part placed inside it, rather than text or a render function. */
+function isElementChild(child: SampleChild): child is SampleElementChild {
+  return !isText(child) && "component" in child
+}
 
 /** What trying a component taught: where it goes, what it needs, and whether it then draws. */
 export interface PartRelation {
@@ -75,7 +100,7 @@ export async function relateParts(
   /** The props those components pass when they render each one, for a part that needs what its owner gives it. */
   calls: Map<string, RenderCall[]> = new Map(),
   /** An item of the lists the library keeps, from its examples, for parts their owner draws from such a list. */
-  listItem?: Record<string, unknown>,
+  listItem?: ExampleItem,
   /**
    * Why parts failed in the running app, from `parity lib check --record`: an error there names a parent the server
    * can't see a part needs, inside a closed menu or a portal (`NavigationMenuContent` must be used within
@@ -83,9 +108,9 @@ export async function relateParts(
    */
   appErrors: Record<string, string> = {}
 ): Promise<PartsReport> {
-  let React: Record<string, unknown>
-  let server: Record<string, unknown>
-  let module: Record<string, unknown>
+  let React: LiveObject
+  let server: LiveObject
+  let module: LiveObject
 
   try {
     React = await load("react")
@@ -95,16 +120,11 @@ export async function relateParts(
     return { relations: new Map(), tried: false, note: `Parts weren't tried: ${message(error)}` }
   }
 
-  const createElement = (React.createElement ?? (React.default as Record<string, unknown>)?.createElement) as (
-    type: unknown,
-    props?: Record<string, unknown> | null,
-    ...children: unknown[]
-  ) => unknown
+  const createElement = exported(React, "createElement")
+  const cloneElement = exported(React, "cloneElement")
+  const renderToStaticMarkup = exported(server, "renderToStaticMarkup")
 
-  const renderToStaticMarkup = (server.renderToStaticMarkup ??
-    (server.default as Record<string, unknown>)?.renderToStaticMarkup) as (element: unknown) => string
-
-  if (typeof createElement !== "function" || typeof renderToStaticMarkup !== "function") {
+  if (!isFunction(createElement) || !isFunction(cloneElement) || !isFunction(renderToStaticMarkup)) {
     return { relations: new Map(), tried: false, note: "Parts weren't tried: React's server renderer wasn't found." }
   }
 
@@ -120,47 +140,33 @@ export async function relateParts(
 
   // Providers a frame gets from the decorators are never a part's parents. Each is used if it renders with no props;
   // one that needs a frame (an Emotion cache, a theme object) is left to the frame.
-  const wrappers: { type: unknown; props: unknown }[] = []
+  const wrappers: { type: Live; props: Live }[] = []
 
   for (const provider of providers) {
     byName.delete(provider.component)
 
     try {
-      let found: unknown = await load(provider.import)
-
-      for (const part of provider.component.split(".")) {
-        found = (found as Record<string, unknown>)?.[part]
-      }
+      const found = live.parse(exportOf(await load(provider.import), provider.component))
 
       if (found) {
-        wrappers.push({ type: found, props: evaluateValue(provider.props ?? {}, host) })
+        wrappers.push({ type: found, props: live.parse(evaluateValue(provider.props ?? {}, host)) })
       }
     } catch {
       // Not loadable outside a frame.
     }
   }
 
-  const value = (name: string): unknown => {
-    const component = byName.get(name)
-    let found: unknown = module
-
-    for (const part of (component?.export ?? name).split(".")) {
-      found = (found as Record<string, unknown>)?.[part]
-    }
-
-    return found
-  }
-
-  const samples = new Map<string, Record<string, unknown>>()
+  const value = (name: string): Live => live.parse(exportOf(module, byName.get(name)?.export ?? name))
+  const samples = new Map<string, SampleProps>()
 
   for (const component of components) {
     const edit = edits?.[component.name]
-    samples.set(component.name, { ...component.samples, ...(edit ? edit.sample?.props : {}) })
+    samples.set(component.name, edit ? { ...component.samples, ...edit.sample?.props } : { ...component.samples })
   }
 
   // Values the package makes in its examples (`collection={createTreeCollection(...)}`) are a part's from the start, as
   // the parts inside it, tried first in name order, can't draw without them.
-  const madeProps = new Map<string, Record<string, unknown>>()
+  const madeProps = new Map<string, SampleProps>()
 
   for (const [name, use] of examples) {
     const props = Object.fromEntries(Object.entries(use.sample?.props ?? {}).filter(([, value]) => isMadeValue(value)))
@@ -174,10 +180,10 @@ export async function relateParts(
   }
 
   // Values the package makes (`createTreeCollection(...)`), called once each before parts are tried, as the canvas does.
-  const made = new Map<unknown, unknown>()
-  const byCall = new Map<string, unknown>()
+  const made = new Map<SampleValue, Live>()
+  const byCall = new Map<string, Live>()
 
-  const callsIn = (value: unknown): unknown[] => {
+  const callsIn = (value: SampleValue): SampleValue[] => {
     if (isMadeValue(value)) {
       return [value]
     }
@@ -186,7 +192,7 @@ export async function relateParts(
       return value.flatMap(callsIn)
     }
 
-    return typeof value === "object" && value !== null ? Object.values(value).flatMap(callsIn) : []
+    return isObject(value) ? Object.values(value).flatMap(callsIn) : []
   }
 
   for (const use of examples.values()) {
@@ -195,7 +201,7 @@ export async function relateParts(
 
       if (!byCall.has(key)) {
         try {
-          byCall.set(key, evaluateValue(call, host, "sample"))
+          byCall.set(key, live.parse(evaluateValue(call, host, "sample")))
         } catch {
           byCall.set(key, undefined)
         }
@@ -208,21 +214,16 @@ export async function relateParts(
   /** Each distinct call the examples make, to try as a value an owner works out. */
   const madeCalls = [...new Map([...made.keys()].map((call) => [JSON.stringify(call), call])).values()]
 
-  const cloneElement = (React.cloneElement ?? (React.default as Record<string, unknown>)?.cloneElement) as (
-    element: unknown,
-    props: Record<string, unknown>
-  ) => unknown
-
   /** A render function as the part calls it: its children, with what it's called with spread on when asked. */
-  const live = (render: SampleRender) => (argument: unknown) => {
+  const called = (render: SampleRender) => (argument: Live) => {
     const elements = render.$render.map((item) => build(item))
 
     if (elements.length === 1 && render.pass) {
       return cloneElement(elements[0], Object.fromEntries(render.pass.map((prop) => [prop, argument])))
     }
 
-    if (render.spread && elements.length === 1 && typeof argument === "object" && argument !== null) {
-      return cloneElement(elements[0], argument as Record<string, unknown>)
+    if (render.spread && elements.length === 1 && isObject(argument)) {
+      return cloneElement(elements[0], argument)
     }
 
     return elements.length === 1 ? elements[0] : elements
@@ -234,9 +235,9 @@ export async function relateParts(
     return elements.length === 1 ? elements[0] : elements
   }
 
-  const liveValue = (item: unknown): unknown => {
+  const liveValue = (item: SampleValue): Live => {
     if (isSampleRender(item)) {
-      return live(item)
+      return called(item)
     }
 
     if (isSampleElement(item)) {
@@ -248,25 +249,27 @@ export async function relateParts(
     }
 
     // In a list too (Fluent's `columns={[createTableColumn(...)]}`).
-    return Array.isArray(item) && item.some(isMadeValue)
-      ? item.map((each) => (isMadeValue(each) ? made.get(each) : each))
-      : item
+    return live.parse(
+      Array.isArray(item) && item.some(isMadeValue)
+        ? item.map((each) => (isMadeValue(each) ? made.get(each) : each))
+        : item
+    )
   }
 
-  const liveProps = (props: Record<string, unknown> | undefined) =>
+  const liveProps = (props: SampleProps | undefined): LiveObject =>
     Object.fromEntries(Object.entries(props ?? {}).map(([key, item]) => [key, liveValue(item)]))
 
   /**
    * A sample child's element. The part being tried takes its sample's props; a child a sample spells out (with props or
    * children) is as written, as the app inserts it, and only a bare one takes its own sample's.
    */
-  const build = (child: SampleChild, own = false): unknown => {
-    if (typeof child === "string") {
+  const build = (child: SampleChild, own = false): Live => {
+    if (isText(child)) {
       return child
     }
 
     if (isSampleRender(child)) {
-      return live(child)
+      return called(child)
     }
 
     const type = /^[a-z]/.test(child.component) ? child.component : value(child.component)
@@ -274,7 +277,7 @@ export async function relateParts(
 
     return createElement(
       type,
-      liveProps({ ...(own || bare ? samples.get(child.component) : {}), ...child.props }),
+      liveProps(own || bare ? { ...samples.get(child.component), ...child.props } : { ...child.props }),
       ...(child.children ?? []).map((inner) => build(inner))
     )
   }
@@ -287,12 +290,13 @@ export async function relateParts(
    * place of the first like it at the bottom (a cell in a table's first row, beside that row's other cells and the
    * table's header), as the app inserts a part marked `parentParts`. A level the example doesn't hold comes alone.
    */
-  const inExample = (chain: string[], name: string, part: unknown): unknown => {
-    const inside = (level: number, given: SampleChild[] | undefined): unknown[] => {
+  const inExample = (chain: string[], name: string, part: Live): Live => {
+    const inside = (level: number, given: SampleChild[] | undefined): Live[] => {
       const target = level < chain.length ? chain[level]! : name
       const items = given ?? []
-      const at = items.findIndex((item) => typeof item === "object" && "component" in item && item.component === target)
-      const found = at === -1 ? undefined : (items[at] as Exclude<SampleChild, string | SampleRender>)
+      const at = items.findIndex((item) => isElementChild(item) && item.component === target)
+      const item = items[at]
+      const found = item && isElementChild(item) ? item : undefined
       let here = part
 
       if (level < chain.length) {
@@ -316,10 +320,10 @@ export async function relateParts(
 
   /** Renders a part inside a chain of parents; the error it throws, or undefined when it draws. */
   const attempt = (chain: string[], name: string, children?: SampleChild[], parts = withParts.has(name)) =>
-    render(placed(chain, name, build({ component: name, ...(children ? { children } : {}) }, true), parts))
+    render(placed(chain, name, build(children ? { component: name, children } : { component: name }, true), parts))
 
   /** A part's element inside a chain of parents. */
-  const placed = (chain: string[], name: string, part: unknown, parts: boolean) => {
+  const placed = (chain: string[], name: string, part: Live, parts: boolean) => {
     const calling = chain.some((parent) => renderSlotOf(examples.get(parent)?.sample))
 
     if (parts && chain.length > 0 && !calling) {
@@ -337,8 +341,8 @@ export async function relateParts(
 
       // What it's called with is spread onto the element, and given to the props it names over that, as in the app.
       const render = slot
-        ? (argument: unknown) => {
-            const spread = slot.render.spread && typeof argument === "object" && argument ? argument : {}
+        ? (argument: Live) => {
+            const spread = slot.render.spread && isRecord(argument) ? argument : {}
             const named = Object.fromEntries((slot.render.pass ?? []).map((prop) => [prop, argument]))
 
             return slot.render.pass || slot.render.spread ? cloneElement(inner, { ...spread, ...named }) : inner
@@ -356,13 +360,15 @@ export async function relateParts(
   }
 
   /** What an element renders on the server, or undefined when it throws. */
-  const markup = (element: unknown): string | undefined => {
+  const markup = (element: Live): string | undefined => {
     const quiet = [console.error, console.warn]
     console.error = () => undefined
     console.warn = () => undefined
 
     try {
-      return renderToStaticMarkup(element).replace(/_R_\w+_/g, "")
+      const html = renderToStaticMarkup(element)
+
+      return isText(html) ? html.replace(/_R_\w+_/g, "") : undefined
     } catch {
       return undefined
     } finally {
@@ -370,10 +376,10 @@ export async function relateParts(
     }
   }
 
-  const render = (element: unknown, wrapped = true): string | undefined => {
+  const render = (element: Live, wrapped = true): string | undefined => {
     if (wrapped) {
       for (const provider of [...usable].reverse()) {
-        element = createElement(provider.type, provider.props as Record<string, unknown>, element)
+        element = createElement(provider.type, provider.props, element)
       }
     }
 
@@ -384,10 +390,11 @@ export async function relateParts(
     try {
       // React Aria draws a collection's parts outside one as placeholders for its collection to read (`<item>`,
       // `<tablebody>`), not the parts.
+      const html = renderToStaticMarkup(element)
+
       if (
-        /^<(?:item|submenutrigger|tablebody|tableheader|column|cell|loader|separator)[\s>]/.test(
-          renderToStaticMarkup(element)
-        )
+        isText(html) &&
+        /^<(?:item|submenutrigger|tablebody|tableheader|column|cell|loader|separator)[\s>]/.test(html)
       ) {
         return "Renders only as a placeholder outside a collection."
       }
@@ -401,8 +408,7 @@ export async function relateParts(
   }
 
   const usable = wrappers.filter(
-    (provider) =>
-      render(createElement(provider.type, provider.props as Record<string, unknown>, "x"), false) === undefined
+    (provider) => render(createElement(provider.type, provider.props, "x"), false) === undefined
   )
 
   const names = [...byName.keys()]
@@ -452,7 +458,7 @@ export async function relateParts(
 
   const relations = new Map<string, PartRelation>()
   /** Parts whose sample has example props they render without, with the props they had before. */
-  const loose = new Map<string, Record<string, unknown>>()
+  const loose = new Map<string, SampleProps>()
   const aloneErrors = new Map<string, string | undefined>()
 
   const failsAlone = (name: string) => {
@@ -762,7 +768,7 @@ export async function relateParts(
     // Declared in its types but not there when it runs (MUI's `BadgeRoot`): nothing to place.
     const found = value(component.name)
 
-    if (typeof found !== "function" && (typeof found !== "object" || found === null)) {
+    if (!isFunction(found) && !isObject(found)) {
       relations.set(component.name, { visual: false })
       missing.push(component.name)
       continue
@@ -852,9 +858,10 @@ export async function relateParts(
       }
 
       if (!failed) {
-        relation.sample = {
-          props: { ...component.samples, ...shown.props },
-          ...(shown.children ? { children: shown.children } : {})
+        relation.sample = { props: { ...component.samples, ...shown.props } }
+
+        if (shown.children) {
+          relation.sample.children = shown.children
         }
 
         if (Object.keys(relation.sample.props!).length === 0) {
@@ -879,11 +886,11 @@ export async function relateParts(
       }
 
       const owner = { ...samples.get(call.owner), ...examples.get(call.owner)?.sample?.props }
-      const props: Record<string, unknown> = { ...component.samples }
+      const props: SampleProps = { ...component.samples }
       const worked: string[] = []
 
       for (const [key, passed] of Object.entries(call.props)) {
-        let value: unknown
+        let value: SampleValue
 
         if ("forward" in passed) {
           value = owner[passed.forward]
@@ -937,7 +944,7 @@ export async function relateParts(
 
     if (drawn || (inside && inDrawn)) {
       const before = samples.get(component.name)
-      const props: Record<string, unknown> = { ...before }
+      const props: SampleProps = { ...before }
 
       for (const [key, passed] of Object.entries(drawn?.props ?? {})) {
         if ("item" in passed) {
@@ -946,7 +953,7 @@ export async function relateParts(
       }
 
       samples.set(component.name, props)
-      let parents = relation.parents ?? []
+      const parents = [...(relation.parents ?? [])]
       let failed = attempt(parents, component.name)
 
       for (let tries = 0; failed && tries < 2; tries++) {
@@ -962,7 +969,7 @@ export async function relateParts(
           break
         }
 
-        parents = [needed, ...parents]
+        parents.unshift(needed)
         failed = next
       }
 
@@ -981,7 +988,7 @@ export async function relateParts(
           const own = exportedChildren(drawn.children ?? [], names)
           drawnInside.set(component.name, new Set(componentsIn(own)))
           const children = own.length > 0 ? own : (relation.sample?.children ?? [])
-          relation.sample = { props, ...(children.length > 0 ? { children } : {}) }
+          relation.sample = children.length > 0 ? { props, children } : { props }
         }
 
         inside = undefined
@@ -1047,7 +1054,7 @@ export async function relateParts(
       continue
     }
 
-    const cleared: [string, Record<string, unknown>, Record<string, unknown>][] = []
+    const cleared: [string, SampleProps, SampleProps][] = []
 
     for (const parent of relation.parents) {
       const generated = loose.get(parent)
@@ -1227,11 +1234,20 @@ export async function relateParts(
     }
 
     // Each with its own sample, spelled out, as a child a sample spells out doesn't take its own.
-    const children: SampleChild[] = parts.slice(0, 3).map((part) => ({
-      component: part,
-      ...(relations.get(part)?.sample?.props ? { props: relations.get(part)!.sample!.props } : {}),
-      ...(relations.get(part)?.sample?.children ? { children: relations.get(part)!.sample!.children } : {})
-    }))
+    const children: SampleChild[] = parts.slice(0, 3).map((part) => {
+      const child: SampleElementChild = { component: part }
+      const sample = relations.get(part)?.sample
+
+      if (sample?.props) {
+        child.props = sample.props
+      }
+
+      if (sample?.children) {
+        child.children = sample.children
+      }
+
+      return child
+    })
 
     if (!attempt(relation.parents ?? [], parent, children)) {
       relation.sample = { ...relation.sample, children }
@@ -1268,7 +1284,7 @@ export async function relateParts(
   for (const [name, relation] of relations) {
     const texts = relation.sample?.children
 
-    if (!texts?.length || !texts.every((child) => typeof child === "string")) {
+    if (!texts?.length || !texts.every(isText)) {
       continue
     }
 
@@ -1286,13 +1302,13 @@ export async function relateParts(
   // As it is in the samples of the parts it's drawn in.
   const asText = (children: SampleChild[]): SampleChild[] =>
     children.map((child) => {
-      if (typeof child !== "object" || !("component" in child) || !child.children) {
+      if (!isElementChild(child) || !child.children) {
         return child
       }
 
       const { children: inner, ...node } = child
 
-      if (textOnly.has(child.component) && inner.length > 0 && inner.every((item) => typeof item === "string")) {
+      if (textOnly.has(child.component) && inner.length > 0 && inner.every(isText)) {
         return { ...node, props: { ...node.props, children: inner.join("") } }
       }
 
@@ -1322,16 +1338,18 @@ export async function relateParts(
   // The parts inside a drawn part's sample, so they're placed as part of it.
   const drawnTree = new Set([...drawnParts, ...[...drawnInside.values()].flatMap((inside) => [...inside])])
 
-  return {
-    relations,
-    tried: true,
-    ...(drawnTree.size > 0 ? { drawn: [...drawnTree] } : {}),
-    ...(missing.length > 0
-      ? {
-          note: `Declared but not exported when it runs, so left out: ${missing.slice(0, 10).join(", ")}${missing.length > 10 ? ` and ${missing.length - 10} more` : ""}.`
-        }
-      : {})
+  const report: PartsReport = { relations, tried: true }
+
+  if (drawnTree.size > 0) {
+    report.drawn = [...drawnTree]
   }
+
+  if (missing.length > 0) {
+    const more = missing.length > 10 ? ` and ${missing.length - 10} more` : ""
+    report.note = `Declared but not exported when it runs, so left out: ${missing.slice(0, 10).join(", ")}${more}.`
+  }
+
+  return report
 }
 
 /**
@@ -1458,8 +1476,8 @@ function namespaceOf(name: string): string | undefined {
   return dot === -1 ? undefined : name.slice(0, dot)
 }
 
-function message(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).split("\n")[0]!.slice(0, 300)
+function message(cause: unknown): string {
+  return (cause instanceof Error ? cause.message : String(cause)).split("\n")[0]!.slice(0, 300)
 }
 
 /**
@@ -1495,7 +1513,7 @@ export function completeChains(relations: Map<string, PartRelation>): void {
 /** The children a sample spells out for the first `name` in it that has any, at any depth (a table's `Row` its `Cell`s). */
 export function spelledOut(children: SampleChild[], name: string): SampleChild[] | undefined {
   for (const child of children) {
-    if (typeof child === "string" || isSampleRender(child)) {
+    if (!isElementChild(child)) {
       continue
     }
 
@@ -1519,7 +1537,7 @@ export function spelledOut(children: SampleChild[], name: string): SampleChild[]
  * language take the frame's defaults. A module Node loads as CommonJS without a `default` is its own default export.
  */
 async function trialHost(load: Load, imports: string[]): Promise<ValueHost> {
-  const modules = new Map<string, Record<string, unknown>>()
+  const modules = new Map<string, LiveObject>()
 
   for (const specifier of new Set(imports)) {
     try {
@@ -1540,7 +1558,13 @@ async function trialHost(load: Load, imports: string[]): Promise<ValueHost> {
       return exportOf(module, path) ?? (path === "default" ? module : undefined)
     },
     global: () => undefined,
-    frame: (part) => ({ dir: "ltr", lang: "en-US" })[part as string],
+    frame: (part) => {
+      if (part === "dir") {
+        return "ltr"
+      }
+
+      return part === "lang" ? "en-US" : undefined
+    },
     made: new Map()
   }
 }
@@ -1554,13 +1578,13 @@ function exportedChildren(children: RenderedChild[], names: string[]): SampleChi
       return inner
     }
 
-    return [{ component: child.component, ...(inner.length > 0 ? { children: inner } : {}) }]
+    return [inner.length > 0 ? { component: child.component, children: inner } : { component: child.component }]
   })
 }
 
 /** Every component a sample's children name, at any depth. */
 function componentsIn(children: SampleChild[]): string[] {
   return children.flatMap((child) =>
-    typeof child === "object" && "component" in child ? [child.component, ...componentsIn(child.children ?? [])] : []
+    isElementChild(child) ? [child.component, ...componentsIn(child.children ?? [])] : []
   )
 }
