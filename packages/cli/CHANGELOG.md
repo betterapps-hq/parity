@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 08 Nov 2026 23:45:46 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 00:29:58 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.27.0
+
+Mon, 09 Nov 2026 00:29:58 GMT
+
+### Minor changes
+
+- Agents report problems in Parity with parity report and MCP's report_problem: a Sentry feedback with the window's
+  screenshot and replay, the call's trace and the design's frames, returning its link (ajcraswell@gmail.com)
 
 ## 0.26.0
 

@@ -1,4 +1,5 @@
 import { availableParallelism } from "node:os"
+import base from "@buildkitgg/oxlint-config/base"
 import { defineConfig } from "vite-plus"
 
 /*
@@ -57,6 +58,400 @@ const readOnly =
 const trackedInputs = [{ auto: true }, "!node_modules", "!node_modules/.vite/**"]
 
 /**
+ * Code that doesn't meet Buildkit's lint rules yet, with the rules each part still breaks. Each entry is a PAR-730
+ * sub-issue that cleans that part up and removes its entry; delete this list, and the override it makes, when it's
+ * empty. Never add to it: new code and code outside it get every rule.
+ */
+const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
+  {
+    issue: "PAR-732",
+    files: ["packages/core/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-object-parameters",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-shape-in-symbol-names",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unknown-type-aliases",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-bitwise",
+      "oxc/no-accumulating-spread"
+    ]
+  },
+  {
+    issue: "PAR-733",
+    files: ["packages/libgen/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-bitwise",
+      "oxc/no-accumulating-spread"
+    ]
+  },
+  {
+    issue: "PAR-734",
+    files: ["packages/editor/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-object-parameters",
+      "anti-slop/no-reflect-get",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly"
+    ]
+  },
+  {
+    issue: "PAR-735",
+    files: ["packages/agent/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-shape-in-symbol-names",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "oxc/no-accumulating-spread"
+    ]
+  },
+  {
+    issue: "PAR-736",
+    files: ["packages/cli/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-bitwise",
+      "no-console"
+    ]
+  },
+  {
+    issue: "PAR-737",
+    files: ["packages/renderer-react/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-object-parameters",
+      "anti-slop/no-reflect-get",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly"
+    ]
+  },
+  {
+    issue: "PAR-738",
+    files: ["packages/code/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-shape-in-symbol-names",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-bitwise"
+    ]
+  },
+  {
+    issue: "PAR-739",
+    files: ["packages/telemetry/**"],
+    rules: [
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-object-parameters",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly"
+    ]
+  },
+  {
+    issue: "PAR-740",
+    files: ["packages/project/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-object-parameters",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly"
+    ]
+  },
+  {
+    issue: "PAR-741",
+    files: ["packages/tokens/**"],
+    rules: [
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-console"
+    ]
+  },
+  {
+    issue: "PAR-742",
+    files: ["packages/channel/**"],
+    rules: [
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly"
+    ]
+  },
+  {
+    issue: "PAR-743",
+    files: ["packages/builder-vite/**"],
+    rules: [
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly"
+    ]
+  },
+  {
+    issue: "PAR-744",
+    files: [
+      "packages/registry/**",
+      "packages/fixtures/**",
+      "packages/models/**",
+      "packages/icons/**",
+      "packages/account/**",
+      "packages/styles-tailwind/**"
+    ],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-console"
+    ]
+  },
+  {
+    issue: "PAR-745",
+    files: ["apps/desktop/src/renderer/canvas/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-object-parameters",
+      "anti-slop/no-reflect-get",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-shape-in-symbol-names",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-bitwise"
+    ]
+  },
+  {
+    issue: "PAR-746",
+    files: ["apps/desktop/src/renderer/chrome/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-shape-in-symbol-names",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly"
+    ]
+  },
+  {
+    issue: "PAR-747",
+    files: ["apps/desktop/src/renderer/explorations/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-shape-in-symbol-names",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "oxc/no-accumulating-spread"
+    ]
+  },
+  {
+    issue: "PAR-748",
+    files: [
+      "apps/desktop/src/renderer/*.ts",
+      "apps/desktop/src/renderer/*.tsx",
+      "apps/desktop/src/renderer/agent/**",
+      "apps/desktop/src/renderer/stories/**",
+      "apps/desktop/src/renderer/start/**",
+      "apps/desktop/src/renderer/account/**"
+    ],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-object-parameters",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-shape-in-symbol-names",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-bitwise"
+    ]
+  },
+  {
+    issue: "PAR-749",
+    files: ["apps/desktop/src/utility/**"],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-shape-in-symbol-names",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-console"
+    ]
+  },
+  {
+    issue: "PAR-750",
+    files: ["apps/desktop/src/main/**", "apps/desktop/src/preload/**", "apps/desktop/src/shared/**"],
+    rules: [
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-shape-in-symbol-names",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-console"
+    ]
+  },
+  {
+    issue: "PAR-751",
+    files: [
+      "apps/desktop/scripts/**",
+      "apps/desktop/e2e/**",
+      "apps/desktop/.storybook/**",
+      "apps/desktop/vite.config.ts",
+      "scripts/**",
+      "vite.config.ts",
+      "beachball.config.cjs"
+    ],
+    rules: [
+      "anti-slop/no-array-filter-map",
+      "anti-slop/no-chained-type-assertions",
+      "anti-slop/no-conditional-empty-object-spread",
+      "anti-slop/no-known-value-widening",
+      "anti-slop/no-runtime-typeof",
+      "anti-slop/no-shape-in-symbol-names",
+      "anti-slop/no-unknown-parameters",
+      "anti-slop/no-unknown-returns",
+      "anti-slop/no-unsafe-dictionary-type",
+      "anti-slop/require-readable-spacing",
+      "anti-slop/require-safety-comment-for-type-assertion",
+      "curly",
+      "no-bitwise",
+      "no-console"
+    ]
+  }
+]
+
+/**
  * The workspace's format, lint, type-check, test and task settings, which `vp check`, `vp test` and `vp run` read from
  * the root. Each app keeps its own Vite settings in its folder.
  */
@@ -91,16 +486,13 @@ export default defineConfig({
     ]
   },
   lint: {
-    plugins: ["eslint", "typescript", "react", "vitest", "jsx-a11y", "import", "oxc", "unicorn", "promise"],
-    jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
-    categories: {
-      correctness: "error"
-    },
-    // Types are checked on push and in CI, not on commit or in `pnpm verify`: `pnpm check:types` runs this lint with
-    // `--type-aware --type-check`, which adds the type-aware rules and what `tsc -p tsconfig.json` did, on TypeScript 7.
-    options: {
-      reportUnusedDisableDirectives: "error"
-    },
+    // Buildkit's base rules, with every anti-slop rule, `curly`, `no-console` and `no-bitwise` (PAR-730). A rule is
+    // turned off on one line, with a comment saying why, only where there's a very good reason. Types are checked on
+    // push and in CI, not on commit or in `pnpm verify`: `pnpm check:types` runs this lint with `--type-aware
+    // --type-check`, which adds the type-aware rules and what `tsc -p tsconfig.json` did, on TypeScript 7.
+    extends: [base],
+    // A list of JS plugins replaces the one base registers, so it's kept.
+    jsPlugins: [...(base.jsPlugins ?? []), { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     ignorePatterns: [
       ".agents/skills/**",
       ".claude/skills/**",
@@ -114,59 +506,10 @@ export default defineConfig({
       "*.md"
     ],
     rules: {
-      // The agency monorepo's rules beyond the correctness category (PAR-396, docs/proposals/repository.md: From the
-      // agency monorepo), without `curly`, `no-console`, `no-bitwise` and the React Compiler rule.
-      "typescript/no-inferrable-types": "error",
-      "typescript/adjacent-overload-signatures": "error",
-      "typescript/no-empty-interface": "error",
-      "typescript/no-namespace": "error",
-      "typescript/no-unnecessary-type-constraint": "error",
-      "typescript/restrict-plus-operands": "error",
-      "eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }
-      ],
-      "eslint/no-new-wrappers": "error",
-      "eslint/no-empty": "error",
-      "eslint/no-new": "error",
-      "eslint/no-var": "error",
-      "eslint/prefer-const": "error",
-      "eslint/radix": "error",
-      "eslint/eqeqeq": "error",
-      "eslint/no-new-func": "error",
-      "eslint/prefer-rest-params": "error",
-      "eslint/prefer-spread": "error",
-      "eslint/no-fallthrough": "error",
-      "eslint/no-inner-declarations": "error",
-      "eslint/no-prototype-builtins": "error",
-      "eslint/no-regex-spaces": "error",
-      "eslint/no-empty-function": "error",
-      "eslint/no-array-constructor": "error",
-      "eslint/no-implied-eval": "error",
-      "eslint/no-nested-ternary": "error",
-      "unicorn/prefer-array-find": "error",
-      "unicorn/prefer-array-flat": "error",
-      "unicorn/prefer-array-flat-map": "error",
-      "unicorn/prefer-array-some": "error",
-      "unicorn/prefer-includes": "error",
-      "unicorn/prefer-logical-operator-over-ternary": "error",
-      "unicorn/prefer-structured-clone": "error",
-      "unicorn/throw-new-error": "error",
-      "unicorn/no-zero-fractions": "error",
-      "react/no-danger": "error",
-      "react/rules-of-hooks": "error",
-      "react/display-name": "error",
-      "react/no-unstable-nested-components": "error",
-      "react/jsx-no-comment-textnodes": "error",
-      "react/jsx-no-target-blank": "error",
-      "react/no-unescaped-entities": "error",
-      "react/no-unknown-property": "error",
-      "react/require-render-return": "error",
-      "typescript/no-explicit-any": "error",
-      "typescript/ban-ts-comment": "error",
+      // Parity's rules beyond base.
       "typescript/consistent-type-imports": "error",
-      "eslint/no-console": "off",
       "vite-plus/prefer-vite-plus-imports": "error",
+      "react/exhaustive-deps": "error",
       // An error notification goes through `reportError`, which records it as well as showing it (PAR-632, PAR-644).
       "eslint/no-restricted-properties": [
         "error",
@@ -267,7 +610,11 @@ export default defineConfig({
         // Tests may use Node to set up files and folders.
         files: ["packages/**/*.test.ts", "packages/**/*.test.tsx"],
         rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }
-      }
+      },
+      ...notYetClean.map(({ files, rules }) => ({
+        files,
+        rules: Object.fromEntries(rules.map((rule) => [rule, "off" as const]))
+      }))
     ]
   },
   test: {

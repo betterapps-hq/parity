@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Lint with Buildkit's base config and run Storybook on its shared config",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

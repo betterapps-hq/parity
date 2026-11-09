@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 00:29:58 GMT",
+      "version": "0.27.0",
+      "tag": "@parity-app/cli_v0.27.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "56bd9c2ce2b7fb3e082add1adafe35c02111ff80",
+            "comment": "Agents report problems in Parity with parity report and MCP's report_problem: a Sentry feedback with the window's screenshot and replay, the call's trace and the design's frames, returning its link"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 08 Nov 2026 23:45:46 GMT",
       "version": "0.26.0",
       "tag": "@parity-app/cli_v0.26.0",
