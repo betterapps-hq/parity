@@ -6,6 +6,7 @@ import {
   atom,
   Box,
   computed,
+  type Editor,
   HTMLContainer,
   Rectangle2d,
   type RecordProps,
@@ -26,6 +27,7 @@ import { useProject } from "./context.ts"
 import { type BoardRest, boardDormant } from "./frame-sleep.ts"
 import { setBoardSized } from "./free-space.ts"
 import { followPress, gestures } from "./gesture.ts"
+import { measureTogether } from "./measure-together.ts"
 import { clearSnaps, snapPosition } from "./snap.ts"
 import { useTitleLayer } from "./title-layer.tsx"
 
@@ -104,6 +106,18 @@ export class ContainerShapeUtil extends ShapeUtil<ContainerShape> {
 /** The shapes that draw frames, the kind with no board, for their square outlines. */
 const frameShapes = new Set<string>()
 
+/** Each canvas's boards' measures, run together (see `measureTogether`), their sizes written as one change. */
+const boardMeasures = new WeakMap<Editor, ReturnType<typeof measureTogether>>()
+
+function boardSizes(editor: Editor): ReturnType<typeof measureTogether> {
+  let measures = boardMeasures.get(editor)
+  if (!measures) {
+    measures = measureTogether((writes) => editor.run(writes, { history: "ignore" }))
+    boardMeasures.set(editor, measures)
+  }
+  return measures
+}
+
 function ContainerContent({ shape }: { shape: ContainerShape }) {
   const editor = useEditor()
   const session = useProject()
@@ -147,21 +161,26 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   // a board changes size as the camera zooms; the shape takes its new size once the zoom settles, rather than every
   // board measuring itself and drawing again on every frame of a zoom. tldraw's camera state isn't enough: on a busy
   // machine, frames slower than its timeout had the camera stop on almost every frame (PAR-655).
+  // Boards measure together, so the canvas's boards are laid out once rather than once each (PAR-726).
   useLayoutEffect(() => {
     const element = ref.current
     if (!element) return undefined
-    const measure = () => {
-      const current = editor.getShape(shape.id)
-      if (current?.type !== "canvas-container" || element.getClientRects().length === 0) return
-      setDrawn(true)
-      const w = element.offsetWidth
-      const h = element.offsetHeight
-      if (Math.abs(current.props.w - w) >= 1 || Math.abs(current.props.h - h) >= 1) {
-        editor.run(() => editor.updateShape({ id: shape.id, type: "canvas-container", props: { w, h } }), {
-          history: "ignore"
-        })
+    const size = {
+      read: () =>
+        element.getClientRects().length === 0 ? undefined : { w: element.offsetWidth, h: element.offsetHeight },
+      write: ({ w, h }: { w: number; h: number }) => {
+        const current = editor.getShape(shape.id)
+        if (current?.type !== "canvas-container") return
+        setDrawn(true)
+        if (Math.abs(current.props.w - w) >= 1 || Math.abs(current.props.h - h) >= 1) {
+          editor.updateShape({ id: shape.id, type: "canvas-container", props: { w, h } })
+        }
+        setBoardSized(editor, shape.id, true)
       }
-      setBoardSized(editor, shape.id, true)
+    }
+    let cancel: (() => void) | undefined
+    const measure = () => {
+      cancel = boardSizes(editor)(element, size)
     }
     const observer = new ResizeObserver(() => {
       if (isZoomSettled(editor)) measure()
@@ -173,6 +192,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
     return () => {
       stop()
       observer.disconnect()
+      cancel?.()
       setBoardSized(editor, shape.id, false)
     }
   }, [editor, shape.id])
