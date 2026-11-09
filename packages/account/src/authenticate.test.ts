@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test"
+import type { z } from "zod"
 import { authenticate, codeRequest, type Fetch, refreshRequest } from "./index.ts"
 
-const jwt = (claims: unknown) =>
+const jwt = (claims: z.core.util.JSONType) =>
   ["header", JSON.stringify(claims), "signature"].map((part) => Buffer.from(part).toString("base64url")).join(".")
 
 const accessToken = jwt({
@@ -32,14 +33,19 @@ const answer = {
   authentication_method: "GoogleOAuth"
 }
 
-/** A `fetch` that gives one answer and keeps what it was asked. */
-function answering(status: number, body: unknown) {
+/** A `fetch` that answers with JSON and keeps what it was asked. */
+function answering(status: number, body: z.core.util.JSONType) {
+  return answeringText(status, JSON.stringify(body))
+}
+
+/** A `fetch` that answers with text as it is, and keeps what it was asked. */
+function answeringText(status: number, body: string) {
   const requests: { url: string; init: RequestInit }[] = []
 
   const fetch: Fetch = async (url, init) => {
     requests.push({ url, init })
 
-    return new Response(typeof body === "string" ? body : JSON.stringify(body), { status })
+    return new Response(body, { status })
   }
 
   return { fetch, requests }
@@ -133,7 +139,10 @@ describe("authenticate", () => {
       code: "organization_selection_required",
       message: "Pick an organization."
     })
-    expect(await authenticate(answering(401, "Unauthorized").fetch, refresh)).toEqual({ kind: "refused", status: 401 })
+    expect(await authenticate(answeringText(401, "Unauthorized").fetch, refresh)).toEqual({
+      kind: "refused",
+      status: 401
+    })
   })
 
   it("names the account WorkOS sends to single sign-on", async () => {
@@ -200,7 +209,7 @@ describe("authenticate", () => {
 
   it("is unavailable when the answer has no user and tokens, or its access token can't be read", async () => {
     const refresh = refreshRequest({ clientId: "client_01TEST", refreshToken: "refresh_01" })
-    expect(await authenticate(answering(200, "<html>").fetch, refresh)).toEqual({
+    expect(await authenticate(answeringText(200, "<html>").fetch, refresh)).toEqual({
       kind: "unavailable",
       message: "WorkOS's answer didn't have a user and tokens"
     })

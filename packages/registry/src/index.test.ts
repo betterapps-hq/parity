@@ -1,7 +1,8 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { applyLibraryEdits, type LibraryEdits } from "@parity-app/core"
+import { applyLibraryEdits, isSampleText, type JsonValue, jsonValue, type LibraryEdits } from "@parity-app/core"
+import { isComposite, isText } from "@parity-app/core/values/evaluate"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test"
 import { covers, newestEntries, registryDir, registryEntries, registryEntryFor, withEdits } from "./index.ts"
 
@@ -58,13 +59,14 @@ describe("newestEntries", () => {
   it("keeps each package's newest file by semver, with its hand edits applied", async () => {
     const newest = await mkdtemp(join(tmpdir(), "parity-registry-newest-"))
 
-    const file = (version: string, edits?: unknown) => ({
+    // JSON.stringify leaves `edits` out when it's undefined.
+    const file = (version: string, edits?: string) => ({
       version: 3,
       id: "mui",
       name: `Material UI ${version}`,
       package: { name: "@mui/material", version },
       components: { list: { Button: { as: "function" }, Fab: { as: "function" } } },
-      ...(edits === undefined ? {} : { edits })
+      edits
     })
 
     // As text, 9.5.0 is newer than 10.0.0, and "mui-10" sorts before "mui-9".
@@ -152,8 +154,8 @@ describe("the registry", () => {
   it("keeps sample text that ends at a sentence or a whole word, not cut mid-word at 60 characters", async () => {
     const cut: string[] = []
 
-    const visit = (value: unknown, text: boolean) => {
-      if (typeof value === "string") {
+    const visit = (value: JsonValue, text: boolean) => {
+      if (isText(value)) {
         if (text && value.length === 60 && !value.endsWith("…")) {
           cut.push(value)
         }
@@ -161,7 +163,7 @@ describe("the registry", () => {
         for (const item of value) {
           visit(item, text)
         }
-      } else if (value && typeof value === "object") {
+      } else if (value !== null && isComposite(value)) {
         for (const [key, item] of Object.entries(value)) {
           visit(item, ["children", "$render", "$element"].includes(key))
         }
@@ -170,7 +172,7 @@ describe("the registry", () => {
 
     for (const entry of await registryEntries(registryDir())) {
       for (const component of Object.values(entry.manifest.components?.list ?? {})) {
-        visit(component.sample, false)
+        visit(jsonValue.parse(component.sample ?? null), false)
       }
     }
 
@@ -185,7 +187,7 @@ describe("the registry", () => {
     const entry = (await registryEntries(registryDir())).find((each) => each.manifest.package?.name === "recharts")!
     const edits = entry.manifest.edits
 
-    if (typeof edits !== "object") {
+    if (edits === undefined || isText(edits)) {
       throw new Error("Recharts' file keeps its edits in itself")
     }
 
@@ -203,9 +205,11 @@ describe("the registry", () => {
       expect(sample.props).toMatchObject({ responsive: true, width: "100%" })
       expect(sample.props!.data).toHaveLength(6)
       expect(sample.props!.data).toEqual(expect.arrayContaining([expect.objectContaining({ month: "January" })]))
-      expect(
-        sample.children!.map((child) => typeof child === "object" && "component" in child && child.component)
-      ).toEqual(["CartesianGrid", "XAxis", series])
+      expect(sample.children!.map((child) => !isSampleText(child) && "component" in child && child.component)).toEqual([
+        "CartesianGrid",
+        "XAxis",
+        series
+      ])
       expect(list[series]!.parents).toEqual([chart])
       // Frames are still pictures, so a series draws whole rather than mid-animation.
       expect(list[series]!.sample!.props).toMatchObject({ isAnimationActive: false })

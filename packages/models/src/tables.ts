@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { checkModel } from "./check.ts"
+import { modelParser } from "./check.ts"
 
 // The data lens's model: what a database's catalog says about its tables, read the same way from a live database or
 // from migrations replayed into an in-memory one.
@@ -111,6 +111,4 @@ export type Enum = z.infer<typeof Enum>
 
 export type Tables = z.infer<typeof Tables>
 
-export function parseTables(value: unknown): Tables {
-  return checkModel(Tables, value)
-}
+export const parseTables = modelParser(Tables)
