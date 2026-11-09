@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Record the project service exiting, windows hanging and main's loop blocked as events with how long they lasted (PAR-771)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
