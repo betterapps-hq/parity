@@ -82,7 +82,7 @@ monitor breaches", sends the email and sets Urgent for a critical issue.
 
 ### The environments
 
-Today `tester` is any installed build. PAR-778 splits it in two, so each can be watched apart:
+`tester` was any installed build until PAR-778 split it in two, so each can be watched apart:
 
 | Environment   | What sends it                                                      |
 | ------------- | ------------------------------------------------------------------ |
@@ -301,7 +301,8 @@ Each of these is a Linear issue in the Product telemetry stream, filed on 2026-1
 **PAR-714** now watches `production` rather than `tester`, and is blocked by PAR-779.
 
 **`release` beside Sentry's own release:** an environment named `release` reads oddly next to Sentry's `release` field
-(`environment:release release:parity-desktop@0.21.0`). PAR-778 can name it `published` instead if that reads better.
+(`environment:release release:parity-desktop@0.21.0`). PAR-778 kept `release`, the name this spec and its widgets
+already use.
 
 ## What needs a paid plan
 
@@ -330,6 +331,5 @@ Andrew settled these on 2026-11-09:
 
 ## Open questions
 
-1. **`release` or `published`** for the published app's environment? PAR-778 decides.
-2. **The plan and the quotas** are Andrew's, before 2026-11-19, as [Telemetry's own health](#telemetrys-own-health)
+1. **The plan and the quotas** are Andrew's, before 2026-11-19, as [Telemetry's own health](#telemetrys-own-health)
    says.

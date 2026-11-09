@@ -7,8 +7,11 @@ import { z } from "zod"
  */
 export type TelemetryLevel = "all" | "off"
 
-/** Which runs an event came from: a checkout, CI, or an installed build a tester runs. */
-export type TelemetryEnvironment = "development" | "ci" | "tester"
+/**
+ * Which runs an event came from: a checkout, CI, a pull request's preview installer, or the published app and CLI,
+ * which testers install (PAR-778). They were one `tester` environment until 2026-11-09.
+ */
+export type TelemetryEnvironment = "development" | "ci" | "preview" | "release"
 
 /** The environment variables that decide what's sent. Empty counts as unset, as a shell's `NAME=` means. */
 export interface TelemetryVariables {
@@ -138,13 +141,30 @@ export function desktopDataFolder({ platform, env, home }: DataFolderContext): s
   return [appData, "@parity", "desktop"].join(separator)
 }
 
-/** Which environment a run reports as: `ci` wherever CI is set, else `tester` for an installed build. */
-export function telemetryEnvironment(variables: TelemetryVariables, installed: boolean): TelemetryEnvironment {
+/** What kind of build a run is: installed, or run from a checkout, and whether the release workflow published it. */
+export interface TelemetryBuild {
+  installed: boolean
+  published: boolean
+}
+
+/**
+ * Which environment a run reports as: `ci` wherever CI is set; else `release` for the published app or CLI, `preview`
+ * for any other installed build, such as a pull request's installer or a pkg.pr.new package, and `development` for a
+ * checkout (PAR-778).
+ */
+export function telemetryEnvironment(
+  variables: TelemetryVariables,
+  { installed, published }: TelemetryBuild
+): TelemetryEnvironment {
   if (inCi(variables)) {
     return "ci"
   }
 
-  return installed ? "tester" : "development"
+  if (!installed) {
+    return "development"
+  }
+
+  return published ? "release" : "preview"
 }
 
 /** Whether this run is in CI: `CI` is set, and not to `0` or `false`. */
