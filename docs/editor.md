@@ -4549,6 +4549,46 @@ what had nothing to measure; measures asked for while writing run in a batch of 
 itself has no automated test; it was checked by counting layouts in a trace of the reopen, and by finding all 61 boards'
 shapes the size of their elements after the reopen and again at 50%.
 
+### A design's title mounts its menus once it's used (PAR-760)
+
+Every design's title has a context menu and a hint, and a board's has its state and modes menus and, with variants, its
+variant menu. None is open as a project opens, but mounting them on all 61 of the example's boards took about 0.12 s of
+the task before the first frame. A title now draws its name as a plain button, and its menus and hint mount the first
+time it's used: the pointer enters it, it takes focus or it's right-clicked, or its design is hovered or selected. After
+that they stay mounted, so a menu open as the pointer leaves stays open.
+
+- **Nothing changes for whoever uses it.** The pointer enters a title before it presses or right-clicks there, and the
+  menus mount at once, before the next event, so the right-click finds them. Keyboard focus reaches only the selected
+  design's title and menus, which are mounted by then. The button's role, name and tab order are the same before and
+  after, and its menus are hidden until the design is hovered or selected, so a screen reader finds the same controls.
+- **What comes first is handed on.** Mounting the menu swaps the button for the menu's trigger, a new element. A focus
+  that arrives first, as a screen reader's might, moves to the new button, and a right-click that arrives with no
+  pointer over the title first, as a long press might, is sent again to whatever is now at that point.
+
+| Reopened in the same window, tab ready to first frame | Before         | After          |
+| ----------------------------------------------------- | -------------- | -------------- |
+| Time in the Base UI kit, first round                  | 105 to 161 ms  | 68 to 121 ms   |
+| Time in the Base UI kit, second round                 | 223 to 255 ms  | 51 to 95 ms    |
+| Tab ready to first frame, first round                 | 0.49 to 0.89 s | 0.78 to 1.31 s |
+| Tab ready to first frame, second round                | 1.16 to 1.45 s | 0.78 to 1.07 s |
+
+Five reopens each, in the order before, after, before, after, each round in a fresh `pnpm perf --open-only --keep` copy
+on React's production build, profiled from the tab being ready to its first frame. Other sessions were using the
+machine, more so after the first round: the first after round's reopens were slower all through, the time before the tab
+was ready included, so its time to the first frame says more about the machine than the change. The kit's share is what
+the change moves, and it fell by more than half in every round. What's left of it is the rest of the window's Base UI
+parts, the state labels' hints on boards showing every state among them.
+
+Code: `useMountOnUse` in `apps/desktop/src/renderer/canvas/mount-on-use.tsx`, and `TitleBar`, `TitleButton` and
+`TitleControls` in `canvas/ContainerView.tsx`.
+
+Tests: `apps/desktop/src/renderer/canvas/mount-on-use.test.ts` (5, in Chrome: nothing mounted until used; the pointer
+entering mounts the menus, and a right-click then opens the context menu; a right-click with no pointer move first still
+opens it; focus stays on what was focused, and Enter opens a menu; mounted at once when ready, and kept once used). The
+keyboard's way through a title is in "Tab from a design's title". Gaps: the board's own title isn't in a unit test.
+Every board menu was opened by mouse and keyboard in `pnpm dev` on the example, and a frame's title menu in the Frames
+story.
+
 ### Reopening loads the project afresh (PAR-195, PAR-422, PAR-433)
 
 A reopened project's builder serves it at a new address, one no guest has had since the project service started, even
