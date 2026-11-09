@@ -30,6 +30,7 @@ import {
   LayoutTemplate,
   Link2,
   Minus,
+  Monitor,
   Plus,
   Repeat,
   SlidersHorizontal,
@@ -1858,7 +1859,16 @@ export function FrameSection({
   onChange: (frame: { width: number; height: number | undefined }) => void
 }) {
   return (
-    <PanelSection title="Frame" description="Pricing's size in Desktop. Dragging the frame's edges sets it too.">
+    <PanelSection
+      title="Frame"
+      action={
+        // Which viewport's size this is: each has its own. The selection already says which design.
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Monitor aria-hidden className="size-3.5" />
+          Desktop
+        </span>
+      }
+    >
       <div className="flex flex-col gap-2.5">
         <Field label="Size">
           <div className="grid grid-cols-2 gap-1">

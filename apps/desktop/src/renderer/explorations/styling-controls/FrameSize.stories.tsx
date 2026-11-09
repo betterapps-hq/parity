@@ -4,9 +4,10 @@ import { FramePreview, FrameSection } from "./controls.tsx"
 import { Playground } from "./playground.tsx"
 
 /**
- * A design's frame, typed (PAR-186): its width and height in the viewport shown, in pixels or rem. There's no size
- * preset: the viewport already says which size it is. Height unset hugs the design. Dragging the frame's edges sets it too. It's the design's own setting, not
- * a style, so it writes no CSS.
+ * A design's frame, typed (PAR-186): its width and height in the viewport shown, which the section's header names
+ * with its icon, in pixels or rem. There's no size preset: the viewport already says which size it is. Height unset
+ * hugs the design. Dragging the frame's edges sets it too. It's the design's own setting, not a style, so it writes no
+ * CSS.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Frame size",
