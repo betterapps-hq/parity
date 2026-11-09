@@ -60,7 +60,7 @@ interface BoundaryState {
 }
 
 /** Opens Report a problem with what a boundary caught, once Help > Report a problem is there to open (PAR-635). */
-type Reporter = (error: unknown, boundary: string) => void
+type Reporter = (error: unknown, boundary: Pick<BoundaryProps, "name" | "label">) => void
 
 let reporter: Reporter | undefined
 
@@ -132,12 +132,14 @@ export class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
   }
 
   /** Opens Report a problem; a dialog that failed closes first, so the report's dialog takes its place. */
-  private report(report: Reporter, error: unknown, name: string, kind: BoundaryKind): void {
+  private report(report: Reporter, error: unknown): void {
+    const { name, label, kind } = this.props
+
     if (kind === "dialog") {
       this.close()
     }
 
-    report(error, name)
+    report(error, { name, label })
   }
 
   override render() {
@@ -166,7 +168,7 @@ export class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
         again={retries > 0}
         onRetry={this.retry}
         onClose={this.props.onClose ? this.close : undefined}
-        onReport={report ? () => this.report(report, error, name, kind) : undefined}
+        onReport={report ? () => this.report(report, error) : undefined}
       />
     )
   }

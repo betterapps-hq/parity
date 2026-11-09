@@ -32,10 +32,11 @@ setInterfaceTelemetry(telemetry)
 
 setWindowTelemetry(telemetry)
 
-// A part of the window that fails offers Report a problem (PAR-667), linked to the error it caught (PAR-704).
-setBoundaryReporter((error) => {
+// A part of the window that fails offers Report a problem (PAR-667), linked to the error it caught (PAR-704), which the
+// dialog names by the part's label (PAR-757).
+setBoundaryReporter((error, { label }) => {
   const eventId = caughtEventId(error)
-  void openReport(eventId ? { eventId } : {})
+  void openReport(eventId ? { eventId, label } : {})
 })
 
 watchTabs({

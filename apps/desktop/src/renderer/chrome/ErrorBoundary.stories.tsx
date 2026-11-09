@@ -80,7 +80,7 @@ const meta = {
       })
       // Set before the window draws, since the part fails on its first draw.
       setBoundaryReporter(
-        args.reportable ? (_error, boundary) => toast(`Report a problem would open, for ${boundary}`) : undefined
+        args.reportable ? (_error, { name }) => toast(`Report a problem would open, for ${name}`) : undefined
       )
       tripBoundary(args.part, args.failures)
     }

@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 04:18:08 GMT",
+      "version": "0.28.2",
+      "tag": "@parity-app/cli_v0.28.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "58a8095f7462152f44b302ebc144d47d192e5198",
+            "comment": "Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the interrupted frame as crashed"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "96991922db733841c38f62ede47602b733c5e246",
+            "comment": "Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 03:07:25 GMT",
       "version": "0.28.1",
       "tag": "@parity-app/cli_v0.28.1",
