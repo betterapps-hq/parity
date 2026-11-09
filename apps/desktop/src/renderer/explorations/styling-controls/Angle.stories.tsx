@@ -13,8 +13,10 @@ import { mixedWrites } from "./writes.ts"
  * An angle (PAR-652's Angle), as Position's Rotation takes it: degrees with °, clockwise as CSS turns. It's typed as
  * `45`, `45deg`, `0.25turn` or `1rad`, with the app's maths (`+15`, `*2`), and kept in degrees; one read from code keeps
  * its unit until it's edited. Negatives are kept, and angles are never folded into −180 to 180, since a transition to
- * 270° turns the other way from one to −90°. Up and Down step 1°, Shift 15°; the dial beside it is dragged round,
- * Shift snapping to 15°. Whole degrees are a step (`rotate-45`); others are written in brackets.
+ * 270° turns the other way from one to −90°. The field's angle glyph scrubs it; Up and Down step 1°, Shift 15°. The knob
+ * beside it is dragged round to set the angle where it's seen, with no popover, Shift snapping to 15°, and a
+ * double-click sets 0°; Rotate 90° turns it a quarter clockwise. Whole degrees are a step (`rotate-45`); others are
+ * written in brackets.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Angle",
@@ -30,7 +32,13 @@ function Rotation({ start, mixed = false }: { start?: Angle; mixed?: boolean }) 
   return (
     <Playground writes={writes} preview={<TransformPreview value={{}} rotate={angleDegrees(angle)} />}>
       <Field label="Rotation" hint="Clockwise, as CSS turns">
-        <AngleField label="Rotation" value={angle} mixed={mixed && angle === undefined} onChange={setAngle} />
+        <AngleField
+          label="Rotation"
+          value={angle}
+          mixed={mixed && angle === undefined}
+          quarterTurn
+          onChange={setAngle}
+        />
       </Field>
     </Playground>
   )
@@ -57,11 +65,25 @@ export const BeyondATurn: Story = { render: () => <Rotation start={{ step: 450 }
 /** Layers with different rotations: Mixed, until an angle is typed for them all. */
 export const Mixed: Story = { render: () => <Rotation mixed /> }
 
-/** The dial open: drag round it, past 360° if you like; Shift snaps to 15°, and the arrow keys step it. */
-export const Dial: Story = {
+/**
+ * The knob from the keyboard: focused, Shift and Right turn it 15° at a time, from 30° to 60°. Dragged round, it goes
+ * past 360° if you like.
+ */
+export const KnobFromTheKeyboard: Story = {
   render: () => <Rotation start={{ step: 30 }} />,
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Rotation dial" }))
+    within(canvasElement).getByRole("slider", { name: "Rotation knob" }).focus()
+    await userEvent.keyboard("{Shift>}{ArrowRight}{ArrowRight}{/Shift}")
+  }
+}
+
+/** Rotate 90° pressed twice: 30° turns to 210°. */
+export const QuarterTurns: Story = {
+  render: () => <Rotation start={{ step: 30 }} />,
+  play: async ({ canvasElement }) => {
+    const turn = within(canvasElement).getByRole("button", { name: "Rotation: rotate 90° clockwise" })
+    await userEvent.click(turn)
+    await userEvent.click(turn)
   }
 }
 
