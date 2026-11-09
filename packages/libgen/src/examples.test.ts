@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 import {
+  type ExampleUse,
   exampleItem,
   exampleLevels,
   familyOf,
@@ -246,6 +247,15 @@ describe("values in samples", () => {
     })
   })
 
+  it("reads a list's item by its index, written as a number or a string, and its length", () => {
+    const text = `
+      const labels = ["Save", "Cancel"]
+      const x = <Button label={labels[1]} title={labels["0"]} count={labels.length} />`
+
+    const uses = readExamples([{ path: "a.tsx", text }], ["Button"])
+    expect(uses.get("Button")?.sample?.props).toEqual({ label: "Cancel", title: "Save", count: 2 })
+  })
+
   it("resolves names the file declares, useState's value and mapped lists", () => {
     const text = `
       const chartConfig = { desktop: { label: "Desktop", color: "var(--chart-1)", icon: Monitor } } satisfies ChartConfig
@@ -360,12 +370,12 @@ describe("reading examples", () => {
 })
 
 describe("nearest parents", () => {
-  const use = (parents: [string, number][], topLevel = 0) => ({
+  const use = (parents: [string, number][], topLevel = 0): ExampleUse => ({
     count: parents.reduce((sum, [, count]) => sum + count, topLevel),
     topLevel,
     parents: new Map(parents),
-    paths: [] as string[][],
-    usePaths: [] as string[][],
+    paths: [],
+    usePaths: [],
     sampleSize: 0,
     fromHook: false
   })

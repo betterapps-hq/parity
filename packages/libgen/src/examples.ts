@@ -9,14 +9,15 @@ import {
   isMadeValue,
   isSampleRender,
   jsonText,
-  type MadeValue,
   type PackageManifest,
   parseData,
   type SampleChild,
+  type SampleElement,
   type SampleRender
 } from "@parity-app/core"
 import ts from "typescript"
 import { z } from "zod"
+import { isNumber, isRecord, isText } from "./live.ts"
 import { packageDocument } from "./npm.ts"
 import { sampleText } from "./sample-text.ts"
 
@@ -65,7 +66,7 @@ export async function fetchExamples(
   packageDir: string,
   hints: ExampleHints = {},
   cacheRoot = join(homedir(), ".parity", "cache", "examples")
-): Promise<{ files: ExampleFile[]; docs?: ExampleFile[]; source?: ExampleSource; note?: string }> {
+): Promise<FetchedExamples> {
   let upstream: Upstream | undefined
 
   try {
@@ -98,14 +99,17 @@ export async function fetchExamples(
       (folder) => !checkedOut.some((file) => file.path.replaceAll("\\", "/").includes(folder.replace(/\/$/, "")))
     )
 
-    return {
+    const fetched: FetchedExamples = {
       files,
       docs,
-      source: { repo, commit: found.commit, how: found.how, files: files.length },
-      ...(empty.length > 0
-        ? { note: `No examples in ${empty.join(", ")} at ${found.commit.slice(0, 10)}; the folder may have moved.` }
-        : {})
+      source: { repo, commit: found.commit, how: found.how, files: files.length }
     }
+
+    if (empty.length > 0) {
+      fetched.note = `No examples in ${empty.join(", ")} at ${found.commit.slice(0, 10)}; the folder may have moved.`
+    }
+
+    return fetched
   } catch (error) {
     return { files: [], note: `Examples weren't read from ${repo}: ${message(error)}` }
   }
@@ -133,7 +137,7 @@ async function readUpstream(packageDir: string): Promise<Upstream | undefined> {
 }
 
 function repositoryOf(pkg: PackageManifest): string | undefined {
-  return typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url
+  return isText(pkg.repository) ? pkg.repository : pkg.repository?.url
 }
 
 /** A repository URL git can fetch: `git+https://github.com/a/b.git` and `github:a/b` become `https://github.com/a/b`. */
@@ -215,7 +219,13 @@ async function findCommit(
   return commit.trim() ? { commit: commit.trim(), how: "date" } : undefined
 }
 
-async function npmVersion(pkg: PackageManifest): Promise<{ gitHead?: string; time?: string } | undefined> {
+/** What npm records of a version: the commit it was published from, and when. */
+interface PublishedVersion {
+  gitHead?: string
+  time?: string
+}
+
+async function npmVersion(pkg: PackageManifest): Promise<PublishedVersion | undefined> {
   if (!pkg.name || !pkg.version) {
     return undefined
   }
@@ -225,7 +235,17 @@ async function npmVersion(pkg: PackageManifest): Promise<{ gitHead?: string; tim
     const gitHead = document.versions?.[pkg.version]?.gitHead
     const time = document.time?.[pkg.version]
 
-    return { ...(gitHead ? { gitHead } : {}), ...(typeof time === "string" ? { time } : {}) }
+    const published: PublishedVersion = {}
+
+    if (gitHead) {
+      published.gitHead = gitHead
+    }
+
+    if (isText(time)) {
+      published.time = time
+    }
+
+    return published
   } catch {
     return undefined
   }
@@ -435,12 +455,10 @@ function methodCallsOn(
       continue
     }
 
-    const context: Context = {
-      source,
-      resolve: () => undefined,
-      scope: declarations(source),
-      env: new Map(),
-      ...(pkg ? { imports: packageImports(source, pkg, reexported) } : {})
+    const context: Context = { source, resolve: () => undefined, scope: declarations(source), env: new Map() }
+
+    if (pkg) {
+      context.imports = packageImports(source, pkg, reexported)
     }
 
     const visit = (node: ts.Node) => {
@@ -457,7 +475,12 @@ function methodCallsOn(
           const method = node.expression.name.text
           const byName = found.get(on.file) ?? new Map<string, Map<string, MethodCall>>()
           const calls = byName.get(on.name) ?? new Map<string, MethodCall>()
-          const call: MethodCall = { method, ...(args.length > 0 ? { args } : {}) }
+          const call: MethodCall = { method }
+
+          if (args.length > 0) {
+            call.args = args
+          }
+
           const before = calls.get(method)
 
           if (!before || JSON.stringify(call).length > JSON.stringify(before).length) {
@@ -500,8 +523,8 @@ function slug(repo: string): string {
   return repo.replace(/^https?:\/\//, "").replace(/[^\w.-]+/g, "-")
 }
 
-function message(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).split("\n")[0]!.slice(0, 200)
+function message(cause: unknown): string {
+  return (cause instanceof Error ? cause.message : String(cause)).split("\n")[0]!.slice(0, 200)
 }
 
 /** What a library's examples show about one component: where it's placed, and a typical way it's used. */
@@ -527,10 +550,46 @@ export interface ExampleUse {
   /** The family the examples place it in when that isn't its name's (`Table` for React Aria's `Row`). */
   family?: string
   /** Props the sample's use set that only it set, left out of the sample, for a part that can't draw without them. */
-  rare?: Record<string, unknown>
+  rare?: SampleProps
   /** The values the package makes that any use gives it, by prop, first seen first (a date picker's dates). */
-  made?: Record<string, unknown>
+  made?: SampleProps
 }
+
+/** Where a library's examples were read from, and what was read. */
+export interface FetchedExamples {
+  files: ExampleFile[]
+  docs?: ExampleFile[]
+  source?: ExampleSource
+  note?: string
+}
+
+/** A sample's props, as core reads them. */
+type SampleProps = NonNullable<ComponentSample["props"]>
+
+/** A sample prop's value, as core reads it. */
+type SampleValue = SampleProps[string]
+
+/**
+ * A value an example spells out, read from its code without running it: JSON, the package's own calls as `$call`s, and
+ * as a prop, elements or a function that returns them. `undefined` is a value the file doesn't say.
+ */
+type Spelled = string | number | boolean | null | undefined | Spelled[] | SpelledObject | SampleElement | SampleRender
+
+/** An object an example spells out. */
+interface SpelledObject {
+  [key: string]: Spelled
+}
+
+/** An item of a list a library keeps, as its examples spell one out (`toast.add({ title, description })`). */
+export type ExampleItem = SpelledObject
+
+/** Whether a value an example spells out is an object of them, not a list. */
+function isSpelledObject(value: Spelled): value is SpelledObject {
+  return isRecord(value)
+}
+
+/** A part placed inside a sample, with its own props and children. */
+type SampleElementChild = Exclude<SampleChild, string | SampleRender>
 
 /**
  * Reads how a library's components are used in its examples: each element whose tag is one of its components (as
@@ -680,14 +739,14 @@ function readSource(
   const resolve = (tag: string) => base(tag) ?? wrapping.get(tag)?.name
   const wrapped = new Set([...wrapping.values()].map((wrapper) => wrapper.root))
 
-  const context: Context = {
-    source,
-    resolve,
-    scope: declarations(source),
-    env: new Map(),
-    wrapping,
-    ...(pkg ? { imports: packageImports(source, pkg, reexported) } : {}),
-    ...(calledOn ? { calledOn } : {})
+  const context: Context = { source, resolve, scope: declarations(source), env: new Map(), wrapping }
+
+  if (pkg) {
+    context.imports = packageImports(source, pkg, reexported)
+  }
+
+  if (calledOn) {
+    context.calledOn = calledOn
   }
 
   const placedHere = new Set<string>()
@@ -697,7 +756,7 @@ function readSource(
   context.hookItem = hookItem(source, hooked, context)
   const drawnWith = drawnProps(source, drawnFromHook, context)
 
-  const visit = (node: ts.Node, around: string[], mapped: boolean, env: Map<string, unknown>) => {
+  const visit = (node: ts.Node, around: string[], mapped: boolean, env: Map<string, Spelled>) => {
     let here = around
 
     if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
@@ -780,7 +839,13 @@ function readSource(
     // component they're drawn with.
     let inner = env
     const callback = mapCallback(node)
-    const mappedList = callback && ((node as ts.CallExpression).expression as ts.PropertyAccessExpression).expression
+
+    // A map callback is the argument of a call of a list's `map`.
+    const mappedList =
+      callback && ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+        ? node.expression.expression
+        : undefined
+
     const listed = mappedList ? listOf(mappedList, { ...context, env }) : undefined
 
     if (callback && Array.isArray(listed) && listed[0] !== undefined) {
@@ -1015,10 +1080,10 @@ interface Context {
   /** What each name the file declares is set to; `useState`'s first value for its state. */
   scope: Map<string, ts.Expression>
   /** Names bound while mapping a list: the callback's parameters, as each item. */
-  env: Map<string, unknown>
+  env: Map<string, Spelled>
   /** Names bound to what a library hook returns, and a sample item for the lists among them. */
   hooked?: Set<string>
-  hookItem?: Record<string, unknown>
+  hookItem?: SpelledObject
   /** The example's own wrappers of the library's parts, by name. */
   wrapping?: Map<string, { name: string; root: ts.Node; spread: boolean }>
   /** The functions the file imports from the library's package, by the name it uses, with where they come from. */
@@ -1027,12 +1092,18 @@ interface Context {
   calledOn?: Map<string, MethodCall[]>
 }
 
-type MethodCall = NonNullable<MadeValue["methods"]>[number]
+/** A method other files call on a value the package makes, with the arguments they spell out. */
+type MethodCall = { method: string; args?: Spelled[] }
 
 /** The names a file imports from a package or its subpaths (`@base-ui/react/toast`), with what each is there. */
 /** Whether a prop's value is one the package makes, or a list holding one. */
-function madeIn(value: unknown): boolean {
+function madeIn(value: SampleValue): boolean {
   return isMadeValue(value) || (Array.isArray(value) && value.some(isMadeValue))
+}
+
+/** Whether a value is one the package makes, without narrowing it to core's reading of one. */
+function isMade(value: SampleValue): boolean {
+  return isMadeValue(value)
 }
 
 /** The library's parts a file imports under names of its own, by those names. */
@@ -1098,7 +1169,7 @@ function packageImports(
 
 function sampleOf(node: ts.JsxElement | ts.JsxSelfClosingElement, context: Context, depth: number): ComponentSample {
   const opening = ts.isJsxElement(node) ? node.openingElement : node
-  const props: Record<string, unknown> = {}
+  const props: SpelledObject = {}
   const skipped = (name: string) => name === "key" || name === "className" || name === "style" || name.startsWith("on")
 
   for (const attribute of opening.attributes.properties) {
@@ -1106,7 +1177,7 @@ function sampleOf(node: ts.JsxElement | ts.JsxSelfClosingElement, context: Conte
     if (ts.isJsxSpreadAttribute(attribute)) {
       const spread = evaluate(attribute.expression, context, 0)
 
-      if (typeof spread !== "object" || spread === null || Array.isArray(spread)) {
+      if (!isSpelledObject(spread)) {
         continue
       }
 
@@ -1142,10 +1213,22 @@ function sampleOf(node: ts.JsxElement | ts.JsxSelfClosingElement, context: Conte
     collectChildren(node.children, context, depth, children)
   }
 
-  return {
-    ...(Object.keys(props).length > 0 ? { props } : {}),
-    ...(children.length > 0 ? { children } : {})
+  return sampleWith(Object.keys(props).length > 0 ? props : undefined, children)
+}
+
+/** A sample of these props and children, leaving out what it doesn't have. */
+function sampleWith(props: SampleProps | undefined, children: SampleChild[] | undefined): ComponentSample {
+  const sample: ComponentSample = {}
+
+  if (props) {
+    sample.props = props
   }
+
+  if (children && children.length > 0) {
+    sample.children = children
+  }
+
+  return sample
 }
 
 /**
@@ -1165,12 +1248,27 @@ function usedSample(
     return here
   }
 
-  const own = sampleOf(wrapper.root as ts.JsxElement | ts.JsxSelfClosingElement, context, depth)
+  // A wrapper's root is the element it returns, as `wrappers` finds them.
+  const root = wrapper.root
 
-  return {
-    ...(own.props ? { props: own.props } : {}),
-    ...((own.children ?? here.children) ? { children: own.children ?? here.children } : {})
+  if (!ts.isJsxElement(root) && !ts.isJsxSelfClosingElement(root)) {
+    return here
   }
+
+  const own = sampleOf(root, context, depth)
+  const sample: ComponentSample = {}
+
+  if (own.props) {
+    sample.props = own.props
+  }
+
+  const children = own.children ?? here.children
+
+  if (children) {
+    sample.children = children
+  }
+
+  return sample
 }
 
 function collectChildren(
@@ -1218,7 +1316,13 @@ function pushElement(
       ts.isJsxElement(element) &&
       element.children.some((child) => ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child))
 
-    children.push({ component: name, ...sample, ...(filled && !sample.children ? { children: [] } : {}) })
+    const placed: SampleElementChild = { component: name, ...sample }
+
+    if (filled && !sample.children) {
+      placed.children = []
+    }
+
+    children.push(placed)
   } else {
     // An HTML element or the example's own component: its text still says what goes there.
     const text = textIn(element)
@@ -1284,7 +1388,7 @@ function pushExpression(expression: ts.Expression, context: Context, depth: numb
 
     const list = listOf(expression.expression.expression, context)
     // A list the file doesn't spell out still shows what goes in it, once.
-    let items: unknown[]
+    let items: Spelled[]
 
     if (Array.isArray(list)) {
       items = list.slice(0, 3)
@@ -1315,7 +1419,7 @@ function pushExpression(expression: ts.Expression, context: Context, depth: numb
 
   const value = evaluate(expression, context, 0)
 
-  if (typeof value === "string" || typeof value === "number") {
+  if (isText(value) || isNumber(value)) {
     children.push(sampleText(String(value)))
   }
 }
@@ -1366,7 +1470,17 @@ function renderOf(
       : []
   )
 
-  return { $render: inner, ...(spread ? { spread: true as const } : {}), ...(pass.length > 0 ? { pass } : {}) }
+  const render: SampleRender = { $render: inner }
+
+  if (spread) {
+    render.spread = true
+  }
+
+  if (pass.length > 0) {
+    render.pass = pass
+  }
+
+  return render
 }
 
 /** The JSX a callback returns, from an expression body or its first `return`. */
@@ -1386,19 +1500,19 @@ function returned(
   return found?.expression ? unwrap(found.expression) : undefined
 }
 
-function bind(name: ts.BindingName | undefined, value: unknown, env: Map<string, unknown>): void {
+function bind(name: ts.BindingName | undefined, value: Spelled, env: Map<string, Spelled>): void {
   if (!name) {
     return
   }
 
   if (ts.isIdentifier(name)) {
     env.set(name.text, value)
-  } else if (ts.isObjectBindingPattern(name) && typeof value === "object" && value !== null) {
+  } else if (ts.isObjectBindingPattern(name) && isSpelledObject(value)) {
     for (const element of name.elements) {
       const key = element.propertyName ?? element.name
 
       if (ts.isIdentifier(key) || ts.isStringLiteral(key)) {
-        bind(element.name, (value as Record<string, unknown>)[key.text], env)
+        bind(element.name, value[key.text], env)
       }
     }
   } else if (ts.isArrayBindingPattern(name) && Array.isArray(value)) {
@@ -1432,13 +1546,16 @@ function declarations(source: ts.SourceFile): Map<string, ts.Expression> {
         }
       }
 
+      const pattern = ts.isArrayBindingPattern(node.name) ? node.name : undefined
+
       const state =
-        ts.isArrayBindingPattern(node.name) &&
         ts.isCallExpression(initializer) &&
         /(?:^|\.)use(?:State|Controllable\w*)$/.test(initializer.expression.getText(source))
+          ? initializer
+          : undefined
 
-      const first = state ? (node.name as ts.ArrayBindingPattern).elements[0] : undefined
-      const argument = state ? (initializer as ts.CallExpression).arguments[0] : undefined
+      const first = pattern && state ? pattern.elements[0] : undefined
+      const argument = pattern && state ? state.arguments[0] : undefined
 
       if (first && !ts.isOmittedExpression(first) && ts.isIdentifier(first.name) && argument) {
         if (!scope.has(first.name.text)) {
@@ -1570,8 +1687,8 @@ function mappedComponents(
  * A sample item for the lists a library keeps, across its examples: the fullest object they hand one of `values`, what
  * the package makes and exports (`toast.add({ title, description })` with Buildkit's `toast`).
  */
-export function exampleItem(files: ExampleFile[], values: Set<string>): Record<string, unknown> | undefined {
-  let best: Record<string, unknown> | undefined
+export function exampleItem(files: ExampleFile[], values: Set<string>): SpelledObject | undefined {
+  let best: SpelledObject | undefined
 
   if (values.size === 0) {
     return undefined
@@ -1598,8 +1715,8 @@ export function exampleItem(files: ExampleFile[], values: Set<string>): Record<s
  * A sample item for the lists a hook returns: the fullest object the file hands one of the hook's results
  * (`toastManager.add({ title, description })`), which is what the library puts in the list.
  */
-function hookItem(source: ts.SourceFile, hooked: Set<string>, context: Context): Record<string, unknown> | undefined {
-  let best: Record<string, unknown> | undefined
+function hookItem(source: ts.SourceFile, hooked: Set<string>, context: Context): SpelledObject | undefined {
+  let best: SpelledObject | undefined
 
   const visit = (node: ts.Node) => {
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
@@ -1612,9 +1729,9 @@ function hookItem(source: ts.SourceFile, hooked: Set<string>, context: Context):
       const argument = node.arguments[0] && unwrap(node.arguments[0])
 
       if (ts.isIdentifier(root) && hooked.has(root.text) && argument && ts.isObjectLiteralExpression(argument)) {
-        const value = evaluate(argument, context, 0) as Record<string, unknown> | undefined
+        const value = evaluate(argument, context, 0)
 
-        if (value && Object.keys(value).length > Object.keys(best ?? {}).length) {
+        if (isSpelledObject(value) && Object.keys(value).length > Object.keys(best ?? {}).length) {
           best = value
         }
       }
@@ -1631,9 +1748,9 @@ function hookItem(source: ts.SourceFile, hooked: Set<string>, context: Context):
 /** The item a map callback gets, with an `id` when it reads one (`key={toast.id}`), as lists key their items. */
 function itemFor(
   callback: ts.ArrowFunction | ts.FunctionExpression,
-  item: Record<string, unknown>,
+  item: SpelledObject,
   source: ts.SourceFile
-): Record<string, unknown> {
+): SpelledObject {
   const name = callback.parameters[0]?.name
   const readsId = !!name && ts.isIdentifier(name) && callback.getText(source).includes(`${name.text}.id`)
 
@@ -1641,8 +1758,8 @@ function itemFor(
 }
 
 /** The props each of the example's own components gets where a hook's list is mapped into it. */
-function drawnProps(source: ts.SourceFile, drawn: Set<string>, context: Context): Map<string, Record<string, unknown>> {
-  const found = new Map<string, Record<string, unknown>>()
+function drawnProps(source: ts.SourceFile, drawn: Set<string>, context: Context): Map<string, SpelledObject> {
+  const found = new Map<string, SpelledObject>()
   const { hooked, hookItem: item } = context
 
   if (drawn.size === 0 || !item || !hooked) {
@@ -1650,7 +1767,7 @@ function drawnProps(source: ts.SourceFile, drawn: Set<string>, context: Context)
   }
 
   const visit = (node: ts.Node) => {
-    const callback = hookMapped(node, hooked, source) ? (node as ts.CallExpression).arguments[0] : undefined
+    const callback = hookMapped(node, hooked, source) && ts.isCallExpression(node) ? node.arguments[0] : undefined
 
     if (!callback || !(ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) {
       ts.forEachChild(node, visit)
@@ -1658,7 +1775,7 @@ function drawnProps(source: ts.SourceFile, drawn: Set<string>, context: Context)
       return
     }
 
-    const env = new Map<string, unknown>()
+    const env = new Map<string, Spelled>()
     bind(callback.parameters[0]?.name, itemFor(callback, item, source), env)
 
     const inner = (child: ts.Node) => {
@@ -1666,7 +1783,7 @@ function drawnProps(source: ts.SourceFile, drawn: Set<string>, context: Context)
         const tag = child.tagName.getText(source)
 
         if (drawn.has(tag) && !found.has(tag)) {
-          const props: Record<string, unknown> = {}
+          const props: SpelledObject = {}
 
           for (const attribute of child.attributes.properties) {
             if (!ts.isJsxAttribute(attribute)) {
@@ -1760,7 +1877,7 @@ function mapCallback(node: ts.Node): ts.ArrowFunction | ts.FunctionExpression | 
  * (`createListCollection({ items })`, `useListCollection({ initialItems })`, where `initialItems` is what `items`
  * starts as). Only lists are read this way, so a prop given the collection itself isn't mistaken for its options.
  */
-function listOf(expression: ts.Expression, context: Context): unknown {
+function listOf(expression: ts.Expression, context: Context): Spelled {
   const value = evaluate(expression, context, 0)
 
   if (value !== undefined) {
@@ -1797,10 +1914,14 @@ function listOf(expression: ts.Expression, context: Context): unknown {
     return undefined
   }
 
-  const options = evaluate(argument, context, 0) as Record<string, unknown> | undefined
+  const options = evaluate(argument, context, 0)
   const field = expression.name.text
 
-  return options?.[field] ?? options?.[`initial${field[0]!.toUpperCase()}${field.slice(1)}`]
+  if (!isSpelledObject(options)) {
+    return undefined
+  }
+
+  return options[field] ?? options[`initial${field[0]!.toUpperCase()}${field.slice(1)}`]
 }
 
 /** Whether a node is `list.map(...)` over a hook's result (`toasts.map`, `manager.toasts.map`, `useItems().map`). */
@@ -1840,7 +1961,7 @@ function unwrap(expression: ts.Expression): ts.Expression {
   return expression
 }
 
-function attributeValue(initializer: ts.JsxAttributeValue | undefined, context: Context): unknown {
+function attributeValue(initializer: ts.JsxAttributeValue | undefined, context: Context): Spelled {
   if (!initializer) {
     return true
   }
@@ -1879,7 +2000,7 @@ function attributeValue(initializer: ts.JsxAttributeValue | undefined, context: 
  * a mapped item's fields, and calls of the package's own functions as `$call`s. Anything else (other calls, functions,
  * imports) is undefined.
  */
-function evaluate(expression: ts.Expression, context: Context, depth: number): unknown {
+function evaluate(expression: ts.Expression, context: Context, depth: number): Spelled {
   if (depth > 6) {
     return undefined
   }
@@ -1897,7 +2018,7 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
     for (const span of expression.templateSpans) {
       const value = evaluate(span.expression, context, depth + 1)
 
-      if (typeof value !== "string" && typeof value !== "number") {
+      if (!isText(value) && !isNumber(value)) {
         return undefined
       }
 
@@ -1940,7 +2061,7 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
     const value = declared ? evaluate(declared, context, depth + 1) : undefined
     const methods = context.calledOn?.get(expression.text)
 
-    return methods && isMadeValue(value) ? { ...value, methods } : value
+    return methods && isSpelledObject(value) && isMade(value) ? { ...value, methods } : value
   }
 
   if (ts.isArrayLiteralExpression(expression)) {
@@ -1962,14 +2083,14 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
   }
 
   if (ts.isObjectLiteralExpression(expression)) {
-    const object: Record<string, unknown> = {}
+    const object: SpelledObject = {}
 
     for (const property of expression.properties) {
       // A spread object the file spells out (`{ ...defaults, size }`) adds its fields, which later ones override.
       if (ts.isSpreadAssignment(property)) {
         const spread = evaluate(property.expression, context, depth + 1)
 
-        if (typeof spread === "object" && spread !== null && !Array.isArray(spread)) {
+        if (isSpelledObject(spread)) {
           Object.assign(object, spread)
         }
 
@@ -1985,7 +2106,7 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
         continue
       }
 
-      let value: unknown
+      let value: Spelled
 
       if (ts.isPropertyAssignment(property)) {
         value = evaluate(property.initializer, context, depth + 1)
@@ -2017,7 +2138,13 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
       return undefined
     }
 
-    return { $call: { import: callee.import, export: callee.export }, ...(args.length > 0 ? { args } : {}) }
+    const call: SpelledObject = { $call: { import: callee.import, export: callee.export } }
+
+    if (args.length > 0) {
+      call.args = args
+    }
+
+    return call
   }
 
   if (ts.isPropertyAccessExpression(expression) || ts.isElementAccessExpression(expression)) {
@@ -2027,11 +2154,25 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): u
       ? expression.name.text
       : evaluate(expression.argumentExpression, context, depth + 1)
 
-    if (typeof object !== "object" || object === null || (typeof key !== "string" && typeof key !== "number")) {
+    // A list by its index or its length; an object by a name or a number, as JavaScript reads them.
+    if (Array.isArray(object)) {
+      if (isNumber(key)) {
+        return object[key]
+      }
+
+      // An index written as a string (`labels["0"]`) reads the same item.
+      if (isText(key) && String(Number(key)) === key) {
+        return object[Number(key)]
+      }
+
+      return key === "length" ? object.length : undefined
+    }
+
+    if (!isSpelledObject(object) || !(isText(key) || isNumber(key))) {
       return undefined
     }
 
-    return (object as Record<string | number, unknown>)[key]
+    return object[key]
   }
 
   return undefined
@@ -2060,7 +2201,7 @@ function sampleWeight(sample: ComponentSample): number {
     children.length * 2 +
     Object.keys(sample.props ?? {}).length +
     children.reduce((sum, child) => {
-      if (typeof child === "string") {
+      if (isText(child)) {
         return sum
       }
 
@@ -2164,9 +2305,11 @@ export function exampleLevels(
       })
     }
 
-    return [...seen]
-      .filter(([, entry]) => entry.count >= placed.length * share)
-      .map(([parent, entry]) => ({ parent, share: entry.count / placed.length, depth: entry.depth / entry.count }))
+    return [...seen].flatMap(([parent, entry]) =>
+      entry.count >= placed.length * share
+        ? [{ parent, share: entry.count / placed.length, depth: entry.depth / entry.count }]
+        : []
+    )
   }
 
   const merged = new Map<string, { parent: string; share: number; depth: number }>()
@@ -2194,7 +2337,7 @@ export function familySample(
   familyIn: (name: string) => string = familyOf
 ): ComponentSample {
   const keep = (child: SampleChild): SampleChild | undefined => {
-    if (typeof child === "string") {
+    if (isText(child)) {
       return child
     }
 
@@ -2204,12 +2347,15 @@ export function familySample(
       return inner.length > 0 ? { ...child, $render: inner } : undefined
     }
 
-    return familyIn(child.component) === family
-      ? { ...child, ...(child.children ? { children: child.children.flatMap((inner) => keep(inner) ?? []) } : {}) }
-      : undefined
+    if (familyIn(child.component) !== family) {
+      return undefined
+    }
+
+    return child.children ? { ...child, children: child.children.flatMap((inner) => keep(inner) ?? []) } : { ...child }
   }
 
-  const children = (sample.children ?? []).flatMap((child) => keep(child) ?? [])
-
-  return { ...(sample.props ? { props: sample.props } : {}), ...(children.length > 0 ? { children } : {}) }
+  return sampleWith(
+    sample.props,
+    (sample.children ?? []).flatMap((child) => keep(child) ?? [])
+  )
 }
