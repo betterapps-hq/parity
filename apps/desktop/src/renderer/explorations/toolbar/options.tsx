@@ -382,6 +382,9 @@ window.addEventListener("pointerup", () => (pointerHeld = false), { capture: tru
 
 window.addEventListener("pointercancel", () => (pointerHeld = false), { capture: true })
 
+// A pointer released outside the window sends no pointerup here, as the canvas's shortcuts allow for.
+window.addEventListener("blur", () => (pointerHeld = false))
+
 /** Whether the canvas in view is on Interact. Other projects' tabs stay mounted, hidden, with their own tools. */
 function interacting(): boolean {
   const shown = [...document.querySelectorAll<HTMLElement>(".canvas-area")].find((area) => !area.closest("[hidden]"))
