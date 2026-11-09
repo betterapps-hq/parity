@@ -143,7 +143,7 @@ const groups: { name: string; entries: Entry[] }[] = [
     name: "Motion",
     entries: [
       { name: "Transition list", Story: composeStories(transitions).OneEntry },
-      { name: "Time", Story: composeStories(time).Token },
+      { name: "Time", Story: composeStories(time).Token, reviewed: true },
       { name: "Easing and spring", Story: composeStories(easing).Preset }
     ]
   },
