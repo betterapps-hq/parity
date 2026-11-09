@@ -257,9 +257,20 @@ export function layoutWrites(draft: Draft): Writes {
       tailwind.push(`grid-cols-[${arbitrary(`repeat(auto-fit, minmax(${draft.columns.fit}px, 1fr))`)}]`)
     }
     if (draft.rows?.length) {
+      const equal = draft.rows.every((track) => track.kind === "fr" && track.value === 1)
       stored.rows = draft.rows
       css.push(`grid-template-rows: ${draft.rows.map(trackCss).join(" ")}`)
-      tailwind.push(`grid-rows-[${tracksClass(draft.rows)}]`)
+      tailwind.push(equal ? `grid-rows-${draft.rows.length}` : `grid-rows-[${tracksClass(draft.rows)}]`)
+    }
+    gapWrites(draft, true, stored, css, tailwind)
+    for (const [key, property, prefix, value] of [
+      ["itemsX", "justify-items", "justify-items", draft.itemsX],
+      ["itemsY", "align-items", "items", draft.itemsY]
+    ] as const) {
+      if (value === undefined || value === "stretch") continue
+      stored[key] = { keyword: value }
+      css.push(`${property}: ${value}`)
+      tailwind.push(`${prefix}-${value}`)
     }
     return { stored, css, tailwind }
   }
@@ -276,7 +287,12 @@ export function layoutWrites(draft: Draft): Writes {
   // The box is physical, so a reversed layout writes the other end.
   const justify = draft.justify ?? "start"
   const written = draft.reverse ? ({ start: "end", center: "center", end: "start" } as const)[justify] : justify
-  if (written !== "start") {
+  if (draft.gap === "auto") {
+    const spread = draft.distribute ?? "between"
+    stored.justify = { keyword: `space-${spread}` }
+    css.push(`justify-content: space-${spread}`)
+    tailwind.push(`justify-${spread}`)
+  } else if (written !== "start") {
     stored.justify = { keyword: written }
     css.push(`justify-content: ${written === "center" ? "center" : "flex-end"}`)
     tailwind.push(`justify-${written}`)
@@ -291,7 +307,46 @@ export function layoutWrites(draft: Draft): Writes {
         "items-baseline-last"
     )
   }
+  if (draft.wrap && draft.lines !== undefined) {
+    stored.lines = { keyword: draft.lines }
+    const value = { center: "center", end: "flex-end", between: "space-between", stretch: "stretch" }[draft.lines]
+    css.push(`align-content: ${value}`)
+    tailwind.push(`content-${draft.lines}`)
+  }
+  gapWrites(draft, draft.wrap ?? false, stored, css, tailwind)
   return { stored, css, tailwind }
+}
+
+/**
+ * A layout's gap: one length, or a column and a row gap once they differ (wrapping, or in a grid). A negative gap is
+ * a negative margin on each child but the last (`-space-x-2`), since CSS's gap can't be negative.
+ */
+function gapWrites(draft: Draft, twoWays: boolean, stored: Record<string, unknown>, css: string[], tailwind: string[]) {
+  const gap = typeof draft.gap === "number" ? draft.gap : undefined
+  const rowGap = twoWays ? draft.rowGap : undefined
+  if (gap !== undefined && gap < 0) {
+    const across = (draft.direction ?? "column") === "row"
+    stored.gap = lengthForm(gap)
+    css.push(`& > :not(:last-child) { margin-${across ? "inline" : "block"}-end: ${lengthCss(gap)} }`)
+    tailwind.push(`-space-${across ? "x" : "y"}-${lengthClass(-gap)}`)
+    if (draft.reverse) tailwind.push(`space-${across ? "x" : "y"}-reverse`)
+    return
+  }
+  if (gap === undefined && rowGap === undefined) return
+  if (rowGap === undefined || rowGap === gap) {
+    stored.gap = lengthForm(gap!)
+    css.push(`gap: ${lengthCss(gap!)}`)
+    tailwind.push(`gap-${lengthClass(gap!)}`)
+    return
+  }
+  if (gap !== undefined) {
+    stored.columnGap = lengthForm(gap)
+    css.push(`column-gap: ${lengthCss(gap)}`)
+    tailwind.push(`gap-x-${lengthClass(gap)}`)
+  }
+  stored.rowGap = lengthForm(rowGap)
+  css.push(`row-gap: ${lengthCss(rowGap)}`)
+  tailwind.push(`gap-y-${lengthClass(rowGap)}`)
 }
 
 /** A grid child's place: span and start lines, or start and end lines, and where it sits in its cell. */

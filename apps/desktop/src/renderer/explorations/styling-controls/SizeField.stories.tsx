@@ -21,7 +21,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 function Size({ start }: { start: Draft }) {
-  const [draft, set] = useDraft({ background: "card", radius: "radius-xl", ...start })
+  const [draft, set] = useDraft({ background: "card", radius: "radius-xl", gap: 12, ...start })
   return (
     <Playground writes={sizeRowWrites(draft)} preview={<LayerPreview draft={draft} />}>
       <SizeSection draft={draft} set={set} />

@@ -1,6 +1,7 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { createContext, type CSSProperties, type ReactNode, useContext, useState } from "react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
+import { type Comparison, Comparisons } from "./comparisons.tsx"
 import { mixColor } from "./css-values.ts"
 import { type Draft, usedColors } from "./data.ts"
 import { ProjectTokens, useTokenSets } from "./field-parts.tsx"
@@ -29,12 +30,15 @@ export function Playground({
   writes,
   preview,
   tokens,
+  comparisons,
   children
 }: {
   writes: Writes
   preview?: ReactNode
   /** Sets the story's project starts with in place of the stand-ins, as `{ duration: [] }` for one with none. */
   tokens?: Partial<TokenSets>
+  /** Other tools' screenshots of the same control, under the rest, for review. */
+  comparisons?: readonly Comparison[]
   children: ReactNode
 }) {
   const only = useContext(ControlOnly)
@@ -62,6 +66,7 @@ export function Playground({
                 {preview}
               </section>
             )}
+            {comparisons && <Comparisons items={comparisons} />}
           </div>
         )}
       </ProjectTokens>

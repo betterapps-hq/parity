@@ -105,6 +105,20 @@ export interface Draft {
   justify?: "start" | "center" | "end"
   /** Where they sit across it; baseline lines up their text's first line, last baseline its last. */
   align?: "start" | "center" | "end" | "stretch" | "baseline" | "last baseline"
+  /**
+   * The space between children in pixels, or Auto, which spreads them out as `distribute` says. Negative overlaps them
+   * (an avatar stack), written as a negative margin, since CSS's gap can't be negative.
+   */
+  gap?: number | "auto"
+  /** The space between wrapped lines, or between a grid's rows; unset, it's the gap. */
+  rowGap?: number
+  /** How an Auto gap spreads the children: space between them (unset), around them, or evenly. */
+  distribute?: "around" | "evenly"
+  /** Where wrapped lines sit when there's room left over: `align-content`; unset packs them at the start. */
+  lines?: "center" | "end" | "between" | "stretch"
+  /** Where a grid's children sit in their cells, across and down: `justify-items`, `align-items`; unset stretches. */
+  itemsX?: SelfAlign
+  itemsY?: SelfAlign
   /** The layer's own size; unset width is 520 pixels, and unset height hugs. */
   width?: Size
   height?: Size

@@ -1,7 +1,6 @@
 import {
   Button,
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
@@ -14,49 +13,25 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Toggle,
-  ToggleGroup,
-  ToggleGroupItem
+  Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
-import {
-  ArrowDown,
-  ArrowDownUp,
-  ArrowRight,
-  ArrowRightLeft,
-  Baseline,
-  ChevronDown,
-  Ellipsis,
-  Grid3x3,
-  LayoutTemplate,
-  Link2,
-  Minus,
-  Plus,
-  Repeat,
-  SlidersHorizontal,
-  Squircle,
-  WrapText,
-  X
-} from "lucide-react"
+import { ChevronDown, LayoutTemplate, Link2, Minus, Plus, Squircle } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { ChoiceInput } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
-import { formatNumber, remPx, type SpotValue, spotKeywords, stepSpacing } from "./css-values.ts"
+import { formatNumber, remPx, stepSpacing } from "./css-values.ts"
 import {
   type Columns,
   type Draft,
   type Length,
   type Radius,
-  type SelfAlign,
   type Size,
   sizeCss,
-  type Track,
   trackCss,
   placementCss,
-  type Span,
-  trackLabel,
   usedColors
 } from "./data.ts"
 import {
@@ -72,7 +47,6 @@ import {
 } from "./field-parts.tsx"
 import { CornerGlyph, EachToggle, Field, SideGlyph } from "./field-row.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
-import { NineSpots } from "./position-box.tsx"
 import { lengthToken } from "./tokens.ts"
 import { readLength } from "./typing.ts"
 import type { StrokePosition } from "./writes.ts"
@@ -92,627 +66,6 @@ export interface SectionProps {
   mixed?: boolean
   /** Set in the state shown (Hover, say), with the way back to the first state's value. */
   changed?: { onReset: () => void }
-}
-
-/**
- * Layout, as PAR-652's panel lays it out: Type with Wrap beside it, and Reverse once it's set from More; the nine-spot
- * box, which stays physical when reversed, with Baseline under it in a row; and a grid's columns as a count until its
- * tracks are edited.
- */
-export function LayoutSection({ draft, set }: SectionProps) {
-  const grid = draft.columns !== undefined
-  const mode = grid ? "grid" : (draft.direction ?? "column")
-  const baseline = isBaseline(draft.align)
-  return (
-    <PanelSection
-      title="Layout"
-      action={
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="More layout options"
-            className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-          >
-            <Ellipsis className="size-3.5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuCheckboxItem
-              checked={draft.reverse ?? false}
-              disabled={grid}
-              onCheckedChange={(reverse) => set({ reverse: reverse || undefined })}
-            >
-              Reverse direction
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      }
-    >
-      <div className="flex flex-col gap-2.5">
-        <Field label="Type">
-          <div className="flex items-center gap-1.5">
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              spacing={0}
-              value={[mode]}
-              onValueChange={([value]) => {
-                if (value === "grid") set({ columns: draft.columns ?? [fr(1), fr(1), fr(1)], rows: draft.rows ?? [] })
-                else if (value) set({ direction: value as "row" | "column", columns: undefined, rows: undefined })
-              }}
-            >
-              <Hint label="Vertical auto layout">
-                <ToggleGroupItem value="column" aria-label="Vertical" className="h-7 px-2">
-                  <ArrowDown />
-                </ToggleGroupItem>
-              </Hint>
-              <Hint label="Horizontal auto layout">
-                <ToggleGroupItem value="row" aria-label="Horizontal" className="h-7 px-2">
-                  <ArrowRight />
-                </ToggleGroupItem>
-              </Hint>
-              <Hint label="Grid">
-                <ToggleGroupItem value="grid" aria-label="Grid" className="h-7 px-2">
-                  <Grid3x3 />
-                </ToggleGroupItem>
-              </Hint>
-            </ToggleGroup>
-            {!grid && (
-              <Hint label="Wrap onto new lines">
-                <Toggle
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2"
-                  aria-label="Wrap"
-                  pressed={draft.wrap ?? false}
-                  onPressedChange={(wrap) => set({ wrap: wrap || undefined })}
-                >
-                  <WrapText />
-                </Toggle>
-              </Hint>
-            )}
-            {!grid && draft.reverse && (
-              <Hint
-                label="Reverse direction"
-                detail="Lays the children out last to first. The reading order no longer matches what's seen."
-              >
-                <Toggle
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2"
-                  aria-label="Reverse direction"
-                  pressed
-                  onPressedChange={(reverse) => set({ reverse: reverse || undefined })}
-                >
-                  {draft.direction === "row" ? <ArrowRightLeft /> : <ArrowDownUp />}
-                </Toggle>
-              </Hint>
-            )}
-          </div>
-        </Field>
-        {grid ? (
-          <>
-            <ColumnsField columns={draft.columns} onChange={(columns) => set({ columns })} />
-            <TracksField label="Rows" tracks={draft.rows ?? []} onChange={(rows) => set({ rows })} />
-          </>
-        ) : (
-          <Field label="Alignment">
-            <div className="flex flex-col items-start gap-1.5">
-              <AlignmentBox draft={draft} set={set} />
-              {(mode === "row" || baseline) && (
-                // Set in a vertical layout, Baseline does nothing, so it stays, dimmed, saying why.
-                <div className={`flex items-center gap-1 ${mode === "row" ? "" : "opacity-50"}`}>
-                  <Hint
-                    label="Align text on its baseline"
-                    detail={
-                      mode === "row"
-                        ? "Lines up the text in each child, on its first line or its last"
-                        : "Does nothing in a vertical layout. Baseline lines up text across a row."
-                    }
-                  >
-                    <Toggle
-                      variant="outline"
-                      size="sm"
-                      className="h-7 gap-1 px-2 text-xs"
-                      aria-label="Align text on its baseline"
-                      pressed={baseline}
-                      onPressedChange={(on) => set({ align: on ? "baseline" : undefined })}
-                    >
-                      <Baseline /> Baseline
-                    </Toggle>
-                  </Hint>
-                  {baseline && (
-                    <ToggleGroup
-                      variant="outline"
-                      size="sm"
-                      spacing={0}
-                      aria-label="Which baseline"
-                      value={[draft.align!]}
-                      onValueChange={([line]) => line && set({ align: line as "baseline" | "last baseline" })}
-                    >
-                      <ToggleGroupItem value="baseline" aria-label="First line" className="h-7 px-2 text-xs">
-                        First
-                      </ToggleGroupItem>
-                      <ToggleGroupItem value="last baseline" aria-label="Last line" className="h-7 px-2 text-xs">
-                        Last
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                  )}
-                </div>
-              )}
-            </div>
-          </Field>
-        )}
-      </div>
-    </PanelSection>
-  )
-}
-
-/** Where a spot of the box sits along an axis of the layout: its start, its center or its end. */
-const flexPlace: Record<SpotValue, "start" | "center" | "end"> = { 0: "start", 50: "center", 100: "end" }
-
-/**
- * The nine-spot box, physical: the top-left spot is the top left whichever way the layout runs. A reversed layout
- * keeps it so, and what's written flips (flex-end for the top of a reversed column), as Webflow's box does.
- */
-function AlignmentBox({ draft, set }: Pick<SectionProps, "draft" | "set">) {
-  const column = (draft.direction ?? "column") === "column"
-  const justify = draft.justify ?? "start"
-  // Unset is stretch, which no spot shows, as in the app's box.
-  const align = draft.align ?? "stretch"
-  // Stretched or on the baseline, children fill the cross axis, so the whole line at their end is lit.
-  const fillsAcross = align === "stretch" || isBaseline(align)
-  // A column runs down, so rows are its main axis; a row runs across, so columns are.
-  const placeOf = (spot: { x: SpotValue; y: SpotValue }) => ({
-    main: column ? flexPlace[spot.y] : flexPlace[spot.x],
-    cross: column ? flexPlace[spot.x] : flexPlace[spot.y]
-  })
-  return (
-    <NineSpots
-      label="Alignment"
-      lit={(spot) => {
-        const { main, cross } = placeOf(spot)
-        return justify === main && (fillsAcross || align === cross)
-      }}
-      spotName={(spot) => `Align ${spotKeywords(spot)}`}
-      onSpot={(spot) => {
-        const { main, cross } = placeOf(spot)
-        set({ justify: main, align: isBaseline(draft.align) ? draft.align : cross })
-      }}
-    />
-  )
-}
-
-const isBaseline = (align: Draft["align"]) => align === "baseline" || align === "last baseline"
-
-const fr = (value: number): Track => ({ kind: "fr", value })
-
-/**
- * A grid's columns: a list of tracks, or with Repeat to fit, as many as fit the width, each at least the width given,
- * the responsive grid Webflow calls auto-fit.
- */
-export function ColumnsField({
-  columns,
-  onChange
-}: {
-  columns: Columns | undefined
-  onChange: (columns: Columns) => void
-}) {
-  const fit = columns !== undefined && !Array.isArray(columns)
-  const [editing, setEditing] = useState(false)
-  const toggle = (
-    <Hint
-      label="Repeat to fit"
-      detail="As many columns as fit the width, each at least a minimum, so the grid reflows on smaller screens"
-    >
-      <Toggle
-        size="sm"
-        className="size-7 min-w-7 shrink-0 p-0"
-        aria-label="Repeat to fit"
-        pressed={fit}
-        onPressedChange={(on) => onChange(on ? { fit: 160 } : [fr(1), fr(1), fr(1)])}
-      >
-        <Repeat />
-      </Toggle>
-    </Hint>
-  )
-  const tracks = Array.isArray(columns) ? columns : []
-  // Equal Fill tracks are a count, as grid-cols-3 writes them, until Edit tracks opens the list.
-  const equal = tracks.length > 0 && tracks.every((track) => track.kind === "fr" && track.value === 1)
-  if (!fit && equal && !editing) {
-    return (
-      <Field label="Columns" hint="Equal columns. Edit tracks to size each one.">
-        <div className="flex items-center gap-1">
-          <div className="min-w-0 flex-1">
-            <Num
-              label="Columns"
-              value={tracks.length}
-              min={1}
-              onChange={(count) => onChange(Array.from({ length: count ?? 1 }, () => fr(1)))}
-            />
-          </div>
-          <Hint label="Edit tracks" detail="Size each column on its own: Fill, Fixed, Hug, Min, Max or a Range">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="size-7"
-              aria-label="Edit tracks"
-              onClick={() => setEditing(true)}
-            >
-              <SlidersHorizontal />
-            </Button>
-          </Hint>
-          {toggle}
-        </div>
-      </Field>
-    )
-  }
-  if (!fit) return <TracksField label="Columns" tracks={tracks} onChange={onChange} after={toggle} />
-  return (
-    <Field label="Columns" hint="As many as fit, each at least this wide">
-      <div className="flex items-center gap-1">
-        <div className="min-w-0 flex-1">
-          <Num
-            label="Least column width"
-            inner="Min"
-            pixels
-            value={columns.fit}
-            min={1}
-            onChange={(least) => onChange({ fit: least ?? 160 })}
-          />
-        </div>
-        {toggle}
-      </div>
-    </Field>
-  )
-}
-
-/** A grid's tracks as chips: each opens to its size, and the last button adds one. */
-export function TracksField({
-  label,
-  tracks,
-  after,
-  onChange
-}: {
-  label: string
-  tracks: Track[]
-  /** A control at the row's end, such as Repeat to fit. */
-  after?: ReactNode
-  onChange: (tracks: Track[]) => void
-}) {
-  const one = label === "Columns" ? "column" : "row"
-  return (
-    <Field label={label} hint={tracks.length === 0 ? "Rows are added as children need them" : undefined}>
-      <div className="flex items-start gap-1">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-          {tracks.length === 0 && <span className="px-1 text-xs text-muted-foreground">Auto</span>}
-          {tracks.map((track, index) => (
-            <TrackChip
-              key={index}
-              name={`${one} ${index + 1}`}
-              track={track}
-              onChange={(next) => onChange(tracks.map((other, at) => (at === index ? next : other)))}
-              onRemove={() => onChange(tracks.filter((_, at) => at !== index))}
-            />
-          ))}
-          <Hint label={`Add a ${one}`}>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="size-7"
-              aria-label={`Add a ${one}`}
-              onClick={() => onChange([...tracks, fr(1)])}
-            >
-              <Plus />
-            </Button>
-          </Hint>
-        </div>
-        {after}
-      </div>
-    </Field>
-  )
-}
-
-function TrackChip({
-  name,
-  track,
-  onChange,
-  onRemove
-}: {
-  name: string
-  track: Track
-  onChange: (track: Track) => void
-  onRemove: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const kinds = [
-    { value: "fr", label: "Fill", detail: "A share of the space left" },
-    { value: "px", label: "Fixed", detail: "A fixed length, typed in px or rem" },
-    { value: "auto", label: "Hug", detail: "As big as its content, sharing any space left" },
-    { value: "min", label: "Min", detail: "As narrow as its content goes, min-content" },
-    { value: "max", label: "Max", detail: "As wide as its content without wrapping, max-content" },
-    { value: "range", label: "Range", detail: "At least a length, then a share of the space left, minmax()" }
-  ] as const
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label={`${name[0]!.toUpperCase()}${name.slice(1)}, ${trackLabel(track)}`}
-            className="h-7 min-w-11 px-2 font-mono text-xs font-normal tabular-nums"
-          >
-            {trackLabel(track)}
-          </Button>
-        }
-      />
-      <PopoverContent className="w-64 gap-2 p-2" align="start">
-        <p className="text-sm font-medium capitalize">{name}</p>
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          spacing={0}
-          className="w-full"
-          value={[track.kind]}
-          onValueChange={([kind]) => {
-            if (kind === "fr") onChange(fr(1))
-            else if (kind === "px") onChange({ kind: "px", value: 200 })
-            else if (kind === "range") onChange({ kind: "range", min: 192, max: 1 })
-            else if (kind === "auto" || kind === "min" || kind === "max") onChange({ kind })
-          }}
-        >
-          {kinds.map((kind) => (
-            <Hint key={kind.value} label={kind.detail}>
-              <ToggleGroupItem value={kind.value} className="h-7 flex-1 text-xs">
-                {kind.label}
-              </ToggleGroupItem>
-            </Hint>
-          ))}
-        </ToggleGroup>
-        {(track.kind === "fr" || track.kind === "px") && (
-          <Num
-            label={track.kind === "fr" ? "Share" : "Width"}
-            suffix={track.kind === "fr" ? "fr" : undefined}
-            pixels={track.kind === "px"}
-            value={track.value}
-            min={track.kind === "fr" ? 1 : 0}
-            onChange={(value) => onChange({ kind: track.kind, value: value ?? 1 })}
-          />
-        )}
-        {track.kind === "range" && (
-          <div className="grid grid-cols-2 gap-1">
-            <Num
-              label="At least"
-              inner="Min"
-              pixels
-              value={track.min}
-              onChange={(min) => onChange({ ...track, min: min ?? 0 })}
-            />
-            <Num
-              label="Share of the space left"
-              inner="Max"
-              suffix="fr"
-              value={track.max}
-              min={1}
-              onChange={(max) => onChange({ ...track, max: max ?? 1 })}
-            />
-          </div>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 justify-start text-xs text-muted-foreground"
-          onClick={onRemove}
-        >
-          <X /> Remove {name}
-        </Button>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-const selfOptions = {
-  align: [
-    { value: "start", label: "Top" },
-    { value: "center", label: "Middle" },
-    { value: "end", label: "Bottom" },
-    { value: "stretch", label: "Stretch" }
-  ],
-  justify: [
-    { value: "start", label: "Left" },
-    { value: "center", label: "Center" },
-    { value: "end", label: "Right" },
-    { value: "stretch", label: "Stretch" }
-  ]
-} as const
-
-/**
- * Size for a child of a grid, as PAR-652's panel adds its rows: W and H, Align self and Justify self, then Span with the
- * start lines beside it. End lines and an area are under More.
- */
-export function ChildSizeSection({ draft, set }: SectionProps) {
-  const measured = useMeasured("[data-layer='Pro plan']")
-  const endLines = draft.endLines ?? false
-  return (
-    <PanelSection
-      title="Size"
-      action={
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="More size options"
-            className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-          >
-            <Ellipsis className="size-3.5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuCheckboxItem
-              checked={endLines}
-              onCheckedChange={(on) =>
-                set(
-                  on
-                    ? {
-                        endLines: true,
-                        colEnd: endOf(draft.colStart, draft.colSpan),
-                        rowEnd: endOf(draft.rowStart, draft.rowSpan)
-                      }
-                    : { endLines: undefined, colEnd: undefined, rowEnd: undefined }
-                )
-              }
-            >
-              End lines
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuItem disabled className="justify-between">
-              Area <span className="text-xs text-muted-foreground">None in Plans</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      }
-    >
-      <div className="flex flex-col gap-2.5">
-        <div className="grid grid-cols-2 items-start gap-1 pr-1">
-          <SizeField
-            axis="Width"
-            value={draft.childWidth ?? "fill"}
-            measured={measured?.width}
-            parent={measured?.parent}
-            onChange={(childWidth) => set({ childWidth })}
-          />
-          <SizeField
-            axis="Height"
-            value={draft.childHeight ?? "fill"}
-            measured={measured?.height}
-            parent={undefined}
-            onChange={(childHeight) => set({ childHeight })}
-          />
-        </div>
-        {/* Unset shows what it comes to, muted: the grid stretches Pro plan, or starts it once it has a size that way. */}
-        <Field label="Align self" hint="Where Pro plan sits in its cell, top to bottom. Unset follows Plans' grid.">
-          <ChoiceInput
-            value={draft.alignSelf}
-            options={[...selfOptions.align]}
-            placeholder={(draft.childHeight ?? "fill") === "fill" ? "Stretch" : "Top"}
-            onChange={(alignSelf) => set({ alignSelf: alignSelf as SelfAlign | undefined })}
-          />
-        </Field>
-        <Field label="Justify self" hint="Where Pro plan sits in its cell, left to right. Unset follows Plans' grid.">
-          <ChoiceInput
-            value={draft.justifySelf}
-            options={[...selfOptions.justify]}
-            placeholder={(draft.childWidth ?? "fill") === "fill" ? "Stretch" : "Left"}
-            onChange={(justifySelf) => set({ justifySelf: justifySelf as SelfAlign | undefined })}
-          />
-        </Field>
-        <AxisPlacement
-          axis="Columns"
-          start={draft.colStart}
-          span={draft.colSpan}
-          end={endLines ? draft.colEnd : undefined}
-          endLines={endLines}
-          onChange={(colStart, colSpan, colEnd) => set({ colStart, colSpan, colEnd })}
-        />
-        <AxisPlacement
-          axis="Rows"
-          start={draft.rowStart}
-          span={draft.rowSpan}
-          end={endLines ? draft.rowEnd : undefined}
-          endLines={endLines}
-          onChange={(rowStart, rowSpan, rowEnd) => set({ rowStart, rowSpan, rowEnd })}
-        />
-      </div>
-    </PanelSection>
-  )
-}
-
-/** The line a span ends at, for switching to end lines without moving the child: start 2, span 2 ends at 4. */
-function endOf(start: number | undefined, span: Span | undefined): number | undefined {
-  if (start === undefined || start < 0 || span === "all") return undefined
-  return start + (span ?? 1)
-}
-
-/**
- * One axis of a grid child's place: Span, with the line it starts at beside it (from 1, or from the end when negative,
- * -1 being after the last), or All for every track, as a header across the whole grid wants. With End lines from More,
- * Start and End take Span's place.
- */
-function AxisPlacement({
-  axis,
-  start,
-  span,
-  end,
-  endLines,
-  onChange
-}: {
-  axis: "Columns" | "Rows"
-  start: number | undefined
-  span: Span | undefined
-  end: number | undefined
-  endLines: boolean
-  onChange: (start: number | undefined, span: Span | undefined, end: number | undefined) => void
-}) {
-  const all = span === "all"
-  const tracks = axis.toLowerCase()
-  const one = axis === "Columns" ? "Column" : "Row"
-  // Line 0 doesn't exist; it counts as unset.
-  const line = (next: number | undefined) => (next === 0 ? undefined : next)
-  const startField = (
-    <Num
-      label={`${one} start line`}
-      inner="Start"
-      value={start}
-      placeholder="Auto"
-      min={-99}
-      onChange={(next) => onChange(line(next), span, end)}
-    />
-  )
-  return (
-    <Field label={axis} hint={`A negative line counts from the end: -1 is after the last of the ${tracks}`}>
-      <div className="flex items-center gap-1">
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1">
-          {all && (
-            <span className="col-span-2 flex h-7 items-center px-1.5 text-xs text-muted-foreground">
-              Across all {tracks}
-            </span>
-          )}
-          {!all && endLines && (
-            <>
-              {startField}
-              <Num
-                label={`${one} end line`}
-                inner="End"
-                value={end}
-                placeholder="Auto"
-                min={-99}
-                onChange={(next) => onChange(start, span, line(next))}
-              />
-            </>
-          )}
-          {!all && !endLines && (
-            <>
-              <Num
-                label={`${tracks[0]!.toUpperCase()}${tracks.slice(1)} spanned`}
-                inner="Span"
-                value={span as number | undefined}
-                placeholder="1"
-                min={1}
-                onChange={(next) => onChange(start, next, end)}
-              />
-              {startField}
-            </>
-          )}
-        </div>
-        <Hint label={`Span all ${tracks}`}>
-          <Toggle
-            size="sm"
-            className="h-7 shrink-0 px-2 text-xs"
-            aria-label={`Span all ${tracks}`}
-            pressed={all}
-            onPressedChange={(on) => onChange(on ? undefined : start, on ? "all" : undefined, undefined)}
-          >
-            All
-          </Toggle>
-        </Hint>
-      </div>
-    </Field>
-  )
 }
 
 /**
@@ -829,7 +182,7 @@ export function SizeSection({ draft, set }: SectionProps) {
 }
 
 /** A layer's drawn size and its parent's width, kept up to date as it changes. */
-function useMeasured(selector: string): { width: number; height: number; parent: number } | undefined {
+export function useMeasured(selector: string): { width: number; height: number; parent: number } | undefined {
   const [size, setSize] = useState<{ width: number; height: number; parent: number }>()
   useEffect(() => {
     const element = document.querySelector<HTMLElement>(selector)
@@ -1998,6 +1351,8 @@ const flexValues = {
   "last baseline": "last baseline"
 } as const
 
+const linesValues = { center: "center", end: "flex-end", between: "space-between", stretch: "stretch" } as const
+
 /** A grid child's own size: unset or Fill stretches it across its cell, which writes nothing. */
 const cellSize = (size: Size | undefined) => (size === undefined || size === "fill" ? undefined : sizeCss(size))
 
@@ -2026,15 +1381,23 @@ export function LayerPreview({
   const direction = `${draft.direction ?? "column"}${draft.reverse ? "-reverse" : ""}` as const
   // The box is physical, so a reversed layout writes the other end: its top is flex-end.
   const justify = draft.reverse ? flipped[draft.justify ?? "start"] : (draft.justify ?? "start")
+  const gap = typeof draft.gap === "number" ? draft.gap : 0
+  // A negative gap overlaps the children, as the negative margin it's written as does.
+  const overlap =
+    !grid && gap < 0 ? { [(draft.direction ?? "column") === "row" ? "marginInlineEnd" : "marginBlockEnd"]: gap } : {}
+  const spread = draft.gap === "auto" ? `space-${draft.distribute ?? "between"}` : flexValues[justify]
   const style: CSSProperties = {
     display: grid ? "grid" : "flex",
     flexDirection: grid ? undefined : direction,
     flexWrap: draft.wrap ? "wrap" : undefined,
-    justifyContent: grid ? undefined : flexValues[justify],
-    alignItems: grid ? undefined : flexValues[draft.align ?? "stretch"],
+    justifyContent: grid ? undefined : spread,
+    alignItems: grid ? draft.itemsY : flexValues[draft.align ?? "stretch"],
+    justifyItems: grid ? draft.itemsX : undefined,
+    alignContent: !grid && draft.wrap && draft.lines ? linesValues[draft.lines] : undefined,
     gridTemplateColumns: columnsCss(draft.columns),
     gridTemplateRows: draft.rows?.length ? draft.rows.map(trackCss).join(" ") : undefined,
-    gap: 12,
+    columnGap: Math.max(0, gap),
+    rowGap: draft.rowGap ?? Math.max(0, gap),
     padding: 20,
     width: sizeCss(draft.width ?? 520),
     // A ratio only takes hold when one axis is left to it.
@@ -2053,7 +1416,7 @@ export function LayerPreview({
     // Plans' parent, wider than Plans, so Fill and a percentage show; it hugs Plans' height.
     <PreviewStage around>
       <section aria-label="Plans" className="relative outline outline-offset-0" style={style}>
-        <Tag className="m-0 text-base font-semibold" style={grid ? { gridColumn: "1 / -1" } : undefined}>
+        <Tag className="m-0 text-base font-semibold" style={grid ? { gridColumn: "1 / -1" } : overlap}>
           Simple pricing for every team
         </Tag>
         {["Hobby", "Pro plan", "Team"].map((name) => {
@@ -2082,7 +1445,7 @@ export function LayerPreview({
                       width: cellSize(draft.childWidth),
                       height: cellSize(draft.childHeight)
                     }
-                  : { fontSize: pro ? 20 : 14 })
+                  : { fontSize: pro ? 20 : 14, ...(name === "Team" ? {} : overlap) })
               }}
             >
               {name}
