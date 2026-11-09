@@ -82,6 +82,7 @@ describe("createLogFileSink", () => {
     sink.event(envelope("tab.closed", "info"))
     sink.event(envelope("app.crashed", "fatal"))
     const lines = readFileSync(file, "utf8").trimEnd().split("\n")
+    // SAFETY: the sink writes each line from an envelope it was given.
     expect(lines.map((line) => (JSON.parse(line) as Envelope).name)).toEqual([
       "tab.opened",
       "tab.closed",
@@ -109,6 +110,7 @@ describe("createLogFileSink", () => {
     const sink = createLogFileSink(logs, { testRun: "ci-42" })
     sink.event(envelope("tab.opened", "info"))
     sink.flush()
+    // SAFETY: the sink writes the line from an envelope, with the run's `testRun` beside it.
     const line = JSON.parse(readFileSync(join(folder, "parity-2026-11-06.jsonl"), "utf8")) as { testRun?: string }
     expect(line.testRun).toBe("ci-42")
   })

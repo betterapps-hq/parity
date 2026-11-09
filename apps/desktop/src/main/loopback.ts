@@ -1,4 +1,5 @@
 import { createServer } from "node:http"
+import { isText } from "@parity-app/core/values/evaluate"
 import { type HandBack, handBackHtml } from "../shared/hand-back-page.ts"
 import type { Redirect } from "./account.ts"
 
@@ -42,7 +43,7 @@ export async function listenOnLoopback(take: (link: string) => Promise<HandBack 
   })
   const address = server.address()
 
-  if (!address || typeof address === "string") {
+  if (!address || isText(address)) {
     throw new Error("The sign-in listener has no port")
   }
 
