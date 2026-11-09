@@ -28,6 +28,24 @@ export interface EventContext {
 }
 
 /**
+ * One attribute's value, as an event's schema allows: text, a number, a flag, nothing, or lists and objects of them.
+ * An optional attribute that isn't given is `undefined`.
+ */
+export type AttributeValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | readonly AttributeValue[]
+  | { readonly [field: string]: AttributeValue }
+
+/** An event's attributes, by name. */
+export interface Attributes {
+  [name: string]: AttributeValue
+}
+
+/**
  * One recorded event, as every sink receives it. `time` is when it happened, or when a span started, in ISO 8601.
  * A span's event also has its `durationMs`, `outcome` and, under another span, `parentSpanId`.
  */
@@ -40,8 +58,20 @@ export interface Envelope extends EventContext {
   parentSpanId?: string
   durationMs?: number
   outcome?: Outcome
-  attributes: Record<string, unknown>
+  attributes: Attributes
 }
+
+const attributeValue: z.ZodType<AttributeValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.undefined(),
+    z.array(attributeValue),
+    z.record(z.string(), attributeValue)
+  ])
+)
 
 const hex = (length: number) => z.string().regex(new RegExp(`^[0-9a-f]{${length}}$`))
 
@@ -63,7 +93,7 @@ export const envelopeSchema: z.ZodType<Envelope> = z.object({
   parentSpanId: hex(16).optional(),
   durationMs: z.number().nonnegative().optional(),
   outcome: z.enum(["ok", "error", "cancelled"]).optional(),
-  attributes: z.record(z.string(), z.unknown())
+  attributes: z.record(z.string(), attributeValue)
 })
 
 /** A span's event, once it has ended. */

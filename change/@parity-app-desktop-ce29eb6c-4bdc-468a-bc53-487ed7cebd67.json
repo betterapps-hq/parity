@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Bring packages/telemetry up to Buildkit's lint rules",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

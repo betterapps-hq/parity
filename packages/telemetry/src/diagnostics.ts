@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { Envelope } from "./envelope.ts"
+import type { Attributes, Envelope } from "./envelope.ts"
 import { defineEvent } from "./events.ts"
 
 /*
@@ -17,6 +17,9 @@ export const reportLogsMs = 60 * 60 * 1000
 /** How many of a crashed run's last events go with its crash. */
 const crashEventsKept = 200
 
+/** What a line needs to count as an event: its name and time, as text. */
+const loggedLine = z.object({ name: z.string(), time: z.string() })
+
 /** The events in a log file's text, one JSON object a line. Lines that aren't events, as one cut short, are skipped. */
 export function parseLogLines(text: string): LoggedEvent[] {
   const events: LoggedEvent[] = []
@@ -27,10 +30,12 @@ export function parseLogLines(text: string): LoggedEvent[] {
     }
 
     try {
-      const event = JSON.parse(line) as LoggedEvent
+      const event = JSON.parse(line)
 
-      if (typeof event?.name === "string" && typeof event.time === "string") {
-        events.push(event)
+      if (loggedLine.safeParse(event).success) {
+        // SAFETY: main writes each line from an envelope, so a line with a name and a time is one; only those are
+        // checked, so a line from another version still reads.
+        events.push(event as LoggedEvent)
       }
     } catch {
       // A line cut short by a crash or a full disk.
@@ -46,7 +51,7 @@ export interface Crash {
   /** The time of its last event, in ISO 8601: as close as the local copy gets to when it stopped. */
   time: string
   /** Its last error, if it recorded one before it stopped. */
-  lastError?: { name: string; time: string; attributes: Record<string, unknown> }
+  lastError?: { name: string; time: string; attributes: Attributes }
   /** Its last events, oldest first. */
   events: LoggedEvent[]
 }
@@ -82,12 +87,12 @@ export function lastRunCrash(events: readonly LoggedEvent[], current: string): C
 
   const error = run.findLast((event) => event.level === "error" || event.level === "fatal")
 
-  return {
-    sessionId: last,
-    time: lastEvent.time,
-    ...(error ? { lastError: { name: error.name, time: error.time, attributes: error.attributes } } : {}),
-    events: run.slice(-crashEventsKept)
-  }
+  const crash = { sessionId: last, time: lastEvent.time }
+  const kept = run.slice(-crashEventsKept)
+
+  return error
+    ? { ...crash, lastError: { name: error.name, time: error.time, attributes: error.attributes }, events: kept }
+    : { ...crash, events: kept }
 }
 
 /** The versions a report names: Parity's, and what it runs on. */

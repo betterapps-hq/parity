@@ -61,7 +61,7 @@ function attributesOf(event: string, schema: JsonSchema, prefix = "", parentOpti
     const name = `${prefix}${key}`
     const optional = parentOptional || !required.has(key)
 
-    if (typeof field === "boolean") {
+    if (field === true || field === false) {
       throw new Error(`${event}'s attribute ${name} has no schema to describe it by`)
     }
 
@@ -81,8 +81,12 @@ function attributesOf(event: string, schema: JsonSchema, prefix = "", parentOpti
 
 /** A JSON Schema's type as TypeScript writes it. */
 function typeOf(schema: JsonSchema | boolean): string {
-  if (typeof schema === "boolean") {
-    return schema ? "unknown" : "never"
+  if (schema === true) {
+    return "unknown"
+  }
+
+  if (schema === false) {
+    return "never"
   }
 
   if (schema.const !== undefined) {

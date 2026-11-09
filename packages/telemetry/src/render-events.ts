@@ -133,15 +133,18 @@ interface Tally {
   misses: number
 }
 
+/** Counts the bitmap cache's lookups, and reports them when there are new ones. */
+export interface CacheCounter {
+  frame(hit: boolean): void
+  preview(hit: boolean): void
+  report(): z.input<typeof bitmapCacheUsed.schema> | undefined
+}
+
 /**
  * Counts the bitmap cache's lookups for a session, and gives `bitmapCache.used`'s attributes when `report` is called
  * after any lookup since the last report; nothing otherwise, so an idle session sends nothing.
  */
-export function cacheCounter(): {
-  frame(hit: boolean): void
-  preview(hit: boolean): void
-  report(): z.input<typeof bitmapCacheUsed.schema> | undefined
-} {
+export function cacheCounter(): CacheCounter {
   const frames: Tally = { hits: 0, misses: 0 }
   const previews: Tally = { hits: 0, misses: 0 }
   let changed = false
