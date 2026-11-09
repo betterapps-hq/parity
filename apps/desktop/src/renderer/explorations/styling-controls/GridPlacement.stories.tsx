@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { gridPlacementComparisons } from "./comparisons.tsx"
+import { gridPlacementComparisons, gridPlacementPoints } from "./comparisons.tsx"
 import { LayerPreview } from "./controls.tsx"
 import type { Draft, Track } from "./data.ts"
 import { ChildSizeSection } from "./layout-controls.tsx"
@@ -38,6 +38,7 @@ function Placement({ start }: { start: Draft }) {
   return (
     <Playground
       comparisons={gridPlacementComparisons}
+      points={gridPlacementPoints}
       writes={placementWrites(draft)}
       preview={<LayerPreview draft={draft} childSelected={selected} onSelectChild={setSelected} />}
     >

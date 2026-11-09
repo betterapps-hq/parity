@@ -46,6 +46,7 @@ import {
   ValueField
 } from "./field-parts.tsx"
 import { CornerGlyph, EachToggle, Field, SideGlyph } from "./field-row.tsx"
+import { HighlightOverlay } from "./highlight.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
 import { lengthToken } from "./tokens.ts"
 import { readLength } from "./typing.ts"
@@ -1385,6 +1386,8 @@ export function LayerPreview({
   onSelectChild?: (selected: boolean) => void
 }) {
   const sets = useTokenSets()
+  // The layout, for what's highlighted on it to be measured against.
+  const [layout, setLayout] = useState<HTMLElement | null>(null)
   const grid = draft.columns !== undefined
   const Tag = (draft.tag ?? "p") as "p"
   const direction = `${draft.direction ?? "column"}${draft.reverse ? "-reverse" : ""}` as const
@@ -1405,6 +1408,7 @@ export function LayerPreview({
     alignContent: !grid && draft.wrap && draft.lines ? linesValues[draft.lines] : undefined,
     gridTemplateColumns: columnsCss(draft.columns),
     gridTemplateRows: draft.rows?.length ? draft.rows.map(trackCss).join(" ") : undefined,
+    gridAutoFlow: grid && draft.dense ? "dense" : undefined,
     columnGap: Math.max(0, gap),
     rowGap: draft.rowGap ?? Math.max(0, gap),
     padding: 20,
@@ -1424,7 +1428,8 @@ export function LayerPreview({
   return (
     // Plans' parent, wider than Plans, so Fill and a percentage show; it hugs Plans' height.
     <PreviewStage around>
-      <section aria-label="Plans" className="relative outline outline-offset-0" style={style}>
+      <section ref={setLayout} aria-label="Plans" className="relative outline outline-offset-0" style={style}>
+        <HighlightOverlay layout={layout} color={kindColors.layer} />
         <Tag className="m-0 text-base font-semibold" style={grid ? { gridColumn: "1 / -1" } : overlap}>
           Simple pricing for every team
         </Tag>

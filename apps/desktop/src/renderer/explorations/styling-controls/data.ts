@@ -10,6 +10,8 @@ export const usedColors = ["#f54900", "#009689", "#ffb900", "#2f6fed"]
 export type Track =
   | { kind: "fr"; value: number }
   | { kind: "px"; value: number }
+  /** A share of the grid's own size, as Penpot's % tracks are. */
+  | { kind: "percent"; value: number }
   | { kind: "auto" }
   | { kind: "min" }
   | { kind: "max" }
@@ -29,6 +31,7 @@ const fillLabel = (share: number) => (share === 1 ? "Fill" : `Fill ×${share}`)
 export const trackLabel = (track: Track): string => {
   if (track.kind === "fr") return fillLabel(track.value)
   if (track.kind === "px") return String(track.value)
+  if (track.kind === "percent") return `${track.value}%`
   if (track.kind === "range") return `${track.min}–${fillLabel(track.max)}`
   return contentTracks[track.kind].label
 }
@@ -37,6 +40,7 @@ export const trackLabel = (track: Track): string => {
 export const trackCss = (track: Track): string => {
   if (track.kind === "fr") return `minmax(0, ${track.value}fr)`
   if (track.kind === "px") return `${track.value}px`
+  if (track.kind === "percent") return `${track.value}%`
   if (track.kind === "range") return `minmax(${track.min}px, ${track.max}fr)`
   return contentTracks[track.kind].css
 }
@@ -116,6 +120,8 @@ export interface Draft {
   distribute?: "around" | "evenly"
   /** Where wrapped lines sit when there's room left over: `align-content`; unset packs them at the start. */
   lines?: "center" | "end" | "between" | "stretch"
+  /** A grid packs its children densely, later ones filling earlier gaps (`grid-auto-flow: dense`). */
+  dense?: boolean
   /** Where a grid's children sit in their cells, across and down: `justify-items`, `align-items`; unset stretches. */
   itemsX?: SelfAlign
   itemsY?: SelfAlign

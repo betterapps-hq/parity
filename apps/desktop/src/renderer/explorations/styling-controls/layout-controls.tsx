@@ -23,10 +23,13 @@ import {
   AlignStartHorizontal,
   AlignStartVertical,
   ArrowDown,
+  ArrowLeft,
   ArrowDownUp,
   ArrowRight,
   ArrowRightLeft,
+  ArrowUp,
   Baseline,
+  Copy,
   CornerDownLeft,
   Ellipsis,
   LayoutGrid,
@@ -36,7 +39,15 @@ import {
   StretchVertical,
   X
 } from "lucide-react"
-import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
+import {
+  type CSSProperties,
+  Fragment,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  useRef,
+  useState
+} from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
@@ -45,6 +56,7 @@ import { clamp, formatNumber, remPx, stepSpacing } from "./css-values.ts"
 import { type Columns, type Draft, type SelfAlign, type Span, type Track, trackLabel } from "./data.ts"
 import { drag, type Reading, type ScrubKeys, unitButtonClass, UnitMenu, ValueField } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
+import { useHighlight } from "./highlight.tsx"
 import { readLength } from "./typing.ts"
 
 /*
@@ -108,13 +120,26 @@ export function LayoutSection({ draft, set }: SectionProps) {
       title="Layout"
       action={
         <MoreMenu label="More layout options">
-          <DropdownMenuCheckboxItem
-            checked={draft.reverse ?? false}
-            disabled={grid}
-            onCheckedChange={(reverse) => set({ reverse: reverse || undefined })}
-          >
-            Reverse direction
-          </DropdownMenuCheckboxItem>
+          {grid ? (
+            <DropdownMenuCheckboxItem
+              checked={draft.dense ?? false}
+              onCheckedChange={(dense) => set({ dense: dense || undefined })}
+            >
+              <span className="flex flex-col">
+                Fill gaps
+                <span className="text-2xs text-muted-foreground">
+                  Later children fill earlier empty cells, so the order seen can differ from the reading order
+                </span>
+              </span>
+            </DropdownMenuCheckboxItem>
+          ) : (
+            <DropdownMenuCheckboxItem
+              checked={draft.reverse ?? false}
+              onCheckedChange={(reverse) => set({ reverse: reverse || undefined })}
+            >
+              Reverse direction
+            </DropdownMenuCheckboxItem>
+          )}
         </MoreMenu>
       }
     >
@@ -213,7 +238,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
           </Field>
           <div className="flex min-w-0 flex-col gap-2.5">
             <Field half label="Gap">
-              <div className="flex flex-col gap-1">
+              <GapHighlight>
                 <GapField
                   label={gapName(grid, row, draft.wrap ?? false)}
                   across={grid || row}
@@ -235,7 +260,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
                     onChange={(rowGap) => set({ rowGap: typeof rowGap === "number" ? rowGap : undefined })}
                   />
                 )}
-              </div>
+              </GapHighlight>
             </Field>
             {!grid && (row || isBaseline(draft.align)) && <BaselineRow draft={draft} set={set} />}
           </div>
@@ -279,6 +304,23 @@ export function LayoutSection({ draft, set }: SectionProps) {
 function gapName(grid: boolean, row: boolean, wraps: boolean) {
   if (!grid && !wraps) return "Gap"
   return grid || row ? "Gap between columns" : "Gap between rows"
+}
+
+/** Gap's fields, which highlight the gaps on the canvas while they're hovered or focused, as Penpot's do. */
+function GapHighlight({ children }: { children: ReactNode }) {
+  const { setHighlight } = useHighlight()
+  return (
+    // The fields inside take the focus; this only listens, so the gaps stay lit while either is in use.
+    <div
+      className="flex flex-col gap-1"
+      onPointerEnter={() => setHighlight({ kind: "gap" })}
+      onPointerLeave={() => setHighlight(undefined)}
+      onFocus={() => setHighlight({ kind: "gap" })}
+      onBlur={() => setHighlight(undefined)}
+    >
+      {children}
+    </div>
+  )
 }
 
 const undefinedIfAuto = (gap: Draft["gap"]) => (gap === "auto" ? undefined : gap)
@@ -768,6 +810,7 @@ const gapPx = (gap: Draft["gap"]) => (typeof gap === "number" ? Math.max(0, gap)
 export function trackWeights(tracks: Track[], room = contentWidth): number[] {
   const fixed = tracks.reduce((sum, track) => {
     if (track.kind === "px") return sum + track.value
+    if (track.kind === "percent") return sum + (track.value / 100) * room
     if (track.kind === "range") return sum + track.min
     if (track.kind === "fr") return sum
     return sum + contentTrack
@@ -780,6 +823,7 @@ export function trackWeights(tracks: Track[], room = contentWidth): number[] {
   const perShare = shares === 0 ? 0 : left / shares
   return tracks.map((track) => {
     if (track.kind === "px") return track.value
+    if (track.kind === "percent") return (track.value / 100) * room
     if (track.kind === "fr") return Math.max(24, track.value * perShare)
     if (track.kind === "range") return track.min + track.max * perShare
     return contentTrack
@@ -981,9 +1025,111 @@ function GridPicker({
   )
 }
 
+/** A track as CSS-like text, as its size field shows it to edit: `1fr`, `200px`, `50%`, `auto`, `minmax(120px, 1fr)`. */
+function trackText(track: Track): string {
+  if (track.kind === "fr") return `${formatNumber(track.value)}fr`
+  if (track.kind === "px") return `${formatNumber(track.value)}px`
+  if (track.kind === "percent") return `${formatNumber(track.value)}%`
+  if (track.kind === "range") return `minmax(${track.min}px, ${formatNumber(track.max)}fr)`
+  return { auto: "auto", min: "min-content", max: "max-content" }[track.kind]
+}
+
+const number = String.raw`(\d*\.?\d+)`
+
 /**
- * The tracks as a strip, each as wide as it'd be at Plans' width, so a 200-pixel column and Fill ×2 look it; each is a
- * button that opens its size, with Add before, Add after and Remove. Add a column is after the strip. Fitted, it only
+ * A track typed as CSS writes it, or in the panel's words: `2fr` or Fill, `200`, `200px` or `12.5rem`, `50%`, `auto`
+ * or Hug, `min-content` or Min, `max-content` or Max, and a range as `minmax(120px, 1fr)` or `120-1fr`.
+ */
+function readTrack(text: string): Reading<Track> {
+  const typed = text.trim().toLowerCase()
+  const words: Record<string, Track> = {
+    fill: fr(1),
+    auto: { kind: "auto" },
+    hug: { kind: "auto" },
+    min: { kind: "min" },
+    "min-content": { kind: "min" },
+    max: { kind: "max" },
+    "max-content": { kind: "max" }
+  }
+  if (words[typed]) return { value: words[typed] }
+  const match = (pattern: string) => new RegExp(`^${pattern}$`).exec(typed)
+  const share = match(`${number}\\s*fr`)
+  if (share) return { value: fr(Math.max(0.25, Number(share[1]))) }
+  const percent = match(`${number}\\s*%`)
+  if (percent) return { value: { kind: "percent", value: Number(percent[1]) } }
+  const rem = match(`${number}\\s*rem`)
+  if (rem) return { value: { kind: "px", value: Number(rem[1]) * remPx } }
+  const pixels = match(`${number}\\s*(?:px)?`)
+  if (pixels) return { value: { kind: "px", value: Number(pixels[1]) } }
+  const range =
+    match(`minmax\\(\\s*${number}\\s*(?:px)?\\s*,\\s*${number}\\s*fr\\s*\\)`) ??
+    match(`${number}\\s*[-–]\\s*${number}?\\s*(?:fr|fill)`)
+  if (range) return { value: { kind: "range", min: Number(range[1]), max: Number(range[2] ?? 1) } }
+  return { reason: "A track takes 1fr, 200px, 50%, auto, min-content, max-content or minmax(120px, 1fr)" }
+}
+
+/** Steps a track's size by its own unit: a share by one, pixels by one or ten, a percentage by one. */
+function stepTrack(track: Track, up: boolean, shift: boolean): Track {
+  const by = (up ? 1 : -1) * (shift ? 10 : 1)
+  if (track.kind === "fr") return fr(Math.max(1, track.value + (up ? 1 : -1)))
+  if (track.kind === "px") return { kind: "px", value: Math.max(0, track.value + by) }
+  if (track.kind === "percent") return { kind: "percent", value: clamp(track.value + by, 0, 100) }
+  if (track.kind === "range") return { ...track, min: Math.max(0, track.min + by) }
+  return track
+}
+
+/** A track at a new width in the strip, keeping its kind: pixels, a percentage, or a range's least width. */
+function sized(track: Track, from: number, to: number): Track {
+  if (track.kind === "px") return { kind: "px", value: Math.round(to) }
+  if (track.kind === "percent") return { kind: "percent", value: Math.round((to / contentWidth) * 1000) / 10 }
+  if (track.kind === "range") return { ...track, min: Math.max(0, Math.round(track.min + to - from)) }
+  if (track.kind === "fr") return track
+  // A track sized by its content has no width to change, so dragging it gives it one, as Fixed.
+  return { kind: "px", value: Math.round(to) }
+}
+
+/**
+ * The tracks after the line between `index` and the next is dragged by `by` pixels at Plans' width. Two Fill tracks
+ * trade their shares, in quarters, so they stay Fill; a Fill track beside a sized one stays as it is and takes up the
+ * difference; sized tracks keep their kinds at their new widths.
+ */
+function resized(tracks: Track[], weights: number[], index: number, by: number): Track[] {
+  const [one, next] = [tracks[index]!, tracks[index + 1]!]
+  const [oneWidth, nextWidth] = [weights[index]!, weights[index + 1]!]
+  const both = oneWidth + nextWidth
+  const oneTo = clamp(oneWidth + by, 24, both - 24)
+  const copy = [...tracks]
+  if (one.kind === "fr" && next.kind === "fr") {
+    const shares = one.value + next.value
+    const oneShare = clamp(Math.round(((shares * oneTo) / both) * 4) / 4, 0.25, shares - 0.25)
+    copy[index] = fr(oneShare)
+    copy[index + 1] = fr(Math.round((shares - oneShare) * 4) / 4)
+    return copy
+  }
+  copy[index] = sized(one, oneWidth, oneTo)
+  copy[index + 1] = sized(next, nextWidth, both - oneTo)
+  return copy
+}
+
+/**
+ * How far a press of an arrow key on the line between two tracks moves it, at Plans' width: a quarter share between
+ * two Fill tracks, so each press changes them, or 8 pixels (40 with Shift) beside a sized one.
+ */
+function lineStep(tracks: Track[], weights: number[], index: number, shift: boolean) {
+  const [one, next] = [tracks[index]!, tracks[index + 1]!]
+  if (one.kind === "fr" && next.kind === "fr") {
+    const perShare = (weights[index]! + weights[index + 1]!) / (one.value + next.value)
+    return perShare * (shift ? 1 : 0.25)
+  }
+  return shift ? 40 : 8
+}
+
+/**
+ * The tracks as a strip, each as wide as it'd be at Plans' width, so a 200-pixel column and Fill ×2 look it. Each is
+ * a button that opens its size, typed as CSS writes it or picked by kind, with adding, duplicating, moving and removing
+ * tracks beside it; hovering or focusing one highlights it on the canvas. Dragging the line between two tracks resizes
+ * them, keeping their kinds, so two Fill tracks trade shares rather than turning into pixels; arrow keys on the line do
+ * it a step at a time. Alt with an arrow moves the focused track. Add a column is after the strip. Fitted, it only
  * shows the columns Repeat to fit makes.
  */
 function TrackStrip({
@@ -998,112 +1144,234 @@ function TrackStrip({
   onChange?: (tracks: Track[]) => void
 }) {
   const weights = trackWeights(tracks)
+  const strip = useRef<HTMLDivElement>(null)
+  const { setHighlight } = useHighlight()
+  const focusTrack = (index: number) =>
+    requestAnimationFrame(() => strip.current?.querySelectorAll<HTMLElement>("[data-track]")[index]?.focus())
+  const names = one === "column" ? { earlier: "left", later: "right" } : { earlier: "up", later: "down" }
+  if (fitted || !onChange) {
+    return (
+      <div className="flex h-7 min-w-0 overflow-hidden rounded-md border bg-muted/40" aria-hidden>
+        {tracks.map((_, index) => (
+          <span
+            key={index}
+            className="grid min-w-0 place-items-center border-l px-1 font-mono text-2xs text-muted-foreground first:border-l-0"
+            style={{ flex: `${weights[index]} 1 0` }}
+          >
+            <span className="truncate">Fill</span>
+          </span>
+        ))}
+      </div>
+    )
+  }
+  const move = (index: number, by: number) => {
+    const to = index + by
+    if (to < 0 || to >= tracks.length) return
+    const copy = [...tracks]
+    ;[copy[index], copy[to]] = [copy[to]!, copy[index]!]
+    onChange(copy)
+    focusTrack(to)
+  }
+  const pressLine = (index: number) => (event: PointerEvent<HTMLInputElement>) => {
+    const width = strip.current?.getBoundingClientRect().width ?? contentWidth
+    const scale = weights.reduce((sum, weight) => sum + weight, 0) / width
+    const [startTracks, startWeights] = [tracks, weights]
+    event.preventDefault()
+    drag(event, { move: (point) => onChange(resized(startTracks, startWeights, index, point.dx * scale)) })
+  }
   return (
     <div className="flex items-center gap-1">
-      <div className="flex h-7 min-w-0 flex-1 overflow-hidden rounded-md border bg-muted/40">
-        {tracks.map((track, index) =>
-          fitted || !onChange ? (
-            <span
-              key={index}
-              aria-hidden
-              className="grid min-w-0 place-items-center border-l px-1 font-mono text-2xs text-muted-foreground first:border-l-0"
-              style={{ flex: `${weights[index]} 1 0` }}
-            >
-              <span className="truncate">Fill</span>
-            </span>
-          ) : (
+      <div ref={strip} className="flex h-7 min-w-0 flex-1 rounded-md border bg-muted/40">
+        {tracks.map((track, index) => (
+          <Fragment key={index}>
             <TrackSegment
-              key={index}
               name={`${one} ${index + 1}`}
               track={track}
               weight={weights[index]!}
+              moveNames={names}
+              canMove={{ earlier: index > 0, later: index < tracks.length - 1 }}
+              onHighlight={(on) => setHighlight(on ? { kind: one, index } : undefined)}
               onChange={(next) => onChange(tracks.map((other, at) => (at === index ? next : other)))}
               onAdd={(after) => {
                 const copy = [...tracks]
                 copy.splice(after ? index + 1 : index, 0, fr(1))
                 onChange(copy)
               }}
+              onDuplicate={() => {
+                const copy = [...tracks]
+                copy.splice(index + 1, 0, track)
+                onChange(copy)
+                focusTrack(index + 1)
+              }}
+              onMove={(by) => move(index, by)}
               onRemove={() => onChange(tracks.filter((_, at) => at !== index))}
             />
-          )
-        )}
+            {index < tracks.length - 1 && (
+              // The line between two tracks, a range input as the canvas's spacing handles are: its keys and the
+              // pointer are its own, so it never moves by itself.
+              <span className="group/line relative z-10 -mx-1 w-2 shrink-0">
+                <span
+                  aria-hidden
+                  className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 rounded-full bg-border group-hover/line:inset-y-0.5 group-hover/line:w-0.5 group-hover/line:bg-(--line) group-has-focus-visible/line:w-0.5 group-has-focus-visible/line:bg-(--line)"
+                  style={{ "--line": kindColors.layer } as CSSProperties}
+                />
+                <Hint
+                  label={`Drag to resize ${one}s ${index + 1} and ${index + 2}`}
+                  detail="Fill tracks trade shares and stay Fill"
+                  wait
+                >
+                  <input
+                    type="range"
+                    min={24}
+                    max={Math.round(weights[index]! + weights[index + 1]! - 24)}
+                    value={Math.round(weights[index]!)}
+                    onChange={() => undefined}
+                    aria-label={`Resize ${one}s ${index + 1} and ${index + 2}`}
+                    aria-valuetext={`${trackLabel(tracks[index]!)} and ${trackLabel(tracks[index + 1]!)}`}
+                    onPointerDown={pressLine(index)}
+                    onKeyDown={(event) => {
+                      const by = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1, ArrowDown: 1 }[event.key]
+                      if (by === undefined) return
+                      event.preventDefault()
+                      onChange(resized(tracks, weights, index, by * lineStep(tracks, weights, index, event.shiftKey)))
+                    }}
+                    className="absolute inset-0 m-0 size-full cursor-col-resize touch-none appearance-none rounded-sm bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-slider-runnable-track]:appearance-none [&::-webkit-slider-thumb]:size-0 [&::-webkit-slider-thumb]:appearance-none"
+                  />
+                </Hint>
+              </span>
+            )}
+          </Fragment>
+        ))}
       </div>
-      {onChange && <AddTrack one={one} onAdd={() => onChange([...tracks, fr(1)])} />}
+      <AddTrack one={one} onAdd={() => onChange([...tracks, fr(1)])} />
     </div>
   )
 }
 
 const trackKinds = [
   { value: "fr", label: "Fill", detail: "A share of the space left" },
-  { value: "px", label: "Fixed", detail: "A fixed length, typed in px or rem" },
+  { value: "px", label: "Fixed", detail: "A fixed length, typed in px, rem or %" },
   { value: "auto", label: "Hug", detail: "As big as its content, sharing any space left" },
   { value: "min", label: "Min", detail: "As narrow as its content goes, min-content" },
   { value: "max", label: "Max", detail: "As wide as its content without wrapping, max-content" },
   { value: "range", label: "Range", detail: "At least a length, then a share of the space left, minmax()" }
 ] as const
 
-/** One track in the strip: its size in words, opening to its kind, its size, and adding or removing tracks by it. */
+/**
+ * One track in the strip: its size in words, opening to its size typed as CSS writes it (focused, so typing `2fr` and
+ * Enter is done), its kind, and adding, duplicating, moving and removing tracks by it. It highlights its track on the
+ * canvas while it's hovered, focused or open.
+ */
 function TrackSegment({
   name,
   track,
   weight,
+  moveNames,
+  canMove,
+  onHighlight,
   onChange,
   onAdd,
+  onDuplicate,
+  onMove,
   onRemove
 }: {
   name: string
   track: Track
   weight: number
+  moveNames: { earlier: string; later: string }
+  canMove: { earlier: boolean; later: boolean }
+  onHighlight: (on: boolean) => void
   onChange: (track: Track) => void
   onAdd: (after: boolean) => void
+  onDuplicate: () => void
+  onMove: (by: number) => void
   onRemove: () => void
 }) {
   const [open, setOpen] = useState(false)
   const title = `${name[0]!.toUpperCase()}${name.slice(1)}`
-  const length = name.startsWith("row") ? "Height" : "Width"
+  const kind = name.split(" ")[0]!
+  const close = (run: () => void) => () => {
+    run()
+    setOpen(false)
+  }
+  const actions = [
+    { label: `Add a ${kind} before`, Icon: Plus, run: () => onAdd(false), enabled: true },
+    { label: `Add a ${kind} after`, Icon: Plus, run: () => onAdd(true), enabled: true },
+    {
+      label: `Move ${moveNames.earlier}`,
+      Icon: moveNames.earlier === "left" ? ArrowLeft : ArrowUp,
+      run: () => onMove(-1),
+      enabled: canMove.earlier
+    },
+    {
+      label: `Move ${moveNames.later}`,
+      Icon: moveNames.later === "right" ? ArrowRight : ArrowDown,
+      run: () => onMove(1),
+      enabled: canMove.later
+    },
+    { label: "Duplicate", Icon: Copy, run: onDuplicate, enabled: true },
+    { label: `Remove ${name}`, Icon: X, run: onRemove, enabled: true }
+  ]
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        onHighlight(next)
+      }}
+    >
       <PopoverTrigger
+        data-track
         aria-label={`${title}, ${trackLabel(track)}`}
-        className="grid min-w-0 place-items-center border-l px-1 font-mono text-2xs tabular-nums outline-none first:border-l-0 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent"
+        onPointerEnter={() => onHighlight(true)}
+        onPointerLeave={() => !open && onHighlight(false)}
+        onFocus={() => onHighlight(true)}
+        onBlur={() => !open && onHighlight(false)}
+        onKeyDown={(event) => {
+          if (!event.altKey) return
+          const by = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key]
+          if (by === undefined) return
+          event.preventDefault()
+          onMove(by)
+        }}
+        className="grid min-w-0 place-items-center px-1 font-mono text-2xs tabular-nums outline-none first:rounded-l-md last:rounded-r-md hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent"
         style={{ flex: `${weight} 1 0` }}
       >
         <span className="truncate">{trackLabel(track)}</span>
       </PopoverTrigger>
       <PopoverContent className="w-64 gap-2 p-2" align="start">
         <p className="text-sm font-medium">{title}</p>
+        <ValueField
+          label={`${title} size`}
+          shown={trackText(track)}
+          selectOnFocus
+          hint={{ detail: "Type it as CSS writes it: 1fr, 200px, 50%, auto, min-content or minmax(120px, 1fr)" }}
+          read={readTrack}
+          onCommit={onChange}
+          onStep={(up, keys) => onChange(stepTrack(track, up, keys.shift))}
+        />
         <ToggleGroup
           variant="outline"
           size="sm"
           spacing={0}
           className="w-full"
-          aria-label={`${title} size`}
-          value={[track.kind]}
-          onValueChange={([kind]) => {
-            if (kind === "fr") onChange(fr(1))
-            else if (kind === "px") onChange({ kind: "px", value: 200 })
-            else if (kind === "range") onChange({ kind: "range", min: 192, max: 1 })
-            else if (kind === "auto" || kind === "min" || kind === "max") onChange({ kind })
+          aria-label={`${title} kind`}
+          value={[track.kind === "percent" ? "px" : track.kind]}
+          onValueChange={([next]) => {
+            if (next === "fr") onChange(fr(1))
+            else if (next === "px") onChange({ kind: "px", value: Math.round(weight) })
+            else if (next === "range") onChange({ kind: "range", min: 192, max: 1 })
+            else if (next === "auto" || next === "min" || next === "max") onChange({ kind: next })
           }}
         >
-          {trackKinds.map((kind) => (
-            <Hint key={kind.value} label={kind.detail}>
-              <ToggleGroupItem value={kind.value} className="h-7 flex-1 px-1 text-xs">
-                {kind.label}
+          {trackKinds.map((each) => (
+            <Hint key={each.value} label={each.detail}>
+              <ToggleGroupItem value={each.value} className="h-7 flex-1 px-1 text-xs">
+                {each.label}
               </ToggleGroupItem>
             </Hint>
           ))}
         </ToggleGroup>
-        {(track.kind === "fr" || track.kind === "px") && (
-          <Num
-            label={track.kind === "fr" ? "Share" : length}
-            suffix={track.kind === "fr" ? "fr" : undefined}
-            pixels={track.kind === "px"}
-            value={track.value}
-            min={track.kind === "fr" ? 1 : 0}
-            onChange={(value) => onChange({ kind: track.kind, value: value ?? 1 })}
-          />
-        )}
         {track.kind === "range" && (
           <div className="grid grid-cols-2 gap-1">
             <Num
@@ -1123,31 +1391,19 @@ function TrackSegment({
             />
           </div>
         )}
-        <div className="flex flex-col border-t pt-1">
-          {(
-            [
-              [`Add a ${name.split(" ")[0]} before`, () => onAdd(false)],
-              [`Add a ${name.split(" ")[0]} after`, () => onAdd(true)]
-            ] as const
-          ).map(([label, run]) => (
+        <div className="grid grid-cols-2 gap-x-1 border-t pt-1">
+          {actions.map(({ label, Icon, run, enabled }) => (
             <Button
               key={label}
               variant="ghost"
               size="sm"
-              className="h-7 justify-start text-xs"
-              onClick={() => (run(), setOpen(false))}
+              disabled={!enabled}
+              className="h-7 justify-start px-1.5 text-xs"
+              onClick={close(run)}
             >
-              <Plus /> {label}
+              <Icon /> {label.startsWith("Remove") ? "Remove" : label.replace(` a ${kind}`, "")}
             </Button>
           ))}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 justify-start text-xs text-muted-foreground"
-            onClick={() => (onRemove(), setOpen(false))}
-          >
-            <X /> Remove {name}
-          </Button>
         </div>
       </PopoverContent>
     </Popover>
@@ -1194,6 +1450,8 @@ export function placeChildren(draft: Draft, columns: number): { name: string; ar
   let cursor = { col: 0, row: 0 }
   const flow = (cols: number, rows: number, fixedCol?: number) => {
     const span = Math.min(cols, columns)
+    // Dense packing looks from the first cell each time, so a later child can fill an earlier gap.
+    if (draft.dense) cursor = { col: 0, row: 0 }
     for (let row = cursor.row; row < 200; row++) {
       for (let col = row === cursor.row ? cursor.col : 0; col + span <= columns; col++) {
         if (fixedCol !== undefined && col !== fixedCol) continue

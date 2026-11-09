@@ -1,3 +1,4 @@
+import { Check, CircleDashed } from "lucide-react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 
 /*
@@ -16,13 +17,42 @@ export interface Comparison {
   shows: string
 }
 
-/** The other tools' screenshots, each captioned with what it shows and linked to its page. */
-export function Comparisons({ items }: { items: readonly Comparison[] }) {
+/** A point against the tool we measure against: where ours is ahead, or a gap still open. */
+export interface Point {
+  ahead: boolean
+  text: string
+}
+
+/**
+ * The other tools' screenshots, each captioned with what it shows and linked to its page, after how the control
+ * stands against Penpot's, the one we measure against: where it's ahead, and what's still open.
+ */
+export function Comparisons({ items, points = [] }: { items: readonly Comparison[]; points?: readonly Point[] }) {
   return (
     <section aria-labelledby="comparisons" className="flex w-full flex-col gap-3">
       <GroupLabel as="h2" className="block">
         <span id="comparisons">How other tools do it</span>
       </GroupLabel>
+      {points.length > 0 && (
+        <div className="flex max-w-2xl flex-col gap-1.5">
+          <h3 className="text-sm font-medium">Against Penpot</h3>
+          <ul className="flex flex-col gap-1">
+            {points.map((point) => (
+              <li key={point.text} className="flex items-start gap-2 text-xs">
+                {point.ahead ? (
+                  <Check
+                    aria-label="Ahead"
+                    className="mt-px size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                  />
+                ) : (
+                  <CircleDashed aria-label="Still open" className="mt-px size-3.5 shrink-0 text-muted-foreground" />
+                )}
+                <span className={point.ahead ? "" : "text-muted-foreground"}>{point.text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <ul className="flex flex-wrap items-start gap-4">
         {items.map((item) => (
           <li key={item.image} className="flex w-80 flex-col gap-1.5">
@@ -170,4 +200,61 @@ export const gridPlacementComparisons: Comparison[] = [
     source: penpot,
     shows: "A grid cell: Auto, Manual or Area, and its alignment"
   }
+]
+
+/** Layout against Penpot's flex layout. */
+export const layoutPoints: Point[] = [
+  {
+    ahead: true,
+    text: "The alignment box draws the children where they'll sit and previews a spot on hover; Penpot's icons only follow the direction."
+  },
+  { ahead: true, text: "Stretch is a spot in the box; Penpot's flex alignment has no stretch." },
+  {
+    ahead: true,
+    text: "The box takes the keyboard: arrows, S to stretch, X to spread out, B for baseline. Penpot's takes none."
+  },
+  {
+    ahead: true,
+    text: "Turning Auto gap off brings the gap back; Gap highlights the gaps on the canvas, as Penpot's does."
+  },
+  { ahead: false, text: "Penpot sets reverse in one click beside the direction; ours is under More until it's set." },
+  {
+    ahead: false,
+    text: "Penpot works out direction and gap from where the children already are when a layout's added."
+  }
+]
+
+/** Grid tracks against Penpot's grid layout. */
+export const gridTrackPoints: Point[] = [
+  {
+    ahead: true,
+    text: "Tracks are always in the panel, drawn to their sizes; Penpot lists them only in grid edit mode, folded away."
+  },
+  {
+    ahead: true,
+    text: "Dragging between tracks keeps them Fill, trading shares; Penpot turns both into pixels. The line takes arrow keys too."
+  },
+  { ahead: true, text: "A track takes CSS as typed, as Penpot's do, and also ranges and Min or Max content." },
+  { ahead: true, text: "Repeat to fit makes as many columns as fit; Penpot has no auto-fit." },
+  { ahead: true, text: "Hovering a track highlights it on the canvas, as Penpot's do, and so does focusing it." },
+  {
+    ahead: false,
+    text: "Penpot edits tracks on the canvas, with headers to type in, drag and reorder; that's for the app."
+  },
+  { ahead: false, text: "Penpot can delete a track with what's in it, and merge cells into a named area." }
+]
+
+/** A grid child's place against Penpot's grid cell. */
+export const gridPlacementPoints: Point[] = [
+  {
+    ahead: true,
+    text: "A map of the grid shows where everything is and places the child by dragging; Penpot places cells only on the canvas."
+  },
+  {
+    ahead: true,
+    text: "The map takes the keyboard: arrows move it, Shift resizes, Delete makes it automatic. Penpot's cells take none."
+  },
+  { ahead: true, text: "Span is one field; Penpot asks for end lines and works the span out." },
+  { ahead: true, text: "Unset alignment shows the grid's own faintly, so it's clear what the child follows." },
+  { ahead: false, text: "Penpot names areas and places a child by area; ours is under More, not built yet." }
 ]

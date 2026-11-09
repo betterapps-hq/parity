@@ -262,6 +262,11 @@ export function layoutWrites(draft: Draft): Writes {
       css.push(`grid-template-rows: ${draft.rows.map(trackCss).join(" ")}`)
       tailwind.push(equal ? `grid-rows-${draft.rows.length}` : `grid-rows-[${tracksClass(draft.rows)}]`)
     }
+    if (draft.dense) {
+      stored.flow = { keyword: "dense" }
+      css.push("grid-auto-flow: dense")
+      tailwind.push("grid-flow-dense")
+    }
     gapWrites(draft, true, stored, css, tailwind)
     for (const [key, property, prefix, value] of [
       ["itemsX", "justify-items", "justify-items", draft.itemsX],

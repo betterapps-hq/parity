@@ -1,10 +1,11 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { createContext, type CSSProperties, type ReactNode, useContext, useState } from "react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { type Comparison, Comparisons } from "./comparisons.tsx"
+import { type Comparison, Comparisons, type Point } from "./comparisons.tsx"
 import { mixColor } from "./css-values.ts"
 import { type Draft, usedColors } from "./data.ts"
 import { ProjectTokens, useTokenSets } from "./field-parts.tsx"
+import { HighlightProvider } from "./highlight.tsx"
 import { hexOf, lengthPx, type TokenSets } from "./tokens.ts"
 import type { StrokePosition, Writes } from "./writes.ts"
 
@@ -31,6 +32,7 @@ export function Playground({
   preview,
   tokens,
   comparisons,
+  points,
   children
 }: {
   writes: Writes
@@ -39,6 +41,8 @@ export function Playground({
   tokens?: Partial<TokenSets>
   /** Other tools' screenshots of the same control, under the rest, for review. */
   comparisons?: readonly Comparison[]
+  /** How the control stands against Penpot's, shown with the comparisons. */
+  points?: readonly Point[]
   children: ReactNode
 }) {
   const only = useContext(ControlOnly)
@@ -51,24 +55,26 @@ export function Playground({
   return (
     <TooltipProvider>
       <ProjectTokens tokens={tokens}>
-        {only ? (
-          control
-        ) : (
-          // It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't.
-          <div className="flex h-screen flex-wrap content-start items-start gap-6 overflow-y-auto bg-background p-6 text-foreground">
-            {control}
-            <Readout writes={writes} />
-            {preview && (
-              <section
-                aria-label="Preview"
-                className="grid shrink-0 place-items-center rounded-lg border bg-muted/40 p-6"
-              >
-                {preview}
-              </section>
-            )}
-            {comparisons && <Comparisons items={comparisons} />}
-          </div>
-        )}
+        <HighlightProvider>
+          {only ? (
+            control
+          ) : (
+            // It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't.
+            <div className="flex h-screen flex-wrap content-start items-start gap-6 overflow-y-auto bg-background p-6 text-foreground">
+              {control}
+              <Readout writes={writes} />
+              {preview && (
+                <section
+                  aria-label="Preview"
+                  className="grid shrink-0 place-items-center rounded-lg border bg-muted/40 p-6"
+                >
+                  {preview}
+                </section>
+              )}
+              {comparisons && <Comparisons items={comparisons} points={points} />}
+            </div>
+          )}
+        </HighlightProvider>
       </ProjectTokens>
     </TooltipProvider>
   )

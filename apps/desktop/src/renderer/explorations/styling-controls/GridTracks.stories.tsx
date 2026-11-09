@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { gridTrackComparisons } from "./comparisons.tsx"
+import { gridTrackComparisons, gridTrackPoints } from "./comparisons.tsx"
 import { LayerPreview } from "./controls.tsx"
 import type { Draft, Track } from "./data.ts"
 import { LayoutSection } from "./layout-controls.tsx"
@@ -30,6 +30,7 @@ function Tracks({ start }: { start: Draft }) {
   return (
     <Playground
       comparisons={gridTrackComparisons}
+      points={gridTrackPoints}
       writes={layoutWrites(draft)}
       preview={<LayerPreview draft={draft} />}
     >

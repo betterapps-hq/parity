@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { layoutComparisons } from "./comparisons.tsx"
+import { layoutComparisons, layoutPoints } from "./comparisons.tsx"
 import { LayerPreview } from "./controls.tsx"
 import type { Draft } from "./data.ts"
 import { LayoutSection } from "./layout-controls.tsx"
@@ -26,7 +26,12 @@ type Story = StoryObj<typeof meta>
 function Layout({ start }: { start: Draft }) {
   const [draft, set] = useDraft({ background: "card", radius: "radius-xl", gap: 12, ...start })
   return (
-    <Playground comparisons={layoutComparisons} writes={layoutWrites(draft)} preview={<LayerPreview draft={draft} />}>
+    <Playground
+      comparisons={layoutComparisons}
+      points={layoutPoints}
+      writes={layoutWrites(draft)}
+      preview={<LayerPreview draft={draft} />}
+    >
       <LayoutSection draft={draft} set={set} />
     </Playground>
   )
