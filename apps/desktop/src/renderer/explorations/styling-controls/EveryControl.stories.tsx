@@ -84,9 +84,9 @@ const groups: { name: string; entries: Entry[] }[] = [
   {
     name: "Size and position",
     entries: [
-      { name: "Size and aspect ratio", Story: composeStories(size).Fixed },
+      { name: "Size and aspect ratio", Story: composeStories(size).Fixed, reviewed: true },
       { name: "Placement and insets", Story: composeStories(placement).Absolute },
-      { name: "Layer order", Story: composeStories(layerOrder).InFront },
+      { name: "Layer order", Story: composeStories(layerOrder).InFront, reviewed: true },
       { name: "Position in a box", Story: composeStories(positionInABox).OriginSpot }
     ]
   },
