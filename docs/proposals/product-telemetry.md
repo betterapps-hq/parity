@@ -108,7 +108,7 @@ app a person builds. The two share no code paths or settings. Where this page sa
 Every event is tagged so a test pass can be found, filtered and compared:
 
 - `environment`: `development` for `pnpm dev` and agent drives, `ci` for CI's end-to-end tests, `tester` for installed
-  builds.
+  builds, since split into `preview` and `release` (PAR-778).
 - `release`: the app's version and, in development, the commit.
 - `driver`: `person` or `agent`, and for an agent its caller name (PAR-450) and client (`claude-code`, `codex`, …).
 - `test_run`: from `PARITY_TEST_RUN`, which an agent or CI sets for a pass, so every event, error and replay from one

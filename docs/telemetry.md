@@ -27,8 +27,8 @@ up.
 
 Every error, span, log and replay is tagged so a test pass can be found and filtered in Sentry:
 
-- **`environment`:** `development` for `pnpm dev` and agent drives, `ci` wherever `CI` is set, `tester` for installed
-  builds.
+- **`environment`:** `development` for `pnpm dev` and agent drives, `ci` wherever `CI` is set, `preview` for a pull
+  request's installer or a pkg.pr.new CLI, and `release` for the published app and CLI (PAR-778).
 - **`release`:** the published version, or the commit any other build was made from.
 - **`test_run`:** from `PARITY_TEST_RUN`, when it's set. The end-to-end suite sets it to `github-<run>-<attempt>` in
   GitHub Actions, and `pnpm perf` to `perf-<time>` unless it's already set. An agent that starts a copy to drive with
@@ -143,8 +143,8 @@ Agents' calls are recorded where they're answered, once for every operation, whi
   `parity` process that sends it and exits. That costs a command about 20 ms. `parity mcp` hands over what's waiting
   every 10 seconds as well. One sender runs at a time, and a batch a day old is dropped.
 - **The CLI's release** is `parity-cli@<version>` when `npm publish` built it, and otherwise the commit it was built
-  from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Installed from npm or a preview
-  URL, it reports as `tester`; from a checkout, as `development`.
+  from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Published to npm, it reports as
+  `release`; from a pkg.pr.new preview URL, as `preview`; from a checkout, as `development`.
 - **Agents report what they find** with `parity report "<what's wrong>"` or MCP's `report_problem` (PAR-646), above all
   when nothing threw: a test pass that sees a wrong result. The service draws the frames of the design it names, asks
   the window to flush its replay, and passes both to main, which sends a Sentry user feedback from `parity-desktop` as
