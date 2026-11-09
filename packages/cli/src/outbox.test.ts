@@ -40,7 +40,9 @@ function fakeTarget(onSend?: (batch: Batch) => void) {
       sent.push(batch)
       onSend?.(batch)
     },
-    flush: async () => flushes.push(sent.length)
+    flush: async () => {
+      flushes.push(sent.length)
+    }
   }
 
   return { sent, flushes, target }

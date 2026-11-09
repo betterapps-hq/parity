@@ -21,8 +21,16 @@ import {
   describeTokens
 } from "./client.ts"
 import { type ExecReply, type Screenshot, execResponse, structuredExec } from "./execute.ts"
-import { bounded, operations, skillOperation } from "./operations.ts"
-import { emptyState, fixtureTab, processTests, succeeded, toolReply, transportFixture } from "./transport-fixture.ts"
+import { bounded, type OperationFields, operations, skillOperation } from "./operations.ts"
+import {
+  emptyState,
+  fixtureTab,
+  type JsonObject,
+  processTests,
+  succeeded,
+  toolReply,
+  transportFixture
+} from "./transport-fixture.ts"
 
 const fixture = transportFixture({})
 const { requests, run, mcp } = fixture
@@ -117,8 +125,8 @@ interface Case {
   cli: string[]
   tool: string
   method: keyof typeof operations
-  input: Record<string, unknown>
-  params: Record<string, unknown>
+  input: OperationFields
+  params: JsonObject
   /** What the app answers. */
   result: unknown
   /** What CLI --json prints and MCP returns as structuredContent. */
@@ -289,29 +297,29 @@ const cases: Case[] = [
   }
 ]
 
-function expectedReply(text: string, structured: unknown, isError = false, images: Screenshot[] = []) {
+function expectedReply<Structured>(text: string, structured: Structured, isError = false, images: Screenshot[] = []) {
+  const content = [
+    { type: "text", text },
+    ...images.map((shot) => ({ type: "image", data: shot.png, mimeType: "image/png" }))
+  ]
+
   return {
     jsonrpc: "2.0",
     id: 2,
-    result: {
-      content: [
-        { type: "text", text },
-        ...images.map((shot) => ({ type: "image", data: shot.png, mimeType: "image/png" }))
-      ],
-      ...(structured === undefined ? {} : { structuredContent: structured }),
-      isError
-    }
+    result: structured === undefined ? { content, isError } : { content, structuredContent: structured, isError }
   }
 }
 
 /** An invalid request's structured failure, pointing at the field. */
 function invalid(message: string, path?: string) {
-  return { error: { code: "invalid_input", message, retryable: false, ...(path ? { path } : {}) } }
+  const error = { code: "invalid_input", message, retryable: false }
+
+  return { error: path ? { ...error, path } : error }
 }
 
 /** What reaches the app: each transport's request, with the tab the CLI routed it to; `tabs` asks no more than routing. */
-function expectRequests(method: string, params: Record<string, unknown>) {
-  const { routing } = operations[method as keyof typeof operations]
+function expectRequests(method: keyof typeof operations, params: JsonObject) {
+  const { routing } = operations[method]
   const sent = routing === "tab" || routing === "tab-or-any" ? { tab: fixtureTab.id, ...params } : params
   expect(requests).toHaveLength(routing === "copies" ? 0 : 2)
 
@@ -525,7 +533,7 @@ describe("remaining transport contracts", processTests, () => {
     expect(requests).toEqual([])
   })
 
-  it.each([
+  it.each<Omit<Case, "name" | "structured" | "text">>([
     {
       cli: ["screenshot", "home", "--state", "ready", "--state", "empty", "--mode", "mobile", "--scale", "0.25"],
       tool: "screenshot",
@@ -741,7 +749,7 @@ describe("remaining transport contracts", processTests, () => {
   })
 
   it.each([{}, { path: "execute.md" }])("shares skill reading without desktop RPC: %j", async (input) => {
-    const args = "path" in input && typeof input.path === "string" ? [input.path] : []
+    const args = input.path === undefined ? [] : [input.path]
     const [cli, protocol] = await Promise.all([run(["skill", ...args]), mcp(input, "read_skill")])
     expect(cli).toEqual(succeeded)
     expect(toolReply(protocol.stdout)).toEqual({
@@ -771,7 +779,7 @@ describe("remaining transport contracts", processTests, () => {
     expect(requests).toEqual([])
   })
 
-  const malformedMcp: { tool: string; input: Record<string, unknown>; error: string; path: string }[] = [
+  const malformedMcp: { tool: string; input: JsonObject; error: string; path: string }[] = [
     { tool: "get_console", input: { clear: "false" }, error: "clear must be a boolean", path: "/clear" },
     { tool: "get_props", input: { component: "Button", all: 1 }, error: "all must be a boolean", path: "/all" },
     { tool: "get_tokens", input: { search: 1 }, error: "search must be a string", path: "/search" },
@@ -907,7 +915,9 @@ describe("remaining transport contracts", processTests, () => {
     const sent = (testRun: string, state?: string) =>
       expect.objectContaining({
         method: "report",
-        params: { tab: fixtureTab.id, message: "Wrong colour", ...(state ? { state } : {}), testRun }
+        params: state
+          ? { tab: fixtureTab.id, message: "Wrong colour", state, testRun }
+          : { tab: fixtureTab.id, message: "Wrong colour", testRun }
       })
 
     expect(requests).toEqual([sent("pass-7", "error"), sent("pass-8")])
@@ -925,7 +935,7 @@ describe("remaining transport contracts", processTests, () => {
 
   it("keeps the MCP tool list within its budget", async () => {
     const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
-    const { tools } = (toolReply(protocol.stdout) as { result: { tools: unknown[] } }).result
+    const tools = toolReply(protocol.stdout)?.result?.tools
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
     // report_problem (PAR-646).
     expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(14 * 1024)
