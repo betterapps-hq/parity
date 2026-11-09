@@ -167,6 +167,12 @@ function Tools({ review = false }: { review?: boolean }) {
     setMove(tool)
   }
 
+  // Reviewing keeps the canvas on Move and select, so another tool, picked by its key, ends reviewing.
+  if (reviewing && tool !== "select") {
+    setReviewing(undefined)
+    setBefore(undefined)
+  }
+
   return (
     <ToggleGroup
       size="lg"
@@ -354,7 +360,11 @@ let escapeReview: (() => void) | undefined
 window.addEventListener(
   "keydown",
   (event) => {
-    if (event.key === "Escape" && escapeReview) {
+    // An open menu, picker or dialog takes Esc first, as the canvas's shortcuts let it.
+    const target = event.target instanceof Element ? event.target : undefined
+    const inOverlay = !!target?.closest("[role=menu], [role=listbox], [role=dialog]")
+
+    if (event.key === "Escape" && escapeReview && !inOverlay) {
       event.stopImmediatePropagation()
       escapeReview()
     }
