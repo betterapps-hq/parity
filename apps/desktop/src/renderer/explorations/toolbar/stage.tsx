@@ -3,15 +3,15 @@ import { createPortal } from "react-dom"
 import { AppWindow } from "../../App.tsx"
 import { ProjectContext } from "../../canvas/context.ts"
 import { useActiveTabId, useTabs } from "../../workspace.ts"
-import { ReviewToolbar, ZoomCorner } from "./options.tsx"
+import { ZoomCorner } from "./options.tsx"
 import { WarpToolbar } from "./warp.tsx"
 
 /**
  * The whole app window with the proposed toolbar and zoom corner in place of the app's own, on the real canvas: designs
- * select, tools pick, the canvas zooms and pans, and the buttons run the app's commands. Without `proposed` it's the
- * app as it is today; with `warp`, it's the proposed toolbar that warps into Accessibility's bar.
+ * select, tools pick, the canvas zooms and pans, and the buttons run the app's commands. The proposed toolbar
+ * warps into Accessibility's bar. Without `warp` it's the app as it is today.
  */
-export function ToolbarStage({ proposed = false, warp = false }: { proposed?: boolean; warp?: boolean }) {
+export function ToolbarStage({ warp = false }: { warp?: boolean }) {
   const tabs = useTabs()
   const activeId = useActiveTabId()
   const session = tabs.find((tab) => tab.id === activeId)?.session
@@ -19,19 +19,19 @@ export function ToolbarStage({ proposed = false, warp = false }: { proposed?: bo
 
   return (
     <>
-      {proposed && (
+      {warp && (
         <style>{`
           .canvas-area > div:not([data-proposed]):has(> [role="group"][aria-label="Tools"]) { display: none }
           .canvas-area > div.top-3.right-3:not([data-proposed]) { display: none }
         `}</style>
       )}
       <AppWindow />
-      {proposed &&
+      {warp &&
         session &&
         canvas &&
         createPortal(
           <ProjectContext value={session}>
-            {warp ? <WarpToolbar /> : <ReviewToolbar />}
+            <WarpToolbar />
             <ZoomCorner />
           </ProjectContext>,
           canvas
