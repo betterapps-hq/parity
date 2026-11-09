@@ -1,5 +1,7 @@
+import type { AnnotationKind } from "@parity-app/editor"
 import {
   ArrowUpRight,
+  AudioLines,
   Braces,
   ChartColumn,
   Component,
@@ -7,27 +9,30 @@ import {
   Film,
   Flag,
   Hash,
+  Heading,
+  Image as ImageIcon,
   Inbox,
+  Keyboard,
   Languages,
+  ListOrdered,
   LoaderCircle,
   type LucideIcon,
+  Megaphone,
   MousePointerClick,
   NotebookPen,
   Palette,
+  PanelsTopLeft,
   Pointer,
   Quote,
   Route,
   Ruler,
   ToggleRight
 } from "lucide-react"
-import { a11yKinds } from "../collaboration/a11y.tsx"
-import type { AnnotationKind } from "./options.tsx"
 
 /*
- * A copy of the options each kind of annotation places, from PAR-184's annotations exploration (its kinds.ts), which
- * isn't approved or on main yet. Each says what it's for and how Parity checks it against the render, the way
- * Accessibility annotations already do, so an annotation is a note agents can read and check rather than free text.
- * Accessibility's are the Accessibility annotations exploration's own.
+ * The options each kind of annotation places (PAR-795), from PAR-184's annotations design and, for Accessibility, the
+ * Accessibility annotations exploration. Each says what it's for and how Parity checks it against the render, so an
+ * annotation is a note agents can read and check rather than free text.
  */
 
 export interface KindOption {
@@ -41,17 +46,22 @@ export interface KindOption {
   ink: string
 }
 
-const tone = (hue: number) => ({ bg: `oklch(0.8 0.13 ${hue})`, ink: `oklch(0.27 0.08 ${hue})` })
+/** An option's chip: a light fill in its hue, with dark ink of the same hue on it. */
+function tone(hue: number) {
+  return { bg: `oklch(0.8 0.13 ${hue})`, ink: `oklch(0.27 0.08 ${hue})` }
+}
 
 /** Every kind ends with a note, for what its options don't cover. */
-const note = (hint: string): KindOption => ({
-  title: "Note",
-  hint,
-  check: "Read by people and agents, not checked",
-  icon: NotebookPen,
-  bg: "oklch(0.86 0 0)",
-  ink: "oklch(0.25 0 0)"
-})
+function note(hint: string): KindOption {
+  return {
+    title: "Note",
+    hint,
+    check: "Read by people and agents, not checked",
+    icon: NotebookPen,
+    bg: "oklch(0.86 0 0)",
+    ink: "oklch(0.25 0 0)"
+  }
+}
 
 /** What it does when someone uses it. */
 const behaviour = {
@@ -194,10 +204,77 @@ const development = {
   note: note("Anything else for whoever builds it: performance, edge cases, known gaps")
 } satisfies Record<string, KindOption>
 
+/**
+ * The annotations designers add for what automated checks can't know: the intent. Focus order wears the orange Show tab
+ * order already uses, so the two read as one thing.
+ */
+export const accessibilityOptions = {
+  focus: {
+    title: "Focus order",
+    hint: "Where Tab goes, in order",
+    check: "Compared with the order Tab visits in the render",
+    icon: ListOrdered,
+    bg: "#f97316",
+    ink: "#ffffff"
+  },
+  heading: {
+    title: "Heading",
+    hint: "A heading, and its level in the outline",
+    check: "Compared with the element's tag or aria-level",
+    icon: Heading,
+    ...tone(300)
+  },
+  landmark: {
+    title: "Landmark",
+    hint: "A region people jump between",
+    check: "Compared with the element's tag or role",
+    icon: PanelsTopLeft,
+    ...tone(185)
+  },
+  name: {
+    title: "Name and role",
+    hint: "What a screen reader says for it",
+    check: "Compared with the computed role, name and state",
+    icon: AudioLines,
+    ...tone(250)
+  },
+  alt: {
+    title: "Alt text",
+    hint: "What an image says, or that it's decorative",
+    check: "Compared with the image's alt",
+    icon: ImageIcon,
+    ...tone(150)
+  },
+  keyboard: {
+    title: "Keyboard",
+    hint: "Keys beyond Tab and Enter, and where focus goes",
+    check: "Tried by an agent pressing the keys in a render",
+    icon: Keyboard,
+    ...tone(88)
+  },
+  announce: {
+    title: "Announcement",
+    hint: "What's announced when it changes",
+    check: "Compared with the live region around it",
+    icon: Megaphone,
+    ...tone(350)
+  },
+  note: {
+    title: "Note",
+    hint: "Anything else: motion, timing, errors",
+    check: "Read by people and agents, not checked",
+    icon: NotebookPen,
+    bg: "oklch(0.86 0 0)",
+    ink: "oklch(0.25 0 0)"
+  }
+} satisfies Record<string, KindOption>
+
+export type AccessibilityOption = keyof typeof accessibilityOptions
+
 /** Each kind's options, in the order its bar places them. */
 export const kindOptions: Record<AnnotationKind, Record<string, KindOption>> = {
   behaviour,
   content,
-  accessibility: a11yKinds,
+  accessibility: accessibilityOptions,
   development
 }

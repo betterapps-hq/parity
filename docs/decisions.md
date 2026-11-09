@@ -6659,3 +6659,25 @@ at its fullest level, everywhere Parity runs" above for CI alone.
 - **Main's Sentry hooks drop transactions and logs,** through `sentryScrubbing`'s `errorsOnly`, which covers every
   process, since windows and the service send through main. The editor window doesn't start Replay. The CLI's sink keeps
   logs and spans out of its outbox.
+
+## The toolbar and review tools (PAR-780, PAR-795)
+
+You settled the toolbar in its exploration (Parity/Explorations/Toolbar) and asked on 2026-11-09 for it to be built into
+the app, with the exploration's bars removed. PAR-795 builds it;
+[editor.md](editor.md#the-toolbar-review-tools-and-zoom-par-780-par-795) says how it works.
+
+- **The toolbar is what the pointer does, Frame, Text and Insert, then the review button, then Search actions.** Move
+  and select, Hand and Interact share one button with a menu, as Figma's Move holds Hand. Frame's icon is in the layer
+  blue and Text's in text's green (PAR-792); Insert's stays plain. In Frame's menu New screen is screen blue and New
+  component component purple.
+- **Zoom has its own corner, at the top right:** Zoom out, the level, Zoom in and Zoom to fit. Undo and Redo leave the
+  canvas, as designed, for the Edit menu and their keys.
+- **Every review tool, Comment included, warps the toolbar into its own bar,** with the same warp for each. A kind of
+  annotation's bar has its options as stamps, Suggest and Done.
+- **The review tools are in the app before annotations and comments can be placed.** You chose on 2026-11-09 to wire
+  them in now: picking one warps the toolbar and puts the canvas on Move and select, so a click only selects until
+  PAR-184 places annotations.
+- **The icons:** Content is a pilcrow, so it doesn't read as the Text tool, and Behaviour keeps MousePointerClick.
+  Changes state is ToggleRight, Data is Braces, Analytics is ChartColumn, Landmark is PanelsTopLeft and Motion is Film.
+- **The bar beside the toolbar stays in the stories** (Parity/Collaboration/Annotations/Toolbar, WhileReviewing), as you
+  may use it later. The PAR-184 bars from the exploration are gone.

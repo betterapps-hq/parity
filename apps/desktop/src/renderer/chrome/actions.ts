@@ -1,5 +1,5 @@
 import type { ContainerKind } from "@parity-app/core"
-import { selectedDesigns, selectedNodes } from "@parity-app/editor"
+import { reviewToolFor, selectedDesigns, selectedNodes } from "@parity-app/editor"
 import type { Tool } from "../selection.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
@@ -129,12 +129,23 @@ const tool = (name: Tool): Action => ({
   available: hasSession
 })
 
+/** Picks the review tool a key picks (PAR-795): Comment, or annotating in the kind picked last. */
+const review = (key: "comment" | "annotate"): Action => ({
+  run: () => {
+    const selection = activeSession()?.selection
+    selection?.startReviewing(reviewToolFor(selection.getReview(), key))
+  },
+  available: hasSession
+})
+
 const keymapActions: Record<Command, Action> = {
   select: tool("select"),
   hand: tool("hand"),
   frame: tool("frame"),
   text: tool("text"),
   interact: tool("interact"),
+  comment: review("comment"),
+  annotate: review("annotate"),
 
   selectAll: { run: () => selectEverything(), available: hasSession },
   selectInverse: { run: () => selectInverse(), available: hasSession },

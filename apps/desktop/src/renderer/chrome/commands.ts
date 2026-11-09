@@ -690,8 +690,8 @@ export function toggleDeveloperTools(): void {
 }
 
 /**
- * Escape: stops editing text, then goes back to the select tool, then selects the parent, then nothing, one step a
- * press.
+ * Escape: stops editing text, then puts a review tool down, back on the tool before it, then goes back to the select
+ * tool, then selects the parent, then nothing, one step a press.
  */
 export function stepBack(session = activeSession()): void {
   if (!session) {
@@ -702,6 +702,8 @@ export function stepBack(session = activeSession()): void {
 
   if (selection.getEditing()) {
     selection.setEditing(undefined)
+  } else if (selection.getReview().picked) {
+    selection.stopReviewing()
   } else if (selection.getTool() !== "select") {
     selection.setTool("select")
   } else if (selection.get().node) {

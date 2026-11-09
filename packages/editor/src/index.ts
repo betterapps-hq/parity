@@ -64,6 +64,8 @@ export * from "./placement.ts"
 
 export * from "./render-failures.ts"
 
+export * from "./review.ts"
+
 export * from "./selection.ts"
 
 export * from "./shown.ts"
