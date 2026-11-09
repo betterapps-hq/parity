@@ -35,6 +35,16 @@ describe("telemetryLevel", () => {
 })
 
 describe("resolveTelemetry", () => {
+  it("sends only errors and reports from CI, at whatever level", () => {
+    expect(resolveTelemetry({ CI: "true" })).toEqual({ level: "all", setting: "all", errorsOnly: true })
+    expect(resolveTelemetry({ CI: "1", PARITY_TELEMETRY: "all" }, "off")).toMatchObject({
+      level: "all",
+      errorsOnly: true
+    })
+    expect(resolveTelemetry({ CI: "false" })).not.toHaveProperty("errorsOnly")
+    expect(resolveTelemetry({})).not.toHaveProperty("errorsOnly")
+  })
+
   it("uses the saved setting when no variable asks otherwise", () => {
     expect(resolveTelemetry({}, "off")).toEqual({ level: "off", setting: "off" })
   })

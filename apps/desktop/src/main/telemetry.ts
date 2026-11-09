@@ -8,6 +8,7 @@ import {
   envelopeSchema,
   registeredEvents,
   isSpanEnvelope,
+  type ResolvedTelemetry,
   type RunVariables,
   runTags,
   type Sink,
@@ -138,11 +139,13 @@ export function startTelemetry(
     /** The commit the build was made from, which names any other build's release. */
     commit: string | undefined
     rendererName: (contents: WebContents) => string | undefined
-    /** The level and install ID from the setting and the variables (PAR-626). */
-    sending: { level: TelemetryLevel; installId: string }
+    /** The level, install ID and whether only errors go, from the setting and the variables (PAR-626, PAR-777). */
+    sending: Pick<ResolvedTelemetry, "level" | "errorsOnly"> & { installId: string }
   }
 ): TelemetryStart {
   const environment = telemetryEnvironment(env, installed)
+  // CI sends only errors and reports, with their breadcrumbs; its spans and logs stay in the local copy (PAR-777).
+  const scrubbing = sentryScrubbing(scrubber, Sentry, { errorsOnly: sending.errorsOnly })
   runVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }
   Sentry.init({
     dsn,
@@ -151,7 +154,7 @@ export function startTelemetry(
     // Each platform's installer is its own build of the release.
     dist: `${process.platform}-${process.arch}`,
     getRendererName: rendererName,
-    ...sentryScrubbing(scrubber, Sentry),
+    ...scrubbing,
     // The process an event came from, by the telemetry envelope's names. Windows and the service name theirs on each
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
     // Every process's errors, logs and spans come through here; whether any leave is `applyTelemetry`'s switch.
@@ -165,7 +168,7 @@ export function startTelemetry(
 
       return scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } }))
     },
-    beforeSendTransaction: (event) => scrubber.value(withDriver(event)),
+    beforeSendTransaction: (event) => scrubbing.beforeSendTransaction(withDriver(event)),
     integrations: [
       // A renderer that runs out of memory may leave no minidump, so it's reported as well as the default exits.
       Sentry.childProcessIntegration({ events: ["abnormal-exit", "launch-failed", "integrity-failure", "oom"] })

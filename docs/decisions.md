@@ -6633,3 +6633,17 @@ mine:
 - **Signals not sent yet are their own issues,** PAR-771 to PAR-776: service restarts and hang lengths, memory and the
   cache as numbers, export times, a check that releases have their maps and commits, and the CLI's dropped batches. A
   scrubbing canary in CI (PAR-775) was proposed too, and you dropped it.
+
+## CI sends only its errors and reports (PAR-777)
+
+CI sent 718,000 of `parity-desktop`'s 794,000 spans in the week to 2026-11-09, which runs past every Sentry plan's 5
+million spans a month. You decided on 2026-11-09 that CI sends only its errors and reports. This narrows "on by default,
+at its fullest level, everywhere Parity runs" above for CI alone.
+
+- **Wherever `CI` is set, errors and reports go, with their breadcrumbs; spans, logs and Session Replay don't.** The
+  local copy is still written in full, so the end-to-end suite's checks of it don't change.
+- **`resolveTelemetry` decides it, with the level,** as `errorsOnly`, so the app and the CLI read it from the same place
+  as on or off. My call: `PARITY_TELEMETRY=all` doesn't override it, so a run in CI can't send its spans by accident.
+- **Main's Sentry hooks drop transactions and logs,** through `sentryScrubbing`'s `errorsOnly`, which covers every
+  process, since windows and the service send through main. The editor window doesn't start Replay. The CLI's sink keeps
+  logs and spans out of its outbox.
