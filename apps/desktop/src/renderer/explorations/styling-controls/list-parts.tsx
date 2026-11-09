@@ -60,6 +60,11 @@ export interface ListRowProps {
     /** Open at first, for a story. */
     defaultOpen?: boolean
     className?: string
+    /**
+     * The whole entry opens them, not the preview alone, where its type and summary are words rather than controls of
+     * their own, as a transition's are.
+     */
+    whole?: boolean
   }
   /** The entry's type, or its type menu (`TypeMenu`), after the preview. */
   type?: ReactNode
@@ -95,7 +100,7 @@ export function ListRow({
   const { live, rowProps } = useLiveRow()
   const drawn = renderPreview ? renderPreview(live(name)) : preview
   const dataType = `application/x-parity-${group}`
-  const entry =
+  let entry: ReactNode =
     drawn === undefined ? (
       <>
         {type}
@@ -110,6 +115,26 @@ export function ListRow({
         {children}
       </div>
     )
+  if (details?.whole) {
+    entry = (
+      <Popover defaultOpen={details.defaultOpen}>
+        <Hint label={`Edit ${name.toLowerCase()}`}>
+          <PopoverTrigger
+            aria-label={`Edit ${name}`}
+            className={`${entryBox} text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent`}
+            {...rowProps(name)}
+          >
+            <span className="grid shrink-0 place-items-center">{drawn}</span>
+            {type}
+            {children}
+          </PopoverTrigger>
+        </Hint>
+        <PopoverContent className={details.className ?? "w-72 p-2"} align="start">
+          {details.content}
+        </PopoverContent>
+      </Popover>
+    )
+  }
   const content = (
     <div
       className={`grid min-w-0 flex-1 items-center gap-x-1 ${after === undefined ? "" : "grid-cols-[minmax(0,1fr)_auto]"} ${off ? "opacity-50" : ""}`}

@@ -206,7 +206,8 @@ function EntryRow({
           duration={ms ?? defaultDuration}
         />
       )}
-      details={{ content: details, className: "w-80 gap-1 p-3" }}
+      // Its type and summary are words, so the whole entry opens its details.
+      details={{ content: details, className: "w-80 gap-1 p-3", whole: true }}
       // What changes keeps its name; the summary after it is cut first.
       type={<span className="max-w-1/2 shrink-0 truncate">{label}</span>}
     >
