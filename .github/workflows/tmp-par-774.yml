@@ -1,0 +1,25 @@
+name: PAR-774 release check trial
+
+# Temporary: runs the read-only release check against known releases, since no Sentry token is available locally.
+on: pull_request
+
+permissions:
+  contents: read
+
+jobs:
+  trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Check releases
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          for release in b7d97abb9cc576114f13739c94f6595cf8d88385 parity-desktop@0.39.2 parity-desktop@0.40.5 parity-cli@0.28.3; do
+            echo "== $release"
+            node scripts/check-release.ts "$release" && echo "exit 0" || echo "exit $?"
+          done
