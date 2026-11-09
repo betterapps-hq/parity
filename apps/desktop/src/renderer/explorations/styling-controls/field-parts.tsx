@@ -32,7 +32,6 @@ import {
   type CSSProperties,
   type HTMLAttributes,
   type KeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useContext,
@@ -501,7 +500,7 @@ export function UnitMenu<U extends string>({
           {units.map((each) => (
             // Choosing a unit is done, so the menu closes, as a menu item's does.
             <DropdownMenuRadioItem key={each.unit} value={each.unit} closeOnClick className="text-xs">
-              <span className="w-5 font-mono">{each.unit}</span>
+              <span className="w-7 font-mono">{each.unit}</span>
               {each.label}
             </DropdownMenuRadioItem>
           ))}
@@ -860,8 +859,12 @@ export interface TokenChipProps {
   fill?: boolean
   /** The field's name, for the chip's accessible names (`Radius: radius-lg`). */
   label?: string
-  /** The chip opens its field's list: it's that popover's trigger, so it must be inside one. */
-  trigger?: boolean
+  /**
+   * In a field, opens the field's list or picker: a click once the field's focused, Enter, Space or Alt+Down on the
+   * pill. Set, the pill is a button; the popup opens from the field's own trigger, which stays while the pill comes
+   * and goes.
+   */
+  onOpen?: () => void
   /** Shows the token's whole name and what it comes to on hover; a narrow field's own hint says it instead. */
   hint?: boolean
   /** A key typed on the focused chip, which replaces the token with what's typed. */
@@ -894,11 +897,11 @@ export function TokenChip({
   overridden = false,
   fill = false,
   label,
-  trigger = false,
   hint = true,
   onType,
   onStep,
   onRemove,
+  onOpen,
   focusField
 }: TokenChipProps) {
   const shownName = withoutNamespace(name, namespace)
@@ -907,7 +910,7 @@ export function TokenChip({
   // In a field, the pill is the name alone, but for a preview the field passes (a color's swatch); outside a field, a
   // list entry's carries the kind's preview.
   let drawn = fill ? undefined : preview
-  if (drawn === undefined && token && !fill && !trigger) {
+  if (drawn === undefined && token && !fill && !onOpen) {
     drawn = <TokenMark kind={token.kind} value={token.value} name={token.name} width={20} height={14} />
   }
   const replacement = token?.deprecated
@@ -939,29 +942,32 @@ export function TokenChip({
     } else if (onRemove && (event.key === "Backspace" || event.key === "Delete")) {
       event.preventDefault()
       onRemove()
+    } else if (onOpen && event.altKey && event.key === "ArrowDown") {
+      event.preventDefault()
+      onOpen()
     } else if (onStep && (event.key === "ArrowUp" || event.key === "ArrowDown") && !event.altKey) {
       event.preventDefault()
       onStep(event.key === "ArrowUp", { shift: event.shiftKey, alt: false })
     }
   }
-  const main = trigger ? (
-    <PopoverTrigger
+  const main = onOpen ? (
+    <button
+      type="button"
       aria-label={named}
       onKeyDown={onKeyDown}
       onPointerDown={() => {
         wasFocused.current = focusField?.focused() ?? true
       }}
-      onClick={(event: ReactMouseEvent & { preventBaseUIHandler?: () => void }) => {
+      onClick={() => {
         const first = !wasFocused.current
         wasFocused.current = true
-        if (!first || !focusField) return
-        event.preventBaseUIHandler?.()
-        focusField.focus()
+        if (first && focusField) focusField.focus()
+        else onOpen()
       }}
       className="flex h-full min-w-0 items-center gap-1 rounded px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {content}
-    </PopoverTrigger>
+    </button>
   ) : (
     <span className="flex min-w-0 items-center gap-1 px-1.5">{content}</span>
   )
@@ -976,7 +982,7 @@ export function TokenChip({
       ) : (
         main
       )}
-      {onRemove && !trigger && (
+      {onRemove && !onOpen && (
         <button
           type="button"
           aria-label={`Remove ${name}${label ? ` from ${label}` : ""}`}
@@ -1496,7 +1502,7 @@ export interface ValueFieldProps<T> {
   /** A button after the field, as Angle's dial is. */
   trailing?: ReactNode
   /**
-   * Under about 96px, as sides and corners are: the unit shows on hover, and what the value comes to is in the hint
+   * Under about 96px, as sides and corners are: what the value comes to is in the hint
    * and under the row while focused.
    */
   narrow?: boolean
@@ -1705,19 +1711,15 @@ export function ValueField<T>({
   let mark: ReactNode
   if (!typing) mark = showChip ? status?.theme : (status?.missing ?? status?.theme)
 
-  // A narrow field has room for one thing after the value: its status mark takes the unit's place, which its hint names.
+  // The unit shows whenever the value does, narrow or focused, so what's typed is read in it; text typed with a unit
+  // of its own (`2rem`, `auto`) takes its place. A narrow field has room for one thing after the value: its status
+  // mark takes the unit's place, which its hint names.
+  const typedOwnUnit = typing && /[a-z%°×]\s*$/i.test(typed.typed ?? "")
   const showUnit =
-    unit !== undefined && !typed.focused && !showChip && (shown !== undefined || !mixed) && !(narrow && mark)
+    unit !== undefined && !typedOwnUnit && !showChip && (shown !== undefined || !mixed) && !(narrow && mark)
   let unitPart: ReactNode
-  if (showUnit && typeof unit === "string") {
-    unitPart = (
-      <span className={`shrink-0 text-muted-foreground ${narrow ? "hidden group-hover/field:inline" : ""}`}>
-        {unit}
-      </span>
-    )
-  } else if (showUnit) {
-    unitPart = <span className={narrow ? "hidden group-hover/field:contents" : "contents"}>{unit}</span>
-  }
+  if (showUnit && typeof unit === "string") unitPart = <span className="shrink-0 text-muted-foreground">{unit}</span>
+  else if (showUnit) unitPart = unit
 
   const hintLabel = hint?.label ?? (narrow ? `${label}: ${backTo}` : undefined)
   // What a token comes to is in its pill's hint, and a narrow field's in the field's.
@@ -1736,10 +1738,12 @@ export function ValueField<T>({
     input.current?.focus()
   }
   // Room at the box's end for its one button, only while it shows: on hover or focus, and while Tokens has its list
-  // open (Detach shows only on hover or focus). At rest, a unit or mark sits at the end, and moves aside for it.
+  // open (Detach shows only on hover or focus). At rest, a unit or mark sits at the end, and moves aside for it. A unit
+  // that's a menu keeps the room, so it's where it was seen when the pointer reaches it, not under the end button.
   const endRoom = !bare && (offers || chip !== undefined)
+  const unitIsMenu = showUnit && typeof unit !== "string"
   let room = ""
-  if (endRoom && open && !showChip) room = "pr-7"
+  if (endRoom && ((open && !showChip) || unitIsMenu)) room = "pr-7"
   else if (endRoom) room = "transition-[padding] duration-100 hover:pr-7 focus-within:pr-7"
 
   const boxExtra = `flex-1 ${room} ${disabled ? "opacity-50" : ""}`
@@ -1747,8 +1751,10 @@ export function ValueField<T>({
     <Hint label={hintLabel} detail={hintDetail} hidden={open} wait>
       <div className={bare ? bareBox(error, boxExtra) : fieldBox(error, boxExtra)}>
         {labelSlot}
-        {picker?.swatch !== undefined && !showChip && (
-          // Named as the end button is, since both open the picker; the field's text already says what's set.
+        {picker?.swatch !== undefined && (
+          // The picker's one trigger, so it stays before a token's pill: what the picker's anchored to never leaves
+          // while it's open, as a pick turns a color into a token or back. Named as the end button is, since both
+          // open the picker; the field's text already says what's set.
           <Hint label="Picker">
             <PopoverTrigger
               aria-label={`${label} picker`}
@@ -1764,12 +1770,13 @@ export function ValueField<T>({
             name={chip.name}
             token={chip.token}
             namespace={chip.namespace}
-            preview={chip.preview}
+            // The swatch before the pill draws the color, so the pill is the name alone.
+            preview={picker?.swatch === undefined ? chip.preview : null}
             struck={chip.token === undefined}
             overridden={chip.overridden}
             fill={narrow}
             label={label}
-            trigger={offers}
+            onOpen={offers ? () => setOpen(!open) : undefined}
             hint={!narrow}
             onType={(key) => {
               if (expression && key === "=") expression.onEquals("")
@@ -1893,9 +1900,31 @@ export function ValueField<T>({
             </button>
           </Hint>
         )}
-        {!showChip && offers && !bare && (
+        {!showChip && picker?.swatch !== undefined && !bare && (
+          <Hint label="Picker" detail={altSteps ? undefined : "Alt+Down"}>
+            <button
+              type="button"
+              aria-label={`${label} tokens`}
+              aria-haspopup="dialog"
+              aria-expanded={open}
+              disabled={disabled}
+              onClick={() => setOpen(!open)}
+              className={fieldEndButton}
+            >
+              <ChevronDown className="size-3.5" />
+            </button>
+          </Hint>
+        )}
+        {offers && picker?.swatch === undefined && !bare && (
+          // The list's one trigger, kept behind Detach while a pill shows, so what the list's anchored to never leaves
+          // while it's open, as a pick sets a token or takes one off.
           <Hint label={picker ? "Picker" : "Tokens"} detail={altSteps ? undefined : "Alt+Down"}>
-            <PopoverTrigger aria-label={`${label} tokens`} disabled={disabled} className={fieldEndButton}>
+            <PopoverTrigger
+              aria-label={`${label} tokens`}
+              disabled={disabled}
+              tabIndex={showChip ? -1 : undefined}
+              className={`${fieldEndButton} ${showChip ? "invisible" : ""}`}
+            >
               <ChevronDown className="size-3.5" />
             </PopoverTrigger>
           </Hint>
@@ -1932,9 +1961,8 @@ export function ValueField<T>({
     popup = (
       <PopoverContent
         className="w-60 gap-0 p-1"
-        align="start"
+        align="end"
         finalFocus={() => {
-          if (!picked.current) return true
           picked.current = false
           return input.current
         }}

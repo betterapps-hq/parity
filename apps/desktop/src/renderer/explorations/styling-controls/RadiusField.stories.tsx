@@ -12,7 +12,7 @@ import { inState, mixedWrites, radiusWrites } from "./writes.ts"
  * (call 1) in px or as a percentage of the layer's size, as Framer and Webflow take (`50%`); the unit's menu switches
  * between them, keeping the number. It's typed with the app's maths (`+2`, `*2`, `0.5rem`) and checked by
  * `CSS.supports` before it's stored. A
- * corner's field is narrow, so its unit shows on hover and what it comes to is in its hint. The button beside Each
+ * corner's field is narrow, so what it comes to is in its hint; its unit still shows. The button beside Each
  * corner opens Corner shape, marked † as Chromium only. Up and Down step a token through the scale.
  */
 const meta = {

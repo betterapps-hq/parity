@@ -8,6 +8,7 @@ import {
   type Reading,
   type ScrubBy,
   type ScrubKeys,
+  UnitMenu,
   useTokens,
   ValueField
 } from "./field-parts.tsx"
@@ -97,8 +98,9 @@ export interface SideFieldProps {
  * One side, or any one value of a side's kind, on the shared ValueField: a number in the field's unit, a percentage, a
  * token as a chip, or Auto in words with what it comes to. It types like the app's fields (maths, units, `spacing-4`, a
  * token's name), and shorthand typed into it (`8 16`) fills every side. A number of its own has no mark: its token list
- * offers the nearest token first, then Create token. Narrow, the unit shows on hover and what it comes to is in its
- * hint.
+ * offers the nearest token first, then Create token. Where the side takes a percentage, its unit is a menu of px and
+ * %, which keeps the number, as Radius's does, and a number typed bare is in the unit shown. Narrow, what it comes to
+ * is in its hint.
  */
 export function SideField({
   label,
@@ -137,8 +139,30 @@ export function SideField({
   else if (own) shown = formatNumber(own.number)
   else if (percent !== undefined) shown = formatNumber(percent)
 
-  let shownUnit: string | undefined
-  if (percent !== undefined) shownUnit = "%"
+  // The unit a bare number is typed in: the value's, or the one last chosen from the menu while the side was unset.
+  const [chosenUnit, setChosenUnit] = useState<"px" | "%">("px")
+  let unitNow = chosenUnit
+  if (percent !== undefined) unitNow = "%"
+  else if (own) unitNow = "px"
+  const toUnit = (next: "px" | "%") => {
+    setChosenUnit(next)
+    if (next === "%" && own) onChange({ percent: own.number }, "side")
+    else if (next === "px" && percent !== undefined) onChange({ number: percent }, "side")
+  }
+  let shownUnit: ReactNode
+  if (rules.percent && (own || percent !== undefined)) {
+    shownUnit = (
+      <UnitMenu
+        label={label}
+        unit={unitNow}
+        units={[
+          { unit: "px", label: "Pixels" },
+          { unit: "%", label: `Of ${percentOf ?? "the parent's width"}` }
+        ]}
+        onUnit={toUnit}
+      />
+    )
+  } else if (percent !== undefined) shownUnit = "%"
   else if (own && unit) shownUnit = unit
 
   let comesTo: string | undefined
@@ -156,7 +180,14 @@ export function SideField({
   else if (mixed && value === undefined) status = mixedNote
 
   const read = (text: string): Reading<SideEntry> => {
-    const reading = readSide(text, label, rules, value, tokens)
+    const bare = /^\s*-?\d*\.?\d+\s*$/.test(text)
+    const reading = readSide(
+      rules.percent && unitNow === "%" && bare ? `${text.trim()}%` : text,
+      label,
+      rules,
+      value,
+      tokens
+    )
     return "reason" in reading ? { reason: reading.reason } : { value: reading }
   }
   const commit = (entry: SideEntry) => {
@@ -194,6 +225,7 @@ export function SideField({
             }
       }
       unit={shownUnit}
+      unitName={rules.percent ? unitNow : undefined}
       comesTo={comesTo}
       own={
         own === undefined

@@ -1471,7 +1471,7 @@ export function BlurChoice({
  * percentage too, typed (`50%`) or from the unit's menu (px or %), which Tokens only leaves alone as sides' are: it's
  * a share of the layer, not a step off the scale. Typing a token's name (`lg`, `radius-lg`) takes the token. What's
  * typed is checked as CSS checks the property (`CSS.supports`) before it's stored. Up and Down step a token through the
- * scale and a value by a pixel or a percent. In a narrow field (`narrow`, under about 96px), the unit shows on hover,
+ * scale and a value by a pixel or a percent. In a narrow field (`narrow`, under about 96px), the unit stays,
  * and what the value comes to and its status are in its hint.
  */
 function LengthField({
@@ -1905,13 +1905,13 @@ const presets = [
 ]
 
 /**
- * A number typed, committed on Enter or blur, with a short label inside and a unit after, hidden while focused: a
- * ValueField. A length in pixels (`pixels`) is shown in px or rem, switched by the unit after it as the canvas's type
- * box switches, and takes either typed (`1rem`, `16px`); it's kept in pixels whichever is shown, so 16px becomes 1rem.
+ * A number typed, committed on Enter or blur, with a short label inside and a unit after: a ValueField. A length in
+ * pixels (`pixels`) is shown in px or rem, chosen from its unit's menu, and takes either typed (`1rem`, `16px`); it's
+ * kept in pixels whichever is shown, so 16px becomes 1rem.
  * A spacing length (`spacing`) steps to the next whole spacing step (4px) on Up and Down and scrubs a step per 2 screen
  * pixels; others step by 1, or 10 with Shift, and scrub a step per screen pixel.
  *
- * In a narrow field (`narrow`, under about 96px, as sides are), the unit shows only on hover. Input it can't read
+ * In a narrow field (`narrow`, under about 96px, as sides are), what it comes to is in its hint. Input it can't read
  * stays, outlined in the error color with a mark in the status slot and the reason under the row; Enter keeps it, and
  * Escape or leaving puts the value back and says so.
  */
@@ -1946,7 +1946,6 @@ export function Num({
   const inRem = pixels && unit === "rem"
   let shown = value === undefined ? undefined : formatNumber(value)
   if (inRem && value !== undefined) shown = formatNumber(value / remPx)
-  const other = unit === "px" ? "rem" : "px"
   /**
    * What's typed: a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`), a bare number in the
    * unit shown; or, for a count, a whole number.
@@ -1969,19 +1968,15 @@ export function Num({
   let unitPart: ReactNode = suffix
   if (pixels && value !== undefined) {
     unitPart = (
-      <Hint label={`Show in ${other}`}>
-        <button
-          type="button"
-          aria-label={`${unit}, switch to ${other}`}
-          onClick={(event) => {
-            event.preventDefault()
-            setUnit(other)
-          }}
-          className={unitButtonClass}
-        >
-          {unit}
-        </button>
-      </Hint>
+      <UnitMenu
+        label={label}
+        unit={unit}
+        units={[
+          { unit: "px", label: "Pixels" },
+          { unit: "rem", label: "Root em, 16px" }
+        ]}
+        onUnit={setUnit}
+      />
     )
   }
   return (

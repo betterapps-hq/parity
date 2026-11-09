@@ -222,22 +222,26 @@ function PresetPicker({
         <span className="flex shrink-0 text-muted-foreground">
           <CaseSensitive aria-hidden className="size-3.5" />
         </span>
-        {preset ? (
-          <TokenChip
-            name={preset.name}
-            token={{ name: preset.name, kind: "font-size", value: summary(preset), detail: detail ?? "" }}
-            overridden={overrides > 0}
-            label="Typography preset"
-            trigger
-          />
-        ) : (
+        {/* One trigger, holding the pill or None, so what the list's anchored to stays as a pick sets a preset or clears it. */}
+        <Hint label={preset?.name ?? "None"} detail={detail} hidden={!preset} wait>
           <PopoverTrigger
-            aria-label="Typography preset: none"
-            className="h-full min-w-0 flex-1 text-left text-muted-foreground outline-none"
+            aria-label={preset ? `Typography preset: ${preset.name}` : "Typography preset: none"}
+            className={`flex h-full min-w-0 items-center rounded outline-none focus-visible:ring-2 focus-visible:ring-ring ${preset ? "" : "flex-1 text-left text-muted-foreground"}`}
           >
-            None
+            {preset ? (
+              <TokenChip
+                name={preset.name}
+                token={{ name: preset.name, kind: "font-size", value: summary(preset), detail: detail ?? "" }}
+                overridden={overrides > 0}
+                label="Typography preset"
+                preview={null}
+                hint={false}
+              />
+            ) : (
+              "None"
+            )}
           </PopoverTrigger>
-        )}
+        </Hint>
         {preset ? (
           <Hint label={`Detach ${preset.name}`} detail="Keeps every value it gives here">
             <button type="button" aria-label={`Detach ${preset.name}`} onClick={onDetach} className={fieldEndButton}>
