@@ -344,6 +344,9 @@ export function AccountMenu({
   )
 }
 
+/** Where a sign-in sends you to authorize, as WorkOS names it. */
+const authorizeUrl = "https://api.workos.com/user_management/authorize"
+
 /**
  * Another account, from the account menu: the ways in, as signing in has them, then the browser. The accounts you're
  * signed in to stay signed in. Signing in again to an account whose session ended goes straight to the browser, since
@@ -392,12 +395,11 @@ export function AddAccountDialog({
         {waiting ? (
           <WaitingPanel
             dialog
-            attempt={{
-              at: "waiting",
-              provider: waiting,
-              ...(again ? { email: again.email } : {}),
-              url: "https://api.workos.com/user_management/authorize"
-            }}
+            attempt={
+              again
+                ? { at: "waiting", provider: waiting, email: again.email, url: authorizeUrl }
+                : { at: "waiting", provider: waiting, url: authorizeUrl }
+            }
             onReopen={() => undefined}
             onCancel={again ? onClose : () => setWaiting(undefined)}
           />

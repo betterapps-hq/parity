@@ -44,15 +44,15 @@ function picked(entry: EmojiEntry, tone: string) {
   return withTone(entry, tone)
 }
 
-const categoryIcons: Record<string, typeof Smile> = {
-  recent: Clock,
-  smileys: Smile,
-  people: Hand,
-  nature: Leaf,
-  food: Apple,
-  objects: Lightbulb,
-  symbols: Heart
-}
+const categoryIcons = new Map([
+  ["recent", Clock],
+  ["smileys", Smile],
+  ["people", Hand],
+  ["nature", Leaf],
+  ["food", Apple],
+  ["objects", Lightbulb],
+  ["symbols", Heart]
+])
 
 const columns = 8
 
@@ -117,12 +117,19 @@ export function EmojiPicker({
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    const moves: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: columns, ArrowUp: -columns }
+    const moves = new Map([
+      ["ArrowRight", 1],
+      ["ArrowLeft", -1],
+      ["ArrowDown", columns],
+      ["ArrowUp", -columns]
+    ])
 
-    if (event.key in moves && flat.length) {
+    const move = moves.get(event.key)
+
+    if (move !== undefined && flat.length) {
       event.preventDefault()
       setHovered(undefined)
-      setActive(Math.max(0, Math.min(flat.length - 1, active + moves[event.key]!)))
+      setActive(Math.max(0, Math.min(flat.length - 1, active + move)))
     } else if (event.key === "Enter" && current) {
       event.preventDefault()
       pick(current)
@@ -210,7 +217,7 @@ export function EmojiPicker({
       {!query.trim() && (
         <div className="flex justify-between border-b px-2 pb-1.5">
           {sections.map((candidate) => {
-            const Icon = categoryIcons[candidate.id] ?? Smile
+            const Icon = categoryIcons.get(candidate.id) ?? Smile
 
             return (
               <button

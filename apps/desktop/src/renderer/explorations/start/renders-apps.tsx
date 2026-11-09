@@ -1047,14 +1047,16 @@ export function Board({ look }: { look: Look }) {
             <Timer className="size-4" /> 4:12
           </span>
           <span className="flex">
-            {[
-              ["Priya Raman", 162],
-              ["Jonas Weber", 30],
-              ["Lena Fischer", 290],
-              ["Sam Okafor", 80]
-            ].map(([name, hue], index) => (
+            {(
+              [
+                ["Priya Raman", 162],
+                ["Jonas Weber", 30],
+                ["Lena Fischer", 290],
+                ["Sam Okafor", 80]
+              ] as const
+            ).map(([name, hue], index) => (
               <span key={name} className={`rounded-full ring-2 ring-(--r-card) ${index ? "-ml-2" : ""}`}>
-                <Face name={name as string} hue={hue as number} size={30} />
+                <Face name={name} hue={hue} size={30} />
               </span>
             ))}
           </span>

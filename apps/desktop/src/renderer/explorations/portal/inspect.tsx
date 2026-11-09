@@ -127,7 +127,7 @@ export function InspectPage() {
           <span className="ml-1 rounded-md bg-muted px-1.5 py-px text-[11px] font-medium tabular-nums">
             Inspect v{board.version}
           </span>
-          <HandoffPill status={handoff["spawnkit/Level select"]!} />
+          <HandoffPill status={handoff.get("spawnkit/Level select")!} />
           <div className="ml-auto flex items-center gap-1">
             <Button size="sm" variant="ghost" className="gap-1.5">
               <Monitor /> Open in the desktop app

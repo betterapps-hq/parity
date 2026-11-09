@@ -16,7 +16,7 @@ const meta = {
   parameters: { layout: "fullscreen" },
   decorators: [
     (Story) => (
-      <Keyframes.Provider value={(name) => sampleKeyframes[name]}>
+      <Keyframes.Provider value={(name) => sampleKeyframes.get(name)}>
         <Story />
       </Keyframes.Provider>
     )

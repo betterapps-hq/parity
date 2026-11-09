@@ -59,30 +59,6 @@ const readOnly =
 const trackedInputs = [{ auto: true }, "!node_modules", "!node_modules/.vite/**"]
 
 /**
- * Code that doesn't meet Buildkit's lint rules yet, with the rules each part still breaks. Each entry is a PAR-730
- * sub-issue that cleans that part up and removes its entry; delete this list, and the override it makes, when it's
- * empty. Never add to it: new code and code outside it get every rule.
- */
-const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
-  {
-    issue: "PAR-747",
-    files: ["apps/desktop/src/renderer/explorations/**"],
-    rules: [
-      "anti-slop/no-array-filter-map",
-      "anti-slop/no-conditional-empty-object-spread",
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-shape-in-symbol-names",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "oxc/no-accumulating-spread"
-    ]
-  }
-]
-
-/**
  * The workspace's format, lint, type-check, test and task settings, which `vp check`, `vp test` and `vp run` read from
  * the root. Each app keeps its own Vite settings in its folder.
  */
@@ -241,11 +217,7 @@ export default defineConfig({
         // Tests may use Node to set up files and folders.
         files: ["packages/**/*.test.ts", "packages/**/*.test.tsx"],
         rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }
-      },
-      ...notYetClean.map(({ files, rules }) => ({
-        files,
-        rules: Object.fromEntries(rules.map((rule) => [rule, "off" as const]))
-      }))
+      }
     ]
   },
   test: {

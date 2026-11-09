@@ -40,6 +40,7 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { Field, NumberField, TokenInput } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { numberValue } from "../../chrome/prop-values.ts"
 import {
   caseNames,
   closestPreset,
@@ -48,8 +49,6 @@ import {
   fieldLabel,
   fontStack,
   formatValue,
-  type LetterSpacing,
-  type LineHeight,
   overrideCount,
   type Preset,
   presetAt,
@@ -57,12 +56,14 @@ import {
   presetByName,
   type PresetProject,
   resetOwn,
+  rowValue,
+  type RowValue,
   setOwn,
   type Shown,
   shownAt,
   sizeAndLine,
   summary,
-  type TextCase,
+  textCases,
   type TextLayer,
   type TypeField,
   typeFields,
@@ -233,7 +234,9 @@ export function PresetTextSection({
             size="sm"
             spacing={0}
             value={[layer.align ?? ""]}
-            onValueChange={([value]) => onChange({ ...layer, align: (value || undefined) as TextLayer["align"] })}
+            onValueChange={([value]) =>
+              onChange({ ...layer, align: alignOptions.find((option) => option.value === value)?.value })
+            }
           >
             {alignOptions.map(({ value, label, Icon }) => (
               <Hint key={value} label={label}>
@@ -432,7 +435,7 @@ function ClosestPreset({
   const { preset, differs } = match
   const values = presetAt(preset, viewport)
   // What using it changes goes in the button's hint, so the line stays one short line.
-  const changes = differs.map((field) => `${fieldLabel(field)} becomes ${formatValue(field, values[field])}`)
+  const changes = differs.map((field) => `${fieldLabel(field)} becomes ${formatValue(rowValue(values, field))}`)
 
   return (
     <div className="-mt-1 grid grid-cols-[88px_1fr] gap-2 pb-1">
@@ -729,7 +732,7 @@ function TypeRow({
 
   if (!opened) {
     return row(
-      <LockedControl field={field} shown={shown} label={label} preset={preset} />,
+      <LockedControl shown={shown} label={label} preset={preset} />,
       <RowAction label={`Unlock ${label} to override it`} onClick={() => onOpen(true)}>
         <Lock className="size-3.5" />
       </RowAction>
@@ -745,18 +748,8 @@ function TypeRow({
 }
 
 /** A value the preset sets, shown but not editable. */
-function LockedControl({
-  field,
-  shown,
-  label,
-  preset
-}: {
-  field: TypeField
-  shown: Shown
-  label: string
-  preset: Preset
-}) {
-  const { text, suffix } = display(field, shown.value)
+function LockedControl({ shown, label, preset }: { shown: Shown; label: string; preset: Preset }) {
+  const { text, suffix } = display(shown)
 
   return (
     <div className="relative">
@@ -785,28 +778,34 @@ function menuOptions(field: "font" | "weight" | "case", project: PresetProject) 
     return weights.map(({ weight, name }) => ({ value: String(weight), label: `${name} ${weight}` }))
   }
 
-  return (Object.entries(caseNames) as [TextCase, string][]).map(([key, name]) => ({ value: key, label: name }))
+  return textCases.map((key) => ({ value: key, label: caseNames[key] }))
+}
+
+/** A row's value as its field shows it, and the unit after it. */
+interface Display {
+  text: string
+  suffix?: string
 }
 
 /** What a number row shows: px as px, a line height multiple bare, letter spacing in em as a percentage. */
-function display(field: TypeField, value: TypeValue | undefined): { text: string; suffix?: string } {
-  if (field === "size") {
-    return { text: formatValue(field, value), suffix: "px" }
+function display(row: RowValue): Display {
+  if (row.field === "size") {
+    return { text: formatValue(row), suffix: "px" }
   }
 
-  if (field === "lineHeight" && value) {
-    return { text: formatValue(field, value), suffix: "px" in (value as LineHeight) ? "px" : undefined }
+  if (row.field === "lineHeight" && row.value) {
+    return { text: formatValue(row), suffix: "px" in row.value ? "px" : undefined }
   }
 
-  if (field === "letterSpacing" && value) {
-    const spacing = value as LetterSpacing
+  if (row.field === "letterSpacing" && row.value) {
+    const spacing = row.value
 
     return "px" in spacing
       ? { text: String(spacing.px), suffix: "px" }
       : { text: String(round(spacing.em * 100)), suffix: "%" }
   }
 
-  return { text: value === undefined ? "" : formatValue(field, value) }
+  return { text: row.value === undefined ? "" : formatValue(row) }
 }
 
 const round = (value: number) => Math.round(value * 100) / 100
@@ -829,14 +828,15 @@ function TypeControl({
   onSet: (value: TypeValue | undefined) => void
 }) {
   const inherited = shown.source.kind === "inherited"
-  const value = inherited ? undefined : shown.value
+  // An inherited value shows as the placeholder, not as a value of the layer's.
+  const own: RowValue = inherited ? { ...shown, value: undefined } : shown
   // An override's value is drawn in the override color, inside the input or the menu's trigger.
   const toned = tone ? "[&_input]:text-(--canvas-component) [&_[data-slot=select-value]]:text-(--canvas-component)" : ""
 
-  if (field === "font" || field === "weight" || field === "case") {
-    const options = menuOptions(field, project)
-    const current = value === undefined ? undefined : String(value as number | string)
-    const placeholder = formatValue(field, shown.value)
+  if (own.field === "font" || own.field === "weight" || own.field === "case") {
+    const options = menuOptions(own.field, project)
+    const current = own.value === undefined ? undefined : String(own.value)
+    const placeholder = formatValue(shown)
 
     return (
       <div className={toned}>
@@ -848,7 +848,7 @@ function TypeControl({
               return
             }
 
-            onSet(field === "weight" ? Number(next) : (next as TypeValue))
+            onSet(field === "weight" ? Number(next) : next)
           }}
         >
           <SelectTrigger size="sm" aria-label={label} className="h-7 w-full text-xs">
@@ -866,23 +866,26 @@ function TypeControl({
     )
   }
 
-  const { text, suffix } = display(field, shown.value)
-  const number = value === undefined ? undefined : Number(display(field, value).text)
+  const { text, suffix } = display(shown)
+  const number = own.value === undefined ? undefined : Number(display(own).text)
 
   const toValue = (next: number): TypeValue => {
-    if (field === "size") {
-      return next
+    switch (shown.field) {
+      case "lineHeight": {
+        const current = shown.value ?? { multiple: next }
+
+        return "px" in current ? { px: next } : { multiple: next }
+      }
+
+      case "letterSpacing": {
+        const current = shown.value ?? { em: 0 }
+
+        return "px" in current ? { px: next } : { em: next / 100 }
+      }
+
+      default:
+        return next
     }
-
-    if (field === "lineHeight") {
-      const current = (shown.value ?? { multiple: next }) as LineHeight
-
-      return "px" in current ? { px: next } : { multiple: next }
-    }
-
-    const current = (shown.value ?? { em: 0 }) as LetterSpacing
-
-    return "px" in current ? { px: next } : { em: next / 100 }
   }
 
   return (
@@ -895,10 +898,11 @@ function TypeControl({
       blank={() => Number(text)}
       className={toned}
       onCommit={(update) => {
-        const next = update(number ?? Number(text))
+        const updated = update(number ?? Number(text))
+        const next = numberValue.safeParse(updated).data
 
-        if (typeof next !== "number") {
-          if (next === undefined) {
+        if (next === undefined) {
+          if (updated === undefined) {
             onSet(undefined)
           }
 

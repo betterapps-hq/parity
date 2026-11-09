@@ -37,13 +37,11 @@ export function layerKind(
       return { label: "Component", description: `${node.component} component` }
     }
 
-    const name = node.component.slice(node.component.lastIndexOf("/") + 1)
-
     if (library.kind === "icons") {
-      return { label: "Icon", description: `${name.replace(/(?<=.)Icon$/, "")} icon from ${library.name}` }
+      return { label: "Icon", description: `${iconName(node.component)} icon from ${library.name}` }
     }
 
-    return { label: "Component", description: `${name} component from ${library.name}` }
+    return { label: "Component", description: `${exportName(node.component)} component from ${library.name}` }
   }
 
   let layout = node.style?.direction === "row" ? "Horizontal layout" : "Vertical layout"
@@ -71,6 +69,30 @@ function libraryOf<Library extends Pick<LibraryInfo, "id">>(
 /** Whether a layer is an icon: a component from one of the project's icon sets, such as `lucide/Check`. */
 export function isIconLayer(node: DesignNode, libraries: readonly Pick<LibraryInfo, "id" | "kind">[]): boolean {
   return node.type === "component" && libraryOf(node.component, libraries)?.kind === "icons"
+}
+
+/**
+ * What an icon is called: its export without the set's path or a trailing "Icon", as "Plus" for `lucide/Plus` and "Cog"
+ * for `heroicons/16/solid/CogIcon`.
+ */
+export function iconName(component: string): string {
+  return exportName(component).replace(/(?<=.)Icon$/, "")
+}
+
+/**
+ * What an unnamed icon layer is called: its icon ("Plus", not `lucide/Plus`), since it shows Smile rather than its own
+ * glyph and its name is what tells it from the others (PAR-796). Undefined for a named layer and for anything else.
+ */
+export function unnamedIconLabel(
+  node: DesignNode,
+  libraries: readonly Pick<LibraryInfo, "id" | "kind">[]
+): string | undefined {
+  return !node.name && node.type === "component" && isIconLayer(node, libraries) ? iconName(node.component) : undefined
+}
+
+/** A library component's export, without the library's path: `Card` for `nova/Card`. */
+function exportName(component: string): string {
+  return component.slice(component.lastIndexOf("/") + 1)
 }
 
 function plain(kind: string): LayerKind {

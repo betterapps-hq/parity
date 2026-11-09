@@ -24,6 +24,7 @@ import {
 import { type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { Hint } from "../../chrome/Hint.tsx"
+import { numberValue } from "../../chrome/prop-values.ts"
 import { SidePanel } from "../../chrome/SidePanel.tsx"
 import type { StyleEditor } from "../../chrome/style-editor.ts"
 import { StyleSections } from "../../chrome/StyleSections.tsx"
@@ -146,9 +147,11 @@ function FrameStyles({ root, onSize }: { root: DesignNode; onSize?: (width?: num
       const { width, height } = next.root.style ?? {}
 
       if (width !== was.width || height !== was.height) {
+        const fixedWidth = numberValue.safeParse(width).data
+        const fixedHeight = numberValue.safeParse(height).data
         onSize?.(
-          typeof width === "number" ? width * unit : undefined,
-          typeof height === "number" ? height * unit : undefined
+          fixedWidth === undefined ? undefined : fixedWidth * unit,
+          fixedHeight === undefined ? undefined : fixedHeight * unit
         )
       }
     },

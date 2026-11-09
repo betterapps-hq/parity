@@ -4,6 +4,21 @@ import { agentPalettes } from "../agent/agent-colors.ts"
 import { AgentPointer } from "../agent/AgentPointer.tsx"
 import { initials, type Person, type Project, type ScreenKind } from "./explore-data.ts"
 
+/** CSS custom properties by name, which a style's own type doesn't list. */
+export interface CssVariables {
+  [name: `--${string}`]: string
+}
+
+/** The option a control's value names, or undefined when it names none of them. */
+export function optionNamed<Option extends string>(options: readonly Option[], value: string | undefined) {
+  return options.find((option) => option === value)
+}
+
+/** A style with CSS custom properties set in it. */
+export function withVariables(variables: CssVariables, style: CSSProperties = {}): CSSProperties {
+  return { ...style, ...variables }
+}
+
 /** A color from a hue, at the app's usual lightness and chroma for accents. */
 export function accent(hue: number, lightness = 0.7, chroma = 0.15): string {
   return `oklch(${lightness} ${chroma} ${hue})`
@@ -594,7 +609,7 @@ const screens: Record<ScreenKind, (c: Colors) => ReactNode> = {
             <div
               key={index}
               className="aspect-square w-[12px] rounded-full ring-2"
-              style={{ background: color, marginLeft: index ? -3 : 0, ["--tw-ring-color" as string]: c.page }}
+              style={withVariables({ "--tw-ring-color": c.page }, { background: color, marginLeft: index ? -3 : 0 })}
             />
           ))}
         </div>
