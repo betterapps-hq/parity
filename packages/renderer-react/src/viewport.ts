@@ -1,6 +1,8 @@
 // Compiled by the customer's build tool, with the guest: this runs in the same window as the canvas, and `react` is the
 // customer's copy.
 import type { FrameViewport } from "@parity-app/core"
+// Imports nothing at runtime, so it runs in the project's own bundle with the guest.
+import { isComposite } from "@parity-app/core/values/evaluate"
 import * as React from "react"
 
 /**
@@ -26,7 +28,7 @@ export interface FrameWindow {
 }
 
 interface Scope {
-  container: unknown
+  container: Element
   viewport: FrameViewport
   /** Media query lists with change listeners. */
   queries: Set<FrameQueryList>
@@ -40,10 +42,10 @@ const running: Scope[] = []
 let active: Scope | undefined
 
 /** Frames by the element React renders them into, to tell which one an event or a component is in. */
-const frames = new Map<unknown, Scope>()
+const frames = new Map<object, Scope>()
 
-/** Frames by the window their provider passes down. */
-const windows = new WeakMap<FrameWindow, Scope>()
+/** Frames by the window their provider passes down, which React keeps untyped. */
+const windows = new WeakMap<object, Scope>()
 
 /** The window of the frame a component is drawn in, which the guest provides at the top of each frame. */
 export const FrameWindowContext = React.createContext<FrameWindow | undefined>(undefined)
@@ -82,10 +84,10 @@ export function frameWindow(container: Element, viewport: FrameViewport): FrameW
         const event = new Event("resize")
 
         for (const listener of self.resizeListeners) {
-          if (typeof listener === "function") {
-            listener.call(window, event)
-          } else {
+          if ("handleEvent" in listener) {
             listener.handleEvent(event)
+          } else {
+            listener.call(window, event)
           }
         }
       })
@@ -127,7 +129,8 @@ function watchCommits(container: Element, frame: Scope): void {
     get() {
       draw(frame)
 
-      return Reflect.get(Node.prototype, "ownerDocument", container) as Document
+      // The real getter, run for this element.
+      return ownerDocument?.get?.call(container)
     }
   })
 }
@@ -147,7 +150,9 @@ function asking(): Scope | undefined {
   const fiber = workingOn()
 
   if (fiber) {
-    return frames.get(rootOf(fiber))
+    const root = rootOf(fiber)
+
+    return root && frames.get(root)
   }
 
   return renderingIn() ?? running.at(-1) ?? (active && projectIsAsking() ? active : undefined)
@@ -158,19 +163,27 @@ interface Fiber {
   stateNode: unknown
 }
 
-const shared = (
-  React as unknown as {
-    __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: {
-      A?: { getOwner?(): Fiber | null } | null
-      /** The hooks dispatcher: set while React renders, and unset again when it's done or stops to yield. */
-      H?: unknown
-    }
-  }
-).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE
+const internalsKey = "__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE"
+
+/**
+ * React's internals, shared by its packages: `A`, which asks the development build for the component it's working on,
+ * and `H`, the hooks dispatcher, set while React renders and unset again when it's done or stops to yield. They're
+ * untyped, so each is looked for where it's read.
+ */
+const shared = internalsKey in React && isComposite(React[internalsKey]) ? React[internalsKey] : undefined
 
 /** The component React's development build is rendering or running effects for, as its warnings name it. */
 function workingOn(): Fiber | null {
-  return shared?.A?.getOwner?.() ?? null
+  const owner = shared && "A" in shared ? shared.A : undefined
+
+  return isComposite(owner) && "getOwner" in owner && owner.getOwner instanceof Function
+    ? (owner.getOwner() ?? null)
+    : null
+}
+
+/** Whether React has a dispatcher out, as it does while it renders. */
+function rendering(): boolean {
+  return Boolean(shared && "H" in shared && shared.H)
 }
 
 /**
@@ -179,12 +192,12 @@ function workingOn(): Fiber | null {
  * (`_currentValue`, since React 16.3) as it goes down the tree.
  */
 function renderingIn(): Scope | undefined {
-  if (!shared?.H) {
+  if (!rendering()) {
     return undefined
   }
 
-  const own = (FrameWindowContext as unknown as { _currentValue?: FrameWindow })._currentValue
-  const frame = own && windows.get(own)
+  const own = "_currentValue" in FrameWindowContext ? FrameWindowContext._currentValue : undefined
+  const frame = isComposite(own) ? windows.get(own) : undefined
 
   return frame && frames.get(frame.container) === frame ? frame : undefined
 }
@@ -195,16 +208,19 @@ function renderingIn(): Scope | undefined {
  * whose effects it runs, so those of a render React started itself, after a state change, ask about this frame.
  */
 function watchRenders(): void {
-  if (!shared || !Object.getOwnPropertyDescriptor(shared, "H")?.writable) {
+  const descriptor = shared && Object.getOwnPropertyDescriptor(shared, "H")
+
+  if (!shared || !descriptor?.writable) {
     return
   }
 
-  let dispatcher = shared.H
+  let dispatcher: unknown = descriptor.value
   Object.defineProperty(shared, "H", {
     configurable: true,
     enumerable: true,
     get: () => dispatcher,
-    set(value: unknown) {
+    // `defineProperty` types what's set as `any`: it's React's dispatcher, or null.
+    set(value) {
       dispatcher = value
       const frame = value ? renderingIn() : undefined
 
@@ -216,14 +232,17 @@ function watchRenders(): void {
 }
 
 /** The element a component's React root renders into. */
-function rootOf(fiber: Fiber): unknown {
+function rootOf(fiber: Fiber): object | undefined {
   let top = fiber
 
   while (top.return) {
     top = top.return
   }
 
-  return (top.stateNode as { containerInfo?: unknown } | null)?.containerInfo
+  const root = top.stateNode
+  const container = isComposite(root) && "containerInfo" in root ? root.containerInfo : undefined
+
+  return isComposite(container) ? container : undefined
 }
 
 /**
@@ -287,7 +306,8 @@ function install(): void {
       return realMatchMedia(query)
     }
 
-    return new FrameQueryList(query, parsed, frame, real) as unknown as MediaQueryList
+    // SAFETY: a FrameQueryList has every member of a MediaQueryList, answered for the frame.
+    return new FrameQueryList(query, parsed, frame, real) as MediaQueryList
   }
 
   for (const [name, side] of [
@@ -305,35 +325,45 @@ function install(): void {
   // A frame's resize listeners hear its window resize, not Parity's.
   const add = window.addEventListener.bind(window)
   const remove = window.removeEventListener.bind(window)
+  // SAFETY: it takes any listener and options the window's own does, typed by event or not, and passes them on.
   window.addEventListener = ((
     type: string,
     listener: EventListenerOrEventListenerObject | null,
     options?: boolean | AddEventListenerOptions
   ) => {
-    const frame = type === "resize" && listener ? asking() : undefined
+    if (!listener) {
+      return
+    }
 
-    if (!frame || !listener) {
-      return add(type, listener as EventListenerOrEventListenerObject, options)
+    const frame = type === "resize" ? asking() : undefined
+
+    if (!frame) {
+      return add(type, listener, options)
     }
 
     frame.resizeListeners.add(listener)
 
-    if (typeof options === "object") {
+    if (options && options !== true) {
       options.signal?.addEventListener("abort", () => frame.resizeListeners.delete(listener), { once: true })
     }
   }) as typeof window.addEventListener
+  // SAFETY: as `addEventListener` above, it takes whatever the window's own does.
   window.removeEventListener = ((
     type: string,
     listener: EventListenerOrEventListenerObject | null,
     options?: boolean | EventListenerOptions
   ) => {
-    if (type === "resize" && listener) {
+    if (!listener) {
+      return
+    }
+
+    if (type === "resize") {
       for (const frame of frames.values()) {
         frame.resizeListeners.delete(listener)
       }
     }
 
-    remove(type, listener as EventListenerOrEventListenerObject, options)
+    remove(type, listener, options)
   }) as typeof window.removeEventListener
 
   // Using a frame makes it the one its project's later code is about, as in a handler's timer or the render it causes.
@@ -353,7 +383,7 @@ function install(): void {
 }
 
 /** Makes a size property read the frame asking's, and the real one otherwise. */
-function answer(target: object, name: string, value: (frame: Scope) => number): void {
+function answer(target: EventTarget, name: string, value: (frame: Scope) => number): void {
   let owner: object | null = target
   let real: PropertyDescriptor | undefined
 
@@ -364,19 +394,19 @@ function answer(target: object, name: string, value: (frame: Scope) => number): 
   Object.defineProperty(target, name, {
     configurable: true,
     enumerable: real?.enumerable ?? true,
-    get() {
+    get(): number {
       const frame = asking()
 
       if (frame) {
         return value(frame)
       }
 
-      return real?.get ? real.get.call(target) : (real?.value as number)
+      return real?.get ? real.get.call(target) : real?.value
     }
   })
 }
 
-type ChangeListener = ((this: MediaQueryList, event: MediaQueryListEvent) => unknown) | null
+type ChangeListener = ((this: MediaQueryList, event: MediaQueryListEvent) => void) | null
 
 /** A media query about size, answered for its frame, which tells its listeners when the frame's answer changes. */
 class FrameQueryList extends EventTarget {
@@ -440,12 +470,14 @@ class FrameQueryList extends EventTarget {
 
   addListener(listener: ChangeListener): void {
     if (listener) {
+      // SAFETY: the list only sends `change` events as MediaQueryListEvents, and stands in for a MediaQueryList.
       this.addEventListener("change", listener as EventListener)
     }
   }
 
   removeListener(listener: ChangeListener): void {
     if (listener) {
+      // SAFETY: as in `addListener`, the listener is only ever sent `change` events.
       this.removeEventListener("change", listener as EventListener)
     }
   }
@@ -459,7 +491,8 @@ class FrameQueryList extends EventTarget {
 
     this.#matches = matches
     const event = new MediaQueryListEvent("change", { matches, media: this.media })
-    this.#onchange?.call(this as unknown as MediaQueryList, event)
+    // SAFETY: the list stands in for a MediaQueryList, with every member of one.
+    this.#onchange?.call(this as MediaQueryList, event)
     this.dispatchEvent(event)
   }
 
@@ -527,7 +560,7 @@ export function matchesQuery(query: SizeQuery, viewport: FrameViewport, real: (c
   return query.some(
     ({ negate, conditions }) =>
       negate !==
-      conditions.every((condition) => (typeof condition === "string" ? real(condition) : condition(viewport)))
+      conditions.every((condition) => (condition instanceof Function ? condition(viewport) : real(condition)))
   )
 }
 
