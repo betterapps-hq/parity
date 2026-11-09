@@ -13,21 +13,40 @@ const round = (number: number, places = 2) => Number(formatNumber(number, places
 /** An angle: whole degrees as a step (`rotate-45`), or a value of its own as typed or read (`22.5deg`, `0.25turn`). */
 export type Angle = { step: number } | { value: string }
 
+/** How many of a base unit (degrees, milliseconds) each unit a value is typed or read in comes to. */
+interface UnitScale {
+  readonly [unit: string]: number
+}
+
 /** Degrees in each unit an angle is typed or read in. */
-export const angleUnits: Record<string, number> = { deg: 1, turn: 360, rad: 180 / Math.PI, grad: 0.9 }
+export const angleUnits: UnitScale = { deg: 1, turn: 360, rad: 180 / Math.PI, grad: 0.9 }
 
 /** A number and its unit, as `0.25turn` or `200ms` is written. */
 export function splitUnit(text: string): { number: number; unit: string } | undefined {
   const match = /^\s*(-?\d*\.?\d+)\s*([a-z%]*)\s*$/i.exec(text)
-  if (!match) return undefined
+
+  if (!match) {
+    return undefined
+  }
+
   return { number: Number(match[1]), unit: match[2]!.toLowerCase() }
 }
 
 export function angleDegrees(angle: Angle | undefined): number {
-  if (angle === undefined) return 0
-  if ("step" in angle) return angle.step
+  if (angle === undefined) {
+    return 0
+  }
+
+  if ("step" in angle) {
+    return angle.step
+  }
+
   const split = splitUnit(angle.value)
-  if (!split) return 0
+
+  if (!split) {
+    return 0
+  }
+
   return round(split.number * (angleUnits[split.unit || "deg"] ?? 1))
 }
 
@@ -42,15 +61,28 @@ export const angleOf = (degrees: number): Angle =>
 export type Time = { step: number; allow?: string } | { token: string } | { value: string; allow?: string }
 
 /** Milliseconds in each unit a time is typed or read in. */
-export const timeUnits: Record<string, number> = { ms: 1, s: 1000 }
+export const timeUnits: UnitScale = { ms: 1, s: 1000 }
 
 /** A time in milliseconds, its token's among the project's `tokens`; nothing for unset or a token it doesn't have. */
 export function timeMs(time: Time | undefined, tokens: readonly DurationToken[]): number | undefined {
-  if (time === undefined) return undefined
-  if ("step" in time) return time.step
-  if ("token" in time) return tokens.find((token) => token.name === time.token)?.ms
+  if (time === undefined) {
+    return undefined
+  }
+
+  if ("step" in time) {
+    return time.step
+  }
+
+  if ("token" in time) {
+    return tokens.find((token) => token.name === time.token)?.ms
+  }
+
   const split = splitUnit(time.value)
-  if (!split) return undefined
+
+  if (!split) {
+    return undefined
+  }
+
   return round(split.number * (timeUnits[split.unit || "ms"] ?? 1))
 }
 
@@ -87,25 +119,39 @@ export const easingPresets: { keyword: EasingKeyword; label: string; curve: Bezi
 export const defaultCurve: Bezier = [0.4, 0, 0.2, 1]
 
 /** What an easing draws: a curve, a staircase, or a spring's samples. */
-export type EasingShape =
+export type EasingPlot =
   | { kind: "bezier"; curve: Bezier }
   | { kind: "steps"; count: number; jump: "start" | "end" }
   | { kind: "samples"; values: number[] }
 
 /** `cubic-bezier(…)` or `steps(…)` read, or nothing when it's neither. */
-export function readEasingValue(text: string): EasingShape | undefined {
+export function readEasingValue(text: string): EasingPlot | undefined {
   const bezier = /^cubic-bezier\(\s*([^)]*)\)$/i.exec(text.trim())
+
   if (bezier) {
     const numbers = bezier[1]!.split(",").map((part) => Number(part.trim()))
-    if (numbers.length !== 4 || numbers.some((number) => !Number.isFinite(number))) return undefined
-    if (numbers[0]! < 0 || numbers[0]! > 1 || numbers[2]! < 0 || numbers[2]! > 1) return undefined
-    return { kind: "bezier", curve: numbers as Bezier }
+
+    if (numbers.length !== 4 || numbers.some((number) => !Number.isFinite(number))) {
+      return undefined
+    }
+
+    const [x1, y1, x2, y2] = numbers
+
+    if (x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1) {
+      return undefined
+    }
+
+    return { kind: "bezier", curve: [x1, y1, x2, y2] }
   }
+
   const steps = /^steps\(\s*(\d+)\s*(?:,\s*(jump-start|start|jump-end|end)\s*)?\)$/i.exec(text.trim())
+
   if (steps && Number(steps[1]) > 0) {
     const jump = steps[2]?.toLowerCase().endsWith("start") ? "start" : "end"
+
     return { kind: "steps", count: Number(steps[1]), jump }
   }
+
   return undefined
 }
 
@@ -114,15 +160,29 @@ const presetCurve = (keyword: EasingKeyword): Bezier =>
   easingPresets.find((preset) => preset.keyword === keyword)!.curve
 
 /** What an easing draws, its token's among the project's `tokens`; Tailwind's default curve for unset. */
-export function easingShape(easing: Easing | undefined, tokens: readonly EasingToken[]): EasingShape {
-  if (easing === undefined) return { kind: "bezier", curve: defaultCurve }
-  if ("keyword" in easing) return { kind: "bezier", curve: presetCurve(easing.keyword) }
-  if ("spring" in easing) return { kind: "samples", values: springSamples(easing.spring) }
+export function easingPlot(easing: Easing | undefined, tokens: readonly EasingToken[]): EasingPlot {
+  if (easing === undefined) {
+    return { kind: "bezier", curve: defaultCurve }
+  }
+
+  if ("keyword" in easing) {
+    return { kind: "bezier", curve: presetCurve(easing.keyword) }
+  }
+
+  if ("spring" in easing) {
+    return { kind: "samples", values: springSamples(easing.spring) }
+  }
+
   if ("token" in easing) {
     const token = tokens.find((other) => other.name === easing.token)
-    if (token?.spring) return { kind: "samples", values: springSamples(token.spring) }
+
+    if (token?.spring) {
+      return { kind: "samples", values: springSamples(token.spring) }
+    }
+
     return { kind: "bezier", curve: token?.curve ?? defaultCurve }
   }
+
   return readEasingValue(easing.value) ?? { kind: "bezier", curve: defaultCurve }
 }
 
@@ -131,28 +191,52 @@ export function easingShape(easing: Easing | undefined, tokens: readonly EasingT
  * variable the page may not have, so Tailwind's presets and the project's tokens move as they're defined.
  */
 export function drawnEasing(easing: Easing | undefined, tokens: readonly EasingToken[]): string {
-  return shapeCss(easingShape(easing, tokens))
+  return plotCss(easingPlot(easing, tokens))
 }
 
-/** A shape as CSS draws it: `cubic-bezier()`, `steps()`, or a spring's `linear()`. */
-export function shapeCss(shape: EasingShape): string {
-  if (shape.kind === "bezier") return bezierCss(shape.curve)
-  if (shape.kind === "samples") return `linear(${shape.values.join(", ")})`
-  return shape.jump === "end" ? `steps(${shape.count})` : `steps(${shape.count}, jump-start)`
+/** A plot as CSS draws it: `cubic-bezier()`, `steps()`, or a spring's `linear()`. */
+export function plotCss(plot: EasingPlot): string {
+  if (plot.kind === "bezier") {
+    return bezierCss(plot.curve)
+  }
+
+  if (plot.kind === "samples") {
+    return `linear(${plot.values.join(", ")})`
+  }
+
+  return plot.jump === "end" ? `steps(${plot.count})` : `steps(${plot.count}, jump-start)`
 }
 
 /** An easing in words: its preset's name, its token's, Steps 4, Spring 400ms, or Custom. */
 export function easingName(easing: Easing | undefined): string {
-  if (easing === undefined) return "Default"
-  if ("keyword" in easing) return easingPresets.find((preset) => preset.keyword === easing.keyword)!.label
-  if ("token" in easing) return easing.token.replace(/^ease-/, "")
+  if (easing === undefined) {
+    return "Default"
+  }
+
+  if ("keyword" in easing) {
+    return easingPresets.find((preset) => preset.keyword === easing.keyword)!.label
+  }
+
+  if ("token" in easing) {
+    return easing.token.replace(/^ease-/, "")
+  }
+
   if ("spring" in easing) {
     const spring = easing.spring
-    if ("duration" in spring) return `Spring ${spring.duration}ms, bounce ${spring.bounce}`
+
+    if ("duration" in spring) {
+      return `Spring ${spring.duration}ms, bounce ${spring.bounce}`
+    }
+
     return `Spring ${spring.stiffness}/${spring.damping}/${spring.mass}`
   }
-  const shape = readEasingValue(easing.value)
-  if (shape?.kind === "steps") return `Steps ${shape.count}`
+
+  const plot = readEasingValue(easing.value)
+
+  if (plot?.kind === "steps") {
+    return `Steps ${plot.count}`
+  }
+
   return "Custom"
 }
 
@@ -165,13 +249,19 @@ const settledWithin = 0.001
 
 /** How far along a spring is at `t` seconds, 0 to 1 with overshoot, for its damping ratio and natural frequency. */
 function springAt(t: number, zeta: number, omega: number): number {
-  if (Math.abs(zeta - 1) < 1e-6) return 1 - Math.exp(-omega * t) * (1 + omega * t)
+  if (Math.abs(zeta - 1) < 1e-6) {
+    return 1 - Math.exp(-omega * t) * (1 + omega * t)
+  }
+
   if (zeta < 1) {
     const damped = omega * Math.sqrt(1 - zeta * zeta)
+
     return 1 - Math.exp(-zeta * omega * t) * (Math.cos(damped * t) + ((zeta * omega) / damped) * Math.sin(damped * t))
   }
+
   const spread = omega * Math.sqrt(zeta * zeta - 1)
   const ratio = (zeta * omega) / spread
+
   return (
     1 -
     0.5 * ((1 + ratio) * Math.exp((-zeta * omega + spread) * t) + (1 - ratio) * Math.exp((-zeta * omega - spread) * t))
@@ -183,34 +273,50 @@ const settleTimes = new Map<number, number>()
 /** Seconds a spring takes to settle, at a natural frequency of 1, worked out once per damping ratio. */
 function settleAtUnitFrequency(zeta: number): number {
   const known = settleTimes.get(zeta)
-  if (known !== undefined) return known
+
+  if (known !== undefined) {
+    return known
+  }
+
   // The slowest part of its motion decays at this rate, so it has settled well before ten of these.
   const decay = zeta < 1 ? zeta : zeta - Math.sqrt(zeta * zeta - 1)
   const until = 10 / decay
   const step = until / 20000
   let last = 0
+
   for (let t = 0; t < until; t += step) {
-    if (Math.abs(springAt(t, zeta, 1) - 1) > settledWithin) last = t
+    if (Math.abs(springAt(t, zeta, 1) - 1) > settledWithin) {
+      last = t
+    }
   }
+
   settleTimes.set(zeta, last)
+
   return last
 }
 
 /** The damping ratio and natural frequency, in radians a second, of a spring however it's set. */
-function solve(spring: Spring): { zeta: number; omega: number } {
+function solve(spring: Spring) {
   if ("duration" in spring) {
     // Bounce 0 is critically damped, and each step toward 1 lets it overshoot further.
     const zeta = Math.max(0.05, 1 - spring.bounce)
+
     return { zeta, omega: settleAtUnitFrequency(zeta) / (spring.duration / 1000) }
   }
+
   const omega = Math.sqrt(spring.stiffness / spring.mass)
+
   return { zeta: spring.damping / (2 * Math.sqrt(spring.stiffness * spring.mass)), omega }
 }
 
 /** How long a spring takes to settle, in whole milliseconds: what a transition's duration is when it has one. */
 export function springSettle(spring: Spring): number {
-  if ("duration" in spring) return spring.duration
+  if ("duration" in spring) {
+    return spring.duration
+  }
+
   const { zeta, omega } = solve(spring)
+
   return Math.round((settleAtUnitFrequency(zeta) / omega) * 1000)
 }
 
@@ -219,6 +325,7 @@ export function springSamples(spring: Spring): number[] {
   const { zeta, omega } = solve(spring)
   const seconds = springSettle(spring) / 1000
   const count = Math.min(60, Math.max(16, Math.round((seconds * 1000) / 16)))
+
   return Array.from({ length: count + 1 }, (_, index) =>
     index === count ? 1 : round(springAt((index / count) * seconds, zeta, omega), 3)
   )
@@ -269,12 +376,26 @@ export const transitionSets = {
   shadow: { label: "Shadow", properties: ["box-shadow"], utility: "transition-shadow" }
 } as const
 
+/** The set of Tailwind's a transition changes, or for a property of its own, a set of that one named after it. */
+function transitionSet(property: TransitionProperty) {
+  switch (property) {
+    case "all":
+    case "colors":
+    case "opacity":
+    case "transform":
+    case "shadow":
+      return transitionSets[property]
+    default:
+      return { label: property.property, properties: [property.property] }
+  }
+}
+
 export function transitionLabel(property: TransitionProperty): string {
-  return typeof property === "string" ? transitionSets[property].label : property.property
+  return transitionSet(property).label
 }
 
 export function transitionProperties(property: TransitionProperty): readonly string[] {
-  return typeof property === "string" ? transitionSets[property].properties : [property.property]
+  return transitionSet(property).properties
 }
 
 /* Transform. */

@@ -1,13 +1,12 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { KeyHints } from "../../canvas/KeyHints.tsx"
-import { kindColors } from "../../canvas/kinds.tsx"
-import { spacingColor } from "../../canvas/SpacingHandles.tsx"
+import { spacingColors } from "../../canvas/spacing-colors.ts"
 import { gestures as held } from "../../chrome/keymap.ts"
 import { formatNumber } from "./css-values.ts"
 import { useTokens } from "./field-parts.tsx"
 import { type Side, type SideRules, type Sides, sideInline, sideNames, sideRules } from "./sides-writes.ts"
-import { SideField, spreadTo } from "./sides.tsx"
+import { setSides, SideField, spreadTo } from "./sides.tsx"
 import type { LengthToken } from "./tokens.ts"
 
 /*
@@ -24,15 +23,17 @@ export interface SpacingHover {
 }
 
 /**
- * Padding in modes' green and margin in the pink the canvas draws padding and gaps in today, the pair chosen from
- * those compared (PAR-186). The canvas draws padding pink until it follows, and doesn't draw margin yet.
+ * Padding in modes' green and margin in pink, the pair chosen from those compared (PAR-186), as the canvas colors them
+ * (PAR-797). The canvas doesn't draw margin yet.
  */
-const colors = { padding: kindColors.mode, margin: spacingColor } as const
+const colors = spacingColors
 
 const tint = (color: string, strength: number) => `color-mix(in oklch, ${color} ${strength}%, transparent)`
+
 /** Padding, hatched in its color as the canvas hatches it (CanvasOverlay). Margin is flat, outside the layer. */
 const hatched = (color: string) =>
   `repeating-linear-gradient(-45deg, ${tint(color, 28)} 0 1px, ${tint(color, 10)} 1px 5px)`
+
 /** A side that's hovered or being edited, as the canvas shades the handle it's dragging. */
 const active = (color: string) => tint(color, 30)
 
@@ -41,10 +42,22 @@ const active = (color: string) => tint(color, 30)
  * the project shows its name, since it has no value.
  */
 function measurement(side: Side, token: LengthToken | undefined): { number: string; unit?: string } | undefined {
-  if (side === undefined) return undefined
-  if (side === "auto") return { number: "Auto" }
-  if ("number" in side) return { number: formatNumber(side.number), unit: "px" }
-  if ("percent" in side) return { number: formatNumber(side.percent), unit: "%" }
+  if (side === undefined) {
+    return undefined
+  }
+
+  if (side === "auto") {
+    return { number: "Auto" }
+  }
+
+  if ("number" in side) {
+    return { number: formatNumber(side.number), unit: "px" }
+  }
+
+  if ("percent" in side) {
+    return { number: formatNumber(side.percent), unit: "%" }
+  }
+
   return token ? { number: formatNumber(token.px), unit: "px" } : { number: side.token }
 }
 
@@ -77,14 +90,19 @@ function BoxSide({
   const { tokens } = useTokens(rules.tokens.set)
   const label = `${sideNames[index]} ${box}`
   const value = sides[index]
-  const tokenName = typeof value === "object" && "token" in value ? value.token : undefined
+  const tokenName = value !== undefined && value !== "auto" && "token" in value ? value.token : undefined
   const token = tokens.find((other) => other.name === tokenName)
   const shown = mixed ? { number: "Mixed" } : (measurement(value, token) ?? { number: "0", unit: "px" })
   const faint = mixed || value === undefined
   const highlight = (on: boolean) => onHover?.(on ? { box, sides: [index] } : undefined)
   let named = `${shown.number}${shown.unit ?? ""}`
-  if (tokenName !== undefined) named = `${tokenName}, ${token?.detail ?? "missing"}`
-  else if (value === undefined && !mixed) named = "Unset"
+
+  if (tokenName !== undefined) {
+    named = `${tokenName}, ${token?.detail ?? "missing"}`
+  } else if (value === undefined && !mixed) {
+    named = "Unset"
+  }
+
   return (
     <Popover
       open={open}
@@ -100,7 +118,9 @@ function BoxSide({
         aria-label={`${label}: ${named}`}
         onPointerEnter={() => highlight(true)}
         onPointerLeave={() => {
-          if (!open) highlight(false)
+          if (!open) {
+            highlight(false)
+          }
         }}
         className={`flex h-5 max-w-14 min-w-6 items-baseline justify-center rounded-sm px-1 text-xs leading-5 tabular-nums outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-foreground/15 ${faint ? "text-muted-foreground" : ""} ${tokenName === undefined ? "" : "bg-foreground/10"}`}
       >
@@ -122,7 +142,7 @@ function BoxSide({
           measured={measured}
           onChange={(next: Side, spread) => {
             const reached = spreadTo([index], spread)
-            onChange(sides.map((other, at) => (reached.includes(at) ? next : other)) as Sides, reached)
+            onChange(setSides(sides, reached, next), reached)
           }}
           onShorthand={(next) => onChange(next, [0, 1, 2, 3])}
         />
@@ -180,9 +200,11 @@ export function BoxModel({
       onHover={onHover}
     />
   )
+
   const name = (text: string) => (
     <span className="absolute top-1 left-1.5 text-2xs text-muted-foreground select-none">{text}</span>
   )
+
   return (
     <fieldset
       className="relative m-0 flex min-w-0 flex-col items-center gap-0.5 rounded-md border border-dashed p-1"
@@ -262,11 +284,18 @@ export function SpacingPreview({
   const widths = useTokens("borderWidth").tokens
   useLayoutEffect(() => {
     const element = layer.current
-    if (!element) return
+
+    if (!element) {
+      return
+    }
+
     const style = getComputedStyle(element)
+
     const read = (property: string, suffix = "") =>
       sideKeys.map((key) => Number.parseFloat(style.getPropertyValue(`${property}-${key}${suffix}`)) || 0)
+
     const paddings = read("padding")
+
     const next: Measured = {
       margin: read("margin"),
       padding: paddings,
@@ -278,16 +307,23 @@ export function SpacingPreview({
         height: Math.round(element.clientHeight - paddings[0]! - paddings[2]!)
       }
     }
-    if (JSON.stringify(next) === JSON.stringify(box)) return
+
+    if (JSON.stringify(next) === JSON.stringify(box)) {
+      return
+    }
+
     setBox(next)
     onMeasure?.(next)
   }, [padding, margin, border, spacing, widths, layout, first, contained, box, onMeasure])
+
   const inline = (sides: Sides | undefined, tokens: readonly LengthToken[]) =>
     (sides ?? [undefined, undefined, undefined, undefined]).map((side) => sideInline(side, tokens) ?? "0px")
+
   // With no padding of its own to show, Plans keeps a little, untinted, so its content doesn't touch its edge.
   const paddings = padding ? inline(padding, spacing) : ["12px", "12px", "12px", "12px"]
   const margins = inline(margin, spacing)
   const borders = inline(border, widths)
+
   const style: CSSProperties = {
     position: "relative",
     padding: paddings.join(" "),
@@ -299,11 +335,17 @@ export function SpacingPreview({
     width: margins[1] === "auto" || margins[3] === "auto" ? 200 : undefined,
     alignSelf: margins[1] === "auto" || margins[3] === "auto" ? "auto" : undefined
   }
+
   const strong = (which: SpacingHover["box"], index: number) => hover?.box === which && hover.sides.includes(index)
+
   const band = (which: "padding" | "margin", index: number, position: CSSProperties): ReactNode => {
     const color = colors[which]
     let background = which === "padding" ? hatched(color) : tint(color, 14)
-    if (strong(which, index)) background = active(color)
+
+    if (strong(which, index)) {
+      background = active(color)
+    }
+
     return (
       <div
         key={`${which}-${index}`}
@@ -318,18 +360,23 @@ export function SpacingPreview({
       />
     )
   }
+
   const bands: ReactNode[] = []
+
   if (box) {
-    const [pt, pr, pb, pl] = box.padding as [number, number, number, number]
-    const [mt, mr, mb, ml] = box.margin.map((value) => Math.max(0, value)) as [number, number, number, number]
-    const [bt, br, bb, bl] = box.border as [number, number, number, number]
-    if (padding)
+    const [pt, pr, pb, pl] = box.padding
+    const [mt, mr, mb, ml] = box.margin.map((value) => Math.max(0, value))
+    const [bt, br, bb, bl] = box.border
+
+    if (padding) {
       bands.push(
         band("padding", 0, { top: 0, left: 0, right: 0, height: pt }),
         band("padding", 2, { bottom: 0, left: 0, right: 0, height: pb }),
         band("padding", 3, { top: pt, bottom: pb, left: 0, width: pl }),
         band("padding", 1, { top: pt, bottom: pb, right: 0, width: pr })
       )
+    }
+
     bands.push(
       band("margin", 0, { top: -(bt + mt), left: -(bl + ml), right: -(br + mr), height: mt }),
       band("margin", 2, { bottom: -(bb + mb), left: -(bl + ml), right: -(br + mr), height: mb }),
@@ -337,6 +384,7 @@ export function SpacingPreview({
       band("margin", 1, { top: -bt, bottom: -bb, right: -(br + mr), width: mr })
     )
   }
+
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">

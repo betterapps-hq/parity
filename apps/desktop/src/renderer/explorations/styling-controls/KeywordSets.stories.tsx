@@ -36,22 +36,35 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A CSS property as React's style names it. */
 const camel = (property: string) => property.replaceAll(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())
 
+/** CSS declarations by property as React's style names them, which a preview draws. */
+interface DrawnStyle {
+  [property: string]: string
+}
+
 /** The CSS a keyword value draws, for the preview: an option's declaration, or a custom keyword on the property. */
-function drawn(
-  value: KeywordValue | undefined,
-  choices: readonly KeywordChoice[],
-  property?: string
-): Record<string, string> {
-  if (value === undefined) return {}
-  if ("custom" in value) return property === undefined ? {} : { [camel(property)]: value.custom }
+function drawn(value: KeywordValue | undefined, choices: readonly KeywordChoice[], property?: string): DrawnStyle {
+  if (value === undefined) {
+    return {}
+  }
+
+  if ("custom" in value) {
+    return property === undefined ? {} : { [camel(property)]: value.custom }
+  }
+
   const choice = choices.find((each) => each.value === value.option)
-  if (!choice) return {}
-  const [name, css] = choice.css.split(": ") as [string, string]
+
+  if (!choice) {
+    return {}
+  }
+
+  const [name, css] = choice.css.split(": ")
+
   return { [camel(name)]: choice.token ? cursorValue(choice.value) : css }
 }
 
@@ -77,6 +90,7 @@ function Toggles({
   text?: string
 }) {
   const [value, setValue] = useState(start)
+
   const control = (
     <Field label={label} mixed={mixed && value === undefined}>
       <KeywordToggles
@@ -92,6 +106,7 @@ function Toggles({
       />
     </Field>
   )
+
   return (
     <Playground
       writes={keywordWrites(property, value, choices)}
@@ -126,6 +141,7 @@ function Menu({
   const [value, setValue] = useState(start)
   const [hovered, setHovered] = useState<string>()
   const style = hovered === undefined ? drawn(value, choices) : drawn({ option: hovered }, choices)
+
   return (
     <Playground writes={keywordWrites(property, value, choices)} preview={preview(style)}>
       <Field label={label}>
@@ -346,6 +362,7 @@ export const StrokeStyleFromMore: Story = {
 function Clip({ start }: { start?: KeywordValue }) {
   const [value, setValue] = useState(start)
   const style = drawn(value, clipChoices)
+
   return (
     <Playground
       writes={keywordWrites("overflow", value, clipChoices)}
@@ -377,6 +394,7 @@ export const ClipScrollWhenNeeded: Story = { render: () => <Clip start={{ option
 function Blend({ start }: { start?: BlendMode }) {
   const [value, setValue] = useState(start)
   const [hovered, setHovered] = useState<BlendMode>()
+
   return (
     <Playground
       writes={opacityWrites(undefined, value)}

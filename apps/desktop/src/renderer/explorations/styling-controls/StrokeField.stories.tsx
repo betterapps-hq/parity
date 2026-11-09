@@ -16,12 +16,14 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Stroke({ start, tokensOnly }: { start: Draft; tokensOnly?: boolean }) {
   const [draft, set] = useDraft({ background: "card", radius: "radius-xl", ...start })
   const inLayout = draft.strokeInLayout ?? true
   const position = inLayout ? "inside" : (draft.strokePosition ?? "inside")
+
   return (
     <Playground
       writes={strokeWrites(draft, inLayout, position)}

@@ -20,6 +20,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 interface ColorFieldProps {
@@ -38,15 +39,24 @@ function ColorField({ value, alpha, allowed, tokensOnly, mixed, theme, hover = f
   const [changed, setChanged] = useState(hover)
   const [mixedNow, setMixed] = useState(mixed ?? false)
   let writes: Writes = colorWrites("bg", draft.background, draft.backgroundAlpha, draft.backgroundAllowed)
-  if (mixedNow && draft.background === undefined) writes = mixedWrites
-  if (changed) writes = inState(writes, "hover")
+
+  if (mixedNow && draft.background === undefined) {
+    writes = mixedWrites
+  }
+
+  if (changed) {
+    writes = inState(writes, "hover")
+  }
+
   if (theme && draft.background !== undefined) {
     writes = {
+      // SAFETY: a color that's set stores an object (`{ token }` or `{ value }`), and so does its Hover state.
       stored: { ...(writes.stored as object), themes: { dark: { token: theme.value } } },
       css: [...writes.css, `.dark & { background-color: var(--color-${theme.value}) }`],
       tailwind: [...writes.tailwind, `dark:bg-${theme.value}`]
     }
   }
+
   return (
     <Playground writes={writes} preview={<CardPreview draft={draft} />}>
       <Field

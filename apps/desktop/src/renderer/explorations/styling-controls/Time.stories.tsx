@@ -31,6 +31,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const curve = bezierCss(defaultCurve)
@@ -39,8 +40,10 @@ const curve = bezierCss(defaultCurve)
 function TimePreview({ which, time, spring }: { which: "duration" | "delay"; time?: Time; spring?: Spring }) {
   const { tokens } = useTokens("duration")
   const ms = spring ? springSettle(spring) : (timeMs(time, tokens) ?? (which === "duration" ? defaultDuration : 0))
+
   const transition =
     which === "duration" ? `translate ${ms}ms ${curve}` : `translate ${defaultDuration}ms ${curve} ${ms}ms`
+
   return <HoverCard transition={transition} />
 }
 
@@ -62,7 +65,11 @@ function Timing({
   const [spring, setSpring] = useState(startSpring)
   const label = which === "duration" ? "Duration" : "Delay"
   let writes: Writes = timeWrites(which, time)
-  if (mixed && time === undefined) writes = mixedWrites
+
+  if (mixed && time === undefined) {
+    writes = mixedWrites
+  }
+
   if (spring) {
     const settle = springSettle(spring)
     const easing = easingWrites({ spring })
@@ -72,6 +79,7 @@ function Timing({
       tailwind: [`duration-${settle}`, ...easing.tailwind]
     }
   }
+
   return (
     <Playground
       writes={writes}

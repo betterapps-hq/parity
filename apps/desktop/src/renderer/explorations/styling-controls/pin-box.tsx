@@ -60,14 +60,30 @@ type AxisPreset = "start" | "end" | "both" | "center" | "scale"
 
 /** Which of Figma's constraints an axis is, from its pinned sides. */
 function presetOf(start: Side, end: Side, center: number | undefined): AxisPreset | undefined {
-  if (center !== undefined) return "center"
+  if (center !== undefined) {
+    return "center"
+  }
+
   const pinned = (side: Side) => side !== undefined && side !== "auto"
-  const percent = (side: Side) => typeof side === "object" && "percent" in side
-  if (pinned(start) && pinned(end)) return percent(start) && percent(end) ? "scale" : "both"
-  if (pinned(start)) return "start"
-  if (pinned(end)) return "end"
+  const percent = (side: Side) => side !== undefined && side !== "auto" && "percent" in side
+
+  if (pinned(start) && pinned(end)) {
+    return percent(start) && percent(end) ? "scale" : "both"
+  }
+
+  if (pinned(start)) {
+    return "start"
+  }
+
+  if (pinned(end)) {
+    return "end"
+  }
+
   return undefined
 }
+
+/** An inset as the pin box holds it, where `auto` is unpinned. */
+const unpinnedAuto = (side: Side) => (side === "auto" ? undefined : side)
 
 /** A share of Pricing as Scale pins it, to a tenth of a percent. */
 const tenth = (number: number) => Number(formatNumber(number, 1))
@@ -104,17 +120,30 @@ export function PositionSection({
   const measured = distances(rect)
   const placement = position.placement
   const shownPlacements = placements.filter((option) => option.value !== "relative" || placement === "relative")
+
   const layerOrderShown =
     layerOrderAdded || layerOrder !== undefined || ["absolute", "fixed", "sticky"].includes(placement)
+
   const choose = (next: Placement) => {
-    if (next === placement) return
-    if (next === "static") set({ placement: next, insets: [undefined, undefined, undefined, undefined] })
-    else if (next === "sticky") set({ placement: next, insets: [{ number: 0 }, undefined, undefined, undefined] })
-    else if (next === "relative") set({ placement: next, insets: [undefined, undefined, undefined, undefined] })
-    else if (placement === "absolute" || placement === "fixed") set({ ...position, placement: next })
+    if (next === placement) {
+      return
+    }
+
+    if (next === "static") {
+      set({ placement: next, insets: [undefined, undefined, undefined, undefined] })
+    } else if (next === "sticky") {
+      set({ placement: next, insets: [{ number: 0 }, undefined, undefined, undefined] })
+    } else if (next === "relative") {
+      set({ placement: next, insets: [undefined, undefined, undefined, undefined] })
+    } else if (placement === "absolute" || placement === "fixed") {
+      set({ ...position, placement: next })
+    }
     // Taken out of the layout, it stays where it was, pinned to the left and top, as Figma's absolute position does.
-    else set({ placement: next, insets: [{ number: inFlow.y }, undefined, undefined, { number: inFlow.x }] })
+    else {
+      set({ placement: next, insets: [{ number: inFlow.y }, undefined, undefined, { number: inFlow.x }] })
+    }
   }
+
   return (
     <PanelSection
       title="Position"
@@ -154,7 +183,13 @@ export function PositionSection({
             spacing={0}
             aria-label="Placement"
             value={[placement]}
-            onValueChange={([next]) => next && choose(next as Placement)}
+            onValueChange={([next]) => {
+              const chosen = placements.find((option) => option.value === next)
+
+              if (chosen) {
+                choose(chosen.value)
+              }
+            }}
           >
             {shownPlacements.map((option) => (
               <Hint key={option.value} label={option.label} detail={option.detail}>
@@ -204,33 +239,57 @@ function PinBox({
 }) {
   const { lineFor, said } = useSidesLine()
   const sticky = position.placement === "sticky" || position.placement === "relative"
+
   const pinned = (index: number) => {
-    if (index % 2 === 1 && position.centerX !== undefined) return false
-    if (index % 2 === 0 && position.centerY !== undefined) return false
+    if (index % 2 === 1 && position.centerX !== undefined) {
+      return false
+    }
+
+    if (index % 2 === 0 && position.centerY !== undefined) {
+      return false
+    }
+
     return position.insets[index] !== undefined
   }
+
   const setSide = (index: number, value: Side) => {
-    const insets = [...position.insets] as Sides
+    const insets: Sides = [...position.insets]
     insets[index] = value === "auto" ? undefined : value
     const next = { ...position, insets }
+
     // Pinning a side of a centered axis ends the centering.
-    if (index % 2 === 1 && value !== undefined && value !== "auto") delete next.centerX
-    if (index % 2 === 0 && value !== undefined && value !== "auto") delete next.centerY
+    if (index % 2 === 1 && value !== undefined && value !== "auto") {
+      delete next.centerX
+    }
+
+    if (index % 2 === 0 && value !== undefined && value !== "auto") {
+      delete next.centerY
+    }
+
     set(next)
   }
+
   const toggle = (index: number) => {
-    if (pinned(index)) setSide(index, undefined)
-    else setSide(index, { number: sticky ? 0 : measured[index] })
+    if (pinned(index)) {
+      setSide(index, undefined)
+    } else {
+      setSide(index, { number: sticky ? 0 : measured[index] })
+    }
   }
+
   const field = (index: number): ReactNode => {
     const name = sideNames[index]!
     const centered = index % 2 === 1 ? position.centerX : position.centerY
+
     // Centered, the start side's field is the offset from the center, and the end side's says Centered.
     if (centered !== undefined) {
-      if (index === 1 || index === 2)
+      if (index === 1 || index === 2) {
         return <span className="grid h-7 place-items-center text-xs text-muted-foreground">Centered</span>
+      }
+
       const axis = index === 3 ? "centerX" : "centerY"
       const label = `${index === 3 ? "Horizontal" : "Vertical"} offset from center`
+
       return (
         <SideField
           label={label}
@@ -239,13 +298,17 @@ function PinBox({
           narrow
           line={lineFor(label)}
           onChange={(value) => {
-            if (typeof value === "object" && "number" in value) set({ ...position, [axis]: value.number })
+            if (value !== undefined && value !== "auto" && "number" in value) {
+              set({ ...position, [axis]: value.number })
+            }
           }}
         />
       )
     }
+
     // What Auto comes to is in the field's hint, as a narrow field's is: beside the chevron, there's room for Auto alone.
     const placeholder = "Auto"
+
     return (
       <SideField
         label={`${name} inset`}
@@ -257,10 +320,10 @@ function PinBox({
         percentOf={`Pricing's ${index % 2 === 0 ? "height" : "width"}`}
         line={lineFor(`${name} inset`)}
         onChange={(value) => setSide(index, value)}
-        onShorthand={(sides) =>
+        onShorthand={([top, right, bottom, left]) =>
           set({
             ...position,
-            insets: sides.map((side) => (side === "auto" ? undefined : side)) as Sides,
+            insets: [unpinnedAuto(top), unpinnedAuto(right), unpinnedAuto(bottom), unpinnedAuto(left)],
             centerX: undefined,
             centerY: undefined
           })
@@ -268,9 +331,11 @@ function PinBox({
       />
     )
   }
+
   const pin = (index: number, style: CSSProperties, vertical: boolean) => {
     const on = pinned(index)
     const name = sideNames[index]!.toLowerCase()
+
     return (
       <Hint label={on ? `Unpin the ${name}` : `Pin the ${name}`}>
         <button
@@ -289,7 +354,9 @@ function PinBox({
       </Hint>
     )
   }
+
   const hint = [stopped, "Click a side to pin it at its distance, and again to unpin it"].filter(Boolean).join("\n")
+
   return (
     // The pin box takes the section's whole width, so the box and its fields have room, with its label above.
     <div className={`flex flex-col gap-1 py-0.5 ${stopped ? "opacity-50" : ""}`}>
@@ -340,32 +407,52 @@ function Presets({
   const [top, right, bottom, left] = position.insets
   const across = presetOf(left, right, position.centerX)
   const down = presetOf(top, bottom, position.centerY)
+
   // Not pinned unpins the axis, so it stays where the flow puts it.
   const apply = (horizontal: boolean, preset: AxisPreset | undefined) => {
-    const insets = [...position.insets] as Sides
+    const insets: Sides = [...position.insets]
     const [startIndex, endIndex] = horizontal ? [3, 1] : [0, 2]
     const of = horizontal ? parent.width : parent.height
     const start = horizontal ? rect.x : rect.y
     const size = horizontal ? rect.width : rect.height
     const end = of - start - size
     const next: Position = { ...position, insets }
-    if (horizontal) delete next.centerX
-    else delete next.centerY
+
+    if (horizontal) {
+      delete next.centerX
+    } else {
+      delete next.centerY
+    }
+
     insets[startIndex] = undefined
     insets[endIndex] = undefined
-    if (preset === "start" || preset === "both") insets[startIndex] = { number: Math.round(start) }
-    if (preset === "end" || preset === "both") insets[endIndex] = { number: Math.round(end) }
+
+    if (preset === "start" || preset === "both") {
+      insets[startIndex] = { number: Math.round(start) }
+    }
+
+    if (preset === "end" || preset === "both") {
+      insets[endIndex] = { number: Math.round(end) }
+    }
+
     if (preset === "scale") {
       insets[startIndex] = { percent: tenth((start / of) * 100) }
       insets[endIndex] = { percent: tenth((end / of) * 100) }
     }
+
     if (preset === "center") {
       const offset = Math.round(start - (of - (horizontal ? layerSize.width : layerSize.height)) / 2)
-      if (horizontal) next.centerX = offset
-      else next.centerY = offset
+
+      if (horizontal) {
+        next.centerX = offset
+      } else {
+        next.centerY = offset
+      }
     }
+
     set(next)
   }
+
   const options = (horizontal: boolean) => [
     { value: "start" as const, label: horizontal ? "Left" : "Top" },
     { value: "end" as const, label: horizontal ? "Right" : "Bottom" },
@@ -373,7 +460,11 @@ function Presets({
     { value: "center" as const, label: "Center" },
     { value: "scale" as const, label: "Scale" }
   ]
-  const filled = position.insets.every((side) => typeof side === "object" && "number" in side && side.number === 0)
+
+  const filled = position.insets.every(
+    (side) => side !== undefined && side !== "auto" && "number" in side && side.number === 0
+  )
+
   return (
     <>
       <Field label="Horizontal" hint="Figma's horizontal constraint: what Plans keeps as Pricing's width changes">
@@ -456,13 +547,22 @@ export function PositionPreview({ position, layerOrder }: { position: Position; 
   const layerTokens = useTokens("zIndex").tokens
   const rect = placed(position, spacing)
   const [top, right, bottom, left] = distances(rect)
+
   const pinnedAt = (index: number) => {
-    if (index % 2 === 1 && position.centerX !== undefined) return false
-    if (index % 2 === 0 && position.centerY !== undefined) return false
+    if (index % 2 === 1 && position.centerX !== undefined) {
+      return false
+    }
+
+    if (index % 2 === 0 && position.centerY !== undefined) {
+      return false
+    }
+
     // Only Absolute and Fixed measure to Pricing's edges; Relative and Sticky insets are offsets.
     const measures = position.placement === "absolute" || position.placement === "fixed"
+
     return position.insets[index] !== undefined && measures
   }
+
   const guide = (index: number, style: CSSProperties, label: number, vertical: boolean) =>
     pinnedAt(index) && (
       <div key={index} aria-hidden className="pointer-events-none absolute" style={style}>
@@ -478,10 +578,16 @@ export function PositionPreview({ position, layerOrder }: { position: Position; 
         </span>
       </div>
     )
+
   const z = sideNumber(layerOrder, layerTokens)
   let title = "Pricing"
-  if (position.placement === "fixed") title = "The window"
+
+  if (position.placement === "fixed") {
+    title = "The window"
+  }
+
   const stickAt = position.placement === "sticky" ? insetPixels(position.insets[0], parent.height, spacing) : undefined
+
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">{title}</span>

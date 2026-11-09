@@ -28,6 +28,7 @@ export const drawListColor = ({ color, alpha }: ListColor, tokens?: readonly Col
 /** A color in words for a summary: the token's name, or the hex without its #, with its alpha. */
 export function colorWords({ color, alpha }: ListColor): string {
   const name = color.startsWith("#") ? color.slice(1, 7).toUpperCase() : color
+
   return alpha === undefined ? name : `${name} ${alpha}%`
 }
 
@@ -42,10 +43,11 @@ export interface Stop extends ListColor {
 }
 
 export type GradientKind = "linear" | "radial" | "angular"
+
 export type Interpolation = "oklab" | "oklch" | "srgb"
 
 /** The eight named directions a linear gradient's angle is also typed as: `to right` is 90°. */
-export const gradientDirections: Readonly<Record<string, number>> = {
+export const gradientDirections = {
   "to top": 0,
   "to top right": 45,
   "to right": 90,
@@ -54,7 +56,7 @@ export const gradientDirections: Readonly<Record<string, number>> = {
   "to bottom left": 225,
   "to left": 270,
   "to top left": 315
-}
+} satisfies Readonly<Record<string, number>>
 
 export interface GradientPaint {
   kind: GradientKind
@@ -159,17 +161,30 @@ export interface ShadowEntry {
 
 /** The tokens a shadow entry offers, by its kind and where it's drawn. */
 export function tokensFor(entry: Pick<ShadowEntry, "kind" | "follow">, onText = false): ShadowToken[] {
-  if (entry.kind === "inner") return insetShadowTokens
-  if (entry.kind === "ring") return []
-  if (entry.follow) return dropShadowTokens
+  if (entry.kind === "inner") {
+    return insetShadowTokens
+  }
+
+  if (entry.kind === "ring") {
+    return []
+  }
+
+  if (entry.follow) {
+    return dropShadowTokens
+  }
+
   return onText ? textShadowTokens : shadowTokens
 }
 
 /** The layers an entry draws: its token's, with the override's color, or its own. */
 export function layersOf(entry: ShadowEntry, saved: ShadowToken[] = []): ShadowLayer[] {
-  if (entry.token === undefined) return [entry.layer]
+  if (entry.token === undefined) {
+    return [entry.layer]
+  }
+
   const token = [...allShadowTokens, ...saved].find((other) => other.name === entry.token)
   const layers = token?.layers ?? [entry.layer]
+
   return entry.colorOverride ? layers.map((part) => ({ ...part, ...entry.colorOverride })) : layers
 }
 
@@ -187,6 +202,7 @@ export function boxLayersOf(entry: ShadowEntry, saved: ShadowToken[] = []): Shad
   if (entry.kind === "ring") {
     return [{ ...entry.layer, x: 0, y: 0, blur: 0, spread: entry.width ?? 1, inset: entry.inset }]
   }
+
   return layersOf(entry, saved).map((part) => ({ ...part, inset: entry.kind === "inner" || part.inset }))
 }
 
@@ -204,6 +220,7 @@ export const adjustments = [
 ] as const
 
 export type AdjustmentKey = (typeof adjustments)[number]["key"]
+
 export type Adjustments = Partial<Record<AdjustmentKey, number>>
 
 /** Tailwind's filter order, which `filter` is composed in whatever order the panel shows. */
@@ -245,5 +262,6 @@ export const isBehind = (entry: FilterEntry): boolean =>
   entry.kind === "backdropBlur" || ((entry.kind === "adjust" || entry.kind === "custom") && entry.behind === true)
 
 let next = 0
+
 /** An id for a new entry or stop, unique while the story is open. */
 export const newId = (prefix: string): string => `${prefix}-${++next}`

@@ -43,7 +43,10 @@ export function useRowScrub(scrub: Scrub | undefined): void {
   })
   const has = scrub !== undefined
   useEffect(() => {
-    if (!register || !has) return undefined
+    if (!register || !has) {
+      return undefined
+    }
+
     return register((event) => latest.current?.(event))
   }, [register, has])
 }
@@ -100,21 +103,25 @@ export function Field({
   const firstState = useContext(FirstStateName)
   const scrubs = useRef(new Set<Scrub>())
   const [scrub, setScrub] = useState<Scrub>()
+
   const register = useCallback((added: Scrub) => {
     scrubs.current.add(added)
     const only = () => setScrub(() => (scrubs.current.size === 1 ? [...scrubs.current][0] : undefined))
     only()
+
     return () => {
       scrubs.current.delete(added)
       only()
     }
   }, [])
+
   // A locked row's value can't be dragged, so its name doesn't scrub.
   const locked = lock !== undefined && !lock.open
   const dragsBy = locked ? undefined : scrub
   let nameHint = label
   let tone: string | undefined
   let resetTo: string | undefined
+
   if (overrides !== undefined) {
     nameHint = `${label}: overrides ${overrides}`
     tone = overrideColor
@@ -124,7 +131,11 @@ export function Field({
     tone = kindColors.agent
     resetTo = firstState
   }
-  if (locked) nameHint = `${label}: locked to ${lock.preset}`
+
+  if (locked) {
+    nameHint = `${label}: locked to ${lock.preset}`
+  }
+
   return (
     <div className={`flex min-w-0 flex-col gap-1 ${half ? "" : "col-span-2"}`}>
       <div className={nameRow}>

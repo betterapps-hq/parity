@@ -6,7 +6,7 @@
  */
 import { type Side, type Sides, sideClass, sideCss, sideNumber, sideStored, sidesWrites } from "./sides-writes.ts"
 import type { LengthToken } from "./tokens.ts"
-import type { Writes } from "./writes.ts"
+import type { StoredObject, Writes } from "./writes.ts"
 
 /** In layout (static), Absolute, Fixed, Sticky, or Relative from More. */
 export type Placement = "static" | "absolute" | "fixed" | "sticky" | "relative"
@@ -30,8 +30,14 @@ export const inFlow = { x: 24, y: 24 }
 
 /** An inset in pixels: its own, its spacing token's, or a percentage of the parent's width or height. */
 export function insetPixels(side: Side, of: number, tokens: readonly LengthToken[]): number | undefined {
-  if (side === undefined || side === "auto") return undefined
-  if ("percent" in side) return (side.percent / 100) * of
+  if (side === undefined || side === "auto") {
+    return undefined
+  }
+
+  if ("percent" in side) {
+    return (side.percent / 100) * of
+  }
+
   return sideNumber(side, tokens)
 }
 
@@ -47,13 +53,26 @@ function axis(
   center: number | undefined,
   { of, size, flow }: { of: number; size: number; flow: number },
   tokens: readonly LengthToken[]
-): { at: number; size: number } {
-  if (center !== undefined) return { at: (of - size) / 2 + center, size }
+) {
+  if (center !== undefined) {
+    return { at: (of - size) / 2 + center, size }
+  }
+
   const from = insetPixels(start, of, tokens)
   const to = insetPixels(end, of, tokens)
-  if (from !== undefined && to !== undefined) return { at: from, size: Math.max(0, of - from - to) }
-  if (from !== undefined) return { at: from, size }
-  if (to !== undefined) return { at: of - to - size, size }
+
+  if (from !== undefined && to !== undefined) {
+    return { at: from, size: Math.max(0, of - from - to) }
+  }
+
+  if (from !== undefined) {
+    return { at: from, size }
+  }
+
+  if (to !== undefined) {
+    return { at: of - to - size, size }
+  }
+
   return { at: flow, size }
 }
 
@@ -64,6 +83,7 @@ function axis(
  */
 export function placed(position: Position, tokens: readonly LengthToken[]): Rect {
   const [top, right, bottom, left] = position.insets
+
   if (position.placement === "absolute" || position.placement === "fixed") {
     const across = axis(
       [left, right],
@@ -71,20 +91,25 @@ export function placed(position: Position, tokens: readonly LengthToken[]): Rect
       { of: parent.width, size: layerSize.width, flow: inFlow.x },
       tokens
     )
+
     const down = axis(
       [top, bottom],
       position.centerY,
       { of: parent.height, size: layerSize.height, flow: inFlow.y },
       tokens
     )
+
     return { x: across.at, y: down.at, width: across.size, height: down.size }
   }
+
   if (position.placement === "relative") {
     const inset = (side: Side, of: number) => insetPixels(side, of, tokens)
     const dx = inset(left, parent.width) ?? -(inset(right, parent.width) ?? 0)
     const dy = inset(top, parent.height) ?? -(inset(bottom, parent.height) ?? 0)
+
     return { x: inFlow.x + dx, y: inFlow.y + dy, ...layerSize }
   }
+
   return { ...inFlow, ...layerSize }
 }
 
@@ -100,25 +125,36 @@ export function distances(rect: Rect): [number, number, number, number] {
 
 /** Placement, the insets and Center's auto margins. In layout writes nothing. */
 export function positionWrites(position: Position): Writes {
-  if (position.placement === "static") return { stored: undefined, css: [], tailwind: [] }
-  const sides = [...position.insets] as Sides
+  if (position.placement === "static") {
+    return { stored: undefined, css: [], tailwind: [] }
+  }
+
+  const sides: Sides = [...position.insets]
+
   if (position.centerX !== undefined) {
     sides[3] = { number: position.centerX }
     sides[1] = { number: -position.centerX }
   }
+
   if (position.centerY !== undefined) {
     sides[0] = { number: position.centerY }
     sides[2] = { number: -position.centerY }
   }
+
   const insets = sidesWrites("inset", sides)
   const css = [`position: ${position.placement}`, ...insets.css]
   const tailwind = [position.placement, ...insets.tailwind]
-  const stored: Record<string, unknown> = { position: { keyword: position.placement } }
-  if (insets.stored !== undefined) stored.inset = insets.stored
+  const stored: StoredObject = { position: { keyword: position.placement } }
+
+  if (insets.stored !== undefined) {
+    stored.inset = insets.stored
+  }
+
   if (position.centerX !== undefined) {
     stored.marginInline = { keyword: "auto" }
     css.push("margin-inline: auto")
     tailwind.push("mx-auto")
+
     // An auto width between two insets stretches, so a layer that hugs needs fit-content to center.
     if (position.hugs?.width) {
       stored.width = { mode: "hug" }
@@ -126,16 +162,19 @@ export function positionWrites(position: Position): Writes {
       tailwind.push("w-fit")
     }
   }
+
   if (position.centerY !== undefined) {
     stored.marginBlock = { keyword: "auto" }
     css.push("margin-block: auto")
     tailwind.push("my-auto")
+
     if (position.hugs?.height) {
       stored.height = { mode: "hug" }
       css.push("height: fit-content")
       tailwind.push("h-fit")
     }
   }
+
   return { stored, css, tailwind }
 }
 
@@ -144,12 +183,17 @@ export function positionWrites(position: Position): Writes {
  * of a Block layout that's In layout gets `position: relative`, which `z-index` needs there.
  */
 export function layerOrderWrites(value: Side, needsPosition = false): Writes {
-  if (value === undefined || value === "auto") return { stored: undefined, css: [], tailwind: [] }
+  if (value === undefined || value === "auto") {
+    return { stored: undefined, css: [], tailwind: [] }
+  }
+
   const css = [`z-index: ${sideCss("layer", value)}`]
   const tailwind = [sideClass("layer", "z", value)]
+
   if (needsPosition) {
     css.unshift("position: relative")
     tailwind.unshift("relative")
   }
+
   return { stored: sideStored("layer", value), css, tailwind }
 }

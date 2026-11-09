@@ -21,11 +21,13 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function PresetStory({ start, open, unlocked }: { start: PresetLayer; open?: boolean; unlocked?: TypeField[] }) {
   const [layer, setLayer] = useState(start)
   const type = measured(typeOf(layer))
+
   return (
     <Playground
       writes={presetWrites(layer)}

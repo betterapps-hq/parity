@@ -31,6 +31,7 @@ export function TransformSection({
   const [added, setAdded] = useState(set)
   const shown = added || set
   const change = (part: Partial<TransformValue>) => onChange({ ...value, ...part })
+
   const action = (
     <Hint label={shown ? "Remove transform" : "Add transform"}>
       <Button
@@ -39,7 +40,10 @@ export function TransformSection({
         className="size-6"
         aria-label={shown ? "Remove transform" : "Add transform"}
         onClick={() => {
-          if (shown) onChange({})
+          if (shown) {
+            onChange({})
+          }
+
           setAdded(!shown)
         }}
       >
@@ -47,10 +51,13 @@ export function TransformSection({
       </Button>
     </Hint>
   )
+
   const linked = value.scaleLinked ?? true
+
   // Scale is a percentage, any whole one a step; it flips with the flip buttons, so it stays above 0.
   const scaleField = (axis: "x" | "y") => {
     const key = axis === "x" ? "scaleX" : "scaleY"
+
     return (
       <PercentField
         label={`Scale ${axis.toUpperCase()}`}
@@ -65,6 +72,7 @@ export function TransformSection({
       />
     )
   }
+
   return (
     <PanelSection
       title="Transform"
@@ -92,13 +100,15 @@ export function TransformSection({
                       className="size-7 min-w-7 px-0"
                       aria-label="Scale X and Y together"
                       pressed={linked}
-                      onPressedChange={(pressed) =>
-                        onChange({
-                          ...value,
-                          scaleLinked: pressed ? undefined : false,
-                          ...(pressed ? { scaleY: value.scaleX } : {})
-                        })
-                      }
+                      onPressedChange={(pressed) => {
+                        const next: TransformValue = { ...value, scaleLinked: pressed ? undefined : false }
+
+                        if (pressed) {
+                          next.scaleY = value.scaleX
+                        }
+
+                        onChange(next)
+                      }}
                     >
                       <Link2 />
                     </Toggle>
@@ -166,22 +176,37 @@ function MoveField({
   const label = `Move ${axis.toUpperCase()}`
   const percent = value !== undefined && "percent" in value
   let amount = 0
-  if (value !== undefined) amount = "px" in value ? value.px : value.percent
+
+  if (value !== undefined) {
+    amount = "px" in value ? value.px : value.percent
+  }
+
   const shown = value === undefined ? undefined : formatNumber(amount)
   const unit = percent ? "%" : "px"
+
   const read = (text: string): Reading<Move | undefined> => {
     // A bare number keeps the unit shown, so 25 in a field showing % is 25%.
     const bare = /^\s*-?\d*\.?\d+\s*$/.test(text)
+
     const reading = readLength(bare && percent ? `${text}%` : text, {
       label,
       current: value !== undefined && "px" in value ? value.px : 0,
       takesPercent: true
     })
-    if ("clear" in reading) return { value: undefined }
-    if ("reason" in reading) return reading
+
+    if ("clear" in reading) {
+      return { value: undefined }
+    }
+
+    if ("reason" in reading) {
+      return reading
+    }
+
     return { value: "px" in reading ? { px: reading.px } : { percent: reading.percent } }
   }
+
   const moved = (next: number): Move => (percent ? { percent: next } : { px: next })
+
   return (
     <ValueField
       label={label}
@@ -216,14 +241,20 @@ const layerCard: Draft = { background: "card", radius: "radius-xl" }
  */
 export function TransformPreview({ value, rotate = 0 }: { value: TransformValue; rotate?: number }) {
   const sets = useTokenSets()
+
   const move = (part: Move | undefined) => {
-    if (part === undefined) return "0"
+    if (part === undefined) {
+      return "0"
+    }
+
     return "px" in part ? `${part.px}px` : `${part.percent}%`
   }
+
   const x = (value.scaleX ?? 100) * (value.flipX ? -1 : 1)
   const y = (value.scaleY ?? 100) * (value.flipY ? -1 : 1)
   const origin = value.origin ?? { x: 50, y: 50 }
   const style = drawnStyle(layerCard, sets)
+
   return (
     <PreviewStage>
       <div className="relative">

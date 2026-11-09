@@ -5,7 +5,7 @@
 import { arbitrary, formatNumber, lengthClass, lengthCss, lengthForm } from "./css-values.ts"
 import { type BlendMode, stackFamilies } from "./text-data.ts"
 import type { SizeToken } from "./tokens.ts"
-import type { Writes } from "./writes.ts"
+import { type StoredObject, withAllow, type Writes } from "./writes.ts"
 
 const nothing: Writes = { stored: undefined, css: [], tailwind: [] }
 
@@ -33,7 +33,10 @@ export function stackCss(stack: string): string {
 }
 
 export function fontWrites(font: FontValue | undefined): Writes {
-  if (font === undefined) return nothing
+  if (font === undefined) {
+    return nothing
+  }
+
   if ("token" in font) {
     return {
       stored: { token: font.token },
@@ -41,10 +44,12 @@ export function fontWrites(font: FontValue | undefined): Writes {
       tailwind: [`font-${font.token}`]
     }
   }
+
   // A family name with spaces is quoted, with underscores for the spaces: `font-['Open_Sans',sans-serif]`.
   const families = stackFamilies(font.stack).map((family) => (family.includes(" ") ? `'${family}'` : family))
+
   return {
-    stored: { value: stackCss(font.stack), ...(font.allow === undefined ? {} : { allow: font.allow }) },
+    stored: withAllow({ value: stackCss(font.stack) }, font.allow),
     css: [`font-family: ${stackCss(font.stack)}`],
     tailwind: [`font-[${arbitrary(families.join(", "))}]`]
   }
@@ -55,7 +60,10 @@ export type FontSize = { token: string } | { px: number; allow?: string }
 
 /** Text's size alone, as `text-xl` or `text-[22px]`; a size token's paired line height is lineHeightWrites' to write. */
 export function fontSizeWrites(size: FontSize | undefined): Writes {
-  if (size === undefined) return nothing
+  if (size === undefined) {
+    return nothing
+  }
+
   if ("token" in size) {
     return {
       stored: { token: size.token },
@@ -63,9 +71,11 @@ export function fontSizeWrites(size: FontSize | undefined): Writes {
       tailwind: [`text-${size.token}`]
     }
   }
+
   const value = `${formatNumber(size.px)}px`
+
   return {
-    stored: { value, ...(size.allow === undefined ? {} : { allow: size.allow }) },
+    stored: withAllow({ value }, size.allow),
     css: [`font-size: ${value}`],
     tailwind: [`text-[${value}]`]
   }
@@ -75,23 +85,26 @@ export function fontSizeWrites(size: FontSize | undefined): Writes {
 export type WeightValue = { token: string } | { value: number; allow?: string }
 
 export function weightWrites(weight: WeightValue | undefined, italic: boolean | undefined): Writes {
-  const stored: Record<string, unknown> = {}
+  const stored: StoredObject = {}
   const css: string[] = []
   const tailwind: string[] = []
+
   if (weight !== undefined && "token" in weight) {
     stored.fontWeight = { token: weight.token }
     css.push(`font-weight: var(--font-weight-${weight.token})`)
     tailwind.push(`font-${weight.token}`)
   } else if (weight !== undefined) {
-    stored.fontWeight = { value: weight.value, ...(weight.allow === undefined ? {} : { allow: weight.allow }) }
+    stored.fontWeight = withAllow({ value: weight.value }, weight.allow)
     css.push(`font-weight: ${weight.value}`)
     tailwind.push(`font-[${weight.value}]`)
   }
+
   if (italic !== undefined) {
     stored.fontStyle = { keyword: italic ? "italic" : "normal" }
     css.push(`font-style: ${italic ? "italic" : "normal"}`)
     tailwind.push(italic ? "italic" : "not-italic")
   }
+
   return Object.keys(stored).length > 0 ? { stored, css, tailwind } : nothing
 }
 
@@ -105,19 +118,26 @@ export type LineHeight =
   | { multiple: number }
   | { px: number; allow?: string }
 
-function lineHeightParts(lineHeight: LineHeight): { stored: unknown; css: string; suffix: string } {
-  if ("keyword" in lineHeight) return { stored: { keyword: "normal" }, css: "normal", suffix: "[normal]" }
+function lineHeightParts(lineHeight: LineHeight) {
+  if ("keyword" in lineHeight) {
+    return { stored: { keyword: "normal" }, css: "normal", suffix: "[normal]" }
+  }
+
   if ("token" in lineHeight) {
     return { stored: { token: lineHeight.token }, css: `var(--leading-${lineHeight.token})`, suffix: lineHeight.token }
   }
+
   if ("multiple" in lineHeight) {
     const value = bare(lineHeight.multiple)
+
     return { stored: { value }, css: value, suffix: `[${value}]` }
   }
+
   // Whole pixels are a spacing step (22px is `leading-5.5`), as every length writes them.
   const form = lengthForm(lineHeight.px)
-  const stored =
-    "step" in form ? form : { ...form, ...(lineHeight.allow === undefined ? {} : { allow: lineHeight.allow }) }
+
+  const stored = "step" in form ? form : withAllow(form, lineHeight.allow)
+
   return { stored, css: lengthCss(lineHeight.px), suffix: lengthClass(lineHeight.px) }
 }
 
@@ -126,14 +146,23 @@ function lineHeightParts(lineHeight: LineHeight): { stored: unknown; css: string
  * `text-display leading-7` for one that pairs a weight or letter spacing too, and `leading-6` with no size token.
  */
 export function lineHeightWrites(lineHeight: LineHeight | undefined, size: SizeToken | undefined): Writes {
-  if (lineHeight === undefined) return nothing
+  if (lineHeight === undefined) {
+    return nothing
+  }
+
   const parts = lineHeightParts(lineHeight)
   const css = [`line-height: ${parts.css}`]
-  if (size === undefined) return { stored: parts.stored, css, tailwind: [`leading-${parts.suffix}`] }
+
+  if (size === undefined) {
+    return { stored: parts.stored, css, tailwind: [`leading-${parts.suffix}`] }
+  }
+
   const sizeCss = `font-size: var(--text-${size.name})`
+
   if ("pairsMore" in size) {
     return { stored: parts.stored, css: [sizeCss, ...css], tailwind: [`text-${size.name}`, `leading-${parts.suffix}`] }
   }
+
   return { stored: parts.stored, css: [sizeCss, ...css], tailwind: [`text-${size.name}/${parts.suffix}`] }
 }
 
@@ -141,7 +170,10 @@ export function lineHeightWrites(lineHeight: LineHeight | undefined, size: SizeT
 export type LetterSpacing = { token: string } | { em: number; allow?: string } | { px: number; allow?: string }
 
 export function letterSpacingWrites(spacing: LetterSpacing | undefined): Writes {
-  if (spacing === undefined) return nothing
+  if (spacing === undefined) {
+    return nothing
+  }
+
   if ("token" in spacing) {
     return {
       stored: { token: spacing.token },
@@ -149,9 +181,11 @@ export function letterSpacingWrites(spacing: LetterSpacing | undefined): Writes 
       tailwind: [`tracking-${spacing.token}`]
     }
   }
+
   const value = "em" in spacing ? `${bare(spacing.em)}em` : `${bare(spacing.px)}px`
+
   return {
-    stored: { value, ...(spacing.allow === undefined ? {} : { allow: spacing.allow }) },
+    stored: withAllow({ value }, spacing.allow),
     css: [`letter-spacing: ${value}`],
     tailwind: [`tracking-[${arbitrary(value)}]`]
   }
@@ -164,9 +198,10 @@ export type Opacity = { token: string } | { percent: number; allow?: string }
 export const onOpacityStep = (percent: number) => Number.isInteger(percent * 4)
 
 export function opacityWrites(opacity: Opacity | undefined, blend: BlendMode | undefined): Writes {
-  const stored: Record<string, unknown> = {}
+  const stored: StoredObject = {}
   const css: string[] = []
   const tailwind: string[] = []
+
   if (opacity !== undefined && "token" in opacity) {
     stored.opacity = { token: opacity.token }
     css.push(`opacity: var(--opacity-${opacity.token})`)
@@ -177,16 +212,18 @@ export function opacityWrites(opacity: Opacity | undefined, blend: BlendMode | u
     tailwind.push(`opacity-${bare(opacity.percent)}`)
   } else if (opacity !== undefined) {
     const value = bare(opacity.percent / 100)
-    stored.opacity = { value: Number(value), ...(opacity.allow === undefined ? {} : { allow: opacity.allow }) }
+    stored.opacity = withAllow({ value: Number(value) }, opacity.allow)
     css.push(`opacity: ${value}`)
     // No leading zero inside the brackets: `opacity-[.473]`.
     tailwind.push(`opacity-[${arbitrary(value.replace(/^0\./, "."))}]`)
   }
+
   if (blend !== undefined) {
     stored.blend = { keyword: blend }
     css.push(`mix-blend-mode: ${blend}`)
     tailwind.push(`mix-blend-${blend}`)
   }
+
   return Object.keys(stored).length > 0 ? { stored, css, tailwind } : nothing
 }
 
@@ -210,7 +247,10 @@ export function keywordWrites(
   value: KeywordValue | undefined,
   options: readonly KeywordOption[]
 ): Writes {
-  if (value === undefined) return nothing
+  if (value === undefined) {
+    return nothing
+  }
+
   if ("custom" in value) {
     return {
       stored: { keyword: value.custom },
@@ -218,8 +258,13 @@ export function keywordWrites(
       tailwind: [`[${property}:${arbitrary(value.custom)}]`]
     }
   }
+
   const option = options.find((each) => each.value === value.option)
-  if (!option) return nothing
+
+  if (!option) {
+    return nothing
+  }
+
   return {
     stored: option.token ? { token: option.value } : { keyword: option.value },
     css: [option.css],

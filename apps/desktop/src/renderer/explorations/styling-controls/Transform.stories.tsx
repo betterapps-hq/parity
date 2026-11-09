@@ -19,10 +19,12 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Transform({ start }: { start: TransformValue }) {
   const [value, setValue] = useState(start)
+
   return (
     <Playground writes={transformWrites(value)} preview={<TransformPreview value={value} />}>
       <TransformSection value={value} onChange={setValue} />

@@ -15,6 +15,7 @@ const HighlightContext = createContext<{ highlight: Highlight; setHighlight: (hi
 /** Holds what's highlighted for a story's control and preview. */
 export function HighlightProvider({ children }: { children: ReactNode }) {
   const [highlight, setHighlight] = useState<Highlight>()
+
   return <HighlightContext value={{ highlight, setHighlight }}>{children}</HighlightContext>
 }
 
@@ -28,6 +29,7 @@ export function useHighlights(target: Highlight) {
   const { setHighlight } = useHighlight()
   const on = () => setHighlight(target)
   const off = () => setHighlight(undefined)
+
   return { onPointerEnter: on, onPointerLeave: off, onFocus: on, onBlur: off }
 }
 
@@ -47,7 +49,10 @@ const sizesOf = (template: string) =>
 
 /** The boxes to draw for what's highlighted in a layout, in its own coordinates, from what the browser laid out. */
 function measure(layout: HTMLElement, highlight: Highlight): Box[] {
-  if (highlight === undefined) return []
+  if (highlight === undefined) {
+    return []
+  }
+
   const style = getComputedStyle(layout)
   // Drawn absolutely, so from the layout's padding edge, inside its border.
   const padLeft = Number.parseFloat(style.paddingLeft)
@@ -56,43 +61,65 @@ function measure(layout: HTMLElement, highlight: Highlight): Box[] {
   const borderTop = Number.parseFloat(style.borderTopWidth)
   const columnGap = Number.parseFloat(style.columnGap) || 0
   const rowGap = Number.parseFloat(style.rowGap) || 0
+
   if (style.display === "grid") {
     const columns = sizesOf(style.gridTemplateColumns)
     const rows = sizesOf(style.gridTemplateRows)
+
     const starts = (sizes: number[], gap: number, from: number) =>
       sizes.map((_, index) => from + sizes.slice(0, index).reduce((sum, size) => sum + size, 0) + index * gap)
+
     const columnStarts = starts(columns, columnGap, padLeft)
     const rowStarts = starts(rows, rowGap, padTop)
     const width = columns.reduce((sum, size) => sum + size, 0) + columnGap * (columns.length - 1)
     const height = rows.reduce((sum, size) => sum + size, 0) + rowGap * (rows.length - 1)
+
     if (highlight.kind === "column") {
       const index = highlight.index
-      if (columns[index] === undefined) return []
+
+      if (columns[index] === undefined) {
+        return []
+      }
+
       return [{ left: columnStarts[index]!, top: padTop, width: columns[index]!, height }]
     }
+
     if (highlight.kind === "row") {
       const index = highlight.index
-      if (rows[index] === undefined) return []
+
+      if (rows[index] === undefined) {
+        return []
+      }
+
       return [{ left: padLeft, top: rowStarts[index]!, width, height: rows[index]! }]
     }
+
     return [
       ...columnStarts.slice(1).map((start) => ({ left: start - columnGap, top: padTop, width: columnGap, height })),
       ...rowStarts.slice(1).map((start) => ({ left: padLeft, top: start - rowGap, width, height: rowGap }))
     ]
   }
-  if (highlight.kind !== "gap") return []
+
+  if (highlight.kind !== "gap") {
+    return []
+  }
+
   // A flex layout's gaps: between each child and the next on its line.
   const outer = layout.getBoundingClientRect()
   const frame = { left: outer.left + borderLeft, top: outer.top + borderTop }
   const across = style.flexDirection.startsWith("row")
-  const boxes = [...layout.children]
-    .filter((child) => !child.hasAttribute("data-highlight"))
-    .map((child) => child.getBoundingClientRect())
+
+  const boxes = [...layout.children].flatMap((child) =>
+    child.hasAttribute("data-highlight") ? [] : [child.getBoundingClientRect()]
+  )
+
   const gaps: Box[] = []
+
   for (let index = 0; index + 1 < boxes.length; index++) {
     const [one, next] = [boxes[index]!, boxes[index + 1]!]
     const inOrder = across ? one.left <= next.left : one.top <= next.top
     const [first, second] = inOrder ? [one, next] : [next, one]
+
     if (across && second.left - first.right > 0.5 && second.top < first.bottom && second.bottom > first.top) {
       const top = Math.min(first.top, second.top)
       gaps.push({
@@ -102,6 +129,7 @@ function measure(layout: HTMLElement, highlight: Highlight): Box[] {
         height: Math.max(first.bottom, second.bottom) - top
       })
     }
+
     if (!across && second.top - first.bottom > 0.5) {
       const left = Math.min(first.left, second.left)
       gaps.push({
@@ -112,6 +140,7 @@ function measure(layout: HTMLElement, highlight: Highlight): Box[] {
       })
     }
   }
+
   return gaps
 }
 
@@ -123,14 +152,22 @@ export function HighlightOverlay({ layout, color }: { layout: HTMLElement | null
   const { highlight } = useHighlight()
   const [boxes, setBoxes] = useState<Box[]>([])
   useLayoutEffect(() => {
-    if (!layout) return
+    if (!layout) {
+      return
+    }
+
     const draw = () => setBoxes(measure(layout, highlight))
     draw()
     const observer = new ResizeObserver(draw)
     observer.observe(layout)
+
     return () => observer.disconnect()
   }, [layout, highlight])
-  if (highlight === undefined) return null
+
+  if (highlight === undefined) {
+    return null
+  }
+
   return (
     <>
       {boxes.map((box, index) => (

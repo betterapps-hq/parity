@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
+import { numberValue } from "../../chrome/prop-values.ts"
 import { type Basis, evaluateLength, ExpressionField, expressionWrites, fillTokens } from "./expression.tsx"
 import { Field } from "./field-row.tsx"
 import { Playground } from "./playground.tsx"
@@ -22,6 +23,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const parentWidth = 680
@@ -45,7 +47,8 @@ function Expr({
 }) {
   const [value, setValue] = useState(start)
   const px = value === undefined || kind === "color" ? undefined : evaluateLength(value, basis)
-  const length = typeof px === "number" ? px : undefined
+  const length = numberValue.safeParse(px).data
+
   let preview = (
     <div className="flex w-[340px] flex-col gap-1">
       <span className="text-2xs text-muted-foreground">Plans, {parentWidth} wide, drawn at half size</span>
@@ -54,7 +57,11 @@ function Expr({
       </div>
     </div>
   )
-  if (property === "font-size") preview = <TextSample style={{ fontSize: length }} />
+
+  if (property === "font-size") {
+    preview = <TextSample style={{ fontSize: length }} />
+  }
+
   if (property === "padding-top") {
     preview = (
       <div className="w-60 rounded-md border bg-white text-neutral-900" style={{ paddingTop: length }}>
@@ -62,11 +69,13 @@ function Expr({
       </div>
     )
   }
+
   if (kind === "color") {
     preview = (
       <div className="size-40 rounded-xl border" style={{ background: value ? fillTokens(value) : undefined }} />
     )
   }
+
   return (
     <Playground writes={expressionWrites(property, prefix, value)} preview={preview}>
       <Field label={label}>

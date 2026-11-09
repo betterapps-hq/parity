@@ -50,6 +50,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 interface Entry {
@@ -152,6 +153,7 @@ const groups: { name: string; entries: Entry[] }[] = [
 // Numbered through in the panel's order, so a control keeps its number however the page is sorted.
 const numbered = groups.map((group, index) => {
   const start = 1 + groups.slice(0, index).reduce((count, before) => count + before.entries.length, 0)
+
   return { ...group, start, entries: group.entries.map((entry, at) => ({ ...entry, number: start + at })) }
 })
 
@@ -159,9 +161,11 @@ type Numbered = (typeof numbered)[number]
 
 // The groups as they'd show with only the controls reviewed, or only those left; a group with none goes.
 const only = (reviewed: boolean) =>
-  numbered
-    .map((group) => ({ ...group, entries: group.entries.filter((entry) => (entry.reviewed ?? false) === reviewed) }))
-    .filter((group) => group.entries.length > 0)
+  numbered.flatMap((group) => {
+    const entries = group.entries.filter((entry) => (entry.reviewed ?? false) === reviewed)
+
+    return entries.length > 0 ? [{ ...group, entries }] : []
+  })
 
 const toReview = only(false)
 const reviewed = only(true)

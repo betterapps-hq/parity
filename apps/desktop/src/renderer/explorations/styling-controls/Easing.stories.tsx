@@ -23,11 +23,13 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The card, moving with the easing as it's defined, a token made here among the project's. */
 function EasingPreview({ easing, ms }: { easing: Easing | undefined; ms: number }) {
   const { tokens } = useTokens("easing")
+
   return <HoverCard transition={`translate ${ms}ms ${drawnEasing(easing, tokens)}`} />
 }
 
@@ -47,7 +49,11 @@ function EasingStory({
   // A spring sets the duration to its settle time; otherwise the preview runs slow enough to see the curve.
   const ms = spring ? springSettle(spring) : 600
   let writes: Writes = easingWrites(easing)
-  if (mixed && easing === undefined) writes = mixedWrites
+
+  if (mixed && easing === undefined) {
+    writes = mixedWrites
+  }
+
   if (spring) {
     const duration = timeWrites("duration", { step: ms })
     writes = {
@@ -56,6 +62,7 @@ function EasingStory({
       tailwind: [...duration.tailwind, ...writes.tailwind]
     }
   }
+
   return (
     <Playground writes={writes} preview={<EasingPreview easing={easing} ms={ms} />}>
       <Field label="Easing">

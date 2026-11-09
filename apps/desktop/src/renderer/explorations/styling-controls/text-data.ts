@@ -51,6 +51,7 @@ export const allFonts = [...projectFonts, ...moreFonts]
 /** A font by its first family's name, ignoring case and quotes. */
 export function findFont(name: string): FontFamily | undefined {
   const bare = name.replaceAll(/["']/g, "").trim().toLowerCase()
+
   return allFonts.find(
     (font) => font.name.toLowerCase() === bare || (bare === "geist variable" && font.name === "Geist")
   )
@@ -67,8 +68,15 @@ export function stackFamilies(stack: string): string[] {
 /** The generic family a stack falls back to, which picks the nearest font token. */
 export function genericOf(stack: string): "serif" | "monospace" | "sans-serif" {
   const families = stackFamilies(stack).map((family) => family.toLowerCase())
-  if (families.includes("monospace")) return "monospace"
-  if (families.includes("serif")) return "serif"
+
+  if (families.includes("monospace")) {
+    return "monospace"
+  }
+
+  if (families.includes("serif")) {
+    return "serif"
+  }
+
   return "sans-serif"
 }
 

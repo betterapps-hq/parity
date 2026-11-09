@@ -39,18 +39,11 @@ import {
   StretchVertical,
   X
 } from "lucide-react"
-import {
-  type CSSProperties,
-  Fragment,
-  type KeyboardEvent,
-  type PointerEvent,
-  type ReactNode,
-  useRef,
-  useState
-} from "react"
+import { Fragment, type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { withVariables } from "../parts.tsx"
 import { Num, type SectionProps, SizeField, useMeasured } from "./controls.tsx"
 import { clamp, formatNumber, remPx, stepSpacing } from "./css-values.ts"
 import { type Columns, type Draft, type SelfAlign, type Span, type Track, trackLabel } from "./data.ts"
@@ -68,12 +61,14 @@ import { readLength } from "./typing.ts"
 
 /** Plans' width inside its padding, which the strip and the map size Fill tracks against. */
 const contentWidth = 480
+
 /** A Hug, Min or Max track's width, as the strip draws it; the content decides it on the canvas. */
 const contentTrack = 80
 
 const fr = (value: number): Track => ({ kind: "fr", value })
 
 type Place = "start" | "center" | "end"
+
 const places: Place[] = ["start", "center", "end"]
 
 const isBaseline = (align: Draft["align"]) => align === "baseline" || align === "last baseline"
@@ -110,11 +105,18 @@ export function LayoutSection({ draft, set }: SectionProps) {
   const row = mode === "row"
   // The gap before it went Auto, which turning Auto off brings back.
   const [gapBeforeAuto, setGapBeforeAuto] = useState<number>()
+  const fixedGap = undefinedIfAuto(draft.gap)
+
   const setGap = (gap: Draft["gap"], distribute?: Draft["distribute"]) => {
-    if (gap === "auto" && typeof draft.gap === "number") setGapBeforeAuto(draft.gap)
+    if (gap === "auto" && fixedGap !== undefined) {
+      setGapBeforeAuto(fixedGap)
+    }
+
     set({ gap, distribute })
   }
+
   const spread = (on: boolean) => (on ? setGap("auto") : set({ gap: gapBeforeAuto, distribute: undefined }))
+
   return (
     <PanelSection
       title="Layout"
@@ -159,9 +161,12 @@ export function LayoutSection({ draft, set }: SectionProps) {
                     rows: kept?.rows ?? [],
                     gap: undefinedIfAuto(draft.gap)
                   })
-                } else if (value) {
-                  if (grid) setKept({ columns: draft.columns!, rows: draft.rows ?? [] })
-                  set({ direction: value as "row" | "column", columns: undefined, rows: undefined })
+                } else if (value === "row" || value === "column") {
+                  if (grid) {
+                    setKept({ columns: draft.columns!, rows: draft.rows ?? [] })
+                  }
+
+                  set({ direction: value, columns: undefined, rows: undefined })
                 }
               }}
             >
@@ -199,7 +204,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
                   onPressedChange={(wrap) =>
                     set({
                       wrap: wrap || undefined,
-                      gap: wrap && typeof draft.gap === "number" && draft.gap < 0 ? 0 : draft.gap
+                      gap: wrap && fixedGap !== undefined && fixedGap < 0 ? 0 : draft.gap
                     })
                   }
                 >
@@ -256,8 +261,8 @@ export function LayoutSection({ draft, set }: SectionProps) {
                     label={grid || row ? "Gap between rows" : "Gap between columns"}
                     across={!(grid || row)}
                     value={draft.rowGap}
-                    placeholder={typeof draft.gap === "number" ? formatNumber(draft.gap) : "0"}
-                    onChange={(rowGap) => set({ rowGap: typeof rowGap === "number" ? rowGap : undefined })}
+                    placeholder={fixedGap === undefined ? "0" : formatNumber(fixedGap)}
+                    onChange={(rowGap) => set({ rowGap: undefinedIfAuto(rowGap) })}
                   />
                 )}
               </GapHighlight>
@@ -273,19 +278,15 @@ export function LayoutSection({ draft, set }: SectionProps) {
               spacing={0}
               aria-label="Lines"
               value={[draft.lines ?? "start"]}
-              onValueChange={([lines]) =>
-                lines && set({ lines: lines === "start" ? undefined : (lines as NonNullable<Draft["lines"]>) })
-              }
+              onValueChange={([lines]) => {
+                const chosen = lineOptions.find(([value]) => value === lines)?.[0]
+
+                if (chosen) {
+                  set({ lines: chosen === "start" ? undefined : chosen })
+                }
+              }}
             >
-              {(
-                [
-                  ["start", "Start", "Packed at the start"],
-                  ["center", "Center", "Packed in the middle"],
-                  ["end", "End", "Packed at the end"],
-                  ["between", "Between", "Spread out, the first and last at the edges"],
-                  ["stretch", "Stretch", "Each line grows to share the room"]
-                ] as const
-              ).map(([value, name, detail]) => (
+              {lineOptions.map(([value, name, detail]) => (
                 <Hint key={value} label={detail}>
                   <ToggleGroupItem value={value} className="h-7 flex-1 px-2 text-xs">
                     {name}
@@ -300,15 +301,28 @@ export function LayoutSection({ draft, set }: SectionProps) {
   )
 }
 
+/** Where wrapped lines sit, as Lines offers it: each value with its name and what it does. */
+const lineOptions = [
+  ["start", "Start", "Packed at the start"],
+  ["center", "Center", "Packed in the middle"],
+  ["end", "End", "Packed at the end"],
+  ["between", "Between", "Spread out, the first and last at the edges"],
+  ["stretch", "Stretch", "Each line grows to share the room"]
+] as const
+
 /** The first gap's name: just Gap, until there's a second, between rows or columns. */
 function gapName(grid: boolean, row: boolean, wraps: boolean) {
-  if (!grid && !wraps) return "Gap"
+  if (!grid && !wraps) {
+    return "Gap"
+  }
+
   return grid || row ? "Gap between columns" : "Gap between rows"
 }
 
 /** Gap's fields, which highlight the gaps on the canvas while they're hovered or focused, as Penpot's do. */
 function GapHighlight({ children }: { children: ReactNode }) {
   const { setHighlight } = useHighlight()
+
   return (
     // The fields inside take the focus; this only listens, so the gaps stay lit while either is in use.
     <div
@@ -329,6 +343,7 @@ const undefinedIfAuto = (gap: Draft["gap"]) => (gap === "auto" ? undefined : gap
 function BaselineRow({ draft, set }: Pick<SectionProps, "draft" | "set">) {
   const row = (draft.direction ?? "column") === "row"
   const baseline = isBaseline(draft.align)
+
   return (
     // Set in a vertical layout, Baseline does nothing, so it stays, dimmed, saying why.
     <div className={`flex items-center gap-1 ${row ? "" : "opacity-50"}`}>
@@ -358,7 +373,11 @@ function BaselineRow({ draft, set }: Pick<SectionProps, "draft" | "set">) {
           spacing={0}
           aria-label="Which baseline"
           value={[draft.align!]}
-          onValueChange={([line]) => line && set({ align: line as "baseline" | "last baseline" })}
+          onValueChange={([line]) => {
+            if (line === "baseline" || line === "last baseline") {
+              set({ align: line })
+            }
+          }}
         >
           <ToggleGroupItem value="baseline" aria-label="First line" className="h-7 px-2 text-xs">
             First
@@ -393,14 +412,25 @@ interface Arrangement {
 function arrangementOf(draft: Draft): Arrangement {
   if (draft.columns !== undefined) {
     const axis = (value: SelfAlign | undefined) => (value === undefined || value === "stretch" ? "fill" : value)
+
     return { x: axis(draft.itemsX), y: axis(draft.itemsY) }
   }
+
   const column = (draft.direction ?? "column") === "column"
   const main: Arrangement["x"] = draft.gap === "auto" ? "spread" : (draft.justify ?? "start")
   const align = draft.align ?? "stretch"
-  const cross: Arrangement["x"] = align === "stretch" || isBaseline(align) ? "fill" : (align as Place)
+  const cross: Arrangement["x"] = align === "stretch" || isBaseline(align) ? "fill" : align
+
   return column ? { x: cross, y: main } : { x: main, y: cross }
 }
+
+/** The way each arrow key moves across and down. */
+const arrowMoves = new Map<string, [number, number]>([
+  ["ArrowLeft", [-1, 0]],
+  ["ArrowRight", [1, 0]],
+  ["ArrowUp", [0, -1]],
+  ["ArrowDown", [0, 1]]
+])
 
 /** Whether a spot shows the children: on their place, or anywhere along an axis they fill or spread across. */
 const covers = (arrangement: Arrangement, spot: BoxSpot) =>
@@ -419,8 +449,12 @@ const spotWords = {
 }
 
 const spotName = (spot: BoxSpot) => {
-  if (spot.x === "center" && spot.y === "center") return "Center"
+  if (spot.x === "center" && spot.y === "center") {
+    return "Center"
+  }
+
   const name = `${spotWords.y[spot.y]} ${spotWords.x[spot.x]}`.replace("middle ", "").replace(" center", "")
+
   return name[0]!.toUpperCase() + name.slice(1)
 }
 
@@ -452,38 +486,44 @@ export function LayoutBox({
     if (grid) {
       // Again on the chosen spot stretches them both ways, as unset does.
       set(again ? { itemsX: undefined, itemsY: undefined } : { itemsX: spot.x, itemsY: spot.y })
+
       return
     }
+
     const main = column ? spot.y : spot.x
     const cross = column ? spot.x : spot.y
+
     if (isBaseline(draft.align)) {
       set({ justify: main })
+
       return
     }
+
     set({ justify: main, align: again ? undefined : cross })
   }
+
   const focusSpot = (spot: BoxSpot) =>
     box.current?.querySelector<HTMLButtonElement>(`[data-spot="${spot.x}-${spot.y}"]`)?.focus()
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const moves: Record<string, [number, number]> = {
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0],
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1]
-    }
-    const move = moves[event.key]
+    const move = arrowMoves.get(event.key)
+
     if (move) {
       event.preventDefault()
+
       const next = {
         x: places[clamp(places.indexOf(anchor.x) + move[0], 0, 2)]!,
         y: places[clamp(places.indexOf(anchor.y) + move[1], 0, 2)]!
       }
+
       choose(next, false)
       focusSpot(next)
+
       return
     }
+
     const key = event.key.toLowerCase()
+
     if (key === "s") {
       event.preventDefault()
       set(grid ? { itemsX: undefined, itemsY: undefined } : { align: undefined })
@@ -497,7 +537,11 @@ export function LayoutBox({
   }
 
   let keys = "Arrow keys move them. S stretches them."
-  if (!grid) keys += column ? " X spreads them out." : " X spreads them out. B lines up their text."
+
+  if (!grid) {
+    keys += column ? " X spreads them out." : " X spreads them out. B lines up their text."
+  }
+
   return (
     <Hint
       label={grid ? "Where each child sits in its cell" : "Where the children sit"}
@@ -522,6 +566,7 @@ export function LayoutBox({
             const spot = { x, y }
             const on = covers(arrangement, spot)
             const isAnchor = anchor.x === x && anchor.y === y
+
             return (
               <button
                 key={`${x}-${y}`}
@@ -551,10 +596,14 @@ export function LayoutBox({
 
 /** The children as they'd sit with a spot chosen, for the hover preview. */
 function previewOf(current: Arrangement, spot: BoxSpot, grid: boolean, column: boolean): Arrangement {
-  if (grid) return { x: spot.x, y: spot.y }
+  if (grid) {
+    return { x: spot.x, y: spot.y }
+  }
+
   // Spread or filled axes stay as they are; a spot only moves the children along the rest.
   const keep = (axis: "x" | "y") =>
     current[axis] === "spread" || (current[axis] === "fill" && axis === (column ? "x" : "y"))
+
   return { x: keep("x") ? current.x : spot.x, y: keep("y") ? current.y : spot.y }
 }
 
@@ -572,10 +621,19 @@ const barLengths = [9, 14, 11]
 const bar = 3.5
 const barGap = 2
 
+/** The place an axis's children sit at, or undefined where they fill or spread across it. */
+const placeOf = (axis: Arrangement["x"]) => places.find((place) => place === axis)
+
 /** Where a run of `length` sits on an axis of the box (6 to 54), at a place. */
 function along(place: Place, length: number, from = 6, to = 54) {
-  if (place === "start") return from
-  if (place === "center") return (from + to - length) / 2
+  if (place === "start") {
+    return from
+  }
+
+  if (place === "center") {
+    return (from + to - length) / 2
+  }
+
   return to - length
 }
 
@@ -596,6 +654,10 @@ function Children({
 }) {
   const color = ghost ? "currentColor" : kindColors.layer
   const opacity = ghost ? 0.45 : 1
+  // Where the children sit at a place on an axis; an axis they fill or spread across has none.
+  const placeX = placeOf(arrangement.x)
+  const placeY = placeOf(arrangement.y)
+
   if (grid) {
     return (
       <g fill={color} opacity={opacity} className="text-muted-foreground">
@@ -603,29 +665,33 @@ function Children({
           [4, 31].map((cellY) => {
             const width = arrangement.x === "fill" ? 21 : 10
             const height = arrangement.y === "fill" ? 21 : 10
-            const x = arrangement.x === "fill" ? cellX + 2 : along(arrangement.x as Place, width, cellX + 2, cellX + 23)
-            const y =
-              arrangement.y === "fill" ? cellY + 2 : along(arrangement.y as Place, height, cellY + 2, cellY + 23)
+            const x = placeX === undefined ? cellX + 2 : along(placeX, width, cellX + 2, cellX + 23)
+            const y = placeY === undefined ? cellY + 2 : along(placeY, height, cellY + 2, cellY + 23)
+
             return <rect key={`${cellX}-${cellY}`} x={x} y={y} width={width} height={height} rx="1.5" />
           })
         )}
       </g>
     )
   }
+
   // Drawn as a row, then turned for a column: main runs across, cross down.
-  const main = column ? arrangement.y : arrangement.x
-  const cross = column ? arrangement.x : arrangement.y
+  const main = column ? placeY : placeX
+  const cross = column ? placeX : placeY
   const run = barLengths.length * bar + (barLengths.length - 1) * barGap
+
   const starts =
-    main === "spread"
+    main === undefined
       ? [6, 30 - bar / 2, 54 - bar]
-      : barLengths.map((_, index) => along(main as Place, run) + index * (bar + barGap))
+      : barLengths.map((_, index) => along(main, run) + index * (bar + barGap))
+
   const bars = barLengths.map((length, index) => {
-    const filled = cross === "fill"
-    const size = filled ? 48 : length
-    const y = filled ? 6 : along(cross as Place, length)
+    const size = cross === undefined ? 48 : length
+    const y = cross === undefined ? 6 : along(cross, length)
+
     return { x: starts[index]!, y, size }
   })
+
   return (
     <g
       fill={color}
@@ -695,29 +761,53 @@ function GapField({
 }) {
   const [unit, setUnit] = useState<"px" | "rem">("px")
   const auto = value === "auto"
-  const number = typeof value === "number" ? value : undefined
+  const number = value === "auto" ? undefined : value
   const min = takesNegative ? -999 : 0
   let shown = number === undefined ? undefined : formatNumber(number)
-  if (unit === "rem" && number !== undefined) shown = formatNumber(number / remPx)
-  if (auto) shown = "Auto"
+
+  if (unit === "rem" && number !== undefined) {
+    shown = formatNumber(number / remPx)
+  }
+
+  if (auto) {
+    shown = "Auto"
+  }
+
   const spread = distribute ?? "between"
   const negativeNote = takesNegative ? "Negative overlaps the children" : undefined
+
   const read = (text: string): Reading<number | "auto" | undefined> => {
     const trimmed = text.trim().toLowerCase()
-    if (trimmed === "") return { value: undefined }
-    if (takesAuto && (trimmed === "auto" || trimmed === "a")) return { value: "auto" }
+
+    if (trimmed === "") {
+      return { value: undefined }
+    }
+
+    if (takesAuto && (trimmed === "auto" || trimmed === "a")) {
+      return { value: "auto" }
+    }
+
     const bare = /^\s*-?(\d*\.?\d+)\s*$/.test(trimmed)
     const reading = readLength(unit === "rem" && bare ? `${trimmed}rem` : trimmed, { label, current: number })
-    if ("clear" in reading) return { value: undefined }
+
+    if ("clear" in reading) {
+      return { value: undefined }
+    }
+
     if ("px" in reading) {
-      if (reading.px < 0 && !takesNegative)
+      if (reading.px < 0 && !takesNegative) {
         return { reason: `${label} can't be negative${takesAuto ? " while it wraps" : ""}` }
+      }
+
       return { value: reading.px }
     }
+
     return { reason: "reason" in reading ? reading.reason : `Enter a length${takesAuto ? " or Auto" : ""}` }
   }
+
   const from = () => number ?? 0
   let unitPart: ReactNode
+
   if (auto) {
     unitPart = (
       <DropdownMenu>
@@ -732,7 +822,10 @@ function GapField({
         <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuRadioGroup
             value={spread}
-            onValueChange={(next) => onChange("auto", next === "between" ? undefined : (next as Draft["distribute"]))}
+            onValueChange={(next: string) => {
+              const chosen = spreads.find((each) => each.value === next)?.value
+              onChange("auto", chosen === "between" ? undefined : chosen)
+            }}
           >
             {spreads.map((each) => (
               <DropdownMenuRadioItem key={each.value} value={each.value} closeOnClick className="text-xs">
@@ -764,6 +857,7 @@ function GapField({
       />
     )
   }
+
   return (
     <ValueField
       label={label}
@@ -796,12 +890,19 @@ export function fitCount(least: number, gap: number) {
 /** The tracks a grid's columns come to: its own, or as many Fill tracks as fit. */
 export function columnTracks(draft: Draft): Track[] {
   const columns = draft.columns
-  if (columns === undefined) return []
-  if (Array.isArray(columns)) return columns
+
+  if (columns === undefined) {
+    return []
+  }
+
+  if (Array.isArray(columns)) {
+    return columns
+  }
+
   return Array.from({ length: fitCount(columns.fit, gapPx(draft.gap)) }, () => fr(1))
 }
 
-const gapPx = (gap: Draft["gap"]) => (typeof gap === "number" ? Math.max(0, gap) : 0)
+const gapPx = (gap: Draft["gap"]) => Math.max(0, undefinedIfAuto(gap) ?? 0)
 
 /**
  * Each track's share of the strip, as the canvas would size it at Plans' width: fixed tracks their pixels, content
@@ -809,23 +910,53 @@ const gapPx = (gap: Draft["gap"]) => (typeof gap === "number" ? Math.max(0, gap)
  */
 export function trackWeights(tracks: Track[], room = contentWidth): number[] {
   const fixed = tracks.reduce((sum, track) => {
-    if (track.kind === "px") return sum + track.value
-    if (track.kind === "percent") return sum + (track.value / 100) * room
-    if (track.kind === "range") return sum + track.min
-    if (track.kind === "fr") return sum
+    if (track.kind === "px") {
+      return sum + track.value
+    }
+
+    if (track.kind === "percent") {
+      return sum + (track.value / 100) * room
+    }
+
+    if (track.kind === "range") {
+      return sum + track.min
+    }
+
+    if (track.kind === "fr") {
+      return sum
+    }
+
     return sum + contentTrack
   }, 0)
+
   const shares = tracks.reduce((sum, track) => {
-    if (track.kind === "fr") return sum + track.value
+    if (track.kind === "fr") {
+      return sum + track.value
+    }
+
     return track.kind === "range" ? sum + track.max : sum
   }, 0)
+
   const left = Math.max(0, room - fixed)
   const perShare = shares === 0 ? 0 : left / shares
+
   return tracks.map((track) => {
-    if (track.kind === "px") return track.value
-    if (track.kind === "percent") return (track.value / 100) * room
-    if (track.kind === "fr") return Math.max(24, track.value * perShare)
-    if (track.kind === "range") return track.min + track.max * perShare
+    if (track.kind === "px") {
+      return track.value
+    }
+
+    if (track.kind === "percent") {
+      return (track.value / 100) * room
+    }
+
+    if (track.kind === "fr") {
+      return Math.max(24, track.value * perShare)
+    }
+
+    if (track.kind === "range") {
+      return track.min + track.max * perShare
+    }
+
     return contentTrack
   })
 }
@@ -839,6 +970,7 @@ function ColumnsField({ draft, set }: Pick<SectionProps, "draft" | "set">) {
   const fit = !Array.isArray(columns)
   const tracks = Array.isArray(columns) ? columns : []
   const rows = draft.rows ?? []
+
   const fitToggle = (
     <Hint
       label="Repeat to fit"
@@ -855,7 +987,9 @@ function ColumnsField({ draft, set }: Pick<SectionProps, "draft" | "set">) {
       </Toggle>
     </Hint>
   )
+
   const count = fit ? `${fitCount(columns.fit, gapPx(draft.gap))} fit` : String(tracks.length)
+
   return (
     <Field
       label={`Columns ${count}`}
@@ -904,6 +1038,7 @@ function ColumnsField({ draft, set }: Pick<SectionProps, "draft" | "set">) {
 /** Rows: unset, they're added as children need them (Auto); once one's set, a strip as Columns has. */
 function RowsField({ draft, set }: Pick<SectionProps, "draft" | "set">) {
   const rows = draft.rows ?? []
+
   return (
     <Field
       label={rows.length === 0 ? "Rows Auto" : `Rows ${rows.length}`}
@@ -929,7 +1064,10 @@ function RowsField({ draft, set }: Pick<SectionProps, "draft" | "set">) {
 
 /** A list of `count` tracks: the ones there are, with Fill tracks added or the last ones taken off. */
 function resize(tracks: Track[], count: number): Track[] {
-  if (count <= tracks.length) return tracks.slice(0, count)
+  if (count <= tracks.length) {
+    return tracks.slice(0, count)
+  }
+
   return [...tracks, ...Array.from({ length: count - tracks.length }, () => fr(1))]
 }
 
@@ -960,6 +1098,7 @@ function GridPicker({
   const [at, setAt] = useState<{ x: number; y: number }>()
   const most = { x: 8, y: 6 }
   const shown = at ?? { x: columns, y: rows }
+
   return (
     <Popover open={open} onOpenChange={(next) => (setOpen(next), setAt(undefined))}>
       <Hint label="Pick columns and rows">
@@ -984,6 +1123,7 @@ function GridPicker({
           {Array.from({ length: most.y }, (_, y) =>
             Array.from({ length: most.x }, (_, x) => {
               const lit = x < shown.x && y < shown.y
+
               return (
                 <button
                   key={`${x}-${y}`}
@@ -1027,10 +1167,22 @@ function GridPicker({
 
 /** A track as CSS-like text, as its size field shows it to edit: `1fr`, `200px`, `50%`, `auto`, `minmax(120px, 1fr)`. */
 function trackText(track: Track): string {
-  if (track.kind === "fr") return `${formatNumber(track.value)}fr`
-  if (track.kind === "px") return `${formatNumber(track.value)}px`
-  if (track.kind === "percent") return `${formatNumber(track.value)}%`
-  if (track.kind === "range") return `minmax(${track.min}px, ${formatNumber(track.max)}fr)`
+  if (track.kind === "fr") {
+    return `${formatNumber(track.value)}fr`
+  }
+
+  if (track.kind === "px") {
+    return `${formatNumber(track.value)}px`
+  }
+
+  if (track.kind === "percent") {
+    return `${formatNumber(track.value)}%`
+  }
+
+  if (track.kind === "range") {
+    return `minmax(${track.min}px, ${formatNumber(track.max)}fr)`
+  }
+
   return { auto: "auto", min: "min-content", max: "max-content" }[track.kind]
 }
 
@@ -1042,48 +1194,100 @@ const number = String.raw`(\d*\.?\d+)`
  */
 function readTrack(text: string): Reading<Track> {
   const typed = text.trim().toLowerCase()
-  const words: Record<string, Track> = {
-    fill: fr(1),
-    auto: { kind: "auto" },
-    hug: { kind: "auto" },
-    min: { kind: "min" },
-    "min-content": { kind: "min" },
-    max: { kind: "max" },
-    "max-content": { kind: "max" }
+
+  const words = new Map<string, Track>([
+    ["fill", fr(1)],
+    ["auto", { kind: "auto" }],
+    ["hug", { kind: "auto" }],
+    ["min", { kind: "min" }],
+    ["min-content", { kind: "min" }],
+    ["max", { kind: "max" }],
+    ["max-content", { kind: "max" }]
+  ])
+
+  const word = words.get(typed)
+
+  if (word) {
+    return { value: word }
   }
-  if (words[typed]) return { value: words[typed] }
+
   const match = (pattern: string) => new RegExp(`^${pattern}$`).exec(typed)
   const share = match(`${number}\\s*fr`)
-  if (share) return { value: fr(Math.max(0.25, Number(share[1]))) }
+
+  if (share) {
+    return { value: fr(Math.max(0.25, Number(share[1]))) }
+  }
+
   const percent = match(`${number}\\s*%`)
-  if (percent) return { value: { kind: "percent", value: Number(percent[1]) } }
+
+  if (percent) {
+    return { value: { kind: "percent", value: Number(percent[1]) } }
+  }
+
   const rem = match(`${number}\\s*rem`)
-  if (rem) return { value: { kind: "px", value: Number(rem[1]) * remPx } }
+
+  if (rem) {
+    return { value: { kind: "px", value: Number(rem[1]) * remPx } }
+  }
+
   const pixels = match(`${number}\\s*(?:px)?`)
-  if (pixels) return { value: { kind: "px", value: Number(pixels[1]) } }
+
+  if (pixels) {
+    return { value: { kind: "px", value: Number(pixels[1]) } }
+  }
+
   const range =
     match(`minmax\\(\\s*${number}\\s*(?:px)?\\s*,\\s*${number}\\s*fr\\s*\\)`) ??
     match(`${number}\\s*[-–]\\s*${number}?\\s*(?:fr|fill)`)
-  if (range) return { value: { kind: "range", min: Number(range[1]), max: Number(range[2] ?? 1) } }
+
+  if (range) {
+    return { value: { kind: "range", min: Number(range[1]), max: Number(range[2] ?? 1) } }
+  }
+
   return { reason: "Enter 1fr, 200px, auto or minmax(120px, 1fr)" }
 }
 
 /** Steps a track's size by its own unit: a share by one, pixels by one or ten, a percentage by one. */
 function stepTrack(track: Track, up: boolean, shift: boolean): Track {
   const by = (up ? 1 : -1) * (shift ? 10 : 1)
-  if (track.kind === "fr") return fr(Math.max(1, track.value + (up ? 1 : -1)))
-  if (track.kind === "px") return { kind: "px", value: Math.max(0, track.value + by) }
-  if (track.kind === "percent") return { kind: "percent", value: clamp(track.value + by, 0, 100) }
-  if (track.kind === "range") return { ...track, min: Math.max(0, track.min + by) }
+
+  if (track.kind === "fr") {
+    return fr(Math.max(1, track.value + (up ? 1 : -1)))
+  }
+
+  if (track.kind === "px") {
+    return { kind: "px", value: Math.max(0, track.value + by) }
+  }
+
+  if (track.kind === "percent") {
+    return { kind: "percent", value: clamp(track.value + by, 0, 100) }
+  }
+
+  if (track.kind === "range") {
+    return { ...track, min: Math.max(0, track.min + by) }
+  }
+
   return track
 }
 
 /** A track at a new width in the strip, keeping its kind: pixels, a percentage, or a range's least width. */
 function sized(track: Track, from: number, to: number): Track {
-  if (track.kind === "px") return { kind: "px", value: Math.round(to) }
-  if (track.kind === "percent") return { kind: "percent", value: Math.round((to / contentWidth) * 1000) / 10 }
-  if (track.kind === "range") return { ...track, min: Math.max(0, Math.round(track.min + to - from)) }
-  if (track.kind === "fr") return track
+  if (track.kind === "px") {
+    return { kind: "px", value: Math.round(to) }
+  }
+
+  if (track.kind === "percent") {
+    return { kind: "percent", value: Math.round((to / contentWidth) * 1000) / 10 }
+  }
+
+  if (track.kind === "range") {
+    return { ...track, min: Math.max(0, Math.round(track.min + to - from)) }
+  }
+
+  if (track.kind === "fr") {
+    return track
+  }
+
   // A track sized by its content has no width to change, so dragging it gives it one, as Fixed.
   return { kind: "px", value: Math.round(to) }
 }
@@ -1099,15 +1303,19 @@ function resized(tracks: Track[], weights: number[], index: number, by: number):
   const both = oneWidth + nextWidth
   const oneTo = clamp(oneWidth + by, 24, both - 24)
   const copy = [...tracks]
+
   if (one.kind === "fr" && next.kind === "fr") {
     const shares = one.value + next.value
     const oneShare = clamp(Math.round(((shares * oneTo) / both) * 4) / 4, 0.25, shares - 0.25)
     copy[index] = fr(oneShare)
     copy[index + 1] = fr(Math.round((shares - oneShare) * 4) / 4)
+
     return copy
   }
+
   copy[index] = sized(one, oneWidth, oneTo)
   copy[index + 1] = sized(next, nextWidth, both - oneTo)
+
   return copy
 }
 
@@ -1117,10 +1325,13 @@ function resized(tracks: Track[], weights: number[], index: number, by: number):
  */
 function lineStep(tracks: Track[], weights: number[], index: number, shift: boolean) {
   const [one, next] = [tracks[index]!, tracks[index + 1]!]
+
   if (one.kind === "fr" && next.kind === "fr") {
     const perShare = (weights[index]! + weights[index + 1]!) / (one.value + next.value)
+
     return perShare * (shift ? 1 : 0.25)
   }
+
   return shift ? 40 : 8
 }
 
@@ -1146,9 +1357,12 @@ function TrackStrip({
   const weights = trackWeights(tracks)
   const strip = useRef<HTMLDivElement>(null)
   const { setHighlight } = useHighlight()
+
   const focusTrack = (index: number) =>
     requestAnimationFrame(() => strip.current?.querySelectorAll<HTMLElement>("[data-track]")[index]?.focus())
+
   const names = one === "column" ? { earlier: "left", later: "right" } : { earlier: "up", later: "down" }
+
   if (fitted || !onChange) {
     return (
       <div className="flex h-7 min-w-0 overflow-hidden rounded-md border bg-muted/40" aria-hidden>
@@ -1164,14 +1378,21 @@ function TrackStrip({
       </div>
     )
   }
+
   const move = (index: number, by: number) => {
     const to = index + by
-    if (to < 0 || to >= tracks.length) return
+
+    if (to < 0 || to >= tracks.length) {
+      return
+    }
+
     const copy = [...tracks]
+
     ;[copy[index], copy[to]] = [copy[to]!, copy[index]!]
     onChange(copy)
     focusTrack(to)
   }
+
   const pressLine = (index: number) => (event: PointerEvent<HTMLInputElement>) => {
     const width = strip.current?.getBoundingClientRect().width ?? contentWidth
     const scale = weights.reduce((sum, weight) => sum + weight, 0) / width
@@ -1179,6 +1400,7 @@ function TrackStrip({
     event.preventDefault()
     drag(event, { move: (point) => onChange(resized(startTracks, startWeights, index, point.dx * scale)) })
   }
+
   return (
     <div className="flex items-center gap-1">
       <div ref={strip} className="flex h-7 min-w-0 flex-1 rounded-md border bg-muted/40">
@@ -1213,7 +1435,7 @@ function TrackStrip({
                 <span
                   aria-hidden
                   className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 rounded-full bg-border group-hover/line:inset-y-0.5 group-hover/line:w-0.5 group-hover/line:bg-(--line) group-has-focus-visible/line:w-0.5 group-has-focus-visible/line:bg-(--line)"
-                  style={{ "--line": kindColors.layer } as CSSProperties}
+                  style={withVariables({ "--line": kindColors.layer })}
                 />
                 <Hint
                   label={`Drag to resize ${one}s ${index + 1} and ${index + 2}`}
@@ -1231,7 +1453,11 @@ function TrackStrip({
                     onPointerDown={pressLine(index)}
                     onKeyDown={(event) => {
                       const by = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1, ArrowDown: 1 }[event.key]
-                      if (by === undefined) return
+
+                      if (by === undefined) {
+                        return
+                      }
+
                       event.preventDefault()
                       onChange(resized(tracks, weights, index, by * lineStep(tracks, weights, index, event.shiftKey)))
                     }}
@@ -1290,10 +1516,12 @@ function TrackSegment({
   const [open, setOpen] = useState(false)
   const title = `${name[0]!.toUpperCase()}${name.slice(1)}`
   const kind = name.split(" ")[0]!
+
   const close = (run: () => void) => () => {
     run()
     setOpen(false)
   }
+
   const actions = [
     { label: `Add a ${kind} before`, Icon: Plus, run: () => onAdd(false), enabled: true },
     { label: `Add a ${kind} after`, Icon: Plus, run: () => onAdd(true), enabled: true },
@@ -1312,6 +1540,7 @@ function TrackSegment({
     { label: "Duplicate", Icon: Copy, run: onDuplicate, enabled: true },
     { label: `Remove ${name}`, Icon: X, run: onRemove, enabled: true }
   ]
+
   return (
     <Popover
       open={open}
@@ -1328,9 +1557,16 @@ function TrackSegment({
         onFocus={() => onHighlight(true)}
         onBlur={() => !open && onHighlight(false)}
         onKeyDown={(event) => {
-          if (!event.altKey) return
+          if (!event.altKey) {
+            return
+          }
+
           const by = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key]
-          if (by === undefined) return
+
+          if (by === undefined) {
+            return
+          }
+
           event.preventDefault()
           onMove(by)
         }}
@@ -1358,10 +1594,15 @@ function TrackSegment({
           aria-label={`${title} kind`}
           value={[track.kind === "percent" ? "px" : track.kind]}
           onValueChange={([next]) => {
-            if (next === "fr") onChange(fr(1))
-            else if (next === "px") onChange({ kind: "px", value: Math.round(weight) })
-            else if (next === "range") onChange({ kind: "range", min: 192, max: 1 })
-            else if (next === "auto" || next === "min" || next === "max") onChange({ kind: next })
+            if (next === "fr") {
+              onChange(fr(1))
+            } else if (next === "px") {
+              onChange({ kind: "px", value: Math.round(weight) })
+            } else if (next === "range") {
+              onChange({ kind: "range", min: 192, max: 1 })
+            } else if (next === "auto" || next === "min" || next === "max") {
+              onChange({ kind: next })
+            }
           }}
         >
           {trackKinds.map((each) => (
@@ -1430,64 +1671,110 @@ const trackOf = (line: number, count: number) => (line > 0 ? line - 1 : count + 
  */
 export function placeChildren(draft: Draft, columns: number): { name: string; area: Area; auto: boolean }[] {
   const taken = new Set<string>()
+
   const free = (area: Area) => {
-    for (let row = area.row; row < area.row + area.rows; row++)
-      for (let col = area.col; col < area.col + area.cols; col++)
-        if (taken.has(`${col}-${row}`) || col >= columns) return false
+    for (let row = area.row; row < area.row + area.rows; row++) {
+      for (let col = area.col; col < area.col + area.cols; col++) {
+        if (taken.has(`${col}-${row}`) || col >= columns) {
+          return false
+        }
+      }
+    }
+
     return true
   }
+
   const take = (area: Area) => {
-    for (let row = area.row; row < area.row + area.rows; row++)
-      for (let col = area.col; col < area.col + area.cols; col++) taken.add(`${col}-${row}`)
+    for (let row = area.row; row < area.row + area.rows; row++) {
+      for (let col = area.col; col < area.col + area.cols; col++) {
+        taken.add(`${col}-${row}`)
+      }
+    }
   }
+
   const pro = proAxes(draft, columns)
   const placed: { name: string; area: Area; auto: boolean }[] = []
+
   if (pro.col !== undefined && pro.row !== undefined) {
     const area = { col: pro.col, row: pro.row, cols: pro.cols, rows: pro.rows }
     take(area)
     placed.push({ name: "Pro plan", area, auto: false })
   }
+
   let cursor = { col: 0, row: 0 }
+
   const flow = (cols: number, rows: number, fixedCol?: number) => {
     const span = Math.min(cols, columns)
+
     // Dense packing looks from the first cell each time, so a later child can fill an earlier gap.
-    if (draft.dense) cursor = { col: 0, row: 0 }
+    if (draft.dense) {
+      cursor = { col: 0, row: 0 }
+    }
+
     for (let row = cursor.row; row < 200; row++) {
       for (let col = row === cursor.row ? cursor.col : 0; col + span <= columns; col++) {
-        if (fixedCol !== undefined && col !== fixedCol) continue
+        if (fixedCol !== undefined && col !== fixedCol) {
+          continue
+        }
+
         const area = { col, row, cols: span, rows }
-        if (!free(area)) continue
+
+        if (!free(area)) {
+          continue
+        }
+
         take(area)
         cursor = { col: col + span, row }
+
         return area
       }
     }
+
     return { col: 0, row: 0, cols: span, rows }
   }
+
   const heading = flow(columns, 1)
   const result = [{ name: "Heading", area: heading, auto: true }]
+
   for (const name of ["Hobby", "Pro plan", "Team"]) {
     if (name === "Pro plan") {
-      if (placed.length > 0) continue
+      if (placed.length > 0) {
+        continue
+      }
+
       result.push({ name, area: flow(pro.cols, pro.rows, pro.col), auto: pro.col === undefined })
       continue
     }
+
     result.push({ name, area: flow(1, 1), auto: true })
   }
+
   return [...result, ...placed]
 }
 
 /** Pro plan's start track and span on each axis, from its lines, its span, or All. */
 function proAxes(draft: Draft, columns: number) {
   const axis = (start: number | undefined, span: Span | undefined, end: number | undefined, count: number) => {
-    if (span === "all") return { at: 0, span: count }
+    if (span === "all") {
+      return { at: 0, span: count }
+    }
+
     // A positive line past the last track makes more (rows are added as needed); a negative one counts back.
     let at: number | undefined
-    if (start !== undefined) at = start > 0 ? start - 1 : clamp(trackOf(start, count), 0, count - 1)
-    if (end !== undefined && at !== undefined) return { at, span: Math.max(1, trackOf(end, count) - at) }
+
+    if (start !== undefined) {
+      at = start > 0 ? start - 1 : clamp(trackOf(start, count), 0, count - 1)
+    }
+
+    if (end !== undefined && at !== undefined) {
+      return { at, span: Math.max(1, trackOf(end, count) - at) }
+    }
+
     return { at, span: Math.max(1, span ?? 1) }
   }
+
   const col = axis(draft.colStart, draft.colSpan, draft.endLines ? draft.colEnd : undefined, columns)
+
   // Rows have no count until they're set, so a row's negative line counts from the rows there are, or one.
   const row = axis(
     draft.rowStart,
@@ -1495,6 +1782,7 @@ function proAxes(draft: Draft, columns: number) {
     draft.endLines ? draft.rowEnd : undefined,
     Math.max(1, draft.rows?.length ?? 0)
   )
+
   return { col: col.at, cols: Math.min(col.span, columns), row: row.at, rows: row.span }
 }
 
@@ -1506,11 +1794,13 @@ function proAxes(draft: Draft, columns: number) {
 export function ChildSizeSection({ draft, set }: SectionProps) {
   const measured = useMeasured("[data-layer='Pro plan']")
   const endLines = draft.endLines ?? false
+
   const placed =
     draft.colStart !== undefined ||
     draft.colSpan !== undefined ||
     draft.rowStart !== undefined ||
     draft.rowSpan !== undefined
+
   return (
     <PanelSection
       title="Size"
@@ -1629,6 +1919,7 @@ function CellMap({ draft, set }: Pick<SectionProps, "draft" | "set">) {
 
   const place = (area: Area) => {
     const span = (count: number) => (count === 1 ? undefined : count)
+
     if (draft.endLines) {
       set({
         colStart: area.col + 1,
@@ -1636,8 +1927,10 @@ function CellMap({ draft, set }: Pick<SectionProps, "draft" | "set">) {
         rowStart: area.row + 1,
         rowEnd: area.row + area.rows + 1
       })
+
       return
     }
+
     set({
       colStart: area.col + 1,
       colSpan: draft.colSpan === "all" && area.cols === columns ? "all" : span(area.cols),
@@ -1645,23 +1938,29 @@ function CellMap({ draft, set }: Pick<SectionProps, "draft" | "set">) {
       rowSpan: span(area.rows)
     })
   }
+
   // The cell under a point in the map, by the columns' widths and the rows' equal heights.
   const cellAt = (x: number, y: number) => {
     const total = weights.reduce((sum, weight) => sum + weight, 0)
     let edge = 0
     let col = columns - 1
+
     for (let index = 0; index < columns; index++) {
       edge += weights[index]! / total
+
       if (x < edge) {
         col = index
         break
       }
     }
+
     return { col, row: clamp(Math.floor(y * rows), 0, rows - 1) }
   }
+
   const press = (event: PointerEvent<HTMLButtonElement>) => {
     const start = cellAt(...pointIn(event))
     const startedOnPro = within(pro.area, start)
+
     const areaTo = (cell: { col: number; row: number }): Area => {
       // A drag that starts on Pro plan moves it; anywhere else, it spans from there to here.
       if (startedOnPro) {
@@ -1672,6 +1971,7 @@ function CellMap({ draft, set }: Pick<SectionProps, "draft" | "set">) {
           rows: pro.area.rows
         }
       }
+
       return {
         col: Math.min(start.col, cell.col),
         row: Math.min(start.row, cell.row),
@@ -1679,31 +1979,34 @@ function CellMap({ draft, set }: Pick<SectionProps, "draft" | "set">) {
         rows: Math.abs(cell.row - start.row) + 1
       }
     }
+
     setDragged(areaTo(start))
     drag(event, {
       within: map.current,
       move: (point) => setDragged(areaTo(cellAt(point.x, point.y))),
       end: (point, cancelled) => {
         setDragged(undefined)
-        if (!cancelled) place(areaTo(cellAt(point.x, point.y)))
+
+        if (!cancelled) {
+          place(areaTo(cellAt(point.x, point.y)))
+        }
       }
     })
   }
+
   const pointIn = (event: PointerEvent<HTMLButtonElement>): [number, number] => {
     const box = event.currentTarget.getBoundingClientRect()
+
     return [(event.clientX - box.left) / box.width, (event.clientY - box.top) / box.height]
   }
+
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const moves: Record<string, [number, number]> = {
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0],
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1]
-    }
-    const move = moves[event.key]
+    const move = arrowMoves.get(event.key)
     const area = pro.area
+
     if (move) {
       event.preventDefault()
+
       if (event.shiftKey) {
         const cols = clamp(area.cols + move[0], 1, columns - area.col)
         const rowsSpanned = Math.max(1, area.rows + move[1])
@@ -1723,12 +2026,16 @@ function CellMap({ draft, set }: Pick<SectionProps, "draft" | "set">) {
       })
     }
   }
+
   const shown = dragged ?? pro.area
+
   const describe = (area: Area) => {
     const range = (from: number, count: number, word: string) =>
       count === 1 ? `${word} ${from + 1}` : `${word}s ${from + 1} to ${from + count}`
+
     return `${range(area.col, area.cols, "column")}, ${range(area.row, area.rows, "row")}`
   }
+
   return (
     <Hint
       label="Pro plan's cells"
@@ -1819,6 +2126,7 @@ function AxisPlacement({
   const one = axis === "Columns" ? "Column" : "Row"
   // Line 0 doesn't exist; it counts as unset.
   const line = (next: number | undefined) => (next === 0 ? undefined : next)
+
   return (
     <div className="grid grid-cols-[3.25rem_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-1">
       <span className="text-xs text-muted-foreground">{one}</span>
@@ -1849,7 +2157,7 @@ function AxisPlacement({
             <Num
               label={`${tracks[0]!.toUpperCase()}${tracks.slice(1)} spanned`}
               inner="Span"
-              value={span as number | undefined}
+              value={span}
               placeholder="1"
               min={1}
               onChange={(next) => onChange(start, next, end)}
@@ -1898,14 +2206,20 @@ function SelfAlignment({ draft, set }: Pick<SectionProps, "draft" | "set">) {
   const follows = (axis: "x" | "y") => {
     const fromGrid = axis === "x" ? draft.itemsX : draft.itemsY
     const size = axis === "x" ? draft.childWidth : draft.childHeight
+
     // A size of its own can't stretch, so the grid's stretch puts it at the start.
-    if ((fromGrid ?? "stretch") === "stretch") return (size ?? "fill") === "fill" ? "stretch" : "start"
+    if ((fromGrid ?? "stretch") === "stretch") {
+      return (size ?? "fill") === "fill" ? "stretch" : "start"
+    }
+
     return fromGrid!
   }
+
   const group = (axis: "x" | "y") => {
     const value = axis === "x" ? draft.justifySelf : draft.alignSelf
     const key = axis === "x" ? "justifySelf" : "alignSelf"
     const unset = follows(axis)
+
     return (
       <ToggleGroup
         variant="outline"
@@ -1913,7 +2227,7 @@ function SelfAlignment({ draft, set }: Pick<SectionProps, "draft" | "set">) {
         spacing={0}
         aria-label={axis === "x" ? "Across its cell" : "Down its cell"}
         value={value === undefined ? [] : [value]}
-        onValueChange={([next]) => set({ [key]: next as SelfAlign | undefined })}
+        onValueChange={([next]) => set({ [key]: selfIcons[axis].find((each) => each.value === next)?.value })}
       >
         {selfIcons[axis].map(({ value: option, label, Icon }) => (
           <Hint key={option} label={value === undefined && option === unset ? `${label}, from Plans' grid` : label}>
@@ -1929,6 +2243,7 @@ function SelfAlignment({ draft, set }: Pick<SectionProps, "draft" | "set">) {
       </ToggleGroup>
     )
   }
+
   return (
     <Field label="In its cell" hint="Where Pro plan sits in its cells. Unset follows Plans' grid, shown faintly.">
       <div className="flex flex-wrap items-center gap-1.5">

@@ -20,6 +20,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const px = (number: number) => ({ number })
@@ -28,6 +29,7 @@ function StrokeWidth({ start, mixed = [] }: { start: Sides; mixed?: boolean[] })
   const [sides, setSides] = useState(start)
   const [mixedNow, setMixed] = useState(mixed)
   const [hover, setHover] = useState<number[]>()
+
   return (
     <Playground
       writes={sidesWrites("border", sides, mixedNow)}

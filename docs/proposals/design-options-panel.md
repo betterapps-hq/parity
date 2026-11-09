@@ -227,11 +227,11 @@ after a moment, and pressing it or Enter opens it at once, so the box needn't fi
 on every side. Both are in Storybook under Spacing.
 
 Padding is modes' green, hatched, and margin is pink, flat within a dashed edge, chosen from pairs compared against the
-colors the canvas already uses. The canvas draws padding and gaps pink today, so its padding is to turn green to match.
-Margin has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`), and hovering a side highlights it.
-Horizontal and vertical are written as `px-*` and `py-*`, which v4 compiles to `padding-inline` and `padding-block`, so
-they follow writing direction; separate sides are physical (`pl-4`), and a Logical switch under More writes `ps-*` and
-`pe-*`.
+colors the canvas already uses. The canvas now draws padding and gaps in the same green (PAR-797), and both take their
+colors from `spacing-colors.ts`. Margin has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`), and
+hovering a side highlights it. Horizontal and vertical are written as `px-*` and `py-*`, which v4 compiles to
+`padding-inline` and `padding-block`, so they follow writing direction; separate sides are physical (`pl-4`), and a
+Logical switch under More writes `ps-*` and `pe-*`.
 
 In a Block layout, vertical margins collapse, and a first or last child's margin passes through the layout's edge unless
 it has padding or a stroke in layout; `overflow: clip` doesn't stop this. The Margin row says so (principle 10) and

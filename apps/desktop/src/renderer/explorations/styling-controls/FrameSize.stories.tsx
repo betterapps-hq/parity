@@ -15,15 +15,18 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Frame({ width, height }: { width: number; height?: number }) {
   const [frame, setFrame] = useState({ width, height })
+
   const stored = {
     viewport: "Desktop",
     width: { value: `${frame.width}px` },
     height: frame.height === undefined ? { mode: "hug" } : { value: `${frame.height}px` }
   }
+
   return (
     <Playground
       writes={{ stored, css: [], tailwind: [] }}

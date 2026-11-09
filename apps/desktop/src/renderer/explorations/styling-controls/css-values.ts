@@ -17,6 +17,7 @@ export const clamp = (value: number, min: number, max: number): number => Math.m
 /** A number as fields and classes show it: at most `places` decimals (three unless said), with no trailing zeros. */
 export function formatNumber(value: number, places = 3): string {
   const factor = 10 ** places
+
   return String(Math.round(value * factor) / factor)
 }
 
@@ -24,9 +25,12 @@ export function formatNumber(value: number, places = 3): string {
 export function fraction(percent: number): string | undefined {
   for (const denominator of [2, 3, 4, 5, 6, 12]) {
     for (let numerator = 1; numerator < denominator; numerator++) {
-      if (Math.abs((numerator / denominator) * 100 - percent) < 0.01) return `${numerator}/${denominator}`
+      if (Math.abs((numerator / denominator) * 100 - percent) < 0.01) {
+        return `${numerator}/${denominator}`
+      }
     }
   }
+
   return percent === 100 ? "full" : undefined
 }
 
@@ -58,12 +62,14 @@ export function lengthForm(px: number): { step: number } | { value: string } {
 /** A length after a utility's prefix: `130` for a step, `[13.3px]` otherwise. */
 export function lengthClass(px: number): string {
   const form = lengthForm(px)
+
   return "step" in form ? String(form.step) : `[${form.value}]`
 }
 
 /** A length as CSS: `calc(var(--spacing) * 130)` for a step, the value otherwise. */
 export function lengthCss(px: number): string {
   const form = lengthForm(px)
+
   return "step" in form ? `calc(var(--spacing) * ${form.step})` : form.value
 }
 
@@ -91,7 +97,10 @@ export const isPlainColor = (color: string): boolean => /^#|^oklch\(/i.test(colo
 export function mixColor(color: string, alpha: number | undefined): string
 export function mixColor(color: string | undefined, alpha: number | undefined): string | undefined
 export function mixColor(color: string | undefined, alpha: number | undefined): string | undefined {
-  if (color === undefined || alpha === undefined) return color
+  if (color === undefined || alpha === undefined) {
+    return color
+  }
+
   return `color-mix(in oklab, ${color} ${alpha}%, transparent)`
 }
 
@@ -101,9 +110,13 @@ export function mixColor(color: string | undefined, alpha: number | undefined): 
  */
 export function colorCss(color: string, alpha?: number): string {
   if (isPlainColor(color)) {
-    if (alpha === undefined) return color
+    if (alpha === undefined) {
+      return color
+    }
+
     return color.startsWith("#") ? `${color.slice(0, 7)}${alphaHex(alpha)}` : color.replace(/\)$/, ` / ${alpha}%)`)
   }
+
   return mixColor(`var(--color-${color})`, alpha)
 }
 
@@ -131,6 +144,7 @@ export function shadowCss<T extends ShadowParts>(
   return layers
     .map((layer) => {
       const numbers = [layer.x, layer.y, layer.blur, ...(spread ? [layer.spread] : [])].map(shadowPx).join(" ")
+
       return `${layer.inset ? "inset " : ""}${numbers} ${color(layer)}`
     })
     .join(", ")
@@ -159,13 +173,23 @@ export function gradientCss<Stop extends { position: number; hint?: number }>(
   const blend = `in ${paint.interpolation ?? "oklab"}`
   const [x, y] = paint.center ?? [50, 50]
   let head = `from ${paint.angle}deg at ${x}% ${y}% ${blend}`
-  if (paint.kind === "linear") head = `${paint.angle}deg ${blend}`
-  if (paint.kind === "radial") head = `at ${x}% ${y}% ${blend}`
+
+  if (paint.kind === "linear") {
+    head = `${paint.angle}deg ${blend}`
+  }
+
+  if (paint.kind === "radial") {
+    head = `at ${x}% ${y}% ${blend}`
+  }
+
   const stops = [...paint.stops].sort((a, b) => a.position - b.position)
+
   const parts = stops.flatMap((stop, index) => {
     const own = `${color(stop)} ${stop.position}%`
+
     return stop.hint !== undefined && index < stops.length - 1 ? [own, `${stop.hint}%`] : [own]
   })
+
   return `${paint.repeat ? "repeating-" : ""}${gradientFunction[paint.kind]}(${head}, ${parts.join(", ")})`
 }
 
@@ -181,19 +205,41 @@ export interface BoxPoint {
   y: number
 }
 
-const across: Record<number, string> = { 0: "left", 50: "center", 100: "right" }
-const down: Record<number, string> = { 0: "top", 50: "center", 100: "bottom" }
+const across = new Map([
+  [0, "left"],
+  [50, "center"],
+  [100, "right"]
+])
+
+const down = new Map([
+  [0, "top"],
+  [50, "center"],
+  [100, "bottom"]
+])
 
 /**
  * A spot's CSS keywords, as `object-position` and `transform-origin` write them (`top left`, `top`, `center`), or
  * nothing for a position off the spots. Every nine-spot box names its spots with these.
  */
 export function spotKeywords({ x, y }: BoxPoint): string | undefined {
-  const horizontal = across[x]
-  const vertical = down[y]
-  if (horizontal === undefined || vertical === undefined) return undefined
-  if (horizontal === "center" && vertical === "center") return "center"
-  if (horizontal === "center") return vertical
-  if (vertical === "center") return horizontal
+  const horizontal = across.get(x)
+  const vertical = down.get(y)
+
+  if (horizontal === undefined || vertical === undefined) {
+    return undefined
+  }
+
+  if (horizontal === "center" && vertical === "center") {
+    return "center"
+  }
+
+  if (horizontal === "center") {
+    return vertical
+  }
+
+  if (vertical === "center") {
+    return horizontal
+  }
+
   return `${vertical} ${horizontal}`
 }

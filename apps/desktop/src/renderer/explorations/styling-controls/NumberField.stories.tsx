@@ -20,6 +20,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function NumberField({
@@ -44,6 +45,7 @@ function NumberField({
   writes: (value: number | undefined) => Writes
 }) {
   const [value, setValue] = useState(start)
+
   return (
     <Playground writes={writes(value)}>
       <Field label={label}>

@@ -39,40 +39,71 @@ export function TimeField({
   const token = name === undefined ? undefined : tokens.find((other) => other.name === name)
   const own = value !== undefined && !("token" in value) ? value : undefined
   const nearest = own !== undefined && ms !== undefined ? nearestToken(tokens, (other) => other.ms, ms) : undefined
+
   const set = (next: number) => {
     const whole = Math.round(next * 100) / 100
     const allowed = which === "delay" ? whole : Math.max(0, whole)
-    if (setBy) setBy.onChange(allowed)
-    else onChange(Number.isInteger(allowed) ? { step: allowed } : { value: `${allowed}ms` })
+
+    if (setBy) {
+      setBy.onChange(allowed)
+    } else {
+      onChange(Number.isInteger(allowed) ? { step: allowed } : { value: `${allowed}ms` })
+    }
   }
+
   let comesTo: string | undefined
-  if (setBy) comesTo = `set by ${setBy.control}`
-  else if (token) comesTo = token.detail
-  else if (own && "value" in own && splitUnit(own.value)?.unit === "s") comesTo = `as ${own.value}`
+
+  if (setBy) {
+    comesTo = `set by ${setBy.control}`
+  } else if (token) {
+    comesTo = token.detail
+  } else if (own && "value" in own && splitUnit(own.value)?.unit === "s") {
+    comesTo = `as ${own.value}`
+  }
+
   const read = (text: string): Reading<Typed> => {
     const trimmed = text.trim()
-    if (trimmed === "") return { value: { time: undefined } }
+
+    if (trimmed === "") {
+      return { value: { time: undefined } }
+    }
+
     const named = tokens.find((other) => other.name === trimmed || other.name === namespace + trimmed)
-    if (named) return { value: { time: { token: named.name } } }
+
+    if (named) {
+      return { value: { time: { token: named.name } } }
+    }
+
     const reading = readUnitNumber(trimmed, {
       units: timeUnits,
       current: ms ?? defaultMs,
       label,
       takes: "Enter a time, such as 200ms or 0.2s"
     })
-    if ("reason" in reading) return reading
-    if (which === "duration" && reading.value < 0) return { reason: "A duration can't be negative" }
+
+    if ("reason" in reading) {
+      return reading
+    }
+
+    if (which === "duration" && reading.value < 0) {
+      return { reason: "A duration can't be negative" }
+    }
+
     return { value: { ms: reading.value } }
   }
+
   const step = (up: boolean, shift: boolean) => {
     if (token) {
       const scale = [...tokens].sort((one, other) => one.ms - other.ms)
       const index = scale.indexOf(token)
       onChange({ token: scale[Math.min(scale.length - 1, Math.max(0, index + (up ? 1 : -1)))]!.name })
+
       return
     }
+
     set((ms ?? defaultMs) + (up ? 1 : -1) * (shift ? 100 : 10))
   }
+
   return (
     <ValueField
       label={label}
@@ -121,8 +152,11 @@ export function TimeField({
       }
       read={read}
       onCommit={(typed) => {
-        if ("ms" in typed) set(typed.ms)
-        else onChange(typed.time)
+        if ("ms" in typed) {
+          set(typed.ms)
+        } else {
+          onChange(typed.time)
+        }
       }}
       onStep={(up, { shift }) => step(up, shift)}
     />

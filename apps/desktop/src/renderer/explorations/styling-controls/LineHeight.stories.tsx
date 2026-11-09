@@ -24,22 +24,41 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const sizeNamed = (name: string) => sizeTokens.find((size) => size.name === name)
 
 /** The line height CSS draws, for the preview. */
 function lineHeightCss(lineHeight: LineHeight | undefined, size: SizeToken | undefined): string | number | undefined {
-  if (lineHeight === undefined) return size ? `${size.lineHeight}px` : undefined
-  if ("keyword" in lineHeight) return "normal"
-  if ("token" in lineHeight) return leadingTokens.find((token) => token.name === lineHeight.token)?.multiple
-  if ("multiple" in lineHeight) return lineHeight.multiple
+  if (lineHeight === undefined) {
+    return size ? `${size.lineHeight}px` : undefined
+  }
+
+  if ("keyword" in lineHeight) {
+    return "normal"
+  }
+
+  if ("token" in lineHeight) {
+    return leadingTokens.find((token) => token.name === lineHeight.token)?.multiple
+  }
+
+  if ("multiple" in lineHeight) {
+    return lineHeight.multiple
+  }
+
   return `${lineHeight.px}px`
 }
 
 function letterSpacingCss(spacing: LetterSpacing | undefined): string | undefined {
-  if (spacing === undefined) return undefined
-  if ("token" in spacing) return `${trackingTokens.find((token) => token.name === spacing.token)?.em ?? 0}em`
+  if (spacing === undefined) {
+    return undefined
+  }
+
+  if ("token" in spacing) {
+    return `${trackingTokens.find((token) => token.name === spacing.token)?.em ?? 0}em`
+  }
+
   return "em" in spacing ? `${spacing.em}em` : `${spacing.px}px`
 }
 
@@ -58,6 +77,7 @@ function TextSpacing({
   const fontSize = size?.px ?? 16
   const [lineHeight, setLineHeight] = useState(line)
   const [letterSpacing, setLetterSpacing] = useState(letter)
+
   return (
     <Playground
       writes={mergeWrites({

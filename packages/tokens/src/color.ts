@@ -24,11 +24,17 @@ export function rgbaToHsb({ r, g, b }: Rgba): Hsb {
   const max = Math.max(r, g, b)
   const delta = max - Math.min(r, g, b)
   let hue = 0
+
   if (delta > 0) {
-    if (max === r) hue = ((g - b) / delta + 6) % 6
-    else if (max === g) hue = (b - r) / delta + 2
-    else hue = (r - g) / delta + 4
+    if (max === r) {
+      hue = ((g - b) / delta + 6) % 6
+    } else if (max === g) {
+      hue = (b - r) / delta + 2
+    } else {
+      hue = (r - g) / delta + 4
+    }
   }
+
   return { h: hue * 60, s: max === 0 ? 0 : (delta / max) * 100, b: max * 100 }
 }
 
@@ -38,6 +44,7 @@ export function hsbToRgba({ h, s, b }: Hsb, alpha = 1): Rgba {
   const chroma = value * clamp(s / 100)
   const sector = (((h % 360) + 360) % 360) / 60
   const second = chroma * (1 - Math.abs((sector % 2) - 1))
+
   const [r, g, bl] = (
     [
       [chroma, second, 0],
@@ -48,13 +55,16 @@ export function hsbToRgba({ h, s, b }: Hsb, alpha = 1): Rgba {
       [chroma, 0, second]
     ] as const
   )[Math.floor(sector) % 6]!
+
   const lift = value - chroma
+
   return { r: r + lift, g: g + lift, b: bl + lift, a: clamp(alpha) }
 }
 
 /** `#rrggbb`, or `#rrggbbaa` when the color is translucent. */
 export function formatHex({ r, g, b, a }: Rgba): string {
   const channels = a < 1 ? [r, g, b, a] : [r, g, b]
+
   return `#${channels
     .map((channel) =>
       Math.round(clamp(channel) * 255)
@@ -70,13 +80,21 @@ export function formatHex({ r, g, b, a }: Rgba): string {
  */
 export function parseOklch(value: string): Rgba | undefined {
   const match = /^oklch\(\s*([^\s/)]+)\s+([^\s/)]+)\s+([^\s/)]+)\s*(?:\/\s*([^\s)]+)\s*)?\)$/i.exec(value.trim())
-  if (!match) return undefined
+
+  if (!match) {
+    return undefined
+  }
+
   const [, lightness, chroma, hue, alpha] = match
   const l = component(lightness!, 1)
   const c = component(chroma!, 0.4)
   const h = component(hue!.replace(/deg$/i, ""), 1)
   const a = alpha === undefined ? 1 : component(alpha, 1)
-  if ([l, c, h, a].some((part) => part === undefined)) return undefined
+
+  if ([l, c, h, a].some((part) => part === undefined)) {
+    return undefined
+  }
+
   return oklchToRgba({ l: l!, c: c!, h: h! }, a!)
 }
 
@@ -84,6 +102,7 @@ export function parseOklch(value: string): Rgba | undefined {
 export function formatOklch(color: Rgba): string {
   const { l, c, h } = rgbaToOklch(color)
   const parts = [l, c, h].map((part) => decimals(part, 3))
+
   return `oklch(${parts.join(" ")}${color.a < 1 ? ` / ${decimals(color.a, 3)}` : ""})`
 }
 
@@ -98,13 +117,18 @@ export interface Oklch {
 export function rgbaToOklch(color: Rgba): Oklch {
   const [l, a, b] = toOklab(color)
   const chroma = Math.hypot(a, b)
-  if (chroma < 0.0005) return { l, c: 0, h: 0 }
+
+  if (chroma < 0.0005) {
+    return { l, c: 0, h: 0 }
+  }
+
   return { l, c: chroma, h: ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360 }
 }
 
 /** The color at a lightness, chroma and hue, with `alpha` from 0 to 1, brought into sRGB when it falls outside. */
 export function oklchToRgba({ l, c, h }: Oklch, alpha = 1): Rgba {
   const radians = (h * Math.PI) / 180
+
   return { ...fromOklab(l, c * Math.cos(radians), c * Math.sin(radians)), a: clamp(alpha) }
 }
 
@@ -137,6 +161,7 @@ export function rgbaToHsl(color: Rgba): Hsl {
   const value = b / 100
   const lightness = value * (1 - s / 200)
   const saturation = lightness === 0 || lightness === 1 ? 0 : (value - lightness) / Math.min(lightness, 1 - lightness)
+
   return { h, s: saturation * 100, l: lightness * 100 }
 }
 
@@ -145,13 +170,18 @@ export function hslToRgba({ h, s, l }: Hsl, alpha = 1): Rgba {
   const lightness = clamp(l / 100)
   const value = lightness + clamp(s / 100) * Math.min(lightness, 1 - lightness)
   const saturation = value === 0 ? 0 : 2 * (1 - lightness / value)
+
   return hsbToRgba({ h, s: saturation * 100, b: value * 100 }, alpha)
 }
 
 /** Parses `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`. */
 export function parseHex(hex: string): Rgba | undefined {
   const digits = /^#([\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.exec(hex.trim())?.[1]
-  if (!digits) return undefined
+
+  if (!digits) {
+    return undefined
+  }
+
   const full =
     digits.length <= 4
       ? digits
@@ -159,7 +189,9 @@ export function parseHex(hex: string): Rgba | undefined {
           .map((digit) => digit + digit)
           .join("")
       : digits
+
   const channel = (index: number) => Number.parseInt(full.slice(index * 2, index * 2 + 2), 16) / 255
+
   return { r: channel(0), g: channel(1), b: channel(2), a: full.length === 8 ? channel(3) : 1 }
 }
 
@@ -189,14 +221,21 @@ export interface NearestColor {
  */
 export function nearestColor(color: Rgba, candidates: Readonly<Record<string, string>>): NearestColor | undefined {
   let best: NearestColor | undefined
+
   for (const [name, value] of Object.entries(candidates)) {
     const candidate = parseColor(value)
-    if (!candidate) continue
+
+    if (!candidate) {
+      continue
+    }
+
     const distance = colorDistance(color, candidate) + Math.abs(color.a - candidate.a)
+
     if (!best || distance < best.distance || (distance === best.distance && name < best.name)) {
       best = { name, distance }
     }
   }
+
   return best
 }
 
@@ -205,15 +244,23 @@ const clamp = (value: number) => Math.min(1, Math.max(0, value))
 /** A number with up to `places` decimals, without trailing zeros, and never `-0`. */
 function decimals(value: number, places: number): string {
   const rounded = Number(value.toFixed(places))
+
   return String(rounded === 0 ? 0 : rounded)
 }
 
 /** One of `oklch()`'s parts: a number, a percentage of `full`, or `none`. */
 function component(text: string, full: number): number | undefined {
-  if (text.toLowerCase() === "none") return 0
+  if (text.toLowerCase() === "none") {
+    return 0
+  }
+
   const percent = text.endsWith("%")
   const number = Number(percent ? text.slice(0, -1) : text)
-  if (text === "" || !Number.isFinite(number)) return undefined
+
+  if (text === "" || !Number.isFinite(number)) {
+    return undefined
+  }
+
   return percent ? (number / 100) * full : number
 }
 
@@ -221,6 +268,7 @@ function component(text: string, full: number): number | undefined {
 export function colorDistance(a: Rgba, b: Rgba): number {
   const [l1, a1, b1] = toOklab(a)
   const [l2, a2, b2] = toOklab(b)
+
   return Math.hypot(l1 - l2, a1 - a2, b1 - b2)
 }
 
@@ -239,6 +287,7 @@ function toOklab({ r, g, b }: Rgba): [number, number, number] {
   const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb)
   const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb)
   const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb)
+
   return [
     0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
     1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
@@ -251,6 +300,7 @@ function fromOklab(lightness: number, a: number, b: number): Rgba {
   const l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3
   const m = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3
   const s = (lightness - 0.0894841775 * a - 1.291485548 * b) ** 3
+
   return {
     r: fromLinear(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
     g: fromLinear(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),

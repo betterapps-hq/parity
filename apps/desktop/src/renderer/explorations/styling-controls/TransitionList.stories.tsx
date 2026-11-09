@@ -22,7 +22,11 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
+
+/** What the card changes on hover, by the transition sets that cover it. */
+const changing = ["colors", "opacity", "transform", "shadow"] as const
 
 /** The card, moving as the written classes would, with the story's tokens, a token made here among them. */
 function TransitionsPreview({ entries }: { entries: readonly TransitionEntry[] }) {
@@ -30,12 +34,18 @@ function TransitionsPreview({ entries }: { entries: readonly TransitionEntry[] }
     entries
       .filter((entry) => !entry.off)
       .flatMap((entry) => {
-        if (entry.property === "all") return ["colors", "opacity", "transform", "shadow"] as const
-        if (typeof entry.property === "string") return [entry.property]
-        return []
+        if (entry.property === "all") {
+          return changing
+        }
+
+        const set = changing.find((option) => option === entry.property)
+
+        return set === undefined ? [] : [set]
       })
   )
+
   const sets = useTokenSets()
+
   return <HoverCard transition={previewTransition(entries, sets)} changes={[...changes]} />
 }
 
@@ -43,7 +53,9 @@ function Transitions({ start }: { start: Omit<TransitionEntry, "id">[] }) {
   const [entries, setEntries] = useState<TransitionEntry[]>(() =>
     start.map((entry) => ({ ...entry, id: newEntryId() }))
   )
+
   const [savedAs, setSavedAs] = useState<string>()
+
   return (
     <Playground writes={transitionsWrites(entries, savedAs)} preview={<TransitionsPreview entries={entries} />}>
       <TransitionsSection entries={entries} savedAs={savedAs} onSaveToken={setSavedAs} onChange={setEntries} />

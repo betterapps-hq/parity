@@ -34,6 +34,7 @@ import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { checker, swatch } from "../../chrome/token-previews.tsx"
+import { optionNamed } from "../parts.tsx"
 import { clamp, mixColor } from "./css-values.ts"
 import {
   drag,
@@ -72,17 +73,25 @@ export function nearestColorToken(
   const current = tokens.filter((token) => token.deprecated === undefined)
   const nearest = color && nearestColor(color, Object.fromEntries(current.map((token) => [token.name, token.hex])))
   const token = tokens.find((other) => other.name === nearest?.name)
+
   return nearest && token && { token, distance: nearest.distance }
 }
 
 /** A plain color in short form, as Figma shows it: `2F6FED` for hex, `oklch 62% .19 260` for OKLCH. */
 export function shortForm(value: string): string {
-  if (value.startsWith("#")) return value.slice(1, 7).toUpperCase()
+  if (value.startsWith("#")) {
+    return value.slice(1, 7).toUpperCase()
+  }
+
   const { l, c, h } = rgbaToOklch(parseColor(value)!)
+
   return `oklch ${Math.round(l * 100)}% ${c.toFixed(2).replace(/^0/, "")} ${Math.round(h)}`
 }
 
 type ColorModel = "hex" | "rgb" | "hsl" | "hsb" | "oklch"
+
+/** The picker's tabs: the project's color tokens, and a color of its own. */
+const pickerTabs = ["tokens", "custom"] as const
 
 const models: { value: ColorModel; label: string }[] = [
   { value: "hex", label: "Hex" },
@@ -122,26 +131,39 @@ export function ColorEditor({
   const line: Line = { message, onMessage: setMessage }
   const opacity = alpha ?? 100
   const color = hsbToRgba(hsb)
+
   const update = (next: Hsb, nextAlpha = alpha, nextModel = model) => {
     setHsb(next)
     onChange(written(hsbToRgba(next), nextModel), nextAlpha)
   }
+
   // A gray keeps the hue the strip was on, so dragging into the gray corner and out again doesn't jump to red.
   const fromRgba = (rgba: Rgba) => {
     const next = rgbaToHsb(rgba)
     update(next.s === 0 || next.b === 0 ? { ...next, h: hsb.h } : next)
   }
+
   const eyedropper = "EyeDropper" in window
+
   const pickFromScreen = async () => {
-    const EyeDropper = (window as unknown as { EyeDropper: new () => { open: () => Promise<{ sRGBHex: string }> } })
-      .EyeDropper
+    if (!("EyeDropper" in window)) {
+      return
+    }
+
+    // SAFETY: `window.EyeDropper` is Chromium's EyeDropper API, which TypeScript's DOM types leave out.
+    const EyeDropper = window.EyeDropper as new () => { open: () => Promise<{ sRGBHex: string }> }
     const picked = await new EyeDropper().open().catch(() => undefined)
     const rgba = picked && parseColor(picked.sRGBHex)
-    if (rgba) fromRgba(rgba)
+
+    if (rgba) {
+      fromRgba(rgba)
+    }
   }
+
   const rgb = rgbaToRgb255(color)
   const hsl = rgbaToHsl(color)
   const oklch = rgbaToOklch(color)
+
   const fields: Record<ColorModel, ReactNode> = {
     hex: <HexField key="hex" color={color} onChange={fromRgba} line={line} />,
     rgb: (["r", "g", "b"] as const).map((channel) => (
@@ -162,8 +184,11 @@ export function ColorEditor({
         value={channel === "h" ? hsb.h : hsl[channel]}
         max={channel === "h" ? 359 : 100}
         onChange={(next) => {
-          if (channel === "h") update({ ...hsb, h: next })
-          else fromRgba(hslToRgba({ ...hsl, h: hsb.h, [channel]: next }))
+          if (channel === "h") {
+            update({ ...hsb, h: next })
+          } else {
+            fromRgba(hslToRgba({ ...hsl, h: hsb.h, [channel]: next }))
+          }
         }}
       />
     )),
@@ -206,7 +231,9 @@ export function ColorEditor({
       />
     ]
   }
+
   const solid = formatHex(color)
+
   return (
     <div className="flex flex-col gap-2">
       <Strip2d
@@ -256,10 +283,15 @@ export function ColorEditor({
           items={models}
           value={model}
           onValueChange={(next) => {
-            if (!next) return
-            setModel(next as ColorModel)
+            const picked = models.find((option) => option.value === next)
+
+            if (!picked) {
+              return
+            }
+
+            setModel(picked.value)
             // A plain color is written in the model it's picked in.
-            update(hsb, alpha, next as ColorModel)
+            update(hsb, alpha, picked.value)
           }}
         >
           <SelectTrigger size="sm" aria-label="Color model" className="h-7 w-[4.5rem] shrink-0 px-2 text-xs">
@@ -292,11 +324,13 @@ function HexField({ color, onChange, line }: { color: Rgba; onChange: (color: Rg
       const trimmed = text.trim()
       const candidate = /^[\da-f]+$/i.test(trimmed) ? `#${trimmed}` : trimmed
       const read = CSS.supports("color", candidate) ? parseColor(candidate) : undefined
+
       return read ? { value: read } : { reason: "Enter a hex color, such as 2F6FED" }
     },
     onCommit: (read) => onChange({ ...read, a: 1 }),
     line
   })
+
   return (
     <Input
       aria-label="Hex"
@@ -333,6 +367,7 @@ function ChannelField({
     shown: places === 0 ? String(Math.round(value)) : value.toFixed(places).replace(/^0/, ""),
     read: (text) => {
       const number = Number(text)
+
       return text.trim() !== "" && Number.isFinite(number)
         ? { value: clamp(number, 0, max) }
         : { reason: `${label} goes from 0 to ${max}` }
@@ -341,6 +376,7 @@ function ChannelField({
     onStep: (up, shift) => onChange(clamp(value + (up ? step : -step) * (shift ? 10 : 1), 0, max)),
     line
   })
+
   return (
     <Hint label={label}>
       <Input
@@ -383,14 +419,19 @@ function Strip2d({
       aria-valuenow={Math.round(x * 100)}
       tabIndex={0}
       onKeyDown={(event) => {
-        const moves: Record<string, [number, number]> = {
-          ArrowLeft: [-1, 0],
-          ArrowRight: [1, 0],
-          ArrowUp: [0, -1],
-          ArrowDown: [0, 1]
+        const moves = new Map([
+          ["ArrowLeft", [-1, 0]],
+          ["ArrowRight", [1, 0]],
+          ["ArrowUp", [0, -1]],
+          ["ArrowDown", [0, 1]]
+        ])
+
+        const move = moves.get(event.key)
+
+        if (!move) {
+          return
         }
-        const move = moves[event.key]
-        if (!move) return
+
         event.preventDefault()
         onKey(move[0] * keyStep(event), move[1] * keyStep(event))
       }}
@@ -429,6 +470,7 @@ function Strip({
   const style = overChecker
     ? { ...checker, backgroundImage: `${background}, ${checker.backgroundImage}`, backgroundSize: "auto, 8px 8px" }
     : { background }
+
   return (
     <div
       role="slider"
@@ -440,7 +482,11 @@ function Strip({
       tabIndex={0}
       onKeyDown={(event) => {
         const direction = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }[event.key]
-        if (direction === undefined) return
+
+        if (direction === undefined) {
+          return
+        }
+
         event.preventDefault()
         onChange(clamp(value + direction * keyStep(event), 0, max))
       }}
@@ -529,32 +575,57 @@ export function ColorInput({
   const [round, setRound] = useState(0)
   const nearest = nearestColorToken(custom, colors)
   const nearestToValue = plain ? nearestColorToken(value, colors) : undefined
+
   const replacedBy =
     current?.deprecated === undefined ? undefined : colors.find((each) => each.name === current.deprecated)
+
   const choose = (next: string) => {
     onChange(next, alpha)
     setOpen(false)
   }
+
   const pick = (next: string, nextAlpha: number | undefined) => {
     setCustom(next)
-    if (!tokensOnly) onChange(next, nextAlpha)
+
+    if (!tokensOnly) {
+      onChange(next, nextAlpha)
+    }
   }
+
   // Tokens only refuses a plain color unless it's allowed here as an exception.
   const refused = plain && tokensOnly && allowed === undefined
   // A token's name the field holds: one of the project's, or one it no longer has, struck through.
   const chipName = value !== undefined && !plain ? value : undefined
+
   /** What's typed, checked before it's stored: a token's name, or a color CSS takes (`CSS.supports`) as hex or OKLCH. */
   const read = (text: string): Reading<{ value: string | undefined; alpha: number | undefined }> => {
     const trimmed = text.trim()
-    if (trimmed === "") return { value: { value: current ? value : undefined, alpha } }
+
+    if (trimmed === "") {
+      return { value: { value: current ? value : undefined, alpha } }
+    }
+
     const token = colors.find((other) => other.name === trimmed.toLowerCase())
-    if (token) return { value: { value: token.name, alpha } }
+
+    if (token) {
+      return { value: { value: token.name, alpha } }
+    }
+
     const candidate = /^[\da-f]+$/i.test(trimmed) ? `#${trimmed}` : trimmed
     const color = CSS.supports("color", candidate) ? parseColor(candidate) : undefined
-    if (!color) return { reason: "Enter a color, such as 2F6FED, or a token's name" }
+
+    if (!color) {
+      return { reason: "Enter a color, such as 2F6FED, or a token's name" }
+    }
+
     const near = nearestColorToken(candidate, colors)
-    if (tokensOnly && near) return notAToken(near.token, () => onChange(near.token.name, alpha))
+
+    if (tokensOnly && near) {
+      return notAToken(near.token, () => onChange(near.token.name, alpha))
+    }
+
     const opaque = { ...color, a: 1 }
+
     return {
       value: {
         value: candidate.startsWith("oklch") ? formatOklch(opaque) : formatHex(opaque),
@@ -562,12 +633,15 @@ export function ColorInput({
       }
     }
   }
+
   // The swatch opens the picker where no chip shows, the token's color while its name is typed over; Mixed is split
   // diagonally, as Figma draws it.
   let shownSwatch = <span className="block size-3.5 rounded-sm border border-dashed border-muted-foreground/60" />
   const swatchColor = plain ? value : current?.hex
-  if (swatchColor) shownSwatch = <ColorSwatch color={swatchColor} alpha={alpha} />
-  else if (mixed) {
+
+  if (swatchColor) {
+    shownSwatch = <ColorSwatch color={swatchColor} alpha={alpha} />
+  } else if (mixed) {
     shownSwatch = (
       <span
         className="block size-3.5 rounded-sm border"
@@ -575,8 +649,18 @@ export function ColorInput({
       />
     )
   }
+
   const picker = (
-    <Tabs value={tab} onValueChange={(next) => setTab(next as "tokens" | "custom")}>
+    <Tabs
+      value={tab}
+      onValueChange={(next) => {
+        const picked = optionNamed(pickerTabs, next)
+
+        if (picked) {
+          setTab(picked)
+        }
+      }}
+    >
       {header && <div className="px-2 pt-2">{header}</div>}
       <TabsList className="m-2 mb-0 w-[calc(100%-1rem)]">
         <TabsTrigger value="tokens" className="text-xs">
@@ -613,7 +697,9 @@ export function ColorInput({
               : undefined
           }
           onPick={(name) => {
-            if (name) choose(name)
+            if (name) {
+              choose(name)
+            }
           }}
         />
       </TabsContent>
@@ -671,6 +757,7 @@ export function ColorInput({
       </TabsContent>
     </Tabs>
   )
+
   return (
     // The alpha sits beside the color, and what either says goes on the line under both.
     <div className="grid grid-cols-[minmax(0,1fr)_3.5rem] gap-x-1">
@@ -698,7 +785,10 @@ export function ColorInput({
           open,
           onOpenChange: (next) => {
             setOpen(next)
-            if (next) setTab(plain ? "custom" : "tokens")
+
+            if (next) {
+              setTab(plain ? "custom" : "tokens")
+            }
           }
         }}
         refused={
@@ -712,7 +802,9 @@ export function ColorInput({
         editText={plain && value.startsWith("oklch") ? value : undefined}
         read={read}
         onCommit={(next) => {
-          if (next.value !== value || next.alpha !== alpha) onChange(next.value, next.alpha)
+          if (next.value !== value || next.alpha !== alpha) {
+            onChange(next.value, next.alpha)
+          }
         }}
       />
       <PercentField
@@ -734,8 +826,14 @@ export function ColorInput({
 
 /** How close a suggested token is, in words. */
 function closeness(distance: number): string {
-  if (distance < sameColorDistance) return "Same color"
-  if (distance < sameColorDistance * 4) return "Close"
+  if (distance < sameColorDistance) {
+    return "Same color"
+  }
+
+  if (distance < sameColorDistance * 4) {
+    return "Close"
+  }
+
   return "Nearest"
 }
 
@@ -745,6 +843,7 @@ export function TokenColorEditor({ token: start }: { token: ColorToken }) {
   const [saved, setSaved] = useState(start.hex)
   // Cancel puts the editor back on the saved value, so it starts again from there.
   const [round, setRound] = useState(0)
+
   return (
     <div className="flex w-64 flex-col gap-3 rounded-lg border bg-popover p-3 text-popover-foreground shadow-md">
       <div className="flex items-center gap-2">

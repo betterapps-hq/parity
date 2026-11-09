@@ -14,15 +14,24 @@ export const wrapped = (degrees: number) => Number((((degrees % 360) + 360) % 36
 /** The whole turns in an angle and where it ends after them: 450° is 1 turn and 90°, −450° is −1 turn and −90°. */
 function turnsOf(degrees: number) {
   const whole = Math.trunc(degrees / 360)
+
   return { whole, rest: Number((degrees - whole * 360).toFixed(2)) }
 }
 
 /** 450° as "1 turn + 90°", and 720° as "2 turns", for the knob's name; under a turn there's nothing to add. */
 function turnsText(degrees: number) {
   const { whole, rest } = turnsOf(degrees)
-  if (whole === 0) return undefined
+
+  if (whole === 0) {
+    return undefined
+  }
+
   const count = `${whole < 0 ? "−" : ""}${Math.abs(whole)} ${Math.abs(whole) === 1 ? "turn" : "turns"}`
-  if (rest === 0) return count
+
+  if (rest === 0) {
+    return count
+  }
+
   return `${count} ${rest < 0 ? "−" : "+"} ${Math.abs(rest)}°`
 }
 
@@ -60,24 +69,42 @@ export function AngleField({
   const degrees = angleDegrees(value)
   // A value read from code in another unit keeps it until it's edited, and says so.
   let kept: string | undefined
+
   if (value !== undefined && "value" in value) {
     const read = splitUnit(value.value)
-    if (read && read.unit !== "deg" && read.unit !== "") kept = `as ${value.value}`
+
+    if (read && read.unit !== "deg" && read.unit !== "") {
+      kept = `as ${value.value}`
+    }
   }
+
   const angle = (next: number) => angleOf(wraps ? wrapped(next) : Number(next.toFixed(2)))
+
   const read = (text: string): Reading<Angle | undefined> => {
-    if (text.trim() === "") return { value: undefined }
+    if (text.trim() === "") {
+      return { value: undefined }
+    }
+
     const keyword = keywords?.[text.trim().toLowerCase().replace(/\s+/g, " ")]
-    if (keyword !== undefined) return { value: angle(keyword) }
+
+    if (keyword !== undefined) {
+      return { value: angle(keyword) }
+    }
+
     const reading = readUnitNumber(text, {
       units: angleUnits,
       current: degrees,
       label,
       takes: `Enter an angle, such as 45 or 0.25turn`
     })
-    if ("reason" in reading) return reading
+
+    if ("reason" in reading) {
+      return reading
+    }
+
     return { value: angle(reading.value) }
   }
+
   return (
     <ValueField
       label={label}
@@ -129,6 +156,7 @@ export function AngleGlyph() {
 function around(box: DOMRect, { clientX, clientY }: { clientX: number; clientY: number }) {
   const x = clientX - box.left - box.width / 2
   const y = clientY - box.top - box.height / 2
+
   return ((Math.atan2(y, x) * 180) / Math.PI + 90 + 360) % 360
 }
 
@@ -156,8 +184,12 @@ export function AngleKnob({
 }) {
   const [turning, setTurning] = useState(false)
   const radians = ((degrees - 90) * Math.PI) / 180
+
   const press = (event: PointerEvent<SVGSVGElement>) => {
-    if (event.button !== 0) return
+    if (event.button !== 0) {
+      return
+    }
+
     event.preventDefault()
     event.currentTarget.focus()
     const box = event.currentTarget.getBoundingClientRect()
@@ -170,14 +202,23 @@ export function AngleKnob({
     drag(event, {
       move: (point) => {
         const now = around(box, point)
+
         if (!moved) {
           moved = true
           last = now
           total = degrees - (((degrees % 360) + 360) % 360) + now
         }
+
         let delta = now - last
-        if (delta > 180) delta -= 360
-        if (delta < -180) delta += 360
+
+        if (delta > 180) {
+          delta -= 360
+        }
+
+        if (delta < -180) {
+          delta += 360
+        }
+
         total += delta
         last = now
         onChange(snapped(total, point.shift))
@@ -185,21 +226,32 @@ export function AngleKnob({
       end: () => setTurning(false)
     })
   }
+
   const key = (event: KeyboardEvent<SVGSVGElement>) => {
     const step = event.shiftKey ? 15 : 1
-    const steps: Record<string, number> = {
-      ArrowUp: step,
-      ArrowRight: step,
-      ArrowDown: -step,
-      ArrowLeft: -step,
-      PageUp: 15,
-      PageDown: -15
+
+    const steps = new Map([
+      ["ArrowUp", step],
+      ["ArrowRight", step],
+      ["ArrowDown", -step],
+      ["ArrowLeft", -step],
+      ["PageUp", 15],
+      ["PageDown", -15]
+    ])
+
+    const by = steps.get(event.key)
+
+    if (event.key === "Home") {
+      onChange(0)
+    } else if (by !== undefined) {
+      onChange(degrees + by)
+    } else {
+      return
     }
-    if (event.key === "Home") onChange(0)
-    else if (steps[event.key] !== undefined) onChange(degrees + steps[event.key]!)
-    else return
+
     event.preventDefault()
   }
+
   const size = 28
   const middle = size / 2
   const rim = middle - 2.5
@@ -211,6 +263,7 @@ export function AngleKnob({
   const lap = rim + 0.5
   const end = { x: middle + Math.sin((rest * Math.PI) / 180) * lap, y: middle - Math.cos((rest * Math.PI) / 180) * lap }
   const arc = `M ${middle} ${middle - lap} A ${lap} ${lap} 0 ${Math.abs(rest) > 180 ? 1 : 0} ${rest > 0 ? 1 : 0} ${end.x} ${end.y}`
+
   return (
     <Hint
       label={`${label} knob`}
@@ -241,6 +294,7 @@ export function AngleKnob({
         {/* The quarters, faint, so up, right, down and left can be read at a glance. */}
         {[0, 90, 180, 270].map((quarter) => {
           const at = ((quarter - 90) * Math.PI) / 180
+
           return (
             <line
               key={quarter}

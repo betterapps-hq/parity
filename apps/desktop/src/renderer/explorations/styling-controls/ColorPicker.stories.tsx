@@ -18,6 +18,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Picker({
@@ -32,6 +33,7 @@ function Picker({
   model?: "hex" | "oklch"
 }) {
   const [draft, set] = useDraft({ background: value, backgroundAlpha: alpha })
+
   return (
     <Playground
       writes={colorWrites("bg", draft.background, draft.backgroundAlpha)}

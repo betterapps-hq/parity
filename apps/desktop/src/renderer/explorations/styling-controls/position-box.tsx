@@ -19,6 +19,7 @@ export interface Spot {
 /** A spot's name as its hint and accessible name say it: Top left, Top, Center. */
 export const spotLabel = (spot: BoxPoint): string => {
   const name = spotKeywords(spot) ?? "off the spots"
+
   return name[0]!.toUpperCase() + name.slice(1)
 }
 
@@ -33,7 +34,11 @@ export function positionAt(point: DragPoint): BoxPoint {
   const share = (fraction: number) => clamp((fraction - 1 / 6) / (4 / 6), 0, 1) * 100
   const x = share(point.x)
   const y = share(point.y)
-  if (point.shift) return { x: Math.round(x / 50) * 50, y: Math.round(y / 50) * 50 }
+
+  if (point.shift) {
+    return { x: Math.round(x / 50) * 50, y: Math.round(y / 50) * 50 }
+  }
+
   return { x: Math.round(x), y: Math.round(y) }
 }
 
@@ -60,9 +65,13 @@ export interface NineSpotsProps {
  */
 export function NineSpots({ label, lit, set = true, off, spotName = spotLabel, onSpot, onDrag }: NineSpotsProps) {
   const box = useRef<HTMLFieldSetElement>(null)
+
   const press = (event: PointerEvent<HTMLFieldSetElement>) => {
-    if (onDrag) drag(event, { move: onDrag, within: box.current, press: true })
+    if (onDrag) {
+      drag(event, { move: onDrag, within: box.current, press: true })
+    }
   }
+
   return (
     <fieldset
       ref={box}
@@ -75,6 +84,7 @@ export function NineSpots({ label, lit, set = true, off, spotName = spotLabel, o
           const spot = { x, y }
           const on = lit(spot)
           const name = spotName(spot)
+
           return (
             <Hint key={`${x}-${y}`} label={name} wait>
               <button
@@ -83,7 +93,9 @@ export function NineSpots({ label, lit, set = true, off, spotName = spotLabel, o
                 aria-pressed={set && on}
                 onClick={(event) => {
                   // A press in a box that drags has set it from the pointer already; this is for the keyboard.
-                  if (!onDrag || event.detail === 0) onSpot(spot)
+                  if (!onDrag || event.detail === 0) {
+                    onSpot(spot)
+                  }
                 }}
                 className="group/spot grid place-items-center rounded-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
               >
@@ -139,6 +151,7 @@ export function PositionInBox({
 }) {
   const shown = value ?? placeholder
   const onSpot = spotKeywords(shown) !== undefined
+
   const axisField = (axis: "x" | "y") => (
     <PercentField
       label={`${label} ${axis.toUpperCase()}`}
@@ -151,6 +164,7 @@ export function PositionInBox({
       onChange={(next) => onChange(next === undefined ? undefined : { ...shown, [axis]: next })}
     />
   )
+
   return (
     <div className="flex items-start gap-2">
       <NineSpots

@@ -19,10 +19,12 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Filters({ start, tokensOnly, openId }: { start: FilterEntry[]; tokensOnly?: boolean; openId?: string }) {
   const [entries, setEntries] = useState(start)
+
   return (
     <Playground
       writes={filterWrites(entries)}
@@ -146,6 +148,7 @@ export const OnAnImage: Story = {
   render: function OnAnImage() {
     const [values, setValues] = useState<Adjustments>({ contrast: 15, hue: -20 })
     const entries: FilterEntry[] = [adjust("adjust", values)]
+
     return (
       <Playground
         writes={filterWrites(entries)}

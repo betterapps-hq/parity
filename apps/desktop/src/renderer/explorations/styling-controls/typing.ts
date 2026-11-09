@@ -4,6 +4,7 @@
  * takes one reads `50%` as such, and one that doesn't says to type `*0.5` for a share of the value there.
  */
 import { applyFieldInput, type FieldRules, readFieldInput } from "@parity-app/core"
+import { numberValue } from "../../chrome/prop-values.ts"
 import { spacingPx } from "./css-values.ts"
 
 /** Lengths read in pixels, to a quarter pixel, so nothing typed snaps to the spacing scale (call 1). */
@@ -17,30 +18,53 @@ export function readLength(
   { label, current, takesPercent = false }: { label: string; current: number | undefined; takesPercent?: boolean }
 ): LengthReading {
   const trimmed = text.trim()
-  if (trimmed === "") return { clear: true }
+
+  if (trimmed === "") {
+    return { clear: true }
+  }
+
   const step = /^spacing-(\d*\.?\d+)$/i.exec(trimmed)?.[1]
+
   if (step !== undefined) {
     const px = Number(step) * spacingPx
+
     return Number.isInteger(px)
       ? { px }
       : { reason: `spacing-${step} isn't a spacing step. Use quarter steps, such as spacing-3.25` }
   }
+
   if (trimmed.includes("%")) {
     const percent = /^(-?\d*\.?\d+)\s*%$/.exec(trimmed)?.[1]
-    if (takesPercent && percent !== undefined) return { percent: Number(percent) }
+
+    if (takesPercent && percent !== undefined) {
+      return { percent: Number(percent) }
+    }
+
     return {
       reason: takesPercent
         ? "Enter a percentage on its own, such as 50%"
         : `${label} doesn't accept percentages. To halve it, enter *0.5`
     }
   }
+
   const rules = rulesFor(label)
+
   const outcome = applyFieldInput(
     readFieldInput(trimmed, rules),
     current === undefined ? undefined : current * 4,
     rules
   )
-  if (!outcome.ok) return { reason: outcome.reason }
-  if (typeof outcome.value !== "number") return { clear: true }
-  return { px: Math.round((outcome.value / 4) * 100) / 100 }
+
+  if (!outcome.ok) {
+    return { reason: outcome.reason }
+  }
+
+  // In quarter pixels, the unit `rulesFor` reads in; anything but a number clears the field.
+  const quarters = numberValue.safeParse(outcome.value).data
+
+  if (quarters === undefined) {
+    return { clear: true }
+  }
+
+  return { px: Math.round((quarters / 4) * 100) / 100 }
 }

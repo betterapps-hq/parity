@@ -7,7 +7,7 @@ import { findFont, projectFonts } from "./text-data.ts"
 import { TextSample } from "./text-preview.tsx"
 import { type FontValue, fontWrites, type WeightValue, weightWrites } from "./text-writes.ts"
 import { weightTokens } from "./tokens.ts"
-import type { Writes } from "./writes.ts"
+import type { StoredObject, Writes } from "./writes.ts"
 
 /**
  * Weight and style (PAR-186, design-options-values.md's Weight): the weight's name (Semibold), with its number and
@@ -23,13 +23,22 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const geist = projectFonts[0]!
 
 /** Font and Weight's writes side by side, each property under its own key (call 4). */
 function together(font: Writes, weight: Writes): Writes {
-  const stored = { ...(font.stored === undefined ? {} : { fontFamily: font.stored }), ...(weight.stored as object) }
+  const family: StoredObject = {}
+
+  if (font.stored !== undefined) {
+    family.fontFamily = font.stored
+  }
+
+  // SAFETY: Weight stores an object (`{ fontWeight, fontStyle }`) when it's set, and nothing when it isn't.
+  const stored = { ...family, ...(weight.stored as StoredObject | undefined) }
+
   return {
     stored: Object.keys(stored).length > 0 ? stored : undefined,
     css: [...font.css, ...weight.css],
@@ -55,10 +64,16 @@ function Weight({
   const [fontPreview, setFontPreview] = useState<FontValue>()
   const resolved = resolveFont(fontPreview ?? font)
   const family = (resolved && findFont(resolved.name)) ?? geist
+
   const token =
     weight !== undefined && "token" in weight ? weightTokens.find((each) => each.name === weight.token) : undefined
+
   let shown = 400
-  if (weight !== undefined) shown = token?.weight ?? ("value" in weight ? weight.value : 400)
+
+  if (weight !== undefined) {
+    shown = token?.weight ?? ("value" in weight ? weight.value : 400)
+  }
+
   return (
     <Playground
       writes={together(fontWrites(font), weightWrites(weight, italic))}

@@ -39,12 +39,12 @@ export interface KeywordChoice extends KeywordOption {
 }
 
 /** Keywords every field takes, shown in words. */
-const globalKeywords: Record<string, string> = {
-  inherit: "Inherit",
-  initial: "Initial",
-  unset: "Unset",
-  revert: "Revert"
-}
+const globalKeywords = new Map([
+  ["inherit", "Inherit"],
+  ["initial", "Initial"],
+  ["unset", "Unset"],
+  ["revert", "Revert"]
+])
 
 /**
  * A keyword outside the set, read from code or typed from the menu: a ValueField marked Custom, edited as text and
@@ -60,7 +60,8 @@ function CustomKeyword({
   value: string
   onChange: (value: KeywordValue | undefined) => void
 }) {
-  const word = globalKeywords[value]
+  const word = globalKeywords.get(value)
+
   return (
     <div className="min-w-32 flex-1">
       <ValueField
@@ -79,8 +80,15 @@ function CustomKeyword({
         inputClassName={word === undefined ? "font-mono" : ""}
         read={(text): Reading<string> => {
           const trimmed = text.trim()
-          if (trimmed === "") return { reason: `Enter a value for ${property}, or choose one` }
-          if (!CSS.supports(property, trimmed)) return { reason: `${property} can't be ${trimmed}` }
+
+          if (trimmed === "") {
+            return { reason: `Enter a value for ${property}, or choose one` }
+          }
+
+          if (!CSS.supports(property, trimmed)) {
+            return { reason: `${property} can't be ${trimmed}` }
+          }
+
           return { value: trimmed }
         }}
         onCommit={(next) => onChange({ custom: next })}
@@ -170,6 +178,7 @@ export function KeywordToggles({
   const custom = value !== undefined && "custom" in value ? value.custom : undefined
   const inheritedChoice = choices.find((choice) => choice.value === inherited)
   const showMixed = mixed && value === undefined
+
   return (
     <div className="flex flex-wrap items-center gap-1">
       <fieldset aria-label={label} className="m-0 flex h-7 items-center gap-px rounded-md border p-0.5">
@@ -177,8 +186,15 @@ export function KeywordToggles({
           const pressed = value !== undefined && "option" in value && value.option === choice.value
           const faint = value === undefined && !showMixed && choice.value === inherited
           let look = "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-          if (pressed) look = "bg-accent text-foreground shadow-xs"
-          if (faint) look = "bg-accent/40 text-muted-foreground"
+
+          if (pressed) {
+            look = "bg-accent text-foreground shadow-xs"
+          }
+
+          if (faint) {
+            look = "bg-accent/40 text-muted-foreground"
+          }
+
           const detail = [
             choice.css,
             faint ? `Unset: ${inheritedFrom ? `inherited from ${inheritedFrom}` : "the starting value"}` : undefined,
@@ -186,6 +202,7 @@ export function KeywordToggles({
           ]
             .filter(Boolean)
             .join("\n")
+
           return (
             <Hint key={choice.value} label={choice.label} detail={detail}>
               <button
@@ -276,11 +293,16 @@ export function KeywordMenu({
   const custom = value !== undefined && "custom" in value ? value.custom : undefined
   const chosen = value !== undefined && "option" in value ? choices.find((c) => c.value === value.option) : undefined
   let shown = chosen?.label ?? placeholder
-  if (mixed && value === undefined) shown = "Mixed"
+
+  if (mixed && value === undefined) {
+    shown = "Mixed"
+  }
+
   const tokens = choices.filter((choice) => choice.token)
   const main = choices.filter((choice) => !choice.token && !choice.more)
   const more = choices.filter((choice) => choice.more)
   const radioValue = chosen?.value ?? ""
+
   const item = (choice: KeywordChoice) => (
     <DropdownMenuRadioItem
       key={choice.value}
@@ -297,11 +319,14 @@ export function KeywordMenu({
       </span>
     </DropdownMenuRadioItem>
   )
+
   const pick = (next: string) => {
     setEditingCustom(false)
     onChange({ option: next })
   }
+
   const showCustom = custom !== undefined || editingCustom
+
   return (
     <div className="flex items-start gap-1">
       {showCustom && (
@@ -316,7 +341,9 @@ export function KeywordMenu({
       )}
       <DropdownMenu
         onOpenChange={(open) => {
-          if (!open) onPreview?.(undefined)
+          if (!open) {
+            onPreview?.(undefined)
+          }
         }}
       >
         <Hint label={`${label}: ${shown}`} detail={chosen ? chosen.css : `Unset: ${placeholder}`} wait>
@@ -337,21 +364,21 @@ export function KeywordMenu({
         <DropdownMenuContent align="end" className="w-64">
           {tokens.length > 0 && (
             <>
-              <DropdownMenuRadioGroup value={radioValue} onValueChange={(next) => pick(next as string)}>
+              <DropdownMenuRadioGroup value={radioValue} onValueChange={(next: string) => pick(next)}>
                 <DropdownMenuLabel>Tokens</DropdownMenuLabel>
                 {tokens.map(item)}
               </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />
             </>
           )}
-          <DropdownMenuRadioGroup value={radioValue} onValueChange={(next) => pick(next as string)}>
+          <DropdownMenuRadioGroup value={radioValue} onValueChange={(next: string) => pick(next)}>
             {main.map(item)}
           </DropdownMenuRadioGroup>
           {more.length > 0 && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger className="text-xs">{moreLabel}</DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-56">
-                <DropdownMenuRadioGroup value={radioValue} onValueChange={(next) => pick(next as string)}>
+                <DropdownMenuRadioGroup value={radioValue} onValueChange={(next: string) => pick(next)}>
                   {more.map(item)}
                 </DropdownMenuRadioGroup>
               </DropdownMenuSubContent>
@@ -522,6 +549,7 @@ export const strokeStyleChoices: KeywordChoice[] = [
 /** Draws a stroke style as a short line in it. */
 export function drawStrokeStyle(choice: KeywordChoice) {
   const width = choice.value === "double" || choice.more ? 4 : 2
+
   return (
     <span
       aria-hidden
@@ -552,6 +580,7 @@ export function ClipContentField({
   onChange: (value: KeywordValue | undefined) => void
 }) {
   const on = value !== undefined
+
   return (
     <div className="flex items-start gap-1">
       <Hint

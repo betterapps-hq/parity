@@ -8,7 +8,7 @@
  */
 import type { PreviewKind } from "@parity-app/tokens"
 import { formatNumber, gradientCss, isPlainColor, mixColor, shadowCss } from "./css-values.ts"
-import type { Length } from "./data.ts"
+import { isLengthToken, type Length } from "./data.ts"
 import type { GradientPaint, ShadowLayer } from "./lists-data.ts"
 import { type Bezier, bezierCss, type Spring, springLinear } from "./motion-data.ts"
 
@@ -42,27 +42,29 @@ export interface LengthToken extends FieldToken {
 }
 
 /** A color token from its hex, as the stand-ins and Create token make them. */
-export const colorToken = (name: string, hex: string, deprecated?: string): ColorToken => ({
-  name,
-  kind: "color",
-  value: hex,
-  hex,
-  detail: hex.slice(1).toUpperCase(),
-  ...(deprecated === undefined ? {} : { deprecated })
-})
+export const colorToken = (name: string, hex: string, deprecated?: string): ColorToken => {
+  const token: ColorToken = { name, kind: "color", value: hex, hex, detail: hex.slice(1).toUpperCase() }
+
+  if (deprecated !== undefined) {
+    token.deprecated = deprecated
+  }
+
+  return token
+}
 
 /** What a length comes to in words: `10px`, or Full for a radius that rounds the ends. */
 export const lengthDetail = (px: number): string => (px === 9999 ? "Full" : `${formatNumber(px)}px`)
 
 /** A length token of a kind (radius, blur, spacing), as the stand-ins and Create token make them. */
-export const lengthToken = (kind: PreviewKind, name: string, px: number, deprecated?: string): LengthToken => ({
-  name,
-  kind,
-  value: `${px}px`,
-  detail: lengthDetail(px),
-  px,
-  ...(deprecated === undefined ? {} : { deprecated })
-})
+export const lengthToken = (kind: PreviewKind, name: string, px: number, deprecated?: string): LengthToken => {
+  const token: LengthToken = { name, kind, value: `${px}px`, detail: lengthDetail(px), px }
+
+  if (deprecated !== undefined) {
+    token.deprecated = deprecated
+  }
+
+  return token
+}
 
 /** shadcn's neutral theme, a few of Tailwind's palette shades, black and white, and a color the project replaced. */
 export const colorTokens: ColorToken[] = [
@@ -98,8 +100,14 @@ export const colorTokens: ColorToken[] = [
 
 /** A style's color as CSS draws it: a token's color by its name, or a plain color (`#2563eb`, `oklch(…)`) as written. */
 export function hexOf(value: string | undefined, tokens: readonly ColorToken[] = colorTokens): string | undefined {
-  if (value === undefined) return undefined
-  if (isPlainColor(value)) return value
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (isPlainColor(value)) {
+    return value
+  }
+
   return tokens.find((token) => token.name === value)?.hex
 }
 
@@ -205,6 +213,7 @@ export interface EasingToken extends FieldToken {
 export function easingToken(name: string, curve?: Bezier, spring?: Spring): EasingToken {
   let detail = ""
   let value = "linear"
+
   if (curve) {
     detail = curve.join(", ")
     value = bezierCss(curve)
@@ -212,14 +221,18 @@ export function easingToken(name: string, curve?: Bezier, spring?: Spring): Easi
     detail = "Spring"
     value = springLinear(spring)
   }
-  return {
-    name,
-    kind: "easing",
-    value,
-    detail,
-    ...(curve ? { curve } : {}),
-    ...(spring ? { spring } : {})
+
+  const token: EasingToken = { name, kind: "easing", value, detail }
+
+  if (curve) {
+    token.curve = curve
   }
+
+  if (spring) {
+    token.spring = spring
+  }
+
+  return token
 }
 
 /** The project's easing tokens. */
@@ -247,6 +260,7 @@ const part = (x: number, y: number, blur: number, spread: number, alpha: number)
 /** A shadow token of a kind (shadow, inset, drop, text) from its layers, as the stand-ins and Save as token make them. */
 export const shadowToken = (kind: PreviewKind, name: string, layers: ShadowLayer[]): ShadowToken => {
   const numbers = (one: ShadowLayer) => [one.x, one.y, one.blur, one.spread].join(" ")
+
   return {
     name,
     kind,
@@ -494,21 +508,25 @@ export const cursorTokens: FieldToken[] = [cursor("cursor-interactive", "pointer
  * The length tokens an expression can name, in pixels: Tailwind's spacing step, the containers, two text sizes and a
  * radius, by the custom property's name without `--`.
  */
-export const lengthVars: Record<string, number> = {
-  spacing: 4,
-  ...Object.fromEntries(containerTokens.map((token) => [token.name, token.px])),
-  ...Object.fromEntries(
-    sizeTokens.filter((token) => ["base", "xl"].includes(token.name)).map((token) => [`text-${token.name}`, token.px])
+export const lengthVars = Object.fromEntries([
+  ["spacing", 4],
+  ...containerTokens.map((token) => [token.name, token.px] as const),
+  ...sizeTokens.flatMap((token) =>
+    ["base", "xl"].includes(token.name) ? [[`text-${token.name}`, token.px] as const] : []
   ),
-  ...Object.fromEntries(
-    radiusTokens.filter((token) => token.name === "radius-lg").map((token) => [token.name, token.px])
-  )
-}
+  ...radiusTokens.flatMap((token) => (token.name === "radius-lg" ? [[token.name, token.px] as const] : []))
+])
 
 /** A length in pixels: its own, or its token's; 0 for unset or a token the project doesn't have. */
 export const lengthPx = (value: Length | undefined, tokens: readonly LengthToken[]): number => {
-  if (value === undefined) return 0
-  if (typeof value === "object") return value.px
+  if (value === undefined) {
+    return 0
+  }
+
+  if (!isLengthToken(value)) {
+    return value.px
+  }
+
   return tokens.find((token) => token.name === value)?.px ?? 0
 }
 
@@ -541,4 +559,5 @@ export const tokenSets = {
 }
 
 export type TokenSets = typeof tokenSets
+
 export type TokenSetName = keyof TokenSets

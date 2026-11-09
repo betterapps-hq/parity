@@ -22,15 +22,20 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The layer over the stage's shapes, at its opacity and blend, a token's included, one made here too. */
 function Layer({ opacity, blend }: { opacity: Opacity | undefined; blend: BlendMode | undefined }) {
   const { tokens } = useTokens("opacity")
   let percent = 100
-  if (opacity !== undefined && "token" in opacity)
+
+  if (opacity !== undefined && "token" in opacity) {
     percent = tokens.find((each) => each.name === opacity.token)?.percent ?? 100
-  else if (opacity !== undefined) percent = opacity.percent
+  } else if (opacity !== undefined) {
+    percent = opacity.percent
+  }
+
   return (
     <PreviewStage>
       <Card style={{ ...filledLayer, opacity: percent / 100, mixBlendMode: blend }} />
@@ -50,6 +55,7 @@ function Appearance({
   const [opacity, setOpacity] = useState(start)
   const [blend, setBlend] = useState(blendStart)
   const [preview, setPreview] = useState<BlendMode>()
+
   return (
     <Playground writes={opacityWrites(opacity, blend)} preview={<Layer opacity={opacity} blend={preview ?? blend} />}>
       <Field label="Opacity" mixed={mixed && opacity === undefined}>

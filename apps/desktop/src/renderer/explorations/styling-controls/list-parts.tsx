@@ -108,6 +108,7 @@ export function ListRow({
   const { live, rowProps } = useLiveRow()
   const drawn = renderPreview ? renderPreview(live(name)) : preview
   const dataType = `application/x-parity-${group}`
+
   const parts = (
     <>
       {/* One width for every preview, so the names after them line up down the list. */}
@@ -118,7 +119,9 @@ export function ListRow({
       </span>
     </>
   )
+
   let entry: ReactNode = children
+
   if (details) {
     entry = (
       <Popover defaultOpen={details.defaultOpen}>
@@ -143,6 +146,7 @@ export function ListRow({
       </div>
     )
   }
+
   const content = (
     <div
       className={`grid min-w-0 flex-1 items-center gap-x-1 ${after === undefined ? "" : "grid-cols-[minmax(0,1fr)_auto]"} ${off ? "opacity-50" : ""}`}
@@ -151,6 +155,7 @@ export function ListRow({
       {after}
     </div>
   )
+
   if (onMove === undefined) {
     return (
       <div className="group/row flex min-h-7 items-start gap-1 rounded-md">
@@ -160,6 +165,7 @@ export function ListRow({
       </div>
     )
   }
+
   return (
     <div
       draggable={draggable}
@@ -169,7 +175,10 @@ export function ListRow({
       }}
       onDragEnd={() => setDraggable(false)}
       onDragOver={(event: DragEvent) => {
-        if (!event.dataTransfer.types.includes(dataType)) return
+        if (!event.dataTransfer.types.includes(dataType)) {
+          return
+        }
+
         event.preventDefault()
         setOver(true)
       }}
@@ -177,7 +186,10 @@ export function ListRow({
       onDrop={(event: DragEvent) => {
         setOver(false)
         const from = Number(event.dataTransfer.getData(dataType))
-        if (Number.isFinite(from) && from !== index) onMove(from, index)
+
+        if (Number.isFinite(from) && from !== index) {
+          onMove(from, index)
+        }
       }}
       className={`group/row flex min-h-7 items-start gap-1 rounded-md ${over ? "ring-2 ring-ring" : ""}`}
     >
@@ -192,6 +204,7 @@ export function ListRow({
               event.preventDefault()
               onMove(index, index + (event.key === "ArrowUp" ? -1 : 1))
             }
+
             if (event.key === "Delete" || event.key === "Backspace") {
               event.preventDefault()
               onRemove()
@@ -262,9 +275,14 @@ function RowButtons({
 export function moved<T>(list: readonly T[], from: number, to: number): T[] {
   const next = [...list]
   const within = (at: number) => Number.isInteger(at) && at >= 0 && at < list.length
-  if (!within(from) || !within(to)) return next
+
+  if (!within(from) || !within(to)) {
+    return next
+  }
+
   const [item] = next.splice(from, 1)
   next.splice(to, 0, item!)
+
   return next
 }
 
@@ -287,6 +305,7 @@ export interface TypeMenuProps<K extends string> {
 export function TypeMenu<K extends string>({ label, value, options, onChange }: TypeMenuProps<K>) {
   const current = options.find((option) => option.value === value)
   const named = `${label} type: ${current?.label ?? value}`
+
   const trigger = (
     <DropdownMenuTrigger
       aria-label={named}
@@ -296,6 +315,7 @@ export function TypeMenu<K extends string>({ label, value, options, onChange }: 
       <ChevronDown className="size-3 text-muted-foreground" />
     </DropdownMenuTrigger>
   )
+
   return (
     <DropdownMenu>
       {trigger}
@@ -304,7 +324,10 @@ export function TypeMenu<K extends string>({ label, value, options, onChange }: 
           value={value}
           onValueChange={(next) => {
             const picked = options.find((option) => option.value === next)
-            if (picked) onChange(picked.value)
+
+            if (picked) {
+              onChange(picked.value)
+            }
           }}
         >
           {options.map((option) => (
@@ -348,18 +371,30 @@ export function CenteredSlider({
   const at = (number: number) => ((number - min) / (max - min)) * 100
   const from = Math.min(at(zero), at(value))
   const to = Math.max(at(zero), at(value))
+
   const track: CSSProperties = {
     background: `linear-gradient(to right, ${rest} ${from}%, var(--primary) ${from}%, var(--primary) ${to}%, ${rest} ${to}%)`
   }
+
   const takes = `${label} takes a number from ${min} to ${max}`
+
   const read = (text: string): Reading<number> => {
     const reading = readNumber(text.replace(unit, "").replace("−", "-"), value, label)
-    if ("clear" in reading) return { reason: takes }
-    if ("reason" in reading) return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
+
+    if ("clear" in reading) {
+      return { reason: takes }
+    }
+
+    if ("reason" in reading) {
+      return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
+    }
+
     const number = Math.round(reading.value)
+
     // Past either end, it stops there: the field shows it, so it says nothing.
     return { value: Math.min(max, Math.max(min, number)) }
   }
+
   return (
     <div className="grid grid-cols-[72px_1fr_3.25rem] items-center gap-x-2">
       <Hint label={label} detail={value === zero ? "No change, which writes nothing" : `Writes ${hint}`} wait>
@@ -375,7 +410,10 @@ export function CenteredSlider({
         onChange={(event) => onChange(Number(event.target.value))}
         onDoubleClick={() => onChange(zero)}
         onKeyDown={(event) => {
-          if (!event.shiftKey || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return
+          if (!event.shiftKey || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+            return
+          }
+
           event.preventDefault()
           const up = event.key === "ArrowRight" || event.key === "ArrowUp"
           onChange(clamp(value + (up ? 10 : -10), min, max))
@@ -402,12 +440,14 @@ export function CenteredSlider({
 export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: (x: number, y: number) => void }) {
   // The pad reaches a little past the offset, so a large one stays on it.
   const reach = Math.max(24, Math.abs(x), Math.abs(y)) * 1.25
+
   // The reach stays as it was at the press while the pad's dragged.
   const press = (event: PointerEvent<HTMLDivElement>) =>
     drag(event, {
       press: true,
       move: (point) => onChange(Math.round((point.x * 2 - 1) * reach), Math.round((point.y * 2 - 1) * reach))
     })
+
   return (
     <div
       role="slider"
@@ -417,14 +457,19 @@ export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: 
       tabIndex={0}
       onPointerDown={press}
       onKeyDown={(event) => {
-        const moves: Record<string, [number, number]> = {
-          ArrowLeft: [-1, 0],
-          ArrowRight: [1, 0],
-          ArrowUp: [0, -1],
-          ArrowDown: [0, 1]
+        const moves = new Map([
+          ["ArrowLeft", [-1, 0]],
+          ["ArrowRight", [1, 0]],
+          ["ArrowUp", [0, -1]],
+          ["ArrowDown", [0, 1]]
+        ])
+
+        const move = moves.get(event.key)
+
+        if (!move) {
+          return
         }
-        const move = moves[event.key]
-        if (!move) return
+
         event.preventDefault()
         const step = event.shiftKey ? 10 : 1
         onChange(x + move[0] * step, y + move[1] * step)

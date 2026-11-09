@@ -34,15 +34,31 @@ import { lengthToken } from "./tokens.ts"
 export type Spread = "side" | "opposite" | "all"
 
 const spreadOf = ({ shift, alt }: ScrubKeys): Spread => {
-  if (!alt) return "side"
+  if (!alt) {
+    return "side"
+  }
+
   return shift ? "all" : "opposite"
 }
 
 /** The sides an edit to some of them reaches, as Spread says. */
 export function spreadTo(indexes: readonly number[], spread: Spread): number[] {
-  if (spread === "all") return [0, 1, 2, 3]
-  if (spread === "opposite") return [...new Set(indexes.flatMap((index) => [index, (index + 2) % 4]))]
+  if (spread === "all") {
+    return [0, 1, 2, 3]
+  }
+
+  if (spread === "opposite") {
+    return [...new Set(indexes.flatMap((index) => [index, (index + 2) % 4]))]
+  }
+
   return [...indexes]
+}
+
+/** The four sides with those an edit reached set to its value. */
+export function setSides(sides: Sides, reached: readonly number[], value: Side): Sides {
+  const at = (index: number) => (reached.includes(index) ? value : sides[index])
+
+  return [at(0), at(1), at(2), at(3)]
 }
 
 /**
@@ -53,7 +69,11 @@ function sideScrub(rules: SideRules, spreads: boolean): ScrubBy {
   return {
     move: (start, dx, { shift, alt }) => {
       const further = shift && !(spreads && alt)
-      if (rules.stepBy === "spacing") return stepSpacing(start, scrubSteps(dx, further))
+
+      if (rules.stepBy === "spacing") {
+        return stepSpacing(start, scrubSteps(dx, further))
+      }
+
       return start + Math.trunc(dx) * (further ? 10 : 1)
     },
     min: rules.negatives ? -Infinity : 0
@@ -122,10 +142,12 @@ export function SideField({
   onShorthand
 }: SideFieldProps) {
   const { tokens, create } = useTokens(rules.tokens.set)
-  const tokenName = typeof value === "object" && "token" in value ? value.token : undefined
+  // `auto` is the one form that isn't an object.
+  const form = value === "auto" ? undefined : value
+  const tokenName = form && "token" in form ? form.token : undefined
   const token = tokenName === undefined ? undefined : tokens.find((other) => other.name === tokenName)
-  const own = typeof value === "object" && "number" in value ? value : undefined
-  const percent = typeof value === "object" && "percent" in value ? value.percent : undefined
+  const own = form && "number" in form ? form : undefined
+  const percent = form && "percent" in form ? form.percent : undefined
   const offSystem = own !== undefined && !onStep(own.number)
   const refused = offSystem && tokensOnly && own.allow === undefined
   const unit = rules.unit ?? ""
@@ -135,21 +157,37 @@ export function SideField({
   const spreadFrom = (keys: ScrubKeys): Spread => (spreads ? spreadOf(keys) : "side")
 
   let shown: string | undefined
-  if (value === "auto") shown = "Auto"
-  else if (own) shown = formatNumber(own.number)
-  else if (percent !== undefined) shown = formatNumber(percent)
+
+  if (value === "auto") {
+    shown = "Auto"
+  } else if (own) {
+    shown = formatNumber(own.number)
+  } else if (percent !== undefined) {
+    shown = formatNumber(percent)
+  }
 
   // The unit a bare number is typed in: the value's, or the one last chosen from the menu while the side was unset.
   const [chosenUnit, setChosenUnit] = useState<"px" | "%">("px")
   let unitNow = chosenUnit
-  if (percent !== undefined) unitNow = "%"
-  else if (own) unitNow = "px"
+
+  if (percent !== undefined) {
+    unitNow = "%"
+  } else if (own) {
+    unitNow = "px"
+  }
+
   const toUnit = (next: "px" | "%") => {
     setChosenUnit(next)
-    if (next === "%" && own) onChange({ percent: own.number }, "side")
-    else if (next === "px" && percent !== undefined) onChange({ number: percent }, "side")
+
+    if (next === "%" && own) {
+      onChange({ percent: own.number }, "side")
+    } else if (next === "px" && percent !== undefined) {
+      onChange({ number: percent }, "side")
+    }
   }
+
   let shownUnit: ReactNode
+
   if (rules.percent) {
     shownUnit = (
       <UnitMenu
@@ -162,25 +200,40 @@ export function SideField({
         onUnit={toUnit}
       />
     )
-  } else if (percent !== undefined) shownUnit = "%"
-  else shownUnit = unit
+  } else if (percent !== undefined) {
+    shownUnit = "%"
+  } else {
+    shownUnit = unit
+  }
 
   let comesTo: string | undefined
-  if (token) comesTo = token.detail
-  else if (((value === undefined && narrow) || value === "auto" || percent !== undefined) && measured !== undefined)
+
+  if (token) {
+    comesTo = token.detail
+  } else if (((value === undefined && narrow) || value === "auto" || percent !== undefined) && measured !== undefined) {
     comesTo = `${formatNumber(measured)}${unit}`
+  }
 
   // The hint carries the value's status, which a narrow field has no room to say.
   let status: string | undefined
-  if (token?.deprecated) status = `Deprecated: use ${token.deprecated} instead`
-  else if (tokenName !== undefined && !token) status = "Missing: the project has no token by this name now"
-  else if (own?.allow !== undefined) status = `Allowed here: ${own.allow}`
-  else if (offSystem) status = `Not a step. Nearest: ${nearestStep}${unit}`
-  else if (percent !== undefined && percentOf) status = `${formatNumber(percent)}% of ${percentOf}`
-  else if (mixed && value === undefined) status = mixedNote
+
+  if (token?.deprecated) {
+    status = `Deprecated: use ${token.deprecated} instead`
+  } else if (tokenName !== undefined && !token) {
+    status = "Missing: the project has no token by this name now"
+  } else if (own?.allow !== undefined) {
+    status = `Allowed here: ${own.allow}`
+  } else if (offSystem) {
+    status = `Not a step. Nearest: ${nearestStep}${unit}`
+  } else if (percent !== undefined && percentOf) {
+    status = `${formatNumber(percent)}% of ${percentOf}`
+  } else if (mixed && value === undefined) {
+    status = mixedNote
+  }
 
   const read = (text: string): Reading<SideEntry> => {
     const bare = /^\s*-?\d*\.?\d+\s*$/.test(text)
+
     const reading = readSide(
       rules.percent && unitNow === "%" && bare ? `${text.trim()}%` : text,
       label,
@@ -188,12 +241,18 @@ export function SideField({
       value,
       tokens
     )
+
     return "reason" in reading ? { reason: reading.reason } : { value: reading }
   }
+
   const commit = (entry: SideEntry) => {
-    if ("side" in entry) onChange(entry.side, "side")
-    else if (onShorthand) onShorthand(entry.shorthand)
-    else onChange(entry.shorthand[0], "side")
+    if ("side" in entry) {
+      onChange(entry.side, "side")
+    } else if (onShorthand) {
+      onShorthand(entry.shorthand)
+    } else {
+      onChange(entry.shorthand[0], "side")
+    }
   }
 
   return (
@@ -279,6 +338,7 @@ export function SideField({
  */
 export function useSidesLine() {
   const [messages, setMessages] = useState<Record<string, Message | undefined>>({})
+
   return {
     lineFor: (label: string) => ({
       message: messages[label],
@@ -296,7 +356,11 @@ export type Together = "pair" | "one"
 /** Whether the fields shown together can show the sides as they are, without saying Mixed. */
 function fitsTogether(together: Together, sides: Sides, mixed: readonly boolean[]): boolean {
   const alike = (a: number, b: number) => same(sides[a], sides[b]) && Boolean(mixed[a]) === Boolean(mixed[b])
-  if (together === "one") return alike(0, 1) && alike(0, 2) && alike(0, 3)
+
+  if (together === "one") {
+    return alike(0, 1) && alike(0, 2) && alike(0, 3)
+  }
+
   return alike(0, 2) && alike(1, 3)
 }
 
@@ -352,20 +416,27 @@ export function FourSidesField({
 }) {
   const [each, setEach] = useState(() => !fitsTogether(together, sides, mixed))
   const noun = label.toLowerCase()
+
   const update = (indexes: number[], value: Side, spread: Spread) => {
     const reached = spreadTo(indexes, spread)
-    onChange(sides.map((side, index) => (reached.includes(index) ? value : side)) as Sides, reached)
+    onChange(setSides(sides, reached, value), reached)
   }
+
   const shorthand = (next: Sides) => {
     onChange(next, [0, 1, 2, 3])
+
     // Sides typed that differ open every side, to show them; nothing closes it under the pointer.
-    if (!fitsTogether(together, next, [])) setEach(true)
+    if (!fitsTogether(together, next, [])) {
+      setEach(true)
+    }
   }
+
   /** A field for some of the sides: alone and wide, or narrow in a cell of the two-column grid. */
   const field = (indexes: number[], fieldLabel: string, inner: ReactNode, cell?: number) => {
     const first = indexes[0]!
     const alike = indexes.every((index) => same(sides[index], sides[first]))
     const isMixed = !alike || indexes.some((index) => mixed[index])
+
     return (
       // `contents`, so the field's message line spans the grid's whole row rather than its own column.
       <div
@@ -393,15 +464,20 @@ export function FourSidesField({
       </div>
     )
   }
+
   let fields: ReactNode
-  if (each)
+
+  if (each) {
     fields = sideNames.map((side, index) => field([index], `${side} ${noun}`, <SideGlyph side={index} />, index))
-  else if (together === "pair")
+  } else if (together === "pair") {
     fields = [
       field([0, 2], `Vertical ${noun}`, <PairGlyph />, 0),
       field([1, 3], `Horizontal ${noun}`, <PairGlyph across />, 1)
     ]
-  else fields = field([0, 1, 2, 3], label, undefined)
+  } else {
+    fields = field([0, 1, 2, 3], label, undefined)
+  }
+
   return (
     <div className={doesNothing ? "opacity-50" : undefined}>
       <Field

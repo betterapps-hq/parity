@@ -20,6 +20,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const px = (number: number) => ({ number })
@@ -45,6 +46,7 @@ function Margin({
   const [contained, setContained] = useState(false)
   // Auto top and bottom margins center nothing in a Block layout, where they come to 0.
   const autoDown = layout === "block" && (sides[0] === "auto" || sides[2] === "auto")
+
   return (
     <Playground
       writes={sidesWrites("margin", sides, mixedNow)}

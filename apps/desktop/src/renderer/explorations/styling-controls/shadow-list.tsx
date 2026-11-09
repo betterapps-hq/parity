@@ -67,8 +67,14 @@ const shadowNamespace = (name: string) => /^(inset-shadow|drop-shadow|text-shado
 
 /** Which group an entry is listed and dragged in. */
 function groupOf(entry: ShadowEntry): "inside" | "outside" | "follow" {
-  if (entry.kind === "inner" || (entry.kind === "ring" && entry.inset)) return "inside"
-  if (entry.kind === "drop" && entry.follow) return "follow"
+  if (entry.kind === "inner" || (entry.kind === "ring" && entry.inset)) {
+    return "inside"
+  }
+
+  if (entry.kind === "drop" && entry.follow) {
+    return "follow"
+  }
+
   return "outside"
 }
 
@@ -84,10 +90,19 @@ const defaultLayer: ShadowLayer = { x: 0, y: 4, blur: 12, spread: -2, color: "bl
 /** What + and the section's menu add, as the list's usual entries. */
 function newEntry(kind: ShadowKind | "follow", onText: boolean): ShadowEntry {
   const id = newId("shadow")
-  if (kind === "ring")
+
+  if (kind === "ring") {
     return { id, kind: "ring", width: 1, layer: { ...defaultLayer, color: "ring", alpha: undefined } }
-  if (kind === "inner") return { id, kind: "inner", token: "inset-shadow-sm", layer: defaultLayer }
-  if (kind === "follow") return { id, kind: "drop", follow: true, token: "drop-shadow-md", layer: defaultLayer }
+  }
+
+  if (kind === "inner") {
+    return { id, kind: "inner", token: "inset-shadow-sm", layer: defaultLayer }
+  }
+
+  if (kind === "follow") {
+    return { id, kind: "drop", follow: true, token: "drop-shadow-md", layer: defaultLayer }
+  }
+
   return { id, kind: "drop", token: onText ? "text-shadow-sm" : "shadow-sm", layer: defaultLayer }
 }
 
@@ -120,33 +135,58 @@ export function ShadowList({
 }) {
   const ordered = inGroups(entries)
   const onText = text !== undefined && text.shadowOf === "text"
+
   const add = (kind: ShadowKind | "follow") => {
     const added = newEntry(kind, onText)
+
     if (mixed) {
       onChange([added])
+
       return
     }
+
     // Each goes on top of its kind, so Tailwind's order holds: a drop shadow on top of the drop shadows, below any rings.
     let at = -1
-    if (kind === "inner") at = 0
-    if (kind === "ring") at = ordered.findIndex((entry) => groupOf(entry) !== "inside")
+
+    if (kind === "inner") {
+      at = 0
+    }
+
+    if (kind === "ring") {
+      at = ordered.findIndex((entry) => groupOf(entry) !== "inside")
+    }
+
     if (kind === "drop") {
       at = ordered.findIndex((entry) => entry.kind === "drop" && groupOf(entry) === "outside")
-      if (at < 0) at = ordered.findIndex((entry) => groupOf(entry) === "follow")
+
+      if (at < 0) {
+        at = ordered.findIndex((entry) => groupOf(entry) === "follow")
+      }
     }
-    if (at < 0) at = ordered.length
+
+    if (at < 0) {
+      at = ordered.length
+    }
+
     onChange(inGroups([...ordered.slice(0, at), added, ...ordered.slice(at)]))
   }
+
   const fits = shadowsFitSlots(ordered, onText)
+
   const set = (id: string, change: Partial<ShadowEntry>) =>
     onChange(ordered.map((entry) => (entry.id === id ? { ...entry, ...change } : entry)))
-  const groups = (["inside", "outside", "follow"] as const).map((group) => ({
-    group,
-    rows: ordered.filter((entry) => groupOf(entry) === group)
-  }))
+
+  // A group with no shadows doesn't show.
+  const groups = (["inside", "outside", "follow"] as const).flatMap((group) => {
+    const rows = ordered.filter((entry) => groupOf(entry) === group)
+
+    return rows.length > 0 ? [{ group, rows }] : []
+  })
+
   const titles = { inside: "Inside", outside: onText ? "Outside, on the text" : "Outside", follow: "Follows the shape" }
   // Handles show where a group has two shadows or more; the others keep their room so the rows line up.
   const handles = groups.some(({ rows }) => rows.length > 1)
+
   const saveAsToken = () => {
     const box = ordered.filter((entry) => !entry.off && shadowTarget(entry, onText) === "box")
     const name = `shadow-saved-${saved.length + 1}`
@@ -162,6 +202,7 @@ export function ShadowList({
       ...ordered.filter((entry) => !box.includes(entry))
     ])
   }
+
   return (
     <PanelSection
       title="Effects"
@@ -207,40 +248,41 @@ export function ShadowList({
       )}
       {!mixed && entries.length > 0 && (
         <div className="flex flex-col gap-1">
-          {groups
-            .filter(({ rows }) => rows.length > 0)
-            .map(({ group, rows }) => (
-              <div key={group} className="flex flex-col gap-1">
-                <GroupLabel className={handles ? "px-4" : ""}>{titles[group]}</GroupLabel>
-                {rows.map((entry, index) => (
-                  <ShadowRow
-                    key={entry.id}
-                    entry={entry}
-                    index={index}
-                    group={group}
-                    tokensOnly={tokensOnly}
-                    text={text}
-                    saved={saved}
-                    startOpen={entry.id === openId}
-                    onChange={(change) => set(entry.id, change)}
-                    // A shadow moves only past another in its group, so one alone has no handle.
-                    onMove={
-                      rows.length > 1
-                        ? (from, to) => {
-                            if (to < 0 || to >= rows.length) return
-                            const reordered = moved(rows, from, to)
-                            onChange(
-                              inGroups(ordered.map((other) => (groupOf(other) === group ? reordered.shift()! : other)))
-                            )
+          {groups.map(({ group, rows }) => (
+            <div key={group} className="flex flex-col gap-1">
+              <GroupLabel className={handles ? "px-4" : ""}>{titles[group]}</GroupLabel>
+              {rows.map((entry, index) => (
+                <ShadowRow
+                  key={entry.id}
+                  entry={entry}
+                  index={index}
+                  group={group}
+                  tokensOnly={tokensOnly}
+                  text={text}
+                  saved={saved}
+                  startOpen={entry.id === openId}
+                  onChange={(change) => set(entry.id, change)}
+                  // A shadow moves only past another in its group, so one alone has no handle.
+                  onMove={
+                    rows.length > 1
+                      ? (from, to) => {
+                          if (to < 0 || to >= rows.length) {
+                            return
                           }
-                        : undefined
-                    }
-                    gutter={handles}
-                    onRemove={() => onChange(ordered.filter((other) => other.id !== entry.id))}
-                  />
-                ))}
-              </div>
-            ))}
+
+                          const reordered = moved(rows, from, to)
+                          onChange(
+                            inGroups(ordered.map((other) => (groupOf(other) === group ? reordered.shift()! : other)))
+                          )
+                        }
+                      : undefined
+                  }
+                  gutter={handles}
+                  onRemove={() => onChange(ordered.filter((other) => other.id !== entry.id))}
+                />
+              ))}
+            </div>
+          ))}
           {!fits && (
             <div className={`flex flex-col items-start gap-1 ${handles ? "px-4" : ""}`}>
               <MessageLine
@@ -262,9 +304,18 @@ export function ShadowList({
 
 /** The preview kind an entry's card is drawn as: a shadow on a card, inside it, under a shape, or on letters. */
 function cardKind(entry: ShadowEntry, onText: boolean): PreviewKind {
-  if (entry.kind === "inner" || (entry.kind === "ring" && entry.inset)) return "inset-shadow"
-  if (entry.kind === "drop" && entry.follow) return "drop-shadow"
-  if (entry.kind === "drop" && onText) return "text-shadow"
+  if (entry.kind === "inner" || (entry.kind === "ring" && entry.inset)) {
+    return "inset-shadow"
+  }
+
+  if (entry.kind === "drop" && entry.follow) {
+    return "drop-shadow"
+  }
+
+  if (entry.kind === "drop" && onText) {
+    return "text-shadow"
+  }
+
   return "shadow"
 }
 
@@ -285,9 +336,16 @@ export function ShadowCard({
   const draw = (value: ListColor) => drawListColor(value, colors)
   const kind = cardKind(entry, onText)
   let value = shadowCss(boxLayersOf(entry, saved), draw)
+
   // A drop shadow's preview takes one `drop-shadow()`'s arguments, and a text shadow's has no spread either.
-  if (kind === "drop-shadow") value = shadowCss(layersOf(entry, saved).slice(0, 1), draw, { spread: false })
-  if (kind === "text-shadow") value = shadowCss(layersOf(entry, saved), draw, { spread: false })
+  if (kind === "drop-shadow") {
+    value = shadowCss(layersOf(entry, saved).slice(0, 1), draw, { spread: false })
+  }
+
+  if (kind === "text-shadow") {
+    value = shadowCss(layersOf(entry, saved), draw, { spread: false })
+  }
+
   return <TokenMark kind={kind} value={value} />
 }
 
@@ -298,6 +356,7 @@ export function ShadowCard({
 function ShadowTokenSummary({ entry, saved }: { entry: ShadowEntry; saved: ShadowToken[] }) {
   const name = entry.token ?? ""
   const token = [...allShadowTokens, ...saved].find((option) => option.name === name)
+
   return (
     <span className="flex min-w-0 text-foreground">
       <TokenChip
@@ -342,11 +401,16 @@ function ShadowRow({
   const name = `${kindNames[entry.kind]} ${index + 1}`
   const spread = entry.kind !== "drop" || (!entry.follow && !onText)
   let summary = `${layerNumbers(entry.layer, spread)} ${colorWords(entry.layer)}`
-  if (entry.kind === "ring") summary = `${entry.width ?? 1}px ${colorWords(entry.layer)}`
+
+  if (entry.kind === "ring") {
+    summary = `${entry.width ?? 1}px ${colorWords(entry.layer)}`
+  }
+
   const types: TypeOption<ShadowKind>[] = shadowKinds.map((kind) => ({
     value: kind,
     label: kind === "ring" && entry.kind === "ring" && entry.inset ? "Inset ring" : kindNames[kind]
   }))
+
   return (
     <ListRow
       name={name}
@@ -422,6 +486,7 @@ export function ShadowEditor({
   const layer = entry.layer
   const setLayer = (change: Partial<ShadowLayer>) => onChange({ layer: { ...layer, ...change } })
   const spread = entry.kind === "inner" || (entry.kind === "drop" && !entry.follow && !onText)
+
   if (entry.kind === "ring") {
     return (
       <div className="flex flex-col gap-2">
@@ -461,7 +526,9 @@ export function ShadowEditor({
       </div>
     )
   }
+
   const token = entry.token
+
   return (
     <div className="flex flex-col gap-2">
       <Field label="Token">
@@ -555,7 +622,9 @@ export function ShadowEditor({
             aria-label="Shadow of"
             value={[text.shadowOf]}
             onValueChange={([shadowOf]) => {
-              if (shadowOf === "text" || shadowOf === "box") text.onShadowOf(shadowOf)
+              if (shadowOf === "text" || shadowOf === "box") {
+                text.onShadowOf(shadowOf)
+              }
             }}
           >
             <Hint label="Text" detail="Shadows the letters: text-shadow">
@@ -594,26 +663,49 @@ function ShadowTokenField({
   const name = entry.token
   const token = tokens.find((option) => option.name === name)
   const shortName = (option: ShadowToken) => option.name.slice(shadowNamespace(option.name)?.length ?? 0)
+
   const pick = (next: string | undefined) => {
-    if (next === undefined) detach(entry, saved, onChange)
-    else if (next !== name) onChange({ token: next, colorOverride: undefined })
+    if (next === undefined) {
+      detach(entry, saved, onChange)
+    } else if (next !== name) {
+      onChange({ token: next, colorOverride: undefined })
+    }
   }
+
   const read = (text: string): Reading<string | undefined> => {
     const trimmed = text.trim()
-    if (trimmed === "") return { value: name }
+
+    if (trimmed === "") {
+      return { value: name }
+    }
+
     const named = tokens.find((option) => option.name === trimmed || shortName(option) === trimmed)
-    if (named) return { value: named.name }
+
+    if (named) {
+      return { value: named.name }
+    }
+
     const example = tokens[0] ? `, such as ${shortName(tokens[0])}` : ""
+
     return { reason: `Enter a token's name${example}` }
   }
+
   const step = (up: boolean, { shift }: ScrubKeys) => {
-    if (!token) return
+    if (!token) {
+      return
+    }
+
     // A token steps to the next of its kind in scale order; Shift goes to the first or last.
     const last = tokens.length - 1
     let next = Math.min(last, Math.max(0, tokens.indexOf(token) + (up ? 1 : -1)))
-    if (shift) next = up ? last : 0
+
+    if (shift) {
+      next = up ? last : 0
+    }
+
     pick(tokens[next]!.name)
   }
+
   return (
     <ValueField
       label="Shadow token"
@@ -669,6 +761,7 @@ function TokenParts({
   const own = token?.layers[0] ?? entry.layer
   const color: ListColor = entry.colorOverride ?? { color: own.color, alpha: own.alpha }
   const overridden = entry.colorOverride !== undefined
+
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="flex flex-col gap-1">
       <CollapsibleTrigger className="flex items-center gap-1 self-start rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
@@ -747,6 +840,7 @@ export function ShadowPreview({
   const { tokens: colors } = useTokens("color")
   const draw = (value: ListColor) => drawListColor(value, colors)
   const drawing = shadowDrawing(entries, draw, saved)
+
   const boxShadow = onText
     ? shadowDrawing(
         entries.filter((entry) => entry.kind !== "drop"),
@@ -754,12 +848,14 @@ export function ShadowPreview({
         saved
       ).boxShadow
     : drawing.boxShadow
+
   return (
     <Card
       style={{
         borderRadius: 12,
         fontWeight: 600,
-        ...(onText ? { fontSize: 30, lineHeight: "36px" } : {}),
+        fontSize: onText ? 30 : undefined,
+        lineHeight: onText ? "36px" : undefined,
         background: filled ? "white" : undefined,
         boxShadow: boxShadow || undefined,
         filter: drawing.dropShadow || undefined,

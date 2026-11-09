@@ -20,6 +20,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A landscape to place in a frame that crops it, so its position shows. */
@@ -30,6 +31,7 @@ const landscape = `data:image/svg+xml,${encodeURIComponent(
 function Position({ which, start }: { which: "origin" | "object"; start?: BoxPoint }) {
   const [position, setPosition] = useState(start)
   const shown = position ?? { x: 50, y: 50 }
+
   const preview =
     which === "origin" ? (
       <TransformPreview value={{ scaleX: 80, scaleY: 80, origin: position }} />
@@ -44,7 +46,9 @@ function Position({ which, start }: { which: "origin" | "object"; start?: BoxPoi
         <p className="type-description text-muted-foreground">Fill (cover) crops it; Position picks what stays.</p>
       </div>
     )
+
   const label = which === "origin" ? "Origin" : "Position"
+
   return (
     <Playground writes={positionWrites(which, position)} preview={preview}>
       <Field

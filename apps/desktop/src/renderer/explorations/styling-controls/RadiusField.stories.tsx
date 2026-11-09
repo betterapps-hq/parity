@@ -21,6 +21,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Radius({
@@ -35,11 +36,12 @@ function Radius({
   hover?: boolean
 }) {
   const [draft, set] = useDraft(start)
-  const written = mixed && draft.radius === undefined ? mixedWrites : radiusWrites(draft.radius, draft.cornerShape)
+  const written = mixed && draft.radius === undefined ? mixedWrites : radiusWrites(draft.radius, draft.cornerStyle)
+
   return (
     <Playground
       writes={hover ? inState(written, "hover") : written}
-      preview={<CardPreview draft={{ ...draft, background: "card" }} cornerShape={draft.cornerShape} />}
+      preview={<CardPreview draft={{ ...draft, background: "card" }} cornerStyle={draft.cornerStyle} />}
     >
       <AppearanceSection
         draft={draft}
@@ -93,8 +95,8 @@ export const Deprecated: Story = { render: () => <Radius start={{ radius: "radiu
 export const MissingToken: Story = { render: () => <Radius start={{ radius: "radius-pill" }} /> }
 
 /** A squircle: Corner shape, from the button beside Each corner, is Chromium only (†); others draw round corners. */
-export const CornerShape: Story = {
-  render: () => <Radius start={{ radius: "radius-2xl", cornerShape: "squircle" }} />
+export const Squircle: Story = {
+  render: () => <Radius start={{ radius: "radius-2xl", cornerStyle: "squircle" }} />
 }
 
 /** `-4` typed and Enter pressed: CSS takes no negative radius, so it's refused, with the reason under it. */

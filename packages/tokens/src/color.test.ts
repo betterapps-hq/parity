@@ -59,6 +59,7 @@ describe("oklch()", () => {
 
   it("brings a color outside sRGB into it", () => {
     const vivid = parseOklch("oklch(0.7 0.4 150)")!
+
     for (const channel of [vivid.r, vivid.g, vivid.b]) {
       expect(channel).toBeGreaterThanOrEqual(0)
       expect(channel).toBeLessThanOrEqual(1)

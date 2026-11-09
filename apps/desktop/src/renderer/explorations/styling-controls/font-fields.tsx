@@ -44,15 +44,23 @@ import {
 function stepThrough<T extends { name: string }>(list: readonly T[], at: T, up: boolean, { shift }: ScrubKeys): T {
   const last = list.length - 1
   let index = clamp(list.indexOf(at) + (up ? 1 : -1), 0, last)
-  if (shift) index = up ? last : 0
+
+  if (shift) {
+    index = up ? last : 0
+  }
+
   return list[index] ?? at
 }
 
 /** What a font value draws as: its first family's name, its stack, its token, and whether the frame can load it. */
 export function resolveFont(value: FontValue | undefined, tokens: readonly FontToken[] = fontTokens) {
-  if (value === undefined) return undefined
+  if (value === undefined) {
+    return undefined
+  }
+
   if ("token" in value) {
     const token = tokens.find((each) => each.name === value.token)
+
     return {
       name: token?.detail ?? value.token,
       stack: token?.stack ?? "sans-serif",
@@ -60,14 +68,17 @@ export function resolveFont(value: FontValue | undefined, tokens: readonly FontT
       missing: false
     }
   }
+
   const first = stackFamilies(value.stack)[0] ?? ""
   const generic = ["serif", "sans-serif", "monospace", "system-ui"].includes(first)
+
   return { name: first, stack: value.stack, token: undefined, missing: !generic && findFont(first) === undefined }
 }
 
 /** The project's font token nearest a stack: the first with the same generic family. */
 function nearestFontToken(stack: string, tokens: readonly FontToken[]): FontToken | undefined {
   const generic = genericOf(stack)
+
   return tokens.find((token) => genericOf(token.stack) === generic) ?? tokens[0]
 }
 
@@ -103,73 +114,110 @@ export function FontFamilyField({
   const { tokens, create } = useTokens("font")
   // What Add font says it'll do, under the row.
   const [note, setNote] = useState<Message>()
+
   const change = (next: FontValue | undefined) => {
     setNote(undefined)
     onChange(next)
   }
+
   const resolved = resolveFont(value, tokens)
   const held = value !== undefined && "token" in value ? value.token : undefined
   const heldToken = tokens.find((token) => token.name === held)
   const own = value !== undefined && "stack" in value ? value : undefined
+
   const fonts: FontOption[] = [
     ...tokens.map((token) => ({ name: token.detail, stack: token.stack, token: token.name })),
     ...(tokensOnly ? [] : moreFonts)
   ]
+
   const valueOf = (font: FontOption): FontValue =>
     font.token === undefined ? { stack: font.stack } : { token: font.token }
+
   const options = (text: string): (SearchOption & { value: FontValue })[] => {
     // A comma means a stack, kept as typed, so the list steps aside.
-    if (text.includes(",")) return []
+    if (text.includes(",")) {
+      return []
+    }
+
     const searched = text.trim().toLowerCase()
-    return fonts
-      .filter(
-        (font) =>
-          searched === "" ||
-          font.name.toLowerCase().includes(searched) ||
-          (font.token !== undefined && font.token.includes(searched))
-      )
-      .map((font) => ({
-        key: `${font.token ?? ""}${font.name}`,
-        value: valueOf(font),
-        group: font.token === undefined ? "More fonts, added to the project when chosen" : "In the project",
-        content: (
-          <>
-            <span className="text-sm" style={{ fontFamily: font.stack }}>
-              {font.name}
-            </span>
-            {font.token !== undefined && (
-              <span className="font-mono text-2xs text-muted-foreground">font-{font.token}</span>
-            )}
-          </>
-        )
-      }))
+
+    return fonts.flatMap((font) => {
+      const found =
+        searched === "" ||
+        font.name.toLowerCase().includes(searched) ||
+        (font.token !== undefined && font.token.includes(searched))
+
+      if (!found) {
+        return []
+      }
+
+      return [
+        {
+          key: `${font.token ?? ""}${font.name}`,
+          value: valueOf(font),
+          group: font.token === undefined ? "More fonts, added to the project when chosen" : "In the project",
+          content: (
+            <>
+              <span className="text-sm" style={{ fontFamily: font.stack }}>
+                {font.name}
+              </span>
+              {font.token !== undefined && (
+                <span className="font-mono text-2xs text-muted-foreground">font-{font.token}</span>
+              )}
+            </>
+          )
+        }
+      ]
+    })
   }
+
   const read = (text: string): Reading<FontValue | undefined> => {
     const typed = text.trim()
-    if (typed === "") return { value: undefined }
+
+    if (typed === "") {
+      return { value: undefined }
+    }
+
     if (!typed.includes(",")) {
       const words = typed.toLowerCase()
+
       const named = fonts.find(
         (font) =>
           font.name.toLowerCase() === words ||
           (font.token !== undefined && (font.token === words || `font-${font.token}` === words))
       )
-      if (named) return { value: valueOf(named) }
+
+      if (named) {
+        return { value: valueOf(named) }
+      }
+
       return {
         reason: `No font named ${typed}. To use it anyway, add a fallback, such as ${typed}, sans-serif`
       }
     }
+
     const near = tokensOnly ? nearestFontToken(typed, tokens) : undefined
-    if (near) return notAToken(near, () => change({ token: near.name }))
+
+    if (near) {
+      return notAToken(near, () => change({ token: near.name }))
+    }
+
     return { value: { stack: typed } }
   }
+
   const fallbacks = own ? stackFamilies(own.stack).length - 1 : 0
   let comesTo = heldToken?.detail
-  if (fallbacks > 0) comesTo = `+${fallbacks}`
+
+  if (fallbacks > 0) {
+    comesTo = `+${fallbacks}`
+  }
+
   const near = own ? nearestFontToken(own.stack, tokens) : undefined
   let missing: ReactNode
-  if (held !== undefined && !heldToken) missing = <MissingMark name={held} />
-  else if (own && resolved?.missing) {
+
+  if (held !== undefined && !heldToken) {
+    missing = <MissingMark name={held} />
+  } else if (own && resolved?.missing) {
     const fallback = genericOf(own.stack)
     missing = (
       <MissingMark
@@ -192,6 +240,7 @@ export function FontFamilyField({
       />
     )
   }
+
   return (
     <div>
       <ValueField
@@ -263,8 +312,14 @@ export function FontFamilyField({
 
 /** The weight a value comes to. */
 const weightOf = (value: WeightValue | undefined, tokens: readonly WeightToken[]): number | undefined => {
-  if (value === undefined) return undefined
-  if ("token" in value) return tokens.find((token) => token.name === value.token)?.weight
+  if (value === undefined) {
+    return undefined
+  }
+
+  if ("token" in value) {
+    return tokens.find((token) => token.name === value.token)?.weight
+  }
+
   return value.value
 }
 
@@ -278,11 +333,21 @@ export function weightFace(
   | {
       kind: "faked"
     } {
-  if (font.axis) return weight >= font.axis[0] && weight <= font.axis[1] ? { kind: "face" } : { kind: "faked" }
-  if (font.weights.includes(weight)) return { kind: "face" }
+  if (font.axis) {
+    return weight >= font.axis[0] && weight <= font.axis[1] ? { kind: "face" } : { kind: "faked" }
+  }
+
+  if (font.weights.includes(weight)) {
+    return { kind: "face" }
+  }
+
   // The browser synthesizes bold only when the font has no bold face; otherwise it draws the nearest face.
-  if (weight >= 600 && !font.weights.some((face) => face >= 600)) return { kind: "faked" }
+  if (weight >= 600 && !font.weights.some((face) => face >= 600)) {
+    return { kind: "faked" }
+  }
+
   const face = font.weights.reduce((best, each) => (Math.abs(each - weight) < Math.abs(best - weight) ? each : best))
+
   return { kind: "nearest", face }
 }
 
@@ -317,29 +382,54 @@ export function WeightField({
   const face = weightFace(font, shown)
   const faces = font.axis ? tokens.map((token) => token.weight) : font.weights
   const others = tokens.map((token) => token.weight).filter((each) => !faces.includes(each))
+
   /** The weight a typed or slid number is stored as: its token where one names it (600 is `semibold`). */
   const weightValue = (number: number): WeightValue => {
     const token = tokens.find((each) => each.weight === number)
+
     return token ? { token: token.name } : { value: number }
   }
+
   // Up and Down on the menu's button step through the font's weights, as a token steps through its scale.
   const step = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") {
+      return
+    }
+
     event.preventDefault()
     const at = faces.indexOf(shown)
     let index = at === -1 ? faces.findIndex((each) => each > shown) : at + (event.key === "ArrowUp" ? 1 : -1)
-    if (event.shiftKey) index = event.key === "ArrowUp" ? faces.length - 1 : 0
+
+    if (event.shiftKey) {
+      index = event.key === "ArrowUp" ? faces.length - 1 : 0
+    }
+
     const next = faces[clamp(index, 0, faces.length - 1)]
-    if (next !== undefined) onChange(weightValue(next))
+
+    if (next !== undefined) {
+      onChange(weightValue(next))
+    }
   }
+
   let label = weightName(shown, tokens)
-  if (mixed && value === undefined) label = "Mixed"
+
+  if (mixed && value === undefined) {
+    label = "Mixed"
+  }
+
   let faceNote: string | undefined
-  if (face.kind === "faked") faceNote = `Faked by the browser: ${font.name} has no face this heavy`
-  if (face.kind === "nearest")
+
+  if (face.kind === "faked") {
+    faceNote = `Faked by the browser: ${font.name} has no face this heavy`
+  }
+
+  if (face.kind === "nearest") {
     faceNote = `Drawn with ${weightName(face.face, tokens)}, the nearest face ${font.name} has`
+  }
+
   const tokenName = weight === undefined ? undefined : tokens.find((token) => token.weight === weight)?.name
   const italicFaked = italic === true && !font.italic
+
   const item = (each: number, faked: boolean) => (
     <button
       key={each}
@@ -358,6 +448,7 @@ export function WeightField({
       <span className="text-2xs text-muted-foreground tabular-nums">{faked ? `${each}, faked` : each}</span>
     </button>
   )
+
   return (
     <div>
       <div className="flex items-center gap-1">
@@ -365,7 +456,10 @@ export function WeightField({
           open={open}
           onOpenChange={(next) => {
             setOpen(next)
-            if (!next) onPreview(undefined)
+
+            if (!next) {
+              onPreview(undefined)
+            }
           }}
         >
           <Hint
@@ -418,9 +512,19 @@ export function WeightField({
                   selectOnFocus
                   read={(text): Reading<number> => {
                     const reading = readNumber(text, shown, "Weight")
-                    if ("reason" in reading) return { reason: reading.reason }
-                    if ("clear" in reading) return { reason: "Enter a weight from 1 to 1000" }
-                    if (reading.value < 1 || reading.value > 1000) return { reason: "Weight goes from 1 to 1000" }
+
+                    if ("reason" in reading) {
+                      return { reason: reading.reason }
+                    }
+
+                    if ("clear" in reading) {
+                      return { reason: "Enter a weight from 1 to 1000" }
+                    }
+
+                    if (reading.value < 1 || reading.value > 1000) {
+                      return { reason: "Weight goes from 1 to 1000" }
+                    }
+
                     return { value: Math.round(reading.value) }
                   }}
                   onCommit={(next) => onChange(weightValue(next))}
@@ -467,18 +571,36 @@ export function WeightField({
 type LineUnit = "×" | "px" | "%"
 
 /** What a unit typed after a line height means; em is a multiple, as CSS's line height reads it. */
-const typedUnits: Record<string, LineUnit | "em"> = { px: "px", x: "×", "×": "×", "%": "%", em: "em" }
+const typedUnits = new Map<string, LineUnit | "em">([
+  ["px", "px"],
+  ["x", "×"],
+  ["×", "×"],
+  ["%", "%"],
+  ["em", "em"]
+])
 
 /** The multiple a line height comes to at a font size, a leading token's from the project's tokens. */
 function multipleOf(lineHeight: LineHeight, fontSize: number, tokens: readonly LeadingToken[]): number {
-  if ("keyword" in lineHeight) return 1.2
-  if ("token" in lineHeight) return tokens.find((token) => token.name === lineHeight.token)?.multiple ?? 1.5
-  if ("multiple" in lineHeight) return lineHeight.multiple
+  if ("keyword" in lineHeight) {
+    return 1.2
+  }
+
+  if ("token" in lineHeight) {
+    return tokens.find((token) => token.name === lineHeight.token)?.multiple ?? 1.5
+  }
+
+  if ("multiple" in lineHeight) {
+    return lineHeight.multiple
+  }
+
   return lineHeight.px / fontSize
 }
 
 const unitOf = (lineHeight: LineHeight | undefined): LineUnit => {
-  if (lineHeight !== undefined && "px" in lineHeight) return "px"
+  if (lineHeight !== undefined && "px" in lineHeight) {
+    return "px"
+  }
+
   return "×"
 }
 
@@ -504,39 +626,82 @@ export function LineHeightField({
 }) {
   const { tokens, create } = useTokens("leading")
   const [unit, setUnit] = useState<LineUnit>(() => unitOf(value))
+
   const currentIn = (lineHeight: LineHeight | undefined, inUnit: LineUnit): number | undefined => {
-    if (lineHeight === undefined) return undefined
+    if (lineHeight === undefined) {
+      return undefined
+    }
+
     const multiple = multipleOf(lineHeight, fontSize, tokens)
-    if (inUnit === "px") return "px" in lineHeight ? lineHeight.px : Math.round(multiple * fontSize * 100) / 100
+
+    if (inUnit === "px") {
+      return "px" in lineHeight ? lineHeight.px : Math.round(multiple * fontSize * 100) / 100
+    }
+
     return inUnit === "%" ? multiple * 100 : multiple
   }
+
   const held = value !== undefined && "token" in value ? value.token : undefined
   const token = tokens.find((each) => each.name === held)
   let shown: string | undefined
-  if (value !== undefined && "keyword" in value) shown = "Auto"
-  else if (value !== undefined && held === undefined) shown = formatNumber(currentIn(value, unit) ?? 0)
+
+  if (value !== undefined && "keyword" in value) {
+    shown = "Auto"
+  } else if (value !== undefined && held === undefined) {
+    shown = formatNumber(currentIn(value, unit) ?? 0)
+  }
+
   const fromPx = (px: number): LineHeight => ({ px: Math.round(px * 100) / 100 })
+
   const read = (text: string): Reading<LineHeight | undefined> => {
     const trimmed = text.trim().toLowerCase()
-    if (trimmed === "") return { value: undefined }
-    if (trimmed === "auto" || trimmed === "normal") return { value: { keyword: "normal" } }
+
+    if (trimmed === "") {
+      return { value: undefined }
+    }
+
+    if (trimmed === "auto" || trimmed === "normal") {
+      return { value: { keyword: "normal" } }
+    }
+
     const name = trimmed.replace(/^leading-/, "")
-    if (tokens.some((each) => each.name === name)) return { value: { token: name } }
+
+    if (tokens.some((each) => each.name === name)) {
+      return { value: { token: name } }
+    }
+
     const step = /^spacing-(\d*\.?\d+)$/.exec(trimmed)?.[1]
-    if (step !== undefined) return { value: fromPx(Number(step) * 4) }
+
+    if (step !== undefined) {
+      return { value: fromPx(Number(step) * 4) }
+    }
+
     let typedUnit: LineUnit | "em" = unit
     let number = trimmed
     const suffix = /(px|x|×|%|em)$/.exec(trimmed)?.[1]
+
     if (suffix !== undefined) {
       number = trimmed.slice(0, -suffix.length)
-      typedUnit = typedUnits[suffix] ?? unit
+      typedUnit = typedUnits.get(suffix) ?? unit
     }
+
     const reading = readNumber(number, currentIn(value, typedUnit === "em" ? "×" : typedUnit), "Line height")
-    if ("reason" in reading) return { reason: `Enter a multiple (1.5), pixels (24px), a percentage or Auto` }
-    if ("clear" in reading) return { value: undefined }
-    if (reading.value < 0) return { reason: "Line height can't be negative" }
+
+    if ("reason" in reading) {
+      return { reason: `Enter a multiple (1.5), pixels (24px), a percentage or Auto` }
+    }
+
+    if ("clear" in reading) {
+      return { value: undefined }
+    }
+
+    if (reading.value < 0) {
+      return { reason: "Line height can't be negative" }
+    }
+
     if (typedUnit === "px") {
       const px = reading.value
+
       if (px > 0 && px < 4) {
         return {
           value: fromPx(px),
@@ -553,9 +718,12 @@ export function LineHeightField({
           }
         }
       }
+
       return { value: fromPx(px) }
     }
+
     const multiple = typedUnit === "%" ? reading.value / 100 : reading.value
+
     if (multiple > 4) {
       return {
         value: { multiple },
@@ -572,35 +740,53 @@ export function LineHeightField({
         }
       }
     }
+
     return { value: { multiple } }
   }
+
   const step = (up: boolean, keys: ScrubKeys) => {
     if (token) {
       onChange({ token: stepThrough(tokens, token, up, keys).name })
+
       return
     }
+
     const sign = up ? 1 : -1
+
     if (unit === "px") {
       const from = currentIn(value, "px") ?? size?.lineHeight ?? fontSize * 1.5
       onChange(fromPx(Math.max(0, Math.round(from) + sign * (keys.shift ? 10 : 1))))
+
       return
     }
+
     const from = currentIn(value, "×") ?? (size ? size.lineHeight / size.px : 1.5)
     onChange({ multiple: Math.max(0, Math.round((from + sign * (keys.shift ? 0.25 : 0.05)) * 1000) / 1000) })
   }
+
   let placeholder = "Auto"
   let comesTo = token?.detail
+
   if (value === undefined && size && !mixed) {
     placeholder = unit === "px" ? String(size.lineHeight) : formatNumber(size.lineHeight / size.px)
     comesTo = "From size"
   }
+
   // A multiple, or pixels off the spacing steps, is a value of its own, marked; whole pixels are a step.
   let own: { multiple: number } | { px: number; allow?: string } | undefined
-  if (value !== undefined && "multiple" in value) own = value
-  if (value !== undefined && "px" in value && !("step" in lengthForm(value.px))) own = value
+
+  if (value !== undefined && "multiple" in value) {
+    own = value
+  }
+
+  if (value !== undefined && "px" in value && !("step" in lengthForm(value.px))) {
+    own = value
+  }
+
   const multiple = multipleOf(value ?? { multiple: 1.5 }, fontSize, tokens)
   const nearest = nearestToken(tokens, (each) => each.multiple, multiple)
   const auto = value !== undefined && "keyword" in value
+
   return (
     <ValueField
       label="Line height"
@@ -637,9 +823,16 @@ export function LineHeightField({
             extra={{ label: "Auto (normal)", run: () => onChange({ keyword: "normal" }) }}
             onUnit={(next) => {
               setUnit(next)
-              if (value === undefined) return
-              if (next === "px") onChange(fromPx(currentIn(value, "px") ?? 0))
-              else onChange({ multiple: currentIn(value, "×") ?? 1.5 })
+
+              if (value === undefined) {
+                return
+              }
+
+              if (next === "px") {
+                onChange(fromPx(currentIn(value, "px") ?? 0))
+              } else {
+                onChange({ multiple: currentIn(value, "×") ?? 1.5 })
+              }
             }}
           />
         )
@@ -670,8 +863,12 @@ export function LineHeightField({
       }}
       read={read}
       onCommit={(next) => {
-        if (next !== undefined && "px" in next) setUnit("px")
-        else if (next !== undefined && "multiple" in next && unit === "px") setUnit("×")
+        if (next !== undefined && "px" in next) {
+          setUnit("px")
+        } else if (next !== undefined && "multiple" in next && unit === "px") {
+          setUnit("×")
+        }
+
         onChange(next)
       }}
       onStep={step}
@@ -705,18 +902,39 @@ export function FontSizeField({
   const token = tokens.find((each) => each.name === held)
   const own = value !== undefined && "px" in value ? value : undefined
   const px = value === undefined ? undefined : sizePx(value, tokens)
+
   const read = (text: string): Reading<FontSize | undefined> => {
     const trimmed = text.trim().toLowerCase()
-    if (trimmed === "") return { value: undefined }
+
+    if (trimmed === "") {
+      return { value: undefined }
+    }
+
     const name = trimmed.replace(/^text-/, "")
-    if (tokens.some((each) => each.name === name)) return { value: { token: name } }
+
+    if (tokens.some((each) => each.name === name)) {
+      return { value: { token: name } }
+    }
+
     const reading = readNumber(trimmed.replace(/px$/, ""), px, "Size")
-    if ("reason" in reading) return { reason: "Enter pixels, such as 20, or a text size token" }
-    if ("clear" in reading) return { value: undefined }
-    if (reading.value <= 0) return { reason: "Enter a number above 0" }
+
+    if ("reason" in reading) {
+      return { reason: "Enter pixels, such as 20, or a text size token" }
+    }
+
+    if ("clear" in reading) {
+      return { value: undefined }
+    }
+
+    if (reading.value <= 0) {
+      return { reason: "Enter a number above 0" }
+    }
+
     return { value: { px: Math.round(reading.value * 100) / 100 } }
   }
+
   const nearest = px === undefined ? undefined : nearestToken(tokens, (each) => each.px, px)
+
   return (
     <ValueField
       label="Size"
@@ -776,8 +994,10 @@ export function FontSizeField({
       onStep={(up, keys) => {
         if (token) {
           onChange({ token: stepThrough(tokens, token, up, keys).name })
+
           return
         }
+
         const by = keys.shift ? 10 : 1
         onChange({ px: Math.max(1, (px ?? inherited) + (up ? by : -by)) })
       }}
@@ -789,8 +1009,14 @@ type SpacingUnit = "%" | "em" | "px"
 
 /** Letter spacing in em: a token's, a value's, or pixels at the font size. */
 function emOf(spacing: LetterSpacing, fontSize: number, tokens: readonly TrackingToken[]): number {
-  if ("token" in spacing) return tokens.find((token) => token.name === spacing.token)?.em ?? 0
-  if ("em" in spacing) return spacing.em
+  if ("token" in spacing) {
+    return tokens.find((token) => token.name === spacing.token)?.em ?? 0
+  }
+
+  if ("em" in spacing) {
+    return spacing.em
+  }
+
   return spacing.px / fontSize
 }
 
@@ -814,41 +1040,77 @@ export function LetterSpacingField({
 }) {
   const { tokens, create } = useTokens("tracking")
   const [unit, setUnit] = useState<SpacingUnit>(() => (value !== undefined && "px" in value ? "px" : "%"))
+
   const currentIn = (spacing: LetterSpacing | undefined, inUnit: SpacingUnit): number | undefined => {
-    if (spacing === undefined) return undefined
-    if (inUnit === "px")
+    if (spacing === undefined) {
+      return undefined
+    }
+
+    if (inUnit === "px") {
       return "px" in spacing ? spacing.px : Math.round(emOf(spacing, fontSize, tokens) * fontSize * 100) / 100
+    }
+
     const em = emOf(spacing, fontSize, tokens)
+
     return inUnit === "%" ? Math.round(em * 100_000) / 1000 : em
   }
+
   const held = value !== undefined && "token" in value ? value.token : undefined
   const token = tokens.find((each) => each.name === held)
   const shown = value === undefined || held !== undefined ? undefined : formatNumber(currentIn(value, unit) ?? 0)
+
   const store = (number: number, inUnit: SpacingUnit): LetterSpacing => {
-    if (inUnit === "px") return { px: Math.round(number * 100) / 100 }
+    if (inUnit === "px") {
+      return { px: Math.round(number * 100) / 100 }
+    }
+
     return { em: Math.round((inUnit === "%" ? number / 100 : number) * 10_000) / 10_000 }
   }
+
   const read = (text: string): Reading<LetterSpacing | undefined> => {
     const trimmed = text.trim().toLowerCase()
-    if (trimmed === "") return { value: undefined }
+
+    if (trimmed === "") {
+      return { value: undefined }
+    }
+
     const name = trimmed.replace(/^tracking-/, "")
-    if (tokens.some((each) => each.name === name)) return { value: { token: name } }
+
+    if (tokens.some((each) => each.name === name)) {
+      return { value: { token: name } }
+    }
+
     let typedUnit = unit
     let number = trimmed
     const suffix = /(px|%|em)$/.exec(trimmed)?.[1]
+
     if (suffix === "px" || suffix === "%" || suffix === "em") {
       number = trimmed.slice(0, -suffix.length)
       typedUnit = suffix
     }
+
     const reading = readNumber(number.replaceAll("−", "-"), currentIn(value, typedUnit), "Letter spacing")
-    if ("reason" in reading) return { reason: "Enter a percentage, em, pixels or a tracking token" }
-    if ("clear" in reading) return { value: undefined }
-    if (typedUnit === "px") setUnit("px")
-    else if (unit === "px") setUnit(typedUnit)
+
+    if ("reason" in reading) {
+      return { reason: "Enter a percentage, em, pixels or a tracking token" }
+    }
+
+    if ("clear" in reading) {
+      return { value: undefined }
+    }
+
+    if (typedUnit === "px") {
+      setUnit("px")
+    } else if (unit === "px") {
+      setUnit(typedUnit)
+    }
+
     return { value: store(reading.value, typedUnit) }
   }
+
   const em = value === undefined ? 0 : emOf(value, fontSize, tokens)
   const nearest = nearestToken(tokens, (each) => each.em, em)
+
   return (
     <ValueField
       label="Letter spacing"
@@ -883,7 +1145,10 @@ export function LetterSpacingField({
           ]}
           onUnit={(next) => {
             setUnit(next)
-            if (value !== undefined) onChange(store(currentIn(value, next) ?? 0, next))
+
+            if (value !== undefined) {
+              onChange(store(currentIn(value, next) ?? 0, next))
+            }
           }}
         />
       }
@@ -903,8 +1168,13 @@ export function LetterSpacingField({
                 }),
               allowed: value.allow,
               onAllow: (allow) => {
-                if ("em" in value) onChange({ em: value.em, allow })
-                if ("px" in value) onChange({ px: value.px, allow })
+                if ("em" in value) {
+                  onChange({ em: value.em, allow })
+                }
+
+                if ("px" in value) {
+                  onChange({ px: value.px, allow })
+                }
               }
             }
       }
@@ -918,8 +1188,10 @@ export function LetterSpacingField({
       onStep={(up, keys) => {
         if (token) {
           onChange({ token: stepThrough(tokens, token, up, keys).name })
+
           return
         }
+
         const by = { "%": keys.shift ? 2.5 : 0.5, em: keys.shift ? 0.025 : 0.005, px: keys.shift ? 2.5 : 0.5 }[unit]
         onChange(store((currentIn(value, unit) ?? 0) + (up ? by : -by), unit))
       }}

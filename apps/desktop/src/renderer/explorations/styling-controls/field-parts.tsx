@@ -42,6 +42,7 @@ import {
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
+import { numberValue, textValue } from "../../chrome/prop-values.ts"
 import { moving, onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
 import { useRowScrub } from "./field-row.tsx"
@@ -81,9 +82,18 @@ export function readNumber(
 ): { value: number } | { clear: true } | { reason: string } {
   const rules = { kind: "number" as const, label }
   const outcome = applyFieldInput(readFieldInput(text, rules), current, rules)
-  if (!outcome.ok) return { reason: outcome.reason }
-  if (typeof outcome.value !== "number") return { clear: true }
-  return { value: Math.round(outcome.value * 10_000) / 10_000 }
+
+  if (!outcome.ok) {
+    return { reason: outcome.reason }
+  }
+
+  const number = numberValue.safeParse(outcome.value).data
+
+  if (number === undefined) {
+    return { clear: true }
+  }
+
+  return { value: Math.round(number * 10_000) / 10_000 }
 }
 
 /**
@@ -103,15 +113,30 @@ export function readUnitNumber(
 ): { value: number } | { reason: string } {
   const trimmed = text.trim()
   const cannot = { reason: `Can't read "${trimmed}". ${takes}` }
+
   // A percentage is a share of a length, which a field in its own units doesn't take.
-  if (trimmed.includes("%")) return cannot
+  if (trimmed.includes("%")) {
+    return cannot
+  }
+
   const withUnit = /^(.*[\d.)])\s*([a-z°]+)$/i.exec(trimmed)
   const unit = withUnit?.[2]?.toLowerCase().replace("°", "deg")
   const factor = unit === undefined ? 1 : units[unit]
-  if (factor === undefined) return cannot
+
+  if (factor === undefined) {
+    return cannot
+  }
+
   const reading = readNumber(withUnit?.[1] ?? trimmed, current / factor, label)
-  if ("clear" in reading) return cannot
-  if ("reason" in reading) return reading.reason.startsWith("Can't read") ? cannot : reading
+
+  if ("clear" in reading) {
+    return cannot
+  }
+
+  if ("reason" in reading) {
+    return reading.reason.startsWith("Can't read") ? cannot : reading
+  }
+
   return { value: Math.round(reading.value * factor * 10_000) / 10_000 }
 }
 
@@ -149,27 +174,42 @@ export function useTyped<T>({
   const [ownMessage, setOwnMessage] = useState<Message>()
   const [failed, setFailed] = useState(false)
   const message = line ? line.message : ownMessage
+
   const setMessage = (next: Message | undefined) => {
     setFailed(next?.tone === "error")
     // Once its answer is taken ("Use 24px", the nearest token), the message has been answered, so it goes.
     const action = next?.action
     const said = next && action ? { ...next, action: { ...action, run: () => answer(action) } } : next
-    if (line) line.onMessage(said)
-    else setOwnMessage(said)
+
+    if (line) {
+      line.onMessage(said)
+    } else {
+      setOwnMessage(said)
+    }
   }
+
   const answer = (action: MessageAction) => {
     action.run()
     setTyped(undefined)
     setMessage(undefined)
   }
+
   const error = failed
   const named = backTo ?? (shown || "unset")
   // What's put back, said under the field: the value kept, with the field's name where fields share a line.
   let kept = named === "unset" ? "Left unset." : `Reverted to ${named}.`
-  if (line) kept = named === "unset" ? `${label} left unset.` : `${label} reverted to ${named}.`
+
+  if (line) {
+    kept = named === "unset" ? `${label} left unset.` : `${label} reverted to ${named}.`
+  }
+
   const commit = (leaving: boolean): boolean => {
-    if (typed === undefined) return true
+    if (typed === undefined) {
+      return true
+    }
+
     const outcome = read(typed)
+
     if ("value" in outcome) {
       onCommit(outcome.value)
       setMessage(outcome.message)
@@ -181,11 +221,15 @@ export function useTyped<T>({
       })
     } else {
       setMessage({ tone: "error", text: outcome.reason, action: outcome.action })
+
       return false
     }
+
     setTyped(undefined)
+
     return true
   }
+
   return {
     text: typed ?? shown,
     typed,
@@ -200,20 +244,27 @@ export function useTyped<T>({
       onChange: (event: { target: { value: string } }) => setTyped(event.target.value),
       onFocus: () => {
         setFocused(true)
-        if (message?.tone === "note" && message.action === undefined) setMessage(undefined)
+
+        if (message?.tone === "note" && message.action === undefined) {
+          setMessage(undefined)
+        }
       },
       onBlur: () => {
         setFocused(false)
         commit(true)
       },
       onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === "Enter" && commit(false)) event.currentTarget.blur()
+        if (event.key === "Enter" && commit(false)) {
+          event.currentTarget.blur()
+        }
+
         if (event.key === "Escape" && typed !== undefined) {
           event.stopPropagation()
           setTyped(undefined)
           // Escape is asked for, so putting the value back says nothing; it clears what was said.
           setMessage(undefined)
         }
+
         if (onStep && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
           event.preventDefault()
           setTyped(undefined)
@@ -239,7 +290,10 @@ function ReasonBox({ reason, onReason }: { reason: string; onReason: (reason: st
       value={reason}
       onChange={(event) => onReason(event.target.value)}
       onKeyDown={(event) => {
-        if (event.key !== "Enter" || event.shiftKey) return
+        if (event.key !== "Enter" || event.shiftKey) {
+          return
+        }
+
         event.preventDefault()
         event.currentTarget.form?.requestSubmit()
       }}
@@ -250,8 +304,12 @@ function ReasonBox({ reason, onReason }: { reason: string; onReason: (reason: st
 
 /** What a field says under its row, with its answer button when it asks something. It spans a grid's row. */
 export function MessageLine({ message }: { message: Message | undefined }) {
-  if (!message) return null
+  if (!message) {
+    return null
+  }
+
   const error = message.tone === "error"
+
   return (
     <p
       role={error ? "alert" : "status"}
@@ -277,7 +335,7 @@ export function MessageLine({ message }: { message: Message | undefined }) {
  * What Tokens only says of a value of its own: "Not a token. Nearest:" and the nearest token as the answer, as a
  * reading's reason for what's typed, or a message for a value already there.
  */
-export function notAToken(nearest: FieldToken, onUse: () => void): { reason: string; action: MessageAction } {
+export function notAToken(nearest: FieldToken, onUse: () => void) {
   return { reason: "Not a token. Nearest:", action: { label: `${nearest.name} (${nearest.detail})`, run: onUse } }
 }
 
@@ -285,7 +343,7 @@ export function notAToken(nearest: FieldToken, onUse: () => void): { reason: str
  * What Tokens only says of a value off a field's steps, where the steps are on the system, as a side's whole pixels
  * are: "Not a step. Nearest:" and the nearest step (`14px`) as the answer. A field's `refusal` takes it.
  */
-export function notAStep(nearest: string, onUse: () => void): { reason: string; action: MessageAction } {
+export function notAStep(nearest: string, onUse: () => void) {
   return { reason: "Not a step. Nearest:", action: { label: nearest, run: onUse } }
 }
 
@@ -316,11 +374,22 @@ export interface Scrub {
 }
 
 function scrubbed(start: number, dx: number, keys: ScrubKeys, by: ScrubBy): number {
-  if ("move" in by) return by.move(start, dx, keys)
-  if ("spacing" in by) return stepSpacing(start, scrubSteps(dx, keys.shift))
+  if ("move" in by) {
+    return by.move(start, dx, keys)
+  }
+
+  if ("spacing" in by) {
+    return stepSpacing(start, scrubSteps(dx, keys.shift))
+  }
+
   let per = by.step
-  if (keys.shift) per = by.shiftStep
-  else if (keys.alt && by.altStep !== undefined) per = by.altStep
+
+  if (keys.shift) {
+    per = by.shiftStep
+  } else if (keys.alt && by.altStep !== undefined) {
+    per = by.altStep
+  }
+
   return start + Math.trunc(dx) * per
 }
 
@@ -335,7 +404,10 @@ export function scrub(
   by: ScrubBy
 ): (event: ReactPointerEvent<Element>) => void {
   return (event) => {
-    if (event.button !== 0) return
+    if (event.button !== 0) {
+      return
+    }
+
     event.preventDefault()
     const start = from()
     drag(event, {
@@ -381,10 +453,14 @@ export function drag(
     press?: boolean
   }
 ): void {
-  if (event.button !== 0) return
+  if (event.button !== 0) {
+    return
+  }
+
   const target = event.currentTarget
   const box = (within ?? target).getBoundingClientRect()
   const start = { x: event.clientX, y: event.clientY }
+
   const at = (pointer: { clientX: number; clientY: number; shiftKey: boolean; altKey: boolean }): DragPoint => ({
     clientX: pointer.clientX,
     clientY: pointer.clientY,
@@ -395,20 +471,30 @@ export function drag(
     shift: pointer.shiftKey,
     alt: pointer.altKey
   })
+
   let last = at(event)
   target.setPointerCapture(event.pointerId)
-  if (press) move(last)
+
+  if (press) {
+    move(last)
+  }
+
   const onMove = (moveEvent: Event) => {
-    if (!(moveEvent instanceof MouseEvent)) return
+    if (!(moveEvent instanceof MouseEvent)) {
+      return
+    }
+
     last = at(moveEvent)
     move(last)
   }
+
   const stop = (cancelled: boolean) => {
     target.removeEventListener("pointermove", onMove)
     target.removeEventListener("pointerup", onUp)
     target.removeEventListener("pointercancel", onCancel)
     end?.(last, cancelled)
   }
+
   const onUp = () => stop(false)
   const onCancel = () => stop(true)
   target.addEventListener("pointermove", onMove)
@@ -433,6 +519,7 @@ export function fieldBox(error: boolean, extra = ""): string {
   const ring = error
     ? "ring-1 ring-destructive"
     : "hover:not-focus-within:ring-1 hover:not-focus-within:ring-border focus-within:ring-1 focus-within:ring-ring"
+
   return `group/field relative flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-muted px-2 text-xs ring-inset dark:bg-input/40 ${ring} ${extra}`
 }
 
@@ -461,6 +548,7 @@ function bareBox(error: boolean, extra: string): string {
   const edge = error
     ? "border-destructive focus-within:ring-destructive/40"
     : "border-transparent hover:border-input focus-within:border-input focus-within:ring-ring"
+
   return `group/field flex h-6 min-w-0 items-center justify-center gap-1 rounded-md border bg-transparent px-1 text-xs focus-within:ring-2 ${edge} ${extra}`
 }
 
@@ -505,7 +593,10 @@ export function UnitMenu<U extends string>({
           value={unit}
           onValueChange={(next) => {
             const chosen = units.find((each) => each.unit === next)
-            if (chosen) onUnit(chosen.unit)
+
+            if (chosen) {
+              onUnit(chosen.unit)
+            }
           }}
         >
           {units.map((each) => (
@@ -552,6 +643,7 @@ export function MissingMark({
   actions?: readonly { label: string; run: () => void }[]
 }) {
   const [open, setOpen] = useState(false)
+
   if (!actions || actions.length === 0) {
     return (
       <Hint label={`${name} is missing`} detail={description}>
@@ -561,6 +653,7 @@ export function MissingMark({
       </Hint>
     )
   }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Hint label={`${name} is missing`} detail={description}>
@@ -603,6 +696,7 @@ export function DeprecatedMark({
   onReplace?: () => void
 }) {
   const said = `${name} is deprecated. Use ${replacement} instead`
+
   return (
     <Hint label={`${name} is deprecated`} detail={`Use ${replacement} instead`}>
       {onReplace ? (
@@ -675,11 +769,13 @@ export function OffSystemMark({
   const [name, setName] = useState<string>()
   const [reason, setReason] = useState<string>()
   const taken = name !== undefined && isTaken(name.trim())
+
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) {
           setName(undefined)
           setReason(undefined)
@@ -718,7 +814,11 @@ export function OffSystemMark({
             className="flex flex-col gap-1 px-1 py-1"
             onSubmit={(event) => {
               event.preventDefault()
-              if (!name.trim() || taken) return
+
+              if (!name.trim() || taken) {
+                return
+              }
+
               onCreate(name.trim())
               setOpen(false)
             }}
@@ -757,7 +857,11 @@ export function OffSystemMark({
             className="flex flex-col gap-1 px-1 py-1"
             onSubmit={(event) => {
               event.preventDefault()
-              if (!reason.trim()) return
+
+              if (!reason.trim()) {
+                return
+              }
+
               onAllow(reason.trim())
               setOpen(false)
             }}
@@ -841,6 +945,8 @@ export function TokenMark({
   height?: number
   playing?: boolean
 }) {
+  const sheet = onPaper.has(kind)
+
   return (
     <span
       aria-hidden
@@ -848,7 +954,8 @@ export function TokenMark({
       style={{
         width,
         height,
-        ...(onPaper.has(kind) ? { background: paper.sheet, boxShadow: `inset 0 0 0 1px ${paper.edge}` } : {})
+        background: sheet ? paper.sheet : undefined,
+        boxShadow: sheet ? `inset 0 0 0 1px ${paper.edge}` : undefined
       }}
     >
       <TokenArt
@@ -867,6 +974,7 @@ export function TokenMark({
  */
 export function useLiveRow() {
   const [current, setCurrent] = useState<string>()
+
   return {
     live: (name: string | undefined) => name !== undefined && current === name,
     rowProps: (name: string | undefined) => ({
@@ -955,14 +1063,17 @@ export function TokenChip({
   // In a field, the pill is the name alone, but for a preview the field passes (a color's swatch); outside a field, a
   // list entry's carries the kind's preview.
   let drawn = fill ? undefined : preview
+
   if (drawn === undefined && token && !fill && !onOpen) {
     drawn = <TokenMark kind={token.kind} value={token.value} name={token.name} width={20} height={14} />
   }
+
   const replacement = token?.deprecated
   let tone = "bg-foreground/10 hover:bg-foreground/15"
   let hintLabel = name
   let hintDetail = token?.detail
   let named = `${label ? `${label}: ` : ""}${name}`
+
   if (struck) {
     tone = "bg-destructive/15 text-destructive hover:bg-destructive/25"
     hintLabel = `${name} is missing`
@@ -973,6 +1084,7 @@ export function TokenChip({
     hintLabel = `${name} is replaced by ${replacement}`
     named += `, replaced by ${replacement}`
   }
+
   const content = (
     <>
       {drawn}
@@ -980,6 +1092,7 @@ export function TokenChip({
       {detail && <span className="shrink-0 text-muted-foreground">{detail}</span>}
     </>
   )
+
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (onType && event.key.length === 1 && event.key !== " " && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault()
@@ -995,6 +1108,7 @@ export function TokenChip({
       onStep(event.key === "ArrowUp", { shift: event.shiftKey, alt: false })
     }
   }
+
   const main = onOpen ? (
     <button
       type="button"
@@ -1006,8 +1120,12 @@ export function TokenChip({
       onClick={() => {
         const first = !wasFocused.current
         wasFocused.current = true
-        if (first && focusField) focusField.focus()
-        else onOpen()
+
+        if (first && focusField) {
+          focusField.focus()
+        } else {
+          onOpen()
+        }
       }}
       className="flex h-full min-w-0 items-center gap-1 rounded px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
@@ -1016,6 +1134,7 @@ export function TokenChip({
   ) : (
     <span className="flex min-w-0 items-center gap-1 px-1.5">{content}</span>
   )
+
   return (
     <span
       className={`group/chip relative flex h-5 ${fill ? "min-w-0 shrink" : "max-w-full min-w-0 shrink"} items-center rounded text-xs ${tone}`}
@@ -1103,8 +1222,14 @@ function RowMark({
   noneValue?: string
   playing: boolean
 }) {
-  if (token) return <TokenMark kind={token.kind} value={token.value} name={token.name} playing={playing} />
-  if (kind !== undefined && noneValue !== undefined) return <TokenMark kind={kind} value={noneValue} />
+  if (token) {
+    return <TokenMark kind={token.kind} value={token.value} name={token.name} playing={playing} />
+  }
+
+  if (kind !== undefined && noneValue !== undefined) {
+    return <TokenMark kind={kind} value={noneValue} />
+  }
+
   return <span aria-hidden className="block h-4 w-6 shrink-0" />
 }
 
@@ -1115,21 +1240,28 @@ function RowMark({
  */
 export function TokenList({ label, tokens, current, none, noneValue, own = false, onPick }: TokenListProps) {
   const { live, rowProps } = useLiveRow()
+
   const rows: { name: string | undefined; token?: FieldToken }[] = [
     ...(none === undefined ? [] : [{ name: undefined }]),
     ...tokens.map((token) => ({ name: token.name, token }))
   ]
+
   const move = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+      return
+    }
+
     event.preventDefault()
     const buttons = [...(event.currentTarget.parentElement?.querySelectorAll("button") ?? [])]
     const at = buttons.indexOf(event.currentTarget)
     buttons[clamp(at + (event.key === "ArrowDown" ? 1 : -1), 0, buttons.length - 1)]?.focus()
   }
+
   return (
     <fieldset aria-label={`${label} tokens`} className="flex max-h-64 min-w-0 flex-col overflow-y-auto">
       {rows.map(({ name, token }) => {
         const selected = name === current && !(name === undefined && own)
+
         return (
           <button
             key={name ?? "none"}
@@ -1154,17 +1286,25 @@ export function TokenList({ label, tokens, current, none, noneValue, own = false
 
 /** What a token comes to as a number, where its kind has one (a length, a duration, a percentage, a weight). */
 function measureOf(token: FieldToken): number | undefined {
-  const fields = token as unknown as Record<string, unknown>
+  const fields = new Map(Object.entries(token))
+
   for (const key of ["px", "ms", "percent", "number", "em", "multiple"]) {
-    const value = fields[key]
-    if (typeof value === "number") return value
+    const value = numberValue.safeParse(fields.get(key)).data
+
+    if (value !== undefined) {
+      return value
+    }
   }
+
   return undefined
 }
 
 /** Tokens that come to numbers, smallest first, as a scale reads; others, as colors, in the project's order. */
 function inScaleOrder<T extends FieldToken>(tokens: readonly T[]): readonly T[] {
-  if (!tokens.every((token) => measureOf(token) !== undefined)) return tokens
+  if (!tokens.every((token) => measureOf(token) !== undefined)) {
+    return tokens
+  }
+
   return tokens.toSorted((a, b) => measureOf(a)! - measureOf(b)!)
 }
 
@@ -1245,6 +1385,7 @@ export function TokenMenu<T extends FieldToken>({
   const allowing = tokensOnly && onAllow !== undefined
   const pickable = tokens.filter((each) => each.deprecated === undefined)
   const listed = order ? pickable.toSorted(order) : inScaleOrder(pickable)
+
   return (
     <div className="flex min-w-0 flex-col">
       {replaced && (
@@ -1292,7 +1433,10 @@ export function TokenMenu<T extends FieldToken>({
               className="flex flex-col gap-1 p-1"
               onSubmit={(event) => {
                 event.preventDefault()
-                if (name !== "" && !taken) onCreate(full)
+
+                if (name !== "" && !taken) {
+                  onCreate(full)
+                }
               }}
             >
               <div className="flex items-center gap-1">
@@ -1333,7 +1477,10 @@ export function TokenMenu<T extends FieldToken>({
               className="flex flex-col gap-1 p-1"
               onSubmit={(event) => {
                 event.preventDefault()
-                if (reason.trim() !== "") onAllow(reason.trim())
+
+                if (reason.trim() !== "") {
+                  onAllow(reason.trim())
+                }
               }}
             >
               <ReasonBox reason={reason} onReason={setReason} />
@@ -1347,6 +1494,7 @@ export function TokenMenu<T extends FieldToken>({
     </div>
   )
 }
+
 /** One of a search list's options: how it's drawn, and the heading of the group it starts, where it starts one. */
 export interface SearchOption {
   /** Unique among the options. */
@@ -1383,7 +1531,10 @@ export function SearchList({
   onHighlight: (index: number) => void
   onPick: (index: number) => void
 }) {
-  if (options.length === 0 && empty === undefined) return null
+  if (options.length === 0 && empty === undefined) {
+    return null
+  }
+
   return (
     <div
       id={id}
@@ -1425,7 +1576,11 @@ export function SearchList({
 /** The nearest of a field's tokens to a number, leaving out deprecated ones, which are on their way out. */
 export function nearestToken<T extends FieldToken>(tokens: readonly T[], measure: (token: T) => number, to: number) {
   const current = tokens.filter((token) => token.deprecated === undefined)
-  if (current.length === 0) return undefined
+
+  if (current.length === 0) {
+    return undefined
+  }
+
   return current.reduce((best, token) => (Math.abs(measure(token) - to) < Math.abs(measure(best) - to) ? token : best))
 }
 
@@ -1449,20 +1604,30 @@ export function ProjectTokens({
   children: ReactNode
 }) {
   const [sets, setSets] = useState<TokenSets>(() => ({ ...tokenSets, ...tokens }))
+
   const create = <K extends TokenSetName>(set: K, token: TokenSets[K][number]) =>
     setSets((current) => ({ ...current, [set]: [...current[set], token] }))
+
   return <TokensContext value={{ sets, create }}>{children}</TokensContext>
+}
+
+/** One set of the project's tokens, and how to add to it (Create token) where the project can. */
+export interface ProjectTokenSet<K extends TokenSetName> {
+  tokens: TokenSets[K]
+  create?: (token: TokenSets[K][number]) => void
 }
 
 /**
  * One set of the project's tokens, and how to add to it (Create token). Outside `ProjectTokens` it's the stand-ins, and
  * nothing can be added.
  */
-export function useTokens<K extends TokenSetName>(
-  set: K
-): { tokens: TokenSets[K]; create?: (token: TokenSets[K][number]) => void } {
+export function useTokens<K extends TokenSetName>(set: K): ProjectTokenSet<K> {
   const context = useContext(TokensContext)
-  if (!context) return { tokens: tokenSets[set] }
+
+  if (!context) {
+    return { tokens: tokenSets[set] }
+  }
+
   return { tokens: context.sets[set], create: (token) => context.create(set, token) }
 }
 
@@ -1594,7 +1759,7 @@ export interface ValueFieldProps<T> {
    */
   narrow?: boolean
   /** The field's hint: what it says, and more on the lines below. A narrow field's names its value. */
-  hint?: { label?: string; detail?: string }
+  hint?: FieldHint
   disabled?: boolean
   inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"]
   /** Classes for the input, as a color's monospaced hex. */
@@ -1642,6 +1807,12 @@ export interface ValueFieldProps<T> {
    * Focus coming back from the editor, which carries `data-expression-editor`, doesn't open it again.
    */
   expression?: { onEquals: (text: string) => void; onOpen?: () => void }
+}
+
+/** A field's hint: what it says, and more on the lines below. */
+export interface FieldHint {
+  label?: string
+  detail?: string
 }
 
 /** What a field's search list offers: each option's drawing and what it stores, and where it's previewed. */
@@ -1716,9 +1887,14 @@ export function ValueField<T>({
   const input = useRef<HTMLInputElement>(null)
   // Set when a pick closes the list, so the focus goes to the value's text rather than a pill that may have gone.
   const picked = useRef(false)
-  const unitText = unitName ?? (typeof unit === "string" ? unit : "")
+  const unitWord = textValue.safeParse(unit).data
+  const unitText = unitName ?? unitWord ?? ""
   let backTo = shown === undefined ? placeholder || "unset" : `${shown}${unitText}`
-  if (chip) backTo = chip.name
+
+  if (chip) {
+    backTo = chip.name
+  }
+
   const typed = useTyped({
     label,
     shown: shown ?? "",
@@ -1728,6 +1904,7 @@ export function ValueField<T>({
     onStep: onStep && ((up, shift, alt) => onStep(up, { shift, alt })),
     line
   })
+
   const typing = typed.typed !== undefined
   const showChip = chip !== undefined && !typing
   const offers = tokens !== undefined || picker !== undefined
@@ -1735,6 +1912,7 @@ export function ValueField<T>({
   const setOpen = picker ? picker.onOpenChange : setListOpen
   const said = refused ? notAToken(refused.nearest, refused.onUse) : refusal
   const error = typed.error || said !== undefined
+
   const clearTyping = () => {
     typed.setTyped(undefined)
     typed.setMessage(undefined)
@@ -1743,17 +1921,22 @@ export function ValueField<T>({
   // The search list, while the field's focused: what's typed finds, the highlighted one previewed.
   const found = search && searching && typed.focused ? search.options(typed.typed ?? "") : []
   const nothingFound = found.length === 0 ? search?.empty?.(typed.typed ?? "") : undefined
+
   const showList =
     search !== undefined && searching && typed.focused && (found.length > 0 || nothingFound !== undefined)
+
   const lit = Math.min(highlight, found.length - 1)
+
   const closeSearch = () => {
     setSearching(false)
     search?.onHighlight?.(undefined)
   }
+
   const highlightAt = (index: number) => {
     setHighlight(index)
     search?.onHighlight?.(found[index]?.value)
   }
+
   const take = (value: T) => {
     onCommit(value)
     clearTyping()
@@ -1773,12 +1956,16 @@ export function ValueField<T>({
   )
 
   let labelSlot: ReactNode
+
   if (inner !== undefined && scrubbing) {
     const handler = scrub(scrubbing.from, scrubbing.apply, scrubbing.by)
     labelSlot = (
       <span
         onPointerDown={(event) => {
-          if (event.button !== 0 || disabled) return
+          if (event.button !== 0 || disabled) {
+            return
+          }
+
           clearTyping()
           handler(event)
         }}
@@ -1787,17 +1974,25 @@ export function ValueField<T>({
         {inner}
       </span>
     )
-  } else if (typeof inner === "string") {
+  } else if (textValue.safeParse(inner).success) {
     labelSlot = <span className="shrink-0 text-muted-foreground select-none">{inner}</span>
-  } else labelSlot = inner
+  } else {
+    labelSlot = inner
+  }
 
   let fieldPlaceholder = mixed && shown === undefined ? "Mixed" : placeholder
-  if (showChip) fieldPlaceholder = ""
+
+  if (showChip) {
+    fieldPlaceholder = ""
+  }
 
   // A token's problems show on its pill, and a value of its own has no mark; what's left is something missing that
   // isn't a token (a font), and a value set for a theme.
   let mark: ReactNode
-  if (!typing) mark = showChip ? status?.theme : (status?.missing ?? status?.theme)
+
+  if (!typing) {
+    mark = showChip ? status?.theme : (status?.missing ?? status?.theme)
+  }
 
   // The unit always shows, set, unset or focused, so what's typed is read in it. It goes only where there's no number
   // for it to measure: a token's pill, a word shown (Auto, Hug, Mixed) and text typed with a unit of its own (`2rem`,
@@ -1807,33 +2002,50 @@ export function ValueField<T>({
   const showsWord = !typing && /[a-z]/i.test(shown ?? fieldPlaceholder ?? "")
   const showUnit = unit !== undefined && !typedOwnUnit && !showChip && !showsWord && !(narrow && mark)
   let unitPart: ReactNode
-  if (showUnit && typeof unit === "string") unitPart = <span className="shrink-0 text-muted-foreground">{unit}</span>
-  else if (showUnit) unitPart = unit
+
+  if (showUnit && unitWord !== undefined) {
+    unitPart = <span className="shrink-0 text-muted-foreground">{unitWord}</span>
+  } else if (showUnit) {
+    unitPart = unit
+  }
 
   const hintLabel = hint?.label ?? (narrow ? `${label}: ${backTo}` : undefined)
   // What a token comes to is in its pill's hint, and a narrow field's in the field's.
   const hintDetail = narrow ? [comesTo, hint?.detail].filter(Boolean).join(". ") || undefined : hint?.detail
+
   const detach = () => {
-    if (!chip) return
+    if (!chip) {
+      return
+    }
+
     const detaching = chip.onDetach ?? chip.onRemove
     detaching()
     // The pill and Detach go, so the value's text takes the focus.
     input.current?.focus()
   }
+
   // Backspace takes the token off, as it would a typed value, and the field keeps the focus.
   const clear = () => {
-    if (!chip) return
+    if (!chip) {
+      return
+    }
+
     chip.onRemove()
     input.current?.focus()
   }
+
   // A field that offers tokens or a picker always shows its chevron at the end, empty, set or holding a token, so it's
   // never found by hovering and never swapped for something else; Detach is in what it opens. A token's pill in a field
   // that offers neither keeps Detach over the box's end, shown on hover or focus.
   const shownEnd = offers && !bare
   const hoverDetach = !bare && !offers && chip !== undefined
   let room = ""
-  if (shownEnd) room = "pr-7"
-  else if (hoverDetach) room = "transition-[padding] duration-100 hover:pr-7 focus-within:pr-7"
+
+  if (shownEnd) {
+    room = "pr-7"
+  } else if (hoverDetach) {
+    room = "transition-[padding] duration-100 hover:pr-7 focus-within:pr-7"
+  }
 
   const endButtons = (
     <>
@@ -1881,6 +2093,7 @@ export function ValueField<T>({
   )
 
   const boxExtra = `flex-1 ${room} ${disabled ? "opacity-50" : ""}`
+
   const box = (
     <Hint label={hintLabel} detail={hintDetail} hidden={open} wait>
       <div className={bare ? bareBox(error, boxExtra) : fieldBox(error, boxExtra)}>
@@ -1913,8 +2126,12 @@ export function ValueField<T>({
             onOpen={offers ? () => setOpen(!open) : undefined}
             hint={!narrow}
             onType={(key) => {
-              if (expression && key === "=") expression.onEquals("")
-              else typed.setTyped(key)
+              if (expression && key === "=") {
+                expression.onEquals("")
+              } else {
+                typed.setTyped(key)
+              }
+
               input.current?.focus()
             }}
             onStep={onStep}
@@ -1945,9 +2162,12 @@ export function ValueField<T>({
             if (expression && event.target.value.startsWith("=")) {
               clearTyping()
               expression.onEquals(event.target.value.slice(1))
+
               return
             }
+
             typed.input.onChange(event)
+
             if (search) {
               setSearching(true)
               setHighlight(0)
@@ -1955,60 +2175,90 @@ export function ValueField<T>({
           }}
           onFocus={(event) => {
             typed.input.onFocus()
-            if (editText !== undefined && !typing) typed.setTyped(editText)
-            if (selectOnFocus) event.currentTarget.select()
+
+            if (editText !== undefined && !typing) {
+              typed.setTyped(editText)
+            }
+
+            if (selectOnFocus) {
+              event.currentTarget.select()
+            }
+
             if (search) {
               setSearching(true)
               setHighlight(0)
             }
+
             // Focus coming back from the expression's own editor, on Enter, Escape or Shift+Tab, leaves it closed.
             const from = event.relatedTarget
-            if (!(from instanceof Element && from.closest("[data-expression-editor]"))) expression?.onOpen?.()
+
+            if (!(from instanceof Element && from.closest("[data-expression-editor]"))) {
+              expression?.onOpen?.()
+            }
           }}
           onClick={() => expression?.onOpen?.()}
           onBlur={() => {
             typed.input.onBlur()
-            if (search) closeSearch()
+
+            if (search) {
+              closeSearch()
+            }
           }}
           onKeyDown={(event) => {
             if (showChip && event.currentTarget.value === "" && (event.key === "Backspace" || event.key === "Delete")) {
               event.preventDefault()
               clear()
+
               return
             }
+
             if (expression && event.key === "=") {
               event.preventDefault()
               clearTyping()
               expression.onEquals("")
+
               return
             }
+
             if (expression?.onOpen && event.key === "Enter" && !typing) {
               event.preventDefault()
               expression.onOpen()
+
               return
             }
+
             if (search && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
               // Up and Down open the list, then move through it, rather than stepping the value.
               event.preventDefault()
+
               if (!searching) {
                 setSearching(true)
                 setHighlight(0)
               } else if (found.length > 0) {
                 highlightAt((lit + (event.key === "ArrowDown" ? 1 : -1) + found.length) % found.length)
               }
+
               return
             }
+
             if (search && event.key === "Enter" && showList && found[lit]) {
               event.preventDefault()
               take(found[lit].value)
+
               return
             }
-            if (search && event.key === "Escape" && searching) closeSearch()
+
+            if (search && event.key === "Escape" && searching) {
+              closeSearch()
+            }
+
             if (offers && !altSteps && event.key === "ArrowDown" && event.altKey) {
               event.preventDefault()
               setOpen(true)
+
               return
             }
+
             typed.input.onKeyDown(event)
           }}
           className={`${inputBase} ${showChip ? "min-w-1" : "min-w-6"} ${muted && !typing ? "text-muted-foreground" : ""} ${said && !typing ? "text-destructive" : ""} ${typed.focused ? "" : "truncate"} ${bare ? "text-center" : ""} ${inputClassName}`}
@@ -2029,9 +2279,13 @@ export function ValueField<T>({
   )
 
   let message = typed.message
-  if (!message && said && !typing) message = { tone: "error", text: said.reason, action: said.action }
+
+  if (!message && said && !typing) {
+    message = { tone: "error", text: said.reason, action: said.action }
+  }
 
   let popup: ReactNode
+
   if (picker) {
     popup = (
       <PopoverContent className={picker.className ?? "w-64 gap-0 p-0"} align="start">
@@ -2049,6 +2303,7 @@ export function ValueField<T>({
       clearTyping()
       setListOpen(false)
     }
+
     const replacement = chip?.token?.deprecated
     const replacedBy = replacement === undefined ? undefined : tokens.list.find((each) => each.name === replacement)
     const onAllow = own?.onAllow
@@ -2059,6 +2314,7 @@ export function ValueField<T>({
         align="end"
         finalFocus={() => {
           picked.current = false
+
           return input.current
         }}
       >
@@ -2145,7 +2401,10 @@ export function ValueField<T>({
 
 /** The step Up and Down take in a percentage: 1, 10 with Shift, a quarter with Alt. */
 const percentStep = ({ shift, alt }: ScrubKeys) => {
-  if (shift) return 10
+  if (shift) {
+    return 10
+  }
+
   return alt ? 0.25 : 1
 }
 
@@ -2189,7 +2448,7 @@ export function PercentField({
   narrow?: boolean
   mixed?: boolean
   disabled?: boolean
-  hint?: { label?: string; detail?: string }
+  hint?: FieldHint
   rowClassName?: string
   /** Words it also reads as percentages, as a position's X reads `left` as 0 and `right` as 100. */
   keywords?: Readonly<Record<string, number>>
@@ -2209,19 +2468,30 @@ export function PercentField({
   const settle = (number: number) => clamp(Number(formatNumber(number, places)), min, max)
   const words = Object.keys(keywords ?? {})
   const others = [...words, ...(tokens ? ["an opacity token"] : [])]
+
   const takes =
     others.length > 0
       ? `Enter a percentage${others.length > 1 ? `, ${others.slice(0, -1).join(", ")}` : ""} or ${others.at(-1)}`
       : "Enter a percentage, such as 50"
+
   // A token steps to the next in the list's order, Shift to the first or last, as every token does.
   const stepToken = (up: boolean, { shift }: ScrubKeys) => {
-    if (!tokens || !held) return false
+    if (!tokens || !held) {
+      return false
+    }
+
     const last = tokens.list.length - 1
     let next = clamp(tokens.list.indexOf(held) + (up ? 1 : -1), 0, last)
-    if (shift) next = up ? last : 0
+
+    if (shift) {
+      next = up ? last : 0
+    }
+
     tokens.onPick(tokens.list[next]!.name)
+
     return true
   }
+
   return (
     <ValueField
       label={label}
@@ -2257,24 +2527,43 @@ export function PercentField({
       read={(text): Reading<number | undefined | { token: string }> => {
         const trimmed = text.trim().toLowerCase()
         const token = tokens?.list.find((each) => each.name === trimmed || `opacity-${each.name}` === trimmed)
-        if (token) return { value: { token: token.name } }
+
+        if (token) {
+          return { value: { token: token.name } }
+        }
+
         const word = keywords?.[trimmed]
-        if (word !== undefined) return { value: word }
+
+        if (word !== undefined) {
+          return { value: word }
+        }
+
         const reading = readNumber(text.replace(/%\s*$/, ""), from, label)
-        if ("clear" in reading) return { value: undefined }
+
+        if ("clear" in reading) {
+          return { value: undefined }
+        }
+
         if ("reason" in reading) {
           return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
         }
+
         const kept = Number(formatNumber(reading.value, places))
+
         // Past either end, it stops there: the field shows it, so it says nothing.
         return { value: clamp(kept, min, max) }
       }}
       onCommit={(next) => {
-        if (typeof next === "object") tokens?.onPick(next.token)
-        else onChange(next)
+        if (next instanceof Object) {
+          tokens?.onPick(next.token)
+        } else {
+          onChange(next)
+        }
       }}
       onStep={(up, keys) => {
-        if (!stepToken(up, keys)) onChange(settle(from + (up ? 1 : -1) * percentStep(keys)))
+        if (!stepToken(up, keys)) {
+          onChange(settle(from + (up ? 1 : -1) * percentStep(keys)))
+        }
       }}
     />
   )

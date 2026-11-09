@@ -20,6 +20,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Plans, Absolute over Hero, which has a layer order of 1. */
@@ -31,6 +32,7 @@ const overHero: Position = {
 function LayerOrder({ start, mixed, inBlock = false }: { start: Side; mixed?: boolean; inBlock?: boolean }) {
   const [value, setValue] = useState(start)
   const [mixedNow, setMixed] = useState(mixed ?? false)
+
   return (
     <Playground
       writes={mixedNow && value === undefined ? mixedWrites : layerOrderWrites(value, inBlock)}

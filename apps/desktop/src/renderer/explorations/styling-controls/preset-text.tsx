@@ -96,24 +96,39 @@ export function PresetTextSection({
   const refocus = useRef<{ field: TypeField; to: "field" | "lock" } | "preset">(undefined)
   useEffect(() => {
     const pending = refocus.current
-    if (!pending) return
-    refocus.current = undefined
-    if (pending === "preset") {
-      rows.current?.querySelector<HTMLElement>("[aria-label^='Typography preset']")?.focus()
+
+    if (!pending) {
       return
     }
+
+    refocus.current = undefined
+
+    if (pending === "preset") {
+      rows.current?.querySelector<HTMLElement>("[aria-label^='Typography preset']")?.focus()
+
+      return
+    }
+
     const row = rows.current?.querySelector(`[data-field="${pending.field}"]`)
+
     const target =
       pending.to === "field"
         ? row?.querySelector<HTMLElement>("input:not(:disabled)")
         : (row?.querySelector<HTMLElement>("[data-lock]") ??
           rows.current?.querySelector<HTMLElement>("[data-preset-summary]"))
+
     target?.focus()
   })
+
   const unlock = (field: TypeField, on: boolean) => {
     const next = new Set(unlocked)
-    if (on) next.add(field)
-    else next.delete(field)
+
+    if (on) {
+      next.add(field)
+    } else {
+      next.delete(field)
+    }
+
     setUnlocked(next)
     refocus.current = { field, to: on ? "field" : "lock" }
   }
@@ -123,6 +138,7 @@ export function PresetTextSection({
   const shows = (field: TypeField) => open || overridden.has(field) || unlocked.has(field)
   const presetRows = covered.filter(shows)
   const ordinaryRows = typeFields.map(({ field }) => field).filter((field) => !covered.includes(field))
+
   const row = (field: TypeField) => (
     <TypeRow
       key={field}
@@ -133,7 +149,10 @@ export function PresetTextSection({
       onUnlock={(on) => unlock(field, on)}
       onChange={(next, reset) => {
         onChange(next)
-        if (reset) unlock(field, false)
+
+        if (reset) {
+          unlock(field, false)
+        }
       }}
     />
   )
@@ -177,7 +196,14 @@ function PresetRow({
   onDetach: () => void
 }) {
   const preset = presetNamed(layer.preset)
-  const changes = preset?.wider ? Object.keys(preset.wider.values).map((field) => fieldLabel(field as TypeField)) : []
+
+  // The rows a wider viewport changes, by name, in the order the preset sets them.
+  const changes = Object.keys(preset?.wider?.values ?? {}).flatMap((key) => {
+    const row = typeFields.find((entry) => entry.field === key)
+
+    return row ? [row.label] : []
+  })
+
   return (
     <>
       <Field
@@ -209,13 +235,16 @@ function PresetPicker({
 }) {
   const [open, setOpen] = useState(false)
   const groups = Map.groupBy(typePresets, (each) => each.source)
+
   const pick = (name: string | undefined) => {
     onPick(name)
     setOpen(false)
   }
+
   const detail = preset && `${summary(preset)}${overrides > 0 ? `. ${valueCount(overrides)} overridden here` : ""}`
   // Room at the end for Detach only while it shows, as every field keeps it.
   const room = preset ? "transition-[padding] duration-100 hover:pr-7 focus-within:pr-7" : "pr-7"
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <div className={fieldBox(false, `flex-1 ${room}`)}>
@@ -267,6 +296,7 @@ function PresetPicker({
               <CommandGroup key={source} heading={`From ${source}`}>
                 {presets.map((each) => {
                   const values = measured(presetType(each))
+
                   return (
                     <CommandItem key={each.name} value={each.name} onSelect={() => pick(each.name)} className="gap-2">
                       <span
@@ -302,10 +332,14 @@ function PresetPicker({
  * isn't a token offers the nearest token. What Use changes is in its hint.
  */
 function ClosestPreset({ match, onUse }: { match: PresetMatch | undefined; onUse: (name: string) => void }) {
-  if (!match) return null
+  if (!match) {
+    return null
+  }
+
   const { preset, differs } = match
   const values = presetType(preset)
   const changes = differs.map((field) => `${fieldLabel(field)} becomes ${valueWords(field, values)}`)
+
   return (
     <MessageLine
       message={{
@@ -381,6 +415,7 @@ function TypeRow({
   const viewports = viewportsOf(preset, field)
   const control = <TypeControl field={field} layer={layer} onChange={(next) => onChange(next)} />
   let body: ReactNode
+
   if (!preset) {
     body = (
       <Field label={label} half={half}>
@@ -412,6 +447,7 @@ function TypeRow({
       </Field>
     )
   }
+
   return (
     <div data-field={field} className="contents">
       {body}
@@ -446,6 +482,7 @@ function LockedValue({ field, preset }: { field: TypeField; preset: TypePreset }
   const values = presetType(preset)
   let shown: ReactNode
   let unit: string | undefined
+
   if (field === "weight") {
     shown = <span className="min-w-0 truncate">{valueWords(field, values)}</span>
   } else if (value !== undefined && "token" in value) {
@@ -466,6 +503,7 @@ function LockedValue({ field, preset }: { field: TypeField; preset: TypePreset }
     unit = /(px|%)$/.exec(words)?.[1]
     shown = <span className="min-w-0 flex-1 truncate tabular-nums">{unit ? words.slice(0, -unit.length) : words}</span>
   }
+
   return (
     <div className="flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-muted px-2 text-xs opacity-50 dark:bg-input/40">
       {rowIcons[field] && <span className="flex shrink-0 text-muted-foreground">{rowIcons[field]}</span>}
@@ -492,32 +530,34 @@ function TypeControl({
   const type = typeOf(layer)
   const numbers = measured(type)
   const set = <F extends TypeField>(name: F, value: TypeValues[F] | undefined) => onChange(setValue(layer, name, value))
-  const value = shownValue(layer, field).value
   const sets = useTokenSets()
+
   if (field === "font") {
     return (
       <FontFamilyField
-        value={value as TypeValues["font"]}
+        value={shownValue(layer, "font").value}
         inherited={{ font: projectFonts[0]!, from: parentName }}
         onChange={(next) => set("font", next)}
         onPreview={noPreview}
       />
     )
   }
+
   if (field === "size") {
     return (
       <FontSizeField
-        value={value as TypeValues["size"]}
+        value={shownValue(layer, "size").value}
         inherited={measured(inherited).size}
         onChange={(next) => set("size", next)}
       />
     )
   }
+
   if (field === "weight") {
     return (
       <WeightField
         font={findFont(numbers.font) ?? projectFonts[0]!}
-        value={value as TypeValues["weight"]}
+        value={shownValue(layer, "weight").value}
         italic={layer.italic}
         onChange={(next) => set("weight", next)}
         onItalic={(italic) => onChange({ ...layer, italic })}
@@ -525,21 +565,24 @@ function TypeControl({
       />
     )
   }
+
   if (field === "lineHeight") {
-    const size =
-      "token" in type.size ? sets.size.find((each) => each.name === (type.size as { token: string }).token) : undefined
+    const fontSize = type.size
+    const size = "token" in fontSize ? sets.size.find((each) => each.name === fontSize.token) : undefined
+
     return (
       <LineHeightField
-        value={value as TypeValues["lineHeight"]}
+        value={shownValue(layer, "lineHeight").value}
         size={size}
         fontSize={numbers.size}
         onChange={(next) => set("lineHeight", next)}
       />
     )
   }
+
   return (
     <LetterSpacingField
-      value={value as TypeValues["letterSpacing"]}
+      value={shownValue(layer, "letterSpacing").value}
       fontSize={numbers.size}
       onChange={(next) => set("letterSpacing", next)}
     />

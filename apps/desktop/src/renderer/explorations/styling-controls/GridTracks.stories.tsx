@@ -21,12 +21,14 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const fill = (value = 1): Track => ({ kind: "fr", value })
 
 function Tracks({ start }: { start: Draft }) {
   const [draft, set] = useDraft({ background: "card", radius: "radius-xl", gap: 12, ...start })
+
   return (
     <Playground
       comparisons={gridTrackComparisons}

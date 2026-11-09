@@ -2,6 +2,7 @@
  * The stand-in layer for the styling controls exploration: the proposed style fields it has, and the colors the
  * stand-in design already uses. Its tokens are in tokens.ts.
  */
+import { numberValue, textValue } from "../../chrome/prop-values.ts"
 
 /** Colors the stand-in design already uses: the shapes behind Plans, and a plain blue a layer was given. */
 export const usedColors = ["#f54900", "#009689", "#ffb900", "#2f6fed"]
@@ -29,19 +30,43 @@ const fillLabel = (share: number) => (share === 1 ? "Fill" : `Fill ×${share}`)
 
 /** A track in words where a size mode fits: Fill, Fill ×2, Hug, 200 (pixels), 120–Fill for a range. */
 export const trackLabel = (track: Track): string => {
-  if (track.kind === "fr") return fillLabel(track.value)
-  if (track.kind === "px") return String(track.value)
-  if (track.kind === "percent") return `${track.value}%`
-  if (track.kind === "range") return `${track.min}–${fillLabel(track.max)}`
+  if (track.kind === "fr") {
+    return fillLabel(track.value)
+  }
+
+  if (track.kind === "px") {
+    return String(track.value)
+  }
+
+  if (track.kind === "percent") {
+    return `${track.value}%`
+  }
+
+  if (track.kind === "range") {
+    return `${track.min}–${fillLabel(track.max)}`
+  }
+
   return contentTracks[track.kind].label
 }
 
 /** A Fill track is `minmax(0, 1fr)`, as `grid-cols-N` writes it, so long content can't widen its column. */
 export const trackCss = (track: Track): string => {
-  if (track.kind === "fr") return `minmax(0, ${track.value}fr)`
-  if (track.kind === "px") return `${track.value}px`
-  if (track.kind === "percent") return `${track.value}%`
-  if (track.kind === "range") return `minmax(${track.min}px, ${track.max}fr)`
+  if (track.kind === "fr") {
+    return `minmax(0, ${track.value}fr)`
+  }
+
+  if (track.kind === "px") {
+    return `${track.value}px`
+  }
+
+  if (track.kind === "percent") {
+    return `${track.value}%`
+  }
+
+  if (track.kind === "range") {
+    return `minmax(${track.min}px, ${track.max}fr)`
+  }
+
   return contentTracks[track.kind].css
 }
 
@@ -56,23 +81,50 @@ export type Span = number | "all"
  * or across every track.
  */
 export function placementCss(start: number | undefined, span: Span | undefined, end?: number): string {
-  if (span === "all") return "1 / -1"
-  if (end !== undefined) return `${start ?? "auto"} / ${end}`
+  if (span === "all") {
+    return "1 / -1"
+  }
+
+  if (end !== undefined) {
+    return `${start ?? "auto"} / ${end}`
+  }
+
   return `${start ?? "auto"} / span ${span ?? 1}`
 }
 
-/**
- * A width or height: pixels (Fixed), a percentage of the parent, or a size mode: Hug, Fill, or Min content and Max
- * content from More units.
- */
-export type Size = number | { percent: number } | "hug" | "fill" | "min" | "max"
+/** The size modes: Hug, Fill, and Min content and Max content from More units. */
+const sizeModes = ["hug", "fill", "min", "max"] as const
+
+export type SizeMode = (typeof sizeModes)[number]
+
+/** A width or height: pixels (Fixed), a percentage of the parent, or a size mode. */
+export type Size = number | { percent: number } | SizeMode
+
+/** Whether a size is pixels of its own (Fixed), rather than a percentage or a mode. */
+export function isFixedSize(size: Size): size is number {
+  return numberValue.safeParse(size).success
+}
+
+/** Whether a size is a mode (Hug, Fill, Min content, Max content), rather than pixels or a percentage. */
+export function isSizeMode(size: Size): size is SizeMode {
+  return sizeModes.some((mode) => mode === size)
+}
 
 /** A size as CSS writes it outside a layout: Fill is `100%` and Hug `fit-content`. */
 export function sizeCss(size: Size | undefined): string | undefined {
-  if (size === undefined) return undefined
-  if (typeof size === "number") return `${size}px`
-  if (typeof size === "object") return `${size.percent}%`
-  return { hug: "fit-content", fill: "100%", min: "min-content", max: "max-content" }[size]
+  if (size === undefined) {
+    return undefined
+  }
+
+  if (isFixedSize(size)) {
+    return `${size}px`
+  }
+
+  if (isSizeMode(size)) {
+    return { hug: "fit-content", fill: "100%", min: "min-content", max: "max-content" }[size]
+  }
+
+  return `${size.percent}%`
 }
 
 /** Where a grid child sits in its cell on one axis; unset follows the grid's alignment. */
@@ -97,7 +149,7 @@ export interface Draft {
   /** Where an outline is drawn against the edge: inside, centered on it, or outside. */
   strokePosition?: "inside" | "center" | "outside"
   /** The corners' shape (`corner-shape`), which only Chromium draws; others draw round corners. */
-  cornerShape?: string
+  cornerStyle?: string
   blur?: Length
   backdropBlur?: Length
   aspect?: string
@@ -163,3 +215,8 @@ export type Length = string | { px: number; allow?: string }
  * into a circle at any size, and anything else into an ellipse (CSS takes it of the width across and the height down).
  */
 export type Radius = Length | { percent: number }
+
+/** Whether a length or radius is a token's name, rather than a value of its own. */
+export function isLengthToken(value: Radius): value is string {
+  return textValue.safeParse(value).success
+}

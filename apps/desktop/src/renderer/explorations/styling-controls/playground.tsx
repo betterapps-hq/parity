@@ -1,9 +1,10 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { createContext, type CSSProperties, type ReactNode, useContext, useState } from "react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
+import { numberValue } from "../../chrome/prop-values.ts"
 import { type Comparison, Comparisons, type Point } from "./comparisons.tsx"
 import { mixColor } from "./css-values.ts"
-import { type Draft, usedColors } from "./data.ts"
+import { type Draft, isLengthToken, usedColors } from "./data.ts"
 import { ProjectTokens, useTokenSets } from "./field-parts.tsx"
 import { HighlightProvider } from "./highlight.tsx"
 import { hexOf, lengthPx, type TokenSets } from "./tokens.ts"
@@ -18,6 +19,7 @@ import type { StrokePosition, Writes } from "./writes.ts"
 /** A style that changes as the control is used, for a story's state. */
 export function useDraft(start: Draft) {
   const [draft, setDraft] = useState(start)
+
   return [draft, (change: Partial<Draft>) => setDraft((current) => ({ ...current, ...change }))] as const
 }
 
@@ -46,12 +48,14 @@ export function Playground({
   children: ReactNode
 }) {
   const only = useContext(ControlOnly)
+
   // The inspector's width, so the control lays out as it will there.
   const control = (
     <section aria-label="Control" className="flex w-80 shrink-0 flex-col gap-1 rounded-lg border p-3">
       {children}
     </section>
   )
+
   return (
     <TooltipProvider>
       <ProjectTokens tokens={tokens}>
@@ -87,6 +91,7 @@ export function Readout({ writes }: { writes: Writes }) {
     { title: "Tailwind", text: writes.tailwind.length > 0 ? writes.tailwind.join(" ") : "Nothing" },
     ...(writes.markup === undefined ? [] : [{ title: "Markup", text: writes.markup }])
   ]
+
   return (
     <section aria-label="What it writes" className="flex w-80 min-w-0 shrink-0 flex-col gap-3">
       {blocks.map((block) => (
@@ -105,7 +110,7 @@ export function Readout({ writes }: { writes: Writes }) {
 }
 
 /** The shapes behind Plans, in the design's own colors: two circles and a square turned a little. */
-const [shapeA, shapeB, shapeC] = usedColors
+const [circleColor, otherCircleColor, squareColor] = usedColors
 
 /**
  * Shapes behind a preview, so a translucent fill, a shadow, a filter or a background blur shows. It's a 256-pixel
@@ -117,20 +122,21 @@ export function PreviewStage({ around = false, children }: { around?: boolean; c
     return (
       <div className="relative flex w-full max-w-[680px] justify-center">
         <div aria-hidden className="absolute -inset-10 overflow-hidden rounded-3xl">
-          <div className="absolute top-4 left-6 size-40 rounded-full" style={{ background: shapeA }} />
-          <div className="absolute right-10 bottom-2 size-48 rounded-full" style={{ background: shapeB }} />
-          <div className="absolute top-1/3 left-1/2 size-28 rotate-12" style={{ background: shapeC }} />
+          <div className="absolute top-4 left-6 size-40 rounded-full" style={{ background: circleColor }} />
+          <div className="absolute right-10 bottom-2 size-48 rounded-full" style={{ background: otherCircleColor }} />
+          <div className="absolute top-1/3 left-1/2 size-28 rotate-12" style={{ background: squareColor }} />
         </div>
         {children}
       </div>
     )
   }
+
   return (
     <div className="relative grid size-64 place-items-center">
       <div aria-hidden className="absolute inset-4 overflow-hidden rounded-2xl">
-        <div className="absolute top-3 left-4 size-24 rounded-full" style={{ background: shapeA }} />
-        <div className="absolute right-4 bottom-3 size-28 rounded-full" style={{ background: shapeB }} />
-        <div className="absolute top-1/3 left-1/2 size-16 rotate-12" style={{ background: shapeC }} />
+        <div className="absolute top-3 left-4 size-24 rounded-full" style={{ background: circleColor }} />
+        <div className="absolute right-4 bottom-3 size-28 rounded-full" style={{ background: otherCircleColor }} />
+        <div className="absolute top-1/3 left-1/2 size-16 rotate-12" style={{ background: squareColor }} />
       </div>
       {children}
     </div>
@@ -157,20 +163,23 @@ export function drawnStyle(
   { inLayout = true, position = "inside" }: { inLayout?: boolean; position?: StrokePosition } = {}
 ): CSSProperties {
   const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
-  const widths = Array.isArray(draft.borderWidth) ? draft.borderWidth : [0, 0, 0, 0].map(() => draft.borderWidth ?? 0)
+  const every = draft.borderWidth ?? 0
+  const widths = Array.isArray(every) ? every : [every, every, every, every]
   const strokeColor = mixColor(hexOf(draft.border, sets.color), draft.borderAlpha) ?? "transparent"
-  const width = typeof draft.borderWidth === "number" ? draft.borderWidth : 1
+  const width = numberValue.safeParse(draft.borderWidth).data ?? 1
+
   const stroke: CSSProperties = inLayout
     ? { borderColor: strokeColor, borderStyle: "solid", borderWidth: widths.map((px) => `${px}px`).join(" ") }
     : {
         outline: `${width}px solid ${strokeColor}`,
         outlineOffset: { inside: -width, center: -width / 2, outside: 0 }[position]
       }
+
   return {
     background: mixColor(hexOf(draft.background, sets.color), draft.backgroundAlpha) ?? "transparent",
     borderRadius: radii
       .map((radius) =>
-        typeof radius === "object" && "percent" in radius
+        radius !== undefined && !isLengthToken(radius) && "percent" in radius
           ? `${radius.percent}%`
           : `${Math.min(lengthPx(radius, sets.radius), 200)}px`
       )
@@ -189,19 +198,21 @@ export function CardPreview({
   draft,
   inLayout = true,
   position = "inside",
-  cornerShape
+  cornerStyle
 }: {
   draft: Draft
   inLayout?: boolean
   position?: StrokePosition
-  cornerShape?: string
+  cornerStyle?: string
 }) {
   const sets = useTokenSets()
   // `corner-shape` is Chromium's only, and not in React's CSS types yet.
-  const shape: CSSProperties & { cornerShape?: string } = cornerShape ? { cornerShape } : {}
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- React's style prop names CSS's `corner-shape` this way.
+  const corners: CSSProperties & { cornerShape?: string } = cornerStyle ? { cornerShape: cornerStyle } : {}
+
   return (
     <PreviewStage>
-      <Card style={{ ...drawnStyle(draft, sets, { inLayout, position }), ...shape }} />
+      <Card style={{ ...drawnStyle(draft, sets, { inLayout, position }), ...corners }} />
     </PreviewStage>
   )
 }

@@ -68,6 +68,7 @@ const blends: { value: Interpolation; label: string }[] = [
   { value: "oklch", label: "In OKLCH" },
   { value: "srgb", label: "In sRGB" }
 ]
+
 type PaintKind = keyof typeof kindNames
 
 const isGradient = (paint: Paint): paint is GradientPaint =>
@@ -82,7 +83,10 @@ const glyphs: Record<Exclude<PaintKind, "image">, string> = {
 
 /** A small mark for each type, for the types a fill's editor and picker start with. */
 function TypeGlyph({ kind }: { kind: PaintKind }) {
-  if (kind === "image") return <ImageIcon className="size-3.5" />
+  if (kind === "image") {
+    return <ImageIcon className="size-3.5" />
+  }
+
   return (
     <span
       aria-hidden
@@ -115,7 +119,10 @@ function PaintKinds({ value, onChange }: { value: PaintKind; onChange: (kind: Pa
       value={[value]}
       onValueChange={([kind]) => {
         const picked = paintTypes.find((option) => option.value === kind)
-        if (picked) onChange(picked.value)
+
+        if (picked) {
+          onChange(picked.value)
+        }
       }}
     >
       {paintTypes.map((option) => (
@@ -131,12 +138,25 @@ function PaintKinds({ value, onChange }: { value: PaintKind; onChange: (kind: Pa
 
 /** A paint changed to another type, keeping its colors: a solid becomes a gradient from it to it at 0%. */
 function changeKind(paint: Paint, kind: PaintKind): Paint {
-  if (paint.kind === kind) return paint
+  if (paint.kind === kind) {
+    return paint
+  }
+
   const first = isGradient(paint) ? paint.stops[0] : undefined
   const color = paint.kind === "solid" ? { color: paint.color || "primary", alpha: paint.alpha } : first
-  if (kind === "solid") return { kind: "solid", color: color?.color ?? "primary", alpha: color?.alpha }
-  if (kind === "image") return { kind: "image", src: "/images/hero.jpg", fit: "fill", position: [50, 50] }
-  if (isGradient(paint)) return { ...paint, kind, token: undefined }
+
+  if (kind === "solid") {
+    return { kind: "solid", color: color?.color ?? "primary", alpha: color?.alpha }
+  }
+
+  if (kind === "image") {
+    return { kind: "image", src: "/images/hero.jpg", fit: "fill", position: [50, 50] }
+  }
+
+  if (isGradient(paint)) {
+    return { ...paint, kind, token: undefined }
+  }
+
   return {
     kind,
     angle: kind === "angular" ? 0 : 90,
@@ -149,8 +169,12 @@ function changeKind(paint: Paint, kind: PaintKind): Paint {
 
 /** Why a gradient is written as one value rather than from, via and to, naming what makes it so. */
 function longReason(paint: GradientPaint): string {
-  if (paint.repeat) return "Tailwind has no utility for repeating gradients, so this is written as an arbitrary value."
+  if (paint.repeat) {
+    return "Tailwind has no utility for repeating gradients, so this is written as an arbitrary value."
+  }
+
   const prefix = { linear: "bg-linear", radial: "bg-radial", angular: "bg-conic" }[paint.kind]
+
   const parts = [
     paint.stops.length > 3 && `${paint.stops.length} stops`,
     paint.stops.some((stop) => stop.hint !== undefined) && "a color hint",
@@ -159,8 +183,10 @@ function longReason(paint: GradientPaint): string {
       paint.center !== undefined &&
       (paint.center[0] !== 50 || paint.center[1] !== 50) &&
       "a center off the middle"
-  ].filter((part): part is string => typeof part === "string")
+  ].filter((part) => part !== false)
+
   const listed = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0]
+
   return `Written as ${prefix}-[…]: from, via and to can't hold ${listed}.`
 }
 
@@ -201,11 +227,14 @@ export function PaintStack({
 }) {
   const update = (id: string, paint: Partial<PaintEntry>) =>
     onChange(entries.map((entry) => (entry.id === id ? { ...entry, ...paint } : entry)))
+
   const add = () => {
     const added: PaintEntry = { id: newId("fill"), paint: { kind: "solid", color: "background" } }
     onChange(mixed ? [added] : [added, ...entries])
   }
+
   const arbitrary = paintIsArbitrary(entries, saved)
+
   return (
     <PanelSection
       title="Fill"
@@ -238,7 +267,9 @@ export function PaintStack({
               onMove={
                 entries.length > 1
                   ? (from, to) => {
-                      if (to >= 0 && to < entries.length) onChange(moved(entries, from, to))
+                      if (to >= 0 && to < entries.length) {
+                        onChange(moved(entries, from, to))
+                      }
                     }
                   : undefined
               }
@@ -283,6 +314,7 @@ function PaintRow({
   const { paint } = entry
   const name = `Fill ${index + 1}`
   const setPaint = (next: Paint) => onChange({ paint: next })
+
   const row = {
     name,
     group: "fills",
@@ -292,6 +324,7 @@ function PaintRow({
     onToggle: () => onChange({ off: !entry.off }),
     onRemove
   }
+
   if (isGradient(paint)) {
     return (
       <GradientRow
@@ -306,6 +339,7 @@ function PaintRow({
       />
     )
   }
+
   if (paint.kind === "image") {
     return (
       <ListRow
@@ -332,6 +366,7 @@ function PaintRow({
       </ListRow>
     )
   }
+
   // A solid is the color field, whose swatch is its preview and opens the color picker, which starts with its type.
   return (
     <ListRow {...row}>
@@ -380,10 +415,15 @@ function GradientRow({
   const resolved = resolveGradient(paint, saved)
   const angled = resolved.kind === "linear" || resolved.kind === "angular"
   let summary = resolved.repeat ? "Repeating" : ""
-  if (angled) summary = `${resolved.angle}°${resolved.repeat ? ", repeating" : ""}`
+
+  if (angled) {
+    summary = `${resolved.angle}°${resolved.repeat ? ", repeating" : ""}`
+  }
+
   const alphas = new Set(resolved.stops.map((stop) => stop.alpha))
   const mixed = alphas.size > 1
   const token = [...gradientTokens, ...saved].find((other) => other.name === paint.token)
+
   return (
     <ListRow
       {...row}
@@ -457,16 +497,22 @@ export function GradientEditor({
   const [selected, setSelected] = useState(resolved.stops[0]?.id)
   const [detached, setDetached] = useState<string>()
   const [tokensOpen, setTokensOpen] = useState(false)
+
   // Editing a token's part detaches it, and says so.
   const edit = (change: Partial<GradientPaint>) => {
-    if (paint.token !== undefined) setDetached(paint.token)
+    if (paint.token !== undefined) {
+      setDetached(paint.token)
+    }
+
     onChange({ ...resolved, ...change, token: undefined })
   }
+
   const setStops = (stops: Stop[]) => edit({ stops })
   const sorted = [...resolved.stops].sort((a, b) => a.position - b.position)
   // A token is written as its own class, so only the fill's own stops can be too long for from, via and to.
   const long = paint.token === undefined && !simpleGradient(resolved)
   const center = resolved.center ?? [50, 50]
+
   return (
     <div className="flex flex-col gap-2 p-2">
       <div className="flex items-center gap-1">
@@ -474,8 +520,11 @@ export function GradientEditor({
           value={resolved.kind}
           onChange={(kind) => {
             // Another gradient keeps the stops, as editing does; Solid and Image change the fill.
-            if (kind === "linear" || kind === "radial" || kind === "angular") edit({ kind })
-            else onKind(kind)
+            if (kind === "linear" || kind === "radial" || kind === "angular") {
+              edit({ kind })
+            } else {
+              onKind(kind)
+            }
           }}
         />
         <Popover open={tokensOpen} onOpenChange={setTokensOpen}>
@@ -581,7 +630,10 @@ export function GradientEditor({
           value={resolved.interpolation ?? "oklab"}
           onValueChange={(interpolation) => {
             const picked = blends.find((blend) => blend.value === interpolation)
-            if (picked) edit({ interpolation: picked.value })
+
+            if (picked) {
+              edit({ interpolation: picked.value })
+            }
           }}
         >
           <SelectTrigger size="sm" aria-label="Blend colors in" className="ml-auto h-7 px-2 text-xs">
@@ -610,6 +662,7 @@ export function GradientEditor({
                 size: stop.position - sorted[index]!.position,
                 from: sorted[index]!
               }))
+
               const widest = gaps.reduce((best, gap) => (gap.size > best.size ? gap : best), gaps[0]!)
               const added = { ...widest.from, id: newId("stop"), position: Math.round(widest.at), hint: undefined }
               setSelected(added.id)
@@ -710,8 +763,10 @@ function StopsBar({
   const { tokens: colors } = useTokens("color")
   const [leaving, setLeaving] = useState<string>()
   const sorted = [...paint.stops].sort((a, b) => a.position - b.position)
+
   const setStop = (id: string, change: Partial<Stop>) =>
     onChange(paint.stops.map((stop) => (stop.id === id ? { ...stop, ...change } : stop)))
+
   const dragStop = (event: PointerEvent<HTMLButtonElement>, stop: Stop) => {
     onSelect(stop.id)
     let off = false
@@ -729,15 +784,20 @@ function StopsBar({
       },
       end: (_, cancelled) => {
         setLeaving(undefined)
-        if (off && !cancelled) onChange(stops.filter((other) => other.id !== stop.id))
+
+        if (off && !cancelled) {
+          onChange(stops.filter((other) => other.id !== stop.id))
+        }
       }
     })
   }
+
   const dragHint = (event: PointerEvent<HTMLButtonElement>, from: Stop, to: Stop) =>
     drag(event, {
       within: event.currentTarget.parentElement,
       move: (point) => setStop(from.id, { hint: clamp(Math.round(point.x * 100), from.position + 1, to.position - 1) })
     })
+
   return (
     <div className="flex flex-col gap-0.5 px-1.5">
       <Hint label="Click to add a stop">
@@ -759,8 +819,13 @@ function StopsBar({
       <div className="relative h-4">
         {sorted.slice(0, -1).map((stop, index) => {
           const after = sorted[index + 1]!
-          if (after.position - stop.position < 4) return null
+
+          if (after.position - stop.position < 4) {
+            return null
+          }
+
           const at = stop.hint ?? (stop.position + after.position) / 2
+
           return (
             <Hint
               key={`hint-${stop.id}`}
@@ -773,7 +838,10 @@ function StopsBar({
                 onPointerDown={(event) => dragHint(event, stop, after)}
                 onDoubleClick={() => setStop(stop.id, { hint: undefined })}
                 onKeyDown={(event) => {
-                  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+                  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                    return
+                  }
+
                   event.preventDefault()
                   const step = (event.key === "ArrowRight" ? 1 : -1) * (event.shiftKey ? 10 : 1)
                   setStop(stop.id, { hint: clamp(Math.round(at) + step, stop.position + 1, after.position - 1) })
@@ -798,6 +866,7 @@ function StopsBar({
                 const step = (event.key === "ArrowRight" ? 1 : -1) * (event.shiftKey ? 10 : 1)
                 setStop(stop.id, { position: clamp(stop.position + step, 0, 100) })
               }
+
               if ((event.key === "Delete" || event.key === "Backspace") && paint.stops.length > 2) {
                 event.preventDefault()
                 onChange(paint.stops.filter((other) => other.id !== stop.id))
@@ -805,7 +874,7 @@ function StopsBar({
             }}
             className={`absolute top-0 grid size-4 -translate-x-1/2 touch-none place-items-center rounded-sm border-2 border-background bg-background shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${leaving === stop.id ? "opacity-30" : ""}`}
             // The selected stop is outlined in the layer's color, as the canvas's selection is.
-            style={{ left: `${stop.position}%`, ...(selected === stop.id ? { borderColor: kindColors.layer } : {}) }}
+            style={{ left: `${stop.position}%`, borderColor: selected === stop.id ? kindColors.layer : undefined }}
           >
             <Swatch value={drawListColor(stop, colors)} className="size-2.5" />
           </button>
@@ -817,6 +886,7 @@ function StopsBar({
 
 const fits: readonly ImageFit[] = ["fill", "fit", "crop", "tile"]
 const fitNames: Record<ImageFit, string> = { fill: "Fill", fit: "Fit", crop: "Crop", tile: "Tile" }
+
 const fitHints: Record<ImageFit, string> = {
   fill: "Covers the box, cropping what doesn't fit: background-size: cover",
   fit: "Shows the whole image inside the box: background-size: contain",
@@ -827,12 +897,14 @@ const fitHints: Record<ImageFit, string> = {
 /** An image fill's editor: the project's images, the fit, Crop's scale, and where the image sits in the box. */
 function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: (paint: ImagePaint) => void }) {
   const [x, y] = paint.position
+
   return (
     <div className="flex flex-col gap-2">
       <fieldset className="grid grid-cols-3 gap-1" aria-label="The project's images">
         {projectImages.map((image) => {
           const src = `/images/${image.name}`
           const chosen = paint.src === src
+
           return (
             <Hint key={image.name} label={image.name} detail="In public/images/">
               <button
@@ -844,7 +916,7 @@ function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: (paint:
                 // The chosen image is ringed in the layer's color, as the canvas's selection is.
                 style={{
                   backgroundImage: `url("${image.preview}")`,
-                  ...(chosen ? { boxShadow: `0 0 0 2px ${kindColors.layer}` } : {})
+                  boxShadow: chosen ? `0 0 0 2px ${kindColors.layer}` : undefined
                 }}
               />
             </Hint>
@@ -859,7 +931,10 @@ function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: (paint:
         value={[paint.fit]}
         onValueChange={([fit]) => {
           const picked = fits.find((option) => option === fit)
-          if (picked) onChange({ ...paint, fit: picked })
+
+          if (picked) {
+            onChange({ ...paint, fit: picked })
+          }
         }}
       >
         {fits.map((fit) => (
@@ -897,8 +972,10 @@ export function PaintPreview({ entries, saved = [] }: { entries: PaintEntry[]; s
   const draw = (value: ListColor) => drawListColor(value, colors)
   const { base, images } = paintLayers(entries, saved)
   const withImage = images.some((entry) => entry.paint.kind === "image")
+
   const each = (pick: (paint: ImagePaint) => string, other: string) =>
     images.map((entry) => (entry.paint.kind === "image" ? pick(entry.paint) : other)).join(", ")
+
   const style: CSSProperties = {
     borderRadius: 12,
     boxShadow: "inset 0 0 0 1px rgb(0 0 0 / 0.1)",
@@ -914,14 +991,14 @@ export function PaintPreview({ entries, saved = [] }: { entries: PaintEntry[]; s
               )
             )
             .join(", ")
-        : undefined,
-    ...(withImage
-      ? {
-          backgroundSize: each(imageSizeCss, "auto"),
-          backgroundPosition: each((paint) => paint.position.map((value) => `${value}%`).join(" "), "0% 0%"),
-          backgroundRepeat: each((paint) => (paint.fit === "tile" ? "repeat" : "no-repeat"), "repeat")
-        }
-      : {})
+        : undefined
   }
+
+  if (withImage) {
+    style.backgroundSize = each(imageSizeCss, "auto")
+    style.backgroundPosition = each((paint) => paint.position.map((value) => `${value}%`).join(" "), "0% 0%")
+    style.backgroundRepeat = each((paint) => (paint.fit === "tile" ? "repeat" : "no-repeat"), "repeat")
+  }
+
   return <Card style={style} />
 }

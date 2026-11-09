@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Shadows({
@@ -45,6 +46,7 @@ function Shadows({
   const [saved, setSaved] = useState<ShadowToken[]>([])
   const [shadowOf, setShadowOf] = useState<"text" | "box">("text")
   const onText = text !== undefined && shadowOf === "text"
+
   return (
     <Playground
       writes={isMixed ? mixedWrites : shadowWrites(entries, { shadowOfText: onText, saved })}
@@ -81,6 +83,7 @@ const custom: ShadowLayer = { x: 0, y: 4, blur: 12, spread: -2, ...black(10) }
 
 const drop = (id: string, token: string): ShadowEntry => ({ id, kind: "drop", token, layer: custom })
 const inner: ShadowEntry = { id: "inner", kind: "inner", token: "inset-shadow-sm", layer: custom }
+
 const ring: ShadowEntry = {
   id: "ring",
   kind: "ring",
@@ -153,7 +156,7 @@ export const OutOfTailwindsOrder: Story = {
  * A drop shadow that follows the shape: the filter's `drop-shadow-md`, listed after the box shadows, since it's drawn
  * under them all.
  */
-export const FollowsTheShape: Story = {
+export const FollowsTheOutline: Story = {
   render: () => (
     <Shadows
       start={[ring, { id: "follow", kind: "drop", follow: true, token: "drop-shadow-md", layer: custom }]}

@@ -10,6 +10,7 @@ import { Braces, ListOrdered, Plus, SlidersHorizontal } from "lucide-react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { BlurChoice } from "./controls.tsx"
+import { isLengthToken } from "./data.ts"
 import { MessageLine, type Reading, TokenChip, TokenMark, useTokens, ValueField } from "./field-parts.tsx"
 import { CenteredSlider, ListRow } from "./list-parts.tsx"
 import {
@@ -50,12 +51,19 @@ const addNames: Record<Addable, string> = {
   backdropBlur: "Background blur",
   adjustBehind: "Background adjustments"
 }
+
 const addables: readonly Addable[] = ["blur", "adjust", "dropShadow", "backdropBlur", "adjustBehind"]
 
 /** The kind an entry is added as, so + offers each once. */
 function addableOf(entry: FilterEntry): Addable | undefined {
-  if (entry.kind === "adjust") return entry.behind ? "adjustBehind" : "adjust"
-  if (entry.kind === "custom") return undefined
+  if (entry.kind === "adjust") {
+    return entry.behind ? "adjustBehind" : "adjust"
+  }
+
+  if (entry.kind === "custom") {
+    return undefined
+  }
+
   return entry.kind
 }
 
@@ -64,7 +72,11 @@ const order = (entry: FilterEntry) => ({ custom: 0, blur: 1, backdropBlur: 1, ad
 
 function newEntry(kind: Addable): FilterEntry {
   const id = newId("filter")
-  if (kind === "blur" || kind === "backdropBlur") return { id, kind, value: kind === "blur" ? "blur-sm" : "blur-md" }
+
+  if (kind === "blur" || kind === "backdropBlur") {
+    return { id, kind, value: kind === "blur" ? "blur-sm" : "blur-md" }
+  }
+
   if (kind === "dropShadow") {
     return {
       id,
@@ -78,6 +90,7 @@ function newEntry(kind: Addable): FilterEntry {
       }
     }
   }
+
   return { id, kind: "adjust", behind: kind === "adjustBehind", values: {} }
 }
 
@@ -96,10 +109,13 @@ export function FilterList({
   const taken = new Set(entries.map(addableOf))
   const set = (id: string, entry: FilterEntry) => onChange(entries.map((other) => (other.id === id ? entry : other)))
   const remove = (id: string) => onChange(entries.filter((other) => other.id !== id))
+
+  // A group with no rows doesn't show.
   const groups = [
     { title: "On the layer", rows: entries.filter((entry) => !isBehind(entry)).sort((a, b) => order(a) - order(b)) },
     { title: "Behind the layer", rows: entries.filter(isBehind).sort((a, b) => order(a) - order(b)) }
-  ]
+  ].filter(({ rows }) => rows.length > 0)
+
   return (
     <PanelSection
       title="Effects"
@@ -130,24 +146,22 @@ export function FilterList({
     >
       {entries.length > 0 && (
         <div className="flex flex-col gap-1">
-          {groups
-            .filter(({ rows }) => rows.length > 0)
-            .map(({ title, rows }) => (
-              <div key={title} className="flex flex-col gap-1">
-                <GroupLabel>{title}</GroupLabel>
-                {rows.map((entry) => (
-                  <FilterRow
-                    key={entry.id}
-                    entry={entry}
-                    tokensOnly={tokensOnly}
-                    startOpen={entry.id === openId}
-                    onChange={(next) => set(entry.id, next)}
-                    onReplace={(next) => onChange([...entries.filter((other) => other.id !== entry.id), ...next])}
-                    onRemove={() => remove(entry.id)}
-                  />
-                ))}
-              </div>
-            ))}
+          {groups.map(({ title, rows }) => (
+            <div key={title} className="flex flex-col gap-1">
+              <GroupLabel>{title}</GroupLabel>
+              {rows.map((entry) => (
+                <FilterRow
+                  key={entry.id}
+                  entry={entry}
+                  tokensOnly={tokensOnly}
+                  startOpen={entry.id === openId}
+                  onChange={(next) => set(entry.id, next)}
+                  onReplace={(next) => onChange([...entries.filter((other) => other.id !== entry.id), ...next])}
+                  onRemove={() => remove(entry.id)}
+                />
+              ))}
+            </div>
+          ))}
         </div>
       )}
     </PanelSection>
@@ -170,6 +184,7 @@ function FilterRow({
   onRemove: () => void
 }) {
   const { tokens: blurs } = useTokens("blur")
+
   const row = {
     group: "filters",
     index: 0,
@@ -177,11 +192,17 @@ function FilterRow({
     onToggle: () => onChange({ ...entry, off: !entry.off }),
     onRemove
   }
+
   if (entry.kind === "blur" || entry.kind === "backdropBlur") {
     const label = entry.kind === "blur" ? "Layer blur" : "Background blur"
-    const token = typeof entry.value === "string" ? blurs.find((other) => other.name === entry.value) : undefined
+    const named = entry.value !== undefined && isLengthToken(entry.value)
+    const token = named ? blurs.find((other) => other.name === entry.value) : undefined
     let drawn: string | undefined = token?.value
-    if (typeof entry.value === "object") drawn = `${entry.value.px}px`
+
+    if (entry.value !== undefined && !isLengthToken(entry.value)) {
+      drawn = `${entry.value.px}px`
+    }
+
     return (
       <ListRow
         {...row}
@@ -201,7 +222,7 @@ function FilterRow({
           className: "w-64 p-2"
         }}
       >
-        {typeof entry.value === "string" ? (
+        {entry.value !== undefined && isLengthToken(entry.value) ? (
           <span className="flex min-w-0 text-foreground">
             <TokenChip name={entry.value} token={token} namespace="blur-" preview={null} struck={!token} />
           </span>
@@ -211,9 +232,11 @@ function FilterRow({
       </ListRow>
     )
   }
+
   if (entry.kind === "adjust") {
     const label = entry.behind ? "Background adjustments" : "Adjustments"
     const words = adjustmentWords(entry.values)
+
     return (
       <ListRow
         {...row}
@@ -240,9 +263,11 @@ function FilterRow({
       </ListRow>
     )
   }
+
   if (entry.kind === "dropShadow") {
     const { shadow } = entry
     const token = dropShadowTokens.find((option) => option.name === shadow.token)
+
     return (
       <ListRow
         {...row}
@@ -278,6 +303,7 @@ function FilterRow({
       </ListRow>
     )
   }
+
   return (
     <ListRow {...row} name="Custom filter">
       <CustomEntry entry={entry} onChange={onChange} onReplace={onReplace} />
@@ -288,11 +314,16 @@ function FilterRow({
 /** Each adjustment set, in words: `Brightness +25, Saturation −10`. */
 function adjustmentWords(values: Adjustments): string {
   const set = adjustments.filter((adjustment) => (values[adjustment.key] ?? 0) !== 0)
-  if (set.length === 0) return "No change"
+
+  if (set.length === 0) {
+    return "No change"
+  }
+
   return set
     .map((adjustment) => {
       const value = values[adjustment.key]!
       const signed = adjustment.min < 0 && value > 0 ? `+${value}` : String(value).replace("-", "−")
+
       return `${adjustment.label} ${signed}${adjustment.unit}`
     })
     .join(", ")
@@ -315,6 +346,7 @@ export function AdjustmentsEditor({
   onChange: (values: Adjustments) => void
 }) {
   const shown = adjustments.filter((adjustment) => only === undefined || only.includes(adjustment.key))
+
   return (
     <div className="flex flex-col gap-2">
       {behind && (
@@ -324,6 +356,7 @@ export function AdjustmentsEditor({
       )}
       {shown.map((adjustment) => {
         const value = values[adjustment.key] ?? 0
+
         return (
           <CenteredSlider
             key={adjustment.key}
@@ -345,20 +378,39 @@ export function AdjustmentsEditor({
 function functionsOf(text: string): { name: string; args: string }[] | undefined {
   const found: { name: string; args: string }[] = []
   let rest = text.trim()
+
   while (rest.length > 0) {
     const name = /^([a-z-]+)\(/.exec(rest)?.[1]
-    if (!name) return undefined
+
+    if (!name) {
+      return undefined
+    }
+
     let depth = 0
     let end = name.length
+
     for (; end < rest.length; end++) {
-      if (rest[end] === "(") depth++
-      if (rest[end] === ")") depth--
-      if (depth === 0) break
+      if (rest[end] === "(") {
+        depth++
+      }
+
+      if (rest[end] === ")") {
+        depth--
+      }
+
+      if (depth === 0) {
+        break
+      }
     }
-    if (depth !== 0) return undefined
+
+    if (depth !== 0) {
+      return undefined
+    }
+
     found.push({ name, args: rest.slice(name.length + 1, end).trim() })
     rest = rest.slice(end + 1).trim()
   }
+
   return found
 }
 
@@ -370,6 +422,7 @@ const adjustmentFor: Readonly<Record<string, AdjustmentKey>> = Object.fromEntrie
 /** A function's amount as a percentage: `1.25` and `125%` are both 125. */
 const percentOf = (args: string) => {
   const number = Number.parseFloat(args)
+
   return args.trim().endsWith("%") ? number : number * 100
 }
 
@@ -380,48 +433,87 @@ const percentOf = (args: string) => {
  */
 export function putInOrder(text: string, behind: boolean): { entries: FilterEntry[] } | { reason: string } {
   const functions = functionsOf(text)
-  if (!functions) return { reason: "This isn't a valid list of filters" }
+
+  if (!functions) {
+    return { reason: "This isn't a valid list of filters" }
+  }
+
   const names = functions.map((part) => part.name)
   const twice = names.find((name, index) => names.indexOf(name) !== index)
-  if (twice) return { reason: `${twice}() is used more than once` }
-  if (names.includes("drop-shadow")) return { reason: "A drop shadow in a custom filter is kept as text" }
+
+  if (twice) {
+    return { reason: `${twice}() is used more than once` }
+  }
+
+  if (names.includes("drop-shadow")) {
+    return { reason: "A drop shadow in a custom filter is kept as text" }
+  }
+
   const unknown = names.find((name) => name !== "blur" && !(name in adjustmentFor))
-  if (unknown) return { reason: `${unknown}() has no slider` }
+
+  if (unknown) {
+    return { reason: `${unknown}() has no slider` }
+  }
+
   const colors = names.filter((name) => name !== "blur")
   const tailwindOrder = filterOrder.map((key) => adjustmentFunctions[key])
   const sorted = [...colors].sort((a, b) => tailwindOrder.indexOf(a) - tailwindOrder.indexOf(b))
   const outOfPlace = colors.findIndex((name, index) => name !== sorted[index])
+
   if (outOfPlace >= 0) {
     return {
       reason: `Reordering these filters would change the result, so they're kept as text`
     }
   }
+
   const entries: FilterEntry[] = []
   const values: Adjustments = {}
+
   for (const part of functions) {
     if (part.name === "blur") {
       const px = Number.parseFloat(part.args)
-      if (!part.args.endsWith("px") || !Number.isFinite(px)) return { reason: `blur(${part.args}) isn't in px` }
+
+      if (!part.args.endsWith("px") || !Number.isFinite(px)) {
+        return { reason: `blur(${part.args}) isn't in px` }
+      }
+
       entries.push({ id: newId("filter"), kind: behind ? "backdropBlur" : "blur", value: { px } })
       continue
     }
+
     const key = adjustmentFor[part.name]!
     const adjustment = adjustments.find((option) => option.key === key)!
     let value: number
+
     if (key === "hue") {
       // An angle in any of CSS's angle units, as degrees.
       const split = splitUnit(part.args)
       const perUnit = split && angleUnits[split.unit || "deg"]
-      if (!split || perUnit === undefined) return { reason: `hue-rotate(${part.args}) isn't an angle` }
+
+      if (!split || perUnit === undefined) {
+        return { reason: `hue-rotate(${part.args}) isn't an angle` }
+      }
+
       value = split.number * perUnit
-    } else if (key === "brightness" || key === "contrast" || key === "saturate") value = percentOf(part.args) - 100
-    else value = percentOf(part.args)
+    } else if (key === "brightness" || key === "contrast" || key === "saturate") {
+      value = percentOf(part.args) - 100
+    } else {
+      value = percentOf(part.args)
+    }
+
     value = Math.round(value)
-    if (value < adjustment.min || value > adjustment.max)
+
+    if (value < adjustment.min || value > adjustment.max) {
       return { reason: `${part.name}(${part.args}) is past the slider's end` }
+    }
+
     values[key] = value
   }
-  if (Object.keys(values).length > 0) entries.push({ id: newId("filter"), kind: "adjust", behind, values })
+
+  if (Object.keys(values).length > 0) {
+    entries.push({ id: newId("filter"), kind: "adjust", behind, values })
+  }
+
   return { entries }
 }
 
@@ -440,15 +532,29 @@ function CustomEntry({
   onReplace: (entries: FilterEntry[]) => void
 }) {
   const property = entry.behind ? "backdrop-filter" : "filter"
+
   const read = (text: string): Reading<string> => {
     const trimmed = text.trim()
-    if (trimmed === "") return { reason: `${property} can't be empty` }
+
+    if (trimmed === "") {
+      return { reason: `${property} can't be empty` }
+    }
+
     const open = unclosedInValue(trimmed)
-    if (open) return { reason: open }
-    if (!CSS.supports(property, trimmed)) return { reason: `${property} can't be ${trimmed}` }
+
+    if (open) {
+      return { reason: open }
+    }
+
+    if (!CSS.supports(property, trimmed)) {
+      return { reason: `${property} can't be ${trimmed}` }
+    }
+
     return { value: trimmed }
   }
+
   const ordered = putInOrder(entry.text, entry.behind ?? false)
+
   return (
     <div className="grid min-w-0 flex-1 gap-1">
       <ValueField
@@ -492,6 +598,7 @@ function CustomEntry({
 export function FilterPreview({ entries }: { entries: FilterEntry[] }) {
   const { tokens: colors } = useTokens("color")
   const drawing = filterDrawing(entries, (value: ListColor) => drawListColor(value, colors))
+
   return (
     <Card
       style={{

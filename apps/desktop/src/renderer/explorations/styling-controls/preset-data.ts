@@ -22,7 +22,7 @@ import {
   weightWrites
 } from "./text-writes.ts"
 import { leadingTokens, trackingTokens, weightTokens } from "./tokens.ts"
-import { mergeWrites, type Writes } from "./writes.ts"
+import { mergeWrites, type StoredObject, type Writes } from "./writes.ts"
 
 export type TypeField = "font" | "size" | "weight" | "lineHeight" | "letterSpacing"
 
@@ -106,7 +106,7 @@ export const presetNamed = (name: string | undefined) => typePresets.find((prese
 
 /** The rows a preset sets, in order. */
 export const coveredBy = (preset: TypePreset | undefined): TypeField[] =>
-  preset ? typeFields.map(({ field }) => field).filter((field) => preset.values[field] !== undefined) : []
+  preset ? typeFields.flatMap(({ field }) => (preset.values[field] === undefined ? [] : [field])) : []
 
 /** A text layer: the preset it follows, if any, and its own values, which override the preset's where it sets them. */
 export interface PresetLayer {
@@ -135,12 +135,15 @@ export function shownValue<F extends TypeField>(
   const preset = presetNamed(layer.preset)
   const own = layer.own[field]
   const fromPreset = preset?.values[field]
-  if (fromPreset !== undefined)
+
+  if (fromPreset !== undefined) {
     return own === undefined ? { value: fromPreset, source: "preset" } : { value: own, source: "override" }
+  }
+
   return own === undefined ? { value: undefined, source: "inherited" } : { value: own, source: "own" }
 }
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+const same = (a: TypeValues[TypeField], b: TypeValues[TypeField]) => JSON.stringify(a) === JSON.stringify(b)
 
 /** Sets a row on the layer. Set to what its preset gives, it follows the preset again rather than overriding it. */
 export function setValue<F extends TypeField>(
@@ -150,9 +153,22 @@ export function setValue<F extends TypeField>(
 ): PresetLayer {
   const own = { ...layer.own }
   const fromPreset = presetNamed(layer.preset)?.values[field]
-  if (value === undefined || (fromPreset !== undefined && same(value, fromPreset))) delete own[field]
-  else own[field] = value
+
+  if (value === undefined || (fromPreset !== undefined && same(value, fromPreset))) {
+    delete own[field]
+  } else {
+    own[field] = value
+  }
+
   return { ...layer, own }
+}
+
+/** Values that set one row. */
+function rowValues<F extends TypeField>(field: F, value: TypeValues[F]): TypeValues {
+  const values: TypeValues = {}
+  values[field] = value
+
+  return values
 }
 
 /** Puts a row back to its preset's value. */
@@ -165,13 +181,18 @@ export const overridesOf = (layer: PresetLayer): TypeField[] =>
 /** Picks a preset, or none: its rows follow it, so picking the one applied again takes back every override. */
 export function applyPreset(layer: PresetLayer, name: string | undefined): PresetLayer {
   const own = { ...layer.own }
-  for (const field of coveredBy(presetNamed(name))) delete own[field]
+
+  for (const field of coveredBy(presetNamed(name))) {
+    delete own[field]
+  }
+
   return { ...layer, preset: name, own }
 }
 
 /** Detach: the layer keeps every value its preset gave it, overrides included, as its own. */
 export function detachPreset(layer: PresetLayer): PresetLayer {
   const preset = presetNamed(layer.preset)
+
   return { own: { ...preset?.values, ...layer.own }, italic: layer.italic }
 }
 
@@ -180,10 +201,15 @@ export function detachPreset(layer: PresetLayer): PresetLayer {
 /** Every row's value as the text draws it, from the layer, its preset and what it inherits. */
 export function typeOf(layer: PresetLayer): Required<TypeValues> {
   const values = { ...inherited }
+
   for (const { field } of typeFields) {
     const { value } = shownValue(layer, field)
-    if (value !== undefined) Object.assign(values, { [field]: value })
+
+    if (value !== undefined) {
+      Object.assign(values, { [field]: value })
+    }
   }
+
   return values
 }
 
@@ -194,17 +220,27 @@ export const weightLabel = (weight: WeightValue) =>
   weightTokens.find((token) => token.weight === weightNumber(weight))?.label ?? String(weightNumber(weight))
 
 function lineHeightPx(lineHeight: LineHeight, size: number): number {
-  if ("keyword" in lineHeight) return Math.round(size * 1.2)
-  if ("px" in lineHeight) return lineHeight.px
+  if ("keyword" in lineHeight) {
+    return Math.round(size * 1.2)
+  }
+
+  if ("px" in lineHeight) {
+    return lineHeight.px
+  }
+
   const multiple =
     "multiple" in lineHeight
       ? lineHeight.multiple
       : (leadingTokens.find((token) => token.name === lineHeight.token)?.multiple ?? 1.5)
+
   return Math.round(size * multiple * 100) / 100
 }
 
 function letterSpacingEm(spacing: LetterSpacing, size: number): number {
-  if ("token" in spacing) return trackingTokens.find((token) => token.name === spacing.token)?.em ?? 0
+  if ("token" in spacing) {
+    return trackingTokens.find((token) => token.name === spacing.token)?.em ?? 0
+  }
+
   return "em" in spacing ? spacing.em : spacing.px / size
 }
 
@@ -212,6 +248,7 @@ function letterSpacingEm(spacing: LetterSpacing, size: number): number {
 export function measured(values: Required<TypeValues>) {
   const size = sizePx(values.size)
   const font = resolveFont(values.font)
+
   return {
     font: font?.name ?? "",
     stack: font?.stack ?? "sans-serif",
@@ -229,24 +266,32 @@ export const presetType = (preset: TypePreset): Required<TypeValues> => ({ ...in
 export function summary(preset: TypePreset): string {
   const values = measured(presetType(preset))
   const covered = new Set(coveredBy(preset))
+
   const parts = [
     covered.has("font") ? values.font : undefined,
     `${formatNumber(values.size)}/${formatNumber(values.lineHeight)}`,
     covered.has("weight") ? weightLabel(presetType(preset).weight) : undefined
   ]
+
   return parts.filter(Boolean).join(" ")
 }
 
 /** What a row is in each viewport, for the dot after its name: "36px on Mobile, 48px from Desktop". */
 export function viewportsOf(preset: TypePreset | undefined, field: TypeField): string | undefined {
   const wider = preset?.wider?.values[field]
-  if (!preset?.wider || wider === undefined) return undefined
+
+  if (!preset?.wider || wider === undefined) {
+    return undefined
+  }
+
   const base = preset.values[field]
+
   const words = (value: TypeValues[TypeField]) => {
-    const values = { ...presetType(preset), [field]: value } as Required<TypeValues>
-    const numbers = measured(values)
+    const numbers = measured({ ...presetType(preset), ...rowValues(field, value) })
+
     return field === "size" ? `${formatNumber(numbers.size)}px` : `${formatNumber(numbers.lineHeight)}px`
   }
+
   return `${words(base)} on Mobile, ${words(wider)} from ${preset.wider.viewport}`
 }
 
@@ -258,27 +303,49 @@ export interface PresetMatch {
 
 /** For a layer with no preset: the preset its type matches in every row it sets, else the nearest by size. */
 export function closestPreset(layer: PresetLayer): PresetMatch | undefined {
-  if (layer.preset !== undefined) return undefined
+  if (layer.preset !== undefined) {
+    return undefined
+  }
+
   const mine = measured(typeOf(layer))
+
   const matches = typePresets.map((preset) => {
     const theirs = measured(presetType(preset))
+
     const differs = coveredBy(preset).filter((field) =>
       field === "font" ? theirs.font !== mine.font : Math.abs(theirs[field] - mine[field]) > 0.001
     )
+
     return { preset, differs, sizeOff: Math.abs(theirs.size - mine.size) }
   })
+
   const exact = matches.find((match) => match.differs.length === 0)
-  if (exact) return { preset: exact.preset, differs: [] }
+
+  if (exact) {
+    return { preset: exact.preset, differs: [] }
+  }
+
   const near = matches.filter((match) => match.sizeOff <= 2).sort((a, b) => a.sizeOff - b.sizeOff)[0]
+
   return near && { preset: near.preset, differs: near.differs }
 }
 
 /** Words for a row's value, as the locked row and Use's hint say it. */
 export function valueWords(field: TypeField, values: Required<TypeValues>): string {
   const numbers = measured(values)
-  if (field === "font") return numbers.font
-  if (field === "weight") return weightLabel(values.weight)
-  if (field === "letterSpacing") return `${formatNumber(Math.round(numbers.letterSpacing * 1000) / 10)}%`
+
+  if (field === "font") {
+    return numbers.font
+  }
+
+  if (field === "weight") {
+    return weightLabel(values.weight)
+  }
+
+  if (field === "letterSpacing") {
+    return `${formatNumber(Math.round(numbers.letterSpacing * 1000) / 10)}%`
+  }
+
   return `${formatNumber(field === "size" ? numbers.size : numbers.lineHeight)}px`
 }
 
@@ -290,13 +357,30 @@ export const presetClass = (preset: TypePreset) =>
 
 /** One row's writes, without the size a line height is written beside. */
 function rowWrites(field: TypeField, values: TypeValues): Writes | undefined {
-  if (field === "font") return values.font && fontWrites(values.font)
-  if (field === "size") return values.size && fontSizeWrites(values.size)
-  if (field === "lineHeight") return values.lineHeight && lineHeightWrites(values.lineHeight, undefined)
-  if (field === "letterSpacing") return values.letterSpacing && letterSpacingWrites(values.letterSpacing)
-  if (values.weight === undefined) return undefined
+  if (field === "font") {
+    return values.font && fontWrites(values.font)
+  }
+
+  if (field === "size") {
+    return values.size && fontSizeWrites(values.size)
+  }
+
+  if (field === "lineHeight") {
+    return values.lineHeight && lineHeightWrites(values.lineHeight, undefined)
+  }
+
+  if (field === "letterSpacing") {
+    return values.letterSpacing && letterSpacingWrites(values.letterSpacing)
+  }
+
+  if (values.weight === undefined) {
+    return undefined
+  }
+
   const writes = weightWrites(values.weight, undefined)
-  return { ...writes, stored: (writes.stored as { fontWeight: unknown }).fontWeight }
+
+  // SAFETY: with a weight set and no italic, weightWrites stores `{ fontWeight }`.
+  return { ...writes, stored: (writes.stored as StoredObject).fontWeight }
 }
 
 const storedKeys: Record<TypeField, string> = {
@@ -315,13 +399,19 @@ const storedKeys: Record<TypeField, string> = {
 export function presetWrites(layer: PresetLayer): Writes {
   const preset = presetNamed(layer.preset)
   const parts: Record<string, Writes> = {}
+
   if (preset) {
     const css = coveredBy(preset).flatMap((field) => rowWrites(field, preset.values)?.css ?? [])
     parts.typePreset = { stored: { token: preset.name }, css, tailwind: [presetClass(preset)] }
   }
+
   for (const { field } of typeFields) {
     const writes = rowWrites(field, layer.own)
-    if (writes) parts[storedKeys[field]] = writes
+
+    if (writes) {
+      parts[storedKeys[field]] = writes
+    }
   }
+
   return mergeWrites(parts)
 }

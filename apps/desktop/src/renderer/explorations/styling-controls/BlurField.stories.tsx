@@ -17,15 +17,19 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Blurs({ start, tokensOnly, mixed }: { start: Draft; tokensOnly?: boolean; mixed?: boolean }) {
   const [draft, set] = useDraft(start)
+
   const merged = mergeWrites({
     filter: blurWrites("blur", draft.blur),
     backdropFilter: blurWrites("backdropBlur", draft.backdropBlur)
   })
+
   const writes = mixed && merged.stored === undefined ? mixedWrites : merged
+
   return (
     <Playground
       writes={writes}

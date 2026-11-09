@@ -3,6 +3,7 @@
  * story, in the forms writes.ts uses: the stored value, the CSS and the Tailwind classes. Lengths, fractions,
  * arbitrary values and the nine spots' keywords are written as css-values.ts writes them for every other control.
  */
+import { textValue } from "../../chrome/prop-values.ts"
 import {
   arbitrary,
   type BoxPoint,
@@ -23,47 +24,76 @@ import {
   timeMs,
   type TransformValue,
   type TransitionEntry,
+  type TransitionProperty,
   transitionProperties,
   transitionSets
 } from "./motion-data.ts"
 import { durationTokens } from "./tokens.ts"
-import type { Writes } from "./writes.ts"
+import type { StoredObject, Writes } from "./writes.ts"
 
 const nothing: Writes = { stored: undefined, css: [], tailwind: [] }
 
 /** Position's Rotation: `rotate-45`, `-rotate-12`, or `rotate-[22.5deg]` for a value of its own. */
 export function angleWrites(angle: Angle | undefined): Writes {
-  if (angle === undefined) return nothing
+  if (angle === undefined) {
+    return nothing
+  }
+
   if ("step" in angle) {
     const sign = angle.step < 0 ? "-" : ""
+
     return { stored: angle, css: [`rotate: ${angle.step}deg`], tailwind: [`${sign}rotate-${Math.abs(angle.step)}`] }
   }
+
   return { stored: angle, css: [`rotate: ${angle.value}`], tailwind: [`rotate-[${arbitrary(angle.value)}]`] }
 }
 
 /** A transition's duration or delay: `duration-200`, a token, or `duration-[0.2s]` as read from code. */
 export function timeWrites(which: "duration" | "delay", time: Time | undefined): Writes {
-  if (time === undefined) return nothing
+  if (time === undefined) {
+    return nothing
+  }
+
   const property = `transition-${which}`
-  if ("step" in time) return { stored: time, css: [`${property}: ${time.step}ms`], tailwind: [`${which}-${time.step}`] }
+
+  if ("step" in time) {
+    return { stored: time, css: [`${property}: ${time.step}ms`], tailwind: [`${which}-${time.step}`] }
+  }
+
   if ("token" in time) {
     return { stored: time, css: [`${property}: var(--${time.token})`], tailwind: [`${which}-(--${time.token})`] }
   }
+
   return { stored: time, css: [`${property}: ${time.value}`], tailwind: [`${which}-[${arbitrary(time.value)}]`] }
 }
 
 /** An easing as CSS writes it: Tailwind's variable for its own, the token's, the curve, or a spring's `linear()`. */
 export function easingCss(easing: Easing): string {
-  if ("keyword" in easing) return easing.keyword === "linear" ? "linear" : `var(--${easing.keyword})`
-  if ("token" in easing) return `var(--${easing.token})`
-  if ("spring" in easing) return springLinear(easing.spring)
+  if ("keyword" in easing) {
+    return easing.keyword === "linear" ? "linear" : `var(--${easing.keyword})`
+  }
+
+  if ("token" in easing) {
+    return `var(--${easing.token})`
+  }
+
+  if ("spring" in easing) {
+    return springLinear(easing.spring)
+  }
+
   return easing.value
 }
 
 /** The class an easing writes: `ease-out`, `ease-linear`, `ease-snappy`, or `ease-[…]`. */
 export function easingClass(easing: Easing): string {
-  if ("keyword" in easing) return `ease-${easing.keyword.replace(/^ease-/, "")}`
-  if ("token" in easing) return easing.token
+  if ("keyword" in easing) {
+    return `ease-${easing.keyword.replace(/^ease-/, "")}`
+  }
+
+  if ("token" in easing) {
+    return easing.token
+  }
+
   return `ease-[${arbitrary(easingCss(easing))}]`
 }
 
@@ -72,7 +102,10 @@ export const easingIsLong = (easing: Easing | undefined) => easing !== undefined
 
 /** A transition's easing. */
 export function easingWrites(easing: Easing | undefined): Writes {
-  if (easing === undefined) return nothing
+  if (easing === undefined) {
+    return nothing
+  }
+
   return {
     stored: easing,
     css: [`transition-timing-function: ${easingCss(easing)}`],
@@ -92,17 +125,46 @@ export type TransitionForm = "none" | "utilities" | "merged" | "arbitrary"
 
 export function transitionForm(entries: readonly TransitionEntry[]): TransitionForm {
   const on = entries.filter((entry) => !entry.off)
-  if (on.length === 0) return "none"
-  if (on.length === 1) return "utilities"
+
+  if (on.length === 0) {
+    return "none"
+  }
+
+  if (on.length === 1) {
+    return "utilities"
+  }
+
   return new Set(on.map(timing)).size === 1 ? "merged" : "arbitrary"
 }
 
-const storedEntry = (entry: TransitionEntry) => ({
-  property: typeof entry.property === "string" ? { keyword: entry.property } : { value: entry.property.property },
-  ...(entry.duration ? { duration: entry.duration } : {}),
-  ...(entry.easing ? { easing: entry.easing } : {}),
-  ...(entry.delay ? { delay: entry.delay } : {})
-})
+/** Whether a transition's property is one of Tailwind's sets (`colors`, `all`), rather than a property of its own. */
+const isTransitionSet = (property: TransitionProperty): property is Extract<TransitionProperty, string> =>
+  textValue.safeParse(property).success
+
+/** A transition as stored: its property, its timing where it's set, and whether its eye is off. */
+function storedEntry(entry: TransitionEntry): StoredObject {
+  const stored: StoredObject = {
+    property: isTransitionSet(entry.property) ? { keyword: entry.property } : { value: entry.property.property }
+  }
+
+  if (entry.duration) {
+    stored.duration = entry.duration
+  }
+
+  if (entry.easing) {
+    stored.easing = entry.easing
+  }
+
+  if (entry.delay) {
+    stored.delay = entry.delay
+  }
+
+  if (entry.off) {
+    stored.off = true
+  }
+
+  return stored
+}
 
 /**
  * Motion's Transitions. Tailwind takes one transition property, duration, easing and delay per element, so one entry
@@ -118,12 +180,16 @@ export function transitionsWrites(entries: readonly TransitionEntry[], savedAs?:
       tailwind: [`[transition:var(--transition-${savedAs})]`]
     }
   }
+
   const on = entries.filter((entry) => !entry.off)
   const form = transitionForm(entries)
-  if (form === "none") return { stored: entries.length > 0 ? { transitions: [] } : undefined, css: [], tailwind: [] }
-  const stored = {
-    transitions: entries.map((entry) => ({ ...storedEntry(entry), ...(entry.off ? { off: true } : {}) }))
+
+  if (form === "none") {
+    return { stored: entries.length > 0 ? { transitions: [] } : undefined, css: [], tailwind: [] }
   }
+
+  const stored = { transitions: entries.map(storedEntry) }
+
   if (form === "arbitrary") {
     const parts = on.flatMap((entry) =>
       transitionProperties(entry.property).map((property) =>
@@ -137,18 +203,25 @@ export function transitionsWrites(entries: readonly TransitionEntry[], savedAs?:
           .join(" ")
       )
     )
+
     return {
       stored,
       css: [`transition: ${parts.join(", ")}`],
       tailwind: [`[transition:${arbitrary(parts.join(","))}]`]
     }
   }
+
   const first = on[0]!
   const properties = on.flatMap((entry) => transitionProperties(entry.property))
   const css = [`transition-property: ${properties.join(", ")}`]
   const tailwind: string[] = []
-  if (form === "utilities" && typeof first.property === "string") tailwind.push(transitionSets[first.property].utility)
-  else tailwind.push(`transition-[${properties.join(",")}]`)
+
+  if (form === "utilities" && isTransitionSet(first.property)) {
+    tailwind.push(transitionSets[first.property].utility)
+  } else {
+    tailwind.push(`transition-[${properties.join(",")}]`)
+  }
+
   for (const part of [
     timeWrites("duration", first.duration),
     easingWrites(first.easing),
@@ -157,12 +230,16 @@ export function transitionsWrites(entries: readonly TransitionEntry[], savedAs?:
     css.push(...part.css)
     tailwind.push(...part.tailwind)
   }
+
   return { stored, css, tailwind }
 }
 
 /** A move as CSS writes it: a length as every length is written (a spacing step where it's one), or its percentage. */
 const moveCss = (move: Move | undefined) => {
-  if (move === undefined) return "0"
+  if (move === undefined) {
+    return "0"
+  }
+
   return "px" in move ? lengthCss(move.px) : `${formatNumber(move.percent)}%`
 }
 
@@ -170,19 +247,28 @@ const moveCss = (move: Move | undefined) => {
 function moveClass(axis: "x" | "y", move: Move): string {
   const negative = ("px" in move ? move.px : move.percent) < 0
   const sign = negative ? "-" : ""
-  if ("px" in move) return `${sign}translate-${axis}-${lengthClass(Math.abs(move.px))}`
+
+  if ("px" in move) {
+    return `${sign}translate-${axis}-${lengthClass(Math.abs(move.px))}`
+  }
+
   const size = Math.abs(move.percent)
+
   return `${sign}translate-${axis}-${fraction(size) ?? `[${arbitrary(`${formatNumber(size)}%`)}]`}`
 }
 
 function moveStored(move: Move): { step: number } | { value: string } {
-  if ("percent" in move) return { value: `${formatNumber(move.percent)}%` }
+  if ("percent" in move) {
+    return { value: `${formatNumber(move.percent)}%` }
+  }
+
   return lengthForm(move.px)
 }
 
 const scaleClass = (prefix: string, percent: number) => {
   const sign = percent < 0 ? "-" : ""
   const size = Math.abs(percent)
+
   return `${sign}${prefix}-${Number.isInteger(size) ? size : `[${formatNumber(size)}%]`}`
 }
 
@@ -190,42 +276,71 @@ const scaleClass = (prefix: string, percent: number) => {
 export function transformWrites(transform: TransformValue): Writes {
   const css: string[] = []
   const tailwind: string[] = []
-  const stored: Record<string, unknown> = {}
+  const stored: StoredObject = {}
+
   if (transform.moveX || transform.moveY) {
-    stored.translate = {
-      ...(transform.moveX ? { x: moveStored(transform.moveX) } : {}),
-      ...(transform.moveY ? { y: moveStored(transform.moveY) } : {})
+    const translate: StoredObject = {}
+
+    if (transform.moveX) {
+      translate.x = moveStored(transform.moveX)
     }
+
+    if (transform.moveY) {
+      translate.y = moveStored(transform.moveY)
+    }
+
+    stored.translate = translate
     css.push(`translate: ${moveCss(transform.moveX)}${transform.moveY ? ` ${moveCss(transform.moveY)}` : ""}`)
-    if (transform.moveX) tailwind.push(moveClass("x", transform.moveX))
-    if (transform.moveY) tailwind.push(moveClass("y", transform.moveY))
+
+    if (transform.moveX) {
+      tailwind.push(moveClass("x", transform.moveX))
+    }
+
+    if (transform.moveY) {
+      tailwind.push(moveClass("y", transform.moveY))
+    }
   }
+
   // A flip is the scale on that axis made negative.
   const x = (transform.scaleX ?? 100) * (transform.flipX ? -1 : 1)
   const y = (transform.scaleY ?? 100) * (transform.flipY ? -1 : 1)
+
   if (x !== 100 || y !== 100) {
     stored.scale = { x: { step: x }, y: { step: y } }
     css.push(x === y ? `scale: ${x}%` : `scale: ${x}% ${y}%`)
-    if (x === y) tailwind.push(scaleClass("scale", x))
-    else {
-      if (x !== 100) tailwind.push(scaleClass("scale-x", x))
-      if (y !== 100) tailwind.push(scaleClass("scale-y", y))
+
+    if (x === y) {
+      tailwind.push(scaleClass("scale", x))
+    } else {
+      if (x !== 100) {
+        tailwind.push(scaleClass("scale-x", x))
+      }
+
+      if (y !== 100) {
+        tailwind.push(scaleClass("scale-y", y))
+      }
     }
   }
+
   if (transform.origin) {
     const origin = positionWrites("origin", transform.origin)
     stored.origin = origin.stored
     css.push(...origin.css)
     tailwind.push(...origin.tailwind)
   }
+
   return { stored: Object.keys(stored).length > 0 ? stored : undefined, css, tailwind }
 }
 
 /** A position in a box: a spot by name (`origin-top-left`, `object-bottom`), or one off them (`object-[25%_75%]`). */
 export function positionWrites(which: "origin" | "object", position: BoxPoint | undefined): Writes {
-  if (position === undefined) return nothing
+  if (position === undefined) {
+    return nothing
+  }
+
   const property = which === "origin" ? "transform-origin" : "object-position"
   const spot = spotKeywords(position)
+
   if (spot) {
     return {
       stored: { keyword: spot },
@@ -233,6 +348,8 @@ export function positionWrites(which: "origin" | "object", position: BoxPoint | 
       tailwind: [`${which}-${spot.replace(" ", "-")}`]
     }
   }
+
   const value = `${formatNumber(position.x)}% ${formatNumber(position.y)}%`
+
   return { stored: { value }, css: [`${property}: ${value}`], tailwind: [`${which}-[${arbitrary(value)}]`] }
 }

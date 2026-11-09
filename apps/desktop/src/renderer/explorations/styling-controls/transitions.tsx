@@ -20,7 +20,7 @@ import {
   defaultDuration,
   drawnEasing,
   easingName,
-  easingShape,
+  easingPlot,
   springSettle,
   timeMs,
   type TransitionEntry,
@@ -58,10 +58,13 @@ export function TransitionsSection({
 }) {
   const form = transitionForm(entries)
   const on = entries.filter((entry) => !entry.off)
+
   const update = (id: string, change: Partial<TransitionEntry>) =>
     onChange(entries.map((entry) => (entry.id === id ? { ...entry, ...change } : entry)))
+
   // The first entry whose timing differs from the first one's is the one that makes it one arbitrary value.
   const cause = form === "arbitrary" ? on.find((entry) => timingOf(entry) !== timingOf(on[0]!)) : undefined
+
   const add = (
     <Hint label="Add a transition">
       <Button
@@ -75,6 +78,7 @@ export function TransitionsSection({
       </Button>
     </Hint>
   )
+
   return (
     <PanelSection title="Motion" action={add}>
       {entries.length > 0 && (
@@ -106,7 +110,9 @@ export function TransitionsSection({
                 onMove={
                   entries.length > 1
                     ? (from, to) => {
-                        if (to >= 0 && to < entries.length) onChange(moved(entries, from, to))
+                        if (to >= 0 && to < entries.length) {
+                          onChange(moved(entries, from, to))
+                        }
                       }
                     : undefined
                 }
@@ -154,6 +160,7 @@ function EntryRow({
   const spring = entry.easing !== undefined && "spring" in entry.easing ? entry.easing.spring : undefined
   const ms = spring ? springSettle(spring) : timeMs(entry.duration, durations)
   const delay = timeMs(entry.delay, durations)
+
   const details = (
     <>
       <p className="pb-1 text-sm font-medium">{label} transition</p>
@@ -193,6 +200,7 @@ function EntryRow({
       </Field>
     </>
   )
+
   return (
     <ListRow
       name={name}
@@ -205,7 +213,7 @@ function EntryRow({
       // Hovered or focused, the curve plays at the entry's own duration.
       renderPreview={(live) => (
         <CurveThumb
-          shape={easingShape(entry.easing, easings)}
+          plot={easingPlot(entry.easing, easings)}
           faint={entry.easing === undefined}
           playing={live}
           duration={ms ?? defaultDuration}
@@ -235,8 +243,11 @@ function PropertyMenu({
   property: TransitionProperty
   onChange: (property: TransitionProperty) => void
 }) {
-  const [typed, setTyped] = useState(typeof property === "string" ? "" : property.property)
+  const chosenSet = sets.find((option) => option === property)
+  // A property of its own is labelled with its name.
+  const [typed, setTyped] = useState(chosenSet === undefined ? transitionLabel(property) : "")
   const id = useId()
+
   return (
     <div className="flex flex-col gap-1">
       <DropdownMenu>
@@ -250,10 +261,13 @@ function PropertyMenu({
         />
         <DropdownMenuContent align="start" className="w-48">
           <DropdownMenuRadioGroup
-            value={typeof property === "string" ? property : "property"}
+            value={chosenSet ?? "property"}
             onValueChange={(next) => {
               const set = sets.find((option) => option === next)
-              if (set) onChange(set)
+
+              if (set) {
+                onChange(set)
+              }
             }}
           >
             {sets.map((set) => (
@@ -280,10 +294,14 @@ function PropertyMenu({
         placeholder="Or type a property"
         onChange={(event) => setTyped(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && typed.trim() !== "") onChange({ property: typed.trim() })
+          if (event.key === "Enter" && typed.trim() !== "") {
+            onChange({ property: typed.trim() })
+          }
         }}
         onBlur={() => {
-          if (typed.trim() !== "") onChange({ property: typed.trim() })
+          if (typed.trim() !== "") {
+            onChange({ property: typed.trim() })
+          }
         }}
         className="h-7 text-xs"
       />
@@ -302,6 +320,7 @@ export function previewTransition(entries: readonly TransitionEntry[], sets: Tok
       const spring = entry.easing !== undefined && "spring" in entry.easing ? entry.easing.spring : undefined
       const ms = spring ? springSettle(spring) : (timeMs(entry.duration, sets.duration) ?? defaultDuration)
       const easing = drawnEasing(entry.easing, sets.easing)
+
       return transitionProperties(entry.property)
         .filter((property) => !property.startsWith("--"))
         .map((property) => `${property} ${ms}ms ${easing} ${timeMs(entry.delay, sets.duration) ?? 0}ms`)

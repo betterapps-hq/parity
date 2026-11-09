@@ -22,18 +22,21 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A card with the section's declarations applied, as the canvas draws them. */
 function Applied({ css }: { css: string[] }) {
   const card = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (card.current)
+    if (card.current) {
       card.current.style.cssText = css
         .filter((line) => !line.startsWith("&"))
         .map(fillTokens)
         .join("; ")
+    }
   }, [css])
+
   return (
     <div className="grid size-64 place-items-center">
       <div className="w-48 rounded-xl border bg-white p-4 text-sm text-neutral-900">
@@ -49,6 +52,7 @@ function Applied({ css }: { css: string[] }) {
 function Css({ start }: { start: CssModel }) {
   const [model, setModel] = useState(start)
   const writes = cssWrites(model)
+
   return (
     <Playground writes={writes} preview={<Applied css={writes.css} />}>
       <CssSection model={model} onChange={setModel} />

@@ -21,6 +21,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const fill: Track = { kind: "fr", value: 1 }
@@ -34,7 +35,9 @@ function Placement({ start }: { start: Draft }) {
     rows: [],
     ...start
   })
+
   const [selected, setSelected] = useState(true)
+
   return (
     <Playground
       comparisons={gridPlacementComparisons}

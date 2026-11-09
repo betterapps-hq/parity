@@ -3,10 +3,12 @@ import type { PreviewKind } from "@parity-app/tokens"
 import { SlidersHorizontal } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
+import { numberValue } from "../../chrome/prop-values.ts"
 import { swatch } from "../../chrome/token-previews.tsx"
 import { arbitrary, formatNumber, lengthForm } from "./css-values.ts"
 import {
   fieldBox,
+  type FieldHint,
   fieldInput,
   InvalidMark,
   type Message,
@@ -34,9 +36,18 @@ import type { Writes } from "./writes.ts"
 
 /** The kind of preview a length token draws with: a spacing bar, a container's width, a size of text, a corner. */
 function lengthKind(name: string): PreviewKind {
-  if (name.startsWith("container-")) return "container"
-  if (name.startsWith("text-")) return "font-size"
-  if (name.startsWith("radius-")) return "radius"
+  if (name.startsWith("container-")) {
+    return "container"
+  }
+
+  if (name.startsWith("text-")) {
+    return "font-size"
+  }
+
+  if (name.startsWith("radius-")) {
+    return "radius"
+  }
+
   return "spacing"
 }
 
@@ -66,32 +77,41 @@ type Lexeme =
 function lex(text: string): Lexeme[] | { reason: string } {
   const out: Lexeme[] = []
   let at = 0
+
   while (at < text.length) {
     const rest = text.slice(at)
     const space = /^\s+/.exec(rest)
+
     if (space) {
       at += space[0].length
       continue
     }
+
     const number = /^(\d*\.?\d+)(px|rem|em|vw|vh|%)?/i.exec(rest)
+
     if (number) {
       out.push({ type: "number", value: Number(number[1]), unit: (number[2] ?? "").toLowerCase() })
       at += number[0].length
       continue
     }
+
     const name = /^--?[a-z][\w-]*|^[a-z][\w-]*/i.exec(rest)
+
     if (name) {
       out.push({ type: "name", value: name[0].toLowerCase() })
       at += name[0].length
       continue
     }
+
     if ("+-*/(),".includes(rest[0]!)) {
       out.push({ type: "symbol", value: rest[0]! })
       at += 1
       continue
     }
+
     return { reason: `Can't read "${rest[0]}"` }
   }
+
   return out
 }
 
@@ -101,139 +121,230 @@ type Amount = { px: number; plain: false } | { px: number; plain: true }
 /** Works out a length expression in pixels, or says why it can't. */
 export function evaluateLength(text: string, basis: Basis): number | { reason: string } {
   const lexed = lex(text)
-  if (!Array.isArray(lexed)) return lexed
+
+  if (!Array.isArray(lexed)) {
+    return lexed
+  }
+
   let at = 0
   const peek = () => lexed[at]
+
   const fail = (reason: string): never => {
     throw new Error(reason)
   }
+
   const expect = (symbol: string) => {
     const next = lexed[at]
+
     if (next?.type !== "symbol" || next.value !== symbol) {
       fail(symbol === ")" ? "A bracket isn't closed" : `Expected "${symbol}"`)
     }
+
     at += 1
   }
+
   const unitPx = (value: number, unit: string): Amount => {
     const viewport = basis.viewport ?? { width: 1280, height: 800 }
-    const per: Record<string, number> = {
-      px: 1,
-      rem: 16,
-      em: basis.fontSize ?? 16,
-      vw: viewport.width / 100,
-      vh: viewport.height / 100,
-      "%": basis.percent / 100
+
+    const per = new Map([
+      ["px", 1],
+      ["rem", 16],
+      ["em", basis.fontSize ?? 16],
+      ["vw", viewport.width / 100],
+      ["vh", viewport.height / 100],
+      ["%", basis.percent / 100]
+    ])
+
+    if (unit === "") {
+      return { px: value, plain: true }
     }
-    if (unit === "") return { px: value, plain: true }
-    return { px: value * per[unit]!, plain: false }
+
+    return { px: value * per.get(unit)!, plain: false }
   }
+
   const args = (): Amount[] => {
     expect("(")
     const list = [sum()]
+
     while (peek()?.type === "symbol" && peek()!.value === ",") {
       at += 1
       list.push(sum())
     }
+
     expect(")")
+
     return list
   }
+
   const factor = (): Amount => {
     const next = peek()
-    if (!next) return fail("It ends too soon")
+
+    if (!next) {
+      return fail("It ends too soon")
+    }
+
     if (next.type === "symbol" && next.value === "-") {
       at += 1
       const operand = factor()
+
       return { ...operand, px: -operand.px }
     }
+
     if (next.type === "symbol" && next.value === "(") {
       at += 1
       const inner = sum()
       expect(")")
+
       return inner
     }
+
     if (next.type === "number") {
       at += 1
+
       return unitPx(next.value, next.unit)
     }
+
     if (next.type === "name") {
       at += 1
+
       if (next.value === "var") {
         expect("(")
         const variable = peek()
-        if (variable?.type !== "name" || !variable.value.startsWith("--"))
+
+        if (variable?.type !== "name" || !variable.value.startsWith("--")) {
           return fail("var() takes a token, such as --spacing")
+        }
+
         at += 1
         const name = variable.value.slice(2)
         let fallback: Amount | undefined
+
         if (peek()?.type === "symbol" && peek()!.value === ",") {
           at += 1
           fallback = sum()
         }
+
         expect(")")
         const px = lengthVars[name]
-        if (px === undefined && fallback) return fallback
-        if (px === undefined) return fail(`There's no --${name} token`)
+
+        if (px === undefined && fallback) {
+          return fallback
+        }
+
+        if (px === undefined) {
+          return fail(`There's no --${name} token`)
+        }
+
         return { px, plain: false }
       }
+
       const list = args()
       const lengths = list.map((amount) => amount.px)
+
       if (next.value === "calc") {
-        if (list.length !== 1) return fail("calc() takes one sum")
+        if (list.length !== 1) {
+          return fail("calc() takes one sum")
+        }
+
         return list[0]!
       }
-      if (next.value === "min") return { px: Math.min(...lengths), plain: false }
-      if (next.value === "max") return { px: Math.max(...lengths), plain: false }
+
+      if (next.value === "min") {
+        return { px: Math.min(...lengths), plain: false }
+      }
+
+      if (next.value === "max") {
+        return { px: Math.max(...lengths), plain: false }
+      }
+
       if (next.value === "clamp") {
-        if (list.length !== 3) return fail("clamp() takes three values: least, preferred and most")
+        if (list.length !== 3) {
+          return fail("clamp() takes three values: least, preferred and most")
+        }
+
         return { px: Math.min(Math.max(lengths[1]!, lengths[0]!), lengths[2]!), plain: false }
       }
+
       return fail(`${next.value}() isn't a function a length takes`)
     }
-    if (next.value === ")" || next.value === ",") return fail(`Something's missing before "${next.value}"`)
+
+    if (next.value === ")" || next.value === ",") {
+      return fail(`Something's missing before "${next.value}"`)
+    }
+
     return fail(`Can't read "${next.value}" there`)
   }
+
   const product = (): Amount => {
     let left = factor()
+
     while (peek()?.type === "symbol" && (peek()!.value === "*" || peek()!.value === "/")) {
       const op = peek()!.value
       at += 1
       const right = factor()
+
       if (op === "*") {
-        if (!left.plain && !right.plain) fail("Two lengths can't be multiplied")
-        left = { px: left.px * right.px, plain: left.plain && right.plain } as Amount
+        if (!left.plain && !right.plain) {
+          fail("Two lengths can't be multiplied")
+        }
+
+        left = { px: left.px * right.px, plain: left.plain && right.plain }
       } else {
-        if (!right.plain) fail("Divide by a number, not a length")
-        if (right.px === 0) fail("It can't divide by 0")
-        left = { px: left.px / right.px, plain: left.plain } as Amount
+        if (!right.plain) {
+          fail("Divide by a number, not a length")
+        }
+
+        if (right.px === 0) {
+          fail("It can't divide by 0")
+        }
+
+        left = { px: left.px / right.px, plain: left.plain }
       }
     }
+
     return left
   }
+
   function sum(): Amount {
     let left = product()
+
     while (peek()?.type === "symbol" && (peek()!.value === "+" || peek()!.value === "-")) {
       const op = peek()!.value
       at += 1
       const right = product()
-      if (left.plain !== right.plain) fail("A length and a plain number can't be added")
-      left = { px: op === "+" ? left.px + right.px : left.px - right.px, plain: left.plain } as Amount
+
+      if (left.plain !== right.plain) {
+        fail("A length and a plain number can't be added")
+      }
+
+      left = { px: op === "+" ? left.px + right.px : left.px - right.px, plain: left.plain }
     }
+
     return left
   }
+
   try {
     const result = sum()
-    if (at < lexed.length) return { reason: `Can't read what's after ${text.slice(0, 24)}` }
+
+    if (at < lexed.length) {
+      return { reason: `Can't read what's after ${text.slice(0, 24)}` }
+    }
+
     return result.px
   } catch (error) {
-    return { reason: (error as Error).message }
+    return { reason: error instanceof Error ? error.message : String(error) }
   }
 }
 
 /** The CSS with each token's `var()` filled in, as `CSS.supports` checks it and the swatch draws it. */
 export function fillTokens(text: string): string {
   return text.replaceAll(/var\(--([\w-]+)\)/g, (whole, name: string) => {
-    if (name.startsWith("color-")) return colorTokens.find((token) => `color-${token.name}` === name)?.hex ?? whole
+    if (name.startsWith("color-")) {
+      return colorTokens.find((token) => `color-${token.name}` === name)?.hex ?? whole
+    }
+
     const px = lengthVars[name]
+
     return px === undefined ? whole : `${px}px`
   })
 }
@@ -244,24 +355,44 @@ export type Simplest = { token: string; alpha?: { step: number } } | { step: num
 export function simplest(text: string): Simplest {
   const trimmed = text.trim()
   const token = /^var\(--([\w-]+)\)$/.exec(trimmed)?.[1]
-  if (token !== undefined && token !== "spacing") return { token: token.replace(/^color-/, "") }
+
+  if (token !== undefined && token !== "spacing") {
+    return { token: token.replace(/^color-/, "") }
+  }
+
   const step = /^calc\(\s*var\(--spacing\)\s*\*\s*(\d*\.?\d+)\s*\)$/.exec(trimmed)?.[1]
-  if (step !== undefined) return { step: Number(step) }
+
+  if (step !== undefined) {
+    return { step: Number(step) }
+  }
+
   const mix = /^color-mix\(\s*in\s+oklab\s*,\s*var\(--color-([\w-]+)\)\s+(\d*\.?\d+)%\s*,\s*transparent\s*\)$/.exec(
     trimmed
   )
-  if (mix) return { token: mix[1]!, alpha: { step: Number(mix[2]) } }
+
+  if (mix) {
+    return { token: mix[1]!, alpha: { step: Number(mix[2]) } }
+  }
+
   // Whole pixels are a spacing step, as every length writes them.
   const px = /^(\d*\.?\d+)(px)?$/.exec(trimmed)?.[1]
   const form = px === undefined ? undefined : lengthForm(Number(px))
-  if (form !== undefined && "step" in form) return form
+
+  if (form !== undefined && "step" in form) {
+    return form
+  }
+
   return { value: trimmed }
 }
 
 /** What an expression field writes, in its simplest form. */
 export function expressionWrites(property: string, prefix: string, text: string | undefined): Writes {
-  if (text === undefined) return { stored: undefined, css: [], tailwind: [] }
+  if (text === undefined) {
+    return { stored: undefined, css: [], tailwind: [] }
+  }
+
   const form = simplest(text)
+
   if ("step" in form) {
     return {
       stored: form,
@@ -269,6 +400,7 @@ export function expressionWrites(property: string, prefix: string, text: string 
       tailwind: [`${prefix}-${form.step}`]
     }
   }
+
   if ("token" in form && form.alpha) {
     return {
       stored: form,
@@ -276,10 +408,13 @@ export function expressionWrites(property: string, prefix: string, text: string 
       tailwind: [`${prefix}-${form.token}/${form.alpha.step}`]
     }
   }
+
   if ("token" in form) {
     const variable = property.includes("color") ? `--color-${form.token}` : `--${form.token}`
+
     return { stored: form, css: [`${property}: var(${variable})`], tailwind: [`${prefix}-(${variable})`] }
   }
+
   return { stored: form, css: [`${property}: ${form.value}`], tailwind: [`${prefix}-[${arbitrary(form.value)}]`] }
 }
 
@@ -309,8 +444,10 @@ function completionsFor(
 ): { replace: number; items: Completion[] } | undefined {
   const before = text.slice(0, caret)
   const variable = /var\(--([\w-]*)$/.exec(before)
+
   if (variable) {
     const names = kind === "color" ? colorTokens.map((token) => `color-${token.name}`) : Object.keys(lengthVars)
+
     return {
       replace: variable[1]!.length,
       items: names
@@ -318,18 +455,27 @@ function completionsFor(
         .slice(0, 8)
         .map((name) => {
           const token = namedToken(name)
+
           return { text: `${name})`, label: `--${name}`, token, detail: token?.detail }
         })
     }
   }
+
   // Where a value can start, at the start or an argument's, every function is offered before anything's typed, so `=`
   // shows what an expression can be.
   const starting = /(?:^|[(,])\s*$/.test(before)
   const word = starting ? "" : /(?:^|[^\w-])([a-z][\w-]*)$/i.exec(before)?.[1]
-  if (word === undefined) return undefined
-  const items = functions
-    .filter((fn) => fn.kinds.includes(kind) && fn.name.startsWith(word.toLowerCase()) && fn.name !== `${word}(`)
-    .map((fn) => ({ text: fn.name, label: fn.name.replace("(", "()").replace("var()--", "var(--"), detail: fn.detail }))
+
+  if (word === undefined) {
+    return undefined
+  }
+
+  const items = functions.flatMap((fn) =>
+    fn.kinds.includes(kind) && fn.name.startsWith(word.toLowerCase()) && fn.name !== `${word}(`
+      ? [{ text: fn.name, label: fn.name.replace("(", "()").replace("var()--", "var(--"), detail: fn.detail }]
+      : []
+  )
+
   return items.length > 0 ? { replace: word.length, items } : undefined
 }
 
@@ -337,6 +483,7 @@ function completionsFor(
 function WithChips({ text }: { text: string }) {
   const parts: ReactNode[] = []
   let last = 0
+
   for (const match of text.matchAll(/var\(--([\w-]+)\)/g)) {
     parts.push(text.slice(last, match.index))
     const name = match[1]!
@@ -352,27 +499,43 @@ function WithChips({ text }: { text: string }) {
     )
     last = match.index + match[0].length
   }
+
   parts.push(text.slice(last))
+
   return <span className="inline-flex flex-wrap items-center gap-0.5 font-mono text-2xs">{parts}</span>
 }
 
 /** The three values inside a top-level `clamp()`, or undefined when it isn't one. */
 function clampParts(text: string): [string, string, string] | undefined {
   const inner = /^clamp\((.*)\)$/s.exec(text.trim())?.[1]
-  if (inner === undefined) return undefined
+
+  if (inner === undefined) {
+    return undefined
+  }
+
   const parts: string[] = []
   let depth = 0
   let start = 0
+
   for (let index = 0; index < inner.length; index++) {
     const char = inner[index]
-    if (char === "(") depth += 1
-    if (char === ")") depth -= 1
+
+    if (char === "(") {
+      depth += 1
+    }
+
+    if (char === ")") {
+      depth -= 1
+    }
+
     if (char === "," && depth === 0) {
       parts.push(inner.slice(start, index).trim())
       start = index + 1
     }
   }
+
   parts.push(inner.slice(start).trim())
+
   return parts.length === 3 ? [parts[0]!, parts[1]!, parts[2]!] : undefined
 }
 
@@ -415,16 +578,28 @@ export function ExpressionField({
   const listId = useId()
   const form = value === undefined ? undefined : simplest(value)
   const isExpression = form !== undefined && "value" in form && !/^\d/.test(form.value)
-  const comesTo = kind === "length" && value !== undefined ? evaluateLength(value, basis) : undefined
+
+  const comesTo =
+    kind === "length" && value !== undefined ? numberValue.safeParse(evaluateLength(value, basis)).data : undefined
+
   const completions = editing === undefined ? undefined : completionsFor(editing, caret, kind)
+
   const check = (text: string): string | undefined => {
     if (kind === "length") {
       const result = evaluateLength(text, basis)
-      if (typeof result !== "number") return result.reason
+
+      if (result instanceof Object) {
+        return result.reason
+      }
     }
-    if (!CSS.supports(property, fillTokens(text))) return `${label} can't be ${text}`
+
+    if (!CSS.supports(property, fillTokens(text))) {
+      return `${label} can't be ${text}`
+    }
+
     return undefined
   }
+
   const open = (text: string) => {
     setEditing(text)
     setMessage(undefined)
@@ -435,40 +610,61 @@ export function ExpressionField({
       setCaret(text.length)
     })
   }
+
   /** Closes the editor, if what's typed can be stored or `leaving` puts the value back; says whether it closed. */
   const commit = (leaving: boolean): boolean => {
-    if (editing === undefined) return false
+    if (editing === undefined) {
+      return false
+    }
+
     const text = editing.trim()
+
     if (text === "") {
       onChange(undefined)
       setEditing(undefined)
       setMessage(undefined)
+
       return true
     }
+
     const reason = check(text)
+
     if (reason && !leaving) {
       setMessage({ tone: "error", text: reason })
+
       return false
     }
-    if (reason)
+
+    if (reason) {
       setMessage({ tone: "note", text: `${value === undefined ? "Left unset." : `Reverted to ${value}.`} ${reason}.` })
-    else {
+    } else {
       onChange(text)
       setMessage(undefined)
     }
+
     setEditing(undefined)
+
     return true
   }
+
   // The editor goes once it's closed, so focus goes back to the field rather than to the page.
   const backToField = () => {
     returning.current = true
     field.current?.querySelector("input")?.focus()
     returning.current = false
   }
+
   const accept = (index: number) => {
-    if (!completions || editing === undefined) return
+    if (!completions || editing === undefined) {
+      return
+    }
+
     const item = completions.items[index]
-    if (!item) return
+
+    if (!item) {
+      return
+    }
+
     const start = caret - completions.replace
     const next = `${editing.slice(0, start)}${item.text}${editing.slice(caret)}`
     const at = start + item.text.length
@@ -477,26 +673,40 @@ export function ExpressionField({
     setHighlight(0)
     requestAnimationFrame(() => editor.current?.setSelectionRange(at, at))
   }
+
   const onEditorKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     const listOpen = completions !== undefined && completions.items.length > 0
+
     if (listOpen && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
       event.preventDefault()
       const count = completions.items.length
       setHighlight((current) => (current + (event.key === "ArrowDown" ? 1 : -1) + count) % count)
+
       return
     }
+
     if (listOpen && (event.key === "Tab" || (event.key === "Enter" && completions.replace > 0))) {
       event.preventDefault()
       accept(highlight)
+
       return
     }
+
     if (event.key === "Enter") {
       event.preventDefault()
-      if (commit(false)) backToField()
+
+      if (commit(false)) {
+        backToField()
+      }
     }
+
     // Backspace with nothing typed takes the `=` away too: the editor closes and the value stays as it was.
     const emptied = event.key === "Backspace" && editing === ""
-    if (emptied) event.preventDefault()
+
+    if (emptied) {
+      event.preventDefault()
+    }
+
     if (event.key === "Escape" || emptied) {
       event.stopPropagation()
       setEditing(undefined)
@@ -504,7 +714,8 @@ export function ExpressionField({
       backToField()
     }
   }
-  const came = typeof comesTo === "number" ? formatNumber(comesTo) : undefined
+
+  const came = comesTo === undefined ? undefined : formatNumber(comesTo)
   const clamp = value === undefined || narrow ? undefined : clampParts(value)
   const held = form !== undefined && "token" in form && kind === "length" ? form.token : undefined
   const heldToken = held === undefined ? undefined : namedToken(held)
@@ -516,36 +727,75 @@ export function ExpressionField({
   let restComesTo = heldToken?.detail
   let restClass = ""
   let inner: ReactNode
-  let hint: { label?: string; detail?: string } = { label: "Type = for an expression" }
+  let hint: FieldHint = { label: "Type = for an expression" }
+
   if (atRest) {
     shown = form !== undefined && "token" in form ? form.token : value!.trim()
-    if (narrow) shown = "ƒ"
+
+    if (narrow) {
+      shown = "ƒ"
+    }
+
     // Code, as it was typed; ƒ is a mark, not code.
-    if (isExpression) restClass = narrow ? "text-center font-serif italic" : "font-mono"
+    if (isExpression) {
+      restClass = narrow ? "text-center font-serif italic" : "font-mono"
+    }
+
     restComesTo = form !== undefined && "token" in form && form.alpha ? `${form.alpha.step}%` : came
     let detail = came ? `Comes to ${came}px` : "Click to edit"
-    if (clamp) detail = "Opens its least, preferred and most values"
+
+    if (clamp) {
+      detail = "Opens its least, preferred and most values"
+    }
+
     hint = { label: `${label}: ${value}`, detail }
   }
+
   if (kind === "color" && value !== undefined) {
     inner = <span aria-hidden className="size-3.5 shrink-0 rounded-sm" style={swatch(fillTokens(value))} />
   }
+
   const read = (text: string): Reading<string | undefined> => {
     const trimmed = text.trim()
-    if (trimmed === "") return { value: undefined }
+
+    if (trimmed === "") {
+      return { value: undefined }
+    }
+
     const token = lengthTokens.find((each) => each.name === trimmed || `--${each.name}` === trimmed)
-    if (token) return { value: `var(--${token.name})` }
+
+    if (token) {
+      return { value: `var(--${token.name})` }
+    }
+
     const reading = readNumber(trimmed.replace(/px$/, ""), px, label)
-    if ("reason" in reading) return { reason: `${reading.reason}. Type = for an expression` }
-    if ("clear" in reading) return { value: undefined }
+
+    if ("reason" in reading) {
+      return { reason: `${reading.reason}. Type = for an expression` }
+    }
+
+    if ("clear" in reading) {
+      return { value: undefined }
+    }
+
     return { value: `${reading.value}px` }
   }
+
   let onOpen: (() => void) | undefined
-  if (clamp) onOpen = () => setClampOpen(true)
-  else if (atRest) onOpen = () => open(value!)
+
+  if (clamp) {
+    onOpen = () => setClampOpen(true)
+  } else if (atRest) {
+    onOpen = () => open(value!)
+  }
+
   const error = message?.tone === "error"
-  const editedComesTo = editing === undefined || kind !== "length" ? undefined : evaluateLength(editing, basis)
+
+  const editedComesTo =
+    editing === undefined || kind !== "length" ? undefined : numberValue.safeParse(evaluateLength(editing, basis)).data
+
   const showList = completions !== undefined && completions.items.length > 0
+
   return (
     <div ref={field} className="relative">
       <ValueField
@@ -618,12 +868,17 @@ export function ExpressionField({
                 setEditing(event.target.value)
                 setCaret(event.target.selectionStart ?? event.target.value.length)
                 setHighlight(0)
-                if (error) setMessage(undefined)
+
+                if (error) {
+                  setMessage(undefined)
+                }
               }}
               onSelect={(event) => setCaret(event.currentTarget.selectionStart ?? 0)}
               onKeyDown={onEditorKey}
               onBlur={() => {
-                if (!returning.current) commit(true)
+                if (!returning.current) {
+                  commit(true)
+                }
               }}
               className={`${fieldInput} ${wrappingText} type-code font-mono`}
             />
@@ -661,9 +916,7 @@ export function ExpressionField({
           )}
           <div className="flex items-center justify-between gap-2 px-1 text-2xs text-muted-foreground">
             <WithChips text={editing} />
-            {typeof editedComesTo === "number" && (
-              <span className="shrink-0">Comes to {formatNumber(editedComesTo)}px</span>
-            )}
+            {editedComesTo !== undefined && <span className="shrink-0">Comes to {formatNumber(editedComesTo)}px</span>}
             {kind === "color" && (
               <span aria-hidden className="size-3.5 shrink-0 rounded-sm" style={swatch(fillTokens(editing))} />
             )}
@@ -689,27 +942,30 @@ function ClampFields({
   onChange: (parts: readonly string[]) => void
 }) {
   const names = ["Least", "Preferred", "Most"] as const
-  const total = evaluateLength(`clamp(${parts.join(", ")})`, basis)
+  const total = numberValue.safeParse(evaluateLength(`clamp(${parts.join(", ")})`, basis)).data
+
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-sm font-medium">
         {label}: clamp
-        {typeof total === "number" && <span className="text-muted-foreground"> comes to {formatNumber(total)}px</span>}
+        {total !== undefined && <span className="text-muted-foreground"> comes to {formatNumber(total)}px</span>}
       </p>
       {names.map((name, index) => {
-        const each = evaluateLength(parts[index], basis)
+        const each = numberValue.safeParse(evaluateLength(parts[index], basis)).data
+
         return (
           <ValueField
             key={name}
             label={`${label} ${name.toLowerCase()}`}
             inner={name}
             shown={parts[index]}
-            comesTo={typeof each === "number" ? formatNumber(each) : undefined}
+            comesTo={each === undefined ? undefined : formatNumber(each)}
             inputMode="text"
             inputClassName="font-mono"
             read={(text): Reading<string> => {
               const result = evaluateLength(text, basis)
-              return typeof result === "number" ? { value: text.trim() } : { reason: result.reason }
+
+              return result instanceof Object ? { reason: result.reason } : { value: text.trim() }
             }}
             onCommit={(text) => onChange(parts.map((part, at) => (at === index ? text : part)))}
           />

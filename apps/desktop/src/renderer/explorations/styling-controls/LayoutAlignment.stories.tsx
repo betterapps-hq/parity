@@ -21,10 +21,12 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Layout({ start }: { start: Draft }) {
   const [draft, set] = useDraft({ background: "card", radius: "radius-xl", gap: 12, ...start })
+
   return (
     <Playground
       comparisons={layoutComparisons}

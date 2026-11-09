@@ -38,6 +38,7 @@ export function OpacityField({
   const own = value !== undefined && "percent" in value ? value : undefined
   const nearest = own === undefined ? undefined : nearestToken(tokens, (each) => each.percent, own.percent)
   const token = value !== undefined && "token" in value ? value.token : undefined
+
   return (
     // The row's width, beside the blend menu, with what it says under both.
     <div className="min-w-0 flex-1">
@@ -94,11 +95,17 @@ export function BlendMenu({
 }) {
   const chosen = blendModes.find((mode) => mode.value === (value ?? "normal"))!
   let label: string = chosen.label
-  if (mixed && value === undefined) label = "Mixed"
+
+  if (mixed && value === undefined) {
+    label = "Mixed"
+  }
+
   return (
     <DropdownMenu
       onOpenChange={(open) => {
-        if (!open) onPreview(undefined)
+        if (!open) {
+          onPreview(undefined)
+        }
       }}
     >
       <Hint
@@ -122,7 +129,13 @@ export function BlendMenu({
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuRadioGroup
           value={value ?? "normal"}
-          onValueChange={(next) => onChange(next === "normal" && value === undefined ? undefined : (next as BlendMode))}
+          onValueChange={(next: string) =>
+            onChange(
+              next === "normal" && value === undefined
+                ? undefined
+                : blendModes.find((mode) => mode.value === next)?.value
+            )
+          }
         >
           {blendModes.map((mode, index) => (
             <Fragment key={mode.value}>

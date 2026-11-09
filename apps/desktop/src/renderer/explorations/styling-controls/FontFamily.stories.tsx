@@ -22,6 +22,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const geist = projectFonts[0]!
@@ -30,6 +31,7 @@ function Font({ start, tokensOnly, mixed }: { start?: FontValue; tokensOnly?: bo
   const [value, setValue] = useState(start)
   const [preview, setPreview] = useState<FontValue>()
   const shown = resolveFont(preview ?? value)
+
   return (
     <Playground writes={fontWrites(value)} preview={<TextSample style={{ fontFamily: shown?.stack ?? geist.stack }} />}>
       <Field label="Font" mixed={mixed && value === undefined}>

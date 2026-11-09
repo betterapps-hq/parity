@@ -20,9 +20,9 @@ import {
   ValueField,
   wrappingText
 } from "./field-parts.tsx"
-import { type Bezier, bezierCss, type EasingShape, readEasingValue } from "./motion-data.ts"
+import { type Bezier, bezierCss, type EasingPlot, readEasingValue } from "./motion-data.ts"
 import { colorTokens, lengthVars } from "./tokens.ts"
-import type { Writes } from "./writes.ts"
+import type { StoredObject, Writes } from "./writes.ts"
 
 /*
  * The CSS section (PAR-186, design-options-values.md's Raw CSS value and design-options-panel.md's CSS): a list of
@@ -57,75 +57,73 @@ export interface CssModel {
 let nextId = 100
 
 /** Properties a control owns, and its name, so typing or pasting one gives it there. */
-const owners: Record<string, string> = {
-  padding: "Spacing's Padding",
-  margin: "Spacing's Margin",
-  gap: "Layout's Gap",
-  display: "Layout's Type",
-  "background-color": "Fill",
-  color: "Text's Color",
-  "border-radius": "Appearance's Radius",
-  opacity: "Appearance's Opacity",
-  "mix-blend-mode": "Appearance's Blend mode",
-  overflow: "Appearance's Clip content",
-  "font-family": "Text's Font",
-  "font-size": "Text's Size",
-  "font-weight": "Text's Weight",
-  "line-height": "Text's Line height",
-  "letter-spacing": "Text's Letter spacing",
-  "text-align": "Text's Align",
-  width: "Size's Width",
-  height: "Size's Height",
-  cursor: "Interaction's Cursor",
-  "box-shadow": "Effects",
-  transition: "Motion's Transitions"
-}
+const owners = new Map([
+  ["padding", "Spacing's Padding"],
+  ["margin", "Spacing's Margin"],
+  ["gap", "Layout's Gap"],
+  ["display", "Layout's Type"],
+  ["background-color", "Fill"],
+  ["color", "Text's Color"],
+  ["border-radius", "Appearance's Radius"],
+  ["opacity", "Appearance's Opacity"],
+  ["mix-blend-mode", "Appearance's Blend mode"],
+  ["overflow", "Appearance's Clip content"],
+  ["font-family", "Text's Font"],
+  ["font-size", "Text's Size"],
+  ["font-weight", "Text's Weight"],
+  ["line-height", "Text's Line height"],
+  ["letter-spacing", "Text's Letter spacing"],
+  ["text-align", "Text's Align"],
+  ["width", "Size's Width"],
+  ["height", "Size's Height"],
+  ["cursor", "Interaction's Cursor"],
+  ["box-shadow", "Effects"],
+  ["transition", "Motion's Transitions"]
+])
 
 /** Properties and values other browsers lack, marked † (principle 7), with who draws them. */
-const notBaseline: Record<string, string> = {
-  "interpolate-size": "Chromium",
-  "field-sizing": "Chromium",
-  "corner-shape": "Chromium",
-  "reading-flow": "Chromium",
-  "text-box": "Chromium and Safari",
-  "anchor-name": "Chromium",
-  "position-anchor": "Chromium",
-  "position-area": "Chromium",
-  "row-rule": "Chromium",
-  "animation-timeline": "Chromium and Safari",
-  "text-wrap: pretty": "Chromium and Safari",
-  "interpolate-size: allow-keywords": "Chromium"
-}
+const notBaseline = new Map([
+  ["interpolate-size", "Chromium"],
+  ["field-sizing", "Chromium"],
+  ["corner-plot", "Chromium"],
+  ["reading-flow", "Chromium"],
+  ["text-box", "Chromium and Safari"],
+  ["anchor-name", "Chromium"],
+  ["position-anchor", "Chromium"],
+  ["position-area", "Chromium"],
+  ["row-rule", "Chromium"],
+  ["animation-timeline", "Chromium and Safari"],
+  ["text-wrap: pretty", "Chromium and Safari"],
+  ["interpolate-size: allow-keywords", "Chromium"]
+])
 
 /** Keywords a property takes, for completing its value. */
-const valueKeywords: Record<string, string[]> = {
-  "interpolate-size": ["allow-keywords", "numeric-only"],
-  "field-sizing": ["content", "fixed"],
-  "text-wrap": ["wrap", "nowrap", "balance", "pretty"],
-  "pointer-events": ["none", "auto"],
-  "user-select": ["none", "text", "all", "auto"],
-  "scroll-behavior": ["smooth", "auto"],
-  "overscroll-behavior": ["contain", "none", "auto"],
-  "transition-timing-function": [
-    "ease",
-    "ease-in",
-    "ease-out",
-    "ease-in-out",
-    "linear",
-    "cubic-bezier(0.2, 0.8, 0.2, 1)"
+const valueKeywords = new Map([
+  ["interpolate-size", ["allow-keywords", "numeric-only"]],
+  ["field-sizing", ["content", "fixed"]],
+  ["text-wrap", ["wrap", "nowrap", "balance", "pretty"]],
+  ["pointer-events", ["none", "auto"]],
+  ["user-select", ["none", "text", "all", "auto"]],
+  ["scroll-behavior", ["smooth", "auto"]],
+  ["overscroll-behavior", ["contain", "none", "auto"]],
+  [
+    "transition-timing-function",
+    ["ease", "ease-in", "ease-out", "ease-in-out", "linear", "cubic-bezier(0.2, 0.8, 0.2, 1)"]
   ],
-  "animation-timing-function": ["ease", "ease-in", "ease-out", "ease-in-out", "linear"],
-  "accent-color": ["auto", "var(--color-primary)"],
-  "caret-color": ["auto", "var(--color-primary)"],
-  isolation: ["isolate", "auto"],
-  "content-visibility": ["auto", "hidden", "visible"],
-  "will-change": ["transform", "opacity", "auto"]
-}
+  ["animation-timing-function", ["ease", "ease-in", "ease-out", "ease-in-out", "linear"]],
+  ["accent-color", ["auto", "var(--color-primary)"]],
+  ["caret-color", ["auto", "var(--color-primary)"]],
+  ["isolation", ["isolate", "auto"]],
+  ["content-visibility", ["auto", "hidden", "visible"]],
+  ["will-change", ["transform", "opacity", "auto"]]
+])
 
 /** Every property this browser knows, for completing names, read from a computed style. */
 let known: string[] | undefined
+
 function knownProperties(): string[] {
   known ??= [...getComputedStyle(document.documentElement)].filter((name) => !name.startsWith("-")).sort()
+
   return known
 }
 
@@ -133,60 +131,140 @@ const isColorProperty = (property: string) => property.endsWith("color") || prop
 
 /** What a value completes to: the property's keywords, then tokens of the kind it takes, written as `var()`. */
 function valueCandidates(property: string): { label: string; detail?: string }[] {
-  const keywords = (valueKeywords[property] ?? []).map((label) => ({ label }))
+  const keywords = (valueKeywords.get(property) ?? []).map((label) => ({ label }))
+
   const tokens = isColorProperty(property)
     ? colorTokens.slice(0, 12).map((token) => ({ label: `var(--color-${token.name})`, detail: token.hex }))
     : Object.entries(lengthVars).map(([name, px]) => ({ label: `var(--${name})`, detail: `${px}px` }))
+
   return [...keywords, ...tokens]
 }
+
+/** The Tailwind prefix of each spacing or size property a control owns, as `p` for padding. */
+const ownedPrefixes = new Map([
+  ["padding", "p"],
+  ["margin", "m"],
+  ["gap", "gap"],
+  ["width", "w"],
+  ["height", "h"]
+])
 
 /** A Tailwind class for a declaration a control owns, as that control writes it. */
 function ownedClass(property: string, value: string): string {
   const step = /^(\d+)px$/.exec(value)?.[1]
-  const prefixes: Record<string, string> = { padding: "p", margin: "m", gap: "gap", width: "w", height: "h" }
-  const prefix = prefixes[property]
-  if (prefix && step !== undefined && Number(step) % 1 === 0) return `${prefix}-${Number(step) / 4}`
+  const prefix = ownedPrefixes.get(property)
+
+  if (prefix && step !== undefined && Number(step) % 1 === 0) {
+    return `${prefix}-${Number(step) / 4}`
+  }
+
   const token = /^var\(--color-([\w-]+)\)$/.exec(value)?.[1]
-  if (property === "background-color" && token) return `bg-${token}`
-  if (property === "color" && token) return `text-${token}`
-  if (property === "display" && ["flex", "grid", "block", "inline-flex"].includes(value)) return value
-  if (property === "display" && value === "none") return "hidden"
-  if (property === "cursor") return `cursor-${value}`
-  if (property === "opacity" && /^\d+%$/.test(value)) return `opacity-${value.slice(0, -1)}`
+
+  if (property === "background-color" && token) {
+    return `bg-${token}`
+  }
+
+  if (property === "color" && token) {
+    return `text-${token}`
+  }
+
+  if (property === "display" && ["flex", "grid", "block", "inline-flex"].includes(value)) {
+    return value
+  }
+
+  if (property === "display" && value === "none") {
+    return "hidden"
+  }
+
+  if (property === "cursor") {
+    return `cursor-${value}`
+  }
+
+  if (property === "opacity" && /^\d+%$/.test(value)) {
+    return `opacity-${value.slice(0, -1)}`
+  }
+
   return `[${property}:${arbitrary(value)}]`
 }
+
+/** The property each spacing or size utility's prefix sets, as `p` sets padding. */
+const spacingProperties = new Map([
+  ["p", "padding"],
+  ["m", "margin"],
+  ["gap", "gap"],
+  ["w", "width"],
+  ["h", "height"]
+])
 
 /** Reads a Tailwind class back into the declaration it writes, where Parity knows the utility. */
 function readClass(name: string): { property: string; value: string } | undefined {
   const bare = name.replace(/^[a-z-]+:/, "")
   const arbitrary = /^\[([a-z-]+):(.+)\]$/.exec(bare)
-  if (arbitrary) return { property: arbitrary[1]!, value: arbitrary[2]!.replaceAll("_", " ") }
-  const spacing = /^(p|m|gap|w|h)-(\d+(?:\.\d+)?)$/.exec(bare)
-  if (spacing) {
-    const property = { p: "padding", m: "margin", gap: "gap", w: "width", h: "height" }[spacing[1] as "p"]
-    return { property, value: `${Number(spacing[2]) * 4}px` }
+
+  if (arbitrary) {
+    return { property: arbitrary[1]!, value: arbitrary[2]!.replaceAll("_", " ") }
   }
+
+  const spacing = /^(p|m|gap|w|h)-(\d+(?:\.\d+)?)$/.exec(bare)
+  const spacingProperty = spacing && spacingProperties.get(spacing[1])
+
+  if (spacing && spacingProperty) {
+    return { property: spacingProperty, value: `${Number(spacing[2]) * 4}px` }
+  }
+
   const axis = /^(px|py)-(\d+(?:\.\d+)?)$/.exec(bare)
-  if (axis)
+
+  if (axis) {
     return { property: axis[1] === "px" ? "padding-inline" : "padding-block", value: `${Number(axis[2]) * 4}px` }
-  if (["flex", "grid", "block", "inline-flex"].includes(bare)) return { property: "display", value: bare }
-  if (bare === "hidden") return { property: "display", value: "none" }
+  }
+
+  if (["flex", "grid", "block", "inline-flex"].includes(bare)) {
+    return { property: "display", value: bare }
+  }
+
+  if (bare === "hidden") {
+    return { property: "display", value: "none" }
+  }
+
   const radius = /^rounded(?:-(sm|md|lg|xl|2xl|full))?$/.exec(bare)
-  if (radius) return { property: "border-radius", value: `var(--radius-${radius[1] ?? "sm"})` }
+
+  if (radius) {
+    return { property: "border-radius", value: `var(--radius-${radius[1] ?? "sm"})` }
+  }
+
   const color = /^(bg|text)-([a-z]+(?:-[a-z0-9]+)*)(?:\/(\d+))?$/.exec(bare)
+
   if (color && colorTokens.some((token) => token.name === color[2])) {
     const variable = `var(--color-${color[2]})`
     const value = color[3] ? `color-mix(in oklab, ${variable} ${color[3]}%, transparent)` : variable
+
     return { property: color[1] === "bg" ? "background-color" : "color", value }
   }
+
   const size = /^text-(xs|sm|base|lg|xl|2xl)$/.exec(bare)
-  if (size) return { property: "font-size", value: `var(--text-${size[1]})` }
+
+  if (size) {
+    return { property: "font-size", value: `var(--text-${size[1]})` }
+  }
+
   const weight = /^font-(normal|medium|semibold|bold)$/.exec(bare)
-  if (weight) return { property: "font-weight", value: `var(--font-weight-${weight[1]})` }
+
+  if (weight) {
+    return { property: "font-weight", value: `var(--font-weight-${weight[1]})` }
+  }
+
   const opacity = /^opacity-(\d+)$/.exec(bare)
-  if (opacity) return { property: "opacity", value: `${opacity[1]}%` }
+
+  if (opacity) {
+    return { property: "opacity", value: `${opacity[1]}%` }
+  }
+
   const cursor = /^cursor-([a-z-]+)$/.exec(bare)
-  if (cursor) return { property: "cursor", value: cursor[1]! }
+
+  if (cursor) {
+    return { property: "cursor", value: cursor[1]! }
+  }
+
   return undefined
 }
 
@@ -196,6 +274,7 @@ const stateOf = (name: string) => /^([a-z-]+):/.exec(name)?.[1]
 /** A state as the States menu names it: Hover, Focus visible. */
 const stateName = (prefix: string) => {
   const words = prefix.replaceAll("-", " ")
+
   return `${words[0]!.toUpperCase()}${words.slice(1)}`
 }
 
@@ -204,52 +283,77 @@ const stateName = (prefix: string) => {
  * owns goes to it; the rest of what reads becomes rows; classes Parity can't read are kept as From the code; and
  * declarations that can't be read are listed, not dropped.
  */
-export function sortIn(text: string, model: CssModel): { model: CssModel; summary: string } {
+export function sortIn(text: string, model: CssModel) {
   const owned = [...model.owned]
   const rows = [...model.rows]
   const fromCode = [...model.fromCode]
   const unreadable: string[] = []
   let given = 0
   let kept = 0
+
   const take = (property: string, value: string, tailwind?: string) => {
-    const control = owners[property]
+    const control = owners.get(property)
+
     if (control) {
       const name = tailwind ?? ownedClass(property, value)
       // A new value replaces the control's value in the same state; another state's stays.
       const others = owned.filter((each) => each.property !== property || stateOf(each.tailwind) !== stateOf(name))
       owned.splice(0, owned.length, ...others, { property, value, control, tailwind: name })
       given += 1
+
       return
     }
+
     const at = rows.findIndex((row) => row.property === property)
-    if (at === -1) rows.push({ id: nextId++, property, value })
-    else rows[at] = { ...rows[at]!, value }
+
+    if (at === -1) {
+      rows.push({ id: nextId++, property, value })
+    } else {
+      rows[at] = { ...rows[at]!, value }
+    }
+
     kept += 1
   }
+
   // Declarations have a space after their colon or end in a semicolon; a class's state prefix (`hover:`) has neither.
   if (text.includes(";") || /^[\s{]*[a-z-]+\s*:\s/i.test(text)) {
     for (const part of text.split(/[;\n]/)) {
       const declaration = /^\s*([a-z-]+)\s*:\s*(.+?)\s*$/i.exec(part)
+
       if (!declaration) {
-        if (part.trim() !== "" && !/^[{}]/.test(part.trim())) unreadable.push(part.trim())
+        if (part.trim() !== "" && !/^[{}]/.test(part.trim())) {
+          unreadable.push(part.trim())
+        }
+
         continue
       }
-      const [, property, value] = declaration as unknown as [string, string, string]
-      if (CSS.supports(property.toLowerCase(), fillTokens(value))) take(property.toLowerCase(), value)
-      else unreadable.push(`${property}: ${value}`)
+
+      const [, property, value] = declaration
+
+      if (CSS.supports(property.toLowerCase(), fillTokens(value))) {
+        take(property.toLowerCase(), value)
+      } else {
+        unreadable.push(`${property}: ${value}`)
+      }
     }
   } else {
     for (const name of text.split(/\s+/).filter(Boolean)) {
       const read = readClass(name)
-      if (read && (stateOf(name) === undefined || owners[read.property])) take(read.property, read.value, name)
-      else if (!fromCode.includes(name)) fromCode.push(name)
+
+      if (read && (stateOf(name) === undefined || owners.has(read.property))) {
+        take(read.property, read.value, name)
+      } else if (!fromCode.includes(name)) {
+        fromCode.push(name)
+      }
     }
   }
+
   const parts = [
     given > 0 && `${given} went to ${given === 1 ? "its control" : "their controls"}`,
     kept > 0 && `${kept} kept as ${kept === 1 ? "a row" : "rows"}`,
     unreadable.length > 0 && `couldn't read ${unreadable.join(", ")}`
   ].filter(Boolean)
+
   return { model: { rows, owned, fromCode }, summary: parts.join(", ") }
 }
 
@@ -257,17 +361,37 @@ export function sortIn(text: string, model: CssModel): { model: CssModel; summar
 export function cssWrites(model: CssModel): Writes {
   const on = model.rows.filter((row) => !row.off && row.property !== "" && rowReason(row) === undefined)
   const empty = model.owned.length === 0 && model.rows.length === 0 && model.fromCode.length === 0
-  if (empty) return { stored: undefined, css: [], tailwind: [] }
+
+  if (empty) {
+    return { stored: undefined, css: [], tailwind: [] }
+  }
+
+  const stored: StoredObject = {}
+
+  if (model.owned.length > 0) {
+    stored.controls = Object.fromEntries(model.owned.map((each) => [each.tailwind, { [each.property]: each.value }]))
+  }
+
+  stored.css = model.rows.flatMap((row) => {
+    if (row.property === "") {
+      return []
+    }
+
+    const declaration: StoredObject = { property: row.property, value: row.value }
+
+    if (row.off) {
+      declaration.off = true
+    }
+
+    return [declaration]
+  })
+
+  if (model.fromCode.length > 0) {
+    stored.fromCode = model.fromCode
+  }
+
   return {
-    stored: {
-      ...(model.owned.length > 0
-        ? { controls: Object.fromEntries(model.owned.map((each) => [each.tailwind, { [each.property]: each.value }])) }
-        : {}),
-      css: model.rows
-        .filter((row) => row.property !== "")
-        .map((row) => ({ property: row.property, value: row.value, ...(row.off ? { off: true } : {}) })),
-      ...(model.fromCode.length > 0 ? { fromCode: model.fromCode } : {})
-    },
+    stored,
     css: [
       ...model.owned.map(
         (each) =>
@@ -285,12 +409,24 @@ export function cssWrites(model: CssModel): Writes {
 
 /** Why a row can't be written: an unknown property, or a value it doesn't take. */
 function rowReason(row: CssRow): string | undefined {
-  if (row.property === "") return undefined
+  if (row.property === "") {
+    return undefined
+  }
+
   const custom = row.property.startsWith("--")
-  if (!custom && !CSS.supports(row.property, "initial"))
+
+  if (!custom && !CSS.supports(row.property, "initial")) {
     return `${row.property} isn't a CSS property this browser knows`
-  if (row.value.trim() === "") return `Give ${row.property} a value`
-  if (!CSS.supports(row.property, fillTokens(row.value))) return `${row.property} can't be ${row.value}`
+  }
+
+  if (row.value.trim() === "") {
+    return `Give ${row.property} a value`
+  }
+
+  if (!CSS.supports(row.property, fillTokens(row.value))) {
+    return `${row.property} can't be ${row.value}`
+  }
+
   return undefined
 }
 
@@ -333,14 +469,18 @@ function Completing({
   const listId = useId()
   const input = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
   useEffect(() => {
-    if (focusOnMount) input.current?.focus()
+    if (focusOnMount) {
+      input.current?.focus()
+    }
   }, [focusOnMount])
   const list = typed === undefined ? [] : candidates(typed).slice(0, 8)
   const open = list.length > 0 && !(list.length === 1 && list[0]!.label === typed)
+
   const finish = (text: string) => {
     setTyped(undefined)
     onCommit(text)
   }
+
   const shared = {
     "aria-label": label,
     "aria-activedescendant": open ? `${listId}-${highlight}` : undefined,
@@ -357,23 +497,36 @@ function Completing({
         event.preventDefault()
         setHighlight((current) => (current + (event.key === "ArrowDown" ? 1 : -1) + list.length) % list.length)
       }
+
       if (open && (event.key === "Tab" || event.key === "Enter")) {
         event.preventDefault()
         finish(list[highlight]!.label)
+
         return
       }
+
       if (event.key === "Enter") {
         // A value is one line of CSS, so Enter commits it rather than starting another.
         event.preventDefault()
-        if (typed !== undefined) finish(typed)
+
+        if (typed !== undefined) {
+          finish(typed)
+        }
       }
-      if (event.key === "Escape") setTyped(undefined)
+
+      if (event.key === "Escape") {
+        setTyped(undefined)
+      }
     },
     onBlur: () => {
-      if (typed !== undefined) finish(typed)
+      if (typed !== undefined) {
+        finish(typed)
+      }
     }
   }
+
   const text = "bg-transparent font-mono text-xs outline-none placeholder:text-muted-foreground"
+
   return (
     <div className={`relative min-w-0 ${className}`}>
       {wrap ? (
@@ -423,22 +576,27 @@ function Completing({
  * CSS's own named easings, as a browser draws `transition-timing-function: ease-in` (Tailwind's `ease-in` is a
  * different curve, motion-data.ts's `easingPresets`).
  */
-const cssEasings: Record<string, Bezier> = {
-  ease: [0.25, 0.1, 0.25, 1],
-  "ease-in": [0.42, 0, 1, 1],
-  "ease-out": [0, 0, 0.58, 1],
-  "ease-in-out": [0.42, 0, 0.58, 1],
-  linear: [0, 0, 1, 1]
-}
+const cssEasings = new Map<string, Bezier>([
+  ["ease", [0.25, 0.1, 0.25, 1]],
+  ["ease-in", [0.42, 0, 1, 1]],
+  ["ease-out", [0, 0, 0.58, 1]],
+  ["ease-in-out", [0.42, 0, 0.58, 1]],
+  ["linear", [0, 0, 1, 1]]
+])
 
 /** The easing a timing function draws, a curve or steps, read as the Easing field reads one; nothing where it isn't one. */
-function easingOf(value: string): EasingShape | undefined {
-  const keyword = cssEasings[value.trim()]
-  if (keyword) return { kind: "bezier", curve: keyword }
+function easingOf(value: string): EasingPlot | undefined {
+  const keyword = cssEasings.get(value.trim())
+
+  if (keyword) {
+    return { kind: "bezier", curve: keyword }
+  }
+
   return readEasingValue(value)
 }
 
 const handles = ["Start handle x", "Start handle y", "End handle x", "End handle y"] as const
+
 /** Each handle's place in the grid's first row, so a message under one spans the row below all four. */
 const handleColumns = ["col-start-1", "col-start-2", "col-start-3", "col-start-4"] as const
 
@@ -452,6 +610,7 @@ function CurveFields({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
     next[index] = index % 2 === 0 ? clamp(number, 0, 1) : number
     onChange(next)
   }
+
   return (
     <div className="grid grid-cols-4 gap-1">
       {handles.map((label, index) => (
@@ -463,10 +622,19 @@ function CurveFields({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
           rowClassName={`row-start-1 ${handleColumns[index]}`}
           read={(text): Reading<number> => {
             const reading = readNumber(text, curve[index], label)
-            if ("clear" in reading) return { reason: "Enter a number, such as 0.5" }
-            if ("reason" in reading) return reading
-            if (index % 2 === 0 && (reading.value < 0 || reading.value > 1))
+
+            if ("clear" in reading) {
+              return { reason: "Enter a number, such as 0.5" }
+            }
+
+            if ("reason" in reading) {
+              return reading
+            }
+
+            if (index % 2 === 0 && (reading.value < 0 || reading.value > 1)) {
               return { reason: `${label} goes from 0 to 1` }
+            }
+
             return { value: reading.value }
           }}
           onCommit={(number) => set(index, number)}
@@ -486,12 +654,13 @@ function InlinePreview({ row, onValue }: { row: CssRow; onValue: (value: string)
   const easing = easingOf(row.value)
   let preview: ReactNode
   let editor: ReactNode
+
   if (easing) {
-    preview = <CurveThumb shape={easing} size={12} />
+    preview = <CurveThumb plot={easing} size={12} />
     editor = (
       <div className="flex flex-col gap-2">
         <span className="grid h-24 place-items-center rounded bg-muted">
-          <CurveThumb shape={easing} size={80} />
+          <CurveThumb plot={easing} size={80} />
         </span>
         {easing.kind === "bezier" && (
           <CurveFields curve={easing.curve} onChange={(curve) => onValue(bezierCss(curve))} />
@@ -509,7 +678,11 @@ function InlinePreview({ row, onValue }: { row: CssRow; onValue: (value: string)
       <div className="h-16 rounded" style={swatch(filled)} />
     )
   }
-  if (!preview) return null
+
+  if (!preview) {
+    return null
+  }
+
   return (
     <Popover>
       <PopoverTrigger
@@ -540,17 +713,20 @@ function Row({
   onOwned: (row: CssRow) => void
 }) {
   const reason = rowReason(row)
-  const owner = owners[row.property]
-  const baseline = notBaseline[`${row.property}: ${row.value.trim()}`] ?? notBaseline[row.property]
+  const owner = owners.get(row.property)
+  const baseline = notBaseline.get(`${row.property}: ${row.value.trim()}`) ?? notBaseline.get(row.property)
   let message: Message | undefined
-  if (reason) message = { tone: "error", text: reason }
-  else if (owner) {
+
+  if (reason) {
+    message = { tone: "error", text: reason }
+  } else if (owner) {
     message = {
       tone: "note",
       text: `${owner} sets ${row.property}.`,
       action: { label: "Move it there", run: () => onOwned(row) }
     }
   }
+
   return (
     <div className={row.off ? "opacity-50" : ""}>
       {/* A long declaration wraps its value onto a second line rather than cutting it, as DevTools' Styles pane does. */}
@@ -576,7 +752,7 @@ function Row({
             candidates={(text) =>
               knownProperties()
                 .filter((name) => name.startsWith(text.toLowerCase()) && text !== "")
-                .map((name) => ({ label: name, mark: notBaseline[name] }))
+                .map((name) => ({ label: name, mark: notBaseline.get(name) }))
             }
             onCommit={(property) => onChange({ ...row, property: property.trim().toLowerCase() })}
           />
@@ -592,7 +768,7 @@ function Row({
               candidates={(text) =>
                 valueCandidates(row.property)
                   .filter((each) => each.label.startsWith(text))
-                  .map((each) => ({ ...each, mark: notBaseline[`${row.property}: ${each.label}`] }))
+                  .map((each) => ({ ...each, mark: notBaseline.get(`${row.property}: ${each.label}`) }))
               }
               onCommit={(value) => onChange({ ...row, value: value.trim().replace(/;$/, "") })}
             />
@@ -626,14 +802,21 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
   const [classes, setClasses] = useState<string>()
   const [summary, setSummary] = useState<string>()
   const written = cssWrites(model).tailwind.join(" ")
+
   const paste = (text: string): boolean => {
     const looksSorted = text.includes(";") || /\s/.test(text.trim())
-    if (!looksSorted) return false
+
+    if (!looksSorted) {
+      return false
+    }
+
     const sorted = sortIn(text, model)
     onChange(sorted.model)
     setSummary(sorted.summary)
+
     return true
   }
+
   const readClasses = (text: string) => {
     // Classes are a view of the same keys: what's typed replaces them, keeping rows that are off, which aren't written.
     const base: CssModel = { rows: model.rows.filter((row) => row.off), owned: [], fromCode: [] }
@@ -641,6 +824,7 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
     onChange(sorted.model)
     setSummary(sorted.summary || undefined)
   }
+
   return (
     <PanelSection
       title="CSS"
@@ -665,8 +849,13 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
       <div
         className="flex flex-col gap-1.5"
         onPaste={(event) => {
-          if (event.target instanceof HTMLElement && event.target.closest("[data-classes]")) return
-          if (paste(event.clipboardData.getData("text"))) event.preventDefault()
+          if (event.target instanceof HTMLElement && event.target.closest("[data-classes]")) {
+            return
+          }
+
+          if (paste(event.clipboardData.getData("text"))) {
+            event.preventDefault()
+          }
         }}
       >
         <label className="flex flex-col gap-1">
@@ -684,10 +873,16 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
                 event.preventDefault()
                 event.currentTarget.blur()
               }
-              if (event.key === "Escape") setClasses(undefined)
+
+              if (event.key === "Escape") {
+                setClasses(undefined)
+              }
             }}
             onBlur={() => {
-              if (classes !== undefined && classes !== written) readClasses(classes)
+              if (classes !== undefined && classes !== written) {
+                readClasses(classes)
+              }
+
               setClasses(undefined)
             }}
             className="field-sizing-content min-h-12 resize-y rounded-md border bg-transparent px-1.5 py-1 type-code font-mono outline-none focus:ring-2 focus:ring-ring dark:bg-input/30"

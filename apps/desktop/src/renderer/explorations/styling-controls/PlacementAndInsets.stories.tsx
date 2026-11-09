@@ -5,7 +5,7 @@ import { PositionPreview, PositionSection } from "./pin-box.tsx"
 import { Playground } from "./playground.tsx"
 import { layerOrderWrites, type Position, positionWrites } from "./position-writes.ts"
 import type { Side } from "./sides-writes.ts"
-import type { Writes } from "./writes.ts"
+import type { StoredObject, Writes } from "./writes.ts"
 
 /**
  * Placement and its insets (PAR-186, PAR-652's Position and Insets). Placement's toggles are In layout, Absolute,
@@ -22,6 +22,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const px = (number: number) => ({ number })
@@ -40,14 +41,22 @@ function Placement({
   const [clipped, setClipped] = useState(false)
   const placed = positionWrites(position)
   const order = layerOrderWrites(layerOrder)
+
+  const stored: StoredObject = {
+    // SAFETY: Position stores an object (`{ position, inset }`) when it's set, and nothing when it isn't.
+    ...(placed.stored as StoredObject | undefined)
+  }
+
+  if (order.stored !== undefined) {
+    stored.zIndex = order.stored
+  }
+
   const writes: Writes = {
-    stored:
-      placed.stored === undefined && order.stored === undefined
-        ? undefined
-        : { ...(placed.stored as object | undefined), ...(order.stored === undefined ? {} : { zIndex: order.stored }) },
+    stored: placed.stored === undefined && order.stored === undefined ? undefined : stored,
     css: [...placed.css, ...order.css],
     tailwind: [...placed.tailwind, ...order.tailwind]
   }
+
   return (
     <Playground writes={writes} preview={<PositionPreview position={position} layerOrder={layerOrder} />}>
       <PositionSection
@@ -67,7 +76,7 @@ function Placement({
   )
 }
 
-const none = [undefined, undefined, undefined, undefined] as Position["insets"]
+const none: Position["insets"] = [undefined, undefined, undefined, undefined]
 
 /** In layout: placed by its layout, so there's no pin box and nothing is written. Choose Absolute to take it out. */
 export const InLayout: Story = { render: () => <Placement start={{ placement: "static", insets: none }} /> }

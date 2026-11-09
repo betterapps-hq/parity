@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Paints({
@@ -40,6 +41,7 @@ function Paints({
   const [entries, setEntries] = useState(start)
   const [isMixed, setMixed] = useState(mixed)
   const [saved, setSaved] = useState<GradientToken[]>([])
+
   return (
     <Playground
       writes={isMixed ? mixedWrites : paintWrites(entries, saved)}

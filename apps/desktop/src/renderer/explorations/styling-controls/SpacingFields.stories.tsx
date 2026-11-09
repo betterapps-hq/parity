@@ -19,6 +19,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const px = (number: number) => ({ number })
@@ -30,6 +31,7 @@ function Spacing({ padding: startPadding, margin: startMargin = none }: { paddin
   const [hover, setHover] = useState<SpacingHover>()
   const [measured, setMeasured] = useState<Measured>()
   const hovered = (box: "padding" | "margin") => (sides: number[] | undefined) => setHover(sides && { box, sides })
+
   return (
     <Playground
       writes={mergeWrites({ padding: sidesWrites("padding", padding), margin: sidesWrites("margin", margin) })}
