@@ -140,4 +140,22 @@ describe("watchFrame", () => {
     expect(sink.named("frame.rendered")[0]).toMatchObject({ outcome: "error" })
     expect(sink.named("frame.failed")).toEqual([])
   })
+
+  it("records what the render page threw after the guest drew, with the page's message and stack", async () => {
+    const failed = vi.fn<() => void>()
+    await expect(
+      draw((watch) => {
+        watch.rendered(frame())
+        watch.threw({ error: "canvasHeight is broken", errorStack: "TypeError: canvasHeight is broken\n  at measure" })
+        watch.end(undefined, true)
+        throw new Error("canvasHeight is broken")
+      }, failed)
+    ).rejects.toThrow("canvasHeight is broken")
+    expect(sink.named("frame.failed")[0]?.attributes).toMatchObject({
+      failure: "render threw",
+      message: "canvasHeight is broken",
+      stack: "TypeError: canvasHeight is broken\n  at measure"
+    })
+    expect(failed).toHaveBeenCalledOnce()
+  })
 })
