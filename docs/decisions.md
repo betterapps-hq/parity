@@ -5785,8 +5785,9 @@ window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `
 - **What it costs:** the editor window's bundle grows by 153 kB (49 kB gzipped); `render.js` doesn't change. On the
   example project, a minute of selecting after opening left the JS heap within 0 to 6 MB of the 110 MB it holds with
   telemetry off, after garbage collection, over two runs each. With the project open, the page held about 27,600 DOM
-  nodes against 6,700, which closing it gives back. PAR-683 watches that over longer sessions. `pnpm perf` couldn't give
-  its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
+  nodes against 6,700, which closing it gives back. PAR-683 found that level over an hour and the gap to be attributes,
+  not removed nodes; see "Session Replay's memory stays level over an hour" below. `pnpm perf` couldn't give its
+  numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
 - **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. PAR-679 has since
   scrubbed them; see "Replays are scrubbed as they're recorded" below.
 
@@ -6554,3 +6555,36 @@ after it to add tags or attachments. My calls:
 - **One hook, in the package, with the SDK passed in.** `@parity-app/telemetry` still never imports Sentry, so each
   process passes its own module, whose `withStaticSpan` marks the span hook. The CLI's tests check it against the real
   SDK: a span holding a key leaves scrubbed, and Sentry starts without the warning.
+
+## Session Replay's memory stays level over an hour (PAR-683)
+
+The editor window held about 28,000 DOM nodes with Replay recording against 6,700 with diagnostics off, which looked
+like the recorder keeping nodes the canvas had removed. It isn't: over an hour the count doesn't grow, and the gap is
+the attributes of elements still on the page. Nothing in `renderer/replay.ts` changed. My calls:
+
+- **Measured with `pnpm perf --soak 60`,** a mode added for this: on the example project, round after round of zooming
+  the whole project in and out, waking every board at 100% so its frames mount and the rest go to sleep, then selecting
+  and editing 20 designs, reading the window after each round once garbage is collected. `PARITY_TELEMETRY` chose the
+  level; both copies ran side by side on 2026-11-09, 92 and 93 rounds.
+
+  | Replay | DOM nodes, rounds 5 to the end | JS heap, round 5 → the end | Window's private memory, rounds 5 to the end |
+  | ------ | ------------------------------ | -------------------------- | -------------------------------------------- |
+  | All    | 27,398 to 27,605               | 121 → 126 MB               | 451 to 531 MB                                |
+  | Off    | 6,763 to 6,779                 | 116 → 118 MB               | 415 to 504 MB                                |
+
+  Both settle after the first round and stay there. The heap creeps by a few megabytes an hour either way, and private
+  memory wanders within about the same band for both.
+
+- **Replay was recording all the while.** It pauses after five minutes without a click or a key, and the soak works
+  through the editor, so each round presses Shift and each reading asks Replay's recorder whether it's paused: all 93
+  were recording. A first run without the key press, as the OpenAI review pointed out, may have measured a recorder
+  paused for most of the hour; its numbers matched these.
+- **The extra 21,000 nodes are `Attr` objects.** Chromium makes one for an element's attribute the first time a script
+  reads `element.attributes`, keeps it while the element lives, and counts it as a node. The recorder reads every
+  attribute as it snapshots the page. With Replay on, the window had 6,136 nodes in its tree and 93 detached ones, and
+  its 20,195 attributes made up the rest; reading every attribute again added 119. With Replay off, reading them took
+  the count from 6,167 to 26,362. So the count follows the page that's showing, not the session's length.
+- **No `block` or `ignore` selectors for sleeping frames.** Frames are already blocked and their shadow roots hidden
+  from the recorder (PAR-624), and there's no growth left for more selectors to stop.
+- **Sentry's own limits bound the rest.** A replay ends after an hour, or 15 minutes idle, and the next one starts from
+  a fresh snapshot, so nothing the recorder keeps outlives that.
