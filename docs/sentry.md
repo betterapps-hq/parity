@@ -37,14 +37,15 @@ so there's nothing to set up ahead of the SDKs.
 Each build names its release, so an event points at the code that had the bug, and its stack trace resolves to Parity's
 source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-release-with-its-source-maps-par-625).
 
-| Build                                | Release                 | Source maps                                                         |
-| ------------------------------------ | ----------------------- | ------------------------------------------------------------------- |
-| Published app (`tester`)             | `parity-desktop@0.21.0` | Uploaded by `cd-desktop.yml`'s Upload source maps, once it's public |
-| CI's app (`ci`)                      | The commit's full hash  | Uploaded by `ci.yml`'s Upload source maps, from the Windows build   |
-| `pnpm dev` (`development`)           | The commit's full hash  | Read locally: stacks are resolved before they're sent               |
-| Published CLI (`tester`)             | `parity-cli@0.27.1`     | Uploaded by `cd-npm.yml`'s Upload source maps, once it's on npm     |
-| CLI preview on pkg.pr.new (`tester`) | The commit's full hash  | Not uploaded                                                        |
-| CLI from a checkout (`development`)  | The commit's full hash  | Not uploaded                                                        |
+| Build                                | Release                 | Source maps                                                       |
+| ------------------------------------ | ----------------------- | ----------------------------------------------------------------- |
+| Published app (`tester`)             | `parity-desktop@0.21.0` | Uploaded by `cd-desktop.yml`'s Source maps, once it's public      |
+| Preview installers (`tester`)        | The commit's full hash  | Uploaded by `preview.yml`'s Source maps                           |
+| CI's app (`ci`)                      | The commit's full hash  | Uploaded by `ci.yml`'s Upload source maps, from the Windows build |
+| `pnpm dev` (`development`)           | The commit's full hash  | Read locally: stacks are resolved before they're sent             |
+| Published CLI (`tester`)             | `parity-cli@0.27.1`     | Uploaded by `cd-npm.yml`'s Source maps, once it's on npm          |
+| CLI preview on pkg.pr.new (`tester`) | The commit's full hash  | Not uploaded                                                      |
+| CLI from a checkout (`development`)  | The commit's full hash  | Not uploaded                                                      |
 
 - **`pnpm build`** writes hidden source maps for main, the preload script, the service, its workers and the windows.
   **The CLI's `vp pack`** writes them for its bundles. Both then run `separateSourceMaps` in
@@ -58,14 +59,19 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
   suspect commits and "resolved in the next release" use.
 - **Electron's native crashes** are symbolicated by Sentry's built-in Electron, Apple and Microsoft symbol servers,
   which `parity-desktop`'s Settings > Debug Files had on from the start, as Sentry does for an Electron project.
-- **Other installed builds,** such as pull requests' preview installers, are named by their commit, so they stay out of
-  a published version's release. Their maps aren't uploaded yet.
+- **Pull requests' preview installers** are named by their commit, so they stay out of a published version's release.
+  The shared preview template builds them without Sentry's token, so `preview.yml`'s Source maps builds the same commit
+  again, with the same tldraw key, and uploads its maps. CI's upload of that commit doesn't cover them: CI builds
+  without the key, which changes the window's bundles.
+- **The shared templates build without Sentry's token,** so each upload after one goes through
+  [upload-sourcemaps.yml](../.github/workflows/upload-sourcemaps.yml): it builds the commit or tag again on Ubuntu with
+  the template's command and runs `scripts/upload-sourcemaps.ts`. Each debug ID comes from its bundle's contents, and
+  the build is the same on every system, so the maps match what the template built.
 - **The CLI's release comes from `dist/build.json`,** which `vp pack` writes beside the bundles: only the build
   `npm publish` makes (its `prepack`) is `parity-cli@<version>`. A pkg.pr.new preview or a checkout's own `dist` is
   named by the commit it was built from, and a checkout run from source by its current commit.
-- **`cd-npm.yml` builds the published CLI again from its tag** (`@parity-app/cli_v<version>`) to upload its maps, since
-  the shared release template runs without Sentry's token. Each debug ID comes from its bundle's contents, so the maps
-  match the bundles npm has.
+- **`cd-npm.yml` builds the published CLI again from its tag** (`@parity-app/cli_v<version>`), and `cd-desktop.yml` the
+  published app from `v<version>`, to upload their maps.
 - **Each event's `dist`** is the platform and architecture, such as `win32-x64`, and an installed build's events carry
   `update_channel`, `stable` or `beta`.
 

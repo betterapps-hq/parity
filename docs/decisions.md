@@ -4816,6 +4816,11 @@ How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
 - **CI uploads the Windows build's maps,** the build it installs and starts, as the commit's release. Only main's
   commits are tied to their release, since a pull request's merge commit isn't kept. A failed upload doesn't fail CI's
   run, which releases wait on.
+- **Preview installers' maps come from the same rebuild (PAR-685).** `preview.yml` builds the pull request's commit
+  again with the tldraw key, as the template does, and uploads as the commit's release, through the reusable
+  `upload-sourcemaps.yml` that the release workflows use too. The tldraw key changes the window's bundles, so CI's
+  upload of the same commit, built without it, doesn't cover them. Changing the shared preview template to keep the maps
+  would touch every repository that uses it, for the same result.
 - **Development builds resolve without an upload.** `pnpm dev` starts Electron with `--enable-source-maps`, so main's
   and the service's stacks name the source files and lines before Sentry sees them; the window's modules are already the
   source files Vite serves. A frozen copy, which `pnpm perf` measures, leaves it off.
