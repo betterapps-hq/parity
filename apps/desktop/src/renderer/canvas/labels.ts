@@ -9,6 +9,7 @@ import { useZoomStyle } from "./zoom-style.ts"
 export type LabelReach = (zoom: number, scale: number) => number
 
 function follow(
+  ref: RefObject<HTMLElement | null>,
   kind: LabelKind,
   fit: boolean,
   width: number | undefined,
@@ -26,11 +27,7 @@ function follow(
       style.width = `${((100 * zoom) / scale) * share}%`
 
       // What should stay within what it labels, such as a title's controls, hides by this while the label runs past.
-      if (past) {
-        style.setProperty("--label-past-edge", "hidden")
-      } else {
-        style.removeProperty("--label-past-edge")
-      }
+      ref.current?.toggleAttribute("data-past-edge", past)
     }
 
     style.opacity = opacity < 1 ? `${opacity}` : ""
@@ -45,7 +42,7 @@ function follow(
  * element it's placed in, so a long label truncates instead of running past what it labels; place it at that element's
  * left edge. `width` and `height` are how much room what it labels has on the canvas, so it hides once that's too
  * small on screen. `reach` lets a fitted label run past what it's placed in, as wide as it says; while it does, the
- * label sets `--label-past-edge` to `hidden`, for whatever in it should stay within what it labels.
+ * label has `data-past-edge`, for whatever in it should stay within what it labels to hide by.
  */
 export function useCanvasLabel(
   ref: RefObject<HTMLElement | null>,
@@ -53,6 +50,6 @@ export function useCanvasLabel(
   { fit = false, width, height, reach }: { fit?: boolean; width?: number; height?: number; reach?: LabelReach } = {}
 ): void {
   // Made again only when what it follows changes, since the zoom style applies it afresh each time it's new.
-  const apply = useMemo(() => follow(kind, fit, width, height, reach), [kind, fit, width, height, reach])
+  const apply = useMemo(() => follow(ref, kind, fit, width, height, reach), [ref, kind, fit, width, height, reach])
   useZoomStyle(ref, apply)
 }

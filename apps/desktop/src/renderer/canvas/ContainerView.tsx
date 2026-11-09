@@ -550,8 +550,9 @@ function TitleControls({ children }: { children: ReactNode }) {
 
   return (
     <div
-      // Hidden while the name runs past a narrow board, where they'd sit beyond its edge (see useTitleReach).
-      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 [visibility:var(--label-past-edge,visible)] group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex @max-[22rem]:hidden!"
+      // Out of the layout while the name runs past a narrow board, where they'd sit beyond its edge and take the name's
+      // room (see useTitleReach).
+      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex group-data-past-edge/title:hidden! @max-[22rem]:hidden!"
       // Enter and the arrows on its menus open them, rather than going to the canvas (see shortcuts.ts).
       data-canvas-control
       onPointerDown={stopEventPropagation}
