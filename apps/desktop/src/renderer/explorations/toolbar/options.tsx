@@ -529,10 +529,7 @@ function MoveMenu({ current }: { current: PointerTool }) {
   )
 }
 
-/**
- * Insert, which opens the picker of components, icons and images at the pointer, as / does. It's mostly how
- * components get onto a design, so it's in the component purple.
- */
+/** Insert, which opens the picker of components, icons and images at the pointer, as / does. */
 function InsertButton() {
   return (
     <Tip command="insert">
@@ -542,7 +539,7 @@ function InsertButton() {
         aria-label={keymap.insert.label}
         onClick={() => void actions.insert.run("toolbar")}
       >
-        <SquarePlus className="text-(--canvas-component-text)" />
+        <SquarePlus />
       </Button>
     </Tip>
   )
