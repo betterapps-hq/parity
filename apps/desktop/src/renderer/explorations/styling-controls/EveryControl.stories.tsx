@@ -1,6 +1,5 @@
-import { Badge } from "@buildkitgg/shadcn-baseui-kit"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { composeStories, type Meta, type StoryObj } from "@storybook/react-vite"
-import { Check } from "lucide-react"
 import type { ComponentType } from "react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import * as angle from "./Angle.stories.tsx"
@@ -42,8 +41,8 @@ import * as weight from "./Weight.stories.tsx"
 /**
  * Every control (PAR-186) on one page, numbered, to review one at a time. Each is one of its own stories, holding a
  * value, shown without what it writes or its preview; its name opens all its stories. They're numbered in the design
- * panel's order, after the fields the others are built from, and each is marked Reviewed or To review, with what's
- * left to review first.
+ * panel's order, after the fields the others are built from. The page shows what's left to review; the reviewed ones
+ * are folded under Reviewed at the end.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Every control",
@@ -156,58 +155,66 @@ const numbered = groups.map((group, index) => {
   return { ...group, start, entries: group.entries.map((entry, at) => ({ ...entry, number: start + at })) }
 })
 
-// What's left to review comes first: reviewed controls go to the end of their group, and a group with nothing left
-// to review goes to the end of the page.
-const byReview = (reviewed: boolean | undefined) => (reviewed ? 1 : 0)
-const sorted = numbered
-  .map((group) => ({
-    ...group,
-    entries: group.entries.toSorted((a, b) => byReview(a.reviewed) - byReview(b.reviewed))
-  }))
-  .toSorted(
-    (a, b) =>
-      byReview(a.entries.every((entry) => entry.reviewed)) - byReview(b.entries.every((entry) => entry.reviewed))
-  )
+type Numbered = (typeof numbered)[number]
+
+// The groups as they'd show with only the controls reviewed, or only those left; a group with none goes.
+const only = (reviewed: boolean) =>
+  numbered
+    .map((group) => ({ ...group, entries: group.entries.filter((entry) => (entry.reviewed ?? false) === reviewed) }))
+    .filter((group) => group.entries.length > 0)
+
+const toReview = only(false)
+const reviewed = only(true)
+const reviewedCount = reviewed.reduce((count, group) => count + group.entries.length, 0)
+
+function Groups({ groups, prefix }: { groups: Numbered[]; prefix: string }) {
+  return groups.map((group) => (
+    <section key={group.name} aria-labelledby={`${prefix}-${group.start}`} className="flex flex-col gap-3">
+      <GroupLabel as="h2" className="block">
+        <span id={`${prefix}-${group.start}`}>{group.name}</span>
+      </GroupLabel>
+      <ul className="flex flex-wrap items-start gap-x-6 gap-y-8">
+        {group.entries.map(({ name, Story: Control, number }) => (
+          <li key={name} className="flex flex-col gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              <span className="text-muted-foreground tabular-nums">{number}</span>
+              <a
+                href={`/?path=/story/${Control.id}`}
+                target="_top"
+                className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {name}
+              </a>
+            </h3>
+            <Control />
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))
+}
 
 function EveryControlPage() {
   return (
     // It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't.
     <div className="flex h-screen flex-col gap-8 overflow-y-auto bg-background p-6 text-foreground">
       <ControlOnly value>
-        {sorted.map((group) => (
-          <section key={group.name} aria-labelledby={`group-${group.start}`} className="flex flex-col gap-3">
-            <GroupLabel as="h2" className="block">
-              <span id={`group-${group.start}`}>{group.name}</span>
-            </GroupLabel>
-            <ul className="flex flex-wrap items-start gap-x-6 gap-y-8">
-              {group.entries.map(({ name, Story: Control, reviewed, number }) => (
-                <li key={name} className="flex flex-col gap-2">
-                  <h3 className="flex items-center gap-2 text-sm font-medium">
-                    <span className="text-muted-foreground tabular-nums">{number}</span>
-                    <a
-                      href={`/?path=/story/${Control.id}`}
-                      target="_top"
-                      className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      {name}
-                    </a>
-                    {reviewed ? (
-                      <Badge className="border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-                        <Check aria-hidden />
-                        Reviewed
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        To review
-                      </Badge>
-                    )}
-                  </h3>
-                  <Control />
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        {toReview.length > 0 ? (
+          <Groups groups={toReview} prefix="to-review" />
+        ) : (
+          <p className="text-sm text-muted-foreground">Every control is reviewed.</p>
+        )}
+        {/* What's settled is folded away at the end, so the page is what's left to review. */}
+        <Accordion className="border-t pt-2">
+          <AccordionItem value="reviewed">
+            <AccordionTrigger className="text-sm">Reviewed ({reviewedCount})</AccordionTrigger>
+            <AccordionContent>
+              <div className="flex flex-col gap-8 pt-2">
+                <Groups groups={reviewed} prefix="reviewed" />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </ControlOnly>
     </div>
   )
