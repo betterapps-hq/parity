@@ -13,7 +13,7 @@ import { useProject } from "../../canvas/context.ts"
 import { formatKeys } from "../../chrome/keys.ts"
 import { useTool } from "../../selection.ts"
 import { type A11yKind, a11yKindOrder, a11yKinds } from "../collaboration/a11y.tsx"
-import { Divider, reviewSpec, SearchActions, Tools, useReviewEscape } from "./options.tsx"
+import { Divider, ReviewBar, type ReviewTool, reviewSpec, SearchActions, Tools, useReviewEscape } from "./options.tsx"
 
 /*
  * An experiment: picking Accessibility in the review menu warps the toolbar into Accessibility's own bar, its options
@@ -32,21 +32,21 @@ const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)"
 export function WarpToolbar() {
   const { selection } = useProject()
   const tool = useTool(selection)
-  // While warped, how to put the review tool down, which Done and Esc do.
-  const [warp, setWarp] = useState<{ done: () => void }>()
+  // The review tool picked, if one is, and how to put it down, which Done and Esc do.
+  const [review, setReview] = useState<{ picked: ReviewTool; done: () => void }>()
   const bar = useRef<HTMLDivElement>(null)
   const toolsLayer = useRef<HTMLDivElement>(null)
   const kindLayer = useRef<HTMLDivElement>(null)
   const [widths, setWidths] = useState({ tools: 0, kind: 0 })
 
   // Another tool, picked by its key, puts the review tool down, so the bar warps back.
-  if (warp && tool !== "select") {
-    setWarp(undefined)
+  if (review && tool !== "select") {
+    setReview(undefined)
   }
 
-  const warped = !!warp
+  const warped = review?.picked === "accessibility"
 
-  useReviewEscape(warp?.done)
+  useReviewEscape(warped ? review.done : undefined)
 
   // Each side's width, kept current as a stamp's name shows and hides.
   useLayoutEffect(() => {
@@ -101,17 +101,15 @@ export function WarpToolbar() {
         style={{ width: width || undefined, transitionTimingFunction: spring }}
       >
         <Layer ref={toolsLayer} shown={!warped} from="right">
-          <Tools
-            warps={["accessibility"]}
-            onReview={(picked, done) => setWarp(picked === "accessibility" ? { done } : undefined)}
-          />
+          <Tools onReview={(picked, done) => setReview(picked ? { picked, done } : undefined)} />
           <Divider />
           <SearchActions />
         </Layer>
         <Layer ref={kindLayer} shown={warped} from="left">
-          <AccessibilityBar onDone={() => warp?.done()} />
+          <AccessibilityBar onDone={() => review?.done()} />
         </Layer>
       </div>
+      {review && !warped && <ReviewBar tool={review.picked} onDone={review.done} />}
     </div>
   )
 }

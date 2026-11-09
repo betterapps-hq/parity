@@ -38,7 +38,7 @@ import {
   SquareMousePointer,
   Type
 } from "lucide-react"
-import { type CSSProperties, Fragment, type ReactElement, type ReactNode, useEffect, useState } from "react"
+import { type CSSProperties, Fragment, type ReactElement, type ReactNode, useEffect, useRef, useState } from "react"
 import { useValue } from "tldraw"
 import { useProject } from "../../canvas/context.ts"
 import { placeFrame } from "../../canvas/frame-tool.ts"
@@ -124,16 +124,10 @@ function Bar({ label, children }: { label: string; children: ReactNode }) {
 
 /**
  * The tools as one group you move through with the arrow keys: Frame with its menu beside it, and Insert after Text,
- * since it makes things too. The review tools in `warps` don't show the bar above; `onReview` hears each review tool
+ * since it makes things too. Given `onReview`, the bar above isn't drawn here: `onReview` hears each review tool
  * picked and put down, with the way to put it down, so the bar can warp into that tool's own bar instead.
  */
-export function Tools({
-  warps = [],
-  onReview
-}: {
-  warps?: readonly ReviewTool[]
-  onReview?: (picked: ReviewTool | undefined, done: () => void) => void
-}) {
+export function Tools({ onReview }: { onReview?: (picked: ReviewTool | undefined, done: () => void) => void }) {
   const { selection } = useProject()
   const tool = useTool(selection)
   const [reviewing, setReviewing] = useState<ReviewTool>()
@@ -143,6 +137,26 @@ export function Tools({
 
   // The tool picked before reviewing, which Done brings back.
   const [before, setBefore] = useState<Tool>()
+
+  const stopReview = () => {
+    setReviewing(undefined)
+    onReview?.(undefined, stopReview)
+
+    if (before && before !== "select") {
+      void actions[before].run("toolbar")
+    }
+
+    setBefore(undefined)
+  }
+
+  // The latest stopReview, which sees the tool the pick before it saved, for whoever puts reviewing down later.
+  const latestStop = useRef(stopReview)
+
+  useEffect(() => {
+    latestStop.current = stopReview
+  })
+
+  const done = () => latestStop.current()
 
   // While reviewing, the canvas is on Move and select, so a click can't draw a frame or add text underneath.
   const pickReview = (id: ReviewTool) => {
@@ -161,18 +175,7 @@ export function Tools({
       void actions.select.run("toolbar")
     }
 
-    onReview?.(id, stopReview)
-  }
-
-  const stopReview = () => {
-    setReviewing(undefined)
-    onReview?.(undefined, stopReview)
-
-    if (before && before !== "select") {
-      void actions[before].run("toolbar")
-    }
-
-    setBefore(undefined)
+    onReview?.(id, done)
   }
 
   // C comments and Shift+T annotates, while the bar is showing.
@@ -207,7 +210,7 @@ export function Tools({
         } else if (value) {
           setReviewing(undefined)
           setBefore(undefined)
-          onReview?.(undefined, stopReview)
+          onReview?.(undefined, done)
           void actions[value as Tool].run("toolbar")
         }
       }}
@@ -239,7 +242,7 @@ export function Tools({
       <Divider />
       <ReviewTools
         current={lastReview}
-        picked={reviewing && !warps.includes(reviewing) ? reviewing : undefined}
+        picked={onReview ? undefined : reviewing}
         onPick={pickReview}
         onDone={stopReview}
       />
@@ -442,6 +445,10 @@ window.addEventListener(
 /** Has Esc call `onDone` while it's set, ahead of the canvas's own use of Esc. */
 export function useReviewEscape(onDone: (() => void) | undefined) {
   useEffect(() => {
+    if (!onDone) {
+      return undefined
+    }
+
     escapeReview = onDone
 
     return () => {
@@ -451,7 +458,7 @@ export function useReviewEscape(onDone: (() => void) | undefined) {
 }
 
 /** What a click does while a review tool is picked, and the way out, which Esc takes too. */
-function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
+export function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
   useReviewEscape(onDone)
 
   return <ReviewBarLook tool={tool} onDone={onDone} />
