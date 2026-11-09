@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 12:11:34 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 12:29:40 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.44.0
+
+Mon, 09 Nov 2026 12:29:40 GMT
+
+### Minor changes
+
+- Rebuild the canvas toolbar: tools with menus, a review button whose Comment and annotation tools warp the toolbar into
+  their own bars, and Zoom in its own corner (ajcraswell@gmail.com)
 
 ## 0.43.0
 
