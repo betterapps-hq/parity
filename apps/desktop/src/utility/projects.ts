@@ -194,19 +194,23 @@ interface Opening {
   detectionMs?: number
   builderMs?: number
   cached: boolean
-  typescript?: string
+  versions?: ToolVersions
 }
 
-/** The tools whose versions `project.opened` records, by detection's IDs. */
+/** The tools whose versions both events record, by detection's IDs. */
 const recordedVersions = ["react", "vite", "tailwind", "storybook"] as const
 
-/** The versions installed of the tools `project.opened` records. */
-function toolVersions(detection: ProjectDetection): Partial<Record<(typeof recordedVersions)[number], string>> {
-  const versions: Partial<Record<(typeof recordedVersions)[number], string>> = {}
+type ToolVersions = Partial<Record<(typeof recordedVersions)[number] | "typescript", string>>
+
+/** The versions installed of the tools both events record: detection's, and TypeScript's. */
+async function toolVersions(root: string, detection: ProjectDetection): Promise<ToolVersions> {
+  const versions: ToolVersions = {}
   for (const id of recordedVersions) {
     const version = detection.tools.find((tool) => tool.id === id)?.version
     if (version) versions[id] = version
   }
+  const typescript = await typescriptVersion(root)
+  if (typescript) versions.typescript = typescript
   return versions
 }
 
@@ -304,12 +308,17 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const renderer = adapters.renderers.find((adapter) => adapter.detect(pkg))
     if (!renderer) throw unsupported("no_renderer", `No renderer supports ${pkg.name ?? root}`)
     opening.framework = renderer.id
-    const found = await findBuilder(adapters.builders, root)
+    const found = await findBuilder(adapters.builders, root).catch(async (error: unknown) => {
+      // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
+      opening.versions = await toolVersions(root, await detectProject(root, pkg))
+      throw error
+    })
     const detection = await detectProject(
       root,
       pkg,
       found.builder && { id: found.builder.id, detection: found.detection }
     )
+    opening.versions = await toolVersions(root, detection)
     // An untested version may be why something below fails, so any error ends with the note naming it.
     const explain = (problem: string) => (detection.notice ? `${problem}\n\n${detection.notice}` : problem)
     if (!found.builder) {
@@ -346,7 +355,6 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       ? nextComponentList(discovered.list, { kind: "restored", sources: saved.sources, leftOut: saved.leftOut ?? [] })
       : discovered
     opening.cached = !!saved
-    opening.typescript = await typescriptVersion(root)
     if (saved) {
       config.notes.push("components and props as the type checker found them last time, since then nothing has changed")
     }
@@ -382,15 +390,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       ...(opening.detectionMs === undefined ? {} : { detectionMs: opening.detectionMs }),
       ...(opening.builderMs === undefined ? {} : { builderMs: opening.builderMs }),
       ...(opening.framework ? { framework: opening.framework } : {}),
-      ...(opening.builder ? { builder: opening.builder } : {})
+      ...(opening.builder ? { builder: opening.builder } : {}),
+      ...opening.versions
     })
     try {
       const info = await start(root, opening)
       track("project.opened", {
         ...common(),
         cached: opening.cached,
-        ...toolVersions(info.detection),
-        ...(opening.typescript ? { typescript: opening.typescript } : {}),
         components: Object.keys(info.sources).length,
         designs: info.documents.reduce((sum, entry) => sum + (entry.document?.containers.length ?? 0), 0),
         tokens: info.theme.length,

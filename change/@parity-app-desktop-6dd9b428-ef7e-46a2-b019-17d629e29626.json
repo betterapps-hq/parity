@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the builder can't load the project's config",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

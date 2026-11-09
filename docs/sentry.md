@@ -123,16 +123,16 @@ Where events land decides each widget's dataset: errors are Sentry errors, spans
 span's name and its attributes as they are, and other events are Sentry logs with `message` the event's name. A numeric
 attribute in a logs widget is picked as a number, as `durationMs`, which the API writes as `tags[durationMs,number]`.
 
-| Widget                                | Dataset  | Display | Query                                               | Shows                                                | Grouped by                                 |
-| ------------------------------------- | -------- | ------- | --------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------ |
-| Crash-free sessions by release        | Releases | Line    | (none)                                              | `crash_free_rate(session)`                           | `release`                                  |
-| Top errors by release and environment | Errors   | Table   | (none)                                              | `count()`, `count_unique(user)`, sorted by `count()` | `issue`, `title`, `release`, `environment` |
-| Test passes and their errors          | Errors   | Table   | `has:test_run`                                      | `count()`, `count_unique(issue)`, `last_seen()`      | `test_run`, `environment`                  |
-| Project open failures                 | Logs     | Table   | `message:project.openFailed`                        | `count()`                                            | `framework`, `builder`, `step`, `code`     |
-| p95 of rendering and agent calls      | Spans    | Line    | `span.op:[frame.rendered,frame.drawn,agent.called]` | `p95(span.duration)`                                 | `span.op`                                  |
-| p95 of opening and saving             | Logs     | Line    | `message:[project.loaded,document.saved]`           | `p95(durationMs)`                                    | `message`                                  |
-| Agent error codes by operation        | Spans    | Table   | `span.op:agent.called has:code`                     | `count()`                                            | `method`, `code`, `transport`              |
-| Gestures interrupted or cancelled     | Logs     | Bar     | `message:gesture.ended how:[interrupted,cancelled]` | `count()`                                            | `kind`, `how`                              |
+| Widget                                | Dataset  | Display | Query                                               | Shows                                                | Grouped by                                              |
+| ------------------------------------- | -------- | ------- | --------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------- |
+| Crash-free sessions by release        | Releases | Line    | (none)                                              | `crash_free_rate(session)`                           | `release`                                               |
+| Top errors by release and environment | Errors   | Table   | (none)                                              | `count()`, `count_unique(user)`, sorted by `count()` | `issue`, `title`, `release`, `environment`              |
+| Test passes and their errors          | Errors   | Table   | `has:test_run`                                      | `count()`, `count_unique(issue)`, `last_seen()`      | `test_run`, `environment`                               |
+| Project open failures                 | Logs     | Table   | `message:project.openFailed`                        | `count()`                                            | `framework`, `react`, `vite`, `builder`, `step`, `code` |
+| p95 of rendering and agent calls      | Spans    | Line    | `span.op:[frame.rendered,frame.drawn,agent.called]` | `p95(span.duration)`                                 | `span.op`                                               |
+| p95 of opening and saving             | Logs     | Line    | `message:[project.loaded,document.saved]`           | `p95(durationMs)`                                    | `message`                                               |
+| Agent error codes by operation        | Spans    | Table   | `span.op:agent.called has:code`                     | `count()`                                            | `method`, `code`, `transport`                           |
+| Gestures interrupted or cancelled     | Logs     | Bar     | `message:gesture.ended how:[interrupted,cancelled]` | `count()`                                            | `kind`, `how`                                           |
 
 - **Four widgets wait for events that aren't on main yet.** `project.openFailed` and `project.loaded` come with PAR-637
   (betterapps-hq/parity#319), `gesture.ended` with PAR-640 (#324) and `frame.rendered` with PAR-638 (#323). Builds from
@@ -143,8 +143,6 @@ attribute in a logs widget is picked as a number, as `durationMs`, which the API
   `project.opened`'s `durationMs` stops at the service, and `project.detected` is one step of it.
 - **Rendering is `frame.rendered`,** which PAR-638 renames from `frame.drawn`; the query takes both until no build sends
   the old name.
-- **Project open failures have no tool versions yet.** `project.openFailed` carries `framework` and `builder`, but the
-  React and Vite versions are only on `project.opened`. PAR-715 adds them, and then `react` and `vite` join the group.
 - **Test passes with no errors don't show in the table,** since it counts errors. A pass's spans and logs are found by
   searching either for its `test_run`.
 
