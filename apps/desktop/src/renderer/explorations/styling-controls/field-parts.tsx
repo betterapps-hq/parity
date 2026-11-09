@@ -42,7 +42,7 @@ import {
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
+import { moving, onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
 import { useRowScrub } from "./field-row.tsx"
 import { type FieldToken, type OpacityToken, type TokenSetName, type TokenSets, tokenSets } from "./tokens.ts"
@@ -1066,9 +1066,11 @@ export interface TokenListProps {
 
 /**
  * A field's tokens, for its popover: each drawn with its kind's preview as the Tokens panel draws it, with what it comes
- * to, a deprecated one marked, and the one the field holds highlighted. Up and Down move through it.
+ * to, a deprecated one marked, and the one the field holds highlighted. Up and Down move through it. A token that
+ * moves (a duration, an easing) plays while its row is hovered or focused, as in the Tokens panel.
  */
 export function TokenList({ label, tokens, current, none, own = false, onPick }: TokenListProps) {
+  const [live, setLive] = useState<string>()
   const rows: { name: string | undefined; token?: FieldToken }[] = [
     ...(none === undefined ? [] : [{ name: undefined }]),
     ...tokens.map((token) => ({ name: token.name, token }))
@@ -1091,10 +1093,19 @@ export function TokenList({ label, tokens, current, none, own = false, onPick }:
             aria-current={selected || undefined}
             onClick={() => onPick(name)}
             onKeyDown={move}
+            onPointerEnter={() => setLive(name)}
+            onPointerLeave={() => setLive(undefined)}
+            onFocus={() => setLive(name)}
+            onBlur={() => setLive(undefined)}
             className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent ${selected ? "bg-accent" : ""}`}
           >
             {token ? (
-              <TokenMark kind={token.kind} value={token.value} name={token.name} />
+              <TokenMark
+                kind={token.kind}
+                value={token.value}
+                name={token.name}
+                playing={live === name && moving.has(token.kind)}
+              />
             ) : (
               <span aria-hidden className="block h-4 w-6 shrink-0" />
             )}
