@@ -57,6 +57,32 @@ export type OutboxItem =
 export interface Batch {
   run: BatchRun
   items: OutboxItem[]
+  /**
+   * The debug IDs the command's bundles registered as they loaded, keyed by a stack that names each bundle, as
+   * `sentry-cli sourcemaps inject` writes them (PAR-719). The sender never loads the command's bundles, so it takes
+   * these on to resolve their frames.
+   */
+  debugIds?: Record<string, string>
+}
+
+/** Where the bundles' injected code registers their debug IDs, which Sentry's SDK reads as it captures an error. */
+interface DebugIdGlobal {
+  _sentryDebugIds?: Record<string, string>
+}
+
+/** The debug IDs this process's bundles registered, none when it runs from source. */
+export function loadedDebugIds(
+  global: DebugIdGlobal = globalThis as DebugIdGlobal
+): Record<string, string> | undefined {
+  return global._sentryDebugIds
+}
+
+/**
+ * Adds a batch's debug IDs to this process's, so Sentry's SDK attaches each frame's bundle's debug ID to an error the
+ * sender captures, as it would in the command, and the frame resolves through that bundle's uploaded source map.
+ */
+export function adoptDebugIds(batch: Batch, global: DebugIdGlobal = globalThis as DebugIdGlobal): void {
+  if (batch.debugIds) global._sentryDebugIds = { ...global._sentryDebugIds, ...batch.debugIds }
 }
 
 /** Keeps what the CLI's Sentry sink sends, in order, until it's written. */

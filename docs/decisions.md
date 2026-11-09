@@ -6465,8 +6465,13 @@ now resolves to `packages/cli/src`, as the app's does to its source (PAR-625). H
 - **`cd-npm.yml` builds the published version again from its tag to upload,** as `cd-desktop.yml` does for the app,
   since the shared release template runs without Sentry's token. Two builds of the same commit gave the same debug IDs.
   The release is tied to the tag's commit on main. Previews' maps aren't uploaded; their stacks name the bundled files.
+- **Each batch carries the command's debug IDs to the sender.** Sentry's SDK attaches a frame's debug ID from what the
+  capturing process's bundles registered (`_sentryDebugIds`), and the detached sender never loads the command's bundles.
+  So the command writes its registry into the batch, and the sender adds it to its own before capturing. Without that,
+  an error from `bin.mjs` carried no debug ID and couldn't resolve, as the OpenAI review found.
 - **Chunks that only re-export get no map,** so only the bundles with one get a debug ID. They hold no code to resolve.
 - **Checked before release:** the packed CLI ships `dist/build.json` and no maps; `bin.mjs`'s call to `reportCliFailure`
   resolves through its map to `packages/cli/src/bin.ts` line 159; and `sentry-cli sourcemaps upload`, pointed at a
-  stand-in server, paired each of the 9 bundles with its map and debug ID. Whether an event from the installed CLI
-  resolves in Sentry can only be seen once a version is published.
+  stand-in server, paired each of the 9 bundles with its map and debug ID. A sender-like process that adopted a
+  command's debug IDs gave a frame in `client-<hash>.mjs` that chunk's debug ID in `debug_meta`; without them, none.
+  Whether an event from the installed CLI resolves in Sentry can only be seen once a version is published.

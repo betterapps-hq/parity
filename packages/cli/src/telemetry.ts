@@ -35,7 +35,7 @@ import {
   traceHeaders
 } from "@parity-app/telemetry"
 import { cliVersion } from "./diagnostics.ts"
-import { type BatchRun, createOutbox, type Outbox, startSender, writeBatch } from "./outbox.ts"
+import { type BatchRun, createOutbox, loadedDebugIds, type Outbox, startSender, writeBatch } from "./outbox.ts"
 
 /*
  * The CLI's own events (PAR-641): each command it runs, the copies of the app it can't reach or can't read, and the MCP
@@ -238,7 +238,9 @@ function hand(outbox: Outbox, installId: string, installed: boolean, serving: bo
   const folder = cliOutboxFolder()
   const write = () => {
     try {
-      if (writeBatch(folder, { run: batchRun(process.env, installId, installed), items: outbox.take() })) {
+      const run = batchRun(process.env, installId, installed)
+      const debugIds = loadedDebugIds()
+      if (writeBatch(folder, { run, items: outbox.take(), ...(debugIds ? { debugIds } : {}) })) {
         startSender(folder, sender)
       }
     } catch {

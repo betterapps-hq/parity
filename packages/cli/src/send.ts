@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process"
 import { createScrubber, telemetryRelease } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/node"
-import { type Batch, type BatchTarget, sendBatches } from "./outbox.ts"
+import { adoptDebugIds, type Batch, type BatchTarget, sendBatches } from "./outbox.ts"
 
 /*
  * The detached process that sends the CLI's batches to Sentry's `parity-cli` project (PAR-642), started as a command
@@ -45,6 +45,7 @@ function releaseOf(run: Batch["run"]): string {
 function send(batch: Batch): void {
   const { run } = batch
   const release = releaseOf(run)
+  adoptDebugIds(batch)
   // Logs take these from the client's options as they're captured, so each batch sets them before its own.
   const options = Sentry.getClient()?.getOptions()
   if (options) Object.assign(options, { environment: run.environment, release })
