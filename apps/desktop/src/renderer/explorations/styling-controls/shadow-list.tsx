@@ -16,7 +16,7 @@ import type { PreviewKind } from "@parity-app/tokens"
 import { ChevronDown, ChevronRight, Ellipsis, Plus, RotateCcw, Unlink } from "lucide-react"
 import { useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { Num } from "./controls.tsx"
 import { shadowCss } from "./css-values.ts"
@@ -209,7 +209,7 @@ export function ShadowList({
             .filter(({ rows }) => rows.length > 0)
             .map(({ group, rows }) => (
               <div key={group} className="flex flex-col gap-0.5">
-                <span className="px-4 text-[11px] text-muted-foreground">{titles[group]}</span>
+                <GroupLabel className="px-4">{titles[group]}</GroupLabel>
                 {rows.map((entry, index) => (
                   <ShadowRow
                     key={entry.id}

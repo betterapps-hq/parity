@@ -353,7 +353,7 @@ function WithChips({ text }: { text: string }) {
     last = match.index + match[0].length
   }
   parts.push(text.slice(last))
-  return <span className="inline-flex flex-wrap items-center gap-0.5 font-mono text-[11px]">{parts}</span>
+  return <span className="inline-flex flex-wrap items-center gap-0.5 font-mono text-2xs">{parts}</span>
 }
 
 /** The three values inside a top-level `clamp()`, or undefined when it isn't one. */
@@ -602,7 +602,7 @@ export function ExpressionField({
         // Focused, it opens over its row, at least 15rem wide, as Webflow's = editor opens wide.
         <div className="absolute top-0 left-0 z-30 flex w-full min-w-60 flex-col gap-1.5 rounded-md border bg-popover p-1.5 text-popover-foreground shadow-md">
           <label className={fieldBox(error, "h-auto! min-h-7 items-start! bg-background py-1.5")}>
-            <span aria-hidden className="shrink-0 font-mono leading-4 text-muted-foreground">
+            <span aria-hidden className="shrink-0 type-code font-mono text-muted-foreground">
               =
             </span>
             <textarea
@@ -626,7 +626,7 @@ export function ExpressionField({
               onBlur={() => {
                 if (!returning.current) commit(true)
               }}
-              className={`${fieldInput} ${wrappingText} font-mono leading-4`}
+              className={`${fieldInput} ${wrappingText} type-code font-mono`}
             />
             {error && <InvalidMark />}
           </label>
@@ -644,7 +644,7 @@ export function ExpressionField({
                       )}
                       {item.label}
                     </span>
-                    <span className="truncate text-[11px] text-muted-foreground">{item.detail}</span>
+                    <span className="truncate text-2xs text-muted-foreground">{item.detail}</span>
                   </>
                 )
               }))}
@@ -654,7 +654,7 @@ export function ExpressionField({
               onPick={accept}
             />
           )}
-          <div className="flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 px-1 text-2xs text-muted-foreground">
             <WithChips text={editing} />
             {typeof editedComesTo === "number" && (
               <span className="shrink-0">Comes to {formatNumber(editedComesTo)}px</span>
@@ -687,7 +687,7 @@ function ClampFields({
   const total = evaluateLength(`clamp(${parts.join(", ")})`, basis)
   return (
     <div className="flex flex-col gap-1.5">
-      <p className="text-xs font-medium">
+      <p className="text-sm font-medium">
         {label}: clamp
         {typeof total === "number" && <span className="text-muted-foreground"> comes to {formatNumber(total)}px</span>}
       </p>

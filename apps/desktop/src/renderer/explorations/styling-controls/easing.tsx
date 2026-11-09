@@ -16,6 +16,7 @@ import {
 import { type KeyboardEvent, type PointerEvent, useId, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
+import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
 import { drag, MissingMark, type Reading, readUnitNumber, useTokens, useTokenSets, ValueField } from "./field-parts.tsx"
 import {
@@ -261,14 +262,14 @@ export function SaveAsToken({
     setName("")
   }
   return (
-    <p className="flex flex-wrap items-center gap-x-1 text-[11px] leading-snug text-muted-foreground">
+    <p className="flex flex-wrap items-center gap-x-1 type-description text-muted-foreground">
       {says}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger className="text-foreground underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring">
           Save as token
         </PopoverTrigger>
         <PopoverContent className="w-56 gap-2 p-2" align="start">
-          <label htmlFor={id} className="text-xs font-medium">
+          <label htmlFor={id} className="text-xs">
             Token name
           </label>
           <Input
@@ -282,7 +283,7 @@ export function SaveAsToken({
             }}
             className="h-7 text-xs"
           />
-          {taken && <p className="text-[11px] text-destructive">A token has that name already.</p>}
+          {taken && <p className="type-message text-destructive">A token has that name already.</p>}
           <Button size="sm" className="h-7 text-xs" disabled={name.trim() === "" || taken} onClick={save}>
             Save
           </Button>
@@ -343,7 +344,9 @@ function EasingEditor({
         </div>
         {tokens.length > 0 && (
           <div className="flex flex-col gap-1">
-            <p className="px-1 text-[11px] text-muted-foreground">{"The project's easings"}</p>
+            <GroupLabel as="p" className="px-1">
+              {"The project's easings"}
+            </GroupLabel>
             <div className="grid grid-cols-2 gap-1">
               {tokens.map((token) => (
                 <Button
@@ -477,7 +480,7 @@ function CurveEditor({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
           </g>
         ))}
       </svg>
-      <code className="text-[11px] text-muted-foreground">{bezierCss(curve)}</code>
+      <code className="font-mono text-2xs text-muted-foreground">{bezierCss(curve)}</code>
     </div>
   )
 }
@@ -558,7 +561,9 @@ function SpringEditor({ spring, onChange }: { spring: Spring | undefined; onChan
       <div className="grid place-items-center rounded-md border bg-muted/40 p-2">
         <CurveThumb shape={easingShape({ spring: shown }, [])} size={120} faint={spring === undefined} />
       </div>
-      <p className="text-[11px] text-muted-foreground">Settles in {springSettle(shown)}ms, which is the duration.</p>
+      <p className="type-description text-muted-foreground">
+        Settles in {springSettle(shown)}ms, which is the duration.
+      </p>
       {"duration" in shown ? (
         <>
           <SpringNumber
@@ -707,7 +712,7 @@ export function HoverCard({
       <Button variant="outline" size="sm" className="h-7 text-xs" aria-pressed={on} onClick={() => setOn(!on)}>
         {on ? "Play back" : "Play"}
       </Button>
-      <p className="text-[11px] text-muted-foreground">Point at the card, or press Play, to see it change.</p>
+      <p className="type-description text-muted-foreground">Point at the card, or press Play, to see it change.</p>
     </div>
   )
 }

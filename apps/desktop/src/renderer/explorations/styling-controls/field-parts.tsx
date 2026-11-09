@@ -41,6 +41,7 @@ import {
 } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
+import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
 import { useRowScrub } from "./field-row.tsx"
@@ -250,7 +251,7 @@ export function MessageLine({ message }: { message: Message | undefined }) {
   return (
     <p
       role={error ? "alert" : "status"}
-      className={`col-span-full mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] leading-snug ${error ? "text-destructive" : "text-muted-foreground"}`}
+      className={`col-span-full mt-1 flex flex-wrap items-center gap-x-1.5 type-message ${error ? "text-destructive" : "text-muted-foreground"}`}
     >
       {message.text}
       {message.action && (
@@ -561,7 +562,7 @@ export function MissingMark({
         </PopoverTrigger>
       </Hint>
       <PopoverContent className="w-60 gap-1 p-1" align="end">
-        <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">{description}</p>
+        <p className="px-2 pt-1 pb-1.5 type-description text-muted-foreground">{description}</p>
         {actions.map((action) => (
           <MenuButton
             key={action.label}
@@ -691,7 +692,7 @@ export function OffSystemMark({
         </PopoverTrigger>
       </Hint>
       <PopoverContent className="w-60 gap-1 p-1" align="end">
-        <p className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground">{description}</p>
+        <p className="px-2 pt-1 pb-1.5 type-description text-muted-foreground">{description}</p>
         <MenuButton
           onClick={() => {
             onUse()
@@ -721,7 +722,7 @@ export function OffSystemMark({
               aria-invalid={taken}
               className="h-7 font-mono text-xs"
             />
-            {taken && <p className="text-[11px] text-destructive">{`There's a token called ${name} already.`}</p>}
+            {taken && <p className="type-message text-destructive">{`There's a token called ${name} already.`}</p>}
             <Button type="submit" size="sm" className="h-7 text-xs" disabled={!name.trim() || taken}>
               Create {name.trim() || "token"}
             </Button>
@@ -1177,7 +1178,7 @@ export function TokenMenu<T extends FieldToken>({
       )}
       {own !== undefined && nearest && (
         <div className="mb-1 flex flex-col border-b pb-1">
-          <p className="px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground">
+          <p className="px-2 pt-1 pb-0.5 type-description text-muted-foreground">
             {same ? "Same as" : "Nearest to"} {own}
           </p>
           <button type="button" className={menuRow} onClick={() => onPick(nearest.name)}>
@@ -1225,7 +1226,7 @@ export function TokenMenu<T extends FieldToken>({
                   className="h-7 text-xs"
                 />
               </div>
-              {taken && <p className="text-[11px] text-destructive">{`There's a token called ${full} already.`}</p>}
+              {taken && <p className="type-message text-destructive">{`There's a token called ${full} already.`}</p>}
               <Button type="submit" size="sm" className="h-7 text-xs" disabled={name === "" || taken}>
                 Create {name === "" ? "token" : full}
               </Button>
@@ -1234,7 +1235,7 @@ export function TokenMenu<T extends FieldToken>({
           {/* A reason kept with the value shows wherever it is, so it isn't lost on a project that's not Tokens only. */}
           {onAllow !== undefined && allowed !== undefined && (
             <>
-              <p className="px-2 pt-1 pb-0.5 text-[11px] text-muted-foreground">Allowed here: {allowed}</p>
+              <p className="px-2 pt-1 pb-0.5 type-description text-muted-foreground">Allowed here: {allowed}</p>
               <button type="button" className={menuRow} onClick={() => onAllow(undefined)}>
                 Don&apos;t allow here
               </button>
@@ -1314,7 +1315,9 @@ export function SearchList({
       {options.map((option, index) => (
         <div key={option.key} className="contents">
           {option.group !== undefined && option.group !== options[index - 1]?.group && (
-            <p className="px-2 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground">{option.group}</p>
+            <GroupLabel as="p" className="px-2 pt-1.5 pb-1">
+              {option.group}
+            </GroupLabel>
           )}
           <div
             id={`${id}-${index}`}
@@ -2030,7 +2033,7 @@ export function ValueField<T>({
       </div>
       {!line && message && <MessageLine message={message} />}
       {!line && !message && narrow && typed.focused && comesTo && (
-        <p className="col-span-full mt-1 text-[11px] leading-snug text-muted-foreground">{comesTo}</p>
+        <p className="col-span-full mt-1 type-description text-muted-foreground">{comesTo}</p>
       )}
     </>
   )

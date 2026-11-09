@@ -2,6 +2,7 @@ import { Popover, PopoverContent, PopoverTrigger, Slider, Toggle } from "@buildk
 import { ALargeSmall, ChevronDown, Italic, MoveHorizontal, MoveVertical, TriangleAlert } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
+import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { clamp, formatNumber, lengthForm } from "./css-values.ts"
 import {
   fieldBox,
@@ -137,7 +138,7 @@ export function FontFamilyField({
               {font.name}
             </span>
             {font.token !== undefined && (
-              <span className="font-mono text-[11px] text-muted-foreground">font-{font.token}</span>
+              <span className="font-mono text-2xs text-muted-foreground">font-{font.token}</span>
             )}
           </>
         )
@@ -354,7 +355,7 @@ export function WeightField({
       className={`flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none ${each === weight ? "bg-accent" : ""}`}
     >
       <span style={{ fontFamily: font.stack, fontWeight: each }}>{weightName(each, tokens)}</span>
-      <span className="text-[11px] text-muted-foreground tabular-nums">{faked ? `${each}, faked` : each}</span>
+      <span className="text-2xs text-muted-foreground tabular-nums">{faked ? `${each}, faked` : each}</span>
     </button>
   )
   return (
@@ -400,7 +401,7 @@ export function WeightField({
           <PopoverContent align="start" className="w-60 gap-1 p-1">
             {font.axis && (
               <div className="grid grid-cols-[minmax(0,1fr)_4rem] items-center gap-x-2 border-b px-2 pt-1.5 pb-2.5">
-                <p className="col-span-full pb-2 text-[11px] text-muted-foreground">
+                <p className="col-span-full pb-2 type-description text-muted-foreground">
                   {font.name} is variable: any weight from {font.axis[0]} to {font.axis[1]}
                 </p>
                 <Slider
@@ -429,13 +430,15 @@ export function WeightField({
                 />
               </div>
             )}
-            <p className="px-2 pt-1 text-[11px] font-medium text-muted-foreground">In {font.name}</p>
+            <GroupLabel as="p" className="px-2 pt-1">
+              In {font.name}
+            </GroupLabel>
             {faces.map((each) => item(each, false))}
             {others.length > 0 && (
               <>
-                <p className="mt-1 border-t px-2 pt-1.5 text-[11px] font-medium text-muted-foreground">
+                <GroupLabel as="p" className="mt-1 border-t px-2 pt-1.5">
                   Not in {font.name}
-                </p>
+                </GroupLabel>
                 {others.map((each) => item(each, weightFace(font, each).kind === "faked"))}
               </>
             )}

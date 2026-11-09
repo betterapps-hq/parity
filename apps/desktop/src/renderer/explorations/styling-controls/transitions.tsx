@@ -151,7 +151,7 @@ function EntryRow({
   const delay = timeMs(entry.delay, durations)
   const details = (
     <>
-      <p className="pb-1 text-xs font-medium">{label} transition</p>
+      <p className="pb-1 text-sm font-medium">{label} transition</p>
       <Field label="Changes">
         <PropertyMenu property={entry.property} onChange={(property) => onChange({ property })} />
       </Field>

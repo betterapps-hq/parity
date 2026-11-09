@@ -88,11 +88,11 @@ export function BoxModel({
   const marginSide = (index: number) => side("margin", index, margin, sideRules.margin, marginMixed, onMargin)
   const ring = (
     <div className="relative flex min-w-0 flex-1 flex-col items-center rounded-md border border-emerald-500/60 bg-emerald-500/10 px-1 py-0.5">
-      <span className="absolute top-1 left-1.5 text-[10px] text-muted-foreground">Padding</span>
+      <span className="absolute top-1 left-1.5 text-2xs text-muted-foreground">Padding</span>
       {paddingSide(0)}
       <div className="flex w-full items-center justify-between gap-1">
         {paddingSide(3)}
-        <div className="grid h-9 min-w-0 flex-1 place-items-center rounded-sm border bg-background text-[11px] whitespace-nowrap text-muted-foreground tabular-nums">
+        <div className="grid h-9 min-w-0 flex-1 place-items-center rounded-sm border bg-background text-2xs whitespace-nowrap text-muted-foreground tabular-nums">
           {size.width} × {size.height}
         </div>
         {paddingSide(1)}
@@ -104,7 +104,7 @@ export function BoxModel({
     <fieldset className="m-0 grid min-w-0 gap-1 border-0 p-0 pt-1" aria-label="Box model">
       {showMargin ? (
         <div className="relative flex flex-col items-center rounded-md border border-dashed border-orange-400/70 bg-orange-400/10 px-1 py-0.5">
-          <span className="absolute top-1 left-1.5 text-[10px] text-muted-foreground">Margin</span>
+          <span className="absolute top-1 left-1.5 text-2xs text-muted-foreground">Margin</span>
           {marginSide(0)}
           <div className="flex w-full items-center gap-1">
             {marginSide(3)}

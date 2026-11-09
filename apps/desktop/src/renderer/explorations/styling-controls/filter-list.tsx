@@ -8,7 +8,7 @@ import {
 import { unclosedInValue } from "@parity-app/tokens"
 import { Braces, ListOrdered, Plus, SlidersHorizontal } from "lucide-react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { BlurChoice } from "./controls.tsx"
 import { MessageLine, type Reading, TokenChip, useTokens, ValueField } from "./field-parts.tsx"
 import { CenteredSlider, ListRow } from "./list-parts.tsx"
@@ -134,7 +134,7 @@ export function FilterList({
             .filter(({ rows }) => rows.length > 0)
             .map(({ title, rows }) => (
               <div key={title} className="flex flex-col gap-0.5">
-                <span className="px-4 text-[11px] text-muted-foreground">{title}</span>
+                <GroupLabel className="px-4">{title}</GroupLabel>
                 {rows.map((entry) => (
                   <FilterRow
                     key={entry.id}
@@ -298,7 +298,9 @@ export function AdjustmentsEditor({
   return (
     <div className="flex flex-col gap-2">
       {behind && (
-        <p className="text-[11px] text-muted-foreground">{"Brightness, contrast and saturation of what's behind"}</p>
+        <p className="type-description text-muted-foreground">
+          {"Brightness, contrast and saturation of what's behind"}
+        </p>
       )}
       {shown.map((adjustment) => {
         const value = values[adjustment.key] ?? 0

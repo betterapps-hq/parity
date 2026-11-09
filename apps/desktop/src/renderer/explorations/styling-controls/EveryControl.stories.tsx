@@ -1,5 +1,6 @@
 import { composeStories, type Meta, type StoryObj } from "@storybook/react-vite"
 import type { ComponentType } from "react"
+import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import * as angle from "./Angle.stories.tsx"
 import * as blur from "./BlurField.stories.tsx"
 import * as boxModel from "./BoxModel.stories.tsx"
@@ -157,9 +158,9 @@ function EveryControlPage() {
       <ControlOnly value>
         {numbered.map((group) => (
           <section key={group.name} aria-labelledby={`group-${group.start}`} className="flex flex-col gap-3">
-            <h2 id={`group-${group.start}`} className="text-sm font-medium text-muted-foreground">
-              {group.name}
-            </h2>
+            <GroupLabel as="h2" className="block">
+              <span id={`group-${group.start}`}>{group.name}</span>
+            </GroupLabel>
             <ol start={group.start} className="flex flex-wrap items-start gap-x-6 gap-y-8">
               {group.entries.map(({ name, Story: Control }, index) => (
                 <li key={name} className="flex flex-col gap-2">

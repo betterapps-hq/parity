@@ -100,7 +100,7 @@ export function AngleDial({
       </Hint>
       <PopoverContent className="w-48 items-center gap-2 p-3" align="end">
         <Dial label={label} degrees={degrees} onChange={onChange} />
-        <p className="text-center text-[11px] text-muted-foreground">Drag round it. Shift snaps to 15°.</p>
+        <p className="text-center type-description text-muted-foreground">Drag round it. Shift snaps to 15°.</p>
       </PopoverContent>
     </Popover>
   )

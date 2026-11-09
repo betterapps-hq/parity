@@ -48,7 +48,7 @@ function Expr({
   const length = typeof px === "number" ? px : undefined
   let preview = (
     <div className="flex w-[340px] flex-col gap-1">
-      <span className="text-[11px] text-muted-foreground">Plans, {parentWidth} wide, drawn at half size</span>
+      <span className="text-2xs text-muted-foreground">Plans, {parentWidth} wide, drawn at half size</span>
       <div className="h-16 rounded-md border border-dashed bg-white p-0">
         <div className="h-full rounded-md bg-[#2563eb]/80" style={{ width: (length ?? 0) / 2 }} />
       </div>

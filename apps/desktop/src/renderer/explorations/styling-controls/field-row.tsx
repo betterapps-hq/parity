@@ -137,7 +137,7 @@ export function Field({
             wait
           >
             <span
-              className={`truncate text-[11px] text-muted-foreground ${dragsBy ? "cursor-ew-resize touch-none select-none" : ""}`}
+              className={`truncate text-xs text-muted-foreground ${dragsBy ? "cursor-ew-resize touch-none select-none" : ""}`}
               style={tone ? { color: tone } : undefined}
               onPointerDown={dragsBy}
             >

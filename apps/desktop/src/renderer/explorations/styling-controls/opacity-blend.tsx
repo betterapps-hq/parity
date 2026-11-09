@@ -135,7 +135,7 @@ export function BlendMenu({
               >
                 <span className="flex-1">{mode.label}</span>
                 {"browsers" in mode && <NotBaseline what={mode.label} browsers={mode.browsers} />}
-                <span className="font-mono text-[10px] text-muted-foreground">{mode.value}</span>
+                <span className="font-mono text-2xs text-muted-foreground">{mode.value}</span>
               </DropdownMenuRadioItem>
             </Fragment>
           ))}

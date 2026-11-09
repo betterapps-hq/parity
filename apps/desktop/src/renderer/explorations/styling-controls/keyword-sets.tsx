@@ -66,9 +66,7 @@ function CustomKeyword({
         inner={
           word === undefined ? (
             <Hint label="Custom" detail="A value outside this set, kept as it was written">
-              <span className="shrink-0 rounded bg-accent px-1 text-[10px] font-medium text-muted-foreground">
-                Custom
-              </span>
+              <span className="shrink-0 rounded bg-accent px-1 text-2xs text-muted-foreground">Custom</span>
             </Hint>
           ) : undefined
         }
@@ -200,7 +198,7 @@ export function KeywordToggles({
               >
                 {choice.icon ?? choice.label}
                 {choice.browsers && (
-                  <span aria-hidden className="absolute -top-0.5 right-0 text-[9px] text-amber-600">
+                  <span aria-hidden className="absolute -top-0.5 right-0 text-2xs leading-none text-amber-600">
                     †
                   </span>
                 )}
@@ -296,7 +294,7 @@ export function KeywordMenu({
       {draw?.(choice)}
       <span className="flex-1">{choice.label}</span>
       {choice.browsers && <NotBaseline what={choice.label} browsers={choice.browsers} />}
-      <span className="font-mono text-[10px] text-muted-foreground">
+      <span className="font-mono text-2xs text-muted-foreground">
         {choice.token ? `--${property}-${choice.value}` : choice.css.split(": ")[1]}
       </span>
     </DropdownMenuRadioItem>
@@ -342,7 +340,7 @@ export function KeywordMenu({
           {tokens.length > 0 && (
             <>
               <DropdownMenuRadioGroup value={radioValue} onValueChange={(next) => pick(next as string)}>
-                <DropdownMenuLabel className="text-[11px] text-muted-foreground">Tokens</DropdownMenuLabel>
+                <DropdownMenuLabel>Tokens</DropdownMenuLabel>
                 {tokens.map(item)}
               </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />

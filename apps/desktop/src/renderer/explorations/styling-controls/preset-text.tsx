@@ -281,7 +281,7 @@ function PresetPicker({
                       >
                         {each.name}
                       </span>
-                      <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                      <span className="shrink-0 text-2xs text-muted-foreground tabular-nums">
                         {formatNumber(values.size)}/{formatNumber(values.lineHeight)}
                       </span>
                       <Check className={`size-3.5 shrink-0 ${each.name === preset?.name ? "" : "invisible"}`} />
@@ -344,7 +344,7 @@ function Summary({
       aria-expanded={open}
       aria-label={`${open ? "Hide" : "Show"} what ${preset.name} sets: ${summary(preset)}, locked`}
       onClick={() => onOpenChange(!open)}
-      className="col-span-2 -mt-1.5 flex min-w-0 items-center gap-1 rounded-sm py-0.5 text-left text-[11px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      className="col-span-2 -mt-1.5 flex min-w-0 items-center gap-1 rounded-sm py-0.5 text-left text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
     >
       <ChevronRight aria-hidden className={`size-3 shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
       <span className="min-w-0 flex-1 truncate">{summary(preset)}</span>

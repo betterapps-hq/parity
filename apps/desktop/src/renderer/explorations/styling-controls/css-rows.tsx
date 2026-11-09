@@ -2,7 +2,7 @@ import { Checkbox, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/s
 import { Minus, Plus } from "lucide-react"
 import { type ChangeEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { swatch } from "../../chrome/token-previews.tsx"
 import { ColorEditor } from "./color-picker.tsx"
 import { arbitrary, clamp, formatNumber, isPlainColor } from "./css-values.ts"
@@ -373,7 +373,7 @@ function Completing({
       if (typed !== undefined) finish(typed)
     }
   }
-  const text = "bg-transparent font-mono text-[11px] outline-none placeholder:text-muted-foreground"
+  const text = "bg-transparent font-mono text-xs outline-none placeholder:text-muted-foreground"
   return (
     <div className={`relative min-w-0 ${className}`}>
       {wrap ? (
@@ -401,7 +401,7 @@ function Completing({
             key: item.label,
             content: (
               <>
-                <span className="flex min-w-0 items-center gap-0.5 font-mono text-[11px]">
+                <span className="flex min-w-0 items-center gap-0.5 font-mono text-xs">
                   <span className="truncate">{item.label}</span>
                   {item.mark && <NotBaseline what={item.label} browsers={item.mark} />}
                 </span>
@@ -580,7 +580,7 @@ function Row({
             }
             onCommit={(property) => onChange({ ...row, property: property.trim().toLowerCase() })}
           />
-          <span className="font-mono text-[11px] text-muted-foreground">:</span>
+          <span className="font-mono text-xs text-muted-foreground">:</span>
           <span className="flex max-w-full min-w-28 grow items-center gap-1">
             <InlinePreview row={row} onValue={(value) => onChange({ ...row, value })} />
             <Completing
@@ -690,7 +690,7 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
               if (classes !== undefined && classes !== written) readClasses(classes)
               setClasses(undefined)
             }}
-            className="field-sizing-content min-h-12 resize-y rounded-md border bg-transparent px-1.5 py-1 font-mono text-[11px] leading-relaxed outline-none focus:ring-2 focus:ring-ring dark:bg-input/30"
+            className="field-sizing-content min-h-12 resize-y rounded-md border bg-transparent px-1.5 py-1 type-code font-mono outline-none focus:ring-2 focus:ring-ring dark:bg-input/30"
           />
         </label>
         {model.rows.map((row) => (
@@ -717,16 +717,16 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
             detail="A class Parity can't read into a control. It's kept as written"
           >
             <div className="flex min-h-7 items-center justify-between gap-2 rounded-md border border-dashed px-1.5 py-1">
-              <span className="min-w-0 font-mono text-[11px] [overflow-wrap:anywhere]">{name}</span>
-              <span className="shrink-0 text-[10px] text-muted-foreground">From the code</span>
+              <span className="min-w-0 font-mono text-xs [overflow-wrap:anywhere]">{name}</span>
+              <span className="shrink-0 text-2xs text-muted-foreground">From the code</span>
             </div>
           </Hint>
         ))}
         {model.owned.length > 0 && (
           <div className="flex flex-col gap-0.5 pt-1">
-            <span className="text-[11px] font-medium text-muted-foreground">In their controls</span>
+            <GroupLabel>In their controls</GroupLabel>
             {model.owned.map((each) => (
-              <div key={each.tailwind} className="flex items-start justify-between gap-2 px-0.5 text-[11px]">
+              <div key={each.tailwind} className="flex items-start justify-between gap-2 px-0.5 text-xs">
                 <span className="min-w-0 font-mono [overflow-wrap:anywhere]">{each.tailwind}</span>
                 <span className="shrink-0 text-muted-foreground">
                   {stateOf(each.tailwind) ? `${each.control}, ${stateName(stateOf(each.tailwind)!)}` : each.control}

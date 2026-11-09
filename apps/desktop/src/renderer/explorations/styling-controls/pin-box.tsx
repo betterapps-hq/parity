@@ -228,7 +228,7 @@ function PinBox({
     // Centered, the start side's field is the offset from the center, and the end side's says Centered.
     if (centered !== undefined) {
       if (index === 1 || index === 2)
-        return <span className="grid h-7 place-items-center text-[11px] text-muted-foreground">Centered</span>
+        return <span className="grid h-7 place-items-center text-xs text-muted-foreground">Centered</span>
       const axis = index === 3 ? "centerX" : "centerY"
       const label = `${index === 3 ? "Horizontal" : "Vertical"} offset from center`
       return (
@@ -470,7 +470,7 @@ export function PositionPreview({ position, layerOrder }: { position: Position; 
           style={{ borderColor: layerColor }}
         />
         <span
-          className="absolute top-1/2 left-1/2 -translate-1/2 rounded-sm px-1 text-[10px] text-white tabular-nums"
+          className="absolute top-1/2 left-1/2 -translate-1/2 rounded-sm px-1 text-2xs font-medium text-white tabular-nums"
           style={{ background: layerColor }}
         >
           {label}
@@ -509,7 +509,7 @@ export function PositionPreview({ position, layerOrder }: { position: Position; 
             className="absolute inset-x-0 border-t border-dashed"
             style={{ top: stickAt, borderColor: layerColor }}
           >
-            <span className="absolute top-0.5 right-1 text-[10px]" style={{ color: layerColor }}>
+            <span className="absolute top-0.5 right-1 text-2xs" style={{ color: layerColor }}>
               Sticks here
             </span>
           </div>

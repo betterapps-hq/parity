@@ -4,7 +4,6 @@ import {
   PopoverContent,
   PopoverTrigger,
   Select,
-  SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -15,9 +14,9 @@ import {
 import { ArrowLeftRight, ChevronDown, Image as ImageIcon, Minus, Plus, Repeat, RotateCw } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { Swatch } from "../../chrome/fields.tsx"
+import { PanelSelectContent, Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
-import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { checker } from "../../chrome/token-previews.tsx"
 import { AngleField } from "./angle.tsx"
 import { ColorInput } from "./color-picker.tsx"
@@ -565,17 +564,17 @@ export function GradientEditor({
           <SelectTrigger size="sm" aria-label="Blend colors in" className="ml-auto h-7 px-2 text-xs">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <PanelSelectContent>
             {blends.map((blend) => (
               <SelectItem key={blend.value} value={blend.value}>
                 {blend.label}
               </SelectItem>
             ))}
-          </SelectContent>
+          </PanelSelectContent>
         </Select>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium text-muted-foreground uppercase">Stops</span>
+        <GroupLabel>Stops</GroupLabel>
         <Hint label="Add stop">
           <Button
             variant="ghost"

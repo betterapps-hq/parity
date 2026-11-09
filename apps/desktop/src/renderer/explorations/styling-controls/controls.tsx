@@ -446,7 +446,7 @@ function TrackChip({
         }
       />
       <PopoverContent className="w-64 gap-2 p-2" align="start">
-        <p className="text-xs font-medium capitalize">{name}</p>
+        <p className="text-sm font-medium capitalize">{name}</p>
         <ToggleGroup
           variant="outline"
           size="sm"
@@ -1217,7 +1217,7 @@ function CornerShape({
         </PopoverTrigger>
       </Hint>
       <PopoverContent className="w-52 gap-2 p-2" align="end">
-        <p className="flex items-center gap-1 text-xs font-medium">
+        <p className="flex items-center gap-1 text-sm font-medium">
           Corner shape
           <Hint label="Not in every browser" detail="Chromium only. Other browsers draw round corners.">
             <span className="text-muted-foreground">†</span>
@@ -1237,7 +1237,7 @@ function CornerShape({
             </Button>
           ))}
         </div>
-        <p className="text-[11px] text-muted-foreground">Other browsers draw round corners, at the same radius.</p>
+        <p className="type-description text-muted-foreground">Other browsers draw round corners, at the same radius.</p>
       </PopoverContent>
     </Popover>
   )

@@ -3,7 +3,6 @@ import {
   Button,
   Input,
   Select,
-  SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -31,7 +30,9 @@ import {
 } from "@parity-app/tokens"
 import { Pipette } from "lucide-react"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from "react"
+import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
+import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { checker, swatch } from "../../chrome/token-previews.tsx"
 import { clamp, mixColor } from "./css-values.ts"
 import {
@@ -264,13 +265,13 @@ export function ColorEditor({
           <SelectTrigger size="sm" aria-label="Color model" className="h-7 w-[4.5rem] shrink-0 px-2 text-xs">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <PanelSelectContent>
             {models.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
             ))}
-          </SelectContent>
+          </PanelSelectContent>
         </Select>
         <div className="grid min-w-0 flex-1 auto-cols-fr grid-flow-col gap-1">{fields[model]}</div>
       </div>
@@ -301,7 +302,7 @@ function HexField({ color, onChange, line }: { color: Rgba; onChange: (color: Rg
       aria-label="Hex"
       {...typed.input}
       aria-invalid={typed.error || undefined}
-      className="h-7 px-2 font-mono text-xs uppercase"
+      className="h-7 px-2 font-mono text-xs"
     />
   )
 }
@@ -624,10 +625,10 @@ export function ColorInput({
               <span className="min-w-0 flex-1 truncate text-xs">
                 Nearest token <span className="font-mono">{nearest.token.name}</span>
               </span>
-              <span className="text-[11px] text-muted-foreground">{closeness(nearest.distance)}</span>
+              <span className="text-2xs text-muted-foreground">{closeness(nearest.distance)}</span>
             </div>
             {tokensOnly && (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="type-description text-muted-foreground">
                 This project takes tokens only, so a color is set by its nearest token.
               </p>
             )}
@@ -643,7 +644,7 @@ export function ColorInput({
         )}
         {used.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <p className="text-[11px] text-muted-foreground">In this design</p>
+            <GroupLabel as="p">In this design</GroupLabel>
             <div className="flex flex-wrap gap-1">
               {used.map((color) => (
                 <Hint key={color} label={color}>
@@ -746,7 +747,7 @@ export function TokenColorEditor({ token: start }: { token: ColorToken }) {
         <ColorSwatch color={value} className="size-8 rounded-sm" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-mono text-xs">{start.name}</p>
-          <p className="font-mono text-[11px] text-muted-foreground">{value}</p>
+          <p className="font-mono text-2xs text-muted-foreground">{value}</p>
         </div>
       </div>
       <ColorEditor key={round} value={value} alpha={undefined} onChange={(next) => setValue(next)} />

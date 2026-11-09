@@ -1,5 +1,6 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { createContext, type CSSProperties, type ReactNode, useContext, useState } from "react"
+import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { mixColor } from "./css-values.ts"
 import { type Draft, usedColors } from "./data.ts"
 import { ProjectTokens, useTokenSets } from "./field-parts.tsx"
@@ -79,10 +80,10 @@ export function Readout({ writes }: { writes: Writes }) {
     <section aria-label="What it writes" className="flex w-80 min-w-0 shrink-0 flex-col gap-3">
       {blocks.map((block) => (
         <div key={block.title} className="flex flex-col gap-1">
-          <h2 className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{block.title}</h2>
+          <GroupLabel as="h2">{block.title}</GroupLabel>
           <pre
             aria-label={block.title}
-            className="overflow-x-auto rounded-md border bg-muted/40 p-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap"
+            className="overflow-x-auto rounded-md border bg-muted/40 p-2 type-code font-mono whitespace-pre-wrap"
           >
             {block.text}
           </pre>

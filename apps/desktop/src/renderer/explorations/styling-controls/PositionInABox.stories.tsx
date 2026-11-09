@@ -41,7 +41,7 @@ function Position({ which, start }: { which: "origin" | "object"; start?: BoxPoi
           className="h-[120px] w-[220px] rounded-lg border object-cover"
           style={{ objectPosition: `${shown.x}% ${shown.y}%` }}
         />
-        <p className="text-[11px] text-muted-foreground">Fill (cover) crops it; Position picks what stays.</p>
+        <p className="type-description text-muted-foreground">Fill (cover) crops it; Position picks what stays.</p>
       </div>
     )
   const label = which === "origin" ? "Origin" : "Position"
