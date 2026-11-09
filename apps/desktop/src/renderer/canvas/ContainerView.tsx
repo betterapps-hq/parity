@@ -27,7 +27,16 @@ import {
   type StateSpec,
   variantChoices
 } from "@parity-app/core"
-import { activeState, fittedFrame, hugsContent, kindName, kindTitle, stateLabelSpace } from "@parity-app/editor"
+import {
+  activeState,
+  type BoardBox,
+  fittedFrame,
+  hugsContent,
+  kindName,
+  kindTitle,
+  stateLabelSpace,
+  titleReach
+} from "@parity-app/editor"
 import { ChevronDown, Crown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
@@ -62,7 +71,7 @@ import { type BoardRest, useAwake } from "./frame-sleep.ts"
 import { useFrameOnScreen } from "./frames-on-screen.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
-import { useCanvasLabel } from "./labels.ts"
+import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { ModesMenu } from "./ModesMenu.tsx"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
 import { containerModes, modeNames, withShownModes } from "./view.ts"
@@ -75,8 +84,12 @@ interface ContainerViewProps {
   hovered: boolean
   /** Starts dragging the design by its title. */
   onTitlePointerDown: (event: ReactPointerEvent) => void
-  /** Where the title draws: the canvas's title layer, and the board's place and width on the canvas. */
-  title?: { layer: HTMLElement; x: number; y: number; width: number }
+  /**
+   * Where the title draws: the canvas's title layer, the board's place and size on the canvas, and what else is on the
+   * page, which a title zoomed out runs up to (see `titleReach`). `others` reads the canvas, so the title follows as
+   * things around it move without the board drawing again.
+   */
+  title?: { layer: HTMLElement; x: number; y: number; width: number; height: number; others: () => readonly BoardBox[] }
   /** When the board's frames sleep and wake (see frame-sleep.ts). Without it, as in stories, they never sleep. */
   rest?: BoardRest
 }
@@ -286,7 +299,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
     store.updateView(key, `Show ${modeNames(all, shown)}`, (view) => withShownModes(view, main, shown, all))
 
   const titleBar = (
-    <TitleBar active={hovered || isSelected} width={width}>
+    <TitleBar active={hovered || isSelected} width={width} board={title}>
       <TitleButton
         entry={entry}
         selected={isSelected}
@@ -458,7 +471,8 @@ function StateRow({
 /**
  * Sits above the board, as wide on screen as the board, and follows the zoom as a name does (see `labelLook`): at
  * screen size up close, then shrinking down to 60%, so names don't swamp the boards they name. The name is clipped to
- * the board's width, and shows until the board is too narrow on screen to read it; the controls only while the board
+ * the board's width, or zoomed out to the free canvas beside it (see `useTitleReach`), and shows until the board is too
+ * narrow on screen to read it; the controls only while the board
  * is hovered or selected, or one of their menus is open, and there's room for them, so a canvas of designs stays quiet.
  * Its menus and hints mount once it's first used (see `useMountOnUse`), so a canvas of designs opens sooner.
  */
@@ -466,6 +480,7 @@ function TitleBar({
   active,
   width,
   quiet = false,
+  board,
   children
 }: {
   /** The design is hovered or selected: its controls show. */
@@ -474,10 +489,13 @@ function TitleBar({
   width: number | undefined
   /** A frame's: closer to it, as it has no board around it. */
   quiet?: boolean
+  /** Where the board is on the canvas, and what else is there, which its name runs up to zoomed out. */
+  board?: TitleBoard
   children: ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  useCanvasLabel(ref, "name", { fit: true, width })
+  const reach = useTitleReach(board)
+  useCanvasLabel(ref, "name", { fit: true, width, reach })
   const { used, area } = useMountOnUse(active)
 
   return (
@@ -496,13 +514,44 @@ function TitleBar({
   )
 }
 
+/** A board's place on the canvas for its title, with what else is on the page. */
+type TitleBoard = { x: number; y: number; width: number; height: number; others: () => readonly BoardBox[] }
+
+/** Below this many pixels across at its drawn size, a title has no room for its controls: Tailwind's 22rem. */
+const controlsRoom = 352
+
+/**
+ * How wide a board's title may be at a zoom (see `titleReach`). While the board is too narrow on screen for the
+ * title's controls, it's out to the next board beside it, or as wide as the controls would need with nothing there, so
+ * a name zoomed out isn't cut off at a narrow board's edge, and the controls hide (see `TitleControls`). With room for
+ * them, it's the board's width, so they sit at its edge.
+ */
+function useTitleReach(board: TitleBoard | undefined): LabelReach | undefined {
+  const { x, y, width, height, others } = board ?? {}
+
+  return useMemo(() => {
+    if (x === undefined || y === undefined || width === undefined || height === undefined || !others) {
+      return undefined
+    }
+
+    const box = { x, y, w: width, h: height }
+
+    return (zoom, scale) => {
+      const open = (controlsRoom * scale) / zoom
+
+      return width < open ? (titleReach(box, others(), zoom, scale) ?? open) : width
+    }
+  }, [x, y, width, height, others])
+}
+
 /** A board's menus, mounted once its title is used: until then they'd be hidden anyway. */
 function TitleControls({ children }: { children: ReactNode }) {
   const used = useUsed()
 
   return (
     <div
-      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex @max-[22rem]:hidden!"
+      // Hidden while the name runs past a narrow board, where they'd sit beyond its edge (see useTitleReach).
+      className="ml-auto hidden shrink-0 items-center gap-1.5 animate-in duration-150 fade-in-0 [visibility:var(--label-past-edge,visible)] group-hover/title:flex group-data-[controls=true]/title:flex has-aria-expanded:flex @max-[22rem]:hidden!"
       // Enter and the arrows on its menus open them, rather than going to the canvas (see shortcuts.ts).
       data-canvas-control
       onPointerDown={stopEventPropagation}
