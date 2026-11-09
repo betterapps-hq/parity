@@ -563,9 +563,9 @@ still need your call.
   layer does, and only its corners, top and bottom move out. Where handles go is `handleBoxes` in `@parity-app/editor`.
 - **A selected layout's padding and gaps are handles on the canvas** (PAR-169), approved in Storybook (Parity/Canvas/
   Spacing handles) on 2026-11-05. My calls, several of them Andrew's in that review:
-  - The bars show whenever a single layout is selected, over its hatching, rather than only on hover as in Figma, so
-    padding of 0 can be dragged out of nothing. A side's press target starts 4px inside its edge, clear of the resize
-    strip there.
+  - The bars show whenever a single layout is selected, rather than only on hover as in Figma, so padding of 0 can be
+    dragged out of nothing. Since PAR-797 nothing is hatched until a bar is used, as in Figma. A side's press target
+    starts 4px inside its edge, clear of the resize strip there.
   - No press target covers a child, so a click inside a selected layout still selects what's under it, as before. A
     target is cut back to the free space and dropped under 4px, so padding of 0 drags out only where no child is against
     that edge. This narrows the No padding story Andrew approved, whose children fill their row: clicks on children
@@ -585,6 +585,21 @@ still need your call.
   - The modifiers are gestures in the keymap (`gestures` in `chrome/keymap.ts`), which the Keyboard shortcuts dialog
     lists, the hints show with `Kbd`, and the handles read through `holds`, so what's shown is what works. The rules in
     `@parity-app/editor` take what they mean (`{ opposite, every }`, `centre`, `fill`), not keys.
+- **Padding and gaps are modes' green, hatched as Figma hatches them, and margin is pink** (PAR-797), Andrew's calls:
+  - Padding takes modes' green and margin the pink the canvas drew padding in, as the Design panel's box model draws
+    them (PAR-186). Gaps go green with padding rather than staying pink, so pink means margin only.
+  - The hatching follows Figma's, in these colors. Nothing is hatched while a layout is only selected; a bar hatches the
+    space it changes while it's hovered, focused, typed in or dragged, in place of the flat tint it had: one padding
+    side, or every gap at once. The lines are 1px, rising to the right for padding and gaps alike, 8px apart along an
+    edge, over a faint tint, in screen pixels. Measured on Figma's canvas on 2026-11-09. The always-on hatching over a
+    selected layout, with gaps hatched the other way, is gone.
+  - A padding side's area runs its whole edge, corners included, as Figma hatches a side. Sides hatched together, as Alt
+    and Alt+Shift change, are one shape, so a corner is hatched once.
+  - A value's chip is the bar's color with near-black text, 7.9:1, as modes' chips are, in place of a darker pink step
+    under white.
+  - The colors and the hatching are defined once, in `canvas/spacing-colors.ts`, so a change reaches the bars, hatching,
+    chips and the token list's bars together. A chip takes its text from `chipFor`, and a test in Chrome fails any
+    canvas chip whose text is under 4.5:1.
 - **A double-click on a layer's resize handle hugs, and Alt+double-click fills** (PAR-169), as in Figma. It used to take
   the size away, which drew as hug for most layers but left the layout to decide. A size along the layout's direction
   takes `grow` away, as a drag does. A frame's handles still go back to the viewport's width or the content's height.

@@ -33,13 +33,8 @@ import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { SpacingBar } from "../chrome/token-previews.tsx"
 import { KeyHints } from "./KeyHints.tsx"
+import { spacingChip, spacingColors, spacingHatch } from "./spacing-colors.ts"
 import type { SpacingValue } from "./spacing-edit.ts"
-
-/**
- * The pink padding and gaps are shaded in, as the hatching around a selected layout is. A value's chip takes a darker
- * step of it, `--canvas-spacing-chip`, so its white text is 4.5:1 on the fill (see styles.css).
- */
-export const spacingColor = "oklch(0.66 0.22 350)"
 
 /** A handle's key among a layout's: its side, or which gap. */
 export function spacingKey(handle: SpacingHandle): string {
@@ -76,9 +71,10 @@ export interface SpacingHandlesProps {
 }
 
 /**
- * Handles on a selected layout's padding and gaps: a short bar in the middle of each, which shades its space when the
- * pointer is on it. Dragging shows the value beside it; a click opens a box to type one, as the inspector's fields take
- * it. Each is a slider, named after its side, that Up and Down step from the keyboard and Enter opens to type.
+ * Handles on a selected layout's padding and gaps: a short bar in the middle of each, which hatches its space when the
+ * pointer is on it, as Figma does; nothing is hatched otherwise. Dragging shows the value beside it; a click opens a box
+ * to type one, as the inspector's fields take it. Each is a slider, named after its side, that Up and Down step from the
+ * keyboard and Enter opens to type.
  */
 export function SpacingHandles({
   handles,
@@ -132,15 +128,9 @@ export function SpacingHandles({
 
   return (
     <>
-      {handles.map((handle) =>
-        shaded(handle) ? (
-          <div
-            key={`area:${spacingKey(handle)}`}
-            className="absolute"
-            style={{ ...place(handle.area), background: `color-mix(in oklch, ${spacingColor} 22%, transparent)` }}
-          />
-        ) : null
-      )}
+      {hatchedByColor(handles.filter(shaded)).map(([color, areas]) => (
+        <Hatching key={color} color={color} areas={areas} />
+      ))}
       {handles.map((handle) => {
         const key = spacingKey(handle)
         const name = spacingName(handle, handles.filter((other) => other.kind === "gap").length)
@@ -148,6 +138,7 @@ export function SpacingHandles({
         const scaleName = spacingScaleName(value, unit)
         const across = isAcross(handle)
         const active = dragging?.key === key || hovered === key || focused === key
+        const color = spacingColors[handle.kind]
 
         const step = (event: ReactKeyboardEvent) => {
           const keys = sidesHeld(event)
@@ -175,7 +166,7 @@ export function SpacingHandles({
               className="absolute rounded-full"
               style={{
                 ...place(handle.bar),
-                background: spacingColor,
+                background: color,
                 opacity: active ? 1 : 0.75,
                 boxShadow: "0 0 0 1px white"
               }}
@@ -208,7 +199,7 @@ export function SpacingHandles({
                 className="spacing-handle pointer-events-auto absolute m-0 appearance-none rounded-sm bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-(--spacing-color) [&::-webkit-slider-runnable-track]:appearance-none [&::-webkit-slider-thumb]:size-0 [&::-webkit-slider-thumb]:appearance-none"
                 style={Object.assign(
                   { ...place(handle.hit), cursor: across ? "ns-resize" : "ew-resize" },
-                  { "--spacing-color": spacingColor }
+                  { "--spacing-color": color }
                 )}
                 onPointerEnter={() => setHovered(key)}
                 onPointerLeave={() => setHovered((current) => (current === key ? undefined : current))}
@@ -232,6 +223,7 @@ export function SpacingHandles({
                 name={name}
                 id={`${key}-reason`}
                 style={labelPlace(handle)}
+                color={color}
                 text={typing.text}
                 reason={typing.reason}
                 unit={unit}
@@ -247,8 +239,8 @@ export function SpacingHandles({
             ) : (
               active && (
                 <div
-                  className="absolute z-20 rounded px-1.5 py-px text-2xs font-medium whitespace-nowrap text-white tabular-nums"
-                  style={{ ...labelPlace(handle), background: "var(--canvas-spacing-chip)" }}
+                  className="absolute z-20 rounded px-1.5 py-px text-2xs font-medium whitespace-nowrap tabular-nums"
+                  style={{ ...labelPlace(handle), ...spacingChip(handle.kind) }}
                 >
                   {px(value.px)}
                   {scaleName && <span className="ml-1 font-mono">{scaleName}</span>}
@@ -259,6 +251,55 @@ export function SpacingHandles({
         )
       })}
     </>
+  )
+}
+
+/**
+ * The areas of the handles shaded, grouped by the color they're hatched in, so padding and gaps are one shape while
+ * their colors match.
+ */
+function hatchedByColor(shaded: readonly SpacingHandle[]): [string, SpacingHandle["area"][]][] {
+  const byColor = new Map<string, SpacingHandle["area"][]>()
+
+  for (const handle of shaded) {
+    const color = spacingColors[handle.kind]
+    byColor.set(color, [...(byColor.get(color) ?? []), handle.area])
+  }
+
+  return [...byColor]
+}
+
+/**
+ * One hatched shape over every area shaded at once in a color, so where two padding sides meet at a corner it's hatched
+ * once, not twice, and the lines run on from one area into the next.
+ */
+function Hatching({ color, areas }: { color: string; areas: readonly SpacingHandle["area"][] }) {
+  const drawn = areas.filter((area) => area.w > 0 && area.h > 0)
+
+  if (drawn.length === 0) {
+    return null
+  }
+
+  const left = Math.min(...drawn.map((area) => area.x))
+  const top = Math.min(...drawn.map((area) => area.y))
+  const right = Math.max(...drawn.map((area) => area.x + area.w))
+  const bottom = Math.max(...drawn.map((area) => area.y + area.h))
+  // Each area drawn the same way round, so the path's nonzero rule fills where they overlap once.
+  const path = drawn.map((area) => `M${area.x - left} ${area.y - top}h${area.w}v${area.h}h${-area.w}z`).join("")
+
+  return (
+    <div
+      data-spacing-hatch
+      className="pointer-events-none absolute"
+      style={{
+        left,
+        top,
+        width: right - left,
+        height: bottom - top,
+        background: spacingHatch(color),
+        clipPath: `path("${path}")`
+      }}
+    />
   )
 }
 
@@ -292,6 +333,8 @@ function TypeBox(props: {
   name: string
   id: string
   style: CSSProperties
+  /** The padding's or gap's color, which the list's bars take. */
+  color: string
   text: string
   reason?: string
   unit: number
@@ -409,7 +452,7 @@ function TypeBox(props: {
                         className="gap-2 text-xs"
                       >
                         <span className="flex shrink-0" style={{ width: barRoom }}>
-                          <SpacingBar length={token.px} room={barRoom} color={spacingColor} />
+                          <SpacingBar length={token.px} room={barRoom} color={props.color} />
                         </span>
                         <span className="min-w-0 flex-1 truncate font-mono">{token.name}</span>
                         <span className="text-muted-foreground tabular-nums">
@@ -429,7 +472,7 @@ function TypeBox(props: {
                       className="gap-2 text-xs"
                     >
                       <span className="flex shrink-0" style={{ width: barRoom }}>
-                        <SpacingBar length={step * props.unit} room={barRoom} color={spacingColor} />
+                        <SpacingBar length={step * props.unit} room={barRoom} color={props.color} />
                       </span>
                       <span className="min-w-0 flex-1 truncate font-mono">{spacingStepName(step)}</span>
                       <span className="text-muted-foreground tabular-nums">

@@ -111,15 +111,17 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
   for (const side of paddingSides) {
     const vertical = side === "left" || side === "right"
 
-    // The padding's own area, and its middle across and along the side.
+    // The padding's own area runs the whole edge, corners included, as Figma shades a side and DevTools draws it.
     const area = {
-      top: () => box(inner.left, outer.top, inner.right, inner.top),
-      bottom: () => box(inner.left, inner.bottom, inner.right, outer.bottom),
-      left: () => box(outer.left, inner.top, inner.left, inner.bottom),
-      right: () => box(inner.right, inner.top, outer.right, inner.bottom)
+      top: () => box(outer.left, outer.top, outer.right, inner.top),
+      bottom: () => box(outer.left, inner.bottom, outer.right, outer.bottom),
+      left: () => box(outer.left, outer.top, inner.left, outer.bottom),
+      right: () => box(inner.right, outer.top, outer.right, outer.bottom)
     }[side]()
 
-    const along = vertical ? area.h : area.w
+    // Its bar and press target go between the paddings across it, in the middle.
+    const [start, end] = vertical ? [inner.top, inner.bottom] : [inner.left, inner.right]
+    const along = Math.max(0, end - start)
 
     if (along < tooShort) {
       continue
@@ -130,7 +132,7 @@ export function spacingHandles(layout: SpacingLayout): SpacingHandle[] {
     const inward = side === "top" || side === "left" ? 1 : -1
     const depth = padding[side]
     const from = edge + inward * resizeStrip
-    const centre = vertical ? area.y + area.h / 2 : area.x + area.w / 2
+    const centre = (start + end) / 2
     const hitHalf = Math.min(hitAlong, along) / 2
     // Inwards no further than the first child in its way.
     let reach = Math.max(depth, resizeStrip + hitAcross)

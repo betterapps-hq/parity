@@ -1200,9 +1200,9 @@ button as it was.
 
 ### Padding, gaps and several layers on the canvas (PAR-169)
 
-A selected layout's padding and gaps are handles, as in Figma: a short pink bar in the middle of each side's padding and
-of each gap between its children, drawn over the hatching. Resize handles also take several layers at once, resize from
-the middle with Alt, and hug or fill on a double-click. Decisions.md has the calls.
+A selected layout's padding and gaps are handles, as in Figma: a short bar in the middle of each side's padding and of
+each gap between its children, which hatches the space it changes while it's in use. Resize handles also take several
+layers at once, resize from the middle with Alt, and hug or fill on a double-click. Decisions.md has the calls.
 
 - **Where the bars are.** Each side has one, even at padding 0, so padding can be dragged out of nothing. A side's press
   target runs from 4px inside the layout's edge, clear of the resize strip there, to the padding's inside, at least 8px
@@ -1214,16 +1214,16 @@ the middle with Alt, and hug or fill on a double-click. Decisions.md has the cal
   where no child sits against that edge. Before, a target reached 8px in over the children, and clicks meant for them,
   such as on Titles' first line with no padding or on Header actions' empty row at its end, opened the box to type in,
   which then took the keys; the end-to-end tests caught it on #266.
-- **Dragging.** Pressing a bar shades its space; hovering shows its value beside it, as pixels and a token: the length
-  token it's bound to, or else its step of the spacing scale (`20 spacing-5`). Padding grows as its bar goes outwards,
-  away from the content, on every side; a gap grows as its bar goes right in a row or down in a column. The value goes
-  in whole steps from what's drawn, never below 0, and nothing changes until the pointer has gone 4px towards or away
-  from the space. On the Dashboard's Content, padding `[8, 8]`, the left bar dragged 16px left makes `[8, 8, 8, 12]`. It
-  writes as the pointer moves, as one undo step (Change padding or Change gap), and Escape takes it back, as a resize
-  does (`gestures.resize`).
+- **Dragging.** Hovering or pressing a bar hatches its space and shows its value beside it, as pixels and a token: the
+  length token it's bound to, or else its step of the spacing scale (`20 spacing-5`). Padding grows as its bar goes
+  outwards, away from the content, on every side; a gap grows as its bar goes right in a row or down in a column. The
+  value goes in whole steps from what's drawn, never below 0, and nothing changes until the pointer has gone 4px towards
+  or away from the space. On the Dashboard's Content, padding `[8, 8]`, the left bar dragged 16px left makes
+  `[8, 8, 8, 12]`. It writes as the pointer moves, as one undo step (Change padding or Change gap), and Escape takes it
+  back, as a resize does (`gestures.resize`).
 - **Alt and Alt+Shift.** Alt gives the opposite side the dragged side's value, and Alt+Shift every side, both read at
-  each move, so letting go mid-drag puts the other sides back. Every side that changes is shaded. A layout has one gap,
-  so a gap's bar changes them all, and while one is hovered or dragged every gap is shaded.
+  each move, so letting go mid-drag puts the other sides back. Every side that changes is hatched. A layout has one gap,
+  so a gap's bar changes them all, and while one is hovered or dragged every gap is hatched.
 - **Tokens stay bound.** A side or a gap bound to a length token stays bound while the drag lands on a length token's
   value, its own first; between tokens it's steps. A number stays a number, even on a token's value.
 - **Typing.** A click on a bar, or Enter on a focused one, opens a box beside it with the value, or the token's name
@@ -1232,6 +1232,12 @@ the middle with Alt, and hug or fill on a double-click. Decisions.md has the cal
   of the project's length tokens and the spacing scale beside it, each with a bar drawn as the token previews draw
   spacing, in that unit. Enter or leaving it makes the change; Escape closes it; something it can't read stays with the
   reason under it, as the fields' do. The sides it changes are those held at the click.
+- **Colors and hatching (PAR-797).** Padding and gaps are modes' green, as the Design panel's box model draws padding;
+  margin is pink (`--canvas-margin`), which the canvas doesn't draw yet. Nothing is hatched while a layout is only
+  selected. A bar hatches the space it changes while it's hovered, focused, typed in or dragged, as Figma does: 1px
+  lines rising to the right, 8px apart along an edge, over a faint tint, the same at every zoom. A padding side is
+  hatched along its whole edge, corners included, and the sides Alt or Alt+Shift change are hatched as one shape, so a
+  corner is hatched once. A value's chip is the bar's color with near-black text, 7.9:1 on it.
 - **The keyboard and assistive technology.** Each bar is a slider named after its side (Top padding, Gap 1), with its
   value and token as its text. Tab reaches it; Up or Right steps it one step, Down or Left back, Shift ten, Alt and
   Alt+Shift as for a drag; each press is its own undo step. The canvas's own arrow keys don't nudge meanwhile.
@@ -1256,7 +1262,9 @@ bars go from a layout's measured boxes, `spacingDrag` follows a drag, `spacingSt
 `pickedSpacing` a typed or picked value, `changedSides` the sides held, and `spacingScaleName` and `spacingName` what a
 label and a slider say. `packages/editor/src/move-resize.ts`: `resizeGesture` and `resizeInsets` take `centre`,
 `layersResize` follows several layers, and `layerSizeReset` hugs or fills. In the app, `canvas/SpacingHandles.tsx` draws
-the bars, their shading, labels and sliders and the box a value is typed in, with `sidesHeld` reading the keys;
+the bars, their hatching (`Hatching`, one shape per color), labels and sliders and the box a value is typed in, with
+`sidesHeld` reading the keys; `canvas/spacing-colors.ts` is the one place the colors and hatching are defined
+(`spacingColors` for padding, gaps and margin, `spacingChip` pairing a value's chip through `chipFor`, `spacingHatch`);
 `canvas/spacing-edit.ts` measures a layout (`measureSpacing`), lists its length tokens (`lengthTokens`) and writes each
 edit in the state the frame shows, a drag through `followPress`; `canvas/CanvasOverlay.tsx` shows them for a single
 selected layout, puts handles around several layers (`resizeLayers`) and passes `centre` and fill. The keys are
@@ -1264,22 +1272,27 @@ selected layout, puts handles around several layers (`resizeLayers`) and passes 
 
 Tests:
 
-- `packages/editor/src/spacing-handles.test.ts` (26): a handle on each side and gap; a padding's bar centred, its press
-  target clear of the resize strip; a handle on padding of 0; no target over a child: none with the children against
-  every edge, too thin 6px from it, cut back 10px from it, and cut back by an absolutely placed badge; a gap's bar
-  between children, at least 8px across, a narrower gap taken whole and one under 4px with none; children drawn in
-  reverse; gaps in a column; no gap handles in a grid or wrap, and none on a side too short; inside a border. The sides
-  changed. Dragging: padding growing outwards on each side and shrinking inwards, a gap in a row and a column, the 4px
-  start, whole steps at 50% and never below 0, the opposite side and every side and letting go, a token kept bound on a
-  token's value with its own first, a number kept a number, an unset side from 0. Steps from a half step and with a
-  token. Typing pixels, rem, maths and a token, the sides held, an empty box and one it can't read. Picking a token or a
-  step. A label's token or step, and a slider's name.
+- `packages/editor/src/spacing-handles.test.ts` (26): a handle on each side and gap; a padding's area along its whole
+  edge and its bar centred between the sides' padding, its press target clear of the resize strip; a handle on padding
+  of 0; no target over a child: none with the children against every edge, too thin 6px from it, cut back 10px from it,
+  and cut back by an absolutely placed badge; a gap's bar between children, at least 8px across, a narrower gap taken
+  whole and one under 4px with none; children drawn in reverse; gaps in a column; no gap handles in a grid or wrap, and
+  none on a side too short; inside a border. The sides changed. Dragging: padding growing outwards on each side and
+  shrinking inwards, a gap in a row and a column, the 4px start, whole steps at 50% and never below 0, the opposite side
+  and every side and letting go, a token kept bound on a token's value with its own first, a number kept a number, an
+  unset side from 0. Steps from a half step and with a token. Typing pixels, rem, maths and a token, the sides held, an
+  empty box and one it can't read. Picking a token or a step. A label's token or step, and a slider's name.
 - `packages/editor/src/move-resize.test.ts` (9 more): a double-click hugging, filling with Alt, and taking `grow` away
   along the layout's direction only; from the middle, twice the movement either way, no fill, and an absolutely placed
   layer's insets from the near side, both sides and the far side; several layers in proportion, starting together at 4px
   though each one's share is less, and from the middle.
 - `canvas/SpacingHandles.stories.tsx` (Parity/Canvas/Spacing handles): PaddingAndGap, BoundToTokens, NoPadding and
   SeveralLayers, running the rules and `followPress` on a stand-in layout with the style each change writes beside it.
+- `canvas/SpacingHandles.test.ts` (6), in Chrome with the canvas colors from styles.css: nothing hatched while no bar is
+  in use; a padding side hatched corner to corner under the pointer, in padding's hatching, then nothing once it leaves;
+  every gap hatched together under the pointer; every side a drag changes as one shape; a value's chip in its handle's
+  chip colors; and every chip over the canvas, padding's and gaps' included, at 4.5:1 or better, so a color changed in
+  `spacing-colors.ts` without a safe chip fails here.
 - `canvas/ResizeHandles.test.ts`, in Chrome: a double-click still reaching the handle's reset.
 
 Gaps: there's no end-to-end test yet; `moving.e2e.ts` would take the drags above. Checked in the app on 2026-11-05, on a

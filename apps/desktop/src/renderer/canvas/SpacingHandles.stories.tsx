@@ -334,7 +334,6 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
                 layerIds.length > 1 &&
                 layerIds.map((id) => <Outline key={id} rect={measured.children[id]!} thin />)}
               <SizeLabel rect={union} name={selectionName(scene, selected)} />
-              {selected === "layout" && <Hatching layout={measured.spacing} />}
               <SpacingHandles
                 handles={handles}
                 unit={unit}
@@ -644,28 +643,6 @@ function SizeLabel({ rect, name }: { rect: Rect; name: string }) {
   )
 }
 
-/** The hatching a selected layout's padding and gaps already show. */
-function Hatching({ layout }: { layout: SpacingLayout }) {
-  return spacingHandles(layout).map((handle) => (
-    <div
-      key={spacingKey(handle)}
-      className="absolute"
-      style={{
-        ...place({
-          left: handle.area.x,
-          top: handle.area.y,
-          right: handle.area.x + handle.area.w,
-          bottom: handle.area.y + handle.area.h
-        }),
-        background:
-          handle.kind === "padding"
-            ? "repeating-linear-gradient(-45deg, oklch(0.7 0.2 350 / 0.28) 0 1px, oklch(0.7 0.2 350 / 0.1) 1px 5px)"
-            : "repeating-linear-gradient(45deg, oklch(0.7 0.2 350 / 0.35) 0 1px, oklch(0.7 0.2 350 / 0.14) 1px 5px)"
-      }}
-    />
-  ))
-}
-
 function place(rect: Rect): CSSProperties {
   return { left: rect.left, top: rect.top, width: rect.right - rect.left, height: rect.bottom - rect.top }
 }
@@ -673,7 +650,7 @@ function place(rect: Rect): CSSProperties {
 /** Beside the prototype: what to try, and the style each change writes. */
 function Written({ scene, selected, note }: { scene: Scene; selected: "layout" | string[]; note?: string }) {
   const keys: [string, ReactNode][] = [
-    ["Drag a pink bar", "padding or gap, by 4px steps"],
+    ["Drag a bar", "padding or gap, by 4px steps"],
     ["Click a bar", "type a value: 20, +8, a token's name"],
     ["Alt while dragging", "the opposite side too"],
     ["Alt+Shift", "every side"],
