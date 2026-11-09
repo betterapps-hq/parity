@@ -47,6 +47,8 @@ export interface ReportProblemViewProps {
   /** The open projects' names, listed with what's attached. */
   projects: string[]
   crash?: LastCrash
+  /** The part whose fallback opened the dialog, as it's titled in the window, when its error goes with the report. */
+  caught?: string
   onSend: () => void
 }
 
@@ -63,7 +65,7 @@ function attachments(projects: string[]): string[] {
 
 /** Help > Report a problem, and the same offer after a crash: what happened, and what goes with it. */
 export function ReportProblemView(props: ReportProblemViewProps) {
-  const { state, crash } = props
+  const { state, crash, caught } = props
   const ids = { text: useId(), screenshot: useId() }
   const busy = state.phase === "sending"
   const title = crash ? "Parity closed unexpectedly" : "Report a problem"
@@ -136,6 +138,7 @@ export function ReportProblemView(props: ReportProblemViewProps) {
               </h3>
               <ul className="grid list-disc gap-0.5 pl-5 type-description text-muted-foreground">
                 {crash && <li>The crash report from {lowerFirst(crash.when)}</li>}
+                {caught && <li>The error from {caught}</li>}
                 {attachments(props.projects).map((item) => (
                   <li key={item}>{item}</li>
                 ))}
@@ -169,9 +172,10 @@ export function ReportProblemView(props: ReportProblemViewProps) {
 
 /**
  * What the dialog opened with: the window's screenshot, taken first so the dialog isn't in it, the crash if any, and
- * the Sentry event of the error a part of the window caught, when it's opened from that part's fallback (PAR-704).
+ * the Sentry event of the error a part of the window caught, when it's opened from that part's fallback (PAR-704), with
+ * the part's label to name it by (PAR-757).
  */
-let opened: { screenshot?: string; crash?: LastCrash; crashTime?: string; eventId?: string } = {}
+let opened: { screenshot?: string; crash?: LastCrash; crashTime?: string; eventId?: string; caught?: string } = {}
 const openedListeners = new Set<() => void>()
 
 function setOpened(next: typeof opened): void {
@@ -185,10 +189,12 @@ interface ReportSubject {
   crash?: { time: string }
   /** The Sentry event of the error a fallback caught, which the feedback is linked to (PAR-704). */
   eventId?: string
+  /** The label of the part whose fallback caught that error, which the dialog names it by (PAR-757). */
+  label?: string
 }
 
 /** Help > Report a problem, and the same report offered after a crash or from an error's fallback. */
-export async function openReport({ crash, eventId }: ReportSubject = {}): Promise<void> {
+export async function openReport({ crash, eventId, label }: ReportSubject = {}): Promise<void> {
   let screenshot: string | undefined
   await menusClosed()
   try {
@@ -199,7 +205,8 @@ export async function openReport({ crash, eventId }: ReportSubject = {}): Promis
   setOpened({
     ...(screenshot ? { screenshot } : {}),
     ...(crash ? { crash: { when: crashTime(crash.time) }, crashTime: crash.time } : {}),
-    ...(eventId ? { eventId } : {})
+    // The dialog names the error only when the report is linked to it.
+    ...(eventId ? { eventId, ...(label ? { caught: label } : {}) } : {})
   })
   openDialog("report")
 }
@@ -233,7 +240,7 @@ function useOpened() {
 /** The dialog as the app shows it: sends through main, which attaches the logs, versions and projects. */
 export function ReportProblemDialog() {
   const open = useOpenDialog() === "report"
-  const { screenshot: screenshotUrl, crash, crashTime: crashIso, eventId } = useOpened()
+  const { screenshot: screenshotUrl, crash, crashTime: crashIso, eventId, caught } = useOpened()
   const projects = useTabs()
     .filter((tab) => !tab.blank && tab.status !== "error")
     .map((tab) => tab.title)
@@ -277,6 +284,7 @@ export function ReportProblemDialog() {
       {...(screenshotUrl ? { screenshotUrl } : {})}
       projects={projects}
       {...(crash ? { crash } : {})}
+      {...(caught ? { caught } : {})}
       onSend={() => void send()}
     />
   )

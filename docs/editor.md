@@ -4771,13 +4771,15 @@ off until something is written. It's sent even with Share diagnostics off, since
 sent report says thanks and nothing more: no link, since only the team can open it. A report that can't be sent says to
 check the connection, and keeps what was written. When the last run of an installed build ended without quitting, Parity
 offers the same dialog as it starts, titled "Parity closed unexpectedly", with the crash in the list and Not now in
-place of Cancel. `parity diagnostics` writes a zip of the same files, for a bug filed by hand.
+place of Cancel. Opened from a part's fallback, the list starts with the error that part caught, named by the part's
+title: "The error from Layers" (PAR-757). It's listed only when the report is linked to that error, which a thrown
+string or number can't be. `parity diagnostics` writes a zip of the same files, for a bug filed by hand.
 
 `@parity-app/telemetry`'s `diagnostics.test.ts` covers finding a run that didn't quit (ignoring runs only the CLI
 recorded), reading the local log's lines, and the files a report takes: the last hour of events, versions, projects and
 the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The CLI's `diagnostics.test.ts` covers the
-zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, sending,
-sent and failed, with Send moving from one to the next.
+zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, from a
+fallback, sending, sent and failed, with Send moving from one to the next.
 
 ### What the inspector's changes record (PAR-640, PAR-713, PAR-728)
 
