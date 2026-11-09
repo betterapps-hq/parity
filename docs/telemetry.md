@@ -223,7 +223,9 @@ server-side scrubbing stays on as a second net.
 
 `createScrubber()` in `@parity-app/telemetry` does it. `createTelemetry` runs one on every event's attributes before its
 sinks, and each process's Sentry setup (`main/telemetry.ts`, `renderer/telemetry.ts`, `utility/telemetry.ts`, and the
-CLI's `send.ts`) runs one in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`. It replaces:
+CLI's `send.ts`) starts Sentry with `sentryScrubbing()`, which runs one in `beforeSend`, `beforeSendTransaction`,
+`beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`. It sends spans inside their transaction
+(`traceLifecycle: 'static'`), since a span Sentry streams on its own skips `beforeSendTransaction`. It replaces:
 
 - keys and tokens with a known shape: `sk-…`, Stripe, GitHub, Slack, AWS access key IDs, Google, npm and Sentry tokens,
   JWTs and private key blocks
