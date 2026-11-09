@@ -588,6 +588,10 @@ still need your call.
 - **Padding and gaps are modes' green, hatched as Figma hatches them, and margin is pink** (PAR-797), Andrew's calls:
   - Padding takes modes' green and margin the pink the canvas drew padding in, as the Design panel's box model draws
     them (PAR-186). Gaps go green with padding rather than staying pink, so pink means margin only.
+  - Margin keeps our pink, `oklch(0.66 0.22 350)`, rather than Figma's, about `oklch(0.66 0.265 347)`, compared side by
+    side in Storybook on 2026-11-09. Figma has no margin; its pink marks padding. Ours stays within the chroma of the
+    canvas's other colors (0.16 to 0.23), where Figma's would outshout the selection, and the two look nearly alike
+    hatched.
   - The hatching follows Figma's, in these colors. Nothing is hatched while a layout is only selected; a bar hatches the
     space it changes while it's hovered, focused, typed in or dragged, in place of the flat tint it had: one padding
     side, or every gap at once. The lines are 1px, rising to the right for padding and gaps alike, 8px apart along an
