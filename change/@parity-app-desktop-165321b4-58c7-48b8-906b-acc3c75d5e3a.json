@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Panels' scrollbars are a thin 6px rounded thumb with no track or arrows, in place of Chromium's wide Windows scrollbar.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

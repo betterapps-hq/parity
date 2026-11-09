@@ -2,6 +2,39 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 04:17:56 GMT",
+      "version": "0.40.3",
+      "tag": "@parity-app/desktop_v0.40.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1816fff9c11c11c926c8a1f6e6eb449444b55d13",
+            "comment": "Panels' scrollbars are a thin 6px rounded thumb with no track or arrows, in place of Chromium's wide Windows scrollbar."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "76f24799a8bd374af1a34207d1ec09a737a4ba6b",
+            "comment": "Report a problem opened from a part's fallback lists the error it sends, such as The"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "96991922db733841c38f62ede47602b733c5e246",
+            "comment": "Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "58a8095f7462152f44b302ebc144d47d192e5198",
+            "comment": "Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the interrupted frame as crashed"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 03:41:24 GMT",
       "version": "0.40.2",
       "tag": "@parity-app/desktop_v0.40.2",
