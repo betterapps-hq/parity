@@ -131,10 +131,11 @@ Every frame and component preview drawn offscreen is recorded, so a slow or brok
   settling and capturing took after (`captureMs`), its size and how many layers were measured. A frame that failed ends
   as `error` with why.
 - **`frame.failed`** records a frame whose guest failed, with its error message, its stack and why: `module not found`,
-  `render threw`, or `timed out` when it's still drawing 30 seconds after its turn came, which is left to finish. It's a
-  warning, a log rather than a Sentry issue, since a project's own component failing isn't Parity's bug. Main keeps a
-  picture of what the window showed, and the Sentry errors in the 10 minutes after carry it as `failed-frame.png`, until
-  another frame fails.
+  `render threw`, or `timed out` when it's still drawing 30 seconds after its turn came, which is left to finish. A
+  failure the render page throws while the frame is settled, checked or measured is recorded the same way, with the
+  page's own message and stack rather than Electron's "Script failed to execute". It's a warning, a log rather than a
+  Sentry issue, since a project's own component failing isn't Parity's bug. Main keeps a picture of what the window
+  showed, and the Sentry errors in the 10 minutes after carry it as `failed-frame.png`, until another frame fails.
 - **`preview.made` and `preview.failed`** come from the service: each preview's component, size and time, or why it
   couldn't be made.
 - **`bitmapCache.used`** gives the session's hits and misses for frame bitmaps and component previews kept on disk, each

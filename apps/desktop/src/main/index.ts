@@ -73,7 +73,7 @@ import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
 import { launchLink, passLink } from "./pass-link.ts"
 import { privateMemory } from "./private-memory.ts"
-import { auditResult, canvasHeightResult, renderResult } from "./render-results.ts"
+import { auditResult, canvasHeightResult, PageError, pageAnswer, pageCall, renderResult } from "./render-results.ts"
 import { createReports, offersCrashReports } from "./report.ts"
 import { sessionStore } from "./session-store.ts"
 import { TelemetrySetting } from "./telemetry-setting.ts"
@@ -919,11 +919,16 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
   return loaded.then(() => window)
 }
 
+/** Calls into the render page, throwing what the page threw as a `PageError` with its own message and stack. */
+async function callPage(window: BrowserWindow, call: string): Promise<unknown> {
+  return pageAnswer(await window.webContents.executeJavaScript(pageCall(call), true))
+}
+
 function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: RenderedFrame; png?: string }> {
   return renderOffscreen("render", job, capture || !!job.audit, async (window, frame, width, height) => {
     if (job.audit) {
       const audited = auditResult(
-        await window.webContents.executeJavaScript(`window.canvasAudit(${JSON.stringify(job.colorTokens ?? [])})`, true)
+        await callPage(window, `window.canvasAudit(${JSON.stringify(job.colorTokens ?? [])})`)
       )
       frame.issues = audited.issues
       frame.contrast = audited.contrast
@@ -933,7 +938,7 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
     // A frame that grows with its content keeps the height the canvas lays it out at, measured after the capture
     // (PAR-525).
     if (job.mode.height === undefined) {
-      const canvasHeight = canvasHeightResult(await window.webContents.executeJavaScript("window.canvasHeight()", true))
+      const canvasHeight = canvasHeightResult(await callPage(window, "window.canvasHeight()"))
       if (canvasHeight !== undefined) frame.canvasHeight = canvasHeight
     }
     return { frame, png: image.toPNG().toString("base64") }
@@ -1019,9 +1024,7 @@ function renderOffscreen(
         .catch(() => undefined)
     })
     try {
-      const result = renderResult(
-        await window.webContents.executeJavaScript(`window.canvasRender(${JSON.stringify(job)})`, true)
-      )
+      const result = renderResult(await callPage(window, `window.canvasRender(${JSON.stringify(job)})`))
       watch.rendered(result)
       // The guest's stack is telemetry's alone; agents get the message.
       const { errorStack: _stack, ...frame } = result
@@ -1032,11 +1035,12 @@ function renderOffscreen(
       // The whole frame is in view, so a capture or a contrast check sees all of it.
       const height = devicePixels(frame.height, job.scale)
       window.setContentSize(width, height)
-      await window.webContents.executeJavaScript("window.canvasSettle()", true)
+      await callPage(window, "window.canvasSettle()")
       const done = await then(window, frame, width, height)
       watch.end(frame)
       return done
     } catch (error) {
+      if (error instanceof PageError) watch.threw(error.failure)
       watch.end(undefined, true)
       throw error
     } finally {
