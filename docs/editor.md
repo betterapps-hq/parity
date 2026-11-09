@@ -1801,8 +1801,8 @@ the proposal's "keeps its own width" is not part of this.
 
 ### Frames and the frame tool (PAR-545)
 
-Frames are the light kind of design, beside screens and components, as PAR-540's approved exploration (Parity /
-Explorations / Frames) shows them, on PAR-539's model: a frame is drawn once, at its own size, in the project's primary
+Frames are the light kind of design, beside screens and components, as PAR-540's approved exploration showed them
+(removed once built, PAR-798), on PAR-539's model: a frame is drawn once, at its own size, in the project's primary
 mode, with one state, and isn't written to code.
 
 - **On the canvas a frame has no board:** its name above it, smaller and quieter than a board's title, with lucide's
@@ -1862,6 +1862,8 @@ Tests:
   it, and the drop hint says "New frame with the image".
 - `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts` (3): the dialog's lines for a component with states,
   previews, params and instances, and none for a screen that drops nothing.
+- Stories, Parity / Canvas / Boards: Frames (a new frame and a screen turned into one) and SelectedFrame (its size under
+  it and its handles).
 - End to end (PAR-202), `apps/desktop/e2e/frames.e2e.ts`: F and a drag draws Frame 1, selected, with the move tool back,
   as "Draw frame", which Undo takes out; A and a click makes 100 × 100; the menu resizes the selected frame to Mobile; T
   and typing makes a frame named after the text that hugs it on one line; the title menu's Convert to component converts
@@ -3356,8 +3358,8 @@ the copy parts are `chrome/Copy.tsx`; the keyframes and the shared order are `to
 are `packages/tokens/src/kinds.ts`, the checks a value must pass to be its kind are `packages/tokens/src/checks.ts`
 (`valueProblem`, PAR-569), and matching the tokens a `.lib.par` describes to the stylesheet's custom properties is
 `matchDescribed` in `packages/tokens/src/matching.ts`; the order itself is `packages/tokens/src/token-order.ts`
-(`orderTokens`, `scaleValue`, `shadowReach`, `compareNames`). The Storybook explorations under `explorations/previews`
-draw with the same module, from sample tokens.
+(`orderTokens`, `scaleValue`, `shadowReach`, `compareNames`). The Storybook exploration of the inspector's pickers
+(`explorations/previews/TokenPreviews.stories.tsx`) draws with the same module, from sample tokens.
 
 Tests:
 
@@ -3386,7 +3388,8 @@ Tests:
   Storybook on 2026-10-30. Gap: FoldedSections clears the search with the section already open, so no story folds one
   during a search and then clears it. That clearing unfolds it was checked in the code: the search field's `onChange`
   empties the folded set whenever the search goes from empty to not, or back.
-- `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module.
+- `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module. The
+  panel's and detail's went once the app had them (PAR-798), leaving reduced motion, the pickers and the specimen.
 - `chrome/TokensPanel.stories.tsx` EqualThemes (PAR-435): `chart-3`, equal in Light and Dark, has two swatches in its
   row, its tile and its detail, each named for its theme.
 - Swatch edges (PAR-435) were checked by eye on 2026-10-29 in AllTokens, Detail, Tiles and DescribedTokens, dark and

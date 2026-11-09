@@ -4884,8 +4884,8 @@ links are in [sentry.md](sentry.md#alerts). My calls:
 
 ## The rest of signing in is designed (PAR-614)
 
-You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
-Parity/Explorations/Sign in, and the screens they settle are in
+You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories were under
+Parity/Explorations/Sign in until the app built them (Parity/Sign in, PAR-798), and the screens they settle are in
 [proposals/sign-in.md](proposals/sign-in.md#the-screens). My calls:
 
 - **The stories are one prototype,** each starting at a different point, as the start page's are. The browser can't be
@@ -4921,7 +4921,8 @@ Parity/Explorations/Sign in, and the screens they settle are in
 - **A `pnpm dev` copy's loopback answers once the code is traded,** so its page can say whether that worked: "You're
   signed in to Parity" or "Parity couldn't sign you in", and that the tab can be closed. It's plain HTML with no
   scripts, light or dark as the system is, and says nothing about which copy it came from (your call). `handBackHtml` in
-  the exploration is the page. Installed apps hand back through `parity://`, where the browser shows its own prompt.
+  `shared/hand-back-page.ts` is the page. Installed apps hand back through `parity://`, where the browser shows its own
+  prompt.
 - **Without a keyring, a toast says so once,** right after signing in: "You're signed in until you quit Parity", with
   What to do. The account menu keeps saying it under your name, and both open a dialog that explains and names GNOME
   Keyring and KWallet. The sign-in screen says nothing beforehand, since most people never meet it.
