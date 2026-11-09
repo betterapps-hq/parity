@@ -90,18 +90,19 @@ export const previewFailed = defineEvent(
   { level: "warn", sentBy: ["service"], when: "A component's preview can't be made." }
 )
 
-const counts = (what: string) =>
-  z
-    .object({
-      hits: z.number().int().nonnegative().describe(`${what} found kept for the code they draw`),
-      misses: z.number().int().nonnegative().describe(`${what} looked for and not kept for the code they draw`),
-      hitRate: z.number().min(0).max(1).describe("The share of lookups found, from 0 to 1")
-    })
-    .describe(`${what} looked up on disk this session`)
+const count = (meaning: string) => z.number().int().nonnegative().describe(meaning)
+const share = (meaning: string) => z.number().min(0).max(1).describe(meaning)
 
 export const bitmapCacheUsed = defineEvent(
   "bitmapCache.used",
-  z.object({ frames: counts("Frame bitmaps"), previews: counts("Component previews") }),
+  z.object({
+    frameHits: count("Frame bitmaps found kept on disk for the code they draw, this session"),
+    frameMisses: count("Frame bitmaps looked for on disk and not kept for the code they draw, this session"),
+    frameHitRate: share("The share of frame bitmap lookups found this session, from 0 to 1"),
+    previewHits: count("Component previews found kept on disk for the code they draw, this session"),
+    previewMisses: count("Component previews looked for on disk and not kept for the code they draw, this session"),
+    previewHitRate: share("The share of component preview lookups found this session, from 0 to 1")
+  }),
   {
     level: "info",
     sentBy: ["service"],
@@ -132,15 +133,18 @@ interface Tally {
   misses: number
 }
 
+/** Counts the bitmap cache's lookups, and reports them when there are new ones. */
+export interface CacheCounter {
+  frame(hit: boolean): void
+  preview(hit: boolean): void
+  report(): z.input<typeof bitmapCacheUsed.schema> | undefined
+}
+
 /**
  * Counts the bitmap cache's lookups for a session, and gives `bitmapCache.used`'s attributes when `report` is called
  * after any lookup since the last report; nothing otherwise, so an idle session sends nothing.
  */
-export function cacheCounter(): {
-  frame(hit: boolean): void
-  preview(hit: boolean): void
-  report(): z.input<typeof bitmapCacheUsed.schema> | undefined
-} {
+export function cacheCounter(): CacheCounter {
   const frames: Tally = { hits: 0, misses: 0 }
   const previews: Tally = { hits: 0, misses: 0 }
   let changed = false
@@ -155,11 +159,8 @@ export function cacheCounter(): {
     changed = true
   }
 
-  const rate = ({ hits, misses }: Tally) => ({
-    hits,
-    misses,
-    hitRate: hits + misses === 0 ? 0 : Math.round((hits / (hits + misses)) * 1000) / 1000
-  })
+  const rate = ({ hits, misses }: Tally) =>
+    hits + misses === 0 ? 0 : Math.round((hits / (hits + misses)) * 1000) / 1000
 
   return {
     frame: (hit) => count(frames, hit),
@@ -171,7 +172,14 @@ export function cacheCounter(): {
 
       changed = false
 
-      return { frames: rate(frames), previews: rate(previews) }
+      return {
+        frameHits: frames.hits,
+        frameMisses: frames.misses,
+        frameHitRate: rate(frames),
+        previewHits: previews.hits,
+        previewMisses: previews.misses,
+        previewHitRate: rate(previews)
+      }
     }
   }
 }

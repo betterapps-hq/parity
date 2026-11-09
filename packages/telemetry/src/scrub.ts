@@ -1,3 +1,5 @@
+import { z } from "zod"
+
 /** What a secret is replaced with. */
 export const redacted = "[redacted]"
 
@@ -201,11 +203,18 @@ function redactNamedValues(input: string): string {
   return output + input.slice(last)
 }
 
+/** An error's field, when it's text. */
+const errorText = z.string()
+
 function escapeForRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
-function isPlainObject(value: object): value is Record<string, unknown> {
+/** A plain object as the scrubber finds it, whose fields can hold anything. */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- the scrubber walks any value an event or Sentry holds, so a field can be anything
+type PlainObject = Record<string, unknown>
+
+function isPlainObject(value: unknown): value is PlainObject {
   const prototype: unknown = Object.getPrototypeOf(value)
 
   return prototype === Object.prototype || prototype === null
@@ -244,11 +253,14 @@ export function createScrubber(options: ScrubOptions = {}): Scrubber {
   function value<T>(input: T): T {
     const seen = new WeakMap<object, unknown>()
 
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- walks any value an event or Sentry holds, whatever each part is
     function scrub(item: unknown): unknown {
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the walk takes any value, and text is the one kind it changes
       if (typeof item === "string") {
         return text(item)
       }
 
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the walk takes any value, and only objects have parts to walk
       if (typeof item !== "object" || item === null) {
         return item
       }
@@ -260,50 +272,60 @@ export function createScrubber(options: ScrubOptions = {}): Scrubber {
       }
 
       if (Array.isArray(item)) {
-        const copy: unknown[] = []
-        seen.set(item, copy)
-
-        for (const element of item) {
-          copy.push(scrub(element))
-        }
-
-        return copy
+        return scrubArray(item)
       }
 
       if (item instanceof Error) {
-        const copy: Error = Object.create(Object.getPrototypeOf(item))
-        seen.set(item, copy)
-        copyFields(item, copy)
-
-        for (const field of ["name", "message", "stack"] as const) {
-          const own = item[field]
-
-          if (typeof own === "string") {
-            Object.defineProperty(copy, field, { value: text(own), writable: true, configurable: true })
-          }
-        }
-
-        if (item.cause !== undefined) {
-          Object.defineProperty(copy, "cause", { value: scrub(item.cause), writable: true, configurable: true })
-        }
-
-        return copy
+        return scrubError(item)
       }
 
-      if (!isPlainObject(item)) {
-        return item
-      }
+      return isPlainObject(item) ? scrubObject(item) : item
+    }
 
-      const copy: Record<string, unknown> = {}
+    function scrubArray(item: readonly unknown[]): unknown[] {
+      const copy: unknown[] = []
       seen.set(item, copy)
-      copyFields(item, copy)
+
+      for (const element of item) {
+        copy.push(scrub(element))
+      }
 
       return copy
     }
 
-    function copyFields(from: object, to: object): void {
+    function scrubError(item: Error): Error {
+      const copy: Error = Object.create(Object.getPrototypeOf(item))
+      seen.set(item, copy)
+      copyFields(item, copy)
+
+      for (const field of ["name", "message", "stack"] as const) {
+        // An error's own fields can hold anything at run time, whatever its type says.
+        const own = errorText.safeParse(item[field])
+
+        if (own.success) {
+          Object.defineProperty(copy, field, { value: text(own.data), writable: true, configurable: true })
+        }
+      }
+
+      if (item.cause !== undefined) {
+        Object.defineProperty(copy, "cause", { value: scrub(item.cause), writable: true, configurable: true })
+      }
+
+      return copy
+    }
+
+    function scrubObject(item: PlainObject): PlainObject {
+      const copy: PlainObject = {}
+      seen.set(item, copy)
+
+      return copyFields(item, copy)
+    }
+
+    /** Copies each field, scrubbed, from `from` to `to`, and gives `to` back. */
+    function copyFields<To extends Error | PlainObject>(from: Error | PlainObject, to: To): To {
       for (const [name, field] of Object.entries(from)) {
-        const secret = isSecretName(name) && field !== null && field !== undefined && typeof field !== "boolean"
+        const secret = isSecretName(name) && field !== null && field !== undefined && field !== true && field !== false
+
         Object.defineProperty(to, name, {
           value: secret ? redacted : scrub(field),
           writable: true,
@@ -311,9 +333,11 @@ export function createScrubber(options: ScrubOptions = {}): Scrubber {
           configurable: true
         })
       }
+
+      return to
     }
 
-    // `scrub` gives back what it's given with only strings changed, so the copy has the input's type.
+    // SAFETY: `scrub` gives back what it's given with only strings changed, so the copy has the input's type.
     return scrub(input) as T
   }
 

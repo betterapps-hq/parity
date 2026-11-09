@@ -1,4 +1,5 @@
 import {
+  type Attributes,
   endWhenSettled,
   errorCode,
   type EventAttributes,
@@ -48,7 +49,7 @@ const contextOf = ({ traceId, spanId }: Span): TraceContext => ({ traceId, spanI
 export interface Trace {
   /** Where it sits in its trace, for events recorded in it, even after it ends. None before telemetry starts. */
   readonly context: TraceContext | undefined
-  end(outcome?: Outcome, attributes?: Record<string, unknown>): void
+  end(outcome?: Outcome, attributes?: Attributes): void
 }
 
 /** Starts a trace of its own for an action or gesture. */

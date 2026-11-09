@@ -235,6 +235,6 @@ describe("component previews' telemetry", () => {
     open.draw = () => Promise.resolve({ empty: true })
     await previews.makePreview(preview("Badge"), "idle")
     await previews.lookupPreviews([preview("Button"), preview("Badge")])
-    expect(cacheUse.report()?.previews).toEqual({ hits: 2, misses: 1, hitRate: 0.667 })
+    expect(cacheUse.report()).toMatchObject({ previewHits: 2, previewMisses: 1, previewHitRate: 0.667 })
   })
 })

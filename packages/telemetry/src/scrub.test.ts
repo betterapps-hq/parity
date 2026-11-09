@@ -25,6 +25,13 @@ const keys = {
   npm: key("npm_", "Ab3Cd5Ef7Gh9Ij1Kl3Mn5Op7Qr9St1Uv3Wx5Y")
 }
 
+/** An object that holds itself, for the cycle test. */
+interface CycleNode {
+  name: string
+  at: Date
+  self?: CycleNode
+}
+
 describe("text", () => {
   it.each(Object.entries(keys))("replaces a %s key wherever it appears", (_, key) => {
     expect(scrubber.text(`Request failed with ${key} after 3 tries`)).toBe(
@@ -192,7 +199,7 @@ describe("value", () => {
 
   it("keeps cycles and objects that aren't plain", () => {
     const at = new Date(Date.UTC(2026, 10, 6))
-    const node: { name: string; at: Date; self?: unknown } = { name: "Card", at }
+    const node: CycleNode = { name: "Card", at }
     node.self = node
 
     const scrubbed = scrubber.value(node)
