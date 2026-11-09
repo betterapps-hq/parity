@@ -6303,3 +6303,21 @@ Report a problem. My calls:
   issue; the subdomain form of the same path doesn't. The Linear issue isn't known when the command returns, since
   Sentry's alert files it afterwards; the feedback links it.
 - **The MCP tool list grew to 13.6 KB,** and its budget to 14 KB, for a tool agents are meant to reach for unprompted.
+
+## Boards measure together as the canvas opens (PAR-726)
+
+Called on 2026-11-08. `project.drawn` (PAR-711) showed a project's first frame coming 1 to 3 seconds after its tab was
+ready. A profile of reopening the example project (61 designs, 119 frames) in the same window, on React's production
+build, found no single cause. Everything between the tab being ready and the first frame was the window's own thread,
+mostly one task of about a second that mounted tldraw, every board and every frame. In it: Session Replay recording the
+new elements (0.2 to 0.3 s), asking the service for each frame's kept bitmap (0.16 s, each render job copied across the
+preload bridge and then the port), the Base UI parts each board's title mounts (0.12 s), drawing the boards and frames
+(about 0.4 s), and boards measuring themselves (0.15 s). My calls:
+
+- **Boards measure together.** Each board read its size and wrote it to its shape at once, and the write moved the page,
+  so the next board's read laid it out again: 68 to 70 layouts before the first frame. Now `measureTogether` in
+  `canvas/measure-together.ts` runs the measures asked for in a task once it's done, every read and then every write,
+  the writes as one change to the canvas: 8 layouts. They still run before the page is painted, as a microtask, so no
+  board shows at a size it's about to leave.
+- **The rest are issues of their own:** PAR-758 for Session Replay, PAR-759 for the kept bitmaps' requests and PAR-760
+  for the boards' title controls. Drawing the boards and frames themselves is left as it is.

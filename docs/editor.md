@@ -4516,6 +4516,32 @@ changed 28 by up to 66. The bitmaps were the same pixels as before the full-size
 rasterize differently between runs. The placeholder and capturing without the wait have no automated test of their own;
 they were checked that way and by reading `FrameTile` and `useFrameBitmap`.
 
+### From the tab ready to the first frame (PAR-726)
+
+Between a project's tab being ready (`project.loaded`) and its first frame (`project.drawn`), the window mounts tldraw,
+every board and every frame in one task. On the example project's warm reopen that task held 68 to 70 layouts of the
+page: each board measured itself and wrote its size to its shape, which moved the page for the next board's measure.
+Boards now measure together, every read then every write, the writes as one change to the canvas, before the page is
+painted: 8 layouts.
+
+| Reopened in the same window, tab ready to first frame | Before         | After          |
+| ----------------------------------------------------- | -------------- | -------------- |
+| First round                                           | 1.60 to 2.38 s | 0.60 to 1.59 s |
+| Second round                                          | 0.86 to 1.68 s | 0.81 to 0.95 s |
+
+Four reopens each, before and after taking turns, each in a fresh `pnpm perf --open-only --keep` copy on React's
+production build, with other sessions using the machine. What's left of the task, and the issues for it, is in
+decisions.md, Boards measure together as the canvas opens.
+
+Code: `measureTogether` in `apps/desktop/src/renderer/canvas/measure-together.ts`, and the board's measure in
+`canvas/ContainerShapeUtil.tsx`.
+
+Tests: `apps/desktop/src/renderer/canvas/measure-together.test.ts` (5: every read before any write, the writes as one
+change; only an owner's latest measure; one taken back left out, but not one asked for after it; nothing written for
+what had nothing to measure; measures asked for while writing run in a batch of their own). Gaps: the board's measure
+itself has no automated test; it was checked by counting layouts in a trace of the reopen, and by finding all 61 boards'
+shapes the size of their elements after the reopen and again at 50%.
+
 ### Reopening loads the project afresh (PAR-195, PAR-422, PAR-433)
 
 A reopened project's builder serves it at a new address, one no guest has had since the project service started, even
