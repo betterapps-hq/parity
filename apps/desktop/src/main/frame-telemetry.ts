@@ -31,6 +31,8 @@ export function watchFrame(
   rendered(frame: RenderedFrame): void
   /** The render page threw instead of answering, as it can while the frame is settled, checked or measured. */
   threw(failure: PageFailure): void
+  /** Its window's renderer crashed while drawing it, which fails it. */
+  crashed(): void
   /** It's done, as drawn; `threw` when it didn't finish, which the span records with the error's code itself. */
   end(frame?: RenderedFrame, threw?: boolean): void
 } {
@@ -61,6 +63,7 @@ export function watchFrame(
       failedWith(frame)
     },
     threw: failedWith,
+    crashed: () => fail("crashed", "Its offscreen window's renderer crashed while drawing it"),
     end(frame, threw = false) {
       clearTimeout(timer)
 

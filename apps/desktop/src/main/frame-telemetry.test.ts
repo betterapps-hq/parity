@@ -148,6 +148,24 @@ describe("watchFrame", () => {
     expect(sink.named("frame.failed")).toEqual([])
   })
 
+  it("records a frame whose window's renderer crashed as crashed, without picturing the dead window", async () => {
+    const failed = vi.fn<() => void>()
+    await expect(
+      draw((watch) => {
+        watch.crashed()
+        watch.end(undefined, true)
+        throw new Error("Render frame was disposed before the request completed")
+      }, failed)
+    ).rejects.toThrow("Render frame was disposed")
+    expect(sink.named("frame.failed")[0]?.attributes).toMatchObject({
+      design: "card",
+      failure: "crashed",
+      message: "Its offscreen window's renderer crashed while drawing it"
+    })
+    expect(sink.named("frame.rendered")[0]).toMatchObject({ outcome: "error" })
+    expect(failed).toHaveBeenCalledOnce()
+  })
+
   it("records what the render page threw after the guest drew, with the page's message and stack", async () => {
     const failed = vi.fn<() => void>()
     await expect(

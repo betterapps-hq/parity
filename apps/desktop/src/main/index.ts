@@ -1095,9 +1095,21 @@ function closeRenderWindows(): void {
   }
 }
 
-/** Offscreen window `index`, opened and loaded if it isn't. */
+/**
+ * Whether `window`'s renderer crashed. Electron keeps the window, and every call into it fails from then on, so it's
+ * opened again for the next job (PAR-681).
+ */
+function rendererCrashed(window: BrowserWindow): boolean {
+  return !window.isDestroyed() && window.webContents.isCrashed()
+}
+
+/** Offscreen window `index`, opened and loaded if it isn't, or opened again if its renderer crashed. */
 function ensureRenderWindow(index: number): Promise<BrowserWindow> {
   let render = renderWindows[index]
+
+  if (render && rendererCrashed(render.window)) {
+    render.window.destroy()
+  }
 
   if (!render || render.window.isDestroyed()) {
     const window = new BrowserWindow({
@@ -1261,7 +1273,7 @@ function renderOffscreen(
 
     // A frame that fails is pictured as the window shows it, for the errors that follow.
     const watch = watchFrame(job, priority, span, () => {
-      if (window.isDestroyed()) {
+      if (window.isDestroyed() || rendererCrashed(window)) {
         return
       }
 
@@ -1294,6 +1306,11 @@ function renderOffscreen(
     } catch (error) {
       if (error instanceof PageError) {
         watch.threw(error.failure)
+      }
+      // The call it was waiting on fails as the renderer goes, so the canvas tries the frame again, in a window opened
+      // afresh.
+      else if (rendererCrashed(window)) {
+        watch.crashed()
       }
 
       watch.end(undefined, true)

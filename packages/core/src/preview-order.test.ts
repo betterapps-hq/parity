@@ -115,6 +115,29 @@ describe("renderQueue", () => {
     await expect(failing).rejects.toThrow("The canvas window closed")
     expect(await next).toBe("made")
   })
+
+  it("gives the window a failed job ran in to the next job, where main opens it again if it crashed", async () => {
+    const queue = renderQueue(2)
+    const windows: number[] = []
+    const other = held([], "other")
+
+    const running = queue.add("render", async (window) => {
+      windows.push(window)
+
+      return other.run()
+    })
+
+    const crashed = queue.add("render", async (window) => {
+      windows.push(window)
+      throw new Error("Render frame was disposed before the request completed")
+    })
+
+    await expect(crashed).rejects.toThrow("Render frame was disposed")
+    await queue.add("render", async (window) => windows.push(window))
+    expect(windows).toEqual([0, 1, 1])
+    other.release()
+    await running
+  })
 })
 
 describe("nextPreview", () => {

@@ -1813,6 +1813,13 @@ recommended answer to each of its questions.
   queued until it ends (`main/idle-close.ts`), so it never closes during a job or with one waiting. The first job after
   it opens again waits for the page and the project's modules to load, 0.4 to 0.9 s more than a capture's usual 133 ms
   on the example project; bitmaps are kept in the canvas, so a canvas that's settled rarely asks again.
+- **An offscreen window whose renderer crashed is opened again for its next job** (PAR-681). Crashing the windows with
+  `Page.crash` in the running app showed that a capture in flight doesn't wait: Electron rejects the call into the page
+  at once, and the canvas tries the frame again and reports the failure. But Electron keeps the crashed window, and
+  every later call into it failed in a few milliseconds. The canvas's retries kept the renderer from going idle, so it
+  never closed, and captures were still failing four minutes later. Now the job that gets a crashed window's slot
+  destroys it and opens a fresh one, and the job the crash interrupted records `frame.failed` as `crashed`. No timer
+  watches for crashes: the queue already gives the slot to the next job, and the canvas already retries.
 - **Prop inference uses the TypeScript 6 compiler in a worker thread,** from cva variants, destructured defaults and the
   component's own props type.
 - **The CLI and MCP check accessibility:** `parity a11y <design>` and the `check_accessibility` tool, in every state and
