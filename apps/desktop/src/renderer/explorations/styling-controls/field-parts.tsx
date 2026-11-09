@@ -797,12 +797,24 @@ export function DoesNothing({ reason, children }: { reason: string; children: Re
   )
 }
 
+/**
+ * The † itself, in the one color every not-Baseline mark has, for a mark that sits where its control's own hint says
+ * why (a segmented option's corner). Elsewhere, use NotBaseline, which says why in the mark's hint.
+ */
+export function NotBaselineMark({ className = "" }: { className?: string }) {
+  return (
+    <span aria-hidden className={`text-amber-600 dark:text-amber-400 ${className}`}>
+      †
+    </span>
+  )
+}
+
 /** † after a property or value that isn't Baseline, with which browsers draw it in its hint (principle 7). */
 export function NotBaseline({ what, browsers = "Chromium" }: { what: string; browsers?: string }) {
   return (
     <Hint label={`${what} isn't Baseline`} detail={`Only ${browsers} draws it; other browsers ignore it`}>
-      <span aria-label={`${what} isn't Baseline`} className="cursor-default text-amber-600 dark:text-amber-400">
-        †
+      <span aria-label={`${what} isn't Baseline`} className="cursor-default">
+        <NotBaselineMark />
       </span>
     </Hint>
   )

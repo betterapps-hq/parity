@@ -36,6 +36,7 @@ import {
 } from "./data.ts"
 import {
   nearestToken,
+  NotBaseline,
   notAToken,
   type Reading,
   type ScrubKeys,
@@ -560,8 +561,8 @@ function CornerShape({
   return (
     <Popover>
       <Hint
-        label="Corner shape †"
-        detail="Chromium only. Other browsers draw round corners, so the radius still holds."
+        label="Corner shape"
+        detail="Only Chromium draws it. Other browsers draw round corners, so the radius still holds."
       >
         <PopoverTrigger
           aria-label={`Corner shape: ${cornerShapes.find((option) => option.value === shape)?.label}`}
@@ -573,9 +574,7 @@ function CornerShape({
       <PopoverContent className="w-52 gap-2 p-2" align="end">
         <p className="flex items-center gap-1 text-sm font-medium">
           Corner shape
-          <Hint label="Not in every browser" detail="Chromium only. Other browsers draw round corners.">
-            <span className="text-muted-foreground">†</span>
-          </Hint>
+          <NotBaseline what="Corner shape" />
         </p>
         <div className="grid grid-cols-3 gap-1">
           {cornerShapes.map((option) => (

@@ -112,8 +112,8 @@ const groups: { name: string; entries: Entry[] }[] = [
     entries: [
       { name: "Paint stack", Story: composeStories(paints).Solid },
       { name: "Stroke", Story: composeStories(stroke).AllSides },
-      { name: "Stroke width", Story: composeStories(strokeWidth).VerticalAndHorizontal },
-      { name: "Stroke style", Story: k.StrokeStyle }
+      { name: "Stroke width", Story: composeStories(strokeWidth).VerticalAndHorizontal, reviewed: true },
+      { name: "Stroke style", Story: k.StrokeStyle, reviewed: true }
     ]
   },
   {
@@ -129,7 +129,7 @@ const groups: { name: string; entries: Entry[] }[] = [
   {
     name: "Text",
     entries: [
-      { name: "Typography preset", Story: composeStories(typographyPreset).Folded },
+      { name: "Typography preset", Story: composeStories(typographyPreset).Folded, reviewed: true },
       { name: "Text tag", Story: composeStories(textTag).Heading2 },
       { name: "Font family", Story: composeStories(fontFamily).Token, reviewed: true },
       { name: "Weight and style", Story: composeStories(weight).Named, reviewed: true },

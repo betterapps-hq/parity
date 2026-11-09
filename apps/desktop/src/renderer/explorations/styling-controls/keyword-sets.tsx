@@ -15,7 +15,7 @@ import {
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Crop, Ellipsis } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { fieldBox, NotBaseline, type Reading, TokenMark, ValueField } from "./field-parts.tsx"
+import { fieldBox, NotBaseline, NotBaselineMark, type Reading, TokenMark, ValueField } from "./field-parts.tsx"
 import type { KeywordOption, KeywordValue } from "./text-writes.ts"
 import { cursorTokens } from "./tokens.ts"
 
@@ -199,11 +199,7 @@ export function KeywordToggles({
                 className={`relative grid h-full min-w-6 place-items-center rounded-sm px-1 text-xs ${look}`}
               >
                 {choice.icon ?? choice.label}
-                {choice.browsers && (
-                  <span aria-hidden className="absolute -top-0.5 right-0 text-2xs leading-none text-amber-600">
-                    †
-                  </span>
-                )}
+                {choice.browsers && <NotBaselineMark className="absolute -top-0.5 right-0 text-2xs leading-none" />}
               </button>
             </Hint>
           )
