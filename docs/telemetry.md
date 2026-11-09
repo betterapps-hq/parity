@@ -264,7 +264,8 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
   are JSON; a style row whose layers differ was `mixed`. Its `field` is one of:
   - a style row, `style.*`, from `chrome/style-editor.ts`, and a layer's `text`, `hidden` and props, `props.*`, from
     `chrome/LayerPanel.tsx`, as each is set or reset;
-  - `name`, a layer's or, with no layers, the design's (`chrome/LayerPanel.tsx`, `chrome/DesignPanel.tsx`);
+  - `name`, a layer's or, with no layers, the design's, wherever it's renamed: the inspector, a Layers row or a board's
+    title on the canvas, through `renameAndRecord` (PAR-728);
   - an image's `image.src`, `image.alt` and `image.fit`, and an instance's `instance.state` and `instance.design`, the
     component it was swapped to;
   - `overrides`, what a state, variant or copy changes about a layer, when they're reset all at once, from Reset, Reset
@@ -277,8 +278,14 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
   - `token.*`, a token's values by theme, from the Tokens panel, with no design or layers.
 
   `updateAndRecord` in `chrome/inspector-events.ts` makes a change through the design store and reads the field back
-  from the store before and after, so a change the store refuses records nothing. Buttons that act on a whole layer,
-  such as Detach, Push to main, Make component and Wrap, aren't fields, so they aren't `inspector.changed`.
+  from the store before and after, so a change the store refuses records nothing. Buttons that act on a whole layer
+  aren't fields, so they aren't `inspector.changed`.
+
+- **`component.changed` comes from Detach, Push to main and Make component** (PAR-728), once each changes the designs:
+  `detach` from the instance section's Detach and Object > Detach instance, `push` from Push to main on an instance or
+  on a layer inside a copy, and `extract` from Make component in the inspector, the menu or Components' suggestions.
+  `chrome/component-events.ts` makes each change through the design store and records the design, the layers and the
+  component by id. As key presses and menus, Detach instance and Make component are `command.ran` too.
 
 - **`insert.done` comes from `canvas/insert.ts`, `canvas/drop-files.ts` and `canvas/clipboard.ts`,** so an item from the
   Assets panel or Quick insert, files dropped and a paste are each one. A paste is `clipboard.pasted` too, and a paste
@@ -355,6 +362,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `clipboard.failed`    | info  | all  | renderer                                | A paste pastes nothing, and says why.                                                                        |
 | `clipboard.pasted`    | info  | all  | renderer                                | A paste puts something on the canvas.                                                                        |
 | `command.ran`         | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                               |
+| `component.changed`   | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                |
 | `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                      |
 | `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                          |
 | `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                                             |
@@ -549,6 +557,15 @@ Some failures are recorded for you, so code doesn't record them again:
 | `layers`  | `integer`                                                                             | How many layers were selected                                                                                                     |
 | `designs` | `integer`                                                                             | How many designs were selected, with no layer inside one                                                                          |
 | `code`    | `string`, optional                                                                    | The error code, when it failed                                                                                                    |
+
+### `component.changed`
+
+| Attribute   | Type                              | Meaning                                                                                                                       |
+| ----------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `action`    | `"detach" \| "push" \| "extract"` | What was done: an instance detached into plain layers, a copy's overrides pushed to its component, or layers made a component |
+| `design`    | `string`                          | The design whose layers it changed, by key                                                                                    |
+| `layers`    | `string[]`                        | The layers: the instance detached or pushed, a layer inside one by path, or the layers made a component                       |
+| `component` | `string`                          | The component, by id: the one the copy follows, or the one made                                                               |
 
 ### `data.invalid`
 

@@ -6,7 +6,6 @@ import {
   defaultModeSettings,
   editNode,
   findNode,
-  mapNode,
   nodeOnBoard,
   resetOverride,
   setSlot
@@ -27,6 +26,7 @@ import {
   paramValue,
   recordInspectorChange,
   recordLayerChange,
+  renameAndRecord,
   rowChanged,
   statesValue,
   updateAndRecord
@@ -231,37 +231,29 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
 
   it("records a rename with the name before and after, and nothing for one that keeps the name", () => {
     const { store, recorded } = setup()
-    const rename = (name: string) =>
-      updateAndRecord(store, key, "Rename component", (current) => ({ ...current, name }), {
-        field: "name",
-        read: (current) => current.name
-      })
-    rename("Profile card")
-    rename("Profile card")
+    renameAndRecord(store, key, "Profile card")
+    renameAndRecord(store, key, "Profile card")
+    expect(store.getHistory().undoLabel).toBe("Rename component")
     expect(recorded()).toEqual([
       { field: "name", design: key, layers: [], from: '"Card"', to: '"Profile card"', gesture: false }
     ])
   })
 
-  it("records a layer's new name against the layer", () => {
+  it("records a layer's new name against the layer, and the name taken back off it", () => {
     const { store, recorded } = setup()
-    updateAndRecord(
-      store,
-      key,
-      "Rename layer",
-      (current) => ({
-        ...current,
-        root: mapNode(current.root, "title", (node) => ({ ...node, name: "Heading" }))
-      }),
-      {
-        field: "name",
-        layers: ["title"],
-        read: (current) => findNode(current.root, "title")?.name
-      }
-    )
+    renameAndRecord(store, key, "Heading", "title")
+    renameAndRecord(store, key, undefined, "title")
     expect(recorded()).toEqual([
-      { field: "name", design: key, layers: ["title"], from: "null", to: '"Heading"', gesture: false }
+      { field: "name", design: key, layers: ["title"], from: "null", to: '"Heading"', gesture: false },
+      { field: "name", design: key, layers: ["title"], from: '"Heading"', to: "null", gesture: false }
     ])
+  })
+
+  it("leaves a design given no name as it was", () => {
+    const { store, recorded } = setup()
+    renameAndRecord(store, key, undefined)
+    expect(store.getEntry(key)?.container.name).toBe("Card")
+    expect(recorded()).toEqual([])
   })
 
   it("records nothing for a change the design refuses", () => {

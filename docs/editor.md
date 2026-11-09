@@ -4779,18 +4779,22 @@ the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The C
 zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, sending,
 sent and failed, with Send moving from one to the next.
 
-### What the inspector's changes record (PAR-640, PAR-713)
+### What the inspector's changes record (PAR-640, PAR-713, PAR-728)
 
 Each change made in the inspector or the Tokens panel is recorded once, as `inspector.changed`, with the field, the
 design, the layers and the value before and after: style rows, a layer's text, visibility, props and name, an image, an
 instance's state and component, prop bindings, slots, states, a component's props and variants, and tokens. A preview
-records nothing, and nor does a change that leaves a value as it was. Which field each control records is in
+records nothing, and nor does a change that leaves a value as it was. A design or layer renamed in Layers or on a
+board's title records the same `name` change as one renamed in the inspector. Detach, Push to main and Make component
+record `component.changed`, with the design, the layers and the component. Which field each control records is in
 [telemetry.md](telemetry.md), "Editing".
 
 `chrome/inspector-events.test.ts` covers, through the test sink: a style row on layers whose values differ; a number
 prop previewed, then made or taken back; and, for changes read back from the design store, a design's and a layer's
-name, a rename to the same name, a variant the design refuses and one added, a state added, a layout made a slot, a
-state's change reset, and a token's values by theme.
+name, a layer's name taken off, a design given no name, a rename to the same name, a variant the design refuses and one
+added, a state added, a layout made a slot, a state's change reset, and a token's values by theme.
+`chrome/component-events.test.ts` covers an instance detached, a layer that isn't one, a copy's overrides pushed whole
+and from a layer inside it, layers made a component, and a push that throws.
 
 ### A part that fails keeps the rest working (PAR-667)
 
