@@ -251,7 +251,7 @@ export function SizeField({
   let comesTo: string | undefined
   if (setBy) comesTo = `set by ${setBy}`
   else if (!fixed && measured !== undefined) comesTo = String(measured)
-  const reason = `Type a length, Hug or Fill`
+  const reason = `Enter a length, Hug or Fill`
   /**
    * What's typed: Hug or Fill by name; a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`),
    * where a bare number is in the unit shown; or a percentage, CSS's (call 10). Nothing typed keeps the size.
@@ -411,7 +411,7 @@ function readRatio(text: string): string | undefined {
 
 /**
  * The ratio, typed, with its name after it (Video) and the named ratios in its unit's menu. A ratio it can't read
- * stays, with the reason under it; Enter keeps it, and Escape or leaving puts the ratio back and says so.
+ * stays, with the reason under it; Enter keeps it, and Escape puts the ratio back; leaving does too, and says why.
  */
 export function RatioField({ aspect, onChange }: { aspect: string; onChange: (aspect: string) => void }) {
   const name = namedRatios.find((option) => option.value === aspect)?.name
@@ -440,7 +440,7 @@ export function RatioField({ aspect, onChange }: { aspect: string; onChange: (as
       }
       read={(text): Reading<string> => {
         const ratio = readRatio(text)
-        return ratio ? { value: ratio } : { reason: "Type a ratio, such as 16:9" }
+        return ratio ? { value: ratio } : { reason: "Enter a ratio, such as 16:9" }
       }}
       onCommit={onChange}
     />
@@ -894,7 +894,7 @@ function LengthField({
     const reading = readLength(trimmed, { label, current: own?.px ?? token?.px, takesPercent })
     if ("reason" in reading && reading.reason.startsWith("Can't read")) {
       const example = takesPercent ? "6px or 50%" : "6px"
-      return { reason: `Type a length, such as ${example}, or a ${kind} token` }
+      return { reason: `Enter a length, such as ${example}, or a ${kind} token` }
     }
     if ("reason" in reading) return reading
     if ("percent" in reading) {
@@ -1258,7 +1258,7 @@ export function FrameSection({
  *
  * In a narrow field (`narrow`, under about 96px, as sides are), what it comes to is in its hint. Input it can't read
  * stays, outlined in the error color with a mark in the status slot and the reason under the row; Enter keeps it, and
- * Escape or leaving puts the value back and says so.
+ * Escape puts the value back; leaving does too, and says why.
  */
 export function Num({
   label,
@@ -1301,11 +1301,11 @@ export function Num({
       const reading = readLength(inRem && bare ? `${text}rem` : text, { label, current: value })
       if ("clear" in reading) return { value: undefined }
       if ("px" in reading) return { value: Math.max(min, reading.px) }
-      return { reason: "reason" in reading ? reading.reason : "Type a length" }
+      return { reason: "reason" in reading ? reading.reason : "Enter a length" }
     }
     if (text.trim() === "") return { value: undefined }
     const number = Number(text)
-    return Number.isFinite(number) ? { value: Math.max(min, Math.round(number)) } : { reason: "Type a whole number" }
+    return Number.isFinite(number) ? { value: Math.max(min, Math.round(number)) } : { reason: "Enter a whole number" }
   }
   const from = () => value ?? Math.max(min, 0)
   let unitPart: ReactNode = suffix

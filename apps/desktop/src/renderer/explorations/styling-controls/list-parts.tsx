@@ -314,7 +314,7 @@ export function TypeMenu<K extends string>({ label, value, options, compact = fa
 
 /**
  * A slider centered on no change, as Figma's and every photo editor's adjustments are, with its number beside it on
- * the shared field: typed with the app's maths, held to the slider's ends with a note, Up and Down 1, Shift 10.
+ * the shared field: typed with the app's maths, held to the slider's ends, Up and Down 1, Shift 10.
  * Double-clicking the slider puts it back to no change.
  */
 export function CenteredSlider({
@@ -350,19 +350,8 @@ export function CenteredSlider({
     if ("clear" in reading) return { reason: takes }
     if ("reason" in reading) return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
     const number = Math.round(reading.value)
-    if (number > max) {
-      return {
-        value: max,
-        message: { tone: "note", text: `The most is ${max}${unit}.` }
-      }
-    }
-    if (number < min) {
-      return {
-        value: min,
-        message: { tone: "note", text: `The least is ${min}${unit}.` }
-      }
-    }
-    return { value: number }
+    // Past either end, it stops there: the field shows it, so it says nothing.
+    return { value: Math.min(max, Math.max(min, number)) }
   }
   return (
     <div className="grid grid-cols-[72px_1fr_3.25rem] items-center gap-x-2">

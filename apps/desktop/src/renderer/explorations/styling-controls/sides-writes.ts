@@ -169,7 +169,7 @@ function readOne(
   if (token) return { side: { token: token.name } }
   if (rules.stepBy === "count") {
     const number = Number(text)
-    if (!Number.isInteger(number)) return { reason: `Type a whole number, such as 10, or a token` }
+    if (!Number.isInteger(number)) return { reason: `Enter a whole number, such as 10, or a token` }
     return { side: { number } }
   }
   const reading = readLength(text, { label, current: sideNumber(current, tokens), takesPercent: rules.percent })
@@ -177,7 +177,7 @@ function readOne(
   if ("reason" in reading) {
     if (!reading.reason.startsWith("Can't read")) return reading
     const auto = rules.auto ? ", auto" : ""
-    return { reason: `Type a length, such as 16 or 1rem${auto}, or a token` }
+    return { reason: `Enter a length, such as 16 or 1rem${auto}, or a token` }
   }
   if ("percent" in reading) {
     if (reading.percent < 0 && !rules.negatives) return { reason: `${capital(rules.noun)} can't be negative` }

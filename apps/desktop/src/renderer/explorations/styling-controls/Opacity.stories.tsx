@@ -90,7 +90,7 @@ export const BlendMultiply: Story = { render: () => <Appearance opacity={{ perce
 /** Plus lighter, which Firefox doesn't draw: † after the value and beside the option. */
 export const NotBaseline: Story = { render: () => <Appearance blend="plus-lighter" /> }
 
-/** `150` typed: kept at 100%, and the field says so. */
+/** `150` typed: it stops at 100%. */
 export const KeptInRange: Story = {
   render: () => <Appearance opacity={{ percent: 80 }} />,
   play: async ({ canvasElement }) => {

@@ -87,7 +87,7 @@ const groups: { name: string; entries: Entry[] }[] = [
       { name: "Size and aspect ratio", Story: composeStories(size).Fixed, reviewed: true },
       { name: "Placement and insets", Story: composeStories(placement).Absolute },
       { name: "Layer order", Story: composeStories(layerOrder).InFront, reviewed: true },
-      { name: "Position in a box", Story: composeStories(positionInABox).OriginSpot }
+      { name: "Position in a box", Story: composeStories(positionInABox).OriginSpot, reviewed: true }
     ]
   },
   {
@@ -101,10 +101,10 @@ const groups: { name: string; entries: Entry[] }[] = [
   {
     name: "Appearance",
     entries: [
-      { name: "Opacity and blend mode", Story: composeStories(opacity).Step },
+      { name: "Opacity and blend mode", Story: composeStories(opacity).Step, reviewed: true },
       { name: "Radius", Story: composeStories(radius).Token },
-      { name: "Clip content", Story: k.ClipContent },
-      { name: "Cursor", Story: k.Cursor }
+      { name: "Clip content", Story: k.ClipContent, reviewed: true },
+      { name: "Cursor", Story: k.Cursor, reviewed: true }
     ]
   },
   {

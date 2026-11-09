@@ -12,7 +12,7 @@ import { lengthWrites, type Writes } from "./writes.ts"
  * brings its own. A length takes the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`) and is kept in pixels,
  * shown in px or rem as chosen from its unit's menu. A spacing length steps a whole spacing step (4px) on Up and Down;
  * others step by 1, or 10 with Shift. A narrow field keeps its unit too. What it can't read stays, outlined, with the
- * reason under it; Escape or leaving puts the value back and says so.
+ * reason under it; Escape puts the value back; leaving does too, and says why.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Number field",

@@ -121,7 +121,7 @@ function changeKind(paint: Paint, kind: PaintKind): Paint {
 
 /** Why a gradient is written as one value rather than from, via and to, naming what makes it so. */
 function longReason(paint: GradientPaint): string {
-  if (paint.repeat) return "No utility for repeating gradients, so it's an arbitrary value."
+  if (paint.repeat) return "Tailwind has no utility for repeating gradients, so this is written as an arbitrary value."
   const prefix = { linear: "bg-linear", radial: "bg-radial", angular: "bg-conic" }[paint.kind]
   const parts = [
     paint.stops.length > 3 && `${paint.stops.length} stops`,
@@ -216,7 +216,7 @@ export function PaintStack({
             <MessageLine
               message={{
                 tone: "note",
-                text: "Too many layers for Tailwind's utilities, so it's one arbitrary value."
+                text: "These fills don't fit Tailwind's utilities, so they're written as one arbitrary value."
               }}
             />
           )}

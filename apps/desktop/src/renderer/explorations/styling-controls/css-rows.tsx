@@ -463,7 +463,7 @@ function CurveFields({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
           rowClassName={`row-start-1 ${handleColumns[index]}`}
           read={(text): Reading<number> => {
             const reading = readNumber(text, curve[index], label)
-            if ("clear" in reading) return { reason: "Type a number, such as 0.5" }
+            if ("clear" in reading) return { reason: "Enter a number, such as 0.5" }
             if ("reason" in reading) return reading
             if (index % 2 === 0 && (reading.value < 0 || reading.value > 1))
               return { reason: `${label} goes from 0 to 1` }

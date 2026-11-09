@@ -238,7 +238,7 @@ export function ShadowList({
               <MessageLine
                 message={{
                   tone: "note",
-                  text: "Too many for Tailwind's shadow slots, so it's one arbitrary value."
+                  text: "These shadows don't fit Tailwind's shadow utilities, so they're written as one arbitrary value."
                 }}
               />
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={saveAsToken}>
@@ -590,7 +590,7 @@ function ShadowTokenField({
     const named = tokens.find((option) => option.name === trimmed || shortName(option) === trimmed)
     if (named) return { value: named.name }
     const example = tokens[0] ? `, such as ${shortName(tokens[0])}` : ""
-    return { reason: `Type a token's name${example}` }
+    return { reason: `Enter a token's name${example}` }
   }
   const step = (up: boolean, { shift }: ScrubKeys) => {
     if (!token) return
@@ -701,7 +701,7 @@ function TokenParts({
         <MessageLine
           message={{
             tone: "note",
-            text: "Only its color can change. Detach to edit the rest."
+            text: "Only a shadow token's color can be changed. To edit the rest, detach it."
           }}
         />
         <Button

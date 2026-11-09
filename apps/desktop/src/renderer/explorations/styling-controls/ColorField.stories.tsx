@@ -122,7 +122,7 @@ export const MissingToken: Story = { render: () => <ColorField value="brand-old"
 
 /**
  * `blurple` typed and Enter pressed: it isn't a color, so the text stays, outlined, with the reason under it, and
- * nothing is stored. Escape or leaving puts `primary` back and says so.
+ * nothing is stored. Escape puts `primary` back; leaving does too, and says why.
  */
 export const InvalidAsTyped: Story = {
   render: () => <ColorField value="primary" />,
