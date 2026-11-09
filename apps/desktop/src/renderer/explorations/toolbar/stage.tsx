@@ -3,7 +3,7 @@ import { createPortal } from "react-dom"
 import { AppWindow } from "../../App.tsx"
 import { ProjectContext } from "../../canvas/context.ts"
 import { useActiveTabId, useTabs } from "../../workspace.ts"
-import { options, type ToolbarOption } from "./options.tsx"
+import { options, type ToolbarOption, ZoomCorner } from "./options.tsx"
 
 /**
  * The whole app window with one toolbar option in place of the app's own, on the real canvas: designs select, tools
@@ -22,7 +22,7 @@ export function ToolbarStage({ option }: { option?: ToolbarOption }) {
       {chosen && (
         <style>{`
           .canvas-area > div:not([data-option]):has(> [role="group"][aria-label="Tools"]) { display: none }
-          ${chosen.keepsViewControls ? "" : ".canvas-area > div.top-3.right-3 { display: none }"}
+          .canvas-area > div.top-3.right-3:not([data-option]) { display: none }
         `}</style>
       )}
       <AppWindow />
@@ -32,6 +32,7 @@ export function ToolbarStage({ option }: { option?: ToolbarOption }) {
         createPortal(
           <ProjectContext value={session}>
             <chosen.Toolbar />
+            {chosen.zoomInCorner && <ZoomCorner />}
           </ProjectContext>,
           canvas
         )}

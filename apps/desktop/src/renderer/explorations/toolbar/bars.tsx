@@ -13,11 +13,11 @@ import penpotToolbar from "./competitors/penpot-toolbar.png?url"
 import penpotZoom from "./competitors/penpot-zoom.png?url"
 import tldrawMore from "./competitors/tldraw-more.png?url"
 import tldrawToolbar from "./competitors/tldraw-toolbar.png?url"
-import { CodeToolbar, OneBarToolbar, TidiedToolbar } from "./options.tsx"
+import { OneBarToolbar, ReviewToolbar, TidiedToolbar } from "./options.tsx"
 
 /*
  * The toolbars on their own, ours live and the others as screenshots at their actual size, taken on 2026-11-09. Ours
- * aren't on a canvas here, so zoom shows 100% and Undo and Redo are off.
+ * aren't on a canvas here, so zoom shows 100%.
  */
 
 interface Shot {
@@ -57,7 +57,7 @@ const ours: Entry[] = [
   },
   {
     name: "A. Tidied",
-    notes: ["Today's tools, fixed, with Insert after Text."],
+    notes: ["Today's tools, fixed, with Hand in a menu beside Move and select, and Insert after Text."],
     live: (
       <Live>
         <TidiedToolbar />
@@ -66,7 +66,7 @@ const ours: Entry[] = [
   },
   {
     name: "B. One bar",
-    notes: ["Undo, Redo and a zoom menu join the tools."],
+    notes: ["A zoom menu joins the tools, and the top right of the canvas is clear."],
     live: (
       <Live>
         <OneBarToolbar />
@@ -74,11 +74,11 @@ const ours: Entry[] = [
     )
   },
   {
-    name: "C. With code",
-    notes: ["A, with a switch for the Code tab and Search actions."],
+    name: "C. With review",
+    notes: ["A, with Annotate and Comment in one button, then Search actions."],
     live: (
       <Live>
-        <CodeToolbar />
+        <ReviewToolbar />
       </Live>
     )
   }
@@ -148,11 +148,11 @@ const others: Entry[] = [
 
 /** What the others have in common, and what it means for ours. */
 const takeaways = [
-  "Every other tool shows the picked tool in a strong color. The kit's pressed look in A, B and C is the faintest of all.",
+  "Every other tool shows the picked tool in a strong color, so A, B and C now use the canvas's selection blue.",
   "Figma, Penpot and Framer open a zoom menu from the level, as B does.",
-  "Figma moves engineers into a mode of their own, a bigger step than C's switch for the Code tab.",
+  "Figma keeps Comment, Annotation and Measurement under one button, as C does with Annotate and Comment.",
   "tldraw folds tools into a menu when the bar runs out of room. None of ours do yet.",
-  "Figma folds Hand under Move. Framer and tldraw keep it as its own button."
+  "Figma folds Hand under Move, as A, B and C now do. Framer and tldraw keep it as its own button."
 ]
 
 function Section({ entry }: { entry: Entry }) {
@@ -180,7 +180,7 @@ function Section({ entry }: { entry: Entry }) {
 export function ToolbarComparison() {
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background px-8 py-6 text-foreground">
+      <div className="h-screen overflow-y-auto bg-background px-8 py-6 text-foreground">
         <h1 className="text-lg font-semibold">Toolbars compared</h1>
         <ul className="mt-3 mb-6 grid max-w-3xl list-disc gap-1.5 pl-5 text-sm">
           {takeaways.map((takeaway) => (
