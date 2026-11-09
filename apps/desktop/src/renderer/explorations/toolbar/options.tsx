@@ -120,9 +120,31 @@ function Tools({ review = false }: { review?: boolean }) {
   const [reviewing, setReviewing] = useState<ReviewTool>()
   const [lastReview, setLastReview] = useState<ReviewTool>("annotate")
 
+  // The tool picked before reviewing, which Done brings back.
+  const [before, setBefore] = useState<Tool>()
+
+  // While reviewing, the canvas is on Move and select, so a click can't draw a frame or add text underneath.
   const pickReview = (id: ReviewTool) => {
+    if (!reviewing) {
+      setBefore(tool)
+    }
+
     setReviewing(id)
     setLastReview(id)
+
+    if (tool !== "select") {
+      void actions.select.run("toolbar")
+    }
+  }
+
+  const stopReview = () => {
+    setReviewing(undefined)
+
+    if (before && before !== "select") {
+      void actions[before].run("toolbar")
+    }
+
+    setBefore(undefined)
   }
 
   // The one of the pair picked last, kept while another tool is picked so the button still shows it.
@@ -142,6 +164,7 @@ function Tools({ review = false }: { review?: boolean }) {
           pickReview(value)
         } else if (value) {
           setReviewing(undefined)
+          setBefore(undefined)
           void actions[value as Tool].run("toolbar")
         }
       }}
@@ -173,12 +196,7 @@ function Tools({ review = false }: { review?: boolean }) {
       {review && (
         <>
           <Divider />
-          <ReviewTools
-            current={lastReview}
-            picked={reviewing}
-            onPick={pickReview}
-            onDone={() => setReviewing(undefined)}
-          />
+          <ReviewTools current={lastReview} picked={reviewing} onPick={pickReview} onDone={stopReview} />
         </>
       )}
     </ToggleGroup>
@@ -211,7 +229,8 @@ type ReviewTool = keyof typeof reviewTools
 
 /**
  * The review button and its menu, and while one is picked, a bar just above the toolbar saying what a click does, with
- * Done. The canvas doesn't place anything here; the Annotations exploration (PAR-184) does.
+ * Done. A click on the canvas only selects here; placing annotations and threads is the Annotations exploration's
+ * (PAR-184).
  */
 function ReviewTools({
   current,

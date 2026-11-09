@@ -54,9 +54,9 @@ export const OneBar: Story = {
 
 /**
  * C: A, with the review tools from PAR-184's annotations design at the end: Annotate (Shift+T), with Comment (C) in its
- * menu. Picking one shows what a click does above the bar, and Done or Esc puts it down. Placing annotations and
- * threads is in the Annotations exploration, so a click on the canvas does nothing here. Search actions follows, the
- * way to every command the bar leaves out.
+ * menu. Picking one shows what a click does above the bar and puts the canvas on Move and select, and Done or Esc
+ * puts it down and brings back the tool from before. Placing annotations and threads is in the Annotations
+ * exploration, so a click here only selects. Search actions follows, the way to every command the bar leaves out.
  */
 export const WithReview: Story = {
   name: "With review",
