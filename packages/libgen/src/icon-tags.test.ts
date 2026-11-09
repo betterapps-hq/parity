@@ -1,3 +1,4 @@
+import type { LibraryManifest } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { closestVersion, iconWords, manifestText, readIconTags, type TagFetchers } from "./icon-tags.ts"
 
@@ -145,7 +146,11 @@ describe("iconWords", () => {
       ]
     )
 
-    expect(words).toEqual({ IconArrowDown: ["south", "911"], ArrowDown01Icon: ["down"], TextIndentLtr: ["tab"] })
+    expect(Object.fromEntries(words)).toEqual({
+      IconArrowDown: ["south", "911"],
+      ArrowDown01Icon: ["down"],
+      TextIndentLtr: ["tab"]
+    })
   })
 
   it("takes a record's lists and the fields that group icons, but not its names, codes or versions", () => {
@@ -163,7 +168,7 @@ describe("iconWords", () => {
     )
 
     const words = iconWords([table], numbered(100))
-    expect(words.Icon7).toEqual(["word7", "group 2"])
+    expect(words.get("Icon7")).toEqual(["word7", "group 2"])
   })
 
   it("finds the table that names the set's icons, wherever it is", () => {
@@ -174,20 +179,20 @@ describe("iconWords", () => {
       list: { icons: icons.map((_, index) => ({ id: `icon-${index}`, keywords: [`word${index}`] })) }
     }
 
-    expect(iconWords([data], icons).Icon12).toEqual(["word12"])
-    expect(iconWords([{ unrelated: ["x"] }], icons)).toEqual({})
+    expect(iconWords([data], icons).get("Icon12")).toEqual(["word12"])
+    expect(iconWords([{ unrelated: ["x"] }], icons)).toEqual(new Map())
   })
 
   it("leaves out words most of a set's icons have", () => {
     const icons = numbered(20)
     const table = Object.fromEntries(icons.map((_, index) => [`icon-${index}`, ["icon", `word${index}`]]))
-    expect(iconWords([table], icons).Icon4).toEqual(["word4"])
+    expect(iconWords([table], icons).get("Icon4")).toEqual(["word4"])
   })
 })
 
 describe("manifestText", () => {
   it("writes each icon's tags on one line, and the rest as indented JSON", () => {
-    const manifest = {
+    const manifest: LibraryManifest = {
       version: 3,
       name: "Lucide",
       icons: { render: "export", tags: { X: ["close", "cancel"], Cog: [] } }

@@ -1,4 +1,4 @@
-import type { LibraryBreakpoint, TokenCategory } from "@parity-app/core"
+import type { LibraryBreakpoint, TokenCategory, TokenExtension } from "@parity-app/core"
 import { collectCustomProperties, lengthToPixels } from "@parity-app/core"
 import { categorize, isTokenName, themedProperties } from "@parity-app/tokens"
 
@@ -72,7 +72,14 @@ export function pairLineHeights(tokens: Map<string, CollectedToken>): void {
 
 /** Breakpoints from `--breakpoint-*` tokens, or any token in that category, in pixels at 16px to the rem. */
 export function breakpointsOf(tokens: readonly CollectedToken[]): LibraryBreakpoint[] {
-  const names: Record<string, string> = { xs: "Extra small", sm: "Small", md: "Medium", lg: "Large", xl: "XL" }
+  const names = new Map([
+    ["xs", "Extra small"],
+    ["sm", "Small"],
+    ["md", "Medium"],
+    ["lg", "Large"],
+    ["xl", "XL"]
+  ])
+
   const found: LibraryBreakpoint[] = []
 
   for (const token of tokens) {
@@ -87,10 +94,50 @@ export function breakpointsOf(tokens: readonly CollectedToken[]): LibraryBreakpo
     }
 
     const id = token.var.replace(/^.*breakpoints?-/, "")
-    found.push({ id, name: names[id] ?? id.toUpperCase(), width })
+    found.push({ id, name: names.get(id) ?? id.toUpperCase(), width })
   }
 
   return found.sort((a, b) => a.width - b.width)
+}
+
+/** A DTCG `$type` libgen writes. A token without one is CSS, which Parity reads as written. */
+type DtcgType = "color" | "dimension" | "duration" | "fontWeight" | "number"
+
+/** A DTCG `$value`: CSS, a number, an sRGB color or a length or duration with its unit. */
+type DtcgValue =
+  | string
+  | number
+  | { colorSpace: "srgb"; components: number[]; alpha?: number; hex: string }
+  | { value: number; unit: string }
+
+/** A DTCG token as libgen writes it, with the custom property it compiles to in `$extensions.parity`. */
+interface DtcgToken {
+  $type?: DtcgType
+  $value: DtcgValue
+  $description?: string
+  $extensions?: { parity: TokenExtension }
+}
+
+/**
+ * A DTCG group as written: groups and tokens by name. A token's own `$` fields sit beside the tokens whose names run on
+ * from its own, as shadcn's `primary` holds `primary-foreground`.
+ */
+export interface DtcgGroup {
+  [name: string]: DtcgGroup | DtcgValue | { parity: TokenExtension }
+}
+
+/** A DTCG resolver whose `theme` modifier has a context for each theme. */
+export type DtcgResolver = {
+  version: "2025.10"
+  sets: { tokens: { sources: DtcgGroup[] } }
+  modifiers: { theme: { default: "default"; contexts: { [theme: string]: DtcgGroup[] } } }
+  resolutionOrder: { $ref: string }[]
+}
+
+/** A group being built: the token written at its path, if any, and the groups and tokens below it in the order met. */
+interface Branch {
+  token: DtcgToken | undefined
+  children: Map<string, Branch>
 }
 
 /**
@@ -98,7 +145,7 @@ export function breakpointsOf(tokens: readonly CollectedToken[]): LibraryBreakpo
  * `$extensions.parity`, so the Tokens panel puts `--mantine-spacing-md` under Spacing and frames can declare it. One
  * theme is a token file; several make a resolver whose `theme` modifier has a context for each.
  */
-export function toDtcg(tokens: readonly CollectedToken[], prefix = ""): Record<string, unknown> {
+export function toDtcg(tokens: readonly CollectedToken[], prefix = ""): DtcgGroup | DtcgResolver {
   const pathOf = new Map<string, string[]>()
   const taken = new Set<string>()
 
@@ -119,8 +166,8 @@ export function toDtcg(tokens: readonly CollectedToken[], prefix = ""): Record<s
 
   const contexts = [...new Set(tokens.flatMap((token) => Object.keys(token.values)))].filter((c) => c !== "default")
 
-  const groupsFor = (context: string): Record<string, unknown> => {
-    const root: Record<string, unknown> = {}
+  const groupsFor = (context: string): DtcgGroup => {
+    const root: Branch = { token: undefined, children: new Map() }
 
     for (const token of tokens) {
       const value = token.values[context]
@@ -133,23 +180,34 @@ export function toDtcg(tokens: readonly CollectedToken[], prefix = ""): Record<s
       let group = root
 
       for (const part of path.slice(0, -1)) {
-        group = (group[part] ??= {}) as Record<string, unknown>
+        let child = group.children.get(part)
+
+        if (!child) {
+          child = { token: undefined, children: new Map() }
+          group.children.set(part, child)
+        }
+
+        group = child
       }
 
-      const extension: Record<string, string> = { var: token.var }
+      const extension: TokenExtension = { var: token.var }
 
       if (token.lineHeight) {
         extension.lineHeight = token.lineHeight
       }
 
-      group[path.at(-1)!] = {
-        ...dtcgValue(value, token.category, pathOf),
-        ...(token.description && context === "default" ? { $description: token.description } : {}),
-        $extensions: { parity: extension }
+      const written = dtcgValue(value, token.category, pathOf)
+
+      if (token.description && context === "default") {
+        written.$description = token.description
       }
+
+      written.$extensions = { parity: extension }
+      // Writing a token over a group replaces it, as assigning the object did, keeping its place among its siblings.
+      group.children.set(path.at(-1)!, { token: written, children: new Map() })
     }
 
-    return root
+    return groupOf(root)
   }
 
   if (contexts.length === 0) {
@@ -167,6 +225,34 @@ export function toDtcg(tokens: readonly CollectedToken[], prefix = ""): Record<s
     },
     resolutionOrder: [{ $ref: "#/sets/tokens" }, { $ref: "#/modifiers/theme" }]
   }
+}
+
+/** A built group as DTCG: its token's own fields first, then the groups and tokens below it. */
+function groupOf(branch: Branch): DtcgGroup {
+  const group: DtcgGroup = {}
+  const token = branch.token
+
+  if (token) {
+    if (token.$type) {
+      group.$type = token.$type
+    }
+
+    group.$value = token.$value
+
+    if (token.$description !== undefined) {
+      group.$description = token.$description
+    }
+
+    if (token.$extensions) {
+      group.$extensions = token.$extensions
+    }
+  }
+
+  for (const [name, child] of branch.children) {
+    group[name] = groupOf(child)
+  }
+
+  return group
 }
 
 /** A token's name below its category: `mantine-spacing-md` is `md`, `colorNeutralBackground1` is `neutralBackground1`. */
@@ -201,7 +287,7 @@ function nameParts(name: string, prefix: string, category: TokenCategory): strin
 }
 
 /** A CSS value as DTCG writes it, where DTCG can; anything else stays CSS, which Parity reads as written. */
-function dtcgValue(value: string, category: TokenCategory, paths: Map<string, string[]>): Record<string, unknown> {
+function dtcgValue(value: string, category: TokenCategory, paths: Map<string, string[]>): DtcgToken {
   const reference = /^var\(--([\w-]+)\)$/.exec(value.trim())?.[1]
 
   if (reference && paths.has(reference)) {
@@ -222,15 +308,13 @@ function dtcgValue(value: string, category: TokenCategory, paths: Map<string, st
     const channels = [0, 2, 4].map((at) => Math.round((parseInt(full.slice(at, at + 2), 16) / 255) * 1000) / 1000)
     const alpha = full.length === 8 ? Math.round((parseInt(full.slice(6, 8), 16) / 255) * 1000) / 1000 : undefined
 
-    return {
-      $type: "color",
-      $value: {
-        colorSpace: "srgb",
-        components: channels,
-        ...(alpha !== undefined && alpha < 1 ? { alpha } : {}),
-        hex: `#${full.slice(0, 6).toLowerCase()}`
-      }
+    const hexValue = `#${full.slice(0, 6).toLowerCase()}`
+
+    if (alpha !== undefined && alpha < 1) {
+      return { $type: "color", $value: { colorSpace: "srgb", components: channels, alpha, hex: hexValue } }
     }
+
+    return { $type: "color", $value: { colorSpace: "srgb", components: channels, hex: hexValue } }
   }
 
   const dimension = /^(-?\d*\.?\d+)(px|rem|em)$/.exec(value.trim())
@@ -239,13 +323,13 @@ function dtcgValue(value: string, category: TokenCategory, paths: Map<string, st
     dimension &&
     ["spacing", "radius", "font-size", "breakpoint", "tracking", "container", "leading"].includes(category)
   ) {
-    return { $type: "dimension", $value: { value: Number(dimension[1]), unit: dimension[2] } }
+    return { $type: "dimension", $value: { value: Number(dimension[1]), unit: dimension[2]! } }
   }
 
   const duration = /^(-?\d*\.?\d+)(ms|s)$/.exec(value.trim())
 
   if (duration && category === "motion") {
-    return { $type: "duration", $value: { value: Number(duration[1]), unit: duration[2] } }
+    return { $type: "duration", $value: { value: Number(duration[1]), unit: duration[2]! } }
   }
 
   if (/^-?\d*\.?\d+$/.test(value.trim())) {
