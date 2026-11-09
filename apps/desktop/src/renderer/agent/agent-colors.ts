@@ -1,4 +1,4 @@
-import { fnvStep } from "../bits.ts"
+import { fnv1a } from "../bits.ts"
 
 /**
  * An agent's colors: three stops its glow drifts between, the solid one its cursor wears, and text that reads on it, at
@@ -50,7 +50,7 @@ class AgentColors {
     }
 
     const taken = [...this.claimed.values()]
-    const preferred = hash(name) % agentPalettes.length
+    const preferred = fnv1a(name) % agentPalettes.length
     const distance = (index: number) => Math.min(Infinity, ...taken.map((other) => apart(index, other)))
     const free = [...agentPalettes.keys()].filter((index) => !taken.includes(index))
     let index = preferred
@@ -72,16 +72,6 @@ class AgentColors {
   release(agentId: string): void {
     this.claimed.delete(agentId)
   }
-}
-
-function hash(text: string): number {
-  let value = 2166136261
-
-  for (const char of text) {
-    value = fnvStep(value, char.codePointAt(0)!)
-  }
-
-  return value
 }
 
 export const agentColors = new AgentColors()

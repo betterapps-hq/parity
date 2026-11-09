@@ -1,4 +1,4 @@
-import { boardTarget, editNode, type Length, type NodeStyle } from "@parity-app/core"
+import { boardTarget, editNode, isNamedLength, type Length, type NodeStyle } from "@parity-app/core"
 import {
   type LengthToken,
   type PaddingSide,
@@ -186,8 +186,7 @@ export function spacingValue(
   const style: NodeStyle = edit?.start.style ?? {}
   const written = handle.kind === "gap" ? style.gap : sidesOf(style.padding)?.[paddingSides.indexOf(handle.side)]
 
-  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a length is steps or a token's name, with no tag to tell them apart
-  return typeof written === "string" ? { px: drawn, token: written } : { px: drawn }
+  return isNamedLength(written) ? { px: drawn, token: written } : { px: drawn }
 }
 
 function write(

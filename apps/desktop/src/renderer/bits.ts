@@ -6,8 +6,20 @@ export function hasFlag(flags: number, flag: number): boolean {
   return (flags & flag) === flag
 }
 
-/** One step of the FNV-1a hash, as an unsigned 32-bit number. */
-export function fnvStep(value: number, code: number): number {
-  // oxlint-disable-next-line no-bitwise -- FNV-1a is defined by XOR and a 32-bit unsigned result
-  return Math.imul(value ^ code, 16777619) >>> 0
+/** The flags combined, as the DOM's APIs take a set of them (`NodeFilter.SHOW_ELEMENT`, `NodeFilter.SHOW_TEXT`). */
+export function flagsOf(...flags: number[]): number {
+  // oxlint-disable-next-line no-bitwise -- the DOM takes a set of flags as one bit mask
+  return flags.reduce((all, flag) => all | flag, 0)
+}
+
+/** The 32-bit FNV-1a hash of `text`'s code points, as an unsigned number. */
+export function fnv1a(text: string): number {
+  let hash = 0x811c9dc5
+
+  for (const char of text) {
+    // oxlint-disable-next-line no-bitwise -- FNV-1a is defined by XOR and a 32-bit unsigned result
+    hash = Math.imul(hash ^ char.codePointAt(0)!, 0x01000193) >>> 0
+  }
+
+  return hash
 }

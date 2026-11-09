@@ -159,6 +159,12 @@ const length = z.union([finiteNumber, z.string()])
 
 export type Length = z.infer<typeof length>
 
+/** Whether a length, or a field's value, is a name (a length token's, or `"fill"` and `"hug"`) rather than steps. */
+export function isNamedLength(value: number | string | undefined): value is string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a length is steps (number) or a name (string), with no tag to tell them apart
+  return typeof value === "string"
+}
+
 /** A fixed length, or `"fill"` the parent, or `"hug"` the content: both are among Length's strings. */
 export type Size = Length
 
