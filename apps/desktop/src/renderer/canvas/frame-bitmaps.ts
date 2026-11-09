@@ -1,7 +1,7 @@
 import { type FrameGeometry, offscreenWindows, type RenderNode, type ResolvedMode, turns } from "@parity-app/core"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { react } from "tldraw"
-import type { RenderJob } from "../../shared/protocol.ts"
+import type { RenderJob, ServiceMethods } from "../../shared/protocol.ts"
 import { type FrameKeys, frameKeys, renderJob } from "../../shared/render-job.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -400,8 +400,34 @@ export function stored(key: string, job: RenderJob): Promise<KeptBitmap | undefi
   return read
 }
 
+/** What the service answers for a job: its kept bitmap and height, or neither. */
+type StoredAnswer = ServiceMethods["frames.stored"]["result"]["kept"][number]
+
+/** Jobs asked for in this task, waiting to be sent together once it's done. */
+let asking: { job: RenderJob; answer: (kept: StoredAnswer) => void }[] = []
+
+/**
+ * Asks for a job's kept bitmap together with every other asked for in the same task, as the frames of a canvas mounting
+ * all ask at once, as JSON text, which crosses to the service as one copy rather than a copy of every job's objects
+ * (PAR-759). A failed request answers that none was kept.
+ */
+function askStored(job: RenderJob): Promise<StoredAnswer> {
+  if (asking.length === 0) {
+    queueMicrotask(() => {
+      const asked = asking
+      asking = []
+      request("frames.stored", { jobs: JSON.stringify(asked.map(({ job }) => job)) }).then(
+        ({ kept }) => asked.forEach(({ answer }, index) => answer(kept[index] ?? {})),
+        () => asked.forEach(({ answer }) => answer({}))
+      )
+    })
+  }
+
+  return new Promise((answer) => asking.push({ job, answer }))
+}
+
 async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
-  const { src, height } = await request("frames.stored", { job }).catch((): { src?: string; height?: number } => ({}))
+  const { src, height } = await askStored(job)
   const captured = bitmaps.get(key)
 
   if (captured) {

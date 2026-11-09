@@ -200,6 +200,11 @@ Storybook or the CLI.
 - **While a project's canvas mounts, the page isn't recorded,** from the tab being ready until its first frame shows, or
   5 seconds at most. The replay keeps the page as it was before, then a snapshot of the canvas once the frame shows, in
   the same replay. Clicks and requests are still recorded meanwhile.
+- **Recording doesn't grow the window's memory over a session.** Over an hour of zooming, selecting and editing, the JS
+  heap and the window's private memory stayed level with Replay on, as with it off. The page counts about 21,000 more
+  DOM nodes while recording: one for each attribute of each element the recorder reads, which go with their elements.
+  `pnpm perf --soak <minutes>` measures it again; see "Session Replay's memory stays level over an hour" in
+  [decisions.md](decisions.md).
 
 A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
 shadow roots: it kept every one it saw, and with a frame's the closed project's canvas. The offscreen windows that draw

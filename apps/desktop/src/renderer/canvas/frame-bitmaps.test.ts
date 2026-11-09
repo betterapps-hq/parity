@@ -42,11 +42,22 @@ describe("capture", () => {
 })
 
 describe("stored", () => {
-  /** Answers each method the service is asked with `answers[method]`, counting what's asked. */
-  function service(answers: Record<string, () => Promise<{ src?: string; height?: number }>>) {
-    const request = vi.fn<(method: string) => Promise<{ src?: string; height?: number }>>((method) =>
-      answers[method]!()
-    )
+  type Kept = { src?: string; height?: number }
+
+  /**
+   * Answers each method the service is asked with `answers[method]`, counting what's asked: a capture with what it
+   * gives, and each job asked for kept bitmaps with what it gives for that job.
+   */
+  function service(answers: Record<string, (job?: RenderJob) => Promise<Kept>>) {
+    const request = vi.fn<(method: string, params: unknown) => Promise<unknown>>((method, params) => {
+      const { jobs } = params as { jobs?: string }
+
+      return jobs === undefined
+        ? answers[method]!()
+        : Promise.all((JSON.parse(jobs) as RenderJob[]).map((asked) => answers[method]!(asked))).then((kept) => ({
+            kept
+          }))
+    })
 
     vi.stubGlobal("window", { canvasHost: { ask: preloadAnswers(request) } })
 
@@ -70,6 +81,26 @@ describe("stored", () => {
     const [a, b] = await Promise.all([stored("shared", job), stored("shared", job)])
     expect(a).toBe(b)
     expect(request).toHaveBeenCalledTimes(1)
+  })
+
+  it("asks once for the frames that mount together, giving each its own bitmap", async () => {
+    const first = { tree: "first" } as RenderJob
+    const second = { tree: "second" } as RenderJob
+
+    const request = service({
+      "frames.stored": (asked) =>
+        Promise.resolve(asked?.tree === "first" ? { src: "data:image/webp;base64,FIRST", height: 320 } : {})
+    })
+
+    const [a, b] = await Promise.all([stored("first", first), stored("second", second)])
+    expect(a).toEqual({ src: "data:image/webp;base64,FIRST", height: 320 })
+    expect(b).toBeUndefined()
+    expect(request.mock.calls).toEqual([["frames.stored", { jobs: JSON.stringify([first, second]) }]])
+  })
+
+  it("has none when the service couldn't say", async () => {
+    service({ "frames.stored": () => Promise.reject(new Error("closed")) })
+    expect(await stored("unanswered", job)).toBeUndefined()
   })
 
   it("has none when none was kept", async () => {
