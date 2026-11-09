@@ -4807,8 +4807,12 @@ How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
   as `win32-x64`, and an installed build tags its events with `update_channel`, stable or beta, the update preference,
   which changes as the person changes it.
 - **Maps are matched by debug ID, not by file name and release.** `sentry-cli sourcemaps inject` gives each bundle an ID
-  from its contents, so the same code gets the same ID on every system and every run. One upload then covers all three
-  installers, and a renamed or moved file still resolves.
+  from its contents and its map, so the same code gets the same ID on every system and every run. One upload then covers
+  all three installers, and a renamed or moved file still resolves.
+- **Every system names pnpm's folders the same (PAR-685).** pnpm shortens `node_modules/.pnpm`'s folder names to 60
+  characters on Windows and 120 elsewhere, so the window's map listed different paths on Windows and its debug ID
+  differed: the Windows installer's stacks stayed minified while macOS's and Linux's resolved. `pnpm-workspace.yaml`
+  sets `virtualStoreDirMaxLength: 60` everywhere, Windows' own length, so Windows installs don't change.
 - **The release workflow builds the published version again to upload its maps.** The shared release template builds the
   installers with one secret, the tldraw key, and changing it was out of scope, so a job after it checks out the
   version's tag, builds it on Ubuntu with the same key and channel, and uploads. Its bundles match the installers'

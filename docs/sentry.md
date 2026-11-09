@@ -67,8 +67,10 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
   without the key, which changes the window's bundles.
 - **The shared templates build without Sentry's token,** so each upload after one goes through
   [upload-sourcemaps.yml](../.github/workflows/upload-sourcemaps.yml): it builds the commit or tag again on Ubuntu with
-  the template's command and runs `scripts/upload-sourcemaps.ts`. Each debug ID comes from its bundle's contents, and
-  the build is the same on every system, so the maps match what the template built.
+  the template's command and runs `scripts/upload-sourcemaps.ts`. Each debug ID comes from its bundle and its map, and
+  the build is the same on every system, so the maps match what the template built. That needs every system to name
+  `node_modules/.pnpm`'s folders alike, which `virtualStoreDirMaxLength` in `pnpm-workspace.yaml` sees to: pnpm's own
+  default is shorter on Windows, and the maps list those paths.
 - **The CLI's release comes from `dist/build.json`,** which `vp pack` writes beside the bundles: only the build
   `npm publish` makes (its `prepack`) is `parity-cli@<version>`. A pkg.pr.new preview or a checkout's own `dist` is
   named by the commit it was built from, and a checkout run from source by its current commit.
