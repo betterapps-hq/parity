@@ -141,13 +141,15 @@ export interface ProcessMemory {
 }
 
 /** Which of `process.memory`'s totals each role counts toward, besides `totalBytes`. */
-const roleTotals: Record<string, "mainBytes" | "serviceBytes" | "editorBytes" | "renderBytes"> = {
-  app: "mainBytes",
-  service: "serviceBytes",
-  window: "editorBytes",
-  "this-window": "editorBytes",
-  offscreen: "renderBytes"
-}
+const roleTotals = new Map(
+  Object.entries({
+    app: "mainBytes",
+    service: "serviceBytes",
+    window: "editorBytes",
+    "this-window": "editorBytes",
+    offscreen: "renderBytes"
+  } as const)
+)
 
 /**
  * `process.memory`'s attributes from each process's memory: a whole number of bytes per role, which Sentry's logs can
@@ -161,7 +163,7 @@ export function memoryRecord(
   const totals = { mainBytes: 0, serviceBytes: 0, editorBytes: 0, renderBytes: 0, totalBytes: 0 }
 
   for (const { role, memory } of processes) {
-    const total = roleTotals[role]
+    const total = roleTotals.get(role)
 
     if (total) {
       totals[total] += memory
