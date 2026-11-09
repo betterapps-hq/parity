@@ -82,7 +82,7 @@ monitor breaches", sends the email and sets Urgent for a critical issue.
 
 ### The environments
 
-Today `tester` is any installed build. PAR-778 splits it in two, so each can be watched apart:
+`tester` was any installed build until PAR-778 split it in two, so each can be watched apart:
 
 | Environment   | What sends it                                                      |
 | ------------- | ------------------------------------------------------------------ |
@@ -94,20 +94,20 @@ Today `tester` is any installed build. PAR-778 splits it in two, so each can be 
 
 ## Stability
 
-| Signal                         | Comes from                                                                                   | Widget (Parity)                               | Alert                                                                  |
-| ------------------------------ | -------------------------------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------- |
-| Crash-free sessions            | Releases: `crash_free_rate(session)`, by `release`                                           | Crash-free sessions by release (Parity)       | Under 99% in `production` over 1 h: High. Under 97%: Critical. PAR-714 |
-| Crash-free users               | Releases: `crash_free_rate(user)`, by `release`                                              | Crash-free users by release (Parity)          | Watch                                                                  |
-| Crashes by process             | Errors: `error.handled:false`, `count()` by `process`, `environment`                         | Crashes by process (Parity)                   | Covered by "File new issues and regressions in Linear"                 |
-| Native crashes                 | Errors: `error.mechanism:minidump`, `count()` by `process`, `release`                        | Same widget, as its own series                | Same                                                                   |
-| Out of memory and lost windows | Errors from `childProcessIntegration`: `abnormal-exit`, `launch-failed`, `oom`, by `process` | Crashes by process (Parity)                   | Same                                                                   |
-| Main's loop blocked            | Errors: `hang:main`, `count()`                                                               | Hangs by process (Parity)                     | 5 or more in 1 h in `production`: High                                 |
-| Windows hung                   | Errors: `hang:window`, `count()` by `process` (`renderer` or `render`)                       | Hangs by process (Parity)                     | 3 or more in 1 h in `production`: High                                 |
-| Service restarts               | Only a breadcrumb today, and the utility process's `abnormal-exit` when it crashed           | Service restarts (Parity), once PAR-771 lands | 3 or more in 1 h in `production`: High, once PAR-771 lands             |
-| Error volume                   | Errors: `count()` and `count_unique(user)`, by `project`, `environment`                      | Errors over time (Parity)                     | Watch                                                                  |
-| Top errors                     | Errors: `count()`, `count_unique(user)` by `issue`, `title`, `release`, `environment`        | Top errors by release and environment         | Watch                                                                  |
-| New and regressed issues       | Issues: `is:unresolved firstSeen:-24h`, and `is:regressed`                                   | New issues today, Regressed issues (Parity)   | Covered by "File new issues and regressions in Linear"                 |
-| Errors people saw              | Logs: `message:error.caught`, `count()` by `action`, `code`                                  | Errors shown, by action (Parity)              | Watch. Each is a Sentry error too, so a new one already files          |
+| Signal                         | Comes from                                                                                    | Widget (Parity)                             | Alert                                                                  |
+| ------------------------------ | --------------------------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------- |
+| Crash-free sessions            | Releases: `crash_free_rate(session)`, by `release`                                            | Crash-free sessions by release (Parity)     | Under 99% in `production` over 1 h: High. Under 97%: Critical. PAR-714 |
+| Crash-free users               | Releases: `crash_free_rate(user)`, by `release`                                               | Crash-free users by release (Parity)        | Watch                                                                  |
+| Crashes by process             | Errors: `error.handled:false`, `count()` by `process`, `environment`                          | Crashes by process (Parity)                 | Covered by "File new issues and regressions in Linear"                 |
+| Native crashes                 | Errors: `error.mechanism:minidump`, `count()` by `process`, `release`                         | Same widget, as its own series              | Same                                                                   |
+| Out of memory and lost windows | Errors from `childProcessIntegration`: `abnormal-exit`, `launch-failed`, `oom`, by `process`  | Crashes by process (Parity)                 | Same                                                                   |
+| Main's loop blocked            | Errors: `hang:main`, `count()`                                                                | Hangs by process (Parity)                   | 5 or more in 1 h in `production`: High                                 |
+| Windows hung                   | Errors: `hang:window`, `count()` by `process` (`renderer` or `render`)                        | Hangs by process (Parity)                   | 3 or more in 1 h in `production`: High                                 |
+| Service restarts               | Logs: `message:service.exited`, `count()` by `release`, with `exitCode`, `ranMs`, `restarted` | Service restarts (Parity)                   | 3 or more in 1 h in `production`: High                                 |
+| Error volume                   | Errors: `count()` and `count_unique(user)`, by `project`, `environment`                       | Errors over time (Parity)                   | Watch                                                                  |
+| Top errors                     | Errors: `count()`, `count_unique(user)` by `issue`, `title`, `release`, `environment`         | Top errors by release and environment       | Watch                                                                  |
+| New and regressed issues       | Issues: `is:unresolved firstSeen:-24h`, and `is:regressed`                                    | New issues today, Regressed issues (Parity) | Covered by "File new issues and regressions in Linear"                 |
+| Errors people saw              | Logs: `message:error.caught`, `count()` by `action`, `code`                                   | Errors shown, by action (Parity)            | Watch. Each is a Sentry error too, so a new one already files          |
 
 ## Performance
 
@@ -130,7 +130,7 @@ filter. Thresholds are p95 over the window named, in `production`, set above wha
 | CLI commands             | Spans in `parity-cli`: `span.op:cli.ran`, `span.duration` by `command`                      | CLI commands                          | Watch                                           |
 | Service requests         | Spans: `span.op:request.handled`, `span.duration` by `method`                               | Slowest service requests              | Watch                                           |
 | Service loop lag         | Logs: `message:service.lag`, `count()` and `p95(lateMs)`                                    | Event loop lag                        | 20 or more in 1 h in `production`: High         |
-| Main loop lag            | Errors: `hang:main`, as in Stability. How long isn't searchable yet (PAR-771)               | Event loop lag                        | As in Stability                                 |
+| Main loop lag            | Logs: `message:main.blocked`, `count()` and `p95(stuckMs)`                                  | Event loop lag                        | As in Stability                                 |
 | Long tasks in the editor | Logs: `message:renderer.long_task`, `count()` and `p95(durationMs)` by `action`             | Long tasks by input                   | Watch                                           |
 | Memory                   | Logs: `message:process.memory`. Its `processes` list can't be charted yet (PAR-772)         | Memory by process, once PAR-772 lands | Watch, then main or the service over 2 GB: High |
 
@@ -301,7 +301,8 @@ Each of these is a Linear issue in the Product telemetry stream, filed on 2026-1
 **PAR-714** now watches `production` rather than `tester`, and is blocked by PAR-779.
 
 **`release` beside Sentry's own release:** an environment named `release` reads oddly next to Sentry's `release` field
-(`environment:release release:parity-desktop@0.21.0`). PAR-778 can name it `published` instead if that reads better.
+(`environment:release release:parity-desktop@0.21.0`). PAR-778 kept `release`, the name this spec and its widgets
+already use.
 
 ## What needs a paid plan
 
@@ -330,6 +331,5 @@ Andrew settled these on 2026-11-09:
 
 ## Open questions
 
-1. **`release` or `published`** for the published app's environment? PAR-778 decides.
-2. **The plan and the quotas** are Andrew's, before 2026-11-19, as [Telemetry's own health](#telemetrys-own-health)
+1. **The plan and the quotas** are Andrew's, before 2026-11-19, as [Telemetry's own health](#telemetrys-own-health)
    says.

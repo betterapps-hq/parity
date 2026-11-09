@@ -104,14 +104,19 @@ describe("desktopDataFolder", () => {
 })
 
 describe("telemetryEnvironment", () => {
-  it("names CI runs, installed builds and checkouts", () => {
-    expect(telemetryEnvironment({ CI: "true" }, true)).toBe("ci")
-    expect(telemetryEnvironment({}, true)).toBe("tester")
-    expect(telemetryEnvironment({}, false)).toBe("development")
+  it("names the published app and CLI release, and any other installed build a preview", () => {
+    expect(telemetryEnvironment({}, { installed: true, published: true })).toBe("release")
+    expect(telemetryEnvironment({}, { installed: true, published: false })).toBe("preview")
+  })
+
+  it("names a checkout development, and a run in CI ci, whatever the build", () => {
+    expect(telemetryEnvironment({}, { installed: false, published: false })).toBe("development")
+    expect(telemetryEnvironment({ CI: "true" }, { installed: true, published: true })).toBe("ci")
+    expect(telemetryEnvironment({ CI: "true" }, { installed: true, published: false })).toBe("ci")
   })
 
   it("doesn't count CI set to false", () => {
-    expect(telemetryEnvironment({ CI: "false" }, false)).toBe("development")
-    expect(telemetryEnvironment({ CI: "" }, true)).toBe("tester")
+    expect(telemetryEnvironment({ CI: "false" }, { installed: false, published: false })).toBe("development")
+    expect(telemetryEnvironment({ CI: "" }, { installed: true, published: false })).toBe("preview")
   })
 })

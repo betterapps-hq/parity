@@ -6660,6 +6660,21 @@ at its fullest level, everywhere Parity runs" above for CI alone.
   process, since windows and the service send through main. The editor window doesn't start Replay. The CLI's sink keeps
   logs and spans out of its outbox.
 
+## Installed builds report as `preview` or `release` (PAR-778)
+
+A pull request's preview installer and the published app both reported as `tester`, so a preview's bugs read as the
+release's. You decided on 2026-11-09 to split them. This replaces `tester` in "Environments" under PAR-624 above.
+
+- **`release` is a build the release workflow published; `preview` is any other installed build.**
+  `telemetryEnvironment` reads the same `published` that names the release by version (PAR-625), so an environment and
+  its release never disagree: the app's installer from `cd-desktop.yml` and the CLI `npm publish` made are `release`,
+  and a pull request's installer or a pkg.pr.new CLI is `preview`. `ci` and `development` don't change.
+- **My call: `release`, not `published`.** The spec left it open since `environment:release` sits oddly beside Sentry's
+  own `release` field. `release` is the name the spec, its widgets and PAR-779 already use.
+- **Both still offer the last run's crash,** since testers run both.
+- **Nothing in Sentry needed changing.** No dashboard widget, monitor or alert filtered on `tester`. Events sent before
+  this keep `tester`.
+
 ## Icon layers show Smile (PAR-793)
 
 You picked on 2026-11-09, from five in the Icon layers exploration (Smile, Sticker, Heart, Asterisk and Feather), that

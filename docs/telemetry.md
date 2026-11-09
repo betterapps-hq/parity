@@ -27,8 +27,8 @@ up.
 
 Every error, span, log and replay is tagged so a test pass can be found and filtered in Sentry:
 
-- **`environment`:** `development` for `pnpm dev` and agent drives, `ci` wherever `CI` is set, `tester` for installed
-  builds.
+- **`environment`:** `development` for `pnpm dev` and agent drives, `ci` wherever `CI` is set, `preview` for a pull
+  request's installer or a pkg.pr.new CLI, and `release` for the published app and CLI (PAR-778).
 - **`release`:** the published version, or the commit any other build was made from.
 - **`test_run`:** from `PARITY_TEST_RUN`, when it's set. The end-to-end suite sets it to `github-<run>-<attempt>` in
   GitHub Actions, and `pnpm perf` to `perf-<time>` unless it's already set. An agent that starts a copy to drive with
@@ -108,6 +108,13 @@ The end-to-end suite reads back what the app recorded and checks the main workfl
   full, and every line of it carries that `testRun`, which the suite checks. The editor window doesn't start Session
   Replay. The `parity` command it runs does the same, with the same tags, and writes its log and outbox inside the
   copy's profile.
+- **A CI run's spans and logs are kept as an artifact of its run** (PAR-785), named `telemetry-github-<run>-<attempt>`
+  after its `test_run` and kept for 7 days, whether the tests passed or not. Before the suite removes the copy's
+  profile, `e2e/launch.ts` copies the app's `logs/`, the `parity` commands' `cli-logs/` and the app's output, `app.log`,
+  to the folder `PARITY_E2E_TELEMETRY` names, which `app.yml` uploads. Download it from the run's summary page or with
+  `gh run download <run> -n telemetry-github-<run>-<attempt>`, and read it with
+  `PARITY_USER_DATA=<folder> parity logs --session all`, which takes the same filters as the app's own copy. The CLI's
+  files are JSON lines too, read directly.
 
 ## Agents and the CLI
 
@@ -136,8 +143,8 @@ Agents' calls are recorded where they're answered, once for every operation, whi
   `parity` process that sends it and exits. That costs a command about 20 ms. `parity mcp` hands over what's waiting
   every 10 seconds as well. One sender runs at a time, and a batch a day old is dropped.
 - **The CLI's release** is `parity-cli@<version>` when `npm publish` built it, and otherwise the commit it was built
-  from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Installed from npm or a preview
-  URL, it reports as `tester`; from a checkout, as `development`.
+  from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Published to npm, it reports as
+  `release`; from a pkg.pr.new preview URL, as `preview`; from a checkout, as `development`.
 - **Agents report what they find** with `parity report "<what's wrong>"` or MCP's `report_problem` (PAR-646), above all
   when nothing threw: a test pass that sees a wrong result. The service draws the frames of the design it names, asks
   the window to flush its replay, and passes both to main, which sends a Sentry user feedback from `parity-desktop` as
@@ -399,6 +406,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                                                      |
 | `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                                             |
 | `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                     |
+| `main.blocked`        | warn  | all  | main                                    | Main's event loop runs again after being blocked for over 2 seconds.                                         |
 | `mcp.session`         | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                                            |
 | `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.                          |
 | `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                                        |
@@ -420,6 +428,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                                                       |
 | `server.failed`       | warn  | all  | service                                 | A server the process manager started can't start.                                                            |
 | `server.started`      | info  | all  | service                                 | A server the process manager started answers at its address.                                                 |
+| `service.exited`      | warn  | all  | main                                    | The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits.   |
 | `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                     |
 | `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                              |
 | `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                                         |
@@ -433,6 +442,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                                              |
 | `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                     |
 | `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                                                |
+| `window.hung`         | warn  | all  | main                                    | A window that stopped answering answers again.                                                               |
 
 ### `agent.called`
 
@@ -768,6 +778,12 @@ Some failures are recorded for you, so code doesn't record them again:
 | `version` | `string`, optional | The version installed, when known               |
 | `code`    | `string`, optional | The `CodedError` code, when the failure has one |
 
+### `main.blocked`
+
+| Attribute | Type      | Meaning                                                                 |
+| --------- | --------- | ----------------------------------------------------------------------- |
+| `stuckMs` | `integer` | How late main's timer ran, which is how long its event loop was blocked |
+
 ### `mcp.session`
 
 | Attribute         | Type               | Meaning                                                        |
@@ -971,6 +987,14 @@ Some failures are recorded for you, so code doesn't record them again:
 | `name`       | `string` | Its name, as the processes list shows it |
 | `durationMs` | `number` | How long it took, in milliseconds        |
 
+### `service.exited`
+
+| Attribute   | Type      | Meaning                                                                                                 |
+| ----------- | --------- | ------------------------------------------------------------------------------------------------------- |
+| `exitCode`  | `integer` | The code the project service exited with                                                                |
+| `ranMs`     | `integer` | How long it ran before it exited                                                                        |
+| `restarted` | `boolean` | Whether a fresh service took its place as it exited. A crashed one is started again when a window loads |
+
 ### `service.lag`
 
 | Attribute | Type      | Meaning                                                                        |
@@ -1072,5 +1096,12 @@ Some failures are recorded for you, so code doesn't record them again:
 | `channel`   | `"stable" \| "beta"` | The update channel this install takes |
 | `version`   | `string`             | The version running now               |
 | `available` | `string`             | The version being installed           |
+
+### `window.hung`
+
+| Attribute | Type                     | Meaning                                                                                 |
+| --------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| `window`  | `"renderer" \| "render"` | Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames |
+| `stuckMs` | `integer`                | How long the window didn't answer                                                       |
 
 <!-- End of the generated events. -->

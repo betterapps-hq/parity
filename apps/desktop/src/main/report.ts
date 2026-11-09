@@ -79,7 +79,7 @@ export interface Reports {
 
 /** Whether a crash on the last run is offered: only in installed builds, where testers run Parity, not agents or CI. */
 export function offersCrashReports(environment: string): boolean {
-  return environment === "tester"
+  return environment === "preview" || environment === "release"
 }
 
 export function createReports({
