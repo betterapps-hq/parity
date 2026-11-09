@@ -1,4 +1,4 @@
-import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, PatchUnset, StateSpec } from "./document.ts"
+import type { ContainerSpec, DesignNode, NodePatch, NodeStyle, PatchUnset, PropValues, StateSpec } from "./document.ts"
 import { alternativeLimit, closest, CodedError } from "./errors.ts"
 import { uniqueId } from "./modes.ts"
 import {
@@ -386,7 +386,7 @@ export function nodeInState(
   node: DesignNode,
   state: StateSpec | undefined,
   variants: readonly PatchLayer[] = [],
-  args?: Record<string, unknown>
+  args?: PropValues
 ): DesignNode {
   const patch = layeredPatch([...variants, state?.overrides], node.id)
 
@@ -411,8 +411,8 @@ export function nodeOnBoard(container: ContainerSpec, node: DesignNode, state: S
 export interface NodeChange {
   hidden?: boolean
   text?: string
-  props?: Record<string, unknown>
-  style?: { [K in keyof NodeStyle]?: NodeStyle[K] | undefined }
+  props?: PropValues
+  style?: Changes<NodeStyle>
   unset?: PatchUnset
 }
 
@@ -421,7 +421,7 @@ export interface NodeChange {
  * the base state that removes it from the design, as clearing always did; in another state the state turns it off,
  * even where the design sets it. Taking back a state's change is Reset (`resetOverride`).
  */
-export function propChange(name: string, value: unknown): NodeChange {
+export function propChange(name: string, value: PropValues[string]): NodeChange {
   return value === undefined ? { unset: { props: [name] } } : { props: { [name]: value } }
 }
 
@@ -435,7 +435,8 @@ export interface EditTarget {
 }
 
 export function toEditTarget(target: string | EditTarget): EditTarget {
-  return typeof target === "string" ? { state: target } : target
+  // An `EditTarget` is always an object, and a state id a string, which isn't one.
+  return target instanceof Object ? target : { state: target }
 }
 
 /**
@@ -638,7 +639,12 @@ function withBoundDefaults(container: ContainerSpec, node: DesignNode, change: N
       updated.default = value
     }
 
-    next = { ...next, [name]: updated }
+    // Copied once, on the first default that changes, so a design whose defaults all stay is returned as it was.
+    if (next === params) {
+      next = { ...params }
+    }
+
+    next[name] = updated
   }
 
   return next === params ? container : { ...container, params: next }
@@ -666,19 +672,11 @@ export function patchWith(
   }
 
   if (change.props) {
-    let baseProps: Record<string, unknown> = {}
-
-    if (under.type === "component") {
-      baseProps = under.props ?? {}
-    } else if (under.type === "instance") {
-      baseProps = under.args ?? {}
-    }
-
-    patch.props = mergeValues(patch.props, change.props, baseProps)
+    patch.props = mergeValues<PropValues>(patch.props, change.props, ownProps(under))
   }
 
   if (change.style) {
-    patch.style = mergeValues(patch.style as Values, change.style, (under.style ?? {}) as Values)
+    patch.style = mergeValues<NodeStyle>(patch.style, change.style, under.style ?? {})
   }
 
   if (patch.unset || change.unset) {
@@ -709,24 +707,17 @@ export function patchWith(
  * shows as taken away already, so there's nothing to keep.
  */
 function unsetWith(patch: NodePatch, under: DesignNode, change: NodeChange): PatchUnset | undefined {
-  let baseProps: Record<string, unknown> = {}
-
-  if (under.type === "component") {
-    baseProps = under.props ?? {}
-  } else if (under.type === "instance") {
-    baseProps = under.args ?? {}
-  }
-
+  // Each takes the keys the change sets and the keys `under` has, which are all it needs of their values.
   const keys = <K extends string>(
     kept: readonly K[] | undefined,
-    changed: object | undefined,
+    changed: readonly string[],
     taken: readonly K[] | undefined,
-    base: object
+    base: readonly string[]
   ) => {
-    const next = new Set((kept ?? []).filter((key) => !Object.hasOwn(changed ?? {}, key)))
+    const next = new Set((kept ?? []).filter((key) => !changed.includes(key)))
 
     for (const key of taken ?? []) {
-      if (Object.hasOwn(base, key)) {
+      if (base.includes(key)) {
         next.add(key)
       } else {
         next.delete(key)
@@ -736,14 +727,49 @@ function unsetWith(patch: NodePatch, under: DesignNode, change: NodeChange): Pat
     return next.size > 0 ? [...next] : undefined
   }
 
-  const props = keys(patch.unset?.props, change.props, change.unset?.props, baseProps)
-  const style = keys(patch.unset?.style, change.style, change.unset?.style, under.style ?? {})
+  const props = keys(
+    patch.unset?.props,
+    Object.keys(change.props ?? {}),
+    change.unset?.props,
+    Object.keys(ownProps(under))
+  )
 
+  const style = keys(
+    patch.unset?.style,
+    Object.keys(change.style ?? {}),
+    change.unset?.style,
+    Object.keys(under.style ?? {})
+  )
+
+  return unsetOf(props, style)
+}
+
+/** What a patch takes away: these props and style keys, or nothing when there are none. */
+function unsetOf(props: PatchUnset["props"], style: PatchUnset["style"]): PatchUnset | undefined {
   if (!props && !style) {
     return undefined
   }
 
-  return { ...(props ? { props } : {}), ...(style ? { style } : {}) }
+  const unset: PatchUnset = {}
+
+  if (props) {
+    unset.props = props
+  }
+
+  if (style) {
+    unset.style = style
+  }
+
+  return unset
+}
+
+/** The props a node sets itself: a component's props, or an instance's args. Other nodes have none. */
+function ownProps(node: DesignNode): PropValues {
+  if (node.type === "component") {
+    return node.props ?? {}
+  }
+
+  return node.type === "instance" ? (node.args ?? {}) : {}
 }
 
 /** Whether a patch changes a field: sets it, or for a prop or style key, takes it away. */
@@ -753,10 +779,11 @@ export function changesField(patch: NodePatch | undefined, field: PatchField): b
   }
 
   if (field.kind === "props" || field.kind === "style") {
-    const values: Values = { ...patch[field.kind] }
     const unset: readonly string[] = patch.unset?.[field.kind] ?? []
 
-    return values[field.key] !== undefined || unset.includes(field.key)
+    const set = Object.entries(patch[field.kind] ?? {}).some(([key, value]) => key === field.key && value !== undefined)
+
+    return set || unset.includes(field.key)
   }
 
   return patch[field.kind] !== undefined
@@ -837,7 +864,7 @@ export function resetOverride(
 }
 
 function applyChange(node: DesignNode, change: NodeChange): DesignNode {
-  const next = { ...node } as DesignNode & Record<string, unknown>
+  const next: DesignNode = { ...node }
 
   if (Object.hasOwn(change, "hidden")) {
     if (change.hidden) {
@@ -852,15 +879,15 @@ function applyChange(node: DesignNode, change: NodeChange): DesignNode {
   }
 
   if (change.props && next.type === "component") {
-    next.props = mergeValues(next.props, change.props, {})
+    next.props = mergeValues<PropValues>(next.props, change.props, {})
   }
 
   if (change.props && next.type === "instance") {
-    next.args = mergeValues(next.args, change.props, {})
+    next.args = mergeValues<PropValues>(next.args, change.props, {})
   }
 
   if (change.style) {
-    next.style = mergeValues(next.style as Values, change.style, {})
+    next.style = mergeValues<NodeStyle>(next.style, change.style, {})
   }
 
   // In the design, taking a key away removes it.
@@ -893,13 +920,24 @@ function applyChange(node: DesignNode, change: NodeChange): DesignNode {
   return next
 }
 
-type Values = Record<string, unknown>
+/** A change to some values by key, as props or style: a key set to `undefined` clears it. */
+type Changes<T> = { [K in keyof T]?: T[K] | undefined }
 
 /** Applies `change` over `current`; undefined clears a key, and a value equal to `base` isn't kept as an override. */
-function mergeValues<T extends object>(current: T | undefined, change: object, base: Values): T | undefined {
-  const next: Values = { ...current }
+function mergeValues<T extends object>(
+  current: Changes<T> | undefined,
+  change: Changes<T>,
+  base: Changes<T>
+): Changes<T> | undefined {
+  const next: Changes<T> = { ...current }
 
-  for (const [key, value] of Object.entries(change)) {
+  for (const key in change) {
+    if (!Object.hasOwn(change, key)) {
+      continue
+    }
+
+    const value = change[key]
+
     if (value === undefined || (Object.hasOwn(base, key) && sameValue(base[key], value))) {
       delete next[key]
     } else {
@@ -907,14 +945,14 @@ function mergeValues<T extends object>(current: T | undefined, change: object, b
     }
   }
 
-  return Object.keys(next).length > 0 ? (next as T) : undefined
+  return Object.keys(next).length > 0 ? next : undefined
 }
 
 function emptyAsUndefined<T extends object>(values: T): T | undefined {
   return Object.keys(values).length > 0 ? values : undefined
 }
 
-function sameValue(a: unknown, b: unknown): boolean {
+function sameValue<T>(a: T, b: T): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
@@ -940,8 +978,10 @@ export function tidyPatch(patch: NodePatch): NodePatch {
   const props = patch.unset?.props?.length ? patch.unset.props : undefined
   const style = patch.unset?.style?.length ? patch.unset.style : undefined
 
-  if (props || style) {
-    next.unset = { ...(props ? { props } : {}), ...(style ? { style } : {}) }
+  const unset = unsetOf(props, style)
+
+  if (unset) {
+    next.unset = unset
   }
 
   return next
@@ -968,7 +1008,13 @@ function refuseOnFrame(container: ContainerSpec, why: string): void {
 
 const oneState = "which has one state. Make it a screen or a component to add states."
 
-export function addState(container: ContainerSpec, name: string): { container: ContainerSpec; id: string } {
+/** A design with a state or option added, and the new one's id. */
+interface Added {
+  container: ContainerSpec
+  id: string
+}
+
+export function addState(container: ContainerSpec, name: string): Added {
   refuseOnFrame(container, oneState)
 
   const id = uniqueId(
@@ -985,7 +1031,7 @@ export function renameState(container: ContainerSpec, stateId: string, name: str
   return replaceState(container, { ...state, name })
 }
 
-export function duplicateState(container: ContainerSpec, stateId: string): { container: ContainerSpec; id: string } {
+export function duplicateState(container: ContainerSpec, stateId: string): Added {
   refuseOnFrame(container, oneState)
   const state = findState(container, stateId)
   const name = `${state.name} copy`
@@ -1011,7 +1057,13 @@ export function removeState(container: ContainerSpec, stateId: string): Containe
   const states = container.states.filter((state) => state.id !== stateId)
   const view = container.view?.state === stateId ? { ...container.view, state: states[0]!.id } : container.view
 
-  return { ...container, states, ...(view ? { view } : {}) }
+  const next: ContainerSpec = { ...container, states }
+
+  if (view) {
+    next.view = view
+  }
+
+  return next
 }
 
 /** Moves a state to a new position. The base state stays first. */
@@ -1118,7 +1170,13 @@ export function mapPatches(container: ContainerSpec, rename: (key: string) => st
     return container
   }
 
-  return { ...container, states, ...(params ? { params } : {}) }
+  const next: ContainerSpec = { ...container, states }
+
+  if (params) {
+    next.params = params
+  }
+
+  return next
 }
 
 // Several nodes at once ------------------------------------------------------------------------------------------------
@@ -1296,11 +1354,7 @@ export function addVariant(container: ContainerSpec, name: string, options: read
 }
 
 /** Adds an option to a variant, last. */
-export function addVariantOption(
-  container: ContainerSpec,
-  param: string,
-  name: string
-): { container: ContainerSpec; id: string } {
+export function addVariantOption(container: ContainerSpec, param: string, name: string): Added {
   const spec = variantParam(container, param)
 
   const id = uniqueId(
@@ -1390,5 +1444,5 @@ function variantParam(container: ContainerSpec, param: string) {
     throw new Error(`${container.name} has no variant "${param}"`)
   }
 
-  return spec as typeof spec & { options: NonNullable<typeof spec.options> }
+  return { ...spec, options: spec.options }
 }

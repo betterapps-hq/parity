@@ -14,6 +14,7 @@ import {
   withLibraryCanvas
 } from "./library.ts"
 import { componentLibrary, resolveDesign } from "./render.ts"
+import type { JsonValue } from "./schema.ts"
 import { isSampleRender } from "./values/evaluate.ts"
 
 describe("parseLibraryManifest", () => {
@@ -320,7 +321,7 @@ describe("library manifest fields", () => {
   })
 
   it("checks a decorator's values when the file loads, and says where a value form is wrong", () => {
-    const decorated = (value: unknown) => () =>
+    const decorated = (value: JsonValue) => () =>
       parseLibraryManifest({ version: 3, name: "x", decorators: [{ attributes: { "data-x": value } }] })
 
     const at = "/decorators/0/attributes/data-x"
@@ -338,7 +339,7 @@ describe("library manifest fields", () => {
       { style: plain }
     ])
 
-    const forms = [
+    const forms: JsonValue[] = [
       { $import: "pkg", export: "theme" },
       { $call: { import: "pkg", export: "make" }, args: [{ $frame: "host" }], methods: [{ method: "create" }] },
       { $global: "theme", values: { dark: "dark" }, default: "light" },

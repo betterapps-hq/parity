@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { deviceKinds } from "./devices.ts"
 import type { ContainerSpec } from "./document.ts"
-import { fileObject, finiteNumber, parseData } from "./schema.ts"
+import { fileObject, finiteNumber, parserFor } from "./schema.ts"
 
 const variableKinds = ["viewport", "theme", "locale", "custom"] as const
 
@@ -140,7 +140,7 @@ export function resolveMode(settings: ModeSettings, mode: ModeSpec): ResolvedMod
     width: options.find(({ option }) => option.width !== undefined)?.option.width ?? defaultWidth,
     viewport: viewport?.id ?? "default",
     classNames: options.flatMap(({ option }) => (option.className ? [option.className] : [])),
-    attributes: Object.assign({}, ...options.map(({ option }) => option.attributes ?? {})) as Record<string, string>,
+    attributes: Object.fromEntries(options.flatMap(({ option }) => Object.entries(option.attributes ?? {}))),
     options
   }
 }
@@ -153,14 +153,18 @@ export function modeGlobals(mode: Pick<ResolvedMode, "options">): Record<string,
   return Object.fromEntries(mode.options.map(({ variable, option }) => [variable.id, option.id]))
 }
 
+/** The modes a design shows, and every mode the project has. */
+export interface ShownModes {
+  main: ResolvedMode
+  beside: ResolvedMode[]
+  all: ResolvedMode[]
+}
+
 /**
  * The modes a design shows: its main frame's (its own pick, else the project's primary mode), and the ones beside it
  * in project order. A frame shows the primary mode alone.
  */
-export function shownModes(
-  settings: ModeSettings,
-  design: Pick<ContainerSpec, "kind" | "view">
-): { main: ResolvedMode; beside: ResolvedMode[]; all: ResolvedMode[] } {
+export function shownModes(settings: ModeSettings, design: Pick<ContainerSpec, "kind" | "view">): ShownModes {
   const all = resolveModes(settings)
 
   if (design.kind === "frame") {
@@ -254,6 +258,4 @@ export function uniqueId(name: string, taken: Iterable<string>): string {
 }
 
 /** Reads a project's modes, or throws `TypeError` with the first problem as `/json/pointer: message`. */
-export function parseModeSettings(value: unknown): ModeSettings {
-  return parseData(modeSettings, value)
-}
+export const parseModeSettings = parserFor(modeSettings)

@@ -53,15 +53,15 @@ export function codeChangeVersions(
   versions: Readonly<Record<string, number>> = {}
 ): Record<string, number> {
   const changed = new Set(paths.map(withoutDot))
-  const next = { ...versions }
+  const next = new Map(Object.entries(versions))
 
   for (const [id, source] of Object.entries(sources)) {
     if (changed.has(withoutDot(source.path))) {
-      next[id] = stamp
+      next.set(id, stamp)
     }
   }
 
-  return next
+  return Object.fromEntries(next)
 }
 
 /** Sources with the versions their code has reached, for a guest; one whose code hasn't changed has none. */

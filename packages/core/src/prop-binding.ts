@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type { ContainerSpec, DesignNode, ParamSpec } from "./document.ts"
 import { locateNode, mapNode } from "./edit.ts"
 import { slotName, slotNameProblem } from "./slot-names.ts"
@@ -15,12 +16,12 @@ export const valuePropTypes = ["text", "number", "boolean"] as const
 export type ValuePropType = (typeof valuePropTypes)[number]
 
 /** The default a new prop of each kind starts with. */
-const startingValues: Record<ValuePropType, unknown> = { text: "Text", number: 0, boolean: false }
+const startingValues = { text: "Text", number: 0, boolean: false } satisfies Record<ValuePropType, ParamSpec["default"]>
 
 /** The layer fields a prop can drive, and the kind of prop each takes. */
 export type BindableField = "text" | "visible"
 
-const fieldTypes: Record<BindableField, ParamSpec["type"]> = { text: "text", visible: "boolean" }
+const fieldTypes = { text: "text", visible: "boolean" } as const satisfies Record<BindableField, ValuePropType>
 
 /**
  * Why a component design can't take a new prop called `name`, or undefined when it can: a prop is a prop in code, so its
@@ -108,19 +109,22 @@ export function bindField(
   }
 
   const root = mapNode(container.root, nodeId, (current) => {
-    const next = { ...current, bind: { ...current.bind } } as DesignNode
+    const next: DesignNode = { ...current, bind: { ...current.bind } }
     const was = current.bind?.[field]
 
     if (param === undefined) {
       delete next.bind![field]
       const shown = was === undefined ? undefined : container.params?.[was]?.default
 
-      if (field === "text" && next.type === "text" && typeof shown === "string") {
-        next.text = shown
+      const text = z.string().safeParse(shown)
+      const toggle = z.boolean().safeParse(shown)
+
+      if (field === "text" && next.type === "text" && text.success) {
+        next.text = text.data
       }
 
-      if (field === "visible" && typeof shown === "boolean") {
-        if (shown) {
+      if (field === "visible" && toggle.success) {
+        if (toggle.data) {
           delete next.hidden
         } else {
           next.hidden = true
@@ -140,15 +144,17 @@ export function bindField(
   return { ...container, root }
 }
 
+/** A component design with a prop added, and the prop's name. */
+interface AddedProp {
+  container: ContainerSpec
+  name: string
+}
+
 /**
  * Adds a prop from a layer's field and makes the field use it: named after the layer, with what the field shows now as
  * its default, so nothing changes until an instance sets it. Returns the design and the prop's name.
  */
-export function propFromField(
-  container: ContainerSpec,
-  nodeId: string,
-  field: BindableField
-): { container: ContainerSpec; name: string } {
+export function propFromField(container: ContainerSpec, nodeId: string, field: BindableField): AddedProp {
   const node = locateNode(container.root, nodeId)?.node
 
   if (!node) {
@@ -157,7 +163,7 @@ export function propFromField(
 
   const label = node.name ?? (node.type === "text" ? node.text : "")
   const name = freePropName(container, field === "visible" ? `show ${label}` : label)
-  const type = fieldTypes[field] as ValuePropType
+  const type = fieldTypes[field]
   const added = addValueProp(container, name, type)
   const value = field === "text" && node.type === "text" ? node.text : !node.hidden
 

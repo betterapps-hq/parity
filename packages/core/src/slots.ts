@@ -222,7 +222,12 @@ export function setSlot(container: ContainerSpec, nodeId: string, name: string |
   }
 
   const root = mapNode(container.root, nodeId, (current) => {
-    const next = { ...current } as LayoutNode
+    // This only ever gets the layout checked above; any other node would go back as it was.
+    if (current.type !== "layout") {
+      return current
+    }
+
+    const next: LayoutNode = { ...current }
 
     if (name === undefined) {
       delete next.slot

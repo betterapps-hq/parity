@@ -1,6 +1,12 @@
-import type { ContainerSpec, DesignNode, InstanceNode, NodeBinding, ParamSpec } from "./document.ts"
+import type { ContainerSpec, DesignNode, InstanceNode, NodeBinding, ParamSpec, PropValues } from "./document.ts"
 import { childEntries, locateNode, mapNode, nodeIds, withFreshIds } from "./edit.ts"
 import { boardRoot, type ComponentLibrary, type RenderNode, resolveDesign, variantChoices } from "./render.ts"
+
+/** A value a component node's prop holds, and so a value a param can take. */
+type PropValue = PropValues[string]
+
+/** The kinds of value that count as content, which can differ between occurrences, rather than structure. */
+type ContentKind = "string" | "number" | "boolean"
 
 /** A part of a design that appears more than once with the same structure: a candidate component. */
 export interface RepeatCandidate {
@@ -11,7 +17,7 @@ export interface RepeatCandidate {
   /** A starting name; agents and people usually find a better one. */
   name: string
   /** What differs between occurrences, which becomes the component's params. */
-  params: { name: string; type: ParamSpec["type"]; values: unknown[] }[]
+  params: { name: string; type: ParamSpec["type"]; values: PropValue[] }[]
 }
 
 /** One value that can differ between occurrences: a text, a prop, or whether a node shows. */
@@ -33,7 +39,7 @@ export function findRepeats(root: DesignNode, minimumSize = 3): RepeatCandidate[
     const size = nodeIds(node).size
 
     if (size >= minimumSize && node.id !== root.id) {
-      const signature = shape(node)
+      const signature = structure(node)
       groups.set(signature, [...(groups.get(signature) ?? []), node])
     }
 
@@ -45,8 +51,7 @@ export function findRepeats(root: DesignNode, minimumSize = 3): RepeatCandidate[
   visit(root)
 
   const candidates = [...groups.values()]
-    .filter((nodes) => nodes.length > 1)
-    .map((nodes) => ({ nodes, size: nodeIds(nodes[0]!).size }))
+    .flatMap((nodes) => (nodes.length > 1 ? [{ nodes, size: nodeIds(nodes[0]!).size }] : []))
     .sort((a, b) => b.size * b.nodes.length - a.size * a.nodes.length)
 
   const covered = new Set<string>()
@@ -120,10 +125,10 @@ export function extractComponent(design: ContainerSpec, occurrences: string[], o
     return location.node
   })
 
-  const signature = shape(nodes[0]!)
+  const signature = structure(nodes[0]!)
 
   for (const node of nodes) {
-    if (shape(node) !== signature) {
+    if (structure(node) !== signature) {
       throw new Error(`"${node.id}" isn't structured like "${nodes[0]!.id}", so they can't share a component`)
     }
   }
@@ -161,11 +166,19 @@ export function extractComponent(design: ContainerSpec, occurrences: string[], o
   const template = bindTemplate(nodes[0]!, params)
   const context = contextOf(locateNode(design.root, nodes[0]!.id)!.ancestors, nodes[0]!)
 
-  const component: ContainerSpec = {
+  // The project file keeps a design's keys in this order, with `context` after `kind` when there is one.
+  const heading: Pick<ContainerSpec, "id" | "name" | "kind" | "context"> = {
     id: options.id,
     name: options.name,
-    kind: "component",
-    ...(context.length > 0 ? { context } : {}),
+    kind: "component"
+  }
+
+  if (context.length > 0) {
+    heading.context = context
+  }
+
+  const component: ContainerSpec = {
+    ...heading,
     position: options.position,
     root: { ...template, name: options.name },
     states: [{ id: "default", name: "Default" }],
@@ -244,16 +257,13 @@ function variantViews(design: ContainerSpec): { choices: Record<string, string>;
  * The components a part needs around it on its own board: its nearest component ancestors from the same family, so a
  * TableRow gets its Table and TableBody, but not the Card the table happens to sit in.
  */
-function contextOf(
-  ancestors: DesignNode[],
-  node: DesignNode
-): { component: string; props?: Record<string, unknown> }[] {
+function contextOf(ancestors: DesignNode[], node: DesignNode): NonNullable<ContainerSpec["context"]> {
   if (node.type !== "component") {
     return []
   }
 
   const family = /^[A-Z][a-z0-9]*/.exec(node.component)?.[0]
-  const context: { component: string; props?: Record<string, unknown> }[] = []
+  const context: NonNullable<ContainerSpec["context"]> = []
 
   for (const ancestor of [...ancestors].reverse()) {
     if (ancestor.type !== "component" || !family || !ancestor.component.startsWith(family)) {
@@ -270,67 +280,69 @@ function contextOf(
 
 /** Whether two resolved designs render the same, ignoring node ids. */
 export function sameRender(a: RenderNode[], b: RenderNode[]): boolean {
-  return JSON.stringify(normalize(a)) === JSON.stringify(normalize(b))
+  return withoutNodeIds(a) === withoutNodeIds(b)
 }
 
-function normalize(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(normalize)
-  }
+/**
+ * A render as JSON without its node ids and with each object's keys sorted, so renders that differ only in ids and key
+ * order read the same. A list of keys given to `JSON.stringify` keeps only those keys and writes them in the list's
+ * order, so a first pass collects every key the render has.
+ */
+function withoutNodeIds(render: RenderNode[]): string {
+  const keys = new Set<string>()
 
-  if (!value || typeof value !== "object") {
+  JSON.stringify(render, (key, value) => {
+    keys.add(key)
+
     return value
-  }
+  })
 
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([key]) => key !== "nodeId")
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, entry]) => [key, normalize(entry)])
+  keys.delete("nodeId")
+
+  return JSON.stringify(
+    render,
+    [...keys].sort((a, b) => a.localeCompare(b))
   )
 }
 
-/** Structure without content: two parts with the same shape can share a component. */
-function shape(node: DesignNode): string {
-  const describe = (current: DesignNode): unknown => {
-    const base = { type: current.type, style: current.style ?? null, responsive: current.responsive ?? null }
+/** Structure without content, as JSON: two parts with the same structure can share a component. */
+function structure(node: DesignNode): string {
+  const base = { type: node.type, style: node.style ?? null, responsive: node.responsive ?? null }
 
-    switch (current.type) {
-      case "layout":
-        return { ...base, children: current.children.map(describe) }
-      case "text":
-        return { ...base, tag: current.tag ?? null }
-      case "image":
-        return { ...base, fit: current.fit ?? null }
-      case "instance":
-        return {
-          ...base,
-          design: current.design,
-          state: current.state ?? null,
-          args: Object.keys(current.args ?? {}).sort()
-        }
-      case "component":
-        return {
-          ...base,
-          component: current.component,
-          props: Object.fromEntries(
-            Object.entries(current.props ?? {})
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([key, value]) => [key, isContent(value) ? typeof value : value])
-          ),
-          slots: Object.fromEntries(
-            Object.entries(current.slots ?? {}).map(([slot, nodes]) => [slot, nodes.map(describe)])
-          )
-        }
-    }
+  switch (node.type) {
+    case "layout":
+      return JSON.stringify({ ...base, children: node.children.map(structure) })
+    case "text":
+      return JSON.stringify({ ...base, tag: node.tag ?? null })
+    case "image":
+      return JSON.stringify({ ...base, fit: node.fit ?? null })
+    case "instance":
+      return JSON.stringify({
+        ...base,
+        design: node.design,
+        state: node.state ?? null,
+        args: Object.keys(node.args ?? {}).sort()
+      })
+    case "component":
+      return JSON.stringify({
+        ...base,
+        component: node.component,
+        props: Object.fromEntries(
+          Object.entries(node.props ?? {})
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, value]) => [key, contentKind(value) ?? value])
+        ),
+        slots: Object.fromEntries(Object.entries(node.slots ?? {}).map(([slot, nodes]) => [slot, nodes.map(structure)]))
+      })
   }
-
-  return JSON.stringify(describe(node))
 }
 
-/** Values that count as content, which can differ between occurrences, rather than structure. */
-function isContent(value: unknown): boolean {
-  return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+/** Which kind of content a value is, or `undefined` for one that's structure: an object, a list or `null`. */
+function contentKind(value: PropValue): ContentKind | undefined {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- props hold JSON, whose kinds of value are what `typeof` tells apart
+  const kind = typeof value
+
+  return kind === "string" || kind === "number" || kind === "boolean" ? kind : undefined
 }
 
 function slotsOf(node: DesignNode, path = ""): Slot[] {
@@ -342,7 +354,7 @@ function slotsOf(node: DesignNode, path = ""): Slot[] {
 
   if (node.type === "component") {
     for (const [prop, value] of Object.entries(node.props ?? {})) {
-      if (isContent(value)) {
+      if (contentKind(value)) {
         slots.push({ path, field: `props.${prop}`, node })
       }
     }
@@ -357,7 +369,7 @@ function slotsOf(node: DesignNode, path = ""): Slot[] {
   return slots
 }
 
-function valueAt(slot: Slot): unknown {
+function valueAt(slot: Slot): PropValue {
   if (slot.field === "visible") {
     return !slot.node.hidden
   }
@@ -372,7 +384,7 @@ function valueAt(slot: Slot): unknown {
 interface Param {
   name: string
   type: ParamSpec["type"]
-  values: unknown[]
+  values: PropValue[]
   /** Where the param's value goes; one param can fill several places that always match (an email shown twice). */
   targets: { path: string; field: Slot["field"] }[]
 }
@@ -418,7 +430,7 @@ function contentParams(node: DesignNode): Param[] {
 
   return slotsOf(node)
     .filter((slot) => slot.field === "text" || slot.field === "props.children")
-    .filter((slot) => typeof valueAt(slot) === "string")
+    .filter((slot) => contentKind(valueAt(slot)) === "string")
     .map((slot) => ({
       name: paramName(slot, taken),
       type: "text" as const,
@@ -509,20 +521,14 @@ function suggestName(node: DesignNode): string {
   return "Group"
 }
 
-function typeOf(value: unknown): ParamSpec["type"] {
-  if (typeof value === "string") {
+function typeOf(value: PropValue): ParamSpec["type"] {
+  const kind = contentKind(value)
+
+  if (kind === "string") {
     return "text"
   }
 
-  if (typeof value === "boolean") {
-    return "boolean"
-  }
-
-  if (typeof value === "number") {
-    return "number"
-  }
-
-  return "value"
+  return kind ?? "value"
 }
 
 /** What a node is called when it has no name of its own. */

@@ -30,7 +30,11 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 - **No barrel files,** apart from a package's own entry, `src/index.ts`.
 - **Components are function declarations,** not arrow functions or `React.FC`.
 - **Data from outside is checked where it comes in:** a file, an IPC message or a project's config is checked against
-  its schema once, and trusted after that.
+  its schema once, and trusted after that. Build a reader for one with `parserFor(schema)` from
+  `@parity-app/core/schema`. It and `parseData`, `parseInput` and `checkData` are core's only functions that take
+  `unknown` data, so the rest of the code takes the parsed types.
+- **`unknown` stays only where a customer's module is read:** what a package exports (`ModuleExports`, `evaluateValue`,
+  `exportOf`) can be anything. Each of those lines has a one-line lint disable saying so.
 
 ## Tests
 

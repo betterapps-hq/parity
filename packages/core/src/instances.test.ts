@@ -26,6 +26,7 @@ import {
   swapInstance
 } from "./instances.ts"
 import { componentLibrary, type RenderNode, resolveDesign } from "./render.ts"
+import type { JsonValue } from "./schema.ts"
 
 const badge: ContainerSpec = {
   id: "badge",
@@ -173,7 +174,7 @@ describe("variants", () => {
   })
 
   it("rejects a variant without options, and patches for nodes that don't exist", () => {
-    const parse = (params: unknown) =>
+    const parse = (params: JsonValue) =>
       parseCanvasDocument({ version: 3, containers: [{ ...badge, params }] }).containers[0]
 
     expect(() => parse({ tone: { type: "variant" } })).toThrow(/needs options/)

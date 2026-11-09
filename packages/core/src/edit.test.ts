@@ -20,11 +20,12 @@ import {
 } from "./edit.ts"
 import { CodedError, errorDetails } from "./errors.ts"
 
-function caught(run: () => unknown): unknown {
+/** The error `run` throws, or undefined when it doesn't throw one. */
+function caught(run: () => void): Error | undefined {
   try {
     run()
   } catch (error) {
-    return error
+    return error instanceof Error ? error : undefined
   }
 
   return undefined

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { includeComponent, linkAllowed, parseCanvasDocument, parseDesignNode } from "./document.ts"
+import { type ContainerSpec, includeComponent, linkAllowed, parseCanvasDocument, parseDesignNode } from "./document.ts"
 
 const toaster = { path: "src/components/ui/sonner.tsx", export: "Toaster" }
 const price = { path: "src/promo.tsx", export: "PromoPrice" }
@@ -14,7 +14,7 @@ describe("includeComponent", () => {
 })
 
 describe("a frame in a project file", () => {
-  const frame = {
+  const frame: ContainerSpec = {
     id: "sketch",
     name: "Sketch",
     kind: "frame",
@@ -24,7 +24,7 @@ describe("a frame in a project file", () => {
     states: [{ id: "default", name: "Default" }]
   }
 
-  const file = (design: Record<string, unknown>) => ({ version: 3, containers: [design] })
+  const file = (design: Partial<ContainerSpec>) => ({ version: 3, containers: [design] })
 
   it("is read and written like the other kinds, with a size of its own", () => {
     const read = parseCanvasDocument(file(frame))
@@ -35,7 +35,7 @@ describe("a frame in a project file", () => {
   })
 
   it("has a layout at its root, one state drawn as its layers are, and no params, view or sizes per viewport", () => {
-    const cases: [Record<string, unknown>, string][] = [
+    const cases: [Partial<ContainerSpec>, string][] = [
       [{ root: { type: "text", id: "root", text: "Idea" } }, "/containers/0/root: a frame's root is a layout"],
       [{ states: [...frame.states, { id: "empty", name: "Empty" }] }, "/containers/0/states: a frame has one state"],
       [
@@ -53,7 +53,7 @@ describe("a frame in a project file", () => {
   })
 
   it("is the only kind with a size of its own", () => {
-    for (const kind of ["screen", "component", undefined]) {
+    for (const kind of ["screen", "component", undefined] as const) {
       expect(() => parseCanvasDocument(file({ ...frame, kind }))).toThrow("/containers/0/size: only a frame")
     }
   })

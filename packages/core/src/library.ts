@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { type CanvasDocument, type ContainerSpec, type DesignNode, canvasDocument } from "./document.ts"
-import { fileObject, finiteNumber, parseData, plainObject } from "./schema.ts"
+import { fileObject, finiteNumber, parseData, parserFor, plainObject } from "./schema.ts"
+import { isComposite, isText } from "./values/evaluate.ts"
 import { decoratorProps, decoratorValue, sampleProps } from "./values/grammar.ts"
 
 // A library file is checked by the schemas below, leaves first, as a `.par` is in `document.ts`. Its `canvas` is a
@@ -65,6 +66,8 @@ const sampleComponent = fileObject({
   }
 })
 
+export type SampleComponent = z.infer<typeof sampleComponent>
+
 /**
  * Text, a component of the same library by its name in `components.list`, or a render function: what a part calls to
  * draw, as children (`Field.Validity`) or as a prop's value (`renderInput`).
@@ -72,6 +75,12 @@ const sampleComponent = fileObject({
 const sampleChild = z.union([z.string(), sampleRender, sampleComponent])
 
 export type SampleChild = z.infer<typeof sampleChild>
+
+/** Whether a sample's child is text, rather than a component or a render function. */
+export function isSampleText(child: SampleChild): child is string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the other kinds are objects; text is the one kind JSON holds as a string
+  return typeof child === "string"
+}
 
 /**
  * A prop whose value is elements, as MUI's `control={<Checkbox />}` or an `icon`: inserted as a named slot of that
@@ -319,27 +328,25 @@ export type LibraryManifest = Omit<z.infer<typeof libraryManifest>, "$schema">
 export const libraryManifestExtension = ".lib.par"
 
 /** Reads a library file, or throws `TypeError` with the first problem as `/json/pointer: message`. */
-export function parseLibraryManifest(value: unknown): LibraryManifest {
-  const { $schema: _schema, ...manifest } = parseData(libraryManifest, value)
-
-  return manifest
-}
+export const parseLibraryManifest = parserFor(
+  libraryManifest,
+  ({ $schema: _schema, ...manifest }): LibraryManifest => manifest
+)
 
 /** Reads hand edits to a library file, from its `edits` or a shared file of them. */
-export function parseLibraryEdits(value: unknown, at = ""): LibraryEdits {
-  const { $schema: _schema, ...edits } = parseData(libraryEdits, value, at)
+export const parseLibraryEdits = parserFor(libraryEdits, ({ $schema: _schema, ...edits }): LibraryEdits => edits)
 
-  return edits
+/** A manifest with hand edits merged in, and the exports edits name that it doesn't have. */
+export interface EditedLibrary {
+  manifest: LibraryManifest
+  orphans: string[]
 }
 
 /**
  * The manifest with hand edits merged over what was generated, and the edited exports it no longer has, which are
  * reported rather than dropped silently. An edit can add a component the checker missed, if it says what it's `as`.
  */
-export function applyLibraryEdits(
-  manifest: LibraryManifest,
-  edits: LibraryEdits | undefined
-): { manifest: LibraryManifest; orphans: string[] } {
+export function applyLibraryEdits(manifest: LibraryManifest, edits: LibraryEdits | undefined): EditedLibrary {
   if (!edits) {
     return { manifest, orphans: [] }
   }
@@ -363,12 +370,15 @@ export function applyLibraryEdits(
         continue
       }
 
-      if (!generated && !edit.as) {
+      // A generated component always says what it's `as`, so only an edit adding one can lack it.
+      const as = edit.as ?? generated?.as
+
+      if (!as) {
         orphans.push(name)
         continue
       }
 
-      const merged = { ...generated, ...edit } as LibraryComponent
+      const merged: LibraryComponent = { ...generated, ...edit, as }
 
       if (edit.parents && !edit.parentsFrom) {
         merged.parentsFrom = "edit"
@@ -455,10 +465,11 @@ export function libraryCanvas(manifest: LibraryManifest): CanvasDocument {
  * A `.lib.par` file's JSON with its canvas replaced, ready to write. Everything else in the file stays as it was, so
  * saving designs never touches what the author wrote about the library. The file must use the current format.
  */
-export function withLibraryCanvas(file: unknown, canvas: CanvasDocument): Record<string, unknown> {
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: the file's JSON as read, which this parses
+export function withLibraryCanvas(file: unknown, canvas: CanvasDocument): z.output<typeof plainObject> {
   parseLibraryManifest(file)
-  // A file that reads as a manifest is an object.
-  const { canvas: _previous, ...rest } = file as Record<string, unknown>
+  // The file's own object, not the manifest read from it, which leaves out `$schema`, so the rest stays as written.
+  const { canvas: _previous, ...rest } = parseData(plainObject, file)
 
   return { ...rest, canvas }
 }
@@ -472,12 +483,13 @@ export function remapLibraryImports<T extends Pick<LibraryManifest, "components"
   manifest: T,
   map: (specifier: string) => string
 ): T {
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- walks a whole manifest, whatever each field holds, including decorator values that hold module exports' arguments
   const visit = (value: unknown, path: readonly string[]): unknown => {
     if (Array.isArray(value)) {
       return value.map((entry, index) => visit(entry, [...path, String(index)]))
     }
 
-    if (typeof value !== "object" || value === null) {
+    if (!isComposite(value)) {
       return value
     }
 
@@ -493,15 +505,15 @@ export function remapLibraryImports<T extends Pick<LibraryManifest, "components"
     return Object.fromEntries(
       Object.entries(value).map(([key, entry]) => [
         key,
-        typeof entry === "string" &&
-        (key === "$import" || (key === "import" && module) || location === "icons.variants.modules")
+        isText(entry) && (key === "$import" || (key === "import" && module) || location === "icons.variants.modules")
           ? map(entry)
           : visit(entry, [...path, key])
       ])
     )
   }
 
-  // Rewriting string values preserves the manifest's structure and its caller's more specific type.
+  // SAFETY: `visit` rebuilds every array and object as it was and only swaps module strings for other strings, so the
+  // result has the manifest's structure and its caller's more specific type.
   return visit(manifest, []) as T
 }
 
