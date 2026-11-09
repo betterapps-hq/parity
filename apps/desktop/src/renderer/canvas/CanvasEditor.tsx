@@ -5,34 +5,32 @@ import {
   atom,
   type Computed,
   computed,
-  createShapeId,
   type Editor,
   react,
   SelectionForegroundOverlayUtil,
-  ShapeIndicatorOverlayUtil,
   type TLComponents,
-  Tldraw,
-  type TLShapeId
+  Tldraw
 } from "tldraw"
 import { heldBoards } from "../agent/held-boards.ts"
 import { getResolvedTheme, useResolvedTheme } from "../theme.ts"
-import { ContainerShapeUtil, designDrag } from "./ContainerShapeUtil.tsx"
+import { ContainerUtil, designDrag } from "./ContainerUtil.tsx"
 import { useProject } from "./context.ts"
 import { bitmapScale } from "./frame-bitmaps.ts"
 import { hiddenSleepMs } from "./frame-sleep.ts"
-import { CameraGestures, countFrames, recordGesture } from "./gesture.ts"
+import { CameraGestures, countFrames, type GestureEnded, recordGesture } from "./gesture.ts"
 import { designColor, kindColors } from "./kinds.tsx"
 import { redrawLayer } from "./layer-redraw.ts"
-import { NoteShapeUtil } from "./NoteShapeUtil.tsx"
+import { NoteUtil } from "./NoteUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutPatternFills } from "./tldraw-fills.ts"
+import { type CanvasId, createCanvasId, IndicatorOverlayUtil } from "./tldraw-names.ts"
 import { withoutTldrawShortcuts } from "./tldraw-shortcuts.ts"
 
-const shapeUtils = [ContainerShapeUtil, NoteShapeUtil, ...withoutPatternFills]
+const canvasUtils = [ContainerUtil, NoteUtil, ...withoutPatternFills]
 
-export function canvasIdFor(key: string): TLShapeId {
-  return createShapeId(encodeURIComponent(key))
+export function canvasIdFor(key: string): CanvasId {
+  return createCanvasId(encodeURIComponent(key))
 }
 
 /**
@@ -58,7 +56,7 @@ class SelectionBox extends SelectionForegroundOverlayUtil {
   }
 }
 
-/** Whether the canvas is hovering a layer inside a design, by editor (see `ShapeIndicators`). */
+/** Whether the canvas is hovering a layer inside a design, by editor (see `HoverOutlines`). */
 const hoveringLayer = new WeakMap<Editor, Atom<boolean>>()
 
 /**
@@ -66,8 +64,8 @@ const hoveringLayer = new WeakMap<Editor, Atom<boolean>>()
  * layer, which the canvas's overlay outlines, so tldraw doesn't outline the board around it as hovered. Over the board's
  * background, or a frame's, it does.
  */
-class ShapeIndicators extends ShapeIndicatorOverlayUtil {
-  static override type = ShapeIndicatorOverlayUtil.type
+class HoverOutlines extends IndicatorOverlayUtil {
+  static override type = IndicatorOverlayUtil.type
 
   override getOverlays() {
     const overlays = super.getOverlays()
@@ -87,7 +85,7 @@ class ShapeIndicators extends ShapeIndicatorOverlayUtil {
   }
 }
 
-const overlayUtils = [SelectionBox, ShapeIndicators]
+const overlayUtils = [SelectionBox, HoverOutlines]
 
 /**
  * tldraw draws outlines and handles on a canvas, in its theme's colors. Setting a custom property on the canvas
@@ -268,7 +266,7 @@ function markZoomedOut(editor: Editor): () => void {
 function overlaysShow(editor: Editor): boolean {
   return editor.overlays
     .getActiveOverlayEntries()
-    .some(({ util, overlays }) => overlays.length > 0 || !(util instanceof ShapeIndicatorOverlayUtil))
+    .some(({ util, overlays }) => overlays.length > 0 || !(util instanceof IndicatorOverlayUtil))
 }
 
 /** tldraw's overlay canvas only holds a bitmap while an overlay shows (see `sizeWhileShown`). */
@@ -340,7 +338,7 @@ export function CanvasEditor({
       // Designs and notes come and go with undo and agents, so shapes follow the store rather than being made once.
       const sync = () => {
         const wanted = new Map<
-          TLShapeId,
+          CanvasId,
           { type: "canvas-container" | "canvas-note"; key: string; x: number; y: number; locked?: boolean }
         >()
 
@@ -358,19 +356,19 @@ export function CanvasEditor({
 
         editor.run(
           () => {
-            const stale = editor.getCurrentPageShapes().filter((shape) => !wanted.has(shape.id))
+            const stale = editor.getCurrentPageShapes().filter((item) => !wanted.has(item.id))
 
             if (stale.length > 0) {
-              editor.deleteShapes(stale.map((shape) => shape.id))
+              editor.deleteShapes(stale.map((item) => item.id))
             }
 
             for (const [id, { type, key, x, y, locked = false }] of wanted) {
-              const shape = editor.getShape(id)
+              const placed = editor.getShape(id)
 
-              if (!shape) {
+              if (!placed) {
                 editor.createShape({ id, type, x, y, isLocked: locked, props: { key } })
-              } else if (Math.abs(shape.x - x) >= 1 || Math.abs(shape.y - y) >= 1 || shape.isLocked !== locked) {
-                editor.updateShape({ id, type: shape.type, x, y, isLocked: locked })
+              } else if (Math.abs(placed.x - x) >= 1 || Math.abs(placed.y - y) >= 1 || placed.isLocked !== locked) {
+                editor.updateShape({ id, type: placed.type, x, y, isLocked: locked })
               }
             }
           },
@@ -414,15 +412,21 @@ export function CanvasEditor({
         translation = undefined
         const undoStep = store.endGesture(gesture)
         const fps = frames()
-        recordGesture({
+
+        const ended: GestureEnded = {
           kind: "move",
           how: "release",
           kept: true,
           durationMs: Math.round(performance.now() - began),
           designs: [...moved],
-          ...(fps === undefined ? {} : { fps }),
           undoStep
-        })
+        }
+
+        if (fps !== undefined) {
+          ended.fps = fps
+        }
+
+        recordGesture(ended)
       })
 
       const stopMoves = editor.sideEffects.registerAfterChangeHandler("shape", (previous, next, source) => {
@@ -464,7 +468,7 @@ export function CanvasEditor({
         }
 
         const ids = next.selectedShapeIds
-        const shape = ids.length === 1 ? editor.getShape(ids[0]!) : undefined
+        const picked = ids.length === 1 ? editor.getShape(ids[0]!) : undefined
         const current = selection.get()
 
         // Shift-click and dragging a box on the canvas select several designs at once.
@@ -480,13 +484,13 @@ export function CanvasEditor({
           if (current.node || current.note || (current.designs ?? []).join() !== wanted.designs!.join()) {
             selection.set(wanted)
           }
-        } else if (shape?.type === "canvas-container") {
-          if (current.design !== shape.props.key || current.note) {
-            selection.set({ design: shape.props.key })
+        } else if (picked?.type === "canvas-container") {
+          if (current.design !== picked.props.key || current.note) {
+            selection.set({ design: picked.props.key })
           }
-        } else if (shape?.type === "canvas-note") {
-          if (current.note !== shape.props.key) {
-            selection.set({ note: shape.props.key })
+        } else if (picked?.type === "canvas-note") {
+          if (current.note !== picked.props.key) {
+            selection.set({ note: picked.props.key })
           }
         } else if (ids.length === 0 && (current.design || current.note)) {
           selection.set({})
@@ -542,7 +546,7 @@ export function CanvasEditor({
 
       // tldraw takes its hover away as it handles the pointer leaving the canvas, a tick after the row is entered, so the
       // board's is put back whenever it changes while the row stays hovered (PAR-187).
-      let outlined: TLShapeId | undefined
+      let outlined: CanvasId | undefined
 
       const stopOutline = react("outline the design hovered in Layers", () => {
         const design = rowHovered.get()
@@ -602,7 +606,8 @@ export function CanvasEditor({
     <Tldraw
       hideUi
       licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
-      shapeUtils={shapeUtils}
+      // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- tldraw names this prop.
+      shapeUtils={canvasUtils}
       overlayUtils={overlayUtils}
       components={components}
       overrides={withoutTldrawShortcuts}

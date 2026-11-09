@@ -20,6 +20,19 @@ export function useUsed(): boolean {
 
 const focusable = "button, input, [tabindex]"
 
+/** Whether an area has been used, and the handlers that notice its first use, for its element. */
+export interface MountOnUse {
+  used: boolean
+  area: UseWatch
+}
+
+/** The handlers `useMountOnUse` spreads on an area's element until it's used. */
+export interface UseWatch {
+  onPointerEnter?: () => void
+  onFocusCapture?: (event: ReactFocusEvent<HTMLElement>) => void
+  onContextMenuCapture?: (event: ReactMouseEvent<HTMLElement>) => void
+}
+
 /**
  * Leaves an area's menus and hints unmounted until the area is first used: hovered, focused or right-clicked, or
  * `ready`, as a board is while it's hovered or selected (PAR-760). Every board's title has a context menu, a hint and
@@ -30,14 +43,7 @@ const focusable = "button, input, [tabindex]"
  * mounted by then, and synchronously, so the next event finds them. Swapping a plain control for a menu's trigger
  * replaces its element, so a focus or right-click that arrives first is passed on to the new element in its place.
  */
-export function useMountOnUse(ready: boolean): {
-  used: boolean
-  area: {
-    onPointerEnter?: () => void
-    onFocusCapture?: (event: ReactFocusEvent<HTMLElement>) => void
-    onContextMenuCapture?: (event: ReactMouseEvent<HTMLElement>) => void
-  }
-} {
+export function useMountOnUse(ready: boolean): MountOnUse {
   const [used, setUsed] = useState(ready)
 
   if (ready && !used) {

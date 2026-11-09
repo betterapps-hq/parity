@@ -115,13 +115,20 @@ export function drawFrame(session: ProjectSession, area: HTMLElement, event: Poi
       last = draggedBox(from, point)
       const topLeft = toArea({ x: last.x, y: last.y })
       const bottomRight = toArea({ x: last.x + last.width, y: last.y + last.height })
+      const shownGuides: FrameDrawing["guides"] = {}
+
+      if (guides.x !== undefined) {
+        shownGuides.x = toArea({ x: guides.x, y: 0 }).x
+      }
+
+      if (guides.y !== undefined) {
+        shownGuides.y = toArea({ x: 0, y: guides.y }).y
+      }
+
       show({
         box: { x: topLeft.x, y: topLeft.y, w: bottomRight.x - topLeft.x, h: bottomRight.y - topLeft.y },
         size: { width: last.width, height: last.height },
-        guides: {
-          ...(guides.x === undefined ? {} : { x: toArea({ x: guides.x, y: 0 }).x }),
-          ...(guides.y === undefined ? {} : { y: toArea({ x: 0, y: guides.y }).y })
-        }
+        guides: shownGuides
       })
     },
     end(kept) {

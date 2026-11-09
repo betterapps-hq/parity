@@ -12,6 +12,7 @@ import {
   sortDrop
 } from "@parity-app/editor"
 import { toast } from "sonner"
+import type { Attributes } from "../chrome/event-attributes.ts"
 import { reportError, track } from "../report-error.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { importImage } from "./clipboard.ts"
@@ -104,7 +105,7 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
   }
 
   if (failed.length > 0) {
-    const reason = (error: unknown) => (error instanceof Error ? error.message : String(error))
+    const reason = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
     reportError(failed[0]!.error, {
       operation: "images.import",
       title: failed.length === 1 ? `Couldn't add ${failed[0]!.name}` : `Couldn't add ${failed.length} images`,
@@ -168,15 +169,20 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
 
 /** Records images dropped from outside the app as `insert.done` (PAR-640). */
 function recordDrop(added: readonly { name: string }[], design: string, newDesign: boolean): void {
-  track("insert.done", {
+  const done: Attributes<"insert.done"> = {
     source: "drop",
     via: "files",
     kind: "image",
-    ...(added.length === 1 ? { item: added[0]!.name } : {}),
     count: added.length,
     design,
     newDesign
-  })
+  }
+
+  if (added.length === 1) {
+    done.item = added[0]!.name
+  }
+
+  track("insert.done", done)
 }
 
 /** Whether a drag carries files from outside the app, such as from Explorer or Finder. */

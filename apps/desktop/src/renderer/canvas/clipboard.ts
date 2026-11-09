@@ -29,6 +29,7 @@ import {
   selectedNodes
 } from "@parity-app/editor"
 import { toast } from "sonner"
+import type { Attributes } from "../chrome/event-attributes.ts"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { errorCode, errorMessage, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
@@ -144,14 +145,19 @@ function pasted(how: PasteHow, content: PastedContent, count: number, design?: s
     return
   }
 
-  track("insert.done", {
+  const done: Attributes<"insert.done"> = {
     source: "paste",
     via: "clipboard",
     kind: content === "svg" ? "image" : content,
     count,
-    ...(design ? { design } : {}),
     newDesign: design === undefined && content !== "designs" && content !== "notes"
-  })
+  }
+
+  if (design) {
+    done.design = design
+  }
+
+  track("insert.done", done)
 }
 
 /** Records a paste that pasted nothing, with why. */
@@ -159,10 +165,16 @@ function pasteFailed(
   how: PasteHow,
   content: PastedContent,
   reason: "empty" | "unreadable" | "wrongKind" | "noTarget" | "instance" | "imageFailed",
-  error?: unknown
+  cause?: unknown
 ): void {
-  const code = error === undefined ? undefined : errorCode(error)
-  track("clipboard.failed", { how, content, reason, ...(code ? { code } : {}) })
+  const code = cause === undefined ? undefined : errorCode(cause)
+  const failed: Attributes<"clipboard.failed"> = { how, content, reason }
+
+  if (code) {
+    failed.code = code
+  }
+
+  track("clipboard.failed", failed)
 }
 
 type ClipboardContent =
@@ -599,7 +611,10 @@ function base64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     // A data URL, since it's read as one.
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result.replace(/^data:[^,]*,/, "") : "")
+    reader.onload = () =>
+      resolve(
+        reader.result === null || reader.result instanceof ArrayBuffer ? "" : reader.result.replace(/^data:[^,]*,/, "")
+      )
     reader.onerror = () => reject(reader.error ?? new Error("The image couldn't be read"))
     reader.readAsDataURL(blob)
   })
@@ -755,7 +770,7 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
     const original = sameProject ? store.getEntries().find((entry) => entry.container.id === design.id) : undefined
     const bounds = original ? editor?.getShapePageBounds(canvasIdFor(original.key)) : undefined
 
-    return { position: design.position, ...(bounds ? { bounds } : {}) }
+    return { position: design.position, bounds }
   })
 
   const { shift, shown } = pastedPlacement(placed, viewCenter(session), editor ? takenBounds(editor) : [])
@@ -819,7 +834,7 @@ function pasteText(session: ProjectSession, text: string): string | undefined {
 }
 
 /** Layers from another project can name components this one doesn't have; they paste, with a warning. */
-function warnUnknown(nodes: DesignNode[], known: Record<string, unknown>): void {
+function warnUnknown<Component>(nodes: DesignNode[], known: Readonly<Record<string, Component>>): void {
   const missing = missingComponents(nodes, known)
 
   if (missing.length > 0) {

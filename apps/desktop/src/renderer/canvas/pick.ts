@@ -158,13 +158,14 @@ export interface Bounds {
  * isn't drawn has no size, and is never touched.
  */
 export function touchedBy(box: Bounds, layers: readonly { id: string; box: Bounds }[]): string[] {
-  return layers
-    .filter(({ box: layer }) => layer.right > layer.left || layer.bottom > layer.top)
-    .filter(
-      ({ box: layer }) =>
-        layer.left <= box.right && layer.right >= box.left && layer.top <= box.bottom && layer.bottom >= box.top
-    )
-    .map((layer) => layer.id)
+  return layers.flatMap(({ id, box: layer }) => {
+    const drawn = layer.right > layer.left || layer.bottom > layer.top
+
+    const touches =
+      layer.left <= box.right && layer.right >= box.left && layer.top <= box.bottom && layer.bottom >= box.top
+
+    return drawn && touches ? [id] : []
+  })
 }
 
 /**
@@ -204,9 +205,14 @@ export function enterTarget(store: DesignStore, current: Selection): Enter | und
     return undefined
   }
 
-  const frame = {
-    ...(current.mode ? { mode: current.mode } : {}),
-    ...(current.state ? { state: current.state } : {})
+  const frame: Pick<Selection, "mode" | "state"> = {}
+
+  if (current.mode) {
+    frame.mode = current.mode
+  }
+
+  if (current.state) {
+    frame.state = current.state
   }
 
   const nodes = selectedNodes(current)

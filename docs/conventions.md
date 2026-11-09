@@ -34,6 +34,11 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
   holds the package's one `no-bitwise` disable, as `hasFlag` in `packages/code/src/flags.ts` does.
 - **Scripts print a line with `print`** from `scripts/output.ts`, which holds their one `no-console` disable, as the
   CLI's `stdout` does for it. Failures and warnings still go through `console.error` and `console.warn`.
+- **A library's names that break a naming rule are renamed where they come in.** tldraw names its records and utils
+  after shapes (`TLShapeId`, `ShapeUtil`), which `no-shape-in-symbol-names` forbids, so
+  `renderer/canvas/tldraw-names.ts` re-exports them under the canvas's names (`CanvasId`, `CanvasUtil`) with the one
+  disable. Names a library's API fixes, such as tldraw's `shapeUtils` prop, keep a one-line disable where they're
+  written.
 - **String-literal unions, not enums,** which Node can't strip anyway (see decisions.md, "Developing Parity").
 - **Named exports.** Default exports are for what a tool requires, such as a story file's `meta`.
 - **No barrel files,** apart from a package's own entry, `src/index.ts`.

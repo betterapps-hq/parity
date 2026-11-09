@@ -69,6 +69,7 @@ export function measureSpacing(
   })
 
   const scaled = (values: Record<PaddingSide, number>) =>
+    // SAFETY: the entries are the four sides of `values`, each kept.
     Object.fromEntries(Object.entries(values).map(([side, value]) => [side, value * scale])) as Record<
       PaddingSide,
       number
@@ -94,7 +95,7 @@ export function measureSpacing(
       rect: toOverlay(rect),
       border: scaled(sides("border", "-width")),
       padding: scaled(padding),
-      children: drawn.filter((child) => child.flows).map((child) => child.box),
+      children: drawn.flatMap((child) => (child.flows ? [child.box] : [])),
       // No handle covers a child, so a click on one selects it, those placed absolutely too.
       covered: drawn.map((child) => child.box),
       direction: row ? "row" : "column",
@@ -167,18 +168,25 @@ function editStart(
   }
 }
 
+/** A spacing as a handle shows it: what it draws at, in CSS pixels, and the token it's bound to. */
+export interface SpacingValue {
+  px: number
+  token?: string
+}
+
 /** What a handle shows when it isn't being dragged: what it draws at, and the token it's bound to. */
 export function spacingValue(
   session: ProjectSession,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure
-): { px: number; token?: string } {
+): SpacingValue {
   const drawn = handle.kind === "gap" ? measure.drawn.gap : measure.drawn.padding[handle.side]
   const edit = editStart(session, target, handle, measure)
   const style: NodeStyle = edit?.start.style ?? {}
   const written = handle.kind === "gap" ? style.gap : sidesOf(style.padding)?.[paddingSides.indexOf(handle.side)]
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a length is steps or a token's name, with no tag to tell them apart
   return typeof written === "string" ? { px: drawn, token: written } : { px: drawn }
 }
 

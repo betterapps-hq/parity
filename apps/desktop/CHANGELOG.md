@@ -1,8 +1,21 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 10:50:00 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 11:25:40 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.42.0
+
+Mon, 09 Nov 2026 11:25:40 GMT
+
+### Minor changes
+
+- Icon layers show the Smile icon wherever a layer's kind shows, instead of the component box (ajcraswell@gmail.com)
+
+### Patches
+
+- Brings the rest of the desktop renderer up to Buildkit's lint rules: its top-level files and its agent, stories, start
+  and account folders (ajcraswell@gmail.com)
 
 ## 0.41.0
 

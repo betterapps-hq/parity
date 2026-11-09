@@ -27,7 +27,7 @@ export function recordGesture(ended: GestureEnded, span?: TraceContext): void {
  * second over that time. Undefined where there are no animation frames, as in unit tests, or no time has passed.
  */
 export function countFrames(now: () => number = () => performance.now()): () => number | undefined {
-  if (typeof requestAnimationFrame !== "function") {
+  if (!("requestAnimationFrame" in globalThis)) {
     return () => undefined
   }
 
@@ -271,24 +271,27 @@ export function followPress(
     const fps = frames?.()
     const designs = press.moves?.designs ?? (press.design === undefined ? undefined : [press.design])
     const layers = press.moves?.layers
-    recordGesture(
-      {
-        kind,
-        how,
-        kept: outcome === "keep",
-        durationMs: Math.round(now() - began),
-        ...(designs ? { designs: [...designs] } : {}),
-        ...(layers ? { layers: [...layers] } : {}),
-        ...(fps === undefined ? {} : { fps }),
-        undoStep
-      },
-      trace?.context
-    )
+    const ended: GestureEnded = { kind, how, kept: outcome === "keep", durationMs: Math.round(now() - began), undoStep }
+
+    if (designs) {
+      ended.designs = [...designs]
+    }
+
+    if (layers) {
+      ended.layers = [...layers]
+    }
+
+    if (fps !== undefined) {
+      ended.fps = fps
+    }
+
+    recordGesture(ended, trace?.context)
   })
 }
 
 /** A policy's name in `gestures`, which names its traces and `gesture.ended`. */
 function gestureKind(policy: GesturePolicy): keyof typeof gestures | undefined {
+  // SAFETY: `gestures` is a literal object declared here, so its keys are exactly these.
   return (Object.keys(gestures) as (keyof typeof gestures)[]).find((name) => gestures[name] === policy)
 }
 
@@ -473,14 +476,20 @@ export class CameraGestures {
     // The changes after the first, over the time between it and the last; none for a camera that moved once.
     const seconds = (open.moved - open.began) / 1000
     const fps = open.frames > 0 && seconds > 0 ? Math.round((open.frames / seconds) * 10) / 10 : undefined
-    recordGesture({
+
+    const ended: GestureEnded = {
       kind: open.kind,
       how: "settled",
       kept: true,
       durationMs: Math.round(open.moved - open.began),
-      ...(fps === undefined ? {} : { fps }),
       undoStep: false
-    })
+    }
+
+    if (fps !== undefined) {
+      ended.fps = fps
+    }
+
+    recordGesture(ended)
   }
 }
 
@@ -520,15 +529,24 @@ export class InsertDrag {
 
     this.open = undefined
     const fps = open.frames()
-    recordGesture({
+
+    const ended: GestureEnded = {
       kind: "insertDrag",
       how: open.inserted ? "release" : "cancelled",
       kept: open.inserted,
       durationMs: Math.round(this.now() - open.began),
-      ...(open.designs.length > 0 ? { designs: open.designs } : {}),
-      ...(fps === undefined ? {} : { fps }),
       undoStep: open.inserted
-    })
+    }
+
+    if (open.designs.length > 0) {
+      ended.designs = open.designs
+    }
+
+    if (fps !== undefined) {
+      ended.fps = fps
+    }
+
+    recordGesture(ended)
   }
 }
 

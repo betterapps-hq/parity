@@ -2,6 +2,37 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 11:25:40 GMT",
+      "version": "0.42.0",
+      "tag": "@parity-app/desktop_v0.42.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0489958385e202df129f03ac2480acdf7f5c8c26",
+            "comment": "Icon layers show the Smile icon wherever a layer's kind shows, instead of the component box"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "69b23d77dd7c998a2e4aa5e42b14b648083abc45",
+            "comment": "Brings the rest of the desktop renderer up to Buildkit's lint rules: its top-level files and its agent, stories, start and account folders"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "31fe4d1b8dd1f5e961f02651eb25abcb201fa0ac",
+            "comment": "Bring the desktop main process, preload and shared code up to Buildkit's lint rules"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 10:50:00 GMT",
       "version": "0.41.0",
       "tag": "@parity-app/desktop_v0.41.0",
