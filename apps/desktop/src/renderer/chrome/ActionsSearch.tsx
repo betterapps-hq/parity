@@ -13,6 +13,7 @@ import { walkNodes } from "@parity-app/core"
 import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
 import { FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
+import { z } from "zod"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import {
   type ProjectSession,
@@ -22,7 +23,7 @@ import {
   useTabs,
   workspace
 } from "../workspace.ts"
-import { actions } from "./actions.ts"
+import { type ActionResult, actions } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { activeSession, clearBitmapCache, exportImages, selectedDesign } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
@@ -39,7 +40,7 @@ import { showToken } from "./shown-token.ts"
 type Heading = Group | "Designs" | "Layers" | "Components" | "Tokens" | "Projects"
 
 interface Item extends FindItem<Heading> {
-  run(): unknown
+  run(): ActionResult
   available?(): boolean
   /** Shown at the end of the row: an action's keys, a layer's design, a component's source. */
   detail?: string
@@ -152,11 +153,14 @@ function edgeFade({ top, bottom }: Edges): string | undefined {
 
 const recentKey = "parity.recentSearches"
 
+/** What's saved as recent: a list of IDs, where anything that isn't one is skipped rather than losing the rest. */
+const recentPicks = z.array(z.string().nullable().catch(null)).catch([])
+
 function readRecent(): string[] {
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem(recentKey) ?? "[]")
+    const saved = recentPicks.parse(JSON.parse(localStorage.getItem(recentKey) ?? "[]"))
 
-    return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : []
+    return saved.filter((id) => id !== null)
   } catch {
     // Storage can be unavailable, or hold something else; nothing's recent then.
     return []
@@ -178,6 +182,7 @@ function saveRecent(recent: readonly string[]): void {
 
 /** Every action in the keymap that the search can run, with its first keys. */
 function commandItems(): Item[] {
+  // SAFETY: the keymap has an entry for every command, so its own keys are the commands.
   return (Object.keys(keymap) as KeyCommand[])
     .filter((id) => id !== "actions" && !actions[id].byKey)
     .map((id) => ({

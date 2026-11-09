@@ -6,7 +6,13 @@ const now = 100 * day
 const limits = { cap: 1000, keep: 800, maxAge: 30 * day, partialAge: 60_000 }
 
 function file(path: string, project: string, size: number, used: number, partial?: boolean): CachedFile {
-  return { path, project, size, used, ...(partial ? { partial } : {}) }
+  const cached: CachedFile = { path, project, size, used }
+
+  if (partial) {
+    cached.partial = partial
+  }
+
+  return cached
 }
 
 describe("cacheRemovals", () => {

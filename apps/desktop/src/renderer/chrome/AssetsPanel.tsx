@@ -31,6 +31,7 @@ import {
   hiddenHeading,
   hiddenReason,
   type InsertItem,
+  type InsertOption,
   type InsertOrigin,
   isLate,
   missingProps,
@@ -80,6 +81,7 @@ import { type ProjectSession, workspace } from "../workspace.ts"
 import { componentFile, viewCode } from "./code-editor.ts"
 import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
 import { ComponentMenu } from "./ComponentMenu.tsx"
+import type { Attributes } from "./event-attributes.ts"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
@@ -168,13 +170,21 @@ export function SearchField({
   )
 }
 
+/**
+ * One of a family's components. `evidence` is why it counts as a component, in words; `hidden` why the insert picker
+ * leaves it out until it's searched for by name (PAR-178).
+ */
+export interface FamilyItem {
+  key: string
+  label: string
+  item: InsertItem
+  evidence?: string
+  hidden?: HiddenReason
+}
+
 export interface Family {
   name: string
-  /**
-   * `evidence` is why it counts as a component, in words; `hidden` why the insert picker leaves it out until it's
-   * searched for by name (PAR-178).
-   */
-  items: { key: string; label: string; item: InsertItem; evidence?: string; hidden?: HiddenReason }[]
+  items: FamilyItem[]
   /** Its name is a folder or a route, shown over a single component too. */
   heading?: true
 }
@@ -202,17 +212,18 @@ function families(sources: [string, ComponentSource][], by: "file" | "folder" | 
 
   const hidden = new Map(sources.map(([key, source]) => [key, hiddenReason(key, { internal: source.internal })]))
 
-  const grouped: Family[] = groupComponents(sources, by).map((group) => ({
-    name: group.name,
-    items: group.ids.map((key) => ({
-      key,
-      label: componentLabel(key),
-      item: { kind: "component", component: key },
-      ...(evidence.get(key) ? { evidence: evidence.get(key) } : {}),
-      ...(hidden.get(key) ? { hidden: hidden.get(key) } : {})
-    })),
-    ...(by === "file" ? {} : { heading: true as const })
-  }))
+  const grouped = groupComponents(sources, by).map((group) => {
+    const family: Family = {
+      name: group.name,
+      items: group.ids.map((key) => familyItem(key, evidence.get(key), hidden.get(key)))
+    }
+
+    if (by !== "file") {
+      family.heading = true
+    }
+
+    return family
+  })
 
   const apart = grouped.flatMap((family) => family.items.filter((entry) => entry.hidden))
 
@@ -220,11 +231,27 @@ function families(sources: [string, ComponentSource][], by: "file" | "folder" | 
     return grouped
   }
 
-  const shown = grouped
-    .map((family) => ({ ...family, items: family.items.filter((entry) => !entry.hidden) }))
-    .filter((family) => family.items.length > 0)
+  const shown = grouped.flatMap((family) => {
+    const items = family.items.filter((entry) => !entry.hidden)
+
+    return items.length > 0 ? [{ ...family, items }] : []
+  })
 
   return [...shown, { name: hiddenHeading(apart.flatMap((entry) => entry.hidden ?? [])), heading: true, items: apart }]
+}
+
+function familyItem(key: string, evidence: string | undefined, hidden: HiddenReason | undefined): FamilyItem {
+  const entry: FamilyItem = { key, label: componentLabel(key), item: { kind: "component", component: key } }
+
+  if (evidence) {
+    entry.evidence = evidence
+  }
+
+  if (hidden) {
+    entry.hidden = hidden
+  }
+
+  return entry
 }
 
 /** The project's own components by role: its UI kit, the rest of the app by folder, and its pages. */
@@ -324,18 +351,20 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
 function searchFamilies(source: Source, query: string): Family[] {
   const found = source.families.flatMap((family, place) => {
     const items = family.items.flatMap((entry, index) => {
-      const match = searchOption(
-        {
-          key: entry.key,
-          name: entry.label,
-          origin: source.origin,
-          source: source.id,
-          sourceName: source.title,
-          description: family.name,
-          ...(entry.hidden ? { hidden: entry.hidden } : {})
-        },
-        query
-      )
+      const option: InsertOption = {
+        key: entry.key,
+        name: entry.label,
+        origin: source.origin,
+        source: source.id,
+        sourceName: source.title,
+        description: family.name
+      }
+
+      if (entry.hidden) {
+        option.hidden = entry.hidden
+      }
+
+      const match = searchOption(option, query)
 
       // As in the picker, a hidden one the search only partly names comes after the rest.
       return match ? [{ entry, tier: match.tier, late: isLate(entry, match), index }] : []
@@ -405,6 +434,7 @@ export function ComponentsPanel() {
           value={[view]}
           onValueChange={([value]) => {
             if (value) {
+              // SAFETY: the group's items come from `views`, one for each ComponentsView.
               setPreferences({ componentsView: value as ComponentsView })
             }
           }}
@@ -779,13 +809,7 @@ export function useComponentCard(
   session: ProjectSession,
   component: string | undefined,
   shown: boolean
-): {
-  pictured: PreviewStatus
-  about: Pick<
-    ComponentCardProps,
-    "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "onOpenStorybook"
-  >
-} {
+): ComponentCard {
   const preview = useComponentPreview(session.id, component ?? "")
   const info = component ? session.components.get()[component] : undefined
   // Only one that failed or drew nothing is asked which props it lacks, as that's when it says.
@@ -811,27 +835,33 @@ export function useComponentCard(
 
   const stories = session.info.storybook?.stories[component]?.length ?? 0
 
-  return {
-    pictured: previewStatus(preview, missing),
-    about: {
-      path: session.info.sources[component]?.path,
-      preview,
-      missing,
-      ...(variants
-        ? {
-            variants: {
-              prop: variants.prop,
-              options: variants.options.map((value, index) => ({ value, preview: variantPreviews[index] }))
-            }
-          }
-        : {}),
-      stories,
-      ...(componentFile(session, component) === undefined
-        ? {}
-        : { onOpenFile: () => void viewCode(session, component) }),
-      ...(stories > 0 ? { onOpenStorybook: () => void openInStorybook(session, component) } : {})
+  const about: ComponentCard["about"] = { path: session.info.sources[component]?.path, preview, missing, stories }
+
+  if (variants) {
+    about.variants = {
+      prop: variants.prop,
+      options: variants.options.map((value, index) => ({ value, preview: variantPreviews[index] }))
     }
   }
+
+  if (componentFile(session, component) !== undefined) {
+    about.onOpenFile = () => void viewCode(session, component)
+  }
+
+  if (stories > 0) {
+    about.onOpenStorybook = () => void openInStorybook(session, component)
+  }
+
+  return { pictured: previewStatus(preview, missing), about }
+}
+
+/** What {@link useComponentCard} gives a component's row: its preview's status, and what its card shows about it. */
+export interface ComponentCard {
+  pictured: PreviewStatus
+  about: Pick<
+    ComponentCardProps,
+    "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "onOpenStorybook"
+  >
 }
 
 /** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */
@@ -856,8 +886,14 @@ async function installLibrary(session: ProjectSession, library: { id: string; na
     toast.success(`${library.name} is ready`, { id: progress, description: undefined })
     await workspace.reload(session.id, `Loading ${library.name}`)
   } catch (error) {
+    const failed: Attributes<"library.failed"> = { package: library.id }
     const code = errorCode(error)
-    track("library.failed", { package: library.id, ...(code ? { code } : {}) })
+
+    if (code) {
+      failed.code = code
+    }
+
+    track("library.failed", failed)
     reportError(error, {
       operation: "library.add",
       title: `Couldn't install ${library.name}`,
@@ -881,11 +917,11 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
     <Popover
       onOpenChange={(open) => {
         if (open && !catalog) {
-          void request("library.catalog", { projectId: session.id }).then(setCatalog, (error: unknown) =>
-            reportError(error, {
+          void request("library.catalog", { projectId: session.id }).then(setCatalog, (cause: unknown) =>
+            reportError(cause, {
               operation: "library.catalog",
               title: "Couldn't list libraries",
-              description: message(error)
+              description: message(cause)
             })
           )
         }
@@ -966,11 +1002,17 @@ function ImportStyles({ library }: { library: LibraryInfo }) {
 export async function importStyles(session: ProjectSession, library: LibraryInfo): Promise<void> {
   try {
     const edit = await request("library.importStyles", { projectId: session.id, library: library.id })
-    track("styles.imported", {
+
+    const imported: Attributes<"styles.imported"> = {
       package: library.package,
-      ...(library.version ? { version: library.version } : {}),
       files: edit?.files.map((file) => file.path) ?? []
-    })
+    }
+
+    if (library.version) {
+      imported.version = library.version
+    }
+
+    track("styles.imported", imported)
     await workspace.reload(session.id, `Loading ${library.name}'s styles`)
 
     if (edit) {
@@ -1175,6 +1217,6 @@ export function ImagesPanel() {
   )
 }
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function message(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }

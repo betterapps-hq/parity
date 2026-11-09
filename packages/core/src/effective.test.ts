@@ -38,17 +38,25 @@ function renderOutline(node: RenderNode): Outline[] {
   }
 
   const text = node.children.find((child) => child.kind === "text")
+  const outline: Outline = { id: node.nodeId, children: node.children.flatMap(renderOutline) }
 
-  return [
-    {
-      id: node.nodeId,
-      ...(node.tag === "div" ? { direction: node.style.flexDirection } : {}),
-      ...(node.style.gap === undefined ? {} : { gap: node.style.gap }),
-      ...(text?.kind === "text" ? { text: text.text } : {}),
-      ...(node.style.fontWeight === undefined ? {} : { weight: node.style.fontWeight }),
-      children: node.children.flatMap(renderOutline)
-    }
-  ]
+  if (node.tag === "div") {
+    outline.direction = node.style.flexDirection
+  }
+
+  if (node.style.gap !== undefined) {
+    outline.gap = node.style.gap
+  }
+
+  if (text?.kind === "text") {
+    outline.text = text.text
+  }
+
+  if (node.style.fontWeight !== undefined) {
+    outline.weight = node.style.fontWeight
+  }
+
+  return [outline]
 }
 
 /**
@@ -71,17 +79,25 @@ function effectiveOutline(tree: EffectiveTree): Outline[] {
   }
 
   const style = node.style ?? {}
+  const outline: Outline = { id: tree.path, children: tree.children.flatMap(effectiveOutline) }
 
-  return [
-    {
-      id: tree.path,
-      ...(node.type === "layout" ? { direction: style.direction ?? "column" } : {}),
-      ...(style.gap === undefined ? {} : { gap: spacing(style.gap) }),
-      ...(node.type === "text" ? { text: node.text } : {}),
-      ...(style.weight === undefined ? {} : { weight: String(style.weight) }),
-      children: tree.children.flatMap(effectiveOutline)
-    }
-  ]
+  if (node.type === "layout") {
+    outline.direction = style.direction ?? "column"
+  }
+
+  if (style.gap !== undefined) {
+    outline.gap = spacing(style.gap)
+  }
+
+  if (node.type === "text") {
+    outline.text = node.text
+  }
+
+  if (style.weight !== undefined) {
+    outline.weight = String(style.weight)
+  }
+
+  return [outline]
 }
 
 describe("effectiveTree", () => {

@@ -216,7 +216,7 @@ export function ViewControls() {
         label={keymap.zoomOut.label}
         shortcut={keymap.zoomOut.keys[0]}
         disabled={!editor}
-        onClick={() => void actions.zoomOut.run("toolbar", { instead: () => editor?.zoomOut() })}
+        onClick={() => void actions.zoomOut.run("toolbar", { instead: () => void editor?.zoomOut() })}
       >
         <Minus />
       </IconButton>
@@ -228,7 +228,7 @@ export function ViewControls() {
               size="sm"
               className="min-w-14 tabular-nums"
               disabled={!editor}
-              onClick={() => void actions.zoomTo100.run("toolbar", { instead: () => editor?.resetZoom() })}
+              onClick={() => void actions.zoomTo100.run("toolbar", { instead: () => void editor?.resetZoom() })}
             >
               {Math.round(zoom * 100)}%
             </Button>
@@ -242,7 +242,7 @@ export function ViewControls() {
         label={keymap.zoomIn.label}
         shortcut={keymap.zoomIn.keys[0]}
         disabled={!editor}
-        onClick={() => void actions.zoomIn.run("toolbar", { instead: () => editor?.zoomIn() })}
+        onClick={() => void actions.zoomIn.run("toolbar", { instead: () => void editor?.zoomIn() })}
       >
         <Plus />
       </IconButton>
@@ -250,7 +250,7 @@ export function ViewControls() {
         label={keymap.zoomToFit.label}
         shortcut={keymap.zoomToFit.keys[0]}
         disabled={!editor}
-        onClick={() => void actions.zoomToFit.run("toolbar", { instead: () => editor?.zoomToFit() })}
+        onClick={() => void actions.zoomToFit.run("toolbar", { instead: () => void editor?.zoomToFit() })}
       >
         <Maximize />
       </IconButton>

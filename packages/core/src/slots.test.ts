@@ -51,8 +51,26 @@ const card: ContainerSpec = {
 /** Marks a layout as a slot without `setSlot`'s checks, as an agent editing the file might. */
 const marking = (container: ContainerSpec, id: string, slot: string): ContainerSpec => ({
   ...container,
-  root: mapNode(container.root, id, (node) => ({ ...node, slot }) as DesignNode)
+  root: mapNode(container.root, id, (node) => ({ ...layout(node), slot }))
 })
+
+/** A node the test expects to be a layout, failing it when it's another type or missing. */
+function layout(node: DesignNode | undefined): LayoutNode {
+  if (node?.type !== "layout") {
+    throw new Error(`Expected a layout, found ${node?.type ?? "nothing"}`)
+  }
+
+  return node
+}
+
+/** A node the test expects to be an instance, failing it when it's another type or missing. */
+function instance(node: DesignNode | undefined): InstanceNode {
+  if (node?.type !== "instance") {
+    throw new Error(`Expected an instance, found ${node?.type ?? "nothing"}`)
+  }
+
+  return node
+}
 
 describe("marking a layout as a slot", () => {
   it("names it, keeping its layers as placeholder content", () => {
@@ -61,10 +79,7 @@ describe("marking a layout as a slot", () => {
       ["content", "body"],
       ["actions", "footer"]
     ])
-    expect((findNode(marked.root, "body") as LayoutNode).children.map((child) => child.id)).toEqual([
-      "placeholder",
-      "inner"
-    ])
+    expect(layout(findNode(marked.root, "body")).children.map((child) => child.id)).toEqual(["placeholder", "inner"])
   })
 
   it("makes it a plain layout again", () => {
@@ -105,8 +120,13 @@ describe("a new slot's name", () => {
   it("is the layout's own name, then content, numbered", () => {
     expect(freeSlotName(card, "footer")).toBe("footer")
     expect(freeSlotName(card, "footer", "actions")).toBe("actions")
-    const busy = { ...card, params: { ...card.params, footer: { type: "text" }, content: { type: "text" } } }
-    expect(freeSlotName(busy as ContainerSpec, "footer")).toBe("content2")
+
+    const busy: ContainerSpec = {
+      ...card,
+      params: { ...card.params, footer: { type: "text" }, content: { type: "text" } }
+    }
+
+    expect(freeSlotName(busy, "footer")).toBe("content2")
   })
 
   it("is none for a layout that can't be a slot", () => {
@@ -145,7 +165,7 @@ describe("the slot code nests between the tags", () => {
     expect(childrenSlot(designSlots(marked))?.name).toBe("content")
 
     const fuller = mapNode(marked.root, "footer", (node) => ({
-      ...(node as LayoutNode),
+      ...layout(node),
       children: [1, 2, 3].map((index) => ({ type: "text" as const, id: `action${index}`, text: "Action" }))
     }))
 
@@ -207,7 +227,7 @@ describe("filling an instance's slots", () => {
     expect(locateNode(page2.root, "mine")).toMatchObject({ slot: "content", index: 0 })
     expect(() => insertNode(page.root, "copy", { type: "text", id: "x", text: "X" })).toThrow("Say which")
     expect(
-      instanceSlots(findNode(page2.root, "copy") as InstanceNode, library).map((slot) => [slot.name, slot.fill.length])
+      instanceSlots(instance(findNode(page2.root, "copy")), library).map((slot) => [slot.name, slot.fill.length])
     ).toEqual([
       ["content", 1],
       ["actions", 0]
@@ -264,7 +284,7 @@ describe("filling an instance's slots", () => {
 describe("a copy of a slot", () => {
   it("is a plain layout with the placeholder content, since a component has one slot by each name", () => {
     const marked = setSlot(card, "body", "content")
-    const copy = withFreshIds(findNode(marked.root, "body")!, new Set()) as LayoutNode
+    const copy = layout(withFreshIds(findNode(marked.root, "body")!, new Set()))
     expect(copy.slot).toBeUndefined()
     expect(copy.children).toHaveLength(2)
   })

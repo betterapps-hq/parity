@@ -3,6 +3,7 @@ import {
   addVariant,
   type ContainerSpec,
   type DesignNode,
+  type LayoutNode,
   defaultModeSettings,
   editNode,
   findNode,
@@ -10,9 +11,11 @@ import {
   resetOverride,
   setSlot
 } from "@parity-app/core"
-import type { StyleSelection } from "@parity-app/editor"
+import { styleSelection } from "@parity-app/editor"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
+import type { Token } from "@parity-app/tokens"
 import { afterEach, describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 import { ChangePreview } from "../canvas/change-preview.ts"
 import { DesignStore } from "../design-store.ts"
 import { setWindowTelemetry } from "../report-error.ts"
@@ -41,13 +44,13 @@ afterEach(() => {
 
 describe("changedFields", () => {
   it("lists each field a change sets, with what the layer showed there before", () => {
-    const node = {
-      type: "element",
+    const node: DesignNode = {
+      type: "component",
       id: "badge",
       component: "Badge",
       props: { variant: "outline" },
       style: { padding: [2, 2] }
-    } as unknown as DesignNode
+    }
 
     expect(
       changedFields(node, { props: { variant: "solid", size: "sm" }, style: { padding: [3, 3] }, hidden: true })
@@ -62,7 +65,8 @@ describe("changedFields", () => {
 
 describe("changedFields of an instance", () => {
   it("reads a prop from the instance's arguments, where a change to it goes", () => {
-    const node = { type: "instance", id: "card", design: "card", args: { title: "Hello" } } as unknown as DesignNode
+    const node: DesignNode = { type: "instance", id: "card", design: "card", args: { title: "Hello" } }
+
     expect(changedFields(node, { props: { title: "Bye" } })).toEqual([
       { field: "props.title", from: "Hello", to: "Bye" }
     ])
@@ -70,19 +74,32 @@ describe("changedFields of an instance", () => {
 })
 
 describe("rowChanged", () => {
-  const layer = (id: string, gap?: number) => ({
-    id,
-    node: {
-      type: "layout",
-      id,
-      children: [],
-      ...(gap === undefined ? {} : { style: { gap } })
-    } as unknown as DesignNode,
-    parent: undefined,
-    base: true
-  })
+  const layer = (id: string, gap?: number) => {
+    const node: LayoutNode = { type: "layout", id, children: [] }
 
-  const selection = (...layers: ReturnType<typeof layer>[]) => ({ layers }) as unknown as StyleSelection
+    if (gap !== undefined) {
+      node.style = { gap }
+    }
+
+    return node
+  }
+
+  // The selection the Style panel would make of these layers, from a design that holds just them.
+  const selection = (...layers: LayoutNode[]) => {
+    const container: ContainerSpec = {
+      id: "home",
+      name: "home",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "root", children: layers },
+      states: [{ id: "default", name: "Default" }]
+    }
+
+    return styleSelection(
+      container,
+      layers.map((node) => node.id),
+      undefined
+    )!
+  }
 
   it("counts a change to layers whose values differ, and not setting the value a field already had", () => {
     expect(rowChanged(selection(layer("a", 1), layer("b", 2)), selection(layer("a", 2), layer("b", 3)), "gap")).toBe(
@@ -295,7 +312,7 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
     })
     const [event] = recorded()
     expect(event).toMatchObject({ field: "params.size", design: key, layers: [], from: "null" })
-    expect(JSON.parse(event!.to as string)).toMatchObject({
+    expect(JSON.parse(z.string().parse(event!.to))).toMatchObject({
       type: "variant",
       options: [
         { id: expect.any(String), name: "Small" },
@@ -311,11 +328,11 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
       read: statesValue
     })
     const [event] = recorded()
-    expect(JSON.parse(event!.from as string)).toEqual([
+    expect(JSON.parse(z.string().parse(event!.from))).toEqual([
       { id: "default", name: "Default" },
       { id: "closed", name: "Closed" }
     ])
-    expect(JSON.parse(event!.to as string)).toHaveLength(3)
+    expect(JSON.parse(z.string().parse(event!.to))).toHaveLength(3)
   })
 
   it("records a layout made a slot, with its name", () => {
@@ -359,7 +376,8 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
 
 describe("fieldValue", () => {
   it("reads an instance's prop from its arguments, and a layer's visibility as shown when it has none", () => {
-    const instance = { type: "instance", id: "card", design: "card", args: { title: "Hello" } } as DesignNode
+    const instance: DesignNode = { type: "instance", id: "card", design: "card", args: { title: "Hello" } }
+
     expect(fieldValue(instance, { kind: "props", key: "title" })).toBe("Hello")
     expect(fieldValue(instance, { kind: "hidden" })).toBe(false)
   })
@@ -375,12 +393,21 @@ describe("applyToken", () => {
         check: true
       })
     )
-    let values: Record<string, string> = { default: "#000", dark: "#fff" }
+
+    let token: Token = {
+      name: "primary",
+      category: "color",
+      source: "semantic",
+      values: { default: "#000", dark: "#fff" }
+    }
 
     const store = {
-      get: () => [{ name: "primary", category: "color", source: "semantic", values }] as never,
+      get: () => [token],
       set: (changes: { theme: string; value: string }[]) => {
-        values = { ...values, ...Object.fromEntries(changes.map(({ theme, value }) => [theme, value])) }
+        token = {
+          ...token,
+          values: { ...token.values, ...Object.fromEntries(changes.map(({ theme, value }) => [theme, value])) }
+        }
       }
     }
 

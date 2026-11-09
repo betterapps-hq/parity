@@ -121,7 +121,7 @@ export async function stopProcess(process: ProjectProcess): Promise<void> {
 }
 
 export async function restartProcess(process: ProjectProcess): Promise<void> {
-  const task = process.shape === "task"
+  const task = process.lifetime === "task"
   await act(
     process,
     task ? "running" : "starting",

@@ -1,11 +1,16 @@
 import { z } from "zod"
-import { CodedError } from "./errors.ts"
+import { CodedError, type ErrorDetails } from "./errors.ts"
 
 /**
  * Checks for data Parity didn't make (PAR-578): files, agent input, environment variables, other programs' JSON. A zod
  * schema is both the check and the type. A failed check reads as core's hand-written ones in `validate.ts` did: a JSON
  * pointer to the value at fault, then what was expected there, as in `/containers/0/name: expected a string`.
  */
+
+/** A value JSON can hold, for data read from a JSON file. */
+export const jsonValue = z.json()
+
+export type JsonValue = z.infer<typeof jsonValue>
 
 /** An object with string keys, and not an array or null. */
 export const plainObject = z.record(z.string(), z.unknown())
@@ -20,8 +25,11 @@ export const finiteNumber = z.number()
  * An object in a file Parity owns, such as a `.par`. A key it doesn't know is an error, and a key set to `undefined` is
  * left out, as JSON leaves it out, so what the window saves from memory reads as it would from the file.
  */
-export function fileObject<const Shape extends z.core.$ZodLooseShape>(shape: Shape) {
-  return z.strictObject(shape).overwrite(withoutUnset)
+// The fields `z.strictObject` takes, by its own parameter rather than zod's internal name for them.
+type ObjectFields = NonNullable<Parameters<typeof z.strictObject>[0]>
+
+export function fileObject<const Fields extends ObjectFields>(fields: Fields) {
+  return z.strictObject(fields).overwrite(withoutUnset)
 }
 
 /** Zod's own copy of an object, without the keys whose values are `undefined`. */
@@ -57,6 +65,7 @@ export function jsonText<T extends z.ZodType>(schema: T) {
  * Checks data Parity didn't make and returns what the schema reads from it, or throws `TypeError` with the first
  * problem as `/json/pointer: message`. `at` is where the value sits in a larger one, so its pointers start there.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: data Parity didn't make comes here to be parsed
 export function parseData<T extends z.ZodType>(schema: T, value: unknown, at = ""): z.output<T> {
   const checked = checkData(schema, value, at)
 
@@ -72,6 +81,7 @@ export function parseData<T extends z.ZodType>(schema: T, value: unknown, at = "
  * Checks an agent's input, as `parseData` does, but throws `CodedError` with `invalid_input` and the pointer as its
  * field, without the leading slash, so the CLI and MCP report the pointer as the error's `path` (PAR-472).
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: data Parity didn't make comes here to be parsed
 export function parseInput<T extends z.ZodType>(schema: T, value: unknown, at = ""): z.output<T> {
   const checked = checkData(schema, value, at)
 
@@ -80,10 +90,30 @@ export function parseInput<T extends z.ZodType>(schema: T, value: unknown, at = 
   }
 
   const { pointer, message } = checked.problem
-  throw new CodedError(`${pointer || "/"}: ${message}`, {
-    code: "invalid_input",
-    ...(pointer ? { field: pointer.slice(1) } : {})
-  })
+  const details: ErrorDetails = { code: "invalid_input", retryable: false }
+
+  if (pointer) {
+    details.field = pointer.slice(1)
+  }
+
+  throw new CodedError(`${pointer || "/"}: ${message}`, details)
+}
+
+/**
+ * A reader for one kind of file or message: `parseData` with its schema, and `read` making the result what callers
+ * use. The parsers built with it are where their data comes in, so they take what the file or message held.
+ */
+export function parserFor<T extends z.ZodType, R = z.output<T>>(
+  schema: T,
+  read?: (parsed: z.output<T>) => R
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: data Parity didn't make comes here to be parsed
+): (value: unknown, at?: string) => R {
+  return (value, at = "") => {
+    const parsed = parseData(schema, value, at)
+
+    // SAFETY: without `read`, `R` is its default, the schema's output.
+    return read ? read(parsed) : (parsed as R)
+  }
 }
 
 /** What a failed check found first: where, as a JSON pointer (`` for the value itself), and what was expected there. */
@@ -98,6 +128,7 @@ export interface SchemaProblem {
  */
 export function checkData<T extends z.ZodType>(
   schema: T,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: data Parity didn't make comes here to be parsed
   value: unknown,
   at = ""
 ): { success: true; data: z.output<T> } | { success: false; problem: SchemaProblem } {
@@ -150,7 +181,7 @@ export function onInvalidData(listener: (failure: InvalidData) => void): () => v
 function schemaName(schema: z.ZodType): string {
   const meta = z.globalRegistry.get(schema)
 
-  if (typeof meta?.id === "string") {
+  if (meta?.id !== undefined) {
     return meta.id
   }
 
@@ -275,26 +306,31 @@ function issueText(issue: z.core.$ZodRawIssue): string | undefined {
   }
 }
 
-const typeNames: Record<string, string> = {
-  array: "an array",
-  boolean: "true or false",
-  int: "a whole number",
-  number: "a number",
-  object: "an object",
-  record: "an object",
-  string: "a string",
-  tuple: "an array"
-}
+const typeNames = new Map([
+  ["array", "an array"],
+  ["boolean", "true or false"],
+  ["int", "a whole number"],
+  ["number", "a number"],
+  ["object", "an object"],
+  ["record", "an object"],
+  ["string", "a string"],
+  ["tuple", "an array"]
+])
 
 function typeName(expected: string): string {
-  return typeNames[expected] ?? expected
+  return typeNames.get(expected) ?? expected
 }
 
-function literal(value: unknown): string {
+function literal(value: z.core.util.Primitive): string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a primitive has no tag; only strings are quoted
   return typeof value === "string" ? JSON.stringify(value) : String(value)
 }
 
-const units: Record<string, string> = { string: "character", array: "item", set: "item" }
+const units = new Map([
+  ["string", "character"],
+  ["array", "item"],
+  ["set", "item"]
+])
 
 /** A size or range check's limit, as `expected at least 1 item` or `expected less than 10`. */
 function bound(
@@ -305,7 +341,7 @@ function bound(
   inclusive = true
 ): string | undefined {
   const words = inclusive ? inclusiveWords : exclusiveWords
-  const unit = units[origin]
+  const unit = units.get(origin)
 
   if (unit) {
     return `expected ${words} ${limit} ${unit}${Number(limit) === 1 ? "" : "s"}`

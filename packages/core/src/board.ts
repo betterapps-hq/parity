@@ -99,7 +99,7 @@ export function companionScale(width: number): number {
 export function boardSize(
   design: ContainerSpec,
   modes: readonly Pick<ResolvedMode, "viewport" | "width" | "options">[]
-): { width: number; height: number } {
+) {
   const frames = modes.map((mode, column) => {
     const size = frameSize(design, mode)
     const scale = column === 0 ? 1 : companionScale(size.width)

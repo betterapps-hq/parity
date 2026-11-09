@@ -84,9 +84,13 @@ export function iconVariants(
       return []
     }
 
-    return [
-      { name, base: groups.name ?? name, digits: groups.size ?? "", ...(groups.style ? { style: groups.style } : {}) }
-    ]
+    const entry: Parsed = { name, base: groups.name ?? name, digits: groups.size ?? "" }
+
+    if (groups.style) {
+      entry.style = groups.style
+    }
+
+    return [entry]
   })
 
   // Every name as written without a size, digits and all.
@@ -149,12 +153,18 @@ export function iconVariants(
   const result = new Map<string, IconVariant>()
 
   for (const [name, { label, size, style }] of read) {
-    result.set(name, {
-      label,
-      ...(size === undefined ? {} : { size }),
-      ...(style === undefined ? {} : { style }),
-      listed: size === undefined || listed.has(name)
-    })
+    // `listed` stays last, after the optional fields, as libraries' files have it.
+    const variant: Omit<IconVariant, "listed"> = { label }
+
+    if (size !== undefined) {
+      variant.size = size
+    }
+
+    if (style !== undefined) {
+      variant.style = style
+    }
+
+    result.set(name, { ...variant, listed: size === undefined || listed.has(name) })
   }
 
   return result
@@ -180,14 +190,14 @@ export function shorterName(a: string, b: string): number {
  * it's exported under in the module's order, so aliases the pattern leaves out (Hugeicons' `Gear` and `Cog` for
  * `Settings01Icon`) still find it. A group the pattern matches none of is left out.
  */
-export function iconAliases(
-  module: Record<string, unknown>,
+export function iconAliases<Export>(
+  module: Record<string, Export>,
   icons: Pick<LibraryIcons, "match" | "exclude"> | undefined,
-  drawable: (value: unknown, name: string) => boolean
+  drawable: (value: Export, name: string) => boolean
 ): { name: string; names: string[] }[] {
   const pattern = icons?.match ? new RegExp(icons.match) : /^[A-Z]/
   const excluded = new Set(icons?.exclude)
-  const byValue = new Map<unknown, string[]>()
+  const byValue = new Map<Export, string[]>()
 
   for (const [name, value] of Object.entries(module)) {
     if (!/^[A-Z]/.test(name) || excluded.has(name) || !drawable(value, name)) {

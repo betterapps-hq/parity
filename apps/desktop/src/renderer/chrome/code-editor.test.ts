@@ -4,8 +4,10 @@ import type { ProjectSession } from "../workspace.ts"
 import { componentFile } from "./code-editor.ts"
 
 /** Just what `componentFile` reads of a project. */
-const project = (root: string, sources: Record<string, ComponentSource>) =>
-  ({ info: { root, sources } }) as unknown as ProjectSession
+function project(root: string, sources: Record<string, ComponentSource>): ProjectSession {
+  // SAFETY: `componentFile` and `projectFile` read only `info.root` and `info.sources`, which this sets.
+  return { info: { root, sources } } as ProjectSession
+}
 
 describe("a component's code", () => {
   it("is the project's own component's file, from the root", () => {

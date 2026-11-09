@@ -1,4 +1,4 @@
-import type { ContainerSpec, DesignNode, InstanceNode, NodePatch, StateSpec } from "./document.ts"
+import type { ContainerSpec, DesignNode, InstanceNode, NodePatch, PropValues, StateSpec } from "./document.ts"
 import {
   childEntries,
   editNode,
@@ -23,6 +23,7 @@ import { effectiveNode, locateEffective } from "./effective.ts"
 import {
   applyPatch,
   type ComponentLibrary,
+  type EvalContext,
   instanceScope,
   layeredPatch,
   mergePatches,
@@ -78,7 +79,7 @@ export function locateInner(
   container: ContainerSpec,
   path: string,
   library: ComponentLibrary,
-  view: { state?: StateSpec; variants?: Record<string, unknown>; viewport?: string } = {}
+  view: Omit<EvalContext, "library"> = {}
 ): InnerNode | undefined {
   if (!isInnerPath(path)) {
     return undefined
@@ -111,14 +112,14 @@ function holderPath(path: string): string {
  * The part of a change to a node that its component binds to params, as values for those params: a bound text, prop
  * or visibility is changed by giving the instance around it a value, so the copy keeps following its param.
  */
-function boundArgs(node: DesignNode, change: NodeChange): { args?: Record<string, unknown>; rest: NodeChange } {
+function boundArgs(node: DesignNode, change: NodeChange): BoundChange {
   const bind = node.bind
 
   if (!bind) {
     return { rest: change }
   }
 
-  const args: Record<string, unknown> = {}
+  const args: PropValues = {}
   const rest: NodeChange = { ...change }
 
   if (Object.hasOwn(change, "text") && bind.text) {
@@ -151,6 +152,12 @@ function boundArgs(node: DesignNode, change: NodeChange): { args?: Record<string
   }
 
   return Object.keys(args).length > 0 ? { args, rest } : { rest }
+}
+
+/** A change to a node inside an instance, split into values for the params its fields bind and the rest. */
+interface BoundChange {
+  args?: PropValues
+  rest: NodeChange
 }
 
 function isEmptyChange(change: NodeChange): boolean {
@@ -199,7 +206,7 @@ export function editInner(
   if (editsDesign(next, target)) {
     const without = setOverride(next, inner.instance.id, inner.key, undefined)
     const under = locateInner(without, path, library)!.shown
-    const instance = findNode(next.root, inner.instance.id) as InstanceNode
+    const instance = instanceIn(next.root, inner.instance.id)
 
     return setOverrides(next, instance.id, patchWith(instance.overrides, inner.key, under, rest))
   }
@@ -241,7 +248,7 @@ export function resetInner(
       : container
 
   if (editsDesign(next, target)) {
-    const instance = findNode(next.root, inner.instance.id) as InstanceNode
+    const instance = instanceIn(next.root, inner.instance.id)
     const overrides = patchWithout(instance.overrides, inner.key, field)
 
     return overrides === instance.overrides ? next : setOverrides(next, instance.id, overrides)
@@ -306,7 +313,7 @@ export function innerChanges(
   // The values given to the params of the instance directly around the node.
   const holder = holderPath(path)
   const outer = inner.chain.length > 1 ? inner.instance.overrides?.[holder.slice(holder.indexOf("/") + 1)] : undefined
-  let given: Record<string, unknown> | undefined
+  let given: PropValues | undefined
 
   if (design) {
     given = inner.chain.length > 1 ? outer?.props : inner.instance.args
@@ -368,6 +375,17 @@ function setOverrides(container: ContainerSpec, instanceId: string, overrides: P
   }
 }
 
+/** The instance with an id in a tree. Throws when the id names a node of another type, or none. */
+function instanceIn(root: DesignNode, id: string): InstanceNode {
+  const node = findNode(root, id)
+
+  if (node?.type !== "instance") {
+    throw new Error(`"${id}" isn't an instance`)
+  }
+
+  return node
+}
+
 function setOverride(container: ContainerSpec, instanceId: string, key: string, patch: NodePatch | undefined) {
   const instance = findNode(container.root, instanceId)
 
@@ -400,7 +418,7 @@ export function pushOverrides(
   instanceId: string,
   component: ContainerSpec,
   keys?: readonly string[]
-): { container: ContainerSpec; component: ContainerSpec } {
+): PushedOverrides {
   const instance = findNode(container.root, instanceId)
 
   if (instance?.type !== "instance") {
@@ -427,7 +445,7 @@ export function pushOverrides(
     }
 
     // A node inside a nested instance: the nested instance takes it as its own override.
-    const nested = findNode(main.root, first!) as InstanceNode
+    const nested = instanceIn(main.root, first!)
     const inside = rest.join("/")
     const merged = tidyPatch(mergePatches(nested.overrides?.[inside], patch))
     main = setOverride(main, first!, inside, merged)
@@ -438,6 +456,12 @@ export function pushOverrides(
   )
 
   return { container: setOverrides(container, instanceId, left), component: main }
+}
+
+/** A design and the component design it placed an instance of, after the instance's overrides moved to the component. */
+export interface PushedOverrides {
+  container: ContainerSpec
+  component: ContainerSpec
 }
 
 function patchChange(patch: NodePatch): NodeChange {
@@ -505,14 +529,14 @@ export function detachInstance(container: ContainerSpec, instanceId: string, lib
     taken.add(id)
     ids.set(node.id, id)
 
-    const next = { ...applyPatch(node, layeredPatch(layers, node.id), args), id } as DesignNode & {
-      bind?: unknown
-      slot?: unknown
-    }
+    const next: DesignNode = { ...applyPatch(node, layeredPatch(layers, node.id), args), id }
 
     delete next.bind
-    // A detached copy is plain layers: what its slots showed stays, as layouts like any other.
-    delete next.slot
+
+    if (next.type === "layout") {
+      // A detached copy is plain layers: what its slots showed stays, as layouts like any other.
+      delete next.slot
+    }
 
     if (next.type === "instance") {
       const overrides = flatten([next.overrides, ...layers.map((layer) => withinInstance(layer, node.id))])
@@ -547,12 +571,18 @@ export function detachInstance(container: ContainerSpec, instanceId: string, lib
     responsive[viewport] = tidyPatch(mergePatches(responsive[viewport], { ...patch, props: undefined }))
   }
 
-  const root: DesignNode = {
-    ...baked,
-    name: instance.name ?? baked.name ?? component.name,
-    ...(instance.hidden || baked.hidden ? { hidden: true } : {}),
-    ...(instance.style || baked.style ? { style: { ...baked.style, ...instance.style } } : {}),
-    ...(Object.keys(responsive).length > 0 ? { responsive } : {})
+  const root: DesignNode = { ...baked, name: instance.name ?? baked.name ?? component.name }
+
+  if (instance.hidden || baked.hidden) {
+    root.hidden = true
+  }
+
+  if (instance.style || baked.style) {
+    root.style = { ...baked.style, ...instance.style }
+  }
+
+  if (Object.keys(responsive).length > 0) {
+    root.responsive = responsive
   }
 
   const replaced = { ...container, root: mapNode(container.root, instanceId, () => root) }

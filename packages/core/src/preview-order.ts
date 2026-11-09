@@ -168,11 +168,7 @@ export const previewSizes = {
  * The size an image of `width` by `height` is scaled to so it fits inside `box`, keeping its shape and never growing,
  * at least a pixel each way.
  */
-export function fitInside(
-  width: number,
-  height: number,
-  box: { width: number; height: number }
-): { width: number; height: number } {
+export function fitInside(width: number, height: number, box: { width: number; height: number }) {
   const scale = Math.min(1, box.width / Math.max(1, width), box.height / Math.max(1, height))
 
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) }

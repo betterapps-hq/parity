@@ -52,6 +52,7 @@ function start(): () => void {
     frames = 0
     longest = 0
     since = now
+    // SAFETY: Chromium adds `performance.memory`, which the DOM types leave out; it's optional for other engines.
     const memory = (performance as Performance & { memory?: MemoryInfo }).memory
     const heap = memory ? { used: memory.usedJSHeapSize, limit: memory.jsHeapSizeLimit } : undefined
 
@@ -60,10 +61,13 @@ function start(): () => void {
         return
       }
 
-      stats = {
-        latest: { fps, longestFrame, processes, ...(heap ? { heap } : {}) },
-        history: [...stats.history, fps].slice(-historyLength)
+      const latest: Sample = { fps, longestFrame, processes }
+
+      if (heap) {
+        latest.heap = heap
       }
+
+      stats = { latest, history: [...stats.history, fps].slice(-historyLength) }
 
       for (const listener of listeners) {
         listener()

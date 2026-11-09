@@ -35,7 +35,7 @@ import type { ContainerEntry } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
 import { paramValue, updateAndRecord } from "./inspector-events.ts"
 import { refuseNewProp, startNewProp, useNewProp } from "./new-prop.ts"
-import type { ValueKind } from "./prop-values.ts"
+import { booleanValue, textValue, type ValueKind } from "./prop-values.ts"
 import { revealSelection } from "./reveal.ts"
 import { focusSlot, refuseSlotName, slotFocused, useSlotFocus } from "./slot-focus.ts"
 
@@ -379,13 +379,16 @@ function lineColor(line: CodeLine): string | undefined {
 
 function paramCode(name: string, param: ParamSpec): string {
   const value = param.default
+  const flag = booleanValue.safeParse(value)
 
-  if (typeof value === "boolean") {
-    return value ? name : `${name}={false}`
+  if (flag.success) {
+    return flag.data ? name : `${name}={false}`
   }
 
-  if (typeof value === "string") {
-    return `${name}="${value}"`
+  const text = textValue.safeParse(value)
+
+  if (text.success) {
+    return `${name}="${text.data}"`
   }
 
   if (value === undefined) {

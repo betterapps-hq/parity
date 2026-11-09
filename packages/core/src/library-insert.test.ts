@@ -4,7 +4,7 @@ import { componentNode, librarySource, withLibraryContext } from "./library-inse
 import type { ComponentSource } from "./project.ts"
 import type { ComponentInfo } from "./props.ts"
 
-const takesChildren = { props: [{ name: "children", kind: "node" }] } as unknown as ComponentInfo
+const takesChildren: Pick<ComponentInfo, "props"> = { props: [{ name: "children", kind: "node", group: "own" }] }
 
 describe("inserting a library part", () => {
   it("gives a part with children its name as text, unless its sample says it has none", () => {
@@ -72,7 +72,7 @@ describe("inserting a library part", () => {
       undefined
     ])
     const content = inside(insert("acme/MarkerContent"))
-    expect(content?.type === "component" && content.slots?.children?.map(shape)).toEqual(["Running tests"])
+    expect(content?.type === "component" && content.slots?.children?.map(outline)).toEqual(["Running tests"])
     // Used without children, in a prop's elements.
     const count = insert("acme/GroupCount")
     expect(count.type === "component" && [count.props, count.slots]).toEqual([undefined, undefined])
@@ -122,16 +122,19 @@ const source = (fields: Partial<ComponentSource> = {}): ComponentSource => ({
   ...fields
 })
 
-const accordion: Record<string, ComponentSource> = {
+const accordion = {
   "acme/Accordion": source({
     sample: { children: [{ component: "acme/AccordionItem", children: [{ component: "acme/AccordionTrigger" }] }] }
   }),
   "acme/AccordionItem": source({ parents: ["acme/Accordion"], sample: { props: { value: "one" } } }),
   "acme/AccordionTrigger": source({ parents: ["acme/Accordion", "acme/AccordionItem"] })
-}
+} satisfies Record<string, ComponentSource>
 
-/** The tree's shape: each component's name and its children's. */
-function shape(node: DesignNode): unknown {
+/** A tree in outline: text as itself, and each component by name, with its children's outlines when it has any. */
+type Outline = string | { [component: string]: Outline[] }
+
+/** The tree in outline: each component's name and its children's. */
+function outline(node: DesignNode): Outline {
   if (node.type === "text") {
     return node.text
   }
@@ -143,7 +146,7 @@ function shape(node: DesignNode): unknown {
   const children = node.slots?.children ?? []
   const name = node.component.split("/")[1]!
 
-  return children.length > 0 ? { [name]: children.map(shape) } : name
+  return children.length > 0 ? { [name]: children.map(outline) } : name
 }
 
 const trigger: DesignNode = {
@@ -156,7 +159,7 @@ const trigger: DesignNode = {
 describe("a library part's parents and samples", () => {
   it("places it inside the parents it needs, with their sample props", () => {
     const placed = withLibraryContext(trigger, accordion, [], new Set(["t"]))
-    expect(shape(placed)).toEqual({ Accordion: [{ AccordionItem: ["AccordionTrigger"] }] })
+    expect(outline(placed)).toEqual({ Accordion: [{ AccordionItem: ["AccordionTrigger"] }] })
     const item = placed.type === "component" ? placed.slots?.children?.[0] : undefined
     expect(item?.type === "component" && item.props).toEqual({ value: "one" })
   })
@@ -164,7 +167,7 @@ describe("a library part's parents and samples", () => {
   it("adds only the parents that aren't around the drop target already", () => {
     const placed = withLibraryContext(trigger, accordion, ["acme/Accordion", "acme/AccordionItem"], new Set(["t"]))
     expect(placed).toBe(trigger)
-    expect(shape(withLibraryContext(trigger, accordion, ["acme/Accordion"], new Set(["t"])))).toEqual({
+    expect(outline(withLibraryContext(trigger, accordion, ["acme/Accordion"], new Set(["t"])))).toEqual({
       AccordionItem: ["AccordionTrigger"]
     })
   })
@@ -181,11 +184,11 @@ describe("a library part's parents and samples", () => {
     }
 
     const item: DesignNode = { type: "component", id: "i", component: "acme/MenuItem" }
-    expect(shape(withLibraryContext(item, menu, [], new Set(["i"])))).toEqual({
+    expect(outline(withLibraryContext(item, menu, [], new Set(["i"])))).toEqual({
       Menu: [{ MenuContent: [{ MenuGroup: ["MenuItem"] }] }]
     })
     expect(withLibraryContext(item, menu, ["acme/Menu", "acme/MenuContent"], new Set(["i"]))).toBe(item)
-    expect(shape(withLibraryContext(item, menu, ["acme/Menu"], new Set(["i"])))).toEqual({
+    expect(outline(withLibraryContext(item, menu, ["acme/Menu"], new Set(["i"])))).toEqual({
       MenuContent: [{ MenuGroup: ["MenuItem"] }]
     })
   })
@@ -205,12 +208,12 @@ describe("a library part's parents and samples", () => {
     }
 
     const row: DesignNode = { type: "component", id: "r", component: "acme/Row" }
-    expect(shape(withLibraryContext(row, table, [], new Set(["r"])))).toEqual({
+    expect(outline(withLibraryContext(row, table, [], new Set(["r"])))).toEqual({
       Table: [{ TableHeader: [{ Column: ["Name"] }] }, { TableBody: ["Row"] }]
     })
     // Without the flag, only the part.
     const { parentParts: _, ...plain } = table["acme/Row"]
-    expect(shape(withLibraryContext(row, { ...table, "acme/Row": plain }, [], new Set(["r"])))).toEqual({
+    expect(outline(withLibraryContext(row, { ...table, "acme/Row": plain }, [], new Set(["r"])))).toEqual({
       Table: [{ TableBody: ["Row"] }]
     })
   })
@@ -234,7 +237,7 @@ describe("a library part's parents and samples", () => {
     }
 
     const cell: DesignNode = { type: "component", id: "c", component: "acme/Cell" }
-    expect(shape(withLibraryContext(cell, table, [], new Set(["c"])))).toEqual({
+    expect(outline(withLibraryContext(cell, table, [], new Set(["c"])))).toEqual({
       Table: [{ TableHeader: [{ Column: ["A"] }] }, { TableBody: [{ Row: ["Cell", "Lovelace"] }] }]
     })
   })
@@ -270,7 +273,7 @@ describe("a library part's parents and samples", () => {
     const placed = withLibraryContext(item, tree, [], new Set(["i"]))
     const slots = placed.type === "component" ? placed.slots : undefined
     expect(Object.keys(slots ?? {}).sort()).toEqual(["$render:render", "indentGuide"])
-    expect(slots?.["$render:render"]?.map(shape)).toEqual(["Item"])
+    expect(slots?.["$render:render"]?.map(outline)).toEqual(["Item"])
   })
 
   it("keeps render functions as $render slots, and gives a part to a parent that calls its children", () => {
@@ -311,7 +314,7 @@ describe("a library part's parents and samples", () => {
     )
 
     expect(autocomplete.type === "component" && autocomplete.props).toEqual({ open: true })
-    expect(autocomplete.type === "component" && shape(autocomplete.slots!["$renderWith:renderInput"]![0]!)).toBe(
+    expect(autocomplete.type === "component" && outline(autocomplete.slots!["$renderWith:renderInput"]![0]!)).toBe(
       "TextField"
     )
   })
@@ -332,7 +335,7 @@ describe("a library part's parents and samples", () => {
     )
 
     expect(placed.type === "component" && placed.props).toEqual({ label: "Remember me" })
-    expect(placed.type === "component" && shape(placed.slots!.control![0]!)).toBe("Checkbox")
+    expect(placed.type === "component" && outline(placed.slots!.control![0]!)).toBe("Checkbox")
   })
 
   it("gives a family's root its sample children instead of a text label", () => {
@@ -344,7 +347,7 @@ describe("a library part's parents and samples", () => {
     }
 
     const placed = withLibraryContext(root, accordion, [], new Set(["a"]))
-    expect(shape(placed)).toEqual({ Accordion: [{ AccordionItem: ["AccordionTrigger"] }] })
+    expect(outline(placed)).toEqual({ Accordion: [{ AccordionItem: ["AccordionTrigger"] }] })
     expect(placed.type === "component" && placed.props).toBeFalsy()
   })
 })

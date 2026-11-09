@@ -1,4 +1,4 @@
-import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { findFrames, nodeBox } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
 
@@ -15,9 +15,9 @@ export function revealSelection(session: ProjectSession): void {
     return
   }
 
-  const shape = editor.getShape(shapeIdFor(key))
+  const record = editor.getShape(canvasIdFor(key))
 
-  if (!shape) {
+  if (!record) {
     return
   }
 
@@ -48,7 +48,7 @@ export function revealSelection(session: ProjectSession): void {
     }
   }
 
-  const bounds = editor.getShapePageBounds(shape)
+  const bounds = editor.getShapePageBounds(record)
 
   if (!bounds) {
     return

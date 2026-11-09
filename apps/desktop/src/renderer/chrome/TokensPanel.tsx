@@ -337,6 +337,7 @@ export function TokensPanel() {
             size="sm"
             spacing={0}
             value={[view]}
+            // SAFETY: the group's items are "list" and "tiles", the two views.
             onValueChange={([value]) => value && setView(value as View)}
             aria-label="Show tokens as"
           >
@@ -357,6 +358,7 @@ export function TokensPanel() {
           size="sm"
           spacing={0}
           value={[source]}
+          // SAFETY: the group's items are "all", "semantic" and "theme", the three sources.
           onValueChange={([value]) => value && setSource(value as Source)}
           className="w-full"
         >

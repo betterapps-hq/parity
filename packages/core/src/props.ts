@@ -1,3 +1,6 @@
+import { z } from "zod"
+import type { PropValues } from "./document.ts"
+
 /**
  * What a component accepts, inferred from its source: each prop's kind of value, the options a variant offers, and
  * its default. Panels and agents use it to offer valid values instead of free text.
@@ -58,7 +61,7 @@ export function editableProps(info: ComponentInfo | undefined): ComponentProp[] 
 
 /** A component layer as the Props panel reads it: the props it's given, and the layers in its slots. */
 export interface PropsHolder {
-  props?: Record<string, unknown>
+  props?: PropValues
   slots?: Record<string, readonly unknown[]>
 }
 
@@ -66,12 +69,12 @@ export interface PropsHolder {
  * How a node prop's field edits it: `layers` when its slot holds layers, which the canvas passes in place of a value;
  * `text` for text or no value; `value` for anything else (a number, `null`), edited as a typed value.
  */
-export function nodePropInput(value: unknown, inSlot: boolean): "layers" | "text" | "value" {
+export function nodePropInput(value: PropValues[string], inSlot: boolean): "layers" | "text" | "value" {
   if (inSlot) {
     return "layers"
   }
 
-  return typeof value === "string" || value === undefined ? "text" : "value"
+  return z.string().optional().safeParse(value).success ? "text" : "value"
 }
 
 /** What the Props panel lists for a component layer. */
@@ -99,7 +102,7 @@ export function propsPanel(info: ComponentInfo | undefined, node: PropsHolder): 
     props.filter((prop) => prop.kind === "node" && (node.slots?.[prop.name]?.length ?? 0) > 0).map((prop) => prop.name)
   )
 
-  const isLabel = (name: string) => name === "children" && typeof values.children === "string"
+  const isLabel = (name: string) => name === "children" && z.string().safeParse(values.children).success
 
   const main = props.filter(
     (prop) => (prop.group === "variant" || prop.group === "own") && prop.kind !== "function" && !isLabel(prop.name)

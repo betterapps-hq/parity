@@ -140,7 +140,7 @@ export const ManyFindings: Story = {
   play: ({ canvasElement }) =>
     checkAgain(canvasElement, "Target is too small", () =>
       answerNext("accessibility.check", async (_, real) => {
-        const result = (await real()) as { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
+        const result = await real()
 
         return { ...result, findings: [...result.findings, ...moreFindings()], frames: 9 }
       })
@@ -183,7 +183,7 @@ export const NoPassingToken: Story = {
   play: ({ canvasElement }) =>
     checkAgain(canvasElement, /None of the project.s colors pass/, () =>
       answerNext("accessibility.check", async (_, real) => {
-        const result = (await real()) as { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
+        const result = await real()
 
         return {
           ...result,
@@ -264,16 +264,24 @@ function moreFindings(): AccessibilityFinding[] {
     detail: string,
     frames: [string, string][]
   ): AccessibilityFinding[] =>
-    frames.map(([state, mode]) => ({
-      state,
-      mode,
-      rule,
-      impact,
-      help,
-      helpUrl: `https://dequeuniversity.com/rules/axe/4.10/${rule}`,
-      ...(layerName ? { node: node("Dashboard", layerName), name: layerName } : {}),
-      detail
-    }))
+    frames.map(([state, mode]) => {
+      const result: AccessibilityFinding = {
+        state,
+        mode,
+        rule,
+        impact,
+        help,
+        helpUrl: `https://dequeuniversity.com/rules/axe/4.10/${rule}`,
+        detail
+      }
+
+      if (layerName) {
+        result.node = node("Dashboard", layerName)
+        result.name = layerName
+      }
+
+      return result
+    })
 
   const everywhere: [string, string][] = ["default", "loading", "empty-workspace"].flatMap((state) =>
     ["desktop-light", "desktop-dark", "mobile-light"].map((mode): [string, string] => [state, mode])

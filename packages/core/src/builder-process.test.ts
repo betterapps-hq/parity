@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vite-plus/test"
 import type { BuilderAdapter, BuilderStartOptions, RendererAdapter } from "./adapters.ts"
 import {
   type BuilderProcessClientOptions,
-  type BuilderProcessOptions,
   type BuilderProcessReply,
   type BuilderProcessRequest,
   builderProcessOptions,
@@ -70,6 +69,7 @@ function connect(
   times: () => ProcessTimes = () => ({ cpu: 0, uptime: 1, memory: 0 })
 ) {
   const later = (deliver: () => void) => setTimeout(deliver, 0)
+  // SAFETY: requests and replies are plain JSON data (strings, numbers, arrays, objects), so a JSON copy has their type.
   // oxlint-disable-next-line unicorn/prefer-structured-clone -- messages cross the process boundary as JSON
   const copy = <T>(message: T): T => JSON.parse(JSON.stringify(message)) as T
   const exit = vi.fn<(reason: string) => void>((reason) => later(() => client.exited(reason)))
@@ -115,7 +115,7 @@ describe("builderProcessOptions", () => {
     })
     expect(structuredClone(options)).toEqual(options)
     // oxlint-disable-next-line unicorn/prefer-structured-clone -- the test checks the options survive JSON
-    expect(JSON.parse(JSON.stringify(options)) as BuilderProcessOptions).toEqual(options)
+    expect(JSON.parse(JSON.stringify(options))).toEqual(options)
   })
 })
 

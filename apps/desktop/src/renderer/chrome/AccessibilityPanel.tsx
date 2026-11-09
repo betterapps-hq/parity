@@ -1,7 +1,7 @@
 import { Button, Label, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail, TokenFix } from "@parity-app/agent"
 import { type ContainerSpec, findNode, mapNode, type ModeSettings, shownModes } from "@parity-app/core"
-import { kindName } from "@parity-app/editor"
+import { kindName, type Selection } from "@parity-app/editor"
 import {
   ArrowUpRight,
   ChevronRight,
@@ -82,8 +82,14 @@ function findingsOf(check: Check | undefined): DoneCheck | undefined {
 async function runCheck(session: ProjectSession, entry: ContainerEntry): Promise<void> {
   const key = checkKey(session, entry.key)
   const checked = { container: entry.container, modes: session.store.getModes() }
+  const checking: Check = { ...checked, status: "checking" }
   const previous = findingsOf(checks.get(key))
-  setCheck(key, { ...checked, status: "checking", ...(previous ? { previous } : {}) })
+
+  if (previous) {
+    checking.previous = previous
+  }
+
+  setCheck(key, checking)
 
   try {
     const result = await request("accessibility.check", { projectId: session.id, design: entry.key })
@@ -131,7 +137,7 @@ function groupFindings(findings: AccessibilityFinding[]): RuleGroup[] {
 
     if (!group) {
       const { rule, impact, help, helpUrl } = finding
-      const words = ruleWords[rule]
+      const words = ruleWords.get(rule)
       group = {
         rule,
         impact,
@@ -150,7 +156,12 @@ function groupFindings(findings: AccessibilityFinding[]): RuleGroup[] {
 
     if (!layer) {
       const { name, detail, contrast } = finding
-      layer = { nodes: finding.node ? [finding.node] : [], name, detail, ...(contrast ? { contrast } : {}), frames: [] }
+      layer = { nodes: finding.node ? [finding.node] : [], name, detail, frames: [] }
+
+      if (contrast) {
+        layer.contrast = contrast
+      }
+
       group.byNode.set(key, layer)
     }
 
@@ -550,17 +561,19 @@ function LayerRow({
       store.updateView(entry.key, `Show ${state}`, (current) => ({ ...current, state: frame.state }))
     }
 
-    selection.set(
-      layer.nodes.length > 0
-        ? {
-            design: entry.key,
-            node: layer.nodes[0],
-            ...(layer.nodes.length > 1 ? { nodes: layer.nodes } : {}),
-            state: frame.state,
-            mode: frame.mode
-          }
-        : { design: entry.key }
-    )
+    if (layer.nodes.length === 0) {
+      selection.set({ design: entry.key })
+
+      return
+    }
+
+    const picked: Selection = { design: entry.key, node: layer.nodes[0], state: frame.state, mode: frame.mode }
+
+    if (layer.nodes.length > 1) {
+      picked.nodes = layer.nodes
+    }
+
+    selection.set(picked)
   }
 
   const inEvery = layer.frames.length === allFrames && allFrames > 1

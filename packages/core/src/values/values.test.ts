@@ -1,39 +1,45 @@
 import { describe, expect, it } from "vite-plus/test"
 import { iconAliases } from "../icon-names.ts"
 import { parseData } from "../schema.ts"
-import { evaluateValue, readRenderSlotKey, renderSlotKey, type ValueHost, valueImports } from "./evaluate.ts"
+import { evaluateValue, exportOf, readRenderSlotKey, renderSlotKey, type ValueHost, valueImports } from "./evaluate.ts"
 import { decoratorValue, sampleValue } from "./grammar.ts"
 
 /** A module whose `make` returns a list that `add` pushes to, so a test sees what was called on it. */
 const theme = { dark: true }
 
-const modules: Record<string, Record<string, unknown>> = {
-  pkg: {
-    default: "the default export",
-    theme,
-    Tooltip: { Provider: "provider" },
-    make: (...items: unknown[]) => ({
-      items,
-      add(item: unknown) {
-        this.items.push(item)
-      },
-      fail() {
-        throw new Error("needs the app")
-      }
-    })
-  }
-}
+/** What the tests' calls pass to `make` and `add`. */
+type Item = number | typeof theme | undefined
+
+const modules = new Map([
+  [
+    "pkg",
+    {
+      default: "the default export",
+      theme,
+      Tooltip: { Provider: "provider" },
+      make: (...items: Item[]) => ({
+        items,
+        add(item: Item) {
+          this.items.push(item)
+        },
+        fail() {
+          throw new Error("needs the app")
+        }
+      })
+    }
+  ]
+])
 
 function host(globals: Record<string, string> = {}): ValueHost {
   return {
     exported(specifier, path) {
-      const module = modules[specifier]
+      const module = modules.get(specifier)
 
       if (!module) {
         throw new Error(`${specifier} isn't loaded`)
       }
 
-      return path.split(".").reduce<unknown>((found, part) => (found as Record<string, unknown>)?.[part], module)
+      return exportOf(module, path)
     },
     global: (name) => globals[name],
     frame: (part) => `frame ${part}`,
@@ -73,13 +79,14 @@ describe("decorator and sample values", () => {
     ["forms inside plain JSON and lists", { props: [{ $frame: "lang" }] }, {}, { props: ["frame lang"] }]
   ])("evaluates %s", (_, value, globals, expected) => {
     expect(() => parseData(decoratorValue, value)).not.toThrow()
-    expect(evaluateValue(value, host(globals))).toMatchObject(expected as object)
+    // Wrapped, so text is compared whole and an object by the keys the case names.
+    expect({ evaluated: evaluateValue(value, host(globals)) }).toMatchObject({ evaluated: expected })
   })
 
   it("makes a function of a `$function` value, worked out when it's called", () => {
     const made = evaluateValue({ $function: { $import: "pkg", export: "theme" } }, host())
-    expect(typeof made).toBe("function")
-    expect((made as () => unknown)()).toBe(theme)
+    expect(made).toBeInstanceOf(Function)
+    expect(made instanceof Function && made()).toBe(theme)
   })
 
   it("makes each call once for as long as the host keeps it", () => {
@@ -164,14 +171,14 @@ describe("iconAliases", () => {
   const module = { Heart: heart, HeartIcon: heart, Gear: gear, Settings01Icon: gear, Cog: gear, icons: {}, Icon: heart }
 
   it("lists each icon once, by the shortest name the pattern matches, with every name it's exported under", () => {
-    expect(iconAliases(module, { match: "Icon$", exclude: ["Icon"] }, (value) => typeof value === "function")).toEqual([
+    expect(iconAliases(module, { match: "Icon$", exclude: ["Icon"] }, (value) => value instanceof Function)).toEqual([
       { name: "HeartIcon", names: ["Heart", "HeartIcon"] },
       { name: "Settings01Icon", names: ["Gear", "Settings01Icon", "Cog"] }
     ])
   })
 
   it("matches every capitalised export without a pattern", () => {
-    expect(iconAliases(module, undefined, (value) => typeof value === "function").map(({ name }) => name)).toEqual([
+    expect(iconAliases(module, undefined, (value) => value instanceof Function).map(({ name }) => name)).toEqual([
       "Icon",
       "Cog"
     ])

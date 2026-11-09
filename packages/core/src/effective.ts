@@ -147,12 +147,9 @@ export function effectiveTree(
       children = childEntries(node).flatMap((entry) => entry.nodes.map((child) => inside(child, entry.slot)))
     }
 
-    return {
-      path,
-      node: applyPatch(node, patch, scope.args),
-      ...(slot === undefined ? {} : { slot }),
-      children
-    }
+    const shown = applyPatch(node, patch, scope.args)
+
+    return slot === undefined ? { path, node: shown, children } : { path, node: shown, slot, children }
   }
 
   return build(found.node, id, found.scope, found.chain, found.patch, found.location.slot)

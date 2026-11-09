@@ -10,7 +10,7 @@ import type {
   WindowMethod,
   WindowMethods
 } from "../../shared/protocol.ts"
-import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { reportIds } from "../telemetry.ts"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
@@ -183,7 +183,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
   const boards: TabSnapshot["bounds"] = {}
 
   for (const entry of session.store.getEntries()) {
-    const box = editor?.getShapePageBounds(shapeIdFor(entry.key))
+    const box = editor?.getShapePageBounds(canvasIdFor(entry.key))
 
     if (box) {
       boards[entry.key] = { x: box.x, y: box.y, width: box.width, height: box.height }

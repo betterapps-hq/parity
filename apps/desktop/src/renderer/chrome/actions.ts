@@ -70,9 +70,12 @@ import { lastAction, rememberAction, repeatLastAction } from "./repeat.ts"
  * window, even in a text field; the rest act on the canvas, so typing and menus keep their keys. `available` says when
  * one applies: otherwise its keys do what they'd do anyway, as Tab moving focus.
  */
+/** What running an action gives back: nothing, or a promise of when it's done, which `command.ran` waits for. */
+export type ActionResult = void | Promise<void>
+
 export interface Action {
   /** `event` is the key that ran it, for an action that acts on which of its keys was pressed. */
-  run(event?: KeyboardEvent): unknown
+  run(event?: KeyboardEvent): ActionResult
   available?(): boolean
   scope?: "app"
   /** It acts on the key pressed, as the arrows nudge each their own way, so only its keys run it, not the search. */

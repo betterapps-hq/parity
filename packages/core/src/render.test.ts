@@ -275,7 +275,8 @@ describe("layering patches that take values away", () => {
 })
 
 describe("parseCanvasDocument", () => {
-  const document = (overrides: Record<string, unknown> = {}) => ({
+  // Fields laid over a valid design, which may make it invalid on purpose.
+  const document = <Fields extends object>(overrides?: Fields) => ({
     version: 3,
     containers: [
       {
@@ -576,13 +577,9 @@ describe("reachableLibrary", () => {
   })
 
   it("finds instances that a state adds", () => {
-    const stated = {
-      ...other,
-      states: [
-        { id: "base", name: "Base" },
-        { id: "busy", name: "Busy", added: [{ type: "instance", id: "spinner", design: "button" }] }
-      ]
-    } as unknown as ContainerSpec
+    // A field states don't have yet, which a design from a newer Parity could.
+    const busy = { id: "busy", name: "Busy", added: [{ type: "instance", id: "spinner", design: "button" }] }
+    const stated: ContainerSpec = { ...other, states: [{ id: "base", name: "Base" }, busy] }
 
     expect(placedDesigns(stated)).toEqual(["button"])
   })

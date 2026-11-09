@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { modeSettings } from "./modes.ts"
-import { fileObject, finiteNumber, parseData, plainObject } from "./schema.ts"
+import { fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"
 import { slotNameProblem } from "./slot-names.ts"
 
 // A project file is checked by the schemas below, leaves first. Rules that span fields are refinements on the object
@@ -336,6 +336,9 @@ const componentNode = nodeBase.extend({
 
 /** An instance of one of the project's own components. */
 export type ComponentNode = z.infer<typeof componentNode>
+
+/** A component's props or an instance's args, by name, as a design file holds them. */
+export type PropValues = NonNullable<ComponentNode["props"]>
 
 /** The elements a text node can be. */
 export const textTags = ["p", "span", "h1", "h2", "h3", "h4", "strong"] as const
@@ -685,16 +688,10 @@ export const canvasDocument = fileObject({
 export type CanvasDocument = z.infer<typeof canvasDocument>
 
 /** Reads a project file, or throws `TypeError` with the first problem as `/json/pointer: message`. */
-export function parseCanvasDocument(value: unknown): CanvasDocument {
-  return parseData(canvasDocument, value)
-}
+export const parseCanvasDocument = parserFor(canvasDocument)
 
 /** Validates one node tree on its own, as agents insert them. `path` is where it sits, for the error's pointer. */
-export function parseDesignNode(value: unknown, path = ""): DesignNode {
-  return parseData(nodeTree, value, path)
-}
+export const parseDesignNode = parserFor(nodeTree)
 
 /** Validates a state's or viewport's patch on its own. `path` is where it sits, for the error's pointer. */
-export function parseNodePatch(value: unknown, path = ""): NodePatch {
-  return parseData(nodePatch, value, path)
-}
+export const parseNodePatch = parserFor(nodePatch)

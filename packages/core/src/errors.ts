@@ -46,9 +46,10 @@ const errorDetailsSchema = z.object({
   /** The request field at fault, as a path: `design`, `state`, `edits/0/find`. */
   field: z.string().min(1).optional().catch(undefined),
   /** Valid references to use instead of an unknown or ambiguous one, at most `alternativeLimit` of them. */
+  // An item that isn't a string reads as `null` and is dropped, so the strings around it still count.
   alternatives: z
-    .array(z.unknown())
-    .transform((items) => items.filter((item) => typeof item === "string").slice(0, alternativeLimit))
+    .array(z.string().nullable().catch(null))
+    .transform((items) => items.filter((item) => item !== null).slice(0, alternativeLimit))
     .optional()
     .catch(undefined)
 })
@@ -75,11 +76,15 @@ export function unknownReference(
   candidates: readonly string[],
   field?: string
 ): CodedError {
-  return new CodedError(message, {
-    code,
-    ...(field === undefined ? {} : { field }),
-    alternatives: closest(reference, candidates)
-  })
+  const details: Omit<ErrorDetails, "retryable"> = { code }
+
+  if (field !== undefined) {
+    details.field = field
+  }
+
+  details.alternatives = closest(reference, candidates)
+
+  return new CodedError(message, details)
 }
 
 /**
@@ -125,11 +130,12 @@ function editDistance(a: string, b: string): number {
 }
 
 /** A thrown value's details, when it carries them. */
-export function errorDetails(error: unknown): ErrorDetails | undefined {
-  return error instanceof CodedError ? error.details : undefined
+export function errorDetails(cause: unknown): ErrorDetails | undefined {
+  return cause instanceof CodedError ? cause.details : undefined
 }
 
 /** Details that came from another process, checked before they're trusted. Anything malformed reads as none. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: details from another process are parsed here
 export function readErrorDetails(value: unknown): ErrorDetails | undefined {
   return errorDetailsSchema.safeParse(value).data
 }

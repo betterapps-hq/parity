@@ -41,7 +41,7 @@ export async function addLibrary(
     {
       id: `install:${project.info.id}`,
       kind: "install",
-      shape: "task",
+      lifetime: "task",
       name: `Install ${definition.name}`,
       projectId: project.info.id,
       project: project.info.name,

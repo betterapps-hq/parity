@@ -63,7 +63,7 @@ export function frameSkeleton(
 ): FrameSkeleton {
   const area = frame.width * frame.height
   let background: string | undefined
-  const shown: { box: Shape; style: Style; order: number }[] = []
+  const shown: { box: Rect; style: Style; order: number }[] = []
   drawn.forEach((box, order) => {
     const clipped = clip(box, frame)
 
@@ -92,10 +92,15 @@ export function frameSkeleton(
           .slice(0, most)
           .sort((a, b) => a.order - b.order)
 
-  return { width: frame.width, height: frame.height, ...(background ? { background } : {}), layers: layer(kept) }
+  const layers = layer(kept)
+
+  return background
+    ? { width: frame.width, height: frame.height, background, layers }
+    : { width: frame.width, height: frame.height, layers }
 }
 
-interface Shape {
+/** A box as a skeleton draws it: a rectangle with rounded corners. */
+interface Rect {
   x: number
   y: number
   width: number
@@ -106,36 +111,44 @@ interface Shape {
 type Style = Omit<SkeletonLayer, "path">
 
 /** How a box is drawn, or nothing for one that draws nothing. */
-function draw(box: DrawnBox, shape: Shape): { box: Shape; style: Style } | undefined {
+function draw(box: DrawnBox, rect: Rect): { box: Rect; style: Style } | undefined {
   if (box.kind === "text") {
     if (!box.color) {
       return undefined
     }
 
-    const height = shape.height * textBar
+    const height = rect.height * textBar
 
     return {
-      box: { ...shape, y: shape.y + (shape.height - height) / 2, height, radius: height / 2 },
+      box: { ...rect, y: rect.y + (rect.height - height) / 2, height, radius: height / 2 },
       style: { fill: box.color, opacity: textOpacity }
     }
   }
 
   if (box.kind === "media") {
-    return { box: shape, style: { fill: box.color ?? "currentColor", opacity: mediaOpacity } }
+    return { box: rect, style: { fill: box.color ?? "currentColor", opacity: mediaOpacity } }
   }
 
   if (!box.color && !box.border) {
     return undefined
   }
 
-  return {
-    box: shape,
-    style: { ...(box.color ? { fill: box.color } : {}), ...(box.border ? { stroke: box.border } : {}), opacity: 1 }
+  // Fill, then stroke, then opacity, so equal styles are written alike and share a layer.
+  const paint: Omit<Style, "opacity"> = {}
+
+  if (box.color) {
+    paint.fill = box.color
   }
+
+  if (box.border) {
+    paint.stroke = box.border
+  }
+
+  return { box: rect, style: { ...paint, opacity: 1 } }
 }
 
 /** The part of a box inside the frame, its corners no rounder than half its shorter side. */
-function clip(box: DrawnBox, frame: { width: number; height: number }): Shape | undefined {
+function clip(box: DrawnBox, frame: { width: number; height: number }): Rect | undefined {
   const x = Math.max(0, box.x)
   const y = Math.max(0, box.y)
   const width = Math.min(frame.width, box.x + box.width) - x
@@ -152,8 +165,8 @@ function clip(box: DrawnBox, frame: { width: number; height: number }): Shape | 
  * Puts boxes drawn alike in one layer, keeping every box in front of the boxes it overlaps that were drawn before it:
  * a box joins the last layer drawn its way unless a layer after that one overlaps it.
  */
-function layer(boxes: { box: Shape; style: Style }[]): SkeletonLayer[] {
-  const layers: { style: Style; key: string; boxes: Shape[] }[] = []
+function layer(boxes: { box: Rect; style: Style }[]): SkeletonLayer[] {
+  const layers: { style: Style; key: string; boxes: Rect[] }[] = []
 
   for (const { box, style } of boxes) {
     const key = `${style.fill}|${style.stroke}|${style.opacity}`
@@ -181,12 +194,12 @@ function layer(boxes: { box: Shape; style: Style }[]): SkeletonLayer[] {
   return layers.map(({ style, boxes }) => ({ path: boxes.map(outline).join(""), ...style }))
 }
 
-function overlaps(a: Shape, b: Shape): boolean {
+function overlaps(a: Rect, b: Rect): boolean {
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 }
 
 /** A box as path commands, clockwise from its top left corner. */
-function outline({ x, y, width, height, radius }: Shape): string {
+function outline({ x, y, width, height, radius }: Rect): string {
   const n = (value: number) => String(Math.round(value * 10) / 10)
 
   if (radius < 0.5) {

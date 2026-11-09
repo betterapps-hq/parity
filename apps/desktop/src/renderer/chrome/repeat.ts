@@ -1,7 +1,9 @@
+import type { ActionResult } from "./actions.ts"
+
 /** Something Repeat last action can run again, on whatever's selected then. */
 export interface Repeatable {
   label: string
-  run(): unknown
+  run(): ActionResult
   available?(): boolean
 }
 

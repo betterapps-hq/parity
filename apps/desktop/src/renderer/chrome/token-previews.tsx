@@ -17,6 +17,7 @@ import {
   useRef,
   useState
 } from "react"
+import { textValue } from "./prop-values.ts"
 
 /** A token as its preview draws it. */
 export interface PreviewToken {
@@ -215,6 +216,7 @@ function usePlayback(
       return
     }
 
+    // SAFETY: `key` is the motion above as JSON, so it reads back as the same frames and timing, Infinity aside.
     const { frames, timing } = JSON.parse(key) as { frames: Keyframe[]; timing: KeyframeAnimationOptions }
 
     // JSON writes Infinity as null, and every motion here that repeats repeats for as long as it plays.
@@ -245,22 +247,23 @@ function looped(from: Keyframe, to: Keyframe, duration: number, easing: string, 
   ]
 }
 
-const easingKeywords: Record<string, [number, number, number, number]> = {
-  linear: [0, 0, 1, 1],
-  ease: [0.25, 0.1, 0.25, 1],
-  "ease-in": [0.42, 0, 1, 1],
-  "ease-out": [0, 0, 0.58, 1],
-  "ease-in-out": [0.42, 0, 0.58, 1]
-}
+const easingKeywords = new Map([
+  ["linear", [0, 0, 1, 1]],
+  ["ease", [0.25, 0.1, 0.25, 1]],
+  ["ease-in", [0.42, 0, 1, 1]],
+  ["ease-out", [0, 0, 0.58, 1]],
+  ["ease-in-out", [0.42, 0, 0.58, 1]]
+])
 
 const bezierAt = (t: number, a: number, b: number) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t ** 2 * b + t ** 3
 
 /** Points along an easing, time across and progress up, from `cubic-bezier()`, `linear()` or a keyword. */
 export function easingPoints(value: string, steps = 48): [number, number][] {
-  const bezier = /cubic-bezier\(([^)]+)\)/.exec(value)?.[1]?.split(",").map(Number) ?? easingKeywords[value.trim()]
+  const bezier = /cubic-bezier\(([^)]+)\)/.exec(value)?.[1]?.split(",").map(Number) ?? easingKeywords.get(value.trim())
 
   if (bezier) {
-    const [x1, y1, x2, y2] = bezier as [number, number, number, number]
+    // One missing a number draws nothing, as the browser refuses it.
+    const [x1 = Number.NaN, y1 = Number.NaN, x2 = Number.NaN, y2 = Number.NaN] = bezier
 
     return Array.from({ length: steps + 1 }, (_, index) => {
       const t = index / steps
@@ -302,16 +305,19 @@ export function easingPoints(value: string, steps = 48): [number, number][] {
 }
 
 /** An animation shorthand's parts: the keyframes' name, how long, the easing, and whether it repeats. */
-export function animationParts(value: string): {
+export interface AnimationParts {
   name: string
   /** Undefined when the value doesn't say. */
   duration?: number
   easing: string
   infinite: boolean
-} {
+}
+
+/** Reads an animation shorthand into its {@link AnimationParts}. */
+export function animationParts(value: string): AnimationParts {
   const parts: string[] = value.match(/[\w-]+\([^)]*\)|\S+/g) ?? []
   const duration = parts.map(ms).find((time) => !Number.isNaN(time))
-  const easing = parts.find((part) => /^(cubic-bezier|linear)\(/.test(part) || part in easingKeywords) ?? "ease"
+  const easing = parts.find((part) => /^(cubic-bezier|linear)\(/.test(part) || easingKeywords.has(part)) ?? "ease"
 
   return { name: parts[0] ?? "", duration, easing, infinite: parts.includes("infinite") }
 }
@@ -509,11 +515,13 @@ function runnable(frames: Keyframe[], size: { width: number; height: number }): 
   return frames.map((frame) =>
     Object.fromEntries(
       Object.entries(frame).flatMap(([property, value]) => {
-        if (typeof value !== "string" || !value.includes("var(")) {
+        const text = textValue.safeParse(value)
+
+        if (!text.success || !text.data.includes("var(")) {
           return [[property, value]]
         }
 
-        const filled = value.replaceAll(/var\(\s*--[\w-]+\s*(?:,\s*([^()]*))?\)/g, (whole, fallback?: string) =>
+        const filled = text.data.replaceAll(/var\(\s*--[\w-]+\s*(?:,\s*([^()]*))?\)/g, (whole, fallback?: string) =>
           fallback?.trim() ? fallback.trim() : whole
         )
 
@@ -975,6 +983,12 @@ function LayersArt({ token, width, height }: { token: PreviewToken; width: numbe
   )
 }
 
+/** How a length's bar is drawn: `solid` pixels at its true size, then `squeezed` pixels for the rest of it. */
+export interface BarLength {
+  solid: number
+  squeezed: number
+}
+
 /** The length a squeezed tail ends at, Tailwind's `--spacing-96`, longer than most themes' last step. */
 const squeezedTo = 384
 
@@ -983,7 +997,7 @@ const squeezedTo = 384
  * past it, the first part is drawn at its true size and the rest squeezed into those last pixels, on a log scale up to
  * 384 pixels, so a longer length always ends further along.
  */
-export function barLength(length: number, room: number): { solid: number; squeezed: number } {
+export function barLength(length: number, room: number): BarLength {
   const tail = Math.min(16, Math.max(0, room) / 2)
   const knee = Math.max(1, room - tail)
   const size = Number.isFinite(length) ? Math.max(0, length) : 0
@@ -1041,25 +1055,25 @@ export function SpacingBar({
 }
 
 /** The browser's sizes for the font-size keywords, in pixels, at the default 16px. */
-const fontSizeKeywords: Record<string, number> = {
-  "xx-small": 9,
-  "x-small": 10,
-  small: 13,
-  medium: 16,
-  large: 18,
-  "x-large": 24,
-  "xx-large": 32,
-  "xxx-large": 48,
-  smaller: 16 / 1.2,
-  larger: 16 * 1.2
-}
+const fontSizeKeywords = new Map([
+  ["xx-small", 9],
+  ["x-small", 10],
+  ["small", 13],
+  ["medium", 16],
+  ["large", 18],
+  ["x-large", 24],
+  ["xx-large", 32],
+  ["xxx-large", 48],
+  ["smaller", 16 / 1.2],
+  ["larger", 16 * 1.2]
+])
 
 /**
  * The font size a `font` shorthand gives, as written: the first length, percentage or size keyword, with or without a
  * line height after it (`600 12px Inter`, `400 1ch/1.5 …`, `400 120%/1.2 …`, `bold large serif`).
  */
 export function fontSizeText(font: string): string | undefined {
-  const keywords = Object.keys(fontSizeKeywords).join("|")
+  const keywords = [...fontSizeKeywords.keys()].join("|")
   const size = new RegExp(String.raw`(?:^|\s)(\d*\.?\d+(?:[a-z]+|%)|${keywords})(?=\s*\/|\s|$)`, "i")
 
   return size.exec(font)?.[1]
@@ -1077,7 +1091,7 @@ export function fontSizePx(font: string): number {
     return (Number.parseFloat(text) / 100) * 16
   }
 
-  return fontSizeKeywords[text] ?? px(text)
+  return fontSizeKeywords.get(text) ?? px(text)
 }
 
 /**
@@ -1187,7 +1201,9 @@ export function TokenGlyph({
       className="relative h-6 shrink-0 overflow-hidden rounded-[4px]"
       style={{
         width,
-        ...(onPaper.has(token.kind) ? { background: paper.sheet, boxShadow: `inset 0 0 0 1px ${paper.edge}` } : {})
+        // React leaves out a style that's undefined, so only a token drawn on paper gets the sheet.
+        background: onPaper.has(token.kind) ? paper.sheet : undefined,
+        boxShadow: onPaper.has(token.kind) ? `inset 0 0 0 1px ${paper.edge}` : undefined
       }}
     >
       <TokenArt token={token} width={width} height={24} playing={playing} />

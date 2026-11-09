@@ -35,7 +35,7 @@ describe("default modes", () => {
 
 describe("parseModeSettings", () => {
   it("rejects a mode that picks an option a variable doesn't have", () => {
-    const settings = structuredClone(defaultModeSettings) as unknown as { modes: { values: object }[] }
+    const settings = structuredClone(defaultModeSettings)
     settings.modes[0]!.values = { theme: "sepia" }
     expect(() => parseModeSettings(settings)).toThrow('/modes/0/values/theme: "sepia" is not an option of Theme')
   })

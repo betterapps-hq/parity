@@ -31,10 +31,17 @@ export interface FieldRules {
 
 /** A parsed sum. `current` stands for the value already in the field, each layer's own when they differ. */
 export type FieldExpression =
-  | { op: "number"; value: number; unit?: FieldUnit }
+  | NumberExpression
   | { op: "current" }
   | { op: "negate"; operand: FieldExpression }
   | { op: "+" | "-" | "*" | "/"; left: FieldExpression; right: FieldExpression }
+
+/** A number in a sum, with the unit typed after it, if any. */
+interface NumberExpression {
+  op: "number"
+  value: number
+  unit?: FieldUnit
+}
 
 /** Units a number can carry. `step` is a step of the spacing scale, as `spacing-4` names it. */
 export type FieldUnit = "px" | "rem" | "%" | "step"
@@ -51,9 +58,14 @@ export type FieldInput =
   | { type: "unreadable"; reason: string }
 
 /** What an input came to for one value. */
-export type FieldOutcome =
-  | { ok: true; value: number | string | undefined; note?: FieldNote }
-  | { ok: false; reason: string }
+export type FieldOutcome = SettledOutcome | { ok: false; reason: string }
+
+/** An input that came to a value, and what the field did to make it fit, if anything. */
+interface SettledOutcome {
+  ok: true
+  value: number | string | undefined
+  note?: FieldNote
+}
 
 /** What the field did to a value that didn't fit, so it can say so. Values are as the field shows them (px). */
 export type FieldNote =
@@ -131,11 +143,11 @@ export function applyFieldInput(input: FieldInput, current: number | undefined, 
   const scale = shownPerStored(rules)
   const result = evaluate(input.expression, current === undefined ? undefined : current * scale, rules)
 
-  if (typeof result !== "number") {
+  if ("reason" in result) {
     return { ok: false, reason: result.reason }
   }
 
-  return settle(result / scale, rules)
+  return settle(result.value / scale, rules)
 }
 
 /**
@@ -174,6 +186,7 @@ export function formatFieldValue(value: number | string | undefined, rules: Fiel
     return ""
   }
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a field's value is a length (number) or a token name (string), with no tag
   if (typeof value === "string") {
     return value
   }
@@ -269,6 +282,7 @@ export interface OffScaleFlag {
 
 /** The flag for a length field's value when it's a number off the spacing scale; otherwise nothing. */
 export function offScaleFlag(value: number | string | undefined, rules: FieldRules): OffScaleFlag | undefined {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a field's value is a length (number) or a token name (string), with no tag
   if (rules.kind !== "length" || typeof value !== "number" || onSpacingGrid(value)) {
     return undefined
   }
@@ -310,7 +324,13 @@ function settle(stored: number, rules: FieldRules): FieldOutcome {
   }
 
   // A negative zero shows as "-0".
-  return { ok: true, value: value === 0 ? 0 : value, ...(note ? { note } : {}) }
+  const outcome: SettledOutcome = { ok: true, value: value === 0 ? 0 : value }
+
+  if (note) {
+    outcome.note = note
+  }
+
+  return outcome
 }
 
 /**
@@ -331,23 +351,32 @@ function formatNumber(value: number): string {
   return String(rounded === 0 ? 0 : rounded)
 }
 
+type Operator = "+" | "-" | "*" | "/"
+
+interface NumberLexeme {
+  type: "number"
+  value: number
+  unit?: FieldUnit
+  text: string
+}
+
 type Lexeme =
-  | { type: "number"; value: number; unit?: FieldUnit; text: string }
-  | { type: "operator"; value: "+" | "-" | "*" | "/" }
+  | NumberLexeme
+  | { type: "operator"; value: Operator }
   | { type: "open" }
   | { type: "close" }
   | { type: "current"; text: string }
 
-const operatorAliases: Record<string, "+" | "-" | "*" | "/"> = {
-  "+": "+",
-  "-": "-",
-  "−": "-",
-  "*": "*",
-  "×": "*",
-  x: "*",
-  "/": "/",
-  "÷": "/"
-}
+const operatorAliases = new Map<string, Operator>([
+  ["+", "+"],
+  ["-", "-"],
+  ["−", "-"],
+  ["*", "*"],
+  ["×", "*"],
+  ["x", "*"],
+  ["/", "/"],
+  ["÷", "/"]
+])
 
 function lex(text: string, rules: FieldRules): Lexeme[] | { reason: string } {
   const lexemes: Lexeme[] = []
@@ -376,16 +405,22 @@ function lex(text: string, rules: FieldRules): Lexeme[] | { reason: string } {
         if (name !== "x") {
           const known = unitFor(name, rules)
 
-          if (typeof known !== "string") {
+          if ("reason" in known) {
             return known
           }
 
-          unit = known
+          unit = known.unit
           at += unitText[0].length
         }
       }
 
-      lexemes.push({ type: "number", value, ...(unit ? { unit } : {}), text: number })
+      const lexeme: NumberLexeme = { type: "number", value, text: number }
+
+      if (unit) {
+        lexeme.unit = unit
+      }
+
+      lexemes.push(lexeme)
       continue
     }
 
@@ -401,7 +436,7 @@ function lex(text: string, rules: FieldRules): Lexeme[] | { reason: string } {
       continue
     }
 
-    const operator = operatorAliases[char.toLowerCase()]
+    const operator = operatorAliases.get(char.toLowerCase())
 
     if (operator) {
       lexemes.push({ type: "operator", value: operator })
@@ -425,14 +460,14 @@ function lex(text: string, rules: FieldRules): Lexeme[] | { reason: string } {
   return lexemes
 }
 
-function unitFor(name: string, rules: FieldRules): FieldUnit | { reason: string } {
+function unitFor(name: string, rules: FieldRules): { unit: FieldUnit } | { reason: string } {
   if (name === "%") {
-    return "%"
+    return { unit: "%" }
   }
 
   if (name === "px" || name === "rem") {
     if (rules.kind === "length") {
-      return name
+      return { unit: name }
     }
 
     return { reason: `${rules.label ?? "This field"} takes ${noun(rules)}, not ${name}` }
@@ -547,8 +582,16 @@ class Parser {
     this.at++
 
     switch (next.type) {
-      case "number":
-        return { op: "number", value: next.value, ...(next.unit ? { unit: next.unit } : {}) }
+      case "number": {
+        const number: NumberExpression = { op: "number", value: next.value }
+
+        if (next.unit) {
+          number.unit = next.unit
+        }
+
+        return number
+      }
+
       case "current":
         return { op: "current" }
       case "open": {
@@ -632,48 +675,51 @@ function evaluate(
   expression: FieldExpression,
   current: number | undefined,
   rules: FieldRules
-): number | { reason: string } {
+): { value: number } | { reason: string } {
   switch (expression.op) {
     case "current":
-      return current ?? { reason: "There's no value here to work from" }
+      return current === undefined ? { reason: "There's no value here to work from" } : { value: current }
     case "number": {
       const { value, unit } = expression
 
       if (unit === "rem") {
-        return value * remPixels
+        return { value: value * remPixels }
       }
 
       if (unit === "step") {
-        return value * (rules.unit ?? 4)
+        return { value: value * (rules.unit ?? 4) }
       }
 
       if (unit === "%" && rules.kind !== "percent") {
         return current === undefined
           ? { reason: `There's no value here to take ${value}% of` }
-          : (current * value) / 100
+          : { value: (current * value) / 100 }
       }
 
-      return value
+      return { value }
     }
 
     case "negate": {
       const operand = evaluate(expression.operand, current, rules)
 
-      return typeof operand === "number" ? -operand : operand
+      return "reason" in operand ? operand : { value: -operand.value }
     }
 
     default: {
-      const left = evaluate(expression.left, current, rules)
+      const leftSide = evaluate(expression.left, current, rules)
 
-      if (typeof left !== "number") {
-        return left
+      if ("reason" in leftSide) {
+        return leftSide
       }
 
-      const right = evaluate(expression.right, current, rules)
+      const rightSide = evaluate(expression.right, current, rules)
 
-      if (typeof right !== "number") {
-        return right
+      if ("reason" in rightSide) {
+        return rightSide
       }
+
+      const left = leftSide.value
+      const right = rightSide.value
 
       if (expression.op === "/" && right === 0) {
         return { reason: "Can't divide by zero" }
@@ -691,7 +737,7 @@ function evaluate(
         result = left / right
       }
 
-      return Number.isFinite(result) ? result : { reason: "That number is too big" }
+      return Number.isFinite(result) ? { value: result } : { reason: "That number is too big" }
     }
   }
 }

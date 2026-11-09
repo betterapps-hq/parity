@@ -16,7 +16,13 @@ import { useStylePreview } from "../canvas/style-preview.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import { spacingUnit, useTokenList } from "../tokens-store.ts"
-import { recordInspectorChange, rowChanged, rowValues } from "./inspector-events.ts"
+import {
+  type InspectorChange,
+  recordInspectorChange,
+  type RowValues,
+  rowChanged,
+  rowValues
+} from "./inspector-events.ts"
 import { measureNode } from "./LayerPanel.tsx"
 
 /** Edits the selected layers' style through the style rows, in the state and variant being edited. */
@@ -88,16 +94,21 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
       changed &&
       styleSelection(frameRoot ? frameRootShown(changed, unit) : changed, ids, selected.state, projectLibrary(store))
 
-    recordInspectorChange({
+    const change: InspectorChange<RowValues | undefined> = {
       field: `style.${row}`,
       design: entry.key,
       layers: selection.layers.map((layer) => layer.id),
       state: selection.state.id,
       from: rowValues(selection, row),
       to: rowValues(now, row),
-      changed: rowChanged(selection, now, row),
-      ...(gesture ? { gesture } : {})
-    })
+      changed: rowChanged(selection, now, row)
+    }
+
+    if (gesture) {
+      change.gesture = gesture
+    }
+
+    recordInspectorChange(change)
   }
 
   return {

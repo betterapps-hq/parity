@@ -17,7 +17,13 @@ export interface CopyStatus {
  * several ways of copying the same thing, such as a row's copy button and Ctrl+C on the row, so both show the result
  * in the same place.
  */
-export function useCopy(): { status: CopyStatus | undefined; copy: (text: string) => void } {
+/** What {@link useCopy} gives a copy button: how the last copy went, while it shows, and how to copy. */
+export interface Copier {
+  status: CopyStatus | undefined
+  copy: (text: string) => void
+}
+
+export function useCopy(): Copier {
   const [status, setStatus] = useState<CopyStatus>()
   useEffect(() => {
     if (!status) {

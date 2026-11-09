@@ -324,7 +324,7 @@ function listing(entry: ServerEntry) {
   return {
     id: entry.id,
     kind: entry.kind,
-    shape: "server",
+    lifetime: "server",
     name: entry.name,
     projectId: entry.projectId,
     project: entry.project

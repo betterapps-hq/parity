@@ -56,7 +56,13 @@ export interface PresetGroup {
   presets: ViewportPreset[]
 }
 
-const breakpointNames: Record<string, string> = { sm: "Small", md: "Medium", lg: "Large", xl: "XL", "2xl": "2XL" }
+const breakpointNames = new Map([
+  ["sm", "Small"],
+  ["md", "Medium"],
+  ["lg", "Large"],
+  ["xl", "XL"],
+  ["2xl", "2XL"]
+])
 
 /**
  * Sizes to pick from when adding a mode or a viewport: the project's breakpoint tokens, each library's breakpoints
@@ -78,7 +84,7 @@ export function viewportPresets(tokens: readonly Token[], libraries: readonly Li
 
       const preset: ViewportPreset = {
         key: `token:${token.name}`,
-        name: breakpointNames[id] ?? id,
+        name: breakpointNames.get(id) ?? id,
         width,
         device: deviceForWidth(width),
         breakpoint: true
@@ -154,8 +160,11 @@ export function withViewport(
     ),
     name: preset.name,
     width: preset.width,
-    ...(preset.height ? { height: preset.height } : {}),
     device: preset.device
+  }
+
+  if (preset.height) {
+    option.height = preset.height
   }
 
   return {

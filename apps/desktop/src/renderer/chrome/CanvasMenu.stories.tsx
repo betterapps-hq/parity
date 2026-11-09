@@ -27,11 +27,17 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
+/** A point in the window, in CSS pixels from its top left, as pointer events give one. */
+interface ClientPoint {
+  x: number
+  y: number
+}
+
 const body = () => within(document.body)
 const selected = () => example().selection.get()
 
 /** Presses and releases the right button at a point, as the mouse does. */
-function pressRight(point: { x: number; y: number }): void {
+function pressRight(point: ClientPoint): void {
   const target = document.elementFromPoint(point.x, point.y) ?? document.body
 
   const init = {
@@ -51,21 +57,21 @@ function pressRight(point: { x: number; y: number }): void {
 }
 
 /** Right-clicks at a point, and waits for the menu tldraw opens once the button comes up. */
-async function rightClick(point: { x: number; y: number }): Promise<HTMLElement> {
+async function rightClick(point: ClientPoint): Promise<HTMLElement> {
   pressRight(point)
 
   return body().findByRole("menu", { name: "Canvas" })
 }
 
 /** The middle of a layer of the example, as its first frame draws it. */
-function middleOf(designName: string, layerName: string): { x: number; y: number } {
+function middleOf(designName: string, layerName: string): ClientPoint {
   const box = layerElement(designName, layerName).getBoundingClientRect()
 
   return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
 }
 
 /** A point on the canvas left of a design, clear of every design. */
-function leftOf(designName: string): { x: number; y: number } {
+function leftOf(designName: string): ClientPoint {
   const board = document.querySelector(`[data-design="${CSS.escape(design(designName))}"]`)?.getBoundingClientRect()
   const canvas = document.querySelector(".canvas-area")?.getBoundingClientRect()
 
@@ -84,8 +90,10 @@ function items(menu: HTMLElement): string[] {
     }
 
     const name = [...item.childNodes]
-      .filter((child) => !(child instanceof Element && child.matches("[data-slot=context-menu-shortcut], svg")))
-      .map((child) => child.textContent)
+      // A shortcut or icon inside an item isn't part of its name.
+      .flatMap((child) =>
+        child instanceof Element && child.matches("[data-slot=context-menu-shortcut], svg") ? [] : [child.textContent]
+      )
       .join("")
       .trim()
 
