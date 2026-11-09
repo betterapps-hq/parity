@@ -226,7 +226,8 @@ Hovering a value opens its field in a popover after a moment, and pressing it or
 needn't fit a field, a unit menu or a token's chip on every side. Padding is hatched in its color, as the canvas shades
 it, and margin is flat in its own within a dashed edge. Both are the canvas's padding pink for now. The Margin colors
 story compares pairs that would tell them apart, beside the colors the canvas already uses for screens and layers,
-components, modes, agents, the tab order and padding. Green padding with pink margin is the pair being tried, which
+components, modes, agents, the tab order and padding. Four pairs are left, padding's color first: green and pink, pink
+and green, both with DevTools' green, pink and cyan, and green and purple, modes' and components' colors. Green padding
 would change padding's color on the canvas too. Margin has canvas handles, as padding's and gaps' are today
 (`SpacingHandles.tsx`), and hovering a side highlights it. Horizontal and vertical are written as `px-*` and `py-*`,
 which v4 compiles to `padding-inline` and `padding-block`, so they follow writing direction; separate sides are physical

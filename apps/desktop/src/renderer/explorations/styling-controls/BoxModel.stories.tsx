@@ -94,37 +94,25 @@ const taken = [
   { name: "Padding and gaps", color: spacingColor }
 ]
 
-/** Each pair of colors margin and padding could take, with where it comes from and what it would clash with. */
+/** The green DevTools shades padding in, softer and yellower than modes'. */
+const devToolsGreen = "#93c47d"
+
+/** Each pair of colors padding and margin could take, with where it comes from and what it would clash with. */
 const pairs: { name: string; note: string; colors: SpacingColors }[] = [
   {
     name: "Green and pink",
-    note: "DevTools' green, softer than modes'. Pink is what padding has today.",
-    colors: { padding: "#93c47d", margin: spacingColor }
+    note: "DevTools' green for padding, and the pink padding has today for margin.",
+    colors: { padding: devToolsGreen, margin: spacingColor }
   },
   {
-    name: "Mode green and pink",
-    note: "Modes' own green, so padding would look like a mode.",
-    colors: { padding: kindColors.mode, margin: spacingColor }
+    name: "Pink and green",
+    note: "Padding keeps its pink, and margin takes DevTools' green.",
+    colors: { padding: spacingColor, margin: devToolsGreen }
   },
   {
     name: "Pink and cyan",
     note: "Cyan isn't used on the canvas yet.",
     colors: { padding: spacingColor, margin: "oklch(0.72 0.13 215)" }
-  },
-  {
-    name: "Pink and yellow",
-    note: "Yellow isn't used yet either, but it's faint on white.",
-    colors: { padding: spacingColor, margin: "oklch(0.86 0.17 95)" }
-  },
-  {
-    name: "Pink and amber",
-    note: "Penpot's pair. Amber already marks agents.",
-    colors: { padding: spacingColor, margin: "#f5a91b" }
-  },
-  {
-    name: "Green and orange",
-    note: "DevTools' pair. Its green is close to modes', and its orange to the tab order's.",
-    colors: { padding: "#93c47d", margin: "#f6b26b" }
   },
   {
     name: "Green and purple",
