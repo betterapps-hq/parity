@@ -89,9 +89,10 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
 - **`node scripts/check-release.ts <release>`** asks Sentry for the release's summary and fails when it has no source
   maps or no linked commits, or doesn't exist (PAR-774). After a published version's upload, `upload-sourcemaps.yml`
   runs it as Check the release in Sentry, so `cd-desktop.yml` and `cd-npm.yml` fail when the upload's commit link only
-  warned: until 2026-11-09 that warning went unseen on every published build. It asks 3 times, 10 and then 20 seconds
-  apart, while Sentry processes the upload. It only reads, so it can be run against any release with `SENTRY_AUTH_TOKEN`
-  set. Releases named by a commit, for previews and CI, aren't checked.
+  warned: until 2026-11-09 that warning went unseen on every published build. It asks 6 times, 10 to 50 seconds apart,
+  about 2.5 minutes in all, while Sentry processes the upload: 3 tries over 30 seconds missed `parity-cli@0.31.0`'s maps
+  (PAR-803). It only reads, so it can be run against any release with `SENTRY_AUTH_TOKEN` set. Releases named by a
+  commit, for previews and CI, aren't checked.
 - **Electron's native crashes** are symbolicated by Sentry's built-in Electron, Apple and Microsoft symbol servers,
   which `parity-desktop`'s Settings > Debug Files had on from the start, as Sentry does for an Electron project.
 - **Pull requests' preview installers** are named by their commit, so they stay out of a published version's release.
