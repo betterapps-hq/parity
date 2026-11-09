@@ -66,7 +66,8 @@ with the Bug label and its Sentry link, as [sentry.md](sentry.md#alerts) says.
 
 ## Statuses, priorities and labels
 
-- **Todo** is planned work. A blocked one shows what it's waiting for.
+- **Todo** is planned work. A blocked one shows what it's waiting for. It's the team's default status, so an issue
+  created without one, or a Sentry bug reopened by a regression, lands there.
 - **Backlog** is work the user put after the core, and work that's parked or waiting on Better Apps.
 - **In Progress, Done** and **Canceled** mean what they say. A split or dropped issue is Canceled with a comment why.
 - **Urgent** is open bugs in what's built, with the refactors they wait on. **High** is the new-user experience and the

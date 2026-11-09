@@ -4779,18 +4779,22 @@ the crash. `chrome/report-time.test.ts` covers how the crash's time reads. The C
 zip and its files. `chrome/ReportProblemDialog.stories.tsx` shows the dialog empty, written, after a crash, sending,
 sent and failed, with Send moving from one to the next.
 
-### What the inspector's changes record (PAR-640, PAR-713)
+### What the inspector's changes record (PAR-640, PAR-713, PAR-728)
 
 Each change made in the inspector or the Tokens panel is recorded once, as `inspector.changed`, with the field, the
 design, the layers and the value before and after: style rows, a layer's text, visibility, props and name, an image, an
 instance's state and component, prop bindings, slots, states, a component's props and variants, and tokens. A preview
-records nothing, and nor does a change that leaves a value as it was. Which field each control records is in
+records nothing, and nor does a change that leaves a value as it was. A design or layer renamed in Layers or on a
+board's title records the same `name` change as one renamed in the inspector. Detach, Push to main and Make component
+record `component.changed`, with the design, the layers and the component. Which field each control records is in
 [telemetry.md](telemetry.md), "Editing".
 
 `chrome/inspector-events.test.ts` covers, through the test sink: a style row on layers whose values differ; a number
 prop previewed, then made or taken back; and, for changes read back from the design store, a design's and a layer's
-name, a rename to the same name, a variant the design refuses and one added, a state added, a layout made a slot, a
-state's change reset, and a token's values by theme.
+name, a layer's name taken off, a design given no name, a rename to the same name, a variant the design refuses and one
+added, a state added, a layout made a slot, a state's change reset, and a token's values by theme.
+`chrome/component-events.test.ts` covers an instance detached, a layer that isn't one, a copy's overrides pushed whole
+and from a layer inside it, layers made a component, and a push that throws.
 
 ### A part that fails keeps the rest working (PAR-667)
 
@@ -4811,9 +4815,14 @@ live in the project's store, not in what draws them, so nothing is lost. Each pl
 Try again draws the part afresh. If it fails again, the way on becomes Reopen project, or Reload window for the whole
 window, which saves the changes first. Report a problem opens Help > Report a problem; a dialog that failed closes
 first. Nothing in a fallback opens or grows, so it doesn't move once shown. Each boundary's catch reaches Sentry through
-the root's `onCaughtError`, tagged `boundary` with its name, such as `inspector.design`.
+the root's `onCaughtError`, tagged `boundary` with its name, such as `inspector.design`. A report sent from a fallback
+is linked to that error (PAR-704): the window keeps the event ID Sentry gave the catch, the report passes it to main,
+and the feedback names it as its associated event, tagged `report: error fallback`, so Sentry shows the report on the
+error's issue.
 
-`telemetry.test.ts` covers the `boundary` tag on a caught error and its absence on an uncaught one.
+`telemetry.test.ts` covers the `boundary` tag on a caught error and its absence on an uncaught one, and that a caught
+error's event ID is kept and an uncaught one's isn't. `shared/ipc-checks.test.ts` covers the event ID's check, and
+`main/report.test.ts` that a report with one is linked to it and one from the Help menu isn't.
 `chrome/ErrorBoundary.stories.tsx` breaks each part of the real window in turn with `tripBoundary`, and its play
 functions check that Try again draws a part afresh, that a second failure offers Reopen project, and that closing a
 failed dialog closes it and Settings opens again afterwards.

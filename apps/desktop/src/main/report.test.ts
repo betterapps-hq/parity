@@ -16,7 +16,10 @@ const sentry = vi.hoisted(() => {
     getClient: () => ({ getOptions: () => options }),
     withScope: (work: (given: typeof scope) => unknown) => work(scope),
     captureFeedback: vi.fn<
-      (feedback: { message: string; source: string }, hint: { attachments: { filename: string }[] }) => string
+      (
+        feedback: { message: string; source: string; associatedEventId?: string },
+        hint: { attachments: { filename: string }[] }
+      ) => string
     >(() => "fb1"),
     flush: vi.fn<() => Promise<boolean>>(async () => true)
   }
@@ -112,5 +115,34 @@ describe("an agent's report (PAR-646)", () => {
     expect(feedbackLink("0a1b")).toBe(
       "https://sentry.io/organizations/better-apps/projects/parity-desktop/events/0a1b/"
     )
+  })
+})
+
+describe("a person's report (PAR-635)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sentry.flush.mockResolvedValue(true)
+  })
+
+  const report = { message: "Layers went blank", screenshot: false, afterCrash: false }
+
+  it("links a report from an error's fallback to that error's event, so Sentry shows it on the issue (PAR-704)", async () => {
+    const eventId = "0123456789abcdef0123456789abcdef"
+    await reports().created.send(window, { ...report, eventId })
+    expect(sentry.captureFeedback.mock.calls[0]![0]).toEqual({
+      message: "Layers went blank",
+      source: "report-a-problem",
+      associatedEventId: eventId
+    })
+    expect(sentry.scope.setTags).toHaveBeenCalledWith({ report: "error fallback" })
+  })
+
+  it("sends a report from the Help menu linked to no event", async () => {
+    await reports().created.send(window, report)
+    expect(sentry.captureFeedback.mock.calls[0]![0]).toEqual({
+      message: "Layers went blank",
+      source: "report-a-problem"
+    })
+    expect(sentry.scope.setTags).toHaveBeenCalledWith({ report: "help menu" })
   })
 })

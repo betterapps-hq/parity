@@ -379,6 +379,8 @@ export interface ProblemReportRequest {
   afterCrash: boolean
   replayId?: string
   traceId?: string
+  /** The Sentry event of the error a part of the window caught, when the report is sent from its fallback (PAR-704). */
+  eventId?: string
 }
 
 /** Exposed on `window.canvasHost` by the preload script. */

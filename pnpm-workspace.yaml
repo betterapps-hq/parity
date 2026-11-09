@@ -24,13 +24,14 @@ minimumReleaseAgeExclude:
   - rulesync@43.5.0
   - skills@1.7.6
   - "@buildkitgg/shadcn-baseui-nova@0.5.0"
+  - "@buildkitgg/storybook-config@0.2.0"
 verifyDepsBeforeRun: error
 catalogMode: prefer
 # Versions set once for the workspace. Reference them with "catalog:".
 catalog:
   "@buildkitgg/oxlint-config": 0.1.0
   "@buildkitgg/shadcn-baseui-kit": npm:@buildkitgg/shadcn-baseui-nova@0.5.0
-  "@buildkitgg/storybook-config": 0.1.0
+  "@buildkitgg/storybook-config": 0.2.0
   "@sentry/cli": 3.8.2
   "@sentry/electron": 8.3.0
   "@sentry/node": 11.8.0

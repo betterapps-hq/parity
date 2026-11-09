@@ -81,9 +81,9 @@ import { showConsole } from "./ConsolePanel.tsx"
 import { createDesign } from "./create.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
+import { renameAndRecord } from "./inspector-events.ts"
 import { keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
-import { renameLayer } from "./LayerPanel.tsx"
 import { type LayersRow, layersMenu, rowSelection } from "./layers-menu.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
@@ -945,15 +945,7 @@ function LockToggle({ locked, onToggle }: { locked: boolean; onToggle: () => voi
 type Session = ReturnType<typeof useProject>
 
 function rename(session: Session, row: Row, name: string): void {
-  if (!row.node) {
-    session.store.updateContainer(row.design.key, `Rename ${kindName(row.design.container.kind)}`, (container) => ({
-      ...container,
-      name
-    }))
-    return
-  }
-  const nodeId = row.node.id
-  session.store.updateContainer(row.design.key, "Rename layer", (container) => renameLayer(container, nodeId, name))
+  renameAndRecord(session.store, row.design.key, name, row.node?.id)
 }
 
 /** The row as the row menu reads it: its design, and its layer unless it's the design's own row. */

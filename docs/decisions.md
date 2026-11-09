@@ -2171,9 +2171,10 @@ the Repository, CI and releases stream in Linear.
     shrinks, and goes when it's empty.
   - **`vite.config.ts` lists only Parity's rules beyond base:** `consistent-type-imports`, Vite+'s imports rule and the
     `toast.error` restriction. `react/exhaustive-deps` stays an error rather than base's warning.
-  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility,
-    Vitest and Chromatic addons. The app lists the three addons itself, because base names them by package and pnpm
-    doesn't hoist them to the app. The Vitest addon's test runs aren't wired into `vp test` yet.
+  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility
+    and Vitest addons by path, so the app doesn't list them (PAR-753). Chromatic is app-specific and Parity doesn't use
+    it. Story tests, once the Vitest addon's runs are wired up, run in CI only, as you decided on 2026-11-08: they're
+    too slow for local test passes.
 - **The agency monorepo's stricter lint rules were on before Buildkit's** (PAR-396), from its `@repo/oxlint-config`,
   without `curly`, `no-console` and `no-bitwise` as you chose then, and without the React Compiler rule, since Parity
   doesn't run the compiler. The calls below still stand, apart from those three rules. My calls:
@@ -4695,8 +4696,8 @@ out. What they are and how they behave is in [sentry.md](sentry.md#alerts). My c
 - **Spikes don't file.** Every Sentry issue already has its bug from its first event, and a spike would only file a
   second one for it. Rate alerts, such as crash-free sessions and failing agent operations, are PAR-643's.
 - **A regression keeps its bug.** Linear reopens the linked issue when Sentry marks a regression, and the alert's action
-  doesn't file a second one, so the regression trigger only matters for an issue with no bug yet. It reopens in Backlog,
-  not Todo. PAR-668 will fix that, and add the release, environment and `test_run` Linear's action leaves out.
+  doesn't file a second one, so the regression trigger only matters for an issue with no bug yet. It reopened in Backlog
+  until PAR-668 made Todo the team's default.
 - **At most once in 30 minutes for errors,** Sentry's default, so an issue going in and out of resolved doesn't churn.
 - **Written down, not in Terraform,** like the rest of Sentry's setup until the pipelines can pass a Sentry token.
 - **They depend on the plan.** If the trial ends on 2026-11-19 without an upgrade, these alerts may stop filing, as
@@ -4706,6 +4707,29 @@ Tried on 2026-11-06 by sending an error and two reports to `parity-desktop`'s DS
 PAR-666). Closing PAR-663 resolved its Sentry issue, resolving that closed PAR-663 again, and the error from a later
 release reopened it without a second bug. PAR-620's own check in a development build filed its errors too (PAR-659 to
 PAR-661 and PAR-665), along with a real one it hit (PAR-662).
+
+## Regressions reopen in Todo, and agents read the rest in Sentry (PAR-668)
+
+PAR-668 asked for the release, environment and `test_run` on the Linear bugs Sentry files, and for regressions to reopen
+in Todo. Neither has a setting: Sentry's "Create a Linear issue" action has no description field, and Linear's Sentry
+integration has no settings, its reopen state included. Linear's Loops could do both, but they spend AI credits, which
+the workspace on Linear's Basic plan doesn't have. You chose on 2026-11-09 to make Todo the default and nothing more. My
+calls:
+
+- **Todo is the Parity team's default status,** in place of Backlog. Linear reopens a linked issue in the team's
+  default, so a regression lands in Todo. Issues created without a status land there too, which matches
+  [work.md](work.md#statuses-priorities-and-labels): Todo is planned work, and Backlog is set on purpose.
+- **The release, environment and `test_run` stay in Sentry.** Agents read them through Sentry's MCP server, as
+  [work.md](work.md#bugs-from-sentry) already says. Putting them on the bug would need a Sentry internal integration
+  whose webhook reaches a small worker that comments on the Linear issue, with a Linear API key: code and a service of
+  its own, for what an agent reads in one call.
+- **Written down, not in Terraform.** It's a Linear team setting, recorded in [sentry.md](sentry.md#done-by-hand).
+  Nothing here depends on Sentry's Business trial.
+
+Tried on 2026-11-09 by sending an error to `parity-desktop`'s DSN from release `parity-desktop@0.0.668-a`: it filed
+PAR-762 in Todo. Resolving its Sentry issue closed PAR-762, and the same error from `parity-desktop@0.0.668-b` reopened
+it in Todo. Sentry's MCP server showed that event's release, environment `development` and `test_run` `par-668-check`.
+PAR-762 was then canceled as a test.
 
 ## Sessions read Sentry through its MCP server (PAR-628)
 
@@ -5744,11 +5768,8 @@ window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `
   telemetry off, after garbage collection, over two runs each. With the project open, the page held about 27,600 DOM
   nodes against 6,700, which closing it gives back. PAR-683 watches that over longer sessions. `pnpm perf` couldn't give
   its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
-- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679.
-
 - **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. PAR-679 has since
-  scrubbed them; see "Replays are scrubbed as they're recorded" below. A render failure thrown in the page arrives as
-  Electron's "Script failed to execute", without the page's message; that's PAR-680.
+  scrubbed them; see "Replays are scrubbed as they're recorded" below.
 
 ## sharp isn't loaded in the app on Linux (PAR-688)
 
@@ -6441,4 +6462,18 @@ an agent never said what went wrong. My calls:
   error is. The stack doesn't cross processes, since `codedErrors` sends messages, and an agent never gets the guest's
   stack.
 
-> > > > > > > origin/main
+## A report from an error's fallback is linked to the error (PAR-704)
+
+Report a problem in a fallback (PAR-667) opens the same dialog as Help > Report a problem (PAR-635), and the feedback it
+sends names the error that fallback caught as its associated event, so Sentry shows the report on that error's issue. My
+calls:
+
+- **One report path.** The event ID rides along the existing one: `openReport({ eventId })`, the `problemReport` check
+  (32 lowercase hex digits, like the replay and trace IDs) and `sendFeedback`'s `associatedEventId`. No second dialog or
+  channel.
+- **The window keeps the ID by the error it caught,** in a `WeakMap` beside `reactErrorHandlers`, since the boundary's
+  reporter is handed the error, and the fallback's Report a problem is clicked after `onCaughtError` ran. An error
+  thrown as a string or another primitive can't be a key, so its report goes unlinked, as before.
+- **Its tag says where it came from:** `report: error fallback`, beside `help menu` and `after crash`.
+- **The dialog doesn't name the error yet.** The issue's optional "The error from Layers" line in Also sent waits for
+  Andrew's approval of the copy in Storybook.

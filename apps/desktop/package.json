@@ -1,6 +1,6 @@
 {
   "name": "@parity-app/desktop",
-  "version": "0.39.2",
+  "version": "0.40.0",
   "license": "MIT",
   "description": "A design editor for real components and the code behind them.",
   "author": "Better Apps",
@@ -37,7 +37,6 @@
   },
   "devDependencies": {
     "@buildkitgg/storybook-config": "catalog:",
-    "@chromatic-com/storybook": "^5.6.0",
     "@parity-app/account": "workspace:*",
     "@parity-app/agent": "workspace:*",
     "@parity-app/builder-vite": "workspace:*",
@@ -53,8 +52,6 @@
     "@parity-app/telemetry": "workspace:*",
     "@parity-app/tokens": "workspace:*",
     "@sentry/cli": "catalog:",
-    "@storybook/addon-a11y": "10.6.5",
-    "@storybook/addon-vitest": "10.6.5",
     "@storybook/react-vite": "10.6.5",
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "^19.3.0",

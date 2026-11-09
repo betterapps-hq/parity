@@ -1,8 +1,23 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 01:50:16 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 02:25:03 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.40.0
+
+Mon, 09 Nov 2026 02:25:03 GMT
+
+### Minor changes
+
+- Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component
+  as component.changed (ajcraswell@gmail.com)
+
+### Patches
+
+- project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the
+  builder can't load the project's config (ajcraswell@gmail.com)
+- A report sent from an error's fallback is linked in Sentry to the error it caught (ajcraswell@gmail.com)
 
 ## 0.39.2
 
