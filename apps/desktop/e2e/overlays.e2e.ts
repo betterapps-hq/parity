@@ -141,9 +141,22 @@ describe("the overlay canvas", () => {
         return !editor.getShapeAtPoint(editor.screenToPage({ x, y }), { hitInside: true, margin: 20 })
       }
 
+      // The brush selects every shape its box touches, so no shape may come within 20 px of the box, anywhere along it.
+      // Checking its corners alone found a box that clipped a board's edge once the toolbar grew (PAR-795).
+      const clear = (x: number, y: number) => {
+        const from = editor.screenToPage({ x: x - 50, y: y - 50 })
+        const to = editor.screenToPage({ x: x + 20, y: y + 20 })
+
+        return editor.getCurrentPageShapes().every((board) => {
+          const bounds = editor.getShapePageBounds(board)
+
+          return !bounds || bounds.maxX < from.x || bounds.minX > to.x || bounds.maxY < from.y || bounds.minY > to.y
+        })
+      }
+
       for (let y = area.bottom - 20; y > area.top + 60; y -= 40) {
         for (let x = area.right - 20; x > area.left + 60; x -= 40) {
-          if (bare(x, y) && bare(x - 30, y - 30) && bare(x - 15, y - 15)) {
+          if (bare(x, y) && bare(x - 30, y - 30) && bare(x - 15, y - 15) && clear(x, y)) {
             return { x, y }
           }
         }

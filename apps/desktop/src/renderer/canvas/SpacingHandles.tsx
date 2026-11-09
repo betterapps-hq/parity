@@ -184,6 +184,9 @@ export function SpacingHandles({
                 )
               }
               wait
+              // A bar's target can be 12px thick, so the hint's arrow would slide in over a still pointer and take the
+              // hover from the bar, and the hatching with it.
+              passThrough
               hidden={!!dragging || !!typing}
             >
               <input
