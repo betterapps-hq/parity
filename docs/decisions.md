@@ -1,5 +1,26 @@
 # Decisions
 
+- **The CLI goes to npm's `next` tag, and to `latest` when you approve it (PAR-799).** You chose on 2026-11-09 to
+  promote the CLI the way the desktop app is promoted, with its own approval. Every merge publishes the CLI to `next`,
+  and `cd-npm.yml`'s Production job then waits in the `production` environment; approving it runs
+  `npm dist-tag add @parity-app/cli@<version> latest`, so nothing is rebuilt or republished. Running `cd-npm.yml` by
+  hand with a version promotes one already on npm. My calls:
+  - **The steps are in this repository, not the shared template.** `cd-npm-release` already takes a `tag` and reports
+    the versions it published, so publishing to `next` is one input, and the promotion is one job that has to sit in
+    `cd-npm.yml` anyway, since npm's trusted publishers name that file. Pipelines and its other users are unchanged.
+  - **The promotion uses trusted publishing, with no npm token.** Since 2026-09-30 a trusted publisher can be allowed
+    `npm dist-tag`. @parity-app/cli gets a second trusted publisher for `cd-npm.yml` in the `production` environment,
+    allowed only dist-tags, so the job that changes `latest` can't publish, and the one that publishes can't change
+    `latest`.
+  - **The CLI reports `production` once its version has been `latest`.** The CLI's detached sender asks npm's registry
+    for the dist-tags after it sends, and keeps the answer in `~/.parity/installed-cli.json`, so a command never waits
+    on npm and offline keeps the last answer. The next command reports from it. A version newer than `latest` is a beta;
+    an older one keeps what was saved, so a version that was `latest` stays `production` after a newer one is promoted,
+    as a promoted desktop release does.
+  - **The desktop's cache is shared, not copied.** `Promotion` in `@parity-app/telemetry` keeps a version's answer, asks
+    again after five minutes, shares one request between callers and survives files it can't read or write. The desktop
+    app's `InstalledBuild` asks GitHub through it, and the CLI asks npm.
+
 - **CI installs Electron up front, caches its downloads, and tries them up to 3 times (PAR-789).** GitHub's releases
   answered Electron's downloads with 504s often enough to fail CI, the app tests and the preview installers, where a
   re-run passed. Electron 45 downloads its binary the first time something loads it, so `pnpm build` and the app tests
@@ -2235,7 +2256,8 @@ the Repository, CI and releases stream in Linear.
   - **It needs Node 24,** as the repository does.
   - **Provenance comes from trusted publishing in CI, not `publishConfig`,** since npm only makes it in CI and the first
     version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on 2026-10-30,
-    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher, which releases it still.
+    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its publisher, which releases it still. A
+    second publisher, for the `production` environment and allowed only dist-tags, promotes it (PAR-799).
   - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
     it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:

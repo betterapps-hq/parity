@@ -1,9 +1,8 @@
-import { finiteNumber, type JsonValue } from "@parity-app/core"
+import type { JsonValue } from "@parity-app/core"
+import { Promotion, type ReleaseChannel, type SavedPromotion } from "@parity-app/telemetry"
 import { z } from "zod"
 import type { BuildInfo } from "../shared/protocol.ts"
 import { githubRelease, releaseSummary } from "./github-releases.ts"
-
-const refreshMs = 5 * 60 * 1000
 
 /**
  * The app's own package.json, which a beta build marks with `releaseChannel`, and `scripts/build.ts` stamps with the
@@ -35,64 +34,50 @@ export function builtRelease(metadata: () => JsonValue): BuiltRelease {
   }
 }
 
-/** `installed-build.json`, a cache of what GitHub said this version is. A bad `checkedAt` only means asking again. */
-const savedBuild = z.looseObject({
-  version: z.string(),
-  channel: z.enum(["beta", "stable"]),
-  checkedAt: finiteNumber.optional().catch(undefined)
-})
-
-/** What `installed-build.json` is written with. */
-export type SavedBuild = z.input<typeof savedBuild>
+/** What `installed-build.json` is written with: what GitHub last said this version is. */
+export type SavedBuild = SavedPromotion
 
 /** Version-keyed offline identity. Promotion changes GitHub metadata, never the installed artifacts. */
 export class InstalledBuild {
-  private info: BuildInfo
-  private checkedAt = -Infinity
-  private pending: Promise<BuildInfo> | undefined
+  /** The build's own identity, before GitHub has answered for this version. */
+  private readonly embedded: BuildInfo
+  /** What GitHub said, kept between runs. None for a build run from source, which never asks. */
+  private readonly promotion: Promotion | undefined
 
-  constructor(
-    private readonly options: {
-      version: string
-      packaged: boolean
-      /** The app's package.json, as JSON. */
-      metadata?: () => JsonValue
-      /** `installed-build.json`, as JSON. */
-      read: () => JsonValue
-      save: (value: SavedBuild) => void
-      request?: typeof fetch
-      now?: () => number
-    }
-  ) {
-    this.info = { version: options.version, channel: options.packaged ? "unknown" : "development" }
+  constructor(options: {
+    version: string
+    packaged: boolean
+    /** The app's package.json, as JSON. */
+    metadata?: () => JsonValue
+    /** `installed-build.json`'s text. */
+    read: () => string
+    save: (value: SavedBuild) => void
+    request?: typeof fetch
+    now?: () => number
+  }) {
+    const { version, packaged } = options
+    this.embedded = { version, channel: packaged ? "unknown" : "development" }
 
-    if (!options.packaged) {
+    if (!packaged) {
       return
     }
 
     try {
       if (appManifest.safeParse(options.metadata?.()).data?.releaseChannel === "beta") {
-        this.info = { version: options.version, channel: "beta" }
+        this.embedded = { version, channel: "beta" }
       }
     } catch {
       // Optional build metadata must never prevent the app from starting or reading a confirmed cache.
     }
 
-    try {
-      const saved = savedBuild.safeParse(options.read()).data
-
-      if (!saved || saved.version !== options.version) {
-        return
-      }
-
-      this.info = { version: options.version, channel: saved.channel }
-
-      if (saved.checkedAt !== undefined && saved.checkedAt <= this.now()) {
-        this.checkedAt = saved.checkedAt
-      }
-    } catch {
-      // Keep the embedded identity, never inferring a channel from the update preference or numeric version.
-    }
+    // Never inferring a channel from the update preference or numeric version, only from this version's own release.
+    this.promotion = new Promotion({
+      version,
+      read: options.read,
+      save: options.save,
+      now: options.now,
+      lookup: () => releaseChannel(version, options.request)
+    })
   }
 
   /**
@@ -100,51 +85,28 @@ export class InstalledBuild {
    * last answered. Sentry's environment is set from it as the app starts (PAR-779).
    */
   get known(): BuildInfo {
-    return this.info
+    const channel = this.promotion?.known
+
+    return channel ? { version: this.embedded.version, channel } : this.embedded
   }
 
-  private now(): number {
-    return this.options.now?.() ?? Date.now()
+  /** Asks GitHub when the last answer is more than five minutes old, then what's known. Never rejects. */
+  async get(): Promise<BuildInfo> {
+    await this.promotion?.check()
+
+    return this.known
+  }
+}
+
+/** Whether GitHub's release for this version is a beta or promoted, or nothing when it names no such release. */
+async function releaseChannel(version: string, request?: typeof fetch): Promise<ReleaseChannel | undefined> {
+  const tag = `v${version}`
+  const { status, data } = await githubRelease(`/tags/${encodeURIComponent(tag)}`, request)
+  const release = status === 200 ? releaseSummary.safeParse(data).data : undefined
+
+  if (release?.tag_name !== tag || release.draft) {
+    return undefined
   }
 
-  get(): Promise<BuildInfo> {
-    if (!this.options.packaged || this.now() - this.checkedAt < refreshMs) {
-      return Promise.resolve(this.info)
-    }
-
-    if (this.pending) {
-      return this.pending
-    }
-
-    this.pending = this.refresh().finally(() => {
-      this.pending = undefined
-    })
-
-    return this.pending
-  }
-
-  private async refresh(): Promise<BuildInfo> {
-    try {
-      const tag = `v${this.options.version}`
-      const { status, data } = await githubRelease(`/tags/${encodeURIComponent(tag)}`, this.options.request)
-      const release = status === 200 ? releaseSummary.safeParse(data).data : undefined
-
-      if (release?.tag_name === tag && !release.draft) {
-        const channel = release.prerelease ? "beta" : "stable"
-        this.info = { version: this.options.version, channel }
-
-        try {
-          this.options.save({ version: this.options.version, channel, checkedAt: this.now() })
-        } catch {
-          // Read-only user data must not hide a successfully resolved identity.
-        }
-      }
-    } catch {
-      // Keep the last confirmed identity offline, or unknown when this version has never been resolved.
-    }
-
-    this.checkedAt = this.now()
-
-    return this.info
-  }
+  return release.prerelease ? "beta" : "stable"
 }

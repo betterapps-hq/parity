@@ -2,11 +2,12 @@ import { execFileSync } from "node:child_process"
 import { createScrubber, sentryScrubbing, telemetryRelease } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/node"
 import { adoptDebugIds, type Batch, type BatchTarget, sendBatches } from "./outbox.ts"
+import { checkCliPromotion } from "./promotion.ts"
 
 /*
  * The detached process that sends the CLI's batches to Sentry's `parity-cli` project (PAR-642), started as a command
- * exits: `node send.mjs <outbox folder>`. It loads `@sentry/node`, which a command never does, sends every batch waiting
- * and exits. Nothing it does reaches the command, which has already exited.
+ * exits: `node send.mjs <outbox folder>`. It loads `@sentry/node`, which a command never does, sends every batch waiting,
+ * asks npm whether this version has been promoted, and exits. Nothing it does reaches the command, which has already exited.
  */
 
 /** `parity-cli`'s DSN, as docs/sentry.md lists it. */
@@ -124,5 +125,7 @@ if (folder) {
   })
   const target: BatchTarget = { send, flush }
   await sendBatches(folder, target)
+  // After sending, so a slow registry never holds back what the command kept (PAR-799).
+  await checkCliPromotion()
   await Sentry.close(2000)
 }

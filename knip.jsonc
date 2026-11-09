@@ -55,10 +55,7 @@
     "packages/cli": {
       // The bin comes from package.json, and knip's Vite plugin finds vite.config.ts, the `vp pack` config.
       // scripts/try-packed.ts tries the packed CLI.
-      "entry": ["src/**/*.test.ts", "scripts/*.ts", "src/send.ts"],
-      // Imported by Parity's packages, which `vp pack` bundles while leaving these out, so npm installs them beside
-      // the published CLI: semver by @parity-app/project and @parity-app/registry.
-      "ignoreDependencies": ["semver"]
+      "entry": ["src/**/*.test.ts", "scripts/*.ts", "src/send.ts"]
     },
     "packages/libgen": {
       "entry": ["src/**/*.test.ts"],

@@ -10,7 +10,7 @@ function setup(saved: JsonValue = null) {
   let now = 1_000_000
   const request = vi.fn<typeof fetch>().mockResolvedValue(release(true))
   const save = vi.fn<(value: SavedBuild) => void>()
-  const options = { version: "0.3.0", packaged: true, read: () => saved, save, request, now: () => now }
+  const options = { version: "0.3.0", packaged: true, read: () => JSON.stringify(saved), save, request, now: () => now }
   const build = new InstalledBuild(options)
 
   return {
@@ -72,9 +72,7 @@ describe("installed build identity", () => {
 
   it("shares concurrent requests and observes promotion of the same artifacts after the cache expires", async () => {
     const { build, request, advance } = setup()
-    const first = build.get()
-    expect(build.get()).toBe(first)
-    await first
+    await Promise.all([build.get(), build.get()])
     expect(await build.get()).toEqual({ version: "0.3.0", channel: "beta" })
     expect(request).toHaveBeenCalledOnce()
     advance()

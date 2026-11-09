@@ -59,6 +59,7 @@
     "@parity-app/core": "workspace:*",
     "@parity-app/libgen": "workspace:*",
     "@parity-app/registry": "workspace:*",
-    "@parity-app/telemetry": "workspace:*"
+    "@parity-app/telemetry": "workspace:*",
+    "@types/semver": "^7.8.0"
   }
 }
