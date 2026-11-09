@@ -29,21 +29,30 @@ export function serveAgents(): void {
   window.addEventListener("focus", () => {
     focusedAt = Date.now()
   })
-  window.canvasHost.serve((method: WindowMethod, params: unknown) => settle(() => answer(method, params)))
+  window.canvasHost.serve((method, params) => settle(() => answer(method, params)))
 }
 
 let focusedAt: number | undefined
 
 /** An answer as data, since only a failure's message would cross the bridge to the preload script. */
-async function settle(run: () => Promise<unknown>): Promise<ServeAnswer> {
+async function settle(run: () => Promise<WindowResult>): Promise<ServeAnswer> {
   try {
     return { result: await run() }
   } catch (error) {
+    const failure: ServeAnswer = { error: error instanceof Error ? error.message : String(error) }
     const details = errorDetails(error)
 
-    return { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) }
+    if (details) {
+      failure.details = details
+    }
+
+    return failure
   }
 }
+
+type WindowResult = WindowMethods[WindowMethod]["result"]
+
+type WindowParams = WindowMethods[WindowMethod]["params"]
 
 type Handlers = {
   [M in WindowMethod]: (
@@ -58,7 +67,15 @@ type Handlers = {
  */
 const handlers: Handlers = {
   "agent.tabs": () => workspace.summaries(),
-  "agent.copy": () => ({ tabs: workspace.summaries(), ...(focusedAt === undefined ? {} : { focusedAt }) }),
+  "agent.copy": () => {
+    const copy: WindowMethods["agent.copy"]["result"] = { tabs: workspace.summaries() }
+
+    if (focusedAt !== undefined) {
+      copy.focusedAt = focusedAt
+    }
+
+    return copy
+  },
   "agent.open": async ({ root }) => summary(await workspace.open(root)),
   "agent.snapshot": ({ tab }) => snapshot(tab),
   "agent.status": ({ tab: reference, ...options }) => {
@@ -119,9 +136,14 @@ const handlers: Handlers = {
   }
 }
 
-async function answer(method: WindowMethod, params: unknown): Promise<unknown> {
-  // The bridge carries each method with its own params, which the map can't see from `method` alone.
-  return (handlers[method] as (params: unknown) => unknown)(params)
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- IPC: the service's params cross the bridge untyped, checked against their schema before it sent them
+async function answer(method: WindowMethod, params: unknown): Promise<WindowResult> {
+  // SAFETY: the bridge carries each method with its own params, which the service checked against that method's
+  // schema (PAR-598); the map can't see that from `method` alone.
+  const handler = handlers[method] as (params: WindowParams) => WindowResult | Promise<WindowResult>
+
+  // SAFETY: as above, these are this method's params.
+  return handler(params as WindowParams)
 }
 
 /** A tab by id, root or name, as the CLI matches one when it routes a call; the active tab when none is given. */
@@ -190,7 +212,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
     }
   }
 
-  return {
+  const answer: TabSnapshot = {
     tab: summary(tab),
     revision: session.store.getRevision(),
     projectId: session.id,
@@ -198,9 +220,6 @@ function snapshot(reference: string | undefined): TabSnapshot {
     // The guest keeps components whose files were deleted since it loaded; they aren't the project's any more.
     components: session.loaded.guest.components.filter((name) => name in session.info.sources),
     sources: session.info.sources,
-    ...(session.added ? { addedComponents: session.added } : {}),
-    ...(session.info.leftOut ? { leftOut: session.info.leftOut } : {}),
-    ...(session.loaded.guest.renderStatus ? { renderStatus: session.loaded.guest.renderStatus.get() } : {}),
     iconSets: session.info.libraries.filter((library) => library.kind === "icons").map(iconSet),
     tokens: session.tokens.get(),
     theme: session.info.theme,
@@ -222,11 +241,29 @@ function snapshot(reference: string | undefined): TabSnapshot {
     bounds: boards,
     detection: session.info.detection
   }
+
+  if (session.added) {
+    answer.addedComponents = session.added
+  }
+
+  if (session.info.leftOut) {
+    answer.leftOut = session.info.leftOut
+  }
+
+  if (session.loaded.guest.renderStatus) {
+    answer.renderStatus = session.loaded.guest.renderStatus.get()
+  }
+
+  return answer
 }
 
 /** An icon set as agents read it, without its tags, which can run to thousands of lines and only `iconNames` needs. */
 function iconSet({ id, name, package: packageName, version, icons }: LibraryInfo): IconSet {
-  const set: IconSet = { id, name, package: packageName, ...(version ? { version } : {}) }
+  const set: IconSet = { id, name, package: packageName }
+
+  if (version) {
+    set.version = version
+  }
 
   if (!icons) {
     return set
@@ -249,11 +286,16 @@ function iconNames({ tab, set, module }: WindowMethods["agent.iconNames"]["param
 
   const { guest } = session.loaded
 
-  return {
+  const names: IconNames = {
     names: guest.iconNames?.(set, module) ?? [],
-    aliases: guest.iconAliases?.(set, module) ?? {},
-    ...(library.icons?.tags ? { tags: library.icons.tags } : {})
+    aliases: guest.iconAliases?.(set, module) ?? {}
   }
+
+  if (library.icons?.tags) {
+    names.tags = library.icons.tags
+  }
+
+  return names
 }
 
 /**

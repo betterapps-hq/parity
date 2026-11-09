@@ -2,6 +2,91 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 10:50:18 GMT",
+      "version": "0.29.0",
+      "tag": "@parity-app/cli_v0.29.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a8fd2dfe5a0686a4969ffc5a8aaf257bb4dfc6db",
+            "comment": "Bring packages/code up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b54dd5f2ae76cb033c174c8c10f1082fbddb5eb5",
+            "comment": "Bring packages/project up to Buildkit's lint rules, with no change in behavior"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "985028a41d6f5f6d0d3408a10235ecd3243941be",
+            "comment": "Bring registry, fixtures, models, icons, account and styles-tailwind up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f5bd98d487215c2598a2911e30b85d285ba259af",
+            "comment": "Bring packages/telemetry up to Buildkit's lint rules"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "510b7ea8e2022018ade95992291d19bf8682a2f2",
+            "comment": "Reads its files, the app's answers and MCP arguments through schemas, with no change to what it prints or exits with"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "053d38576acb17c3b27137699db40cbbc1c2620b",
+            "comment": "CI sends only errors and reports to Sentry; its spans, logs and replays stay in the local copy (PAR-777)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5c6e9e74e9ecaa90acdc0943d8018b7c5f4e7ed4",
+            "comment": "Bring the tokens package up to Buildkit's lint rules, with no change in behavior"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "78c006d65e82d6d408f567c4f955c814675b3784",
+            "comment": "Exports record how long they took, as durationMs on export.done and export.failed (PAR-773)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "328b857240a410aa5c7d2a1d3751ed123f07f0fc",
+            "comment": "Zoomed out, a narrow board's title runs into the free canvas beside it instead of truncating at the board's edge"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "55a96f08618692a952c05ffcd8506f3b63342d69",
+            "comment": "Installed builds report to Sentry as preview or release instead of tester, so a pull request's preview installer no longer reads as the published app"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b7d02403f2ad569ca438f8641a06a46f2d1e59be",
+            "comment": "process.memory sends each role's memory and bitmapCache.used each hit rate as numbers Sentry can chart"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3d10f01fb4da39cd201513f4393c26698fa6f217",
+            "comment": "Record the project service exiting, windows hanging and main's loop blocked as events with how long they lasted (PAR-771)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 06:57:43 GMT",
       "version": "0.28.3",
       "tag": "@parity-app/cli_v0.28.3",

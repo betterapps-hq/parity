@@ -3,7 +3,9 @@ import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import { parseManifest } from "@parity-app/core"
 import { parseData } from "@parity-app/core"
+import { isText } from "@parity-app/core/values/evaluate"
 import { z } from "zod"
+import { logNote } from "../shared/log.ts"
 import type { ServiceMethods } from "../shared/protocol.ts"
 import { findRoutedServer, readPortless } from "./portless.ts"
 import { adoptServer, choosePort, knownServers, startServer, stopServer } from "./process-manager.ts"
@@ -94,12 +96,12 @@ function ensureStorybook(info: OpenProject["info"]): Promise<Served> {
     return existing
   }
 
-  const ready: Promise<Served> = start(info).catch((error: unknown) => {
+  const ready: Promise<Served> = start(info).catch((cause: unknown) => {
     if (serving.get(projectId) === ready) {
       serving.delete(projectId)
     }
 
-    throw error
+    throw cause
   })
 
   serving.set(projectId, ready)
@@ -159,14 +161,13 @@ async function start(info: OpenProject["info"]): Promise<Served> {
 
   const manifest = parseManifest(readFileSync(manifestPath, "utf8"), manifestPath)
 
-  const bin =
-    typeof manifest.bin === "string" ? manifest.bin : (manifest.bin?.storybook ?? Object.values(manifest.bin ?? {})[0])
+  const bin = isText(manifest.bin) ? manifest.bin : (manifest.bin?.storybook ?? Object.values(manifest.bin ?? {})[0])
 
   if (!bin) {
     throw new Error("Storybook's command line couldn't be found")
   }
 
-  console.log(`[service] starting Storybook for ${info.name} at ${url}`)
+  logNote(`[service] starting Storybook for ${info.name} at ${url}`)
 
   // Storybook's command line runs on Parity's own Node, in the project's folder: Electron runs as plain Node here.
   const server = startServer({

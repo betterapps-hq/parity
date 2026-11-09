@@ -53,6 +53,7 @@ import {
 } from "@parity-app/project"
 import { errorCode } from "@parity-app/telemetry"
 import { writeTokenChanges } from "@parity-app/tokens"
+import { logNote } from "../shared/log.ts"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { inSpan, track } from "../shared/tracing.ts"
 import type { ServedCode } from "./bitmap-store.ts"
@@ -60,6 +61,7 @@ import type { BuilderExit, StartedBuilder } from "./builders.ts"
 import type { SavedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
 import { environment, type ServiceEnvironment } from "./environment.ts"
+import type { Attributes } from "./event-attributes.ts"
 import { followGuest, type GuestMoved, newGuestPort, type PortFinder, restartPort } from "./guest-ports.ts"
 import { stopProject } from "./process-manager.ts"
 import { forgetProcess, trackProcess } from "./processes.ts"
@@ -186,6 +188,9 @@ interface Project extends OpenProject {
 }
 
 /** What an open learned on the way, for `project.opened` or `project.openFailed` (PAR-637). */
+/** What `project.opened` and `project.openFailed` both carry. */
+type OpenAttributes = Omit<Attributes<"project.opened">, "cached" | "components" | "designs" | "tokens" | "libraries">
+
 interface Opening {
   step: "detection" | "builder"
   name: string
@@ -333,10 +338,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     opening.framework = renderer.id
 
-    const found = await findBuilder(adapters.builders, root).catch(async (error: unknown) => {
+    const found = await findBuilder(adapters.builders, root).catch(async (cause: unknown) => {
       // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
       opening.versions = await toolVersions(root, await detectProject(root, pkg))
-      throw error
+      throw cause
     })
 
     const detection = await detectProject(
@@ -379,8 +384,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
     const discovered = nextComponentList(
-      { sources: {}, leftOut: [], ...(config.namespace ? { namespace: config.namespace } : {}) },
-      { kind: "discovered", sources: config.components, ...(main?.detection ? { corrections: main.detection } : {}) }
+      { sources: {}, leftOut: [], namespace: config.namespace },
+      { kind: "discovered", sources: config.components, corrections: main?.detection }
     )
 
     // What the type checker and props found last time, when nothing they read has changed since.
@@ -421,17 +426,27 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const began = performance.now()
     const opening: Opening = { step: "detection", name: basename(root), cached: false }
 
-    const common = () => ({
-      name: opening.name,
-      root,
-      reopen,
-      durationMs: since(began),
-      ...(opening.detectionMs === undefined ? {} : { detectionMs: opening.detectionMs }),
-      ...(opening.builderMs === undefined ? {} : { builderMs: opening.builderMs }),
-      ...(opening.framework ? { framework: opening.framework } : {}),
-      ...(opening.builder ? { builder: opening.builder } : {}),
-      ...opening.versions
-    })
+    const common = (): OpenAttributes => {
+      const attributes: OpenAttributes = { name: opening.name, root, reopen, durationMs: since(began) }
+
+      if (opening.detectionMs !== undefined) {
+        attributes.detectionMs = opening.detectionMs
+      }
+
+      if (opening.builderMs !== undefined) {
+        attributes.builderMs = opening.builderMs
+      }
+
+      if (opening.framework) {
+        attributes.framework = opening.framework
+      }
+
+      if (opening.builder) {
+        attributes.builder = opening.builder
+      }
+
+      return { ...attributes, ...opening.versions }
+    }
 
     try {
       const info = await start(root, opening)
@@ -447,12 +462,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       return info
     } catch (error) {
       const code = errorCode(error)
-      track("project.openFailed", {
-        ...common(),
-        step: opening.step,
-        message: message(error),
-        ...(code ? { code } : {})
-      })
+      const failed: Attributes<"project.openFailed"> = { ...common(), step: opening.step, message: message(error) }
+
+      if (code) {
+        failed.code = code
+      }
+
+      track("project.openFailed", failed)
       throw error
     }
   }
@@ -497,17 +513,17 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     )
 
     const [session, styles] = await Promise.all([
-      serving.catch((error: unknown) => {
-        throw new Error(explain(message(error)), { cause: error })
+      serving.catch((cause: unknown) => {
+        throw new Error(explain(message(cause)), { cause })
       }),
       loadStyles(root, config.styles, detection)
-    ]).catch((error: unknown) => {
+    ]).catch((cause: unknown) => {
       void serving.then(
         (started) => started.close(),
         () => undefined
       )
       forgetProcess(builderProcessId(root))
-      throw error
+      throw cause
     })
 
     const info = openedProjectInfo({
@@ -536,7 +552,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       // A saved detection brings its props; discovery's list has every one read.
       components: Promise.resolve(saved?.props ?? {}),
       renderer,
-      ...(config.uiKit ? { uiKit: config.uiKit } : {}),
+      uiKit: config.uiKit || undefined,
       openedAt: performance.now()
     }
 
@@ -556,20 +572,18 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     projects.set(root, project)
-    console.log(
-      `[service] ${info.name}: ${renderer.name} via ${builder.name} ${session.toolVersion} at ${info.guestUrl}`
-    )
+    logNote(`[service] ${info.name}: ${renderer.name} via ${builder.name} ${session.toolVersion} at ${info.guestUrl}`)
 
     for (const tool of [detection.packageManager, ...detection.tools]) {
-      console.log(`[service]   ${tool.summary}`)
+      logNote(`[service]   ${tool.summary}`)
     }
 
     for (const note of config.notes) {
-      console.log(`[service]   ${note}`)
+      logNote(`[service]   ${note}`)
     }
 
     if (styles.info) {
-      console.log(`[service]   ${styles.theme.length} theme variables from ${styles.info.name}`)
+      logNote(`[service]   ${styles.theme.length} theme variables from ${styles.info.name}`)
     }
 
     return withComponentList(project.info, project.list)
@@ -614,12 +628,21 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       onCrash: (error, exit) => {
         console.warn(`[service] ${name}: ${error}`)
         tracking.set("failed", { error })
-        track("builder.crashed", {
+
+        const crashed: Attributes<"builder.crashed"> = {
           builder: builder.name,
-          ...(exit?.exitCode === undefined ? {} : { exitCode: exit.exitCode }),
-          ...(exit?.signal ? { signal: exit.signal } : {}),
           output: lastLines(exit?.output ?? error)
-        })
+        }
+
+        if (exit?.exitCode !== undefined) {
+          crashed.exitCode = exit.exitCode
+        }
+
+        if (exit?.signal) {
+          crashed.signal = exit.signal
+        }
+
+        track("builder.crashed", crashed)
       },
       onCodeChange: (change) => {
         const project = projects.get(root)
@@ -665,7 +688,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       track("builder.restarted", { builder, durationMs: since(began), outcome: "ok" })
     } catch (error) {
       const code = errorCode(error)
-      track("builder.restarted", { builder, durationMs: since(began), outcome: "error", ...(code ? { code } : {}) })
+      const restarted: Attributes<"builder.restarted"> = { builder, durationMs: since(began), outcome: "error" }
+
+      if (code) {
+        restarted.code = code
+      }
+
+      track("builder.restarted", restarted)
       throw error
     }
   }
@@ -751,8 +780,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       changed.clear()
       rescanning = rescanning
         .then(() => rescanComponents(project, paths))
-        .catch((error: unknown) => {
-          console.warn(`[service] couldn't read the changed components: ${message(error)}`)
+        .catch((cause: unknown) => {
+          console.warn(`[service] couldn't read the changed components: ${message(cause)}`)
         })
     }
 
@@ -763,15 +792,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         setTimeout(() => {
           rescanning = rescanning
             .then(() => rereadConfig(project, configChanged))
-            .catch((error: unknown) => {
-              console.warn(`[service] couldn't read props again after the config changed: ${message(error)}`)
+            .catch((cause: unknown) => {
+              console.warn(`[service] couldn't read props again after the config changed: ${message(cause)}`)
             })
         }, 400)
       )
     }
 
-    void followConfig(project, configChanged).catch((error: unknown) => {
-      console.warn(`[service] can't follow ${root}'s config for changes: ${message(error)}`)
+    void followConfig(project, configChanged).catch((cause: unknown) => {
+      console.warn(`[service] can't follow ${root}'s config for changes: ${message(cause)}`)
     })
 
     const reload = async (path: string) => {
@@ -799,7 +828,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
           project.info.documents.push({ path, document })
         }
 
-        console.log(`[service] ${path} changed on disk`)
+        logNote(`[service] ${path} changed on disk`)
         listeners.fileChanged({ projectId: project.info.id, path, document })
       } catch (error) {
         // Often a file caught mid-write; the next change event brings the rest.
@@ -926,7 +955,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       return
     }
 
-    console.log(`[service] ${project.info.name}'s config or dependencies changed, so its components are found again`)
+    logNote(`[service] ${project.info.name}'s config or dependencies changed, so its components are found again`)
     const read = await rediscoveredFiles(root, project.renderer, tsconfig, project.uiKit, project.list.sources)
     // The files discovery gives the checker, so never the entry that mounts the app, which the guest must not import.
     const files = await checkedAppFiles(root, project.renderer, tsconfig)
@@ -941,7 +970,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const removed = step.guest.drop.length
 
     if (added > 0 || removed > 0) {
-      console.log(`[service]   ${added} components added, ${removed} left out`)
+      logNote(`[service]   ${added} components added, ${removed} left out`)
     }
 
     if (files.length > 0) {
@@ -981,7 +1010,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         status: "running",
         detail: files.length === 1 ? "Reading 1 component file" : `Reading ${files.length} component files`
       },
-      { restart: () => checkTypes(project, files) }
+      {
+        restart: async () => {
+          await checkTypes(project, files)
+        }
+      }
     )
 
     await project.components
@@ -1003,7 +1036,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const step = nextComponentList(project.list, { kind: "checked", result: checked })
     task.set("passed", { summary: typeCheckSummary(files.length, step) })
     const added = Object.keys(step.guest.add).length
-    console.log(`[service]   the type checker added ${added} components and left out ${step.guest.drop.length}`)
+    logNote(`[service]   the type checker added ${added} components and left out ${step.guest.drop.length}`)
     // Told even when nothing changed, since it's the end of what opening the project reads.
     await settle(project, step)
 
@@ -1075,7 +1108,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const removed = step.guest.drop.length
 
     if (label && (added > 0 || removed > 0)) {
-      console.log(`[service]   ${label}: ${added} components added, ${removed} left out`)
+      logNote(`[service]   ${label}: ${added} components added, ${removed} left out`)
     }
 
     if (projects.get(project.info.root) === project) {
@@ -1130,8 +1163,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     sources: Record<string, ComponentSource>,
     files?: string[]
   ): Promise<Record<string, ComponentInfo>> {
-    return checker.inferComponents(root, sources, files).catch((error: unknown) => {
-      console.warn(`[service] couldn't infer component props: ${message(error)}`)
+    return checker.inferComponents(root, sources, files).catch((cause: unknown) => {
+      console.warn(`[service] couldn't infer component props: ${message(cause)}`)
 
       return {}
     })
@@ -1373,6 +1406,6 @@ async function findBuilder(
   return { misses }
 }
 
-export function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+export function message(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }

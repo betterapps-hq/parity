@@ -11,6 +11,7 @@ import {
   resolvePathAlias,
   sharedPreviewFiles
 } from "@parity-app/project"
+import { logNote } from "../shared/log.ts"
 import type { ComponentPreview, PreviewJob } from "../shared/protocol.ts"
 import { previewName } from "../shared/render-job.ts"
 import { track } from "../shared/tracing.ts"
@@ -39,11 +40,14 @@ const aliases = new WeakMap<CodeSnapshot, (specifier: string) => string | undefi
 /** What component previews need of the open projects. */
 export type PreviewProjects = Pick<OpenProjects, "codeServedAt" | "previewProject">
 
-/** Component previews of the projects open in `projects`. */
-export function componentPreviews(projects: PreviewProjects): {
+/** What component previews do: look up what's kept of them, and make one. */
+export interface ComponentPreviews {
   lookupPreviews: (previews: PreviewJob[]) => Promise<ComponentPreview[]>
   makePreview: (preview: PreviewJob, priority: "visible" | "idle") => Promise<ComponentPreview>
-} {
+}
+
+/** Component previews of the projects open in `projects`. */
+export function componentPreviews(projects: PreviewProjects): ComponentPreviews {
   /** Previews being made, by project and key, so asking twice draws once. */
   const making = new Map<string, Promise<ComponentPreview>>()
 
@@ -73,7 +77,7 @@ export function componentPreviews(projects: PreviewProjects): {
 
     const last = record && !record.error && !record.empty ? await storedPreview(job.projectId, record.key) : undefined
 
-    return { component, key, ...(last ? { last } : {}) }
+    return last ? { component, key, last } : { component, key }
   }
 
   return {
@@ -129,10 +133,10 @@ async function make(
   const started = performance.now()
   const took = () => Math.round(performance.now() - started)
 
-  const drawn = await renderPreview(job, previewRootId, priority).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error)
+  const drawn = await renderPreview(job, previewRootId, priority).catch((cause: unknown) => {
+    const message = cause instanceof Error ? cause.message : String(cause)
     track("preview.failed", { component, reason: "not finished", message, durationMs: took() })
-    throw error
+    throw cause
   })
 
   if ("error" in drawn) {
@@ -161,7 +165,7 @@ async function make(
   const image = await storePreview(job.projectId, component, { key }, pictures, { width, height })
   const bytes = pictures.thumb.length + pictures.large.length
   track("preview.made", { component, durationMs: took(), width, height, bytes })
-  console.log(`[service] preview of ${component}: ${width}x${height}, ${Math.round(bytes / 1024)} KB, ${took()} ms`)
+  logNote(`[service] preview of ${component}: ${width}x${height}, ${Math.round(bytes / 1024)} KB, ${took()} ms`)
 
   return image ? { component, key, image } : looked
 }
@@ -182,6 +186,8 @@ async function keyFor(projects: PreviewProjects, { job }: PreviewJob): Promise<s
   const snapshot = await served.code
 
   // A library's components are its package, which the lockfile stands for.
+  // SAFETY: the window builds a preview's tree with `componentPreviewTree`, which gives render nodes; the service's
+  // checks leave the tree as it came, since only the render window draws it.
   const entries = [...new Set(renderedComponents(job.tree as RenderNode[]))].flatMap((id) => {
     const own = project.sources[id]
 

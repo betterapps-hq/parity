@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Bring registry, fixtures, models, icons, account and styles-tailwind up to Buildkit's lint rules",
+  "comment": "Bring the desktop main process, preload and shared code up to Buildkit's lint rules",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

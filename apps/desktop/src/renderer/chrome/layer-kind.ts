@@ -31,7 +31,7 @@ export function layerKind(
   }
 
   if (node.type === "component") {
-    const library = libraries.find((candidate) => node.component.startsWith(`${candidate.id}/`))
+    const library = libraryOf(node.component, libraries)
 
     if (!library) {
       return { label: "Component", description: `${node.component} component` }
@@ -58,6 +58,19 @@ export function layerKind(
   }
 
   return plain(layout)
+}
+
+/** The library a component comes from: the one whose id begins the component's, as `lucide` begins `lucide/Check`. */
+function libraryOf<Library extends Pick<LibraryInfo, "id">>(
+  component: string,
+  libraries: readonly Library[]
+): Library | undefined {
+  return libraries.find((candidate) => component.startsWith(`${candidate.id}/`))
+}
+
+/** Whether a layer is an icon: a component from one of the project's icon sets, such as `lucide/Check`. */
+export function isIconLayer(node: DesignNode, libraries: readonly Pick<LibraryInfo, "id" | "kind">[]): boolean {
+  return node.type === "component" && libraryOf(node.component, libraries)?.kind === "icons"
 }
 
 function plain(kind: string): LayerKind {

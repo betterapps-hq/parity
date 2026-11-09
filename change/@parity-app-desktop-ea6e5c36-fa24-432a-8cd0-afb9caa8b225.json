@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Bring packages/project up to Buildkit's lint rules, with no change in behavior",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

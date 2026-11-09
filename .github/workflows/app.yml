@@ -4,6 +4,9 @@ name: App tests
 # runners have a desktop to open its window on; Linux would need a virtual display. A workflow of its own until they
 # run reliably on the runner (PAR-438): a failing job in CI would fail CI's run, which cd-npm.yml and cd-desktop.yml
 # wait on, though `CI passes` leaves it out. Then it moves back into CI, and `CI passes` waits for it.
+#
+# The job's steps are written here rather than through the pipelines' ci-verify.yml, which uploads an artifact only when
+# the command passes: this one keeps the run's local copy of its telemetry after a failure too (PAR-785).
 on:
   pull_request:
   push:
@@ -14,16 +17,41 @@ permissions:
 
 jobs:
   app:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
-    with:
-      os: '["windows-latest"]'
+    name: End-to-end tests
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # A newer push to the same branch or pull request cancels the run still going, as ci-verify.yml's runs do.
+    concurrency:
+      group: app-tests-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: betterapps-hq/pipelines/github/actions/setup@main
       # Electron is installed before the tests start it, with up to 3 tries, into a folder kept until the lockfile
       # changes, since GitHub's releases time out now and then (PAR-789).
-      prepare: |
-        home=$(node -p "require('os').homedir()")
-        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
-        export electron_config_cache="$home/.cache/parity-ci/electron"
-        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
-      cache-path: ~/.cache/parity-ci/electron
-      cache-key-files: pnpm-lock.yaml
-      command: pnpm test:app
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/parity-ci/electron
+          key: app-tests-electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Install Electron
+        run: |
+          home=$(node -p "require('os').homedir()")
+          echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+          export electron_config_cache="$home/.cache/parity-ci/electron"
+          node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+      # The suite copies the run's telemetry here before it removes the copy's profile, as e2e/launch.ts says.
+      - name: Run the tests
+        env:
+          PARITY_E2E_TELEMETRY: ${{ runner.temp }}/parity-e2e-telemetry
+        run: pnpm test:app
+      # Named by the run's test_run, which every line in it carries, and kept a week, for reading a failure soon after.
+      - name: Upload the run's telemetry
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: telemetry-github-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/parity-e2e-telemetry
+          retention-days: 7
+          if-no-files-found: warn

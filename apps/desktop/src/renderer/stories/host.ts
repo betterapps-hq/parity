@@ -1,9 +1,15 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
-import { type ComponentInfo, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity-app/core"
-import type { TokenWrite } from "@parity-app/tokens"
+import {
+  type ComponentInfo,
+  type ContainerSpec,
+  defaultModeSettings,
+  type DesignNode,
+  parseData
+} from "@parity-app/core"
 import discovered from "virtual:parity/example-project"
+import { z } from "zod"
 import desktop from "../../../package.json"
-import { type AccountState, type SignedInAccount, signedOut } from "../../shared/account.ts"
+import { type AccountState, type SignedInAccount, type SignInAttempt, signedOut } from "../../shared/account.ts"
 import type {
   CanvasHost,
   ProjectEditResult,
@@ -20,6 +26,8 @@ import { preloadAnswers } from "../service.ts"
  * What the service's `project.open` and `project.components` answer for the example. Its guest URL is the module
  * Storybook serves or builds for it, as the project's builder would serve it.
  */
+// SAFETY: Storybook's `exampleProject` plugin builds this module from the same discovery and inference that answer the
+// service's `project.open` and `project.components`, so it holds a ProjectInfo and its components.
 const example = discovered as { info: ProjectInfo; components: Record<string, ComponentInfo> }
 
 /**
@@ -49,19 +57,37 @@ export type Answer<M extends ServiceMethod> = (
   usual: () => Promise<ServiceMethods[M]["result"]>
 ) => ServiceMethods[M]["result"] | Promise<ServiceMethods[M]["result"]>
 
-/** Answers a story gave, by method, and whether each is for the next request only. */
-const overrides = new Map<ServiceMethod, { answer: Answer<never>; once: boolean }>()
+/** A story's own answers, by method. */
+type Answers = { [M in ServiceMethod]?: Answer<M> }
+
+/** Answers a story gave, by method. */
+const overrides: Answers = {}
+
+/** The methods whose story answer is for the next request only. */
+const onceOnly = new Set<string>()
 
 /** Answers some requests another way until the story ends; the service answers the rest as usual. */
-export function answering(answers: { [M in ServiceMethod]?: Answer<M> }): void {
-  for (const [method, answer] of Object.entries(answers)) {
-    overrides.set(method as ServiceMethod, { answer: answer as unknown as Answer<never>, once: false })
+export function answering(answers: Answers): void {
+  Object.assign(overrides, answers)
+
+  for (const method of Object.keys(answers)) {
+    onceOnly.delete(method)
   }
 }
 
 /** Answers the next request for a method another way, once: a check that fails, a project without its own modes. */
 export function answerNext<M extends ServiceMethod>(method: M, answer: Answer<M>): void {
-  overrides.set(method, { answer: answer as unknown as Answer<never>, once: true })
+  Object.assign(overrides, { [method]: answer })
+  onceOnly.add(method)
+}
+
+/** Forgets every answer a story gave. */
+function clearOverrides(): void {
+  for (const method of Object.keys(overrides)) {
+    Reflect.deleteProperty(overrides, method)
+  }
+
+  onceOnly.clear()
 }
 
 /** The system dialogs, which answer as if the person cancelled unless a story picks something. */
@@ -80,7 +106,7 @@ export function pickingWith(dialogs: Partial<Pick<CanvasHost, keyof typeof cance
  * What the stand-in service runs besides each open project's build server, which it starts as projects open: a story
  * adds Storybooks, servers Portless routes and its proxy.
  */
-export const running: { processes: ProjectProcess[] } = { processes: [] }
+export const running = { processes: new Array<ProjectProcess>() }
 
 let accountNow: AccountState = signedOut
 
@@ -108,17 +134,19 @@ function inAccount(chosen: SignedInAccount | undefined): AccountState["account"]
 const storyAccount: CanvasHost["account"] = {
   get: () => Promise.resolve(accountNow),
   subscribe: () => () => undefined,
-  signIn: async ({ provider, email }) =>
-    setStoryAccount({
-      ...accountNow,
-      attempt: {
-        at: "waiting",
-        provider,
-        url: "https://api.workos.com/user_management/authorize?client_id=client_story",
-        ...(email === undefined ? {} : { email })
-      },
-      ended: null
-    }),
+  signIn: async ({ provider, email }) => {
+    const attempt: Extract<SignInAttempt, { at: "waiting" }> = {
+      at: "waiting",
+      provider,
+      url: "https://api.workos.com/user_management/authorize?client_id=client_story"
+    }
+
+    if (email !== undefined) {
+      attempt.email = email
+    }
+
+    setStoryAccount({ ...accountNow, attempt, ended: null })
+  },
   reopen: () => Promise.resolve(),
   cancel: async () => setStoryAccount({ ...accountNow, attempt: null, ended: null }),
   signOut: async (email) => {
@@ -184,7 +212,7 @@ export function resetHost(): void {
   telemetryNow = defaultTelemetry
   Object.assign(service, defaultService)
   running.processes = []
-  overrides.clear()
+  clearOverrides()
   Object.assign(window.canvasHost, cancelled)
   accountNow = signedOut
   resetAccountView()
@@ -218,17 +246,17 @@ export function installHost(): void {
 
       return delay(service.latency).then(() => {
         const usual = () => answer(method, params)
-        const override = overrides.get(method)
+        const override: Answer<M> | undefined = overrides[method]
 
         if (!override) {
           return usual()
         }
 
-        if (override.once) {
-          overrides.delete(method)
+        if (onceOnly.delete(method)) {
+          Reflect.deleteProperty(overrides, method)
         }
 
-        return (override.answer as unknown as Answer<M>)(params, usual)
+        return override(params, usual)
       })
     }),
     account: storyAccount,
@@ -357,19 +385,24 @@ function settle(id: string, action: "stop" | "restart"): void {
   }
 }
 
+/** A request to the service: a method and its params, which a switch on the method narrows. */
+type ServiceRequest = { [M in ServiceMethod]: { method: M; params: ServiceMethods[M]["params"] } }[ServiceMethod]
+
 async function answer<M extends ServiceMethod>(
   method: M,
   params: ServiceMethods[M]["params"]
 ): Promise<ServiceMethods[M]["result"]> {
-  const result = await respond(method, params as never)
+  // SAFETY: `method` and `params` are typed by the same M, so together they're the request for that method.
+  const result = await respond({ method, params } as ServiceRequest)
 
+  // SAFETY: `respond` answers each method with that method's result.
   return result as ServiceMethods[M]["result"]
 }
 
-async function respond(method: ServiceMethod, params: Record<string, unknown>): Promise<unknown> {
-  switch (method) {
+async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceMethod]["result"]> {
+  switch (request.method) {
     case "project.open": {
-      const root = (params.root as string | undefined) ?? roots.example
+      const root = request.params.root ?? roots.example
 
       if (root === roots.slow) {
         return new Promise(() => undefined)
@@ -389,7 +422,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
     }
 
     case "project.close":
-      running.processes = running.processes.filter((process) => process.projectId !== params.projectId)
+      running.processes = running.processes.filter((process) => process.projectId !== request.params.projectId)
 
       return undefined
     case "project.components":
@@ -397,15 +430,15 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
     case "processes.list":
       return structuredClone(running.processes)
     case "processes.stop":
-      settle(String(params.id), "stop")
+      settle(String(request.params.id), "stop")
 
       return undefined
     case "processes.restart":
-      settle(String(params.id), "restart")
+      settle(String(request.params.id), "restart")
 
       return undefined
     case "processes.dismiss":
-      running.processes = running.processes.filter((process) => process.id !== params.id)
+      running.processes = running.processes.filter((process) => process.id !== request.params.id)
 
       return undefined
     case "library.catalog":
@@ -479,10 +512,10 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       await delay(1200)
 
       if (service.installFails) {
-        throw new Error(`pnpm add ${String(params.library)} failed: ERR_PNPM_FETCH_404 Not Found - 404`)
+        throw new Error(`pnpm add ${String(request.params.library)} failed: ERR_PNPM_FETCH_404 Not Found - 404`)
       }
 
-      return { log: `+ ${String(params.library)}\nDone in 1.2s` }
+      return { log: `+ ${String(request.params.library)}\nDone in 1.2s` }
     case "document.save":
     case "document.saveCopy":
       if (service.saveFails) {
@@ -495,7 +528,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
         throw new Error("EPERM: operation not permitted, open 'src/index.css'")
       }
 
-      const changes = params.changes as TokenWrite[]
+      const changes = request.params.changes
       const [change] = changes
 
       return edited(changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`, [
@@ -519,7 +552,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
         " "
       ])
     case "project.undoEdit": {
-      const edit = edits.get(String(params.id))
+      const edit = edits.get(String(request.params.id))
 
       if (!edit) {
         throw new Error("That change is too old to undo, or was undone already")
@@ -535,12 +568,12 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
     }
 
     case "images.import":
-      return { src: `/images/${String(params.name)}`, path: `public/images/${String(params.name)}` }
+      return { src: `/images/${String(request.params.name)}`, path: `public/images/${String(request.params.name)}` }
     case "storybook.open":
       return { url: "http://localhost:6006/?path=/docs/components-button--docs" }
     case "layers.export":
       return {
-        files: (params.files as { name: string }[]).map((file) => `D:/exports/${file.name}`),
+        files: request.params.files.map((file) => `D:/exports/${file.name}`),
         warnings: []
       }
     case "layers.picture":
@@ -551,27 +584,27 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       }
     case "designs.export":
       return {
-        files: (params.designs as string[]).map((design) => `D:/exports/${design.split("#").at(-1)}.png`),
+        files: request.params.designs.map((design) => `D:/exports/${design.split("#").at(-1)}.png`),
         warnings: []
       }
     case "code.read": {
       const { default: files } = await import("virtual:parity/example-sources")
-      const text = files[String(params.path)]
+      const text = files[String(request.params.path)]
 
       if (text === undefined) {
-        throw new Error(`${String(params.path)} isn't in the project's folder`)
+        throw new Error(`${String(request.params.path)} isn't in the project's folder`)
       }
 
       return { text }
     }
 
     case "accessibility.check":
-      return { findings: findingsFor(String(params.design)), frames: 4, warnings: [] }
+      return { findings: findingsFor(String(request.params.design)), frames: 4, warnings: [] }
     case "frames.stored":
       // No bitmap kept, as on a first launch: a frame that sleeps draws first, or waits on its placeholder.
-      return { kept: (JSON.parse(String(params.jobs)) as unknown[]).map(() => ({})) }
+      return { kept: parseData(z.array(z.json()), JSON.parse(request.params.jobs)).map(() => ({})) }
     case "pictures.store":
-      return params.picture
+      return request.params.picture
     case "pictures.read":
       // No project's picture kept, as on a first launch: the start page shows placeholders.
       return {}

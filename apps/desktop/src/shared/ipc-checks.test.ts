@@ -9,12 +9,13 @@ import {
   shownItem,
   themeSource
 } from "./ipc-checks.ts"
+import type { OpenInEditorRequest } from "./protocol.ts"
 
 const file = process.platform === "win32" ? "C:\\work\\app\\src\\Button.tsx" : "/work/app/src/Button.tsx"
 
 describe("open-in-editor's request", () => {
   it("reaches its handler when it's a file and an editor", () => {
-    const handler = vi.fn<(event: unknown, request: unknown) => string>(() => "opened")
+    const handler = vi.fn<(event: Record<string, never>, request: OpenInEditorRequest) => string>(() => "opened")
     const request = { file, export: "Button", editor: "vscode" }
     expect(checked(openInEditorRequest, handler)({}, request)).toBe("opened")
     expect(handler).toHaveBeenCalledWith({}, request)

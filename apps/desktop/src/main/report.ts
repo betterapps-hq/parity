@@ -7,6 +7,7 @@ import {
   type LoggedEvent,
   lastRunCrash,
   type registeredEvents,
+  type ReportVersions,
   type Telemetry,
   type TelemetryLevel
 } from "@parity-app/telemetry"
@@ -79,7 +80,7 @@ export interface Reports {
 
 /** Whether a crash on the last run is offered: only in installed builds, where testers run Parity, not agents or CI. */
 export function offersCrashReports(environment: string): boolean {
-  return environment === "tester"
+  return environment === "preview" || environment === "release"
 }
 
 export function createReports({
@@ -109,12 +110,7 @@ export function createReports({
   const diagnostics = (withCrash: Crash | undefined): Attachment[] => {
     flushLogs()
 
-    const files = diagnosticFiles({
-      events: readEvents(),
-      now: Date.now(),
-      versions: versions(),
-      ...(withCrash ? { crash: withCrash } : {})
-    })
+    const files = diagnosticFiles({ events: readEvents(), now: Date.now(), versions: versions(), crash: withCrash })
 
     return files.map((file) => ({
       filename: file.name,
@@ -198,13 +194,21 @@ export function createReports({
 
       telemetry.track("report.sent", { feedbackId, screenshot: !image.isEmpty(), afterCrash: false, by: "agent" })
 
-      return {
+      const sent: ReportSent = {
         feedbackId,
         link: feedbackLink(feedbackId),
-        ...(problem.traceId ? { traceId: problem.traceId } : {}),
-        ...(problem.replayId ? { replayId: problem.replayId } : {}),
         attachments: attachments.map((attachment) => attachment.filename)
       }
+
+      if (problem.traceId) {
+        sent.traceId = problem.traceId
+      }
+
+      if (problem.replayId) {
+        sent.replayId = problem.replayId
+      }
+
+      return sent
     },
     takeLastCrash() {
       if (!crash || offered) {
@@ -254,16 +258,14 @@ async function sendFeedback(report: Feedback, attachments: Attachment[]): Promis
         })
       }
 
-      return Sentry.captureFeedback(
-        {
-          message: report.message,
-          source: report.source,
-          // Sentry shows the feedback on the error's issue.
-          ...(report.eventId ? { associatedEventId: report.eventId } : {})
-        },
-        { attachments },
-        scope
-      )
+      const feedback: Parameters<typeof Sentry.captureFeedback>[0] = { message: report.message, source: report.source }
+
+      // Sentry shows the feedback on the error's issue.
+      if (report.eventId) {
+        feedback.associatedEventId = report.eventId
+      }
+
+      return Sentry.captureFeedback(feedback, { attachments }, scope)
     })
 
     if (!(await Sentry.flush(sendTimeoutMs))) {
@@ -290,7 +292,7 @@ function screenshotFile(image: Electron.NativeImage): Attachment {
 }
 
 /** The versions a report names. */
-function versions(): { parity: string; [part: string]: string } {
+function versions(): ReportVersions {
   return {
     parity: app.getVersion(),
     electron: process.versions.electron ?? "unknown",

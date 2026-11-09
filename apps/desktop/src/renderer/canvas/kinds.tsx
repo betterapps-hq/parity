@@ -1,4 +1,10 @@
-import { type ComponentLibrary, type ContainerKind, type DesignNode, nodeLabel } from "@parity-app/core"
+import {
+  type ComponentLibrary,
+  type ContainerKind,
+  type DesignNode,
+  type LibraryInfo,
+  nodeLabel
+} from "@parity-app/core"
 import {
   AppWindow,
   Box,
@@ -10,10 +16,14 @@ import {
   Image as ImageIcon,
   type LucideProps,
   Rows3,
+  Smile,
   SquareDashed,
   Type
 } from "lucide-react"
+import { useContext } from "react"
+import { isIconLayer } from "../chrome/layer-kind.ts"
 import type { ContainerEntry } from "../design-store.ts"
+import { ProjectContext } from "./context.ts"
 
 /**
  * Each kind of thing on the canvas has its own selection color and icon, so a glance tells a screen from a component,
@@ -117,7 +127,18 @@ export function DesignIcon({ kind, ...props }: LucideProps & { kind: ContainerKi
   return kind === "component" ? <Component {...props} /> : <AppWindow {...props} />
 }
 
-export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode }) {
+/**
+ * A layer's kind as an icon. An icon layer shows Smile, the Icons tab's icon, whatever it draws (PAR-793): its own glyph
+ * could be one of these kinds' icons, or look like a button in its row. Which libraries are icon sets comes from the
+ * project of the tab it's drawn in, or from `libraries` where it's drawn outside one, as Search actions is.
+ */
+export function NodeIcon({
+  node,
+  libraries,
+  ...props
+}: LucideProps & { node: DesignNode; libraries?: readonly LibraryInfo[] }) {
+  const project = useContext(ProjectContext)
+
   if (node.type === "text") {
     return <Type {...props} />
   }
@@ -127,7 +148,7 @@ export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode })
   }
 
   if (node.type === "component") {
-    return <Box {...props} />
+    return isIconLayer(node, libraries ?? project?.info.libraries ?? []) ? <Smile {...props} /> : <Box {...props} />
   }
 
   if (node.type === "instance") {

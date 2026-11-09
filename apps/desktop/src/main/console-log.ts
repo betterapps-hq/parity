@@ -45,15 +45,18 @@ export function createConsoleLog({ limit = 500, now = Date.now }: { limit?: numb
 
       const { design, state, mode, ...written } = message
 
-      const entry: LoggedEntry = {
-        id: next++,
-        ...written,
-        count: 1,
-        first: at,
-        last: at,
-        ...(design ? { design } : {}),
-        ...(state ? { state } : {}),
-        ...(mode ? { mode } : {})
+      const entry: LoggedEntry = { id: next++, ...written, count: 1, first: at, last: at }
+
+      if (design) {
+        entry.design = design
+      }
+
+      if (state) {
+        entry.state = state
+      }
+
+      if (mode) {
+        entry.mode = mode
       }
 
       entries.push(entry)
@@ -151,7 +154,7 @@ export function recordConsole(
 export function batchedChanges(
   send: (change: ConsoleChange) => void,
   wait = 100,
-  schedule: (run: () => void, wait: number) => unknown = setTimeout
+  schedule: (run: () => void, wait: number) => void = setTimeout
 ): (change: ConsoleChange) => void {
   let waiting = new Map<number, LoggedEntry>()
   let scheduled = false

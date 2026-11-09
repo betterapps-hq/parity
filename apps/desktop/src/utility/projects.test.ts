@@ -42,12 +42,18 @@ async function write(path: string, contents: string): Promise<void> {
   await writeFile(join(root, path), contents)
 }
 
+/** The steps a test makes the fake builder fail at, and how. */
+interface Failures {
+  detection?: Error
+  start?: Error
+}
+
 /** A builder that serves at the port it's given, and what it was asked. */
 function fakeBuilder() {
   const started: number[] = []
   const closed: string[] = []
   const crashes: Parameters<ProjectAdapters["startBuilder"]>[1]["onCrash"][] = []
-  const failures: { detection?: Error; start?: Error } = {}
+  const failures: Failures = {}
 
   const builder: BuilderAdapter = {
     id: "fake",

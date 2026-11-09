@@ -15,7 +15,7 @@ traceWith(
   })
 )
 
-const job = {
+const job: RenderJob = {
   projectId: "D:/shop",
   guestUrl: "http://localhost:5001",
   theme: [],
@@ -23,7 +23,7 @@ const job = {
   mode: { width: 400, viewport: { width: 1280, height: 800 }, classNames: [], attributes: {} },
   scale: 0.25,
   design: { key: "card", state: "empty", mode: "light" }
-} as RenderJob
+}
 
 const frame = (extra: Partial<RenderedFrame> = {}): RenderedFrame => ({
   width: 400,

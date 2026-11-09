@@ -14,8 +14,9 @@ import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import { z } from "zod"
-import type { ProjectEditResult, ProjectInfo, TabSummary } from "../shared/protocol.ts"
+import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from "../shared/protocol.ts"
 import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
+import type { Attributes } from "./chrome/event-attributes.ts"
 import { getPreferences } from "./chrome/preferences.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
@@ -634,7 +635,16 @@ export class Workspace {
   /** Stars a project, so the start page keeps it under Starred, or unstars it. */
   star(root: string, starred: boolean): void {
     const { opened } = this.notes[root] ?? {}
-    const note: ProjectNote = { ...(opened === undefined ? {} : { opened }), ...(starred ? { starred } : {}) }
+    const note: ProjectNote = {}
+
+    if (opened !== undefined) {
+      note.opened = opened
+    }
+
+    if (starred) {
+      note.starred = starred
+    }
+
     this.notes = { ...this.notes, [root]: note }
     this.saveNotes()
   }
@@ -716,11 +726,10 @@ export class Workspace {
       delete added[name]
     }
 
-    const info = {
-      ...tab.session.info,
-      sources,
-      componentCount: Object.keys(sources).length,
-      ...(leftOut ? { leftOut } : {})
+    const info: ProjectInfo = { ...tab.session.info, sources, componentCount: Object.keys(sources).length }
+
+    if (leftOut) {
+      info.leftOut = leftOut
     }
 
     this.replace(id, { ...tab, session: { ...tab.session, info, added } })
@@ -765,15 +774,22 @@ export class Workspace {
   summaries(): TabSummary[] {
     return this.tabs
       .filter((tab) => !tab.blank)
-      .map((tab) => ({
-        id: tab.id,
-        name: tab.title,
-        root: tab.session?.info.root ?? tab.id,
-        active: tab.id === this.activeId,
-        status: tab.status,
-        ...(tab.message && tab.status === "error" ? { error: tab.message } : {}),
-        designs: tab.session?.store.getEntries().length ?? 0
-      }))
+      .map((tab) => {
+        const summary: TabSummary = {
+          id: tab.id,
+          name: tab.title,
+          root: tab.session?.info.root ?? tab.id,
+          active: tab.id === this.activeId,
+          status: tab.status,
+          designs: tab.session?.store.getEntries().length ?? 0
+        }
+
+        if (tab.message && tab.status === "error") {
+          summary.error = tab.message
+        }
+
+        return summary
+      })
   }
 
   /** Moves a loading tab on to one of its steps. Its message says that step, for the tab's tooltip. */
@@ -1114,8 +1130,14 @@ function followCorrections(session: ProjectSession): void {
     }
 
     sent = next
-    request("project.correctComponents", { projectId: session.id, ...(next ? { corrections: next } : {}) }).catch(
-      (error: unknown) => console.warn("The component list couldn't take the correction", error)
+    const params: ServiceMethods["project.correctComponents"]["params"] = { projectId: session.id }
+
+    if (next) {
+      params.corrections = next
+    }
+
+    request("project.correctComponents", params).catch((cause: unknown) =>
+      console.warn("The component list couldn't take the correction", cause)
     )
   })
 }
@@ -1124,7 +1146,7 @@ function followCorrections(session: ProjectSession): void {
 function inferComponents(info: ProjectInfo, components: ComponentStore): void {
   request("project.components", { projectId: info.id })
     .then((inferred) => components.set(inferred))
-    .catch((error: unknown) => console.warn("Component props couldn't be inferred", error))
+    .catch((cause: unknown) => console.warn("Component props couldn't be inferred", cause))
 }
 
 /** Writes a design file, recording how long it took and how big it was. */
@@ -1139,8 +1161,14 @@ async function saveDocument(projectId: string, path: string, document: CanvasDoc
     await request("document.save", { projectId, path, document })
     track("document.saved", measured(), inTrace)
   } catch (error) {
+    const failed: Attributes<"document.saveFailed"> = measured()
     const code = errorCode(error)
-    track("document.saveFailed", { ...measured(), ...(code ? { code } : {}) }, inTrace)
+
+    if (code) {
+      failed.code = code
+    }
+
+    track("document.saveFailed", failed, inTrace)
     throw error
   }
 }
@@ -1153,8 +1181,14 @@ async function saveTokens(projectId: string, changes: TokenWrite[]): Promise<Pro
 
     return edit
   } catch (error) {
+    const failed: Attributes<"tokens.saved"> = { changes: changes.length, files: [], outcome: "error" }
     const code = errorCode(error)
-    track("tokens.saved", { changes: changes.length, files: [], outcome: "error", ...(code ? { code } : {}) })
+
+    if (code) {
+      failed.code = code
+    }
+
+    track("tokens.saved", failed)
     throw error
   }
 }
@@ -1164,7 +1198,9 @@ function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore):
   return new TokenStore(
     loaded.tokens,
     loaded.sheet,
-    (changes) => saveTokens(info.id, changes),
+    async (changes) => {
+      await saveTokens(info.id, changes)
+    },
     store,
     info.styles?.stylesheet,
     info.describedTokens

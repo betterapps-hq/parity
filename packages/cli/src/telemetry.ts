@@ -238,10 +238,12 @@ export function batchRun(
     }
   }
 
+  const published = build?.published ?? false
+
   return {
-    environment: telemetryEnvironment(env, installed),
+    environment: telemetryEnvironment(env, { installed, published }),
     version: cliVersion(),
-    published: build?.published ?? false,
+    published,
     ...releaseSource(build),
     tags,
     user: telemetryUser(installId, variables, driver)
@@ -280,8 +282,9 @@ export function startCliTelemetry({ serving = false }: { serving?: boolean } = {
 }
 
 /**
- * Whether this CLI was installed from npm, which reports as `tester` and names its release by version, as the app's
- * installed builds do. A checkout's, from source or its own `dist`, reports as `development`, named by its commit.
+ * Whether this CLI was installed from npm: `release` for the package `npm publish` made, named by its version, and
+ * `preview` for a pkg.pr.new one, as the app's installed builds do. A checkout's, from source or its own `dist`, reports
+ * as `development`, named by its commit.
  */
 function installedFromNpm(): boolean {
   return fileURLToPath(import.meta.url)

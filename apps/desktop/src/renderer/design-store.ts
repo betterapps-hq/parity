@@ -82,7 +82,7 @@ export interface NoteEntry {
 }
 
 interface Persistence {
-  saveDocument(path: string, document: CanvasDocument): Promise<unknown>
+  saveDocument(path: string, document: CanvasDocument): Promise<void>
   /** Whether each change saves itself a moment later, or waits for Save. */
   autosave(): boolean
 }
@@ -90,7 +90,7 @@ interface Persistence {
 /** Writes token values into the project's stylesheet, `path`. */
 export interface TokenWriter {
   path: string
-  write(changes: TokenWrite[]): Promise<unknown>
+  write(changes: TokenWrite[]): Promise<void>
 }
 
 const saveDelay = 300
@@ -548,9 +548,9 @@ export class DesignStore {
 
     const writing = this.send(write).then(
       () => this.settle(writeSucceeded(this.state, write)),
-      (error: unknown) => {
-        console.error(write.kind === "tokens" ? `Saving tokens to ${path} failed` : `Saving ${path} failed`, error)
-        this.settle(writeFailed(this.state, write, error))
+      (cause: unknown) => {
+        console.error(write.kind === "tokens" ? `Saving tokens to ${path} failed` : `Saving ${path} failed`, cause)
+        this.settle(writeFailed(this.state, write, cause))
       }
     )
 
@@ -560,7 +560,7 @@ export class DesignStore {
   }
 
   /** Sends a write to the stylesheet's writer or the project's files. */
-  private send(write: FileWrite): Promise<unknown> {
+  private send(write: FileWrite): Promise<void> {
     if (write.kind === "tokens") {
       const writer = this.tokenWriter
 
