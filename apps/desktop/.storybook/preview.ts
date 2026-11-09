@@ -1,5 +1,5 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
-import type { Preview } from "@storybook/react-vite"
+import { definePreview } from "@buildkitgg/storybook-config/preview"
 import { createElement } from "react"
 import { setPreferences } from "../src/renderer/chrome/preferences.ts"
 import { installClassMerger } from "../src/renderer/class-merger.ts"
@@ -15,7 +15,8 @@ installHost()
 startTheme()
 installClassMerger()
 
-const preview: Preview = {
+// Buildkit's base preview matches color and date controls by argument name (PAR-730).
+export default definePreview({
   parameters: { layout: "fullscreen" },
   // The app's chrome comes in light and dark, dark by default; designs choose their own theme through their modes.
   globalTypes: {
@@ -43,6 +44,4 @@ const preview: Preview = {
       return createElement(TooltipProvider, null, Story())
     }
   ]
-}
-
-export default preview
+})
