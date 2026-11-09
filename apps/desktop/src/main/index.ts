@@ -137,7 +137,7 @@ const installedBuild = new InstalledBuild({
   version: app.getVersion(),
   packaged: installed,
   metadata: appManifest,
-  read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
+  read: () => readFileSync(buildInfoFile, "utf8"),
   save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
 })
 

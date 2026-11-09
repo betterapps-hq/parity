@@ -20,6 +20,8 @@ export * from "./project-events.ts"
 
 export * from "./registry.ts"
 
+export * from "./promotion.ts"
+
 export * from "./release.ts"
 
 export * from "./render-events.ts"

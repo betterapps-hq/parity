@@ -39,15 +39,19 @@ CLI.
 | `ci`          | Anything run where `CI` is set, whatever the build                         |
 | `preview`     | A pull request's preview installer, and the CLI from pkg.pr.new            |
 | `release`     | The app the release workflow published, and the CLI `npm publish` made     |
-| `production`  | A published app whose release has been promoted to everyone                |
+| `production`  | A published app or CLI that's been promoted to everyone                    |
 
 Until 2026-11-09, `preview` and `release` were one environment, `tester` (PAR-778). Events from before then keep it.
 
 `production` is the app's GitHub release once it's no longer a pre-release (PAR-779). Promotion doesn't rebuild the app,
 so it learns it was promoted from GitHub: it asks as it starts, saves the answer in `installed-build.json`, and reports
 `production` from its next start. The first start of a newly promoted version reports `release`. No build has been
-promoted yet, so Sentry hasn't seen `production`, and the monitors that watch it can't be made until it has. The CLI has
-no promotion, so it reports `release` until it gets one.
+promoted yet, so Sentry hasn't seen `production`, and the monitors that watch it can't be made until it has.
+
+The CLI's `production` is a version that's been npm's `latest` (PAR-799). Every merge publishes the CLI to `next`, and
+approving `cd-npm.yml`'s Production job moves `latest` to it. The CLI's sender asks npm after it sends, saves the answer
+in `~/.parity/installed-cli.json`, and the next command reports `production`. A version that was `latest` stays
+`production` after a newer one is promoted.
 
 `ci` sends only errors and reports, with their breadcrumbs: no spans, logs or replays (PAR-777). Those stay in the run's
 local copy, which the end-to-end suite checks. CI sent 718,000 of `parity-desktop`'s 794,000 spans in the week to
@@ -66,7 +70,7 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
 | Preview installers (`preview`)          | The commit's full hash  | Uploaded by `preview.yml`'s Source maps                           |
 | CI's app (`ci`)                         | The commit's full hash  | Uploaded by `ci.yml`'s Upload source maps, from the Windows build |
 | `pnpm dev` (`development`)              | The commit's full hash  | Read locally: stacks are resolved before they're sent             |
-| Published CLI (`release`)               | `parity-cli@0.27.1`     | Uploaded by `cd-npm.yml`'s Source maps, once it's on npm          |
+| Published CLI (`release`, `production`) | `parity-cli@0.27.1`     | Uploaded by `cd-npm.yml`'s Source maps, once it's on npm          |
 | CLI preview on pkg.pr.new (`preview`)   | The commit's full hash  | Not uploaded                                                      |
 | CLI from a checkout (`development`)     | The commit's full hash  | Not uploaded                                                      |
 

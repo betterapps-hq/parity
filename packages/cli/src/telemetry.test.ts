@@ -204,4 +204,12 @@ describe("batchRun", () => {
       published: true
     })
   })
+
+  it("reports the package npm published as production once it's been promoted to latest", () => {
+    expect(batchRun({}, "install", true, { published: true }, true)).toMatchObject({
+      environment: "production",
+      published: true
+    })
+    expect(batchRun({}, "install", true, { published: false }, true).environment).toBe("preview")
+  })
 })

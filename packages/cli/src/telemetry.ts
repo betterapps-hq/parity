@@ -34,7 +34,6 @@ import {
   telemetryUser,
   traceHeaders
 } from "@parity-app/telemetry"
-import { z } from "zod"
 import { cliVersion } from "./diagnostics.ts"
 import {
   type Batch,
@@ -46,6 +45,7 @@ import {
   writeBatch
 } from "./outbox.ts"
 import { stderr } from "./output.ts"
+import { type CliBuild, cliBuild, cliPromotion } from "./promotion.ts"
 
 /*
  * The CLI's own events (PAR-641): each command it runs, the copies of the app it can't reach or can't read, and the MCP
@@ -178,36 +178,6 @@ export function cliCallerChanged(next: AgentCaller): void {
   caller = next
 }
 
-/** What `vp pack` writes beside the bundles (PAR-719): whether `npm publish` made them, and the commit they're from. */
-export interface CliBuild {
-  published: boolean
-  commit?: string
-}
-
-/** `build.json` as the CLI reads it: published only when it says `true`, and a commit only when it names one. */
-const buildFile = z
-  .looseObject({ published: z.boolean().catch(false), commit: z.string().optional().catch(undefined) })
-  .catch({ published: false })
-
-/** This CLI's build, from `build.json` beside the bundle, or nothing when it runs from source. */
-function cliBuild(): CliBuild | undefined {
-  try {
-    const { published, commit } = buildFile.parse(
-      JSON.parse(readFileSync(new URL("./build.json", import.meta.url), "utf8"))
-    )
-
-    const build: CliBuild = { published }
-
-    if (commit !== undefined) {
-      build.commit = commit
-    }
-
-    return build
-  } catch {
-    return undefined
-  }
-}
-
 /** What names an unpublished build's release: the commit it was built from, or a checkout's folder run from source. */
 function releaseSource(build: CliBuild | undefined): Pick<BatchRun, "commit" | "source"> {
   if (!build) {
@@ -221,12 +191,14 @@ function releaseSource(build: CliBuild | undefined): Pick<BatchRun, "commit" | "
  * What a batch reports as: environment, version, release, the test pass and who's driving, read as it's written. Only
  * the build `npm publish` made reports as its version; a pkg.pr.new preview or a checkout's own `dist` is named by the
  * commit it was built from, and a checkout run from source by its commit, which the sender reads off the command's path.
+ * A published version npm has promoted to `latest` reports as `production` (PAR-799).
  */
 export function batchRun(
   env: NodeJS.ProcessEnv,
   installId: string,
   installed: boolean,
-  build: CliBuild | undefined = cliBuild()
+  build: CliBuild | undefined = cliBuild(),
+  promoted = false
 ): BatchRun {
   const variables: RunVariables = { PARITY_TEST_RUN: env.PARITY_TEST_RUN, PARITY_TESTER: env.PARITY_TESTER }
   const driver: Driver = { kind: "agent", caller }
@@ -241,7 +213,7 @@ export function batchRun(
   const published = build?.published ?? false
 
   return {
-    environment: telemetryEnvironment(env, { installed, published }),
+    environment: telemetryEnvironment(env, { installed, published, promoted }),
     version: cliVersion(),
     published,
     ...releaseSource(build),
@@ -265,7 +237,9 @@ export function startCliTelemetry({ serving = false }: { serving?: boolean } = {
     const outbox = createOutbox()
     // CI sends only errors and reports, with their breadcrumbs; its spans and logs stay in the local copy (PAR-777).
     sinks.push(createSentrySink(outbox.target, { upload: !setting.errorsOnly }))
-    hand(outbox, setting.installId, installed, serving)
+    // As the sender last heard from npm: a version promoted since reports `production` from the next command.
+    const promoted = installed && cliPromotion().known === "stable"
+    hand(outbox, setting.installId, installed, promoted, serving)
     showNotice(setting.level)
   }
 
@@ -296,12 +270,12 @@ function installedFromNpm(): boolean {
 const sender = fileURLToPath(new URL(import.meta.url.endsWith(".ts") ? "./send.ts" : "./send.mjs", import.meta.url))
 
 /** Writes the outbox's batch and starts the sender, as the process exits, and every 10 seconds while it serves. */
-function hand(outbox: Outbox, installId: string, installed: boolean, serving: boolean): void {
+function hand(outbox: Outbox, installId: string, installed: boolean, promoted: boolean, serving: boolean): void {
   const folder = cliOutboxFolder()
 
   const write = () => {
     try {
-      const run = batchRun(process.env, installId, installed)
+      const run = batchRun(process.env, installId, installed, cliBuild(), promoted)
       const debugIds = loadedDebugIds()
 
       const batch: Batch = { run, items: outbox.take() }

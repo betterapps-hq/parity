@@ -92,6 +92,9 @@ The `parity` command drives a running Parity from a terminal or an agent. It's o
 npx @parity-app/cli state
 ```
 
+`@parity-app/cli` is the release; `@parity-app/cli@next` is the newest build, which every merge publishes before it's
+promoted.
+
 From a checkout, `node packages/cli/src/bin.ts` runs it from source. `parity --help` lists its commands, `parity mcp`
 serves them as MCP tools, and `parity skill` prints the skill that teaches an agent to design with Parity.
 [packages/cli/README.md](packages/cli/README.md) has more.
