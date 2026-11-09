@@ -1,6 +1,7 @@
 import { errorDetails } from "@parity-app/core"
 import type { EventAttributes, EventName, registeredEvents, Telemetry, TraceContext } from "@parity-app/telemetry"
 import { type ExternalToast, toast } from "sonner"
+import type { Attributes } from "./chrome/event-attributes.ts"
 
 type Events = typeof registeredEvents
 
@@ -28,13 +29,13 @@ export function track<Name extends EventName<Events>>(
 }
 
 /** A failure's message, as its notification says it. */
-export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+export function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }
 
 /** A failure's `CodedError` code, when it has one. */
-export function errorCode(error: unknown): string | undefined {
-  return errorDetails(error)?.code
+export function errorCode(cause: unknown): string | undefined {
+  return errorDetails(cause)?.code
 }
 
 export interface ReportContext extends ExternalToast {
@@ -52,18 +53,18 @@ export interface ReportContext extends ExternalToast {
  * Shows a failure as an error notification and records it as `error.caught`, with its code, what failed and what it was
  * acting on (PAR-632). Every error notification goes through here.
  */
-export function reportError(error: unknown, { operation, title, context, span, ...shown }: ReportContext): void {
+export function reportError(cause: unknown, { operation, title, context, span, ...shown }: ReportContext): void {
   toast.error(title, shown)
-  const code = errorCode(error)
-  track(
-    "error.caught",
-    {
-      action: operation,
-      title,
-      message: errorMessage(error),
-      ...(code ? { code } : {}),
-      ...(context ? { context } : {})
-    },
-    span ? { span } : undefined
-  )
+  const caught: Attributes<"error.caught"> = { action: operation, title, message: errorMessage(cause) }
+  const code = errorCode(cause)
+
+  if (code) {
+    caught.code = code
+  }
+
+  if (context) {
+    caught.context = context
+  }
+
+  track("error.caught", caught, span ? { span } : undefined)
 }

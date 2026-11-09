@@ -1,7 +1,11 @@
 import { fileURLToPath } from "node:url"
+import type { MountHandle, prepareCanvasCss } from "@parity-app/core"
+import type { createGuest } from "@parity-app/renderer-react/guest"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
+import type { ComponentType } from "react"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
+import type * as frameModule from "./frame.ts"
 
 // Frames are real DOM, so this lays them out and renders into them in Chrome: Node has no layout. It needs Chrome
 // installed.
@@ -152,8 +156,7 @@ beforeAll(async () => {
   )
   await page.goto("http://parity.test/")
 
-  // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof frame === "object"))) {
+  if (!(await page.evaluate(() => "frame" in window))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
   }
 })
@@ -161,6 +164,16 @@ beforeAll(async () => {
 afterAll(async () => {
   await browser?.close()
 })
+
+/** The bundle's global in the page, as `entry` exports it. */
+declare const frame: typeof frameModule & {
+  prepareCanvasCss: typeof prepareCanvasCss
+  createGuest: typeof createGuest
+  Probe: ComponentType
+}
+
+/** The handles of the frames "a frame's window" mounts, by id, which it keeps on the page's window. */
+declare const handles: Record<string, MountHandle>
 
 /** Prepares the frame at `#host` with a project's stylesheet, a 390 by 844 window, and HTML in place of a design. */
 function frameWith(projectCss: string, html = "", hostStyle = "", attributes: Record<string, string> = {}) {
@@ -171,15 +184,13 @@ function frameWith(projectCss: string, html = "", hostStyle = "", attributes: Re
       host.id = "host"
       host.style.cssText = `width: 390px; ${hostStyle}`
       const sheet = new CSSStyleSheet()
-      // @ts-expect-error The bundle's global.
       sheet.replaceSync(frame.prepareCanvasCss(projectCss, { baseUrl: "http://project.test" }).scoped)
 
-      // @ts-expect-error The bundle's global.
       const target = frame.prepareFrame(host, sheet, {
         classNames: [],
         attributes,
         viewport: { width: 390, height: 844 }
-      }) as HTMLElement
+      })
 
       target.innerHTML = html
     },
@@ -290,7 +301,7 @@ describe("a frame's body", () => {
 
     return page.evaluate(() => {
       const host = document.querySelector("#host")!
-      const body = host.shadowRoot!.firstElementChild as HTMLElement
+      const body = host.shadowRoot!.firstElementChild!
       // A project's page has a doctype: without one, a browser drops a body's first margin.
       const document_ = document.querySelector("iframe")!.contentDocument!
       document_.open()
@@ -474,7 +485,7 @@ describe("styles written while the project runs", () => {
     const heights = await page.evaluate(async () => {
       const shadow = document.querySelector("#host")!.shadowRoot!
       const target = shadow.querySelector("[data-canvas-body] > div")!
-      const [selector, markup] = [...target.children] as HTMLElement[]
+      const [selector, markup] = [...target.querySelectorAll<HTMLElement>(":scope > *")]
 
       const add = (style: (element: HTMLElement) => void) => {
         const element = document.createElement("div")
@@ -559,18 +570,17 @@ describe("a frame's window", () => {
   /** Mounts frames together, as the canvas does in one commit. */
   function mount(frames: Record<string, Viewport>) {
     return page.evaluate((frames) => {
-      // @ts-expect-error The bundle's global.
       const guest = frame.createGuest({ components: { Probe: frame.Probe }, css: "" })
-      const handles = ((window as unknown as { handles?: Record<string, unknown> }).handles ??= {})
+      const mounted: Record<string, MountHandle> = {}
+      Object.assign(window, { handles: mounted })
 
       for (const [id, viewport] of Object.entries(frames)) {
         const host = document.createElement("div")
         host.id = id
         host.style.width = `${viewport.width}px`
         document.querySelector("#frames")!.append(host)
-        // @ts-expect-error The bundle's global.
         const target = frame.prepareFrame(host, new CSSStyleSheet(), { classNames: [], attributes: {}, viewport })
-        handles[id] = guest.mount(
+        mounted[id] = guest.mount(
           target,
           [{ kind: "component", component: "Probe", nodeId: id, props: {}, slots: {} }],
           { viewport }
@@ -643,12 +653,10 @@ describe("a frame's window", () => {
 
   it("tells a frame's media queries and resize listeners when its window resizes", async () => {
     await page.evaluate(() => {
-      const handles = (window as unknown as { handles: Record<string, { resize(viewport: Viewport): void }> }).handles
       const viewport = { width: 1280, height: 800 }
       // As ModeView does.
-      // @ts-expect-error The bundle's global.
-      frame.setFrameViewport(document.querySelector("#phone"), viewport)
-      handles.phone!.resize(viewport)
+      frame.setFrameViewport(document.querySelector<HTMLElement>("#phone")!, viewport)
+      handles.phone!.resize!(viewport)
     })
     expect(await probe("phone")).toMatchObject({
       mobile: "false",

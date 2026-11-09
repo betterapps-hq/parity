@@ -6,7 +6,7 @@ import {
   type RenderNode,
   resolveModes
 } from "@parity-app/core"
-import { componentPreviewTree, previewFrameWidth } from "@parity-app/editor"
+import { componentPreviewTree, type PreviewContext, previewFrameWidth } from "@parity-app/editor"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import type { ComponentPreview, PreviewImage, PreviewJob } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
@@ -56,14 +56,25 @@ export function previewJob(
   return treePreviewJob(
     session,
     variant ? variantId(component, variant) : component,
-    (viewport) =>
-      componentPreviewTree(component, {
-        ...(session.components.get()[component] ? { info: session.components.get()[component] } : {}),
+    (viewport) => {
+      const context: PreviewContext = {
         sources: session.info.sources,
         library: session.store.getComponentLibrary(),
-        viewport,
-        ...(variant ? { props: { [variant.prop]: variant.value } } : {})
-      }),
+        viewport
+      }
+
+      const info = session.components.get()[component]
+
+      if (info) {
+        context.info = info
+      }
+
+      if (variant) {
+        context.props = { [variant.prop]: variant.value }
+      }
+
+      return componentPreviewTree(component, context)
+    },
     appearance
   )
 }
@@ -89,12 +100,14 @@ export function treePreviewJob(
   return {
     component: id,
     job: renderJob(
-      {
-        projectId: session.id,
-        guestUrl: session.info.guestUrl,
-        ...(session.added ? { components: session.added } : {}),
-        theme: session.info.theme
-      },
+      session.added
+        ? {
+            projectId: session.id,
+            guestUrl: session.info.guestUrl,
+            components: session.added,
+            theme: session.info.theme
+          }
+        : { projectId: session.id, guestUrl: session.info.guestUrl, theme: session.info.theme },
       {
         tree: tree(mode.viewport),
         mode,
@@ -106,18 +119,26 @@ export function treePreviewJob(
   }
 }
 
+/** A one-off preview as it shows: its image or why there's none, for the job it was made for. */
+interface ShownPreview {
+  key: string
+  image?: PreviewImage
+  error?: string
+}
+
 /**
  * A picture drawn on demand while `job` is given, as a slot's is while its card is open: one already made for its key is
  * looked up, else it's made straight away. Undefined until it's there; an error says why it couldn't be.
  */
 export function useOneOffPreview(job: PreviewJob | undefined): { image?: PreviewImage; error?: string } | undefined {
-  const [shown, setShown] = useState<{ key: string; image?: PreviewImage; error?: string }>()
+  const [shown, setShown] = useState<ShownPreview>()
   const want = job ? JSON.stringify(job) : undefined
   useEffect(() => {
     if (!want) {
       return undefined
     }
 
+    // SAFETY: `want` is this job as JSON, made above.
     const asked: PreviewJob = JSON.parse(want) as PreviewJob
     let live = true
     void (async () => {
@@ -130,12 +151,21 @@ export function useOneOffPreview(job: PreviewJob | undefined): { image?: Preview
           return
         }
 
-        setShown({
-          key: want,
-          ...(made.image ? { image: made.image } : {}),
-          ...(made.error ? { error: made.error } : {}),
-          ...(made.empty ? { error: "Nothing to see" } : {})
-        })
+        const next: ShownPreview = { key: want }
+
+        if (made.image) {
+          next.image = made.image
+        }
+
+        if (made.error) {
+          next.error = made.error
+        }
+
+        if (made.empty) {
+          next.error = "Nothing to see"
+        }
+
+        setShown(next)
       } catch (reason) {
         if (live) {
           setShown({ key: want, error: reason instanceof Error ? reason.message : String(reason) })
@@ -466,7 +496,7 @@ class ProjectPreviews {
 
     const last = preview.last ?? shown
 
-    return { state: "waiting", ...(last ? { last } : {}) }
+    return last ? { state: "waiting", last } : { state: "waiting" }
   }
 
   private schedule(ms: number): void {
