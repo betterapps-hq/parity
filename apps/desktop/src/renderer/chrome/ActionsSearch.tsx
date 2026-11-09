@@ -229,7 +229,8 @@ function projectItems(session: ProjectSession): Item[] {
         keywords: entry.container.name,
         detail: entry.container.name,
         searchOnly: true,
-        icon: <NodeIcon node={node} style={{ color: nodeColor(node) }} />,
+        // The search is drawn outside the project's tab, so its icons are told which libraries are icon sets.
+        icon: <NodeIcon node={node} libraries={session.info.libraries} style={{ color: nodeColor(node) }} />,
         run: () => {
           session.selection.set(layersSelection(entry.key, [node.id]))
           // The layer's frame lays out first, then it's scrolled into view.

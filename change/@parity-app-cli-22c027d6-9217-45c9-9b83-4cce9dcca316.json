@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Installed builds report to Sentry as preview or release instead of tester, so a pull request's preview installer no longer reads as the published app",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

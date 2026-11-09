@@ -1,5 +1,6 @@
 import type { Fetch } from "@parity-app/account"
 import type { CopyEntry } from "@parity-app/agent/routing"
+import { isText } from "@parity-app/core/values/evaluate"
 import { describe, expect, it } from "vite-plus/test"
 import { launchLink, passLink } from "./pass-link.ts"
 
@@ -29,7 +30,7 @@ describe("passLink", () => {
       asked.push({
         url,
         auth: new Headers(init.headers).get("authorization"),
-        body: JSON.parse(typeof init.body === "string" ? init.body : "{}")
+        body: JSON.parse(isText(init.body) ? init.body : "{}")
       })
 
       if (url.includes(":4002")) {
