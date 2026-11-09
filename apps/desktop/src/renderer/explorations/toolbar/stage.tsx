@@ -39,18 +39,24 @@ export function ToolbarStage({ option }: { option?: ToolbarOption }) {
   )
 }
 
-/** The canvas's area once the project's tab has drawn it. */
+/**
+ * The active tab's canvas area once it's drawn. Other projects' tabs stay mounted but hidden, so it's the one outside
+ * any hidden element, found again whenever a tab is shown or hidden.
+ */
 function useCanvasArea(): HTMLElement | undefined {
   const [area, setArea] = useState<HTMLElement>()
   useEffect(() => {
     const find = () => {
-      const found = document.querySelector<HTMLElement>(".canvas-area") ?? undefined
+      const found = [...document.querySelectorAll<HTMLElement>(".canvas-area")].find(
+        (area) => !area.closest("[hidden]")
+      )
+
       setArea((current) => (current === found ? current : found))
     }
 
     find()
     const observer = new MutationObserver(find)
-    observer.observe(document.body, { childList: true, subtree: true })
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] })
 
     return () => observer.disconnect()
   }, [])
