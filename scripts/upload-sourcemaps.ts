@@ -35,13 +35,27 @@ const release = telemetryRelease({ project, version: build.version, published: v
 console.log(`Uploading source maps for ${release}`)
 
 sentry("releases", "new", release, ...where)
-if (values["link-commits"]) {
-  if (!build.commit) throw new Error("The build doesn't say which commit it came from")
-  sentry("releases", "set-commits", release, "--commit", `betterapps-hq/parity@${build.commit}`, "--org", "better-apps")
-}
 // Matched to events by the debug IDs the build gave each bundle; the release only groups them.
 sentry("sourcemaps", "upload", sourceMaps, "--release", release, ...where)
 sentry("releases", "finalize", release, ...where)
+// Last, and only a warning when it fails, since the maps matter more: Sentry links commits only for a repository its
+// GitHub integration has, and until it had betterapps-hq/parity this step failed first and nothing was uploaded.
+if (values["link-commits"]) {
+  if (!build.commit) throw new Error("The build doesn't say which commit it came from")
+  try {
+    sentry(
+      "releases",
+      "set-commits",
+      release,
+      "--commit",
+      `betterapps-hq/parity@${build.commit}`,
+      "--org",
+      "better-apps"
+    )
+  } catch {
+    console.log(`::warning::The source maps are uploaded, but ${release} isn't linked to its commit.`)
+  }
+}
 
 function sentry(...args: string[]): void {
   execFileSync(SentryCli.getPath(), args, { stdio: "inherit" })
