@@ -1,8 +1,19 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 00:29:40 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 01:32:26 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.39.1
+
+Mon, 09 Nov 2026 01:32:26 GMT
+
+### Patches
+
+- Show a project's first frame sooner when it opens: its boards measure their sizes together, laying the page out once
+  rather than once per board (ajcraswell@gmail.com)
+- A frame that fails offscreen reports the render page's own error message and stack, not Electron's "Script failed to
+  execute" (ajcraswell@gmail.com)
 
 ## 0.39.0
 
