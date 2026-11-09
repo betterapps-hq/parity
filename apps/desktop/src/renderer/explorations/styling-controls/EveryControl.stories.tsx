@@ -144,7 +144,7 @@ const groups: { name: string; entries: Entry[] }[] = [
     entries: [
       { name: "Transition list", Story: composeStories(transitions).OneEntry },
       { name: "Time", Story: composeStories(time).Token, reviewed: true },
-      { name: "Easing and spring", Story: composeStories(easing).Preset }
+      { name: "Easing and spring", Story: composeStories(easing).Preset, reviewed: true }
     ]
   },
   { name: "Code", entries: [{ name: "Raw CSS value", Story: composeStories(rawCss).Rows, reviewed: true }] }
