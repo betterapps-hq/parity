@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "CI sends only errors and reports to Sentry; its spans, logs and replays stay in the local copy (PAR-777)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

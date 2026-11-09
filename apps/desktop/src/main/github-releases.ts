@@ -66,16 +66,16 @@ export async function githubRelease(
 }
 
 /** GitHub's HTML endpoint can answer 404 or 406 for no stable release; confirm through the REST API. */
-export async function noStableRelease(error: unknown, beta: boolean, request: typeof fetch = fetch): Promise<boolean> {
+export async function noStableRelease(cause: unknown, beta: boolean, request: typeof fetch = fetch): Promise<boolean> {
   if (
     beta ||
-    !(error instanceof Error) ||
-    !("code" in error) ||
-    !["ERR_UPDATER_LATEST_VERSION_NOT_FOUND", "ERR_UPDATER_INVALID_RELEASE_FEED"].includes(String(error.code)) ||
-    !error.message.includes(
+    !(cause instanceof Error) ||
+    !("code" in cause) ||
+    !["ERR_UPDATER_LATEST_VERSION_NOT_FOUND", "ERR_UPDATER_INVALID_RELEASE_FEED"].includes(String(cause.code)) ||
+    !cause.message.includes(
       "Unable to find latest version on GitHub (https://github.com/betterapps-hq/parity/releases/latest)"
     ) ||
-    !/\b(?:404|406)\b/.test(error.message)
+    !/\b(?:404|406)\b/.test(cause.message)
   ) {
     return false
   }
