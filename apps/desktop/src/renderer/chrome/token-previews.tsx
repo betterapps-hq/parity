@@ -434,7 +434,8 @@ export function DurationArt({
 }) {
   const dot = useRef<HTMLSpanElement>(null)
   const time = ms(value)
-  const size = Math.min(8, height - 4)
+  // At most a quarter of the track, so a small mark's dot still has room to cross.
+  const size = Math.min(8, height - 4, Math.round(width / 4))
   const travel = width - size
   const loop = period ?? time + rest
   usePlayback(
