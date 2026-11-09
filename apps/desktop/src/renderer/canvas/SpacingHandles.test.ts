@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs"
+import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
 import { contrastRatio, type Rgba } from "@parity-app/tokens"
 import { build } from "esbuild"
@@ -32,11 +33,21 @@ const handles = spacingHandles({
   oneLine: true
 })
 
+// A column of three rows 12 apart, padded 8, as the dashboard's Content is at 50%: each gap's handle is 12px tall.
+const column = spacingHandles({
+  rect: rect(100, 300, 240, 200),
+  border: { top: 0, right: 0, bottom: 0, left: 0 },
+  padding: { top: 8, right: 8, bottom: 8, left: 8 },
+  children: [rect(108, 308, 224, 52), rect(108, 372, 224, 52), rect(108, 436, 224, 56)],
+  direction: "column",
+  oneLine: true
+})
+
 export const hatches = { padding: spacingHatch(spacingColors.padding), gap: spacingHatch(spacingColors.gap) }
 export const chips = { padding: spacingChip("padding"), gap: spacingChip("gap"), ...chipColors }
 
 let root
-export function mount(dragging) {
+export function mount(dragging, layout) {
   root?.unmount()
   root = createRoot(document.querySelector("#overlay"))
   root.render(
@@ -44,7 +55,7 @@ export function mount(dragging) {
       TooltipProvider,
       null,
       createElement(SpacingHandles, {
-        handles,
+        handles: layout === "column" ? column : handles,
         unit: 4,
         tokens: [],
         valueOf: (handle) => ({ px: handle.kind === "gap" ? 12 : ["top", "bottom"].includes(handle.side) ? 16 : 24 }),
@@ -94,6 +105,8 @@ beforeAll(async () => {
   await page.setContent(`<style>:root { color-scheme: light; ${canvasColors()} }
     .absolute { position: absolute } .pointer-events-none { pointer-events: none }</style>
     <body style="margin: 0"><div id="overlay" style="position: relative; height: 600px"></div></body>`)
+  // The kit's own classes, so a hint opens as it does in the app: sliding in from its handle, with its arrow.
+  await page.addStyleTag({ path: createRequire(import.meta.url).resolve("@buildkitgg/shadcn-baseui-kit/styles.css") })
   await page.addScriptTag({ content: bundle.outputFiles[0]!.text })
 })
 
@@ -101,9 +114,9 @@ afterAll(async () => {
   await browser?.close()
 })
 
-async function mount(dragging?: { key: string; px: number; sides?: string[] }) {
+async function mount(dragging?: { key: string; px: number; sides?: string[] }, layout: "row" | "column" = "row") {
   // @ts-expect-error The bundle's global.
-  await page.evaluate((dragging) => spacing.mount(dragging), dragging)
+  await page.evaluate(([dragging, layout]) => spacing.mount(dragging, layout), [dragging, layout] as const)
   // React draws the handles in a task of its own after `mount` returns, so wait for the last of the six.
   await page.locator(".spacing-handle").nth(5).waitFor()
 }
@@ -182,6 +195,53 @@ describe("hatching a layout's padding and gaps", { timeout: 20_000 }, () => {
         background: await hatchOf("gap")
       }
     ])
+  })
+
+  it("keeps a thin handle hatched while its hint opens over the still pointer, until the pointer leaves", async () => {
+    await mount(undefined, "column")
+    const gap = (await page.getByRole("slider", { name: "Gap 1" }).boundingBox())!
+    expect(gap.height).toBe(12)
+
+    await page.mouse.move(gap.x + gap.width / 2, gap.y + gap.height / 2)
+    await expect.poll(async () => (await hatched()).length).toBe(1)
+
+    // Each time the hatching goes from here on. Chrome gives the handle the pointer back once the hint stops moving,
+    // so what's left at the end doesn't show the hatching dropping as the hint opened.
+    const drops = await page.evaluateHandle(() => {
+      const seen = {
+        drops: 0,
+        watch: new MutationObserver((records) => {
+          const removed = records.flatMap((record) => [...record.removedNodes])
+          seen.drops += removed.filter((node) => node instanceof Element && node.matches("[data-spacing-hatch]")).length
+        })
+      }
+
+      seen.watch.observe(document.querySelector("#overlay")!, { childList: true, subtree: true })
+
+      return seen
+    })
+
+    // After half a second the hint slides in from the handle, and its arrow passes over the middle of a 12px one.
+    const hint = page.locator("[data-slot=tooltip-content]")
+    await hint.waitFor()
+    await hint.evaluate(async (element) => {
+      await Promise.all(element.getAnimations().map((animation) => animation.finished))
+    })
+
+    const dropped = await drops.evaluate((seen) => {
+      seen.watch.disconnect()
+
+      return seen.drops
+    })
+
+    expect(dropped).toBe(0)
+    expect((await hatched()).length).toBe(1)
+    expect(await page.getByText(/^12\s*spacing-3$/).isVisible()).toBe(true)
+
+    // Off the handle, onto the hint above it.
+    const over = (await hint.boundingBox())!
+    await page.mouse.move(over.x + over.width / 2, over.y + over.height / 2)
+    await expect.poll(hatched).toEqual([])
   })
 
   it("hatches every side a drag changes as one shape, so each corner is hatched once", async () => {
