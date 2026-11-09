@@ -27,6 +27,7 @@ import {
   fixtureTab,
   type JsonObject,
   processTests,
+  succeeded,
   toolReply,
   transportFixture
 } from "./transport-fixture.ts"
@@ -331,7 +332,7 @@ describe("remaining transport contracts", processTests, () => {
   it.each(cases)("shares $name defaults and human output", async (entry) => {
     fixture.response = { result: entry.result }
     const [cli, protocol] = await Promise.all([run(entry.cli), mcp(entry.input, entry.tool)])
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expect(cli.stdout.trim()).toBe(entry.text)
     expect(toolReply(protocol.stdout)).toEqual(expectedReply(entry.mcpText ?? entry.text, entry.structured))
     expectRequests(entry.method, entry.params)
@@ -347,7 +348,7 @@ describe("remaining transport contracts", processTests, () => {
         mcp({ ...entry.input, tab: "project" }, entry.tool)
       ])
 
-      expect(cli.code).toBe(0)
+      expect(cli).toEqual(succeeded)
       expect(JSON.parse(cli.stdout)).toEqual(entry.structured)
       expect(toolReply(protocol.stdout)).toEqual(expectedReply(entry.mcpText ?? entry.text, entry.structured))
       expectRequests(entry.method, { ...entry.params, tab: "project" })
@@ -600,7 +601,7 @@ describe("remaining transport contracts", processTests, () => {
   ])("normalizes explicit $tool options identically", async ({ cli: args, tool, method, input, params, result }) => {
     fixture.response = { result }
     const [cli, protocol] = await Promise.all([run(args), mcp(input, tool)])
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expect(toolReply(protocol.stdout)).toEqual(
       expect.objectContaining({ result: expect.objectContaining({ isError: false }) })
     )
@@ -610,7 +611,7 @@ describe("remaining transport contracts", processTests, () => {
   it("resolves a CLI relative folder before entering the shared open operation", async () => {
     fixture.response = { result: fixtureTab }
     const [cli] = await Promise.all([run(["open", "some/../project"]), mcp({ root: project }, "open_project")])
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expectRequests("open", { root: project })
   })
 
@@ -750,7 +751,7 @@ describe("remaining transport contracts", processTests, () => {
   it.each([{}, { path: "execute.md" }])("shares skill reading without desktop RPC: %j", async (input) => {
     const args = input.path === undefined ? [] : [input.path]
     const [cli, protocol] = await Promise.all([run(["skill", ...args]), mcp(input, "read_skill")])
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expect(toolReply(protocol.stdout)).toEqual({
       jsonrpc: "2.0",
       id: 2,
@@ -908,7 +909,7 @@ describe("remaining transport contracts", processTests, () => {
   it("names the test pass PARITY_TEST_RUN names in a report, unless the command names another", async () => {
     fixture.response = { result: reported }
     const fromVariable = await run(["report", "Wrong colour", "--state", "error"], "", { PARITY_TEST_RUN: "pass-7" })
-    expect(fromVariable.code).toBe(0)
+    expect(fromVariable).toEqual(succeeded)
     await run(["report", "Wrong colour", "--test-run", "pass-8"], "", { PARITY_TEST_RUN: "pass-7" })
 
     const sent = (testRun: string, state?: string) =>

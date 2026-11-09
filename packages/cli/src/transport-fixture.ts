@@ -6,7 +6,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { rpcReply } from "@parity-app/agent/contracts"
 import { type JsonValue, jsonValue } from "@parity-app/core/schema"
-import { afterAll, beforeAll, beforeEach } from "vite-plus/test"
+import { afterAll, beforeAll, beforeEach, expect } from "vite-plus/test"
 import { z } from "zod"
 import type { OperationInput } from "./operations.ts"
 
@@ -43,6 +43,12 @@ export type AppRequest = z.output<typeof appRequest>
 
 /** What the fake app answers a call: a result, or an error with its details, as the app's dispatch does. */
 export type AppAnswer = z.input<typeof rpcReply>
+
+/**
+ * A CLI or MCP process that exited with code 0. Matching its whole result, not just the code, prints its stdout and
+ * stderr when it didn't, so a failure says why (PAR-766).
+ */
+export const succeeded = expect.objectContaining({ code: 0 })
 
 /**
  * How long one CLI or MCP process may take. A start on CI's Windows runners, with every test file's processes and

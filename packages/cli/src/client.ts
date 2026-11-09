@@ -19,6 +19,7 @@ import { z } from "zod"
 import { cliCallerName, sessionCallerId } from "./caller.ts"
 import type { ExecResponse } from "./execute.ts"
 import { cliCallerChanged, recordCli, runTraceHeaders } from "./telemetry.ts"
+import { waitLimit } from "./wait.ts"
 
 /**
  * Where running copies of the app say how to reach them: `~/.parity/agents`, or the one file `PARITY_AGENT_FILE` names
@@ -241,7 +242,10 @@ async function reportOf(entry: CopyEntry): Promise<CopyReport<TabSummary> | unde
   }
 }
 
-/** Asks one copy, and returns its answer once the method's schema in `contracts.ts` has checked it. */
+/**
+ * Asks one copy, and returns its answer once the method's schema in `contracts.ts` has checked it. A `timeout` limits
+ * only the wait for the copy's answer, by `waitLimit`, so a CLI that was slow to run doesn't drop a copy that answered.
+ */
 async function send<M extends AgentMethod>(
   entry: CopyEntry,
   method: M,
@@ -254,8 +258,10 @@ async function send<M extends AgentMethod>(
     body: JSON.stringify({ method, params, agent: caller, agentId: callerId, client: callerClient, transport })
   }
 
-  if (timeout !== undefined) {
-    init.signal = AbortSignal.timeout(timeout)
+  const limit = timeout === undefined ? undefined : waitLimit(timeout)
+
+  if (limit) {
+    init.signal = limit.signal
   }
 
   let response: Response
@@ -267,6 +273,8 @@ async function send<M extends AgentMethod>(
       code: "not_answering",
       retryable: true
     })
+  } finally {
+    limit?.stop()
   }
 
   const body = answer(jsonText(rpcReply), await response.text(), method)
