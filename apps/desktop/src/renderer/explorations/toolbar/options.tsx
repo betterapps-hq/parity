@@ -113,7 +113,6 @@ function Bar({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div
       role="toolbar"
-      data-proposed
       aria-label={label}
       className="absolute bottom-4 left-1/2 z-[400] flex -translate-x-1/2 items-stretch gap-0.5 rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg"
     >
@@ -321,6 +320,7 @@ function ReviewTools({
         <TooltipTrigger
           render={
             <ToggleGroupItem
+              data-warp-anchor
               value={current}
               aria-label={label}
               className={`${pickedTool} text-(--kind)`}
@@ -613,10 +613,7 @@ function ZoomCorner() {
   )
 
   return (
-    <div
-      data-proposed
-      className="absolute top-3 right-3 z-[400] flex items-center gap-0.5 rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg"
-    >
+    <div className="absolute top-3 right-3 z-[400] flex items-center gap-0.5 rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg">
       {button("zoomOut", <Minus />)}
       <Tip command="zoomTo100">
         <Button
