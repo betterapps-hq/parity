@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type { RenderNode } from "./render.ts"
 
 /** How one rendered node's inline style changes: the properties to set, and the ones to take off. */
@@ -58,7 +59,7 @@ export function inlineStyles(nodes: readonly RenderNode[]): Map<string, Record<s
       return
     }
 
-    styles.set(node.nodeId, stringStyle(node.props.style))
+    styles.set(node.nodeId, componentStyle.parse(node.props.style))
 
     for (const children of Object.values(node.slots)) {
       children.forEach(visit)
@@ -70,14 +71,23 @@ export function inlineStyles(nodes: readonly RenderNode[]): Map<string, Record<s
   return styles
 }
 
-function stringStyle(style: unknown): Record<string, string> {
-  if (typeof style !== "object" || style === null) {
-    return {}
-  }
+/** A style value as inline CSS takes it. Anything else a component's `style` prop holds is left out. */
+const cssValue = z.union([z.string(), z.number()]).transform(String)
 
-  return Object.fromEntries(
-    Object.entries(style).flatMap(([name, value]) =>
-      typeof value === "string" || typeof value === "number" ? [[name, String(value)]] : []
-    )
-  )
-}
+/** A component's `style` prop as inline CSS, by property. A prop that isn't an object gives none. */
+const componentStyle = z
+  .record(z.string(), z.unknown())
+  .catch({})
+  .transform((style) => {
+    const css: Record<string, string> = {}
+
+    for (const [name, value] of Object.entries(style)) {
+      const parsed = cssValue.safeParse(value)
+
+      if (parsed.success) {
+        css[name] = parsed.data
+      }
+    }
+
+    return css
+  })

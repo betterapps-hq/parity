@@ -78,11 +78,11 @@ export function webpSize(webp: Uint8Array): { width: number; height: number } | 
   if (type === "VP8L") {
     const bits = view.getUint32(21, true)
 
-    return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 }
+    return { width: bitField(bits, 0, 14) + 1, height: bitField(bits, 14, 14) + 1 }
   }
 
   if (type === "VP8 ") {
-    return { width: view.getUint16(26, true) & 0x3fff, height: view.getUint16(28, true) & 0x3fff }
+    return { width: bitField(view.getUint16(26, true), 0, 14), height: bitField(view.getUint16(28, true), 0, 14) }
   }
 
   return undefined
@@ -151,13 +151,13 @@ function extendedHeader(webp: Uint8Array, found: Chunk[], image: Chunk): Uint8Ar
   if (image.type === "VP8L") {
     // A signature byte, then the width and height less one in 14 bits each and the alpha bit, little-endian.
     const bits = view.getUint32(1, true)
-    width = (bits & 0x3fff) + 1
-    height = ((bits >>> 14) & 0x3fff) + 1
-    alpha = ((bits >>> 28) & 1) === 1
+    width = bitField(bits, 0, 14) + 1
+    height = bitField(bits, 14, 14) + 1
+    alpha = bitField(bits, 28, 1) === 1
   } else {
     // A 3-byte frame tag and 3-byte start code, then the width and height in 14 bits each.
-    width = view.getUint16(6, true) & 0x3fff
-    height = view.getUint16(8, true) & 0x3fff
+    width = bitField(view.getUint16(6, true), 0, 14)
+    height = bitField(view.getUint16(8, true), 0, 14)
     alpha = found.some((chunk) => chunk.type === "ALPH")
   }
 
@@ -179,11 +179,19 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
 }
 
 function uint24(value: number): Uint8Array {
-  return new Uint8Array([value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff])
+  return new Uint8Array([bitField(value, 0, 8), bitField(value, 8, 8), bitField(value, 16, 8)])
 }
 
 function readUint24(bytes: Uint8Array, at: number): number {
-  return bytes[at]! | (bytes[at + 1]! << 8) | (bytes[at + 2]! << 16)
+  return bytes[at]! + bytes[at + 1]! * 2 ** 8 + bytes[at + 2]! * 2 ** 16
+}
+
+/**
+ * The `width` bits of a non-negative integer starting `shift` bits up from its lowest, as a WebP header packs its
+ * sizes and flags little-endian.
+ */
+function bitField(value: number, shift: number, width: number): number {
+  return Math.floor(value / 2 ** shift) % 2 ** width
 }
 
 function ascii(bytes: Uint8Array, start: number, end: number): string {

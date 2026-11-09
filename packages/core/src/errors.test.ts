@@ -2,11 +2,15 @@ import { describe, expect, it } from "vite-plus/test"
 import { findState } from "./edit.ts"
 import { alternativeLimit, closest, CodedError, errorDetails, readErrorDetails } from "./errors.ts"
 
-function thrown(run: () => unknown): unknown {
+function thrown(run: () => void): Error {
   try {
     run()
   } catch (error) {
-    return error
+    if (error instanceof Error) {
+      return error
+    }
+
+    throw error
   }
 
   throw new Error("Expected it to throw")

@@ -1,4 +1,4 @@
-import type { BuilderAdapter, BuilderSession, BuilderStartOptions, CodeChange } from "./adapters.ts"
+import type { BuilderAdapter, BuilderRenderer, BuilderSession, BuilderStartOptions, CodeChange } from "./adapters.ts"
 import type { ComponentSource, ProjectConfig } from "./project.ts"
 
 /*
@@ -42,19 +42,13 @@ export interface ProcessTimes {
 /** Start options as data, for a builder's process. */
 export function builderProcessOptions(builder: BuilderAdapter, options: BuilderStartOptions): BuilderProcessOptions {
   const { id, name, guestModule, runtimePackages, runtimeImports, developmentStandIns } = options.renderer
+  const renderer: BuilderRenderer = { id, name, guestModule, runtimePackages, runtimeImports }
 
-  return {
-    ...options,
-    renderer: {
-      id,
-      name,
-      guestModule,
-      runtimePackages,
-      runtimeImports,
-      ...(developmentStandIns ? { developmentStandIns } : {})
-    },
-    builder: builder.id
+  if (developmentStandIns) {
+    renderer.developmentStandIns = developmentStandIns
   }
+
+  return { ...options, renderer, builder: builder.id }
 }
 
 /** What the builder's process does for the code that serves it. */
@@ -100,8 +94,8 @@ export function serveBuilderProcess(
 
           return started
         },
-        (error: unknown) => {
-          side.send({ type: "failed", error: error instanceof Error ? error.message : String(error) })
+        (cause: unknown) => {
+          side.send({ type: "failed", error: cause instanceof Error ? cause.message : String(cause) })
 
           return undefined
         }

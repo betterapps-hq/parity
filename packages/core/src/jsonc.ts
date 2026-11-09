@@ -1,5 +1,7 @@
+import type { JsonValue } from "./schema.ts"
+
 /** Parses JSON with comments and trailing commas, as tsconfig files allow. Comment markers inside strings are kept. */
-export function parseJsonc(text: string): unknown {
+export function parseJsonc(text: string): JsonValue {
   let output = ""
   let index = 0
 

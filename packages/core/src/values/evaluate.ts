@@ -2,7 +2,7 @@
 // no zod, and none of core's other modules. `grammar.ts` checks values with zod when their file loads; this works them
 // out, typed from that grammar.
 import type { ComponentSample, SampleElement, SampleRender } from "../library.ts"
-import type { FrameValue, GlobalValue, ImportedValue, MadeValue } from "./grammar.ts"
+import type { FrameValue, FunctionValue, GlobalValue, ImportedValue, MadeValue } from "./grammar.ts"
 
 /** The keys that mark an object as one of the value forms rather than plain JSON. */
 export const valueForms = ["$import", "$call", "$global", "$frame", "$function"] as const
@@ -24,9 +24,11 @@ export type FramePart = FrameValue["$frame"]
  */
 export interface ValueHost {
   /** A module's export by its path (`Tooltip.Provider`, see `exportOf`). Throws when the module isn't loaded. */
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- a module's export is whatever its package exports
   exported(specifier: string, path: string): unknown
   /** The frame's option for a global, as its mode sets it, or `undefined` outside a frame. */
   global(name: string): string | undefined
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- the frame's parts are DOM nodes and strings, as the host has them
   frame(part: FramePart): unknown
   /** What each `$call` made, by the call, so each is made once for as long as the host keeps them. */
   made: Map<string, unknown>
@@ -35,21 +37,36 @@ export interface ValueHost {
 // Tree walks call these for every value, so they look at the one key that marks each form rather than parsing it. The
 // value was checked when its file loaded.
 
+/** Whether a value is an object or a list, which is how JSON holds everything but its primitives. */
+export function isComposite(value: unknown): value is object {
+  return value !== null && Object(value) === value
+}
+
+/** Whether a value is text. */
+export function isText(value: unknown): value is string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the guest checks values without zod, and text is a primitive
+  return typeof value === "string"
+}
+
 /** Whether a sample's prop value is elements. */
 export function isSampleElement(value: unknown): value is SampleElement {
-  return typeof value === "object" && value !== null && Array.isArray((value as Record<string, unknown>).$element)
+  return isComposite(value) && "$element" in value && Array.isArray(value.$element)
 }
 
 /** Whether a value is one the package makes. */
 export function isMadeValue(value: unknown): value is MadeValue {
-  const call = typeof value === "object" && value !== null ? (value as Record<string, unknown>).$call : undefined
+  if (!isComposite(value) || !("$call" in value)) {
+    return false
+  }
 
-  return typeof call === "object" && call !== null && typeof (call as Record<string, unknown>).import === "string"
+  const call = value.$call
+
+  return isComposite(call) && "import" in call && isText(call.import)
 }
 
 /** Whether a sample's child or prop value is a render function. */
 export function isSampleRender(value: unknown): value is SampleRender {
-  return typeof value === "object" && value !== null && Array.isArray((value as Record<string, unknown>).$render)
+  return isComposite(value) && "$render" in value && Array.isArray(value.$render)
 }
 
 /**
@@ -58,60 +75,71 @@ export function isSampleRender(value: unknown): value is SampleRender {
  * returned, wherever the call is; a method that's missing or throws is passed over, as the made value is still usable.
  * Arrays and objects with no form inside them come back as they were, so a prop keeps its identity between draws.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- grammar.ts checked the value when its file loaded, and it works out to whatever a module exports
 export function evaluateValue(value: unknown, host: ValueHost, kind: ValueKind = "decorator"): unknown {
-  const evaluate = (item: unknown) => evaluateValue(item, host, kind)
-
   if (Array.isArray(value)) {
-    const items = value.map(evaluate)
+    const items = value.map((item) => evaluateValue(item, host, kind))
 
     return items.every((item, index) => item === value[index]) ? value : items
   }
 
-  if (typeof value !== "object" || value === null) {
+  if (!isComposite(value)) {
     return value
   }
 
-  const record = value as Record<string, unknown>
-
-  if (isMadeValue(record)) {
-    return made(record, host, kind)
+  if (isMadeValue(value)) {
+    return made(value, host, kind)
   }
 
   if (kind === "sample") {
-    return evaluateEntries(record, evaluate)
+    return evaluateEntries(value, host, kind)
   }
 
-  if (typeof record.$import === "string") {
-    const imported = record as ImportedValue
+  // In a decorator's grammar an object with a form's key is that form, as grammar.ts checked when the file loaded.
+  if ("$import" in value) {
+    // SAFETY: grammar.ts refuses a decorator value with `$import` that isn't an `ImportedValue`.
+    const imported = value as ImportedValue
 
     return host.exported(imported.$import, imported.export ?? "default")
   }
 
-  if (typeof record.$global === "string") {
-    const global = record as GlobalValue
+  if ("$global" in value) {
+    // SAFETY: grammar.ts refuses a decorator value with `$global` that isn't a `GlobalValue`.
+    const global = value as GlobalValue
     const chosen = host.global(global.$global)
     const values = global.values ?? {}
 
-    return evaluate(chosen !== undefined && Object.hasOwn(values, chosen) ? values[chosen] : global.default)
+    return evaluateValue(
+      chosen !== undefined && Object.hasOwn(values, chosen) ? values[chosen] : global.default,
+      host,
+      kind
+    )
   }
 
-  if (typeof record.$frame === "string") {
-    return host.frame((record as FrameValue).$frame)
+  if ("$frame" in value) {
+    // SAFETY: grammar.ts refuses a decorator value with `$frame` that isn't a `FrameValue`.
+    return host.frame((value as FrameValue).$frame)
   }
 
-  if ("$function" in record) {
-    return () => evaluate(record.$function)
+  if ("$function" in value) {
+    // SAFETY: grammar.ts refuses a decorator value with `$function` that isn't a `FunctionValue`.
+    return evaluateLater(value as FunctionValue, host, kind)
   }
 
-  return evaluateEntries(record, evaluate)
+  return evaluateEntries(value, host, kind)
+}
+
+/** A `$function` value's function, which works out the value it holds each time it's called. */
+function evaluateLater(value: FunctionValue, host: ValueHost, kind: ValueKind) {
+  return () => evaluateValue(value.$function, host, kind)
 }
 
 /** Plain JSON's entries worked out, or the object as it was when none of them changed. */
-function evaluateEntries(record: Record<string, unknown>, evaluate: (item: unknown) => unknown): unknown {
+function evaluateEntries<Entries extends object>(record: Entries, host: ValueHost, kind: ValueKind) {
   let changed = false
 
   const entries = Object.entries(record).map(([key, item]) => {
-    const evaluated = evaluate(item)
+    const evaluated = evaluateValue(item, host, kind)
 
     if (evaluated !== item) {
       changed = true
@@ -123,6 +151,7 @@ function evaluateEntries(record: Record<string, unknown>, evaluate: (item: unkno
   return changed ? Object.fromEntries(entries) : record
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-returns -- what a package's function makes is whatever it returns
 function made(value: MadeValue, host: ValueHost, kind: ValueKind): unknown {
   const key = JSON.stringify(value)
 
@@ -133,6 +162,7 @@ function made(value: MadeValue, host: ValueHost, kind: ValueKind): unknown {
   const { import: specifier, export: name } = value.$call
   const fn = host.exported(specifier, name)
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a module's export is checked where it's called
   if (typeof fn !== "function") {
     throw new Error(`${specifier} has no function ${name}`)
   }
@@ -141,8 +171,10 @@ function made(value: MadeValue, host: ValueHost, kind: ValueKind): unknown {
 
   // The methods the examples call on it (`toaster.create({ title })`), once.
   for (const step of value.methods ?? []) {
-    const method = (result as Record<string, unknown> | null | undefined)?.[step.method]
+    // As `result?.[step.method]` reads it: `Object` wraps a primitive, so a string's methods are found on it too.
+    const method = result === null || result === undefined ? undefined : Object(result)[step.method]
 
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- what a package's function made is checked where it's called
     if (typeof method !== "function") {
       continue
     }
@@ -163,55 +195,67 @@ function made(value: MadeValue, host: ValueHost, kind: ValueKind): unknown {
 }
 
 /** The modules a value imports from, each once, in the order they first appear. Plain JSON imports none. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- grammar.ts checked the value when its file loaded; callers pass props as they hold them
 export function valueImports(value: unknown, kind: ValueKind = "decorator"): string[] {
   const found = new Set<string>()
-
-  const visit = (item: unknown): void => {
-    if (Array.isArray(item)) {
-      return item.forEach(visit)
-    }
-
-    if (typeof item !== "object" || item === null) {
-      return
-    }
-
-    const record = item as Record<string, unknown>
-
-    if (kind === "decorator" && typeof record.$import === "string") {
-      found.add(record.$import)
-
-      return
-    }
-
-    if (isMadeValue(record)) {
-      found.add(record.$call.import)
-      record.args?.forEach(visit)
-
-      for (const step of record.methods ?? []) {
-        step.args?.forEach(visit)
-      }
-
-      return
-    }
-
-    if (kind === "decorator" && typeof record.$frame === "string") {
-      return
-    }
-
-    Object.values(record).forEach(visit)
-  }
-
-  visit(value)
+  collectImports(value, kind, found)
 
   return [...found]
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- walks the value `valueImports` was given, part by part
+function collectImports(item: unknown, kind: ValueKind, found: Set<string>): void {
+  if (Array.isArray(item)) {
+    for (const entry of item) {
+      collectImports(entry, kind, found)
+    }
+
+    return
+  }
+
+  if (!isComposite(item)) {
+    return
+  }
+
+  if (kind === "decorator" && "$import" in item && isText(item.$import)) {
+    found.add(item.$import)
+
+    return
+  }
+
+  if (isMadeValue(item)) {
+    found.add(item.$call.import)
+
+    for (const arg of item.args ?? []) {
+      collectImports(arg, kind, found)
+    }
+
+    for (const step of item.methods ?? []) {
+      for (const arg of step.args ?? []) {
+        collectImports(arg, kind, found)
+      }
+    }
+
+    return
+  }
+
+  if (kind === "decorator" && "$frame" in item && isText(item.$frame)) {
+    return
+  }
+
+  for (const entry of Object.values(item)) {
+    collectImports(entry, kind, found)
+  }
+}
+
 /** An export of a module, following dots into namespaces (`Tooltip.Provider`). */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- a module is whatever its package exports
 export function exportOf(module: unknown, path: string): unknown {
   let found = module
 
   for (const part of path.split(".")) {
-    found = (found as Record<string, unknown> | null | undefined)?.[part]
+    // As `found?.[part]` reads it: `Object` wraps a primitive, so a string's methods are found on it too.
+    found = found === null || found === undefined ? undefined : Object(found)[part]
   }
 
   return found
@@ -230,7 +274,9 @@ export function renderSlotOf(sample: ComponentSample | undefined): { prop: strin
 
   const entry = Object.entries(sample?.props ?? {}).find(([, value]) => isSampleRender(value))
 
-  return entry ? { prop: entry[0], render: entry[1] as SampleRender } : undefined
+  const render = entry?.[1]
+
+  return entry && isSampleRender(render) ? { prop: entry[0], render } : undefined
 }
 
 /** How a design node's render slot calls its nodes: the prop, and what the function is called with goes to. */
@@ -262,5 +308,11 @@ export function readRenderSlotKey(key: string): RenderSlot | undefined {
 
   const [, spread, prop, pass] = match
 
-  return { prop: prop!, spread: spread !== undefined, ...(pass ? { pass: pass.split(",") } : {}) }
+  const slot: RenderSlot = { prop: prop!, spread: spread !== undefined }
+
+  if (pass) {
+    slot.pass = pass.split(",")
+  }
+
+  return slot
 }
