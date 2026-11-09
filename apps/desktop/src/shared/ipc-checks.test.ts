@@ -5,6 +5,7 @@ import {
   consoleAnnouncement,
   consoleOrigin,
   openInEditorRequest,
+  problemReport,
   shownItem,
   themeSource
 } from "./ipc-checks.ts"
@@ -61,5 +62,13 @@ describe("the other arguments", () => {
     expect(consoleAnnouncement.safeParse({ ...pricing, ...call, line: -1 }).success).toBe(false)
     expect(consoleOrigin.safeParse("http://127.0.0.1:5173/").success).toBe(true)
     expect(consoleOrigin.safeParse("not an address").success).toBe(false)
+  })
+
+  it("takes a report linked to the Sentry event of the error a fallback caught (PAR-704)", () => {
+    const report = { message: "Layers went blank", screenshot: true, afterCrash: false }
+    const eventId = "0123456789abcdef0123456789abcdef"
+    expect(problemReport.safeParse({ ...report, eventId }).success).toBe(true)
+    expect(problemReport.safeParse({ ...report, eventId: eventId.toUpperCase() }).success).toBe(false)
+    expect(problemReport.safeParse({ ...report, eventId: "fb1" }).success).toBe(false)
   })
 })

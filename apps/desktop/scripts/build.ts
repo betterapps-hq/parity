@@ -8,28 +8,22 @@ import {
   mkdtempSync,
   readFileSync,
   realpathSync,
-  renameSync,
   rmSync,
   writeFileSync
 } from "node:fs"
 import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
-import { basename, dirname, join, relative, resolve } from "node:path"
+import { basename, dirname, join, resolve } from "node:path"
 import { parseManifest } from "@parity-app/core"
-import { SentryCli } from "@sentry/cli"
 import { build, type BuildOptions } from "esbuild"
-import { currentCommit } from "./commit.ts"
+import { currentCommit } from "../../../scripts/commit.ts"
+import { separateSourceMaps } from "../../../scripts/sourcemaps.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
 const out = join(appDir, "out")
-
-/** The bundles Parity runs, with their source maps, for uploading to Sentry; never packaged (PAR-625). */
-const sourceMaps = join(appDir, "sourcemaps")
 const require = createRequire(join(appDir, "package.json"))
 
 rmSync(out, { recursive: true, force: true })
-
-rmSync(sourceMaps, { recursive: true, force: true })
 
 mkdirSync(out, { recursive: true })
 
@@ -88,7 +82,14 @@ await build({
   logLevel: "info"
 })
 
-separateSourceMaps()
+// Parity's own bundles, preload scripts and workers included, and the windows' scripts. The project guest is left
+// out: its errors are the project's, not Parity's.
+separateSourceMaps({
+  packageFolder: appDir,
+  out,
+  bundles: [...globSync("*.{mjs,cjs}", { cwd: out }).filter((bundle) => bundle !== "guest.mjs"), "renderer"],
+  maps: ["*.map", "renderer/**/*.map"]
+})
 
 cpSync(join(appDir, "resources"), join(out, "resources"), { recursive: true })
 
@@ -109,36 +110,6 @@ if (process.platform === "darwin") {
 }
 
 checkShippedSharp()
-
-/**
- * Gives each of Parity's own bundles a debug ID, which Sentry matches an event's frames to its source map by, then moves
- * the maps, with a copy of the bundles they belong to, into `sourcemaps/`, where CI and the release workflow upload them
- * from. The installer ships no maps. The project guest is left out: its errors are the project's, not Parity's.
- */
-function separateSourceMaps(): void {
-  // Every bundle beside main, preload scripts and workers included, but the guest, and the windows' scripts.
-  const bundles = [...globSync("*.{mjs,cjs}", { cwd: out }).filter((bundle) => bundle !== "guest.mjs"), "renderer"]
-  execFileSync(SentryCli.getPath(), ["sourcemaps", "inject", ...bundles.map((bundle) => join(out, bundle))], {
-    stdio: ["ignore", "ignore", "inherit"]
-  })
-  const maps = globSync(["*.map", "renderer/**/*.map"], { cwd: out })
-
-  if (maps.length < bundles.length) {
-    throw new Error(`Only ${maps.length} source maps were written: ${maps.join(", ")}`)
-  }
-
-  for (const map of maps) {
-    const bundle = map.slice(0, -".map".length)
-    mkdirSync(dirname(join(sourceMaps, map)), { recursive: true })
-    cpSync(join(out, bundle), join(sourceMaps, bundle))
-    renameSync(join(out, map), join(sourceMaps, map))
-  }
-
-  // Which release they belong to, which scripts/upload-sourcemaps.ts names.
-  const { version } = readManifest(appDir)
-  writeFileSync(join(sourceMaps, "build.json"), JSON.stringify({ version, commit: currentCommit(appDir) }, null, 2))
-  console.log(`${maps.length} source maps moved to ${relative(appDir, sourceMaps)}`)
-}
 
 /**
  * Fails the build unless the sharp it ships loads in Parity's Electron and encodes a lossless WebP, from the files the

@@ -100,8 +100,9 @@ The end-to-end suite reads back what the app recorded and checks the main workfl
 - **It checks the traces across processes:** the service's `project.opened` and its answers are in the trace of
   `project.opening`, with `project.loaded` and `project.drawn`. The service's answer to `document.save` is in the trace
   of Save. `agent.called` continues the command's `cli.ran` span. The drag and Duplicate each start a trace of their
-  own; with autosave off, as it is by default, neither asks the service for anything. `gesture.ended` and the window's
-  `document.saved` are recorded outside their trace, so they're checked by their attributes alone.
+  own; with autosave off, as it is by default, neither asks the service for anything. `gesture.ended` is under the
+  drag's `gesture.ran` span and the window's `document.saved` under Save's `command.ran`, though each is recorded after
+  that span ends (PAR-752).
 - **CI's runs still send to Sentry,** as `environment: ci` with `test_run` set to `github-<run>-<attempt>`, and every
   line of the local copy carries that `testRun`, which the suite checks. The `parity` command it runs sends as an
   agent's does, with the same tags, and writes its log and outbox inside the copy's profile.
@@ -132,8 +133,9 @@ Agents' calls are recorded where they're answered, once for every operation, whi
   send, writes it to `~/.parity/outbox` as it exits (`PARITY_CLI_OUTBOX` names another folder), and starts a detached
   `parity` process that sends it and exits. That costs a command about 20 ms. `parity mcp` hands over what's waiting
   every 10 seconds as well. One sender runs at a time, and a batch a day old is dropped.
-- **The CLI's release** is `parity-cli@<version>` when it's installed from npm, reported as `tester`, and the commit
-  when it runs from a checkout, from source or its own `dist`, reported as `development`.
+- **The CLI's release** is `parity-cli@<version>` when `npm publish` built it, and otherwise the commit it was built
+  from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Installed from npm or a preview
+  URL, it reports as `tester`; from a checkout, as `development`.
 - **Agents report what they find** with `parity report "<what's wrong>"` or MCP's `report_problem` (PAR-646), above all
   when nothing threw: a test pass that sees a wrong result. The service draws the frames of the design it names, asks
   the window to flush its replay, and passes both to main, which sends a Sentry user feedback from `parity-desktop` as
@@ -195,6 +197,9 @@ Storybook or the CLI.
   `apps/desktop/src/renderer/replay.ts`, 1 for now; lower it when replay volume or Sentry's quota says so.
 - **While they're off, nothing is recorded,** and the recorder isn't loaded. Turning them off in Settings stops it at
   once, and turning them on starts it.
+- **While a project's canvas mounts, the page isn't recorded,** from the tab being ready until its first frame shows, or
+  5 seconds at most. The replay keeps the page as it was before, then a snapshot of the canvas once the frame shows, in
+  the same replay. Clicks and requests are still recorded meanwhile.
 
 A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
 shadow roots: it kept every one it saw, and with a frame's the closed project's canvas. The offscreen windows that draw
@@ -218,7 +223,9 @@ server-side scrubbing stays on as a second net.
 
 `createScrubber()` in `@parity-app/telemetry` does it. `createTelemetry` runs one on every event's attributes before its
 sinks, and each process's Sentry setup (`main/telemetry.ts`, `renderer/telemetry.ts`, `utility/telemetry.ts`, and the
-CLI's `send.ts`) runs one in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`. It replaces:
+CLI's `send.ts`) starts Sentry with `sentryScrubbing()`, which runs one in `beforeSend`, `beforeSendTransaction`,
+`beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`. It sends spans inside their transaction
+(`traceLifecycle: 'static'`), since a span Sentry streams on its own skips `beforeSendTransaction`. It replaces:
 
 - keys and tokens with a known shape: `sk-…`, Stripe, GitHub, Slack, AWS access key IDs, Google, npm and Sentry tokens,
   JWTs and private key blocks
@@ -264,7 +271,8 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
   are JSON; a style row whose layers differ was `mixed`. Its `field` is one of:
   - a style row, `style.*`, from `chrome/style-editor.ts`, and a layer's `text`, `hidden` and props, `props.*`, from
     `chrome/LayerPanel.tsx`, as each is set or reset;
-  - `name`, a layer's or, with no layers, the design's (`chrome/LayerPanel.tsx`, `chrome/DesignPanel.tsx`);
+  - `name`, a layer's or, with no layers, the design's, wherever it's renamed: the inspector, a Layers row or a board's
+    title on the canvas, through `renameAndRecord` (PAR-728);
   - an image's `image.src`, `image.alt` and `image.fit`, and an instance's `instance.state` and `instance.design`, the
     component it was swapped to;
   - `overrides`, what a state, variant or copy changes about a layer, when they're reset all at once, from Reset, Reset
@@ -277,8 +285,14 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
   - `token.*`, a token's values by theme, from the Tokens panel, with no design or layers.
 
   `updateAndRecord` in `chrome/inspector-events.ts` makes a change through the design store and reads the field back
-  from the store before and after, so a change the store refuses records nothing. Buttons that act on a whole layer,
-  such as Detach, Push to main, Make component and Wrap, aren't fields, so they aren't `inspector.changed`.
+  from the store before and after, so a change the store refuses records nothing. Buttons that act on a whole layer
+  aren't fields, so they aren't `inspector.changed`.
+
+- **`component.changed` comes from Detach, Push to main and Make component** (PAR-728), once each changes the designs:
+  `detach` from the instance section's Detach and Object > Detach instance, `push` from Push to main on an instance or
+  on a layer inside a copy, and `extract` from Make component in the inspector, the menu or Components' suggestions.
+  `chrome/component-events.ts` makes each change through the design store and records the design, the layers and the
+  component by id. As key presses and menus, Detach instance and Make component are `command.ran` too.
 
 - **`insert.done` comes from `canvas/insert.ts`, `canvas/drop-files.ts` and `canvas/clipboard.ts`,** so an item from the
   Assets panel or Quick insert, files dropped and a paste are each one. A paste is `clipboard.pasted` too, and a paste
@@ -305,8 +319,10 @@ so recording never stops the work it describes.
 - **In the editor window,** `track` from `renderer/report-error.ts` records an event, under a span when given. Every
   action in `chrome/actions.ts` runs in its own `command.ran` trace through `tracedCommand`, and a canvas drag starts a
   `gesture.ran` trace with `startTrace`, both in `renderer/tracing.ts`. Work that runs later, such as a save an edit
-  scheduled, keeps the trace with `keepTrace`. Tabs, panels, dialogs, the mode, settings and the start page are recorded
-  by the store that owns them, through `recordInterface`, not at each control.
+  scheduled, keeps the trace with `keepTrace`. An event recorded after its trace has moved on passes the span it belongs
+  to as `track`'s `span`: `gesture.ended` its drag's, from the trace's `context`, and `document.saved` the one its write
+  was asked in, from `currentTraceContext()` before it waits on the service (PAR-752). Tabs, panels, dialogs, the mode,
+  settings and the start page are recorded by the store that owns them, through `recordInterface`, not at each control.
 - **In main and the service,** `track` and `inSpan` from `shared/tracing.ts` record under the span the process is
   working in, followed across `await`s. A request to another process carries it with `currentTraceHeaders()`, and queued
   work keeps it with `currentTrace()`. A channel's handlers each run in a `request.handled` span through `handleInSpan`.
@@ -355,6 +371,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `clipboard.failed`    | info  | all  | renderer                                | A paste pastes nothing, and says why.                                                                        |
 | `clipboard.pasted`    | info  | all  | renderer                                | A paste puts something on the canvas.                                                                        |
 | `command.ran`         | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                               |
+| `component.changed`   | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                |
 | `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                      |
 | `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                          |
 | `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                                             |
@@ -549,6 +566,15 @@ Some failures are recorded for you, so code doesn't record them again:
 | `layers`  | `integer`                                                                             | How many layers were selected                                                                                                     |
 | `designs` | `integer`                                                                             | How many designs were selected, with no layer inside one                                                                          |
 | `code`    | `string`, optional                                                                    | The error code, when it failed                                                                                                    |
+
+### `component.changed`
+
+| Attribute   | Type                              | Meaning                                                                                                                       |
+| ----------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `action`    | `"detach" \| "push" \| "extract"` | What was done: an instance detached into plain layers, a copy's overrides pushed to its component, or layers made a component |
+| `design`    | `string`                          | The design whose layers it changed, by key                                                                                    |
+| `layers`    | `string[]`                        | The layers: the instance detached or pushed, a layer inside one by path, or the layers made a component                       |
+| `component` | `string`                          | The component, by id: the one the copy follows, or the one made                                                               |
 
 ### `data.invalid`
 

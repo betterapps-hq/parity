@@ -22,11 +22,13 @@ import { ComponentStore } from "./components-store.ts"
 import { DesignStore } from "./design-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
+import { holdRecording } from "./replay.ts"
 import { errorCode, errorMessage, reportError, track } from "./report-error.ts"
 import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
 import { type KnownProject, knownProjects, type ProjectNote } from "./start/projects.ts"
 import { TokenStore } from "./tokens-store.ts"
+import { currentTraceContext } from "./tracing.ts"
 
 /** Everything one open project needs: its info from the service, its components and styles, and its stores. */
 export interface ProjectSession {
@@ -1083,11 +1085,16 @@ async function createSession(
   return { session, recordLoaded }
 }
 
-/** Gives the session what records its canvas's first frame, which it lets go of once it has. */
+/**
+ * Gives the session what records its canvas's first frame, which it lets go of once it has. Session Replay waits for it
+ * too, so recording the canvas as it mounts doesn't hold the frame up (PAR-758).
+ */
 function firstFrameOf(session: ProjectSession, record: (from: FirstFrame) => void): void {
+  const release = holdRecording()
   session.firstFrame = watchFirstFrame((from) => {
     session.firstFrame = undefined
     record(from)
+    release()
   })
 }
 
@@ -1125,13 +1132,15 @@ async function saveDocument(projectId: string, path: string, document: CanvasDoc
   const start = performance.now()
   const bytes = JSON.stringify(document).length
   const measured = () => ({ file: path, durationMs: Math.round(performance.now() - start), bytes })
+  // In the trace the write was asked in, the edit's or Save's, which has moved on by the time the service answers.
+  const inTrace = { span: currentTraceContext() }
 
   try {
     await request("document.save", { projectId, path, document })
-    track("document.saved", measured())
+    track("document.saved", measured(), inTrace)
   } catch (error) {
     const code = errorCode(error)
-    track("document.saveFailed", { ...measured(), ...(code ? { code } : {}) })
+    track("document.saveFailed", { ...measured(), ...(code ? { code } : {}) }, inTrace)
     throw error
   }
 }

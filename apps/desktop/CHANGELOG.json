@@ -2,6 +2,87 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 03:41:24 GMT",
+      "version": "0.40.2",
+      "tag": "@parity-app/desktop_v0.40.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "22faaae589564a87af4840b7fb117b4bd3746269",
+            "comment": "Record gesture.ended and document.saved in the trace of the drag or edit they belong to"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 03:07:10 GMT",
+      "version": "0.40.1",
+      "tag": "@parity-app/desktop_v0.40.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e81a717f95b8ecaa974225cb76e9415211a1e018",
+            "comment": "Separate and upload the app's source maps with the scripts the CLI now shares (PAR-719)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6d00d3fe8a86ac5d5d7717f0e7367a63896dfeb5",
+            "comment": "A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on Windows."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1bebed8fc7e44ca4cdbc4b3d4a5e00bb19141dd3",
+            "comment": "Session Replay no longer records a project's canvas as it mounts, so the first frame shows sooner"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 02:25:03 GMT",
+      "version": "0.40.0",
+      "tag": "@parity-app/desktop_v0.40.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "8560ac2bb40513109a1f397bdd5a86f46c924802",
+            "comment": "Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component as component.changed"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "973519fd631ce53c69e9c5a80940a221c1f2377d",
+            "comment": "project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the builder can't load the project's config"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "65b17fe472b52723a39ee66f9226f499f5f58b4c",
+            "comment": "A report sent from an error's fallback is linked in Sentry to the error it caught"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e561267a2b95c422bcbac8d60facede717a13300",
+            "comment": "Use Buildkit's Storybook config without the app listing its addons"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 01:50:16 GMT",
       "version": "0.39.2",
       "tag": "@parity-app/desktop_v0.39.2",

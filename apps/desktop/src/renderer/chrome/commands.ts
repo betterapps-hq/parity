@@ -1,4 +1,4 @@
-import { detachInstance, findNode } from "@parity-app/core"
+import { findNode } from "@parity-app/core"
 import {
   type Alignment,
   arrowOf,
@@ -21,7 +21,7 @@ import {
   pasteToReplace
 } from "../canvas/clipboard.ts"
 import { layerLabel } from "../canvas/kinds.tsx"
-import { parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
+import { parentLayer, siblingLayer } from "../canvas/layers.ts"
 import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
 import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
@@ -42,6 +42,7 @@ import {
   unwrapLayer,
   wrapLayers
 } from "./arrange.ts"
+import { detachAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { duplicateDesign, setDesignKind } from "./designs.ts"
 import { setLayout } from "./layout.ts"
@@ -846,10 +847,7 @@ export function detachSelection(session = activeSession()): void {
     return
   }
 
-  const library = projectLibrary(session.store)
-  session.store.updateContainer(instance.entry.key, "Detach instance", (container) =>
-    detachInstance(container, instance.node.id, library)
-  )
+  detachAndRecord(session.store, instance.entry.key, instance.node.id)
 }
 
 /** Selects the component the selected instance is a copy of, and shows it. */

@@ -18,7 +18,7 @@ import {
   telemetryRelease,
   telemetryUser
 } from "@parity-app/telemetry"
-import { createSentrySink, type SentryTarget } from "@parity-app/telemetry"
+import { createSentrySink, type SentryTarget, sentryScrubbing } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
 import { app, type BrowserWindow, powerMonitor, type WebContents } from "electron"
 import { recordInvalidData } from "../shared/invalid-data.ts"
@@ -151,6 +151,7 @@ export function startTelemetry(
     // Each platform's installer is its own build of the release.
     dist: `${process.platform}-${process.arch}`,
     getRendererName: rendererName,
+    ...sentryScrubbing(scrubber, Sentry),
     // The process an event came from, by the telemetry envelope's names. Windows and the service name theirs on each
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
     // Every process's errors, logs and spans come through here; whether any leave is `applyTelemetry`'s switch.
@@ -165,8 +166,6 @@ export function startTelemetry(
       return scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } }))
     },
     beforeSendTransaction: (event) => scrubber.value(withDriver(event)),
-    beforeSendLog: (log) => scrubber.value(log),
-    beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb),
     integrations: [
       // A renderer that runs out of memory may leave no minidump, so it's reported as well as the default exits.
       Sentry.childProcessIntegration({ events: ["abnormal-exit", "launch-failed", "integrity-failure", "oom"] })

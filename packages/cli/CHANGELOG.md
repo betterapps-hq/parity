@@ -1,8 +1,33 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 09 Nov 2026 00:29:58 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 03:07:25 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.28.1
+
+Mon, 09 Nov 2026 03:07:25 GMT
+
+### Patches
+
+- Upload the published CLI's source maps to Sentry, and name a pkg.pr.new preview's release by its commit (PAR-719)
+  (ajcraswell@gmail.com)
+- A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on
+  Windows. (ajcraswell@gmail.com)
+
+## 0.28.0
+
+Mon, 09 Nov 2026 02:25:19 GMT
+
+### Minor changes
+
+- Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component
+  as component.changed (ajcraswell@gmail.com)
+
+### Patches
+
+- project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the
+  builder can't load the project's config (ajcraswell@gmail.com)
 
 ## 0.27.0
 

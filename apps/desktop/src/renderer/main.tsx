@@ -10,7 +10,7 @@ import { setInterfaceTelemetry, watchTabs } from "./interface-events.ts"
 import { watchLongTasks } from "./long-tasks.ts"
 import { replaySampling } from "./replay.ts"
 import { setWindowTelemetry } from "./report-error.ts"
-import { reactErrorHandlers, startTelemetry } from "./telemetry.ts"
+import { caughtEventId, reactErrorHandlers, startTelemetry } from "./telemetry.ts"
 import { startTheme } from "./theme.ts"
 import { traceWith } from "./tracing.ts"
 import { workspace } from "./workspace.ts"
@@ -32,8 +32,11 @@ setInterfaceTelemetry(telemetry)
 
 setWindowTelemetry(telemetry)
 
-// A part of the window that fails offers Report a problem (PAR-667).
-setBoundaryReporter(() => void openReport())
+// A part of the window that fails offers Report a problem (PAR-667), linked to the error it caught (PAR-704).
+setBoundaryReporter((error) => {
+  const eventId = caughtEventId(error)
+  void openReport(eventId ? { eventId } : {})
+})
 
 watchTabs({
   subscribe: workspace.subscribe,

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
@@ -74,6 +74,12 @@ describe("the registry", () => {
     writeEntry(registry, entry(10))
     removeStaleEntry(registry, entry(10))
     expect(readEntries(registry, home)).toEqual([])
+  })
+
+  it("goes on when a stale entry can't be removed, as when another CLI is removing it", () => {
+    // A folder in the entry's place: removing it without `recursive` fails, as a removal racing another does on Windows.
+    mkdirSync(entryPath(registry, 10), { recursive: true })
+    expect(() => removeStaleEntry(registry, entry(10))).not.toThrow()
   })
 
   it("is empty before any copy has started", () => {

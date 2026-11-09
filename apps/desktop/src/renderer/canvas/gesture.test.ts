@@ -4,20 +4,22 @@ import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/t
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
 import { setWindowTelemetry } from "../report-error.ts"
+import { traceWith } from "../tracing.ts"
 import { CameraGestures, followPress, GestureRun, gestures, InsertDrag, onGestureEnd, type Press } from "./gesture.ts"
 
 /** Where the gestures' events go, checked against their schemas (PAR-640). */
 const sink = createTestSink()
 
 beforeEach(() => {
-  setWindowTelemetry(
-    createTelemetry({
-      events: registeredEvents,
-      context: { process: "renderer", installId: "install", sessionId: "session" },
-      sinks: [sink],
-      check: true
-    })
-  )
+  const telemetry = createTelemetry({
+    events: registeredEvents,
+    context: { process: "renderer", installId: "install", sessionId: "session" },
+    sinks: [sink],
+    check: true
+  })
+
+  setWindowTelemetry(telemetry)
+  traceWith(telemetry)
 })
 
 afterEach(() => {
@@ -445,6 +447,22 @@ describe("gesture.ended", () => {
     expect(ended()).toMatchObject([
       { kind: "absoluteDrag", how: "escape", kept: false, designs: [design], layers: ["badge"], undoStep: false }
     ])
+  })
+
+  it("records a drag in the trace of the gesture.ran it ends (PAR-752)", () => {
+    const { target, at, store, rename } = setup()
+    followPress(
+      gestures.resize,
+      store,
+      { clientX: 0, clientY: 0 },
+      { design, move: (event, drag) => rename(`Home ${event.clientX}`, drag.gesture) },
+      at
+    )
+    target.dispatchEvent(pointer("pointermove", 10))
+    target.dispatchEvent(new Event("pointerup"))
+    const [ran] = sink.spans
+    expect(ran?.name).toBe("gesture.ran")
+    expect(sink.named("gesture.ended")).toMatchObject([{ traceId: ran!.traceId, spanId: ran!.spanId }])
   })
 
   it("counts a step a drag makes as it ends, outside its undo gesture, as a design dragged by its title does", () => {

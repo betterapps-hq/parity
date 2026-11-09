@@ -11,7 +11,7 @@ import { cpSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { type BuildContext, type BuildOptions, context, type Plugin } from "esbuild"
 import { createServer } from "vite"
-import { currentCommit } from "./commit.ts"
+import { currentCommit } from "../../../scripts/commit.ts"
 import { parityElectron } from "./parity-electron.ts"
 import { reactFlag, reactProductionMode } from "./react-build.ts"
 

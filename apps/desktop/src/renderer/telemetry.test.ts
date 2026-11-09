@@ -1,18 +1,19 @@
 import { Component } from "react"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
-const sentry = vi.hoisted(() => ({ captureException: vi.fn<(error: unknown, hint: unknown) => void>() }))
+const eventId = "0123456789abcdef0123456789abcdef"
+const sentry = vi.hoisted(() => ({ captureException: vi.fn<(error: unknown, hint: unknown) => string>() }))
 
 vi.mock("@sentry/electron/renderer", () => sentry)
 
-const { reactErrorHandlers } = await import("./telemetry.ts")
+const { caughtEventId, reactErrorHandlers } = await import("./telemetry.ts")
 
 /** Stands in for `ErrorBoundary`: React hands the handlers the boundary that caught, and its props name it. */
 class Boundary extends Component<{ name: string }> {}
 
 describe("React errors sent to Sentry (PAR-620, PAR-667)", () => {
   beforeEach(() => {
-    sentry.captureException.mockClear()
+    sentry.captureException.mockClear().mockReturnValue(eventId)
     vi.spyOn(console, "error").mockImplementation(() => undefined)
   })
 
@@ -37,5 +38,18 @@ describe("React errors sent to Sentry (PAR-620, PAR-667)", () => {
       mechanism: { type: "react", handled: false },
       captureContext: { contexts: { react: { componentStack: "\n    at App" } } }
     })
+  })
+
+  it("keeps the event of an error a boundary caught, for a report from its fallback (PAR-704)", () => {
+    const caught = new Error("Layers broke")
+    reactErrorHandlers.onCaughtError(caught, {
+      componentStack: "",
+      errorBoundary: new Boundary({ name: "left.layers" })
+    })
+    expect(caughtEventId(caught)).toBe(eventId)
+    const uncaught = new Error("The window broke")
+    reactErrorHandlers.onUncaughtError(uncaught, { componentStack: "" })
+    expect(caughtEventId(uncaught)).toBeUndefined()
+    expect(caughtEventId("a thrown string")).toBeUndefined()
   })
 })

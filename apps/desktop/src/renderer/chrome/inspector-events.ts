@@ -1,5 +1,13 @@
-import type { ContainerSpec, DesignNode, NodeChange, NodeStyle, PatchField } from "@parity-app/core"
-import { type StyleRow, type StyleSelection, styleRows } from "@parity-app/editor"
+import {
+  type ContainerSpec,
+  type DesignNode,
+  findNode,
+  mapNode,
+  type NodeChange,
+  type NodeStyle,
+  type PatchField
+} from "@parity-app/core"
+import { kindName, type StyleRow, type StyleSelection, styleRows } from "@parity-app/editor"
 import type { ChangePreview } from "../canvas/change-preview.ts"
 import type { DesignStore } from "../design-store.ts"
 import { track } from "../report-error.ts"
@@ -211,6 +219,55 @@ export function updateAndRecord(
     from: read(before),
     to: read(after)
   })
+}
+
+/**
+ * Renames a design, or one of its layers given `layer`, as one undo step, and records it as `inspector.changed` with
+ * `field: name` wherever it's renamed: the inspector, Layers or a board's title (PAR-728). A layer left with no name
+ * goes back to its label; a design can't be.
+ */
+export function renameAndRecord(
+  store: Pick<DesignStore, "getEntry" | "updateContainer">,
+  key: string,
+  name: string | undefined,
+  layer?: string
+): void {
+  if (layer !== undefined) {
+    updateAndRecord(store, key, "Rename layer", (current) => renameLayer(current, layer, name), {
+      field: "name",
+      layers: [layer],
+      read: (current) => findNode(current.root, layer)?.name
+    })
+
+    return
+  }
+
+  const entry = store.getEntry(key)
+
+  if (!entry || !name) {
+    return
+  }
+
+  updateAndRecord(store, key, `Rename ${kindName(entry.container.kind)}`, (current) => ({ ...current, name }), {
+    field: "name",
+    read: (current) => current.name
+  })
+}
+
+function renameLayer(container: ContainerSpec, nodeId: string, name: string | undefined): ContainerSpec {
+  const root = mapNode(container.root, nodeId, (node) => {
+    const next = { ...node }
+
+    if (name) {
+      next.name = name
+    } else {
+      delete next.name
+    }
+
+    return next
+  })
+
+  return { ...container, root }
 }
 
 /** A layer field's name as `inspector.changed` sends it: `text`, `hidden`, `props.*` or `style.*`. */

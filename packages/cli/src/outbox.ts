@@ -23,10 +23,12 @@ import type { Breadcrumb, Event, SentryLog, SentryTarget, TraceContext } from "@
 /** What a batch reports as, the same for everything in it. */
 export interface BatchRun {
   environment: string
-  /** The CLI's version, and whether it's installed from npm or runs from a checkout, whose commit names the release. */
+  /** The CLI's version, and whether `npm publish` built it, which alone names its release by version (PAR-719). */
   version: string
-  installed: boolean
-  /** The folder whose Git commit names a checkout's release, read by the sender, off the command's path. */
+  published: boolean
+  /** The commit a build was made from, which names an unpublished build's release. */
+  commit?: string
+  /** The folder whose Git commit names the release of a checkout run from source, read by the sender. */
   source?: string
   tags: Record<string, string>
   user: { id: string; username?: string }
@@ -55,6 +57,34 @@ export type OutboxItem =
 export interface Batch {
   run: BatchRun
   items: OutboxItem[]
+  /**
+   * The debug IDs the command's bundles registered as they loaded, keyed by a stack that names each bundle, as
+   * `sentry-cli sourcemaps inject` writes them (PAR-719). The sender never loads the command's bundles, so it takes
+   * these on to resolve their frames.
+   */
+  debugIds?: Record<string, string>
+}
+
+/** Where the bundles' injected code registers their debug IDs, which Sentry's SDK reads as it captures an error. */
+interface DebugIdGlobal {
+  _sentryDebugIds?: Record<string, string>
+}
+
+/** The debug IDs this process's bundles registered, none when it runs from source. */
+export function loadedDebugIds(
+  global: DebugIdGlobal = globalThis as DebugIdGlobal
+): Record<string, string> | undefined {
+  return global._sentryDebugIds
+}
+
+/**
+ * Adds a batch's debug IDs to this process's, so Sentry's SDK attaches each frame's bundle's debug ID to an error the
+ * sender captures, as it would in the command, and the frame resolves through that bundle's uploaded source map.
+ */
+export function adoptDebugIds(batch: Batch, global: DebugIdGlobal = globalThis as DebugIdGlobal): void {
+  if (batch.debugIds) {
+    global._sentryDebugIds = { ...global._sentryDebugIds, ...batch.debugIds }
+  }
 }
 
 /** Keeps what the CLI's Sentry sink sends, in order, until it's written. */

@@ -2171,9 +2171,10 @@ the Repository, CI and releases stream in Linear.
     shrinks, and goes when it's empty.
   - **`vite.config.ts` lists only Parity's rules beyond base:** `consistent-type-imports`, Vite+'s imports rule and the
     `toast.error` restriction. `react/exhaustive-deps` stays an error rather than base's warning.
-  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility,
-    Vitest and Chromatic addons. The app lists the three addons itself, because base names them by package and pnpm
-    doesn't hoist them to the app. The Vitest addon's test runs aren't wired into `vp test` yet.
+  - **Storybook uses `@buildkitgg/storybook-config`'s `defineMain` and `definePreview`,** which add the accessibility
+    and Vitest addons by path, so the app doesn't list them (PAR-753). Chromatic is app-specific and Parity doesn't use
+    it. Story tests, once the Vitest addon's runs are wired up, run in CI only, as you decided on 2026-11-08: they're
+    too slow for local test passes.
 - **The agency monorepo's stricter lint rules were on before Buildkit's** (PAR-396), from its `@repo/oxlint-config`,
   without `curly`, `no-console` and `no-bitwise` as you chose then, and without the React Compiler rule, since Parity
   doesn't run the compiler. The calls below still stand, apart from those three rules. My calls:
@@ -4815,13 +4816,20 @@ How it runs is in [sentry.md](sentry.md#releases-and-source-maps). My calls:
 - **CI uploads the Windows build's maps,** the build it installs and starts, as the commit's release. Only main's
   commits are tied to their release, since a pull request's merge commit isn't kept. A failed upload doesn't fail CI's
   run, which releases wait on.
+- **Preview installers' maps come from the same rebuild (PAR-685).** `preview.yml` builds the pull request's commit
+  again with the tldraw key, as the template does, and uploads as the commit's release, through the reusable
+  `upload-sourcemaps.yml` that the release workflows use too. The tldraw key changes the window's bundles, so CI's
+  upload of the same commit, built without it, doesn't cover them. Changing the shared preview template to keep the maps
+  would touch every repository that uses it, for the same result.
 - **Development builds resolve without an upload.** `pnpm dev` starts Electron with `--enable-source-maps`, so main's
   and the service's stacks name the source files and lines before Sentry sees them; the window's modules are already the
   source files Vite serves. A frozen copy, which `pnpm perf` measures, leaves it off.
 - **Electron's own native symbols come from Sentry's built-in Electron symbol server,** a project setting, not an
   upload. Parity ships no native code of its own yet; sharp's prebuilt binaries come without debug files.
 - **`@sentry/cli` 3.8.2 is a devDependency of the app** (your call, 2026-11-06), run from `scripts/build.ts` and
-  `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it.
+  `scripts/upload-sourcemaps.ts`, rather than Sentry's esbuild and Vite plugins, which wrap it. PAR-719 moved it, with
+  those scripts' Sentry parts, to the workspace's root, where the CLI's build uses them too; see "The published CLI's
+  source maps go to parity-cli" below.
 
 ## Sentry watches agent failures and crash-free sessions (PAR-643)
 
@@ -5642,7 +5650,8 @@ its shape on almost every frame of a zoom: 190 to 280 ms of `getClientRects` in 
 written, as "Parity's own telemetry goes to Sentry, on by default" decided. `createTelemetry` runs it on every event's
 attributes before its sinks and the kept events. Main, the windows and the service run one in their Sentry `beforeSend`,
 `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb` hooks, and the CLI will once it sends (PAR-642).
-Sentry's server-side scrubbing stays on as a second net. My calls:
+Sentry's server-side scrubbing stays on as a second net. PAR-756 has since put those hooks, with `beforeSendSpan`, in
+one shared `sentryScrubbing`; see "Spans are sent in their transaction, so the scrubber sees them" below. My calls:
 
 - **Keys and tokens with a known shape are replaced whole:** OpenAI and Anthropic `sk-…`, Stripe `sk_live_`/`rk_live_`,
   GitHub `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and `github_pat_`, Slack `xox…-`, AWS access key IDs, Google `AIza…`,
@@ -5767,11 +5776,8 @@ window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `
   telemetry off, after garbage collection, over two runs each. With the project open, the page held about 27,600 DOM
   nodes against 6,700, which closing it gives back. PAR-683 watches that over longer sessions. `pnpm perf` couldn't give
   its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
-- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679.
-
 - **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. PAR-679 has since
-  scrubbed them; see "Replays are scrubbed as they're recorded" below. A render failure thrown in the page arrives as
-  Electron's "Script failed to execute", without the page's message; that's PAR-680.
+  scrubbed them; see "Replays are scrubbed as they're recorded" below.
 
 ## sharp isn't loaded in the app on Linux (PAR-688)
 
@@ -6263,8 +6269,8 @@ default". How it runs is in [telemetry.md](telemetry.md#agents-and-the-cli). My 
   (`Terminal` unless `PARITY_AGENT_NAME` or MCP names it) and `agent_client` the MCP client.
 - **Installed means installed from npm.** A CLI under `node_modules` reports as `tester` and names its release
   `parity-cli@<version>`; one run from a checkout, from source or its own `dist`, reports as `development`, named by the
-  checkout's commit, which the sender reads with Git. A pkg.pr.new preview is installed too, so it reports as its
-  version.
+  checkout's commit, which the sender reads with Git. A pkg.pr.new preview is installed too, so it reported as its
+  version until PAR-719 named it by its commit; see "The published CLI's source maps go to parity-cli" below.
 - **The notice is one line on stderr, once:** "Parity shares diagnostics to help fix bugs. To stop sharing them, turn
   off Settings > Privacy > Share diagnostics in the app, or set PARITY_TELEMETRY=off." It names the switch by its path
   in the app, not Sentry, as PAR-626 asked, reviewed with the writing-style-guide skill, and stays off stdout, which
@@ -6358,9 +6364,10 @@ agent's call, in CI only, as the rest of the suite runs. My calls:
 - **Save's test is the one that writes,** since autosave is off by default and an edit alone writes nothing. It
   duplicates, saves, then undoes and saves again, so the file is back as it was and the reset after it finds nothing
   unsaved.
-- **`gesture.ended` and the window's `document.saved` aren't checked by trace.** Both are recorded after their trace has
-  ended, so they carry none; the test checks their attributes, and the service's answer to Save's write shows the trace
-  reached it. Recording them in their trace is PAR-752.
+- **`gesture.ended` and the window's `document.saved` are checked by trace,** under the drag's `gesture.ran` and Save's
+  `command.ran` spans. Both are recorded after that span has ended, so at first they carried no trace; PAR-752 passes
+  each the span it belongs to through `track`'s `span`: the drag's trace's `context`, and for a write the trace it was
+  asked in, the edit's that `keepTrace` kept or Save's, read before it waits on the service.
 
 ## Boards measure together as the canvas opens (PAR-726)
 
@@ -6406,8 +6413,46 @@ process" has it, and nothing else is hidden that wasn't before. My calls:
 - **Checked in the app:** keys put on screen, clicked and changed came back as `[redacted]` in Sentry's stored recording
   segments, with the rest of the window's text as written (replay `c3060db5…`).
 - **`.env` values reach the window a moment after it starts,** so text recorded before main passes them isn't scrubbed
-  of them, though known shapes and long random strings are. They come as a project opens, before its panels show
-  it. =======
+  of them, though known shapes and long random strings are. They come as a project opens, before its panels show it.
+
+## Session Replay waits for a project's first frame (PAR-758)
+
+Called on 2026-11-08. PAR-726 found Session Replay recording every board, title and tldraw layer in the task that mounts
+a project's canvas, before its first frame showed. Replay now holds off recording the page from the tab being ready
+(`project.loaded`) until the first frame shows (`project.drawn`), and goes on with the same replay after. My calls:
+
+- **Pause and resume the recorder, rather than block more of the canvas or lower the limits.** Blocking the boards would
+  leave them out of every replay, and an element unblocked later shows as an empty box until the next full snapshot.
+  Lower mutation limits stop the replay outright. Replay's page recorder pauses and resumes within one replay, and
+  resuming takes a full snapshot, so the replay jumps from the page before the open to the drawn canvas. Clicks,
+  requests and breadcrumbs go on being recorded meanwhile, and Replay resumes on its own if someone clicks.
+- **Replay keeps `pause` and `resume` to itself.** The integration's `_replay` is reached from `holdRecording` in
+  `renderer/replay.ts`, the module that sets Replay up. It only pauses a recorder that's enabled and recording, and only
+  resumes the one it paused, if it's still Replay's and still paused, so a Sentry upgrade that renames it costs the
+  saving, not the recording. PAR-679's scrubbing is unchanged, since the resumed recorder takes the same options.
+- **The hold lasts until the first frame, or 5 seconds.** A project with no designs has no first frame, and a background
+  tab records its first frame only when it's shown. `pageHolds` counts holds, so tabs opening together keep it paused
+  until the last one draws.
+- **It resumes in a task of its own,** after the frame that let go of it is painted. Resuming in the same animation
+  frame put the snapshot, about 0.2 s, between the frame being seen and being painted.
+
+Measured on `examples/shadcn-vite` (61 designs, 119 frames), React's production build, five reopens in the same window
+each, before and after in fresh `pnpm perf --open-only --keep` copies, with the page's JavaScript sampled every 0.1 ms
+and the profile cut at `project.loaded` and `project.drawn`:
+
+| Tab ready to first frame | Before         | After          |
+| ------------------------ | -------------- | -------------- |
+| Time                     | 2.71 to 3.01 s | 2.29 to 2.53 s |
+| Window thread busy       | 2.17 to 2.42 s | 1.79 to 2.00 s |
+| Sentry's own code        | 406 to 508 ms  | 21 to 28 ms    |
+| In the 2 s after         | 20 to 33 ms    | 206 to 232 ms  |
+
+The snapshot taken on resuming moves after the first frame, 15 to 45 ms after it. The replay recorded over those reopens
+(`f507a317…`) stayed one replay, with a full snapshot after each reopen of about 6,130 nodes, boards and canvas
+included. Tests: `apps/desktop/src/renderer/replay.test.ts` (4: paused until the last hold is let go of and resumed
+after that task, staying paused for a hold taken before it resumes, the 5-second limit, and leaving alone a recorder
+that isn't recording or that Replay resumed or replaced). Gaps: that the hold starts at `firstFrameOf` in `workspace.ts`
+and ends at the first frame was checked by profiling, not by a test.
 
 ## A render page's failure keeps its own message (PAR-680)
 
@@ -6426,4 +6471,75 @@ an agent never said what went wrong. My calls:
   error is. The stack doesn't cross processes, since `codedErrors` sends messages, and an agent never gets the guest's
   stack.
 
-> > > > > > > origin/main
+## A report from an error's fallback is linked to the error (PAR-704)
+
+Report a problem in a fallback (PAR-667) opens the same dialog as Help > Report a problem (PAR-635), and the feedback it
+sends names the error that fallback caught as its associated event, so Sentry shows the report on that error's issue. My
+calls:
+
+- **One report path.** The event ID rides along the existing one: `openReport({ eventId })`, the `problemReport` check
+  (32 lowercase hex digits, like the replay and trace IDs) and `sendFeedback`'s `associatedEventId`. No second dialog or
+  channel.
+- **The window keeps the ID by the error it caught,** in a `WeakMap` beside `reactErrorHandlers`, since the boundary's
+  reporter is handed the error, and the fallback's Report a problem is clicked after `onCaughtError` ran. An error
+  thrown as a string or another primitive can't be a key, so its report goes unlinked, as before.
+- **Its tag says where it came from:** `report: error fallback`, beside `help menu` and `after crash`.
+- **The dialog doesn't name the error yet.** The issue's optional "The error from Layers" line in Also sent waits for
+  Andrew's approval of the copy in Storybook.
+
+## The published CLI's source maps go to parity-cli (PAR-719)
+
+A stack from the published CLI named its bundled chunks (`dist/client-<hash>.mjs`), since `vp pack` wrote no maps. It
+now resolves to `packages/cli/src`, as the app's does to its source (PAR-625). How it runs is in
+[sentry.md](sentry.md#releases-and-source-maps). My calls:
+
+- **One way to separate and upload maps, for both.** The app's build steps moved to the workspace's root:
+  `separateSourceMaps` in `scripts/sourcemaps.ts` gives the bundles debug IDs and moves their maps out of what ships,
+  and `scripts/upload-sourcemaps.ts` takes the package and the Sentry project (`apps/desktop --project parity-desktop`,
+  `packages/cli --project parity-cli`). The app's `build.ts` and the CLI's `vite.config.ts` both call the first, from
+  `vp pack`'s `build:done` hook for the CLI, so the `prepack` that `npm publish` and pkg.pr.new run does it too. That
+  moved `@sentry/cli` from the app's devDependencies to the root's, which also takes `@parity-app/telemetry` for
+  `telemetryRelease`, so the release names stay in one place.
+- **Only the build `npm publish` makes is the published version's release.** `vp pack` writes `dist/build.json`, with
+  `published` true only when `npm_command` is `publish`, which npm sets for the `prepack` it runs, and the commit it
+  built from. The CLI reads it: published is `parity-cli@<version>`; a pkg.pr.new preview, which `pnpm pack` builds, and
+  a checkout's own `dist` are named by their commit; from source, by the checkout's commit, as before. Being under
+  `node_modules` still makes it `tester`. The file is outside the bundles, so their debug IDs don't depend on it.
+- **`cd-npm.yml` builds the published version again from its tag to upload,** as `cd-desktop.yml` does for the app,
+  since the shared release template runs without Sentry's token. Two builds of the same commit gave the same debug IDs.
+  The release is tied to the tag's commit on main. Previews' maps aren't uploaded; their stacks name the bundled files.
+- **Each batch carries the command's debug IDs to the sender.** Sentry's SDK attaches a frame's debug ID from what the
+  capturing process's bundles registered (`_sentryDebugIds`), and the detached sender never loads the command's bundles.
+  So the command writes its registry into the batch, and the sender adds it to its own before capturing. Without that,
+  an error from `bin.mjs` carried no debug ID and couldn't resolve, as the OpenAI review found.
+- **Chunks that only re-export get no map,** so only the bundles with one get a debug ID. They hold no code to resolve.
+- **Checked before release:** the packed CLI ships `dist/build.json` and no maps; `bin.mjs`'s call to `reportCliFailure`
+  resolves through its map to `packages/cli/src/bin.ts` line 159; and `sentry-cli sourcemaps upload`, pointed at a
+  stand-in server, paired each of the 9 bundles with its map and debug ID. A sender-like process that adopted a
+  command's debug IDs gave a frame in `client-<hash>.mjs` that chunk's debug ID in `debug_meta`; without them, none.
+  Whether an event from the installed CLI resolves in Sentry can only be seen once a version is published.
+
+## Spans are sent in their transaction, so the scrubber sees them (PAR-756)
+
+Sentry 11.8 streams spans by default (`traceLifecycle: 'stream'`), one by one, and warns at every start that
+`beforeSendTransaction` is then ignored. Every process now starts Sentry with `sentryScrubbing(scrubber, Sentry)` from
+`@parity-app/telemetry`, which sets `traceLifecycle: 'static'` and scrubs in `beforeSend`, `beforeSendTransaction`,
+`beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`. A process puts its own `beforeSend` or `beforeSendTransaction`
+after it to add tags or attachments. My calls:
+
+- **What got through, checked in Sentry with a fake `sk-…` key** in each span's name and attributes, sent through the
+  Node SDK that main, the service and the CLI run and the browser SDK the windows run, set up with their hooks. Parity's
+  own spans arrived as `[redacted]` either way: they're transactions built by hand and sent with `captureEvent`, which
+  passes `beforeSendTransaction` whatever the lifecycle. Sentry's own spans, from `startSpan` as its integrations make
+  them, arrived with the key as written once tracing was on, since a streamed span skips `beforeSendTransaction`. Parity
+  sets no `tracesSampleRate`, so Sentry makes none today, and nothing had leaked. It would have the day tracing is
+  turned on.
+- **Static, not `beforeSendSpan` on streamed spans.** Streaming needs `beforeSendTransaction` gone for the warning to
+  stop, and Parity's spans need it, as they're transactions. Static sends Sentry's spans in their transaction, through
+  the same hook as Parity's, so one hook covers both. Spans Parity sends are its own, with its own IDs, so streaming
+  gains it nothing.
+- **`beforeSendSpan` is set too, wrapped in `withStaticSpan`,** for the spans Sentry sends on their own, outside a
+  transaction, such as Web Vitals'. Parity turns none of those on, but they'd leave unscrubbed if it did.
+- **One hook, in the package, with the SDK passed in.** `@parity-app/telemetry` still never imports Sentry, so each
+  process passes its own module, whose `withStaticSpan` marks the span hook. The CLI's tests check it against the real
+  SDK: a span holding a key leaves scrubbed, and Sentry starts without the warning.

@@ -28,6 +28,8 @@ export * from "./ring-buffer.ts"
 
 export * from "./scrub.ts"
 
+export * from "./sentry-scrubbing.ts"
+
 export * from "./sentry-sink.ts"
 
 export * from "./settings.ts"

@@ -5,7 +5,6 @@ import {
   changesField,
   type ContainerSpec,
   type DesignNode,
-  detachInstance,
   editNode,
   type EditTarget,
   editsDesign,
@@ -23,7 +22,6 @@ import {
   type PatchField,
   propChange,
   patchSize,
-  pushOverrides,
   resetInstance,
   resetOverride,
   slotAtPath,
@@ -44,6 +42,7 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
+import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
@@ -56,6 +55,7 @@ import {
   type LayerChange,
   PreviewedProp,
   recordLayerChange,
+  renameAndRecord,
   updateAndRecord
 } from "./inspector-events.ts"
 import { InstanceSlotFields, SlotPanel } from "./instance-slots.tsx"
@@ -168,17 +168,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
                   return
                 }
 
-                updateAndRecord(
-                  store,
-                  key,
-                  "Rename layer",
-                  (current) => renameLayer(current, nodeId, name || undefined),
-                  {
-                    field: "name",
-                    layers: [nodeId],
-                    read: (current) => findNode(current.root, nodeId)?.name
-                  }
-                )
+                renameAndRecord(store, key, name || undefined, nodeId)
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
@@ -288,18 +278,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
           }
     )
 
-  const push = () => {
-    if (!main) {
-      return
-    }
-
-    store.updateContainers([key, main.key], `Push to ${main.container.name}`, ([design, component]) => {
-      const pushed = pushOverrides(design!, inner.instance.id, component!, [inner.key])
-
-      return [pushed.container, pushed.component]
-    })
-  }
-
+  const push = () => main && pushAndRecord(store, key, main.key, inner.instance.id, { key: inner.key, path })
   // The component this layer belongs to: the nested one for a layer inside a nested instance.
   const owner = entries.find((candidate) => candidate.container.id === inner.component.id)
   const kind = layerKind(inner.node, designNamer(entries, store.getComponentLibrary()), session.info.libraries)
@@ -631,9 +610,6 @@ function InstanceSection({
   const overrides = own ? overrideCount(own) : 0
   const library = projectLibrary(store)
 
-  const replace = (label: string, update: (container: ContainerSpec) => ContainerSpec) =>
-    store.updateContainer(entry.key, label, update)
-
   // The instance's own field, as the design has it, to record what a change to it did.
   const instanceField = (name: "state" | "design") => ({
     field: `instance.${name}`,
@@ -645,17 +621,7 @@ function InstanceSection({
     }
   })
 
-  const push = () => {
-    if (!component) {
-      return
-    }
-
-    store.updateContainers([entry.key, component.key], `Push to ${design.name}`, ([placed, main]) => {
-      const pushed = pushOverrides(placed!, node.id, main!)
-
-      return [pushed.container, pushed.component]
-    })
-  }
+  const push = () => component && pushAndRecord(store, entry.key, component.key, node.id)
 
   // Another component this copy could become: not the design it's in, which can't contain itself.
   const swappable = entries.filter(
@@ -824,7 +790,7 @@ function InstanceSection({
                 variant="outline"
                 size="sm"
                 className="h-7 px-2 text-xs"
-                onClick={() => replace("Detach instance", (container) => detachInstance(container, node.id, library))}
+                onClick={() => detachAndRecord(store, entry.key, node.id)}
               >
                 <Unlink /> Detach
               </Button>
@@ -1029,19 +995,3 @@ function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode 
 }
 
 type ImageFit = NonNullable<ImageNode["fit"]>
-
-export function renameLayer(container: ContainerSpec, nodeId: string, name: string | undefined): ContainerSpec {
-  const root = mapNode(container.root, nodeId, (node) => {
-    const next = { ...node }
-
-    if (name) {
-      next.name = name
-    } else {
-      delete next.name
-    }
-
-    return next
-  })
-
-  return { ...container, root }
-}

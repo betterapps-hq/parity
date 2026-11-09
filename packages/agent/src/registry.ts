@@ -62,10 +62,20 @@ export function removeEntry(registry: Registry, app: number): void {
   }
 }
 
-/** Removes an entry the CLI found for a copy that isn't running. */
+/**
+ * Removes an entry the CLI found for a copy that isn't running, if it can. Several CLIs find the same entry at once,
+ * and on Windows one removing it while another does fails with EPERM even with `force` (PAR-764). The call it was found
+ * on goes ahead either way: a copy that isn't running is left out, and a later call removes what's left.
+ */
 export function removeStaleEntry(registry: Registry, entry: CopyEntry): void {
-  if (registry.kind === "folder") {
+  if (registry.kind !== "folder") {
+    return
+  }
+
+  try {
     rmSync(entryPath(registry, entry.app), { force: true })
+  } catch {
+    // Another CLI is removing it, or it can't be removed now.
   }
 }
 

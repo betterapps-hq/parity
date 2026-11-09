@@ -3,8 +3,8 @@ import { designsSelection, layersSelection, newDesign } from "@parity-app/editor
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { design, example, findTooltip, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { renameAndRecord } from "./inspector-events.ts"
 import { formatKeys } from "./keys.ts"
-import { renameLayer } from "./LayerPanel.tsx"
 import { LayerTree } from "./LayerTree.tsx"
 import { LeftPanel } from "./LeftPanel.tsx"
 
@@ -367,13 +367,8 @@ export const LongNames: Story = {
       const { store, selection } = example()
       const card = design("Plan card")
       const third = node("Plan card", "Feature 3 text")
-      store.updateContainer(card, "Rename design", (container) => ({
-        ...container,
-        name: "Plan card for the enterprise tier, with annual billing and a seat-based discount"
-      }))
-      store.updateContainer(card, "Rename layer", (container) =>
-        renameLayer(container, third, "Third feature of the plan, as marketing wrote it for the launch page")
-      )
+      renameAndRecord(store, card, "Plan card for the enterprise tier, with annual billing and a seat-based discount")
+      renameAndRecord(store, card, "Third feature of the plan, as marketing wrote it for the launch page", third)
       selection.set({ design: card, node: third })
     }
   ]

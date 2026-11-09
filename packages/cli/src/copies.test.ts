@@ -6,7 +6,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 import { operations } from "./operations.ts"
-import { compileCache, emptyState, processTests } from "./transport-fixture.ts"
+import { compileCache, emptyState, processTests, toolReply } from "./transport-fixture.ts"
 
 /**
  * The CLI against two running copies of the app, each with its own project open (PAR-514): every call reaches the copy
@@ -143,12 +143,7 @@ async function tool(name: string, input: Record<string, unknown>, cwd = tmpdir()
 
   const lines = messages.map((message) => JSON.stringify(message) + "\n").join("")
   const { stdout } = await run(["mcp"], cwd, lines)
-
-  const reply = stdout
-    .trim()
-    .split("\n")
-    .map((line) => JSON.parse(line) as { id?: number; result?: { structuredContent?: unknown } })
-    .find((message) => message.id === 2)
+  const reply = toolReply(stdout) as { result?: { structuredContent?: unknown } } | undefined
 
   return reply?.result?.structuredContent
 }

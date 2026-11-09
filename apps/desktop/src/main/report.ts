@@ -47,6 +47,8 @@ interface Feedback {
   tags: Record<string, string>
   traceId?: string | undefined
   replayId?: string | undefined
+  /** The error the report is about, which Sentry links the feedback to (PAR-704). */
+  eventId?: string | undefined
 }
 
 /**
@@ -142,9 +144,10 @@ export function createReports({
         {
           message: report.message,
           source: "report-a-problem",
-          tags: { report: report.afterCrash ? "after crash" : "help menu" },
+          tags: { report: reportFrom(report) },
           traceId: report.traceId,
-          replayId: report.replayId
+          replayId: report.replayId,
+          eventId: report.eventId
         },
         attachments
       )
@@ -251,7 +254,16 @@ async function sendFeedback(report: Feedback, attachments: Attachment[]): Promis
         })
       }
 
-      return Sentry.captureFeedback({ message: report.message, source: report.source }, { attachments }, scope)
+      return Sentry.captureFeedback(
+        {
+          message: report.message,
+          source: report.source,
+          // Sentry shows the feedback on the error's issue.
+          ...(report.eventId ? { associatedEventId: report.eventId } : {})
+        },
+        { attachments },
+        scope
+      )
     })
 
     if (!(await Sentry.flush(sendTimeoutMs))) {
@@ -262,6 +274,15 @@ async function sendFeedback(report: Feedback, attachments: Attachment[]): Promis
   } finally {
     options.enabled = wasEnabled
   }
+}
+
+/** Where the person sent their report from, for its `report` tag. */
+function reportFrom(report: ProblemReport): string {
+  if (report.afterCrash) {
+    return "after crash"
+  }
+
+  return report.eventId ? "error fallback" : "help menu"
 }
 
 function screenshotFile(image: Electron.NativeImage): Attachment {

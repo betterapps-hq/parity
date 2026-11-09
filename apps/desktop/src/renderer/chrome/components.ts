@@ -3,12 +3,13 @@ import { aboveEverything, makeComponent } from "@parity-app/editor"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
+import { recordComponentChange } from "./component-events.ts"
 
 /**
  * Extracts parts of a design into a new component design in the project file, placed above everything else
  * (components on top, screens below). Throws, changing nothing, if the design wouldn't render exactly the same
  * afterwards. The rules are `@parity-app/editor`'s; this measures the designs on the canvas and applies them to the
- * store.
+ * store, and records it as `component.changed` (PAR-728).
  */
 export function extractIntoComponent(
   session: ProjectSession,
@@ -43,6 +44,7 @@ export function extractIntoComponent(
 
     return { ...snapshot, documents: made.documents }
   })
+  recordComponentChange("extract", entry.key, occurrences, id)
 
   return containerKey(path, id)
 }
