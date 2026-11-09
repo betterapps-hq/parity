@@ -1,6 +1,7 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { KeyHints } from "../../canvas/KeyHints.tsx"
+import { kindColors } from "../../canvas/kinds.tsx"
 import { spacingColor } from "../../canvas/SpacingHandles.tsx"
 import { gestures as held } from "../../chrome/keymap.ts"
 import { formatNumber } from "./css-values.ts"
@@ -22,14 +23,24 @@ export interface SpacingHover {
   sides: number[]
 }
 
-/** Padding as the canvas shades it (CanvasOverlay): the spacing pink, hatched. */
-const paddingFill =
-  "repeating-linear-gradient(-45deg, oklch(0.7 0.2 350 / 0.28) 0 1px, oklch(0.7 0.2 350 / 0.1) 1px 5px)"
-/** Margin, which the canvas doesn't draw yet: the same pink, flat and faint, so it reads as outside the layer. */
-const marginFill = `color-mix(in oklch, ${spacingColor} 8%, transparent)`
+/** The colors the box and its preview draw padding and margin in. */
+export interface SpacingColors {
+  padding: string
+  margin: string
+}
+
+/**
+ * Padding in the canvas's spacing pink, and margin, which the canvas doesn't draw yet, in the same pink until it has a
+ * color of its own. The Margin colors story tries some.
+ */
+export const spacingColors: SpacingColors = { padding: spacingColor, margin: spacingColor }
+
+const tint = (color: string, strength: number) => `color-mix(in oklch, ${color} ${strength}%, transparent)`
+/** Padding, hatched in its color as the canvas hatches it (CanvasOverlay). Margin is flat, outside the layer. */
+const hatched = (color: string) =>
+  `repeating-linear-gradient(-45deg, ${tint(color, 28)} 0 1px, ${tint(color, 10)} 1px 5px)`
 /** A side that's hovered or being edited, as the canvas shades the handle it's dragging. */
-const activeFill = `color-mix(in oklch, ${spacingColor} 30%, transparent)`
-const edge = (strength: number) => `color-mix(in oklch, ${spacingColor} ${strength}%, transparent)`
+const active = (color: string) => tint(color, 30)
 
 /**
  * A side's measurement as the box shows it, with its unit: `16px`, `10%`, `Auto`, a token's value. A token missing from
@@ -137,8 +148,8 @@ function BoxSide({
 /**
  * Spacing's box: margin's ring around padding's around the layer's size, each side's measurement and unit where the side
  * is, as DevTools' box model lays them out. Hovering a value opens its field in a popover after a moment; pressing it, or
- * Enter, opens it at once. Padding is shaded as the canvas shades it, and margin, outside it, faintly within a dashed
- * edge.
+ * Enter, opens it at once. Padding is hatched in its color, as the canvas shades it, and margin, outside it, is flat
+ * in its own within a dashed edge.
  */
 export function BoxModel({
   padding,
@@ -147,6 +158,7 @@ export function BoxModel({
   marginMixed = [],
   measuredMargin,
   size,
+  colors = spacingColors,
   onPadding,
   onMargin,
   onHover
@@ -159,6 +171,7 @@ export function BoxModel({
   measuredMargin?: readonly (number | undefined)[]
   /** The layer's size inside its padding. */
   size: { width: number; height: number }
+  colors?: SpacingColors
   onPadding: (sides: Sides, cleared: number[]) => void
   onMargin: (sides: Sides, cleared: number[]) => void
   onHover?: (hover: SpacingHover | undefined) => void
@@ -181,7 +194,7 @@ export function BoxModel({
   return (
     <fieldset
       className="relative m-0 flex min-w-0 flex-col items-center gap-0.5 rounded-md border border-dashed p-1"
-      style={{ background: marginFill, borderColor: edge(55) }}
+      style={{ background: tint(colors.margin, 10), borderColor: tint(colors.margin, 55) }}
       aria-label="Box model"
     >
       {name("Margin")}
@@ -190,7 +203,7 @@ export function BoxModel({
         {side("margin", 3)}
         <div
           className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border p-1"
-          style={{ background: paddingFill, borderColor: edge(60) }}
+          style={{ background: hatched(colors.padding), borderColor: tint(colors.padding, 60) }}
         >
           {name("Padding")}
           {side("padding", 0)}
@@ -224,15 +237,17 @@ export interface Measured {
 const sideKeys = ["top", "right", "bottom", "left"] as const
 
 /**
- * A card, Plans, in a parent, Pricing, drawn with the sides set: padding shaded as the canvas shades it and margin
- * faintly in the same pink, as the box draws them, the hovered side stronger. It measures what the browser made of them (Auto, a percentage), which the
- * fields show as what they come to.
+ * A card, Plans, in a parent, Pricing, drawn with the sides set: padding and margin in their colors as the box draws
+ * them, the hovered side stronger. It measures what the browser made of them (Auto, a percentage), which the fields
+ * show as what they come to.
  */
 export function SpacingPreview({
   padding,
   margin,
   border,
   hover,
+  colors = spacingColors,
+  selected = false,
   layout = "flex",
   first = false,
   contained = false,
@@ -242,6 +257,9 @@ export function SpacingPreview({
   margin?: Sides
   border?: Sides
   hover?: SpacingHover
+  colors?: SpacingColors
+  /** Plans is outlined as the canvas outlines a selected layer, to see the colors beside it. */
+  selected?: boolean
   /** Pricing's layout: a flex column, or Block, where vertical margins collapse. */
   layout?: "flex" | "block"
   /** Plans is Pricing's first child, so a top margin can pass through Pricing's edge in a Block layout. */
@@ -291,12 +309,14 @@ export function SpacingPreview({
     borderColor: "#262626",
     // Auto margins center a layer only when it doesn't stretch.
     width: margins[1] === "auto" || margins[3] === "auto" ? 200 : undefined,
-    alignSelf: margins[1] === "auto" || margins[3] === "auto" ? "auto" : undefined
+    alignSelf: margins[1] === "auto" || margins[3] === "auto" ? "auto" : undefined,
+    outline: selected ? `2px solid ${kindColors.layer}` : undefined
   }
   const strong = (which: SpacingHover["box"], index: number) => hover?.box === which && hover.sides.includes(index)
   const band = (which: "padding" | "margin", index: number, position: CSSProperties): ReactNode => {
-    let background = which === "padding" ? paddingFill : `color-mix(in oklch, ${spacingColor} 14%, transparent)`
-    if (strong(which, index)) background = activeFill
+    const color = colors[which]
+    let background = which === "padding" ? hatched(color) : tint(color, 14)
+    if (strong(which, index)) background = active(color)
     return (
       <div
         key={`${which}-${index}`}
@@ -306,7 +326,7 @@ export function SpacingPreview({
           ...position,
           background,
           // Margin's edge is dashed, as the box draws it.
-          outline: strong(which, index) ? `1px ${which === "margin" ? "dashed" : "solid"} ${spacingColor}` : undefined
+          outline: strong(which, index) ? `1px ${which === "margin" ? "dashed" : "solid"} ${color}` : undefined
         }}
       />
     )
