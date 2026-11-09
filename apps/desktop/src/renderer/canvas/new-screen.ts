@@ -22,7 +22,7 @@ export function emptyCanvasAt(session: ProjectSession, area: ParentNode, point: 
   }
 
   const page = editor.screenToPage(point)
-  const board = editor.getShapeAtPoint(page, { hitInside: true, filter: (shape) => shape.type === "canvas-container" })
+  const board = editor.getShapeAtPoint(page, { hitInside: true, filter: (item) => item.type === "canvas-container" })
 
   return board ? undefined : { x: Math.round(page.x), y: Math.round(page.y) }
 }
@@ -61,17 +61,18 @@ export function addFrameOfLayers(
   return key
 }
 
+/** A frame added for text: its design's key, and the text layer's id. */
+export interface FrameOfText {
+  key: string
+  node: string
+}
+
 /**
  * Text on the empty canvas, from the text tool or a paste: a text layer in a frame that hugs it, with its top left
  * `at`, named after its text (`frameOfText`), as one undo step, `label`. The frame is selected. Returns its key and the
  * text layer's id, which the text tool edits in place.
  */
-export function addFrameOfText(
-  session: ProjectSession,
-  text: string,
-  at: Point,
-  label: string
-): { key: string; node: string } {
+export function addFrameOfText(session: ProjectSession, text: string, at: Point, label: string): FrameOfText {
   const { store, selection } = session
 
   const { design, node } = frameOfText(

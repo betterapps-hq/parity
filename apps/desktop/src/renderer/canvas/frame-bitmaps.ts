@@ -1,4 +1,11 @@
-import { type FrameGeometry, offscreenWindows, type RenderNode, type ResolvedMode, turns } from "@parity-app/core"
+import {
+  type FrameGeometry,
+  type Guest,
+  offscreenWindows,
+  type RenderNode,
+  type ResolvedMode,
+  turns
+} from "@parity-app/core"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { react } from "tldraw"
 import type { RenderJob, ServiceMethods } from "../../shared/protocol.ts"
@@ -53,7 +60,7 @@ export function bitmapsWaiting(): number {
   return waiting
 }
 
-const guests = new WeakMap<object, number>()
+const guests = new WeakMap<Guest, number>()
 let nextGuest = 1
 
 /** What a frame shows, as keys, and the job that draws it offscreen. */
@@ -87,13 +94,13 @@ export function useFrameShows(
   const job = useMemo(
     () =>
       renderJob(
-        { projectId: session.id, guestUrl, ...(added ? { components: added } : {}), theme },
+        { projectId: session.id, guestUrl, components: added, theme },
         {
           tree,
           mode,
           frame: {
             width,
-            ...(height === undefined ? {} : { height }),
+            height,
             viewport: { width: viewportWidth, height: viewportHeight }
           },
           scale: bitmapScale * scale,
@@ -122,6 +129,13 @@ export function useFrameShows(
   const id = guestId(guest)
 
   return useMemo(() => ({ ...frameKeys(job, { id }), job }), [job, id])
+}
+
+/** The bitmap `useFrameBitmap` last showed, and the frame it's of. */
+interface ShownBitmap {
+  key: string
+  src?: string
+  height?: number
 }
 
 /** A frame's bitmap, as `useFrameBitmap` has it. */
@@ -155,7 +169,7 @@ export function useFrameBitmap(
   measure?: () => number | undefined,
   holding?: () => boolean
 ): FrameBitmap {
-  const [shown, setShown] = useState<{ key: string; src?: string; height?: number }>()
+  const [shown, setShown] = useState<ShownBitmap>()
   // The key whose capture failed, until a later try gives its bitmap.
   const [failedKey, setFailedKey] = useState<string>()
   // A new job for the same key draws the same, so it doesn't start the wait or the retries again: each try takes the
@@ -201,7 +215,13 @@ export function useFrameBitmap(
           setFailedKey(key)
           timer = setTimeout(() => take(attempt + 1), retryMs * Math.min(2 ** attempt, 8))
         } else {
-          setShown({ key, src, ...(heights.has(key) ? { height: heights.get(key) } : {}) })
+          const shownNow: ShownBitmap = { key, src }
+
+          if (heights.has(key)) {
+            shownNow.height = heights.get(key)
+          }
+
+          setShown(shownNow)
         }
       })
 
@@ -243,12 +263,7 @@ export function useFrameBitmap(
   }
 
   if (shown?.src) {
-    return {
-      src: shown.src,
-      ...(shown.height === undefined ? {} : { height: shown.height }),
-      pending: true,
-      stale: true
-    }
+    return { ...keptBitmap(shown.src, shown.height), pending: true, stale: true }
   }
 
   return { pending: true }
@@ -308,7 +323,7 @@ export async function frameBitmap({ key, job }: FrameShows): Promise<string | un
   try {
     const src = await capture(key, job)
 
-    return typeof src === "string" ? src : undefined
+    return src === failed ? undefined : src
   } finally {
     want(key, -1)
   }
@@ -432,13 +447,11 @@ async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | und
 
   if (captured) {
     return captured.then((src) => {
-      if (typeof src !== "string") {
+      if (src === undefined || src === failed) {
         return undefined
       }
 
-      const height = heights.get(key)
-
-      return { src, ...(height === undefined ? {} : { height }) }
+      return keptBitmap(src, heights.get(key))
     })
   }
 
@@ -454,7 +467,18 @@ async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | und
 
   forgetOldest()
 
-  return { src, ...(height === undefined ? {} : { height }) }
+  return keptBitmap(src, height)
+}
+
+/** A bitmap and the height kept with it, which it leaves out when there's none. */
+function keptBitmap(src: string, height: number | undefined): KeptBitmap {
+  const kept: KeptBitmap = { src }
+
+  if (height !== undefined) {
+    kept.height = height
+  }
+
+  return kept
 }
 
 /** Lets go of the bitmaps asked for least recently, past the most kept. */
@@ -496,7 +520,13 @@ export function capture(
     }
 
     const height = measure?.()
-    const taken = await request("frames.capture", { job, ...(height ? { height } : {}) })
+    const asked: ServiceMethods["frames.capture"]["params"] = { job }
+
+    if (height) {
+      asked.height = height
+    }
+
+    const taken = await request("frames.capture", asked)
 
     if (taken.src === undefined) {
       return undefined
@@ -510,12 +540,12 @@ export function capture(
     return taken.src
   })
 
-  const settled = taking.catch((error: unknown): typeof failed => {
+  const settled = taking.catch((cause: unknown): typeof failed => {
     if (bitmaps.get(key) === settled) {
       bitmaps.delete(key)
     }
 
-    failedRender(key, error, job.design)
+    failedRender(key, cause, job.design)
 
     return failed
   })
@@ -540,7 +570,7 @@ export function want(key: string, change: 1 | -1): void {
  * The project's guest module as the page loaded it. A reopened project loads a new one, at a new address, so bitmaps
  * drawn before never stand in for its frames.
  */
-function guestId(guest: object): number {
+function guestId(guest: Guest): number {
   let id = guests.get(guest)
 
   if (id === undefined) {

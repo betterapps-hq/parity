@@ -3,6 +3,7 @@ import { actions } from "../chrome/actions.ts"
 import { type Command, keymap, shortcutFor } from "../chrome/keymap.ts"
 import type { ProjectSession } from "../workspace.ts"
 
+// SAFETY: `keymap` has a key for each command and no others.
 const commands = Object.keys(keymap) as Command[]
 const appCommands = commands.filter((command) => actions[command].scope === "app")
 const canvasCommands = commands.filter((command) => actions[command].scope !== "app")
@@ -55,6 +56,7 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
         return
       }
 
+      // SAFETY: key events reach the window from the focused element, or from the body when nothing has focus.
       const target = event.target as HTMLElement | null
       // A menu or dialog playing its closing animation still holds focus for a moment, but its keys, a field's in it
       // included, are the canvas's again: Ctrl+Z straight after picking an item undoes it (PAR-424).

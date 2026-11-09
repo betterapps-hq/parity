@@ -3,6 +3,8 @@ import { describe, expect, it } from "vite-plus/test"
 import { toggleShownMode, withShownModes } from "./view.ts"
 
 const all = resolveModes(defaultModeSettings)
+
+// SAFETY: the example project has these four modes.
 const [desktop, desktopDark, tablet, mobile] = all.map((mode) => mode.id) as [string, string, string, string]
 
 describe("shown modes", () => {

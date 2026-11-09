@@ -1,9 +1,10 @@
 import { type Bounds, panToShow, viewMargin } from "@parity-app/editor"
-import { type Atom, atom, type Editor, react, type TLShapeId } from "tldraw"
+import { type Atom, atom, type Editor, react } from "tldraw"
+import { type CanvasId } from "./tldraw-names.ts"
 
 /** Everything on the canvas page, designs and notes, for copies of designs to keep clear of (`freeSpotBeside`). */
 export function takenBounds(editor: Editor): Bounds[] {
-  return editor.getCurrentPageShapes().flatMap((shape) => editor.getShapePageBounds(shape) ?? [])
+  return editor.getCurrentPageShapes().flatMap((item) => editor.getShapePageBounds(item) ?? [])
 }
 
 /**
@@ -23,13 +24,13 @@ export function bringIntoView(editor: Editor, target: Bounds): void {
 }
 
 /** Each canvas's boards that have taken the size their content draws at, which a board just made doesn't have yet. */
-const sizedBoards = new WeakMap<Editor, Atom<ReadonlySet<TLShapeId>>>()
+const sizedBoards = new WeakMap<Editor, Atom<ReadonlySet<CanvasId>>>()
 
-function sizedOn(editor: Editor): Atom<ReadonlySet<TLShapeId>> {
+function sizedOn(editor: Editor): Atom<ReadonlySet<CanvasId>> {
   let sized = sizedBoards.get(editor)
 
   if (!sized) {
-    sized = atom("sized boards", new Set<TLShapeId>())
+    sized = atom("sized boards", new Set<CanvasId>())
     sizedBoards.set(editor, sized)
   }
 
@@ -37,7 +38,7 @@ function sizedOn(editor: Editor): Atom<ReadonlySet<TLShapeId>> {
 }
 
 /** Says whether a board's shape has the size its content draws at, as its board measures it (see ContainerContent). */
-export function setBoardSized(editor: Editor, id: TLShapeId, sized: boolean): void {
+export function setBoardSized(editor: Editor, id: CanvasId, sized: boolean): void {
   const boards = sizedOn(editor)
 
   if (boards.get().has(id) === sized) {
@@ -63,7 +64,7 @@ const sizingPatience = 2000
  * another project, a design's size isn't known until its board draws it. One that isn't drawn by then, as in a tab
  * that isn't showing, leaves the view alone.
  */
-export function bringIntoViewOnceSized(editor: Editor, ids: readonly TLShapeId[]): void {
+export function bringIntoViewOnceSized(editor: Editor, ids: readonly CanvasId[]): void {
   if (ids.length === 0) {
     return
   }

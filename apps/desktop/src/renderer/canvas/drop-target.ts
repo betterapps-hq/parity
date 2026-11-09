@@ -26,11 +26,13 @@ export class DragLayouts {
     const measured: MeasuredLayer[] = []
     walkNodes(root, (node) => {
       const element = node.type === "layout" ? findNodeElement(host, node.id) : undefined
-      measured.push({
-        id: node.id,
-        box: nodeBox(host, node.id),
-        ...(element ? { flow: flowOf(getComputedStyle(element)) } : {})
-      })
+      const layer: MeasuredLayer = { id: node.id, box: nodeBox(host, node.id) }
+
+      if (element) {
+        layer.flow = flowOf(getComputedStyle(element))
+      }
+
+      measured.push(layer)
     })
     const layout = frameLayout(host.getBoundingClientRect(), measured)
     this.frames.set(host, layout)

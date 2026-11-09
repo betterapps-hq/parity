@@ -265,7 +265,7 @@ Reviews of the proposal raised these, and they were decided as follows.
   both of `AppMenu.tsx`'s take `font-normal text-muted-foreground`, a message at the menu's own size. The kit's other
   menu labels (`DropdownMenuLabel`, `ContextMenuLabel`, a `CommandGroup`'s heading) are already 12px medium gray, a
   Group label.
-- **People's own text keeps its own settings.** Notes on the canvas take `font-[400]` (`NoteShapeUtil.tsx`), and their
+- **People's own text keeps its own settings.** Notes on the canvas take `font-[400]` (`NoteUtil.tsx`), and their
   textarea `[font-feature-settings:normal]`, so letters don't change shape between editing and showing. The editor over
   a design's text (`TextEditor.tsx`) copies `fontFeatureSettings`, `fontVariantLigatures`, `fontVariationSettings` and
   `fontKerning` from the text's computed style along with its family, weight and size, so the input rule's `ss04` and

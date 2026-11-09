@@ -33,6 +33,7 @@ import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { SpacingBar } from "../chrome/token-previews.tsx"
 import { KeyHints } from "./KeyHints.tsx"
+import type { SpacingValue } from "./spacing-edit.ts"
 
 /**
  * The pink padding and gaps are shaded in, as the hatching around a selected layout is. A value's chip takes a darker
@@ -61,7 +62,7 @@ export interface SpacingHandlesProps {
   /** The project's length tokens, listed beside the box a value is typed in. */
   tokens: readonly LengthToken[]
   /** What each handle's value is now: in layout pixels, with the token it's bound to. */
-  valueOf: (handle: SpacingHandle) => { px: number; token?: string }
+  valueOf: (handle: SpacingHandle) => SpacingValue
   /** The handle being dragged, the value it's come to and the padding sides it changes. */
   dragging?: { key: string; px: number; token?: string; sides?: readonly PaddingSide[] }
   /** A handle pressed: the caller follows the press, and calls `type` when it's released without dragging. */
@@ -205,13 +206,10 @@ export function SpacingHandles({
                 aria-valuetext={`${px(value.px)}px${scaleName ? `, ${scaleName}` : ""}`}
                 aria-orientation={across ? "vertical" : "horizontal"}
                 className="spacing-handle pointer-events-auto absolute m-0 appearance-none rounded-sm bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-(--spacing-color) [&::-webkit-slider-runnable-track]:appearance-none [&::-webkit-slider-thumb]:size-0 [&::-webkit-slider-thumb]:appearance-none"
-                style={
-                  {
-                    ...place(handle.hit),
-                    cursor: across ? "ns-resize" : "ew-resize",
-                    "--spacing-color": spacingColor
-                  } as CSSProperties
-                }
+                style={Object.assign(
+                  { ...place(handle.hit), cursor: across ? "ns-resize" : "ew-resize" },
+                  { "--spacing-color": spacingColor }
+                )}
                 onPointerEnter={() => setHovered(key)}
                 onPointerLeave={() => setHovered((current) => (current === key ? undefined : current))}
                 onFocus={() => setFocused(key)}
@@ -265,7 +263,7 @@ export function SpacingHandles({
 }
 
 /** What the box a value is typed in starts with: the token a value is bound to, or its pixels. */
-function startText(value: { px: number; token?: string }): string {
+function startText(value: SpacingValue): string {
   return value.token ?? String(px(value.px))
 }
 

@@ -65,25 +65,6 @@ const trackedInputs = [{ auto: true }, "!node_modules", "!node_modules/.vite/**"
  */
 const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
   {
-    issue: "PAR-745",
-    files: ["apps/desktop/src/renderer/canvas/**"],
-    rules: [
-      "anti-slop/no-array-filter-map",
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/no-conditional-empty-object-spread",
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-object-parameters",
-      "anti-slop/no-reflect-get",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-shape-in-symbol-names",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion",
-      "no-bitwise"
-    ]
-  },
-  {
     issue: "PAR-751",
     files: [
       "apps/desktop/scripts/**",

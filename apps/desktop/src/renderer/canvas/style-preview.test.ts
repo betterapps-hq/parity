@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url"
-import type { ContainerSpec } from "@parity-app/core"
+import type { ContainerSpec, NodeStyle } from "@parity-app/core"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
@@ -104,7 +104,7 @@ beforeAll(async () => {
   await page.goto("http://parity.test/")
 
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof preview === "object"))) {
+  if (!(await page.evaluate(() => globalThis.preview !== undefined))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
   }
 })
@@ -122,7 +122,8 @@ beforeEach(async () => {
   }, design)
 })
 
-type Edit = Record<string, unknown>
+/** A style edit, where null takes a property off. */
+type Edit = Record<string, NodeStyle[keyof NodeStyle] | null>
 
 /** Previews a style edit of a node in the base design, as the inspector's fields do. */
 function show(nodeId: string, style: Edit) {

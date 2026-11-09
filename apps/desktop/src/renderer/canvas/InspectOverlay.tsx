@@ -52,7 +52,7 @@ export function InspectOverlay() {
     area.dataset.inspecting = ""
 
     const under = (event: PointerEvent) => {
-      if (!area.contains(event.target as Node)) {
+      if (!(event.target instanceof Node && area.contains(event.target))) {
         return undefined
       }
 
@@ -65,7 +65,7 @@ export function InspectOverlay() {
     const move = (event: PointerEvent) => setPointed(under(event))
 
     const press = (event: PointerEvent) => {
-      if (event.button !== 0 || !area.contains(event.target as Node)) {
+      if (event.button !== 0 || !(event.target instanceof Node && area.contains(event.target))) {
         return
       }
 
