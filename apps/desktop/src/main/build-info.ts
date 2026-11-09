@@ -1,4 +1,4 @@
-import { finiteNumber } from "@parity-app/core"
+import { finiteNumber, type JsonValue } from "@parity-app/core"
 import { z } from "zod"
 import type { BuildInfo } from "../shared/protocol.ts"
 import { githubRelease, releaseSummary } from "./github-releases.ts"
@@ -14,11 +14,17 @@ const appManifest = z.looseObject({
   commit: z.string().optional().catch(undefined)
 })
 
+/** Whether the release workflow published this build, and the commit it was made from. */
+export interface BuiltRelease {
+  published: boolean
+  commit?: string
+}
+
 /**
  * What names a built app's Sentry release (PAR-625): whether the release workflow published it, which marks it beta,
  * and the commit it was made from. Neither for one run from source.
  */
-export function builtRelease(metadata: () => unknown): { published: boolean; commit?: string } {
+export function builtRelease(metadata: () => JsonValue): BuiltRelease {
   try {
     const manifest = appManifest.safeParse(metadata()).data
 
@@ -36,6 +42,9 @@ const savedBuild = z.looseObject({
   checkedAt: finiteNumber.optional().catch(undefined)
 })
 
+/** What `installed-build.json` is written with. */
+export type SavedBuild = z.input<typeof savedBuild>
+
 /** Version-keyed offline identity. Promotion changes GitHub metadata, never the installed artifacts. */
 export class InstalledBuild {
   private info: BuildInfo
@@ -46,9 +55,11 @@ export class InstalledBuild {
     private readonly options: {
       version: string
       packaged: boolean
-      metadata?: () => unknown
-      read: () => unknown
-      save: (value: unknown) => void
+      /** The app's package.json, as JSON. */
+      metadata?: () => JsonValue
+      /** `installed-build.json`, as JSON. */
+      read: () => JsonValue
+      save: (value: SavedBuild) => void
       request?: typeof fetch
       now?: () => number
     }
@@ -111,10 +122,11 @@ export class InstalledBuild {
       const release = status === 200 ? releaseSummary.safeParse(data).data : undefined
 
       if (release?.tag_name === tag && !release.draft) {
-        this.info = { version: this.options.version, channel: release.prerelease ? "beta" : "stable" }
+        const channel = release.prerelease ? "beta" : "stable"
+        this.info = { version: this.options.version, channel }
 
         try {
-          this.options.save({ ...this.info, checkedAt: this.now() })
+          this.options.save({ version: this.options.version, channel, checkedAt: this.now() })
         } catch {
           // Read-only user data must not hide a successfully resolved identity.
         }

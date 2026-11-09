@@ -29,7 +29,7 @@ describe("the render page's answers", () => {
 
 describe("calls into the render page", () => {
   /** Runs `pageCall`'s script as the page would, with `page` as its window, and reads the answer as main does. */
-  async function callPage(call: string, page: Record<string, unknown>): Promise<unknown> {
+  async function callPage(call: string, page: Record<string, () => number | undefined | Promise<void>>) {
     return pageAnswer(await runInNewContext(pageCall(call), { window: page, Error }))
   }
 
@@ -46,7 +46,7 @@ describe("calls into the render page", () => {
       canvasHeight: () => {
         throw broken
       }
-    }).catch((error: unknown) => error)
+    }).catch((cause: unknown) => cause)
 
     expect(thrown).toBeInstanceOf(PageError)
     expect(thrown).toMatchObject({

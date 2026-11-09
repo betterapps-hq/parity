@@ -8,8 +8,13 @@ import { CodedError, errorDetails, readErrorDetails } from "@parity-app/core"
 export const codedErrors: ErrorCodec = {
   encode(error) {
     const details = errorDetails(error)
+    const encoded: ReturnType<ErrorCodec["encode"]> = { error: errorMessage(error) }
 
-    return { error: errorMessage(error), ...(details ? { details } : {}) }
+    if (details) {
+      encoded.details = details
+    }
+
+    return encoded
   },
   decode(message, details) {
     const read = readErrorDetails(details)

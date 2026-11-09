@@ -1,13 +1,17 @@
-import type { TelemetryLevel } from "@parity-app/telemetry"
+import type { Envelope, TelemetryLevel } from "@parity-app/telemetry"
 import type { BrowserWindow } from "electron"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
+
+/** The part of a Sentry event a report's processor changes: the feedback's replay. */
+interface FeedbackEvent {
+  contexts?: { feedback?: { replay_id?: string } }
+}
 
 const sentry = vi.hoisted(() => {
   const scope = {
     setPropagationContext: vi.fn<(context: { traceId: string }) => void>(),
     setTags: vi.fn<(tags: Record<string, string>) => void>(),
-    addEventProcessor:
-      vi.fn<(processor: (event: { contexts?: Record<string, Record<string, unknown>> }) => unknown) => void>()
+    addEventProcessor: vi.fn<(processor: (event: FeedbackEvent) => FeedbackEvent) => void>()
   }
 
   const options = { enabled: false }
@@ -16,7 +20,7 @@ const sentry = vi.hoisted(() => {
     scope,
     options,
     getClient: () => ({ getOptions: () => options }),
-    withScope: (work: (given: typeof scope) => unknown) => work(scope),
+    withScope: <Result>(work: (given: typeof scope) => Result) => work(scope),
     captureFeedback: vi.fn<
       (
         feedback: { message: string; source: string; associatedEventId?: string },
@@ -36,18 +40,20 @@ vi.mock("./telemetry.ts", () => ({ scrubber: { value: (text: string) => text } }
 const { createReports, feedbackLink, reportsOff } = await import("./report.ts")
 
 /** The editor window, whose screenshot is a few bytes. */
-const window = {
+// SAFETY: reports only capture the window's page, and only ask the picture whether it's empty and for its PNG.
+const window: BrowserWindow = {
   webContents: { capturePage: async () => ({ isEmpty: () => false, toPNG: () => Buffer.from("window") }) }
-} as unknown as BrowserWindow
+} as never
 
 function reports(level: TelemetryLevel = "all") {
-  const track = vi.fn<(name: string, attributes: Record<string, unknown>) => void>()
+  const track = vi.fn<(name: string, attributes: Envelope["attributes"]) => void>()
 
   const created = createReports({
     readEvents: () => [],
     flushLogs: () => undefined,
     sessionId: "s1",
     offerCrash: false,
+    // SAFETY: reports only track events with the telemetry they're given.
     telemetry: { track } as never,
     level: () => level
   })
@@ -79,9 +85,9 @@ describe("an agent's report (PAR-646)", () => {
     expect(sentry.scope.setPropagationContext).toHaveBeenCalledWith(
       expect.objectContaining({ traceId: problem.traceId })
     )
-    const event = { contexts: { feedback: {} as Record<string, unknown> } }
+    const event: FeedbackEvent = { contexts: { feedback: {} } }
     sentry.scope.addEventProcessor.mock.calls[0]![0](event)
-    expect(event.contexts.feedback.replay_id).toBe("r1")
+    expect(event.contexts?.feedback?.replay_id).toBe("r1")
     const names = hint.attachments.map((attachment) => attachment.filename)
     expect(names.slice(0, 2)).toEqual(["screenshot.png", "signup default mobile.png"])
     expect(sent).toEqual({
