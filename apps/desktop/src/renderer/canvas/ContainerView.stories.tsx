@@ -80,11 +80,8 @@ export const ZoomedOut: Story = onCanvas(
   () => example().editor?.zoomToFit()
 )
 
-/**
- * Frames, the light kind (PAR-539), on today's board until PAR-545 gives them their own: a new one at 480 by 320, and the
- * Sign in screen turned into one. Each shows one preview, in the primary mode, at its own size.
- */
-export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], () => {
+/** Adds two frames: a new one at 480 by 320, and the Sign in screen turned into one. */
+function addFrames(): void {
   const { store } = example()
   const taken = store.getEntries().map((entry) => entry.container.id)
   const blank = newDesign("frame", taken, { x: -1400, y: -900 }, { size: { width: 480, height: 320 } })
@@ -116,7 +113,18 @@ export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], () =>
     name: "Sign in sketch",
     position: { x: -1400, y: -300 }
   })
-})
+}
+
+/**
+ * Frames, the light kind (PAR-539, PAR-545): no board, just the name above, smaller than a board's title, and the
+ * design at its own size in the primary mode.
+ */
+export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], addFrames)
+
+/** A frame selected: its name and icon in the layer color, its size under it, and handles on the right and bottom. */
+export const SelectedFrame: Story = onCanvas(["Pricing ideas", "Sign in sketch"], addFrames, () =>
+  example().selection.set({ design: design("Pricing ideas") })
+)
 
 /** Free text notes beside a design, for comments and to-dos on the canvas. */
 export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {

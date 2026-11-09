@@ -17,6 +17,7 @@ import type {
   Size,
   StateSpec
 } from "./document.ts"
+import { isNamedLength } from "./document.ts"
 import type { ResolvedMode } from "./modes.ts"
 
 /**
@@ -716,8 +717,7 @@ function mergeUnset<K extends string>(
 
 /** A step of the spacing scale (a multiple of the project's spacing unit), or a length token. */
 export function spacing(value: Length): string {
-  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a length is a step (number) or a token name (string), with no tag
-  if (typeof value === "string") {
+  if (isNamedLength(value)) {
     return token(value)
   }
 

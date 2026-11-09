@@ -1,3 +1,5 @@
+import { isNamedLength } from "./document.ts"
+
 /**
  * What the inspector's number and length fields read from what's typed, and how they step. A field reads a number, a
  * unit (`px`, `rem` or `%`), maths (`+ - * /` and brackets), and the value already there: a leading `+`, `*` or `/`
@@ -186,8 +188,7 @@ export function formatFieldValue(value: number | string | undefined, rules: Fiel
     return ""
   }
 
-  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a field's value is a length (number) or a token name (string), with no tag
-  if (typeof value === "string") {
+  if (isNamedLength(value)) {
     return value
   }
 
@@ -282,8 +283,7 @@ export interface OffScaleFlag {
 
 /** The flag for a length field's value when it's a number off the spacing scale; otherwise nothing. */
 export function offScaleFlag(value: number | string | undefined, rules: FieldRules): OffScaleFlag | undefined {
-  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a field's value is a length (number) or a token name (string), with no tag
-  if (rules.kind !== "length" || typeof value !== "number" || onSpacingGrid(value)) {
+  if (rules.kind !== "length" || value === undefined || isNamedLength(value) || onSpacingGrid(value)) {
     return undefined
   }
 

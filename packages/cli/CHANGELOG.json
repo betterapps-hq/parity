@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 12:29:45 GMT",
+      "version": "0.30.0",
+      "tag": "@parity-app/cli_v0.30.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "9f75a30063b702cc9d93219e599be6821f10950a",
+            "comment": "Rebuild the canvas toolbar: tools with menus, a review button whose Comment and annotation tools warp the toolbar into their own bars, and Zoom in its own corner"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 12:11:43 GMT",
       "version": "0.29.1",
       "tag": "@parity-app/cli_v0.29.1",

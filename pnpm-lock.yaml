@@ -570,6 +570,9 @@ importers:
       '@parity-app/telemetry':
         specifier: workspace:*
         version: link:../telemetry
+      '@types/semver':
+        specifier: ^7.8.0
+        version: 7.8.0
 
   packages/code:
     dependencies:

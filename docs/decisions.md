@@ -1,5 +1,27 @@
 # Decisions
 
+- **The CLI goes to npm's `next` tag, and to `latest` when you approve it (PAR-799).** You chose on 2026-11-09 to
+  promote the CLI the way the desktop app is promoted, with its own approval. Every merge publishes the CLI to `next`,
+  and `cd-npm.yml`'s Production job then waits in the `production` environment; approving it runs
+  `npm dist-tag add @parity-app/cli@<version> latest`, so nothing is rebuilt or republished. Running `cd-npm.yml` by
+  hand with a version promotes one already on npm. My calls:
+  - **The steps are in this repository, not the shared template.** `cd-npm-release` already takes a `tag` and reports
+    the versions it published, so publishing to `next` is one input, and the promotion is one job that has to sit in
+    `cd-npm.yml` anyway, since npm's trusted publishers name that file. Pipelines and its other users are unchanged.
+  - **The promotion uses trusted publishing, with no npm token.** Since 2026-09-30 a trusted publisher can be allowed
+    `npm dist-tag`. @parity-app/cli gets a second trusted publisher for `cd-npm.yml` in the `production` environment,
+    allowed only dist-tags, so the job that changes `latest` can't publish, and the one that publishes can't change
+    `latest`.
+  - **The CLI reports `production` once its version has been `latest`.** The CLI's detached sender asks npm's registry
+    for the dist-tags after it sends, and keeps the answer in `~/.parity/installed-cli.json`, so a command never waits
+    on npm and offline keeps the last answer. The next command reports from it. A version newer than `latest` is a beta;
+    an older one keeps what was saved, so a version that was `latest` stays `production` after a newer one is promoted,
+    as a promoted desktop release does. Moving `latest` back to an older version makes the newer one a beta again, since
+    a rollback pulls it.
+  - **The desktop's cache is shared, not copied.** `Promotion` in `@parity-app/telemetry` keeps a version's answer, asks
+    again after five minutes, shares one request between callers and survives files it can't read or write. The desktop
+    app's `InstalledBuild` asks GitHub through it, and the CLI asks npm.
+
 - **CI installs Electron up front, caches its downloads, and tries them up to 3 times (PAR-789).** GitHub's releases
   answered Electron's downloads with 504s often enough to fail CI, the app tests and the preview installers, where a
   re-run passed. Electron 45 downloads its binary the first time something loads it, so `pnpm build` and the app tests
@@ -2258,7 +2280,8 @@ the Repository, CI and releases stream in Linear.
   - **It needs Node 24,** as the repository does.
   - **Provenance comes from trusted publishing in CI, not `publishConfig`,** since npm only makes it in CI and the first
     version is published by hand, which npm needs before it can trust the workflow. 0.0.0 went up by hand on 2026-10-30,
-    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its only publisher, which releases it still.
+    and `npm trust` then named `cd-npm.yml` and the `npm` environment as its publisher, which releases it still. A
+    second publisher, for the `production` environment and allowed only dist-tags, promotes it (PAR-799).
   - **`pnpm --filter @parity-app/cli try-packed` installs the packed tarball in an empty folder and runs it.** CI runs
     it on each system. The packed tarball is 2.6 MB.
 - **Hooks keep what doesn't belong out of pull requests (PAR-3),** as you asked on 2026-10-29. My calls:
@@ -4907,8 +4930,8 @@ links are in [sentry.md](sentry.md#alerts). My calls:
 
 ## The rest of signing in is designed (PAR-614)
 
-You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories are under
-Parity/Explorations/Sign in, and the screens they settle are in
+You asked on 2026-11-05 for every missing sign-in design before PAR-612 builds it. The stories were under
+Parity/Explorations/Sign in until the app built them (Parity/Sign in, PAR-798), and the screens they settle are in
 [proposals/sign-in.md](proposals/sign-in.md#the-screens). My calls:
 
 - **The stories are one prototype,** each starting at a different point, as the start page's are. The browser can't be
@@ -4944,7 +4967,8 @@ Parity/Explorations/Sign in, and the screens they settle are in
 - **A `pnpm dev` copy's loopback answers once the code is traded,** so its page can say whether that worked: "You're
   signed in to Parity" or "Parity couldn't sign you in", and that the tab can be closed. It's plain HTML with no
   scripts, light or dark as the system is, and says nothing about which copy it came from (your call). `handBackHtml` in
-  the exploration is the page. Installed apps hand back through `parity://`, where the browser shows its own prompt.
+  `shared/hand-back-page.ts` is the page. Installed apps hand back through `parity://`, where the browser shows its own
+  prompt.
 - **Without a keyring, a toast says so once,** right after signing in: "You're signed in until you quit Parity", with
   What to do. The account menu keeps saying it under your name, and both open a dialog that explains and names GNOME
   Keyring and KWallet. The sign-in screen says nothing beforehand, since most people never meet it.
@@ -6727,3 +6751,25 @@ person reloaded. My calls:
   quitting don't restart it.
 - **`service.exited`'s `restarted` is true when a fresh service takes its place,** whether it replaced the old one or
   started after it crashed.
+
+## The toolbar and review tools (PAR-780, PAR-795)
+
+You settled the toolbar in its exploration (Parity/Explorations/Toolbar) and asked on 2026-11-09 for it to be built into
+the app, with the exploration's bars removed. PAR-795 builds it;
+[editor.md](editor.md#the-toolbar-review-tools-and-zoom-par-780-par-795) says how it works.
+
+- **The toolbar is what the pointer does, Frame, Text and Insert, then the review button, then Search actions.** Move
+  and select, Hand and Interact share one button with a menu, as Figma's Move holds Hand. Frame's icon is in the layer
+  blue and Text's in text's green (PAR-792); Insert's stays plain. In Frame's menu New screen is screen blue and New
+  component component purple.
+- **Zoom has its own corner, at the top right:** Zoom out, the level, Zoom in and Zoom to fit. Undo and Redo leave the
+  canvas, as designed, for the Edit menu and their keys.
+- **Every review tool, Comment included, warps the toolbar into its own bar,** with the same warp for each. A kind of
+  annotation's bar has its options as stamps, Suggest and Done.
+- **The review tools are in the app before annotations and comments can be placed.** You chose on 2026-11-09 to wire
+  them in now: picking one warps the toolbar and puts the canvas on Move and select, so a click only selects until
+  PAR-184 places annotations.
+- **The icons:** Content is a pilcrow, so it doesn't read as the Text tool, and Behaviour keeps MousePointerClick.
+  Changes state is ToggleRight, Data is Braces, Analytics is ChartColumn, Landmark is PanelsTopLeft and Motion is Film.
+- **The bar beside the toolbar stays in the stories** (Parity/Collaboration/Annotations/Toolbar, WhileReviewing), as you
+  may use it later. The PAR-184 bars from the exploration are gone.

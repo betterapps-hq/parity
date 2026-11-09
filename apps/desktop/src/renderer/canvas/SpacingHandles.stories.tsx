@@ -1,4 +1,4 @@
-import type { Length, NodeStyle } from "@parity-app/core"
+import { isNamedLength, type Length, type NodeStyle } from "@parity-app/core"
 import {
   type Edge,
   type LayerResizeStart,
@@ -517,8 +517,7 @@ const toBox = (rect: Rect) => ({ x: rect.left, y: rect.top, w: rect.right - rect
 // Drawing the stand-in from its style, as Tailwind would: lengths in steps of 4px, or a token's value.
 
 function px(length: Length | undefined, tokens: readonly LengthToken[]): number {
-  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a length is steps or a token's name, with no tag to tell them apart
-  if (typeof length === "number") {
+  if (length !== undefined && !isNamedLength(length)) {
     return length * unit
   }
 
@@ -600,8 +599,7 @@ function valueOf(handle: SpacingHandle, style: NodeStyle, measured: Measured, to
   const written = handle.kind === "gap" ? style.gap : sidesOf(style.padding)?.[paddingSides.indexOf(handle.side)]
   const drawn = handle.kind === "gap" ? measured.gap : measured.padding[handle.side]
 
-  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a length is steps or a token's name, with no tag to tell them apart
-  const named = typeof written === "string" ? written : undefined
+  const named = isNamedLength(written) ? written : undefined
   const token = tokens.some((candidate) => candidate.name === named) ? named : undefined
 
   const value: SpacingValue = { px: drawn }

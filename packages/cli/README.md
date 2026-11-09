@@ -21,6 +21,9 @@ or install it to get the `parity` command:
 npm install --global @parity-app/cli
 ```
 
+That's the version released to everyone, npm's `latest`. Every change to Parity is published to `next` first, for
+testers: `npx @parity-app/cli@next` runs it, and `npm install --global @parity-app/cli@next` installs it.
+
 Most commands act on a project open in a running Parity app: the one `--tab` names, else the one the current folder is
 in, else the active tab of the Parity window used last (`--tab active` names that one). `parity lib` runs without the
 app.

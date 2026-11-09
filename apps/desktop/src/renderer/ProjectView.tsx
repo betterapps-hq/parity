@@ -11,11 +11,12 @@ import { TabOrderOverlay } from "./canvas/TabOrderOverlay.tsx"
 import { CanvasMenu } from "./chrome/CanvasMenu.tsx"
 import { ConsolePanel, ResizeTop } from "./chrome/ConsolePanel.tsx"
 import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
+import { FloatingToolbar } from "./chrome/FloatingToolbar/FloatingToolbar.tsx"
 import { Inspector } from "./chrome/Inspector.tsx"
 import { setLayout, useLayout } from "./chrome/layout.ts"
 import { LeftPanel } from "./chrome/LeftPanel.tsx"
 import { StatusBar } from "./chrome/StatusBar.tsx"
-import { FloatingToolbar, ViewControls } from "./chrome/Toolbar.tsx"
+import { ZoomControls } from "./chrome/ZoomControls.tsx"
 import { startPreviews } from "./component-previews.ts"
 import { keepProjectPicture } from "./project-picture.ts"
 import { OpeningProject, ProjectFailed } from "./ProjectStatus.tsx"
@@ -148,8 +149,8 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
         <ErrorBoundary name="canvas.toolbar" label="Toolbar" kind="silent">
           <FloatingToolbar />
         </ErrorBoundary>
-        <ErrorBoundary name="canvas.view-controls" label="View controls" kind="silent">
-          <ViewControls />
+        <ErrorBoundary name="canvas.view-controls" label="Zoom" kind="silent">
+          <ZoomControls />
         </ErrorBoundary>
       </div>
     </CanvasMenu>

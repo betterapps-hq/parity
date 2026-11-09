@@ -162,8 +162,7 @@ function made(value: MadeValue, host: ValueHost, kind: ValueKind): unknown {
   const { import: specifier, export: name } = value.$call
   const fn = host.exported(specifier, name)
 
-  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a module's export is checked where it's called
-  if (typeof fn !== "function") {
+  if (!(fn instanceof Function)) {
     throw new Error(`${specifier} has no function ${name}`)
   }
 
@@ -174,8 +173,7 @@ function made(value: MadeValue, host: ValueHost, kind: ValueKind): unknown {
     // As `result?.[step.method]` reads it: `Object` wraps a primitive, so a string's methods are found on it too.
     const method = result === null || result === undefined ? undefined : Object(result)[step.method]
 
-    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- what a package's function made is checked where it's called
-    if (typeof method !== "function") {
+    if (!(method instanceof Function)) {
       continue
     }
 

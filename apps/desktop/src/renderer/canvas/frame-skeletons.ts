@@ -1,6 +1,6 @@
 import { type DrawnBox, type FrameSkeleton, frameSkeleton } from "@parity-app/core"
 import { type RefObject, useEffect, useState } from "react"
-import { flagsOf } from "./bits.ts"
+import { flagsOf } from "../bits.ts"
 
 /** How long a frame stays the same before it's measured, as long as before its bitmap is taken. */
 const settleMs = 1000

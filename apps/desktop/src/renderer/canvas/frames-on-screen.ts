@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { fnv1a } from "./bits.ts"
+import { fnv1a } from "../bits.ts"
 
 /**
  * The frames on the canvas, for Parity's errors and failed renders (PAR-624). An error from the window carries the list
