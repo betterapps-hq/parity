@@ -226,12 +226,12 @@ Hovering a value opens its field in a popover after a moment, and pressing it or
 needn't fit a field, a unit menu or a token's chip on every side. Padding is hatched in its color, as the canvas shades
 it, and margin is flat in its own within a dashed edge. Both are the canvas's padding pink for now. The Margin colors
 story compares pairs that would tell them apart, beside the colors the canvas already uses for screens and layers,
-components, modes, agents, the tab order and padding. Two pairs are left, padding's color first: pink and cyan, and
-green and purple, modes' and components' colors. Green padding would change padding's color on the canvas too. Margin
-has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`), and hovering a side highlights it.
-Horizontal and vertical are written as `px-*` and `py-*`, which v4 compiles to `padding-inline` and `padding-block`, so
-they follow writing direction; separate sides are physical (`pl-4`), and a Logical switch under More writes `ps-*` and
-`pe-*`.
+components, modes, agents, the tab order and padding. Three pairs are left, padding's color first: green and pink, pink
+and cyan, and green and purple. The green in both is modes', and the purple is components'. Green padding would change
+padding's color on the canvas too. Margin has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`),
+and hovering a side highlights it. Horizontal and vertical are written as `px-*` and `py-*`, which v4 compiles to
+`padding-inline` and `padding-block`, so they follow writing direction; separate sides are physical (`pl-4`), and a
+Logical switch under More writes `ps-*` and `pe-*`.
 
 In a Block layout, vertical margins collapse, and a first or last child's margin passes through the layout's edge unless
 it has padding or a stroke in layout; `overflow: clip` doesn't stop this. The Margin row says so (principle 10) and

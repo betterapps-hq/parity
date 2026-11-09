@@ -97,6 +97,11 @@ const taken = [
 /** Each pair of colors padding and margin could take, with where it comes from and what it would clash with. */
 const pairs: { name: string; note: string; colors: SpacingColors }[] = [
   {
+    name: "Green and pink",
+    note: "Modes' green for padding, and the pink padding has today for margin.",
+    colors: { padding: kindColors.mode, margin: spacingColor }
+  },
+  {
     name: "Pink and cyan",
     note: "Cyan isn't used on the canvas yet.",
     colors: { padding: spacingColor, margin: "oklch(0.72 0.13 215)" }
