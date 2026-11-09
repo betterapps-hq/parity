@@ -37,7 +37,7 @@ vi.mock("electron", () => ({ app: { getVersion: () => "1.2.3" } }))
 
 vi.mock("./telemetry.ts", () => ({ scrubber: { value: (text: string) => text } }))
 
-const { createReports, feedbackLink, reportsOff } = await import("./report.ts")
+const { createReports, feedbackLink, offersCrashReports, reportsOff } = await import("./report.ts")
 
 /** The editor window, whose screenshot is a few bytes. */
 // SAFETY: reports only capture the window's page, and only ask the picture whether it's empty and for its PNG.
@@ -68,6 +68,13 @@ const problem = {
   traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
   replayId: "r1"
 }
+
+describe("crash reports offered after a crash", () => {
+  it("are offered in every installed build, production included, and never in a checkout or CI", () => {
+    expect(["preview", "release", "production"].map(offersCrashReports)).toEqual([true, true, true])
+    expect(["development", "ci"].map(offersCrashReports)).toEqual([false, false])
+  })
+})
 
 describe("an agent's report (PAR-646)", () => {
   beforeEach(() => {
