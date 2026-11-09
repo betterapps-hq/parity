@@ -79,7 +79,7 @@ function CustomKeyword({
         inputClassName={word === undefined ? "font-mono" : ""}
         read={(text): Reading<string> => {
           const trimmed = text.trim()
-          if (trimmed === "") return { reason: `Type a value for ${property}, or choose one` }
+          if (trimmed === "") return { reason: `Enter a value for ${property}, or choose one` }
           if (!CSS.supports(property, trimmed)) return { reason: `${property} can't be ${trimmed}` }
           return { value: trimmed }
         }}

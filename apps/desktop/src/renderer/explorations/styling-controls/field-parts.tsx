@@ -120,8 +120,8 @@ const sentence = (text: string) => (/[.:?!]$/.test(text) ? text : `${text}.`)
 
 /**
  * Text typed into a field, checked before it's stored: `read` gives what to store, or the reason it can't. Text it
- * can't read stays, outlined, with the reason under the row; Enter keeps it, and Escape or leaving puts the value back
- * and says so. Up and Down step the value, ending any typing. Fields that say things on one line under their row
+ * can't read stays, outlined, with the reason under the row; Enter keeps it, and Escape puts the value back; leaving does
+ * too, and says why. Up and Down step the value, ending any typing. Fields that say things on one line under their row
  * together, as a color's channels do, pass that line as `line`; each still outlines itself.
  */
 export function useTyped<T>({
@@ -165,8 +165,8 @@ export function useTyped<T>({
   const error = failed
   const named = backTo ?? (shown || "unset")
   // What's put back, said under the field: the value kept, with the field's name where fields share a line.
-  let kept = named === "unset" ? "Still unset." : `Kept ${named}.`
-  if (line) kept = named === "unset" ? `${label} is still unset.` : `Kept ${label} at ${named}.`
+  let kept = named === "unset" ? "Left unset." : `Reverted to ${named}.`
+  if (line) kept = named === "unset" ? `${label} left unset.` : `${label} reverted to ${named}.`
   const commit = (leaving: boolean): boolean => {
     if (typed === undefined) return true
     const outcome = read(typed)
@@ -211,7 +211,8 @@ export function useTyped<T>({
         if (event.key === "Escape" && typed !== undefined) {
           event.stopPropagation()
           setTyped(undefined)
-          setMessage(error ? { tone: "note", text: kept } : undefined)
+          // Escape is asked for, so putting the value back says nothing; it clears what was said.
+          setMessage(undefined)
         }
         if (onStep && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
           event.preventDefault()
@@ -1603,7 +1604,7 @@ export interface FieldSearch<T> {
  * and opens them, with Detach in what it opens while a token's set. Nothing in the field shows only on hover. A
  * value of its own has no mark: its token list offers the nearest token first, then Create token (`own`). What's typed
  * is read when Enter is pressed or the field is left: text it can't read stays, outlined, with the reason under the
- * row, and Escape or leaving puts the value back and says so. Up and Down step it. Typing on a focused pill replaces
+ * row, and Escape puts the value back; leaving does too, and says why. Up and Down step it. Typing on a focused pill replaces
  * the token; Backspace in the empty field, or on the pill, takes it off, and Detach keeps what it came to. A click on
  * the pill focuses the field as a click on its text does, and once it's focused opens the tokens, as Alt+Down does.
  * Messages span a grid's row, so a row of fields says things under the whole row.
@@ -2088,7 +2089,7 @@ const percentStep = ({ shift, alt }: ScrubKeys) => {
 /**
  * A percentage, as opacity, a color's alpha, scale and a gradient stop's position take one: typed with the app's
  * maths (`50`, `50%`, `+10`, `*0.5`), stepped by 1 with Up and Down (10 with Shift), scrubbed by its inner label, and
- * held to its range with a note when what's typed is past either end. Text it can't read is refused, never stored as
+ * held to its range when what's typed is past either end. Text it can't read is refused, never stored as
  * a number it isn't.
  */
 export function PercentField({
@@ -2144,8 +2145,11 @@ export function PercentField({
   const from = value ?? held?.percent ?? unsetIs ?? (Number(placeholder) || 0)
   const settle = (number: number) => clamp(Number(formatNumber(number, places)), min, max)
   const words = Object.keys(keywords ?? {})
-  let takes = words.length > 0 ? `Type a percentage, ${words.join(", ")}` : "Type a percentage, such as 50"
-  if (tokens) takes = words.length > 0 ? `${takes} or a token` : "Type a percentage or an opacity token"
+  const others = [...words, ...(tokens ? ["an opacity token"] : [])]
+  const takes =
+    others.length > 0
+      ? `Enter a percentage${others.length > 1 ? `, ${others.slice(0, -1).join(", ")}` : ""} or ${others.at(-1)}`
+      : "Enter a percentage, such as 50"
   // A token steps to the next in the list's order, Shift to the first or last, as every token does.
   const stepToken = (up: boolean, { shift }: ScrubKeys) => {
     if (!tokens || !held) return false
@@ -2199,9 +2203,8 @@ export function PercentField({
           return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
         }
         const kept = Number(formatNumber(reading.value, places))
-        if (kept > max) return { value: max, message: { tone: "note", text: `The most is ${max}%.` } }
-        if (kept < min) return { value: min, message: { tone: "note", text: `The least is ${min}%.` } }
-        return { value: kept }
+        // Past either end, it stops there: the field shows it, so it says nothing.
+        return { value: clamp(kept, min, max) }
       }}
       onCommit={(next) => {
         if (typeof next === "object") tokens?.onPick(next.token)

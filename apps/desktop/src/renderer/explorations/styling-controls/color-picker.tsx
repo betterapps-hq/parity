@@ -292,7 +292,7 @@ function HexField({ color, onChange, line }: { color: Rgba; onChange: (color: Rg
       const trimmed = text.trim()
       const candidate = /^[\da-f]+$/i.test(trimmed) ? `#${trimmed}` : trimmed
       const read = CSS.supports("color", candidate) ? parseColor(candidate) : undefined
-      return read ? { value: read } : { reason: "Type a hex color, such as 2F6FED" }
+      return read ? { value: read } : { reason: "Enter a hex color, such as 2F6FED" }
     },
     onCommit: (read) => onChange({ ...read, a: 1 }),
     line
@@ -548,7 +548,7 @@ export function ColorInput({
     if (token) return { value: { value: token.name, alpha } }
     const candidate = /^[\da-f]+$/i.test(trimmed) ? `#${trimmed}` : trimmed
     const color = CSS.supports("color", candidate) ? parseColor(candidate) : undefined
-    if (!color) return { reason: "Type a color, such as 2F6FED, or a token's name" }
+    if (!color) return { reason: "Enter a color, such as 2F6FED, or a token's name" }
     const near = nearestColorToken(candidate, colors)
     if (tokensOnly && near) return notAToken(near.token, () => onChange(near.token.name, alpha))
     const opaque = { ...color, a: 1 }

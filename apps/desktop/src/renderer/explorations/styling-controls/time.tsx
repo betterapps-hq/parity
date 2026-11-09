@@ -58,7 +58,7 @@ export function TimeField({
       units: timeUnits,
       current: ms ?? defaultMs,
       label,
-      takes: "Type a time, such as 200ms or 0.2s"
+      takes: "Enter a time, such as 200ms or 0.2s"
     })
     if ("reason" in reading) return reading
     if (which === "duration" && reading.value < 0) return { reason: "A duration can't be negative" }

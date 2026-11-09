@@ -714,7 +714,7 @@ function GapField({
         return { reason: `${label} can't be negative${takesAuto ? " while it wraps" : ""}` }
       return { value: reading.px }
     }
-    return { reason: "reason" in reading ? reading.reason : `Type a length${takesAuto ? " or Auto" : ""}` }
+    return { reason: "reason" in reading ? reading.reason : `Enter a length${takesAuto ? " or Auto" : ""}` }
   }
   const from = () => number ?? 0
   let unitPart: ReactNode
@@ -1065,7 +1065,7 @@ function readTrack(text: string): Reading<Track> {
     match(`minmax\\(\\s*${number}\\s*(?:px)?\\s*,\\s*${number}\\s*fr\\s*\\)`) ??
     match(`${number}\\s*[-–]\\s*${number}?\\s*(?:fr|fill)`)
   if (range) return { value: { kind: "range", min: Number(range[1]), max: Number(range[2] ?? 1) } }
-  return { reason: "Type 1fr, 200px, auto or minmax(120px, 1fr)" }
+  return { reason: "Enter 1fr, 200px, auto or minmax(120px, 1fr)" }
 }
 
 /** Steps a track's size by its own unit: a share by one, pixels by one or ten, a percentage by one. */
