@@ -160,7 +160,11 @@ interface Soaked {
   heapMb: number
   /** The editor window's private memory, as the system counts it. */
   windowMb: number
+  /** Whether Session Replay was recording the page then, paused, or not running at all. */
+  replay: ReplayState
 }
+
+type ReplayState = "recording" | "paused" | "off"
 
 interface Result extends Partial<Measured> {
   label: string
@@ -915,7 +919,9 @@ async function counts(cdp: CDPSession): Promise<{ nodes: number; heapMb: number 
 /**
  * Works the project for `minutes`, round after round: zooming the whole project in and out, waking every board at 100%
  * and leaving it to sleep, then selecting and editing designs, as `pnpm perf` measures each once. After each round it
- * reads what the window holds, so growth that never levels off shows as a rising line (PAR-683).
+ * reads what the window holds, so growth that never levels off shows as a rising line (PAR-683). The work goes through
+ * the editor, not input, and Replay pauses after five minutes without a click or a key, so each round also presses
+ * Shift, which does nothing on the canvas, and each reading says whether Replay was recording.
  */
 async function soaked(page: Page, cdp: CDPSession, minutes: number): Promise<Soaked[]> {
   const started = Date.now()
@@ -923,12 +929,16 @@ async function soaked(page: Page, cdp: CDPSession, minutes: number): Promise<Soa
   const read = async (rounds: number) => {
     const { nodes, heapMb } = await counts(cdp)
     const windowMb = (await memory(page, cdp))["this-window"] ?? 0
-    const reading = { minute: round((Date.now() - started) / 60_000), rounds, nodes, heapMb, windowMb }
+    const replay = await replayState(page)
+    const reading = { minute: round((Date.now() - started) / 60_000), rounds, nodes, heapMb, windowMb, replay }
     readings.push(reading)
-    console.log(`  ${reading.minute} min, ${rounds} rounds: ${nodes} nodes, ${heapMb} MB heap, ${windowMb} MB window`)
+    console.log(
+      `  ${reading.minute} min, ${rounds} rounds: ${nodes} nodes, ${heapMb} MB heap, ${windowMb} MB window, replay ${replay}`
+    )
   }
   await read(0)
   for (let rounds = 1; Date.now() - started < minutes * 60_000; rounds++) {
+    await page.keyboard.press("Shift")
     await moveCamera(page, cdp, "zoom")
     await visitEveryBoard(page)
     await timeChanges(page, cdp, "select")
@@ -936,6 +946,24 @@ async function soaked(page: Page, cdp: CDPSession, minutes: number): Promise<Soa
     await read(rounds)
   }
   return readings
+}
+
+/**
+ * Whether Session Replay is recording the page, through the window's own instance of Sentry: the module `replay.ts`
+ * imports, as Vite serves it to the page. Replay keeps its page recorder to itself, as `holdRecording` finds it.
+ */
+async function replayState(page: Page): Promise<ReplayState> {
+  return page.evaluate(async () => {
+    const source = await (await fetch("/replay.ts")).text()
+    const url = /from\s+"([^"]*sentry_electron_renderer[^"]*)"/.exec(source)?.[1]
+    if (!url) throw new Error("replay.ts doesn't import Sentry as perf expects")
+    const { getReplay } = (await import(url)) as {
+      getReplay: () => { _replay?: { isEnabled(): boolean; isPaused(): boolean } } | undefined
+    }
+    const recorder = getReplay()?._replay
+    if (!recorder?.isEnabled()) return "off"
+    return recorder.isPaused() ? "paused" : "recording"
+  })
 }
 
 async function memory(page: Page, cdp: CDPSession): Promise<Record<string, number>> {
@@ -1112,6 +1140,8 @@ function report(result: Result, previous: Result | undefined): void {
     console.log(`  nodes             ${first.nodes} → ${last.nodes}`)
     console.log(`  heap MB           ${first.heapMb} → ${last.heapMb}`)
     console.log(`  window MB         ${first.windowMb} → ${last.windowMb}`)
+    const recording = result.soak.filter((reading) => reading.replay === "recording").length
+    console.log(`  replay recording  ${recording} of ${result.soak.length} readings`)
   }
   if (result.memoryMb) {
     console.log(`\nmemory MB`)

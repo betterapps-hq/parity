@@ -6565,16 +6565,20 @@ the attributes of elements still on the page. Nothing in `renderer/replay.ts` ch
 - **Measured with `pnpm perf --soak 60`,** a mode added for this: on the example project, round after round of zooming
   the whole project in and out, waking every board at 100% so its frames mount and the rest go to sleep, then selecting
   and editing 20 designs, reading the window after each round once garbage is collected. `PARITY_TELEMETRY` chose the
-  level; both copies ran side by side on 2026-11-08, 46 rounds each.
+  level; both copies ran side by side on 2026-11-09, 92 and 93 rounds.
 
-  | Replay | DOM nodes, round 5 → 46 | JS heap, round 5 → 46 | Window's private memory, rounds 5 to 46 |
-  | ------ | ----------------------- | --------------------- | --------------------------------------- |
-  | All    | 28,369 → 28,369         | 120 → 123 MB          | 335 to 378 MB                           |
-  | Off    | 7,063 → 7,072           | 114 → 117 MB          | 323 to 361 MB                           |
+  | Replay | DOM nodes, rounds 5 to the end | JS heap, round 5 → the end | Window's private memory, rounds 5 to the end |
+  | ------ | ------------------------------ | -------------------------- | -------------------------------------------- |
+  | All    | 27,398 to 27,605               | 121 → 126 MB               | 451 to 531 MB                                |
+  | Off    | 6,763 to 6,779                 | 116 → 118 MB               | 415 to 504 MB                                |
 
-  Both settle after the first few rounds and stay there. The heap creeps by 3 MB an hour with or without Replay, and
-  private memory wanders within the same band for both.
+  Both settle after the first round and stay there. The heap creeps by a few megabytes an hour either way, and private
+  memory wanders within about the same band for both.
 
+- **Replay was recording all the while.** It pauses after five minutes without a click or a key, and the soak works
+  through the editor, so each round presses Shift and each reading asks Replay's recorder whether it's paused: all 93
+  were recording. A first run without the key press, as the OpenAI review pointed out, may have measured a recorder
+  paused for most of the hour; its numbers matched these.
 - **The extra 21,000 nodes are `Attr` objects.** Chromium makes one for an element's attribute the first time a script
   reads `element.attributes`, keeps it while the element lives, and counts it as a node. The recorder reads every
   attribute as it snapshots the page. With Replay on, the window had 6,136 nodes in its tree and 93 detached ones, and
