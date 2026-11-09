@@ -32,6 +32,11 @@ Only `parity-desktop` and `parity-cli` have code in this repository. The other t
 Every event is tagged `development`, `ci` or `tester`. Sentry creates an environment the first time an event names it,
 so there's nothing to set up ahead of the SDKs.
 
+`ci` sends only errors and reports, with their breadcrumbs: no spans, logs or replays (PAR-777). Those stay in the run's
+local copy, which the end-to-end suite checks. CI sent 718,000 of `parity-desktop`'s 794,000 spans in the week to
+2026-11-09, which would have run past every plan's 5 million spans a month. So a CI test pass shows in Sentry only
+through its errors.
+
 ## Releases and source maps
 
 Each build names its release, so an event points at the code that had the bug, and its stack trace resolves to Parity's

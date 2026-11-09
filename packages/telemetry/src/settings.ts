@@ -32,15 +32,26 @@ export interface ResolvedTelemetry {
   level: TelemetryLevel
   setting: TelemetryLevel
   overriddenBy?: TelemetryOverride
+  /**
+   * Set in CI, which sends only its errors and reports, with their breadcrumbs: no spans, logs or Session Replay, which
+   * stay in the local copy (PAR-777). CI's end-to-end runs sent nine in ten of `parity-desktop`'s spans.
+   */
+  errorsOnly?: true
 }
 
 /**
  * The level for this run, from the variables and the saved setting (PAR-626). Unit tests and `DO_NOT_TRACK` turn it
  * off whatever else says; then `PARITY_TELEMETRY`; then the setting, which is `all` until someone changes it. A
  * `PARITY_TELEMETRY` that isn't a level throws a `TypeError` naming it, so a typo never sends what someone meant to turn
- * off.
+ * off. In CI, whatever the level, only errors and reports are sent (PAR-777).
  */
 export function resolveTelemetry(variables: TelemetryVariables, setting: TelemetryLevel = "all"): ResolvedTelemetry {
+  const resolved = resolveLevel(variables, setting)
+
+  return inCi(variables) ? { ...resolved, errorsOnly: true } : resolved
+}
+
+function resolveLevel(variables: TelemetryVariables, setting: TelemetryLevel): ResolvedTelemetry {
   const given = variables.PARITY_TELEMETRY?.trim().toLowerCase() || undefined
   const asked = z.enum(telemetryLevels).optional().safeParse(given).data
 
@@ -129,9 +140,14 @@ export function desktopDataFolder({ platform, env, home }: DataFolderContext): s
 
 /** Which environment a run reports as: `ci` wherever CI is set, else `tester` for an installed build. */
 export function telemetryEnvironment(variables: TelemetryVariables, installed: boolean): TelemetryEnvironment {
-  if (variables.CI && !/^(0|false)$/i.test(variables.CI.trim())) {
+  if (inCi(variables)) {
     return "ci"
   }
 
   return installed ? "tester" : "development"
+}
+
+/** Whether this run is in CI: `CI` is set, and not to `0` or `false`. */
+function inCi(variables: TelemetryVariables): boolean {
+  return Boolean(variables.CI) && !/^(0|false)$/i.test(variables.CI?.trim() ?? "")
 }

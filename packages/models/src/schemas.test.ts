@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 import { type LensModelName, lensModelJsonSchema, lensModels } from "./schemas.ts"
 
+// SAFETY: `lensModels` is a literal object with no other keys, so `Object.keys` lists only model names.
 const names = Object.keys(lensModels) as LensModelName[]
 
 describe("lens model JSON Schemas", () => {

@@ -14,6 +14,7 @@ import {
   parseData,
   parseLibraryEdits
 } from "@parity-app/core"
+import { isText } from "@parity-app/core/values/evaluate"
 import semver from "semver"
 import { z } from "zod"
 
@@ -74,7 +75,7 @@ export function registryEntries(dir = registryDir()): Promise<RegistryEntry[]> {
 }
 
 async function readEntries(dir: string): Promise<RegistryEntry[]> {
-  const files = (await readdir(dir).catch(() => [] as string[]))
+  const files = (await readdir(dir).catch((): string[] => []))
     .filter((file) => file.endsWith(libraryManifestExtension))
     .sort()
 
@@ -175,12 +176,15 @@ export async function withEdits(
  * Hand edits as a library file writes them: inline, or the path of a shared file, which is read from `from` and may
  * have comments.
  */
-export async function readLibraryEdits(edits: unknown, from: string): Promise<LibraryEdits> {
-  return parseLibraryEdits(typeof edits === "string" ? parseJsonc(await readFile(resolve(from, edits), "utf8")) : edits)
+export async function readLibraryEdits(
+  edits: NonNullable<LibraryManifest["edits"]>,
+  from: string
+): Promise<LibraryEdits> {
+  return parseLibraryEdits(isText(edits) ? parseJsonc(await readFile(resolve(from, edits), "utf8")) : edits)
 }
 
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function errorText(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }
 
 /** Whether a manifest describes this version of its package. A manifest without a range covers every version. */
