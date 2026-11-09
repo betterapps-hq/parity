@@ -6315,3 +6315,23 @@ Report a problem. My calls:
   issue; the subdomain form of the same path doesn't. The Linear issue isn't known when the command returns, since
   Sentry's alert files it afterwards; the feedback links it.
 - **The MCP tool list grew to 13.6 KB,** and its budget to 14 KB, for a tool agents are meant to reach for unprompted.
+
+## The end-to-end suite checks the main workflows' events through the local copy (PAR-648)
+
+`telemetry.e2e.ts` checks the events and traces of opening a project, a drag, a command from the keyboard, Save and an
+agent's call, in CI only, as the rest of the suite runs. My calls:
+
+- **It reads the local copy, not a test sink or Sentry.** The copy runs as `pnpm dev` does, and the local copy already
+  holds every event and span from every process, so the app needs no test mode, and the events checked are the ones that
+  leave. Asking Sentry would make a test wait on ingestion and need a token in CI.
+- **CI's runs keep sending to Sentry,** under `environment: ci` and the run's `test_run`, so a failing test still links
+  to its events and replay. The suite checks that every line of the local copy carries the run.
+- **The agent's call goes through the real `parity` command,** from this checkout, against the copy's own agent file, so
+  the test covers the CLI's trace reaching the app: `agent.called` must continue `cli.ran`. It runs in the checkout, not
+  the project's temporary folder, so the sender it leaves behind can't stop the suite removing that folder.
+- **Save's test is the one that writes,** since autosave is off by default and an edit alone writes nothing. It
+  duplicates, saves, then undoes and saves again, so the file is back as it was and the reset after it finds nothing
+  unsaved.
+- **`gesture.ended` and the window's `document.saved` aren't checked by trace.** Both are recorded after their trace has
+  ended, so they carry none; the test checks their attributes, and the service's answer to Save's write shows the trace
+  reached it. Recording them in their trace is PAR-752.
