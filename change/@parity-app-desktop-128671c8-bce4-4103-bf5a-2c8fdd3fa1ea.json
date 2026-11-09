@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A frame that fails offscreen reports the render page's own error message and stack, not Electron's \"Script failed to execute\"",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Session Replay recordings scrub secrets from the window's text, and mask fields named as secrets",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

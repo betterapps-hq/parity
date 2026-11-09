@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Check the main workflows' events and traces in the end-to-end tests",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

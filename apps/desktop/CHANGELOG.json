@@ -2,6 +2,41 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 01:32:26 GMT",
+      "version": "0.39.1",
+      "tag": "@parity-app/desktop_v0.39.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "fa9ba7a2e7896f5bdfcb879fd0f074eaf55f7e78",
+            "comment": "Lint with Buildkit's base config and run Storybook on its shared config"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "063eea25b98b3d598029e12cf21031a196c15a92",
+            "comment": "Check the main workflows' events and traces in the end-to-end tests"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c31ad9cb6d7c7cc98195b595eade0a7f6f4d1382",
+            "comment": "Show a project's first frame sooner when it opens: its boards measure their sizes together, laying the page out once rather than once per board"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "253ba7e90cd3e1de808af824b9ca1cd8695c13b8",
+            "comment": "A frame that fails offscreen reports the render page's own error message and stack, not Electron's \"Script failed to execute\""
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 00:29:40 GMT",
       "version": "0.39.0",
       "tag": "@parity-app/desktop_v0.39.0",
