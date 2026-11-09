@@ -94,21 +94,8 @@ const taken = [
   { name: "Padding and gaps", color: spacingColor }
 ]
 
-/** The green DevTools shades padding in, softer and yellower than modes'. */
-const devToolsGreen = "#93c47d"
-
 /** Each pair of colors padding and margin could take, with where it comes from and what it would clash with. */
 const pairs: { name: string; note: string; colors: SpacingColors }[] = [
-  {
-    name: "Green and pink",
-    note: "DevTools' green for padding, and the pink padding has today for margin.",
-    colors: { padding: devToolsGreen, margin: spacingColor }
-  },
-  {
-    name: "Pink and green",
-    note: "Padding keeps its pink, and margin takes DevTools' green.",
-    colors: { padding: spacingColor, margin: devToolsGreen }
-  },
   {
     name: "Pink and cyan",
     note: "Cyan isn't used on the canvas yet.",
