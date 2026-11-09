@@ -2,6 +2,41 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 06:57:27 GMT",
+      "version": "0.40.5",
+      "tag": "@parity-app/desktop_v0.40.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "147097532dc7de4671d2a8dbbe163b54c959d81c",
+            "comment": "Ask for a project's kept frame bitmaps in one request, as JSON text, so reopening a project spends less of the window's time before its first frame"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "912120ca9276e3d19d3d67a018275ba6cf7563a3",
+            "comment": "Open projects sooner: a design's title mounts its menus and hint only once it's hovered, focused, right-clicked or selected"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "eb5d55992c591f2a0872d40709eeddeb62e9b1af",
+            "comment": "Bring renderer-react up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "41506c104e0d0991aa95f80d430e78ed4257a0bc",
+            "comment": "Bring packages/agent up to Buildkit's lint rules (PAR-735)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 05:37:21 GMT",
       "version": "0.40.4",
       "tag": "@parity-app/desktop_v0.40.4",

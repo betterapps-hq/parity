@@ -114,14 +114,14 @@ function decode(mappings: string): { generated: number; line: number; column: nu
 
       for (const char of segment) {
         const digit = digits.indexOf(char)
-        value += (digit & 31) << shift
+        value += (digit % 32) * 2 ** shift
         shift += 5
 
-        if (digit & 32) {
+        if (digit >= 32) {
           continue
         }
 
-        values.push(value & 1 ? -(value >> 1) : value >> 1)
+        values.push(value % 2 === 1 ? -Math.floor(value / 2) : value / 2)
         value = 0
         shift = 0
       }

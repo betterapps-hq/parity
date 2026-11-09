@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Ask for a project's kept frame bitmaps in one request, as JSON text, so reopening a project spends less of the window's time before its first frame",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

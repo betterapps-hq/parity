@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Open projects sooner: a design's title mounts its menus and hint only once it's hovered, focused, right-clicked or selected",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

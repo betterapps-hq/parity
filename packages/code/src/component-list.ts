@@ -8,6 +8,7 @@ import {
 } from "@parity-app/core"
 import {
   type CheckResult,
+  type ComponentSources,
   checkedChanges,
   correctedSources,
   filesChanged,
@@ -21,7 +22,7 @@ import {
  */
 export interface ComponentList {
   /** Where each component comes from, by id. */
-  sources: Record<string, ComponentSource>
+  sources: ComponentSources
   /** The app's exports the type checker left out, with why. Empty until it has read them. */
   leftOut: LeftOutExport[]
   /** The person's corrections to which exports are components, as the main project file has them. */
@@ -33,9 +34,9 @@ export interface ComponentList {
 /** What changes an open project's component list. */
 export type ComponentListEvent =
   /** The project opened: the list discovery made, and the corrections in the main project file. */
-  | { kind: "discovered"; sources: Record<string, ComponentSource>; corrections?: DetectionCorrections }
+  | { kind: "discovered"; sources: ComponentSources; corrections?: DetectionCorrections }
   /** What the type checker found last time, saved because nothing it read has changed since. */
-  | { kind: "restored"; sources: Record<string, ComponentSource>; leftOut: LeftOutExport[] }
+  | { kind: "restored"; sources: ComponentSources; leftOut: LeftOutExport[] }
   /** The type checker read some of the app's `files`, or all of them when none are given. */
   | { kind: "checked"; result: CheckResult; files?: ReadonlySet<string> }
   /** Changed files the parse read again, as `readChangedFiles` gives them. */
@@ -69,11 +70,14 @@ export function nextComponentList(list: ComponentList, event: ComponentListEvent
   const { sources: changed, leftOut } = applyEvent(list, event)
   const sources = correctedSources(changed, corrections, list.namespace)
 
-  const next: ComponentList = {
-    sources,
-    leftOut,
-    ...(corrections ? { corrections } : {}),
-    ...(list.namespace ? { namespace: list.namespace } : {})
+  const next: ComponentList = { sources, leftOut }
+
+  if (corrections) {
+    next.corrections = corrections
+  }
+
+  if (list.namespace) {
+    next.namespace = list.namespace
   }
 
   const guest = guestChanges(list.sources, sources)
@@ -87,10 +91,13 @@ export function nextComponentList(list: ComponentList, event: ComponentListEvent
   }
 }
 
-function applyEvent(
-  list: ComponentList,
-  event: ComponentListEvent
-): { sources: Record<string, ComponentSource>; leftOut: LeftOutExport[] } {
+/** The list's components and left-out exports after an event, before the person's corrections. */
+interface AppliedEvent {
+  sources: ComponentSources
+  leftOut: LeftOutExport[]
+}
+
+function applyEvent(list: ComponentList, event: ComponentListEvent): AppliedEvent {
   switch (event.kind) {
     case "discovered":
       return { sources: event.sources, leftOut: [] }
@@ -138,7 +145,7 @@ function correctedPaths(before: DetectionCorrections | undefined, after: Detecti
   return [...new Set(changed.map((ref) => ref.path))]
 }
 
-function sameSources(a: Record<string, ComponentSource>, b: Record<string, ComponentSource>): boolean {
+function sameSources(a: ComponentSources, b: ComponentSources): boolean {
   const ids = Object.keys(a)
 
   return ids.length === Object.keys(b).length && ids.every((id) => Object.hasOwn(b, id) && sameSource(a[id]!, b[id]!))

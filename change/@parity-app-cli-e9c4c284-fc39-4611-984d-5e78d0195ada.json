@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Bring packages/agent up to Buildkit's lint rules (PAR-735)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
