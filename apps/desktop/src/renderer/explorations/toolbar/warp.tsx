@@ -1,93 +1,48 @@
-import {
-  Button,
-  Kbd,
-  ToggleGroup,
-  ToggleGroupItem,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
-import { Sparkles } from "lucide-react"
+import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { ProjectContext, useProject } from "../../canvas/context.ts"
-import { formatKeys } from "../../chrome/keys.ts"
 import { useTool } from "../../selection.ts"
 import { example } from "../../stories/fixtures.tsx"
-import { type A11yKind, a11yKindOrder, a11yKinds } from "../collaboration/a11y.tsx"
-import { Divider, ReviewBar, type ReviewTool, reviewSpec, SearchActions, Tools, useReviewEscape } from "./options.tsx"
+import { KindBar } from "./kind-bar.tsx"
+import {
+  type AnnotationKind,
+  annotationKinds,
+  Divider,
+  ReviewBar,
+  type ReviewTool,
+  reviewSpec,
+  SearchActions,
+  Tools,
+  useReviewEscape
+} from "./options.tsx"
+import { along, asEasing, reducedMotion, springs } from "./springs.ts"
 
 /*
- * An experiment: picking Accessibility in the review menu warps the toolbar into Accessibility's own bar, and Done or
- * Esc warps it back. On the way in:
+ * An experiment: picking a kind of annotation in the review menu warps the toolbar into that kind's own bar, its
+ * options as stamps, and Done or Esc warps it back. Comment still shows the bar above. On the way in:
  *
  * 1. The bar crouches, squashing wide and short, as a ripple in the kind's color spreads from the review button.
  * 2. The tools are pulled into the review button, the farthest first, shrinking and blurring, and the button bursts.
  * 3. The bar hops, its width springing to the new bar's with a little overshoot, and lands with a jelly wobble.
  * 4. The stamps burst out from where the button was, nearest first, each on its own spring.
  *
- * On the way out it runs the other way, from Done, in the selection blue. With reduced motion it's a short cross-fade.
+ * On the way back, the stamps sink and are pulled down into where the review button sits in the toolbar, inside the
+ * smaller bar, so nothing slides off its edges. The bar dips as it lands, and once they're in, the button re-forms and
+ * the tools burst back out of it, in the selection blue. With reduced motion it's a short cross-fade.
  */
 
-interface Spring {
-  stiffness: number
-  damping: number
+type Direction = "in" | "out"
+
+/**
+ * The moments of the warp, in milliseconds from the click. On the way back the width waits for the stamps to be pulled
+ * in, so the bar's edges don't overtake them.
+ */
+const timing = {
+  in: { width: 60, burst: 90 },
+  out: { width: 110, burst: 170 },
+  stagger: 14,
+  pullStagger: 10
 }
-
-interface Simulated {
-  /** How long it takes to settle, in milliseconds. */
-  duration: number
-  /** Where it is at evenly spaced moments, from 0 to 1, overshooting past 1 when it bounces. */
-  points: number[]
-}
-
-/** A spring of unit mass let go at 0 and pulled toward 1, sampled until it settles. */
-function simulate({ stiffness, damping }: Spring): Simulated {
-  const natural = Math.sqrt(stiffness)
-  const decay = damping / 2
-  const ringing = Math.sqrt(Math.max(stiffness - decay ** 2, 0))
-
-  const at = (time: number) =>
-    ringing > 0
-      ? 1 - Math.exp(-decay * time) * (Math.cos(ringing * time) + (decay / ringing) * Math.sin(ringing * time))
-      : 1 - Math.exp(-natural * time) * (1 + natural * time)
-
-  let settled = 0
-
-  for (let time = 0; time <= 2; time += 1 / 240) {
-    if (Math.abs(1 - at(time)) > 0.002) {
-      settled = time
-    }
-  }
-
-  const duration = settled + 1 / 60
-  const steps = 64
-  const points = Array.from({ length: steps + 1 }, (_, step) => (step === steps ? 1 : at((step / steps) * duration)))
-
-  return { duration: duration * 1000, points }
-}
-
-/** A spring as a CSS easing, for transitions. */
-const asEasing = ({ points }: Simulated) => `linear(${points.map((point) => point.toFixed(4)).join(", ")})`
-
-/** Keyframes along a spring, each made from how far along it is, for animating more than one value on it. */
-const along = ({ points }: Simulated, frame: (progress: number) => Keyframe): Keyframe[] =>
-  points.map((progress, step) => ({ ...frame(progress), offset: step / (points.length - 1) }))
-
-const springs = {
-  /** The bar's width: quick, with a small overshoot. */
-  width: simulate({ stiffness: 300, damping: 22 }),
-  /** Each button bursting in: bouncier, so it lands with a bounce. */
-  pop: simulate({ stiffness: 420, damping: 17 }),
-  /** The bar landing: loose, so it wobbles like jelly. */
-  jelly: simulate({ stiffness: 520, damping: 13 })
-}
-
-/** The moments of the warp, in milliseconds from the click. */
-const timing = { width: 60, burst: 90, stagger: 14, pull: 220, pullStagger: 10 }
-
-/** Whether someone asked for less motion, which swaps the warp for a plain cross-fade. */
-const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
 /** The buttons and dividers on one side of the bar, which move one by one. */
 const partsOf = (layer: HTMLElement) => [...layer.querySelectorAll<HTMLElement>("button, [role='separator']")]
@@ -98,13 +53,17 @@ const centerOf = (element: Element) => {
   return box.left + box.width / 2
 }
 
-/** Plays the warp from one side of the bar to the other, starting from the leaving side's anchor. */
+/**
+ * Plays the warp from one side of the bar to the other, around the review button: in, the toolbar folds into it and
+ * the kind's bar bursts out; out, the kind's bar is pulled down into it and the toolbar bursts back out.
+ */
 function warp({
   bar,
   flash,
   glow,
   leaving,
   entering,
+  direction,
   color
 }: {
   bar: HTMLElement
@@ -112,6 +71,7 @@ function warp({
   glow: HTMLElement
   leaving: HTMLElement
   entering: HTMLElement
+  direction: Direction
   color: string
 }) {
   const leavingParts = partsOf(leaving)
@@ -124,16 +84,19 @@ function warp({
     }
   }
 
-  const anchor = leaving.querySelector<HTMLElement>("[data-warp-anchor]") ?? leaving
+  // The review button, which stays put however wide the bar is, since both sides sit in its middle.
+  const tools = direction === "in" ? leaving : entering
+  const anchor = tools.querySelector<HTMLElement>("[data-warp-anchor]") ?? tools
   const anchorX = centerOf(anchor)
   const distance = (part: HTMLElement) => Math.abs(centerOf(part) - anchorX)
 
   bar.style.setProperty("--warp", color)
 
-  // The crouch, then the hop and the jelly landing: wide and short, tall and thin, settling.
+  // The crouch, then the jelly landing: wide and short, tall and thin, settling. In, it hops up first; out, it dips.
   const { jelly } = springs
   const crouch = 90
   const total = crouch + jelly.duration
+  const lift = direction === "in" ? -7 : 3
 
   bar.animate(
     [
@@ -146,7 +109,7 @@ function warp({
         return {
           offset: (crouch + time) / total,
           scale: `${1 + (1 - tall) * 0.45} ${tall}`,
-          translate: `-50% ${-7 * Math.sin(Math.PI * hop)}px`
+          translate: `-50% ${lift * Math.sin(Math.PI * hop)}px`
         }
       })
     ],
@@ -164,7 +127,8 @@ function warp({
     { duration: 700, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)" }
   )
 
-  // The leaving side is pulled into the anchor, the farthest first, and the anchor bursts.
+  // The leaving side is pulled into the anchor, the farthest first. In, the anchor then bursts; out, everything sinks
+  // as it goes, fast at first so the shrinking bar doesn't catch it.
   for (const [order, part] of leavingParts.toSorted((a, b) => distance(b) - distance(a)).entries()) {
     if (part === anchor) {
       part.animate(
@@ -178,22 +142,41 @@ function warp({
       continue
     }
 
+    const pull = anchorX - centerOf(part)
+
     part.animate(
       [
         { translate: "0 0", scale: 1, opacity: 1, filter: "blur(0px)" },
-        { translate: `${(anchorX - centerOf(part)) * 0.7}px 0`, scale: 0.3, opacity: 0, filter: "blur(4px)" }
+        direction === "in"
+          ? { translate: `${pull * 0.7}px 0`, scale: 0.3, opacity: 0, filter: "blur(4px)" }
+          : { translate: `${pull * 0.9}px 10px`, scale: 0.25, opacity: 0, filter: "blur(4px)" }
       ],
       {
-        duration: timing.pull,
+        duration: direction === "in" ? 220 : 260,
         delay: order * timing.pullStagger,
-        easing: "cubic-bezier(0.55, 0, 0.8, 0.2)",
+        easing: direction === "in" ? "cubic-bezier(0.55, 0, 0.8, 0.2)" : "cubic-bezier(0.3, 0, 0.1, 1)",
         fill: "forwards"
       }
     )
   }
 
-  // The entering side bursts out of the anchor, the nearest first, each on its own spring.
+  // The entering side bursts out of the anchor, the nearest first, each on its own spring. Out, the anchor comes back
+  // first, shrinking back together from its burst.
+  const burst = timing[direction].burst
+
   for (const [order, part] of enteringParts.toSorted((a, b) => distance(a) - distance(b)).entries()) {
+    if (part === anchor) {
+      part.animate(
+        along(springs.pop, (progress) => ({
+          scale: String(1.7 - 0.7 * progress),
+          opacity: Math.min(1, progress * 2),
+          filter: `blur(${Math.max(0, 1 - progress) * 4}px)`
+        })),
+        { duration: springs.pop.duration, delay: burst - 40, fill: "backwards" }
+      )
+      continue
+    }
+
     const from = anchorX - centerOf(part)
 
     part.animate(
@@ -203,26 +186,10 @@ function warp({
         opacity: Math.min(1, progress * 2.2),
         filter: `blur(${Math.max(0, 1 - progress) * 5}px)`
       })),
-      { duration: springs.pop.duration, delay: timing.burst + order * timing.stagger, fill: "backwards" }
+      { duration: springs.pop.duration, delay: burst + order * timing.stagger, fill: "backwards" }
     )
   }
 }
-
-/** Plays a spring on an element as it's added, if motion's welcome. */
-const springIn = (frame: (progress: number) => Keyframe) => (node: HTMLElement | null) => {
-  if (node && !reducedMotion()) {
-    node.animate(along(springs.pop, frame), { duration: springs.pop.duration })
-  }
-}
-
-/** A picked stamp's chip boings, and its name slides out of it. */
-const chipPop = springIn((progress) => ({ scale: String(0.6 + 0.4 * progress), rotate: `${(1 - progress) * -18}deg` }))
-
-const nameIn = springIn((progress) => ({
-  opacity: Math.min(1, progress * 1.6),
-  translate: `${(1 - progress) * -6}px 0`,
-  filter: `blur(${Math.max(0, 1 - progress) * 3}px)`
-}))
 
 /** The warping toolbar on its own, a little above the middle of the story. */
 export function WarpStage() {
@@ -239,7 +206,7 @@ export function WarpStage() {
   )
 }
 
-/** The proposed toolbar, warping into Accessibility's bar while accessibility annotations are being placed. */
+/** The proposed toolbar, warping into a kind's bar while that kind of annotation is being placed. */
 function WarpToolbar() {
   const { selection } = useProject()
   const tool = useTool(selection)
@@ -257,7 +224,14 @@ function WarpToolbar() {
     setReview(undefined)
   }
 
-  const warped = review?.picked === "accessibility"
+  // The kind whose bar is drawn, kept after Done so its stamps can fly back into the toolbar.
+  const [shownKind, setShownKind] = useState<AnnotationKind>("behaviour")
+  const picked = review?.picked
+  const warped = !!picked && picked !== "comment"
+
+  if (picked && picked !== "comment" && picked !== shownKind) {
+    setShownKind(picked)
+  }
 
   useReviewEscape(warped ? review.done : undefined)
 
@@ -300,12 +274,13 @@ function WarpToolbar() {
         glow: glow.current,
         leaving,
         entering,
-        color: warped ? reviewSpec("accessibility").color : "var(--canvas-layer-chip)"
+        direction: warped ? "in" : "out",
+        color: warped ? reviewSpec(shownKind).color : "var(--canvas-layer-chip)"
       })
     }
 
     entering.querySelector<HTMLElement>("[aria-pressed='true']")?.focus({ preventScroll: true })
-  }, [warped])
+  }, [warped, shownKind])
 
   const width = warped ? widths.kind : widths.tools
 
@@ -313,7 +288,7 @@ function WarpToolbar() {
     <div
       ref={bar}
       role="toolbar"
-      aria-label={warped ? "Accessibility annotations" : "Toolbar"}
+      aria-label={warped ? `${annotationKinds[shownKind].label} annotations` : "Toolbar"}
       className="absolute bottom-4 left-1/2 z-[400] origin-bottom -translate-x-1/2 rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg"
     >
       <span
@@ -335,7 +310,7 @@ function WarpToolbar() {
           width: width || undefined,
           transition: reducedMotion()
             ? undefined
-            : `width ${springs.width.duration}ms ${asEasing(springs.width)} ${timing.width}ms`
+            : `width ${springs.width.duration}ms ${asEasing(springs.width)} ${timing[warped ? "in" : "out"].width}ms`
         }}
       >
         <Layer ref={toolsLayer} shown={!warped}>
@@ -344,7 +319,7 @@ function WarpToolbar() {
           <SearchActions />
         </Layer>
         <Layer ref={kindLayer} shown={warped}>
-          <AccessibilityBar onDone={() => review?.done()} />
+          <KindBar key={shownKind} kind={shownKind} onDone={() => review?.done()} />
         </Layer>
       </div>
       {review && !warped && <ReviewBar tool={review.picked} onDone={review.done} />}
@@ -365,73 +340,5 @@ function Layer({ ref, shown, children }: { ref: React.Ref<HTMLDivElement>; shown
     >
       {children}
     </div>
-  )
-}
-
-/**
- * Accessibility's bar: its options as stamps that show their name when picked, Suggest, which has an agent draft them
- * from the render to confirm, and Done.
- */
-function AccessibilityBar({ onDone }: { onDone: () => void }) {
-  const [stamp, setStamp] = useState<A11yKind>("focus")
-
-  return (
-    <>
-      <ToggleGroup
-        spacing={1}
-        value={[stamp]}
-        onValueChange={([value]) => {
-          const picked = a11yKindOrder.find((kind) => kind === value)
-
-          if (picked) {
-            setStamp(picked)
-          }
-        }}
-        aria-label="Annotation to place"
-        className="items-stretch gap-0.5"
-      >
-        {a11yKindOrder.map((kind) => {
-          const { title, hint, icon: Icon, bg, ink } = a11yKinds[kind]
-          const picked = kind === stamp
-
-          return (
-            <Tooltip key={kind}>
-              <TooltipTrigger
-                render={
-                  <ToggleGroupItem
-                    value={kind}
-                    aria-label={title}
-                    className="h-8 min-w-8 gap-1.5 px-1.5 text-xs transition-[scale,background-color] duration-200 ease-[cubic-bezier(0.3,1.8,0.5,1)] active:scale-90 aria-pressed:bg-muted aria-pressed:pr-2.5"
-                  >
-                    <span
-                      key={picked ? "picked" : "idle"}
-                      ref={picked ? chipPop : undefined}
-                      className="grid size-5 place-items-center rounded-[5px]"
-                      style={{ background: bg, color: ink }}
-                    >
-                      <Icon className="size-3" />
-                    </span>
-                    {picked && <span ref={nameIn}>{title}</span>}
-                  </ToggleGroupItem>
-                }
-              />
-              <TooltipContent side="top">{hint}</TooltipContent>
-            </Tooltip>
-          )
-        })}
-      </ToggleGroup>
-      <Divider />
-      <Button variant="ghost" className="h-8 gap-1.5 px-2 active:scale-95">
-        <Sparkles /> Suggest
-      </Button>
-      <Button
-        data-warp-anchor
-        variant="secondary"
-        className="ml-0.5 h-8 gap-1.5 px-2.5 active:scale-95"
-        onClick={onDone}
-      >
-        Done <Kbd>{formatKeys("Esc")}</Kbd>
-      </Button>
-    </>
   )
 }

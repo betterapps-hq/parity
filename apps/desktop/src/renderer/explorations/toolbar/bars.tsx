@@ -2,7 +2,7 @@ import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import type { ReactNode } from "react"
 import { ProjectContext } from "../../canvas/context.ts"
 import { example } from "../../stories/fixtures.tsx"
-import { A11yToolbar } from "../collaboration/a11y.tsx"
+import { KindBar } from "./kind-bar.tsx"
 import { type AnnotationKind, annotationKinds, ReviewBarLook, ReviewToolbar, ZoomCorner } from "./options.tsx"
 import { Par184Bar } from "./par-184-bar.tsx"
 
@@ -29,7 +29,7 @@ function Row({ name, children }: { name: string; children: ReactNode }) {
 
 const reviewTools = ["comment", ...Object.keys(annotationKinds)] as ("comment" | AnnotationKind)[]
 
-/** Our bars, and the bars a review tool shows. */
+/** Our bars, the bars a review tool shows, and each kind of annotation's bar. */
 export function ToolbarComparison() {
   return (
     <TooltipProvider>
@@ -59,9 +59,13 @@ export function ToolbarComparison() {
             <Par184Bar mode="comment" />
           </div>
         </Row>
-        <Row name="Accessibility's options">
-          <A11yToolbar active="focus" />
-        </Row>
+        {(Object.keys(annotationKinds) as AnnotationKind[]).map((kind) => (
+          <Row key={kind} name={annotationKinds[kind].label}>
+            <div className="flex items-stretch gap-0.5 rounded-xl border bg-popover p-1 text-popover-foreground shadow-lg">
+              <KindBar kind={kind} />
+            </div>
+          </Row>
+        ))}
       </div>
     </TooltipProvider>
   )

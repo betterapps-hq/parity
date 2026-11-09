@@ -68,6 +68,15 @@ const toolIcons: Record<Tool, typeof Hand> = {
 }
 
 /**
+ * The tools that make things wear the color the canvas selects what they make in (canvas/kinds.tsx), at the step that
+ * reads as text on a panel: frames and text layers in the layer blue. Picked, they're white on the selection blue.
+ */
+const toolTints: Partial<Record<Tool, string>> = {
+  frame: "var(--canvas-layer-text)",
+  text: "var(--canvas-layer-text)"
+}
+
+/**
  * What the pointer does, then making things. Move and select, Hand and Interact share a button, as Figma's Move holds
  * Hand and Scale: it shows whichever was picked last, and the menu beside it switches. V, H and I still pick each, and
  * Space still pans.
@@ -226,7 +235,12 @@ export function Tools({ onReview }: { onReview?: (picked: ReviewTool | undefined
             return (
               <Fragment key={slot}>
                 <Tip command={id}>
-                  <ToggleGroupItem value={id} aria-label={keymap[id].label} className={pickedTool}>
+                  <ToggleGroupItem
+                    value={id}
+                    aria-label={keymap[id].label}
+                    className={`${pickedTool} [&:not([aria-pressed=true])>svg]:text-(--tint)`}
+                    style={{ "--tint": toolTints[id] ?? "currentColor" } as CSSProperties}
+                  >
                     <Icon />
                   </ToggleGroupItem>
                 </Tip>
@@ -515,7 +529,10 @@ function MoveMenu({ current }: { current: PointerTool }) {
   )
 }
 
-/** Insert, which opens the picker of components, icons and images at the pointer, as / does. */
+/**
+ * Insert, which opens the picker of components, icons and images at the pointer, as / does. It's mostly how
+ * components get onto a design, so it's in the component purple.
+ */
 function InsertButton() {
   return (
     <Tip command="insert">
@@ -525,7 +542,7 @@ function InsertButton() {
         aria-label={keymap.insert.label}
         onClick={() => void actions.insert.run("toolbar")}
       >
-        <SquarePlus />
+        <SquarePlus className="text-(--canvas-component-text)" />
       </Button>
     </Tip>
   )
@@ -576,12 +593,12 @@ function FrameMenu() {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => void actions.newScreen.run("toolbar")}>
-          <AppWindow />
+          <AppWindow className="text-(--canvas-screen-text)" />
           {keymap.newScreen.label}
           <DropdownMenuShortcut>{formatKeys(keymap.newScreen.keys[0])}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => void actions.newComponent.run("toolbar")}>
-          <Component />
+          <Component className="text-(--canvas-component-text)" />
           {keymap.newComponent.label}
           <DropdownMenuShortcut>{formatKeys(keymap.newComponent.keys[0])}</DropdownMenuShortcut>
         </DropdownMenuItem>
