@@ -313,8 +313,13 @@ function WarpToolbar() {
           style={{ background: "radial-gradient(circle, var(--warp) 0%, transparent 70%)" }}
         />
       </span>
+      {/*
+       * The wider side is clipped to the bar while its width springs, but 4px out, into the bar's padding, so a focused
+       * button's 3px ring shows whole at either end. Overflow can't clip with a margin on one axis only, so a clip path
+       * does it, with room above and below for the burst and its blur.
+       */}
       <div
-        className="relative grid h-8 grid-cols-[100%] overflow-x-clip overflow-y-visible"
+        className="relative grid h-8 grid-cols-[100%] [clip-path:inset(-3rem_-0.25rem)]"
         style={{
           width: width || undefined,
           transition: reducedMotion()
