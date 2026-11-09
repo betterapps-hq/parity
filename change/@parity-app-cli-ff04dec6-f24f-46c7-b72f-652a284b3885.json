@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Keep memory roles in a Map so main passes lint",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
