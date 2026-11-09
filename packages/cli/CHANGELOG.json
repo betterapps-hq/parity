@@ -2,6 +2,29 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 12:11:43 GMT",
+      "version": "0.29.1",
+      "tag": "@parity-app/cli_v0.29.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6605317673a5c9a56f127c19b56af04ea5f492da",
+            "comment": "The shared environment decision can name production, which the CLI doesn't report yet (PAR-779)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "145dfbaa2493119d05b9272394d5ced18d06ee59",
+            "comment": "Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows (PAR-788)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 10:50:18 GMT",
       "version": "0.29.0",
       "tag": "@parity-app/cli_v0.29.0",

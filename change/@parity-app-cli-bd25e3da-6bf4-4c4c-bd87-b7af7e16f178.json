@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "The shared environment decision can name production, which the CLI doesn't report yet (PAR-779)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 09 Nov 2026 10:50:18 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 09 Nov 2026 12:11:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.29.1
+
+Mon, 09 Nov 2026 12:11:43 GMT
+
+### Patches
+
+- Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows
+  (PAR-788) (ajcraswell@gmail.com)
 
 ## 0.29.0
 

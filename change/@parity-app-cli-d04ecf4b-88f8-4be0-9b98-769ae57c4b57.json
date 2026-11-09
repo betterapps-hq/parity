@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows (PAR-788)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
