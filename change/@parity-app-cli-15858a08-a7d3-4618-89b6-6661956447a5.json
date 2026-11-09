@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Reads its files, the app's answers and MCP arguments through schemas, with no change to what it prints or exits with",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -315,7 +315,11 @@ export type ServiceMethod = keyof ServiceMethods
 
 export type WindowMethod = keyof WindowMethods
 
+/** What the service sends with any of the window's methods. */
+export type WindowParams = WindowMethods[WindowMethod]["params"]
+
 /** The window's methods by name, for the preload script, which answers each through the page's one handler. */
+// SAFETY: `satisfies` checks the object has exactly one key for each window method, so its keys are those methods.
 export const windowMethods = Object.keys({
   "agent.tabs": true,
   "agent.copy": true,
@@ -417,7 +421,9 @@ export interface CanvasHost {
    * `accountState` in `shared/account.ts` as it arrives.
    */
   account: {
+    // oxlint-disable-next-line anti-slop/no-unknown-returns -- account state as main sends it, which the window checks as it arrives
     get: () => Promise<unknown>
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- account state as main sends it, which the window checks as it arrives
     subscribe: (listener: (state: unknown) => void) => () => void
     signIn: (request: SignInRequest) => Promise<void>
     /** Opens the waiting sign-in's page in the browser again. */
@@ -444,7 +450,7 @@ export interface CanvasHost {
     trace?: TraceHeaders
   ): Promise<Answer<ServiceMethods[M]["result"]>>
   /** Answers the service's requests. One handler per window. */
-  serve(handler: (method: WindowMethod, params: unknown) => Promise<ServeAnswer>): void
+  serve(handler: (method: WindowMethod, params: WindowParams) => Promise<ServeAnswer>): void
   /**
    * Runs when the window is connected to a fresh project service, after the old one was restarted: its projects need
    * opening again. Requests the old service hadn't answered fail.

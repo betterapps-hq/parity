@@ -117,10 +117,10 @@ export class UpdateSession {
     }
   }
 
-  fail(error: unknown): void {
+  fail(cause: unknown): void {
     const failed = this.state.phase === "installing" ? this.installationFailed : undefined
     this.installationFailed = undefined
-    this.send({ type: "error", message: error instanceof Error ? error.message : String(error) })
+    this.send({ type: "error", message: cause instanceof Error ? cause.message : String(cause) })
     failed?.()
   }
 }

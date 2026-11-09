@@ -59,6 +59,8 @@ export function readEnvironment(env: NodeJS.ProcessEnv): MainEnvironment {
   try {
     return parseData(mainEnvironment, set)
   } catch (error) {
-    throw new TypeError(`Parity can't start with this environment variable: ${(error as Error).message.slice(1)}`)
+    // `parseData` throws a `TypeError` whose message starts with the variable's pointer.
+    const message = error instanceof Error ? error.message : String(error)
+    throw new TypeError(`Parity can't start with this environment variable: ${message.slice(1)}`)
   }
 }

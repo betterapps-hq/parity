@@ -1,4 +1,3 @@
-import type { WebContents } from "electron"
 import { describe, expect, it, vi } from "vite-plus/test"
 import type { ConsoleChange } from "../shared/protocol.ts"
 import {
@@ -86,8 +85,9 @@ describe("where a window's next message comes from", () => {
   it("keeps a frame's message written through the window's wrapper, at the frame's own call", () => {
     const app = "http://localhost:5199"
     const log = createConsoleLog()
-    let heard: ((event: Record<string, unknown>) => void) | undefined
-    const contents = { on: (_name: string, listener: typeof heard) => (heard = listener) } as unknown as WebContents
+    let heard: ((event: ConsoleMessage) => void) | undefined
+    // SAFETY: `recordConsole` only listens for `console-message`, and reads only the fields `ConsoleMessage` has.
+    const contents = { on: (_name: string, listener: typeof heard) => (heard = listener) } as never
     const announced = [{ design: "app.par#members", source: `${guest}/src/member-row.tsx`, line: 9 }]
     recordConsole(log, contents, "canvas", app, () => announced.shift())
     // The console sees the wrapper, in Parity's own code, as where both were written.
@@ -98,6 +98,14 @@ describe("where a window's next message comes from", () => {
     ])
   })
 })
+
+/** A console message as Electron gives it, in the fields the log reads. */
+interface ConsoleMessage {
+  level: string
+  message: string
+  sourceId: string
+  lineNumber: number
+}
 
 describe("the log's changes, sent on", () => {
   it("go in one batch a while after the first, each message once as it is then", () => {
