@@ -79,22 +79,6 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
     ]
   },
   {
-    issue: "PAR-740",
-    files: ["packages/project/**"],
-    rules: [
-      "anti-slop/no-array-filter-map",
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/no-conditional-empty-object-spread",
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-object-parameters",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion"
-    ]
-  },
-  {
     issue: "PAR-741",
     files: ["packages/tokens/**"],
     rules: [
@@ -106,20 +90,6 @@ const notYetClean: { issue: string; files: string[]; rules: string[] }[] = [
       "anti-slop/no-unsafe-dictionary-type",
       "anti-slop/require-safety-comment-for-type-assertion",
       "no-console"
-    ]
-  },
-  {
-    issue: "PAR-742",
-    files: ["packages/channel/**"],
-    rules: [
-      "anti-slop/no-chained-type-assertions",
-      "anti-slop/no-conditional-empty-object-spread",
-      "anti-slop/no-known-value-widening",
-      "anti-slop/no-runtime-typeof",
-      "anti-slop/no-unknown-parameters",
-      "anti-slop/no-unknown-returns",
-      "anti-slop/no-unsafe-dictionary-type",
-      "anti-slop/require-safety-comment-for-type-assertion"
     ]
   },
   {

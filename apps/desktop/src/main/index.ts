@@ -997,7 +997,7 @@ async function processUsage(asker?: Electron.WebContents): Promise<ProcessUsage[
       role = "service"
     } else if (page && renderWindows.some((render) => render?.window.webContents === page)) {
       role = "offscreen"
-    } else if (page === asker) {
+    } else if (page && page === asker) {
       role = "this-window"
     } else {
       role = page ? "window" : "helper"
