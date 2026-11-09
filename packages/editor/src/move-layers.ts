@@ -49,6 +49,13 @@ export function moveLayersWithin(container: ContainerSpec, ids: readonly string[
   return JSON.stringify(root) === JSON.stringify(container.root) ? container : { ...container, root }
 }
 
+/** Both designs once layers move from one to the other, and the copies' ids in the destination. */
+export interface LayersMoved {
+  source: ContainerSpec
+  destination: ContainerSpec
+  copies: string[]
+}
+
 /**
  * Moves the layers `ids`, the outermost of them, from one design to a place in another: they leave `source` and copies
  * of them go into `destination`, as the source's board shows them in `state` and `viewport` (see `asShown`), with ids
@@ -62,7 +69,7 @@ export function moveLayersAcross(
   place: MovePlace,
   state: StateSpec,
   viewport?: string
-): { source: ContainerSpec; destination: ContainerSpec; copies: string[] } {
+): LayersMoved {
   const taken = nodeIds(destination.root)
 
   const copies = topmostNodes(source.root, ids).map((node) =>

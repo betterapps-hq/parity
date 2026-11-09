@@ -58,9 +58,9 @@ export function hiddenReason(name: string, facts: HidingFacts = {}): HiddenReaso
 export function hiddenHeading(reasons: Iterable<HiddenReason>): string {
   const present = new Set(reasons)
 
-  const names = (["internal", "provider", "plumbing"] as const)
-    .filter((reason) => present.has(reason))
-    .map((reason) => ({ internal: "internal parts", provider: "providers", plumbing: "app plumbing" })[reason])
+  const names = (["internal", "provider", "plumbing"] as const).flatMap((reason) =>
+    present.has(reason) ? [{ internal: "internal parts", provider: "providers", plumbing: "app plumbing" }[reason]] : []
+  )
 
   if (names.length === 0) {
     return ""

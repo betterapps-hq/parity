@@ -10,7 +10,7 @@ const nova = (name: string, more: Partial<ComponentSource> = {}): ComponentSourc
 })
 
 /** Nova's sidebar, as its library file describes it. */
-const sources: Record<string, ComponentSource> = {
+const sources = {
   "nova/SidebarProvider": nova("SidebarProvider", {
     visual: false,
     sample: { children: [{ component: "nova/Sidebar" }] }
@@ -37,9 +37,9 @@ const sources: Record<string, ComponentSource> = {
   "nova/Tooltip": nova("Tooltip", { sample: { props: { content: { $element: ["Saved"] } } } }),
   Badge: { path: "src/Badge.tsx", export: "Badge" },
   Account: { path: "src/Account.tsx", export: "Account" }
-}
+} satisfies Record<string, ComponentSource>
 
-const props: Record<string, ComponentInfo> = {
+const props = {
   Badge: {
     name: "Badge",
     path: "src/Badge.tsx",
@@ -49,7 +49,7 @@ const props: Record<string, ComponentInfo> = {
       { name: "tone", kind: "enum", options: ["neutral", "info"], group: "variant" }
     ]
   }
-}
+} satisfies Record<string, ComponentInfo>
 
 const context = { sources, props }
 

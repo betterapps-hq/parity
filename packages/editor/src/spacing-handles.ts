@@ -1,13 +1,7 @@
-import {
-  applyFieldInput,
-  type FieldRules,
-  type Length,
-  type NodeStyle,
-  type Padding,
-  readFieldInput
-} from "@parity-app/core"
+import { applyFieldInput, type FieldRules, type Length, type NodeStyle, readFieldInput } from "@parity-app/core"
 import type { Rect } from "./drop-slot.ts"
 import type { HandleBox } from "./handles.ts"
+import { lengthSteps, lengthToken } from "./lengths.ts"
 import { dragThreshold } from "./move-resize.ts"
 import { sidesOf, tidySides } from "./style-editing.ts"
 
@@ -322,7 +316,7 @@ function lengthAt(style: NodeStyle, handle: SpacingEditStart["handle"]): Length 
 
 /** The token a value keeps, when it started bound to one and lands on a token's value: its own first. */
 function keptToken(start: Length | undefined, px: number, tokens: readonly LengthToken[]): string | undefined {
-  if (typeof start !== "string") {
+  if (lengthToken(start) === undefined) {
     return undefined
   }
 
@@ -342,13 +336,14 @@ function writeValue(start: SpacingEditStart, value: Length, sides: readonly Padd
     return { gap: value }
   }
 
-  const next = [...(sidesOf(start.style.padding) ?? [0, 0, 0, 0])] as [Length, Length, Length, Length]
+  const [top, right, bottom, left] = sidesOf(start.style.padding) ?? [0, 0, 0, 0]
+  const next: [Length, Length, Length, Length] = [top, right, bottom, left]
 
   for (const side of sides) {
     next[paddingSides.indexOf(side)] = value
   }
 
-  return { padding: tidySides(next) as Padding }
+  return { padding: tidySides(next) }
 }
 
 function startPx(start: SpacingEditStart): number {
@@ -392,29 +387,38 @@ export function spacingDrag(start: SpacingEditStart): (move: SpacingMove) => Spa
     const token = keptToken(bound, px, tokens)
     const sides = handle.kind === "padding" ? changedSides(handle.side, { opposite: other, every }) : undefined
 
-    return {
-      change: writeValue(start, token ?? steps, sides ?? []),
-      px,
-      ...(token ? { token } : {}),
-      ...(sides ? { sides } : {})
-    }
+    return spacingEdit(writeValue(start, token ?? steps, sides ?? []), px, token, sides)
   }
 }
 
+function spacingEdit(
+  change: SpacingEdit["change"],
+  px: number,
+  token: string | undefined,
+  sides: PaddingSide[] | undefined
+): SpacingEdit {
+  const edit: SpacingEdit = { change, px }
+
+  if (token) {
+    edit.token = token
+  }
+
+  if (sides) {
+    edit.sides = sides
+  }
+
+  return edit
+}
+
 /** Steps of the spacing scale up or down, from the keyboard. A token-bound value stays bound on a token's value. */
-export function spacingStep(start: SpacingEditStart, count: number, held: SidesHeld) {
+export function spacingStep(start: SpacingEditStart, count: number, held: SidesHeld): SpacingEdit {
   const from = startPx(start) / start.unit
   const next = Math.max(0, count > 0 ? Math.floor(from + 1e-9) + count : Math.ceil(from - 1e-9) + count)
   const px = next * start.unit
   const token = keptToken(lengthAt(start.style, start.handle), px, start.tokens)
   const sides = start.handle.kind === "padding" ? changedSides(start.handle.side, held) : undefined
 
-  return {
-    change: writeValue(start, token ?? next, sides ?? []),
-    px,
-    ...(token ? { token } : {}),
-    ...(sides ? { sides } : {})
-  } satisfies SpacingEdit
+  return spacingEdit(writeValue(start, token ?? next, sides ?? []), px, token, sides)
 }
 
 /**
@@ -445,17 +449,12 @@ export function typedSpacing(start: SpacingEditStart, text: string, held: SidesH
  * spacing scale. The sides it changes follow what was held when the handle was clicked.
  */
 export function pickedSpacing(start: SpacingEditStart, value: Length, held: SidesHeld): SpacingEdit {
-  const px =
-    typeof value === "number" ? value * start.unit : (start.tokens.find((token) => token.name === value)?.px ?? 0)
-
+  const token = lengthToken(value)
+  const named = start.tokens.find((each) => each.name === token)
+  const px = token === undefined ? (lengthSteps(value) ?? 0) * start.unit : (named?.px ?? 0)
   const sides = start.handle.kind === "padding" ? changedSides(start.handle.side, held) : undefined
 
-  return {
-    change: writeValue(start, value, sides ?? []),
-    px,
-    ...(typeof value === "string" ? { token: value } : {}),
-    ...(sides ? { sides } : {})
-  }
+  return spacingEdit(writeValue(start, value, sides ?? []), px, token, sides)
 }
 
 /**

@@ -11,6 +11,7 @@ import {
   type NodeStyle,
   type Size
 } from "@parity-app/core"
+import { z } from "zod"
 import { editingState } from "./edit-frame.ts"
 
 /**
@@ -18,14 +19,19 @@ import { editingState } from "./edit-frame.ts"
  * and return what to select or set.
  */
 
+/** A component's child when it's a string. */
+const textChild = z.string()
+
 /** The text a layer shows, when it's editable in place: a text layer, or a component whose child is a string. */
 export function editableText(node: DesignNode): string | undefined {
   if (node.type === "text") {
     return node.text
   }
 
-  if (node.type === "component" && typeof node.props?.children === "string") {
-    return node.props.children
+  if (node.type === "component") {
+    const child = textChild.safeParse(node.props?.children)
+
+    return child.success ? child.data : undefined
   }
 
   return undefined

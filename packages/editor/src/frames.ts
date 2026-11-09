@@ -12,6 +12,8 @@ import {
   walkNodes
 } from "@parity-app/core"
 import { newDesign } from "./create.ts"
+import type { Point } from "./drop-slot.ts"
+import { lengthSteps } from "./lengths.ts"
 import { layersName } from "./new-screen.ts"
 
 /**
@@ -73,15 +75,17 @@ export interface CanvasBox {
   maxY: number
 }
 
+/** Where a point snapped to, and the edges it snapped to on each axis that did. */
+export interface EdgeSnap {
+  point: Point
+  guides: Partial<Point>
+}
+
 /**
  * A point the frame tool drags to, snapped to the nearest edge of the designs around it on each axis, within `reach`
  * canvas pixels, with the edges it snapped to for guides. Without one in reach, an axis is where the pointer is.
  */
-export function snapToEdges(
-  point: { x: number; y: number },
-  boxes: readonly CanvasBox[],
-  reach: number
-): { point: { x: number; y: number }; guides: { x?: number; y?: number } } {
+export function snapToEdges(point: Point, boxes: readonly CanvasBox[], reach: number): EdgeSnap {
   const nearest = (value: number, edges: number[]) => {
     let best: number | undefined
 
@@ -104,17 +108,29 @@ export function snapToEdges(
     boxes.flatMap((box) => [box.minY, box.maxY])
   )
 
-  return {
-    point: { x: x ?? point.x, y: y ?? point.y },
-    guides: { ...(x === undefined ? {} : { x }), ...(y === undefined ? {} : { y }) }
+  const guides: Partial<Point> = {}
+
+  if (x !== undefined) {
+    guides.x = x
   }
+
+  if (y !== undefined) {
+    guides.y = y
+  }
+
+  return { point: { x: x ?? point.x, y: y ?? point.y }, guides }
+}
+
+/** A box by its top left, width and height, in canvas pixels. */
+export interface CanvasRect {
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 /** The box dragged out from one corner to the other, whichever way the drag went, in whole pixels. */
-export function draggedBox(
-  from: { x: number; y: number },
-  to: { x: number; y: number }
-): { x: number; y: number; width: number; height: number } {
+export function draggedBox(from: Point, to: Point): CanvasRect {
   const x = Math.round(Math.min(from.x, to.x))
   const y = Math.round(Math.min(from.y, to.y))
 
@@ -214,14 +230,17 @@ export function frameRootStored(design: ContainerSpec, unit: number): ContainerS
   const style = { ...design.root.style }
   const size: FrameSize = {}
 
-  if (typeof style.width === "number") {
-    size.width = Math.round(style.width * unit)
+  const width = lengthSteps(style.width)
+  const height = lengthSteps(style.height)
+
+  if (width !== undefined) {
+    size.width = Math.round(width * unit)
   } else if (style.width === "hug" && design.size?.width !== undefined) {
     size.width = design.size.width
   }
 
-  if (typeof style.height === "number") {
-    size.height = Math.round(style.height * unit)
+  if (height !== undefined) {
+    size.height = Math.round(height * unit)
   }
 
   if (style.width !== "hug") {
@@ -241,16 +260,18 @@ export function frameRootStored(design: ContainerSpec, unit: number): ContainerS
   return next
 }
 
+/** A new frame, and the id of the layer in it to edit. */
+export interface NewFrame {
+  design: ContainerSpec
+  node: string
+}
+
 /**
  * Text on the empty canvas: a text layer in a frame that hugs it, with 2 steps of padding so the frame's fill doesn't
  * clip its letters, and its top left `at`. It's named after its text (see `textFrameRenamed`). Returns the frame and the
  * text layer's id, to edit it in place.
  */
-export function frameOfText(
-  text: string,
-  taken: Iterable<string>,
-  at: { x: number; y: number }
-): { design: ContainerSpec; node: string } {
+export function frameOfText(text: string, taken: Iterable<string>, at: Point): NewFrame {
   const ids = new Set<string>()
   const rootId = generateId(ids)
   ids.add(rootId)

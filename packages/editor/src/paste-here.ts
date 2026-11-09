@@ -8,8 +8,9 @@ import {
   type StateSpec,
   withFreshIds
 } from "@parity-app/core"
-import { fitBindings } from "./clipboard.ts"
+import { fitBindings, type Pasted } from "./clipboard.ts"
 import { type Box, type Flow, type Point, type Rect, type SlotChild, slotAt } from "./drop-slot.ts"
+import { lengthSteps } from "./lengths.ts"
 import { boardReader } from "./shown.ts"
 
 /**
@@ -42,8 +43,6 @@ export interface HereLayout {
   unit: number
 }
 
-const insets = ["top", "right", "bottom", "left"] as const
-
 /** Spacing steps between copies placed side by side at the pointer, as a pasted screen spaces its layers. */
 const besideGap = 4
 
@@ -63,7 +62,7 @@ export function pasteHere(
   here: HereLayout,
   state: StateSpec,
   viewport?: string
-): { container: ContainerSpec; copies: string[] } {
+): Pasted {
   const target = slotHere(container, here, state, viewport)
 
   if (!target) {
@@ -84,9 +83,9 @@ export function pasteHere(
     }
 
     const placed = placedAt(copy, { left, top: at.top })
-    const width = copy.style?.width
+    const width = lengthSteps(copy.style?.width)
 
-    if (typeof width === "number") {
+    if (width !== undefined) {
       left += width + besideGap
     }
 
@@ -96,7 +95,7 @@ export function pasteHere(
   let root = container.root
 
   for (const [offset, copy] of copies.entries()) {
-    root = insertNode(root, layout, copy, { index: index + offset, ...(slot ? { slot } : {}) })
+    root = insertNode(root, layout, copy, { index: index + offset, slot })
   }
 
   return { container: { ...container, root }, copies: copies.map((copy) => copy.id) }
@@ -178,18 +177,19 @@ function halfSteps(screen: number, here: HereLayout): number {
  */
 export function placedAt(node: DesignNode, at: { left: number; top: number }): DesignNode {
   const style = node.style ?? {}
-  const own = Object.fromEntries(Object.entries(style).filter(([key]) => !(insets as readonly string[]).includes(key)))
+  const { top: _top, right: _right, bottom: _bottom, left: _left, ...own } = style
 
   const stretched = (start: "left" | "top", end: "right" | "bottom", size: "width" | "height") =>
     style[start] !== undefined && style[end] !== undefined && style[size] === undefined
 
-  const placed: NodeStyle = {
-    ...own,
-    position: "absolute",
-    left: at.left,
-    top: at.top,
-    ...(stretched("left", "right", "width") ? { right: style.right } : {}),
-    ...(stretched("top", "bottom", "height") ? { bottom: style.bottom } : {})
+  const placed: NodeStyle = { ...own, position: "absolute", left: at.left, top: at.top }
+
+  if (stretched("left", "right", "width")) {
+    placed.right = style.right
+  }
+
+  if (stretched("top", "bottom", "height")) {
+    placed.bottom = style.bottom
   }
 
   return { ...node, style: placed }

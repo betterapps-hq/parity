@@ -37,10 +37,14 @@ export interface ComponentComposition {
  * The components it has to go inside: `listed` by its library, outermost first; `none`, when its library lists none or
  * it has drawn on its own; `unknown`, when nothing says, or it fails to draw for want of a provider no library names.
  */
-export type CompositionParents =
-  | { status: "listed"; chain: CompositionParent[]; from?: ParentSignal }
-  | { status: "none" }
-  | { status: "unknown"; reason: string }
+export type CompositionParents = ListedParents | { status: "none" } | { status: "unknown"; reason: string }
+
+/** The parents a component's library lists, outermost first. */
+export interface ListedParents {
+  status: "listed"
+  chain: CompositionParent[]
+  from?: ParentSignal
+}
 
 export interface CompositionParent {
   component: string
@@ -125,14 +129,23 @@ function parentsOf(source: ComponentSource | undefined, status: ComponentRenderS
   if (source?.parents?.length) {
     const optional = new Set(source.optionalParents ?? [])
 
-    return {
-      status: "listed",
-      chain: source.parents.map((component) => ({
-        component,
-        ...(optional.has(component) ? { optional: true as const } : {})
-      })),
-      ...(source.parentsFrom ? { from: source.parentsFrom } : {})
+    const chain = source.parents.map((component) => {
+      const parent: CompositionParent = { component }
+
+      if (optional.has(component)) {
+        parent.optional = true
+      }
+
+      return parent
+    })
+
+    const listed: ListedParents = { status: "listed", chain }
+
+    if (source.parentsFrom) {
+      listed.from = source.parentsFrom
     }
+
+    return listed
   }
 
   if (status && "error" in status && renderProblem(status.error) === "provider") {

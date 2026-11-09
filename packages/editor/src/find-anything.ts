@@ -67,18 +67,23 @@ export function findAnything<T extends FindItem>(
   const byId = new Map(items.map((item) => [item.id, item]))
   const rank = (item: T) => (searching ? matchWords(`${item.label} ${item.keywords ?? ""}`, search) : 1)
 
-  const recentItems = [...new Set(recent)]
-    .map((id) => byId.get(id))
-    .filter((item): item is T => !!item && rank(item) > 0)
+  const recentItems = [...new Set(recent)].flatMap((id) => {
+    const item = byId.get(id)
+
+    return item && rank(item) > 0 ? [item] : []
+  })
 
   const shownRecently = new Set(recentItems.map((item) => item.id))
   const found: FoundGroup<T>[] = recentItems.length > 0 ? [{ group: "Recent", items: recentItems }] : []
 
   for (const group of groups) {
-    const ranked = items
-      .filter((item) => item.group === group && !shownRecently.has(item.id) && (searching || !item.searchOnly))
-      .map((item, index) => ({ item, index, rank: rank(item) }))
-      .filter((entry) => entry.rank > 0)
+    // `index` keeps the items' order among equal ranks.
+    const ranked = items.flatMap((item, index) => {
+      const listed = item.group === group && !shownRecently.has(item.id) && (searching || !item.searchOnly)
+      const score = listed ? rank(item) : 0
+
+      return score > 0 ? [{ item, index, rank: score }] : []
+    })
 
     if (searching) {
       ranked.sort((a, b) => b.rank - a.rank || a.index - b.index)

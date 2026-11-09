@@ -56,11 +56,14 @@ const clipboardEnvelope = z.object({
 
 export type ClipboardEnvelope = z.infer<typeof clipboardEnvelope>
 
+/** A copy as it goes on the system clipboard: the text, and the envelope it holds. */
+export interface ClipboardWrite {
+  text: string
+  envelope: ClipboardEnvelope
+}
+
 /** A copy from the project at `project`, its root, and the text that goes on the system clipboard for it. */
-export function writeEnvelope(
-  project: string,
-  payload: ClipboardPayload
-): { text: string; envelope: ClipboardEnvelope } {
+export function writeEnvelope(project: string, payload: ClipboardPayload): ClipboardWrite {
   const envelope: ClipboardEnvelope = { parity: "clipboard", version: 1, project, payload }
 
   return { text: JSON.stringify(envelope), envelope }
@@ -152,10 +155,18 @@ export function fitBindings(node: DesignNode, destination: ContainerSpec): Desig
     const { text, visible, props } = node.bind
     const keptProps = Object.fromEntries(Object.entries(props ?? {}).filter(([, param]) => has(param)))
 
-    const bind = {
-      ...(text !== undefined && has(text) ? { text } : {}),
-      ...(visible !== undefined && has(visible) ? { visible } : {}),
-      ...(Object.keys(keptProps).length > 0 ? { props: keptProps } : {})
+    const bind: NonNullable<DesignNode["bind"]> = {}
+
+    if (text !== undefined && has(text)) {
+      bind.text = text
+    }
+
+    if (visible !== undefined && has(visible)) {
+      bind.visible = visible
+    }
+
+    if (Object.keys(keptProps).length > 0) {
+      bind.props = keptProps
     }
 
     next = { ...node }
@@ -219,15 +230,17 @@ export function pasteTarget(
   return undefined
 }
 
+/** A design with copies put into it, and the copies' ids, in order. */
+export interface Pasted {
+  container: ContainerSpec
+  copies: string[]
+}
+
 /**
  * Pastes copies of `nodes`, with fresh ids and the bindings the design has params for (see `fitBindings`), at
  * `target`, in order. Returns the design and the copies' ids.
  */
-export function pasteLayers(
-  container: ContainerSpec,
-  target: PasteTarget,
-  nodes: readonly DesignNode[]
-): { container: ContainerSpec; copies: string[] } {
+export function pasteLayers(container: ContainerSpec, target: PasteTarget, nodes: readonly DesignNode[]): Pasted {
   const taken = nodeIds(container.root)
   const copies = nodes.map((node) => withFreshIds(fitBindings(node, container), taken))
   let root = container.root
@@ -335,7 +348,7 @@ export function applyStyle(
  * The components the layers name that aren't among `known`, such as layers from another project. None when nothing is
  * known yet.
  */
-export function missingComponents(nodes: readonly DesignNode[], known: Record<string, unknown>): string[] {
+export function missingComponents<T>(nodes: readonly DesignNode[], known: Readonly<Record<string, T>>): string[] {
   if (Object.keys(known).length === 0) {
     return []
   }

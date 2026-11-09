@@ -32,12 +32,13 @@ export function withTokenEdits(edits: TokenEdits, changes: readonly TokenEdit[])
     const key = tokenKey(change.name, change.theme)
     const earlier = next.get(key)
     const original = earlier ? earlier.original : change.original
-    next.set(key, {
-      name: change.name,
-      theme: change.theme,
-      value: change.value,
-      ...(original === undefined ? {} : { original })
-    })
+    const edit: TokenEdit = { name: change.name, theme: change.theme, value: change.value }
+
+    if (original !== undefined) {
+      edit.original = original
+    }
+
+    next.set(key, edit)
   }
 
   return next

@@ -8,11 +8,11 @@ import {
 import { describe, expect, it } from "vite-plus/test"
 import { homeComponent, homeScreen, openingDesigns } from "./home.ts"
 
-const viteApp: Record<string, ComponentSource> = {
+const viteApp = {
   Button: { path: "src/components/ui/button.tsx", export: "Button" },
   Card: { path: "src/components/Card.tsx", export: "Card", lazy: true, as: "function" },
   App: { path: "src/App.tsx", export: "App", lazy: true, as: "function" }
-}
+} satisfies Record<string, ComponentSource>
 
 describe("the designs a project opens with", () => {
   it("puts a Home screen in the main file when the project has no file yet", () => {

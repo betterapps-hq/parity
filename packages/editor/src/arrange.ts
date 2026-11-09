@@ -12,12 +12,14 @@ import {
   locateNode,
   moveNode,
   nodeIds,
+  type NodeStyle,
   type StateSpec,
   topmostNodes,
   unwrapNode,
   withFreshIds,
   wrapNodes
 } from "@parity-app/core"
+import type { Pasted } from "./clipboard.ts"
 import { boardReader } from "./shown.ts"
 
 /**
@@ -53,25 +55,31 @@ export function topLayers(container: ContainerSpec, ids: Iterable<string>): stri
     .filter((id) => id !== container.root.id)
 }
 
+/** A design with layers deleted, and the layout that held the last of them, when it isn't the root. */
+export interface LayersRemoved {
+  container: ContainerSpec
+  parent?: string
+}
+
 /**
  * Deletes the layers `ids`. Returns the design, and the layout that held the last of them, to select next; none when
  * that's the design's root.
  */
-export function removeLayers(
-  container: ContainerSpec,
-  ids: readonly string[]
-): { container: ContainerSpec; parent?: string } {
+export function removeLayers(container: ContainerSpec, ids: readonly string[]): LayersRemoved {
   const parent = ids.length > 0 ? locateNode(container.root, ids.at(-1)!)?.ancestors.at(-1) : undefined
   const next = ids.reduce((current, id) => (findNode(current.root, id) ? deleteNode(current, id) : current), container)
 
-  return { container: next, ...(parent && parent.id !== container.root.id ? { parent: parent.id } : {}) }
+  const removed: LayersRemoved = { container: next }
+
+  if (parent && parent.id !== container.root.id) {
+    removed.parent = parent.id
+  }
+
+  return removed
 }
 
 /** Copies each of the layers `ids` in place, just after itself, with fresh ids. Returns the copies' ids in order. */
-export function copyLayersInPlace(
-  container: ContainerSpec,
-  ids: readonly string[]
-): { container: ContainerSpec; copies: string[] } {
+export function copyLayersInPlace(container: ContainerSpec, ids: readonly string[]): Pasted {
   const taken = nodeIds(container.root)
   const copies: string[] = []
   let root = container.root
@@ -125,6 +133,12 @@ export function siblingsOf(root: DesignNode, id: string): string[] | undefined {
   return siblings?.map((node) => node.id)
 }
 
+/** A design with a layer added, and the layer's id. */
+export interface AddedLayer {
+  container: ContainerSpec
+  id: string
+}
+
 /**
  * Puts the layers `ids` in a new layout, laid out the way their parent lays them out as the board shows it in `state`
  * and `viewport`, with the variant options it shows: in a row when it's a row, and with its gap. Returns the design and
@@ -135,18 +149,22 @@ export function wrapInLayout(
   ids: readonly string[],
   state: StateSpec,
   viewport?: string
-): { container: ContainerSpec; id: string } {
+): AddedLayer {
   const parent = ids.length > 0 ? locateNode(container.root, ids[0]!)?.ancestors.at(-1) : undefined
   const parentStyle = parent ? boardReader(container, { state, viewport })(parent).style : undefined
   const id = generateId(nodeIds(container.root))
 
-  const next = wrapNodes(container, ids, {
-    id,
-    style: {
-      ...(parentStyle?.direction === "row" ? { direction: "row" as const } : {}),
-      ...(parentStyle?.gap !== undefined ? { gap: parentStyle.gap } : {})
-    }
-  })
+  const style: NodeStyle = {}
+
+  if (parentStyle?.direction === "row") {
+    style.direction = "row"
+  }
+
+  if (parentStyle?.gap !== undefined) {
+    style.gap = parentStyle.gap
+  }
+
+  const next = wrapNodes(container, ids, { id, style })
 
   return { container: next, id }
 }

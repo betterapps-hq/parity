@@ -171,9 +171,11 @@ export function searchRows<D extends TreeDesign>(
     return [{ ...row, position: 1, siblings: 1 }, ...inside.flat()]
   }
 
-  const shown = designs
-    .map((design) => ({ design, inside: found(design, rootLayer(design), 1) }))
-    .filter(({ design, inside }) => inside.length > 0 || matches(design))
+  const shown = designs.flatMap((design) => {
+    const inside = found(design, rootLayer(design), 1)
+
+    return inside.length > 0 || matches(design) ? [{ design, inside }] : []
+  })
 
   return shown.flatMap(({ design, inside }, index) => [
     designRow(design, index, shown.length, inside.length > 0),

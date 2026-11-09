@@ -57,7 +57,7 @@ function form(): ContainerSpec {
   }
 }
 
-const [base, error] = form().states as [ContainerSpec["states"][0], ContainerSpec["states"][0]]
+const [base, error] = form().states
 
 /** The shared fixture's card, its board showing the variant options `variants`: Inline turns its body into a row. */
 function card(variants: Record<string, string> = {}): ContainerSpec {
@@ -94,7 +94,7 @@ describe("the clipboard's envelope", () => {
   })
 
   it("reads nothing when a payload doesn't hold the list its kind pastes, or it's empty", () => {
-    const envelope = (kind: string, extra: object) =>
+    const envelope = <Extra>(kind: string, extra: Extra) =>
       readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload: { kind, ...extra } }))
 
     expect(envelope("layers", {})).toBeUndefined()
@@ -107,7 +107,7 @@ describe("the clipboard's envelope", () => {
   })
 
   it("reads nothing when what it holds doesn't match the .par schema", () => {
-    const envelope = (payload: object) =>
+    const envelope = <Payload>(payload: Payload) =>
       readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload }))
 
     expect(envelope({ kind: "layers", nodes: [null] })).toBeUndefined()
@@ -119,7 +119,7 @@ describe("the clipboard's envelope", () => {
   })
 
   it("reads nothing from a newer version's copy whose layers this one can't read", () => {
-    const envelope = (payload: object) =>
+    const envelope = <Payload>(payload: Payload) =>
       readEnvelope(JSON.stringify({ parity: "clipboard", version: 1, project: "D:/acme", payload }))
 
     expect(envelope({ kind: "layers", nodes: [{ ...text("heading"), blur: 4 }] })).toBeUndefined()

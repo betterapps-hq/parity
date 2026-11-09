@@ -53,14 +53,22 @@ export function newDesign(
     }
   }
 
-  return {
+  const design: ContainerSpec = {
     id: uniqueId(name, taken),
     name,
     kind,
     position,
     root: roots[kind],
-    states: [{ id: "default", name: "Default" }],
-    ...(kind === "component" && viewport ? { frames: { [viewport]: { width: 480 } } } : {}),
-    ...(kind === "frame" && size ? { size } : {})
+    states: [{ id: "default", name: "Default" }]
   }
+
+  if (kind === "component" && viewport) {
+    design.frames = { [viewport]: { width: 480 } }
+  }
+
+  if (kind === "frame" && size) {
+    design.size = size
+  }
+
+  return design
 }

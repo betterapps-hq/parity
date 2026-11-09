@@ -106,5 +106,6 @@ function withLocked<T extends { locked?: boolean }>(value: T, lock: boolean): T 
 
   const { locked: _locked, ...rest } = value
 
+  // SAFETY: designs and layers, the values locked here, have `locked` optional, so one without it is still a T.
   return rest as T
 }

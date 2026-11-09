@@ -82,13 +82,21 @@ export function layersSelection(
     return { design }
   }
 
-  return {
-    design,
-    node: unique.at(-1),
-    ...(unique.length > 1 ? { nodes: unique } : {}),
-    ...(frame.mode ? { mode: frame.mode } : {}),
-    ...(frame.state ? { state: frame.state } : {})
+  const selection: Selection = { design, node: unique.at(-1) }
+
+  if (unique.length > 1) {
+    selection.nodes = unique
   }
+
+  if (frame.mode) {
+    selection.mode = frame.mode
+  }
+
+  if (frame.state) {
+    selection.state = frame.state
+  }
+
+  return selection
 }
 
 /** Shift-click: adds a layer to the selection, or takes it out when it's already in. */
@@ -116,5 +124,11 @@ export function designsSelection(designs: string[]): Selection {
     return {}
   }
 
-  return { design: unique.at(-1), ...(unique.length > 1 ? { designs: unique } : {}) }
+  const selection: Selection = { design: unique.at(-1) }
+
+  if (unique.length > 1) {
+    selection.designs = unique
+  }
+
+  return selection
 }

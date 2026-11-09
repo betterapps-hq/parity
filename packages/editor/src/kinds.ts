@@ -13,7 +13,7 @@ import {
   snapToSpacingGrid
 } from "@parity-app/core"
 import type { DesignRef } from "./arrange.ts"
-import { asShown, fitBindings, pasteLayers, type PasteTarget } from "./clipboard.ts"
+import { asShown, fitBindings, type Pasted, pasteLayers, type PasteTarget } from "./clipboard.ts"
 
 /**
  * Turning a design into another kind, and a frame going inside another design. A frame is the light kind: a layout on
@@ -33,6 +33,12 @@ export interface DroppedParts {
   variants: string[]
 }
 
+/** A design turned into another kind, and what it dropped. */
+export interface TurnedInto {
+  design: ContainerSpec
+  dropped: DroppedParts
+}
+
 /**
  * The design as another kind, with what it dropped. A screen and a component become each other by their kind alone.
  *
@@ -44,11 +50,7 @@ export interface DroppedParts {
  * A frame made a screen or a component drops nothing: its own size becomes its frame's size in the primary viewport,
  * so it shows as it did.
  */
-export function turnInto(
-  design: ContainerSpec,
-  kind: ContainerKind,
-  modes: ModeSettings
-): { design: ContainerSpec; dropped: DroppedParts } {
+export function turnInto(design: ContainerSpec, kind: ContainerKind, modes: ModeSettings): TurnedInto {
   const from = design.kind ?? "screen"
   const dropped: DroppedParts = { states: [], modes: [], params: [], variants: [] }
 
@@ -68,10 +70,16 @@ export function turnInto(
   const viewport = resolveModes(modes)[0]!.viewport
   const sized = size !== undefined && (size.width !== undefined || size.height !== undefined)
 
-  return { design: { ...rest, kind, ...(sized ? { frames: { [viewport]: size } } : {}) }, dropped }
+  const turned: ContainerSpec = { ...rest, kind }
+
+  if (sized) {
+    turned.frames = { [viewport]: size }
+  }
+
+  return { design: turned, dropped }
 }
 
-function asFrame(design: ContainerSpec, modes: ModeSettings): { design: ContainerSpec; dropped: DroppedParts } {
+function asFrame(design: ContainerSpec, modes: ModeSettings): TurnedInto {
   const [first] = design.states
   const { main, beside, all } = shownModes(modes, design)
   const primary = all[0]!
@@ -89,17 +97,20 @@ function asFrame(design: ContainerSpec, modes: ModeSettings): { design: Containe
     position: design.position,
     root,
     states: [{ id: first!.id, name: first!.name }],
-    size: frameSize(design, primary),
-    ...(design.context ? { context: design.context } : {})
+    size: frameSize(design, primary)
+  }
+
+  if (design.context) {
+    frame.context = design.context
   }
 
   return {
     design: frame,
     dropped: {
       states: design.states.slice(1).map(({ id, name }) => ({ id, name })),
-      modes: [main, ...beside].filter((mode) => mode !== primary).map((mode) => mode.id),
-      params: params.filter(([, param]) => param.type !== "variant").map(([name]) => name),
-      variants: params.filter(([, param]) => param.type === "variant").map(([name]) => name)
+      modes: [main, ...beside].flatMap((mode) => (mode === primary ? [] : [mode.id])),
+      params: params.flatMap(([name, param]) => (param.type === "variant" ? [] : [name])),
+      variants: params.flatMap(([name, param]) => (param.type === "variant" ? [name] : []))
     }
   }
 }
@@ -126,7 +137,13 @@ export function frameAsLayout(frame: ContainerSpec, unit: number): LayoutNode {
     style.height = snapToSpacingGrid(size.height / unit)
   }
 
-  return { ...root, name: frame.name, ...(Object.keys(style).length > 0 ? { style } : {}) }
+  const layout: LayoutNode = { ...root, name: frame.name }
+
+  if (Object.keys(style).length > 0) {
+    layout.style = style
+  }
+
+  return layout
 }
 
 /**
@@ -139,7 +156,7 @@ export function pasteFramesInto(
   target: PasteTarget,
   designs: readonly ContainerSpec[],
   unit: number
-): { container: ContainerSpec; copies: string[] } | undefined {
+): Pasted | undefined {
   if (!designs.every((design) => design.kind === "frame")) {
     return undefined
   }
@@ -149,6 +166,12 @@ export function pasteFramesInto(
     target,
     designs.map((design) => frameAsLayout(design, unit))
   )
+}
+
+/** The documents once a frame moves inside another design, and the id of the layer it became. */
+export interface FrameMovedIn {
+  documents: Map<string, CanvasDocument>
+  layer: string
 }
 
 /**
@@ -162,7 +185,7 @@ export function moveFrameInto(
   into: DesignRef,
   target: PasteTarget,
   unit: number
-): { documents: Map<string, CanvasDocument>; layer: string } {
+): FrameMovedIn {
   const find = (ref: DesignRef) => documents.get(ref.path)?.containers.find((design) => design.id === ref.id)
   const moving = find(frame)
   const destination = find(into)

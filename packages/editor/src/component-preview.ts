@@ -1,6 +1,7 @@
 import {
   type ComponentInfo,
   type ComponentLibrary,
+  type ComponentNode,
   type ComponentProp,
   type ComponentSource,
   type DesignNode,
@@ -36,7 +37,7 @@ export interface PreviewContext {
   /** The viewport option of the mode it's drawn in, whose responsive patches apply. */
   viewport: string
   /** Props laid over the component's own, as one of its variants' (PAR-208). */
-  props?: Record<string, unknown>
+  props?: ComponentNode["props"]
 }
 
 /**
@@ -180,7 +181,7 @@ function inside(node: DesignNode): DesignNode[] {
 }
 
 /** The example with props laid over the component's own, on its first layer of that component, outermost first. */
-function withProps(node: DesignNode, component: string, props: Record<string, unknown>): DesignNode {
+function withProps(node: DesignNode, component: string, props: NonNullable<ComponentNode["props"]>): DesignNode {
   const tree = structuredClone(node)
   const target = [tree, ...inside(tree)].find((layer) => layer.type === "component" && layer.component === component)
 
