@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { existsSync } from "node:fs"
 import { join } from "node:path"
-import { imageLimit, imageTypes } from "@parity-app/editor"
+import { imageExtension, imageLimit } from "@parity-app/editor"
 import type { ServiceMethods } from "../shared/protocol.ts"
 import { applyProjectEdit } from "./edits.ts"
 import type { OpenProject } from "./projects.ts"
@@ -14,7 +14,7 @@ export async function importImage(
   project: OpenProject,
   { name, type, data }: ServiceMethods["images.import"]["params"]
 ): Promise<ServiceMethods["images.import"]["result"]> {
-  const extension = Object.hasOwn(imageTypes, type) ? imageTypes[type] : undefined
+  const extension = imageExtension(type)
 
   if (!extension) {
     throw new Error(`${type} images can't be added. Use a PNG, JPEG, GIF, WebP or SVG.`)

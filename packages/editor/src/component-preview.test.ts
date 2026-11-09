@@ -1,4 +1,11 @@
-import type { ComponentInfo, ComponentSource, DesignNode, RenderNode } from "@parity-app/core"
+import type {
+  ComponentInfo,
+  ComponentNode,
+  ComponentProp,
+  ComponentSource,
+  DesignNode,
+  RenderNode
+} from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
   componentPreviewTree,
@@ -12,9 +19,13 @@ import {
   previewVariants
 } from "./component-preview.ts"
 
-const takesChildren = { props: [{ name: "children", kind: "node" }] } as unknown as ComponentInfo
+const takesChildren: ComponentInfo = {
+  name: "Badge",
+  path: "src/Badge.tsx",
+  props: [{ name: "children", kind: "node", group: "own" }]
+}
 
-const sources: Record<string, ComponentSource> = {
+const sources = {
   "acme/Tabs": { path: "@acme/ui", export: "Tabs", library: "acme" },
   "acme/TabsList": { path: "@acme/ui", export: "TabsList", library: "acme", parents: ["acme/Tabs"] },
   "acme/TabsTrigger": {
@@ -24,7 +35,7 @@ const sources: Record<string, ComponentSource> = {
     parents: ["acme/Tabs", "acme/TabsList"]
   },
   Badge: { path: "src/Badge.tsx", export: "Badge" }
-}
+} satisfies Record<string, ComponentSource>
 
 const context = { sources, library: new Map(), viewport: "desktop" }
 
@@ -79,7 +90,7 @@ const library = (name: string, more: Partial<ComponentSource> = {}): ComponentSo
   ...more
 })
 
-const openSources: Record<string, ComponentSource> = {
+const openSources = {
   "acme/Dialog": library("Dialog", { openProps: ["defaultOpen"] }),
   "acme/DialogTitle": library("DialogTitle", { parents: ["acme/Dialog"] }),
   "acme/Menubar": library("Menubar"),
@@ -88,28 +99,44 @@ const openSources: Record<string, ComponentSource> = {
   "acme/Accordion": library("Accordion", { openProps: ["defaultValue", "value"] }),
   "acme/AccordionItem": library("AccordionItem", { openProps: ["value"] }),
   "acme/AccordionContent": library("AccordionContent")
-}
+} satisfies Record<string, ComponentSource>
+
+/** Props as a component layer holds them. */
+type NodeProps = NonNullable<ComponentNode["props"]>
 
 /** A component layer, with an id from its name. */
-function layer(component: string, props?: Record<string, unknown>, children: DesignNode[] = []): DesignNode {
-  return {
-    type: "component",
-    id: component,
-    component: `acme/${component}`,
-    ...(props ? { props } : {}),
-    ...(children.length > 0 ? { slots: { children } } : {})
+function layer(component: string, props?: NodeProps, children: DesignNode[] = []): DesignNode {
+  const node: ComponentNode = { type: "component", id: component, component: `acme/${component}` }
+
+  if (props) {
+    node.props = props
   }
+
+  if (children.length > 0) {
+    node.slots = { children }
+  }
+
+  return node
 }
 
 /** Each component's props in a tree, by its id, for the ones given any. */
-function propsOf(node: DesignNode): Record<string, unknown> {
+function propsOf(node: DesignNode): Record<string, NodeProps> {
+  return Object.fromEntries(propEntries(node))
+}
+
+function propEntries(node: DesignNode): [string, NodeProps][] {
   if (node.type !== "component") {
-    return {}
+    return []
   }
 
-  const inside = Object.values(node.slots ?? {}).flat()
+  const own: [string, NodeProps][] = node.props ? [[node.id, node.props]] : []
 
-  return Object.assign(node.props ? { [node.id]: node.props } : {}, ...inside.map(propsOf)) as Record<string, unknown>
+  return [
+    ...own,
+    ...Object.values(node.slots ?? {})
+      .flat()
+      .flatMap(propEntries)
+  ]
 }
 
 describe("drawnOpen", () => {
@@ -163,7 +190,10 @@ describe("drawnOpen", () => {
 })
 
 /** The props a tree gives the first layer of a component, outermost first. */
-function drawnProps(tree: RenderNode[], component: string): Record<string, unknown> | undefined {
+function drawnProps(
+  tree: RenderNode[],
+  component: string
+): Extract<RenderNode, { kind: "component" }>["props"] | undefined {
   for (const node of tree) {
     if (node.kind === "component" && node.component === component) {
       return node.props
@@ -187,8 +217,14 @@ function drawnProps(tree: RenderNode[], component: string): Record<string, unkno
   return undefined
 }
 
-const prop = (name: string, more: object = {}) => ({ name, kind: "string", group: "own", ...more })
-const infoOf = (...props: object[]) => ({ name: "Badge", path: "src/Badge.tsx", props }) as unknown as ComponentInfo
+const prop = (name: string, more: Partial<ComponentProp> = {}): ComponentProp => ({
+  name,
+  kind: "string",
+  group: "own",
+  ...more
+})
+
+const infoOf = (...props: ComponentProp[]): ComponentInfo => ({ name: "Badge", path: "src/Badge.tsx", props })
 
 describe("a variant's preview", () => {
   it("lays its props over the component's own, on the component inside the parents a part needs", () => {

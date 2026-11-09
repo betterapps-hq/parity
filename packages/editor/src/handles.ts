@@ -54,12 +54,19 @@ interface Span {
   to: number
 }
 
+/** Where the handles at an axis' start and end go, and the span between them. */
+interface Band {
+  start: Span
+  middle: Span
+  end: Span
+}
+
 /**
  * Along one axis: where the handles at its start and end go, and the span between them that the strips across it
  * take. On a layer large enough they straddle its edges, with the strips stopping short of the corners. On a small one
  * they sit outside its edges, and the strips cover it from edge to edge.
  */
-function band(start: number, size: number): { start: Span; middle: Span; end: Span } {
+function band(start: number, size: number): Band {
   const end = start + size
   const half = handleSize / 2
 

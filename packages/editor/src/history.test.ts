@@ -94,8 +94,14 @@ function names(history: DesignHistory): string[] {
   return history.current.documents.get("app.par")!.containers.map((container) => container.name)
 }
 
+/** The history once a file's write ended, and the write. */
+interface Saved {
+  history: DesignHistory
+  write: FileWrite
+}
+
 /** Saves a file as the app does: the write starts, then succeeds or fails. */
-function save(history: DesignHistory, path: string, error?: string): { history: DesignHistory; write: FileWrite } {
+function save(history: DesignHistory, path: string, error?: string): Saved {
   const write = fileWrite(history, path)
 
   if (!write) {

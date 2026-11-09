@@ -86,12 +86,15 @@ export function sameDesign(a: ContainerSpec, b: ContainerSpec): boolean {
 }
 
 /** Deep equality as JSON sees it: key order doesn't matter, and a key set to undefined is a key left out. */
+// A file's parsed values hold component props, which core's schema leaves `unknown`, so this compares values as given.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 export function sameValue(a: unknown, b: unknown): boolean {
   if (a === b) {
     return true
   }
 
-  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) {
+  // Anything but an object or an array (a string, number, boolean, null or undefined) equals only itself.
+  if (a === null || a === undefined || b === null || b === undefined || Object(a) !== a || Object(b) !== b) {
     return false
   }
 
@@ -103,9 +106,8 @@ export function sameValue(a: unknown, b: unknown): boolean {
     return a.length === b.length && a.every((value, index) => sameValue(value, b[index]))
   }
 
-  const keys = (value: object) => Object.keys(value).filter((key) => Reflect.get(value, key) !== undefined)
-  const first = keys(a)
-  const second = keys(b)
+  const first = Object.entries(a).filter(([, value]) => value !== undefined)
+  const second = new Map(Object.entries(b).filter(([, value]) => value !== undefined))
 
-  return first.length === second.length && first.every((key) => sameValue(Reflect.get(a, key), Reflect.get(b, key)))
+  return first.length === second.size && first.every(([key, value]) => sameValue(value, second.get(key)))
 }

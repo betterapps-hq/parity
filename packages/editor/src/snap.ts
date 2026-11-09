@@ -257,9 +257,15 @@ export function resizedBox(box: SnapBox, edges: SnapEdges, delta: SnapPoint): Sn
   return next
 }
 
+/** How far a resize moved the edges that locked, along each axis that did, in layout pixels. */
+export interface EdgeMoves {
+  x?: number
+  y?: number
+}
+
 /** How far a resize moved each edge that locked, from `from` to the snapped box. */
-export function lockedEdgeMoves(from: SnapBox, snapped: LayerSnapped, edges: SnapEdges): { x?: number; y?: number } {
-  const moves: { x?: number; y?: number } = {}
+export function lockedEdgeMoves(from: SnapBox, snapped: LayerSnapped, edges: SnapEdges): EdgeMoves {
+  const moves: EdgeMoves = {}
 
   for (const axis of ["x", "y"] as const) {
     const edge = edges[axis]

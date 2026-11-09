@@ -1,15 +1,18 @@
-import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity-app/core"
+import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle, type TextNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { textLayer } from "./clipboard.ts"
 import type { Rect } from "./drop-slot.ts"
 import { type HereLayout, pasteHere, slotHere } from "./paste-here.ts"
 
-const text = (id: string, style?: NodeStyle): DesignNode => ({
-  type: "text",
-  id,
-  text: id,
-  ...(style ? { style } : {})
-})
+const text = (id: string, style?: NodeStyle): DesignNode => {
+  const node: TextNode = { type: "text", id, text: id }
+
+  if (style) {
+    node.style = style
+  }
+
+  return node
+}
 
 const box = (left: number, top: number, width: number, height: number): Rect => ({
   left,

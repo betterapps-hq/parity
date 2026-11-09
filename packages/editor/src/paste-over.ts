@@ -10,7 +10,7 @@ import {
   topmostNodes,
   withFreshIds
 } from "@parity-app/core"
-import { copyDesigns, fitBindings } from "./clipboard.ts"
+import { copyDesigns, fitBindings, type Pasted } from "./clipboard.ts"
 import { boardReader } from "./shown.ts"
 
 /**
@@ -45,9 +45,7 @@ function copiesAt(
       return copy
     }
 
-    const own = Object.fromEntries(
-      Object.entries(copy.style ?? {}).filter(([key]) => !(insets as readonly string[]).includes(key))
-    )
+    const { top: _top, right: _right, bottom: _bottom, left: _left, ...own } = copy.style ?? {}
 
     return { ...copy, style: { ...own, ...place } }
   })
@@ -65,7 +63,7 @@ export function placeOver(
   nodes: readonly DesignNode[],
   state: StateSpec,
   viewport?: string
-): { container: ContainerSpec; copies: string[] } {
+): Pasted {
   const target = topmostNodes(container.root, ids).findLast((node) => node.id !== container.root.id)
   const location = target && locateNode(container.root, target.id)
   const parent = location?.ancestors.at(-1)
@@ -111,7 +109,7 @@ export function replaceLayers(
   nodes: readonly DesignNode[],
   state: StateSpec,
   viewport?: string
-): { container: ContainerSpec; copies: string[] } {
+): Pasted {
   const targets = topmostNodes(container.root, ids).filter((node) => node.id !== container.root.id)
   const taken = nodeIds(container.root)
   const copies: string[] = []

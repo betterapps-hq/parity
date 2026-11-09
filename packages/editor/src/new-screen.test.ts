@@ -4,6 +4,7 @@ import {
   type ComponentSource,
   type ContainerSpec,
   type DesignNode,
+  type ImageNode,
   findNode,
   nodeIds
 } from "@parity-app/core"
@@ -13,12 +14,15 @@ import { designOfItem, designOfLayers, layersName } from "./new-screen.ts"
 
 const text = (id: string, words = id): DesignNode => ({ type: "text", id, text: words })
 
-const image = (id: string, alt?: string): DesignNode => ({
-  type: "image",
-  id,
-  src: `${id}.png`,
-  ...(alt ? { alt } : {})
-})
+const image = (id: string, alt?: string): DesignNode => {
+  const node: ImageNode = { type: "image", id, src: `${id}.png` }
+
+  if (alt) {
+    node.alt = alt
+  }
+
+  return node
+}
 
 /** A badge component design, with a param its instances fill. */
 const badge: ContainerSpec = {

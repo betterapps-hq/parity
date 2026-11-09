@@ -183,6 +183,12 @@ export function changeNote(
   return { ...snapshot, documents: new Map(snapshot.documents).set(ref.path, updated) }
 }
 
+/** The snapshot with the changes that could go in, and those that conflicted with edits made here. */
+export interface MergedChanges {
+  snapshot: DesignSnapshot
+  conflicts: ChangeConflict[]
+}
+
 /**
  * An agent's call merged into what's here now: each design it changed, created or deleted, its modes and its token
  * values. Designs it didn't touch stay as they are, whatever happened to them since it read the tab. A design it
@@ -194,7 +200,7 @@ export function mergeAgentChanges(
   designs: readonly DesignChange[],
   modes?: ModesChange,
   tokens: readonly TokenEdit[] = []
-): { snapshot: DesignSnapshot; conflicts: ChangeConflict[] } {
+): MergedChanges {
   const conflicts: ChangeConflict[] = []
   let next = snapshot
 

@@ -42,7 +42,7 @@ function settings(): ContainerSpec {
   }
 }
 
-const [base, loading] = dashboard().states as [ContainerSpec["states"][0], ContainerSpec["states"][0]]
+const [base, loading] = dashboard().states
 
 const childIds = (container: ContainerSpec, id: string) => {
   const node = findNode(container.root, id)

@@ -233,7 +233,7 @@ describe("withTextSizing", () => {
         const edited = { ...state, ...withTextSizing(design, sizing, measured, { explicit: true, column }) }
 
         const reset = Object.fromEntries(
-          Object.entries(edited).filter(([key]) => !(textSizingKeys as readonly string[]).includes(key))
+          Object.entries(edited).filter(([key]) => !textSizingKeys.some((sizingKey) => sizingKey === key))
         )
 
         expect(reset).toEqual(state)

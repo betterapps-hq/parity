@@ -11,7 +11,7 @@ import {
   nameWords
 } from "./insert-search.ts"
 
-const sources: Record<string, { origin: InsertOrigin; sourceName: string }> = {
+const sources = {
   basics: { origin: "basic", sourceName: "Basics" },
   designs: { origin: "design", sourceName: "Local components" },
   "project:kit": { origin: "kit", sourceName: "UI kit" },
@@ -19,12 +19,12 @@ const sources: Record<string, { origin: InsertOrigin; sourceName: string }> = {
   "project:pages": { origin: "page", sourceName: "Pages" },
   nova: { origin: "library", sourceName: "Shadcn Nova" },
   radix: { origin: "library", sourceName: "Radix Primitives" }
-}
+} satisfies Record<string, { origin: InsertOrigin; sourceName: string }>
 
-function option(source: string, key: string, extra: Partial<InsertOption> = {}): InsertOption {
+function option(source: keyof typeof sources, key: string, extra: Partial<InsertOption> = {}): InsertOption {
   const name = key.split("/").at(-1)!
 
-  return { key, name, source, ...sources[source]!, ...extra }
+  return { key, name, source, ...sources[source], ...extra }
 }
 
 /** The example project as the audit found it (docs/proposals/editor-experience.md, task 22), in the panel's order. */

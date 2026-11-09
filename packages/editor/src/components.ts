@@ -26,6 +26,12 @@ export interface MakeComponentOptions {
   paramNames?: Record<string, string>
 }
 
+/** The documents with a component made, and the component's id. */
+export interface MadeComponent {
+  documents: Map<string, CanvasDocument>
+  id: string
+}
+
 /**
  * Makes a component design from layers of a design (`occurrences`, one or more with the same structure), and puts an
  * instance of it in place of each. The component goes at the end of the `into` document, which is started if there
@@ -37,7 +43,7 @@ export function makeComponent(
   source: DesignRef,
   occurrences: string[],
   options: MakeComponentOptions
-): { documents: Map<string, CanvasDocument>; id: string } {
+): MadeComponent {
   const designs = [...documents.values()].flatMap((document) => document.containers)
   const from = documents.get(source.path)
   const original = from?.containers.find((container) => container.id === source.id)

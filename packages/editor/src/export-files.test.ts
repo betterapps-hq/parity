@@ -45,7 +45,7 @@ describe("the files an export writes", () => {
 
   it("offers the next size not asked for: PNGs from 1x up, then JPGs, then none", () => {
     expect(nextExportSize([{ format: "png", scale: 2 }])).toEqual({ format: "png", scale: 1 })
-    const pngs = [1, 2, 3].map((scale) => ({ format: "png" as const, scale: scale as 1 | 2 | 3 }))
+    const pngs = ([1, 2, 3] as const).map((scale) => ({ format: "png" as const, scale }))
     expect(nextExportSize(pngs)).toEqual({ format: "jpg", scale: 1 })
     const every = [...pngs, ...pngs.map((size) => ({ ...size, format: "jpg" as const }))]
     expect(nextExportSize(every)).toBeUndefined()

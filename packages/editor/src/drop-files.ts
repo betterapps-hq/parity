@@ -8,12 +8,17 @@ import { landedStyle } from "./new-screen.ts"
  */
 
 /** The image types Parity saves into a project, by media type, with the extension each is saved under. */
-export const imageTypes: Readonly<Record<string, string>> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/gif": "gif",
-  "image/webp": "webp",
-  "image/svg+xml": "svg"
+const imageTypes: ReadonlyMap<string, string> = new Map([
+  ["image/png", "png"],
+  ["image/jpeg", "jpg"],
+  ["image/gif", "gif"],
+  ["image/webp", "webp"],
+  ["image/svg+xml", "svg"]
+])
+
+/** The extension an image of a media type is saved under, or undefined for a type Parity doesn't save. */
+export function imageExtension(type: string): string | undefined {
+  return imageTypes.get(type)
 }
 
 /** The largest image saved into a project, in bytes. */
@@ -23,14 +28,14 @@ export const imageLimit = 20 * 1024 * 1024
 const imageKinds = "PNG, JPEG, GIF, WebP or SVG"
 
 /** Media types by extension, for files the system gives no type. */
-const byExtension: Readonly<Record<string, string>> = {
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  gif: "image/gif",
-  webp: "image/webp",
-  svg: "image/svg+xml"
-}
+const byExtension: ReadonlyMap<string, string> = new Map([
+  ["png", "image/png"],
+  ["jpg", "image/jpeg"],
+  ["jpeg", "image/jpeg"],
+  ["gif", "image/gif"],
+  ["webp", "image/webp"],
+  ["svg", "image/svg+xml"]
+])
 
 /** A dropped file, as the browser's `File` describes it. */
 export interface DroppedFile {
@@ -59,21 +64,27 @@ export interface SkippedFile {
  */
 export function imageTypeOf(file: Pick<DroppedFile, "name" | "type">): string | undefined {
   if (file.type) {
-    return Object.hasOwn(imageTypes, file.type) ? file.type : undefined
+    return imageTypes.has(file.type) ? file.type : undefined
   }
 
   const extension = /\.([^./\\]+)$/.exec(file.name)?.[1]?.toLowerCase()
 
-  return extension && Object.hasOwn(byExtension, extension) ? byExtension[extension] : undefined
+  return extension === undefined ? undefined : byExtension.get(extension)
 }
 
 /** Whether a drag's item, whose name isn't known until it's dropped, could be an image Parity takes. */
 export function mayBeImage(type: string): boolean {
-  return type === "" || Object.hasOwn(imageTypes, type)
+  return type === "" || imageTypes.has(type)
+}
+
+/** Dropped files sorted: the images Parity takes, and the files it skips. */
+export interface SortedDrop {
+  images: DroppedImage[]
+  skipped: SkippedFile[]
 }
 
 /** The dropped files sorted into the images Parity takes, in the order they came, and the files it skips. */
-export function sortDrop(files: readonly DroppedFile[]): { images: DroppedImage[]; skipped: SkippedFile[] } {
+export function sortDrop(files: readonly DroppedFile[]): SortedDrop {
   const images: DroppedImage[] = []
   const skipped: SkippedFile[] = []
 
@@ -92,15 +103,21 @@ export function sortDrop(files: readonly DroppedFile[]): { images: DroppedImage[
   return { images, skipped }
 }
 
+/** A message about skipped files: a title naming them, and why each was skipped. */
+export interface SkippedMessage {
+  title: string
+  description: string
+}
+
 /** What to say about skipped files: a title naming them, and why each was skipped. Undefined when none were. */
-export function skippedMessage(skipped: readonly SkippedFile[]): { title: string; description: string } | undefined {
+export function skippedMessage(skipped: readonly SkippedFile[]): SkippedMessage | undefined {
   if (skipped.length === 0) {
     return undefined
   }
 
   const title = skipped.length === 1 ? `Skipped ${skipped[0]!.name}` : `Skipped ${skipped.length} files`
   const sentences: string[] = []
-  const types = skipped.filter((file) => file.reason === "type").map((file) => file.name)
+  const types = skipped.flatMap((file) => (file.reason === "type" ? [file.name] : []))
 
   if (types.length === 1) {
     sentences.push(`${types[0]} isn't a ${imageKinds} image.`)
@@ -108,7 +125,7 @@ export function skippedMessage(skipped: readonly SkippedFile[]): { title: string
     sentences.push(`${names(types)} aren't ${imageKinds} images.`)
   }
 
-  const sizes = skipped.filter((file) => file.reason === "size").map((file) => file.name)
+  const sizes = skipped.flatMap((file) => (file.reason === "size" ? [file.name] : []))
 
   if (sizes.length > 0) {
     sentences.push(`${names(sizes)} ${sizes.length === 1 ? "is" : "are"} larger than 20 MB.`)

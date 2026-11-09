@@ -14,9 +14,10 @@ import {
   type StateSpec,
   topmostNodes
 } from "@parity-app/core"
-import type { Flow, Rect } from "./drop-slot.ts"
+import type { Flow, Point, Rect } from "./drop-slot.ts"
 import { withFrameSize } from "./frames.ts"
 import type { Edge } from "./handles.ts"
+import { lengthSteps } from "./lengths.ts"
 import { type BoardView, boardReader } from "./shown.ts"
 import {
   type LayerSnapped,
@@ -50,8 +51,14 @@ const halfSteps = (steps: number) => Math.round(steps * 2) / 2
 /** A length in steps of `unit` pixels, to the half pixel. */
 const halfPixels = (steps: number, unit: number) => Math.round(steps * unit * 2) / (2 * unit)
 
+/** Which sizes a handle changes. */
+export interface EdgeAxes {
+  width: boolean
+  height: boolean
+}
+
 /** The sizes a handle changes: a side's handle changes the one across it, a corner's both. */
-export function edgeAxes(edge: Edge): { width: boolean; height: boolean } {
+export function edgeAxes(edge: Edge): EdgeAxes {
   return { width: edge.includes("e") || edge.includes("w"), height: edge.includes("n") || edge.includes("s") }
 }
 
@@ -65,6 +72,15 @@ export type Side = "top" | "right" | "bottom" | "left"
 /** Where a layer's sides are drawn, in steps of the spacing scale from its parent's edges. */
 export type DrawnSteps = Record<Side, number>
 
+/** Insets in steps of the spacing scale, for the sides that have one. */
+export type SideSteps = Partial<Record<Side, number>>
+
+/** What moving a layer by its insets changes, and the first side a length token kept from moving, if any. */
+export interface InsetShift {
+  change: SideSteps
+  blocked?: Side
+}
+
 /** The sides along each axis: the one a layer is placed from by default first. */
 const sides = { x: ["left", "right"], y: ["top", "bottom"] } as const
 
@@ -76,13 +92,8 @@ const sides = { x: ["left", "right"], y: ["top", "bottom"] } as const
  * side counts from 0 and an axis with a token stays, named by `blocked`. An axis it doesn't move along keeps what's
  * written, tokens included.
  */
-export function shiftInsets(
-  style: NodeStyle,
-  dx: number,
-  dy: number,
-  drawn?: DrawnSteps
-): { change: NodeStyle; blocked?: Side } {
-  const change: NodeStyle = {}
+export function shiftInsets(style: NodeStyle, dx: number, dy: number, drawn?: DrawnSteps): InsetShift {
+  const change: SideSteps = {}
   let blocked: Side | undefined
 
   for (const [start, end, by] of [
@@ -102,11 +113,7 @@ export function shiftInsets(
     const at = (side: Side): number | undefined => {
       const value = style[side]
 
-      if (typeof value === "number") {
-        return value
-      }
-
-      return drawn?.[side] ?? (value === undefined ? 0 : undefined)
+      return lengthSteps(value) ?? drawn?.[side] ?? (value === undefined ? 0 : undefined)
     }
 
     const token = placed.find((side) => at(side) === undefined)
@@ -121,7 +128,19 @@ export function shiftInsets(
     }
   }
 
-  return { change, ...(blocked ? { blocked } : {}) }
+  const shift: InsetShift = { change }
+
+  if (blocked) {
+    shift.blocked = blocked
+  }
+
+  return shift
+}
+
+/** What resizing a layer along one axis changes: its size, when it changes, and its insets. */
+export interface InsetResize {
+  size?: number
+  insets: NodeStyle
 }
 
 /**
@@ -145,7 +164,7 @@ export function resizeInsets(
   unit: number,
   exact = false,
   centre = false
-): { size?: number; insets: NodeStyle } {
+): InsetResize {
   // Both to the half pixel, or insets to half steps and sizes to whole ones.
   const fine = (steps: number) => halfPixels(steps, unit)
   const inset = exact ? fine : halfSteps
@@ -157,7 +176,7 @@ export function resizeInsets(
 
   const shift = (side: Side, by: number): NodeStyle => {
     const value = style[side]
-    const from = typeof value === "number" ? value : drawn[side]
+    const from = lengthSteps(value) ?? drawn[side]
     const to = inset(from + by)
 
     return to === from ? {} : { [side]: to }
@@ -227,15 +246,19 @@ export interface AbsoluteDragStart {
   snapping?: LayerSnapStart
 }
 
+/** Where a drag moves a layer: the insets that put it there, and where it snapped, if it did. */
+export interface LayerMoved {
+  change: NodeStyle
+  snapped?: LayerSnapped
+}
+
 /**
  * Follows one drag of an absolutely placed layer, giving for each pointer position the insets that move it there and
  * where it snapped. It moves by its insets as nudging does (see `shiftInsets`), in half steps, except along an axis
  * where it snaps to its siblings or its parent (see `snapLayer`), where it goes exactly where it locks, to the half
  * pixel.
  */
-export function absoluteDrag(
-  start: AbsoluteDragStart
-): (move: DragMove) => { change: NodeStyle; snapped?: LayerSnapped } {
+export function absoluteDrag(start: AbsoluteDragStart): (move: DragMove) => LayerMoved {
   const { style, drawn, unit, scale, snapping } = start
 
   return ({ dx, dy, snaps }) => {
@@ -250,9 +273,13 @@ export function absoluteDrag(
         ? halfPixels((snapped.box[axis] - from[axis]) / unit, unit)
         : halfSteps(free[axis] / unit)
 
-    const { change } = shiftInsets(style, along("x"), along("y"), drawn)
+    const moved: LayerMoved = { change: shiftInsets(style, along("x"), along("y"), drawn).change }
 
-    return { change, ...(snapped ? { snapped } : {}) }
+    if (snapped) {
+      moved.snapped = snapped
+    }
+
+    return moved
   }
 }
 
@@ -439,6 +466,12 @@ export interface LayerResizeMove extends DragMove {
   centre?: boolean
 }
 
+/** What a resize gives a layer: its style, once the drag has started, and where its dragged edges snapped. */
+export interface LayerResized {
+  style?: StyleChange
+  snapped?: LayerSnapped
+}
+
 /**
  * Follows one drag of a layer's resize handle, giving for each pointer position the style it takes, or none while the
  * drag hasn't started (see `resizeGesture`), and where its dragged edges snapped. An absolutely placed layer's dragged
@@ -446,9 +479,7 @@ export interface LayerResizeMove extends DragMove {
  * keeps a corner's proportions. A size along the direction of the layout the layer is in takes `grow` away, since a
  * size on that axis replaces it.
  */
-export function layerResize(
-  start: LayerResizeStart
-): (move: LayerResizeMove) => { style?: StyleChange; snapped?: LayerSnapped } {
+export function layerResize(start: LayerResizeStart): (move: LayerResizeMove) => LayerResized {
   const { edge, layer, drawn, snapping, scale } = start
   const axes = edgeAxes(edge)
   const edges = resizeEdges(edge)
@@ -473,9 +504,17 @@ export function layerResize(
       snapped: from && snapped ? lockedEdgeMoves(from, snapped, edges) : {}
     })
 
-    const style: StyleChange | undefined = change && takesGrow ? { ...change, grow: undefined } : change
+    const resized: LayerResized = {}
 
-    return { ...(style ? { style } : {}), ...(snapped ? { snapped } : {}) }
+    if (change) {
+      resized.style = takesGrow ? { ...change, grow: undefined } : change
+    }
+
+    if (snapped) {
+      resized.snapped = snapped
+    }
+
+    return resized
   }
 }
 
@@ -492,11 +531,21 @@ export function layerSizeReset(
   const size = fill ? "fill" : "hug"
   const takesGrow = layer?.style.grow === true && (layer.parentDirection === "column" ? axes.height : axes.width)
 
-  return {
-    ...(axes.width ? { width: size } : {}),
-    ...(axes.height ? { height: size } : {}),
-    ...(takesGrow ? { grow: undefined } : {})
+  const change: StyleChange = {}
+
+  if (axes.width) {
+    change.width = size
   }
+
+  if (axes.height) {
+    change.height = size
+  }
+
+  if (takesGrow) {
+    change.grow = undefined
+  }
+
+  return change
 }
 
 /**
@@ -645,16 +694,16 @@ export function withFrame(container: ContainerSpec, viewport: string, size: Fram
 
 export type Arrow = "left" | "right" | "up" | "down"
 
-const arrows: Record<string, Arrow> = {
-  ArrowLeft: "left",
-  ArrowRight: "right",
-  ArrowUp: "up",
-  ArrowDown: "down"
-}
+const arrows = new Map<string, Arrow>([
+  ["ArrowLeft", "left"],
+  ["ArrowRight", "right"],
+  ["ArrowUp", "up"],
+  ["ArrowDown", "down"]
+])
 
 /** The arrow a key is, by `KeyboardEvent.key`. */
 export function arrowOf(key: string): Arrow | undefined {
-  return arrows[key]
+  return arrows.get(key)
 }
 
 /** How a layout node lays out its children as the design says, for when its frame doesn't draw it. */
@@ -742,7 +791,7 @@ function swap(list: string[], a: number, b: number): void {
   ;[list[a], list[b]] = [list[b]!, list[a]!]
 }
 
-const deltas: Record<Arrow, { x: number; y: number }> = {
+const deltas: Record<Arrow, Point> = {
   left: { x: -1, y: 0 },
   right: { x: 1, y: 0 },
   up: { x: 0, y: -1 },
@@ -750,7 +799,7 @@ const deltas: Record<Arrow, { x: number; y: number }> = {
 }
 
 /** How far an arrow moves something along its direction, in pixels: one, or ten with Shift. */
-function nudgeBy(arrow: Arrow, big: boolean): { x: number; y: number } {
+function nudgeBy(arrow: Arrow, big: boolean): Point {
   const steps = big ? 10 : 1
   const { x, y } = deltas[arrow]
 
@@ -758,11 +807,7 @@ function nudgeBy(arrow: Arrow, big: boolean): { x: number; y: number } {
 }
 
 /** Where an arrow moves a design or a text note: 1px, or 10px with Shift, to the whole pixel. */
-export function nudgedPosition(
-  position: { x: number; y: number },
-  arrow: Arrow,
-  big: boolean
-): { x: number; y: number } {
+export function nudgedPosition(position: Point, arrow: Arrow, big: boolean): Point {
   const by = nudgeBy(arrow, big)
 
   return { x: Math.round(position.x + by.x), y: Math.round(position.y + by.y) }
@@ -822,12 +867,15 @@ export function nudgeLayers(
 
     if (Object.keys(shift.change).length > 0) {
       // To the hundredth of a pixel, so a run of presses with a 6px unit doesn't drift.
-      const change = Object.fromEntries(
-        Object.entries(shift.change).map(([side, steps]) => [
-          side,
-          Math.round((steps as number) * unit * 100) / (unit * 100)
-        ])
-      )
+      const change: SideSteps = {}
+
+      for (const side of ["left", "right", "top", "bottom"] as const) {
+        const steps = shift.change[side]
+
+        if (steps !== undefined) {
+          change[side] = Math.round(steps * unit * 100) / (unit * 100)
+        }
+      }
 
       next = editNode(next, boardTarget(next, state.id), node.id, { style: change })
     }
@@ -881,5 +929,11 @@ export function nudgeLayers(
     next = { ...next, root }
   }
 
-  return { container: next, ...(blocked ? { blocked } : {}) }
+  const nudge: LayersNudge = { container: next }
+
+  if (blocked) {
+    nudge.blocked = blocked
+  }
+
+  return nudge
 }
