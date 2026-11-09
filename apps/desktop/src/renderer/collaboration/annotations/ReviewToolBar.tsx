@@ -2,7 +2,7 @@ import type { ReviewTool } from "@parity-app/editor"
 import { CommentBar } from "./CommentBar.tsx"
 import { KindBar } from "./KindBar.tsx"
 
-interface ReviewToolBarProps {
+export interface ReviewToolBarProps {
   tool: ReviewTool
 }
 

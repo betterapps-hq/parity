@@ -1915,8 +1915,8 @@ Code: the review rules are `packages/editor/src/review.ts` (`startReview`, `pick
 and `isReviewTool`). In the app, `renderer/selection.ts` keeps each tab's review (`startReviewing`, `stopReviewing`,
 `useReview`, and `setTool` putting it down); `chrome/keymap.ts` and `chrome/actions.ts` have Comment and Annotate, and
 `stepBack` in `chrome/commands.ts` puts the review tool down on Esc. `chrome/FloatingToolbar/` has the toolbar:
-`FloatingToolbar.tsx`, `Tools.tsx`, `MoveMenu.tsx`, `FrameMenu.tsx`, `ReviewButton.tsx` and `tools.ts`, with the warp in
-`Warp.tsx` (the bar and its two sides), `useWarp.ts` (widths, focus) and `warp-motion.ts` (the choreography).
+`FloatingToolbar.tsx`, `Tools.tsx`, `MoveMenu.tsx`, `FrameMenu.tsx`, `ReviewButton.tsx` and `tool-details.ts`, with the
+warp in `Warp.tsx` (the bar and its two sides), `useWarp.ts` (widths, focus) and `warp-motion.ts` (the choreography).
 `chrome/toolbar-parts.tsx` has the parts the floating bars share, and `chrome/ZoomControls.tsx` is Zoom.
 `collaboration/annotations/` has the review tools' bars: `annotation-kinds.ts` names and colors each review tool,
 `annotation-options.ts` lists each kind's options, and `ReviewToolBar.tsx` shows `KindBar.tsx` or `CommentBar.tsx`, with

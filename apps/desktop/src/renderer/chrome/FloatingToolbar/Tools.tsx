@@ -12,7 +12,7 @@ import { BarDivider, CommandTip, toolButton } from "../toolbar-parts.tsx"
 import { FrameMenu } from "./FrameMenu.tsx"
 import { MoveMenu } from "./MoveMenu.tsx"
 import { ReviewButton } from "./ReviewButton.tsx"
-import { isPointerTool, type PointerTool, toolIcons, toolTints } from "./tools.ts"
+import { isPointerTool, type PointerTool, toolIcons, toolTints } from "./tool-details.ts"
 
 /**
  * The tools as one group you move through with the arrow keys: what the pointer does, with its menu; Frame with its

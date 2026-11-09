@@ -11,7 +11,7 @@ import { actions } from "../actions.ts"
 import { keymap } from "../keymap.ts"
 import { formatKeys } from "../keys.ts"
 import { MenuArrow } from "../toolbar-parts.tsx"
-import { type PointerTool, pointerTools, toolIcons } from "./tools.ts"
+import { type PointerTool, pointerTools, toolIcons } from "./tool-details.ts"
 
 interface MoveMenuProps {
   /** The pointer tool the button beside it shows. */
