@@ -20,9 +20,10 @@ jobs:
       # Electron is installed before the tests start it, with up to 3 tries, into a folder kept until the lockfile
       # changes, since GitHub's releases time out now and then (PAR-789).
       prepare: |
-        echo "electron_config_cache=$GITHUB_WORKSPACE/.cache/electron" >> "$GITHUB_ENV"
-        export electron_config_cache="$GITHUB_WORKSPACE/.cache/electron"
+        home=$(node -p "require('os').homedir()")
+        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+        export electron_config_cache="$home/.cache/parity-ci/electron"
         node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
-      cache-path: .cache/electron
+      cache-path: ~/.cache/parity-ci/electron
       cache-key-files: pnpm-lock.yaml
       command: pnpm test:app

@@ -22,9 +22,11 @@ jobs:
       prepare: |
         # Electron's binary and what electron-builder downloads to package it go where the cache below keeps them. Electron
         # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
-        echo "electron_config_cache=$GITHUB_WORKSPACE/.cache/electron" >> "$GITHUB_ENV"
-        echo "ELECTRON_BUILDER_CACHE=$GITHUB_WORKSPACE/.cache/electron-builder" >> "$GITHUB_ENV"
-        export electron_config_cache="$GITHUB_WORKSPACE/.cache/electron"
+        # Outside the checkout, whose package.json would make the scripts electron-builder unpacks there ES modules.
+        home=$(node -p "require('os').homedir()")
+        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+        echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
+        export electron_config_cache="$home/.cache/parity-ci/electron"
         node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
         missing=
         for project in fixtures/*/; do
@@ -42,8 +44,8 @@ jobs:
       # changes, the new one downloads on each run until a fixture's lockfile changes too.
       cache-path: |
         fixtures/*/node_modules
-        .cache/electron
-        .cache/electron-builder
+        ~/.cache/parity-ci/electron
+        ~/.cache/parity-ci/electron-builder
       cache-key-files: fixtures/*/*lock*
       # Then the CLI's packed tarball, installed in an empty folder, has to run on each system (PAR-13).
       command: |
