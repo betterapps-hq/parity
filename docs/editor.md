@@ -5486,16 +5486,18 @@ Several copies of Parity can run at once, each with its own projects open, and e
 that has its project. Each copy writes an entry to `~/.parity/agents` as its service starts and main removes it as the
 copy quits. A call that finds an entry for a copy that isn't running removes it if it can; one it can't remove, as when
 another call is removing it at the same moment, doesn't fail the call (PAR-764). The CLI asks each copy for its tabs and
-when its window last had focus, chooses the copy and tab by the rules in `packages/agent/src/routing.ts`, and sends that
-exact tab. `--tab` takes an id, folder or name; `--tab active` is the active tab of the copy focused last; without
-`--tab`, a call goes to the open project the working folder is in, else to `active`. A project open in two copies goes
-to the one running longest. `parity tabs` lists every copy's projects once. `PARITY_AGENT_FILE` keeps a copy apart,
-reachable only through that file.
+when its window last had focus, giving up on one that hasn't answered after 5 seconds of the CLI being free to wait, so
+a CLI starved on a busy machine still reads a copy that answered (PAR-766). It then chooses the copy and tab by the
+rules in `packages/agent/src/routing.ts`, and sends that exact tab. `--tab` takes an id, folder or name; `--tab active`
+is the active tab of the copy focused last; without `--tab`, a call goes to the open project the working folder is in,
+else to `active`. A project open in two copies goes to the one running longest. `parity tabs` lists every copy's
+projects once. `PARITY_AGENT_FILE` keeps a copy apart, reachable only through that file.
 
 Implementation: `packages/agent/src/routing.ts` (the rules, data in and out, also the app's tab matching in
 `renderer/agent/handlers.ts`), `packages/agent/src/registry.ts` (entries, for the app and the CLI),
 `apps/desktop/src/utility/agent.ts` (writes the entry, answers `copy`), `apps/desktop/src/main/index.ts` (removes it),
-`packages/cli/src/client.ts` (routes each call) and `operations.ts` (each operation's routing, from its fields).
+`packages/cli/src/client.ts` (routes each call), `wait.ts` (the limit on asking a copy) and `operations.ts` (each
+operation's routing, from its fields).
 
 Tests: `packages/agent/src/routing.test.ts` (two copies with different projects, the same project in both, `active` by
 focus, the working folder, nested projects, Windows case and slashes, nothing open or running),
@@ -5503,7 +5505,8 @@ focus, the working folder, nested projects, Windows case and slashes, nothing op
 file before the registry; a copy kept apart), and `packages/cli/src/copies.test.ts` (the real CLI and MCP server against
 two fake copies: routing, `active`, the merged list, an unknown tab, a stale entry removed, each operation's routing,
 and MCP tools routed and answering exactly as the CLI's commands do, since both run the same operations through the same
-`call`).
+`call`), and `packages/cli/src/wait.test.ts` (an answer read after the CLI was blocked past the limit; a copy that never
+answers given up on).
 
 Checked with two dev copies sharing a registry, one with `examples/shadcn-vite` and one with a copy of it: `parity tabs`
 listed both; `state` reached each by folder (in any case and slashes) and from inside each project's folder; `exec` ran
