@@ -12,7 +12,7 @@ import { ToolbarStage } from "./stage.tsx"
  *
  * Every option fixes what's broken today: the separators run the bar's full height, and the picked tool keeps its
  * rounded corners and is picked out in the canvas's selection blue rather than a solid white block. Every option also
- * puts Hand in a menu beside Move and select, as Figma does, and adds Insert, the picker that places a component, icon
+ * puts Hand and Interact in a menu beside Move and select, as Figma's Move holds Hand, and adds Insert, the picker that places a component, icon
  * or image, which today only / and the menus reach.
  */
 const meta = {
@@ -66,8 +66,8 @@ export const WithReview: Story = {
 
 const audit: { control: string; today: string; proposed: string }[] = [
   {
-    control: "Move and select (V), Hand (H)",
-    today: "Two buttons on the bar",
+    control: "Move and select (V), Hand (H), Interact (I)",
+    today: "Three buttons on the bar",
     proposed: "One button with a menu, showing the one picked last; Space still pans with any tool"
   },
   { control: "Frame (F) and its sizes, New screen, New component", today: "On the bar", proposed: "Keep" },
@@ -77,7 +77,6 @@ const audit: { control: string; today: string; proposed: string }[] = [
     today: "Keys and menus only",
     proposed: "Add after Text in every option: it's how components get onto a design"
   },
-  { control: "Interact (I)", today: "On the bar", proposed: "Keep, set apart from the tools that make things" },
   {
     control: "Undo, Redo",
     today: "Top right, Edit menu and keys",

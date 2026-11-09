@@ -20,8 +20,10 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { framePresets } from "@parity-app/editor"
 import {
+  Accessibility,
   AppWindow,
   ChevronDown,
+  CodeXml,
   Component,
   Frame,
   Hand,
@@ -29,14 +31,14 @@ import {
   MessageCircle,
   Minus,
   MousePointer2,
-  NotebookPen,
+  MousePointerClick,
   SquarePlus,
   Plus,
   Pointer,
   Search,
   Type
 } from "lucide-react"
-import { Fragment, type ReactElement, type ReactNode, useEffect, useState } from "react"
+import { type CSSProperties, Fragment, type ReactElement, type ReactNode, useEffect, useState } from "react"
 import { useValue } from "tldraw"
 import { useProject } from "../../canvas/context.ts"
 import { placeFrame } from "../../canvas/frame-tool.ts"
@@ -67,16 +69,27 @@ const toolIcons: Record<Tool, typeof Hand> = {
 }
 
 /**
- * Getting around, making things, and trying the real app. Move and select and Hand share a button, as in Figma: it
- * shows whichever was picked last, and the menu beside it switches. V and H still pick each, and Space still pans.
+ * What the pointer does, then making things. Move and select, Hand and Interact share a button, as Figma's Move holds
+ * Hand and Scale: it shows whichever was picked last, and the menu beside it switches. V, H and I still pick each, and
+ * Space still pans.
  */
-const toolGroups = [["move"], ["frame", "text"], ["interact"]] as const
+const toolGroups = [["move"], ["frame", "text"]] as const
+
+/** The tools that decide what the pointer does, in the Move menu's order. */
+const pointerTools = ["select", "hand", "interact"] as const
+
+type PointerTool = (typeof pointerTools)[number]
+
+const isPointerTool = (tool: Tool): tool is PointerTool => (pointerTools as readonly Tool[]).includes(tool)
 
 /**
  * The picked tool, in the canvas's selection blue at the step its chips use, so the white icon on it reads at about
  * 4.9:1, as tldraw and Figma pick theirs out in blue. Switches like Code keep the kit's quieter pressed look.
  */
-const pickedTool =
+/** The arrow that opens a tool's menu, pulled in against its square tool button. */
+const chevron = "-ml-1.5 h-full w-3.5 text-muted-foreground"
+
+export const pickedTool =
   "h-full aria-pressed:bg-(--canvas-layer-chip) aria-pressed:text-white aria-pressed:hover:bg-(--canvas-layer-chip)/90"
 
 /** A label and the first of its keys, as every tooltip in the app shows them. */
@@ -118,7 +131,7 @@ function Tools({ review = false }: { review?: boolean }) {
   const { selection } = useProject()
   const tool = useTool(selection)
   const [reviewing, setReviewing] = useState<ReviewTool>()
-  const [lastReview, setLastReview] = useState<ReviewTool>("annotate")
+  const [lastReview, setLastReview] = useState<ReviewTool>("comment")
 
   // The tool picked before reviewing, which Done brings back.
   const [before, setBefore] = useState<Tool>()
@@ -147,10 +160,10 @@ function Tools({ review = false }: { review?: boolean }) {
     setBefore(undefined)
   }
 
-  // The one of the pair picked last, kept while another tool is picked so the button still shows it.
-  const [move, setMove] = useState<"select" | "hand">(tool === "hand" ? "hand" : "select")
+  // The pointer tool picked last, kept while another tool is picked so the button still shows it.
+  const [move, setMove] = useState<PointerTool>(isPointerTool(tool) ? tool : "select")
 
-  if ((tool === "select" || tool === "hand") && tool !== move) {
+  if (isPointerTool(tool) && tool !== move) {
     setMove(tool)
   }
 
@@ -160,7 +173,7 @@ function Tools({ review = false }: { review?: boolean }) {
       spacing={1}
       value={[reviewing ?? tool]}
       onValueChange={([value]) => {
-        if (value === "annotate" || value === "comment") {
+        if (value && isReviewTool(value)) {
           pickReview(value)
         } else if (value) {
           setReviewing(undefined)
@@ -204,33 +217,56 @@ function Tools({ review = false }: { review?: boolean }) {
 }
 
 /**
- * The review tools, from PAR-184's annotations design: one button with a menu, as Figma groups Comment and Annotation,
- * showing the one picked last and starting on Annotate. The list is all that changes if Comment waits for the comments
- * service (PAR-372).
+ * The kinds of annotation, as PAR-184's design names, draws and colors them (its `categories`). Each is its own item in
+ * the review menu, so picking one starts annotating in it.
  */
-const reviewTools = {
-  annotate: {
-    label: "Annotate",
-    doing: "Annotating",
-    keys: "Shift T",
-    icon: NotebookPen,
-    hint: "Click a layer to annotate it"
-  },
-  comment: {
-    label: "Comment",
-    doing: "Commenting",
-    keys: "C",
-    icon: MessageCircle,
-    hint: "Click anywhere to start a thread"
-  }
+const annotationKinds = {
+  behaviour: { label: "Behaviour", icon: MousePointerClick, hue: 250 },
+  content: { label: "Content", icon: Type, hue: 150 },
+  accessibility: { label: "Accessibility", icon: Accessibility, hue: 300 },
+  development: { label: "Development", icon: CodeXml, hue: 60 }
 } as const
 
-type ReviewTool = keyof typeof reviewTools
+type AnnotationKind = keyof typeof annotationKinds
 
 /**
- * The review button and its menu, and while one is picked, a bar just above the toolbar saying what a click does, with
- * Done. A click on the canvas only selects here; placing annotations and threads is the Annotations exploration's
- * (PAR-184).
+ * What the review button can be: Comment, or annotating in one of the kinds. The list is all that changes if Comment
+ * waits for the comments service (PAR-372).
+ */
+type ReviewTool = "comment" | AnnotationKind
+
+const isReviewTool = (value: string): value is ReviewTool => value === "comment" || value in annotationKinds
+
+/** How a review tool is named and drawn on the button, in its tooltip and in the bar above the toolbar. */
+function reviewSpec(tool: ReviewTool) {
+  if (tool === "comment") {
+    return {
+      label: "Comment",
+      doing: "Commenting",
+      keys: "C",
+      icon: MessageCircle,
+      color: "currentColor",
+      hint: "Click anywhere to start a thread"
+    }
+  }
+
+  const kind = annotationKinds[tool]
+
+  return {
+    label: `${kind.label} annotation`,
+    doing: `Annotating ${kind.label.toLowerCase()}`,
+    keys: "Shift T",
+    icon: kind.icon,
+    color: `oklch(0.7 0.15 ${kind.hue})`,
+    hint: "Click a layer to annotate it"
+  }
+}
+
+/**
+ * The review button and its menu, from PAR-184's annotations design, and while one is picked, a bar just above the
+ * toolbar saying what a click does, with Done. The menu lists Comment first, then each kind of annotation; the button
+ * shows the one picked last, in its kind's color, and starts on Comment. Shift+T annotates in the kind picked last. A
+ * click on the canvas only selects here; placing annotations and threads is the Annotations exploration's.
  */
 function ReviewTools({
   current,
@@ -243,14 +279,19 @@ function ReviewTools({
   onPick: (id: ReviewTool) => void
   onDone: () => void
 }) {
-  const { label, keys, icon: Icon } = reviewTools[current]
+  const { label, keys, icon: Icon, color } = reviewSpec(current)
 
   return (
     <>
       <Tooltip>
         <TooltipTrigger
           render={
-            <ToggleGroupItem value={current} aria-label={label} className={pickedTool}>
+            <ToggleGroupItem
+              value={current}
+              aria-label={label}
+              className={`${pickedTool} text-(--kind)`}
+              style={{ "--kind": color } as CSSProperties}
+            >
               <Icon />
             </ToggleGroupItem>
           }
@@ -261,27 +302,36 @@ function ReviewTools({
       </Tooltip>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label="Annotate or Comment"
-              className="-ml-0.5 h-full w-4 text-muted-foreground"
-            />
-          }
+          render={<Button variant="ghost" size="icon-xs" aria-label="Comment or annotate" className={chevron} />}
         >
           <ChevronDown />
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="end" sideOffset={10} className="w-56">
-          <DropdownMenuRadioGroup value={picked ?? current} onValueChange={(value) => onPick(value as ReviewTool)}>
-            {(Object.keys(reviewTools) as ReviewTool[]).map((id) => {
-              const item = reviewTools[id]
+        <DropdownMenuContent side="top" align="end" sideOffset={10} className="w-60">
+          <DropdownMenuRadioGroup
+            value={picked ?? current}
+            onValueChange={(value) => {
+              if (isReviewTool(value)) {
+                onPick(value)
+              }
+            }}
+          >
+            <DropdownMenuRadioItem value="comment">
+              <MessageCircle />
+              Comment
+              <DropdownMenuShortcut>{formatKeys("C")}</DropdownMenuShortcut>
+            </DropdownMenuRadioItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="flex items-center">
+              Annotate
+              <DropdownMenuShortcut>{formatKeys("Shift T")}</DropdownMenuShortcut>
+            </DropdownMenuLabel>
+            {(Object.keys(annotationKinds) as AnnotationKind[]).map((kind) => {
+              const { label: name, icon: KindIcon } = annotationKinds[kind]
 
               return (
-                <DropdownMenuRadioItem key={id} value={id}>
-                  <item.icon />
-                  {item.label}
-                  <DropdownMenuShortcut>{formatKeys(item.keys)}</DropdownMenuShortcut>
+                <DropdownMenuRadioItem key={kind} value={kind}>
+                  <KindIcon style={{ color: reviewSpec(kind).color }} />
+                  {name}
                 </DropdownMenuRadioItem>
               )
             })}
@@ -314,7 +364,7 @@ window.addEventListener(
 
 /** What a click does while a review tool is picked, and the way out, which Esc takes too. */
 function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
-  const { doing, hint, icon: Icon } = reviewTools[tool]
+  const { doing, hint, icon: Icon, color } = reviewSpec(tool)
 
   useEffect(() => {
     escapeReview = onDone
@@ -326,7 +376,7 @@ function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
 
   return (
     <div className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 items-center gap-2 rounded-xl border bg-popover p-1 pl-3 text-sm whitespace-nowrap text-popover-foreground shadow-lg">
-      <Icon className="size-4" />
+      <Icon className="size-4" style={{ color }} />
       <span className="font-medium">{doing}</span>
       <span className="text-xs text-muted-foreground">{hint}</span>
       <Button size="xs" variant="secondary" onClick={onDone}>
@@ -336,18 +386,13 @@ function ReviewBar({ tool, onDone }: { tool: ReviewTool; onDone: () => void }) {
   )
 }
 
-/** The arrow beside Move and select, and its menu: Move and select, or Hand. */
-function MoveMenu({ current }: { current: "select" | "hand" }) {
+/** The arrow beside Move and select, and its menu: Move and select, Hand, or Interact. */
+function MoveMenu({ current }: { current: PointerTool }) {
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
         render={
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            aria-label="Move and select, or Hand"
-            className="-ml-0.5 h-full w-4 text-muted-foreground"
-          />
+          <Button variant="ghost" size="icon-xs" aria-label="Move and select, Hand or Interact" className={chevron} />
         }
       >
         <ChevronDown />
@@ -355,9 +400,9 @@ function MoveMenu({ current }: { current: "select" | "hand" }) {
       <DropdownMenuContent side="top" align="start" sideOffset={10} className="w-56">
         <DropdownMenuRadioGroup
           value={current}
-          onValueChange={(value) => void actions[value as "select" | "hand"].run("toolbar")}
+          onValueChange={(value) => void actions[value as PointerTool].run("toolbar")}
         >
-          {(["select", "hand"] as const).map((id) => {
+          {pointerTools.map((id) => {
             const Icon = toolIcons[id]
 
             return (
@@ -409,7 +454,7 @@ function FrameMenu() {
             variant="ghost"
             size="icon-xs"
             aria-label="Frame sizes, New screen and New component"
-            className="-ml-0.5 h-full w-4 text-muted-foreground"
+            className={chevron}
           />
         }
       >
