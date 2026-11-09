@@ -296,7 +296,7 @@ function buildServer(info: ProjectInfo): ProjectProcess {
   return {
     id: `builder:${info.root}`,
     kind: "builder",
-    shape: "server",
+    lifetime: "server",
     name: info.builder.name,
     projectId: info.root,
     project: info.name,
@@ -321,7 +321,7 @@ function settle(id: string, action: "stop" | "restart"): void {
     return
   }
 
-  const task = process.shape === "task"
+  const task = process.lifetime === "task"
 
   const move = (next: ProjectProcess["status"]) => {
     const at = Date.now()

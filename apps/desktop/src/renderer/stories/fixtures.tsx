@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { userEvent, waitFor, within } from "storybook/test"
 import { Box } from "tldraw"
 import type { ProjectInfo, ServiceMethods } from "../../shared/protocol.ts"
-import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { ProjectContext } from "../canvas/context.ts"
 import { setTabOrderShown } from "../canvas/tab-order.ts"
 import { forgetRecentPicks } from "../chrome/ActionsSearch.tsx"
@@ -176,7 +176,7 @@ export async function frameDesigns(...names: string[]): Promise<void> {
   const editor = await until(() => example().editor)
 
   const measure = () => {
-    const bounds = names.flatMap((name) => editor.getShapePageBounds(shapeIdFor(design(name))) ?? [])
+    const bounds = names.flatMap((name) => editor.getShapePageBounds(canvasIdFor(design(name))) ?? [])
 
     return bounds.length > 0 ? Box.Common(bounds) : undefined
   }

@@ -31,7 +31,7 @@ import { withoutTldrawShortcuts } from "./tldraw-shortcuts.ts"
 
 const shapeUtils = [ContainerShapeUtil, NoteShapeUtil, ...withoutPatternFills]
 
-export function shapeIdFor(key: string): TLShapeId {
+export function canvasIdFor(key: string): TLShapeId {
   return createShapeId(encodeURIComponent(key))
 }
 
@@ -349,11 +349,11 @@ export function CanvasEditor({
           const at = heldBoards.at(tab, key) ?? container.position
           // A locked design's board is a locked shape, which tldraw neither selects nor moves (PAR-192).
           const locked = container.locked === true
-          wanted.set(shapeIdFor(key), { type: "canvas-container", key, ...at, locked })
+          wanted.set(canvasIdFor(key), { type: "canvas-container", key, ...at, locked })
         }
 
         for (const { key, note } of store.getNotes()) {
-          wanted.set(shapeIdFor(key), { type: "canvas-note", key, ...note.position })
+          wanted.set(canvasIdFor(key), { type: "canvas-note", key, ...note.position })
         }
 
         editor.run(
@@ -505,7 +505,7 @@ export function CanvasEditor({
           keys = selectedDesigns(current)
         }
 
-        const wanted = keys.map(shapeIdFor).filter((id) => editor.getShape(id))
+        const wanted = keys.map(canvasIdFor).filter((id) => editor.getShape(id))
         const ids = editor.getSelectedShapeIds()
 
         if (ids.length !== wanted.length || ids.some((id, index) => id !== wanted[index])) {
@@ -549,7 +549,7 @@ export function CanvasEditor({
         const hovered = editor.getHoveredShapeId()
 
         if (design) {
-          outlined = shapeIdFor(design)
+          outlined = canvasIdFor(design)
 
           if (hovered !== outlined) {
             editor.setHoveredShape(outlined)

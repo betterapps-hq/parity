@@ -21,7 +21,7 @@ import {
 import { moveDesigns } from "../chrome/arrange.ts"
 import { getPreferences } from "../chrome/preferences.ts"
 import { useContainerEntry } from "../design-store.ts"
-import { isRestingFar, isTabHidden, isZoomSettled, shapeIdFor } from "./CanvasEditor.tsx"
+import { isRestingFar, isTabHidden, isZoomSettled, canvasIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"
 import { type BoardRest, boardDormant } from "./frame-sleep.ts"
@@ -304,21 +304,21 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
 
     const origins = new Map(
       moving.flatMap((candidate) => {
-        const found = editor.getShape(shapeIdFor(candidate))
+        const found = editor.getShape(canvasIdFor(candidate))
 
         return found ? [[candidate, { x: found.x, y: found.y }] as const] : []
       })
     )
 
     const origin = origins.get(key) ?? { x: shape.x, y: shape.y }
-    const others = new Set(moving.map(shapeIdFor))
+    const others = new Set(moving.map(canvasIdFor))
 
     const place = (dx: number, dy: number) =>
       editor.run(
         () => {
           for (const [candidate, position] of origins) {
             editor.updateShape({
-              id: shapeIdFor(candidate),
+              id: canvasIdFor(candidate),
               type: "canvas-container",
               x: position.x + dx,
               y: position.y + dy
@@ -370,7 +370,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
 
         const positions = new Map(
           [...origins.keys()].flatMap((candidate) => {
-            const found = editor.getShape(shapeIdFor(candidate))
+            const found = editor.getShape(canvasIdFor(candidate))
 
             return found ? [[candidate, { x: found.x, y: found.y }] as const] : []
           })

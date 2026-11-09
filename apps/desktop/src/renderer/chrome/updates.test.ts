@@ -1,9 +1,9 @@
-import { isValidElement } from "react"
+import { isValidElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { UpdateNotice } from "./UpdateToast.tsx"
 
 const notifications = vi.hoisted(() => ({
-  custom: vi.fn<(render: () => unknown, options: { id: string; duration: number; onDismiss: () => void }) => void>(),
+  custom: vi.fn<(render: () => ReactNode, options: { id: string; duration: number; onDismiss: () => void }) => void>(),
   dismiss: vi.fn<(id: string) => void>()
 }))
 
@@ -18,7 +18,7 @@ vi.mock("./app-dialogs.ts", () => dialogs)
 function latest() {
   const render = notifications.custom.mock.lastCall?.[0]
 
-  if (typeof render !== "function") {
+  if (!render) {
     throw new Error("No update toast")
   }
 

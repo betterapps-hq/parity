@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 
 // Focus, selection, keys and dragging are the browser's, so the number field runs in Chrome. It needs Chrome installed.
 let browser: Browser
@@ -149,11 +150,17 @@ beforeEach(async () => {
 
 const width = () => page.getByRole("textbox", { name: "Width" })
 
-// @ts-expect-error The page's log.
-const log = () => page.evaluate(() => window.log as unknown[][])
+// The page's log and gestures, parsed, since the page's globals come back untyped.
+const entries = z.array(z.array(z.unknown()))
 
-// @ts-expect-error The page's gestures.
-const gestures = () => page.evaluate(() => window.gestures as unknown[][])
+const log = async () =>
+  // @ts-expect-error The page's log.
+  entries.parse(await page.evaluate(() => window.log))
+
+const gestures = async () =>
+  // @ts-expect-error The page's gestures.
+  entries.parse(await page.evaluate(() => window.gestures))
+
 const focused = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null)
 
 async function typeInto(name: string, text: string) {
@@ -334,8 +341,11 @@ describe("mixed values", () => {
 
 describe("number props (PAR-203)", () => {
   const props = async () => (await log()).filter(([kind]) => String(kind).startsWith("prop"))
-  // @ts-expect-error The page's prop.
-  const prop = () => page.evaluate(() => window.prop as number)
+
+  // The page's prop, parsed, since the page's globals come back untyped.
+  const prop = async () =>
+    // @ts-expect-error The page's prop.
+    z.number().parse(await page.evaluate(() => window.prop))
 
   it("previews from the value as it was, though the design holds the preview, and commits from it", async () => {
     await typeInto("value", "/20")

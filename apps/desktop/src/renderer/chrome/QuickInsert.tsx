@@ -23,7 +23,8 @@ import {
   insertRows
 } from "@parity-app/editor"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { Columns3, Component, Diamond, Rows3, SearchIcon, Shapes, Type } from "lucide-react"
+// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- lucide names this icon Shapes; it is InsertIcon here.
+import { Columns3, Component, Diamond, Rows3, SearchIcon, Shapes as InsertIcon, Type } from "lucide-react"
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -143,15 +144,17 @@ export function offerOf(session: ProjectSession, entries: readonly ContainerEntr
         // A design and a component can share a name, never a key.
         const key = entry.item.kind === "instance" ? `design:${source.id}/${entry.key}` : entry.key
         const origin: InsertOrigin = source.library && entry.item.kind === "instance" ? "library-design" : source.origin
-        options.push({
-          key,
-          name: entry.label,
-          origin,
-          source: source.id,
-          sourceName: source.title,
-          ...(family.name ? { description: family.name } : {}),
-          ...(entry.hidden ? { hidden: entry.hidden } : {})
-        })
+        const option: InsertOption = { key, name: entry.label, origin, source: source.id, sourceName: source.title }
+
+        if (family.name) {
+          option.description = family.name
+        }
+
+        if (entry.hidden) {
+          option.hidden = entry.hidden
+        }
+
+        options.push(option)
         actions.set(key, { kind: "item", item: entry.item })
       }
     }
@@ -463,7 +466,7 @@ function InsertList({ session }: { session: ProjectSession }) {
                       className={cn(place, "flex items-center gap-1.5 px-2 text-xs text-muted-foreground")}
                       style={style}
                     >
-                      <Shapes className="size-3.5" /> {line.text}
+                      <InsertIcon className="size-3.5" /> {line.text}
                     </p>
                   )
                 }

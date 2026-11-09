@@ -7,6 +7,7 @@ import { useTokenList } from "../tokens-store.ts"
 import {
   ChoiceInput,
   Field,
+  type FieldValue,
   NumberField,
   NumberInput,
   Swatch,
@@ -17,6 +18,7 @@ import {
 } from "./fields.tsx"
 import { InspectorStage, openInspector, PanelColumn, search, slowly, typing } from "./inspector-stories.tsx"
 import { PanelSection } from "./PanelSection.tsx"
+import { booleanValue, numberValue, type PropValue, textValue } from "./prop-values.ts"
 
 /**
  * The inspector's controls, one row each: a label, the control, and a reset button when a state changes the value.
@@ -45,12 +47,24 @@ const meta = {
 export default meta
 
 /** What kind of value a field holds, for its label. */
-function kindOf(value: unknown): string {
+function kindOf(value: PropValue): string {
   if (value === null) {
     return "null"
   }
 
-  return Array.isArray(value) ? "array" : typeof value
+  if (Array.isArray(value)) {
+    return "array"
+  }
+
+  if (booleanValue.safeParse(value).success) {
+    return "boolean"
+  }
+
+  if (numberValue.safeParse(value).success) {
+    return "number"
+  }
+
+  return textValue.safeParse(value).success ? "string" : "object"
 }
 
 type Story = StoryObj<typeof meta>
@@ -62,27 +76,42 @@ const lengthRules: FieldRules = { kind: "length", unit: 4, min: 0, label: "Gap" 
 /** How the rows look: values set, changed in a state, different across selected layers, or not set at all. */
 type Look = "set" | "changed" | "mixed" | "unset"
 
-const initial = {
+/** The value each row holds, typed as its control takes it, so a row can be cleared. */
+interface Values {
+  label: string
+  description: string
+  id: string
+  opacity: FieldValue
+  lines: FieldValue
+  /** Steps of the spacing scale: 4 is 16px. */
+  gap: FieldValue
+  variant: string | undefined
+  visible: boolean
+  json: PropValue | undefined
+  color: string | undefined
+  radius: string | undefined
+}
+
+const initial: Values = {
   label: "Get started",
   description: "Start free, then upgrade when your team needs more room to work together.",
   id: "plan-call-to-action",
-  opacity: 80 as number | undefined,
-  lines: undefined as number | undefined,
-  /** Steps of the spacing scale: 4 is 16px. */
-  gap: 4 as number | undefined,
-  variant: "outline" as string | undefined,
+  opacity: 80,
+  lines: undefined,
+  gap: 4,
+  variant: "outline",
   visible: true,
-  json: { monthly: true, seats: [3, 10] } as unknown,
-  color: "primary" as string | undefined,
-  radius: "radius-lg" as string | undefined
+  json: { monthly: true, seats: [3, 10] },
+  color: "primary",
+  radius: "radius-lg"
 }
 
 /** Every kind of field, interactive, with its values kept here. */
-function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyof typeof initial, string>> }) {
+function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyof Values, string>> }) {
   const tokens = useTokenList(useProject().tokens)
   const empty = look === "mixed" || look === "unset"
 
-  const [values, setValues] = useState(
+  const [values, setValues] = useState<Values>(
     empty
       ? {
           ...initial,
@@ -99,9 +128,9 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
       : initial
   )
 
-  const set = (change: Partial<typeof values>) => setValues((current) => ({ ...current, ...change }))
+  const set = (change: Partial<Values>) => setValues((current) => ({ ...current, ...change }))
 
-  const row = (name: keyof typeof initial, label: string, control: React.ReactNode, hint?: string) => (
+  const row = (name: keyof Values, label: string, control: React.ReactNode, hint?: string) => (
     <Field
       label={labels?.[name] ?? label}
       hint={hint}
@@ -133,7 +162,7 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
             placeholder="100"
             suffix="%"
             blank={() => 100}
-            onCommit={(update) => set({ opacity: update(values.opacity) as number | undefined })}
+            onCommit={(update) => set({ opacity: update(values.opacity) })}
           />
         )}
         {row(
@@ -144,7 +173,7 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
             rules={countRules}
             title="No number"
             placeholder="No limit"
-            onCommit={(update) => set({ lines: update(values.lines) as number | undefined })}
+            onCommit={(update) => set({ lines: update(values.lines) })}
           />
         )}
         {row(
@@ -156,7 +185,7 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
             title="Length"
             suffix={values.gap === undefined ? undefined : "px"}
             blank={() => 0}
-            onCommit={(update) => set({ gap: update(values.gap) as number | undefined })}
+            onCommit={(update) => set({ gap: update(values.gap) })}
           />
         )}
         {row(
@@ -225,12 +254,15 @@ export const LongLabels: Story = {
   }
 }
 
+/** One value of each kind the any value input holds. */
+const anyValues: PropValue[] = [true, 42, "Billed yearly", ["monthly", "yearly"], { seats: 3 }, null]
+
 /** Any value input with each kind of value it can hold: a switch, a number, text, and JSON for the rest. */
 export const AnyValue: Story = {
   render: () => (
     <PanelSection title="Any value">
       <div className="flex flex-col gap-1">
-        {[true, 42, "Billed yearly", ["monthly", "yearly"], { seats: 3 }, null].map((value) => (
+        {anyValues.map((value) => (
           <Field key={JSON.stringify(value)} label={kindOf(value)}>
             <ValueInput value={value} onCommit={() => undefined} />
           </Field>

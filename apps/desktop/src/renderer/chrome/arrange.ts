@@ -28,7 +28,7 @@ import {
   selectedNodes
 } from "@parity-app/editor"
 import { toast } from "sonner"
-import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import type { ContainerEntry } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 
@@ -327,7 +327,7 @@ export function distribute(session: ProjectSession, axis: "horizontal" | "vertic
 function designBoxes(session: ProjectSession): DesignBox[] {
   return selectedDesigns(session.selection.get()).flatMap((key) => {
     const entry = session.store.getEntry(key)
-    const bounds = entry ? session.editor?.getShapePageBounds(shapeIdFor(key)) : undefined
+    const bounds = entry ? session.editor?.getShapePageBounds(canvasIdFor(key)) : undefined
 
     return entry && bounds
       ? [

@@ -63,13 +63,18 @@ export function getPreferences(): Preferences {
   return preferences
 }
 
+/** A setting `setting.changed` records as it is; any other, such as the export sizes, goes as JSON. */
+const plainSetting = z.union([z.string(), z.number(), z.boolean()])
+
 export function setPreferences(change: Partial<Preferences>): void {
   for (const [setting, value] of Object.entries(change)) {
+    // SAFETY: `change` is a Partial<Preferences>, so each of its keys names a preference.
     if (value === undefined || JSON.stringify(value) === JSON.stringify(preferences[setting as keyof Preferences])) {
       continue
     }
 
-    recordInterface("setting.changed", { setting, value: typeof value === "object" ? JSON.stringify(value) : value })
+    const plain = plainSetting.safeParse(value)
+    recordInterface("setting.changed", { setting, value: plain.success ? plain.data : JSON.stringify(value) })
   }
 
   preferences = { ...preferences, ...change }

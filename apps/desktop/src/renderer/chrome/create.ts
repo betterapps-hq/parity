@@ -1,6 +1,6 @@
 import { type ContainerKind, resolveModes } from "@parity-app/core"
 import { newDesign, rightOfEverything } from "@parity-app/editor"
-import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import type { ProjectSession } from "../workspace.ts"
 
 /**
@@ -23,7 +23,7 @@ export function createDesign(
     rightOfEverything(
       entries.map((entry) => ({
         position: entry.container.position,
-        bounds: editor?.getShapePageBounds(shapeIdFor(entry.key))
+        bounds: editor?.getShapePageBounds(canvasIdFor(entry.key))
       }))
     )
 
@@ -47,7 +47,7 @@ export function createDesign(
   }
 
   setTimeout(() => {
-    const bounds = session.editor?.getShapePageBounds(shapeIdFor(key))
+    const bounds = session.editor?.getShapePageBounds(canvasIdFor(key))
 
     if (bounds) {
       session.editor?.zoomToBounds(bounds, { inset: 120, animation: { duration: 250 } })

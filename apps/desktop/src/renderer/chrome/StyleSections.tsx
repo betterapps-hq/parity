@@ -73,13 +73,21 @@ import {
 } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import { PanelSection } from "./PanelSection.tsx"
+import { numberValue } from "./prop-values.ts"
 import type { StyleEditor } from "./style-editor.ts"
+
+/** Whether a row's keys are changed or differ across the layers, and how to reset them. */
+interface RowState {
+  changed: boolean
+  mixed: boolean
+  onReset: () => void
+}
 
 /**
  * What a row shows and does, from the editor: the selection's shared style, whether the row's keys are changed or
  * differ across the layers, and its reset. The row's keys are listed once, in `@parity-app/editor`'s `styleRows`.
  */
-function rowOf(editor: StyleEditor, row: StyleRow): { changed: boolean; mixed: boolean; onReset: () => void } {
+function rowOf(editor: StyleEditor, row: StyleRow): RowState {
   return {
     changed: editor.selection.changed(row),
     mixed: editor.selection.differs(row),
@@ -110,6 +118,11 @@ function fieldEdits<R extends StyleRow>(
     onCancel: () => editor.endPreview?.(),
     onCommit: (update, gesture) => editor.set(row, edit(update), label, gesture)
   }
+}
+
+/** A number field's value as a style's number: its rules take no token names, so it's a number or unset. */
+function numberOf(value: FieldValue): number | undefined {
+  return numberValue.safeParse(value).data
 }
 
 /** A field's value as a length: steps, or a token's name. */
@@ -173,6 +186,7 @@ function LayoutSection({ editor }: SectionProps) {
                   return
                 }
 
+                // SAFETY: the group's items are "row", "column" and "grid", and an empty value returned above.
                 const next = value as "row" | "column" | "grid"
                 set("layoutType", layoutTypeEdit(next), next === "grid" ? "Use a grid" : "Change direction")
               }}
@@ -224,7 +238,7 @@ function LayoutSection({ editor }: SectionProps) {
                   "tracks",
                   "Change columns",
                   (style) => style.columns,
-                  (columns) => ({ columns: columns as number | undefined })
+                  (columns) => ({ columns: numberOf(columns) })
                 )}
               />
               <CompactNumber
@@ -237,7 +251,7 @@ function LayoutSection({ editor }: SectionProps) {
                   "tracks",
                   "Change rows",
                   (style) => style.rows,
-                  (rows) => ({ rows: rows as number | undefined })
+                  (rows) => ({ rows: numberOf(rows) })
                 )}
               />
             </div>
@@ -566,7 +580,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   "span",
                   "Change span",
                   (layer) => layer.colSpan,
-                  (colSpan) => ({ colSpan: colSpan as number | undefined })
+                  (colSpan) => ({ colSpan: numberOf(colSpan) })
                 )}
               />
               <CompactNumber
@@ -580,7 +594,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
                   "span",
                   "Change span",
                   (layer) => layer.rowSpan,
-                  (rowSpan) => ({ rowSpan: rowSpan as number | undefined })
+                  (rowSpan) => ({ rowSpan: numberOf(rowSpan) })
                 )}
               />
             </div>
@@ -773,7 +787,7 @@ function AppearanceSection({ editor }: SectionProps) {
               "opacity",
               "Change opacity",
               (layer) => layer.opacity,
-              (opacity) => ({ opacity: opacity as number | undefined })
+              (opacity) => ({ opacity: numberOf(opacity) })
             )}
           />
         </Field>
@@ -937,7 +951,12 @@ function TextSection({ editor, node }: SectionProps) {
             spacing={0}
             value={[style.textAlign ?? ""]}
             onValueChange={([value]) =>
-              set("textAlign", { textAlign: (value || undefined) as NodeStyle["textAlign"] }, "Change text alignment")
+              set(
+                "textAlign",
+                // SAFETY: the group's items come from `textAlignOptions`, each a text alignment; none pressed is "".
+                { textAlign: (value || undefined) as NodeStyle["textAlign"] },
+                "Change text alignment"
+              )
             }
           >
             {textAlignOptions.map(({ value, label, Icon }) => (
@@ -1014,7 +1033,7 @@ function TextSection({ editor, node }: SectionProps) {
                 "lines",
                 "Change max lines",
                 (layer) => layer.lines,
-                (lines) => ({ lines: lines as number | undefined })
+                (lines) => ({ lines: numberOf(lines) })
               )}
             />
           </Field>
@@ -1114,7 +1133,10 @@ export function LengthInput({
 
   const scale = lengthTokens.filter((token) => token.derived)
   const named = lengthTokens.filter((token) => !token.derived)
-  const rules: FieldRules = { kind: "length", unit, min, label: title, ...(offScale ? { offScale } : {}) }
+
+  const rules: FieldRules = offScale
+    ? { kind: "length", unit, min, label: title, offScale }
+    : { kind: "length", unit, min, label: title }
 
   const pick = (picked: Length) => {
     onCommit(() => picked)
@@ -1122,6 +1144,7 @@ export function LengthInput({
   }
 
   const off = offScaleFlag(value, rules)
+  const steps = numberValue.safeParse(value).data
 
   const flag: FieldFlag | undefined = off && {
     text: off.text,
@@ -1141,9 +1164,9 @@ export function LengthInput({
       placeholder={placeholder}
       blank={blank}
       inner={label}
-      hint={typeof value === "number" ? `${title}, ${off ? "off the spacing scale" : lengthLabel(value)}` : title}
+      hint={steps === undefined ? title : `${title}, ${off ? "off the spacing scale" : lengthLabel(steps)}`}
       flag={flag}
-      suffix={typeof value === "number" ? "px" : undefined}
+      suffix={steps === undefined ? undefined : "px"}
       onPreview={onPreview}
       onCancel={onCancel}
       onCommit={onCommit}
@@ -1249,7 +1272,9 @@ function CompactNumber({
 
 /** A step's token name, for showing it the way the Tokens panel does. */
 export function lengthLabel(value: Length): string {
-  return typeof value === "number" ? spacingStepName(value) : value
+  const steps = numberValue.safeParse(value)
+
+  return steps.success ? spacingStepName(steps.data) : String(value)
 }
 
 function formatPx(value: number): string {

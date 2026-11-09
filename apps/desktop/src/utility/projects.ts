@@ -596,7 +596,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       : await newGuestPort(guestPorts, ports)
 
     const tracking = trackProcess(
-      { id, kind: "builder", shape: "server", name: builder.name, projectId: root, project: name, status: "starting" },
+      {
+        id,
+        kind: "builder",
+        lifetime: "server",
+        name: builder.name,
+        projectId: root,
+        project: name,
+        status: "starting"
+      },
       { restart: () => restartBuilder(root) }
     )
 
@@ -966,7 +974,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       {
         id: `typecheck:${root}`,
         kind: "typecheck",
-        shape: "task",
+        lifetime: "task",
         name: "Type check",
         projectId: id,
         project: project.info.name,

@@ -2,6 +2,7 @@ import { finiteNumber, jsonText } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
 import { z } from "zod"
 import { recordInterface } from "../interface-events.ts"
+import type { Attributes } from "./event-attributes.ts"
 
 const storageKey = "parity.layout"
 export const panelLimits = { left: [232, 480], right: [260, 520], console: [120, 640] } as const
@@ -70,7 +71,13 @@ function recordShownPanels(before: PanelLayout, after: PanelLayout): void {
     const switched = after[side] && tab !== before[side === "left" ? "leftTab" : "rightTab"]
 
     if (opened || switched) {
-      recordInterface("panel.shown", { panel: side, ...(tab ? { tab } : {}) })
+      const shown: Attributes<"panel.shown"> = { panel: side }
+
+      if (tab) {
+        shown.tab = tab
+      }
+
+      recordInterface("panel.shown", shown)
     }
   }
 

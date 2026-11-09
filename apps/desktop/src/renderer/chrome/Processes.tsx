@@ -92,12 +92,12 @@ export function Processes() {
   // Results that finish while the flyout is open are seen as they arrive.
   useEffect(() => {
     if (open) {
-      markSeen(processes.filter((process) => process.shape === "task" && ended.has(process.status)))
+      markSeen(processes.filter((process) => process.lifetime === "task" && ended.has(process.status)))
     }
   })
 
   const finished = processes
-    .filter((process) => process.shape === "task" && ended.has(process.status))
+    .filter((process) => process.lifetime === "task" && ended.has(process.status))
     .sort((a, b) => (b.stoppedAt ?? 0) - (a.stoppedAt ?? 0))
 
   const groups = groupProcesses(
@@ -111,12 +111,12 @@ export function Processes() {
     return null
   }
 
-  const crashed = active.find((process) => process.shape === "server" && process.status === "failed")
+  const crashed = active.find((process) => process.lifetime === "server" && process.status === "failed")
   const unseen = finished.filter((process) => !isSeen(process))
   const unseenFailure = unseen.find((process) => process.status === "failed")
   const starting = active.find((process) => process.status === "starting")
-  const task = active.find((process) => process.shape === "task")
-  const stoppable = active.filter((process) => process.shape === "server" && process.canStop)
+  const task = active.find((process) => process.lifetime === "task")
+  const stoppable = active.filter((process) => process.lifetime === "server" && process.canStop)
   const manyProjects = new Set(processes.map((process) => process.projectId)).size > 1
 
   const label = triggerLabel({
@@ -251,7 +251,7 @@ interface Group {
 /** A group for each open project, the active one first: its servers, then its tasks running, oldest first. */
 function groupProcesses(processes: ProjectProcess[], activeId: string): Group[] {
   const order: ProjectProcess["kind"][] = ["builder", "storybook"]
-  const rank = (process: ProjectProcess) => (process.shape === "task" ? order.length : order.indexOf(process.kind))
+  const rank = (process: ProjectProcess) => (process.lifetime === "task" ? order.length : order.indexOf(process.kind))
   const sorted = [...processes].sort((a, b) => rank(a) - rank(b) || a.startedAt - b.startedAt)
   const groups = new Map<string, Group>()
 
@@ -266,8 +266,8 @@ function groupProcesses(processes: ProjectProcess[], activeId: string): Group[] 
 
 /** "2 servers and 1 task running for 1 open project", with any crash. */
 function summary(processes: ProjectProcess[]): string {
-  const count = (shape: ProjectProcess["shape"]) =>
-    processes.filter((process) => process.shape === shape && !ended.has(process.status)).length
+  const count = (lifetime: ProjectProcess["lifetime"]) =>
+    processes.filter((process) => process.lifetime === lifetime && !ended.has(process.status)).length
 
   const servers = count("server")
   const tasks = count("task")
@@ -299,7 +299,9 @@ function summary(processes: ProjectProcess[]): string {
 export function Light({ process, size = 7, delay = 0 }: { process: ProjectProcess; size?: number; delay?: number }) {
   const { status } = process
   const box: CSSProperties = { width: size, height: size }
-  const working = status === "starting" || status === "stopping" || (status === "running" && process.shape === "task")
+
+  const working =
+    status === "starting" || status === "stopping" || (status === "running" && process.lifetime === "task")
 
   if (working) {
     const color = `var(--process-${status === "running" ? "running" : "starting"})`
@@ -361,7 +363,8 @@ export function Light({ process, size = 7, delay = 0 }: { process: ProjectProces
         style={{
           ...box,
           background: color,
-          ...(status === "running" ? { animation: `process-breathe 2.8s ease-in-out ${delay}s infinite` } : {})
+          // React leaves out a style that's undefined, so only a running light breathes.
+          animation: status === "running" ? `process-breathe 2.8s ease-in-out ${delay}s infinite` : undefined
         }}
       />
     </span>
@@ -403,7 +406,7 @@ function ProcessRow({
 }) {
   const [confirming, setConfirming] = useState(false)
   const done = ended.has(process.status)
-  const task = process.shape === "task"
+  const task = process.lifetime === "task"
   const word = (task ? taskWords : serverWords)[process.status]
 
   const time =
@@ -783,7 +786,7 @@ function describe(process: ProjectProcess): string {
     return `${process.name} builds ${process.project} for the canvas, inside Parity's project service. It stops when the project's tab closes.`
   }
 
-  if (process.shape === "task") {
+  if (process.lifetime === "task") {
     return `${kinds[process.kind].role} for ${process.project}.`
   }
 
