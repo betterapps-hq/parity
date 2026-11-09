@@ -20,6 +20,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { TriangleAlert } from "lucide-react"
 import { useId, useState, useSyncExternalStore } from "react"
+import type { ProblemReportRequest } from "../../shared/protocol.ts"
 import { reportIds } from "../telemetry.ts"
 import { useTabs } from "../workspace.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
@@ -292,13 +293,18 @@ export function ReportProblemDialog() {
     setState({ phase: "sending" })
 
     try {
-      await window.canvasHost.report.send({
+      const report: ProblemReportRequest = {
         message: description.trim(),
         screenshot: screenshot && screenshotUrl !== undefined,
         afterCrash: crashIso !== undefined,
-        ...(eventId ? { eventId } : {}),
         ...(await reportIds())
-      })
+      }
+
+      if (eventId) {
+        report.eventId = eventId
+      }
+
+      await window.canvasHost.report.send(report)
       setState({ phase: "sent" })
     } catch (error) {
       console.warn("[report] couldn't send the report:", error)
