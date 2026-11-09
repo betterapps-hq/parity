@@ -1,5 +1,17 @@
 # Decisions
 
+- **CI installs Electron up front, caches its downloads, and tries them up to 3 times (PAR-789).** GitHub's releases
+  answered Electron's downloads with 504s often enough to fail CI, the app tests and the preview installers, where a
+  re-run passed. Electron 45 downloads its binary the first time something loads it, so `pnpm build` and the app tests
+  did, with one try. Now each workflow runs `install-electron` first, and electron-builder's packaging, which downloads
+  the zips it builds from, through `scripts/retry.ts`: up to 3 tries, 15 and then 30 seconds apart. CI and the app tests
+  keep the downloads in `~/.cache/parity-ci/` (`electron_config_cache`, `ELECTRON_BUILDER_CACHE`) between runs, outside
+  the checkout, since its `package.json` makes the scripts electron-builder unpacks into its cache ES modules, which
+  broke the macOS icon tool. The shared `ci-verify` template keeps one cache per call, so in `ci.yml` they share the
+  fixtures' key: after Electron's version changes, it downloads again on each run, with retries, until a fixture's
+  lockfile changes. The preview and release templates have no cache input, so their builds retry without one; adding one
+  would change Pipelines for every repository.
+
 - **Agents read a component's composition from `Props`, built from its library file (PAR-454).** `Props`, and through it
   `parity props` and `get_props`, returns a `composition` beside the props, rather than a new operation, so agents that
   already check `Props` before inserting learn what a part goes inside. It comes from `componentComposition` in
