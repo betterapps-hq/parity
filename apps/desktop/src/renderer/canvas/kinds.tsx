@@ -45,10 +45,28 @@ export const chipColors = {
   agent: { background: kindColors.agent, color: "var(--canvas-chip-ink)" }
 } as const satisfies Record<keyof typeof kindColors, ChipColors>
 
+/** Which kind a selection color from `kindColors` is. */
+function kindOf(color: string): keyof typeof kindColors | undefined {
+  return (Object.keys(kindColors) as (keyof typeof kindColors)[]).find((key) => kindColors[key] === color)
+}
+
 /** The chip that goes with a selection color from `kindColors`. */
 export function chipFor(color: string): ChipColors {
-  const kind = (Object.keys(kindColors) as (keyof typeof kindColors)[]).find((key) => kindColors[key] === color)
+  const kind = kindOf(color)
   return kind ? chipColors[kind] : { background: color, color: "white" }
+}
+
+/** The selection colors as text on a panel, a darker step on the light theme so 12px text reads (see styles.css). */
+const textColors: Partial<Record<keyof typeof kindColors, string>> = {
+  screen: "var(--canvas-screen-text)",
+  component: "var(--canvas-component-text)",
+  layer: "var(--canvas-layer-text)"
+}
+
+/** The text color that goes with a selection color from `kindColors`, or the color itself for one without. */
+export function textFor(color: string): string {
+  const kind = kindOf(color)
+  return (kind && textColors[kind]) ?? color
 }
 
 /** A design's color. A frame is a layout on the canvas, so it's selected in the layer color. */

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { textFor } from "../canvas/kinds.tsx"
 import { Hint } from "./Hint.tsx"
 
 /** The classes a heading's icon takes. */
@@ -14,7 +15,7 @@ export const headingName = "min-w-0 flex-1 text-base font-semibold md:text-base"
  * The head of the inspector's Design tab for a selected design or layer: what it is, as its icon and kind together in
  * its kind's color, above its name, which has the line to itself. `detail` says more about what it is, such as which
  * component it's an instance of: on hover, and to screen readers along with the kind. `icon` takes `headingIcon`'s
- * classes, and `name` `headingName`'s.
+ * classes and the kind's color from the heading, and `name` takes `headingName`'s classes.
  */
 export function SelectionHeading({
   icon,
@@ -24,7 +25,7 @@ export function SelectionHeading({
   name
 }: {
   icon: ReactNode
-  /** Its kind's color, as its icon and its selection on the canvas have it. */
+  /** Its kind's selection color, from `kindColors`; the icon and kind take its text step (`textFor`). */
   color: string
   /** A word or two, as "Screen", "Text" or "Instance". */
   kind: string
@@ -36,7 +37,10 @@ export function SelectionHeading({
   return (
     <>
       <Hint label={more} wait>
-        <p className="flex w-fit max-w-full items-center gap-1.5 pl-1.5 text-xs font-medium" style={{ color }}>
+        <p
+          className="flex w-fit max-w-full items-center gap-1.5 pl-1.5 text-xs font-medium"
+          style={{ color: textFor(color) }}
+        >
           {icon}
           <span className="truncate" aria-hidden={more ? true : undefined}>
             {kind}

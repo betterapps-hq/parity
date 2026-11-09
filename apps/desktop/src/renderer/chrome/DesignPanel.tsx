@@ -73,9 +73,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <SelectionHeading
-          icon={
-            <DesignIcon kind={container.kind} className={headingIcon} style={{ color: designColor(container.kind) }} />
-          }
+          icon={<DesignIcon kind={container.kind} className={headingIcon} />}
           color={designColor(container.kind)}
           kind={kindTitle(container.kind)}
           detail={`${kindTitle(container.kind)}, saved in ${entry.path}`}

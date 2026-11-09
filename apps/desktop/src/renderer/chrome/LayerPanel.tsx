@@ -139,7 +139,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <SelectionHeading
-          icon={<NodeIcon node={location.node} className={headingIcon} style={{ color: nodeColor(location.node) }} />}
+          icon={<NodeIcon node={location.node} className={headingIcon} />}
           color={nodeColor(location.node)}
           name={
             <NameInput
@@ -276,7 +276,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
         <SelectionHeading
-          icon={<NodeIcon node={inner.node} className={headingIcon} style={{ color: kindColors.component }} />}
+          icon={<NodeIcon node={inner.node} className={headingIcon} />}
           color={kindColors.component}
           name={
             <Name className={`px-1.5 ${headingName}`}>

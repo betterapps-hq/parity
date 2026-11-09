@@ -356,6 +356,15 @@ body,
    * darker step holds it at 5.7:1 there, and a lighter one at 5.9:1 on the dark theme's.
    */
   --canvas-slot-chip-text: light-dark(oklch(0.5 0.23 304), oklch(0.7 0.2 304));
+
+  /*
+   * A kind's color as 12px text on a panel, as the inspector's heading says what's selected: the strokes are 3.4:1 on
+   * the light theme's white (component 3.7:1), so text takes the chips' step at L 0.55 there, 4.9:1 (5.5:1). On the dark
+   * theme the strokes already read, at 5.8:1 (5.3:1).
+   */
+  --canvas-screen-text: light-dark(var(--canvas-screen-chip), var(--canvas-screen));
+  --canvas-component-text: light-dark(var(--canvas-component-chip), var(--canvas-component));
+  --canvas-layer-text: light-dark(var(--canvas-layer-chip), var(--canvas-layer));
 }
 
 body {
