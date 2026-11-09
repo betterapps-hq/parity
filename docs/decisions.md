@@ -6659,3 +6659,18 @@ at its fullest level, everywhere Parity runs" above for CI alone.
 - **Main's Sentry hooks drop transactions and logs,** through `sentryScrubbing`'s `errorsOnly`, which covers every
   process, since windows and the service send through main. The editor window doesn't start Replay. The CLI's sink keeps
   logs and spans out of its outbox.
+
+## Icon layers show Smile (PAR-793)
+
+You picked on 2026-11-09, from five in the Icon layers exploration (Smile, Sticker, Heart, Asterisk and Feather), that
+every icon layer shows Lucide's Smile, the Icons tab's icon, whatever the icon draws. PAR-794 built it.
+
+- **One fixed icon, not each icon's own glyph.** Lucide draws the kind icons Layers already uses (AppWindow, Type,
+  Image, Frame, Rows3), so an icon of one would read as that kind, and glyphs such as X, Plus and Trash2 look like a
+  row's buttons. The layer's name says which icon it is.
+- **The component purple, not a color of its own.** An icon comes from a library and is changed through its props, as a
+  component is, and a seventh kind color would make the six harder to learn.
+- **Wherever a layer's kind shows:** Layers, the inspector's heading, the Code, Accessibility and States panels, Search
+  actions and Select layer in the canvas menu. A library's other components keep the Box.
+- My calls: Star and Shapes weren't among the five, since Star marks a favorite project on the start page and Shapes is
+  Insert. The exploration was removed when the pick was built, since choosing among the five was all it was for.

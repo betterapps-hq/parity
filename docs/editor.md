@@ -2616,13 +2616,22 @@ the canvas. It's a leaf green, darker and yellower than modes' teal, at the same
 (`--canvas-text`, `--canvas-text-chip` and `--canvas-text-text` in `styles.css`). A text layer inside an instance is
 still drawn in the component color.
 
-Code: `SelectionHeading` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by `DesignPanel.tsx` and both
-headers in `LayerPanel.tsx`; `layerKind` in `chrome/layer-kind.ts`; `NodeIcon` and `nodeColor` in `canvas/kinds.tsx`.
+An icon layer, a component from one of the project's icon sets, shows Smile, the Icons tab's icon, whatever it draws
+(PAR-793, PAR-794), in the component purple: in Layers, this heading, the Code, Accessibility and States panels, search
+and the canvas menu. Its own glyph could be a kind's icon, such as Type or AppWindow, or look like a button in its row,
+such as X or Plus; its name says which icon it is. A library's other components keep the Box. Search actions is drawn
+outside the project's tab, so it hands `NodeIcon` the project's libraries; everywhere else they come from the tab.
 
-Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (5: text whatever its tag; layouts by direction and grids;
-a slot; an instance's component only in full; a library's components and icons named by the library), and
-`apps/desktop/src/renderer/canvas/kinds.test.ts` (2: a text layer is green apart from its layout; its chip and its text
-on a panel take their own steps). The header itself is checked in the Inspector stories (Layer/Kinds, Layer/Instances:
+Code: `SelectionHeading` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by `DesignPanel.tsx` and both
+headers in `LayerPanel.tsx`; `layerKind` and `isIconLayer` in `chrome/layer-kind.ts`; `NodeIcon` and `nodeColor` in
+`canvas/kinds.tsx`.
+
+Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (7: text whatever its tag; layouts by direction and grids;
+a slot; an instance's component only in full; a library's components and icons named by the library; icon sets told from
+other libraries and the project's own components; a library matched by its whole id), and
+`apps/desktop/src/renderer/canvas/kinds.test.ts` (4: a text layer is green apart from its layout; its chip and its text
+on a panel take their own steps; an icon layer is Smile in a project's tab, beside a component's Box; and outside a tab
+when it's given the libraries). The header itself is checked in the Inspector stories (Layer/Kinds, Layer/Instances:
 Layer Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
 
 ## Component props

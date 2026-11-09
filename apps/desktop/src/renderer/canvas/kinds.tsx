@@ -1,4 +1,10 @@
-import { type ComponentLibrary, type ContainerKind, type DesignNode, nodeLabel } from "@parity-app/core"
+import {
+  type ComponentLibrary,
+  type ContainerKind,
+  type DesignNode,
+  type LibraryInfo,
+  nodeLabel
+} from "@parity-app/core"
 import {
   AppWindow,
   Box,
@@ -8,14 +14,16 @@ import {
   Frame,
   Grid3x3,
   Image as ImageIcon,
-  type LucideIcon,
   type LucideProps,
   Rows3,
+  Smile,
   SquareDashed,
   Type
 } from "lucide-react"
-import { createContext, useContext } from "react"
+import { useContext } from "react"
+import { isIconLayer } from "../chrome/layer-kind.ts"
 import type { ContainerEntry } from "../design-store.ts"
+import { ProjectContext } from "./context.ts"
 
 /**
  * Each kind of thing on the canvas has its own selection color and icon, so a glance tells a screen from a component,
@@ -120,18 +128,16 @@ export function DesignIcon({ kind, ...props }: LucideProps & { kind: ContainerKi
 }
 
 /**
- * How icon layers are drawn: the ids of the project's icon sets, and the one icon every layer from them shows, whatever
- * it draws (PAR-793). Without it, an icon is drawn as the library component it is.
+ * A layer's kind as an icon. An icon layer shows Smile, the Icons tab's icon, whatever it draws (PAR-793): its own glyph
+ * could be one of these kinds' icons, or look like a button in its row. Which libraries are icon sets comes from the
+ * project of the tab it's drawn in, or from `libraries` where it's drawn outside one, as Search actions is.
  */
-export interface IconLayers {
-  sets: readonly string[]
-  icon: LucideIcon
-}
-
-export const IconLayersContext = createContext<IconLayers | undefined>(undefined)
-
-export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode }) {
-  const iconLayers = useContext(IconLayersContext)
+export function NodeIcon({
+  node,
+  libraries,
+  ...props
+}: LucideProps & { node: DesignNode; libraries?: readonly LibraryInfo[] }) {
+  const project = useContext(ProjectContext)
 
   if (node.type === "text") {
     return <Type {...props} />
@@ -142,9 +148,7 @@ export function NodeIcon({ node, ...props }: LucideProps & { node: DesignNode })
   }
 
   if (node.type === "component") {
-    const Icon = iconLayers?.sets.some((set) => node.component.startsWith(`${set}/`)) ? iconLayers.icon : Box
-
-    return <Icon {...props} />
+    return isIconLayer(node, libraries ?? project?.info.libraries ?? []) ? <Smile {...props} /> : <Box {...props} />
   }
 
   if (node.type === "instance") {
