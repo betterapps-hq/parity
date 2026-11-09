@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Brace every if and space statements apart, as Buildkit's lint rules ask",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}
