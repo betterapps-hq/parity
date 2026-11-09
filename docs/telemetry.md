@@ -658,32 +658,32 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `frame.failed`
 
-| Attribute  | Type                                                  | Meaning                                                                                |
-| ---------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `design`   | `string`, optional                                    | The design's key, as the document names it. None for a component preview               |
-| `state`    | `string`, optional                                    | The design's state, when it draws one                                                  |
-| `mode`     | `string`, optional                                    | The mode it draws in, by ID                                                            |
-| `priority` | `string`                                              | The queue it waited in: render, visible or idle                                        |
-| `failure`  | `"module not found" \| "render threw" \| "timed out"` | Why: its module didn't load, its code threw while drawing, or it didn't finish in time |
-| `message`  | `string`                                              | The guest's error message                                                              |
-| `stack`    | `string`, optional                                    | The guest's stack, when it threw an error that has one                                 |
+| Attribute  | Type                                                               | Meaning                                                                                                               |
+| ---------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `design`   | `string`, optional                                                 | The design's key, as the document names it. None for a component preview                                              |
+| `state`    | `string`, optional                                                 | The design's state, when it draws one                                                                                 |
+| `mode`     | `string`, optional                                                 | The mode it draws in, by ID                                                                                           |
+| `priority` | `string`                                                           | The queue it waited in: render, visible or idle                                                                       |
+| `failure`  | `"module not found" \| "render threw" \| "timed out" \| "crashed"` | Why: its module didn't load, its code threw while drawing, it didn't finish in time, or its window's renderer crashed |
+| `message`  | `string`                                                           | The guest's error message, or what happened to its window                                                             |
+| `stack`    | `string`, optional                                                 | The guest's stack, when it threw an error that has one                                                                |
 
 ### `frame.rendered`
 
-| Attribute   | Type                                                            | Meaning                                                                                |
-| ----------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `design`    | `string`, optional                                              | The design's key, as the document names it. None for a component preview               |
-| `state`     | `string`, optional                                              | The design's state, when it draws one                                                  |
-| `mode`      | `string`, optional                                              | The mode it draws in, by ID                                                            |
-| `priority`  | `string`                                                        | The queue it waited in: render, visible or idle                                        |
-| `queuedMs`  | `integer`                                                       | How long it waited for an offscreen window                                             |
-| `whole`     | `boolean`                                                       | Whether it was drawn whole, to capture or check it                                     |
-| `renderMs`  | `integer`, optional                                             | How long the guest took to draw and measure it                                         |
-| `captureMs` | `integer`, optional                                             | How long settling, checking and capturing it took after that, when it was drawn whole  |
-| `width`     | `number`, optional                                              | Its width in CSS pixels                                                                |
-| `height`    | `number`, optional                                              | Its height in CSS pixels                                                               |
-| `nodes`     | `integer`, optional                                             | How many layers were measured                                                          |
-| `failure`   | `"module not found" \| "render threw" \| "timed out"`, optional | Why: its module didn't load, its code threw while drawing, or it didn't finish in time |
+| Attribute   | Type                                                                         | Meaning                                                                                                               |
+| ----------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `design`    | `string`, optional                                                           | The design's key, as the document names it. None for a component preview                                              |
+| `state`     | `string`, optional                                                           | The design's state, when it draws one                                                                                 |
+| `mode`      | `string`, optional                                                           | The mode it draws in, by ID                                                                                           |
+| `priority`  | `string`                                                                     | The queue it waited in: render, visible or idle                                                                       |
+| `queuedMs`  | `integer`                                                                    | How long it waited for an offscreen window                                                                            |
+| `whole`     | `boolean`                                                                    | Whether it was drawn whole, to capture or check it                                                                    |
+| `renderMs`  | `integer`, optional                                                          | How long the guest took to draw and measure it                                                                        |
+| `captureMs` | `integer`, optional                                                          | How long settling, checking and capturing it took after that, when it was drawn whole                                 |
+| `width`     | `number`, optional                                                           | Its width in CSS pixels                                                                                               |
+| `height`    | `number`, optional                                                           | Its height in CSS pixels                                                                                              |
+| `nodes`     | `integer`, optional                                                          | How many layers were measured                                                                                         |
+| `failure`   | `"module not found" \| "render threw" \| "timed out" \| "crashed"`, optional | Why: its module didn't load, its code threw while drawing, it didn't finish in time, or its window's renderer crashed |
 
 ### `gesture.ended`
 

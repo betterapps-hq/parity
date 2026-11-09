@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the interrupted frame as crashed",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
