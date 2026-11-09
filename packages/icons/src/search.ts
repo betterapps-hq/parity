@@ -40,7 +40,12 @@ function common(lists: string[][], share: number): Set<string> {
     }
   }
 
-  return new Set([...counts].filter(([, count]) => count > lists.length * share).map(([word]) => word))
+  return new Set(
+    counts
+      .entries()
+      .filter(([, count]) => count > lists.length * share)
+      .map(([word]) => word)
+  )
 }
 
 /**
@@ -237,8 +242,14 @@ interface Ranked {
   score: number
 }
 
+/** Icons every typed word finds, and icons only some find. */
+interface Ranking {
+  full: Ranked[]
+  partial: Ranked[]
+}
+
 /** Icons every word finds, and icons only some words find, each scored, with typos forgiven when `typos` is set. */
-function rank(index: IconIndex, typed: string[], typos: boolean): { full: Ranked[]; partial: Ranked[] } {
+function rank(index: IconIndex, typed: string[], typos: boolean): Ranking {
   const compact = typed.join("")
   const near = typos ? typed.map((word) => typosOf(index, word)) : []
   const full: Ranked[] = []
@@ -267,7 +278,7 @@ function rank(index: IconIndex, typed: string[], typos: boolean): { full: Ranked
     }
 
     // Fewer words is a plainer icon, likelier to be the one meant.
-    const ranked = { icon, score: score - 0.5 * icon.words.length }
+    const ranked: Ranked = { icon, score: score - 0.5 * icon.words.length }
 
     if (matched === typed.length) {
       full.push(ranked)

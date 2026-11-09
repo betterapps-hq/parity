@@ -23,7 +23,7 @@ export type LensModelName = keyof typeof lensModels
  * A model's JSON Schema, for adapters and agents to target. It's private: the `urn:parity:` id names it without
  * publishing it anywhere, until the models are opened up.
  */
-export function lensModelJsonSchema(name: LensModelName): Record<string, unknown> {
+export function lensModelJsonSchema(name: LensModelName): z.core.JSONSchema.BaseSchema {
   const { version, schema } = lensModels[name]
   // `input`, so fields with defaults or transforms describe what a document may hold rather than what parsing returns.
   const { $schema, ...rest } = z.toJSONSchema(schema, { io: "input", unrepresentable: "any" })
