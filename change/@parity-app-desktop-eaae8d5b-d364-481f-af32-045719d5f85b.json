@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Session Replay no longer records a project's canvas as it mounts, so the first frame shows sooner",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

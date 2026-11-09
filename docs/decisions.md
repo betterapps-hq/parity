@@ -6408,6 +6408,45 @@ process" has it, and nothing else is hidden that wasn't before. My calls:
 - **`.env` values reach the window a moment after it starts,** so text recorded before main passes them isn't scrubbed
   of them, though known shapes and long random strings are. They come as a project opens, before its panels show it.
 
+## Session Replay waits for a project's first frame (PAR-758)
+
+Called on 2026-11-08. PAR-726 found Session Replay recording every board, title and tldraw layer in the task that mounts
+a project's canvas, before its first frame showed. Replay now holds off recording the page from the tab being ready
+(`project.loaded`) until the first frame shows (`project.drawn`), and goes on with the same replay after. My calls:
+
+- **Pause and resume the recorder, rather than block more of the canvas or lower the limits.** Blocking the boards would
+  leave them out of every replay, and an element unblocked later shows as an empty box until the next full snapshot.
+  Lower mutation limits stop the replay outright. Replay's page recorder pauses and resumes within one replay, and
+  resuming takes a full snapshot, so the replay jumps from the page before the open to the drawn canvas. Clicks,
+  requests and breadcrumbs go on being recorded meanwhile, and Replay resumes on its own if someone clicks.
+- **Replay keeps `pause` and `resume` to itself.** The integration's `_replay` is reached from `holdRecording` in
+  `renderer/replay.ts`, the module that sets Replay up. It only pauses a recorder that's enabled and recording, and only
+  resumes the one it paused, if it's still Replay's and still paused, so a Sentry upgrade that renames it costs the
+  saving, not the recording. PAR-679's scrubbing is unchanged, since the resumed recorder takes the same options.
+- **The hold lasts until the first frame, or 5 seconds.** A project with no designs has no first frame, and a background
+  tab records its first frame only when it's shown. `pageHolds` counts holds, so tabs opening together keep it paused
+  until the last one draws.
+- **It resumes in a task of its own,** after the frame that let go of it is painted. Resuming in the same animation
+  frame put the snapshot, about 0.2 s, between the frame being seen and being painted.
+
+Measured on `examples/shadcn-vite` (61 designs, 119 frames), React's production build, five reopens in the same window
+each, before and after in fresh `pnpm perf --open-only --keep` copies, with the page's JavaScript sampled every 0.1 ms
+and the profile cut at `project.loaded` and `project.drawn`:
+
+| Tab ready to first frame | Before         | After          |
+| ------------------------ | -------------- | -------------- |
+| Time                     | 2.71 to 3.01 s | 2.29 to 2.53 s |
+| Window thread busy       | 2.17 to 2.42 s | 1.79 to 2.00 s |
+| Sentry's own code        | 406 to 508 ms  | 21 to 28 ms    |
+| In the 2 s after         | 20 to 33 ms    | 206 to 232 ms  |
+
+The snapshot taken on resuming moves after the first frame, 15 to 45 ms after it. The replay recorded over those reopens
+(`f507a317…`) stayed one replay, with a full snapshot after each reopen of about 6,130 nodes, boards and canvas
+included. Tests: `apps/desktop/src/renderer/replay.test.ts` (4: paused until the last hold is let go of and resumed
+after that task, staying paused for a hold taken before it resumes, the 5-second limit, and leaving alone a recorder
+that isn't recording or that Replay resumed or replaced). Gaps: that the hold starts at `firstFrameOf` in `workspace.ts`
+and ends at the first frame was checked by profiling, not by a test.
+
 ## A render page's failure keeps its own message (PAR-680)
 
 When the render page threw inside main's `executeJavaScript`, as `canvasHeight()` or `canvasAudit()` can, Electron
