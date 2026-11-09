@@ -18,7 +18,7 @@ import { PanelSelectContent, Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { checker } from "../../chrome/token-previews.tsx"
-import { AngleField } from "./angle.tsx"
+import { AngleField, wrapped } from "./angle.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { clamp, gradientCss } from "./css-values.ts"
 import { usedColors } from "./data.ts"
@@ -492,6 +492,8 @@ export function GradientEditor({
             value={angleOf(resolved.angle)}
             // A linear gradient's named directions read as their angles: `to right` is 90°.
             keywords={resolved.kind === "linear" ? gradientDirections : undefined}
+            // Only a gradient's direction matters, so it comes back round past 360°.
+            wraps
             onChange={(angle) => edit({ angle: angleDegrees(angle) })}
           />
           <Hint label="Flip" detail="Reverses the stops">
@@ -513,7 +515,7 @@ export function GradientEditor({
               size="icon-sm"
               className="col-start-3 row-start-1 size-7"
               aria-label="Rotate 90°"
-              onClick={() => edit({ angle: resolved.angle + 90 })}
+              onClick={() => edit({ angle: wrapped(resolved.angle + 90) })}
             >
               <RotateCw />
             </Button>

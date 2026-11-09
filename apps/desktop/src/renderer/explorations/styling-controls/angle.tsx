@@ -8,6 +8,24 @@ import { type Angle, angleDegrees, angleOf, angleUnits, splitUnit } from "./moti
 /** Snaps to 15° with Shift, and to whole degrees otherwise, as the knob does; the glyph's scrub snaps with Shift. */
 const snapped = (degrees: number, shift: boolean) => (shift ? Math.round(degrees / 15) * 15 : Math.round(degrees))
 
+/** An angle within one turn, 0 to 360, as a gradient's: 370° is 10°, and −90° is 270°. */
+export const wrapped = (degrees: number) => Number((((degrees % 360) + 360) % 360).toFixed(2))
+
+/** The whole turns in an angle and where it ends after them: 450° is 1 turn and 90°, −450° is −1 turn and −90°. */
+function turnsOf(degrees: number) {
+  const whole = Math.trunc(degrees / 360)
+  return { whole, rest: Number((degrees - whole * 360).toFixed(2)) }
+}
+
+/** 450° as "1 turn + 90°", and 720° as "2 turns", for the knob's name; under a turn there's nothing to add. */
+function turnsText(degrees: number) {
+  const { whole, rest } = turnsOf(degrees)
+  if (whole === 0) return undefined
+  const count = `${whole < 0 ? "−" : ""}${Math.abs(whole)} ${Math.abs(whole) === 1 ? "turn" : "turns"}`
+  if (rest === 0) return count
+  return `${count} ${rest < 0 ? "−" : "+"} ${Math.abs(rest)}°`
+}
+
 /**
  * An angle (PAR-652's Angle), as Position's Rotation and a gradient's Angle take it: degrees with °, typed in deg,
  * turn, rad or grad with the app's maths and kept in degrees, or as read from code until it's edited. Negatives are
@@ -15,7 +33,10 @@ const snapped = (degrees: number, shift: boolean) => (shift ? Math.round(degrees
  *
  * The field's glyph is an angle, as Figma's and Penpot's are, and dragging it scrubs a degree a pixel, Shift snapping
  * to 15°. Up and Down step 1°, Shift 15°. Beside it is a knob, as Framer's is, that's dragged round to set the angle
- * where it's seen, with no popover in the way.
+ * where it's seen, with no popover in the way. Past 360° the knob counts the whole turns in its middle.
+ *
+ * A field can wrap within a turn, where only the direction matters, as a gradient's Angle does: 370° comes to 10°.
+ * Rotation doesn't, since a transition to 450° turns further than one to 90°.
  */
 export function AngleField({
   label,
@@ -23,6 +44,7 @@ export function AngleField({
   value,
   mixed,
   keywords,
+  wraps = false,
   onChange
 }: {
   label: string
@@ -31,6 +53,8 @@ export function AngleField({
   mixed?: boolean
   /** Words the field also reads as angles, as a gradient reads `to right` as 90°. */
   keywords?: Readonly<Record<string, number>>
+  /** Keeps the angle within a turn, 0 to 360: typed, stepped, scrubbed or turned past 360°, it comes back round. */
+  wraps?: boolean
   onChange: (value: Angle | undefined) => void
 }) {
   const degrees = angleDegrees(value)
@@ -40,7 +64,7 @@ export function AngleField({
     const read = splitUnit(value.value)
     if (read && read.unit !== "deg" && read.unit !== "") kept = `as ${value.value}`
   }
-  const angle = (next: number) => angleOf(Number(next.toFixed(2)))
+  const angle = (next: number) => angleOf(wraps ? wrapped(next) : Number(next.toFixed(2)))
   const read = (text: string): Reading<Angle | undefined> => {
     if (text.trim() === "") return { value: undefined }
     const keyword = keywords?.[text.trim().toLowerCase().replace(/\s+/g, " ")]
@@ -114,6 +138,9 @@ function around(box: DOMRect, { clientX, clientY }: { clientX: number; clientY: 
  * the pointer goes the finer the control; going round again keeps counting, so two turns are 720°. Shift snaps to
  * 15°. Double-clicking it sets 0°. It's a slider for the keyboard: Left and Right (or Down and Up) step 1°, Shift 15°,
  * Page Up and Page Down 15°, and Home 0°.
+ *
+ * Past a turn, the knob counts the whole turns in its middle, and shows how far round the last turn the angle is as an
+ * arc along the rim from the top, with a dot for the pointer at its end: 450° is 1 with a quarter arc.
  */
 export function AngleKnob({
   label,
@@ -176,7 +203,14 @@ export function AngleKnob({
   const size = 28
   const middle = size / 2
   const rim = middle - 2.5
+  const { whole, rest } = turnsOf(degrees)
+  const lapped = whole !== 0
   const tip = { x: middle + Math.cos(radians) * (rim - 2.5), y: middle + Math.sin(radians) * (rim - 2.5) }
+  const hand = turning ? kindColors.layer : "currentColor"
+  // How far round the last turn: an arc along the rim from the top, clockwise, or back for a negative angle.
+  const lap = rim + 0.5
+  const end = { x: middle + Math.sin((rest * Math.PI) / 180) * lap, y: middle - Math.cos((rest * Math.PI) / 180) * lap }
+  const arc = `M ${middle} ${middle - lap} A ${lap} ${lap} 0 ${Math.abs(rest) > 180 ? 1 : 0} ${rest > 0 ? 1 : 0} ${end.x} ${end.y}`
   return (
     <Hint
       label={`${label} knob`}
@@ -189,7 +223,7 @@ export function AngleKnob({
         tabIndex={0}
         aria-label={`${label} knob`}
         aria-valuenow={degrees}
-        aria-valuetext={`${degrees}°`}
+        aria-valuetext={lapped ? `${degrees}°, ${turnsText(degrees)}` : `${degrees}°`}
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
@@ -220,16 +254,32 @@ export function AngleKnob({
             />
           )
         })}
-        <line
-          x1={middle}
-          y1={middle}
-          x2={tip.x}
-          y2={tip.y}
-          stroke={turning ? kindColors.layer : "currentColor"}
-          strokeWidth={1.75}
-          strokeLinecap="round"
-        />
-        <circle cx={middle} cy={middle} r={1.75} fill={turning ? kindColors.layer : "currentColor"} />
+        {lapped && rest !== 0 && (
+          <path d={arc} fill="none" stroke={hand} strokeOpacity={0.55} strokeWidth={1.5} strokeLinecap="round" />
+        )}
+        {lapped && rest === 0 && (
+          <circle cx={middle} cy={middle} r={lap} fill="none" stroke={hand} strokeOpacity={0.55} strokeWidth={1.5} />
+        )}
+        {/* Past a turn, the pointer's a dot at the end of the arc, leaving the middle for the count. */}
+        {lapped ? (
+          <circle cx={end.x} cy={end.y} r={1.75} fill={hand} />
+        ) : (
+          <line x1={middle} y1={middle} x2={tip.x} y2={tip.y} stroke={hand} strokeWidth={1.75} strokeLinecap="round" />
+        )}
+        {lapped ? (
+          <text
+            x={middle}
+            y={middle}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill={hand}
+            className="text-[9px] font-medium tabular-nums select-none"
+          >
+            {whole < 0 ? `−${-whole}` : whole}
+          </text>
+        ) : (
+          <circle cx={middle} cy={middle} r={1.75} fill={hand} />
+        )}
       </svg>
     </Hint>
   )
