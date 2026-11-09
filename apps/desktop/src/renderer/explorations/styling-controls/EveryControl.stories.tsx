@@ -102,7 +102,7 @@ const groups: { name: string; entries: Entry[] }[] = [
     name: "Appearance",
     entries: [
       { name: "Opacity and blend mode", Story: composeStories(opacity).Step, reviewed: true },
-      { name: "Radius", Story: composeStories(radius).Token },
+      { name: "Radius", Story: composeStories(radius).Token, reviewed: true },
       { name: "Clip content", Story: k.ClipContent, reviewed: true },
       { name: "Cursor", Story: k.Cursor, reviewed: true }
     ]
