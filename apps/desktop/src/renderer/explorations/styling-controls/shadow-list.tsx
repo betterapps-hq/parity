@@ -33,7 +33,7 @@ import {
   ValueField
 } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
-import { ListRow, moved, OffsetPad, TypeMenu, type TypeOption } from "./list-parts.tsx"
+import { EntryType, ListRow, moved, OffsetPad, TypeMenu, type TypeOption } from "./list-parts.tsx"
 import {
   boxLayersOf,
   colorWords,
@@ -145,6 +145,8 @@ export function ShadowList({
     rows: ordered.filter((entry) => groupOf(entry) === group)
   }))
   const titles = { inside: "Inside", outside: onText ? "Outside, on the text" : "Outside", follow: "Follows the shape" }
+  // Handles show where a group has two shadows or more; the others keep their room so the rows line up.
+  const handles = groups.some(({ rows }) => rows.length > 1)
   const saveAsToken = () => {
     const box = ordered.filter((entry) => !entry.off && shadowTarget(entry, onText) === "box")
     const name = `shadow-saved-${saved.length + 1}`
@@ -208,8 +210,8 @@ export function ShadowList({
           {groups
             .filter(({ rows }) => rows.length > 0)
             .map(({ group, rows }) => (
-              <div key={group} className="flex flex-col gap-0.5">
-                <GroupLabel className="px-4">{titles[group]}</GroupLabel>
+              <div key={group} className="flex flex-col gap-1">
+                <GroupLabel className={handles ? "px-4" : ""}>{titles[group]}</GroupLabel>
                 {rows.map((entry, index) => (
                   <ShadowRow
                     key={entry.id}
@@ -221,20 +223,26 @@ export function ShadowList({
                     saved={saved}
                     startOpen={entry.id === openId}
                     onChange={(change) => set(entry.id, change)}
-                    onMove={(from, to) => {
-                      if (to < 0 || to >= rows.length) return
-                      const reordered = moved(rows, from, to)
-                      onChange(
-                        inGroups(ordered.map((other) => (groupOf(other) === group ? reordered.shift()! : other)))
-                      )
-                    }}
+                    // A shadow moves only past another in its group, so one alone has no handle.
+                    onMove={
+                      rows.length > 1
+                        ? (from, to) => {
+                            if (to < 0 || to >= rows.length) return
+                            const reordered = moved(rows, from, to)
+                            onChange(
+                              inGroups(ordered.map((other) => (groupOf(other) === group ? reordered.shift()! : other)))
+                            )
+                          }
+                        : undefined
+                    }
+                    gutter={handles}
                     onRemove={() => onChange(ordered.filter((other) => other.id !== entry.id))}
                   />
                 ))}
               </div>
             ))}
           {!fits && (
-            <div className="flex flex-col items-start gap-1 px-4">
+            <div className={`flex flex-col items-start gap-1 ${handles ? "px-4" : ""}`}>
               <MessageLine
                 message={{
                   tone: "note",
@@ -284,15 +292,14 @@ export function ShadowCard({
 }
 
 /**
- * A shadow token in a row, as Composite token's summary has it (`md 0 4 6 −1`): its chip, with a dot where its color is
- * changed here, then its first layer's numbers, faintly, cut where the row ends.
+ * A shadow token in a row: its chip alone, with a dot where its color is changed here. Its numbers are in its hint and
+ * the entry's details, so the row stays readable.
  */
-function ShadowTokenSummary({ entry, saved, spread }: { entry: ShadowEntry; saved: ShadowToken[]; spread: boolean }) {
+function ShadowTokenSummary({ entry, saved }: { entry: ShadowEntry; saved: ShadowToken[] }) {
   const name = entry.token ?? ""
   const token = [...allShadowTokens, ...saved].find((option) => option.name === name)
-  const first = token?.layers[0]
   return (
-    <>
+    <span className="flex min-w-0 text-foreground">
       <TokenChip
         name={name}
         token={token}
@@ -302,8 +309,7 @@ function ShadowTokenSummary({ entry, saved, spread }: { entry: ShadowEntry; save
         struck={!token}
         overridden={entry.colorOverride !== undefined}
       />
-      {first && <span className="truncate text-muted-foreground tabular-nums">{layerNumbers(first, spread)}</span>}
-    </>
+    </span>
   )
 }
 
@@ -317,6 +323,7 @@ function ShadowRow({
   startOpen,
   onChange,
   onMove,
+  gutter,
   onRemove
 }: {
   entry: ShadowEntry
@@ -327,7 +334,8 @@ function ShadowRow({
   saved: ShadowToken[]
   startOpen: boolean
   onChange: (change: Partial<ShadowEntry>) => void
-  onMove: (from: number, to: number) => void
+  onMove?: (from: number, to: number) => void
+  gutter: boolean
   onRemove: () => void
 }) {
   const onText = text !== undefined && text.shadowOf === "text"
@@ -346,37 +354,43 @@ function ShadowRow({
       index={index}
       off={entry.off}
       onMove={onMove}
+      gutter={gutter}
       onToggle={() => onChange({ off: !entry.off })}
       onRemove={onRemove}
       preview={<ShadowCard entry={entry} onText={onText} saved={saved} />}
+      title={types.find((type) => type.value === entry.kind)?.label}
       details={{
-        content: <ShadowEditor entry={entry} tokensOnly={tokensOnly} text={text} saved={saved} onChange={onChange} />,
+        content: (
+          <>
+            <EntryType className="mb-1">
+              <TypeMenu
+                label={name}
+                value={entry.kind}
+                options={types}
+                onChange={(kind) => {
+                  const next = newEntry(kind, onText)
+                  onChange({
+                    kind: next.kind,
+                    token: next.token,
+                    width: next.width,
+                    layer: next.kind === "ring" ? next.layer : entry.layer,
+                    colorOverride: undefined,
+                    follow: undefined,
+                    inset: undefined
+                  })
+                }}
+              />
+            </EntryType>
+            <ShadowEditor entry={entry} tokensOnly={tokensOnly} text={text} saved={saved} onChange={onChange} />
+          </>
+        ),
         defaultOpen: startOpen
       }}
-      type={
-        <TypeMenu
-          label={name}
-          value={entry.kind}
-          options={types}
-          onChange={(kind) => {
-            const next = newEntry(kind, onText)
-            onChange({
-              kind: next.kind,
-              token: next.token,
-              width: next.width,
-              layer: next.kind === "ring" ? next.layer : entry.layer,
-              colorOverride: undefined,
-              follow: undefined,
-              inset: undefined
-            })
-          }}
-        />
-      }
     >
       {entry.token === undefined || entry.kind === "ring" ? (
-        <span className="truncate tabular-nums">{summary}</span>
+        <span className="truncate">{summary}</span>
       ) : (
-        <ShadowTokenSummary entry={entry} saved={saved} spread={spread} />
+        <ShadowTokenSummary entry={entry} saved={saved} />
       )}
     </ListRow>
   )

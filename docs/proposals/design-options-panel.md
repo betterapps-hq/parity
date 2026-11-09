@@ -433,10 +433,10 @@ CSS for a box's border; an SVG's own strokes have them, in its file (Icon's SVG 
 
 ## Effects
 
-Shows for every layer. A stack of effects, added from + as a drop shadow and changed in its type menu (Ring included),
-as in Figma; with nothing set, it's a title with +. A shadow token is one entry; its color can be overridden
-(`shadow-lg shadow-black/20`), and any other part offers Detach. Blur and drop shadow tokens are their own entries'
-values.
+Shows for every layer. A stack of effects, added from + as a drop shadow and changed by the type menu its details start
+with (Ring included), as in Figma; with nothing set, it's a title with +. A shadow token is one entry; its color can be
+overridden (`shadow-lg shadow-black/20`), and any other part offers Detach. Blur and drop shadow tokens are their own
+entries' values.
 
 | Effect                 | Control                                                                                                                | Writes                                                                         | Figma                  |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------- |

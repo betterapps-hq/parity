@@ -10,9 +10,10 @@ import { mixedWrites } from "./writes.ts"
 
 /**
  * Effects' shadow list (PAR-652's Shadow list): drop shadows, inner shadows and rings, listed Inside then Outside, top
- * first as Tailwind paints them, each dragged within its group. + adds a drop shadow, `shadow-sm`, on top of the drop
- * shadows; the section's menu adds an inner shadow, a ring, or a drop shadow that follows the shape. Each entry's card
- * opens its editor: the token, or X, Y, blur, spread and color with the offset pad to drag. A shadow token is a chip
+ * first as Tailwind paints them, each dragged within its group by the handle a group of two or more has. + adds a drop shadow, `shadow-sm`, on top of the drop
+ * shadows; the section's menu adds an inner shadow, a ring, or a drop shadow that follows the shape. Each entry's row,
+ * its card, type and token or numbers, opens its editor: its type menu, then the token, or X, Y, blur, spread and color
+ * with the offset pad to drag. A shadow token is a chip
  * whose layers fold under a disclosure (Composite token): its color can be overridden, shown in the override color with
  * a reset arrow and a dot on the chip, and the rest offers Detach. It's written into Tailwind's four box-shadow slots,
  * or as one arbitrary value when it doesn't fit them.

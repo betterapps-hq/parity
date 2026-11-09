@@ -175,21 +175,24 @@ the picker's Custom tab.
 
 ## Lists
 
-Fills, shadows, filters, transforms and transitions are ordered lists. Every entry has the same row: a drag handle on
-hover; the entry's preview (swatch, gradient strip, shadow card, filter glyph), which opens its details in one popover
-shared by every list, as Figma's effect settings do; its type menu; a summary in words and numbers (the token's name,
-`0 4 12 −2 · black 10%`, `Linear 90°`, `Colors · 200ms · Ease out`); the eye, which turns it off (it stays in the file
-but isn't drawn or written to code, as Figma's eye); and −.
+Fills, shadows, filters, transforms and transitions are ordered lists. Every entry has the same row, with little in it
+so it reads at a glance. First comes a drag handle, always shown, where the entry has another in its group to move past;
+a list of one has none. Then the entry: one button with its preview (swatch, gradient strip, shadow card, filter glyph),
+what it is (Drop shadow, Linear, Colors) and a faint summary (the token's chip, `0 4 12 −2 black 10%`, `180°`,
+`200ms, Ease out`), which opens its details in one popover shared by every list, as Figma's effect settings do. Last
+come the eye, which turns it off (it stays in the file but isn't drawn or written to code, as Figma's eye), and −. A
+solid fill's row is its color field instead, as Figma's is.
 
 The + button adds the list's usual entry at once, on top, as Figma's does (a new drop shadow at the top of the drop
 shadows, below any rings, so Tailwind's order holds): a solid fill, a drop shadow, a transition on Colors at Tailwind's
 default timing. On a text layer, Fill's + is a menu instead, Text color then Background
 ([design-options-panel.md](design-options-panel.md), Fill). It's in a form the project's level allows: the kind's most
-common token where there is one (`bg-background`, `shadow-sm`, `border-border`), otherwise Figma's defaults. The entry's
-type menu changes it to another type (Inner shadow, Ring, Layer blur, Linear). Presets (Layered shadow, Frosted glass)
-and Ring are in the type menu and the section's menu, not behind +. A preset (Spring, Layered shadow) keeps its settings
-in the file (`{ spring: { duration: 400, bounce: 0.2 } }`), since the `linear()` or shadow list it writes can't be read
-back into them. Code still matching the settings reads back as the preset; code that differs, as a Custom curve or plain
+common token where there is one (`bg-background`, `shadow-sm`, `border-border`), otherwise Figma's defaults. An entry's
+details start with its type, which changes it to another: a menu (Inner shadow, Ring), or for a fill its five types by
+glyph, as Figma's fill picker starts, a solid's in its color picker. Presets (Layered shadow, Frosted glass) and Ring
+are in the type menu and the section's menu, not behind +. A preset (Spring, Layered shadow) keeps its settings in the
+file (`{ spring: { duration: 400, bounce: 0.2 } }`), since the `linear()` or shadow list it writes can't be read back
+into them. Code still matching the settings reads back as the preset; code that differs, as a Custom curve or plain
 entries.
 
 Clicking selects an entry and Shift-click extends; Delete removes the selection; Ctrl+C and Ctrl+V copy entries between

@@ -10,7 +10,7 @@ import { Braces, ListOrdered, Plus, SlidersHorizontal } from "lucide-react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { BlurChoice } from "./controls.tsx"
-import { MessageLine, type Reading, TokenChip, useTokens, ValueField } from "./field-parts.tsx"
+import { MessageLine, type Reading, TokenChip, TokenMark, useTokens, ValueField } from "./field-parts.tsx"
 import { CenteredSlider, ListRow } from "./list-parts.tsx"
 import {
   type AdjustmentKey,
@@ -133,8 +133,8 @@ export function FilterList({
           {groups
             .filter(({ rows }) => rows.length > 0)
             .map(({ title, rows }) => (
-              <div key={title} className="flex flex-col gap-0.5">
-                <GroupLabel className="px-4">{title}</GroupLabel>
+              <div key={title} className="flex flex-col gap-1">
+                <GroupLabel>{title}</GroupLabel>
                 {rows.map((entry) => (
                   <FilterRow
                     key={entry.id}
@@ -169,6 +169,7 @@ function FilterRow({
   onReplace: (entries: FilterEntry[]) => void
   onRemove: () => void
 }) {
+  const { tokens: blurs } = useTokens("blur")
   const row = {
     group: "filters",
     index: 0,
@@ -178,16 +179,35 @@ function FilterRow({
   }
   if (entry.kind === "blur" || entry.kind === "backdropBlur") {
     const label = entry.kind === "blur" ? "Layer blur" : "Background blur"
+    const token = typeof entry.value === "string" ? blurs.find((other) => other.name === entry.value) : undefined
+    let drawn: string | undefined = token?.value
+    if (typeof entry.value === "object") drawn = `${entry.value.px}px`
     return (
-      <ListRow {...row} name={label} type={<span className="w-24 shrink-0 truncate text-xs">{label}</span>}>
-        <div className="min-w-0 flex-1">
-          <BlurChoice
-            label={label}
-            value={entry.value}
-            tokensOnly={tokensOnly}
-            onChange={(value) => onChange({ ...entry, value })}
-          />
-        </div>
+      <ListRow
+        {...row}
+        name={label}
+        preview={<TokenMark kind="blur" value={drawn ?? "0px"} />}
+        title={label}
+        details={{
+          content: (
+            <BlurChoice
+              label={label}
+              value={entry.value}
+              tokensOnly={tokensOnly}
+              onChange={(value) => onChange({ ...entry, value })}
+            />
+          ),
+          defaultOpen: startOpen,
+          className: "w-64 p-2"
+        }}
+      >
+        {typeof entry.value === "string" ? (
+          <span className="flex min-w-0 text-foreground">
+            <TokenChip name={entry.value} token={token} namespace="blur-" preview={null} struck={!token} />
+          </span>
+        ) : (
+          <span className="truncate">{drawn}</span>
+        )}
       </ListRow>
     )
   }
@@ -214,11 +234,9 @@ function FilterRow({
           defaultOpen: startOpen,
           className: "w-72 p-3"
         }}
-        type={<span className="shrink-0">Adjustments</span>}
+        title={label}
       >
-        <Hint label={label} detail={words}>
-          <span className="truncate text-muted-foreground">{words}</span>
-        </Hint>
+        <span className="truncate">{words}</span>
       </ListRow>
     )
   }
@@ -241,19 +259,21 @@ function FilterRow({
           ),
           defaultOpen: startOpen
         }}
-        type={<span className="shrink-0">Drop shadow</span>}
+        title="Drop shadow"
       >
         {shadow.token === undefined ? (
-          <span className="truncate text-muted-foreground tabular-nums">{`${layerNumbers(shadow.layer, false)} ${colorWords(shadow.layer)}`}</span>
+          <span className="truncate">{`${layerNumbers(shadow.layer, false)} ${colorWords(shadow.layer)}`}</span>
         ) : (
-          <TokenChip
-            name={shadow.token}
-            token={token}
-            namespace="drop-shadow-"
-            preview={null}
-            struck={!token}
-            overridden={shadow.colorOverride !== undefined}
-          />
+          <span className="flex min-w-0 text-foreground">
+            <TokenChip
+              name={shadow.token}
+              token={token}
+              namespace="drop-shadow-"
+              preview={null}
+              struck={!token}
+              overridden={shadow.colorOverride !== undefined}
+            />
+          </span>
         )}
       </ListRow>
     )

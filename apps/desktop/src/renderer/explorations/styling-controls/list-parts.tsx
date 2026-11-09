@@ -24,15 +24,15 @@ import { clamp, formatNumber } from "./css-values.ts"
 import { drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
 
 /*
- * What the list fields share (design-options-fields.md, Lists): the entry's row, in the spec's order (the drag handle,
- * the preview that opens the entry's details, its type, its summary, the eye and −), the type menu, the centered slider
- * of Adjustments and the offset pad. Fields, chips, angles, positions and the nine spots are the core's
- * (field-parts.tsx, angle.tsx, position-box.tsx).
+ * What the list fields share (design-options-fields.md, Lists): the entry's row, in the spec's order (the drag handle
+ * where there's another row to move past, the entry with its preview, name and summary, which opens its details, the
+ * eye and −), the type menu its details start with, the centered slider of Adjustments and the offset pad. Fields,
+ * chips, angles, positions and the nine spots are the core's (field-parts.tsx, angle.tsx, position-box.tsx).
  */
 
-/** The box an entry's preview, type and summary share in its row. */
+/** The box an entry's preview, name and summary share in its row, drawn as a field is. */
 const entryBox =
-  "flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md border bg-transparent pr-1.5 pl-1 text-xs dark:bg-input/30"
+  "flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md bg-muted px-1.5 text-left text-xs dark:bg-input/40"
 
 export interface ListRowProps {
   /** What the entry is, for its buttons' names: "Drop shadow 1". */
@@ -41,44 +41,51 @@ export interface ListRowProps {
   group: string
   index: number
   off?: boolean
-  /** Unset for a list in a fixed order, as the filter list is: then there's no handle. */
+  /**
+   * Set where the row can move: its group has another row. Unset for a row alone in its group, or a list in a fixed
+   * order, as the filter list is; then there's no handle.
+   */
   onMove?: (from: number, to: number) => void
+  /** Another group in the list has handles, so a row without one keeps their room and the entries line up. */
+  gutter?: boolean
   onToggle: () => void
   onRemove: () => void
-  /** The entry's summary, after its preview and type: its value, token chip or words. */
-  children: ReactNode
   /**
-   * The entry's preview (swatch, gradient strip, shadow card, filter glyph), first after the handle, in a box with the
-   * type and summary. With `details`, it opens them.
+   * What the entry is, after its preview: its type ("Drop shadow", "Linear") or what it changes ("Colors"). It keeps
+   * its room; the summary after it is cut first.
    */
+  title?: ReactNode
+  /**
+   * The entry's summary, faint, after its name: its token, numbers or words (`md`, `180°`, `200ms, Ease out`). Without
+   * a preview or title, the row's control of its own instead, as a solid fill's color field.
+   */
+  children: ReactNode
+  /** The entry's preview (swatch, gradient strip, shadow card, filter glyph), first in the entry. */
   preview?: ReactNode
   /** The preview drawn for whether the row is live (hovered or focused), in place of `preview`, so it can play. */
   renderPreview?: (live: boolean) => ReactNode
-  /** The entry's details, in the popover its preview opens, as every list's entries have them. */
+  /**
+   * The entry's details, in the popover the whole entry opens, as every list's entries have them. They start with the
+   * entry's type menu where it has one (`EntryType`), so the row has only what it is.
+   */
   details?: {
     content: ReactNode
     /** Open at first, for a story. */
     defaultOpen?: boolean
     className?: string
-    /**
-     * The whole entry opens them, not the preview alone, where its type and summary are words rather than controls of
-     * their own, as a transition's are.
-     */
-    whole?: boolean
   }
-  /** The entry's type, or its type menu (`TypeMenu`), after the preview. */
-  type?: ReactNode
   /**
-   * What follows the summary before the eye, as a gradient's alpha does. It's placed in the row's second column
+   * What follows the entry before the eye, as a gradient's alpha does. It's placed in the row's second column
    * (`col-start-2 row-start-1`, as `PercentField`'s `rowClassName`), so what it says goes under the whole entry.
    */
   after?: ReactNode
 }
 
 /**
- * One entry's row, in the order design-options-fields.md's Lists sets: a drag handle on hover, which also moves it with
- * Up and Down and removes it with Delete; the entry's preview, which opens its details; its type; its summary; the eye,
- * which turns it off without removing it (pressed while it's off); and −. Rows are dragged within their group only.
+ * One entry's row, in the order design-options-fields.md's Lists sets: a drag handle where the row can move, always
+ * shown, which also moves it with Up and Down and removes it with Delete; the entry, its preview, its name and a faint
+ * summary, which opens its details; the eye, which turns it off without removing it (pressed while it's off); and −.
+ * Rows are dragged within their group only.
  */
 export function ListRow({
   name,
@@ -86,13 +93,14 @@ export function ListRow({
   index,
   off = false,
   onMove,
+  gutter = false,
   onToggle,
   onRemove,
+  title,
   children,
   preview,
   renderPreview,
   details,
-  type,
   after
 }: ListRowProps) {
   const [draggable, setDraggable] = useState(false)
@@ -100,39 +108,39 @@ export function ListRow({
   const { live, rowProps } = useLiveRow()
   const drawn = renderPreview ? renderPreview(live(name)) : preview
   const dataType = `application/x-parity-${group}`
-  let entry: ReactNode =
-    drawn === undefined ? (
-      <>
-        {type}
+  const parts = (
+    <>
+      {/* One width for every preview, so the names after them line up down the list. */}
+      {drawn !== undefined && <span className="grid w-6 shrink-0 place-items-center">{drawn}</span>}
+      {title !== undefined && <span className="max-w-3/5 shrink-0 truncate">{title}</span>}
+      <span className="ml-auto flex min-w-0 shrink items-center justify-end gap-1 truncate text-muted-foreground tabular-nums">
         {children}
-      </>
-    ) : (
-      <div className={entryBox} {...rowProps(name)}>
-        <EntryPreview name={name} details={details}>
-          {drawn}
-        </EntryPreview>
-        {type}
-        {children}
-      </div>
-    )
-  if (details?.whole) {
+      </span>
+    </>
+  )
+  let entry: ReactNode = children
+  if (details) {
     entry = (
       <Popover defaultOpen={details.defaultOpen}>
-        <Hint label={`Edit ${name.toLowerCase()}`}>
+        <Hint label={`Edit ${name.toLowerCase()}`} wait>
           <PopoverTrigger
             aria-label={`Edit ${name}`}
-            className={`${entryBox} text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent`}
+            className={`${entryBox} outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent`}
             {...rowProps(name)}
           >
-            <span className="grid shrink-0 place-items-center">{drawn}</span>
-            {type}
-            {children}
+            {parts}
           </PopoverTrigger>
         </Hint>
         <PopoverContent className={details.className ?? "w-72 p-2"} align="start">
           {details.content}
         </PopoverContent>
       </Popover>
+    )
+  } else if (drawn !== undefined || title !== undefined) {
+    entry = (
+      <div className={entryBox} {...rowProps(name)}>
+        {parts}
+      </div>
     )
   }
   const content = (
@@ -145,8 +153,8 @@ export function ListRow({
   )
   if (onMove === undefined) {
     return (
-      <div className="group/row flex min-h-8 items-start pt-0.5 gap-1 rounded-md">
-        <span aria-hidden className="w-3 shrink-0" />
+      <div className="group/row flex min-h-7 items-start gap-1 rounded-md">
+        {gutter && <span aria-hidden className="w-3 shrink-0" />}
         {content}
         <RowButtons name={name} off={off} onToggle={onToggle} onRemove={onRemove} />
       </div>
@@ -171,7 +179,7 @@ export function ListRow({
         const from = Number(event.dataTransfer.getData(dataType))
         if (Number.isFinite(from) && from !== index) onMove(from, index)
       }}
-      className={`group/row flex min-h-8 items-start pt-0.5 gap-1 rounded-md ${over ? "ring-2 ring-ring" : ""}`}
+      className={`group/row flex min-h-7 items-start gap-1 rounded-md ${over ? "ring-2 ring-ring" : ""}`}
     >
       <Hint label="Drag to reorder" detail="Up and Down move it; Delete removes it">
         <button
@@ -189,7 +197,7 @@ export function ListRow({
               onRemove()
             }
           }}
-          className="grid h-7 w-3 shrink-0 cursor-grab place-items-center rounded-sm text-muted-foreground opacity-0 outline-none group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+          className="grid h-7 w-3 shrink-0 cursor-grab place-items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <GripVertical className="size-3" />
         </button>
@@ -200,32 +208,12 @@ export function ListRow({
   )
 }
 
-/** An entry's preview: with details, the button that opens them in the entry's popover. */
-function EntryPreview({
-  name,
-  details,
-  children
-}: {
-  name: string
-  details: ListRowProps["details"]
-  children: ReactNode
-}) {
-  if (details === undefined) return <span className="grid shrink-0 place-items-center">{children}</span>
-  return (
-    <Popover defaultOpen={details.defaultOpen}>
-      <Hint label={`Edit ${name.toLowerCase()}`}>
-        <PopoverTrigger
-          aria-label={`Edit ${name}`}
-          className="grid shrink-0 place-items-center rounded-sm outline-none hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {children}
-        </PopoverTrigger>
-      </Hint>
-      <PopoverContent className={details.className ?? "w-72 p-2"} align="start">
-        {details.content}
-      </PopoverContent>
-    </Popover>
-  )
+/**
+ * The type menu an entry's details start with, which changes it to another type (Drop shadow to Ring, Solid to
+ * Linear), as Figma's effect settings start with theirs.
+ */
+export function EntryType({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={`flex h-7 items-center text-xs font-medium ${className}`}>{children}</div>
 }
 
 /** The eye, which turns an entry off without removing it, pressed while it's off, and −. */
@@ -280,7 +268,7 @@ export function moved<T>(list: readonly T[], from: number, to: number): T[] {
   return next
 }
 
-/** One of the types an entry can be, with a glyph for a compact menu. */
+/** One of the types an entry can be, with a glyph for where types are picked by it, as a fill's are. */
 export interface TypeOption<K extends string> {
   value: K
   label: string
@@ -288,29 +276,18 @@ export interface TypeOption<K extends string> {
 }
 
 export interface TypeMenuProps<K extends string> {
-  /** The entry's name, for the menu's accessible name: "Fill 1". */
+  /** The entry's name, for the menu's accessible name: "Drop shadow 1". */
   label: string
   value: K
   options: readonly TypeOption<K>[]
-  /** The type's glyph alone, where the entry's value takes the room its name would, as a solid fill's does. */
-  compact?: boolean
   onChange: (value: K) => void
 }
 
-/** An entry's type menu, which changes it to another type: Drop shadow to Ring, Solid to Linear. */
-export function TypeMenu<K extends string>({ label, value, options, compact = false, onChange }: TypeMenuProps<K>) {
+/** An entry's type menu, at the top of its details, which changes it to another type: Drop shadow to Ring. */
+export function TypeMenu<K extends string>({ label, value, options, onChange }: TypeMenuProps<K>) {
   const current = options.find((option) => option.value === value)
   const named = `${label} type: ${current?.label ?? value}`
-  const trigger = compact ? (
-    <Hint label={`${current?.label ?? value}: change type`}>
-      <DropdownMenuTrigger
-        aria-label={named}
-        className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-      >
-        {current?.glyph}
-      </DropdownMenuTrigger>
-    </Hint>
-  ) : (
+  const trigger = (
     <DropdownMenuTrigger
       aria-label={named}
       className="flex shrink-0 items-center gap-0.5 rounded-sm px-0.5 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"

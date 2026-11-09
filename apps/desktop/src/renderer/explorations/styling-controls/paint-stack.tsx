@@ -23,7 +23,7 @@ import { ColorInput } from "./color-picker.tsx"
 import { clamp, gradientCss } from "./css-values.ts"
 import { usedColors } from "./data.ts"
 import { drag, MessageLine, PercentField, TokenChip, TokenList, useTokens } from "./field-parts.tsx"
-import { ListRow, type ListRowProps, moved, TypeMenu, type TypeOption } from "./list-parts.tsx"
+import { ListRow, type ListRowProps, moved, type TypeOption } from "./list-parts.tsx"
 import {
   drawListColor,
   type GradientPaint,
@@ -54,9 +54,9 @@ import { type ColorToken, type GradientToken, gradientToken, gradientTokens } fr
 
 /*
  * Fill's paint stack (design-options-values.md, Paint stack): solids, gradients and images, top first, as CSS paints
- * them. Each entry is a list row: a gradient's strip or an image's thumbnail, which opens its editor, its type menu, its
- * summary or token chip, a gradient's alpha, the eye and −. A solid is the color field, whose swatch opens the color
- * picker, after its type's glyph. A gradient's editor has the bar of stops, the Stops list, the angle with Flip and
+ * them. Each entry is a list row: a gradient's strip or an image's thumbnail with its type and summary or token chip,
+ * which opens its editor, a gradient's alpha, the eye and −. A solid is the color field, whose swatch opens the color
+ * picker. Each editor and the picker start with the fill's type, as Figma's do. A gradient's editor has the bar of stops, the Stops list, the angle with Flip and
  * Rotate 90°, Repeat and the interpolation; an image's has the project's images, the fit and its position in the box.
  */
 
@@ -80,7 +80,7 @@ const glyphs: Record<Exclude<PaintKind, "image">, string> = {
   angular: "conic-gradient(currentColor, transparent, currentColor)"
 }
 
-/** A small mark for each type, for the type menu. */
+/** A small mark for each type, for the types a fill's editor and picker start with. */
 function TypeGlyph({ kind }: { kind: PaintKind }) {
   if (kind === "image") return <ImageIcon className="size-3.5" />
   return (
@@ -92,7 +92,7 @@ function TypeGlyph({ kind }: { kind: PaintKind }) {
   )
 }
 
-/** Every type a fill can be, in the type menu's order. */
+/** Every type a fill can be, in the order its editor and picker list them. */
 const paintTypes: TypeOption<PaintKind>[] = (["solid", "linear", "radial", "angular", "image"] as const).map(
   (kind) => ({
     value: kind,
@@ -100,6 +100,34 @@ const paintTypes: TypeOption<PaintKind>[] = (["solid", "linear", "radial", "angu
     glyph: <TypeGlyph kind={kind} />
   })
 )
+
+/**
+ * A fill's type, by glyph, as Figma's fill picker starts: Solid, Linear, Radial, Angular and Image. Picking one changes
+ * the fill, keeping its colors.
+ */
+function PaintKinds({ value, onChange }: { value: PaintKind; onChange: (kind: PaintKind) => void }) {
+  return (
+    <ToggleGroup
+      variant="outline"
+      size="sm"
+      spacing={0}
+      aria-label="Fill type"
+      value={[value]}
+      onValueChange={([kind]) => {
+        const picked = paintTypes.find((option) => option.value === kind)
+        if (picked) onChange(picked.value)
+      }}
+    >
+      {paintTypes.map((option) => (
+        <Hint key={option.value} label={option.label}>
+          <ToggleGroupItem value={option.value} aria-label={option.label} className="h-7 px-2">
+            {option.glyph}
+          </ToggleGroupItem>
+        </Hint>
+      ))}
+    </ToggleGroup>
+  )
+}
 
 /** A paint changed to another type, keeping its colors: a solid becomes a gradient from it to it at 0%. */
 function changeKind(paint: Paint, kind: PaintKind): Paint {
@@ -206,9 +234,14 @@ export function PaintStack({
               onSave={onSave}
               startOpen={entry.id === openId}
               onChange={(change) => update(entry.id, change)}
-              onMove={(from, to) => {
-                if (to >= 0 && to < entries.length) onChange(moved(entries, from, to))
-              }}
+              // One fill has nothing to move past, so it has no handle.
+              onMove={
+                entries.length > 1
+                  ? (from, to) => {
+                      if (to >= 0 && to < entries.length) onChange(moved(entries, from, to))
+                    }
+                  : undefined
+              }
               onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
             />
           ))}
@@ -244,7 +277,7 @@ function PaintRow({
   onSave: (token: GradientToken) => void
   startOpen: boolean
   onChange: (change: Partial<PaintEntry>) => void
-  onMove: (from: number, to: number) => void
+  onMove?: (from: number, to: number) => void
   onRemove: () => void
 }) {
   const { paint } = entry
@@ -284,40 +317,27 @@ function PaintRow({
           />
         }
         details={{
-          content: <ImageEditor paint={paint} onChange={setPaint} />,
+          content: (
+            <div className="flex flex-col gap-2">
+              <PaintKinds value={paint.kind} onChange={(kind) => setPaint(changeKind(paint, kind))} />
+              <ImageEditor paint={paint} onChange={setPaint} />
+            </div>
+          ),
           defaultOpen: startOpen,
           className: "w-64 p-2"
         }}
-        type={
-          <TypeMenu
-            label={name}
-            value={paint.kind}
-            options={paintTypes}
-            onChange={(kind) => setPaint(changeKind(paint, kind))}
-          />
-        }
+        title="Image"
       >
         <span className="truncate">{paint.src.replace("/images/", "")}</span>
-        <span className="ml-auto text-muted-foreground">{fitNames[paint.fit]}</span>
       </ListRow>
     )
   }
-  // A solid is the color field, whose swatch is its preview and opens the color picker, after its type's glyph.
+  // A solid is the color field, whose swatch is its preview and opens the color picker, which starts with its type.
   return (
-    <ListRow
-      {...row}
-      type={
-        <TypeMenu
-          label={name}
-          value={paint.kind}
-          options={paintTypes}
-          compact
-          onChange={(kind) => setPaint(changeKind(paint, kind))}
-        />
-      }
-    >
+    <ListRow {...row}>
       <div className="min-w-0 flex-1">
         <ColorInput
+          header={<PaintKinds value={paint.kind} onChange={(kind) => setPaint(changeKind(paint, kind))} />}
           label={name}
           value={paint.color === "" ? undefined : paint.color}
           alpha={paint.alpha}
@@ -334,7 +354,7 @@ function PaintRow({
 }
 
 /**
- * A gradient's row: its strip, which opens the editor, its type, its angle or token chip, and every stop's alpha as
+ * A gradient's row: its strip, its type and its angle or token chip, which open the editor, and every stop's alpha as
  * one percentage, Mixed while the stops' alphas differ.
  */
 function GradientRow({
@@ -370,12 +390,19 @@ function GradientRow({
       preview={<span className="block h-4 w-6 rounded-sm" style={overChecker(drawnGradient(resolved, colors))} />}
       details={{
         content: (
-          <GradientEditor paint={paint} tokensOnly={tokensOnly} saved={saved} onSave={onSave} onChange={onChange} />
+          <GradientEditor
+            paint={paint}
+            tokensOnly={tokensOnly}
+            saved={saved}
+            onSave={onSave}
+            onChange={onChange}
+            onKind={onKind}
+          />
         ),
         defaultOpen: startOpen,
         className: "w-72 gap-0 p-0"
       }}
-      type={<TypeMenu label={row.name} value={resolved.kind} options={paintTypes} onChange={onKind} />}
+      title={kindNames[resolved.kind]}
       after={
         <PercentField
           label={`${row.name} opacity`}
@@ -396,9 +423,11 @@ function GradientRow({
       }
     >
       {paint.token === undefined ? (
-        <span className="truncate text-muted-foreground tabular-nums">{summary}</span>
+        <span className="truncate">{summary}</span>
       ) : (
-        <TokenChip name={paint.token} token={token} namespace="gradient-" preview={null} struck={!token} />
+        <span className="flex min-w-0 text-foreground">
+          <TokenChip name={paint.token} token={token} namespace="gradient-" preview={null} struck={!token} />
+        </span>
       )}
     </ListRow>
   )
@@ -413,13 +442,16 @@ export function GradientEditor({
   tokensOnly = false,
   saved = [],
   onSave,
-  onChange
+  onChange,
+  onKind
 }: {
   paint: GradientPaint
   tokensOnly?: boolean
   saved?: GradientToken[]
   onSave?: (token: GradientToken) => void
   onChange: (paint: GradientPaint) => void
+  /** Changes the fill to another type, Solid or Image as well as another gradient. */
+  onKind: (kind: PaintKind) => void
 }) {
   const resolved = resolveGradient(paint, saved)
   const [selected, setSelected] = useState(resolved.stops[0]?.id)
@@ -438,23 +470,14 @@ export function GradientEditor({
   return (
     <div className="flex flex-col gap-2 p-2">
       <div className="flex items-center gap-1">
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          spacing={0}
-          aria-label="Gradient type"
-          value={[resolved.kind]}
-          onValueChange={([kind]) => {
-            const picked = (["linear", "radial", "angular"] as const).find((option) => option === kind)
-            if (picked) edit({ kind: picked })
+        <PaintKinds
+          value={resolved.kind}
+          onChange={(kind) => {
+            // Another gradient keeps the stops, as editing does; Solid and Image change the fill.
+            if (kind === "linear" || kind === "radial" || kind === "angular") edit({ kind })
+            else onKind(kind)
           }}
-        >
-          {(["linear", "radial", "angular"] as const).map((kind) => (
-            <ToggleGroupItem key={kind} value={kind} className="h-7 px-2 text-xs">
-              {kindNames[kind]}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        />
         <Popover open={tokensOpen} onOpenChange={setTokensOpen}>
           <PopoverTrigger
             aria-label="Gradient tokens"

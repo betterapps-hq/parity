@@ -78,8 +78,8 @@ export function TransitionsSection({
   return (
     <PanelSection title="Motion" action={add}>
       {entries.length > 0 && (
-        <div className="flex flex-col gap-0.5">
-          <p className="px-1 pb-1 text-xs text-muted-foreground">Transitions</p>
+        <div className="flex flex-col gap-1">
+          <p className="px-1 text-xs text-muted-foreground">Transitions</p>
           {savedAs !== undefined && (
             <div className="flex h-7 items-center gap-1.5 pl-1 text-xs">
               <Hint label={`transition-${savedAs}`} detail="A transition token, which the list's entries make up">
@@ -102,13 +102,18 @@ export function TransitionsSection({
                 entry={entry}
                 index={index}
                 onChange={(change) => update(entry.id, change)}
-                onMove={(from, to) => {
-                  if (to >= 0 && to < entries.length) onChange(moved(entries, from, to))
-                }}
+                // One transition has nothing to move past, so it has no handle.
+                onMove={
+                  entries.length > 1
+                    ? (from, to) => {
+                        if (to >= 0 && to < entries.length) onChange(moved(entries, from, to))
+                      }
+                    : undefined
+                }
                 onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
               />
               {cause?.id === entry.id && savedAs === undefined && (
-                <div className="pb-1 pl-6">
+                <div className={`pb-1 ${entries.length > 1 ? "pl-6" : "pl-2"}`}>
                   <SaveAsToken
                     says="Its timing differs from the others', so the list is written as one arbitrary value."
                     placeholder="card-hover"
@@ -139,7 +144,7 @@ function EntryRow({
   entry: TransitionEntry
   index: number
   onChange: (change: Partial<TransitionEntry>) => void
-  onMove: (from: number, to: number) => void
+  onMove?: (from: number, to: number) => void
   onRemove: () => void
 }) {
   const { tokens: durations } = useTokens("duration")
@@ -206,13 +211,11 @@ function EntryRow({
           duration={ms ?? defaultDuration}
         />
       )}
-      // Its type and summary are words, so the whole entry opens its details.
-      details={{ content: details, className: "w-80 gap-1 p-3", whole: true }}
-      // What changes keeps its name; the summary after it is cut first.
-      type={<span className="max-w-1/2 shrink-0 truncate">{label}</span>}
+      details={{ content: details, className: "w-80 gap-1 p-3" }}
+      title={label}
     >
       {/* Inline text, so the commas sit after each part and the whole summary is cut at its end. */}
-      <span className="ml-auto min-w-0 shrink truncate text-muted-foreground tabular-nums">
+      <span className="min-w-0 truncate">
         <span className={entry.duration === undefined && !spring ? "opacity-60" : ""}>{ms ?? defaultDuration}ms</span>
         {", "}
         <span className={entry.easing === undefined ? "opacity-60" : ""}>{easingName(entry.easing)}</span>

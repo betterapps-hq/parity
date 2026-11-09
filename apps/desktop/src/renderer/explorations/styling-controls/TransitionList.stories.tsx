@@ -11,8 +11,8 @@ import { newEntryId, previewTransition, TransitionsSection } from "./transitions
  * Motion's Transitions (PAR-652's Transition list), on its own: Motion is a title with + until something's set, and +
  * adds Colors at Tailwind's defaults (150ms, its default curve), shown faintly. Each entry says what changes (All,
  * Colors, Opacity, Transform, Shadow, or a property), then its timing, with the eye, which turns it off without
- * deleting it, and −, as every list's rows do; its handle drags it, or moves it with Up and Down. Its curve opens its
- * details: what changes, Duration, Easing and Delay. Tailwind takes one
+ * deleting it, and −, as every list's rows do; with two entries or more, its handle drags it, or moves it with Up and
+ * Down. The entry opens its details: what changes, Duration, Easing and Delay. Tailwind takes one
  * transition per element, so one entry is utilities, entries with one timing merge into one property list, and entries
  * with different timings are one arbitrary value, which the entry that causes it says, offering Save as token.
  */
