@@ -74,7 +74,7 @@ Shows for every layer but a design's root.
 | Placement   | Toggles: In layout, Absolute, Fixed, Sticky; Relative under More (today: the first two)                            | `position`                                                           | Absolute position in auto layout; fixed and sticky only in prototype scroll settings |
 | Insets      | The pin box, with presets (below), shown when Placement isn't In layout (today: four fields, Absolute only)        | `top`, `right`, `bottom`, `left`, `inset`                            | Constraints                                                                          |
 | Layer order | Number field, with z-index tokens; shown by default when Absolute, Fixed or Sticky, otherwise under More           | `z-index`                                                            | None: order in Layers only                                                           |
-| Rotation    | Angle field with a knob and Rotate 90°, and the canvas's rotate handle; clockwise, as CSS is                       | `rotate`                                                             | Rotation, counter-clockwise                                                          |
+| Rotation    | Angle field with a knob, and the canvas's rotate handle; clockwise, as CSS is                                      | `rotate`                                                             | Rotation, counter-clockwise                                                          |
 
 The Align buttons are today's Align and Distribute commands (editor.md, "Arranging layers and designs"), moved to the
 top of Position. On an Absolute or Fixed layer, Center aligns with the pin box's Center. The pin box is a field on each

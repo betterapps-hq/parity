@@ -15,8 +15,7 @@ import { mixedWrites } from "./writes.ts"
  * its unit until it's edited. Negatives are kept, and angles are never folded into −180 to 180, since a transition to
  * 270° turns the other way from one to −90°. The field's angle glyph scrubs it; Up and Down step 1°, Shift 15°. The knob
  * beside it is dragged round to set the angle where it's seen, with no popover, Shift snapping to 15°, and a
- * double-click sets 0°; Rotate 90° turns it a quarter clockwise. Whole degrees are a step (`rotate-45`); others are
- * written in brackets.
+ * double-click sets 0°. Whole degrees are a step (`rotate-45`); others are written in brackets.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Angle",
@@ -32,13 +31,7 @@ function Rotation({ start, mixed = false }: { start?: Angle; mixed?: boolean }) 
   return (
     <Playground writes={writes} preview={<TransformPreview value={{}} rotate={angleDegrees(angle)} />}>
       <Field label="Rotation" hint="Clockwise, as CSS turns">
-        <AngleField
-          label="Rotation"
-          value={angle}
-          mixed={mixed && angle === undefined}
-          quarterTurn
-          onChange={setAngle}
-        />
+        <AngleField label="Rotation" value={angle} mixed={mixed && angle === undefined} onChange={setAngle} />
       </Field>
     </Playground>
   )
@@ -74,16 +67,6 @@ export const KnobFromTheKeyboard: Story = {
   play: async ({ canvasElement }) => {
     within(canvasElement).getByRole("slider", { name: "Rotation knob" }).focus()
     await userEvent.keyboard("{Shift>}{ArrowRight}{ArrowRight}{/Shift}")
-  }
-}
-
-/** Rotate 90° pressed twice: 30° turns to 210°. */
-export const QuarterTurns: Story = {
-  render: () => <Rotation start={{ step: 30 }} />,
-  play: async ({ canvasElement }) => {
-    const turn = within(canvasElement).getByRole("button", { name: "Rotation: rotate 90° clockwise" })
-    await userEvent.click(turn)
-    await userEvent.click(turn)
   }
 }
 

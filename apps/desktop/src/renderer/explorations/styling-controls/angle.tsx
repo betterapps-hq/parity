@@ -1,6 +1,4 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role -- the knob is a slider drawn as a dial, which no input element is */
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import { RotateCw } from "lucide-react"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -17,8 +15,7 @@ const snapped = (degrees: number, shift: boolean) => (shift ? Math.round(degrees
  *
  * The field's glyph is an angle, as Figma's and Penpot's are, and dragging it scrubs a degree a pixel, Shift snapping
  * to 15°. Up and Down step 1°, Shift 15°. Beside it is a knob, as Framer's is, that's dragged round to set the angle
- * where it's seen, with no popover in the way; with `quarterTurn`, a button after it turns it 90° clockwise, as
- * Figma's Rotate 90° does.
+ * where it's seen, with no popover in the way.
  */
 export function AngleField({
   label,
@@ -26,7 +23,6 @@ export function AngleField({
   value,
   mixed,
   keywords,
-  quarterTurn = false,
   onChange
 }: {
   label: string
@@ -35,8 +31,6 @@ export function AngleField({
   mixed?: boolean
   /** Words the field also reads as angles, as a gradient reads `to right` as 90°. */
   keywords?: Readonly<Record<string, number>>
-  /** A Rotate 90° button after the knob. */
-  quarterTurn?: boolean
   onChange: (value: Angle | undefined) => void
 }) {
   const degrees = angleDegrees(value)
@@ -78,27 +72,12 @@ export function AngleField({
       onCommit={onChange}
       onStep={(up, { shift }) => onChange(angle(degrees + (up ? 1 : -1) * (shift ? 15 : 1)))}
       trailing={
-        <>
-          <AngleKnob
-            label={label}
-            degrees={degrees}
-            set={value !== undefined}
-            onChange={(next) => onChange(angle(next))}
-          />
-          {quarterTurn && (
-            <Hint label="Rotate 90°" detail="Clockwise">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="size-7 shrink-0"
-                aria-label={`${label}: rotate 90° clockwise`}
-                onClick={() => onChange(angle(degrees + 90))}
-              >
-                <RotateCw />
-              </Button>
-            </Hint>
-          )}
-        </>
+        <AngleKnob
+          label={label}
+          degrees={degrees}
+          set={value !== undefined}
+          onChange={(next) => onChange(angle(next))}
+        />
       }
     />
   )

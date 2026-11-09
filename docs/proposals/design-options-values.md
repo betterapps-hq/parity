@@ -230,10 +230,10 @@ Fill's list of solids, gradients and images.
 - **At rest:** degrees with a ° suffix, an angle glyph inside the field that scrubs it, and a knob beside the field with
   its pointer at the angle.
 - **Editing:** the knob is dragged round, as Framer's is, with no popover, snapping to 15° with Shift; a double-click
-  sets 0°, and the keyboard steps it as a slider. Rotation adds Rotate 90°, as Figma's has. A typed `turn` or `rad`
-  becomes degrees; one read from code keeps its unit (Typing, in [design-options-fields.md](design-options-fields.md)).
-  Negatives are allowed. Angles are kept as typed, never normalized to −180 to 180 as Figma's rotation is, since a
-  transition to 270° turns the other way from one to −90°.
+  sets 0°, and the keyboard steps it as a slider. A typed `turn` or `rad` becomes degrees; one read from code keeps its
+  unit (Typing, in [design-options-fields.md](design-options-fields.md)). Negatives are allowed. Angles are kept as
+  typed, never normalized to −180 to 180 as Figma's rotation is, since a transition to 270° turns the other way from one
+  to −90°.
 - **Tokens:** none yet: there's no angle kind.
 - **Writes:** `rotate-45`, `-rotate-12`, `rotate-[22.5deg]`, `hue-rotate-90`, a gradient's `bg-linear-45`, or
   `bg-linear-to-r` for the eight named directions.
