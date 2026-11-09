@@ -6,12 +6,24 @@ import { isPhone, picturedScreens } from "./picture-screens.ts"
 
 /** A design as the store lists it, showing these modes beside its main one. */
 function design(name: string, kind?: ContainerSpec["kind"], beside: string[] = [], main?: string) {
-  const container = {
+  const view: NonNullable<ContainerSpec["view"]> = { modes: beside }
+
+  if (main) {
+    view.mode = main
+  }
+
+  const container: ContainerSpec = {
     id: name.toLowerCase(),
     name,
-    ...(kind ? { kind } : {}),
-    view: { modes: beside, ...(main ? { mode: main } : {}) }
-  } as unknown as ContainerSpec
+    position: { x: 0, y: 0 },
+    root: { type: "layout", id: "root", children: [] },
+    states: [{ id: "default", name: "Default" }],
+    view
+  }
+
+  if (kind) {
+    container.kind = kind
+  }
 
   return { key: `app.par#${container.id}`, container }
 }

@@ -45,7 +45,7 @@ export function AgentPointer({ palette, pressed }: { palette?: AgentPalette; pre
         className="relative -mt-0.5 -ml-0.5 origin-top-left transition-transform duration-150 group-data-[idle=true]/cursor:animate-[agent-breathe_2.8s_ease-in-out_infinite]"
         style={{
           filter: `drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.35)) drop-shadow(0 0 5px color-mix(in oklch, ${color} 55%, transparent))`,
-          ...(pressed ? { transform: "scale(0.82)" } : {})
+          transform: pressed ? "scale(0.82)" : undefined
         }}
       >
         <defs>

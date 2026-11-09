@@ -34,7 +34,7 @@ export class TokenStore {
     /** The tokens as the project's stylesheet had them when its guest loaded. */
     private readonly loaded: Token[],
     private readonly sheet: CSSStyleSheet,
-    write: (changes: TokenWrite[]) => Promise<unknown>,
+    write: (changes: TokenWrite[]) => Promise<void>,
     private readonly history: DesignStore,
     /** The stylesheet the tokens are written to, as the project names it. */
     readonly stylesheet = "the stylesheet",
@@ -157,7 +157,11 @@ export function keyframesNamed(rules: CSSRuleList, name: string): Keyframe[] | u
 
 function keyframesOf(rule: CSSKeyframesRule): Keyframe[] {
   const frames = [...rule.cssRules].flatMap((step) => {
-    const { keyText, style } = step as CSSKeyframeRule
+    if (!(step instanceof CSSKeyframeRule)) {
+      return []
+    }
+
+    const { keyText, style } = step
     const declared: Keyframe = {}
 
     for (let index = 0; index < style.length; index++) {

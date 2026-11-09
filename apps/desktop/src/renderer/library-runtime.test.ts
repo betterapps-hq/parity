@@ -39,12 +39,15 @@ it("renders a library design whose factory modules appear in no sample or decora
     componentLibrary([design])
   )
 
-  const modules: Record<string, string> = {
-    fixture: guestModuleSource(config),
-    kit: 'import {createElement} from "react"; export function Label({value}) { return createElement("span", {"data-design-value": ""}, value) }',
-    "design-values": 'export function create(value) { return "Design-only " + value }',
-    "nested-values": 'export function create() { return "factory loaded" }'
-  }
+  const modules = new Map([
+    ["fixture", guestModuleSource(config)],
+    [
+      "kit",
+      'import {createElement} from "react"; export function Label({value}) { return createElement("span", {"data-design-value": ""}, value) }'
+    ],
+    ["design-values", 'export function create(value) { return "Design-only " + value }'],
+    ["nested-values", 'export function create() { return "factory loaded" }']
+  ])
 
   const require = createRequire(import.meta.url)
 
@@ -69,7 +72,7 @@ it("renders a library design whose factory modules appear in no sample or decora
             namespace: "fixture"
           }))
           builder.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({
-            contents: modules[path],
+            contents: modules.get(path),
             resolveDir: import.meta.dirname
           }))
         }

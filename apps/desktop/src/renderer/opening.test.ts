@@ -18,6 +18,7 @@ traceWith(telemetry)
 
 setWindowTelemetry(telemetry)
 
+// SAFETY: an opening reads only the project's root and name.
 const info = { id: "/work/site", root: "/work/site", name: "site" } as ProjectInfo
 
 /** A clock that reads what `at` was last set to. */
