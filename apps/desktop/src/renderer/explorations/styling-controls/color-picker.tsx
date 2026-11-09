@@ -473,8 +473,8 @@ function ColorSwatch({
 /**
  * A style's color, on the shared field: a token as a chip, or a plain color in short form with its status mark; then
  * its alpha as its own % field. It types like a text field with the chip in it: typing a hex or a token's name beside
- * the chip, or on it, replaces it, and Backspace or the chip's × removes it. The chip or swatch opens the picker, on
- * Tokens for a token and Custom for a value. Custom edits the layer's color live, as a plain value, and offers the
+ * the chip, or on it, replaces it, and Backspace removes it. The swatch opens the picker, and so does the chip once the
+ * field's focused, on Tokens for a token and Custom for a value. Custom edits the layer's color live, as a plain value, and offers the
  * nearest token in one click. A project that takes tokens only refuses plain colors: Custom only offers the nearest
  * token, and a plain color already there shows in the error color with the nearest token under it, until it's allowed
  * here.

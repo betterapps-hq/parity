@@ -10,7 +10,8 @@ import { colorWrites, inState, mixedWrites, type Writes } from "./writes.ts"
 /**
  * The color field (PAR-186, PAR-652's Color type), on its own: a token is a chip; a value of its own shows in short
  * form with a mark, as every field takes one (call 1). It types like a text field with the chip in it: click beside the
- * chip to type a hex or a token's name, and Backspace or the chip's × removes it. The swatch or chip opens the picker.
+ * chip to type a hex or a token's name, and Backspace removes it. A click on the chip focuses the field, and once
+ * it's focused opens the picker, as the swatch does.
  * Beside it, what it stores and what it writes as CSS and as Tailwind.
  */
 const meta = {

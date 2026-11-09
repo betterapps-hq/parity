@@ -32,6 +32,7 @@ import {
   type CSSProperties,
   type HTMLAttributes,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useContext,
@@ -866,8 +867,13 @@ export interface TokenChipProps {
   /** A key typed on the focused chip, which replaces the token with what's typed. */
   onType?: (key: string) => void
   onStep?: (up: boolean, keys: ScrubKeys) => void
-  /** Takes the token off, or in a field detaches it: Backspace or Delete on the focused chip, or a list entry's ×. */
+  /** Takes the token off: Backspace or Delete on the focused chip, or a list entry's ×. */
   onRemove?: () => void
+  /**
+   * In a field, what a click on the pill does before the field has focus: it focuses the field, as a click on its
+   * text does, and only a click once it's focused opens the list.
+   */
+  focusField?: { focused: () => boolean; focus: () => void }
 }
 
 /**
@@ -875,8 +881,8 @@ export interface TokenChipProps {
  * the name without the field's namespace, with its whole name and what it comes to in its hint. In a field, the pill is
  * the name alone; outside one, a list entry's, it carries the kind's preview and a × that takes it off. A token the
  * project has replaced is amber, one it no longer has red, and a composite token with a part changed has a dot.
- * Focused, typing replaces it, and Backspace or Delete detaches it (`onRemove`), keeping what it came to where the field
- * can.
+ * Focused, typing replaces it, and Backspace or Delete takes it off (`onRemove`). In a field, a click focuses the field
+ * before it opens the list (`focusField`).
  */
 export function TokenChip({
   name,
@@ -892,9 +898,12 @@ export function TokenChip({
   hint = true,
   onType,
   onStep,
-  onRemove
+  onRemove,
+  focusField
 }: TokenChipProps) {
   const shownName = withoutNamespace(name, namespace)
+  // Whether the field had focus as the pointer went down, before the press moves it.
+  const wasFocused = useRef(true)
   // In a field, the pill is the name alone, but for a preview the field passes (a color's swatch); outside a field, a
   // list entry's carries the kind's preview.
   let drawn = fill ? undefined : preview
@@ -939,6 +948,16 @@ export function TokenChip({
     <PopoverTrigger
       aria-label={named}
       onKeyDown={onKeyDown}
+      onPointerDown={() => {
+        wasFocused.current = focusField?.focused() ?? true
+      }}
+      onClick={(event: ReactMouseEvent & { preventBaseUIHandler?: () => void }) => {
+        const first = !wasFocused.current
+        wasFocused.current = true
+        if (!first || !focusField) return
+        event.preventBaseUIHandler?.()
+        focusField.focus()
+      }}
       className="flex h-full min-w-0 items-center gap-1 rounded px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {content}
@@ -1386,11 +1405,11 @@ export interface FieldChip {
   /** A preview in place of the token's own, as a color's at its alpha. */
   preview?: ReactNode
   overridden?: boolean
-  /** Takes the token off, leaving the field unset, where it has nothing to keep (`onDetach`). */
+  /** Takes the token off, leaving the field unset: Backspace or Delete with nothing typed, or on the pill. */
   onRemove: () => void
   /**
-   * Detaches the token, keeping what it came to as the field's own value, as Figma's Detach does: the end button, and
-   * Backspace or Delete on the pill. Without it, they take the token off (`onRemove`).
+   * Detaches the token, keeping what it came to as the field's own value, as Figma's Detach does: the end button.
+   * Without it, Detach takes the token off (`onRemove`).
    */
   onDetach?: () => void
   /** Swaps a replaced token's replacement in, from the top of the token list. */
@@ -1554,8 +1573,9 @@ export interface FieldSearch<T> {
  * value of its own has no mark: its token list offers the nearest token first, then Create token (`own`). What's typed
  * is read when Enter is pressed or the field is left: text it can't read stays, outlined, with the reason under the
  * row, and Escape or leaving puts the value back and says so. Up and Down step it. Typing on a focused pill replaces
- * the token; Backspace in the empty field, or on the pill, detaches it; Alt+Down opens the tokens. Messages span a
- * grid's row, so a row of fields says things under the whole row.
+ * the token; Backspace in the empty field, or on the pill, takes it off, and Detach keeps what it came to. A click on
+ * the pill focuses the field as a click on its text does, and once it's focused opens the tokens, as Alt+Down does.
+ * Messages span a grid's row, so a row of fields says things under the whole row.
  */
 export function ValueField<T>({
   label,
@@ -1709,6 +1729,12 @@ export function ValueField<T>({
     // The pill and Detach go, so the value's text takes the focus.
     input.current?.focus()
   }
+  // Backspace takes the token off, as it would a typed value, and the field keeps the focus.
+  const clear = () => {
+    if (!chip) return
+    chip.onRemove()
+    input.current?.focus()
+  }
   // Room at the box's end for its one button, only while it shows: on hover or focus, and while Tokens has its list
   // open (Detach shows only on hover or focus). At rest, a unit or mark sits at the end, and moves aside for it.
   const endRoom = !bare && (offers || chip !== undefined)
@@ -1751,7 +1777,11 @@ export function ValueField<T>({
               input.current?.focus()
             }}
             onStep={onStep}
-            onRemove={detach}
+            onRemove={clear}
+            focusField={{
+              focused: () => input.current?.parentElement?.contains(document.activeElement) ?? false,
+              focus: () => input.current?.focus()
+            }}
           />
         )}
         <input
@@ -1802,7 +1832,7 @@ export function ValueField<T>({
           onKeyDown={(event) => {
             if (showChip && event.currentTarget.value === "" && (event.key === "Backspace" || event.key === "Delete")) {
               event.preventDefault()
-              detach()
+              clear()
               return
             }
             if (expression && event.key === "=") {

@@ -1464,9 +1464,9 @@ export function BlurChoice({
 
 /**
  * A length field that takes a token or a value of its own, as every field does (call 1), on the shared field. A token
- * shows as a pill naming it, with what it comes to in its hint; clicking it opens the kind's tokens, as the button at
- * the field's end does on hover or focus. Typing on the pill replaces it, and Backspace or Detach keeps its value
- * without the token. A value shows as typed, with its unit and no mark; Tokens offers the nearest token first, then
+ * shows as a pill naming it, with what it comes to in its hint; clicking it focuses the field, and again opens the
+ * kind's tokens, as the button at the field's end does on hover or focus. Typing on the pill replaces it, Backspace
+ * takes it off, and Detach keeps its value without the token. A value shows as typed, with its unit and no mark; Tokens offers the nearest token first, then
  * Create token, and Allow here under Tokens only, which refuses it. With `takesPercent`, as Radius, it takes a
  * percentage too, typed (`50%`) or from the unit's menu (px or %), which Tokens only leaves alone as sides' are: it's
  * a share of the layer, not a step off the scale. Typing a token's name (`lg`, `radius-lg`) takes the token. What's
