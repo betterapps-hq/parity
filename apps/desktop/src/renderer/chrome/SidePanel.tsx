@@ -49,7 +49,7 @@ export function SidePanel({ side, label, tabs, defaultTab, children }: SidePanel
         className="min-h-0 flex-1 gap-0"
       >
         <div className={`flex items-center gap-1 border-b p-2 ${side === "right" ? "flex-row-reverse" : ""}`}>
-          <TabsList className="min-w-0" aria-label={label}>
+          <TabsList className="min-w-0 bg-transparent" aria-label={label}>
             {tabs.map(({ value, label: name, icon: Icon }) => {
               const named = value === current && roomForName
               const trigger = (
