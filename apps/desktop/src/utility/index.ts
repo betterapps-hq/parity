@@ -5,6 +5,7 @@ import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { errorCode } from "@parity-app/telemetry"
 import type { MessagePortMain } from "electron"
+import { z } from "zod"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { storedJobs } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
@@ -17,6 +18,7 @@ import { saveDetection, savedDetection } from "./detection-cache.ts"
 import { undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
+import type { Attributes } from "./event-attributes.ts"
 import { importImage } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
@@ -75,7 +77,9 @@ const previews = componentPreviews(projects)
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
   file: environment().PARITY_REOPEN_FILE,
-  open: (root) => projects.open(root, { reopen: true }).finally(rememberOpen),
+  open: async (root) => {
+    await projects.open(root, { reopen: true }).finally(rememberOpen)
+  },
   close: (root) => projects.close(root).finally(rememberOpen)
 })
 
@@ -202,8 +206,11 @@ function connect(port: MessagePortMain): void {
   editor = channel
 }
 
+/** Main's message handing the service the editor window's port. */
+const connectMessage: z.ZodType<ConnectMessage> = z.object({ type: z.literal("connect") })
+
 process.parentPort.on("message", (event: { data: unknown; ports: MessagePortMain[] }) => {
-  if ((event.data as ConnectMessage | undefined)?.type !== "connect") {
+  if (!connectMessage.safeParse(event.data).success) {
     return
   }
 
@@ -223,11 +230,14 @@ void sweepBitmaps()
 
 reportCacheUse()
 
-void startAgentServer(editorWindow).catch((error: unknown) => {
-  console.error("[service] agent server failed to start", error)
-  const code = errorCode(error)
-  telemetry.track("agent.serverFailed", {
-    message: error instanceof Error ? error.message : String(error),
-    ...(code === undefined ? {} : { code })
-  })
+void startAgentServer(editorWindow).catch((cause: unknown) => {
+  console.error("[service] agent server failed to start", cause)
+  const code = errorCode(cause)
+  const failed: Attributes<"agent.serverFailed"> = { message: cause instanceof Error ? cause.message : String(cause) }
+
+  if (code !== undefined) {
+    failed.code = code
+  }
+
+  telemetry.track("agent.serverFailed", failed)
 })

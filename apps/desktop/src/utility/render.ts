@@ -16,7 +16,7 @@ export async function renderOffscreen(
     throw new Error("The preview didn't render")
   }
 
-  return { frame, ...(png === undefined ? {} : { png }) }
+  return png === undefined ? { frame } : { frame, png }
 }
 
 /**

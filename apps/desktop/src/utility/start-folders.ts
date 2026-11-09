@@ -11,7 +11,7 @@ export async function checkStartFolders(
 ): Promise<{ missing: string[]; example?: string }> {
   const [missing, example] = await Promise.all([missingFolders(roots), exampleFolder(from)])
 
-  return { missing, ...(example ? { example } : {}) }
+  return example ? { missing, example } : { missing }
 }
 
 /**
@@ -28,7 +28,7 @@ async function isGone(path: string): Promise<boolean> {
   try {
     return !(await stat(path)).isDirectory()
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code
+    const code = error instanceof Error && "code" in error ? error.code : undefined
 
     return code === "ENOENT" || code === "ENOTDIR"
   }

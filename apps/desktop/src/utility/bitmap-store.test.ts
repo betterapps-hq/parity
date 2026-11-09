@@ -24,8 +24,8 @@ const job = (guestUrl: string): RenderJob => ({
   projectId: "D:/shop",
   guestUrl,
   theme: [],
-  tree: [{ nodeId: "a", type: "text", text: "Sign in" }] as unknown as RenderJob["tree"],
-  mode: { width: 320, height: 200, viewport: { width: 320, height: 200 } } as RenderJob["mode"],
+  tree: [{ nodeId: "a", type: "text", text: "Sign in" }],
+  mode: { width: 320, height: 200, viewport: { width: 320, height: 200 }, classNames: [], attributes: {} },
   scale: 0.25
 })
 
