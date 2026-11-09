@@ -83,8 +83,22 @@ const penpot = "https://help.penpot.app/user-guide/designing/flexible-layouts/"
 const figmaShot = (id: string) => `https://help.figma.com/hc/article_attachments/${id}`
 const webflowShot = (id: string) => `https://help.webflow.com/hc/article_attachments/${id}`
 
-/** Layout's direction, alignment, gap and wrap, in Figma, Webflow and Penpot. Framer's help is video only. */
+const framerRtl = "https://www.framer.com/help/articles/rtl-best-practices/"
+
+/** Layout's direction, alignment, gap and wrap, in Figma, Framer, Webflow and Penpot. */
 export const layoutComparisons: Comparison[] = [
+  {
+    tool: "Framer",
+    image: "https://framerusercontent.com/images/IlJdriFlrxuc7qylCDI13lpxE.png",
+    source: framerRtl,
+    shows: "Stack: direction arrows, Distribute as a menu, Align as three icons, Wrap, and Gap with a slider"
+  },
+  {
+    tool: "Framer",
+    image: "https://framerusercontent.com/images/vcReAuqtIlamLtE9M4f32VL4a0c.png",
+    source: framerRtl,
+    shows: "Stack with Wrap, Gap and Padding, and padding's switch to each side"
+  },
   {
     tool: "Figma",
     image: figmaShot("31837633116311"),
