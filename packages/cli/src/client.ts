@@ -14,7 +14,8 @@ import {
 } from "@parity-app/agent/routing"
 import { CodedError, readErrorDetails, unknownReference } from "@parity-app/core/errors"
 import { checkData, jsonText, type SchemaProblem } from "@parity-app/core/schema"
-import type { z } from "zod"
+import type { AgentCaller, TraceHeaders } from "@parity-app/telemetry"
+import { z } from "zod"
 import { cliCallerName, sessionCallerId } from "./caller.ts"
 import type { ExecResponse } from "./execute.ts"
 import { cliCallerChanged, recordCli, runTraceHeaders } from "./telemetry.ts"
@@ -96,7 +97,13 @@ export function setCaller(name: string | undefined, session = false, client?: st
 
 /** Tags the CLI's own events with who's calling, as the app tags the calls (PAR-642). */
 function tagCaller(): void {
-  cliCallerChanged({ name: caller, id: callerId ?? caller, ...(callerClient ? { client: callerClient } : {}) })
+  const tagged: AgentCaller = { name: caller, id: callerId ?? caller }
+
+  if (callerClient) {
+    tagged.client = callerClient
+  }
+
+  cliCallerChanged(tagged)
 }
 
 tagCaller()
@@ -118,25 +125,15 @@ export async function call<M extends AgentMethod>(
   given: AgentMethods[M]["params"],
   routing: Routing
 ): Promise<AgentMethods[M]["result"]> {
-  const params: Record<string, unknown> = given
+  const { tab, root } = routedBy.parse(given)
   const copies = await runningCopies()
 
   if (routing === "copies") {
+    // SAFETY: `replies[method]` is the schema `AgentMethods[M]["result"]` is inferred from.
     return answer(replies[method], openTabs(copies), "tabs") as AgentMethods[M]["result"]
   }
 
-  const request: Request =
-    routing === "open"
-      ? { kind: "open", root: String(params.root) }
-      : {
-          kind: "tab",
-          ...(typeof params.tab === "string" ? { tab: params.tab } : {}),
-          folder: process.cwd(),
-          real,
-          ...(routing === "tab-or-any" ? { anyCopy: true } : {})
-        }
-
-  const target = route(copies, request)
+  const target = route(copies, routing === "open" ? { kind: "open", root: String(root) } : tabRequest(routing, tab))
 
   if (target.kind === "none") {
     if (target.code === "not_running") {
@@ -144,10 +141,31 @@ export async function call<M extends AgentMethod>(
     }
 
     const ids = target.open.map((tab) => tab.id)
-    throw unknownReference("unknown_tab", target.message, typeof params.tab === "string" ? params.tab : "", ids, "tab")
+    throw unknownReference("unknown_tab", target.message, tab ?? "", ids, "tab")
   }
 
-  return send(target.copy.entry, method, target.tab ? { ...params, tab: target.tab.id } : params)
+  return send(target.copy.entry, method, target.tab ? { ...given, tab: target.tab.id } : given)
+}
+
+/** The fields of a call's params that say where it goes: the tab it names, and the project it opens. */
+const routedBy = z.looseObject({ tab: z.string().optional().catch(undefined), root: z.unknown().optional() })
+
+/** A request for a tab's copy, as routing reads it. */
+type TabRequest = Extract<Request, { kind: "tab" }>
+
+/** A request for the copy with the tab, or with the project in this folder, or the copy used last for `tab-or-any`. */
+function tabRequest(routing: Routing, tab: string | undefined): TabRequest {
+  const request: TabRequest = { kind: "tab", folder: process.cwd(), real }
+
+  if (tab !== undefined) {
+    request.tab = tab
+  }
+
+  if (routing === "tab-or-any") {
+    request.anyCopy = true
+  }
+
+  return request
 }
 
 /** A folder's real path, through any link, or the folder as named when it can't be read. */
@@ -227,18 +245,23 @@ async function reportOf(entry: CopyEntry): Promise<CopyReport<TabSummary> | unde
 async function send<M extends AgentMethod>(
   entry: CopyEntry,
   method: M,
-  params: Record<string, unknown>,
+  params: AgentMethods[M]["params"],
   timeout?: number
 ): Promise<AgentMethods[M]["result"]> {
+  const init: RequestInit = {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}`, ...traceHeaders() },
+    body: JSON.stringify({ method, params, agent: caller, agentId: callerId, client: callerClient, transport })
+  }
+
+  if (timeout !== undefined) {
+    init.signal = AbortSignal.timeout(timeout)
+  }
+
   let response: Response
 
   try {
-    response = await fetch(`${entry.url}/rpc`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${entry.token}`, ...traceHeaders() },
-      body: JSON.stringify({ method, params, agent: caller, agentId: callerId, client: callerClient, transport }),
-      ...(timeout === undefined ? {} : { signal: AbortSignal.timeout(timeout) })
-    })
+    response = await fetch(`${entry.url}/rpc`, init)
   } catch {
     throw new CodedError(`Parity isn't answering at ${entry.url}. Is the app still running?`, {
       code: "not_answering",
@@ -252,6 +275,7 @@ async function send<M extends AgentMethod>(
     throw new CodedError(body.error, readErrorDetails(body.details) ?? { code: "app_error" })
   }
 
+  // SAFETY: `replies[method]` is the schema `AgentMethods[M]["result"]` is inferred from.
   return answer(replies[method], body.result, method) as AgentMethods[M]["result"]
 }
 
@@ -260,7 +284,7 @@ async function send<M extends AgentMethod>(
  * draws, are one trace in Sentry (PAR-629): the running command's, or one of its own for an MCP call. Sampled, as the
  * app's spans are.
  */
-function traceHeaders(): { "sentry-trace": string; baggage?: string } {
+function traceHeaders(): TraceHeaders {
   const running = runTraceHeaders()
 
   if (running) {
@@ -276,6 +300,7 @@ function traceHeaders(): { "sentry-trace": string; baggage?: string } {
 }
 
 /** The app's answer to `method` once `schema` has checked it, or `app_error` saying what this CLI couldn't read. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: the app's answers are parsed here
 function answer<Schema extends z.ZodType>(schema: Schema, value: unknown, method: string): z.output<Schema> {
   const checked = checkData(schema, value)
 
@@ -544,13 +569,7 @@ export function describeAccessibility(result: AccessibilityResponse): string {
     for (const finding of group) {
       const key = `${finding.node ?? ""}\n${finding.detail}`
 
-      const layer = byLayer.get(key) ?? {
-        name: finding.name ?? "The design",
-        nodes: finding.node ? [finding.node] : [],
-        detail: finding.detail,
-        ...(fixLine(finding) ? { fix: fixLine(finding) } : {}),
-        frames: []
-      }
+      const layer = byLayer.get(key) ?? layerLine(finding)
 
       layer.frames.push({ state: finding.state, mode: finding.mode })
       byLayer.set(key, layer)
@@ -591,6 +610,24 @@ export function describeAccessibility(result: AccessibilityResponse): string {
   return lines.join("\n")
 }
 
+/** A layer an accessibility finding names, before the frames it's found in are added. */
+function layerLine(finding: AccessibilityFinding): LayerLine {
+  const layer: LayerLine = {
+    name: finding.name ?? "The design",
+    nodes: finding.node ? [finding.node] : [],
+    detail: finding.detail,
+    frames: []
+  }
+
+  const fix = fixLine(finding)
+
+  if (fix) {
+    layer.fix = fix
+  }
+
+  return layer
+}
+
 /** A contrast failure's fix in a sentence, naming the style to set so it can be passed to execute. */
 function fixLine(finding: AccessibilityFinding): string | undefined {
   const fix = finding.contrast?.fix
@@ -602,16 +639,23 @@ function fixLine(finding: AccessibilityFinding): string | undefined {
   return fix && `Fix: set style.foreground to "${fix.token}", which reaches ${fix.ratio}:1 in every frame checked.`
 }
 
+/** A layout problem, with the node it's on and the frames it's in. */
+interface ProblemLine {
+  problem: string
+  node?: string
+  frames: { state: string; mode: string }[]
+}
+
 /** A readable account of the layout problems in a design's frames, each once with the frames it's in. */
 export function describeProblems(result: ProblemsResponse): string {
   const { design, problems, frames } = result
   const checked = `${design.name} (${design.id}), ${frames === 1 ? "1 frame" : `${frames} frames`}`
-  const grouped = new Map<string, { problem: string; node?: string; frames: { state: string; mode: string }[] }>()
+  const grouped = new Map<string, ProblemLine>()
 
   for (const { problem, node: id, name, state, mode } of problems) {
     const node = id && name ? `${name} (${id})` : id
     const key = `${node ?? ""}\n${problem}`
-    const entry = grouped.get(key) ?? { problem, ...(node ? { node } : {}), frames: [] }
+    const entry = grouped.get(key) ?? { problem, node, frames: [] }
     entry.frames.push({ state, mode })
     grouped.set(key, entry)
   }

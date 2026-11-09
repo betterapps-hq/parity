@@ -4,15 +4,45 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import type { rpcReply } from "@parity-app/agent/contracts"
+import { type JsonValue, jsonValue } from "@parity-app/core/schema"
 import { afterAll, beforeAll, beforeEach } from "vite-plus/test"
+import { z } from "zod"
+import type { OperationInput } from "./operations.ts"
 
-export function toolReply(stdout: string): unknown {
-  return stdout
-    .trim()
-    .split("\n")
-    .map((line): unknown => JSON.parse(line))
-    .find((value) => value !== null && typeof value === "object" && "id" in value && value.id === 2)
+/** A JSON object, as the CLI writes its logs and the tests' fake app reads its requests. */
+const jsonObject = z.record(z.string(), jsonValue)
+
+export type JsonObject = z.output<typeof jsonObject>
+
+/** The MCP server's reply to the tests' second message, a tool call or the tool list, as far as the tests read it. */
+const secondReply = z.looseObject({
+  id: z.literal(2),
+  result: z.looseObject({ structuredContent: jsonValue.optional(), tools: z.array(jsonObject).optional() }).optional()
+})
+
+export type ToolReply = z.output<typeof secondReply>
+
+/** The reply to the tests' second message, among the lines the MCP server wrote. */
+export function toolReply(stdout: string): ToolReply | undefined {
+  for (const line of stdout.trim().split("\n")) {
+    const reply = secondReply.safeParse(JSON.parse(line)).data
+
+    if (reply) {
+      return reply
+    }
+  }
+
+  return undefined
 }
+
+/** A request the fake app was sent: the method and its params, and who sent it, as the CLI writes them. */
+const appRequest = z.looseObject({ method: z.string().optional(), params: jsonObject.optional() })
+
+export type AppRequest = z.output<typeof appRequest>
+
+/** What the fake app answers a call: a result, or an error with its details, as the app's dispatch does. */
+export type AppAnswer = z.input<typeof rpcReply>
 
 /**
  * How long one CLI or MCP process may take. A start on CI's Windows runners, with every test file's processes and
@@ -42,7 +72,7 @@ export const fixtureTab = {
 }
 
 /** A tab's state with nothing in it, as the app answers `state` for an empty project. */
-export function emptyState(tab: Record<string, unknown>) {
+export function emptyState<Tab>(tab: Tab) {
   return {
     tab,
     revision: "r1",
@@ -59,17 +89,20 @@ export function emptyState(tab: Record<string, unknown>) {
  * Each test file owns its endpoint and subprocesses; no Electron or running app is needed. The endpoint answers the
  * CLI's routing question (`copy`) itself, with `fixture.tabs`, and records every other request.
  */
-export function transportFixture(defaultResult: unknown) {
-  const fixture: {
-    response: unknown
-    tabs: unknown[]
+export function transportFixture(defaultResult: AppAnswer["result"]) {
+  /** The fake app's answers, what it was asked, and the CLI and MCP processes that ask it. */
+  interface TransportFixture {
+    response: AppAnswer
+    tabs: JsonValue[]
     directory: string
-    requests: unknown[]
+    requests: AppRequest[]
     /** The CLI's own events from every process the tests started, oldest first (PAR-641). */
-    events(): Record<string, unknown>[]
+    events(): JsonObject[]
     run: typeof run
     mcp: typeof mcp
-  } = {
+  }
+
+  const fixture: TransportFixture = {
     response: { result: defaultResult },
     tabs: [fixtureTab],
     directory: "",
@@ -88,7 +121,7 @@ export function transportFixture(defaultResult: unknown) {
       chunks.push(Buffer.from(chunk))
     }
 
-    const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as { method?: string }
+    const body = appRequest.parse(JSON.parse(Buffer.concat(chunks).toString("utf8")))
     reply.setHeader("content-type", "application/json")
 
     if (body.method === "copy") {
@@ -112,11 +145,9 @@ export function transportFixture(defaultResult: unknown) {
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
     const address = server.address()
 
-    if (!address || typeof address === "string") {
-      throw new Error("Missing test server port")
-    }
-
-    await writeFile(agentFile, JSON.stringify({ url: `http://127.0.0.1:${address.port}`, token: "contract-test" }))
+    // A server listening on a port has an address with one, never a pipe's name.
+    const port = z.object({ port: z.number() }).parse(address).port
+    await writeFile(agentFile, JSON.stringify({ url: `http://127.0.0.1:${port}`, token: "contract-test" }))
   })
   afterAll(async () => {
     await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())))
@@ -172,7 +203,7 @@ export function transportFixture(defaultResult: unknown) {
     })
   }
 
-  function events(): Record<string, unknown>[] {
+  function events(): JsonObject[] {
     let names: string[]
 
     try {
@@ -185,11 +216,11 @@ export function transportFixture(defaultResult: unknown) {
       readFileSync(join(directory, "logs", name), "utf8")
         .split("\n")
         .filter(Boolean)
-        .map((line) => JSON.parse(line) as Record<string, unknown>)
+        .map((line) => jsonObject.parse(JSON.parse(line)))
     )
   }
 
-  function mcp(input: Record<string, unknown>, name = "execute") {
+  function mcp(input: OperationInput, name = "execute") {
     return run(
       ["mcp"],
       [
