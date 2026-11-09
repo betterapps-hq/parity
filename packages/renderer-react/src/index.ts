@@ -103,9 +103,7 @@ export function findComponents(source: string, file: string): ComponentExport[] 
   const found: ComponentExport[] = []
 
   // A component exported by name and as the default is listed once, by its name.
-  const named = new Set(
-    exported.filter((entry) => entry.export !== "default").map((entry) => entry.local ?? entry.name)
-  )
+  const named = new Set(exported.flatMap((entry) => (entry.export === "default" ? [] : [entry.local ?? entry.name])))
 
   for (const entry of exported) {
     // JSX treats a lowercase tag as an HTML element, so a component's name starts with a capital.
@@ -138,7 +136,11 @@ export function findComponents(source: string, file: string): ComponentExport[] 
   return found
 }
 
-const wrappers: Record<string, ComponentEvidence> = { forwardRef: "forwardRef", memo: "memo", lazy: "lazy" }
+const wrappers = new Map<string, ComponentEvidence>([
+  ["forwardRef", "forwardRef"],
+  ["memo", "memo"],
+  ["lazy", "lazy"]
+])
 
 /**
  * Why a declaration is a component; `maybe` when its syntax can't say, as for a value from another module or a
@@ -179,7 +181,7 @@ function evidence(
       name = callee.name.text
     }
 
-    return (name === undefined ? undefined : wrappers[name]) ?? "maybe"
+    return (name === undefined ? undefined : wrappers.get(name)) ?? "maybe"
   }
 
   if (ts.isIdentifier(value)) {
