@@ -8,6 +8,13 @@ import { readTelemetryRun } from "../shared/telemetry-run.ts"
 import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } from "./canvas/frames-on-screen.ts"
 
 /**
+ * Scrubs secrets from what this window sends before it leaves, and main scrubs them again (PAR-621), the open projects'
+ * `.env` values included, which main passes on from the service (PAR-672). The editor window's replays use it too
+ * (`replay.ts`, PAR-679).
+ */
+export const scrubber = secretScrubbing()
+
+/**
  * Sends this window's uncaught errors to Sentry through main, which decides whether anything leaves the computer
  * (PAR-620). Only errors thrown from Parity's own pages count: a project's components run in the same page, and their
  * errors are the project's to show, not Parity's bugs. Gives the window's telemetry (PAR-627). The editor window passes
@@ -16,9 +23,6 @@ import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } fr
 export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}): Telemetry<typeof registeredEvents> {
   // Named on each event, since this window's scope is copied into main's: the editor window, or an offscreen renderer.
   const kind = location.pathname.endsWith("/render.html") ? "render" : "renderer"
-  // Secrets are scrubbed before an event leaves the window, and again in main (PAR-621), the open projects' `.env`
-  // values included, which main passes on from the service (PAR-672).
-  const scrubber = secretScrubbing()
   window.parityTelemetry?.onSecrets((secrets) => scrubber.use(secrets))
   Sentry.init({
     ...options,

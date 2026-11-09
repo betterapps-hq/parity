@@ -28,6 +28,7 @@ import {
   summarizeFieldNotes,
   type TokenCategory
 } from "@parity-app/core"
+import { isSecretName } from "@parity-app/telemetry"
 import { type Token } from "@parity-app/tokens"
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
 import {
@@ -161,7 +162,11 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
     })
   }, [])
   return (
-    <div className="grid min-h-8 grid-cols-[88px_1fr] items-center gap-2">
+    // Replay shows a field named as a secret, such as `apiKey`, as stars (replay.ts, PAR-679).
+    <div
+      className="grid min-h-8 grid-cols-[88px_1fr] items-center gap-2"
+      data-sentry-mask={isSecretName(label) ? "" : undefined}
+    >
       <div className="flex min-w-0 items-center gap-0.5">
         <Hint
           label={changed ? `${label}: changed in this state` : label}

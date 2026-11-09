@@ -164,8 +164,9 @@ is written either way. Unit tests leave it off.
 ## Replays and frame bitmaps
 
 Sentry's Session Replay records the editor window, so a bug's event links to what happened before it: the panels, the
-canvas, selections, menus and dialogs, as they looked, with what was clicked and typed. Nothing is masked, as with every
-other event. The offscreen render windows aren't recorded, and neither are Storybook or the CLI.
+canvas, selections, menus and dialogs, as they looked, with what was clicked and typed. Only secrets are hidden, as in
+every other event (see "Secrets are scrubbed" below). The offscreen render windows aren't recorded, and neither are
+Storybook or the CLI.
 
 - **While diagnostics are on, every session is recorded.** The share is `replaySessionRate` in
   `apps/desktop/src/renderer/replay.ts`, 1 for now; lower it when replay volume or Sentry's quota says so.
@@ -184,8 +185,7 @@ their bitmaps aren't recorded either, so failures carry the frames themselves:
 
 The frames are noted in `apps/desktop/src/renderer/canvas/frames-on-screen.ts`.
 
-The window asks main whether diagnostics are on as it starts, so the recorder starts a moment after the page. Replay
-recordings aren't scrubbed for secrets yet; Sentry's server-side scrubbing is the only net there (PAR-679).
+The window asks main whether diagnostics are on as it starts, so the recorder starts a moment after the page.
 
 ## Secrets are scrubbed
 
@@ -211,7 +211,19 @@ and passes them to each window, which asks for them as its telemetry starts. Eac
 `setSecrets()`. The CLI reads none: it scrubs keys, tokens and passwords, as every process does, but not a project's
 `.env` values, which only the service reads.
 
-What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process".
+Replays are scrubbed in the editor window as they're recorded, by the window's own scrubber, so they lose the same
+secrets, `.env` values included (`replayPrivacy` in `apps/desktop/src/renderer/replay.ts`):
+
+- **Text on screen** passes through the scrubber, node by node, as the recorder reads it and each time it changes.
+  Styles and scripts don't.
+- **What's typed into a field is recorded as written,** since Replay can only show a field's value or stars. A password
+  field, and a field in a row whose name says it's secret, such as an `apiKey` prop in the inspector, show as stars
+  (`Field` in `apps/desktop/src/renderer/chrome/fields.tsx`). Anything else marked `data-sentry-mask` does too.
+- **Replay's own clicks, requests and spans** are scrubbed as they're added, since they don't pass `beforeBreadcrumb`.
+- **Titles, placeholders and accessible names** show as stars, as Replay masks them by default.
+
+What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process" and
+"Replays are scrubbed as they're recorded".
 
 ## Editing
 
