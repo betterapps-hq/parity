@@ -25,11 +25,13 @@ describe("a text layer's color", () => {
 // Every icon layer shows Smile, the Icons tab's icon, whatever it draws (PAR-793), so an icon of a kind's glyph or of a
 // button's never reads as that kind or that button.
 describe("an icon layer's icon", () => {
+  // SAFETY: telling an icon layer apart reads only a library's id and kind.
   const libraries = [
     { id: "nova", kind: "components" },
     { id: "lucide", kind: "icons" }
   ] as LibraryInfo[]
 
+  // SAFETY: the icon reads only the project's libraries.
   const project = { info: { libraries } } as ProjectSession
   const check = { type: "component", id: "check", component: "lucide/Check" } satisfies DesignNode
   const card = { type: "component", id: "card", component: "nova/Card" } satisfies DesignNode

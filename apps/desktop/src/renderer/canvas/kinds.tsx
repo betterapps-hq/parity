@@ -59,6 +59,7 @@ export const chipColors = {
 
 /** Which kind a selection color from `kindColors` is. */
 function kindOf(color: string): keyof typeof kindColors | undefined {
+  // SAFETY: `kindColors` is a literal object declared here, so its keys are exactly these.
   return (Object.keys(kindColors) as (keyof typeof kindColors)[]).find((key) => kindColors[key] === color)
 }
 

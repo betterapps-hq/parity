@@ -93,6 +93,7 @@ export function matchKey(node: DesignNode): string {
     kind = `text:${node.tag ?? ""}`
   }
 
+  // SAFETY: the keys are a node style's own.
   const style = Object.entries(node.style ?? {})
     .filter(([key, value]) => value !== undefined && !placement.has(key as keyof NodeStyle))
     .toSorted(([a], [b]) => a.localeCompare(b))

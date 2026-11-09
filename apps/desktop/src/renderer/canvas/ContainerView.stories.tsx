@@ -88,29 +88,26 @@ export const Frames: Story = onCanvas(["Pricing ideas", "Sign in sketch"], () =>
   const { store } = example()
   const taken = store.getEntries().map((entry) => entry.container.id)
   const blank = newDesign("frame", taken, { x: -1400, y: -900 }, { size: { width: 480, height: 320 } })
-  store.addContainer(store.mainPath, {
-    ...blank,
-    id: "pricing-ideas",
-    name: "Pricing ideas",
-    root: {
-      ...blank.root,
-      ...(blank.root.type === "layout"
-        ? {
-            children: [
-              {
-                id: "fp-title",
-                type: "text",
-                tag: "h2",
-                text: "Pricing ideas",
-                style: { size: "text-xl", weight: 600 }
-              },
-              { id: "fp-body", type: "text", text: "Three tiers, yearly discount up front?" },
-              { id: "fp-cta", type: "component", component: "Button", props: { children: "Compare plans" } }
-            ]
-          }
-        : {})
-    }
-  })
+
+  const root =
+    blank.root.type === "layout"
+      ? {
+          ...blank.root,
+          children: [
+            {
+              id: "fp-title",
+              type: "text" as const,
+              tag: "h2" as const,
+              text: "Pricing ideas",
+              style: { size: "text-xl", weight: 600 }
+            },
+            { id: "fp-body", type: "text" as const, text: "Three tiers, yearly discount up front?" },
+            { id: "fp-cta", type: "component" as const, component: "Button", props: { children: "Compare plans" } }
+          ]
+        }
+      : blank.root
+
+  store.addContainer(store.mainPath, { ...blank, id: "pricing-ideas", name: "Pricing ideas", root })
   const signIn = store.getEntries().find((entry) => entry.container.name === "Sign in")!.container
   const { design: turned } = turnInto(signIn, "frame", store.getModes())
   store.addContainer(store.mainPath, {

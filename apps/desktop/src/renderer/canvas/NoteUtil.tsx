@@ -1,33 +1,25 @@
 import { useLayoutEffect, useRef } from "react"
-import {
-  HTMLContainer,
-  Rectangle2d,
-  type RecordProps,
-  ShapeUtil,
-  stopEventPropagation,
-  T,
-  type TLShape,
-  useEditor,
-  useValue
-} from "tldraw"
+import { HTMLContainer, Rectangle2d, type RecordProps, stopEventPropagation, T, useEditor, useValue } from "tldraw"
 import { useNotes } from "../design-store.ts"
 import { useProject } from "./context.ts"
 import { focusOnMount } from "./kinds.tsx"
+import { type CanvasRecord, CanvasUtil } from "./tldraw-names.ts"
 
 declare module "tldraw" {
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- tldraw names the map this augments.
   export interface TLGlobalShapePropsMap {
     "canvas-note": { w: number; h: number; key: string }
   }
 }
 
-export type NoteShape = TLShape<"canvas-note">
+export type NoteRecord = CanvasRecord<"canvas-note">
 
 /** Free text on the canvas, outside any design: labels, annotations, explanations of a flow. */
-export class NoteShapeUtil extends ShapeUtil<NoteShape> {
+export class NoteUtil extends CanvasUtil<NoteRecord> {
   static override type = "canvas-note" as const
-  static override props: RecordProps<NoteShape> = { w: T.number, h: T.number, key: T.string }
+  static override props: RecordProps<NoteRecord> = { w: T.number, h: T.number, key: T.string }
 
-  override getDefaultProps(): NoteShape["props"] {
+  override getDefaultProps(): NoteRecord["props"] {
     return { w: 120, h: 40, key: "" }
   }
 
@@ -47,31 +39,31 @@ export class NoteShapeUtil extends ShapeUtil<NoteShape> {
     return true
   }
 
-  override getGeometry(shape: NoteShape) {
-    return new Rectangle2d({ width: shape.props.w, height: shape.props.h, isFilled: true })
+  override getGeometry(note: NoteRecord) {
+    return new Rectangle2d({ width: note.props.w, height: note.props.h, isFilled: true })
   }
 
-  override component(shape: NoteShape) {
+  override component(note: NoteRecord) {
     return (
       <HTMLContainer style={{ pointerEvents: "none", overflow: "visible" }}>
-        <NoteContent shape={shape} />
+        <NoteContent note={note} />
       </HTMLContainer>
     )
   }
 
-  override getIndicatorPath(shape: NoteShape) {
+  override getIndicatorPath(note: NoteRecord) {
     const path = new Path2D()
-    path.rect(0, 0, shape.props.w, shape.props.h)
+    path.rect(0, 0, note.props.w, note.props.h)
 
     return path
   }
 }
 
-function NoteContent({ shape }: { shape: NoteShape }) {
+function NoteContent({ note }: { note: NoteRecord }) {
   const editor = useEditor()
   const { store } = useProject()
-  const note = useNotes(store).find((entry) => entry.key === shape.props.key)?.note
-  const editing = useValue("editing note", () => editor.getEditingShapeId() === shape.id, [editor, shape.id])
+  const stored = useNotes(store).find((entry) => entry.key === note.props.key)?.note
+  const editing = useValue("editing note", () => editor.getEditingShapeId() === note.id, [editor, note.id])
   const ref = useRef<HTMLDivElement>(null)
 
   useLayoutEffect(() => {
@@ -82,7 +74,7 @@ function NoteContent({ shape }: { shape: NoteShape }) {
     }
 
     const observer = new ResizeObserver(() => {
-      const current = editor.getShape(shape.id)
+      const current = editor.getShape(note.id)
 
       // A note tldraw has culled, or in a tab that isn't showing, isn't drawn and has no size to give.
       if (current?.type !== "canvas-note" || element.getClientRects().length === 0) {
@@ -96,7 +88,7 @@ function NoteContent({ shape }: { shape: NoteShape }) {
         return
       }
 
-      editor.run(() => editor.updateShape({ id: shape.id, type: "canvas-note", props: { w, h } }), {
+      editor.run(() => editor.updateShape({ id: note.id, type: "canvas-note", props: { w, h } }), {
         history: "ignore"
       })
     })
@@ -104,11 +96,11 @@ function NoteContent({ shape }: { shape: NoteShape }) {
     observer.observe(element)
 
     return () => observer.disconnect()
-  }, [editor, shape.id])
+  }, [editor, note.id])
 
   const commit = (text: string) => {
     editor.setEditingShape(null)
-    store.updateNote(shape.props.key, text.trim() ? "Edit text" : "Delete text", (current) => {
+    store.updateNote(note.props.key, text.trim() ? "Edit text" : "Delete text", (current) => {
       if (!text.trim()) {
         return undefined
       }
@@ -117,7 +109,7 @@ function NoteContent({ shape }: { shape: NoteShape }) {
     })
   }
 
-  const style = { width: note?.width, maxWidth: note?.width ? undefined : 720 }
+  const style = { width: stored?.width, maxWidth: stored?.width ? undefined : 720 }
 
   // A note is people's own text, so it's the font's own regular rather than the interface's 450, and its editor keeps
   // the letters the note shows in rather than a field's (docs/typography.md).
@@ -130,8 +122,8 @@ function NoteContent({ shape }: { shape: NoteShape }) {
       {editing ? (
         <textarea
           ref={focusOnMount}
-          defaultValue={note?.text ?? ""}
-          rows={Math.max(1, (note?.text ?? "").split("\n").length)}
+          defaultValue={stored?.text ?? ""}
+          rows={Math.max(1, (stored?.text ?? "").split("\n").length)}
           onPointerDown={stopEventPropagation}
           onFocus={(event) => event.currentTarget.select()}
           onBlur={(event) => commit(event.currentTarget.value)}
@@ -149,7 +141,7 @@ function NoteContent({ shape }: { shape: NoteShape }) {
           className="pointer-events-auto block w-full min-w-48 resize-none bg-transparent [font-feature-settings:normal] outline-none field-sizing-content"
         />
       ) : (
-        <p className="m-0 min-h-[1lh] min-w-12 whitespace-pre-wrap">{note?.text}</p>
+        <p className="m-0 min-h-[1lh] min-w-12 whitespace-pre-wrap">{stored?.text}</p>
       )}
     </div>
   )

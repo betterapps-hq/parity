@@ -1,5 +1,6 @@
 import { type DrawnBox, type FrameSkeleton, frameSkeleton } from "@parity-app/core"
 import { type RefObject, useEffect, useState } from "react"
+import { flagsOf } from "./bits.ts"
 
 /** How long a frame stays the same before it's measured, as long as before its bitmap is taken. */
 const settleMs = 1000
@@ -118,7 +119,7 @@ export function measureFrame(host: HTMLElement, width: number): { height: number
   const drawn: DrawnBox[] = []
   const range = document.createRange()
 
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+  const walker = document.createTreeWalker(root, flagsOf(NodeFilter.SHOW_ELEMENT, NodeFilter.SHOW_TEXT), {
     acceptNode: (node) => {
       // What an icon or picture is made of is drawn as the one box.
       if (node.parentElement?.closest(insideMedia)) {
@@ -129,6 +130,7 @@ export function measureFrame(host: HTMLElement, width: number): { height: number
         return NodeFilter.FILTER_ACCEPT
       }
 
+      // SAFETY: the walker shows only elements and text, and text was accepted above.
       const style = getComputedStyle(node as Element)
 
       return style.display === "none" || style.visibility === "hidden" || style.opacity === "0"
@@ -158,6 +160,7 @@ export function measureFrame(host: HTMLElement, width: number): { height: number
       continue
     }
 
+    // SAFETY: the walker shows only elements and text, and text was handled above.
     const element = node as Element
     const style = getComputedStyle(element)
     const box = local(element.getBoundingClientRect())
@@ -175,13 +178,18 @@ export function measureFrame(host: HTMLElement, width: number): { height: number
     const border = bordered(style) ? style.borderTopColor : undefined
 
     if (background || border) {
-      drawn.push({
-        kind: "surface",
-        ...box,
-        ...(background ? { color: background } : {}),
-        ...(border ? { border } : {}),
-        radius: radius(style, box)
-      })
+      const surface: DrawnBox = { kind: "surface", ...box }
+
+      if (background) {
+        surface.color = background
+      }
+
+      if (border) {
+        surface.border = border
+      }
+
+      surface.radius = radius(style, box)
+      drawn.push(surface)
     } else if (style.backgroundImage !== "none") {
       drawn.push({ kind: "media", ...box, color: style.color, radius: radius(style, box) })
     }

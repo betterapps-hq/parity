@@ -155,11 +155,10 @@ export function pressLayers(
       target = found?.target
       // The layouts reflow around a copy of the layers where they'd land; the line is only for when they can't.
       const shown = found ? preview!.show(found.host, found.target, found.siblings) : (preview!.clear(), false)
-      view = {
-        ghost,
-        ...(found && !shown
-          ? { line: { ...found.line, x: found.line.x - origin.left, y: found.line.y - origin.top } }
-          : {})
+      view = { ghost }
+
+      if (found && !shown) {
+        view.line = { ...found.line, x: found.line.x - origin.left, y: found.line.y - origin.top }
       }
     },
     // Dropped, layers in a layout move, and so does an absolutely placed layer, which was previewed as it moved.
@@ -210,6 +209,7 @@ class DropPreview {
 
   constructor(private readonly originals: HTMLElement[]) {
     this.templates = originals.map((original) => {
+      // SAFETY: a deep clone of an element is an element of the same kind.
       const copy = original.cloneNode(true) as HTMLElement
 
       // Copies aren't layers: hit testing and outlines must not find them.
@@ -252,6 +252,7 @@ class DropPreview {
       .map((id) => findNodeElement(host, id))
       .find((element) => element && element.parentElement === parent && !this.originals.includes(element))
 
+    // SAFETY: a deep clone of an element is an element of the same kind.
     this.copies = this.templates.map((template) => template.cloneNode(true) as HTMLElement)
 
     for (const copy of this.copies) {

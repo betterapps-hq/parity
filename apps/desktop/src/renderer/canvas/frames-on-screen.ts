@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { fnv1a } from "./bits.ts"
 
 /**
  * The frames on the canvas, for Parity's errors and failed renders (PAR-624). An error from the window carries the list
@@ -97,7 +98,7 @@ export function bitmapAttachment(frames: FrameOnScreen[], drawn: RenderedDesign)
   return { filename: contentType === "image/png" ? "frame.png" : "frame.webp", data, contentType }
 }
 
-type FailedRenderListener = (error: unknown, drawn: RenderedDesign) => void
+type FailedRenderListener = (cause: unknown, drawn: RenderedDesign) => void
 
 const failedRenderListeners = new Set<FailedRenderListener>()
 
@@ -117,8 +118,9 @@ export function onFailedRender(listener: FailedRenderListener): () => void {
 }
 
 /** Tells listeners a frame's render failed, unless it already failed showing the same thing. */
-export function failedRender(key: string, error: unknown, drawn: RenderedDesign | undefined): void {
-  const hash = hashOf(key)
+export function failedRender(key: string, cause: unknown, drawn: RenderedDesign | undefined): void {
+  // A key that collides with another reported one only goes unreported.
+  const hash = fnv1a(key)
 
   if (!drawn || reported.has(hash)) {
     return
@@ -131,18 +133,6 @@ export function failedRender(key: string, error: unknown, drawn: RenderedDesign 
   reported.add(hash)
 
   for (const listener of failedRenderListeners) {
-    listener(error, drawn)
+    listener(cause, drawn)
   }
-}
-
-/** FNV-1a, 32 bits: a key that collides with another reported one only goes unreported. */
-function hashOf(text: string): number {
-  let hash = 0x811c9dc5
-
-  for (let index = 0; index < text.length; index++) {
-    hash ^= text.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193)
-  }
-
-  return hash >>> 0
 }

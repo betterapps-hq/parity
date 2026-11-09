@@ -511,10 +511,14 @@ export function CanvasOverlay() {
 
       const change = {
         added: types(changes.added),
-        updated: Object.values(changes.updated).map(([from, to]) => ({
-          type: to.typeName,
-          fields: Object.keys(to).filter((field) => from[field as keyof TLRecord] !== to[field as keyof TLRecord])
-        })),
+        updated: Object.values(changes.updated).map(([from, to]) => {
+          const before = new Map(Object.entries(from))
+
+          return {
+            type: to.typeName,
+            fields: Object.entries(to).flatMap(([field, value]) => (before.get(field) === value ? [] : [field]))
+          }
+        }),
         removed: types(changes.removed)
       }
 
@@ -956,7 +960,7 @@ function measure(session: ProjectSession, area: HTMLElement, alt: boolean): Mode
         box: toBox(host.getBoundingClientRect()),
         color: designColor(entry.container.kind),
         edges: frameEdges,
-        ...(entry.container.kind === "frame" ? { label: "Drag to resize the frame" } : {}),
+        label: entry.container.kind === "frame" ? "Drag to resize the frame" : undefined,
         design: entry.key,
         mode: host.dataset.mode ?? "",
         state: host.dataset.state ?? ""

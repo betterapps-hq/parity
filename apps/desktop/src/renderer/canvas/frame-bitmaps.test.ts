@@ -3,6 +3,7 @@ import type { RenderJob } from "../../shared/protocol.ts"
 import { preloadAnswers } from "../service.ts"
 import { capture, failed, holdsFirstDraw, stored, type UndrawnFrame, want } from "./frame-bitmaps.ts"
 
+// SAFETY: the functions under test only pass the job on, to the stubbed service.
 const job = {} as RenderJob
 
 /** Answers each capture the offscreen window is asked for with the next of `answers`. */
@@ -49,12 +50,16 @@ describe("stored", () => {
    * gives, and each job asked for kept bitmaps with what it gives for that job.
    */
   function service(answers: Record<string, (job?: RenderJob) => Promise<Kept>>) {
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- it stands in for the service across IPC, whose messages preloadAnswers leaves unparsed
     const request = vi.fn<(method: string, params: unknown) => Promise<unknown>>((method, params) => {
+      // SAFETY: the two methods asked are frames.capture, whose params have no jobs, and frames.stored, whose jobs are
+      // JSON of the RenderJob[] asked for.
       const { jobs } = params as { jobs?: string }
 
       return jobs === undefined
         ? answers[method]!()
-        : Promise.all((JSON.parse(jobs) as RenderJob[]).map((asked) => answers[method]!(asked))).then((kept) => ({
+        : // SAFETY: as above.
+          Promise.all((JSON.parse(jobs) as RenderJob[]).map((asked) => answers[method]!(asked))).then((kept) => ({
             kept
           }))
     })
@@ -84,7 +89,9 @@ describe("stored", () => {
   })
 
   it("asks once for the frames that mount together, giving each its own bitmap", async () => {
+    // SAFETY: the stubbed service tells jobs apart by tree, and nothing else reads them.
     const first = { tree: "first" } as RenderJob
+    // SAFETY: as above.
     const second = { tree: "second" } as RenderJob
 
     const request = service({

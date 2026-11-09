@@ -83,7 +83,7 @@ interface ContainerViewProps {
   /** The pointer is over the board: its controls show. */
   hovered: boolean
   /** Starts dragging the design by its title. */
-  onTitlePointerDown: (event: ReactPointerEvent) => void
+  onTitlePointerDown: (event: ReactPointerEvent<HTMLElement>) => void
   /**
    * Where the title draws: the canvas's title layer, the board's place and size on the canvas, and what else is on the
    * page, which a title zoomed out runs up to (see `titleReach`). `others` reads the canvas, so the title follows as
@@ -579,7 +579,7 @@ function TitleButton({
   color: string | undefined
   /** A frame's name: regular, with a smaller icon, and neutral until it's selected. */
   quiet?: boolean
-  onPointerDown: (event: ReactPointerEvent) => void
+  onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void
 }) {
   const session = useProject()
   const used = useUsed()
@@ -984,9 +984,9 @@ const FrameTile = memo(function FrameTile({
     mode: mode.name,
     modeId: mode.id,
     width: frame.width,
-    ...(frame.height === undefined ? {} : { height: frame.height }),
+    height: frame.height,
     key,
-    ...(bitmap === undefined ? {} : { bitmap })
+    bitmap
   })
   // The bitmap shows once it's decoded, so the frame doesn't go blank in between: until then, the last one decoded, or
   // its skeleton, which then leaves the page.
@@ -1036,6 +1036,17 @@ const FrameTile = memo(function FrameTile({
   const placeholder = waiting && !showing && !skeleton
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
   const onSelect = () => selection.set({ design: entry.key, mode: mode.id })
+  const tileStyle: CSSProperties = {}
+
+  if (selected) {
+    tileStyle.boxShadow = `0 0 0 3px ${kindColors.mode}`
+  }
+
+  // How tall the frame was measured, or kept with its bitmap, for when it skips drawing before the browser has noted its
+  // size.
+  if (height !== undefined) {
+    Object.assign(tileStyle, { [frameHeightProperty]: `${height}px` })
+  }
 
   return (
     <figure ref={figure} className="mode-tile relative m-0" data-mode={mode.id} data-primary={primary}>
@@ -1069,14 +1080,7 @@ const FrameTile = memo(function FrameTile({
       <div
         ref={tile}
         className="relative transition-shadow"
-        style={
-          {
-            ...(selected ? { boxShadow: `0 0 0 3px ${kindColors.mode}` } : {}),
-            // How tall the frame was measured, or kept with its bitmap, for when it skips drawing before the browser has
-            // noted its size.
-            ...(height === undefined ? {} : { [frameHeightProperty]: `${height}px` })
-          } as CSSProperties
-        }
+        style={tileStyle}
         data-bitmap={showing ? "" : undefined}
         data-skeleton={skeleton ? "" : undefined}
         data-measured={height === undefined ? undefined : ""}

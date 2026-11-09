@@ -13,18 +13,23 @@ const meta = {
   component: RedlineView,
   parameters: { layout: "centered" },
   decorators: [
-    (Story, { parameters }) => (
-      <div className="relative h-[150px] w-[260px] overflow-hidden rounded-md border border-neutral-200 bg-white">
-        {(parameters.boxes as Box[]).map((box, index) => (
-          <div
-            key={index}
-            className="absolute rounded-sm bg-neutral-100 outline outline-1 outline-neutral-300"
-            style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
-          />
-        ))}
-        <Story />
-      </div>
-    )
+    (Story, { parameters }) => {
+      // SAFETY: each story sets `boxes` to its boxes.
+      const boxes = parameters.boxes as Box[]
+
+      return (
+        <div className="relative h-[150px] w-[260px] overflow-hidden rounded-md border border-neutral-200 bg-white">
+          {boxes.map((box, index) => (
+            <div
+              key={index}
+              className="absolute rounded-sm bg-neutral-100 outline outline-1 outline-neutral-300"
+              style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
+            />
+          ))}
+          <Story />
+        </div>
+      )
+    }
   ]
 } satisfies Meta<typeof RedlineView>
 
