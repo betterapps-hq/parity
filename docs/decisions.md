@@ -5645,7 +5645,8 @@ its shape on almost every frame of a zoom: 190 to 280 ms of `getClientRects` in 
 written, as "Parity's own telemetry goes to Sentry, on by default" decided. `createTelemetry` runs it on every event's
 attributes before its sinks and the kept events. Main, the windows and the service run one in their Sentry `beforeSend`,
 `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb` hooks, and the CLI will once it sends (PAR-642).
-Sentry's server-side scrubbing stays on as a second net. My calls:
+Sentry's server-side scrubbing stays on as a second net. PAR-756 has since put those hooks, with `beforeSendSpan`, in
+one shared `sentryScrubbing`; see "Spans are sent in their transaction, so the scrubber sees them" below. My calls:
 
 - **Keys and tokens with a known shape are replaced whole:** OpenAI and Anthropic `sk-…`, Stripe `sk_live_`/`rk_live_`,
   GitHub `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and `github_pat_`, Slack `xox…-`, AWS access key IDs, Google `AIza…`,
@@ -6511,3 +6512,28 @@ now resolves to `packages/cli/src`, as the app's does to its source (PAR-625). H
   stand-in server, paired each of the 9 bundles with its map and debug ID. A sender-like process that adopted a
   command's debug IDs gave a frame in `client-<hash>.mjs` that chunk's debug ID in `debug_meta`; without them, none.
   Whether an event from the installed CLI resolves in Sentry can only be seen once a version is published.
+
+## Spans are sent in their transaction, so the scrubber sees them (PAR-756)
+
+Sentry 11.8 streams spans by default (`traceLifecycle: 'stream'`), one by one, and warns at every start that
+`beforeSendTransaction` is then ignored. Every process now starts Sentry with `sentryScrubbing(scrubber, Sentry)` from
+`@parity-app/telemetry`, which sets `traceLifecycle: 'static'` and scrubs in `beforeSend`, `beforeSendTransaction`,
+`beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`. A process puts its own `beforeSend` or `beforeSendTransaction`
+after it to add tags or attachments. My calls:
+
+- **What got through, checked in Sentry with a fake `sk-…` key** in each span's name and attributes, sent through the
+  Node SDK that main, the service and the CLI run and the browser SDK the windows run, set up with their hooks. Parity's
+  own spans arrived as `[redacted]` either way: they're transactions built by hand and sent with `captureEvent`, which
+  passes `beforeSendTransaction` whatever the lifecycle. Sentry's own spans, from `startSpan` as its integrations make
+  them, arrived with the key as written once tracing was on, since a streamed span skips `beforeSendTransaction`. Parity
+  sets no `tracesSampleRate`, so Sentry makes none today, and nothing had leaked. It would have the day tracing is
+  turned on.
+- **Static, not `beforeSendSpan` on streamed spans.** Streaming needs `beforeSendTransaction` gone for the warning to
+  stop, and Parity's spans need it, as they're transactions. Static sends Sentry's spans in their transaction, through
+  the same hook as Parity's, so one hook covers both. Spans Parity sends are its own, with its own IDs, so streaming
+  gains it nothing.
+- **`beforeSendSpan` is set too, wrapped in `withStaticSpan`,** for the spans Sentry sends on their own, outside a
+  transaction, such as Web Vitals'. Parity turns none of those on, but they'd leave unscrubbed if it did.
+- **One hook, in the package, with the SDK passed in.** `@parity-app/telemetry` still never imports Sentry, so each
+  process passes its own module, whose `withStaticSpan` marks the span hook. The CLI's tests check it against the real
+  SDK: a span holding a key leaves scrubbed, and Sentry starts without the warning.

@@ -6,7 +6,7 @@ import {
   type Sink,
   type Telemetry
 } from "@parity-app/telemetry"
-import { createSentrySink } from "@parity-app/telemetry"
+import { createSentrySink, sentryScrubbing } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/utility"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
@@ -25,10 +25,8 @@ const builderLines = 50
 export function startTelemetry(): Telemetry<typeof registeredEvents> {
   // Named on each event, as main and the windows do; the worker's and builders' reports below name their own.
   Sentry.init({
-    beforeSend: (event) => scrubber.value({ ...event, tags: { process: "service", ...event.tags } }),
-    beforeSendTransaction: (event) => scrubber.value(event),
-    beforeSendLog: (log) => scrubber.value(log),
-    beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb)
+    ...sentryScrubbing(scrubber, Sentry),
+    beforeSend: (event) => scrubber.value({ ...event, tags: { process: "service", ...event.tags } })
   })
   const run = readTelemetryRun(process.env[telemetryRunVariable])
   const telemetry = recordInvalidData(

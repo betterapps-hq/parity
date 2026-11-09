@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process"
-import { createScrubber, telemetryRelease } from "@parity-app/telemetry"
+import { createScrubber, sentryScrubbing, telemetryRelease } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/node"
 import { adoptDebugIds, type Batch, type BatchTarget, sendBatches } from "./outbox.ts"
 
@@ -97,10 +97,7 @@ if (folder) {
     defaultIntegrations: false,
     enableOpenTelemetrySetup: false,
     sendClientReports: false,
-    beforeSend: (event) => scrubber.value(event),
-    beforeSendTransaction: (event) => scrubber.value(event),
-    beforeSendLog: (log) => scrubber.value(log),
-    beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb)
+    ...sentryScrubbing(scrubber, Sentry)
   })
   const target: BatchTarget = { send, flush: (timeoutMs) => Sentry.flush(timeoutMs) }
   await sendBatches(folder, target)

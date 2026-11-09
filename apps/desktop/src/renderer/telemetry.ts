@@ -1,5 +1,5 @@
 import { createTelemetry, registeredEvents, type Sink, type Telemetry } from "@parity-app/telemetry"
-import { createSentrySink } from "@parity-app/telemetry"
+import { createSentrySink, sentryScrubbing } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/renderer"
 import type { Component, ErrorInfo } from "react"
 import { recordInvalidData } from "../shared/invalid-data.ts"
@@ -27,15 +27,13 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
   Sentry.init({
     ...options,
     allowUrls: [location.origin],
+    ...sentryScrubbing(scrubber, Sentry),
     beforeSend: (event, hint) => {
       // An error says which frames were on the canvas (PAR-624).
       const frames = framesOnScreen()
       if (frames.length > 0) hint.attachments = [...(hint.attachments ?? []), framesAttachment(frames)]
       return scrubber.value({ ...event, tags: { ...event.tags, process: kind } })
-    },
-    beforeSendTransaction: (event) => scrubber.value(event),
-    beforeSendLog: (log) => scrubber.value(log),
-    beforeBreadcrumb: (breadcrumb) => scrubber.value(breadcrumb)
+    }
   })
   onFailedRender(reportFailedRender)
   // Events are this window's breadcrumbs and errors, and go to main for the local copy, Sentry's logs and spans.
