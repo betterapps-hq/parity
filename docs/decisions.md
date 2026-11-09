@@ -585,6 +585,10 @@ still need your call.
   - The modifiers are gestures in the keymap (`gestures` in `chrome/keymap.ts`), which the Keyboard shortcuts dialog
     lists, the hints show with `Kbd`, and the handles read through `holds`, so what's shown is what works. The rules in
     `@parity-app/editor` take what they mean (`{ opposite, every }`, `centre`, `fill`), not keys.
+  - A bar's hint lets the pointer through it (PAR-801), my call: on a bar 12px thick, the hint's arrow slid in over a
+    still pointer and took the hover, and the hatching with it. So the hint can't be hovered, and it closes as the
+    pointer leaves the bar, onto the hint too. It holds nothing to point at, and it no longer covers the canvas under
+    it. Other hints can still be hovered.
 - **Padding and gaps are modes' green, hatched as Figma hatches them, and margin is pink** (PAR-797), Andrew's calls:
   - Padding takes modes' green and margin the pink the canvas drew padding in, as the Design panel's box model draws
     them (PAR-186). Gaps go green with padding rather than staying pink, so pink means margin only.

@@ -1245,6 +1245,10 @@ layers at once, resize from the middle with Alt, and hug or fill on a double-cli
   and Alt+Shift for all sides, as `Kbd`. A layer's resize hint lists Alt for from the middle and says double-click to
   hug, Alt+double-click to fill. These keys are the keymap's gestures, which Keyboard shortcuts lists under Tools, and
   the handles read the same entries, so what's listed is what works.
+- **A bar keeps the pointer while its hint opens (PAR-801).** A bar's hint lets the pointer through it, so the bar stays
+  hovered, with its hatching and chip, until the pointer leaves the bar. The hint then closes, even when the pointer
+  leaves onto it. Before, the hint's arrow slid in over a still pointer on a bar 12px thick, such as Gap 1 on the
+  Dashboard's Content at 50%. The bar lost the hover, and its hatching and chip went until the pointer moved.
 - **Several layers.** Two or more selected layers have one set of resize handles, on the box around them all. Each layer
   takes its share of the movement, its size across that box's, so they grow in proportion and the box's edge follows the
   pointer; each keeps where its layout puts it, and they don't snap. All of them start once the pointer has gone 4px.
@@ -1263,12 +1267,13 @@ bars go from a layout's measured boxes, `spacingDrag` follows a drag, `spacingSt
 label and a slider say. `packages/editor/src/move-resize.ts`: `resizeGesture` and `resizeInsets` take `centre`,
 `layersResize` follows several layers, and `layerSizeReset` hugs or fills. In the app, `canvas/SpacingHandles.tsx` draws
 the bars, their hatching (`Hatching`, one shape per color), labels and sliders and the box a value is typed in, with
-`sidesHeld` reading the keys; `canvas/spacing-colors.ts` is the one place the colors and hatching are defined
-(`spacingColors` for padding, gaps and margin, `spacingChip` pairing a value's chip through `chipFor`, `spacingHatch`);
-`canvas/spacing-edit.ts` measures a layout (`measureSpacing`), lists its length tokens (`lengthTokens`) and writes each
-edit in the state the frame shows, a drag through `followPress`; `canvas/CanvasOverlay.tsx` shows them for a single
-selected layout, puts handles around several layers (`resizeLayers`) and passes `centre` and fill. The keys are
-`gestures` in `chrome/keymap.ts`, read through `holds` in `chrome/keys.ts`, and shown by `canvas/KeyHints.tsx`.
+`sidesHeld` reading the keys, and each bar's hint through `chrome/Hint.tsx` with `passThrough`, which takes the hint out
+of hit testing (Base UI's `disableHoverablePopup`); `canvas/spacing-colors.ts` is the one place the colors and hatching
+are defined (`spacingColors` for padding, gaps and margin, `spacingChip` pairing a value's chip through `chipFor`,
+`spacingHatch`); `canvas/spacing-edit.ts` measures a layout (`measureSpacing`), lists its length tokens (`lengthTokens`)
+and writes each edit in the state the frame shows, a drag through `followPress`; `canvas/CanvasOverlay.tsx` shows them
+for a single selected layout, puts handles around several layers (`resizeLayers`) and passes `centre` and fill. The keys
+are `gestures` in `chrome/keymap.ts`, read through `holds` in `chrome/keys.ts`, and shown by `canvas/KeyHints.tsx`.
 
 Tests:
 
@@ -1288,10 +1293,12 @@ Tests:
   though each one's share is less, and from the middle.
 - `canvas/SpacingHandles.stories.tsx` (Parity/Canvas/Spacing handles): PaddingAndGap, BoundToTokens, NoPadding and
   SeveralLayers, running the rules and `followPress` on a stand-in layout with the style each change writes beside it.
-- `canvas/SpacingHandles.test.ts` (6), in Chrome with the canvas colors from styles.css: nothing hatched while no bar is
-  in use; a padding side hatched corner to corner under the pointer, in padding's hatching, then nothing once it leaves;
-  every gap hatched together under the pointer; every side a drag changes as one shape; a value's chip in its handle's
-  chip colors; and every chip over the canvas, padding's and gaps' included, at 4.5:1 or better, so a color changed in
+- `canvas/SpacingHandles.test.ts` (7), in Chrome with the canvas colors from styles.css and the kit's stylesheet, so a
+  hint opens as in the app: nothing hatched while no bar is in use; a padding side hatched corner to corner under the
+  pointer, in padding's hatching, then nothing once it leaves; every gap hatched together under the pointer; a 12px gap
+  bar in a column kept hatched while its hint slides in over the still pointer, its chip still showing, then nothing
+  once the pointer moves onto the hint; every side a drag changes as one shape; a value's chip in its handle's chip
+  colors; and every chip over the canvas, padding's and gaps' included, at 4.5:1 or better, so a color changed in
   `spacing-colors.ts` without a safe chip fails here.
 - `canvas/ResizeHandles.test.ts`, in Chrome: a double-click still reaching the handle's reset.
 
@@ -1302,10 +1309,13 @@ leaving nothing to undo, a click on a gap opening the box at 24 with focus, 40 t
 and Shift+Up making 17 with Main's children left in order, Escape in the box closing it with Content still selected, the
 sliders' names and values; Header actions' right edge double-clicked to hug and Alt+double-clicked to fill, and dragged
 16px with Alt to 62 steps; two stat cards to 52 steps each; the hints, with `Kbd`; and Keyboard shortcuts listing the
-padding keys. The same run at 50% gave twice the steps for the same movement. A run of key presses isn't one undo step,
-as the inspector's are (PAR-441). Gap bars in a grid or a wrap, with column and row gaps, aren't done. A token whose
-length can't be worked out on Parity's page, one built on a variable other than `--spacing`, isn't listed and can't be
-stayed on.
+padding keys. The same run at 50% gave twice the steps for the same movement. On 2026-11-09 (PAR-801), at 50% on
+Content: the pointer resting on Gap 1, 12px thick, kept the bar hovered and every gap hatched on every frame as its hint
+opened, where before the bar lost the pointer to the hint's arrow 575ms in. Moving onto the hint or off onto the canvas
+cleared it and closed the hint; the left bar was hatched while hovered and cleared after; focus on Gap 1 hatched it and
+opened its hint, and Tab moved it to Gap 2. A run of key presses isn't one undo step, as the inspector's are (PAR-441).
+Gap bars in a grid or a wrap, with column and row gaps, aren't done. A token whose length can't be worked out on
+Parity's page, one built on a variable other than `--spacing`, isn't listed and can't be stayed on.
 
 ### Empty layouts (PAR-193)
 

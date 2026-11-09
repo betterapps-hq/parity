@@ -17,6 +17,12 @@ type HintProps = Omit<ComponentProps<typeof TooltipTrigger>, "children"> & {
   /** Opens and closes it from outside, as hovering would, to close it when its element is pressed and dragged. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  /**
+   * Lets the pointer through it to what's below, for an element so small that the hint, sliding in with its arrow,
+   * would land under a still pointer and take it from the element. It closes as the pointer leaves the element, since
+   * the pointer can't move onto it.
+   */
+  passThrough?: boolean
   children: ReactElement
 }
 
@@ -27,11 +33,23 @@ type HintProps = Omit<ComponentProps<typeof TooltipTrigger>, "children"> & {
  * The tooltip marks the element `data-popup-open` while it shows, as popover and menu triggers do while theirs are
  * open, so what it wraps styles its open popover by `aria-expanded`.
  */
-export function Hint({ label, detail, side, wait, hidden, open, onOpenChange, children, ...trigger }: HintProps) {
+export function Hint({
+  label,
+  detail,
+  side,
+  wait,
+  hidden,
+  open,
+  onOpenChange,
+  passThrough,
+  children,
+  ...trigger
+}: HintProps) {
   const says = label !== undefined && label !== null && label !== false && label !== ""
 
   return (
-    <Tooltip open={open} onOpenChange={onOpenChange}>
+    // A popup that can't be hovered is inert, which takes it out of hit testing.
+    <Tooltip open={open} onOpenChange={onOpenChange} disableHoverablePopup={passThrough}>
       <TooltipTrigger delay={wait ? 500 : undefined} {...trigger} render={children} />
       {says && !hidden && (
         <TooltipContent side={side} className={`wrap-anywhere ${detail ? "flex-col items-start gap-0.5" : ""}`}>
