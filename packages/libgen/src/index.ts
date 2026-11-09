@@ -2,13 +2,21 @@ import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, join, resolve, sep } from "node:path"
 import { pathToFileURL } from "node:url"
-import { appFiles, type ComponentReport, findComponents, readTsconfig, relativePath } from "@parity-app/code"
+import {
+  appFiles,
+  type ComponentReport,
+  type ComponentScan,
+  findComponents,
+  readTsconfig,
+  relativePath
+} from "@parity-app/code"
 import {
   applyLibraryEdits,
   iconAliases,
   iconVariants,
   type LibraryBreakpoint,
   type LibraryComponent,
+  type LibraryComponents,
   type LibraryIcons,
   type LibraryEdits,
   type LibraryManifest,
@@ -45,8 +53,9 @@ import { hostedParts, type RenderCall, readRenders, renderedIn } from "./hosts.t
 import { preferredExports, typesFor } from "./icon-exports.ts"
 import { type DrawIcon, styleModules } from "./icon-styles.ts"
 import { type ExportedIcon, readIconTags } from "./icon-tags.ts"
+import { exported, isComponent, isFunction, isRecord, isText, type Live, type LiveObject, type Load } from "./live.ts"
 import { type PartRelation, relateParts } from "./parts.ts"
-import { type Load, type Preset, presets } from "./presets.ts"
+import { presets } from "./presets.ts"
 import { breakpointsOf, type CollectedToken, cssTokens, pairLineHeights, toDtcg } from "./tokens.ts"
 
 export { componentOptions, findComponents, reactProbe, withReactProbe } from "@parity-app/code"
@@ -63,6 +72,8 @@ export { presets } from "./presets.ts"
 
 export { cssTokens, toDtcg } from "./tokens.ts"
 
+export type { Live } from "./live.ts"
+
 export interface GenerateOptions {
   /** The project: the folder a package is installed in, or the app to describe. */
   root: string
@@ -73,8 +84,8 @@ export interface GenerateOptions {
   description?: string
   /** The versions the file covers, as a semver range. Defaults to the installed version's major. */
   range?: string
-  /** The file being regenerated, to report what changed and keep what `only` leaves alone. */
-  previous?: unknown
+  /** The file being regenerated, as JSON, to report what changed and keep what `only` leaves alone. */
+  previous?: Live
   /** Which components to write: `all` (the default), `new` ones only, or these names. */
   only?: "all" | "new" | string[]
   /** A shared file of hand edits, relative to where the file is written, set as its `edits`. */
@@ -139,15 +150,33 @@ export interface PartsSummary {
 export interface ComponentChanges {
   added: string[]
   /** Changed components, with the props added, removed or retyped. */
-  changed: { name: string; added: string[]; removed: string[]; retyped: string[]; as?: string }[]
+  changed: ComponentChange[]
   removed: string[]
   unchanged: number
 }
 
+/** A component whose fingerprint changed: the props added, removed or retyped, and what it's now found as. */
+export interface ComponentChange {
+  name: string
+  added: string[]
+  removed: string[]
+  retyped: string[]
+  as?: string
+}
+
+/** A library's components by name, as its file lists them. */
+type ComponentList = LibraryComponents["list"]
+
 export interface GeneratedLibrary {
   /** A `.lib.par`, ready to write as JSON. */
-  manifest: Record<string, unknown>
+  manifest: LibraryManifest
   report: GenerateReport
+}
+
+/** The file being regenerated: what it reads as, and its own object, whose authored fields are kept as written. */
+interface PreviousLibrary {
+  manifest: LibraryManifest
+  file: LiveObject
 }
 
 /**
@@ -170,7 +199,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
   const { dir, manifest: pkg } = installed
   const name = pkg.name ?? importName
   const version = pkg.version ?? "0.0.0"
-  const preset: Preset | undefined = presets[name]
+  const preset = presets.get(name)
   const notes = [...(preset?.notes ?? [])]
 
   const iconImport = preset?.icons?.import
@@ -230,15 +259,19 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
   const report = baseReport(isIcons ? "icons" : "components", scan, [...tokens.values()], notes)
   report.package = { name, version }
 
-  const manifest: Record<string, unknown> = {
+  const manifest: LibraryManifest = {
     version: 3,
     id: options.id ?? preset?.id ?? name.replace(/^@[^/]+\//, "").replace(/^react-/, ""),
-    name: options.name ?? preset?.name ?? name,
-    ...((options.description ?? preset?.description)
-      ? { description: options.description ?? preset?.description }
-      : {}),
-    package: { name, version, range: options.range ?? defaultRange(version) }
+    name: options.name ?? preset?.name ?? name
   }
+
+  const description = options.description ?? preset?.description
+
+  if (description) {
+    manifest.description = description
+  }
+
+  manifest.package = { name, version, range: options.range ?? defaultRange(version) }
 
   if (styles && !isIcons) {
     manifest.styles = styles
@@ -286,10 +319,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
       // Styles kept in modules of their own, as Heroicons keeps `16/solid` beside `24/outline`.
       const load = loader(root, dir)
 
-      const entries =
-        typeof pkg.exports === "object" && pkg.exports !== null && !Array.isArray(pkg.exports)
-          ? Object.keys(pkg.exports)
-          : []
+      const entries = isRecord(pkg.exports) ? Object.keys(pkg.exports) : []
 
       const modules = await styleModules(name, entries, iconImport ?? name, load, await iconDrawer(load))
 
@@ -359,7 +389,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
             root,
             dir
           )(pkg.name)
-            .then((module) => new Set(Object.keys(module).filter((key) => typeof module[key] === "function")))
+            .then((module) => new Set(Object.keys(module).filter((key) => isFunction(module[key]))))
             .catch(() => new Set<string>())
         : new Set<string>()
 
@@ -430,7 +460,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
 
     // Parts every example draws from a list a hook returns (toasts from the toast manager) stay placeable, with the
     // item the examples hand the hook as their sample; the report names them, as they render only with that item.
-    const fromHook = [...uses].filter(([, use]) => use.fromHook).map(([part]) => part)
+    const fromHook = [...uses].flatMap(([part, use]) => (use.fromHook ? [part] : []))
 
     if (fromHook.length > 0) {
       notes.push(`Drawn from a hook's list in every example, sampled with the item it's given: ${fromHook.join(", ")}`)
@@ -451,26 +481,51 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
       )
     )
 
-    const list: Record<string, LibraryComponent> = {}
+    const list: ComponentList = {}
 
     for (const component of scan.components) {
       const inside = component.file.startsWith(dir.replaceAll(sep, "/")) || component.file.startsWith(dir)
       const relation = parts.relations.get(component.name)
-      list[component.name] = {
-        as: component.as,
-        ...(inside && exportsByName(component.file, component.name)
-          ? { declaration: relativePath(dir, component.file) }
-          : {}),
-        group: component.group,
-        ...(relation?.parents ? { parents: relation.parents, parentsFrom: relation.parentsFrom ?? "prefix" } : {}),
-        ...(relation?.optionalParents ? { optionalParents: relation.optionalParents } : {}),
-        ...(relation?.parentParts ? { parentParts: true } : {}),
-        ...(relation?.visual === false ? { visual: false } : {}),
-        ...(internal.has(component.name) ? { internal: true } : {}),
-        ...(relation?.sample ? { sample: relation.sample } : {}),
-        fingerprint: component.fingerprint,
-        ...(Object.keys(component.props).length > 0 ? { props: component.props } : {})
+      const entry: LibraryComponent = { as: component.as }
+
+      if (inside && exportsByName(component.file, component.name)) {
+        entry.declaration = relativePath(dir, component.file)
       }
+
+      entry.group = component.group
+
+      if (relation?.parents) {
+        entry.parents = relation.parents
+        entry.parentsFrom = relation.parentsFrom ?? "prefix"
+      }
+
+      if (relation?.optionalParents) {
+        entry.optionalParents = relation.optionalParents
+      }
+
+      if (relation?.parentParts) {
+        entry.parentParts = true
+      }
+
+      if (relation?.visual === false) {
+        entry.visual = false
+      }
+
+      if (internal.has(component.name)) {
+        entry.internal = true
+      }
+
+      if (relation?.sample) {
+        entry.sample = relation.sample
+      }
+
+      entry.fingerprint = component.fingerprint
+
+      if (Object.keys(component.props).length > 0) {
+        entry.props = component.props
+      }
+
+      list[component.name] = entry
     }
 
     if (parts.tried) {
@@ -483,7 +538,7 @@ async function describePackage(options: GenerateOptions, importName: string): Pr
     }
 
     if (Object.keys(list).length > 0) {
-      manifest.components = { ...(componentImport ? { import: componentImport } : {}), list }
+      manifest.components = componentImport ? { import: componentImport, list } : { list }
     }
   }
 
@@ -511,7 +566,7 @@ export async function reviseLibrary(
   const report = { ...generated.report }
   const read = readPrevious(options.previous)
   const previous = read?.manifest.components?.list
-  const components = manifest.components as { import?: string; list: Record<string, LibraryComponent> } | undefined
+  const components = manifest.components
 
   if (previous && components) {
     report.changes = compareComponents(previous, components.list)
@@ -521,7 +576,9 @@ export async function reviseLibrary(
     }
   }
 
-  const kept = read?.file.edits
+  // SAFETY: the file read through the library schema in readPrevious, so its edits, kept as written, are a path or
+  // edits the schema reads.
+  const kept = read?.file.edits as LibraryManifest["edits"]
   const edits = options.edits ?? kept
 
   if (edits !== undefined) {
@@ -542,13 +599,17 @@ export async function reviseLibrary(
  * edits and authored fields are kept as written. One that doesn't read stops generation, naming the field, since
  * writing over it would lose what a person wrote there.
  */
-function readPrevious(previous: unknown): { manifest: LibraryManifest; file: Record<string, unknown> } | undefined {
+function readPrevious(previous: Live): PreviousLibrary | undefined {
   if (previous === undefined) {
     return undefined
   }
 
   try {
-    return { manifest: parseLibraryManifest(previous), file: parseData(plainObject, previous) }
+    const manifest = parseLibraryManifest(previous)
+    parseData(plainObject, previous)
+
+    // The schema reads only an object, so a file that read is one.
+    return isRecord(previous) ? { manifest, file: previous } : undefined
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     throw new TypeError(`The library file being replaced doesn't read, so fix or delete it first: ${reason}`, {
@@ -561,10 +622,7 @@ function readPrevious(previous: unknown): { manifest: LibraryManifest; file: Rec
  * What changed between two versions of a library's components, by fingerprint: new, removed, and changed ones with the
  * props added, removed or retyped. A file written before fingerprints counts every component as changed.
  */
-export function compareComponents(
-  before: Record<string, LibraryComponent>,
-  after: Record<string, LibraryComponent>
-): ComponentChanges {
+export function compareComponents(before: ComponentList, after: ComponentList): ComponentChanges {
   const changes: ComponentChanges = { added: [], changed: [], removed: [], unchanged: 0 }
 
   for (const [name, now] of Object.entries(after)) {
@@ -577,13 +635,19 @@ export function compareComponents(
     } else {
       const old = propTypes(then.props)
       const fresh = propTypes(now.props)
-      changes.changed.push({
+
+      const change: ComponentChange = {
         name,
         added: [...fresh.keys()].filter((prop) => !old.has(prop)),
         removed: [...old.keys()].filter((prop) => !fresh.has(prop)),
-        retyped: [...fresh.keys()].filter((prop) => old.has(prop) && old.get(prop) !== fresh.get(prop)),
-        ...(then.as === now.as ? {} : { as: `${then.as} to ${now.as}` })
-      })
+        retyped: [...fresh.keys()].filter((prop) => old.has(prop) && old.get(prop) !== fresh.get(prop))
+      }
+
+      if (then.as !== now.as) {
+        change.as = `${then.as} to ${now.as}`
+      }
+
+      changes.changed.push(change)
     }
   }
 
@@ -607,17 +671,17 @@ function propTypes(props: Record<string, string> | undefined): Map<string, strin
  * these named ones. Components the package no longer has are dropped either way, since they can't be imported.
  */
 export function selectComponents(
-  before: Record<string, LibraryComponent>,
-  after: Record<string, LibraryComponent>,
+  before: ComponentList,
+  after: ComponentList,
   changes: ComponentChanges,
   only: "all" | "new" | string[]
-): Record<string, LibraryComponent> {
+): ComponentList {
   if (only === "all") {
     return after
   }
 
   const picked = new Set(only === "new" ? changes.added : only)
-  const list: Record<string, LibraryComponent> = {}
+  const list: ComponentList = {}
 
   for (const name of Object.keys(after)) {
     const chosen = picked.has(name) ? after[name] : before[name]
@@ -678,12 +742,14 @@ async function describeApp(options: GenerateOptions): Promise<GeneratedLibrary> 
     notes.push(`${names} ${verb} no files, so every .tsx and .jsx file in the project was read.`)
   }
 
-  const scan = findComponents({
-    entries: files.map((file) => join(root, file).replaceAll("\\", "/")),
-    root,
-    ...(tsconfig.app ? { compilerOptions: tsconfig.app.options } : {}),
-    defaultExports: true
-  })
+  const request: ComponentScan = { entries: files.map((file) => join(root, file).replaceAll("\\", "/")), root }
+
+  if (tsconfig.app) {
+    request.compilerOptions = tsconfig.app.options
+  }
+
+  request.defaultExports = true
+  const scan = findComponents(request)
 
   // One name in two files gains its folder, as in `ui/FieldError`, so neither is lost.
   const counts = new Map<string, number>()
@@ -692,7 +758,7 @@ async function describeApp(options: GenerateOptions): Promise<GeneratedLibrary> 
     counts.set(component.name, (counts.get(component.name) ?? 0) + 1)
   }
 
-  const list: Record<string, LibraryComponent> = {}
+  const list: ComponentList = {}
 
   for (const component of scan.components) {
     const folder = basename(dirname(component.file))
@@ -713,14 +779,26 @@ async function describeApp(options: GenerateOptions): Promise<GeneratedLibrary> 
   const breakpoints = breakpointsOf([...tokens.values()])
   const name = pkg.name ?? basename(root)
 
-  const manifest: Record<string, unknown> = {
+  const manifest: LibraryManifest = {
     version: 3,
     id: options.id ?? name.replace(/^@[^/]+\//, ""),
-    name: options.name ?? name,
-    ...(options.description ? { description: options.description } : {}),
-    ...(breakpoints.length > 0 ? { breakpoints } : {}),
-    ...(tokens.size > 0 ? { tokens: toDtcg([...tokens.values()]) } : {}),
-    ...(Object.keys(list).length > 0 ? { components: { list } } : {})
+    name: options.name ?? name
+  }
+
+  if (options.description) {
+    manifest.description = options.description
+  }
+
+  if (breakpoints.length > 0) {
+    manifest.breakpoints = breakpoints
+  }
+
+  if (tokens.size > 0) {
+    manifest.tokens = toDtcg([...tokens.values()])
+  }
+
+  if (Object.keys(list).length > 0) {
+    manifest.components = { list }
   }
 
   const report = baseReport("app", scan, [...tokens.values()], notes)
@@ -750,7 +828,7 @@ export async function appManifestPath(root: string): Promise<string> {
  * A generated manifest laid over the file already there: what generating finds replaces what it found before, and
  * what a person wrote (the canvas, decorators, a name or description) stays.
  */
-export function mergeManifest(existing: unknown, generated: Record<string, unknown>): Record<string, unknown> {
+export function mergeManifest(existing: Live, generated: LibraryManifest): LibraryManifest {
   const kept = readPrevious(existing)?.file
 
   if (!kept) {
@@ -758,15 +836,11 @@ export function mergeManifest(existing: unknown, generated: Record<string, unkno
   }
 
   const authored = ["$schema", "id", "name", "description", "decorators", "edits", "canvas"]
-  const merged: Record<string, unknown> = { ...generated }
+  const written = Object.fromEntries(authored.flatMap((key) => (kept[key] === undefined ? [] : [[key, kept[key]]])))
 
-  for (const key of authored) {
-    if (kept[key] !== undefined) {
-      merged[key] = kept[key]
-    }
-  }
-
-  return merged
+  // SAFETY: the file read through the library schema in readPrevious, so each authored field it has holds what the
+  // manifest's does, as its author wrote it.
+  return { ...generated, ...written } as LibraryManifest
 }
 
 function baseReport(
@@ -855,8 +929,10 @@ function defaultRange(version: string): string {
 /** A DTCG token file or resolver: a JSON object, with a resolver's `resolutionOrder` a list. */
 const tokenFile = jsonText(plainObject.pipe(z.looseObject({ resolutionOrder: z.array(z.unknown()).optional() })))
 
+type TokenFile = z.output<typeof tokenFile>
+
 /** A DTCG token file or resolver the package ships, such as each Buildkit style's `dist/tokens.json`. */
-async function dtcgIn(dir: string): Promise<{ path: string; tokens: Record<string, unknown> } | undefined> {
+async function dtcgIn(dir: string): Promise<{ path: string; tokens: TokenFile } | undefined> {
   for (const candidate of ["tokens.json", "dist/tokens.json", "tokens.resolver.json", "dist/tokens.resolver.json"]) {
     const text = await readFile(join(dir, candidate), "utf8").catch(() => undefined)
 
@@ -902,16 +978,13 @@ async function exportedIcons(
   specifier: string,
   icons: LibraryIcons
 ): Promise<{ count: number; icons: ExportedIcon[]; groups: string[][] }> {
-  const module = await load(specifier).catch(() => ({}) as Record<string, unknown>)
-
-  const drawable = (value: unknown) =>
-    icons.render !== "export"
-      ? value !== undefined && typeof value !== "function"
-      : typeof value === "function" || (typeof value === "object" && value !== null && "$$typeof" in value)
+  const module = await load(specifier).catch((): LiveObject => ({}))
 
   // Each icon once, by the name the guest lists it under, as core's one grouping gives both. Labelled as the panel
   // labels them, without a style or size for sets that write those in.
-  const kept = iconAliases(module, icons, drawable)
+  const kept = iconAliases(module, icons, (value) =>
+    icons.render === "export" ? isComponent(value) : value !== undefined && !isFunction(value)
+  )
 
   const read = icons.variants?.pattern
     ? iconVariants(
@@ -943,23 +1016,18 @@ async function exportedIcons(
 /** Draws an icon with the project's own React, to tell a set's styles apart; nothing draws where React can't load. */
 async function iconDrawer(load: Load): Promise<DrawIcon> {
   try {
-    const React = await load("react")
-    const server = await load("react-dom/server")
+    const createElement = exported(await load("react"), "createElement")
+    const renderToStaticMarkup = exported(await load("react-dom/server"), "renderToStaticMarkup")
 
-    const createElement = (React.createElement ?? (React.default as Record<string, unknown>)?.createElement) as (
-      type: unknown
-    ) => unknown
-
-    const renderToStaticMarkup = (server.renderToStaticMarkup ??
-      (server.default as Record<string, unknown>)?.renderToStaticMarkup) as (element: unknown) => string
-
-    if (typeof createElement !== "function" || typeof renderToStaticMarkup !== "function") {
+    if (!isFunction(createElement) || !isFunction(renderToStaticMarkup)) {
       return () => undefined
     }
 
     return (component) => {
       try {
-        return renderToStaticMarkup(createElement(component))
+        const markup = renderToStaticMarkup(createElement(component))
+
+        return isText(markup) ? markup : undefined
       } catch {
         return undefined
       }
@@ -998,7 +1066,8 @@ export function loader(root: string, packageDir: string): Load {
       }
 
       try {
-        return (await import(pathToFileURL(path).href)) as Record<string, unknown>
+        // A module's namespace is an object of its exports.
+        return await import(pathToFileURL(path).href)
       } catch (error) {
         // A `module` entry Node can't run, as Recharts' `es6` build imports its files without extensions, loads
         // through `main` instead, as bundlers fall back to it.
@@ -1006,7 +1075,7 @@ export function loader(root: string, packageDir: string): Load {
           throw error
         }
 
-        return (await import(pathToFileURL(cjs).href)) as Record<string, unknown>
+        return await import(pathToFileURL(cjs).href)
       }
     }
 
