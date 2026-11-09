@@ -108,6 +108,13 @@ The end-to-end suite reads back what the app recorded and checks the main workfl
   full, and every line of it carries that `testRun`, which the suite checks. The editor window doesn't start Session
   Replay. The `parity` command it runs does the same, with the same tags, and writes its log and outbox inside the
   copy's profile.
+- **A CI run's spans and logs are kept as an artifact of its run** (PAR-785), named `telemetry-github-<run>-<attempt>`
+  after its `test_run` and kept for 7 days, whether the tests passed or not. Before the suite removes the copy's
+  profile, `e2e/launch.ts` copies the app's `logs/`, the `parity` commands' `cli-logs/` and the app's output, `app.log`,
+  to the folder `PARITY_E2E_TELEMETRY` names, which `app.yml` uploads. Download it from the run's summary page or with
+  `gh run download <run> -n telemetry-github-<run>-<attempt>`, and read it with
+  `PARITY_USER_DATA=<folder> parity logs --session all`, which takes the same filters as the app's own copy. The CLI's
+  files are JSON lines too, read directly.
 
 ## Agents and the CLI
 
