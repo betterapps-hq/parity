@@ -8,16 +8,16 @@ import { type Design, project, type StartProject } from "../start/data.ts"
 
 export const kestrel: Organization = { id: "kestrel", name: "Kestrel", members: 8, hue: 200 }
 
-const renamed: Record<string, { name: string; brand: string; first?: string; edited?: string }> = {
+const renamed = new Map<string, { name: string; brand: string; first?: string; edited?: string }>([
   // Its landing page carries the start page's own tagline, so it opens on Pricing.
-  website: { name: "Kestrel website", brand: "Kestrel", first: "Pricing" },
-  dashboard: { name: "Cloud console", brand: "Kestrel Cloud" },
-  docs: { name: "Help center", brand: "Kestrel Help" },
+  ["website", { name: "Kestrel website", brand: "Kestrel", first: "Pricing" }],
+  ["dashboard", { name: "Cloud console", brand: "Kestrel Cloud" }],
+  ["docs", { name: "Help center", brand: "Kestrel Help" }],
   // Lena published 2.4 yesterday, which was its last edit.
-  library: { name: "Kestrel UI", brand: "Kestrel UI", edited: "Yesterday" },
-  spawnkit: { name: "Ember Caves", brand: "Ember Caves" },
-  copilot: { name: "Relay", brand: "Relay" }
-}
+  ["library", { name: "Kestrel UI", brand: "Kestrel UI", edited: "Yesterday" }],
+  ["spawnkit", { name: "Ember Caves", brand: "Ember Caves" }],
+  ["copilot", { name: "Relay", brand: "Relay" }]
+])
 
 /**
  * A start page project as the portal names it. Nothing is "open in a tab" on the web, and who's in it comes from
@@ -26,7 +26,7 @@ const renamed: Record<string, { name: string; brand: string; first?: string; edi
 export function portalProject(id: string): StartProject {
   const here = workingNow.find((where) => where.project === id && !where.away)
   const shown = { ...project(id), open: false, live: here && { who: here.who, doing: here.doing } }
-  const names = renamed[id]
+  const names = renamed.get(id)
 
   if (!names) {
     return shown
@@ -84,21 +84,21 @@ export const teams = {
  */
 export type Handoff = "In review" | "Ready to build" | "Building" | "Changed since approval" | "Built" | "Code differs"
 
-export const handoff: Record<string, Handoff> = {
-  "dashboard/Billing": "In review",
-  "dashboard/Overview": "In review",
-  "dashboard/Sign in": "In review",
-  "website/Pricing": "Changed since approval",
-  "website/Home": "Built",
-  "spawnkit/Level select": "Building",
-  "spawnkit/In game": "Code differs",
-  "docs/Docs home": "In review",
-  "copilot/Inbox": "Ready to build",
-  "library/Components": "Built"
-}
+export const handoff = new Map<string, Handoff>([
+  ["dashboard/Billing", "In review"],
+  ["dashboard/Overview", "In review"],
+  ["dashboard/Sign in", "In review"],
+  ["website/Pricing", "Changed since approval"],
+  ["website/Home", "Built"],
+  ["spawnkit/Level select", "Building"],
+  ["spawnkit/In game", "Code differs"],
+  ["docs/Docs home", "In review"],
+  ["copilot/Inbox", "Ready to build"],
+  ["library/Components", "Built"]
+])
 
 /** How many boards are ready to build, as the nav and the week's numbers count them. */
-export const readyToBuild = Object.values(handoff).filter((status) => status === "Ready to build").length
+export const readyToBuild = [...handoff.values()].filter((status) => status === "Ready to build").length
 
 /** Where someone is right now: the project and design, and what they're doing there. */
 export interface Whereabouts {
@@ -142,15 +142,15 @@ export interface PortalEvent extends Activity {
 const { maya, jonas, priya, sam, lena, claude, cursor } = people
 
 /** Who owns each project: who it belongs to in Kestrel, and who gets requests for access to it. */
-export const owners: Record<string, Person> = {
-  website: maya,
-  dashboard: sam,
-  docs: priya,
-  library: lena,
-  spawnkit: jonas,
-  copilot: sam,
-  standup: priya
-}
+export const owners = new Map<string, Person>([
+  ["website", maya],
+  ["dashboard", sam],
+  ["docs", priya],
+  ["library", lena],
+  ["spawnkit", jonas],
+  ["copilot", sam],
+  ["standup", priya]
+])
 
 /** What changed on Pricing since v12, the version you approved and are building. */
 export const pricingSince =

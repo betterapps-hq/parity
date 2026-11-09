@@ -159,7 +159,7 @@ export function CanvasDrop() {
     }
 
     const onDragLeave = (event: DragEvent) => {
-      if (!area.contains(event.relatedTarget as Node | null)) {
+      if (!(event.relatedTarget instanceof Node && area.contains(event.relatedTarget))) {
         show(undefined)
       }
     }

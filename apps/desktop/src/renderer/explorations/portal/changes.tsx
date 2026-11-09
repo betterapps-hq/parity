@@ -796,12 +796,12 @@ export function ChangesPage({ comparison }: { comparison: Comparison }) {
     : comparison.changes.filter((change) => change.at > from && change.at <= to)
 
   const marksOn = (board: string): Mark[] =>
-    shown.flatMap((change) =>
+    shown.flatMap((change): Mark[] =>
       change.board === board
-        ? [{ change, areas: change.areas, was: change.was } as Mark]
-        : (change.elsewhere ?? [])
-            .filter((place) => place.board === board)
-            .map((place): Mark => ({ change, areas: place.areas, was: place.was }))
+        ? [{ change, areas: change.areas, was: change.was }]
+        : (change.elsewhere ?? []).flatMap((place) =>
+            place.board === board ? [{ change, areas: place.areas, was: place.was }] : []
+          )
     )
 
   const versionsShown = new Set(shown.map((change) => change.at)).size > 1

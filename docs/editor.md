@@ -219,10 +219,10 @@ background), `hoverTarget`, `boardClick`, `touchedBy` and `boxSelection` (a box)
 finds what's under the pointer and hands it over (`underPoint`, and `selectedIn` for the selected layer and the layer it
 sits in). `canvas/CanvasOverlay.tsx` handles the pointer ahead of tldraw and outlines the hover in its frame;
 `canvas/select-box.ts` (`pressBackground`) follows a press on a frame's background; `canvas/layer-drag.ts`
-(`pressLayers`) drags as before. `canvas/CanvasEditor.tsx` (`ShapeIndicators`) leaves out the board's hover outline
-while a layer is hovered. Enter is `selectChildren` in `chrome/commands.ts`, with `childLayers` in `canvas/layers.ts`,
-and the keymap calls it "Select the layers inside, or edit text". A hover carries its frame's mode and state
-(`selection.ts`), and `elementBox` in `frame.ts` leaves out clipped elements.
+(`pressLayers`) drags as before. `canvas/CanvasEditor.tsx` (`HoverOutlines`) leaves out the board's hover outline while
+a layer is hovered. Enter is `selectChildren` in `chrome/commands.ts`, with `childLayers` in `canvas/layers.ts`, and the
+keymap calls it "Select the layers inside, or edit text". A hover carries its frame's mode and state (`selection.ts`),
+and `elementBox` in `frame.ts` leaves out clipped elements.
 
 Tests:
 
@@ -1367,9 +1367,9 @@ the text cursor. Escape cancels each of these drags.
 Code: `apps/desktop/src/renderer/canvas/gesture.ts`: `followPress` follows a press, `gestures` holds each gesture's
 policy, `dragThreshold` (from `@parity-app/editor`'s `move-resize.ts`) is the 4 pixels, `holdCursor` the layer, and
 `onGestureEnd` hears how a gesture ends, as the right-click menu does too. The gestures are `canvas/CanvasOverlay.tsx`
-(`startResize`), `canvas/layer-drag.ts` (`pressLayers` and `followAbsolute`), `canvas/ContainerShapeUtil.tsx`
-(`dragByTitle`, which gives the title the cursor too, since it has the pointer captured) and `canvas/select-box.ts`
-(`pressBackground`). The text tool's rule is in `apps/desktop/src/renderer/styles.css`.
+(`startResize`), `canvas/layer-drag.ts` (`pressLayers` and `followAbsolute`), `canvas/ContainerUtil.tsx` (`dragByTitle`,
+which gives the title the cursor too, since it has the pointer captured) and `canvas/select-box.ts` (`pressBackground`).
+The text tool's rule is in `apps/desktop/src/renderer/styles.css`.
 
 Tests:
 
@@ -1420,7 +1420,7 @@ Mac) moves freely, and so does turning snapping off under View; designs dragged 
 Code: `snapBox` in `packages/editor/src/snap.ts` takes the boxes and the zoom and returns where the design goes and the
 guides to draw, and `snaps` says whether a drag snaps, from the preference and Ctrl, for designs and layers alike;
 `apps/desktop/src/renderer/canvas/snap.ts` (`snapPosition`) reads the shapes' boxes from tldraw and draws the guides as
-tldraw's snap indicators, and `canvas/ContainerShapeUtil.tsx` calls it while a design is dragged.
+tldraw's snap indicators, and `canvas/ContainerUtil.tsx` calls it while a design is dragged.
 
 Tests: `packages/editor/src/snap.test.ts` (9): a left locking within 8 pixels and not past them, the distance counted on
 screen at half and double zoom, centres and ends lining up, each axis on its own, the nearest line though a farther one
@@ -1522,7 +1522,7 @@ Code: `freeSpotBeside`, `pastedPlacement` and `panToShow` in `packages/editor/sr
 with `takenBounds`, `bringIntoView` and `bringIntoViewOnceSized` in `apps/desktop/src/renderer/canvas/free-space.ts`,
 which read the canvas's shapes and move its camera, used by `chrome/designs.ts` (`duplicateDesign`) and
 `canvas/clipboard.ts` (`pasteDesigns`). A board says when it has its size (`setBoardSized`, from
-`canvas/ContainerShapeUtil.tsx`'s resize observer).
+`canvas/ContainerUtil.tsx`'s resize observer).
 
 Tests: `packages/editor/src/placement.test.ts`: the original alone, the example's Dashboard with Projects 176px to its
 right, a run of designs and gaps too narrow for the copy, a gap wide enough, designs well above or below the row, and
@@ -1607,7 +1607,7 @@ Code: the rules are in `packages/editor/src/locking.ts` (`lockSource`, `unlocked
 `setDesignLocked`), and `locked` is in core's schema (`document.ts`). The canvas leaves locked layers out of what's
 under the pointer in `canvas/hit.ts` (`underPoint`), out of a box in `canvas/select-box.ts`, and handles off them in
 `CanvasOverlay.tsx`; a locked design's board is a locked tldraw shape (`CanvasEditor.tsx`), and its title doesn't drag
-it (`ContainerShapeUtil.tsx`). The command is `toggleLockedSelection` in `chrome/arrange.ts`, the row's lock is in
+it (`ContainerUtil.tsx`). The command is `toggleLockedSelection` in `chrome/arrange.ts`, the row's lock is in
 `chrome/LayerTree.tsx`, and the menus are `canvas-menu.ts` and `layers-menu.ts`.
 
 Tests:
@@ -2686,17 +2686,25 @@ and the canvas menu. Its own glyph could be a kind's icon, such as Type or AppWi
 such as X or Plus; its name says which icon it is. A library's other components keep the Box. Search actions is drawn
 outside the project's tab, so it hands `NodeIcon` the project's libraries; everywhere else they come from the tab.
 
-Code: `SelectionHeading` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by `DesignPanel.tsx` and both
-headers in `LayerPanel.tsx`; `layerKind` and `isIconLayer` in `chrome/layer-kind.ts`; `NodeIcon` and `nodeColor` in
-`canvas/kinds.tsx`.
+An unnamed icon layer is called by its icon, without its set's path or a trailing "Icon" (PAR-796): Plus for
+`lucide/Plus`, Cog for `heroicons/16/solid/CogIcon`, where it used to show the component's id. That's its name in
+Layers, the inspector, Search actions, the canvas chip, Select layer, and the Code, States and multi-selection panels,
+and the name of a component made from it. A layer named by hand keeps its name, and a library's other components keep
+their ids. `layerLabel` takes the project's libraries for this, since which libraries are icon sets is the project's.
 
-Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (7: text whatever its tag; layouts by direction and grids;
+Code: `SelectionHeading` in `apps/desktop/src/renderer/chrome/SelectionHeading.tsx`, used by `DesignPanel.tsx` and both
+headers in `LayerPanel.tsx`; `layerKind`, `isIconLayer`, `iconName` and `unnamedIconLabel` in `chrome/layer-kind.ts`;
+`NodeIcon`, `nodeColor` and `layerLabel` in `canvas/kinds.tsx`; Select layer's labels in `chrome/canvas-menu.ts`.
+
+Tests: `apps/desktop/src/renderer/chrome/layer-kind.test.ts` (9: text whatever its tag; layouts by direction and grids;
 a slot; an instance's component only in full; a library's components and icons named by the library; icon sets told from
-other libraries and the project's own components; a library matched by its whole id), and
-`apps/desktop/src/renderer/canvas/kinds.test.ts` (4: a text layer is green apart from its layout; its chip and its text
-on a panel take their own steps; an icon layer is Smile in a project's tab, beside a component's Box; and outside a tab
-when it's given the libraries). The header itself is checked in the Inspector stories (Layer/Kinds, Layer/Instances:
-Layer Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
+other libraries and the project's own components; a library matched by its whole id; an icon's name without its path or
+"Icon"; only an unnamed icon layer named by its icon), `apps/desktop/src/renderer/canvas/kinds.test.ts` (6: a text layer
+is green apart from its layout; its chip and its text on a panel take their own steps; an icon layer is Smile in a
+project's tab, beside a component's Box; and outside a tab when it's given the libraries; an unnamed icon's label is its
+icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select layer names an
+unnamed icon by its icon). The header itself is checked in the Inspector stories (Layer/Kinds, Layer/Instances: Layer
+Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
 
 ## Component props
 
@@ -3167,10 +3175,10 @@ field. Time plays no part, so a slow drag with long pauses is still one step, an
 Code: `packages/editor/src/history.ts` (`recordChange` with the `gesture` option, `endGesture`, and `checkpoint` and
 `revertTo` by gesture) and `apps/desktop/src/renderer/design-store.ts` (`beginGesture`, `endGesture`). The canvas's
 drags and runs begin and end theirs through `canvas/gesture.ts`: `followPress` for resize handles
-(`canvas/CanvasOverlay.tsx`), layer drags (`canvas/layer-drag.ts`) and title drags (`canvas/ContainerShapeUtil.tsx`),
-and `GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`) and `chrome/fields.tsx` (`NumberField`'s runs and
-scrubs), whose gesture reaches the store through `StyleSections.tsx`'s `fieldEdits`, `style-editor.ts`, `LayerPanel.tsx`
-and `PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
+(`canvas/CanvasOverlay.tsx`), layer drags (`canvas/layer-drag.ts`) and title drags (`canvas/ContainerUtil.tsx`), and
+`GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`) and `chrome/fields.tsx` (`NumberField`'s runs and scrubs),
+whose gesture reaches the store through `StyleSections.tsx`'s `fieldEdits`, `style-editor.ts`, `LayerPanel.tsx` and
+`PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
 
 Tests:
 
@@ -3719,8 +3727,8 @@ back in, a sleeping frame keeps showing its bitmap until it wakes, then draws it
 Code: `useAwake` in `apps/desktop/src/renderer/canvas/frame-sleep.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which
 decides from its bitmap and passes `asleep` to `ModeView.tsx`, which unmounts the guest and holds the frame's height,
 and shows the placeholder, with the `.frame-placeholder` rule in `styles.css`; the board's `near` and `dormant` signals
-in `canvas/ContainerShapeUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`; the `[data-asleep]` rules in
-`styles.css`; `capture` in `canvas/frame-bitmaps.ts`, which drops a failed capture.
+in `canvas/ContainerUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`; the `[data-asleep]` rules in `styles.css`;
+`capture` in `canvas/frame-bitmaps.ts`, which drops a failed capture.
 
 Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
 by at least the elements the awake frames held, and no frame changes size (its board grows on the canvas, as its gutter
@@ -3768,7 +3776,7 @@ drawn), the 4 frames near the view had woken by 468 ms, and no board changed siz
 
 Code: `isTabHidden` and the `shown` prop of `CanvasEditor` in `apps/desktop/src/renderer/canvas/CanvasEditor.tsx`, which
 `ProjectView.tsx` passes the tab's being active; `boardDormant` and `hiddenSleepMs` in `canvas/frame-sleep.ts`, which
-the board's `dormant` signal in `canvas/ContainerShapeUtil.tsx` goes by; the height kept in `ModeView.tsx`'s teardown.
+the board's `dormant` signal in `canvas/ContainerUtil.tsx` goes by; the height kept in `ModeView.tsx`'s teardown.
 `pnpm perf` visits every board at 100% before hiding the tab, and reports `back shown ms` (every frame showing its
 design or its bitmap), `back woken ms` and `frames awake`; `PARITY_PERF_UI_PORT` and `PARITY_PERF_DEBUG_PORT` let a
 second run go alongside another.
@@ -4240,7 +4248,7 @@ Code: `labelLook` in `packages/editor/src/canvas-labels.ts`, the rule for every 
 `StateLabel` and `FrameCaption` in `canvas/ContainerView.tsx`, which pass each the board's or the frame's width, and a
 state's label the space beside its row (`useLabelSpace`, from `stateLabelSpace` in the package). How far a title runs is
 `titleReach` in the package, applied by `useTitleReach` in `ContainerView.tsx`, with what else is on the page read from
-the canvas in `ContainerShapeUtil.tsx`.
+the canvas in `ContainerUtil.tsx`.
 
 Tests: `packages/editor/src/canvas-labels.test.ts` (14. `labelLook`, 8: every label at screen size up close; names
 shrinking to 60% and showing at any zoom while there's room, including a 3,000-pixel board at 1%; detail fading out by
@@ -4280,7 +4288,7 @@ Frames exploration draws it, rather than thick zoomed in and gone zoomed out.
 
 Code: `boardLayout` (in screen pixels), `boardLayoutAt` and `boardSize` in `packages/core/src/board.ts`; `boardParts`
 and `useGutterStyle` in `apps/desktop/src/renderer/canvas/board-gutter.ts`, which lay each part of a board out for the
-zoom; `ContainerView` in `canvas/ContainerView.tsx`; the shape's size and outline in `canvas/ContainerShapeUtil.tsx`;
+zoom; `ContainerView` in `canvas/ContainerView.tsx`; the shape's size and outline in `canvas/ContainerUtil.tsx`;
 `stateLabelSpace` in `packages/editor/src/canvas-labels.ts`.
 
 Tests: `packages/core/src/board.test.ts` (9: the gutter keeping its screen size from 400% to 40%, and its size on the
@@ -4293,9 +4301,9 @@ clearing what another set, and a board laid out from the parts matching the esti
 `packages/editor/src/zoom-settle.test.ts` (4: settling after 3 frames and 150 ms, starting again when the zoom changes,
 not settling between slow frames that each zoom, nor between a mouse wheel's notches at 60 frames a second). The
 `zoom at 100%` run of `pnpm perf --profile` shows whether boards measure themselves mid-zoom, as
-`getClientRects ← measure /canvas/ContainerShapeUtil.tsx`. Gaps: applying the parts to the DOM, and the shape waiting
-for the zoom to settle, have no automated test. They were checked in Storybook on the example's Pricing board and Sign
-in showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of laying boards out again on each
+`getClientRects ← measure /canvas/ContainerUtil.tsx`. Gaps: applying the parts to the DOM, and the shape waiting for the
+zoom to settle, have no automated test. They were checked in Storybook on the example's Pricing board and Sign in
+showing every state, measured on screen at 400%, 100%, 40%, 25% and 5%. The cost of laying boards out again on each
 frame of a zoom wasn't timed.
 
 ## What the editor itself loads
@@ -4635,7 +4643,7 @@ production build, with other sessions using the machine. What's left of the task
 decisions.md, Boards measure together as the canvas opens.
 
 Code: `measureTogether` in `apps/desktop/src/renderer/canvas/measure-together.ts`, and the board's measure in
-`canvas/ContainerShapeUtil.tsx`.
+`canvas/ContainerUtil.tsx`.
 
 Tests: `apps/desktop/src/renderer/canvas/measure-together.test.ts` (5: every read before any write, the writes as one
 change; only an owner's latest measure; one taken back left out, but not one asked for after it; nothing written for
@@ -4863,9 +4871,10 @@ extracted Linux folders do not download or install updates.
 
 The release workflow embeds the initial Beta identity, including for a first offline launch. The installed tag's public
 release metadata observes promotion to stable. A version-keyed cache preserves confirmed identity offline and refreshes
-after five minutes, so promoting identical artifacts to stable updates their identity. An unconfirmed offline build is
-never guessed from its numeric version or the update preference. Confirmed empty stable feeds mean no update;
-connection, authorization and service failures remain retryable errors.
+after five minutes, so promoting identical artifacts to stable updates their identity. Main asks as it starts, and a
+version saved as stable reports to Sentry as `production` (PAR-779). An unconfirmed offline build is never guessed from
+its numeric version or the update preference. Confirmed empty stable feeds mean no update; connection, authorization and
+service failures remain retryable errors.
 
 `chrome/UpdateToast.stories.tsx` shows the download, restart-ready and Mac fallback designs, unknown-size progress, both
 themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stories.tsx` covers About's update states and

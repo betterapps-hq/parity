@@ -1,6 +1,6 @@
 import type { DesignNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { isIconLayer, layerKind } from "./layer-kind.ts"
+import { iconName, isIconLayer, layerKind, unnamedIconLabel } from "./layer-kind.ts"
 
 const designs = new Map([["plan-card", "Plan card"]])
 const designName = (id: string) => designs.get(id)
@@ -73,5 +73,21 @@ describe("isIconLayer", () => {
 
   it("matches a library by its whole id, so a set named like another isn't taken for it", () => {
     expect(isIconLayer({ type: "component", id: "x", component: "lucide-lab/Burger" }, libraries)).toBe(false)
+  })
+})
+
+describe("an unnamed icon's label", () => {
+  it("is the icon, without its set's path or a trailing Icon", () => {
+    expect(iconName("lucide/Plus")).toBe("Plus")
+    expect(iconName("heroicons/16/solid/CogIcon")).toBe("Cog")
+    expect(iconName("lucide/Icon")).toBe("Icon")
+  })
+
+  it("is given only to an unnamed icon layer, so a named one and a library's other components keep theirs", () => {
+    expect(unnamedIconLabel({ type: "component", id: "p", component: "lucide/Plus" }, libraries)).toBe("Plus")
+    expect(
+      unnamedIconLabel({ type: "component", id: "q", name: "Add", component: "lucide/Plus" }, libraries)
+    ).toBeUndefined()
+    expect(unnamedIconLabel({ type: "component", id: "n", component: "nova/Card" }, libraries)).toBeUndefined()
   })
 })

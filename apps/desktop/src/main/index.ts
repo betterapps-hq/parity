@@ -13,7 +13,8 @@ import {
   offscreenWindows,
   previewSizes,
   type RenderPriority,
-  renderQueue
+  renderQueue,
+  serviceRestarts
 } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
 import { type Span, telemetryFileName } from "@parity-app/telemetry"
@@ -129,12 +130,24 @@ const telemetrySetting = new TelemetrySetting({
 const appManifest = (): JsonValue => JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8"))
 const built = builtRelease(appManifest)
 const installed = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
+const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
+
+/** What GitHub says this version is: a beta, or promoted to everyone, kept between runs. */
+const installedBuild = new InstalledBuild({
+  version: app.getVersion(),
+  packaged: installed,
+  metadata: appManifest,
+  read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
+  save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
+})
 
 // Before any scheme is registered or the service forked, so windows and the service can send through it (PAR-620).
 const telemetryStart = startTelemetry(process.env, {
   sending: telemetrySetting.get(),
   installed,
   published: installed && built.published,
+  // As last saved: a version promoted while it runs reports `production` from its next start (PAR-779).
+  promoted: installedBuild.known.channel === "stable",
   commit: built.commit ?? environment.PARITY_COMMIT,
   rendererName: (contents) => {
     const window = BrowserWindow.fromWebContents(contents)
@@ -146,6 +159,9 @@ const telemetryStart = startTelemetry(process.env, {
     return isRenderWindow(window) ? "render" : "window"
   }
 })
+
+// Asks GitHub whether this version has been promoted, so the next start's environment follows it.
+void installedBuild.get()
 
 const rendererUrl = environment.PARITY_RENDERER_URL
 
@@ -248,9 +264,17 @@ const appStarted = Date.now()
 /** How many services this copy has started, so a second is reported as a restart. */
 let serviceStarts = 0
 
+/** Whether, and when, a crashed service is started again, backing off when it keeps crashing (PAR-788). */
+const restarts = serviceRestarts()
+
+/** A crashed service's restart waiting out its back-off, which any service that starts first cancels. */
+let pendingRestart: ReturnType<typeof setTimeout> | undefined
+
 /** Builders, file access, agents and other heavy work run here, never in the UI process. */
 function startService(): UtilityProcess {
   serviceStarted(serviceStarts++ > 0)
+  clearTimeout(pendingRestart)
+  pendingRestart = undefined
   const forked = performance.now()
 
   const child = utilityProcess.fork(serviceEntry, [], {
@@ -322,7 +346,9 @@ function startService(): UtilityProcess {
       service = undefined
     }
 
-    serviceExited({ exitCode: code, ranMs: performance.now() - forked, replaced: retired.has(child), quitting })
+    const ranMs = performance.now() - forked
+    const restartInMs = restarts.exited({ exitCode: code, ranMs, expected: retired.has(child) || quitting })
+    serviceExited({ exitCode: code, ranMs, replaced: retired.has(child) || restartInMs !== undefined, quitting })
 
     if (code === 0 || retired.has(child)) {
       return
@@ -332,14 +358,34 @@ function startService(): UtilityProcess {
     // so the path it was given is named (PAR-489).
     const missing = existsSync(serviceEntry) ? "" : `, since ${serviceEntry} doesn't exist`
     console.error(`Project service exited with code ${code}${missing}`)
+
+    // A crashed service is started again through the same path a code change takes, so open windows reconnect without
+    // reloading. A service that starts first, such as one a window's load starts, cancels it (PAR-788).
+    if (restartInMs !== undefined) {
+      pendingRestart = setTimeout(() => {
+        pendingRestart = undefined
+
+        if (!quitting) {
+          restartService()
+        }
+      }, restartInMs)
+    }
   })
 
   return child
 }
 
-/** Gives a page its own channel to the service. */
+/**
+ * Gives a page its own channel to the service. With none running, as at launch or after a crash, it starts one the way
+ * a restart does, so every other open window gets a channel to it too (PAR-788).
+ */
 function connectWindow(window: BrowserWindow): void {
-  service ??= startService()
+  if (!service) {
+    restartService(window)
+
+    return
+  }
+
   const { port1, port2 } = new MessageChannelMain()
   service.postMessage({ type: "connect" } satisfies ConnectMessage, [port1])
   window.webContents.postMessage(ipc.port, null, [port2])
@@ -349,7 +395,7 @@ function connectWindow(window: BrowserWindow): void {
  * Replaces the service with a fresh one and reconnects every window to it. Pages reopen their projects and keep their
  * designs and unsaved changes, so changing the service's code doesn't close anything.
  */
-function restartService(): void {
+function restartService(loaded?: BrowserWindow): void {
   const previous = service
 
   if (previous) {
@@ -360,7 +406,7 @@ function restartService(): void {
   previous?.kill()
 
   for (const window of BrowserWindow.getAllWindows()) {
-    if (!isRenderWindow(window) && !window.webContents.isLoading()) {
+    if (!isRenderWindow(window) && (window === loaded || !window.webContents.isLoading())) {
       connectWindow(window)
     }
   }
@@ -751,16 +797,6 @@ ipcMain.handle(
     return account.use(email)
   })
 )
-
-const buildInfoFile = join(app.getPath("userData"), "installed-build.json")
-
-const installedBuild = new InstalledBuild({
-  version: app.getVersion(),
-  packaged: isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER),
-  metadata: appManifest,
-  read: () => JSON.parse(readFileSync(buildInfoFile, "utf8")),
-  save: (value) => writeFileSync(buildInfoFile, JSON.stringify(value))
-})
 
 ipcMain.handle(ipc.buildInfo, (event) => {
   updateOwner(event)

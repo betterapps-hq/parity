@@ -45,20 +45,31 @@ const interactions = [
   "scroll"
 ]
 
-/** The frame an event's path goes through, as its host names it: the design, state and mode it draws. */
-export function frameContext(path: readonly EventTarget[]): (ConsoleContext & { design: string }) | undefined {
+/** A frame as its host names it: the design, state and mode it draws. */
+export type FrameContext = ConsoleContext & { design: string }
+
+/** The frame an event's path goes through, as its host names it. */
+export function frameContext(path: readonly EventTarget[]): FrameContext | undefined {
   for (const target of path) {
+    // SAFETY: an event's path holds elements, the document and the window; only elements have a dataset, and the rest read
+    // as having none.
     const dataset = (target as Partial<HTMLElement>).dataset
 
     if (dataset?.frame === undefined || !dataset.design) {
       continue
     }
 
-    return {
-      design: dataset.design,
-      ...(dataset.state ? { state: dataset.state } : {}),
-      ...(dataset.mode ? { mode: dataset.mode } : {})
+    const context: FrameContext = { design: dataset.design }
+
+    if (dataset.state) {
+      context.state = dataset.state
     }
+
+    if (dataset.mode) {
+      context.mode = dataset.mode
+    }
+
+    return context
   }
 
   return undefined
@@ -87,7 +98,7 @@ export function callSite(stack: string | undefined): { source: string; line: num
 export interface CaptureTarget {
   console: Record<Method, (...args: unknown[]) => void>
   addEventListener(type: string, listener: (event: Event) => void, options: AddEventListenerOptions): void
-  setTimeout(run: () => void, wait: number): unknown
+  setTimeout(run: () => void, wait: number): void
 }
 
 /** Starts saying which frame each message comes from, for the rest of the window's life. */
@@ -99,10 +110,11 @@ export function captureConsole(
     setTimeout: (run, wait) => window.setTimeout(run, wait)
   }
 ): void {
-  let context: (ConsoleContext & { design: string }) | undefined
+  let context: FrameContext | undefined
   let wrapped: Partial<Record<Method, (...args: unknown[]) => void>> | undefined
 
   const unwrap = () => {
+    // SAFETY: `levels` has a key for each method and no others.
     for (const method of Object.keys(levels) as Method[]) {
       const wrapper = wrapped?.[method]
 
@@ -125,6 +137,7 @@ export function captureConsole(
 
     wrapped = {}
 
+    // SAFETY: `levels` maps each method, and only those, to its level.
     for (const [method, level] of Object.entries(levels) as [Method, ConsoleEntry["level"]][]) {
       const original = target.console[method]
       originals[method] = original

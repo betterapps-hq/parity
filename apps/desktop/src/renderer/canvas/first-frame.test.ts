@@ -29,7 +29,8 @@ function watch() {
   return { recorded, visible, firstFrame, frame, waiting: () => next !== undefined }
 }
 
-const element = (name: string) => ({ name }) as unknown as Element
+// SAFETY: the watch only tells elements apart and hands them back to `seen` and `recorded`.
+const element = (name: string): Element => ({ name }) as never
 
 describe("watchFirstFrame", () => {
   it("records the first frame seen, not the first offered, and only once", () => {

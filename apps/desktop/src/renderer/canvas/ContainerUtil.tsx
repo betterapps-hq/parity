@@ -11,9 +11,7 @@ import {
   Rectangle2d,
   type RecordProps,
   react,
-  ShapeUtil,
   T,
-  type TLShape,
   unsafe__withoutCapture,
   useEditor,
   useValue
@@ -30,14 +28,16 @@ import { followPress, gestures } from "./gesture.ts"
 import { measureTogether } from "./measure-together.ts"
 import { clearSnaps, snapPosition } from "./snap.ts"
 import { useTitleLayer } from "./title-layer.tsx"
+import { type CanvasRecord, CanvasUtil } from "./tldraw-names.ts"
 
 declare module "tldraw" {
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- tldraw names the map this augments.
   export interface TLGlobalShapePropsMap {
     "canvas-container": { w: number; h: number; key: string }
   }
 }
 
-export type ContainerShape = TLShape<"canvas-container">
+export type ContainerRecord = CanvasRecord<"canvas-container">
 
 /** While designs are dragged by their titles, the canvas moves them and the drop saves them, all at once. */
 export const designDrag = { active: false }
@@ -46,11 +46,11 @@ export const designDrag = { active: false }
  * A design on the tldraw canvas. tldraw owns placement and the camera; the content is ordinary DOM, sized by the
  * browser, and the shape's bounds follow it.
  */
-export class ContainerShapeUtil extends ShapeUtil<ContainerShape> {
+export class ContainerUtil extends CanvasUtil<ContainerRecord> {
   static override type = "canvas-container" as const
-  static override props: RecordProps<ContainerShape> = { w: T.number, h: T.number, key: T.string }
+  static override props: RecordProps<ContainerRecord> = { w: T.number, h: T.number, key: T.string }
 
-  override getDefaultProps(): ContainerShape["props"] {
+  override getDefaultProps(): ContainerRecord["props"] {
     return { w: 320, h: 200, key: "" }
   }
 
@@ -79,14 +79,14 @@ export class ContainerShapeUtil extends ShapeUtil<ContainerShape> {
     return false
   }
 
-  override getGeometry(shape: ContainerShape) {
-    return new Rectangle2d({ width: shape.props.w, height: shape.props.h, isFilled: true })
+  override getGeometry(container: ContainerRecord) {
+    return new Rectangle2d({ width: container.props.w, height: container.props.h, isFilled: true })
   }
 
-  override component(shape: ContainerShape) {
+  override component(container: ContainerRecord) {
     return (
       <HTMLContainer style={{ pointerEvents: "none", overflow: "visible" }}>
-        <ContainerContent shape={shape} />
+        <ContainerContent container={container} />
       </HTMLContainer>
     )
   }
@@ -95,17 +95,17 @@ export class ContainerShapeUtil extends ShapeUtil<ContainerShape> {
    * The board's outline, round its corners, which follow the zoom as its gutter does. A frame has no board, so its
    * outline is square, as the frame is.
    */
-  override getIndicatorPath(shape: ContainerShape) {
+  override getIndicatorPath(container: ContainerRecord) {
     const path = new Path2D()
-    const radius = frameShapes.has(shape.id) ? 0 : boardLayoutAt(this.editor.getZoomLevel()).radius
-    path.roundRect(0, 0, shape.props.w, shape.props.h, radius)
+    const radius = frameContainers.has(container.id) ? 0 : boardLayoutAt(this.editor.getZoomLevel()).radius
+    path.roundRect(0, 0, container.props.w, container.props.h, radius)
 
     return path
   }
 }
 
 /** The shapes that draw frames, the kind with no board, for their square outlines. */
-const frameShapes = new Set<string>()
+const frameContainers = new Set<string>()
 
 /** Each canvas's boards' measures, run together (see `measureTogether`), their sizes written as one change. */
 const boardMeasures = new WeakMap<Editor, ReturnType<typeof measureTogether>>()
@@ -121,16 +121,16 @@ function boardSizes(editor: Editor): ReturnType<typeof measureTogether> {
   return measures
 }
 
-function ContainerContent({ shape }: { shape: ContainerShape }) {
+function ContainerContent({ container }: { container: ContainerRecord }) {
   const editor = useEditor()
   const session = useProject()
   const { store, selection } = session
-  const entry = useContainerEntry(store, shape.props.key)
+  const entry = useContainerEntry(store, container.props.key)
   const ref = useRef<HTMLDivElement>(null)
-  const hovered = useValue("board hovered", () => editor.getHoveredShapeId() === shape.id, [editor, shape.id])
+  const hovered = useValue("board hovered", () => editor.getHoveredShapeId() === container.id, [editor, container.id])
   // Moving a board doesn't draw it again, but its title, drawn in a layer above every board, has to follow.
-  const x = useValue("board x", () => editor.getShape(shape.id)?.x ?? 0, [editor, shape.id])
-  const y = useValue("board y", () => editor.getShape(shape.id)?.y ?? 0, [editor, shape.id])
+  const x = useValue("board x", () => editor.getShape(container.id)?.x ?? 0, [editor, container.id])
+  const y = useValue("board y", () => editor.getShape(container.id)?.y ?? 0, [editor, container.id])
   const titleLayer = useTitleLayer(editor)
 
   // Everything else on the page, for its title to run up to zoomed out. Read as the zoom is, so the title follows when
@@ -139,11 +139,11 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
     const boxes = computed("board's neighbours", () =>
       editor
         .getCurrentPageShapes()
-        .flatMap((other) => (other.id === shape.id ? [] : (editor.getShapePageBounds(other) ?? [])))
+        .flatMap((other) => (other.id === container.id ? [] : (editor.getShapePageBounds(other) ?? [])))
     )
 
     return () => boxes.get()
-  }, [editor, shape.id])
+  }, [editor, container.id])
 
   const frame = entry?.container.kind === "frame"
   useLayoutEffect(() => {
@@ -151,10 +151,10 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       return undefined
     }
 
-    frameShapes.add(shape.id)
+    frameContainers.add(container.id)
 
-    return () => void frameShapes.delete(shape.id)
-  }, [frame, shape.id])
+    return () => void frameContainers.delete(container.id)
+  }, [frame, container.id])
 
   const [drawn, setDrawn] = useState(false)
 
@@ -168,11 +168,11 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
           hidden: isTabHidden(editor),
           drawn,
           far: isRestingFar(editor),
-          selected: editor.getSelectedShapeIds().includes(shape.id)
+          selected: editor.getSelectedShapeIds().includes(container.id)
         })
       )
     }),
-    [editor, shape.id, drawn]
+    [editor, container.id, drawn]
   )
 
   // Layout sizes are unaffected by the camera's scale, so they can be written straight to the shape. A board that isn't
@@ -193,7 +193,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       read: () =>
         element.getClientRects().length === 0 ? undefined : { w: element.offsetWidth, h: element.offsetHeight },
       write: ({ w, h }: { w: number; h: number }) => {
-        const current = editor.getShape(shape.id)
+        const current = editor.getShape(container.id)
 
         if (current?.type !== "canvas-container") {
           return
@@ -202,10 +202,10 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
         setDrawn(true)
 
         if (Math.abs(current.props.w - w) >= 1 || Math.abs(current.props.h - h) >= 1) {
-          editor.updateShape({ id: shape.id, type: "canvas-container", props: { w, h } })
+          editor.updateShape({ id: container.id, type: "canvas-container", props: { w, h } })
         }
 
-        setBoardSized(editor, shape.id, true)
+        setBoardSized(editor, container.id, true)
       }
     }
 
@@ -233,9 +233,9 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       stop()
       observer.disconnect()
       cancel?.()
-      setBoardSized(editor, shape.id, false)
+      setBoardSized(editor, container.id, false)
     }
-  }, [editor, shape.id])
+  }, [editor, container.id])
 
   // Out of view, with a margin so frames are drawn before they scroll in, a board skips drawing its frames. Only once
   // they've been drawn, so they have a size to keep; and never the selected board, which outlines and panels measure,
@@ -249,10 +249,10 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
     }
 
     const stop = react("board out of view", () => {
-      const bounds = editor.getShapePageBounds(shape.id)
+      const bounds = editor.getShapePageBounds(container.id)
       const viewport = editor.getViewportPageBounds()
       const near = Box.ExpandBy(viewport, Math.max(viewport.w, viewport.h) / 4)
-      const selected = editor.getSelectedShapeIds().includes(shape.id)
+      const selected = editor.getSelectedShapeIds().includes(container.id)
       const away = !!bounds && !Box.Collides(near, bounds) && !selected
 
       if (element.hasAttribute("data-away") !== away) {
@@ -271,16 +271,16 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       element.removeAttribute("data-away")
       element.removeAttribute("data-live")
     }
-  }, [editor, shape.id, drawn, present, rest])
+  }, [editor, container.id, drawn, present, rest])
 
   /**
    * Selects the design and drags it by its title, like a frame's name in Figma, along with every other selected
    * design. Shift adds it to the selection or takes it out. The move is one undo step, saved when the drag ends; Escape
    * puts the designs back where they were and saves nothing (see `gestures.titleDrag`).
    */
-  const dragByTitle = (event: ReactPointerEvent) => {
+  const dragByTitle = (event: ReactPointerEvent<HTMLElement>) => {
     // A locked design's title is left to the canvas, as its board is: it's selected and moved only from Layers.
-    if (session.store.getEntry(shape.props.key)?.container.locked) {
+    if (session.store.getEntry(container.props.key)?.container.locked) {
       return
     }
 
@@ -290,7 +290,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       return
     }
 
-    const key = shape.props.key
+    const key = container.props.key
     const current = selection.get()
 
     const group = selectedDesigns(current).filter(
@@ -310,7 +310,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       selection.set({ design: key })
     }
 
-    const target = event.currentTarget as HTMLElement
+    const target = event.currentTarget
     target.setPointerCapture(event.pointerId)
     const start = editor.screenToPage({ x: event.clientX, y: event.clientY })
 
@@ -322,7 +322,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       })
     )
 
-    const origin = origins.get(key) ?? { x: shape.x, y: shape.y }
+    const origin = origins.get(key) ?? { x: container.x, y: container.y }
     const others = new Set(moving.map(canvasIdFor))
 
     const place = (dx: number, dy: number) =>
@@ -353,7 +353,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
         const free = { x: origin.x + point.x - start.x, y: origin.y + point.y - start.y }
         // It locks to the edges and centers of the designs around it; Ctrl or Cmd moves freely.
         const snapping = snaps(moveEvent, getPreferences().snapping)
-        const next = snapping ? snapPosition(editor, shape.id, free, others) : free
+        const next = snapping ? snapPosition(editor, container.id, free, others) : free
 
         if (!snapping) {
           clearSnaps(editor)
@@ -396,7 +396,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
   if (!entry) {
     return (
       <div ref={ref} className="rounded-xl border bg-card p-5 text-sm text-destructive">
-        Nothing called {shape.props.key} in the project
+        Nothing called {container.props.key} in the project
       </div>
     )
   }
@@ -407,7 +407,7 @@ function ContainerContent({ shape }: { shape: ContainerShape }) {
       entry={entry}
       hovered={hovered}
       onTitlePointerDown={dragByTitle}
-      title={titleLayer && { layer: titleLayer, x, y, width: shape.props.w, height: shape.props.h, others }}
+      title={titleLayer && { layer: titleLayer, x, y, width: container.props.w, height: container.props.h, others }}
       rest={rest}
     />
   )

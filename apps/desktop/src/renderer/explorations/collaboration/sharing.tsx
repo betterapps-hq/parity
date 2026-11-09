@@ -32,7 +32,9 @@ interface RoleInfo {
   detail: string
 }
 
-export type Role = "edit" | "comment" | "view"
+export const roleOrder = ["edit", "comment", "view"] as const
+
+export type Role = (typeof roleOrder)[number]
 
 export const roles: Record<Role, RoleInfo> = {
   edit: { title: "Can edit", detail: "Change designs and their code" },
@@ -40,7 +42,9 @@ export const roles: Record<Role, RoleInfo> = {
   view: { title: "Can view", detail: "Look, and follow along" }
 }
 
-export type AgentRole = "edit" | "propose" | "view"
+export const agentRoleOrder = ["edit", "propose", "view"] as const
+
+export type AgentRole = (typeof agentRoleOrder)[number]
 
 /** Agents get their own roles: one that asks before each change suits an agent better than a person. */
 export const agentRoles: Record<AgentRole, RoleInfo> = {
@@ -53,11 +57,14 @@ export const agentRoles: Record<AgentRole, RoleInfo> = {
 export function RoleMenu<T extends string>({
   value,
   options,
+  order,
   onChange,
   onRemove
 }: {
   value: T
   options: Record<T, RoleInfo>
+  /** The roles in the menu's order. */
+  order: readonly T[]
   onChange?: (value: T) => void
   onRemove?: () => void
 }) {
@@ -72,7 +79,7 @@ export function RoleMenu<T extends string>({
         }
       />
       <DropdownMenuContent align="end" className="w-60">
-        {(Object.keys(options) as T[]).map((key) => (
+        {order.map((key) => (
           <DropdownMenuItem key={key} onClick={() => onChange?.(key)} className="items-start">
             <span className="flex min-w-0 flex-1 flex-col">
               <span>{options[key].title}</span>
@@ -215,7 +222,7 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
             onBlur={add}
             className="h-6 min-w-24 flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
           />
-          <RoleMenu value={inviteRole} options={roles} onChange={setInviteRole} />
+          <RoleMenu value={inviteRole} options={roles} order={roleOrder} onChange={setInviteRole} />
         </div>
         <Button className="h-9" disabled={!chips.length} onClick={invite}>
           Invite
@@ -257,6 +264,7 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
                 <RoleMenu
                   value={member.role}
                   options={roles}
+                  order={roleOrder}
                   onChange={(role) =>
                     setMembers(members.map((other) => (other === member ? { ...other, role } : other)))
                   }
@@ -280,6 +288,7 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
               <RoleMenu
                 value={entry.role}
                 options={agentRoles}
+                order={agentRoleOrder}
                 onChange={(role) => setAgents(agents.map((other) => (other === entry ? { ...other, role } : other)))}
                 onRemove={() => setAgents(agents.filter((other) => other !== entry))}
               />
@@ -317,7 +326,9 @@ export function ShareDialog({ onClose }: { onClose?: () => void }) {
                   : "Only the people above can open it"}
               </span>
             </span>
-            {access === "organization" && <RoleMenu value={accessRole} options={roles} onChange={setAccessRole} />}
+            {access === "organization" && (
+              <RoleMenu value={accessRole} options={roles} order={roleOrder} onChange={setAccessRole} />
+            )}
           </div>
         </section>
         {noPush.length > 0 && (
@@ -482,7 +493,7 @@ export function RequestAccess() {
       {!sent && (
         <>
           <div className="flex w-full rounded-lg bg-muted p-0.5 text-xs">
-            {(Object.keys(roles) as Role[]).map((key) => (
+            {roleOrder.map((key) => (
               <button
                 key={key}
                 type="button"

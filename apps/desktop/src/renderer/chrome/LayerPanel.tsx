@@ -159,7 +159,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
             <NameInput
               key={`${nodeId}:${location.node.name ?? ""}`}
               defaultValue={location.node.name ?? ""}
-              placeholder={layerLabel(location.node, entries, store.getComponentLibrary())}
+              placeholder={layerLabel(location.node, entries, store.getComponentLibrary(), session.info.libraries)}
               aria-label="Layer name"
               className={`h-7 border-transparent bg-transparent px-1.5 shadow-none hover:border-input dark:bg-transparent ${headingName}`}
               onBlur={(event) => {
@@ -293,7 +293,7 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
           color={kindColors.component}
           name={
             <Name className={`px-1.5 ${headingName}`}>
-              {layerLabel(inner.node, entries, store.getComponentLibrary())}
+              {layerLabel(inner.node, entries, store.getComponentLibrary(), session.info.libraries)}
             </Name>
           }
           kind={kind.label}
@@ -397,7 +397,7 @@ function LayerSections({
   const session = useProject()
   const components = useComponents(session.components)
   const entries = useContainerEntries(session.store)
-  const name = layerLabel(node, entries, session.store.getComponentLibrary())
+  const name = layerLabel(node, entries, session.store.getComponentLibrary(), session.info.libraries)
   const styleEditor = useStyleEditor(entry, [nodeId])
   // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
   const propPreview = useChangePreview(session.store, entry.key)

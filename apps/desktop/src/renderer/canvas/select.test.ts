@@ -5,13 +5,21 @@ import { adjacentDesign, designOrder, inverseSelection, matchingLayers, matching
 
 const title: NodeStyle = { size: "lg", weight: 600 }
 
-const text = (id: string, style?: DesignNode["style"], tag?: "p" | "h3"): DesignNode => ({
-  type: "text",
-  id,
-  text: id,
-  ...(style ? { style } : {}),
-  ...(tag ? { tag } : {})
-})
+type TextNode = Extract<DesignNode, { type: "text" }>
+
+function text(id: string, style?: DesignNode["style"], tag?: "p" | "h3"): DesignNode {
+  const node: TextNode = { type: "text", id, text: id }
+
+  if (style) {
+    node.style = style
+  }
+
+  if (tag) {
+    node.tag = tag
+  }
+
+  return node
+}
 
 /** A list of three cards, each a title and a description, with a heading above them. */
 function list(): ContainerSpec {
@@ -50,14 +58,19 @@ function list(): ContainerSpec {
 }
 
 function design(id: string, kind?: "component" | "screen"): ContainerSpec {
-  return {
+  const spec: ContainerSpec = {
     id,
     name: id,
     position: { x: 0, y: 0 },
-    ...(kind ? { kind } : {}),
     root: { type: "layout", id: "root", children: [text("a"), text("b"), text("c")] },
     states: [{ id: "default", name: "Default" }]
   }
+
+  if (kind) {
+    spec.kind = kind
+  }
+
+  return spec
 }
 
 function store(): DesignStore {

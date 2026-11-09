@@ -165,7 +165,9 @@ function selectedTargets(session: ProjectSession): ExportTarget[] {
     ? nodes.flatMap((node) => {
         const layer = findNode(entry.container.root, node)
 
-        return layer ? [{ design: entry.key, node, name: layerLabel(layer, entries, library) }] : []
+        return layer
+          ? [{ design: entry.key, node, name: layerLabel(layer, entries, library, session.info.libraries) }]
+          : []
       })
     : selectedDesigns(selection).flatMap((key) => {
         const design = store.getEntry(key)
@@ -847,7 +849,13 @@ export function makeComponent(session = activeSession()): void {
   }
 
   try {
-    const name = layerLabel(layer.node, session.store.getEntries(), session.store.getComponentLibrary())
+    const name = layerLabel(
+      layer.node,
+      session.store.getEntries(),
+      session.store.getComponentLibrary(),
+      session.info.libraries
+    )
+
     session.selection.set({ design: extractIntoComponent(session, layer.entry, [layer.node.id], name) })
     revealSelection(session)
   } catch (error) {

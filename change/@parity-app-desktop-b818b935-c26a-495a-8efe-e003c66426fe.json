@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Icon layers show the Smile icon wherever a layer's kind shows, instead of the component box",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -157,14 +157,16 @@ export function Landing({ look }: { look: Look }) {
           </div>
           <div className="flex items-center gap-3 pt-2 text-[14px] text-(--r-muted)">
             <span className="flex">
-              {[
-                ["Dana Ortiz", 20],
-                ["Kai Lindqvist", 160],
-                ["Noor Haddad", 250],
-                ["Tom Becker", 80]
-              ].map(([name, hue], index) => (
+              {(
+                [
+                  ["Dana Ortiz", 20],
+                  ["Kai Lindqvist", 160],
+                  ["Noor Haddad", 250],
+                  ["Tom Becker", 80]
+                ] as const
+              ).map(([name, hue], index) => (
                 <span key={name} className={index ? "-ml-2 rounded-full ring-2 ring-(--r-bg)" : "rounded-full"}>
-                  <Face name={name as string} hue={hue as number} size={28} />
+                  <Face name={name} hue={hue} size={28} />
                 </span>
               ))}
             </span>

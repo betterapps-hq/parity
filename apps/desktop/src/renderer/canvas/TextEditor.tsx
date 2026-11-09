@@ -7,6 +7,7 @@ import {
   withEditedText
 } from "@parity-app/editor"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
+import type { Attributes } from "../chrome/event-attributes.ts"
 import { track } from "../report-error.ts"
 import { useProject } from "./context.ts"
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
@@ -42,15 +43,21 @@ export function TextEditor() {
   const [openedAt] = useState(() => performance.now())
 
   /** Records how the edit ended, as `text.edited` (PAR-640). */
-  const record = (outcome: "committed" | "unchanged" | "cancelled", how?: TextEditEnd, length = 0) =>
-    track("text.edited", {
+  const record = (outcome: "committed" | "unchanged" | "cancelled", how?: TextEditEnd, length = 0) => {
+    const edited: Attributes<"text.edited"> = {
       design: editing.design,
       layer: editing.node,
       outcome,
-      ...(how ? { how } : {}),
       durationMs: Math.round(performance.now() - openedAt),
       length
-    })
+    }
+
+    if (how) {
+      edited.how = how
+    }
+
+    track("text.edited", edited)
+  }
 
   // Closed without being committed, as when the layer goes or the editor can't find its text. Checked a tick after it
   // unmounts, since a development build mounts it twice. It's keyed by its layer, so the layer stays the one it opened on.
@@ -223,8 +230,15 @@ function noWrap(style: CSSStyleDeclaration): boolean {
   return style.whiteSpace === "nowrap" || style.whiteSpace === "pre"
 }
 
+/** An element whose text is hidden, the color its text had, and how to show it again. */
+interface HiddenText {
+  element: HTMLElement
+  color: string
+  restore: () => void
+}
+
 /** Hides an element's text, keeping the color it had for the editor to draw in. */
-function hide(element: HTMLElement): { element: HTMLElement; color: string; restore: () => void } {
+function hide(element: HTMLElement): HiddenText {
   const color = getComputedStyle(element).color
   const previous = element.style.color
   element.style.color = "transparent"
@@ -270,16 +284,21 @@ function editorLayout(element: HTMLElement, area: DOMRect, grows: boolean, color
     fontFeatureSettings: computed.fontFeatureSettings,
     fontVariantLigatures: computed.fontVariantLigatures,
     fontVariationSettings: computed.fontVariationSettings,
+    // SAFETY: the browser computes only valid values for this property.
     fontKerning: computed.fontKerning as CSSProperties["fontKerning"],
     lineHeight: scaled(computed.lineHeight),
     letterSpacing: scaled(computed.letterSpacing),
     color,
     caretColor: color,
+    // SAFETY: the browser computes only valid values for this property.
     textAlign: computed.textAlign as CSSProperties["textAlign"],
+    // SAFETY: the browser computes only valid values for this property.
     textTransform: computed.textTransform as CSSProperties["textTransform"],
     textDecorationLine: computed.textDecorationLine,
     whiteSpace: noWrap(computed) ? "pre" : "pre-wrap",
+    // SAFETY: the browser computes only valid values for this property.
     overflowWrap: computed.overflowWrap as CSSProperties["overflowWrap"],
+    // SAFETY: the browser computes only valid values for this property.
     wordBreak: computed.wordBreak as CSSProperties["wordBreak"]
   }
 

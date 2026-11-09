@@ -1,5 +1,7 @@
 import { snapBox } from "@parity-app/editor"
-import type { Box, Editor, TLShapeId } from "tldraw"
+import type { Box, Editor } from "tldraw"
+import type { Point } from "./hit.ts"
+import type { CanvasId } from "./tldraw-names.ts"
 
 /**
  * Snaps a shape being dragged to the shapes around it, Figma style, by `@parity-app/editor`'s `snapBox`, and shows
@@ -8,15 +10,15 @@ import type { Box, Editor, TLShapeId } from "tldraw"
  */
 export function snapPosition(
   editor: Editor,
-  id: TLShapeId,
-  position: { x: number; y: number },
+  id: CanvasId,
+  position: Point,
   /** Shapes moving along with it, which it doesn't snap to. */
-  moving: ReadonlySet<TLShapeId> = new Set()
-): { x: number; y: number } {
-  const shape = editor.getShape(id)
+  moving: ReadonlySet<CanvasId> = new Set()
+): Point {
+  const dragged = editor.getShape(id)
   const own = editor.getShapePageBounds(id)
 
-  if (!shape || !own) {
+  if (!dragged || !own) {
     return position
   }
 

@@ -16,9 +16,9 @@ export interface Measure<T> {
 export function measureTogether(
   around: (writes: () => void) => void = (writes) => writes(),
   schedule: (flush: () => void) => void = queueMicrotask
-): <T>(owner: object, measure: Measure<T>) => () => void {
+): <T>(owner: WeakKey, measure: Measure<T>) => () => void {
   // Each measure as its read, which gives back its write.
-  const pending = new Map<object, () => (() => void) | undefined>()
+  const pending = new Map<WeakKey, () => (() => void) | undefined>()
 
   const flush = () => {
     const reads = [...pending.values()]

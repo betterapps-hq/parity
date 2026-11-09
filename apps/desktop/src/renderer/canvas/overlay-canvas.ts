@@ -4,6 +4,12 @@ export interface Sized {
   height: number
 }
 
+/** A canvas sized only while something shows on it: `release` takes its bitmap away, `restore` gives it back to tldraw. */
+export interface ShownCanvas {
+  release(): void
+  restore(): void
+}
+
 /**
  * Gives a canvas a bitmap only while `showing` says something's drawn on it. It's for tldraw's overlay canvas, which
  * draws the selection box, hover outlines, the brush and snap lines, and which tldraw keeps the window's size in device
@@ -13,7 +19,7 @@ export interface Sized {
  * nothing shows. `release` takes the bitmap away once the last overlay goes; the next draw with one showing gives it
  * back. `restore` leaves the canvas to tldraw again.
  */
-export function sizeWhileShown(canvas: Sized, showing: () => boolean): { release(): void; restore(): void } {
+export function sizeWhileShown(canvas: Sized, showing: () => boolean): ShownCanvas {
   const dimensions = (["width", "height"] as const).map((name) => {
     const own = accessor(canvas, name)
     Object.defineProperty(canvas, name, {
@@ -40,7 +46,7 @@ export function sizeWhileShown(canvas: Sized, showing: () => boolean): { release
     },
     restore() {
       for (const { name } of dimensions) {
-        delete (canvas as Partial<Sized>)[name]
+        Reflect.deleteProperty(canvas, name)
       }
     }
   }
@@ -67,16 +73,16 @@ function accessor(canvas: Sized, name: keyof Sized): Accessor {
   ) {
     const descriptor = Object.getOwnPropertyDescriptor(prototype, name)
 
-    if (!descriptor || !("get" in descriptor) || !("set" in descriptor)) {
+    if (!descriptor?.get || !descriptor.set) {
       continue
     }
 
-    const from = prototype
+    const own = descriptor
 
     return {
-      get: () => Reflect.get(from, name, canvas) as number,
+      get: () => own.get!.call(canvas),
       set: (value) => {
-        Reflect.set(from, name, value, canvas)
+        own.set!.call(canvas, value)
       }
     }
   }

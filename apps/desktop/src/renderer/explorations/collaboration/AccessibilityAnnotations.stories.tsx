@@ -64,11 +64,17 @@ export const Kinds: Story = {
   )
 }
 
-const order: Record<string, number> = { email: 1, role: 2, cancel: 3, send: 4, close: 5 }
+const order = new Map([
+  ["email", 1],
+  ["role", 2],
+  ["cancel", 3],
+  ["send", 4],
+  ["close", 5]
+])
 
 const focusOrder: Marker = (id, element) => {
-  if (id in order) {
-    return <FocusStop n={order[id]!}>{element}</FocusStop>
+  if (order.has(id)) {
+    return <FocusStop n={order.get(id)!}>{element}</FocusStop>
   }
 
   if (id === "dialog") {
@@ -257,12 +263,15 @@ export const NamesAndAnnouncements: Story = {
   )
 }
 
-const rendered: Record<string, number> = { cancel: 4, send: 3 }
+const rendered = new Map([
+  ["cancel", 4],
+  ["send", 3]
+])
 
 const checked: Marker = (id, element) => {
-  if (id in order) {
+  if (order.has(id)) {
     const stop = (
-      <FocusStop n={order[id]!} rendered={rendered[id]}>
+      <FocusStop n={order.get(id)!} rendered={rendered.get(id)}>
         {element}
       </FocusStop>
     )

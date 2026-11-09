@@ -71,7 +71,7 @@ export function SearchPage() {
               {designs.map((hit) => {
                 const shown = portalProject(hit.project)
                 const design = designOf(shown, hit.design)
-                const status = handoff[`${hit.project}/${hit.design}`]
+                const status = handoff.get(`${hit.project}/${hit.design}`)
 
                 return (
                   <div

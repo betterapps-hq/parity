@@ -280,7 +280,7 @@ export const sampleRecent = [
   "D:\\apps\\notebook"
 ]
 
-export const sampleNotes: Record<string, ProjectNote> = {
+export const sampleNotes = {
   "D:\\apps\\kestrel-website": { opened: minutes(12) },
   "D:\\apps\\cloud-console": { opened: minutes(180), starred: true },
   "D:\\apps\\walkies": { opened: minutes(60 * 22) },
@@ -292,7 +292,7 @@ export const sampleNotes: Record<string, ProjectNote> = {
   "D:\\apps\\team-chat": { opened: days(400) },
   "D:\\apps\\notebook": { opened: days(420) },
   "D:\\archive\\old-portal": { opened: days(500), starred: true }
-}
+} satisfies Record<string, ProjectNote>
 
 const desktop = (src: string, width = 1280): PictureFrame => ({ src, mode: "Desktop Light", width, height: 800 })
 const mobile = (src: string): PictureFrame => ({ src, mode: "Mobile Light", width: 390, height: 844 })
@@ -306,7 +306,7 @@ const pricing = { name: "Pricing", main: desktop(pricingDesktop), phone: mobile(
 const picture = (...screens: PictureScreen[]): ProjectPicture => ({ taken: minutes(12), screens })
 
 /** The example project's screens, as each project's picture keeps them; the rest show the placeholder. */
-export const samplePictures: Record<string, ProjectPicture> = {
+export const samplePictures = {
   "D:\\apps\\kestrel-website": picture(teamMembers, dashboard, signIn, settings, pricing),
   "D:\\apps\\cloud-console": picture(dashboard, settings, pricing),
   "D:\\apps\\walkies": picture(signIn, settings),
@@ -316,4 +316,4 @@ export const samplePictures: Record<string, ProjectPicture> = {
   "D:\\apps\\market-square": picture(pricing, signIn),
   "D:\\apps\\team-chat": picture({ name: "Sign in", main: signIn.phone }),
   "D:\\apps\\notebook": picture(teamMembers)
-}
+} satisfies Record<string, ProjectPicture>

@@ -23,11 +23,13 @@ import {
   projectById,
   type ProjectId,
   projects,
+  type Stored,
   stored,
+  type StoredStyle,
+  type StoredValue,
   tailwindCode,
   type TextLayer,
   typeAt,
-  type TypeField,
   viewports,
   type ViewportId
 } from "./presets.ts"
@@ -117,7 +119,17 @@ function ProjectPicker({ value, onChange }: { value: ProjectId; onChange: (value
       <span id={id} className="text-xs text-muted-foreground">
         Project
       </span>
-      <Select items={items} value={value} onValueChange={(next) => next && onChange(next as ProjectId)}>
+      <Select
+        items={items}
+        value={value}
+        onValueChange={(next) => {
+          const project = projects.find((entry) => entry.id === next)
+
+          if (project) {
+            onChange(project.id)
+          }
+        }}
+      >
         <SelectTrigger size="sm" aria-labelledby={id} className="h-7 w-64 text-xs">
           <SelectValue />
         </SelectTrigger>
@@ -147,7 +159,13 @@ function ViewportPicker({ value, onChange }: { value: ViewportId; onChange: (val
         size="sm"
         spacing={0}
         value={[value]}
-        onValueChange={([next]) => next && onChange(next as ViewportId)}
+        onValueChange={([next]) => {
+          const viewport = viewports.find((entry) => entry.id === next)
+
+          if (viewport) {
+            onChange(viewport.id)
+          }
+        }}
       >
         {viewports.map((viewport) => (
           <ToggleGroupItem key={viewport.id} value={viewport.id} className="h-7 px-2 text-xs">
@@ -240,9 +258,12 @@ function TextLayerPreview({
   )
 }
 
+/** The adapters whose code the output shows: Tailwind's, or the project's own library's. */
+const adapters = ["tailwind", "library"] as const
+
 /** What the layer stores, the same in every project, and the code an adapter writes from it. */
 function Output({ project, layer }: { project: PresetProject; layer: TextLayer }) {
-  const [adapter, setAdapter] = useState<"tailwind" | "library">("tailwind")
+  const [adapter, setAdapter] = useState<(typeof adapters)[number]>("tailwind")
   const overridden = overrideFields(project, layer)
   const code = adapter === "library" && project.library ? libraryCode(project, layer) : tailwindCode(project, layer)
 
@@ -265,7 +286,13 @@ function Output({ project, layer }: { project: PresetProject; layer: TextLayer }
                 size="sm"
                 spacing={0}
                 value={[adapter]}
-                onValueChange={([next]) => next && setAdapter(next as typeof adapter)}
+                onValueChange={([next]) => {
+                  const chosen = adapters.find((entry) => entry === next)
+
+                  if (chosen) {
+                    setAdapter(chosen)
+                  }
+                }}
               >
                 <ToggleGroupItem value="tailwind" className="h-6 px-2 text-[11px]">
                   Tailwind
@@ -296,36 +323,44 @@ function Lines({ lines }: { lines: CodeLine[] }) {
 }
 
 /** The stored value as JSON, one line per value, with each override marked. */
-function storedLines(value: Record<string, unknown>, overridden: ReadonlySet<TypeField>): CodeLine[] {
-  const lines: CodeLine[] = []
+function storedLines(value: Stored, overridden: ReadonlySet<string>): CodeLine[] {
+  // Each value on one line, spaced as JSON is read: `{ "value": 20, "unit": "px" }`.
+  const inline = (entry: StoredValue) =>
+    JSON.stringify(entry)
+      .replaceAll(/([{,:])/g, "$1 ")
+      .replaceAll(/\s*}/g, " }")
 
-  const walk = (key: string | undefined, entry: unknown, depth: number, last: boolean) => {
-    const pad = "  ".repeat(depth)
-    const name = key === undefined ? "" : `"${key}": `
-    const comma = last ? "" : ","
+  const comma = (last: boolean) => (last ? "" : ",")
 
-    const isLeaf =
-      typeof entry !== "object" ||
-      entry === null ||
-      Object.values(entry).every((part) => typeof part !== "object" || part === null)
-
-    if (isLeaf) {
-      const text = JSON.stringify(entry)
-        .replaceAll(/([{,:])/g, "$1 ")
-        .replaceAll(/\s*}/g, " }")
-
-      lines.push({ text: `${pad}${name}${text}${comma}`, override: overridden.has(key as TypeField) })
-
-      return
+  const group = (name: string, style: StoredStyle, pad: string, last: boolean): CodeLine[] => {
+    if (style.size === 0) {
+      return [{ text: `${pad}"${name}": {}${comma(last)}` }]
     }
 
-    lines.push({ text: `${pad}${name}{` })
-    const entries = Object.entries(entry)
-    entries.forEach(([child, part], index) => walk(child, part, depth + 1, index === entries.length - 1))
-    lines.push({ text: `${pad}}${comma}` })
+    const entries = [...style]
+
+    return [
+      { text: `${pad}"${name}": {` },
+      ...entries.map(([key, entry], index) => ({
+        text: `${pad}  "${key}": ${inline(entry)}${comma(index === entries.length - 1)}`,
+        override: overridden.has(key)
+      })),
+      { text: `${pad}}${comma(last)}` }
+    ]
   }
 
-  walk(undefined, value, 0, true)
+  const patches = [...value.viewports]
 
-  return lines
+  if (patches.length === 0) {
+    return [{ text: "{" }, ...group("style", value.style, "  ", true), { text: "}" }]
+  }
+
+  return [
+    { text: "{" },
+    ...group("style", value.style, "  ", false),
+    { text: `  "viewports": {` },
+    ...patches.flatMap(([id, style], index) => group(id, style, "    ", index === patches.length - 1)),
+    { text: "  }" },
+    { text: "}" }
+  ]
 }

@@ -52,7 +52,7 @@ export function mount(containers, { camera } = {}) {
     { saveDocument: async () => undefined, autosave: () => false }
   )
   const selection = new SelectionStore()
-  const session = { id: "app", store, selection, loaded, tokens: { get: () => [] }, errors: [] }
+  const session = { id: "app", store, selection, loaded, tokens: { get: () => [] }, errors: [], info: { libraries: [] } }
   window.session = session
   window.stopCamera?.()
   window.stopCamera = undefined
@@ -149,7 +149,7 @@ beforeAll(async () => {
   await page.goto("http://parity.test/")
 
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof app === "object"))) {
+  if (!(await page.evaluate(() => globalThis.app !== undefined))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
   }
 }, 60_000)
@@ -476,14 +476,18 @@ describe("following the camera", () => {
         // @ts-expect-error The bundle's global.
         const layer: DOMRect = app.nodeBox(host, "revenue")
 
-        const outlines = [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")]
-          .filter((element) => element.style.outline !== "")
-          .map(({ style }) => ({
-            left: parseFloat(style.left),
-            top: parseFloat(style.top),
-            width: parseFloat(style.width),
-            height: parseFloat(style.height)
-          }))
+        const outlines = [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")].flatMap(({ style }) =>
+          style.outline === ""
+            ? []
+            : [
+                {
+                  left: parseFloat(style.left),
+                  top: parseFloat(style.top),
+                  width: parseFloat(style.width),
+                  height: parseFloat(style.height)
+                }
+              ]
+        )
 
         const distance = (rect: { left: number; top: number; width: number; height: number }) =>
           Math.max(

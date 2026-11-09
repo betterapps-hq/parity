@@ -38,7 +38,7 @@ import {
 import { type ReactNode, useRef, useState } from "react"
 import { formatKeys } from "../../chrome/keys.ts"
 import { me } from "../explore-data.ts"
-import { AzureDevOpsMark, GitHubMark } from "../parts.tsx"
+import { AzureDevOpsMark, GitHubMark, withVariables } from "../parts.tsx"
 import {
   type AudienceId,
   audiences,
@@ -82,7 +82,7 @@ export function NewProjectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="flex h-[min(780px,calc(100vh-72px))] w-[1180px] max-w-[calc(100vw-72px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw-72px)]"
-        style={{ ["--parity" as string]: parity }}
+        style={withVariables({ "--parity": parity })}
       >
         <header className="flex h-14 shrink-0 items-center gap-5 border-b pr-14 pl-5">
           <DialogTitle className="text-[15px] font-semibold">New project</DialogTitle>
@@ -172,7 +172,7 @@ function made(fields: Pick<StartProject, "name" | "org" | "look" | "stack" | "so
 
 /** Nothing but the stack, set up: no designs to start from. */
 function blankOn(stack: Stack): Template {
-  return {
+  const blank: Template = {
     id: `blank-${stack.id}`,
     name: "Blank app",
     blurb: `Just ${stack.name}, set up`,
@@ -181,9 +181,14 @@ function blankOn(stack: Stack): Template {
     look: { hue: 0, brand: "Acme", icon: Plus, mono: true },
     adds: [],
     database: "None",
-    jobs: "None",
-    ...(stack.modes[0] ? { mode: stack.modes[0] } : {})
+    jobs: "None"
   }
+
+  if (stack.modes[0]) {
+    blank.mode = stack.modes[0]
+  }
+
+  return blank
 }
 
 /** Pick a stack, then a template on it. */
@@ -414,19 +419,19 @@ const extras: Record<StackId, { id: string; label: string; detail: string; on?: 
   ]
 }
 
-const starterNames: Record<string, string> = {
-  saas: "Acme dashboard",
-  ai: "Acme assistant",
-  marketing: "Acme website",
-  marketplace: "Acme market",
-  collab: "Acme boards",
-  docs: "Acme docs",
-  platformer: "Cave run",
-  arena: "Arena",
-  map: "World map",
-  library: "Acme UI",
-  "next-starter": "Acme app"
-}
+const starterNames = new Map([
+  ["saas", "Acme dashboard"],
+  ["ai", "Acme assistant"],
+  ["marketing", "Acme website"],
+  ["marketplace", "Acme market"],
+  ["collab", "Acme boards"],
+  ["docs", "Acme docs"],
+  ["platformer", "Cave run"],
+  ["arena", "Arena"],
+  ["map", "World map"],
+  ["library", "Acme UI"],
+  ["next-starter", "Acme app"]
+])
 
 /** "A, B and C". */
 function sentence(items: string[]): string {
@@ -457,7 +462,7 @@ function startingPhysics(adds: readonly string[]): string {
 function TemplateSetup({ template, onBack }: { template: Template; onBack: () => void }) {
   const stack = findStack(template.stack)
   const [shown, setShown] = useState(0)
-  const [name, setName] = useState(starterNames[template.id] ?? "New app")
+  const [name, setName] = useState(starterNames.get(template.id) ?? "New app")
   const [org, setOrg] = useState<OrgId>("kestrel")
   const [audience, setAudience] = useState<AudienceId>(template.audience ?? "b2b")
   const [mode, setMode] = useState(template.mode ?? stack.modes[0] ?? "")
@@ -591,7 +596,13 @@ function TemplateSetup({ template, onBack }: { template: Template; onBack: () =>
               <legend className="mb-2 text-sm font-medium">Who it&apos;s for</legend>
               <RadioGroup
                 value={audience}
-                onValueChange={(value) => setAudience(value as AudienceId)}
+                onValueChange={(value) => {
+                  const picked = audiences.find((candidate) => candidate.id === value)
+
+                  if (picked) {
+                    setAudience(picked.id)
+                  }
+                }}
                 className="grid-cols-3"
               >
                 {audiences.map((candidate) => (
@@ -856,11 +867,11 @@ function FromProject({ initial }: { initial: string }) {
 }
 
 /** The stack a repository's detected framework builds on, as near as the samples go. */
-const detectedStacks: Record<string, StackId> = {
-  "Next.js": "nextjs",
-  "React library": "react-library",
-  "TanStack Start": "tanstack-start"
-}
+const detectedStacks = new Map<string, StackId>([
+  ["Next.js", "nextjs"],
+  ["React library", "react-library"],
+  ["TanStack Start", "tanstack-start"]
+])
 
 function RepositoryRow({ repo, source, account }: { repo: Repository; source: "github" | "azure"; account: string }) {
   const start = useStart()
@@ -876,7 +887,7 @@ function RepositoryRow({ repo, source, account }: { repo: Repository; source: "g
             name: repo.name,
             org: "kestrel",
             look: { hue: 220, brand: repo.name, icon: FolderGit2 },
-            stack: detectedStacks[repo.detected ?? ""] ?? "tanstack-start",
+            stack: detectedStacks.get(repo.detected ?? "") ?? "tanstack-start",
             source: { type: source, path, branch: "main" },
             designs: []
           })

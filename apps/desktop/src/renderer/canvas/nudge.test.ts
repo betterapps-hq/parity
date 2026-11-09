@@ -41,6 +41,7 @@ function card(): ContainerSpec {
 }
 
 const order = (container: ContainerSpec, parent = "root") =>
+  // SAFETY: the tests ask only for parents that are layouts.
   (findNode(container.root, parent) as Extract<DesignNode, { type: "layout" }>).children.map((child) => child.id)
 
 const note: NoteSpec = { id: "note-1", text: "Remember", position: { x: 0, y: 0 } }
@@ -63,6 +64,7 @@ function session() {
 
 /** The badge's top, in pixels: 8 to begin with, 2 steps of 4px. */
 function topPixels(store: DesignStore): number {
+  // SAFETY: the badge is placed in steps, a number, by the example and by every nudge.
   return (findNode(store.getEntry("app.par#card")!.container.root, "badge")?.style?.top as number) * 4
 }
 

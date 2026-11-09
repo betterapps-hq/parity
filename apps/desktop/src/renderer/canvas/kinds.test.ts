@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vite-plus/test"
 import type { ProjectSession } from "../workspace.ts"
 import { ProjectContext } from "./context.ts"
-import { chipFor, kindColors, NodeIcon, nodeColor, textFor } from "./kinds.tsx"
+import { chipFor, kindColors, layerLabel, NodeIcon, nodeColor, textFor } from "./kinds.tsx"
 
 // Text layers have a color of their own (PAR-792), so they stand out among a design's layers.
 describe("a text layer's color", () => {
@@ -25,11 +25,13 @@ describe("a text layer's color", () => {
 // Every icon layer shows Smile, the Icons tab's icon, whatever it draws (PAR-793), so an icon of a kind's glyph or of a
 // button's never reads as that kind or that button.
 describe("an icon layer's icon", () => {
+  // SAFETY: telling an icon layer apart reads only a library's id and kind.
   const libraries = [
     { id: "nova", kind: "components" },
     { id: "lucide", kind: "icons" }
   ] as LibraryInfo[]
 
+  // SAFETY: the icon reads only the project's libraries.
   const project = { info: { libraries } } as ProjectSession
   const check = { type: "component", id: "check", component: "lucide/Check" } satisfies DesignNode
   const card = { type: "component", id: "card", component: "nova/Card" } satisfies DesignNode
@@ -45,5 +47,20 @@ describe("an icon layer's icon", () => {
   it("is Smile outside a tab when it's given the project's libraries, as Search actions gives them", () => {
     expect(renderToStaticMarkup(h(NodeIcon, { node: check, libraries }))).toContain("lucide-smile")
     expect(renderToStaticMarkup(h(NodeIcon, { node: check }))).toContain("lucide-box")
+  })
+})
+
+// An icon's name is what tells it from the others, since each shows Smile (PAR-796).
+describe("an icon layer's label", () => {
+  const libraries = [{ id: "lucide", kind: "icons" }] as LibraryInfo[]
+  const plus = { type: "component", id: "plus", component: "lucide/Plus" } satisfies DesignNode
+
+  it("is its icon when the project's libraries are given, and its name when it has one", () => {
+    expect(layerLabel(plus, [], undefined, libraries)).toBe("Plus")
+    expect(layerLabel({ ...plus, name: "Add" }, [], undefined, libraries)).toBe("Add")
+  })
+
+  it("is the component's id without them, as before", () => {
+    expect(layerLabel(plus, [])).toBe("lucide/Plus")
   })
 })

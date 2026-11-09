@@ -8,10 +8,11 @@ import { z } from "zod"
 export type TelemetryLevel = "all" | "off"
 
 /**
- * Which runs an event came from: a checkout, CI, a pull request's preview installer, or the published app and CLI,
- * which testers install (PAR-778). They were one `tester` environment until 2026-11-09.
+ * Which runs an event came from: a checkout, CI, a pull request's preview installer, the published app and CLI, which
+ * testers install (PAR-778), or a published build promoted to everyone (PAR-779). `preview` and `release` were one
+ * `tester` environment until 2026-11-09.
  */
-export type TelemetryEnvironment = "development" | "ci" | "preview" | "release"
+export type TelemetryEnvironment = "development" | "ci" | "preview" | "release" | "production"
 
 /** The environment variables that decide what's sent. Empty counts as unset, as a shell's `NAME=` means. */
 export interface TelemetryVariables {
@@ -141,20 +142,24 @@ export function desktopDataFolder({ platform, env, home }: DataFolderContext): s
   return [appData, "@parity", "desktop"].join(separator)
 }
 
-/** What kind of build a run is: installed, or run from a checkout, and whether the release workflow published it. */
+/**
+ * What kind of build a run is: installed, or run from a checkout; whether the release workflow published it; and
+ * whether that release has since been promoted to everyone, as a GitHub release that's no longer a pre-release.
+ */
 export interface TelemetryBuild {
   installed: boolean
   published: boolean
+  promoted?: boolean
 }
 
 /**
- * Which environment a run reports as: `ci` wherever CI is set; else `release` for the published app or CLI, `preview`
- * for any other installed build, such as a pull request's installer or a pkg.pr.new package, and `development` for a
- * checkout (PAR-778).
+ * Which environment a run reports as: `ci` wherever CI is set; else `production` for a published build that's been
+ * promoted to everyone (PAR-779), `release` for any other published app or CLI, `preview` for any other installed
+ * build, such as a pull request's installer or a pkg.pr.new package, and `development` for a checkout (PAR-778).
  */
 export function telemetryEnvironment(
   variables: TelemetryVariables,
-  { installed, published }: TelemetryBuild
+  { installed, published, promoted = false }: TelemetryBuild
 ): TelemetryEnvironment {
   if (inCi(variables)) {
     return "ci"
@@ -164,7 +169,11 @@ export function telemetryEnvironment(
     return "development"
   }
 
-  return published ? "release" : "preview"
+  if (!published) {
+    return "preview"
+  }
+
+  return promoted ? "production" : "release"
 }
 
 /** Whether this run is in CI: `CI` is set, and not to `0` or `false`. */

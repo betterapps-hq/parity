@@ -27,6 +27,7 @@ import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { useProject } from "../../canvas/context.ts"
 import { GuestIcon, type IconEntry, iconCatalog, iconLibraries, iconStyles, iconsOf } from "../../chrome/icons.tsx"
+import { optionNamed } from "../parts.tsx"
 
 /*
  * Exporting an icon set's icons as SVG files, designed for PAR-185 and set aside on 2026-11-05: the project already has
@@ -36,6 +37,12 @@ import { GuestIcon, type IconEntry, iconCatalog, iconLibraries, iconStyles, icon
 /** How many icons the preview shows before saying how many more. */
 const previewed = 24
 const sizes = [16, 20, 24, 32, 48] as const
+
+/** Which icons an export takes: every one, or those matching the search. */
+const whichIcons = ["all", "matching"] as const
+
+/** The color exported icons draw in: the text's, or black. */
+const iconColors = ["current", "black"] as const
 
 /** An icon's name as a file's, in kebab case, as icon sets name their files: `ArrowRight` is `arrow-right.svg`. */
 export function iconFileName(name: string): string {
@@ -159,9 +166,9 @@ function ExportChoices({
 }) {
   const session = useProject()
   const searching = query.trim() !== "" && matches.length < all.length
-  const [which, setWhich] = useState<"all" | "matching">(searching ? "matching" : "all")
+  const [which, setWhich] = useState<(typeof whichIcons)[number]>(searching ? "matching" : "all")
   const [size, setSize] = useState<(typeof sizes)[number]>(24)
-  const [color, setColor] = useState<"current" | "black">("current")
+  const [color, setColor] = useState<(typeof iconColors)[number]>("current")
   const icons = which === "matching" && searching ? matches : all
 
   return (
@@ -169,7 +176,16 @@ function ExportChoices({
       <FieldGroup className="gap-5">
         <FieldSet>
           <FieldLegend variant="label">Icons</FieldLegend>
-          <RadioGroup value={which} onValueChange={(value) => setWhich(value as typeof which)}>
+          <RadioGroup
+            value={which}
+            onValueChange={(value: string) => {
+              const next = optionNamed(whichIcons, value)
+
+              if (next) {
+                setWhich(next)
+              }
+            }}
+          >
             <Field orientation="horizontal">
               <RadioGroupItem value="all" id="icons-all" />
               <FieldLabel htmlFor="icons-all" className="font-normal">
@@ -196,7 +212,13 @@ function ExportChoices({
             <FieldLabel htmlFor="icon-size">Size</FieldLabel>
             <Select<string>
               value={String(size)}
-              onValueChange={(value) => value && setSize(Number(value) as typeof size)}
+              onValueChange={(value) => {
+                const next = sizes.find((option) => String(option) === value)
+
+                if (next) {
+                  setSize(next)
+                }
+              }}
             >
               <SelectTrigger id="icon-size" className="w-full">
                 <SelectValue>{(value: string) => `${value} px`}</SelectValue>
@@ -212,7 +234,16 @@ function ExportChoices({
           </Field>
           <FieldSet>
             <FieldLegend variant="label">Color</FieldLegend>
-            <RadioGroup value={color} onValueChange={(value) => setColor(value as typeof color)}>
+            <RadioGroup
+              value={color}
+              onValueChange={(value: string) => {
+                const next = optionNamed(iconColors, value)
+
+                if (next) {
+                  setColor(next)
+                }
+              }}
+            >
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="current" id="icon-current" />
                 <Label htmlFor="icon-current" className="font-normal">

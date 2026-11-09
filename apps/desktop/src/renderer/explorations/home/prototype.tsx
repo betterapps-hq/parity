@@ -7,7 +7,7 @@ import { ContinueCard, FirstTime } from "../../start/HomePage.tsx"
 import { NewTab } from "../../start/NewTabPage.tsx"
 import { PictureSourceProvider } from "../../start/pictures.ts"
 import { ProjectList } from "../../start/ProjectList.tsx"
-import { type KnownProject, knownProjects } from "../../start/projects.ts"
+import { type KnownProject, knownProjects, type ProjectNote } from "../../start/projects.ts"
 import { StartActionsProvider } from "../../start/start-actions.ts"
 import { NewProjectButton, OpenMenu, SearchButton } from "../../start/StartControls.tsx"
 import { useResolvedTheme } from "../../theme.ts"
@@ -73,6 +73,9 @@ interface Place {
 }
 
 /** Northwind, just made, for the story that starts at inviting people to it. */
+/** Each sample project's picture, by its folder. */
+const pictureByRoot = new Map(Object.entries(samplePictures))
+
 const northwind: Team = {
   id: "org_01NORTHWIND",
   name: "Northwind",
@@ -182,12 +185,12 @@ export function HomePrototype(start: Start) {
   const [invitation, setInvitation] = useState(() => startingInvitation(start))
   const [dialog, setDialog] = useState<Open>(() => startingDialog(start))
   const [recent, setRecent] = useState<readonly string[]>(start.newAccount ? [] : sampleRecent)
-  const [notes, setNotes] = useState(start.newAccount ? {} : sampleNotes)
+  const [notes, setNotes] = useState<Readonly<Record<string, ProjectNote>>>(start.newAccount ? {} : sampleNotes)
 
   const pictures = useMemo(
     () => ({
       subscribe: () => () => undefined,
-      get: (root: string) => samplePictures[root] ?? null,
+      get: (root: string) => pictureByRoot.get(root) ?? null,
       ask: () => undefined
     }),
     []
@@ -205,7 +208,9 @@ export function HomePrototype(start: Start) {
         team.notes.map((note) => {
           const here = each.person.email === place.email && team.id === place.team
 
-          return { ...note, team: team.id, email: each.person.email, ...(here ? {} : { elsewhere: team.name }) }
+          const shown = { ...note, team: team.id, email: each.person.email }
+
+          return here ? shown : { ...shown, elsewhere: team.name }
         })
       )
     )

@@ -57,7 +57,7 @@ export function frameAt(
 ): { entry: ContainerEntry; host: HTMLElement } | undefined {
   const board = editor?.getShapeAtPoint(editor.screenToPage(point), {
     hitInside: true,
-    filter: (shape) => shape.type === "canvas-container"
+    filter: (item) => item.type === "canvas-container"
   })
 
   let hosts: Iterable<HTMLElement> = []

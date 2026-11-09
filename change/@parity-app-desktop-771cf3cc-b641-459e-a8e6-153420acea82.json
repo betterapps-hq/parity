@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Unnamed icon layers are called by their icon, as Plus rather than lucide/Plus, in Layers, search and the inspector.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
