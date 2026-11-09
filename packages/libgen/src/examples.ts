@@ -2160,6 +2160,11 @@ function evaluate(expression: ts.Expression, context: Context, depth: number): S
         return object[key]
       }
 
+      // An index written as a string (`labels["0"]`) reads the same item.
+      if (isText(key) && String(Number(key)) === key) {
+        return object[Number(key)]
+      }
+
       return key === "length" ? object.length : undefined
     }
 
