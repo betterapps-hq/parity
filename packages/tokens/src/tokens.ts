@@ -1,4 +1,10 @@
-import { collectCustomProperties, type DescribedToken, type ThemeVariable, type TokenCategory } from "@parity-app/core"
+import {
+  collectCustomProperties,
+  type DescribedToken,
+  type GuestInit,
+  type ThemeVariable,
+  type TokenCategory
+} from "@parity-app/core"
 import { categorize, isTokenName, themedProperties } from "./policy.ts"
 
 export interface Token {
@@ -121,51 +127,56 @@ export const tokenCategories: readonly TokenCategory[] = [
 ]
 
 /** DTCG group names libraries use, by the category Parity shows them in. */
-const groupCategories: Record<string, TokenCategory> = {
-  color: "color",
-  colors: "color",
-  palette: "color",
-  spacing: "spacing",
-  space: "spacing",
-  radius: "radius",
-  radii: "radius",
-  "border-radius": "radius",
-  borderradius: "radius",
-  "font-size": "font-size",
-  fontsize: "font-size",
-  fontsizes: "font-size",
-  font: "font",
-  fonts: "font",
-  fontfamily: "font",
-  "font-weight": "font-weight",
-  fontweight: "font-weight",
-  fontweights: "font-weight",
-  tracking: "tracking",
-  letterspacing: "tracking",
-  leading: "leading",
-  lineheight: "leading",
-  lineheights: "leading",
-  shadow: "shadow",
-  shadows: "shadow",
-  breakpoint: "breakpoint",
-  breakpoints: "breakpoint",
-  container: "container",
-  motion: "motion",
-  duration: "motion",
-  durations: "motion",
-  easing: "motion",
-  easings: "motion"
-}
+const groupCategories = new Map(
+  Object.entries({
+    color: "color",
+    colors: "color",
+    palette: "color",
+    spacing: "spacing",
+    space: "spacing",
+    radius: "radius",
+    radii: "radius",
+    "border-radius": "radius",
+    borderradius: "radius",
+    "font-size": "font-size",
+    fontsize: "font-size",
+    fontsizes: "font-size",
+    font: "font",
+    fonts: "font",
+    fontfamily: "font",
+    "font-weight": "font-weight",
+    fontweight: "font-weight",
+    fontweights: "font-weight",
+    tracking: "tracking",
+    letterspacing: "tracking",
+    leading: "leading",
+    lineheight: "leading",
+    lineheights: "leading",
+    shadow: "shadow",
+    shadows: "shadow",
+    breakpoint: "breakpoint",
+    breakpoints: "breakpoint",
+    container: "container",
+    motion: "motion",
+    duration: "motion",
+    durations: "motion",
+    easing: "motion",
+    easings: "motion"
+  } satisfies Record<string, TokenCategory>)
+)
 
-const typeCategories: Record<string, TokenCategory> = {
-  color: "color",
-  shadow: "shadow",
-  fontFamily: "font",
-  fontWeight: "font-weight",
-  duration: "motion",
-  cubicBezier: "motion",
-  transition: "motion"
-}
+/** DTCG types, by the category Parity shows them in. */
+const typeCategories = new Map(
+  Object.entries({
+    color: "color",
+    shadow: "shadow",
+    fontFamily: "font",
+    fontWeight: "font-weight",
+    duration: "motion",
+    cubicBezier: "motion",
+    transition: "motion"
+  } satisfies Record<string, TokenCategory>)
+)
 
 /** The custom property a described token compiles to: the one its extension names, else its whole path. */
 export function describedTokenVar(token: DescribedToken): string {
@@ -177,20 +188,23 @@ export function describedTokenVar(token: DescribedToken): string {
  * else its type. This is how a library's `--mantine-spacing-md` lands with Parity's spacing, not under Other.
  */
 export function describedTokenCategory(token: DescribedToken): TokenCategory | undefined {
-  const explicit = token.parity?.category
+  const explicit = tokenCategories.find((category) => category === token.parity?.category)
 
-  if (explicit && (tokenCategories as readonly string[]).includes(explicit)) {
-    return explicit as TokenCategory
+  if (explicit) {
+    return explicit
   }
 
   const group = token.path.split(".")[0]!.toLowerCase()
 
-  return groupCategories[group] ?? (token.type ? typeCategories[token.type] : undefined)
+  return groupCategories.get(group) ?? (token.type ? typeCategories.get(token.type) : undefined)
 }
 
+/** Categories by custom property, for the tokens libraries describe, as a guest is given them. */
+export type DescribedCategories = NonNullable<GuestInit["tokenCategories"]>
+
 /** Categories by custom property, for the tokens libraries describe. */
-export function describedCategories(tokens: readonly DescribedToken[]): Record<string, TokenCategory> {
-  const categories: Record<string, TokenCategory> = {}
+export function describedCategories(tokens: readonly DescribedToken[]): DescribedCategories {
+  const categories: DescribedCategories = {}
 
   for (const token of tokens) {
     const category = describedTokenCategory(token)
