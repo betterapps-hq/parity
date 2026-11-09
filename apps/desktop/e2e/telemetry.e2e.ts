@@ -86,7 +86,12 @@ describe("the events Parity records", () => {
     const ran = await recorded({ name: "gesture.ran", attributes: { gesture: "layerDrag" } }, since)
     expect(ran.outcome).toBe("ok")
     expect(ran.attributes.how).toBe("release")
-    const ended = await recorded({ name: "gesture.ended", attributes: { kind: "layerDrag" } }, since)
+    expect(ran.traceId).toBeDefined()
+    // Recorded once the drag's trace has ended, under its span (PAR-752).
+    const ended = await recorded(
+      { name: "gesture.ended", traceId: ran.traceId, spanId: ran.spanId, attributes: { kind: "layerDrag" } },
+      since
+    )
     expect(ended.attributes).toMatchObject({ how: "release", kept: true, undoStep: true })
     expect(ended.attributes.designs).toEqual([key])
     expect(ended.attributes.layers).toEqual([users])
@@ -117,7 +122,8 @@ describe("the events Parity records", () => {
       expect(saved.outcome).toBe("ok")
       const write = await handled("document.save", saved.traceId)
       expect(write.outcome).toBe("ok")
-      const file = await recorded({ name: "document.saved" }, since)
+      // Recorded once the service has answered, in the trace Save asked in (PAR-752).
+      const file = await recorded({ name: "document.saved", traceId: saved.traceId, spanId: saved.spanId }, since)
       expect(file.attributes.bytes).toBeGreaterThan(0)
     } finally {
       // The file goes back as it was, so undoing everything after the test leaves nothing to save.
