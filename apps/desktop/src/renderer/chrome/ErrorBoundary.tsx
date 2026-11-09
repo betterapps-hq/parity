@@ -8,7 +8,7 @@ import {
   DialogTitle
 } from "@buildkitgg/shadcn-baseui-kit"
 import { CircleAlert, RotateCcw, RotateCw, TriangleAlert, X } from "lucide-react"
-import { Component, type CSSProperties, type ErrorInfo, type ReactNode, type Ref, useRef } from "react"
+import { Component, type CSSProperties, type ReactNode, type Ref, useRef } from "react"
 import parityIcon from "../../../../../brand/parity-icon.svg?url"
 import { ErrorDetails } from "../ProjectStatus.tsx"
 import { CopyButton } from "./Copy.tsx"
@@ -60,7 +60,7 @@ interface BoundaryState {
 }
 
 /** Opens Report a problem with what a boundary caught, once Help > Report a problem is there to open (PAR-635). */
-type Reporter = (error: unknown, boundary: Pick<BoundaryProps, "name" | "label">) => void
+type Reporter = (cause: unknown, boundary: Pick<BoundaryProps, "name" | "label">) => void
 
 let reporter: Reporter | undefined
 
@@ -96,11 +96,11 @@ function Tripwire({ name }: { name: string }) {
 export class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
   override state: BoundaryState = { error: undefined, failed: false, retries: 0 }
 
-  static getDerivedStateFromError(error: unknown): Partial<BoundaryState> {
-    return { error, failed: true }
+  static getDerivedStateFromError(cause: unknown): Partial<BoundaryState> {
+    return { error: cause, failed: true }
   }
 
-  override componentDidCatch(_error: unknown, _info: ErrorInfo): void {
+  override componentDidCatch(): void {
     const left = tripped.get(this.props.name)
 
     if (left !== undefined) {
@@ -132,14 +132,14 @@ export class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
   }
 
   /** Opens Report a problem; a dialog that failed closes first, so the report's dialog takes its place. */
-  private report(report: Reporter, error: unknown): void {
+  private report(report: Reporter, cause: unknown): void {
     const { name, label, kind } = this.props
 
     if (kind === "dialog") {
       this.close()
     }
 
-    report(error, { name, label })
+    report(cause, { name, label })
   }
 
   override render() {
@@ -233,8 +233,8 @@ function wayOn({ again, onReopen, reopenLabel = "Reopen project" }: FallbackProp
 }
 
 /** The stack, which starts with the message, or what was thrown, for Copy details and reports. */
-function errorText(error: unknown): string {
-  return error instanceof Error && error.stack ? error.stack : String(error)
+function errorText(cause: unknown): string {
+  return cause instanceof Error && cause.stack ? cause.stack : String(cause)
 }
 
 /**

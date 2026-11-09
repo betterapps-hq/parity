@@ -36,7 +36,7 @@ const ended = new Set<ProcessStatus>(["stopped", "failed", "passed", "canceled"]
  * latest run: a new run replaces the last result, which otherwise stays until it's dismissed or the project closes.
  */
 export function trackProcess(
-  entry: Pick<ProjectProcess, "id" | "kind" | "shape" | "name" | "status" | "projectId" | "project"> &
+  entry: Pick<ProjectProcess, "id" | "kind" | "lifetime" | "name" | "status" | "projectId" | "project"> &
     Partial<Pick<ProjectProcess, "pid" | "url" | "startedBy" | "detail" | "progress">>,
   controls: Controls = {}
 ): ProcessHandle {
@@ -80,7 +80,7 @@ export function trackProcess(
       item.process.canStop = false
       delete item.process.progress
 
-      if (item.process.shape === "task") {
+      if (item.process.lifetime === "task") {
         delete item.process.detail
       }
 
@@ -124,7 +124,7 @@ export function stopProcess({ id }: { id: string }): Promise<undefined> {
     return Promise.reject(new Error("That process can't be stopped from here"))
   }
 
-  if (item.process.shape === "task") {
+  if (item.process.lifetime === "task") {
     item.process.status = "stopping"
   }
 

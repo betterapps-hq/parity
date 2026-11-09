@@ -35,6 +35,11 @@ const scales: Option<`${Preferences["exportScale"]}`>[] = [
   { value: "3", label: "3x" }
 ]
 
+const scaleValues = { "1": 1, "2": 2, "3": 3 } as const satisfies Record<
+  `${Preferences["exportScale"]}`,
+  Preferences["exportScale"]
+>
+
 /** What the switch shares. It reads the same on and off, so turning it doesn't move the dialog (PAR-703). */
 const telemetryDetail = "Errors and crashes, sent to the Parity team to help fix bugs."
 
@@ -119,12 +124,10 @@ export function SettingsDialog() {
             label="Editor"
             detail="Where View code opens a component's file. Automatic uses the first one installed."
           >
-            <Select
+            <Select<CodeEditorChoice>
               items={editorChoices}
               value={preferences.codeEditor}
-              onValueChange={(codeEditor) =>
-                codeEditor && setPreferences({ codeEditor: codeEditor as CodeEditorChoice })
-              }
+              onValueChange={(codeEditor) => codeEditor && setPreferences({ codeEditor })}
             >
               <SelectTrigger size="sm" className="w-36" aria-label="Editor">
                 <SelectValue />
@@ -144,8 +147,8 @@ export function SettingsDialog() {
             <Choice
               label="Image scale"
               options={scales}
-              value={String(preferences.exportScale) as `${Preferences["exportScale"]}`}
-              onChange={(scale) => setPreferences({ exportScale: Number(scale) as Preferences["exportScale"] })}
+              value={`${preferences.exportScale}`}
+              onChange={(scale) => setPreferences({ exportScale: scaleValues[scale] })}
             />
           </Row>
         </Section>
@@ -239,6 +242,7 @@ function Choice<T extends string>({
       spacing={0}
       value={[value]}
       disabled={disabled}
+      // SAFETY: the group's items are the options, whose values are all T.
       onValueChange={([next]) => next && onChange(next as T)}
       aria-label={label}
     >

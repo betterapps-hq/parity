@@ -1,7 +1,6 @@
 import { defaultModeSettings, type ModeSettings, type ModeSpec } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
-import type { ProjectInfo } from "../../shared/protocol.ts"
 import { example } from "../stories/fixtures.tsx"
 import { answerNext } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
@@ -44,7 +43,7 @@ const modes = (change?: (settings: ModeSettings) => ModeSettings) =>
 const defaults = () =>
   openInspector("modes", ["empty"], () =>
     answerNext("project.open", async (_, real) => ({
-      ...((await real()) as ProjectInfo),
+      ...(await real()),
       modes: { settings: defaultModeSettings, custom: false }
     }))
   )

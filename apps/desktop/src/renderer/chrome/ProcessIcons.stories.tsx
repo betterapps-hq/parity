@@ -51,11 +51,15 @@ const taskStatuses: { status: ProcessStatus; label: string }[] = [
   { status: "canceled", label: "Canceled" }
 ]
 
-function example(kind: ProjectProcess["kind"], shape: ProjectProcess["shape"], status: ProcessStatus): ProjectProcess {
+function example(
+  kind: ProjectProcess["kind"],
+  lifetime: ProjectProcess["lifetime"],
+  status: ProcessStatus
+): ProjectProcess {
   return {
     id: `${kind}:${status}`,
     kind,
-    shape,
+    lifetime,
     name: kind,
     projectId: "example",
     project: "example",
@@ -67,15 +71,28 @@ function example(kind: ProjectProcess["kind"], shape: ProjectProcess["shape"], s
   }
 }
 
+/** A kind and its name, as a section lists it. */
+type NamedKind = [kind: ProjectProcess["kind"], name: string]
+
+/** A section's kinds with their names, in the order it lists them. */
+function named(kinds: Partial<Record<ProjectProcess["kind"], string>>): NamedKind[] {
+  // Every key came from `kinds`, whose keys are all process kinds.
+  const listed = (kind: string): kind is ProjectProcess["kind"] => kind in kinds
+
+  return Object.entries(kinds).flatMap(([kind, name]): NamedKind[] =>
+    listed(kind) && name !== undefined ? [[kind, name]] : []
+  )
+}
+
 function Section({
   title,
-  shape,
+  lifetime,
   kinds,
   statuses
 }: {
   title: string
-  shape: ProjectProcess["shape"]
-  kinds: Record<string, string>
+  lifetime: ProjectProcess["lifetime"]
+  kinds: Partial<Record<ProjectProcess["kind"], string>>
   statuses: { status: ProcessStatus; label: string }[]
 }) {
   return (
@@ -91,13 +108,13 @@ function Section({
         </tr>
       </thead>
       <tbody>
-        {Object.entries(kinds).map(([kind, name]) => (
+        {named(kinds).map(([kind, name]) => (
           <tr key={kind}>
             <td className="pr-4 text-muted-foreground">{name}</td>
             {statuses.map(({ status }) => (
               <td key={status} className="text-center">
                 <span className="inline-grid">
-                  <KindTile process={example(kind as ProjectProcess["kind"], shape, status)} />
+                  <KindTile process={example(kind, lifetime, status)} />
                 </span>
               </td>
             ))}
@@ -108,7 +125,7 @@ function Section({
           {statuses.map(({ status }) => (
             <td key={status} className="text-center">
               <span className="inline-grid place-items-center">
-                <Light process={example("builder", shape, status)} size={6} />
+                <Light process={example("builder", lifetime, status)} size={6} />
               </span>
             </td>
           ))}
@@ -121,8 +138,8 @@ function Section({
 function Grid() {
   return (
     <div className="flex min-h-screen flex-col gap-6 bg-background p-8 text-xs text-foreground">
-      <Section title="Servers" shape="server" kinds={servers} statuses={serverStatuses} />
-      <Section title="Tasks" shape="task" kinds={tasks} statuses={taskStatuses} />
+      <Section title="Servers" lifetime="server" kinds={servers} statuses={serverStatuses} />
+      <Section title="Tasks" lifetime="task" kinds={tasks} statuses={taskStatuses} />
     </div>
   )
 }

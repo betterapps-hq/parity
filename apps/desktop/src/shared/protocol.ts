@@ -221,7 +221,7 @@ export interface ProjectProcess {
   id: string
   kind: ServerKind | TaskKind
   /** A server runs until it's stopped; a task runs once and finishes with a result. */
-  shape: "server" | "task"
+  lifetime: "server" | "task"
   name: string
   /** The open project it runs for. */
   projectId: string

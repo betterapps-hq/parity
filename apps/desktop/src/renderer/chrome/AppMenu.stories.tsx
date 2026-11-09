@@ -270,8 +270,10 @@ function unavailable(labels: readonly string[]): Record<string, boolean | undefi
 
   const label = (item: Element) =>
     [...item.childNodes]
-      .filter((child) => !(child instanceof Element && child.matches("[data-slot=menubar-shortcut], svg")))
-      .map((child) => child.textContent)
+      // A shortcut or icon inside an item isn't part of its name.
+      .flatMap((child) =>
+        child instanceof Element && child.matches("[data-slot=menubar-shortcut], svg") ? [] : [child.textContent]
+      )
       .join("")
       .trim()
 
@@ -536,7 +538,7 @@ export const EditAfterWrapping: Story = {
       await openProjects("example")
       const pricing = design("Pricing")
       example().selection.set(layersSelection(pricing, [node("Pricing", "Hero")]))
-      actions.wrap.run("key")
+      void actions.wrap.run("key")
     }
   ],
   play: async () => {

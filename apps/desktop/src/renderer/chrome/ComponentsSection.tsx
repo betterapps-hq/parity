@@ -20,7 +20,7 @@ import { Hint } from "./Hint.tsx"
 import { paramValue, updateAndRecord } from "./inspector-events.ts"
 import { NameInput } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
-import { valueKind } from "./prop-values.ts"
+import { readPropValue, textValue, valueKind } from "./prop-values.ts"
 import { clearRepeatedParts, findRepeatedParts, holdRepeatedParts, useRepeatedParts } from "./repeated-parts.ts"
 import { revealSelection } from "./reveal.ts"
 import { AddProp, CodeLines, NewPropRow, PropTile, SlotPropRow } from "./slot-props.tsx"
@@ -164,13 +164,13 @@ export function ParamsSection({ entry }: { entry: ContainerEntry }) {
         <div className="flex flex-col gap-1">
           {params.map(([name, param]) => (
             <div key={name} className="grid grid-cols-[20px_96px_1fr] items-center gap-2 px-1">
-              <PropTile kind={valueKind(param.default, param.type)} />
+              <PropTile kind={valueKind(readPropValue(param.default), param.type)} />
               <Hint label={`${name}: ${param.type}`} wait>
                 <span className="truncate font-mono text-xs">{name}</span>
               </Hint>
               <ValueInput
-                value={param.default}
-                kind={valueKind(param.default, param.type)}
+                value={readPropValue(param.default)}
+                kind={valueKind(readPropValue(param.default), param.type)}
                 title={`${name} default`}
                 onCommit={(value) =>
                   updateAndRecord(
@@ -255,7 +255,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
             const text = (field: string) => {
               const entry = data.get(field)
 
-              return typeof entry === "string" ? entry : ""
+              return entry instanceof File ? "" : (entry ?? "")
             }
 
             const name = text("name").trim()
@@ -304,7 +304,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
             <div className="grid grid-cols-[96px_1fr] items-center gap-2">
               <span className="px-1 text-xs text-muted-foreground">Default</span>
               <ChoiceInput
-                value={typeof param.default === "string" ? param.default : undefined}
+                value={textValue.safeParse(param.default).data}
                 options={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
                 placeholder={param.options?.[0]?.name}
                 onChange={(option) =>
@@ -370,7 +370,12 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
               className="flex gap-1"
               onSubmit={(event) => {
                 event.preventDefault()
-                const input = event.currentTarget.elements.namedItem("option") as HTMLInputElement
+                const input = event.currentTarget.elements.namedItem("option")
+
+                if (!(input instanceof HTMLInputElement)) {
+                  return
+                }
+
                 const option = input.value.trim()
 
                 if (!option) {

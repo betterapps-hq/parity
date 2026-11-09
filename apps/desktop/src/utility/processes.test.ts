@@ -27,7 +27,7 @@ const storybook = {
   ...project,
   id: "storybook:shop",
   kind: "storybook",
-  shape: "server",
+  lifetime: "server",
   name: "Storybook",
   url: "http://localhost:6006"
 } as const
@@ -74,7 +74,7 @@ describe("tasks", () => {
     ...project,
     id: "typecheck:shop",
     kind: "typecheck",
-    shape: "task",
+    lifetime: "task",
     name: "Type check",
     status: "running"
   } as const

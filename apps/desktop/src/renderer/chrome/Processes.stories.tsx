@@ -54,7 +54,7 @@ function storybook(overrides: Partial<ProjectProcess> = {}): ProjectProcess {
   return {
     id: `storybook:${roots.example}`,
     kind: "storybook",
-    shape: "server",
+    lifetime: "server",
     name: "Storybook",
     projectId: roots.example,
     project: "shadcn-vite",
@@ -79,21 +79,25 @@ function task(
   const { minutes = 0.4, took = 0.3, ...rest } = overrides
   const done = rest.status && rest.status !== "running" && rest.status !== "stopping"
 
-  return {
+  const result: ProjectProcess = {
     id: `${kind}:${roots.example}`,
     kind,
-    shape: "task",
+    lifetime: "task",
     name,
     projectId: roots.example,
     project: "shadcn-vite",
     status: "running",
     startedAt: done ? ago(minutes + took) : ago(minutes),
-    ...(done ? { stoppedAt: ago(minutes) } : {}),
     startedBy: "parity",
     canStop: !done,
-    canRestart: true,
-    ...rest
+    canRestart: true
   }
+
+  if (done) {
+    result.stoppedAt = ago(minutes)
+  }
+
+  return { ...result, ...rest }
 }
 
 /** The last result of each task the example has run, newest first in the list: what each found, and how long it took. */
@@ -279,7 +283,7 @@ export const TwoProjects: Story = {
         {
           id: "builder:D:/projects/dashboard",
           kind: "builder",
-          shape: "server",
+          lifetime: "server",
           name: "Vite",
           projectId: "D:/projects/dashboard",
           project: "dashboard",

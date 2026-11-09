@@ -53,17 +53,15 @@ export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: st
   const prefix = key ? `${library.id}/${key}/` : `${library.id}/`
 
   const entries = new Map(
-    listed.map((icon): [SetEntry, IconEntry] => [
-      icon,
-      {
-        label: icon.label,
-        item: {
-          kind: "component",
-          component: `${prefix}${icon.insert ?? icon.name}`,
-          ...(icon.props ? { props: icon.props } : {})
-        }
+    listed.map((icon): [SetEntry, IconEntry] => {
+      const item: IconEntry["item"] = { kind: "component", component: `${prefix}${icon.insert ?? icon.name}` }
+
+      if (icon.props) {
+        item.props = icon.props
       }
-    ])
+
+      return [icon, { label: icon.label, item }]
+    })
   )
 
   let index: IconIndex | undefined
@@ -128,6 +126,7 @@ export function GuestIcon({
       // Left out of replays, as frames are: the project's own drawing (PAR-624).
       data-guest-icon=""
       className="inline-grid place-items-center"
+      // SAFETY: CSSProperties lists no custom properties, and `--icon-size` is one the guest's icon reads.
       style={{ width: size, height: size, "--icon-size": `${size}px` } as CSSProperties}
     />
   )

@@ -31,6 +31,7 @@ import { Hint } from "./Hint.tsx"
 import { statesValue, updateAndRecord } from "./inspector-events.ts"
 import { Name } from "./Name.tsx"
 import { GroupLabel, PanelSection } from "./PanelSection.tsx"
+import { textValue } from "./prop-values.ts"
 
 /**
  * A design's states, like a Storybook file's stories. The first is the base: the design itself. Every other state
@@ -348,6 +349,9 @@ function patchFields(patch: NodePatch): { id: string; label: string; value: stri
   return fields
 }
 
-function format(value: unknown): string {
-  return typeof value === "string" ? value : JSON.stringify(value)
+/** A patched value as its row shows it: text as itself, anything else as JSON. */
+function format<Value>(value: Value): string {
+  const text = textValue.safeParse(value)
+
+  return text.success ? text.data : JSON.stringify(value)
 }

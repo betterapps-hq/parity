@@ -58,7 +58,16 @@ import {
   type Reading,
   reduceField
 } from "./number-field.ts"
-import { readValue, showValue, type ValueKind, valueKind } from "./prop-values.ts"
+import {
+  numberValue,
+  plainText,
+  type PropValue,
+  readValue,
+  showValue,
+  textValue,
+  type ValueKind,
+  valueKind
+} from "./prop-values.ts"
 import { swatch } from "./token-previews.tsx"
 
 interface FieldProps {
@@ -420,17 +429,19 @@ export function NumberField({
   const flagLabel = flag?.action?.label
   const flagName = flag?.action?.name
 
-  const flagMessage = useMemo<FieldMessage | undefined>(
-    () =>
-      flagText === undefined
-        ? undefined
-        : {
-            tone: "flag",
-            text: flagText,
-            ...(flagLabel ? { action: { label: flagLabel, name: flagName, run: () => flagAction.current?.() } } : {})
-          },
-    [flagText, flagLabel, flagName]
-  )
+  const flagMessage = useMemo(() => {
+    if (flagText === undefined) {
+      return undefined
+    }
+
+    const message: FieldMessage = { tone: "flag", text: flagText }
+
+    if (flagLabel) {
+      message.action = { label: flagLabel, name: flagName, run: () => flagAction.current?.() }
+    }
+
+    return message
+  }, [flagText, flagLabel, flagName])
 
   const flagShown = state.draft === undefined && state.scrubbing === undefined ? flagMessage : undefined
   useEffect(() => say?.(flagId, flagShown), [say, flagId, flagShown])
@@ -442,8 +453,10 @@ export function NumberField({
 
   /** A value as a number to work from: its own, or what unset counts as; a token has none. */
   const numeric = (from: FieldValue) => {
-    if (typeof from === "number") {
-      return from
+    const own = numberValue.safeParse(from)
+
+    if (own.success) {
+      return own.data
     }
 
     return from === undefined ? blank?.() : undefined
@@ -499,7 +512,7 @@ export function NumberField({
           return outcome.value
         }
 
-        base = typeof outcome.value === "number" ? outcome.value : undefined
+        base = numberValue.safeParse(outcome.value).data
       }
 
       return base === undefined ? from : stepFieldValue(base, step, rules)
@@ -695,7 +708,7 @@ export function NumberField({
         autoComplete="off"
         // The kit's input turns to 14px from the md breakpoint, which every window is past; md:text-xs keeps it 12px.
         className={`h-6 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-xs shadow-none md:text-xs focus-visible:ring-0 aria-invalid:ring-0 dark:bg-transparent ${
-          mono || typeof value === "string" ? "font-mono" : "tabular-nums"
+          mono || textValue.safeParse(value).success ? "font-mono" : "tabular-nums"
         }`}
         onChange={(event) => dispatch({ type: "type", text: event.currentTarget.value })}
         onBlur={() => dispatch({ type: "blur" })}
@@ -783,16 +796,16 @@ export function ChoiceInput<T extends string>({
 }) {
   const mixed = useMixed()
 
-  const items: { value: string; label: ReactNode }[] = [
+  const items: { value: T | "__unset"; label: ReactNode }[] = [
     { value: "__unset", label: <span className="text-muted-foreground">{placeholder}</span> },
     ...options
   ]
 
   return (
-    <Select
+    <Select<T | "__unset">
       items={items}
       value={value ?? (mixed ? null : "__unset")}
-      onValueChange={(next) => onChange(next === null || next === "__unset" ? undefined : (next as T))}
+      onValueChange={(next) => onChange(next === null || next === "__unset" ? undefined : next)}
     >
       <SelectTrigger size="sm" className="h-7 w-full text-xs">
         <SelectValue placeholder="Mixed" />
@@ -856,7 +869,7 @@ export function NumberValueInput({
   preview,
   onCommit
 }: {
-  value: unknown
+  value: PropValue | undefined
   title: string
   placeholder?: string
   /** What an unset value counts as when an edit works from it, such as the prop's default. */
@@ -864,7 +877,7 @@ export function NumberValueInput({
   preview?: NumberPreview
   onCommit: (value: number | undefined, gesture?: string) => void
 }) {
-  const current = typeof value === "number" ? value : undefined
+  const current = numberValue.safeParse(value).data
   const before = useRef<{ value: number | undefined }>(undefined)
   const from = () => (before.current ? before.current.value : current)
 
@@ -908,7 +921,7 @@ export function NumberValueInput({
 
 /** A number field's value as a number prop takes it; number rules give no token names. */
 function numberOrUnset(value: FieldValue): number | undefined {
-  return typeof value === "number" ? value : undefined
+  return numberValue.safeParse(value).data
 }
 
 /**
@@ -923,11 +936,11 @@ export function ValueInput({
   preview,
   onCommit
 }: {
-  value: unknown
+  value: PropValue | undefined
   title?: string
   kind?: ValueKind
   preview?: NumberPreview
-  onCommit: (value: unknown, gesture?: string) => void
+  onCommit: (value: PropValue | undefined, gesture?: string) => void
 }) {
   if (kind === "boolean") {
     return <SwitchInput value={value === true} label={title} onChange={onCommit} />
@@ -938,7 +951,7 @@ export function ValueInput({
   }
 
   if (kind === "text") {
-    return <TextInput value={value === undefined ? "" : String(value as unknown)} onCommit={onCommit} />
+    return <TextInput value={value === undefined ? "" : plainText(value)} onCommit={onCommit} />
   }
 
   return <ParsedInput value={value} kind={kind} title={title} onCommit={onCommit} />
@@ -954,10 +967,10 @@ function ParsedInput({
   title,
   onCommit
 }: {
-  value: unknown
+  value: PropValue | undefined
   kind: "json" | "any"
   title: string
-  onCommit: (value: unknown) => void
+  onCommit: (value: PropValue | undefined) => void
 }) {
   const shown = showValue(value, kind)
   const [error, setError] = useState<string>()
@@ -996,7 +1009,10 @@ function ParsedInput({
   )
 }
 
-const groupTitles: Record<string, string> = { semantic: "Semantic", theme: "Primitive" }
+const groupTitles = new Map([
+  ["semantic", "Semantic"],
+  ["theme", "Primitive"]
+])
 
 /**
  * Picks a token by name, searching the project's tokens of the given categories. Colors show swatches. The button is
@@ -1060,7 +1076,7 @@ export function TokenInput({
               </CommandItem>
             </CommandGroup>
             {[...groups].map(([source, list]) => (
-              <CommandGroup key={source} heading={groupTitles[source]}>
+              <CommandGroup key={source} heading={groupTitles.get(source)}>
                 {list.map((token) => (
                   <CommandItem
                     key={token.name}

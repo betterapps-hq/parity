@@ -46,8 +46,12 @@ const openWith = (query?: string) => async () => {
   await userEvent.keyboard("/")
   const input = await body().findByPlaceholderText("Insert a layer, component or icon")
 
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("Quick insert's search isn't a text field")
+  }
+
   if (query) {
-    await typeInto(input as HTMLInputElement, query)
+    await typeInto(input, query)
   }
 }
 

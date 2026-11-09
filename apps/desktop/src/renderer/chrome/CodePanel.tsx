@@ -271,7 +271,7 @@ function ElementList({
 function SourceLines({ session, source }: { session: ProjectSession; source: ElementSource }) {
   const file = useProjectFile(session, source.path)
   const first = Math.max(1, source.line - around.before)
-  const shown = typeof file === "string" ? file.split("\n").slice(first - 1, source.line + around.after) : []
+  const shown = file.state === "read" ? file.text.split("\n").slice(first - 1, source.line + around.after) : []
   const lines = useHighlightedCode(shown.join("\n"), source.path.endsWith(".jsx") ? "jsx" : "tsx")
   const where = `${source.path}:${source.line}:${source.column}`
 
@@ -296,7 +296,7 @@ function SourceLines({ session, source }: { session: ProjectSession; source: Ele
         </CodeBlockActions>
       </CodeBlockHeader>
       {/* The source is read, not glanced at, so it's a code block: 12px on an 18px line. */}
-      {typeof file === "string" ? (
+      {file.state === "read" ? (
         <CodeBlockContent lineNumbers startLine={first} className="type-code">
           {lines.map((line, index) => (
             <CodeBlockLine key={first + index} variant={first + index === source.line ? "highlighted" : "default"}>
@@ -306,7 +306,7 @@ function SourceLines({ session, source }: { session: ProjectSession; source: Ele
         </CodeBlockContent>
       ) : (
         <p className="type-message px-3 py-2 text-muted-foreground">
-          {file instanceof Error ? file.message : `Reading ${fileName(source.path)}…`}
+          {file.state === "failed" ? file.error.message : `Reading ${fileName(source.path)}…`}
         </p>
       )}
     </CodeBlock>
@@ -357,18 +357,19 @@ function sameElements(a: SourcedElement[], b: SourcedElement[]): boolean {
 }
 
 /**
- * A project file's text, an error saying why it couldn't be read, or undefined while it's read. It's read each time
+ * A project file's text, an error saying why it couldn't be read, or that it's still being read. It's read each time
  * the element or the tab changes, so an edit made in the editor shows.
  */
-function useProjectFile(session: ProjectSession, path: string): string | Error | undefined {
+function useProjectFile(session: ProjectSession, path: string): ProjectFile {
   const key = `${session.id}\n${path}`
-  const [read, setRead] = useState<{ key: string; file: string | Error }>()
+  const [read, setRead] = useState<{ key: string; file: ProjectFile }>()
   useEffect(() => {
     let cancelled = false
     request("code.read", { projectId: session.id, path }).then(
-      ({ text }) => !cancelled && setRead({ key, file: text }),
-      (error: unknown) =>
-        !cancelled && setRead({ key, file: error instanceof Error ? error : new Error(String(error)) })
+      ({ text }) => !cancelled && setRead({ key, file: { state: "read", text } }),
+      (cause: unknown) =>
+        !cancelled &&
+        setRead({ key, file: { state: "failed", error: cause instanceof Error ? cause : new Error(String(cause)) } })
     )
 
     return () => {
@@ -376,5 +377,7 @@ function useProjectFile(session: ProjectSession, path: string): string | Error |
     }
   }, [key, path, session.id])
 
-  return read?.key === key ? read.file : undefined
+  return read?.key === key ? read.file : { state: "reading" }
 }
+
+type ProjectFile = { state: "reading" } | { state: "read"; text: string } | { state: "failed"; error: Error }

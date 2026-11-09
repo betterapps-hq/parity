@@ -10,7 +10,7 @@ import {
 import { useSyncExternalStore } from "react"
 import { getPreferences } from "../chrome/preferences.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { shapeIdFor } from "./CanvasEditor.tsx"
+import { canvasIdFor } from "./CanvasEditor.tsx"
 import { followPress, gestures } from "./gesture.ts"
 import type { Point } from "./hit.ts"
 import { viewCenter } from "./new-screen.ts"
@@ -89,7 +89,7 @@ export function drawFrame(session: ProjectSession, area: HTMLElement, event: Poi
   const from = toPage(event)
 
   const boxes = store.getEntries().flatMap((entry) => {
-    const bounds = editor.getShapePageBounds(shapeIdFor(entry.key))
+    const bounds = editor.getShapePageBounds(canvasIdFor(entry.key))
 
     return bounds ? [bounds] : []
   })

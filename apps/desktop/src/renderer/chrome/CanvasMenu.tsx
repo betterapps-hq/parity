@@ -297,7 +297,9 @@ function run(session: ProjectSession, action: MenuAction, point: Point): void {
   } else if ((action === "newScreen" || action === "newComponent") && session.editor) {
     const { editor } = session
     const kind = action === "newScreen" ? "screen" : "component"
-    void actions[action].run("canvasMenu", { instead: () => createDesign(session, kind, editor.screenToPage(point)) })
+    void actions[action].run("canvasMenu", {
+      instead: () => void createDesign(session, kind, editor.screenToPage(point))
+    })
   } else {
     void actions[action].run("canvasMenu")
   }
@@ -358,7 +360,8 @@ function designUnder(
   const board = editor.getShapeAtPoint(page, {
     hitInside: true,
     hitLocked: true,
-    filter: (shape) => shape.type === "canvas-container" && (!shape.isLocked || selected(before, shape.props.key))
+    filter: (container) =>
+      container.type === "canvas-container" && (!container.isLocked || selected(before, container.props.key))
   })
 
   return board?.type === "canvas-container" ? { target: { design: board.props.key, path: [] } } : undefined

@@ -60,6 +60,13 @@ function rowOf(canvasElement: HTMLElement, token: string): HTMLElement {
   return row
 }
 
+/** The element with the keyboard, or none when it's on the page itself or isn't HTML. */
+function focused(): HTMLElement | null {
+  const active = document.activeElement
+
+  return active instanceof HTMLElement ? active : null
+}
+
 /** Opens a token's detail by resting the pointer on its row. */
 async function open(canvasElement: HTMLElement, token: string): Promise<HTMLElement> {
   await userEvent.hover(rowOf(canvasElement, token))
@@ -318,7 +325,7 @@ export const DetailFromTheKeyboard: Story = {
     row.focus()
     await userEvent.keyboard("{ArrowRight}")
     const dialog = await within(document.body).findByRole("dialog")
-    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement))
+    await waitFor(() => expect(dialog).toContainElement(focused()))
     await userEvent.keyboard("{Escape}")
     await waitFor(() => expect(row).toHaveFocus())
     // Opened by a hover, focus stays on the row until the arrow moves it in.
@@ -326,7 +333,7 @@ export const DetailFromTheKeyboard: Story = {
     const hovered = await within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
     await expect(row).toHaveFocus()
     await userEvent.keyboard("{ArrowRight}")
-    await waitFor(() => expect(hovered).toContainElement(document.activeElement as HTMLElement))
+    await waitFor(() => expect(hovered).toContainElement(focused()))
     await userEvent.keyboard("{Escape}")
     // A spacing step's Edit is disabled, so the arrow passes over it to the first control that can take the keyboard.
     await search(canvasElement, "spacing-4")
@@ -335,7 +342,7 @@ export const DetailFromTheKeyboard: Story = {
     const derived = await within(document.body).findByRole("dialog", undefined, { timeout: 2000 })
     step.focus()
     await userEvent.keyboard("{ArrowRight}")
-    await waitFor(() => expect(derived).toContainElement(document.activeElement as HTMLElement))
+    await waitFor(() => expect(derived).toContainElement(focused()))
   }
 }
 

@@ -64,7 +64,7 @@ import { formatKeys } from "./keys.ts"
 import { layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
-import { valueKind } from "./prop-values.ts"
+import { type PropValue, readPropValue, textValue, valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
 import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
@@ -127,26 +127,27 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
     return layer && nodeOnBoard(current, layer, editingState(current, state.id))
   }
 
-  const reset = (field?: PatchField) =>
-    updateAndRecord(
-      store,
-      key,
-      "Reset change",
-      (current) => resetOverride(current, boardTarget(current, state.id), nodeId, field),
-      field
-        ? {
-            field: fieldName(field),
-            layers: [nodeId],
-            state: state.id,
-            read: (current) => fieldValue(shownIn(current), field)
-          }
-        : {
-            field: "overrides",
-            layers: [nodeId],
-            state: state.id,
-            read: (current) => targetPatches(current, boardTarget(current, state.id))?.[nodeId]
-          }
-    )
+  const reset = (field?: PatchField) => {
+    const update = (current: ContainerSpec) => resetOverride(current, boardTarget(current, state.id), nodeId, field)
+
+    if (field) {
+      updateAndRecord(store, key, "Reset change", update, {
+        field: fieldName(field),
+        layers: [nodeId],
+        state: state.id,
+        read: (current) => fieldValue(shownIn(current), field)
+      })
+
+      return
+    }
+
+    updateAndRecord(store, key, "Reset change", update, {
+      field: "overrides",
+      layers: [nodeId],
+      state: state.id,
+      read: (current) => targetPatches(current, boardTarget(current, state.id))?.[nodeId]
+    })
+  }
 
   return (
     <>
@@ -203,7 +204,7 @@ function DesignLayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: st
         <InstanceSection
           entry={entry}
           node={node}
-          own={location.node as InstanceNode}
+          own={location.node.type === "instance" ? location.node : undefined}
           changed={(name) => changesField(override, { kind: "props", key: name })}
           onChange={(name, value) => change(`Change ${name}`, propChange(name, value))}
           onReset={(name) => reset({ kind: "props", key: name })}
@@ -257,26 +258,27 @@ function InnerLayerPanel({ entry, path }: { entry: ContainerEntry; path: string 
     locateInner(current, path, library, { state: editingState(current, state.id), variants: current.view?.variants })
       ?.shown
 
-  const reset = (field?: PatchField) =>
-    updateAndRecord(
-      store,
-      key,
-      "Reset change",
-      (current) => resetLayer(store, current, boardTarget(current, state.id), path, field),
-      field
-        ? {
-            field: fieldName(field),
-            layers: [path],
-            state: state.id,
-            read: (current) => fieldValue(shownIn(current), field)
-          }
-        : {
-            field: "overrides",
-            layers: [path],
-            state: state.id,
-            read: (current) => innerChanges(current, boardTarget(current, state.id), path, library)
-          }
-    )
+  const reset = (field?: PatchField) => {
+    const update = (current: ContainerSpec) => resetLayer(store, current, boardTarget(current, state.id), path, field)
+
+    if (field) {
+      updateAndRecord(store, key, "Reset change", update, {
+        field: fieldName(field),
+        layers: [path],
+        state: state.id,
+        read: (current) => fieldValue(shownIn(current), field)
+      })
+
+      return
+    }
+
+    updateAndRecord(store, key, "Reset change", update, {
+      field: "overrides",
+      layers: [path],
+      state: state.id,
+      read: (current) => innerChanges(current, boardTarget(current, state.id), path, library)
+    })
+  }
 
   const push = () => main && pushAndRecord(store, key, main.key, inner.instance.id, { key: inner.key, path })
   // The component this layer belongs to: the nested one for a layer inside a nested instance.
@@ -414,7 +416,7 @@ function LayerSections({
 
   return (
     <>
-      {(node.type === "text" || (node.type === "component" && typeof node.props?.children === "string")) && (
+      {(node.type === "text" || (node.type === "component" && textValue.safeParse(node.props?.children).success)) && (
         <PanelSection title="Content">
           {node.type === "text" ? (
             <Field label="Text" changed={override?.text !== undefined} onReset={() => reset({ kind: "text" })}>
@@ -431,7 +433,7 @@ function LayerSections({
             >
               <TextInput
                 multiline
-                value={String((node.props?.children ?? "") as unknown)}
+                value={textValue.safeParse(node.props?.children).data ?? ""}
                 onCommit={(children) => change("Edit label", { props: { children } })}
               />
             </Field>
@@ -538,7 +540,7 @@ function MakeComponent({ entry, nodeId, beside }: { entry: ContainerEntry; nodeI
       onSubmit={(event) => {
         event.preventDefault()
         const field = new FormData(event.currentTarget).get("name")
-        const name = (typeof field === "string" ? field : "").trim()
+        const name = (field instanceof File ? "" : (field ?? "")).trim()
 
         if (!name) {
           return
@@ -582,7 +584,7 @@ function InstanceSection({
   /** The instance as the design has it, when it's one of the design's own nodes rather than a nested one. */
   own?: InstanceNode
   changed: (name: string) => boolean
-  onChange: (name: string, value: unknown) => void
+  onChange: (name: string, value: PropValue | undefined) => void
   onReset: (name: string) => void
 }) {
   const session = useProject()
@@ -671,7 +673,11 @@ function InstanceSection({
                   (container) => ({
                     ...container,
                     root: mapNode(container.root, node.id, (current) => {
-                      const next = { ...current } as InstanceNode
+                      if (current.type !== "instance") {
+                        return current
+                      }
+
+                      const next = { ...current }
 
                       if (state) {
                         next.state = state
@@ -692,7 +698,7 @@ function InstanceSection({
           param.type === "variant" ? (
             <Field key={name} label={name} changed={changed(name)} onReset={() => onReset(name)}>
               <ChoiceInput
-                value={typeof node.args?.[name] === "string" ? (node.args[name] as string) : undefined}
+                value={textValue.safeParse(node.args?.[name]).data}
                 options={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
                 placeholder={
                   param.options?.find((option) => option.id === param.default)?.name ?? param.options?.[0]?.name
@@ -703,8 +709,8 @@ function InstanceSection({
           ) : (
             <Field key={name} label={name} changed={changed(name)} onReset={() => onReset(name)}>
               <ValueInput
-                value={node.args?.[name] ?? param.default}
-                kind={valueKind(node.args?.[name] ?? param.default, param.type)}
+                value={readPropValue(node.args?.[name] ?? param.default)}
+                kind={valueKind(readPropValue(node.args?.[name] ?? param.default), param.type)}
                 title={name}
                 onCommit={(value) => onChange(name, value)}
               />

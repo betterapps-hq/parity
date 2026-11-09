@@ -179,10 +179,18 @@ export function ReportProblemView(props: ReportProblemViewProps) {
  * the Sentry event of the error a part of the window caught, when it's opened from that part's fallback (PAR-704), with
  * the part's label to name it by (PAR-757).
  */
-let opened: { screenshot?: string; crash?: LastCrash; crashTime?: string; eventId?: string; caught?: string } = {}
+interface Opened {
+  screenshot?: string
+  crash?: LastCrash
+  crashTime?: string
+  eventId?: string
+  caught?: string
+}
+
+let opened: Opened = {}
 const openedListeners = new Set<() => void>()
 
-function setOpened(next: typeof opened): void {
+function setOpened(next: Opened): void {
   opened = next
 
   for (const listener of openedListeners) {
@@ -211,12 +219,27 @@ export async function openReport({ crash, eventId, label }: ReportSubject = {}):
     // The report goes without a screenshot.
   }
 
-  setOpened({
-    ...(screenshot ? { screenshot } : {}),
-    ...(crash ? { crash: { when: crashTime(crash.time) }, crashTime: crash.time } : {}),
-    // The dialog names the error only when the report is linked to it.
-    ...(eventId ? { eventId, ...(label ? { caught: label } : {}) } : {})
-  })
+  const next: Opened = {}
+
+  if (screenshot) {
+    next.screenshot = screenshot
+  }
+
+  if (crash) {
+    next.crash = { when: crashTime(crash.time) }
+    next.crashTime = crash.time
+  }
+
+  // The dialog names the error only when the report is linked to it.
+  if (eventId) {
+    next.eventId = eventId
+
+    if (label) {
+      next.caught = label
+    }
+  }
+
+  setOpened(next)
   openDialog("report")
 }
 

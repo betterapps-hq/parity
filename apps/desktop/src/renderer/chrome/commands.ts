@@ -10,7 +10,8 @@ import {
 } from "@parity-app/editor"
 import type { EventAttributes, registeredEvents } from "@parity-app/telemetry"
 import { toast } from "sonner"
-import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import type { ServiceMethods } from "../../shared/protocol.ts"
+import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import {
   copySelection,
   copyStyle,
@@ -241,12 +242,21 @@ export async function exportLayers(
   }
 }
 
+/** A layer as `layers.picture` draws it. */
+type PicturedLayer = ServiceMethods["layers.picture"]["params"]["layers"][number]
+
 /** What an export wrote, for `export.done` and `export.failed`. */
 type Exported = Omit<EventAttributes<typeof registeredEvents, "export.failed">, "code">
 
-function trackExportFailed(exported: Exported, error: unknown): void {
-  const code = errorCode(error)
-  track("export.failed", { ...exported, ...(code ? { code } : {}) })
+function trackExportFailed(exported: Exported, cause: unknown): void {
+  const failed: EventAttributes<typeof registeredEvents, "export.failed"> = { ...exported }
+  const code = errorCode(cause)
+
+  if (code) {
+    failed.code = code
+  }
+
+  track("export.failed", failed)
 }
 
 /**
@@ -292,12 +302,19 @@ export async function copySelectedAsPng(session = activeSession()): Promise<void
   try {
     const { png, warnings } = await request("layers.picture", {
       projectId: session.id,
-      layers: targets.map(({ design, node, name }) => ({
-        design,
-        ...(node ? { node } : {}),
-        name,
-        at: session.store.getEntry(design)?.container.position ?? { x: 0, y: 0 }
-      }))
+      layers: targets.map(({ design, node, name }) => {
+        const layer: PicturedLayer = {
+          design,
+          name,
+          at: session.store.getEntry(design)?.container.position ?? { x: 0, y: 0 }
+        }
+
+        if (node) {
+          layer.node = node
+        }
+
+        return layer
+      })
     })
 
     if (!png) {
@@ -616,7 +633,7 @@ export function renameSelection(session = activeSession()): void {
 export function zoomToSelection(session = activeSession()): void {
   const current = session?.selection.get()
   const key = current?.note ?? current?.design
-  const bounds = key ? session?.editor?.getShapePageBounds(shapeIdFor(key)) : undefined
+  const bounds = key ? session?.editor?.getShapePageBounds(canvasIdFor(key)) : undefined
 
   if (bounds) {
     session?.editor?.zoomToBounds(bounds, { inset: 80, animation: { duration: 200 } })
@@ -868,8 +885,8 @@ export function goToMainComponent(session = activeSession()): void {
   revealSelection(session)
 }
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function message(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }
 
 function parentOf(path: string): string {

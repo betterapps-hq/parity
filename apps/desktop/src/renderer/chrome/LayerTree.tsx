@@ -432,12 +432,17 @@ export function LayerTree() {
       return undefined
     }
 
-    return {
+    const target: MoveTarget = {
       design: row.design.key,
       parent: parent.id,
-      index: location.index + (position === "after" ? 1 : 0),
-      ...(location.slot ? { slot: location.slot } : {})
+      index: location.index + (position === "after" ? 1 : 0)
     }
+
+    if (location.slot) {
+      target.slot = location.slot
+    }
+
+    return target
   }
 
   const drop = (row: Row, event: DragEvent) => {
@@ -714,7 +719,7 @@ function addDesign(session: Session, kind: ContainerKind): void {
     void actions.frame.run("panel")
   } else {
     const command = kind === "screen" ? "newScreen" : "newComponent"
-    void actions[command].run("panel", { instead: () => createDesign(session, kind) })
+    void actions[command].run("panel", { instead: () => void createDesign(session, kind) })
   }
 }
 

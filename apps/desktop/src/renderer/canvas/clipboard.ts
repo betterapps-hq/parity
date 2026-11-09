@@ -33,7 +33,7 @@ import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { errorCode, errorMessage, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
-import { shapeIdFor } from "./CanvasEditor.tsx"
+import { canvasIdFor } from "./CanvasEditor.tsx"
 import { bringIntoView, bringIntoViewOnceSized, takenBounds } from "./free-space.ts"
 import type { Point } from "./hit.ts"
 import { addFrameOfLayers, addFrameOfText, viewCenter } from "./new-screen.ts"
@@ -753,7 +753,7 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
   // their row; elsewhere, in the view (see `pastedPlacement`).
   const placed = designs.map((design) => {
     const original = sameProject ? store.getEntries().find((entry) => entry.container.id === design.id) : undefined
-    const bounds = original ? editor?.getShapePageBounds(shapeIdFor(original.key)) : undefined
+    const bounds = original ? editor?.getShapePageBounds(canvasIdFor(original.key)) : undefined
 
     return { position: design.position, ...(bounds ? { bounds } : {}) }
   })
@@ -776,7 +776,7 @@ function pasteDesigns(session: ProjectSession, designs: ContainerSpec[], samePro
     return
   }
 
-  const boards = keys.map((key) => shapeIdFor(key))
+  const boards = keys.map((key) => canvasIdFor(key))
 
   if (shown) {
     bringIntoView(editor, shown)

@@ -2,8 +2,8 @@ import type { DesignNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { layerKind } from "./layer-kind.ts"
 
-const designs: Record<string, string> = { "plan-card": "Plan card" }
-const designName = (id: string) => designs[id]
+const designs = new Map([["plan-card", "Plan card"]])
+const designName = (id: string) => designs.get(id)
 
 const libraries = [
   { id: "nova", name: "Shadcn Nova", kind: "components" as const },

@@ -1,7 +1,7 @@
 import { type ContainerKind, uniqueId } from "@parity-app/core"
 import { designGap, detachInstancesOf, freeSpotBeside, instanceCount, kindName, turnInto } from "@parity-app/editor"
 import { toast } from "sonner"
-import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { bringIntoView, takenBounds } from "../canvas/free-space.ts"
 import type { ContainerEntry } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -28,7 +28,7 @@ export function duplicateDesign(session: ProjectSession, entry: ContainerEntry):
   const taken = store.getEntries().map((candidate) => candidate.container.id)
   const name = `${entry.container.name} copy`
   const id = uniqueId(name, taken)
-  const bounds = editor?.getShapePageBounds(shapeIdFor(entry.key))
+  const bounds = editor?.getShapePageBounds(canvasIdFor(entry.key))
 
   const x =
     editor && bounds

@@ -1,6 +1,6 @@
 import { resolveModes } from "@parity-app/core"
 import { aboveEverything, makeComponent } from "@parity-app/editor"
-import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { recordComponentChange } from "./component-events.ts"
@@ -24,7 +24,7 @@ export function extractIntoComponent(
     entry.container.position,
     store.getEntries().map((candidate) => ({
       position: candidate.container.position,
-      bounds: editor?.getShapePageBounds(shapeIdFor(candidate.key))
+      bounds: editor?.getShapePageBounds(canvasIdFor(candidate.key))
     }))
   )
 

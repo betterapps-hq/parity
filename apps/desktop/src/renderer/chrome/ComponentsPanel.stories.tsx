@@ -307,8 +307,13 @@ export const ComponentMenu: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Local components"))
-    const kit = source(canvasElement, "UI kit").closest("section")!
-    const button = within(kit as HTMLElement).getByRole("button", { name: "Button" })
+    const kit = source(canvasElement, "UI kit").closest("section")
+
+    if (!kit) {
+      throw new Error("The UI kit isn't in a section")
+    }
+
+    const button = within(kit).getByRole("button", { name: "Button" })
     const box = button.getBoundingClientRect()
     // Where a pointer would be, so the menu opens beside the row.
     await fireEvent.contextMenu(button, { clientX: box.left + 48, clientY: box.top + box.height / 2 })

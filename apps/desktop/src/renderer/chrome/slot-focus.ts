@@ -38,7 +38,13 @@ export function slotFocused(): void {
 
 /** Says why a rename of the slot `node` was refused, or clears it with `undefined`. */
 export function refuseSlotName(design: string, node: string, error: string | undefined): void {
-  set({ design, node, ...(error ? { error } : {}) })
+  const refused: SlotFocus = { design, node }
+
+  if (error) {
+    refused.error = error
+  }
+
+  set(refused)
 }
 
 export function useSlotFocus(design: string): SlotFocus | undefined {

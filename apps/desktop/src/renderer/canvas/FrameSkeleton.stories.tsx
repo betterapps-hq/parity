@@ -6,7 +6,7 @@ import signInDesktopLight from "../stories/bitmaps/sign-in-desktop-light.png?inl
 import signInMobileLight from "../stories/bitmaps/sign-in-mobile-light.png?inline"
 import { design, example, onCanvas } from "../stories/fixtures.tsx"
 import { answering } from "../stories/host.ts"
-import { shapeIdFor } from "./CanvasEditor.tsx"
+import { canvasIdFor } from "./CanvasEditor.tsx"
 import { bitmapScale } from "./frame-bitmaps.ts"
 
 /**
@@ -37,7 +37,7 @@ type Story = StoryObj<typeof meta>
  */
 function zoomOut(names: string[]): void {
   const editor = example().editor
-  const bounds = names.flatMap((name) => editor?.getShapePageBounds(shapeIdFor(design(name))) ?? [])
+  const bounds = names.flatMap((name) => editor?.getShapePageBounds(canvasIdFor(design(name))) ?? [])
 
   if (!editor || bounds.length === 0) {
     return

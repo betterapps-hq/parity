@@ -5,31 +5,31 @@ export function isMac(): boolean {
 }
 
 /** Punctuation and the rest, by the physical key, so the layout's Shift and Alt characters don't change them. */
-const codes: Record<string, readonly string[]> = {
-  "+": ["Equal", "NumpadAdd"],
-  "-": ["Minus", "NumpadSubtract"],
-  "/": ["Slash", "NumpadDivide"],
-  "?": ["Slash"],
-  "\\": ["Backslash", "IntlBackslash"],
-  ",": ["Comma"],
-  ".": ["Period"],
-  "[": ["BracketLeft"],
-  "]": ["BracketRight"],
-  "'": ["Quote"]
-}
+const codes = new Map([
+  ["+", ["Equal", "NumpadAdd"]],
+  ["-", ["Minus", "NumpadSubtract"]],
+  ["/", ["Slash", "NumpadDivide"]],
+  ["?", ["Slash"]],
+  ["\\", ["Backslash", "IntlBackslash"]],
+  [",", ["Comma"]],
+  [".", ["Period"]],
+  ["[", ["BracketLeft"]],
+  ["]", ["BracketRight"]],
+  ["'", ["Quote"]]
+])
 
-const named: Record<string, readonly string[]> = {
-  Del: ["Delete"],
-  Backspace: ["Backspace"],
-  Esc: ["Escape"],
-  Enter: ["Enter"],
-  Tab: ["Tab"],
-  Space: [" "],
-  "←": ["ArrowLeft"],
-  "→": ["ArrowRight"],
-  "↑": ["ArrowUp"],
-  "↓": ["ArrowDown"]
-}
+const named = new Map([
+  ["Del", ["Delete"]],
+  ["Backspace", ["Backspace"]],
+  ["Esc", ["Escape"]],
+  ["Enter", ["Enter"]],
+  ["Tab", ["Tab"]],
+  ["Space", [" "]],
+  ["←", ["ArrowLeft"]],
+  ["→", ["ArrowRight"]],
+  ["↑", ["ArrowUp"]],
+  ["↓", ["ArrowDown"]]
+])
 
 interface Parsed {
   ctrl: boolean
@@ -74,13 +74,13 @@ export function matches(event: KeyboardEvent, keys: string): boolean {
     return event.key === key
   }
 
-  const physical = codes[key]
+  const physical = codes.get(key)
 
   if (physical) {
     return physical.includes(event.code)
   }
 
-  return named[key]?.includes(event.key) ?? event.key === key
+  return named.get(key)?.includes(event.key) ?? event.key === key
 }
 
 /**
@@ -100,16 +100,16 @@ export function holds(
   )
 }
 
-const macSymbols: Record<string, string> = {
-  Ctrl: "⌘",
-  Alt: "⌥",
-  Shift: "⇧",
-  Del: "⌫",
-  Backspace: "⌫",
-  Enter: "↩",
-  Tab: "⇥",
-  Esc: "⎋"
-}
+const macSymbols = new Map([
+  ["Ctrl", "⌘"],
+  ["Alt", "⌥"],
+  ["Shift", "⇧"],
+  ["Del", "⌫"],
+  ["Backspace", "⌫"],
+  ["Enter", "↩"],
+  ["Tab", "⇥"],
+  ["Esc", "⎋"]
+])
 
 /**
  * Keys as the platform shows them: joined by `+` on Windows and Linux (`Ctrl+Shift+Z`), with a `+` or `-` key named
@@ -124,21 +124,29 @@ export function formatKeys(keys: string, mac = isMac()): string {
   }
 
   if (!mac) {
-    return parts.length === 1 ? keys : parts.map((part) => joinedNames[part] ?? part).join("+")
+    return parts.length === 1 ? keys : parts.map((part) => joinedNames.get(part) ?? part).join("+")
   }
 
-  const held = ["Alt", "Shift", "Ctrl"].filter((modifier) => parts.includes(modifier)).map((part) => macSymbols[part])
-  const rest = parts.filter((part) => !modifierNames.includes(part)).map((part) => macSymbols[part] ?? part)
+  const held = ["Alt", "Shift", "Ctrl"].flatMap((modifier) => {
+    const symbol = macSymbols.get(modifier)
+
+    return symbol && parts.includes(modifier) ? [symbol] : []
+  })
+
+  const rest = parts.flatMap((part) => (modifierNames.includes(part) ? [] : [macSymbols.get(part) ?? part]))
 
   return [...held, ...rest].join("")
 }
 
 /** Keys that would read as the separator once keys are joined by `+`. */
-const joinedNames: Record<string, string> = { "+": "Plus", "-": "Minus" }
+const joinedNames = new Map([
+  ["+", "Plus"],
+  ["-", "Minus"]
+])
 
 const modifierNames = ["Ctrl", "Alt", "Shift"]
 const keyNames = ["Space", "Home", "End", "PageUp", "PageDown"]
 
 function isKeyName(part: string): boolean {
-  return part.length === 1 || part in macSymbols || keyNames.includes(part) || /^F[0-9]{1,2}$/.test(part)
+  return part.length === 1 || macSymbols.has(part) || keyNames.includes(part) || /^F[0-9]{1,2}$/.test(part)
 }
