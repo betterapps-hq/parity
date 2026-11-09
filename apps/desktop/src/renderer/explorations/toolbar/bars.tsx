@@ -8,7 +8,7 @@ import {
   annotationKinds,
   ReviewBarLook,
   ReviewToolbar,
-  ToolbarDialogs,
+  ToolbarHosts,
   ZoomCorner
 } from "./options.tsx"
 import { Par184Bar } from "./par-184-bar.tsx"
@@ -74,7 +74,9 @@ export function ToolbarComparison() {
           </Row>
         ))}
       </div>
-      <ToolbarDialogs />
+      <ProjectContext value={example()}>
+        <ToolbarHosts />
+      </ProjectContext>
     </TooltipProvider>
   )
 }

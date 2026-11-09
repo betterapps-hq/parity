@@ -43,6 +43,7 @@ import { type CSSProperties, Fragment, type ReactElement, type ReactNode, useEff
 import { useValue } from "tldraw"
 import { useProject } from "../../canvas/context.ts"
 import { placeFrame } from "../../canvas/frame-tool.ts"
+import { useAppShortcuts, useShortcuts } from "../../canvas/shortcuts.ts"
 import { actions } from "../../chrome/actions.ts"
 import { ActionsSearch } from "../../chrome/ActionsSearch.tsx"
 import { type Command, keymap } from "../../chrome/keymap.ts"
@@ -682,10 +683,14 @@ export function ReviewToolbar() {
 }
 
 /**
- * The dialogs Insert and Search actions open. The app mounts them once for the window (App.tsx), so a story with the
- * toolbar on its own mounts them itself: otherwise they'd open unseen, and the story after would show them.
+ * What the app mounts once for the window that the toolbar needs: the keyboard shortcuts its tips show (App.tsx and
+ * ProjectView.tsx), and the dialogs Insert and Search actions open. A story with the toolbar on its own mounts them
+ * itself: otherwise the keys would do nothing, and the dialogs would open unseen and show in the story after.
  */
-export function ToolbarDialogs() {
+export function ToolbarHosts() {
+  useAppShortcuts()
+  useShortcuts(useProject(), true)
+
   return (
     <>
       <QuickInsert />
