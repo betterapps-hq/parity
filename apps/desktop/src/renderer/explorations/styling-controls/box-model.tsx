@@ -23,17 +23,11 @@ export interface SpacingHover {
   sides: number[]
 }
 
-/** The colors the box and its preview draw padding and margin in. */
-export interface SpacingColors {
-  padding: string
-  margin: string
-}
-
 /**
- * Padding in the canvas's spacing pink, and margin, which the canvas doesn't draw yet, in the same pink until it has a
- * color of its own. The Margin colors story tries some.
+ * Padding in modes' green and margin in the pink the canvas draws padding and gaps in today, the pair chosen from
+ * those compared (PAR-186). The canvas draws padding pink until it follows, and doesn't draw margin yet.
  */
-export const spacingColors: SpacingColors = { padding: spacingColor, margin: spacingColor }
+const colors = { padding: kindColors.mode, margin: spacingColor } as const
 
 const tint = (color: string, strength: number) => `color-mix(in oklch, ${color} ${strength}%, transparent)`
 /** Padding, hatched in its color as the canvas hatches it (CanvasOverlay). Margin is flat, outside the layer. */
@@ -158,7 +152,6 @@ export function BoxModel({
   marginMixed = [],
   measuredMargin,
   size,
-  colors = spacingColors,
   onPadding,
   onMargin,
   onHover
@@ -171,7 +164,6 @@ export function BoxModel({
   measuredMargin?: readonly (number | undefined)[]
   /** The layer's size inside its padding. */
   size: { width: number; height: number }
-  colors?: SpacingColors
   onPadding: (sides: Sides, cleared: number[]) => void
   onMargin: (sides: Sides, cleared: number[]) => void
   onHover?: (hover: SpacingHover | undefined) => void
@@ -201,9 +193,10 @@ export function BoxModel({
       {side("margin", 0)}
       <div className="flex w-full items-center gap-1">
         {side("margin", 3)}
+        {/* On the background, so margin's pink behind it doesn't muddy padding's green. */}
         <div
-          className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border p-1"
-          style={{ background: hatched(colors.padding), borderColor: tint(colors.padding, 60) }}
+          className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border bg-background p-1"
+          style={{ backgroundImage: hatched(colors.padding), borderColor: tint(colors.padding, 60) }}
         >
           {name("Padding")}
           {side("padding", 0)}
@@ -246,8 +239,6 @@ export function SpacingPreview({
   margin,
   border,
   hover,
-  colors = spacingColors,
-  selected = false,
   layout = "flex",
   first = false,
   contained = false,
@@ -257,9 +248,6 @@ export function SpacingPreview({
   margin?: Sides
   border?: Sides
   hover?: SpacingHover
-  colors?: SpacingColors
-  /** Plans is outlined as the canvas outlines a selected layer, to see the colors beside it. */
-  selected?: boolean
   /** Pricing's layout: a flex column, or Block, where vertical margins collapse. */
   layout?: "flex" | "block"
   /** Plans is Pricing's first child, so a top margin can pass through Pricing's edge in a Block layout. */
@@ -309,8 +297,7 @@ export function SpacingPreview({
     borderColor: "#262626",
     // Auto margins center a layer only when it doesn't stretch.
     width: margins[1] === "auto" || margins[3] === "auto" ? 200 : undefined,
-    alignSelf: margins[1] === "auto" || margins[3] === "auto" ? "auto" : undefined,
-    outline: selected ? `2px solid ${kindColors.layer}` : undefined
+    alignSelf: margins[1] === "auto" || margins[3] === "auto" ? "auto" : undefined
   }
   const strong = (which: SpacingHover["box"], index: number) => hover?.box === which && hover.sides.includes(index)
   const band = (which: "padding" | "margin", index: number, position: CSSProperties): ReactNode => {

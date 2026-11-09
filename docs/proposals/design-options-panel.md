@@ -220,18 +220,18 @@ image and icon layers, Spacing starts as a title with + until a padding or margi
 | Padding | The four-sides field, two fields on a layout (today: two, with a per-side toggle); the box-model widget                                                         | `padding` and its sides | Auto layout's padding |
 | Margin  | The four-sides field, shown once set or added from More, and the box-model widget's outer ring; takes `auto` and negatives (today: a sides field, as Padding's) | `margin` and its sides  | None                  |
 
-The box-model widget is being tried in Storybook as Spacing's whole control, in place of these two rows, since it's the
-easiest to understand: margin's ring around padding's around the layer's size, each side's value where the side is.
-Hovering a value opens its field in a popover after a moment, and pressing it or Enter opens it at once, so the box
-needn't fit a field, a unit menu or a token's chip on every side. Padding is hatched in its color, as the canvas shades
-it, and margin is flat in its own within a dashed edge. Both are the canvas's padding pink for now. The Margin colors
-story compares pairs that would tell them apart, beside the colors the canvas already uses for screens and layers,
-components, modes, agents, the tab order and padding. Three pairs are left, padding's color first: green and pink, pink
-and cyan, and green and purple. The green in both is modes', and the purple is components'. Green padding would change
-padding's color on the canvas too. Margin has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`),
-and hovering a side highlights it. Horizontal and vertical are written as `px-*` and `py-*`, which v4 compiles to
-`padding-inline` and `padding-block`, so they follow writing direction; separate sides are physical (`pl-4`), and a
-Logical switch under More writes `ps-*` and `pe-*`.
+Spacing has two forms, both kept, since each will suit different places. The fields form is these two rows, each two
+fields or four. The box-model form is one widget in place of them, the easier to understand: margin's ring around
+padding's around the layer's size, each side's value where the side is. Hovering a value opens its field in a popover
+after a moment, and pressing it or Enter opens it at once, so the box needn't fit a field, a unit menu or a token's chip
+on every side. Both are in Storybook under Spacing.
+
+Padding is modes' green, hatched, and margin is pink, flat within a dashed edge, chosen from pairs compared against the
+colors the canvas already uses. The canvas draws padding and gaps pink today, so its padding is to turn green to match.
+Margin has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`), and hovering a side highlights it.
+Horizontal and vertical are written as `px-*` and `py-*`, which v4 compiles to `padding-inline` and `padding-block`, so
+they follow writing direction; separate sides are physical (`pl-4`), and a Logical switch under More writes `ps-*` and
+`pe-*`.
 
 In a Block layout, vertical margins collapse, and a first or last child's margin passes through the layout's edge unless
 it has padding or a stroke in layout; `overflow: clip` doesn't stop this. The Margin row says so (principle 10) and
