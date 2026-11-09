@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { lagCheck, startupTimer, updateRecord } from "./app-events.ts"
+import { lagCheck, memoryRecord, startupTimer, updateRecord } from "./app-events.ts"
 
 describe("startupTimer", () => {
   it("gives the timings once every step is in, counting each step's first mark", () => {
@@ -94,5 +94,38 @@ describe("updateRecord", () => {
     const downloading = { phase: "downloading", version: "0.5.0" } as const
     expect(updateRecord(downloading, downloading, running)).toBeUndefined()
     expect(updateRecord({ phase: "idle" }, { phase: "checking" }, running)).toBeUndefined()
+  })
+})
+
+describe("memoryRecord", () => {
+  it("sums each role's memory into a whole number of bytes Sentry can chart, beside the list", () => {
+    const record = memoryRecord("interval", [
+      { role: "app", memory: 100.4 },
+      { role: "service", memory: 200 },
+      { role: "window", memory: 300 },
+      { role: "window", memory: 50 },
+      { role: "offscreen", memory: 400 },
+      { role: "builder", memory: 500 },
+      { role: "gpu", memory: 60 }
+    ])
+
+    expect(record).toMatchObject({
+      reason: "interval",
+      mainBytes: 100,
+      serviceBytes: 200,
+      editorBytes: 350,
+      renderBytes: 400,
+      totalBytes: 1610
+    })
+    expect(record.processes).toContainEqual({ role: "app", memory: 100 })
+  })
+
+  it("counts a role with no process as 0", () => {
+    expect(memoryRecord("hang", [{ role: "app", memory: 10 }])).toMatchObject({
+      serviceBytes: 0,
+      editorBytes: 0,
+      renderBytes: 0,
+      totalBytes: 10
+    })
   })
 })

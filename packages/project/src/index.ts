@@ -164,16 +164,16 @@ export async function discoverProject(
 
   return {
     styles,
-    ...(packageStyles.length > 0 ? { packageStyles } : {}),
+    packageStyles: packageStyles.length > 0 ? packageStyles : undefined,
     components: all,
     libraries: libraries.libraries,
     documents,
-    ...(storybook ? { storybook } : {}),
-    ...(tokens.length > 0 ? { describedTokens: tokens } : {}),
-    ...(namespace ? { namespace } : {}),
+    storybook,
+    describedTokens: tokens.length > 0 ? tokens : undefined,
+    namespace: namespace || undefined,
     notes,
     componentFiles: app.files,
-    ...(uiKit ? { uiKit } : {})
+    uiKit: uiKit || undefined
   }
 }
 

@@ -1,4 +1,5 @@
-import type { Envelope, Level, SpanEnvelope } from "./envelope.ts"
+import { z } from "zod"
+import type { Attributes, Envelope, Level, SpanEnvelope } from "./envelope.ts"
 import { isErrorEvent, type Sink } from "./sink.ts"
 
 /*
@@ -14,7 +15,7 @@ export interface Breadcrumb {
   category: string
   level: SeverityLevel
   timestamp: number
-  data: Record<string, unknown>
+  data: Attributes
 }
 
 export interface Event {
@@ -27,7 +28,7 @@ export interface Event {
   transaction_info?: { source: "custom" }
   tags: Record<string, string>
   contexts: {
-    parity?: Record<string, unknown>
+    parity?: Attributes
     trace?: {
       trace_id: string
       span_id: string
@@ -35,7 +36,7 @@ export interface Event {
       op?: string
       status?: string
       origin?: "manual"
-      data?: Record<string, unknown>
+      data?: Attributes
     }
   }
   spans?: []
@@ -45,7 +46,7 @@ export interface Event {
 export interface SentryLog {
   level: Level
   message: string
-  attributes: Record<string, unknown>
+  attributes: Attributes
   traceId?: string
 }
 
@@ -65,10 +66,13 @@ const severities: Record<Level, SeverityLevel> = {
   fatal: "fatal"
 }
 
+/** Text with something in it, or nothing for anything else. */
+const someText = z.string().min(1).optional().catch(undefined)
+
 const seconds = (time: string) => Date.parse(time) / 1000
 
 /** The envelope's own fields besides its name, time and level, for a breadcrumb's data or an error's context. */
-function details(envelope: Envelope): Record<string, unknown> {
+function details(envelope: Envelope): Attributes {
   const { name: _name, time: _time, level: _level, attributes, ...rest } = envelope
 
   return { ...rest, ...attributes }
@@ -90,19 +94,19 @@ export function breadcrumbOf(envelope: Envelope): Breadcrumb {
  * event; its attributes go as a context, and its trace links the error to the trace it happened in.
  */
 export function errorOf(envelope: Envelope): Event {
-  const { message } = envelope.attributes
+  const message = someText.parse(envelope.attributes.message)
+  const contexts: Event["contexts"] = { parity: details(envelope) }
+
+  if (envelope.traceId && envelope.spanId) {
+    contexts.trace = { trace_id: envelope.traceId, span_id: envelope.spanId }
+  }
 
   return {
     level: severities[envelope.level],
-    message: typeof message === "string" && message ? `${envelope.name}: ${message}` : envelope.name,
+    message: message ? `${envelope.name}: ${message}` : envelope.name,
     timestamp: seconds(envelope.time),
     tags: { process: envelope.process, event: envelope.name },
-    contexts: {
-      parity: details(envelope),
-      ...(envelope.traceId && envelope.spanId
-        ? { trace: { trace_id: envelope.traceId, span_id: envelope.spanId } }
-        : {})
-    }
+    contexts
   }
 }
 
@@ -123,7 +127,7 @@ export function logOf(envelope: Envelope): SentryLog {
     outcome: envelope.outcome
   }
 
-  const attributes: Record<string, unknown> = { ...envelope.attributes }
+  const attributes: Attributes = { ...envelope.attributes }
 
   for (const [key, value] of Object.entries(fields)) {
     if (value !== undefined) {
@@ -131,12 +135,13 @@ export function logOf(envelope: Envelope): SentryLog {
     }
   }
 
-  return {
-    level: envelope.level,
-    message: envelope.name,
-    attributes,
-    ...(envelope.traceId ? { traceId: envelope.traceId } : {})
+  const log: SentryLog = { level: envelope.level, message: envelope.name, attributes }
+
+  if (envelope.traceId) {
+    log.traceId = envelope.traceId
   }
+
+  return log
 }
 
 const statuses = { ok: "ok", error: "internal_error", cancelled: "cancelled" } as const
@@ -147,6 +152,11 @@ const statuses = { ok: "ok", error: "internal_error", cancelled: "cancelled" } a
  */
 export function transactionOf(span: SpanEnvelope): Event {
   const start = seconds(span.time)
+  const trace: NonNullable<Event["contexts"]["trace"]> = { trace_id: span.traceId, span_id: span.spanId }
+
+  if (span.parentSpanId) {
+    trace.parent_span_id = span.parentSpanId
+  }
 
   return {
     type: "transaction",
@@ -157,15 +167,7 @@ export function transactionOf(span: SpanEnvelope): Event {
     level: severities[span.level],
     tags: { process: span.process },
     contexts: {
-      trace: {
-        trace_id: span.traceId,
-        span_id: span.spanId,
-        ...(span.parentSpanId ? { parent_span_id: span.parentSpanId } : {}),
-        op: span.name,
-        status: statuses[span.outcome],
-        origin: "manual",
-        data: logOf(span).attributes
-      }
+      trace: { ...trace, op: span.name, status: statuses[span.outcome], origin: "manual", data: logOf(span).attributes }
     },
     spans: []
   }

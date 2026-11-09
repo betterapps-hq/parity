@@ -52,9 +52,10 @@ export function resolveTelemetry(variables: TelemetryVariables, setting: Telemet
 }
 
 function resolveLevel(variables: TelemetryVariables, setting: TelemetryLevel): ResolvedTelemetry {
-  const asked = variables.PARITY_TELEMETRY?.trim().toLowerCase() || undefined
+  const given = variables.PARITY_TELEMETRY?.trim().toLowerCase() || undefined
+  const asked = z.enum(telemetryLevels).optional().safeParse(given).data
 
-  if (asked !== undefined && !telemetryLevels.includes(asked as TelemetryLevel)) {
+  if (given !== undefined && asked === undefined) {
     throw new TypeError(`PARITY_TELEMETRY is "${variables.PARITY_TELEMETRY}"; expected all or off`)
   }
 
@@ -67,7 +68,7 @@ function resolveLevel(variables: TelemetryVariables, setting: TelemetryLevel): R
   }
 
   if (asked !== undefined) {
-    return { level: asked as TelemetryLevel, setting, overriddenBy: "PARITY_TELEMETRY" }
+    return { level: asked, setting, overriddenBy: "PARITY_TELEMETRY" }
   }
 
   return { level: setting, setting }
@@ -95,17 +96,18 @@ export type SavedTelemetry = z.infer<typeof savedTelemetry>
  * counts as unset: the level is then `all`, and the app makes a new install ID.
  */
 export function readSavedTelemetry(text: string | undefined): SavedTelemetry {
-  let value: unknown = {}
+  const saved = savedTelemetry.catch({ level: "all" })
 
-  try {
-    if (text !== undefined) {
-      value = JSON.parse(text)
-    }
-  } catch {
-    // Unreadable counts as unset.
+  if (text === undefined) {
+    return saved.parse({})
   }
 
-  return savedTelemetry.catch({ level: "all" }).parse(value)
+  try {
+    return saved.parse(JSON.parse(text))
+  } catch {
+    // Unreadable counts as unset.
+    return saved.parse({})
+  }
 }
 
 /** What decides where the desktop app keeps its data: the system, its variables and the home folder. */

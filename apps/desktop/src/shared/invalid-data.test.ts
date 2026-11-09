@@ -52,6 +52,6 @@ describe("recordInvalidData", () => {
     expect(() => readNames(["x".repeat(3000)])).toThrow("/0: expected a number")
     const [event] = sink.named("data.invalid")
     expect(event?.attributes.schema).toBe("readNames")
-    expect(String(event?.attributes.data)).toHaveLength(2001)
+    expect(event?.attributes.data).toHaveLength(2001)
   })
 })

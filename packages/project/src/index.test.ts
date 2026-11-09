@@ -5,7 +5,13 @@ import type { RendererAdapter } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { discoverProject } from "./index.ts"
 
-const renderer = {
+const renderer: RendererAdapter = {
+  id: "test",
+  name: "Test",
+  detect: () => true,
+  guestModule: "",
+  runtimePackages: [],
+  runtimeImports: [],
   componentExtensions: [".tsx"],
   findComponents: (source: string) =>
     [...source.matchAll(/export function ([A-Z]\w*)/g)].map((match) => ({
@@ -13,7 +19,7 @@ const renderer = {
       export: match[1]!,
       as: "function"
     }))
-} as unknown as RendererAdapter
+}
 
 let root: string
 

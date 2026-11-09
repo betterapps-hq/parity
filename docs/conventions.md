@@ -42,6 +42,10 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
   `unknown` data, so the rest of the code takes the parsed types.
 - **`unknown` stays only where a customer's module is read:** what a package exports (`ModuleExports`, `evaluateValue`,
   `exportOf`) can be anything. Each of those lines has a one-line lint disable saying so.
+- **A channel carries what it doesn't read as `unknown`.** `@parity-app/channel` passes a request's params, a reply's
+  result, a failure's details and a request's trace from one port to the other. Its `checks`, `ErrorCodec` and `around`
+  read them where they arrive, and the channel itself reads only a message's envelope, in `readMessage`. Those lines
+  have one-line lint disables too.
 
 ## Tests
 

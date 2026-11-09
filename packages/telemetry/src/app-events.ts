@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { ms } from "./attributes.ts"
 import { defineEvent } from "./events.ts"
 
 /*
@@ -9,7 +10,6 @@ import { defineEvent } from "./events.ts"
 
 const channel = z.enum(["stable", "beta"]).describe("The update channel this install takes")
 const version = z.string().describe("The version running now")
-const ms = (meaning: string) => z.number().int().nonnegative().describe(meaning)
 
 export const appStarted = defineEvent(
   "app.started",
@@ -77,10 +77,17 @@ export const updateFailed = defineEvent(
   { level: "warn", sentBy: ["main"], when: "Checking for, downloading or installing an update fails." }
 )
 
+const bytes = (meaning: string) => z.number().int().nonnegative().describe(meaning)
+
 export const processMemory = defineEvent(
   "process.memory",
   z.object({
     reason: z.enum(["interval", "hang"]).describe("Whether it's the regular reading or one taken as a window hung"),
+    mainBytes: bytes("The app's main process's private memory in bytes"),
+    serviceBytes: bytes("The project service's private memory in bytes, or 0 while none runs"),
+    editorBytes: bytes("Every editor window's private memory together, in bytes"),
+    renderBytes: bytes("The offscreen renderers' private memory together, in bytes"),
+    totalBytes: bytes("Every process's private memory together, in bytes, counting builders, the GPU and helpers"),
     processes: z
       .array(
         z.object({
@@ -126,6 +133,45 @@ export const slowThresholdMs = 200
 
 /** How often each process's memory is recorded, in milliseconds. */
 export const memoryEveryMs = 5 * 60_000
+
+/** A process's role, as the performance stats name it, and its private memory in bytes. */
+export interface ProcessMemory {
+  role: string
+  memory: number
+}
+
+/** Which of `process.memory`'s totals each role counts toward, besides `totalBytes`. */
+const roleTotals: Record<string, "mainBytes" | "serviceBytes" | "editorBytes" | "renderBytes"> = {
+  app: "mainBytes",
+  service: "serviceBytes",
+  window: "editorBytes",
+  "this-window": "editorBytes",
+  offscreen: "renderBytes"
+}
+
+/**
+ * `process.memory`'s attributes from each process's memory: a whole number of bytes per role, which Sentry's logs can
+ * chart, and the list they're summed from.
+ */
+export function memoryRecord(
+  reason: "interval" | "hang",
+  readings: readonly ProcessMemory[]
+): z.input<typeof processMemory.schema> {
+  const processes = readings.map(({ role, memory }) => ({ role, memory: Math.round(memory) }))
+  const totals = { mainBytes: 0, serviceBytes: 0, editorBytes: 0, renderBytes: 0, totalBytes: 0 }
+
+  for (const { role, memory } of processes) {
+    const total = roleTotals[role]
+
+    if (total) {
+      totals[total] += memory
+    }
+
+    totals.totalBytes += memory
+  }
+
+  return { reason, ...totals, processes }
+}
 
 /** The steps `app.started` times, and `firstProject`, which `app.first_project` times. */
 export type StartupStep = "mainReady" | "windowShown" | "firstPaint" | "serviceReady" | "firstProject"
@@ -180,13 +226,16 @@ export function startupTimer(
   }
 }
 
+/** A check on an event loop: each tick says how late it ran, when that's over the threshold. */
+export interface LagCheck {
+  tick(now: number, skip?: boolean): number | undefined
+}
+
 /**
  * A check on an event loop, from a timer meant to run every `every` milliseconds: each tick says how late it ran when
  * that's over `threshold`. `skip` drops a tick, as after the computer slept.
  */
-export function lagCheck({ every, threshold, start }: { every: number; threshold: number; start: number }): {
-  tick(now: number, skip?: boolean): number | undefined
-} {
+export function lagCheck({ every, threshold, start }: { every: number; threshold: number; start: number }): LagCheck {
   let expected = start + every
 
   return {
@@ -238,8 +287,12 @@ export function updateRecord(
   }
 
   if (next.phase === "error" && previous.phase !== "error") {
-    const stages = { downloading: "download", installing: "install" } as const
-    const stage = stages[previous.phase as keyof typeof stages] ?? "check"
+    const stages: Partial<Record<UpdatePhase["phase"], "download" | "install">> = {
+      downloading: "download",
+      installing: "install"
+    }
+
+    const stage = stages[previous.phase] ?? "check"
 
     return { name: "update.failed", attributes: { ...base, stage, message: next.message } }
   }
