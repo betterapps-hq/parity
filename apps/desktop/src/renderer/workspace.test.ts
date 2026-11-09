@@ -13,6 +13,7 @@ const guest = vi.hoisted(() => ({
   failures: [] as Array<(error: Error) => void>,
   released: [] as string[]
 }))
+
 vi.mock("./guest.ts", () => ({
   loadGuest: () =>
     new Promise((resolve, reject) => {
@@ -24,6 +25,7 @@ vi.mock("./guest.ts", () => ({
 }))
 
 const tracked = vi.hoisted(() => [] as Array<{ name: string; attributes: Record<string, unknown> }>)
+
 vi.mock("./report-error.ts", async (original) => ({
   ...(await original<typeof ReportError>()),
   track: (name: string, attributes: Record<string, unknown>) => tracked.push({ name, attributes })
@@ -44,12 +46,15 @@ const info = {
   sources: {},
   libraries: []
 } as unknown as ProjectInfo
+
 const loaded = { guest: {}, sheet: {}, tokens: [] }
 
 let opens: Array<(value: ProjectInfo) => void>
 let closes: string[]
+
 /** The projects whose pictures the service was told to keep, each time it was told. */
 let picturesKept: string[][]
+
 /** The projects whose folders the start page asked about, each time, and what the service answers. */
 let checked: string[][]
 let folders: { missing: string[]; example?: string }
@@ -68,25 +73,36 @@ beforeEach(() => {
     canvasHost: {
       ask: preloadAnswers((method, answerParams) => {
         const params = answerParams as { projectId?: string; roots?: string[] }
-        if (method === "project.open") return new Promise((resolve) => opens.push(resolve))
+
+        if (method === "project.open") {
+          return new Promise((resolve) => opens.push(resolve))
+        }
+
         if (method === "project.close") {
           closes.push(params.projectId!)
+
           return Promise.resolve(undefined)
         }
+
         if (method === "pictures.keepOnly") {
           picturesKept.push(params.roots!)
+
           return Promise.resolve(undefined)
         }
+
         if (method === "start.check") {
           checked.push(params.roots!)
+
           return Promise.resolve(folders)
         }
+
         // Nothing else the tab asks for answers, as nothing the test checks waits on it.
         return new Promise(() => undefined)
       })
     }
   })
 })
+
 afterEach(() => vi.unstubAllGlobals())
 
 /** Lets the workspace's awaits run on. */
@@ -263,7 +279,11 @@ describe("a tab closed while its project opens", () => {
     opens[0]!(info)
     opens[1]!(info)
     await settle()
-    for (const load of guest.loads) load(loaded)
+
+    for (const load of guest.loads) {
+      load(loaded)
+    }
+
     await Promise.all([first, second])
     expect(closes).toEqual([])
     expect(workspace.getTab(info.id)?.status).toBe("ready")
@@ -461,6 +481,7 @@ describe("a tab closed while its project opens", () => {
 /** Storage that keeps what's set, as the window's does. */
 function memoryStorage(): Pick<Storage, "getItem" | "setItem"> {
   const items = new Map<string, string>()
+
   return { getItem: (key) => items.get(key) ?? null, setItem: (key, value) => void items.set(key, value) }
 }
 
@@ -567,6 +588,7 @@ describe("moveGuest", () => {
     await settle()
     guest.loads[0]!(loaded)
     await opening
+
     return workspace
   }
 
@@ -625,9 +647,17 @@ describe("moveGuest", () => {
       const later = workspace.moveGuest(info.id, latest)
       const loadEarlier = () => guest.loads[1]!({ guest: { earlier: true }, sheet: {}, tokens: [] })
       const loadLater = () => guest.loads[2]!({ guest: { later: true }, sheet: {}, tokens: [] })
-      if (order === "first") loadEarlier()
+
+      if (order === "first") {
+        loadEarlier()
+      }
+
       loadLater()
-      if (order === "last") loadEarlier()
+
+      if (order === "last") {
+        loadEarlier()
+      }
+
       expect(await Promise.all([earlier, later])).toEqual([false, true])
       expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(latest)
       expect(workspace.getTab(info.id)!.session!.loaded.guest).toEqual({ later: true })

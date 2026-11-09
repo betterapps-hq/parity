@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { reportError, setWindowTelemetry, track } from "./report-error.ts"
 
 const notifications = vi.hoisted(() => ({ error: vi.fn<(title: string, options: object) => void>() }))
+
 vi.mock("sonner", () => ({ toast: notifications }))
 
 const sink = createTestSink()

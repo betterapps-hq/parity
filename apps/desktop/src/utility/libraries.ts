@@ -27,11 +27,16 @@ export async function addLibrary(
   { library }: ServiceMethods["library.add"]["params"]
 ): Promise<ServiceMethods["library.add"]["result"]> {
   const definition = (await libraryCatalog()).find((candidate) => candidate.id === library)
-  if (!definition) throw new Error(`No library "${library}"`)
+
+  if (!definition) {
+    throw new Error(`No library "${library}"`)
+  }
+
   // Detected again, in case the project changed package manager since it opened.
   const packageManager = await detectPackageManager(project.info.root)
   const { command, args } = addCommand(packageManager.agent, [definition.package])
   let child: ChildProcess | undefined
+
   const task = trackProcess(
     {
       id: `install:${project.info.id}`,
@@ -45,10 +50,13 @@ export async function addLibrary(
     },
     { stop: () => child?.pid && killTree(child.pid) }
   )
+
   let log: string
   let edit: ProjectEditResult | undefined
+
   try {
     log = await run(command, args, project.info.root, (spawned) => (child = spawned))
+
     if (definition.tailwindEntry) {
       edit = await importLibraryStyles(project, definition.name, `${definition.package}/${definition.tailwindEntry}`)
     }
@@ -57,10 +65,13 @@ export async function addLibrary(
       task.set("canceled")
       throw new Error(`Installing ${definition.name} was canceled`, { cause: error })
     }
+
     task.set("failed", { summary: `${command} couldn't install ${definition.package}`, error: message(error) })
     throw error
   }
+
   task.set("passed", { summary: `Added ${definition.package}` })
+
   return edit ? { log, edit } : { log }
 }
 
@@ -70,15 +81,24 @@ export async function importStyles(
 ): Promise<ProjectEditResult | undefined> {
   const { info } = project
   const installed = info.libraries.find((candidate) => candidate.id === library)
-  if (!installed?.tailwindEntry) throw new Error(`${library} has no styles to import`)
+
+  if (!installed?.tailwindEntry) {
+    throw new Error(`${library} has no styles to import`)
+  }
+
   const edit = await importLibraryStyles(project, installed.name, `${installed.importName}/${installed.tailwindEntry}`)
   installed.stylesImported = true
+
   return edit
 }
 
 function stylesheetOf(project: OpenProject): string {
   const stylesheet = project.info.styles?.stylesheet ?? project.stylesheets[0]
-  if (!stylesheet) throw new Error("The project has no stylesheet to import the library's styles into")
+
+  if (!stylesheet) {
+    throw new Error("The project has no stylesheet to import the library's styles into")
+  }
+
   return stylesheet
 }
 
@@ -91,7 +111,11 @@ async function importLibraryStyles(
   const stylesheet = stylesheetOf(project)
   const source = await readFile(join(project.info.root, stylesheet), "utf8")
   const content = withStylesImport(source, specifier)
-  if (content === undefined) return undefined
+
+  if (content === undefined) {
+    return undefined
+  }
+
   return applyProjectEdit(project, {
     label: `Import ${name}'s styles`,
     files: [{ kind: "replace", path: stylesheet, expected: source, content }]
@@ -103,8 +127,14 @@ function run(command: string, args: string[], cwd: string, started: (child: Chil
     // Package managers are .cmd scripts on Windows, which only start through a shell. The arguments are package
     // names from the catalog, never anything typed.
     const env = { ...process.env }
+
     // This is the project's package manager, whose install scripts may launch an Electron app of their own.
-    for (const key of Object.keys(env)) if (key.toUpperCase() === "ELECTRON_RUN_AS_NODE") delete env[key]
+    for (const key of Object.keys(env)) {
+      if (key.toUpperCase() === "ELECTRON_RUN_AS_NODE") {
+        delete env[key]
+      }
+    }
+
     const child = spawn(command, args, { cwd, shell: process.platform === "win32", env })
     started(child)
     let log = ""

@@ -19,6 +19,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 type Context = "home" | "new-tab" | "first-run"
@@ -48,45 +49,67 @@ function StartStory({ context, dialog, search }: { context: Context; dialog?: Ne
   const opened = useRef(0)
   useEffect(() => {
     const open = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "k" || !(event.ctrlKey || event.metaKey)) return
+      if (event.key.toLowerCase() !== "k" || !(event.ctrlKey || event.metaKey)) {
+        return
+      }
+
       event.preventDefault()
       setSearching(true)
     }
+
     window.addEventListener("keydown", open)
+
     return () => window.removeEventListener("keydown", open)
   }, [])
   const everything = [...projects, ...made]
+
   /** A project opens in its tab: the one it's in already, the new tab it was picked from, or a tab of its own. */
   const openProject = (id: string, known = everything) => {
     const project = known.find((candidate) => candidate.id === id)
-    if (!project) return
+
+    if (!project) {
+      return
+    }
+
     setStart(undefined)
     setSearching(false)
+
     if (!tabs.some((tab) => tab.id === id)) {
       const tab = { id, title: project.name }
       setTabs(isNewTab(active) ? tabs.map((item) => (item.id === active ? tab : item)) : [...tabs, tab])
     }
+
     setActive(id)
   }
+
   const closeTab = (id: string) => {
     const at = tabs.findIndex((tab) => tab.id === id)
     const rest = tabs.filter((tab) => tab.id !== id)
     setTabs(rest)
-    if (id === active) setActive(rest[Math.max(0, at - 1)]!.id)
+
+    if (id === active) {
+      setActive(rest[Math.max(0, at - 1)]!.id)
+    }
   }
+
   const newTab = () => {
     const id = `new-${++opened.current}`
     setTabs([...tabs, { id, title: "New tab" }])
     setActive(id)
   }
+
   const unread = context === "first-run" ? 0 : forYou.filter((item) => item.unread && !done.includes(item.id)).length
   const shown = active === "home" || isNewTab(active) ? undefined : everything.find((item) => item.id === active)
+
   return (
     <StartActionsProvider
       value={{
         openProject,
         create: (project) => {
-          if (!made.some((candidate) => candidate.id === project.id)) setMade([...made, project])
+          if (!made.some((candidate) => candidate.id === project.id)) {
+            setMade([...made, project])
+          }
+
           openProject(project.id, [project])
         },
         newProject: (from) => setStart(from ?? { tab: "template" }),

@@ -23,15 +23,22 @@ class KeptPictures implements PictureSource {
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener)
+
     return () => this.listeners.delete(listener)
   }
 
   get = (root: string) => this.pictures.get(root)
 
   ask = (root: string) => {
-    if (this.pictures.has(root) || this.asking.includes(root)) return
+    if (this.pictures.has(root) || this.asking.includes(root)) {
+      return
+    }
+
     this.asking.push(root)
-    if (this.asking.length === 1) queueMicrotask(() => void this.read())
+
+    if (this.asking.length === 1) {
+      queueMicrotask(() => void this.read())
+    }
   }
 
   /** A picture the window took, or none for a project that has nothing to show. */
@@ -43,15 +50,27 @@ class KeptPictures implements PictureSource {
 
   private async read(): Promise<void> {
     const roots = this.asking.splice(0)
-    if (roots.length === 0) return
+
+    if (roots.length === 0) {
+      return
+    }
+
     const read = await request("pictures.read", { roots }).catch((): Record<string, ProjectPicture> => ({}))
+
     // One taken while this was read is newer.
-    for (const root of roots) if (!this.pictures.has(root)) this.pictures.set(root, read[root] ?? null)
+    for (const root of roots) {
+      if (!this.pictures.has(root)) {
+        this.pictures.set(root, read[root] ?? null)
+      }
+    }
+
     this.notify()
   }
 
   private notify(): void {
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }
 
@@ -68,5 +87,6 @@ export function usePicture(root: string): ProjectPicture | undefined {
   useEffect(() => {
     source.ask(root)
   }, [source, root])
+
   return picture ?? undefined
 }

@@ -124,25 +124,38 @@ export function PresetTextSection({
   const refocus = useRef<{ field: TypeField; to: "control" | "action" }>(undefined)
   useEffect(() => {
     const pending = refocus.current
-    if (!pending) return
+
+    if (!pending) {
+      return
+    }
+
     refocus.current = undefined
     const row = rows.current?.querySelector(`[data-field="${pending.field}"]`)
+
     const target =
       pending.to === "control"
         ? row?.querySelector<HTMLElement>("input:not(:disabled), [role='combobox']")
         : (row?.querySelector<HTMLElement>("button[aria-label^='Unlock']") ??
           rows.current?.querySelector<HTMLElement>("button[aria-label^='Show what'], button[aria-label^='Hide what']"))
+
     target?.focus()
   })
+
   const open = (field: TypeField, on: boolean) => {
     const fields = new Set(shownFields)
-    if (on) fields.add(field)
-    else fields.delete(field)
+
+    if (on) {
+      fields.add(field)
+    } else {
+      fields.delete(field)
+    }
+
     setShownFields(fields)
     refocus.current = { field, to: on ? "control" : "action" }
   }
 
   const isOverride = (field: TypeField) => shownAt(project, layer, viewport, field).source.kind === "override"
+
   const rowFor = (field: TypeField) => (
     <TypeRow
       key={field}
@@ -163,8 +176,10 @@ export function PresetTextSection({
   // Folded, a covered row shows while the summary is open, and stays shown while it's overridden or unlocked, so a
   // difference from the preset is never folded away.
   const folds = locking !== "disabled"
+
   const visible = (field: TypeField) =>
     !preset || !covered.has(field) || !folds || expanded || isOverride(field) || shownFields.has(field)
+
   // Folded rows sit under the preset's summary; locked in place, every row keeps its place.
   const inPlace = typeRows.filter((field) => (folds && preset ? !covered.has(field) : true))
   const beforeColor = inPlace.filter((field) => field !== "case")
@@ -373,6 +388,7 @@ function PresetRow({
   // One short line at most: the label names the row, and the dot says it changes with the viewport.
   const hint = changesByViewport.length > 0 ? "Changes with the viewport" : undefined
   const closest = closestPreset(project, layer, viewport)
+
   return (
     <>
       <Row
@@ -417,6 +433,7 @@ function ClosestPreset({
   const values = presetAt(preset, viewport)
   // What using it changes goes in the button's hint, so the line stays one short line.
   const changes = differs.map((field) => `${fieldLabel(field)} becomes ${formatValue(field, values[field])}`)
+
   return (
     <div className="-mt-1 grid grid-cols-[88px_1fr] gap-2 pb-1">
       <span />
@@ -472,23 +489,34 @@ function PresetPicker({
   // again as the pointer highlights other presets.
   const list = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      return
+    }
+
     const frame = requestAnimationFrame(() => {
       const element = list.current
       const selected = element?.querySelector<HTMLElement>("[data-selected=true]")
-      if (!element || !selected) return
+
+      if (!element || !selected) {
+        return
+      }
+
       const offset = selected.getBoundingClientRect().top - element.getBoundingClientRect().top
       element.scrollTop += offset - (element.clientHeight - selected.offsetHeight) / 2
     })
+
     return () => cancelAnimationFrame(frame)
   }, [open])
+
   const pick = (name: string | undefined) => {
     onPick(name)
     setOpen(false)
   }
+
   const label = current
     ? `Typography preset: ${current.name}${overrides > 0 ? `, ${valueCount(overrides)} overridden` : ""}`
     : "Typography preset: none"
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -560,6 +588,7 @@ function PresetPicker({
 
 function previewStyle(project: PresetProject, preset: Preset) {
   const { font, weight, size, letterSpacing, case: textCase } = preset.values
+
   return {
     fontFamily: fontStack(project, font ?? project.inherited.font),
     fontWeight: weight ?? project.inherited.weight,
@@ -658,6 +687,7 @@ function TypeRow({
   const differs = differsByViewport(project, layer, field)
   const fromPatch = (source.kind === "override" || source.kind === "own") && source.from !== "mobile"
   const viewportName = fromPatch ? viewports.find((entry) => entry.id === source.from)!.name : undefined
+
   // One short line at most, the first that applies: where a wider viewport sets it, else where its value comes from.
   // The dot says it changes with the viewport; each viewport's value belongs in the label's menu, not here.
   const hint =
@@ -666,19 +696,23 @@ function TypeRow({
     (source.kind === "preset" && `From ${preset?.name}`) ||
     (source.kind === "inherited" && "Inherited") ||
     undefined
+
   const row = (control: ReactNode, action?: ReactNode) => (
     <Row field={field} label={label} hint={hint} dot={differs} tone={fromPatch ? modeColor : undefined} action={action}>
       {control}
     </Row>
   )
 
-  if (!preset) return row(<TypeControl field={field} project={project} shown={shown} onSet={set} label={label} />)
+  if (!preset) {
+    return row(<TypeControl field={field} project={project} shown={shown} onSet={set} label={label} />)
+  }
 
   if (source.kind === "override") {
     const reset = () => {
       onChange(resetOwn(layer, viewport, field))
       onOpen(false)
     }
+
     return row(
       <TypeControl field={field} project={project} shown={shown} onSet={set} label={label} tone={overrideColor} />,
       <RowAction label={`Reset ${label} to ${preset.name}`} onClick={reset} tone={overrideColor}>
@@ -688,7 +722,11 @@ function TypeRow({
   }
 
   const control = <TypeControl field={field} project={project} shown={shown} onSet={set} label={label} />
-  if (!locks(locking)) return row(control)
+
+  if (!locks(locking)) {
+    return row(control)
+  }
+
   if (!opened) {
     return row(
       <LockedControl field={field} shown={shown} label={label} preset={preset} />,
@@ -697,6 +735,7 @@ function TypeRow({
       </RowAction>
     )
   }
+
   return row(
     control,
     <RowAction label={`Lock ${label} to ${preset.name}`} onClick={() => onOpen(false)}>
@@ -718,6 +757,7 @@ function LockedControl({
   preset: Preset
 }) {
   const { text, suffix } = display(field, shown.value)
+
   return (
     <div className="relative">
       <Input
@@ -737,24 +777,35 @@ function LockedControl({
 
 /** A menu row's choices: the project's fonts, the nine weights, or the cases. */
 function menuOptions(field: "font" | "weight" | "case", project: PresetProject) {
-  if (field === "font") return project.fonts.map((font) => ({ value: font.name, label: font.name }))
-  if (field === "weight")
+  if (field === "font") {
+    return project.fonts.map((font) => ({ value: font.name, label: font.name }))
+  }
+
+  if (field === "weight") {
     return weights.map(({ weight, name }) => ({ value: String(weight), label: `${name} ${weight}` }))
+  }
+
   return (Object.entries(caseNames) as [TextCase, string][]).map(([key, name]) => ({ value: key, label: name }))
 }
 
 /** What a number row shows: px as px, a line height multiple bare, letter spacing in em as a percentage. */
 function display(field: TypeField, value: TypeValue | undefined): { text: string; suffix?: string } {
-  if (field === "size") return { text: formatValue(field, value), suffix: "px" }
+  if (field === "size") {
+    return { text: formatValue(field, value), suffix: "px" }
+  }
+
   if (field === "lineHeight" && value) {
     return { text: formatValue(field, value), suffix: "px" in (value as LineHeight) ? "px" : undefined }
   }
+
   if (field === "letterSpacing" && value) {
     const spacing = value as LetterSpacing
+
     return "px" in spacing
       ? { text: String(spacing.px), suffix: "px" }
       : { text: String(round(spacing.em * 100)), suffix: "%" }
   }
+
   return { text: value === undefined ? "" : formatValue(field, value) }
 }
 
@@ -786,13 +837,17 @@ function TypeControl({
     const options = menuOptions(field, project)
     const current = value === undefined ? undefined : String(value as number | string)
     const placeholder = formatValue(field, shown.value)
+
     return (
       <div className={toned}>
         <Select
           items={options}
           value={current ?? null}
           onValueChange={(next) => {
-            if (next === null || next === current) return
+            if (next === null || next === current) {
+              return
+            }
+
             onSet(field === "weight" ? Number(next) : (next as TypeValue))
           }}
         >
@@ -813,15 +868,23 @@ function TypeControl({
 
   const { text, suffix } = display(field, shown.value)
   const number = value === undefined ? undefined : Number(display(field, value).text)
+
   const toValue = (next: number): TypeValue => {
-    if (field === "size") return next
+    if (field === "size") {
+      return next
+    }
+
     if (field === "lineHeight") {
       const current = (shown.value ?? { multiple: next }) as LineHeight
+
       return "px" in current ? { px: next } : { multiple: next }
     }
+
     const current = (shown.value ?? { em: 0 }) as LetterSpacing
+
     return "px" in current ? { px: next } : { em: next / 100 }
   }
+
   return (
     <NumberField
       value={number}
@@ -833,11 +896,19 @@ function TypeControl({
       className={toned}
       onCommit={(update) => {
         const next = update(number ?? Number(text))
+
         if (typeof next !== "number") {
-          if (next === undefined) onSet(undefined)
+          if (next === undefined) {
+            onSet(undefined)
+          }
+
           return
         }
-        if (next === number) return
+
+        if (next === number) {
+          return
+        }
+
         onSet(toValue(next))
       }}
     />

@@ -84,6 +84,7 @@ const terminalLines: [string, string][] = [
 /** The product's command line, as its own website shows it off. */
 function Terminal({ look, compact }: { look: Look; compact?: boolean }) {
   const command = cli(look)
+
   return (
     <div className="overflow-hidden rounded-2xl bg-[oklch(0.19_0.01_270)] text-[oklch(0.92_0_0)] shadow-[0_30px_80px_-20px_rgb(0_0_0/0.45)] ring-1 ring-black/10">
       <div className="flex h-10 items-center gap-2 border-b border-white/[0.06] px-4">
@@ -473,8 +474,14 @@ const deploys = [
 ]
 
 function DeployStatus({ status }: { status: string }) {
-  if (status === "Building") return <LoaderCircle className="size-4 text-(--r-warn)" />
-  if (status === "Failed") return <TriangleAlert className="size-4 text-(--r-bad)" />
+  if (status === "Building") {
+    return <LoaderCircle className="size-4 text-(--r-warn)" />
+  }
+
+  if (status === "Failed") {
+    return <TriangleAlert className="size-4 text-(--r-bad)" />
+  }
+
   return <CircleCheck className="size-4 text-(--r-good)" />
 }
 
@@ -483,9 +490,12 @@ const origin = [12, 14, 13, 15, 17, 16, 19, 18, 21, 20, 22, 21, 24, 23]
 
 function RequestsChart({ width, height }: { width: number; height: number }) {
   const all = [...edge, ...origin]
+
   const scale = (values: number[]) =>
     plot([...values, Math.min(...all), Math.max(...all)], width, height).slice(0, values.length)
+
   const edgePoints = scale(edge)
+
   return (
     <svg width={width} height={height} className="overflow-visible">
       <defs>

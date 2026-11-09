@@ -339,9 +339,16 @@ export function approvedThisWeek(projects?: string[]): number {
  */
 export const handoffWaiting = Object.values(deliverables).filter((board) => {
   const status = handoff[`${board.project}/${board.design}`]
+
   // Ready to build and Code differs are anyone's to act on: pick it up, or update the design or ask the builder.
-  if (status === "Ready to build" || status === "Code differs") return true
-  if (status === "In review") return board.review?.reviewer === me
+  if (status === "Ready to build" || status === "Code differs") {
+    return true
+  }
+
+  if (status === "In review") {
+    return board.review?.reviewer === me
+  }
+
   return status === "Changed since approval" && board.code?.who === me
 }).length
 

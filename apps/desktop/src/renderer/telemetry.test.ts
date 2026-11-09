@@ -2,6 +2,7 @@ import { Component } from "react"
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 const sentry = vi.hoisted(() => ({ captureException: vi.fn<(error: unknown, hint: unknown) => void>() }))
+
 vi.mock("@sentry/electron/renderer", () => sentry)
 
 const { reactErrorHandlers } = await import("./telemetry.ts")

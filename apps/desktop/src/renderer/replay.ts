@@ -38,16 +38,27 @@ export const replayPrivacy = {
  */
 export function followTelemetry(level: TelemetryLevel): void {
   if (level === "off") {
-    if (recording) void Sentry.getReplay()?.stop()
+    if (recording) {
+      void Sentry.getReplay()?.stop()
+    }
+
     recording = false
+
     return
   }
-  if (recording) return
+
+  if (recording) {
+    return
+  }
+
   recording = true
+
   if (added) {
     Sentry.getReplay()?.start()
+
     return
   }
+
   added = true
   // Names, values and pictures are what make a bug findable, as in every other event, so only secrets are hidden. A project's frames and icons are
   // left out, as boxes their size, and their shadow roots are attached where the recorder can't see them (shadow.ts): it

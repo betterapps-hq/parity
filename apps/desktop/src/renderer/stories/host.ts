@@ -92,8 +92,12 @@ export function setStoryAccount(next: AccountState): void {
 
 /** You're in `chosen` now, as main says it: who, without how they signed in. */
 function inAccount(chosen: SignedInAccount | undefined): AccountState["account"] {
-  if (!chosen) return null
+  if (!chosen) {
+    return null
+  }
+
   const { provider: _provider, ended: _ended, ...person } = chosen
+
   return { ...person, untilQuit: accountNow.account?.untilQuit ?? false }
 }
 
@@ -126,7 +130,11 @@ const storyAccount: CanvasHost["account"] = {
   },
   switchOrganization: async (organizationId) => {
     const { account, accounts } = accountNow
-    if (!account) return
+
+    if (!account) {
+      return
+    }
+
     setStoryAccount({
       ...accountNow,
       account: { ...account, organizationId },
@@ -135,7 +143,10 @@ const storyAccount: CanvasHost["account"] = {
   },
   use: async (email) => {
     const chosen = accountNow.accounts.find((each) => each.email === email && !each.ended)
-    if (chosen) setStoryAccount({ ...accountNow, account: inAccount(chosen) })
+
+    if (chosen) {
+      setStoryAccount({ ...accountNow, account: inAccount(chosen) })
+    }
   }
 }
 
@@ -145,6 +156,7 @@ export const defaultTelemetry: TelemetryState = {
   setting: "all",
   installId: "3f9c2a71-8d4e-4b6a-9e15-c07d2f84b913"
 }
+
 let telemetryNow: TelemetryState = defaultTelemetry
 
 /** Starts the stand-in Telemetry setting somewhere else, as a variable overriding it. */
@@ -162,6 +174,7 @@ const storyTelemetry: CanvasHost["telemetry"] = {
       installId,
       level: telemetryNow.overriddenBy ? telemetryNow.level : setting
     }
+
     return telemetryNow
   }
 }
@@ -202,11 +215,19 @@ export function installHost(): void {
     },
     ask: preloadAnswers(<M extends ServiceMethod>(method: M, params: ServiceMethods[M]["params"]) => {
       requests.push({ method, params })
+
       return delay(service.latency).then(() => {
         const usual = () => answer(method, params)
         const override = overrides.get(method)
-        if (!override) return usual()
-        if (override.once) overrides.delete(method)
+
+        if (!override) {
+          return usual()
+        }
+
+        if (override.once) {
+          overrides.delete(method)
+        }
+
         return (override.answer as unknown as Answer<M>)(params, usual)
       })
     }),
@@ -237,16 +258,19 @@ export function installHost(): void {
       subscribe: () => () => undefined
     }
   }
+
   window.canvasHost = host
 }
 
 /** A fresh copy of a project, as opening it again reads it again. */
 export function projectInfo(root: string): ProjectInfo {
   const info = structuredClone(example.info)
+
   if (root === roots.empty || root === roots.designless) {
     const name = root.split("/").at(-1)!
     const file = `${name}.par`
     const empty = root === roots.empty
+
     return {
       ...info,
       id: root,
@@ -261,12 +285,14 @@ export function projectInfo(root: string): ProjectInfo {
       ]
     }
   }
+
   return info
 }
 
 /** A project's build server, as the service starts it when the project opens, a few seconds ago. */
 function buildServer(info: ProjectInfo): ProjectProcess {
   const started = Date.now() - 4000
+
   return {
     id: `builder:${info.root}`,
     kind: "builder",
@@ -290,23 +316,38 @@ function buildServer(info: ProjectInfo): ProjectProcess {
  */
 function settle(id: string, action: "stop" | "restart"): void {
   const process = running.processes.find((candidate) => candidate.id === id)
-  if (!process) return
+
+  if (!process) {
+    return
+  }
+
   const task = process.shape === "task"
+
   const move = (next: ProjectProcess["status"]) => {
     const at = Date.now()
     process.status = next
+
     if (next === "stopped" || next === "canceled" || next === "passed") {
       process.stoppedAt = at
       process.canStop = false
       delete process.progress
-      if (next === "passed") process.summary = "Passed"
+
+      if (next === "passed") {
+        process.summary = "Passed"
+      }
     }
+
     if (next === "starting" || (task && next === "running")) {
       process.startedAt = at
-      for (const key of ["stoppedAt", "error", "summary"] as const) delete process[key]
+
+      for (const key of ["stoppedAt", "error", "summary"] as const) {
+        delete process[key]
+      }
+
       process.canStop = true
     }
   }
+
   if (action === "stop") {
     move("stopping")
     setTimeout(() => move(task ? "canceled" : "stopped"), 900)
@@ -321,6 +362,7 @@ async function answer<M extends ServiceMethod>(
   params: ServiceMethods[M]["params"]
 ): Promise<ServiceMethods[M]["result"]> {
   const result = await respond(method, params as never)
+
   return result as ServiceMethods[M]["result"]
 }
 
@@ -328,18 +370,27 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
   switch (method) {
     case "project.open": {
       const root = (params.root as string | undefined) ?? roots.example
-      if (root === roots.slow) return new Promise(() => undefined)
+
+      if (root === roots.slow) {
+        return new Promise(() => undefined)
+      }
+
       if (root === roots.broken) {
         throw new Error("No renderer supports broken-app: its package.json depends on neither react nor react-dom")
       }
+
       const info = projectInfo(root)
+
       if (!running.processes.some((process) => process.id === `builder:${root}`)) {
         running.processes.push(buildServer(info))
       }
+
       return info
     }
+
     case "project.close":
       running.processes = running.processes.filter((process) => process.projectId !== params.projectId)
+
       return undefined
     case "project.components":
       return structuredClone(example.components)
@@ -347,12 +398,15 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       return structuredClone(running.processes)
     case "processes.stop":
       settle(String(params.id), "stop")
+
       return undefined
     case "processes.restart":
       settle(String(params.id), "restart")
+
       return undefined
     case "processes.dismiss":
       running.processes = running.processes.filter((process) => process.id !== params.id)
+
       return undefined
     case "library.catalog":
       return [
@@ -423,18 +477,27 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       ]
     case "library.add":
       await delay(1200)
+
       if (service.installFails) {
         throw new Error(`pnpm add ${String(params.library)} failed: ERR_PNPM_FETCH_404 Not Found - 404`)
       }
+
       return { log: `+ ${String(params.library)}\nDone in 1.2s` }
     case "document.save":
     case "document.saveCopy":
-      if (service.saveFails) throw new Error("EPERM: operation not permitted, open 'shadcn-vite.par'")
+      if (service.saveFails) {
+        throw new Error("EPERM: operation not permitted, open 'shadcn-vite.par'")
+      }
+
       return undefined
     case "tokens.save": {
-      if (service.saveFails) throw new Error("EPERM: operation not permitted, open 'src/index.css'")
+      if (service.saveFails) {
+        throw new Error("EPERM: operation not permitted, open 'src/index.css'")
+      }
+
       const changes = params.changes as TokenWrite[]
       const [change] = changes
+
       return edited(changes.length === 1 ? "Edit a token" : `Edit ${changes.length} tokens`, [
         "@@ -7,7 +7,7 @@",
         " :root {",
@@ -446,6 +509,7 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
         "   --secondary: oklch(0.97 0 0);"
       ])
     }
+
     case "library.importStyles":
       return edited("Import Shadcn Nova's styles", [
         "@@ -1,3 +1,4 @@",
@@ -456,14 +520,20 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
       ])
     case "project.undoEdit": {
       const edit = edits.get(String(params.id))
-      if (!edit) throw new Error("That change is too old to undo, or was undone already")
+
+      if (!edit) {
+        throw new Error("That change is too old to undo, or was undone already")
+      }
+
       edits.delete(edit.id)
+
       return {
         ...edit,
         label: `Undo ${edit.label.charAt(0).toLowerCase()}${edit.label.slice(1)}`,
         files: edit.files.map((file) => ({ path: file.path, diff: reversed(file.diff) }))
       }
     }
+
     case "images.import":
       return { src: `/images/${String(params.name)}`, path: `public/images/${String(params.name)}` }
     case "storybook.open":
@@ -487,9 +557,14 @@ async function respond(method: ServiceMethod, params: Record<string, unknown>): 
     case "code.read": {
       const { default: files } = await import("virtual:parity/example-sources")
       const text = files[String(params.path)]
-      if (text === undefined) throw new Error(`${String(params.path)} isn't in the project's folder`)
+
+      if (text === undefined) {
+        throw new Error(`${String(params.path)} isn't in the project's folder`)
+      }
+
       return { text }
     }
+
     case "accessibility.check":
       return { findings: findingsFor(String(params.design)), frames: 4, warnings: [] }
     case "frames.stored":
@@ -514,12 +589,15 @@ const edits = new Map<string, ProjectEditResult>()
 /** An edit to the example's stylesheet, as the service describes one it made, with its diff's hunks. */
 function edited(label: string, hunk: string[]): ProjectEditResult {
   const path = "src/index.css"
+
   const edit = {
     id: `edit-${edits.size + 1}`,
     label,
     files: [{ path, diff: [`--- a/${path}`, `+++ b/${path}`, ...hunk].join("\n") }]
   }
+
   edits.set(edit.id, edit)
+
   return edit
 }
 
@@ -529,9 +607,19 @@ function reversed(diff: string): string {
     .split("\n")
     .map((line) => {
       const hunk = /^@@ -(\S+) \+(\S+) @@$/.exec(line)
-      if (hunk) return `@@ -${hunk[2]} +${hunk[1]} @@`
-      if (line.startsWith("+") && !line.startsWith("+++")) return `-${line.slice(1)}`
-      if (line.startsWith("-") && !line.startsWith("---")) return `+${line.slice(1)}`
+
+      if (hunk) {
+        return `@@ -${hunk[2]} +${hunk[1]} @@`
+      }
+
+      if (line.startsWith("+") && !line.startsWith("+++")) {
+        return `-${line.slice(1)}`
+      }
+
+      if (line.startsWith("-") && !line.startsWith("---")) {
+        return `+${line.slice(1)}`
+      }
+
       return line
     })
     .join("\n")
@@ -543,12 +631,18 @@ function reversed(diff: string): string {
  */
 function findingsFor(key: string): AccessibilityFinding[] {
   const [path, id] = key.split("#")
+
   const container = example.info.documents
     .find((entry) => entry.path === path)
     ?.document?.containers.find((candidate) => candidate.id === id)
-  if (!container) return []
+
+  if (!container) {
+    return []
+  }
+
   const nodes = componentNodes(container)
   const states = container.states.slice(0, 2)
+
   return states.flatMap((state): AccessibilityFinding[] => [
     ...nodes.slice(0, 2).map((node) => ({
       state: state.id,
@@ -586,14 +680,27 @@ function findingsFor(key: string): AccessibilityFinding[] {
 
 function componentNodes(container: ContainerSpec): { id: string; name: string }[] {
   const found: { id: string; name: string }[] = []
+
   const walk = (node: DesignNode) => {
     if (node.type === "component") {
       found.push({ id: node.id, name: node.name ?? node.component })
-      for (const slot of Object.values(node.slots ?? {})) for (const child of slot) walk(child)
+
+      for (const slot of Object.values(node.slots ?? {})) {
+        for (const child of slot) {
+          walk(child)
+        }
+      }
     }
-    if (node.type === "layout") for (const child of node.children) walk(child)
+
+    if (node.type === "layout") {
+      for (const child of node.children) {
+        walk(child)
+      }
+    }
   }
+
   walk(container.root)
+
   return found
 }
 

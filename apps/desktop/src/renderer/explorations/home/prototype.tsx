@@ -88,32 +88,72 @@ const yourAccount = (): Account => ({ person: you, teams: [kestrel, halcyon] })
 const workAccount: Account = { person: work, teams: [contoso], provider: "MicrosoftOAuth" }
 
 function startingAccounts(start: Start): Account[] {
-  if (start.signedOut) return []
-  if (start.newAccount) return [{ person: you, teams: [] }]
+  if (start.signedOut) {
+    return []
+  }
+
+  if (start.newAccount) {
+    return [{ person: you, teams: [] }]
+  }
+
   const own = start.dialog === "invite-step" ? { person: you, teams: [kestrel, halcyon, northwind] } : yourAccount()
-  if (start.workEnded) return [own, { ...workAccount, ended: true }]
+
+  if (start.workEnded) {
+    return [own, { ...workAccount, ended: true }]
+  }
+
   return start.twoAccounts || start.workspace === "contoso" ? [own, workAccount] : [own]
 }
 
 function startingPlace(start: Start): Place {
-  if (start.dialog === "invite-step") return { email: you.email, team: northwind.id }
-  if (start.workspace === "contoso") return { email: work.email, team: contoso.id }
-  if (start.newAccount || start.workspace === "personal") return { email: you.email, team: undefined }
+  if (start.dialog === "invite-step") {
+    return { email: you.email, team: northwind.id }
+  }
+
+  if (start.workspace === "contoso") {
+    return { email: work.email, team: contoso.id }
+  }
+
+  if (start.newAccount || start.workspace === "personal") {
+    return { email: you.email, team: undefined }
+  }
+
   return { email: you.email, team: start.workspace === "halcyon" ? halcyon.id : kestrel.id }
 }
 
 function startingDialog(start: Start): Open {
-  if (start.dialog === "people") return { at: "people", tab: "members" }
-  if (start.dialog === "invitations") return { at: "people", tab: "invitations" }
-  if (start.dialog === "new-organization") return { at: "new-organization", step: "name" }
-  if (start.dialog === "invite-step") return { at: "new-organization", step: "invite", name: northwind.name }
-  if (start.dialog === "add-account") return { at: "add-account" }
+  if (start.dialog === "people") {
+    return { at: "people", tab: "members" }
+  }
+
+  if (start.dialog === "invitations") {
+    return { at: "people", tab: "invitations" }
+  }
+
+  if (start.dialog === "new-organization") {
+    return { at: "new-organization", step: "name" }
+  }
+
+  if (start.dialog === "invite-step") {
+    return { at: "new-organization", step: "invite", name: northwind.name }
+  }
+
+  if (start.dialog === "add-account") {
+    return { at: "add-account" }
+  }
+
   return undefined
 }
 
 function startingInvitation(start: Start): WaitingInvitation | undefined {
-  if (start.newAccount || start.invitation === "waiting") return northwindInvitation
-  if (start.invitation === "expired") return { ...northwindInvitation, expired: true }
+  if (start.newAccount || start.invitation === "waiting") {
+    return northwindInvitation
+  }
+
+  if (start.invitation === "expired") {
+    return { ...northwindInvitation, expired: true }
+  }
+
   return undefined
 }
 
@@ -143,6 +183,7 @@ export function HomePrototype(start: Start) {
   const [dialog, setDialog] = useState<Open>(() => startingDialog(start))
   const [recent, setRecent] = useState<readonly string[]>(start.newAccount ? [] : sampleRecent)
   const [notes, setNotes] = useState(start.newAccount ? {} : sampleNotes)
+
   const pictures = useMemo(
     () => ({
       subscribe: () => () => undefined,
@@ -151,8 +192,10 @@ export function HomePrototype(start: Start) {
     }),
     []
   )
+
   const account = accounts.find((each) => each.person.email === place.email) ?? accounts[0]
   const current = account?.teams.find((team) => team.id === place.team)
+
   // What needs you in every organization of every signed-in account, as every project shows in each: newest first,
   // each with where it's from, named when that's not where you are, since opening it goes there.
   const waiting = accounts
@@ -161,11 +204,13 @@ export function HomePrototype(start: Start) {
       each.teams.flatMap((team) =>
         team.notes.map((note) => {
           const here = each.person.email === place.email && team.id === place.team
+
           return { ...note, team: team.id, email: each.person.email, ...(here ? {} : { elsewhere: team.name }) }
         })
       )
     )
     .sort((a, b) => b.at - a.at)
+
   const projects = knownProjects(recent, notes)
   const ignore = () => undefined
 
@@ -181,7 +226,9 @@ export function HomePrototype(start: Start) {
     )
 
   const updateTeam = (id: string, change: (team: Team) => Team) => {
-    if (account) teamsOf(account.person.email, (teams) => teams.map((team) => (team.id === id ? change(team) : team)))
+    if (account) {
+      teamsOf(account.person.email, (teams) => teams.map((team) => (team.id === id ? change(team) : team)))
+    }
   }
 
   /**
@@ -189,7 +236,10 @@ export function HomePrototype(start: Start) {
    * open closes.
    */
   const switchTo = (email: string, id: string | undefined) => {
-    if (email === place.email && id === place.team) return
+    if (email === place.email && id === place.team) {
+      return
+    }
+
     const name = accounts.find((each) => each.person.email === email)?.teams.find((team) => team.id === id)?.name
     const named = name ?? "Personal"
     const elsewhere = email !== place.email
@@ -198,6 +248,7 @@ export function HomePrototype(start: Start) {
     setTimeout(() => {
       go({ email, team: id })
       setSwitching(undefined)
+
       // Another account is a different you, so it says so where everyone sees it; the toast is announced too.
       if (elsewhere) {
         setStatus("")
@@ -230,6 +281,7 @@ export function HomePrototype(start: Start) {
     const to = existing ? placeIn(existing) : { email, team: added.teams[0]?.id }
     const named = (existing ?? added).teams.find((team) => team.id === to.team)?.name ?? "Personal"
     const there = { description: `You're in ${named} now.` }
+
     if (!existing) {
       setAccounts((all) => [...all, added])
       toast(`Added ${email}`, there)
@@ -239,6 +291,7 @@ export function HomePrototype(start: Start) {
     } else {
       toast(`${email} is already signed in`, email === place.email ? {} : there)
     }
+
     go(to)
   }
 
@@ -251,25 +304,34 @@ export function HomePrototype(start: Start) {
     const leaving = accounts.find((each) => each.person.email === which)
     const rest = accounts.filter((each) => each.person.email !== which)
     setAccounts(rest)
+
     if (which !== place.email) {
       toast(leaving?.ended ? `Removed ${which}` : `Signed out of ${which}`)
+
       return
     }
+
     const email = which
     const rank = (each: Account) => (used.includes(each.person.email) ? used.indexOf(each.person.email) : 999)
     const next = rest.filter((each) => !each.ended).toSorted((a, b) => rank(a) - rank(b))[0]
+
     if (!next) {
       setAccounts([])
       toast(`Signed out of ${email}`, { description: "Projects on this computer stay open." })
+
       return
     }
+
     const to = placeIn(next)
     go(to)
     toast(`Signed out of ${email}`, { description: `You're in ${nameOf(to)} as ${to.email} now.` })
   }
 
   const join = () => {
-    if (!invitation) return
+    if (!invitation) {
+      return
+    }
+
     setInvitation({ ...invitation, joining: true })
     setTimeout(() => {
       const joined: Team = {
@@ -282,6 +344,7 @@ export function HomePrototype(start: Start) {
         invitations: [],
         notes: []
       }
+
       // The invitation went to your own account's email, so that's where you join.
       teamsOf(you.email, (all) => [...all, joined])
       go({ email: you.email, team: joined.id })
@@ -301,7 +364,10 @@ export function HomePrototype(start: Start) {
   }
 
   const create = (name: string) => {
-    if (!account) return
+    if (!account) {
+      return
+    }
+
     const made: Team = {
       id: `org_01${name.toUpperCase().replaceAll(/\W/g, "")}`,
       name,
@@ -310,6 +376,7 @@ export function HomePrototype(start: Start) {
       invitations: [],
       notes: []
     }
+
     teamsOf(account.person.email, (all) => [...all, made])
     go({ email: account.person.email, team: made.id })
     setDialog({ at: "new-organization", step: "invite", name })
@@ -325,7 +392,10 @@ export function HomePrototype(start: Start) {
         ...target.invitations.filter((invitation) => !emails.includes(invitation.email))
       ]
     }))
-    if (say) toast(emails.length === 1 ? `Invited ${emails[0]}` : `Invited ${emails.length} people to ${team.name}`)
+
+    if (say) {
+      toast(emails.length === 1 ? `Invited ${emails[0]}` : `Invited ${emails.length} people to ${team.name}`)
+    }
   }
 
   const signIn = () => {
@@ -334,8 +404,12 @@ export function HomePrototype(start: Start) {
   }
 
   let workspaceMenu: ReactNode = <WorkspaceMenuLoading />
+
   // Signed out there's no workspace to show, so nothing looks signed in: Sign in takes its place.
-  if (!start.loading && !account) workspaceMenu = <SignInButton onSignIn={signIn} />
+  if (!start.loading && !account) {
+    workspaceMenu = <SignInButton onSignIn={signIn} />
+  }
+
   const accountMenu = start.loading ? (
     <AccountMenuLoading />
   ) : (
@@ -347,7 +421,10 @@ export function HomePrototype(start: Start) {
       whereIn={(each) => nameOf(each.person.email === place.email ? place : placeIn(each))}
       onSwitchAccount={(email) => {
         const target = accounts.find((each) => each.person.email === email)
-        if (target) switchTo(email, placeIn(target).team)
+
+        if (target) {
+          switchTo(email, placeIn(target).team)
+        }
       }}
       onSignInAgain={(email) => setDialog({ at: "add-account", again: email })}
       onAddAccount={() => setDialog({ at: "add-account" })}
@@ -355,6 +432,7 @@ export function HomePrototype(start: Start) {
       onSignOut={signOut}
     />
   )
+
   if (!start.loading && account) {
     workspaceMenu = (
       <WorkspaceMenu
@@ -372,8 +450,12 @@ export function HomePrototype(start: Start) {
   }
 
   let forYouState: "loading" | "signed-out" | "signed-in" = "signed-in"
-  if (start.loading) forYouState = "loading"
-  else if (!account) forYouState = "signed-out"
+
+  if (start.loading) {
+    forYouState = "loading"
+  } else if (!account) {
+    forYouState = "signed-out"
+  }
 
   const forYou = (
     <ForYou
@@ -387,13 +469,19 @@ export function HomePrototype(start: Start) {
       onOpen={(note) => {
         // A note from another organization or account opens its project there, with the same switch as the menu's.
         const from = waiting.find((item) => item.id === note.id)
-        if (from) switchTo(from.email, from.team)
+
+        if (from) {
+          switchTo(from.email, from.team)
+        }
       }}
       onJoin={join}
       onDecline={decline}
       onAsk={() => {
         setInvitation(undefined)
-        if (invitation) toast(`Asked ${invitation.from.name} for a new invitation`)
+
+        if (invitation) {
+          toast(`Asked ${invitation.from.name} for a new invitation`)
+        }
       }}
     />
   )
@@ -487,7 +575,10 @@ export function HomePrototype(start: Start) {
             finalFocus={workspaceTrigger}
             onCreate={create}
             onInvite={(emails) => {
-              if (current) inviteTo(current, emails, true)
+              if (current) {
+                inviteTo(current, emails, true)
+              }
+
               setDialog(undefined)
             }}
             onClose={() => setDialog(undefined)}
@@ -498,6 +589,7 @@ export function HomePrototype(start: Start) {
             signedIn={accounts.filter((each) => !each.ended).map((each) => each.person)}
             again={(() => {
               const ended = accounts.find((each) => each.person.email === dialog.again)
+
               return ended?.provider ? { email: ended.person.email, provider: ended.provider } : undefined
             })()}
             finalFocus={accountTrigger}
@@ -527,6 +619,7 @@ function Home({
   forYou: ReactNode
 }) {
   const last = projects.find((project) => project.recent)
+
   return (
     <main aria-label="Home" className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-4 pt-6 pb-14 sm:px-10">

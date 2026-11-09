@@ -9,6 +9,7 @@ import { z } from "zod"
 
 /** How a person signs in: Google, GitHub or Microsoft in the browser, or AuthKit for a work email. */
 export const signInProvider = z.enum(["GoogleOAuth", "GitHubOAuth", "MicrosoftOAuth", "authkit"])
+
 export type SignInProvider = z.infer<typeof signInProvider>
 
 /** What the window asks main to start: a provider, and for AuthKit the work email it fills in. */
@@ -21,10 +22,12 @@ export const signInRequest = z.strictObject({
     .regex(/^org_\w+$/)
     .optional()
 })
+
 export type SignInRequest = z.infer<typeof signInRequest>
 
 /** An organization, as WorkOS names it. */
 export const organization = z.strictObject({ id: z.string(), name: z.string() })
+
 export type Organization = z.infer<typeof organization>
 
 /** Someone signed in, as the window knows them: no tokens. */
@@ -42,6 +45,7 @@ export const accountPerson = z.strictObject({
    */
   organizations: z.array(organization).optional()
 })
+
 export type AccountPerson = z.infer<typeof accountPerson>
 
 /** Which organization the window asks main to move the session to. */
@@ -55,6 +59,7 @@ export const accountEmail = z.string().min(1).max(320)
  * organization that requires its single sign-on, or someone in several organizations who has to choose one.
  */
 export const signInProblem = z.enum(["canceled", "failed", "refused", "single-sign-on", "choose-organization"])
+
 export type SignInProblem = z.infer<typeof signInProblem>
 
 /** A sign-in under way: waiting for the browser, or ended without a session. */
@@ -78,6 +83,7 @@ export const signInAttempt = z.discriminatedUnion("at", [
     organizations: z.array(organization).optional()
   })
 ])
+
 export type SignInAttempt = z.infer<typeof signInAttempt>
 
 /** An account signed in, among the several a person can be: who, how they signed in, and whether WorkOS ended it. */
@@ -86,6 +92,7 @@ export const signedInAccount = accountPerson.extend({
   /** WorkOS ended its session on refresh. It stays listed, to sign in to again, until it's removed. */
   ended: z.literal(true).optional()
 })
+
 export type SignedInAccount = z.infer<typeof signedInAccount>
 
 export const accountState = z.strictObject({
@@ -100,6 +107,7 @@ export const accountState = z.strictObject({
    */
   ended: z.strictObject({ person: accountPerson, provider: signInProvider }).nullable()
 })
+
 export type AccountState = z.infer<typeof accountState>
 
 export const signedOut: AccountState = { account: null, accounts: [], attempt: null, ended: null }

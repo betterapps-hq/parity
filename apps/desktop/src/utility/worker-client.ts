@@ -57,20 +57,30 @@ export function workerClient<Remote extends MethodMap<Remote>>({
     worker.on("error", forget)
     worker.on("exit", forget)
     worker.unref()
+
     return running
   }
 
   /** Forgets the worker, so the next request starts another, failing what it hasn't answered with `reason`. */
   const end = (running: Running<Remote>, reason?: Error) => {
     clearTimeout(running.idle)
-    if (reason) running.channel.close(reason)
-    if (current === running) current = undefined
+
+    if (reason) {
+      running.channel.close(reason)
+    }
+
+    if (current === running) {
+      current = undefined
+    }
   }
 
   const idleLater = (running: Running<Remote>) => {
     clearTimeout(running.idle)
     running.idle = setTimeout(() => {
-      if (current !== running || running.channel.waiting > 0) return
+      if (current !== running || running.channel.waiting > 0) {
+        return
+      }
+
       current = undefined
       void running.worker.terminate()
       stopped?.()
@@ -82,11 +92,16 @@ export function workerClient<Remote extends MethodMap<Remote>>({
     request(method, params) {
       const running = (current ??= launch())
       clearTimeout(running.idle)
+
       const answered = () => {
-        if (running.channel.waiting === 0 && current === running) idleLater(running)
+        if (running.channel.waiting === 0 && current === running) {
+          idleLater(running)
+        }
       }
+
       const asked = running.channel.request(method, params)
       asked.then(answered, answered)
+
       return asked
     },
     get running() {
@@ -94,7 +109,11 @@ export function workerClient<Remote extends MethodMap<Remote>>({
     },
     stop(reason) {
       const running = current
-      if (!running) return
+
+      if (!running) {
+        return
+      }
+
       end(running, reason)
       void running.worker.terminate()
     }

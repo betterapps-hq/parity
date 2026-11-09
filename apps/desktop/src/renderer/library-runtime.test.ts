@@ -24,25 +24,30 @@ it("renders a library design whose factory modules appear in no sample or decora
       }
     }
   }
+
   const config: ProjectConfig = {
     styles: [],
     documents: [],
     components: { "kit/Label": { path: "kit", export: "Label", library: "kit" } },
     libraries: [{ id: "kit", name: "Kit", package: "kit", importName: "kit", stylesImported: true, designs: [design] }]
   }
+
   const tree = resolveDesign(
     { type: "instance", id: "placed", design: design.id },
     undefined,
     "desktop",
     componentLibrary([design])
   )
+
   const modules: Record<string, string> = {
     fixture: guestModuleSource(config),
     kit: 'import {createElement} from "react"; export function Label({value}) { return createElement("span", {"data-design-value": ""}, value) }',
     "design-values": 'export function create(value) { return "Design-only " + value }',
     "nested-values": 'export function create() { return "factory loaded" }'
   }
+
   const require = createRequire(import.meta.url)
+
   const bundle = await build({
     stdin: {
       contents: `import guest from "fixture"; guest.mount(document.getElementById("frame"), ${JSON.stringify(tree)})`,
@@ -71,7 +76,9 @@ it("renders a library design whose factory modules appear in no sample or decora
       }
     ]
   })
+
   const browser = await chromium.launch({ channel: "chrome", headless: true })
+
   try {
     const page = await browser.newPage()
     await page.route("http://library.test/app.js", (route) =>

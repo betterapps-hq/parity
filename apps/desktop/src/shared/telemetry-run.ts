@@ -24,8 +24,10 @@ export function writeTelemetryRun(run: TelemetryRun): string {
 export function readTelemetryRun(text: string | undefined): TelemetryRun {
   try {
     const run: unknown = text ? JSON.parse(decodeURIComponent(text)) : undefined
+
     if (typeof run === "object" && run !== null) {
       const { installId, sessionId, check } = run as Record<string, unknown>
+
       if (typeof installId === "string" && typeof sessionId === "string" && typeof check === "boolean") {
         return { installId, sessionId, check }
       }
@@ -33,5 +35,6 @@ export function readTelemetryRun(text: string | undefined): TelemetryRun {
   } catch {
     // Not passed as main writes it.
   }
+
   return { installId: "unknown", sessionId: "unknown", check: false }
 }

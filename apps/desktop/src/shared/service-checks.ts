@@ -12,6 +12,7 @@ import type { ServiceMethods } from "./protocol.ts"
 
 const themeVariable = z.object({ name: z.string(), value: z.string() })
 const tokenChange = z.object({ name: z.string(), theme: z.string(), value: z.string() })
+
 // A write without a value takes the token out, so `value` is there but may be undefined.
 const tokenWrite = z.object({ name: z.string(), theme: z.string(), value: z.string().or(z.undefined()) })
 const stringRecord = z.record(z.string(), z.string())
@@ -44,6 +45,7 @@ const renderJob = z.object({
 const previewJob = z.object({ component: z.string(), job: renderJob })
 
 const pictureFrame = z.object({ src: z.string(), mode: z.string(), width: finiteNumber, height: finiteNumber })
+
 const projectPicture = z.object({
   taken: finiteNumber,
   screens: z.array(z.object({ name: z.string(), main: pictureFrame, phone: pictureFrame.optional() }))

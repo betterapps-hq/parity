@@ -16,6 +16,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const states: { state: PreviewState; example: string; when: string }[] = [
@@ -64,6 +65,7 @@ export const States: Story = {
         <span className="text-xs text-white/45">On the card and in the picker</span>
         {states.map(({ state, example, when }) => {
           const item = component(example)
+
           return [
             <div key={`${state}-what`} className="flex flex-col gap-1">
               <span className="text-sm">{stateWords[state].long}</span>

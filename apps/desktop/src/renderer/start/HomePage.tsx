@@ -19,6 +19,7 @@ import { useNow } from "./use-now.ts"
 export function HomePage({ active }: { active: boolean }) {
   const projects = useKnownProjects()
   const example = useExampleFolder()
+
   const actions = useMemo(
     () =>
       example
@@ -26,6 +27,7 @@ export function HomePage({ active }: { active: boolean }) {
         : workspaceActions,
     [example]
   )
+
   return (
     <StartActionsProvider value={actions}>
       <Home projects={projects} active={active} />
@@ -44,6 +46,7 @@ export function Home({ projects, active = true }: { projects: readonly KnownProj
   const { example } = useStartActions()
   const bringYourOwn = !last && !!example
   const side = bringYourOwn || signedIn
+
   return (
     <main hidden={!active} aria-label="Home" className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-4 pt-6 pb-14 sm:px-10">
@@ -79,13 +82,21 @@ export function ContinueCard({ project, active }: { project: KnownProject; activ
   const now = useNow()
   const resume = () => actions.open(project.root)
   useEffect(() => {
-    if (!active) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Enter" && event.target === document.body && !event.defaultPrevented) resume()
+    if (!active) {
+      return
     }
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Enter" && event.target === document.body && !event.defaultPrevented) {
+        resume()
+      }
+    }
+
     window.addEventListener("keydown", onKey)
+
     return () => window.removeEventListener("keydown", onKey)
   })
+
   return (
     <section
       aria-label="Continue where you left off"
@@ -127,6 +138,7 @@ export function ContinueCard({ project, active }: { project: KnownProject; activ
 export function FirstTime() {
   const actions = useStartActions()
   const { example } = actions
+
   if (!example) {
     return (
       <section
@@ -157,8 +169,10 @@ export function FirstTime() {
       </section>
     )
   }
+
   const project: KnownProject = { root: example.root, name: example.name, starred: false, recent: false }
   const open = () => actions.open(example.root)
+
   return (
     <section
       aria-labelledby="first-time"
@@ -241,6 +255,7 @@ function OpenArt() {
 function BringYourOwn() {
   const actions = useStartActions()
   const detail = useId()
+
   const ways = [
     { icon: FolderOpen, name: "Open a folder", detail: "A React app on this computer", onClick: actions.openFolder },
     {
@@ -250,6 +265,7 @@ function BringYourOwn() {
       onClick: actions.openFile
     }
   ]
+
   return (
     <section aria-labelledby="bring-your-own" className="flex flex-col gap-1.5">
       <SectionTitle id="bring-your-own" title="Bring your own app" />

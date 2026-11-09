@@ -37,6 +37,7 @@ function queued<T>(project: EditedProject, task: () => Promise<T>): Promise<T> {
     project.info.id,
     run.catch(() => undefined)
   )
+
   return run
 }
 
@@ -50,10 +51,13 @@ export function applyProjectEdit(project: EditedProject, edit: ProjectEdit): Pro
     const changes = await apply(project, edit)
     const id = randomUUID()
     const applied = [...(history.get(project.info.id) ?? []), { id, label: edit.label, changes }].slice(-kept.edits)
+
     while (applied.length > 1 && applied.reduce((total, entry) => total + size(entry.changes), 0) > kept.bytes) {
       applied.shift()
     }
+
     history.set(project.info.id, applied)
+
     return result(id, edit.label, changes)
   })
 }
@@ -63,13 +67,18 @@ export function undoProjectEdit(project: EditedProject, id: string): Promise<Pro
   return queued(project, async () => {
     const applied = history.get(project.info.id) ?? []
     const entry = applied.find((candidate) => candidate.id === id)
-    if (!entry) throw new Error("That change is too old to undo, or was undone already")
+
+    if (!entry) {
+      throw new Error("That change is too old to undo, or was undone already")
+    }
+
     const label = `Undo ${entry.label.charAt(0).toLowerCase()}${entry.label.slice(1)}`
     const changes = await apply(project, reverseEdit(label, entry.changes))
     history.set(
       project.info.id,
       applied.filter((candidate) => candidate !== entry)
     )
+
     return result(id, label, changes)
   })
 }
@@ -81,49 +90,78 @@ function size(changes: FileChange[]): number {
 async function apply(project: EditedProject, edit: ProjectEdit): Promise<FileChange[]> {
   const { root } = project.info
   const current = new Map<string, FileContent | undefined>()
+
   for (const file of edit.files) {
-    if (current.has(file.path)) continue
+    if (current.has(file.path)) {
+      continue
+    }
+
     const target = inside(root, file.path)
-    if (!existsSync(target)) current.set(file.path, undefined)
-    else current.set(file.path, isText(file) ? await readFile(target, "utf8") : new Uint8Array(await readFile(target)))
+
+    if (!existsSync(target)) {
+      current.set(file.path, undefined)
+    } else {
+      current.set(file.path, isText(file) ? await readFile(target, "utf8") : new Uint8Array(await readFile(target)))
+    }
   }
+
   const changes = planEdit(edit, current)
   // Each change is noted before its write, so one that fails partway is put back too, with what the watcher knew of it.
   const written: { change: FileChange; known: string | undefined }[] = []
+
   try {
     for (const change of changes) {
       written.push({ change, known: project.known.get(change.path) })
-      if (typeof change.after === "string") project.known.set(change.path, change.after)
+
+      if (typeof change.after === "string") {
+        project.known.set(change.path, change.after)
+      }
+
       await write(inside(root, change.path), change.after)
     }
   } catch (error) {
     for (const { change, known } of written.reverse()) {
       await write(inside(root, change.path), change.before).catch(() => undefined)
-      if (known === undefined) project.known.delete(change.path)
-      else project.known.set(change.path, known)
+
+      if (known === undefined) {
+        project.known.delete(change.path)
+      } else {
+        project.known.set(change.path, known)
+      }
     }
+
     throw error
   }
+
   return changes
 }
 
 function isText(file: FileEdit): boolean {
-  if (file.kind === "patch") return true
+  if (file.kind === "patch") {
+    return true
+  }
+
   return typeof (file.kind === "delete" ? file.expected : file.content) === "string"
 }
 
 /** A path from the project's root as a path on disk, refusing one that leads outside the project. */
 function inside(root: string, path: string): string {
   const target = resolve(root, path)
-  if (!target.startsWith(resolve(root) + sep)) throw new Error(`${path} is outside the project`)
+
+  if (!target.startsWith(resolve(root) + sep)) {
+    throw new Error(`${path} is outside the project`)
+  }
+
   return target
 }
 
 async function write(target: string, content: FileContent | undefined): Promise<void> {
   if (content === undefined) {
     await rm(target, { force: true })
+
     return
   }
+
   await mkdir(dirname(target), { recursive: true })
   await writeFile(target, content)
 }

@@ -29,6 +29,7 @@ describe("Session Replay's secrets (PAR-679)", () => {
       timestamp: 1,
       data: { tag: "breadcrumb", payload: { category: "ui.click", message: `button "Copy ${key}"` } }
     }
+
     expect(replayPrivacy.beforeAddRecordingEvent(click)).toEqual({
       type: 5,
       timestamp: 1,

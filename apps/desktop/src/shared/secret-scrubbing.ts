@@ -19,13 +19,17 @@ export function secretScrubbing(): SecretScrubbing {
   let secrets: readonly string[] = []
   let scrubber: Scrubber = createScrubber()
   const followers: { setSecrets(secrets: Iterable<string>): void }[] = []
+
   return {
     value: (input) => scrubber.value(input),
     text: (input) => scrubber.text(input),
     use(next) {
       secrets = [...next]
       scrubber = createScrubber({ secrets })
-      for (const follower of followers) follower.setSecrets(secrets)
+
+      for (const follower of followers) {
+        follower.setSecrets(secrets)
+      }
     },
     follow(telemetry) {
       followers.push(telemetry)

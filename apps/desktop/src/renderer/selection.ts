@@ -43,6 +43,7 @@ export class SelectionStore {
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener)
+
     return () => this.listeners.delete(listener)
   }
 
@@ -54,11 +55,16 @@ export class SelectionStore {
   getRename = () => this.rename
 
   set(selection: Selection): void {
-    if (sameSelection(selection, this.selection)) return
+    if (sameSelection(selection, this.selection)) {
+      return
+    }
+
     this.selection = selection
+
     if (this.editing && (this.editing.node !== selection.node || this.editing.design !== selection.design)) {
       this.editing = undefined
     }
+
     this.notify()
   }
 
@@ -71,23 +77,34 @@ export class SelectionStore {
     ) {
       return
     }
+
     this.hover = hover
     this.notify()
   }
 
   setTool(tool: Tool): void {
-    if (tool === this.tool) return
-    if (this.tool === "interact") this.interactions++
+    if (tool === this.tool) {
+      return
+    }
+
+    if (this.tool === "interact") {
+      this.interactions++
+    }
+
     if ((tool === "interact") !== (this.tool === "interact")) {
       recordInterface("mode.switched", { mode: tool === "interact" ? "interact" : "design" })
     }
+
     this.tool = tool
     this.notify()
   }
 
   /** Starts renaming the selected design or layer: the design's title on the canvas, or the layer in the Layers panel. */
   requestRename(): void {
-    if (!this.selection.design) return
+    if (!this.selection.design) {
+      return
+    }
+
     this.rename = { design: this.selection.design, node: this.selection.node, id: (this.rename?.id ?? 0) + 1 }
     this.notify()
   }
@@ -98,7 +115,9 @@ export class SelectionStore {
   }
 
   private notify(): void {
-    for (const listener of this.listeners) listener()
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 }
 
@@ -113,9 +132,14 @@ export function useSelection(store: SelectionStore): Selection {
 export function useDesignSelection(store: SelectionStore, design: string): { selected: boolean; mode?: string } {
   const part = useSyncExternalStore(store.subscribe, () => {
     const selection = store.get()
-    if (selection.design !== design) return ""
+
+    if (selection.design !== design) {
+      return ""
+    }
+
     return !selection.node && selection.mode ? `mode:${selection.mode}` : "design"
   })
+
   return part.startsWith("mode:") ? { selected: true, mode: part.slice("mode:".length) } : { selected: part !== "" }
 }
 

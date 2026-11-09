@@ -25,6 +25,7 @@ function loadSharp(): Promise<SharpConstructor> {
     ({ default: sharp }) => {
       // Each picture is encoded once, so nothing is worth keeping in sharp's cache.
       sharp.cache(false)
+
       return sharp
     },
     (error: unknown) => {
@@ -32,12 +33,14 @@ function loadSharp(): Promise<SharpConstructor> {
       throw error
     }
   )
+
   return encoder
 }
 
 /** A picture, such as a PNG, as a lossless WebP. Fails when sharp can't load or can't read it. */
 export async function losslessWebp(picture: Uint8Array): Promise<Buffer> {
   const sharp = await loadSharp()
+
   return sharp(picture).webp({ lossless: true }).toBuffer()
 }
 
@@ -50,7 +53,11 @@ export async function topOfPicture(picture: Uint8Array, ratio: number): Promise<
   const sharp = await loadSharp()
   const { width, height } = await sharp(picture).metadata()
   const kept = Math.max(1, Math.round(width * ratio))
-  if (kept >= height) return undefined
+
+  if (kept >= height) {
+    return undefined
+  }
+
   return sharp(picture).extract({ left: 0, top: 0, width, height: kept }).webp({ lossless: true }).toBuffer()
 }
 
@@ -65,6 +72,7 @@ export async function cutPicture(
 ): Promise<Buffer> {
   const sharp = await loadSharp()
   const cut = sharp(picture).extract(crop)
+
   return format === "jpg"
     ? cut.flatten({ background: "#ffffff" }).jpeg({ quality: 92 }).toBuffer()
     : cut.png().toBuffer()
@@ -87,8 +95,13 @@ export async function composePicture(
 ): Promise<Buffer> {
   const cuts = await Promise.all(pieces.map((piece) => cutPicture(piece.picture, piece.crop, "png")))
   const [only] = cuts
-  if (only && cuts.length === 1 && pieces[0]!.crop.width === width && pieces[0]!.crop.height === height) return only
+
+  if (only && cuts.length === 1 && pieces[0]!.crop.width === width && pieces[0]!.crop.height === height) {
+    return only
+  }
+
   const sharp = await loadSharp()
+
   return sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite(cuts.map((input, index) => ({ input, left: pieces[index]!.left, top: pieces[index]!.top })))
     .png()

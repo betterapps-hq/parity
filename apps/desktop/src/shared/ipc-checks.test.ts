@@ -36,7 +36,9 @@ describe("open-in-editor's request", () => {
   })
 
   it("takes every editor Settings lists", () => {
-    for (const { id } of codeEditors) expect(openInEditorRequest.safeParse({ file, editor: id }).success).toBe(true)
+    for (const { id } of codeEditors) {
+      expect(openInEditorRequest.safeParse({ file, editor: id }).success).toBe(true)
+    }
   })
 })
 

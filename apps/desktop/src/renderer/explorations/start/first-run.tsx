@@ -57,6 +57,7 @@ export function FirstRunPage() {
   const account = useAccount()
   const firsts = stacks.flatMap((stack) => templatesOn(stack.id).slice(0, 1))
   const openSample = () => start.create?.(sample)
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-10 pt-7 pb-14">
@@ -122,6 +123,7 @@ export function FirstRunPage() {
             <SideList title="Connect your agents">
               {agentChoices.map((agent) => {
                 const on = !!start.agents?.includes(agent.name)
+
                 return (
                   <li key={agent.name} className="flex items-center gap-2.5 py-1.5 text-[13px]">
                     <Avatar person={agent} size={22} />

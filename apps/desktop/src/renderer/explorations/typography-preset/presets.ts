@@ -10,7 +10,9 @@ import type { Token } from "@parity-app/tokens"
 export type TypeField = "font" | "weight" | "size" | "lineHeight" | "letterSpacing" | "case"
 
 export type LineHeight = { px: number } | { multiple: number }
+
 export type LetterSpacing = { em: number } | { px: number }
+
 export type TextCase = "uppercase" | "lowercase" | "capitalize" | "none"
 
 interface TypeValueMap {
@@ -23,6 +25,7 @@ interface TypeValueMap {
 }
 
 export type TypeValue<F extends TypeField = TypeField> = TypeValueMap[F]
+
 export type TypeValues = Partial<TypeValueMap>
 
 /** The rows a preset can cover, in the Text section's order. */
@@ -98,6 +101,7 @@ const tailwindBreakpoints = [
 const segoe = `"Segoe UI", "Segoe UI Web (West European)", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif`
 
 const fluentSource = "Fluent"
+
 const fluent = (name: string, size: number, lineHeight: number, weight: number): Preset => ({
   name,
   source: fluentSource,
@@ -106,6 +110,7 @@ const fluent = (name: string, size: number, lineHeight: number, weight: number):
 
 const roboto = `"Roboto", "Helvetica", "Arial", sans-serif`
 const muiSource = "Material UI"
+
 const mui = (
   name: string,
   weight: number,
@@ -136,11 +141,13 @@ const mui = (
 })
 
 const chakraSource = "Chakra"
+
 const chakra = (name: string, size: number, lineHeight: number, extra: TypeValues = {}): Preset => ({
   name,
   source: chakraSource,
   values: { size, lineHeight: { px: lineHeight }, ...extra }
 })
+
 const tight = { letterSpacing: { em: -0.025 } } satisfies TypeValues
 
 export const projects: PresetProject[] = [
@@ -341,6 +348,7 @@ const viewportsUpTo = (viewport: ViewportId) => viewports.filter((entry) => entr
 /** What a preset sets in a viewport. */
 export function presetAt(preset: Preset, viewport: ViewportId): TypeValues {
   const width = widthOf(viewport)
+
   return Object.assign(
     {},
     preset.values,
@@ -350,7 +358,10 @@ export function presetAt(preset: Preset, viewport: ViewportId): TypeValues {
 
 /** Every field a preset sets, in any viewport. */
 export function coveredBy(preset: Preset | undefined): Set<TypeField> {
-  if (!preset) return new Set()
+  if (!preset) {
+    return new Set()
+  }
+
   return new Set(
     [preset.values, ...(preset.from ?? []).map((step) => step.values)].flatMap(
       (values) => Object.keys(values) as TypeField[]
@@ -379,13 +390,17 @@ export function shownAt<F extends TypeField>(
 ): Shown<F> {
   const preset = presetByName(project, layer.preset)
   const set = setIn(layer, viewport, field)
+
   if (set) {
     const value = layer.own[set.id]![field] as TypeValue<F>
+
     return { value, source: { kind: preset && coveredBy(preset).has(field) ? "override" : "own", from: set.id } }
   }
+
   if (preset && coveredBy(preset).has(field)) {
     return { value: presetAt(preset, viewport)[field] as TypeValue<F>, source: { kind: "preset" } }
   }
+
   return { value: (project.inherited as TypeValues)[field] as TypeValue<F> | undefined, source: { kind: "inherited" } }
 }
 
@@ -399,12 +414,14 @@ export function typeAt(project: PresetProject, layer: TextLayer, viewport: Viewp
 /** Whether a row's value differs between viewports, which a dot after its label says. */
 export function differsByViewport(project: PresetProject, layer: TextLayer, field: TypeField): boolean {
   const values = viewports.map((viewport) => JSON.stringify(shownAt(project, layer, viewport.id, field).value))
+
   return new Set(values).size > 1
 }
 
 /** How many of the layer's own values override its preset, across viewports. */
 export function overrideCount(project: PresetProject, layer: TextLayer): number {
   const covered = coveredBy(presetByName(project, layer.preset))
+
   return Object.values(layer.own).reduce(
     (count, values) => count + Object.keys(values ?? {}).filter((field) => covered.has(field as TypeField)).length,
     0
@@ -419,8 +436,13 @@ export function setOwn<F extends TypeField>(
   value: TypeValue<F> | undefined
 ): TextLayer {
   const values: TypeValues = { ...layer.own[viewport] }
-  if (value === undefined) delete values[field]
-  else values[field] = value
+
+  if (value === undefined) {
+    delete values[field]
+  } else {
+    values[field] = value
+  }
+
   return { ...layer, own: { ...layer.own, [viewport]: values } }
 }
 
@@ -443,6 +465,7 @@ function setIn(layer: TextLayer, viewport: ViewportId, field: TypeField) {
 /** Takes back every override of the preset, keeping the layer's values for what the preset doesn't set. */
 function resetOverrides(project: PresetProject, layer: TextLayer): TextLayer {
   const covered = coveredBy(presetByName(project, layer.preset))
+
   return {
     ...layer,
     own: Object.fromEntries(
@@ -457,33 +480,50 @@ function resetOverrides(project: PresetProject, layer: TextLayer): TextLayer {
 /** Applies a preset: it fills in the fields it covers, so the layer's own values for those go. */
 export function applyPreset(project: PresetProject, layer: TextLayer, name: string | undefined): TextLayer {
   const next = { ...layer, preset: name }
+
   return name ? resetOverrides(project, next) : next
 }
 
 /** Detaches the preset: the layer keeps what it shows in every viewport, as values of its own. */
 export function detach(project: PresetProject, layer: TextLayer): TextLayer {
   const preset = presetByName(project, layer.preset)
-  if (!preset) return layer
+
+  if (!preset) {
+    return layer
+  }
+
   const own: TextLayer["own"] = {}
   let below: TypeValues = {}
+
   for (const viewport of viewports) {
     const shown: TypeValues = {}
+
     for (const field of coveredBy(preset)) {
       const value = shownAt(project, layer, viewport.id, field).value
-      if (value !== undefined) Object.assign(shown, { [field]: value })
+
+      if (value !== undefined) {
+        Object.assign(shown, { [field]: value })
+      }
     }
+
     // Mobile first: a wider viewport keeps only what changes there.
     const changed = Object.fromEntries(
       Object.entries(shown).filter(
         ([field, value]) => JSON.stringify(below[field as TypeField]) !== JSON.stringify(value)
       )
     )
+
     const kept = Object.fromEntries(
       Object.entries(layer.own[viewport.id] ?? {}).filter(([field]) => !coveredBy(preset).has(field as TypeField))
     )
-    if (Object.keys(changed).length + Object.keys(kept).length > 0) own[viewport.id] = { ...kept, ...changed }
+
+    if (Object.keys(changed).length + Object.keys(kept).length > 0) {
+      own[viewport.id] = { ...kept, ...changed }
+    }
+
     below = { ...below, ...shown }
   }
+
   return { ...layer, preset: undefined, own }
 }
 
@@ -521,7 +561,10 @@ export const lineHeightPx = (lineHeight: LineHeight, size: number) =>
 
 /** A value as its row shows it. */
 export function formatValue(field: TypeField, value: TypeValue | undefined): string {
-  if (value === undefined) return "None"
+  if (value === undefined) {
+    return "None"
+  }
+
   switch (field) {
     case "font":
       return value as string
@@ -531,12 +574,16 @@ export function formatValue(field: TypeField, value: TypeValue | undefined): str
       return number(value as number)
     case "lineHeight": {
       const lineHeight = value as LineHeight
+
       return "px" in lineHeight ? number(lineHeight.px) : exact(lineHeight.multiple)
     }
+
     case "letterSpacing": {
       const spacing = value as LetterSpacing
+
       return "px" in spacing ? `${number(spacing.px)}px` : `${number(spacing.em * 100)}%`
     }
+
     case "case":
       return caseNames[value as TextCase]
   }
@@ -550,13 +597,24 @@ export interface PresetMatch {
 
 /** How far apart two values of a row are, in pixels where the row is a length, at a size. */
 function apart(field: TypeField, a: TypeValue | undefined, b: TypeValue | undefined, size: number): number {
-  if (a === undefined || b === undefined) return a === b ? 0 : Infinity
-  if (field === "lineHeight") return Math.abs(lineHeightPx(a as LineHeight, size) - lineHeightPx(b as LineHeight, size))
+  if (a === undefined || b === undefined) {
+    return a === b ? 0 : Infinity
+  }
+
+  if (field === "lineHeight") {
+    return Math.abs(lineHeightPx(a as LineHeight, size) - lineHeightPx(b as LineHeight, size))
+  }
+
   if (field === "letterSpacing") {
     const px = (spacing: LetterSpacing) => ("px" in spacing ? spacing.px : spacing.em * size)
+
     return Math.abs(px(a as LetterSpacing) - px(b as LetterSpacing))
   }
-  if (field === "size" || field === "weight") return Math.abs((a as number) - (b as number))
+
+  if (field === "size" || field === "weight") {
+    return Math.abs((a as number) - (b as number))
+  }
+
   return a === b ? 0 : Infinity
 }
 
@@ -572,38 +630,52 @@ const nearSize = 2
  * body text finds the project's body preset.
  */
 export function closestPreset(project: PresetProject, layer: TextLayer, viewport: ViewportId): PresetMatch | undefined {
-  if (layer.preset) return undefined
+  if (layer.preset) {
+    return undefined
+  }
+
   const shown = typeAt(project, layer, viewport)
   const size = shown.size ?? project.inherited.size
+
   const candidates = project.presets.flatMap((preset) => {
     const values = presetAt(preset, viewport)
     const gap = apart("size", values.size ?? size, size, size)
-    if (gap > nearSize) return []
+
+    if (gap > nearSize) {
+      return []
+    }
+
     const differs = (Object.keys(values) as TypeField[]).filter(
       (field) => apart(field, values[field], shown[field], size) > same
     )
+
     return [{ preset, differs, gap }]
   })
+
   candidates.sort((a, b) => a.differs.length - b.differs.length || a.gap - b.gap)
   const best = candidates[0]
+
   return best && { preset: best.preset, differs: best.differs }
 }
 
 /** Size over line height in pixels, "20/28", or the size alone when the line height isn't set. */
 export function sizeAndLine(project: PresetProject, values: TypeValues): string {
   const size = values.size ?? project.inherited.size
+
   return values.lineHeight ? `${number(size)}/${number(lineHeightPx(values.lineHeight, size))}` : number(size)
 }
 
 /** A preset's one-line summary, as Figma's styles read: "Segoe UI 20/28 Semibold". */
 export function summary(project: PresetProject, values: TypeValues): string {
   const size = values.size ?? project.inherited.size
+
   const parts = [
     values.font,
     values.size !== undefined &&
       (values.lineHeight ? `${number(size)}/${number(lineHeightPx(values.lineHeight, size))}` : number(size)),
     values.weight !== undefined && weightName(values.weight)
   ]
+
   return parts.filter(Boolean).join(" ")
 }
 
@@ -624,12 +696,16 @@ function storedValue(field: TypeField, value: TypeValue): unknown {
       return { value, unit: "px" }
     case "lineHeight": {
       const lineHeight = value as LineHeight
+
       return "px" in lineHeight ? { value: lineHeight.px, unit: "px" } : { value: lineHeight.multiple }
     }
+
     case "letterSpacing": {
       const spacing = value as LetterSpacing
+
       return "px" in spacing ? { value: spacing.px, unit: "px" } : { value: spacing.em, unit: "em" }
     }
+
     case "case":
       return { keyword: value }
   }
@@ -656,18 +732,21 @@ export function stored(layer: TextLayer): Stored {
     ...(layer.italic && { fontStyle: { keyword: "italic" } }),
     ...(layer.decoration && { textDecorationLine: { keyword: layer.decoration } })
   }
+
   const patches = Object.fromEntries(
     viewports
       .slice(1)
       .filter((viewport) => Object.keys(layer.own[viewport.id] ?? {}).length > 0)
       .map((viewport) => [viewport.id, storedValues(layer.own[viewport.id])])
   )
+
   return { style, ...(Object.keys(patches).length > 0 && { viewports: patches }) }
 }
 
 /** Which of the stored lines are overrides, for marking them in the code. */
 export function overrideFields(project: PresetProject, layer: TextLayer): Set<TypeField> {
   const covered = coveredBy(presetByName(project, layer.preset))
+
   return new Set(
     Object.values(layer.own).flatMap((values) =>
       (Object.keys(values ?? {}) as TypeField[]).filter((field) => covered.has(field))
@@ -703,6 +782,7 @@ const leadingNames: Record<number, string> = {
   1.625: "relaxed",
   2: "loose"
 }
+
 const trackingNames: Record<number, string> = {
   [-0.05]: "tighter",
   [-0.025]: "tight",
@@ -719,9 +799,17 @@ const trackingNames: Record<number, string> = {
  */
 function fontClass(project: PresetProject, font: string): string {
   const entry = project.fonts.find((candidate) => candidate.name === font)
-  if (entry?.token?.startsWith("font-")) return entry.token
-  if (entry?.token && project.variable) return `font-(family-name:${project.variable("font", entry.token)})`
+
+  if (entry?.token?.startsWith("font-")) {
+    return entry.token
+  }
+
+  if (entry?.token && project.variable) {
+    return `font-(family-name:${project.variable("font", entry.token)})`
+  }
+
   const families = (entry?.stack ?? font).split(",").map((family) => family.trim().replaceAll('"', ""))
+
   return `font-[${families.map((family) => (family.includes(" ") ? `'${family.replaceAll(" ", "_")}'` : family)).join(",")}]`
 }
 
@@ -740,17 +828,26 @@ function tailwindClass(project: PresetProject, field: TypeField, value: TypeValu
       return `text-[${number(value as number)}px]`
     case "lineHeight": {
       const lineHeight = value as LineHeight
-      if ("px" in lineHeight)
+
+      if ("px" in lineHeight) {
         return lineHeight.px % 4 === 0 ? `leading-${lineHeight.px / 4}` : `leading-[${number(lineHeight.px)}px]`
+      }
+
       return leadingNames[lineHeight.multiple]
         ? `leading-${leadingNames[lineHeight.multiple]}`
         : `leading-[${exact(lineHeight.multiple)}]`
     }
+
     case "letterSpacing": {
       const spacing = value as LetterSpacing
-      if ("px" in spacing) return `tracking-[${number(spacing.px)}px]`
+
+      if ("px" in spacing) {
+        return `tracking-[${number(spacing.px)}px]`
+      }
+
       return trackingNames[spacing.em] ? `tracking-${trackingNames[spacing.em]}` : `tracking-[${exact(spacing.em)}em]`
     }
+
     case "case":
       return value === "none" ? "normal-case" : (value as string)
   }
@@ -767,6 +864,7 @@ function variantOf(project: PresetProject, viewport: ViewportId): string | undef
  */
 function writtenAsUtility(preset: Preset): boolean {
   const covered = coveredBy(preset)
+
   return covered.has("font") || covered.has("case") || !(covered.has("weight") || covered.has("letterSpacing"))
 }
 
@@ -783,12 +881,16 @@ const cssValue = (project: PresetProject, field: TypeField, value: TypeValue): [
       return ["font-size", `${number(value as number)}px`]
     case "lineHeight": {
       const lineHeight = value as LineHeight
+
       return ["line-height", "px" in lineHeight ? `${number(lineHeight.px)}px` : exact(lineHeight.multiple)]
     }
+
     case "letterSpacing": {
       const spacing = value as LetterSpacing
+
       return ["letter-spacing", "px" in spacing ? `${number(spacing.px)}px` : `${spacing.em}em`]
     }
+
     case "case":
       return ["text-transform", value as string]
   }
@@ -806,6 +908,7 @@ function presetDefinition(project: PresetProject, preset: Preset): CodeLine[] {
     typeFields
       .filter(({ field }) => values[field] !== undefined)
       .map(({ field }) => cssValue(project, field, values[field]!))
+
   if (writtenAsUtility(preset)) {
     return [
       { text: `@utility type-${preset.name} {` },
@@ -818,12 +921,14 @@ function presetDefinition(project: PresetProject, preset: Preset): CodeLine[] {
       { text: "}" }
     ]
   }
+
   return [
     { text: "@theme {" },
     ...typeFields
       .filter(({ field }) => preset.values[field] !== undefined)
       .map(({ field }) => {
         const [, value] = cssValue(project, field, preset.values[field]!)
+
         return { text: `  --text-${preset.name}${themeSuffix[field] ?? ""}: ${value};` }
       }),
     { text: "}" }
@@ -836,22 +941,44 @@ export function tailwindCode(project: PresetProject, layer: TextLayer): CodeLine
   const covered = coveredBy(preset)
   const classes: CodeLine[] = []
   let variants = false
-  if (preset) classes.push({ text: presetClass(preset) })
+
+  if (preset) {
+    classes.push({ text: presetClass(preset) })
+  }
+
   for (const viewport of viewports) {
     const values = layer.own[viewport.id] ?? {}
     const variant = viewport.id === "mobile" ? undefined : variantOf(project, viewport.id)
+
     for (const { field } of typeFields) {
       const value = values[field]
-      if (value === undefined) continue
+
+      if (value === undefined) {
+        continue
+      }
+
       const written = tailwindClass(project, field, value)
       classes.push({ text: variant ? `${variant}:${written}` : written, override: covered.has(field) })
       variants ||= variant !== undefined
     }
   }
-  if (layer.color) classes.push({ text: colorClass(project, layer.color) })
-  if (layer.align) classes.push({ text: `text-${layer.align}` })
-  if (layer.italic) classes.push({ text: "italic" })
-  if (layer.decoration) classes.push({ text: layer.decoration })
+
+  if (layer.color) {
+    classes.push({ text: colorClass(project, layer.color) })
+  }
+
+  if (layer.align) {
+    classes.push({ text: `text-${layer.align}` })
+  }
+
+  if (layer.italic) {
+    classes.push({ text: "italic" })
+  }
+
+  if (layer.decoration) {
+    classes.push({ text: layer.decoration })
+  }
+
   const lines: CodeLine[] = [
     { text: "<p" },
     ...classes.map((line, index) => ({
@@ -859,8 +986,13 @@ export function tailwindCode(project: PresetProject, layer: TextLayer): CodeLine
       override: line.override
     }))
   ]
-  if (classes.length === 0) lines.splice(0, 1, { text: "<p>" })
+
+  if (classes.length === 0) {
+    lines.splice(0, 1, { text: "<p>" })
+  }
+
   const css = [...(variants ? breakpointTheme(project) : []), ...(preset ? presetDefinition(project, preset) : [])]
+
   return css.length > 0 ? [...lines, { text: "" }, { text: "/* index.css */" }, ...css] : lines
 }
 
@@ -873,7 +1005,11 @@ function breakpointTheme(project: PresetProject): CodeLine[] {
     (breakpoint) =>
       tailwindBreakpoints.find((standard) => standard.prefix === breakpoint.prefix)?.width !== breakpoint.width
   )
-  if (differ.length === 0) return []
+
+  if (differ.length === 0) {
+    return []
+  }
+
   return [
     { text: "@theme {" },
     ...differ.map((breakpoint) => ({ text: `  --breakpoint-${breakpoint.prefix}: ${breakpoint.width}px;` })),
@@ -893,6 +1029,7 @@ function fluentValue(field: TypeField, value: TypeValue): string {
       return JSON.stringify(value)
     default: {
       const [, css] = cssValue(projectById("fluent"), field, value)
+
       return JSON.stringify(css)
     }
   }
@@ -919,12 +1056,21 @@ function responsive(
 ): { field: TypeField; text: string }[] {
   return typeFields.flatMap(({ field }) => {
     const set = viewports.filter((viewport) => layer.own[viewport.id]?.[field] !== undefined)
-    if (set.length === 0) return []
-    if (set.length === 1 && set[0]!.id === "mobile") return [{ field, text: write(field, layer.own.mobile![field]!) }]
+
+    if (set.length === 0) {
+      return []
+    }
+
+    if (set.length === 1 && set[0]!.id === "mobile") {
+      return [{ field, text: write(field, layer.own.mobile![field]!) }]
+    }
+
     const entries = set.map((viewport) => {
       const key = viewport.id === "mobile" ? baseKey[project.id] : variantOf(project, viewport.id)
+
       return `${key}: ${write(field, layer.own[viewport.id]![field]!)}`
     })
+
     return [{ field, text: `{ ${entries.join(", ")} }` }]
   })
 }
@@ -938,6 +1084,7 @@ function fluentCode(layer: TextLayer, preset: Preset | undefined, covered: Set<T
         text: `${indent}${jsProperty[field]}: ${fluentValue(field, values![field]!)},`,
         override: covered.has(field)
       }))
+
   return [
     { text: "const useStyles = makeStyles({" },
     { text: "  text: {" },
@@ -975,30 +1122,45 @@ export function libraryCode(project: PresetProject, layer: TextLayer): CodeLine[
   const preset = presetByName(project, layer.preset)
   const covered = coveredBy(preset)
   const color = project.colors.find((token) => token.name === layer.color)
-  if (project.id === "fluent") return fluentCode(layer, preset, covered, color)
+
+  if (project.id === "fluent") {
+    return fluentCode(layer, preset, covered, color)
+  }
+
   if (project.id === "mui") {
     const own = responsive(project, layer, (field, value) => {
       const [, css] = cssValue(project, field, value)
+
       return field === "lineHeight" && "multiple" in (value as LineHeight) ? css : JSON.stringify(css)
     })
+
     const props = [
       ...(preset ? [{ text: `  variant="${preset.name}"` }] : []),
       ...(color ? [{ text: `  color="${color.name}"` }] : []),
       ...(layer.align ? [{ text: `  align="${muiAlign[layer.align]}"` }] : [])
     ]
+
     const entries: CodeLine[] = [
       ...own.map(({ field, text }) => ({ text: `    ${jsProperty[field]}: ${text},`, override: covered.has(field) })),
       ...(layer.italic ? [{ text: `    fontStyle: "italic",` }] : []),
       ...(layer.decoration ? [{ text: `    textDecoration: "${layer.decoration}",` }] : [])
     ]
+
     const sx = entries.length > 0 ? [{ text: "  sx={{" }, ...entries, { text: "  }}" }] : []
+
     return [{ text: "<Typography" }, ...props, ...sx, { text: ">" }]
   }
+
   const own = responsive(project, layer, (field, value) => {
-    if (field === "font") return `"${project.fonts.find((font) => font.name === value)?.token ?? (value as string)}"`
+    if (field === "font") {
+      return `"${project.fonts.find((font) => font.name === value)?.token ?? (value as string)}"`
+    }
+
     const [, css] = cssValue(project, field, value)
+
     return JSON.stringify(css)
   })
+
   return [
     { text: "<Text" },
     ...(preset ? [{ text: `  textStyle="${preset.name}"` }] : []),

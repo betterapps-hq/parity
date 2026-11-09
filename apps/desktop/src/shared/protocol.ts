@@ -310,6 +310,7 @@ export type Answer<Result> = { result: Result } | { error: string; details?: unk
 export type ServeAnswer = Answer<unknown>
 
 export type ServiceMethod = keyof ServiceMethods
+
 export type WindowMethod = keyof WindowMethods
 
 /** The window's methods by name, for the preload script, which answers each through the page's one handler. */

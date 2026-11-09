@@ -19,8 +19,10 @@ describe("the shared token order", () => {
       token("depth-high", "other", "0 8px 16px"),
       token("depth-mid", "other", "0 4px 8px")
     ]
+
     // Without a type, lengths alone with a name that says nothing are settings, which list by name.
     expect(names(inTokenOrder(tokens))).toEqual(["depth-high", "depth-low", "depth-mid"])
+
     const described = [
       {
         name: "Acme",
@@ -28,6 +30,7 @@ describe("the shared token order", () => {
         tokens: ["low", "mid", "high"].map((step) => ({ path: `depth.${step}`, type: "shadow", values: {} }))
       }
     ]
+
     expect(names(inTokenOrder(tokens, described))).toEqual(["depth-low", "depth-mid", "depth-high"])
   })
 
@@ -38,6 +41,7 @@ describe("the shared token order", () => {
       token("spacing-gutter", "spacing", "var(--spacing-wide)"),
       token("spacing-wide", "spacing", "24px")
     ]
+
     const byName = new Map(tokens.map((each) => [each.name, each]))
     expect(comesTo(byName, "spacing-10")).toBe("40px")
     expect(comesTo(byName, "spacing-gutter")).toBe("24px")
@@ -50,12 +54,16 @@ describe("the shared token order", () => {
       token("radius-b", "radius", "8px"),
       token("radius-c", "radius", "var(--missing)")
     ]
+
     // A stand-in for the browser, which lays out what it can't resolve as nothing.
     const asked: string[] = []
+
     const browser = (value: string) => {
       asked.push(value)
+
       return value.includes("var(") ? 0 : Number.parseFloat(value)
     }
+
     expect(names(inTokenOrder(tokens, undefined, browser))).toEqual(["radius-b", "radius-a", "radius-c"])
     expect(asked).toEqual(["8px"])
   })
