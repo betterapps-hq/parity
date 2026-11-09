@@ -2,6 +2,29 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 09 Nov 2026 02:25:19 GMT",
+      "version": "0.28.0",
+      "tag": "@parity-app/cli_v0.28.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "8560ac2bb40513109a1f397bdd5a86f46c924802",
+            "comment": "Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component as component.changed"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "973519fd631ce53c69e9c5a80940a221c1f2377d",
+            "comment": "project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the builder can't load the project's config"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 00:29:58 GMT",
       "version": "0.27.0",
       "tag": "@parity-app/cli_v0.27.0",
