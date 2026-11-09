@@ -1,30 +1,32 @@
 import { describe, expect, it } from "vite-plus/test"
 import { readDesignTokens, type SkippedToken } from "./dtcg.ts"
 
-const files: Record<string, unknown> = {
-  "tokens/base.tokens.json": {
-    color: {
-      $type: "color",
-      neutral: {
-        "950": { $value: { colorSpace: "srgb", components: [0.04, 0.04, 0.04], hex: "#0a0a0a" } },
-        "50": { $value: { colorSpace: "oklch", components: [0.985, 0, 0] } }
-      }
+const files = new Map(
+  Object.entries({
+    "tokens/base.tokens.json": {
+      color: {
+        $type: "color",
+        neutral: {
+          "950": { $value: { colorSpace: "srgb", components: [0.04, 0.04, 0.04], hex: "#0a0a0a" } },
+          "50": { $value: { colorSpace: "oklch", components: [0.985, 0, 0] } }
+        }
+      },
+      radius: { $type: "dimension", md: { $value: { value: 0.5, unit: "rem" }, $description: "Cards and inputs" } },
+      font: { sans: { $type: "fontFamily", $value: ["Geist Variable", "sans-serif"] } }
     },
-    radius: { $type: "dimension", md: { $value: { value: 0.5, unit: "rem" }, $description: "Cards and inputs" } },
-    font: { sans: { $type: "fontFamily", $value: ["Geist Variable", "sans-serif"] } }
-  },
-  "tokens/light.tokens.json": {
-    color: { primary: { $type: "color", $value: "{color.neutral.950}", $description: "Buttons and links" } }
-  },
-  "tokens/dark.tokens.json": { color: { primary: { $type: "color", $value: "{color.neutral.50}" } } }
-}
+    "tokens/light.tokens.json": {
+      color: { primary: { $type: "color", $value: "{color.neutral.950}", $description: "Buttons and links" } }
+    },
+    "tokens/dark.tokens.json": { color: { primary: { $type: "color", $value: "{color.neutral.50}" } } }
+  })
+)
 
 const read = async (path: string) => {
-  if (!(path in files)) {
+  if (!files.has(path)) {
     throw new Error(`No file ${path}`)
   }
 
-  return structuredClone(files[path])
+  return structuredClone(files.get(path))
 }
 
 describe("readDesignTokens", () => {
@@ -119,7 +121,7 @@ describe("readDesignTokens", () => {
 
 describe("readDesignTokens with malformed tokens", () => {
   /** The tokens read from `document`, by path, and what was skipped. */
-  async function readSkipping(document: unknown) {
+  async function readSkipping(document: Parameters<typeof readDesignTokens>[0]) {
     const skipped: SkippedToken[] = []
     const tokens = await readDesignTokens(document, read, "", (entry) => skipped.push(entry))
 

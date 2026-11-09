@@ -46,7 +46,7 @@ export function inferTokenKind(name: string, value: string, type?: string, group
   let allowed = valueKinds(simplifyCalc(value.trim()))
   // 0 is a length and a number alike, so a type saying it's either leaves it both.
   const zero = value.trim() === "0" && (type === "number" || type === "dimension")
-  const stated = type && !zero ? typeKinds[type] : undefined
+  const stated = type && !zero ? typeKinds.get(type) : undefined
 
   if (stated) {
     const both = allowed.filter((kind) => stated.includes(kind))
@@ -66,37 +66,43 @@ export function inferTokenKind(name: string, value: string, type?: string, group
 }
 
 /** What each DTCG type allows: one kind when it names one, a few when it only says it's a length or a number. */
-const typeKinds: Record<string, InferredKind[]> = {
-  color: ["color"],
-  gradient: ["gradient"],
-  fontFamily: ["font-family"],
-  fontWeight: ["font-weight"],
-  duration: ["duration"],
-  cubicBezier: ["easing"],
-  border: ["border"],
-  typography: ["type-style"],
-  shadow: ["shadow", "inset-shadow", "drop-shadow", "text-shadow"],
-  dimension: [
-    "spacing",
-    "size",
-    "radius",
-    "font-size",
-    "line-height",
-    "letter-spacing",
-    "breakpoint",
-    "blur",
-    "border-width",
-    "perspective"
-  ],
-  number: ["font-weight", "line-height", "z-index", "opacity", "setting"]
-}
+const typeKinds = new Map(
+  Object.entries<InferredKind[]>({
+    color: ["color"],
+    gradient: ["gradient"],
+    fontFamily: ["font-family"],
+    fontWeight: ["font-weight"],
+    duration: ["duration"],
+    cubicBezier: ["easing"],
+    border: ["border"],
+    typography: ["type-style"],
+    shadow: ["shadow", "inset-shadow", "drop-shadow", "text-shadow"],
+    dimension: [
+      "spacing",
+      "size",
+      "radius",
+      "font-size",
+      "line-height",
+      "letter-spacing",
+      "breakpoint",
+      "blur",
+      "border-width",
+      "perspective"
+    ],
+    number: ["font-weight", "line-height", "z-index", "opacity", "setting"]
+  })
+)
 
-const units: Record<string, number> = { px: 1, rem: 16, em: 16 }
+const units = new Map([
+  ["px", 1],
+  ["rem", 16],
+  ["em", 16]
+])
 
 function pixels(text: string): number | undefined {
   const match = /^(-?\d*\.?\d+)(px|rem|em)$/.exec(text.trim())
 
-  return match ? Number(match[1]) * units[match[2]!]! : undefined
+  return match ? Number(match[1]) * units.get(match[2]!)! : undefined
 }
 
 /**
