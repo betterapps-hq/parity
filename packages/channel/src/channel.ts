@@ -8,6 +8,8 @@
  * message. The sandboxed preload script bundles this module, and it can load nothing but Electron.
  */
 
+import { isObject } from "./guards.ts"
+
 /** One method's params and result. */
 export interface Method {
   params: unknown
@@ -28,7 +30,10 @@ type Answer<Result> = undefined extends Result ? Result | void : Result
  * Reads each method's params as they arrive, before its handler sees them: returns them, or throws why they're
  * refused. A channel given checks refuses a method they don't name.
  */
-export type Checks<T extends MethodMap<T>> = { [M in keyof T]: (params: unknown) => T[M]["params"] }
+export type Checks<T extends MethodMap<T>> = {
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: params as the other end sent them, read here
+  [M in keyof T]: (params: unknown) => T[M]["params"]
+}
 
 /**
  * A message on a channel's port. A failed request's reply carries its message, and details the codec adds. A request
@@ -37,6 +42,8 @@ export type Checks<T extends MethodMap<T>> = { [M in keyof T]: (params: unknown)
 export type ChannelMessage =
   | { type: "request"; id: number; method: string; params?: unknown; trace?: unknown }
   | { type: "response"; id: number; result?: unknown; error?: string; details?: unknown }
+
+type RequestMessage = Extract<ChannelMessage, { type: "request" }>
 
 /** What a channel needs of a port: to send a message, and to hear what arrives and when the other end goes. */
 export interface Port {
@@ -48,14 +55,23 @@ export interface Port {
 }
 
 export interface PortListener {
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: whatever arrives on the port, which the channel reads
   message(data: unknown): void
   /** The other end went: closed, exited or failed. `reason` says why, when the port knows. */
   closed(reason?: Error): void
 }
 
+/** A failure as it crosses a port: its message, and what the codec adds. */
+interface EncodedError {
+  error: string
+  details?: unknown
+}
+
 /** How a failure crosses a port: its message, and details the other end checks before trusting. */
 export interface ErrorCodec {
-  encode(error: unknown): { error: string; details?: unknown }
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- JavaScript can throw anything
+  encode(error: unknown): EncodedError
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: details as the other end sent them, read here
   decode(message: string, details: unknown): Error
 }
 
@@ -65,12 +81,23 @@ export interface ErrorCodec {
  */
 export const plainErrors: ErrorCodec = {
   encode(error) {
-    const details = typeof error === "object" && error !== null ? (error as { details?: unknown }).details : undefined
+    const encoded: EncodedError = { error: errorMessage(error) }
+    const details = isObject(error) && "details" in error ? error.details : undefined
 
-    return { error: errorMessage(error), ...(details === undefined ? {} : { details }) }
+    if (details !== undefined) {
+      encoded.details = details
+    }
+
+    return encoded
   },
   decode(message, details) {
-    return Object.assign(new Error(message), details === undefined ? {} : { details })
+    const error = new Error(message)
+
+    if (details !== undefined) {
+      Object.assign(error, { details })
+    }
+
+    return error
   }
 }
 
@@ -87,11 +114,13 @@ export interface ChannelOptions<Local extends MethodMap<Local>> {
   /** What a request sent fails with when its port closes or the channel moves to another one. */
   disconnected?: (reason?: Error) => Error
   /** The trace each request is sent in, read as it's sent, for the other end's `around`. */
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- the channel carries a trace without reading it; `around` reads it
   trace?: () => unknown
   /**
    * Runs each request's handler, given its method and the trace it came with, as a span that times it does. Its result
    * is the answer, so it must return what `answer` gives.
    */
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- it runs any method's handler, and passes on what that answers
   around?: (request: { method: string; trace: unknown }, answer: () => unknown) => unknown
 }
 
@@ -101,6 +130,7 @@ export interface Channel<Local extends MethodMap<Local>, Remote extends MethodMa
     method: M,
     params: Remote[M]["params"],
     /** The trace it's sent in, instead of the channel's `trace`. */
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the channel carries a trace without reading it; `around` reads it
     trace?: unknown
   ): Promise<Remote[M]["result"]>
   /** Starts answering the other end, or answers it with these handlers from now on. */
@@ -119,12 +149,13 @@ export interface Channel<Local extends MethodMap<Local>, Remote extends MethodMa
 }
 
 interface Pending {
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: a reply's result as it arrived, typed by the caller's method map
   resolve(value: unknown): void
   reject(error: Error): void
   /** The port it went out on, or none while it waits for one. */
   port?: Port
   /** The request, until it's sent, so a large one isn't kept while it's answered. */
-  message?: ChannelMessage
+  message?: RequestMessage
 }
 
 /**
@@ -161,11 +192,12 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
     }
   }
 
-  const answer = async (from: Port, id: number, method: string, params: unknown, trace: unknown) => {
+  const answer = async (from: Port, request: RequestMessage) => {
+    const { id, method, trace } = request
     let reply: ChannelMessage
 
     try {
-      const run = () => handle(method, params)
+      const run = () => handle(request)
       reply = { type: "response", id, result: await (around ? around({ method, trace }, run) : run()) }
     } catch (error) {
       reply = { type: "response", id, ...errors.encode(error) }
@@ -178,7 +210,7 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
     }
   }
 
-  const handle = (method: string, params: unknown): unknown => {
+  const handle = ({ method, params }: RequestMessage) => {
     // With checks, they say which methods there are; without, the handlers do, once there are any.
     if (checks && !Object.hasOwn(checks, method)) {
       throw unknownMethod(method)
@@ -192,21 +224,23 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
       throw unknownMethod(method)
     }
 
+    // SAFETY: `Object.hasOwn` found the method among the handlers' own keys, which are `Local`'s.
     const key = method as keyof Local
-    const read = checks ? checks[key](params) : params
 
-    return handlers[key](read as Local[keyof Local]["params"])
+    // SAFETY: a channel without checks is one whose port doesn't cross a boundary (see `checks`), so the other end sent
+    // the params its method map says.
+    const read = checks ? checks[key](params) : (params as Local[keyof Local]["params"])
+
+    return handlers[key](read)
   }
 
-  const receive = (from: Port, data: unknown) => {
-    const message = readMessage(data)
-
+  const receive = (from: Port, message: ChannelMessage | undefined) => {
     if (!message) {
       return
     }
 
     if (message.type === "request") {
-      void answer(from, message.id, message.method, message.params, message.trace)
+      void answer(from, message)
 
       return
     }
@@ -254,12 +288,10 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
       return new Promise((resolve, reject) => {
         const id = nextId++
 
-        const message: ChannelMessage = {
-          type: "request",
-          id,
-          method,
-          params,
-          ...(trace === undefined ? {} : { trace })
+        const message: RequestMessage = { type: "request", id, method, params }
+
+        if (trace !== undefined) {
+          message.trace = trace
         }
 
         const request: Pending = { resolve, reject, message }
@@ -283,7 +315,7 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
       letGo()
       port = next
       next.listen({
-        message: (data) => receive(next, data),
+        message: (data) => receive(next, readMessage(data)),
         closed: (reason) => {
           if (port === next) {
             letGo(reason)
@@ -337,22 +369,44 @@ export function createChannel<Local extends MethodMap<Local>, Remote extends Met
   }
 }
 
+/** A message's fields as they arrive on the port, each unread. */
+interface Arrived {
+  type?: unknown
+  id?: unknown
+  method?: unknown
+  params?: unknown
+  trace?: unknown
+  result?: unknown
+  error?: unknown
+  details?: unknown
+}
+
 /** A channel message, or nothing for anything else that arrives on the port. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: whatever arrives on the port, read here
 function readMessage(data: unknown): ChannelMessage | undefined {
-  if (typeof data !== "object" || data === null) {
+  if (!isObject(data)) {
     return undefined
   }
 
-  const message = data as Record<string, unknown>
+  const message: Arrived = data
 
-  if (typeof message.id !== "number") {
+  if (!isId(message.id)) {
     return undefined
   }
 
   if (message.type === "request") {
-    const request = { type: "request" as const, id: message.id, method: String(message.method), params: message.params }
+    const request: RequestMessage = {
+      type: "request",
+      id: message.id,
+      method: String(message.method),
+      params: message.params
+    }
 
-    return message.trace === undefined ? request : { ...request, trace: message.trace }
+    if (message.trace !== undefined) {
+      request.trace = message.trace
+    }
+
+    return request
   }
 
   if (message.type !== "response") {
@@ -366,11 +420,13 @@ function readMessage(data: unknown): ChannelMessage | undefined {
   return { type: "response", id: message.id, error: errorMessage(message.error), details: message.details }
 }
 
-/** A thrown value's message. */
-export function errorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message
-  }
+/** Whether a message's `id` is a whole number, as a channel numbers its requests. */
+function isId(value: unknown): value is number {
+  return Number.isSafeInteger(value)
+}
 
-  return typeof error === "string" ? error : String(error)
+/** A thrown value's message. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- JavaScript can throw anything
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }

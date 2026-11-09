@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { ms } from "./attributes.ts"
 import { defineEvent } from "./events.ts"
 
 /*
@@ -9,7 +10,6 @@ import { defineEvent } from "./events.ts"
 
 const channel = z.enum(["stable", "beta"]).describe("The update channel this install takes")
 const version = z.string().describe("The version running now")
-const ms = (meaning: string) => z.number().int().nonnegative().describe(meaning)
 
 export const appStarted = defineEvent(
   "app.started",

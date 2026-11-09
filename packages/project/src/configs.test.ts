@@ -1,6 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import type { JsonValue } from "@parity-app/core/schema"
+import { isText } from "@parity-app/core/values/evaluate"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
 import { findConfig, loadConfig } from "./configs.ts"
@@ -8,10 +10,10 @@ import { findConfig, loadConfig } from "./configs.ts"
 let root: string
 
 /** Writes a fixture folder: each key a path under the root, each value its text or JSON. */
-async function fixture(files: Record<string, unknown>) {
+async function fixture(files: Record<string, JsonValue>) {
   for (const [path, content] of Object.entries(files)) {
     await mkdir(dirname(join(root, path)), { recursive: true })
-    await writeFile(join(root, path), typeof content === "string" ? content : JSON.stringify(content))
+    await writeFile(join(root, path), isText(content) ? content : JSON.stringify(content))
   }
 }
 
