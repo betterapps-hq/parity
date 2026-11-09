@@ -6357,8 +6357,6 @@ preload bridge and then the port), the Base UI parts each board's title mounts (
 - **The rest are issues of their own:** PAR-758 for Session Replay, PAR-759 for the kept bitmaps' requests and PAR-760
   for the boards' title controls. Drawing the boards and frames themselves is left as it is.
 
-<<<<<<< HEAD
-
 ## Replays are scrubbed as they're recorded (PAR-679)
 
 Session Replay recordings lose the same secrets as every other event, `.env` values included, through the editor
