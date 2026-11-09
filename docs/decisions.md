@@ -5767,11 +5767,8 @@ window records with `maskAllText`, `maskAllInputs` and `blockAllMedia` off and `
   telemetry off, after garbage collection, over two runs each. With the project open, the page held about 27,600 DOM
   nodes against 6,700, which closing it gives back. PAR-683 watches that over longer sessions. `pnpm perf` couldn't give
   its numbers: it stops at "zoom hovering a layer" with telemetry off too (PAR-684).
-- **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679.
-
 - **Replay recordings aren't scrubbed for secrets yet,** unlike every other event; that's PAR-679. PAR-679 has since
-  scrubbed them; see "Replays are scrubbed as they're recorded" below. A render failure thrown in the page arrives as
-  Electron's "Script failed to execute", without the page's message; that's PAR-680.
+  scrubbed them; see "Replays are scrubbed as they're recorded" below.
 
 ## sharp isn't loaded in the app on Linux (PAR-688)
 
@@ -6406,8 +6403,7 @@ process" has it, and nothing else is hidden that wasn't before. My calls:
 - **Checked in the app:** keys put on screen, clicked and changed came back as `[redacted]` in Sentry's stored recording
   segments, with the rest of the window's text as written (replay `c3060db5…`).
 - **`.env` values reach the window a moment after it starts,** so text recorded before main passes them isn't scrubbed
-  of them, though known shapes and long random strings are. They come as a project opens, before its panels show
-  it. =======
+  of them, though known shapes and long random strings are. They come as a project opens, before its panels show it.
 
 ## A render page's failure keeps its own message (PAR-680)
 
@@ -6425,5 +6421,3 @@ an agent never said what went wrong. My calls:
 - **The page's stack goes with `frame.failed`,** recorded under the frame's span as `render threw`, as a guest's own
   error is. The stack doesn't cross processes, since `codedErrors` sends messages, and an agent never gets the guest's
   stack.
-
-> > > > > > > origin/main
