@@ -12,7 +12,8 @@ import {
   offscreenWindows,
   previewSizes,
   type RenderPriority,
-  renderQueue
+  renderQueue,
+  serviceRestarts
 } from "@parity-app/core"
 import { type Span, telemetryFileName } from "@parity-app/telemetry"
 import {
@@ -245,6 +246,9 @@ const appStarted = Date.now()
 /** How many services this copy has started, so a second is reported as a restart. */
 let serviceStarts = 0
 
+/** Whether, and when, a crashed service is started again, backing off when it keeps crashing (PAR-788). */
+const restarts = serviceRestarts()
+
 /** Builders, file access, agents and other heavy work run here, never in the UI process. */
 function startService(): UtilityProcess {
   serviceStarted(serviceStarts++ > 0)
@@ -319,7 +323,9 @@ function startService(): UtilityProcess {
       service = undefined
     }
 
-    serviceExited({ exitCode: code, ranMs: performance.now() - forked, replaced: retired.has(child), quitting })
+    const ranMs = performance.now() - forked
+    const restartInMs = restarts.exited({ exitCode: code, ranMs, expected: retired.has(child) || quitting })
+    serviceExited({ exitCode: code, ranMs, replaced: retired.has(child) || restartInMs !== undefined, quitting })
 
     if (code === 0 || retired.has(child)) {
       return
@@ -329,6 +335,16 @@ function startService(): UtilityProcess {
     // so the path it was given is named (PAR-489).
     const missing = existsSync(serviceEntry) ? "" : `, since ${serviceEntry} doesn't exist`
     console.error(`Project service exited with code ${code}${missing}`)
+
+    // A crashed service is started again through the same path a code change takes, so open windows reconnect without
+    // reloading. One a window's load started in the meantime is kept (PAR-788).
+    if (restartInMs !== undefined) {
+      setTimeout(() => {
+        if (!service && !quitting) {
+          restartService()
+        }
+      }, restartInMs)
+    }
   })
 
   return child

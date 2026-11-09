@@ -6659,3 +6659,17 @@ at its fullest level, everywhere Parity runs" above for CI alone.
 - **Main's Sentry hooks drop transactions and logs,** through `sentryScrubbing`'s `errorsOnly`, which covers every
   process, since windows and the service send through main. The editor window doesn't start Replay. The CLI's sink keeps
   logs and spans out of its outbox.
+
+## A crashed project service starts again by itself (PAR-788)
+
+Until 2026-11-09 a project service that crashed stayed stopped until a window loaded, so every request failed until the
+person reloaded. My calls:
+
+- **Main starts a fresh service through `restartService`,** the path the dev runner's code changes take, so open windows
+  get a new port and reopen their projects without reloading, and keep their designs and unsaved changes.
+- **It backs off on repeated crashes.** `serviceRestarts` in `@parity-app/core` decides: at once, then after 1, 5, 15
+  and 30 seconds, and after five crashes that each came within a minute of starting, it stops until a window loads. One
+  that ran a minute or more starts the count again. A clean exit (code 0), a service a fresh one replaced and the app
+  quitting don't restart it.
+- **`service.exited`'s `restarted` is true when a fresh service takes its place,** whether it replaced the old one or
+  started after it crashed.

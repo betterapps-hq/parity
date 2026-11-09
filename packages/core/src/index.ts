@@ -60,6 +60,8 @@ export * from "./schema.ts"
 
 export * from "./scripts.ts"
 
+export * from "./service-restarts.ts"
+
 export * from "./skeleton.ts"
 
 export * from "./slot-names.ts"
