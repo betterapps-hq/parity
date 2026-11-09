@@ -13,7 +13,7 @@ import { useProject } from "../../canvas/context.ts"
 import { formatKeys } from "../../chrome/keys.ts"
 import { useTool } from "../../selection.ts"
 import { type A11yKind, a11yKindOrder, a11yKinds } from "../collaboration/a11y.tsx"
-import { Divider, ReviewBar, type ReviewTool, reviewSpec, SearchActions, Tools, useReviewEscape } from "./options.tsx"
+import { Divider, ReviewBar, type ReviewTool, SearchActions, Tools, useReviewEscape } from "./options.tsx"
 
 /*
  * An experiment: picking Accessibility in the review menu warps the toolbar into Accessibility's own bar, its options
@@ -141,20 +141,14 @@ function Layer({
 }
 
 /**
- * Accessibility's bar: what's being placed, its options as stamps that show their name when picked, Suggest, which has
+ * Accessibility's bar: its options as stamps that show their name when picked, Suggest, which has
  * an agent draft them from the render to confirm, and Done.
  */
 function AccessibilityBar({ onDone }: { onDone: () => void }) {
   const [stamp, setStamp] = useState<A11yKind>("focus")
-  const { icon: KindIcon, color } = reviewSpec("accessibility")
 
   return (
     <>
-      <span className="flex items-center gap-2 pr-1 pl-2 text-sm font-medium whitespace-nowrap">
-        <KindIcon className="size-4" style={{ color }} />
-        Accessibility
-      </span>
-      <Divider />
       <ToggleGroup
         spacing={1}
         value={[stamp]}
