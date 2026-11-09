@@ -330,6 +330,27 @@ body,
   overflow: clip;
 }
 
+/*
+ * Scrollbars are a 6px rounded thumb on no track, with no arrows, darker under the pointer (PAR-767), in place of
+ * Chromium's 15px Windows scrollbar. Chromium skips these rules on an element that sets `scrollbar-width` or
+ * `scrollbar-color`, so those are only for hiding a scrollbar (`scrollbar-width: none`).
+ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--foreground) 18%, transparent);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--foreground) 35%, transparent);
+}
+
 /* Selection colors, one per kind of thing on the canvas. */
 :root {
   --canvas-screen: oklch(0.64 0.18 256);

@@ -159,7 +159,7 @@ export function Processes() {
             />
           )}
         </header>
-        <div className="max-h-[min(30rem,60vh)] overflow-y-auto border-t pb-1.5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]">
+        <div className="max-h-[min(30rem,60vh)] overflow-y-auto border-t pb-1.5">
           {groups.map((group) => (
             <section key={group.key} className="pt-2">
               <GroupLabel as="h3" className="block px-3.5 pb-1">
