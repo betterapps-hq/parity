@@ -19,8 +19,11 @@ export type ReleaseMeta = z.infer<typeof releaseSummary>
 
 const readReleaseSummary = parserFor(releaseSummary)
 
-/** How many times Sentry is asked before a missing part stands, since it may still be processing the upload. */
-const tries = 3
+/**
+ * How many times Sentry is asked before a missing part stands, since it may still be processing the upload: 10 to 50
+ * seconds apart, about 2.5 minutes in all. Three tries, 30 seconds, missed `parity-cli@0.31.0`'s maps (PAR-803).
+ */
+const tries = 6
 
 /** What a release lacks, in words for the run's log: nothing when it has its maps and commits. */
 export function releaseProblems(release: string, meta: ReleaseMeta | undefined): string[] {

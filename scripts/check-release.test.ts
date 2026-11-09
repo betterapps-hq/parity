@@ -63,9 +63,12 @@ describe("checkRelease", () => {
     expect(requests).toHaveLength(2)
   })
 
-  it("gives up after 3 tries with what's still missing", async () => {
+  it("gives up after 6 tries with what's still missing", async () => {
     const { fetch, requests } = sentry([
       404,
+      404,
+      { releaseFileCount: 0, commitCount: 0 },
+      { releaseFileCount: 12, commitCount: 0 },
       { releaseFileCount: 12, commitCount: 0 },
       { releaseFileCount: 12, commitCount: 0 }
     ])
@@ -73,7 +76,7 @@ describe("checkRelease", () => {
     expect(await checkRelease(release, { token: "token", fetch, wait: 0 })).toEqual([
       `${release} isn't linked to its commits.`
     ])
-    expect(requests).toHaveLength(3)
+    expect(requests).toHaveLength(6)
   })
 
   it("stops on any other answer from Sentry", async () => {
