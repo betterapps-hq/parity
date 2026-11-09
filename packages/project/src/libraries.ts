@@ -4,6 +4,7 @@ import {
   type ComponentSource,
   type ContainerSpec,
   type DescribedTokens,
+  type LibraryComponents,
   type LibraryInfo,
   type LibraryManifest,
   libraryDesigns,
@@ -16,7 +17,7 @@ import {
   remapLibraryImports
 } from "@parity-app/core"
 import { newestEntries, registryEntryFor, withEdits } from "@parity-app/registry"
-import { readDesignTokens, type SkippedToken } from "@parity-app/tokens"
+import { type ReadTokenFile, readDesignTokens, type SkippedToken } from "@parity-app/tokens"
 import { exportedComponents, findPackage, type InstalledPackage, packageEntry } from "./packages.ts"
 import { readStylesheet } from "./styles.ts"
 
@@ -77,7 +78,8 @@ function buildkitDefinition(packageName: string): LibraryDefinition | undefined 
     return undefined
   }
 
-  const [, primitives, name] = style as unknown as [string, string, string]
+  const primitives = style[1]!
+  const name = style[2]!
 
   return {
     id: name,
@@ -141,9 +143,9 @@ export async function findLibraries(
 
     const edited =
       described &&
-      (await withEdits(described.path, described.manifest).catch((error: unknown) => ({
+      (await withEdits(described.path, described.manifest).catch((cause: unknown) => ({
         manifest: described.manifest,
-        orphans: [`(its edits can't be read: ${errorText(error)})`]
+        orphans: [`(its edits can't be read: ${errorText(cause)})`]
       })))
 
     if (edited?.orphans.length) {
@@ -170,17 +172,17 @@ export async function findLibraries(
       description: definition.description,
       package: definition.package,
       importName,
-      ...(version ? { version } : {}),
-      ...(definition.tailwindEntry ? { tailwindEntry: definition.tailwindEntry } : {}),
-      ...(definition.kind === "icons" ? { kind: "icons" as const } : {}),
+      version: version || undefined,
+      tailwindEntry: definition.tailwindEntry || undefined,
+      kind: definition.kind === "icons" ? definition.kind : undefined,
       stylesImported:
         !definition.tailwindEntry ||
         css.includes(`${importName}/`) ||
         packageStyles.some((specifier) => specifier.startsWith(`${importName}/`)),
-      ...(manifest?.breakpoints ? { breakpoints: manifest.breakpoints } : {}),
-      ...(manifestPath ? { manifest: manifestPath } : {}),
-      ...(manifest?.icons ? { icons: manifest.icons } : {}),
-      ...(manifest?.decorators?.length ? { decorators: manifest.decorators } : {}),
+      breakpoints: manifest?.breakpoints,
+      manifest: manifestPath || undefined,
+      icons: manifest?.icons,
+      decorators: manifest?.decorators?.length ? manifest.decorators : undefined,
       ...designsOf(manifest, definition.id)
     })
 
@@ -265,8 +267,8 @@ function declaredSource(
   }
 }
 
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function errorText(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }
 
 /** The component designs a library's canvas holds, named by the library, when it has any. */
@@ -284,7 +286,7 @@ function designsOf(manifest: LibraryManifest | undefined, id: string): { designs
 async function newerExports(
   entry: string,
   renderer: RendererAdapter,
-  list: Record<string, unknown>
+  list: LibraryComponents["list"]
 ): Promise<{ added: DeclaredComponent[]; gone: Set<string> }> {
   const declared = await declaredComponents(entry, renderer)
 
@@ -336,7 +338,7 @@ export async function describedTokens(
   const entry = { name: manifest.name, manifest: shownAs }
 
   try {
-    const read = async (path: string): Promise<unknown> => JSON.parse(await readFile(path, "utf8"))
+    const read: ReadTokenFile = async (path) => JSON.parse(await readFile(path, "utf8"))
     const folder = dirname(manifestPath).replaceAll("\\", "/")
     const skipped = ({ path, problem }: SkippedToken) => notes.push(`${shownAs}: skipped ${path} (${problem})`)
 
@@ -379,8 +381,8 @@ function definitionOf(manifest: LibraryManifest, packageName: string): LibraryDe
     name: manifest.name,
     description: manifest.description ?? "",
     package: packageName,
-    ...(tailwindEntry ? { tailwindEntry } : {}),
-    ...(icons ? { kind: "icons" as const } : {})
+    tailwindEntry: tailwindEntry || undefined,
+    kind: icons ? "icons" : undefined
   }
 }
 
