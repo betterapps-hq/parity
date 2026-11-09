@@ -244,14 +244,14 @@ function Tools({ review = false }: { review?: boolean }) {
  * The kinds of annotation, as PAR-184's design names, draws and colors them (its `categories`). Each is its own item in
  * the review menu, so picking one starts annotating in it.
  */
-const annotationKinds = {
+export const annotationKinds = {
   behaviour: { label: "Behaviour", icon: MousePointerClick, hue: 250 },
   content: { label: "Content", icon: Type, hue: 150 },
   accessibility: { label: "Accessibility", icon: Accessibility, hue: 300 },
   development: { label: "Development", icon: CodeXml, hue: 60 }
 } as const
 
-type AnnotationKind = keyof typeof annotationKinds
+export type AnnotationKind = keyof typeof annotationKinds
 
 /**
  * What the review button can be: Comment, or annotating in one of the kinds. The list is all that changes if Comment
@@ -262,7 +262,7 @@ type ReviewTool = "comment" | AnnotationKind
 const isReviewTool = (value: string): value is ReviewTool => value === "comment" || value in annotationKinds
 
 /** How a review tool is named and drawn on the button, in its tooltip and in the bar above the toolbar. */
-function reviewSpec(tool: ReviewTool) {
+export function reviewSpec(tool: ReviewTool) {
   if (tool === "comment") {
     return {
       label: "Comment",

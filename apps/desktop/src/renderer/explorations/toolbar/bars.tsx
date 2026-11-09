@@ -1,4 +1,12 @@
-import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TooltipProvider
+} from "@buildkitgg/shadcn-baseui-kit"
 import type { ReactNode } from "react"
 import { ProjectContext } from "../../canvas/context.ts"
 import { FloatingToolbar } from "../../chrome/Toolbar.tsx"
@@ -13,7 +21,14 @@ import penpotToolbar from "./competitors/penpot-toolbar.png?url"
 import penpotZoom from "./competitors/penpot-zoom.png?url"
 import tldrawMore from "./competitors/tldraw-more.png?url"
 import tldrawToolbar from "./competitors/tldraw-toolbar.png?url"
-import { OneBarToolbar, ReviewToolbar, TidiedToolbar } from "./options.tsx"
+import {
+  type AnnotationKind,
+  annotationKinds,
+  OneBarToolbar,
+  ReviewToolbar,
+  reviewSpec,
+  TidiedToolbar
+} from "./options.tsx"
 
 /*
  * The toolbars on their own, ours live and the others as screenshots at their actual size, taken on 2026-11-09. Ours
@@ -155,6 +170,81 @@ const takeaways = [
   "Figma folds Hand under Move, as A, B and C now do with Hand and Interact. Framer and tldraw keep Hand as its own button."
 ]
 
+/**
+ * What Comment and each kind of annotation in C's review menu are for, as PAR-184's annotations design defines them,
+ * with an example from its annotated Pricing screen.
+ */
+const reviewKinds: { id: "comment" | AnnotationKind; purpose: string; example: string }[] = [
+  {
+    id: "comment",
+    purpose:
+      "Talk about a design: questions and feedback in a thread, on a point, a layer or an area, resolved when settled. Not part of the design.",
+    example: "Could this start on Yearly? Most teams end up there anyway."
+  },
+  {
+    id: "behaviour",
+    purpose: "How a layer behaves: what clicking, switching or resizing it does, and what it remembers.",
+    example: "Switches every plan between monthly and yearly prices, and remembers the choice for the visit."
+  },
+  {
+    id: "content",
+    purpose: "Where a layer's content comes from, and the rules for it: real data, copy and formats.",
+    example: "Prices come from the billing API, not from the design."
+  },
+  {
+    id: "accessibility",
+    purpose: "What a layer needs to be accessible: headings, labels, and what doesn't rely on color alone.",
+    example: "The page's only h1."
+  },
+  {
+    id: "development",
+    purpose: "What whoever builds it should know: routes, data and how it's wired.",
+    example: "Links to /signup?plan=pro once a plan is picked, and to /signup before that."
+  }
+]
+
+/** Comment and the kinds of annotation, as C's review menu lists them. */
+function ReviewKinds() {
+  return (
+    <section className="border-t py-6">
+      <h2 className="font-medium">Comment and the kinds of annotation</h2>
+      <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+        C&rsquo;s review menu, from PAR-184&rsquo;s annotations design, which isn&rsquo;t approved yet. Annotations are
+        the spec a design can&rsquo;t show by itself, attached to a layer, or to a layer in one state or mode, and
+        agents read and write them. Comments are talk about the design. Content&rsquo;s icon is a T because it&rsquo;s
+        about words and data; it isn&rsquo;t the Text tool.
+      </p>
+      <Table className="mt-4 max-w-5xl">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Kind</TableHead>
+            <TableHead>What it&rsquo;s for</TableHead>
+            <TableHead>For example, on Pricing</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {reviewKinds.map(({ id, purpose, example: sample }) => {
+            const { icon: Icon, color } = reviewSpec(id)
+
+            return (
+              <TableRow key={id}>
+                <TableCell className="align-top font-medium">
+                  <span className="flex items-center gap-2">
+                    <Icon className="size-4" style={{ color }} />
+                    {id === "comment" ? "Comment" : annotationKinds[id].label}
+                  </span>
+                </TableCell>
+                <TableCell className="align-top whitespace-normal">{purpose}</TableCell>
+                <TableCell className="align-top whitespace-normal text-muted-foreground">{sample}</TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </section>
+  )
+}
+
 function Section({ entry }: { entry: Entry }) {
   return (
     <section className="grid gap-3 border-t py-6 md:grid-cols-[14rem_1fr]">
@@ -187,7 +277,11 @@ export function ToolbarComparison() {
             <li key={takeaway}>{takeaway}</li>
           ))}
         </ul>
-        {[...ours, ...others].map((entry) => (
+        {ours.map((entry) => (
+          <Section key={entry.name} entry={entry} />
+        ))}
+        <ReviewKinds />
+        {others.map((entry) => (
           <Section key={entry.name} entry={entry} />
         ))}
       </div>
