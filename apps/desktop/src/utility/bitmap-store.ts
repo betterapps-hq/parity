@@ -265,7 +265,7 @@ async function sweep(root: string, now: number): Promise<void> {
       }
 
       const partial = name.endsWith(".partial")
-      files.push({ path: file, project, size: info.size, used: info.mtimeMs, ...(partial ? { partial } : {}) })
+      files.push({ path: file, project, size: info.size, used: info.mtimeMs, partial })
     }
   }
 
@@ -358,8 +358,8 @@ function wrote(): void {
   }
 }
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function message(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }
 
 /** A project's folder's name: its id hashed, so any root makes a safe name. */

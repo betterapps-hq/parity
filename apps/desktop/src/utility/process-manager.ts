@@ -1,8 +1,9 @@
 import { type ChildProcess, spawn } from "node:child_process"
 import { createServer } from "node:net"
+import { isText } from "@parity-app/core/values/evaluate"
 import type { ProjectProcess, ServerKind } from "../shared/protocol.ts"
 import { track } from "../shared/tracing.ts"
-import { forgetProject, killTree, type ProcessHandle, trackProcess } from "./processes.ts"
+import { forgetProject, killTree, type ProcessEntry, type ProcessHandle, trackProcess } from "./processes.ts"
 
 /**
  * The one place Parity starts, watches and stops the servers a project needs: Storybook now, and dev servers, `wrangler
@@ -33,7 +34,7 @@ export interface ServerSpec extends ServerEntry {
   /** How long it may take to answer, in milliseconds. Three minutes unless said. */
   startTimeout?: number
   /** Starts it again, as from the status bar's processes. Without it, it can only be stopped. */
-  restart?: () => Promise<unknown>
+  restart?: () => Promise<void>
 }
 
 /** A server Parity started. */
@@ -89,10 +90,13 @@ export function startServer(spec: ServerSpec): ManagedServer {
   child.stdout?.on("data", keep)
   child.stderr?.on("data", keep)
 
-  const tracking = trackProcess(
-    { ...listing(spec), status: "starting", url: spec.url, ...(child.pid ? { pid: child.pid } : {}) },
-    { stop: () => stopServer(spec.id), ...(spec.restart ? { restart: spec.restart } : {}) }
-  )
+  const starting: ProcessEntry = { ...listing(spec), status: "starting", url: spec.url }
+
+  if (child.pid) {
+    starting.pid = child.pid
+  }
+
+  const tracking = trackProcess(starting, { stop: () => stopServer(spec.id), restart: spec.restart })
 
   const exited = watchExit(spec, item, tracking)
   const ready = waitUntilReady(spec, item, tracking, exited)
@@ -103,7 +107,7 @@ export function startServer(spec: ServerSpec): ManagedServer {
     id: spec.id,
     url: spec.url,
     port,
-    ...(child.pid ? { pid: child.pid } : {}),
+    pid: child.pid,
     ready,
     exited,
     log: () => item.output.join(""),
@@ -258,17 +262,21 @@ export interface KnownServer {
 
 /** The servers the manager knows, for one project or all, as a lens or a reuse check looks for one. */
 export function knownServers(projectId?: string): KnownServer[] {
-  return [...managed.values()]
-    .filter(({ entry }) => projectId === undefined || entry.projectId === projectId)
-    .map(({ entry, url, port, child }) => ({
-      id: entry.id,
-      kind: entry.kind,
-      projectId: entry.projectId,
-      url,
-      port,
-      ...(child?.pid ? { pid: child.pid } : {}),
-      startedBy: child ? "parity" : "elsewhere"
-    }))
+  return [...managed.values()].flatMap(({ entry, url, port, child }): KnownServer[] =>
+    projectId === undefined || entry.projectId === projectId
+      ? [
+          {
+            id: entry.id,
+            kind: entry.kind,
+            projectId: entry.projectId,
+            url,
+            port,
+            pid: child?.pid,
+            startedBy: child ? "parity" : "elsewhere"
+          }
+        ]
+      : []
+  )
 }
 
 /** What a server Parity started printed lately, or nothing for one it doesn't know or didn't start. */
@@ -314,7 +322,7 @@ export function freePort(): Promise<number> {
     server.once("error", reject)
     server.listen(0, () => {
       const address = server.address()
-      const port = typeof address === "object" && address ? address.port : 0
+      const port = address && !isText(address) ? address.port : 0
       server.close(() => resolve(port))
     })
   })

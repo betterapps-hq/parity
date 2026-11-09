@@ -16,14 +16,17 @@ import {
 import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry"
 import { registryVersion } from "@parity-app/agent/routing"
 import { errorDetails } from "@parity-app/core"
+import { isText } from "@parity-app/core/values/evaluate"
 import { copyScale, planExport, planPicture } from "@parity-app/editor"
 import { agentCallAnswered, agentCallFailed, agentCallStart, readTraceHeaders } from "@parity-app/telemetry"
 import { passedLink } from "../shared/account.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
+import type { MainMethods } from "../shared/service.ts"
 import { currentTrace, inSpan } from "../shared/tracing.ts"
 import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
+import { logNote } from "./log.ts"
 import { mainProcess } from "./main-process.ts"
 import { renderOffscreen } from "./render.ts"
 import { scrubSecrets } from "./telemetry.ts"
@@ -55,7 +58,8 @@ export async function startAgentServer(window: () => WindowChannel): Promise<voi
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
   const address = server.address()
 
-  if (!address || typeof address === "string") {
+  // A server listening on a pipe or socket would give its path instead.
+  if (!address || isText(address)) {
     throw new Error("The agent server has no port")
   }
 
@@ -70,11 +74,14 @@ export async function startAgentServer(window: () => WindowChannel): Promise<voi
     app,
     startedAt: copy.PARITY_APP_STARTED ?? Date.now()
   })
-  console.log(`[service] agents connect at 127.0.0.1:${address.port} (${entryPath(registry, app)})`)
+  logNote(`[service] agents connect at 127.0.0.1:${address.port} (${entryPath(registry, app)})`)
 }
 
+/** Answers an agent with `body` as JSON. */
+type Reply = <Body>(status: number, body: Body) => void
+
 async function handle(request: IncomingMessage, response: ServerResponse, token: string, window: () => WindowChannel) {
-  const reply = (status: number, body: unknown) => {
+  const reply: Reply = (status, body) => {
     response.writeHead(status, { "content-type": "application/json" })
     response.end(JSON.stringify(body))
   }
@@ -98,6 +105,7 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
     const chunks: Buffer[] = []
 
     for await (const chunk of request) {
+      // SAFETY: a request with no encoding set streams its body as Buffers.
       chunks.push(chunk as Buffer)
     }
 
@@ -130,7 +138,8 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
     response.end(text)
   } catch (error) {
     const details = errorDetails(error)
-    reply(200, { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) })
+    const failure = error instanceof Error ? error.message : String(error)
+    reply(200, details ? { error: failure, details } : { error: failure })
   }
 }
 
@@ -138,11 +147,12 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
  * A sign-in link another copy of Parity got from the browser (PAR-612). Main says whether it's the sign-in this copy is
  * waiting for, and takes it if so; only it has the PKCE verifier the code needs.
  */
-async function passLinkToMain(request: IncomingMessage, reply: (status: number, body: unknown) => void) {
+async function passLinkToMain(request: IncomingMessage, reply: Reply) {
   try {
     const chunks: Buffer[] = []
 
     for await (const chunk of request) {
+      // SAFETY: a request with no encoding set streams its body as Buffers.
       chunks.push(chunk as Buffer)
     }
 
@@ -174,7 +184,7 @@ export function desktopHost(window: WindowChannel): AgentHost {
     },
     render: (snapshot, request) => renderFrame(snapshot, request),
     iconNames: (tab, set, module) =>
-      window.request("agent.iconNames", { tab, set, ...(module === undefined ? {} : { module }) }),
+      window.request("agent.iconNames", module === undefined ? { tab, set } : { tab, set, module }),
     apply: (tab, label, changes) => window.request("agent.apply", { tab, label, ...changes }),
     supports: (queries) => window.request("agent.supports", queries),
     console: (snapshot, clear) => readConsole(snapshot.guestUrl, clear),
@@ -183,11 +193,17 @@ export function desktopHost(window: WindowChannel): AgentHost {
       const { replayId, traceId } = await window.request("agent.reportIds", undefined)
       const trace = currentTrace()?.traceId ?? traceId
 
-      return mainProcess.request("report", {
-        ...report,
-        ...(replayId ? { replayId } : {}),
-        ...(trace ? { traceId: trace } : {})
-      })
+      const filed: MainMethods["report"]["params"] = { ...report }
+
+      if (replayId) {
+        filed.replayId = replayId
+      }
+
+      if (trace) {
+        filed.traceId = trace
+      }
+
+      return mainProcess.request("report", filed)
     },
     async saveScreenshots(screenshots) {
       await mkdir(screenshotDir, { recursive: true })
@@ -215,24 +231,24 @@ async function renderFrame(
       {
         projectId: snapshot.projectId,
         guestUrl: snapshot.guestUrl,
-        ...(snapshot.addedComponents ? { components: snapshot.addedComponents } : {}),
+        components: snapshot.addedComponents,
         theme: snapshot.theme
       },
       {
         tree,
         mode,
-        frame: { width: mode.width, ...(height === undefined ? {} : { height }), viewport },
+        frame: { width: mode.width, height, viewport },
         scale,
-        ...(audit ? { audit } : {}),
-        ...(colorTokens ? { colorTokens } : {}),
+        audit,
+        colorTokens,
         tokens,
-        design: { key: design, ...(state ? { state } : {}), mode: mode.id }
+        design: state ? { key: design, state, mode: mode.id } : { key: design, mode: mode.id }
       }
     ),
     capture
   )
 
-  return { ...frame, ...(png ? { png } : {}) }
+  return png ? { ...frame, png } : frame
 }
 
 /**

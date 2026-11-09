@@ -28,9 +28,9 @@ function loadSharp(): Promise<SharpConstructor> {
 
       return sharp
     },
-    (error: unknown) => {
-      console.warn(`[service] sharp couldn't load, so bitmaps and previews aren't kept: ${String(error)}`)
-      throw error
+    (cause: unknown) => {
+      console.warn(`[service] sharp couldn't load, so bitmaps and previews aren't kept: ${String(cause)}`)
+      throw cause
     }
   )
 

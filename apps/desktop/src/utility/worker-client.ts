@@ -47,7 +47,7 @@ export function workerClient<Remote extends MethodMap<Remote>>({
     running.channel.connect(
       nodePort(worker, {
         closedBy: {
-          error: (error) => failed(error as Error),
+          error: (cause) => failed(cause instanceof Error ? cause : new Error(String(cause))),
           exit: (code) => new Error(`The worker stopped with exit code ${String(code)}`)
         }
       })

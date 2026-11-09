@@ -1,5 +1,6 @@
 import {
   createTelemetry,
+  type Envelope,
   envelopeSchema,
   isSpanEnvelope,
   registeredEvents,
@@ -8,6 +9,7 @@ import {
 } from "@parity-app/telemetry"
 import { createSentrySink, sentryScrubbing } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/utility"
+import { z } from "zod"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { readTelemetryRun, telemetryRunVariable } from "../shared/telemetry-run.ts"
@@ -71,29 +73,29 @@ const scopeSink = createSentrySink({
 })
 
 /** Main, which writes the local copy and sends Sentry's logs and spans. Requests wait until main's channel connects. */
-const record = (envelope: unknown) =>
+const record = (envelope: Envelope) =>
   mainProcess.request("record", envelope).catch(() => {
     // Main went away; the event is lost with it.
   })
 
 const toMain: Sink = { event: record, span: record }
 
+/** A props worker's message that carries one of its events. */
+const workerEvent = z.object({ [workerTelemetryKey]: envelopeSchema })
+
 /**
  * Records what the props worker sent, which has no Sentry of its own: it joins the service's breadcrumbs and errors,
  * then goes to main. Other messages are the worker's channel's.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- a message as it arrives off the worker's port, read here
 export function recordFromWorker(message: unknown): void {
-  if (typeof message !== "object" || message === null || !(workerTelemetryKey in message)) {
-    return
-  }
-
-  const read = envelopeSchema.safeParse((message as Record<string, unknown>)[workerTelemetryKey])
+  const read = workerEvent.safeParse(message)
 
   if (!read.success) {
     return
   }
 
-  const envelope = read.data
+  const envelope = read.data[workerTelemetryKey]
 
   for (const sink of [scopeSink, toMain]) {
     try {
