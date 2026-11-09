@@ -5,7 +5,7 @@ import { type CSSProperties, type ReactNode, useState } from "react"
 import { agentPalettes } from "../agent/agent-colors.ts"
 import { AgentBadge, AgentPointer } from "../agent/AgentPointer.tsx"
 import { me, organizations, people } from "./explore-data.ts"
-import { accent, Avatar, ExploreWindow, MiniScreen, ParityMark } from "./parts.tsx"
+import { accent, Avatar, ExploreWindow, MiniScreen, ParityMark, withVariables } from "./parts.tsx"
 import { AuthKitBranding, HandBackPage } from "./sign-in/browser.tsx"
 import { glow, Legal, providers, SignInForm } from "./sign-in/panels.tsx"
 import { SignInPrototype } from "./sign-in/prototype.tsx"
@@ -58,7 +58,7 @@ function ShowcaseCursor({
   const colors = agentPalettes[palette]!
 
   return (
-    <div className="absolute motion-safe:animate-[var(--move)]" style={{ ...style, ["--move" as string]: animation }}>
+    <div className="absolute motion-safe:animate-[var(--move)]" style={withVariables({ "--move": animation }, style)}>
       <AgentPointer palette={colors} />
       {label ? (
         <AgentBadge palette={colors} agent={name} kind="write" label={label} />

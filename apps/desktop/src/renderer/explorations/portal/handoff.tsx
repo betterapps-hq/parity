@@ -19,9 +19,9 @@ import { HandoffPill, Pills, PortalHeader, PortalPage, PullRequestLink } from ".
 import { PricingAt } from "./pricing-render.tsx"
 
 /** Boards that can be drawn at an earlier version, so the side shows the version that was approved. */
-const versioned: Record<string, (look: Look, version: number) => ReactNode> = {
-  "website/Pricing": (look, version) => <PricingAt look={look} version={version} />
-}
+const versioned = new Map<string, (look: Look, version: number) => ReactNode>([
+  ["website/Pricing", (look, version) => <PricingAt look={look} version={version} />]
+])
 
 /** Who's editing a board now: their edits are drafts until they mark a version ready, so the status doesn't move. */
 function editing(board: Deliverable) {
@@ -199,7 +199,7 @@ function Part({ title, children }: { title: string; children: ReactNode }) {
 function Detail({ board }: { board: Deliverable }) {
   const shown = portalProject(board.project)
   const design = designOf(shown, board.design)
-  const status = handoff[`${board.project}/${board.design}`]!
+  const status = handoff.get(`${board.project}/${board.design}`)!
   const changed = board.parts.filter((part) => part.change)
   const also = board.parts.filter((part) => !part.change)
   const latest = board.since?.at(-1)?.version
@@ -230,7 +230,7 @@ function Detail({ board }: { board: Deliverable }) {
             </Button>
           </div>
           <div className="overflow-hidden rounded-md ring-1 ring-border">
-            {versioned[`${board.project}/${board.design}`]?.(shown.look, board.version) ?? (
+            {versioned.get(`${board.project}/${board.design}`)?.(shown.look, board.version) ?? (
               <DesignRender kind={design.kind} look={shown.look} />
             )}
           </div>
@@ -347,8 +347,8 @@ function Detail({ board }: { board: Deliverable }) {
 }
 
 export function HandoffPage() {
-  const rows = Object.values(deliverables)
-  const statusOf = (board: Deliverable) => handoff[`${board.project}/${board.design}`]!
+  const rows = [...deliverables.values()]
+  const statusOf = (board: Deliverable) => handoff.get(`${board.project}/${board.design}`)!
 
   return (
     <PortalPage active="handoff" path="kestrel/handoff/kestrel-website/pricing">

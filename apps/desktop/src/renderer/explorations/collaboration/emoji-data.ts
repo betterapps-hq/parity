@@ -26,7 +26,7 @@ function list(lines: string): EmojiEntry[] {
     .map((line) => {
       const [emoji, name, keywords = "", tone] = line.trim().split("|")
 
-      return { emoji: emoji!, name: name!, keywords, ...(tone ? { tone: true } : {}) }
+      return tone ? { emoji: emoji!, name: name!, keywords, tone: true } : { emoji: emoji!, name: name!, keywords }
     })
 }
 
@@ -296,8 +296,11 @@ export function searchEmoji(query: string, limit = Infinity): EmojiEntry[] {
   }
 
   return allEmoji
-    .map((entry) => ({ entry, rank: rank(entry) }))
-    .filter(({ rank }) => rank < 3)
+    .flatMap((entry) => {
+      const ranked = rank(entry)
+
+      return ranked < 3 ? [{ entry, rank: ranked }] : []
+    })
     .sort((a, b) => a.rank - b.rank)
     .slice(0, limit)
     .map(({ entry }) => entry)

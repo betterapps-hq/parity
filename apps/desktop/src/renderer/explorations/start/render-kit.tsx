@@ -1,5 +1,6 @@
 import { BatteryFull, type LucideIcon, Signal, Wifi } from "lucide-react"
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react"
+import { withVariables } from "../parts.tsx"
 import type { Look } from "./data.ts"
 
 /** The sizes designs are drawn at, as the canvas draws a desktop frame and a phone frame. */
@@ -48,11 +49,10 @@ export function lookVars(look: Look): CSSProperties {
         "--r-bad": "oklch(0.6 0.2 25)"
       }
 
-  return {
-    ...vars,
-    "--r-display": look.serif ? 'Georgia, "Times New Roman", serif' : "inherit",
-    colorScheme: look.dark ? "dark" : "light"
-  } as CSSProperties
+  return withVariables(
+    { ...vars, "--r-display": look.serif ? 'Georgia, "Times New Roman", serif' : "inherit" },
+    { colorScheme: look.dark ? "dark" : "light" }
+  )
 }
 
 /** Headings in the look's display face. */

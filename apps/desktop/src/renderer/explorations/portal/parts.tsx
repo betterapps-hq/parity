@@ -379,7 +379,7 @@ export function DesignTile({
 }) {
   const shown = portalProject(id)
   const picked = designOf(shown, design)
-  const status = plain ? undefined : handoff[`${id}/${picked.name}`]
+  const status = plain ? undefined : handoff.get(`${id}/${picked.name}`)
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>

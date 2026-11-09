@@ -17,7 +17,7 @@ import { Component, CreditCard, FolderOpen, type LucideIcon, Plus, Settings, Use
 import { useState } from "react"
 import { formatKeys } from "../../chrome/keys.ts"
 import { me, people } from "../explore-data.ts"
-import { Avatar, GitHubMark } from "../parts.tsx"
+import { Avatar, GitHubMark, withVariables } from "../parts.tsx"
 import { projects, stack, templates } from "./data.ts"
 import type { NewProjectStart } from "./new-project.tsx"
 import { parity, StackMark, useStart } from "./page.tsx"
@@ -112,7 +112,7 @@ export function SearchPalette({
       description="Search designs, projects, components, people, templates and commands"
       className="sm:max-w-[680px]"
     >
-      <Command shouldFilter={false} style={{ ["--parity" as string]: parity }}>
+      <Command shouldFilter={false} style={withVariables({ "--parity": parity })}>
         <CommandInput
           value={query}
           onValueChange={setQuery}

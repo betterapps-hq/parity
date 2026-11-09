@@ -27,14 +27,16 @@ const theme = (
   category: TokenCategory,
   entries: [name: string, value: string, resolved?: string][]
 ): SampleToken[] =>
-  entries.map(([name, value, resolved]) => ({
-    name,
-    kind,
-    category,
-    source: "theme",
-    values: { default: value },
-    ...(resolved ? { resolved, via: [value.match(/var\(--([\w-]+)\)/)?.[1] ?? ""].filter(Boolean) } : {})
-  }))
+  entries.map(([name, value, resolved]) => {
+    const sample: SampleToken = { name, kind, category, source: "theme", values: { default: value } }
+
+    if (resolved) {
+      sample.resolved = resolved
+      sample.via = [value.match(/var\(--([\w-]+)\)/)?.[1] ?? ""].filter(Boolean)
+    }
+
+    return sample
+  })
 
 /** The example's own colors, light and dark, as shadcn writes them. */
 export const projectColors: SampleToken[] = (
@@ -466,24 +468,33 @@ export const cssName = (token: SampleToken) => `--${token.name}`
  * The keyframes each sample animation runs. In the app these come from the project's own stylesheet, by the name the
  * token gives, since the keyframes are wherever the token's styles are.
  */
-export const sampleKeyframes: Record<string, Keyframe[]> = {
-  spin: [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
-  ping: [
-    { transform: "scale(1)", opacity: 1 },
-    { transform: "scale(2)", opacity: 0, offset: 0.75 },
-    { transform: "scale(2)", opacity: 0 }
+export const sampleKeyframes = new Map<string, Keyframe[]>([
+  ["spin", [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }]],
+  [
+    "ping",
+    [
+      { transform: "scale(1)", opacity: 1 },
+      { transform: "scale(2)", opacity: 0, offset: 0.75 },
+      { transform: "scale(2)", opacity: 0 }
+    ]
   ],
-  pulse: [{ opacity: 1 }, { opacity: 0.5, offset: 0.5 }, { opacity: 1 }],
-  bounce: [
-    { transform: "translateY(-25%)", easing: "cubic-bezier(0.8, 0, 1, 1)" },
-    { transform: "none", easing: "cubic-bezier(0, 0, 0.2, 1)", offset: 0.5 },
-    { transform: "translateY(-25%)" }
+  ["pulse", [{ opacity: 1 }, { opacity: 0.5, offset: 0.5 }, { opacity: 1 }]],
+  [
+    "bounce",
+    [
+      { transform: "translateY(-25%)", easing: "cubic-bezier(0.8, 0, 1, 1)" },
+      { transform: "none", easing: "cubic-bezier(0, 0, 0.2, 1)", offset: 0.5 },
+      { transform: "translateY(-25%)" }
+    ]
   ],
-  "fade-in": [
-    { opacity: 0, transform: "translateY(4px)" },
-    { opacity: 1, transform: "none" }
+  [
+    "fade-in",
+    [
+      { opacity: 0, transform: "translateY(4px)" },
+      { opacity: 1, transform: "none" }
+    ]
   ]
-}
+])
 
 /**
  * How a component's preview stands: not made yet, being made, made, made but out of date while a new one is made, or

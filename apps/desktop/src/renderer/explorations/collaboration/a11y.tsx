@@ -16,7 +16,9 @@ import {
 } from "lucide-react"
 import type { ReactNode } from "react"
 
-export type A11yKind = "focus" | "heading" | "landmark" | "name" | "alt" | "keyboard" | "announce" | "note"
+export const a11yKindOrder = ["focus", "heading", "landmark", "name", "alt", "keyboard", "announce", "note"] as const
+
+export type A11yKind = (typeof a11yKindOrder)[number]
 
 /** Whether the render does what the annotation says: checked, different, or something only a person can check. */
 export type A11yStatus = "matches" | "differs" | "unchecked"
@@ -98,8 +100,6 @@ export const a11yKinds: Record<A11yKind, KindInfo> = {
     ink: "oklch(0.25 0 0)"
   }
 }
-
-export const a11yKindOrder = Object.keys(a11yKinds) as A11yKind[]
 
 /** A key, inside an annotation's text. */
 export function Key({ children }: { children: ReactNode }) {
@@ -351,6 +351,7 @@ export function A11yNoteRow({ note }: { note: A11yNote }) {
  */
 export function A11yPanel({ notes }: { notes: A11yNote[] }) {
   const count = (status: A11yStatus) => notes.filter((note) => note.status === status).length
+  const noted = a11yKindOrder.filter((kind) => notes.some((note) => note.kind === kind))
 
   return (
     <aside className="flex h-full w-80 flex-col border-l bg-background text-foreground">
@@ -382,20 +383,18 @@ export function A11yPanel({ notes }: { notes: A11yNote[] }) {
         </Button>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-1.5 pb-3">
-        {a11yKindOrder
-          .filter((kind) => notes.some((note) => note.kind === kind))
-          .map((kind) => (
-            <div key={kind} className="flex flex-col">
-              <span className="px-2.5 pt-1 pb-0.5 text-[11px] font-medium text-muted-foreground">
-                {a11yKinds[kind].title}
-              </span>
-              {notes
-                .filter((note) => note.kind === kind)
-                .map((note, index) => (
-                  <A11yNoteRow key={index} note={note} />
-                ))}
-            </div>
-          ))}
+        {noted.map((kind) => (
+          <div key={kind} className="flex flex-col">
+            <span className="px-2.5 pt-1 pb-0.5 text-[11px] font-medium text-muted-foreground">
+              {a11yKinds[kind].title}
+            </span>
+            {notes
+              .filter((note) => note.kind === kind)
+              .map((note, index) => (
+                <A11yNoteRow key={index} note={note} />
+              ))}
+          </div>
+        ))}
       </div>
       {count("differs") > 0 && (
         <div className="border-t p-3">

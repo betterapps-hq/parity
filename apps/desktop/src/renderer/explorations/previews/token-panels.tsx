@@ -55,6 +55,7 @@ import {
   valueLabel
 } from "../../chrome/token-previews.tsx"
 import { keepEditing } from "../../chrome/TokenDetail.tsx"
+import { optionNamed } from "../parts.tsx"
 import {
   allTokens,
   breakpoints,
@@ -283,7 +284,14 @@ function PaletteGrid({ tokens }: { tokens: SampleToken[] }) {
   )
 }
 
-type Source = "all" | "semantic" | "theme"
+const sources = ["all", "semantic", "theme"] as const
+
+type Source = (typeof sources)[number]
+
+/** How the panel shows tokens: rows, or tiles for a closer look. */
+const tokenViews = ["list", "tiles"] as const
+
+type TokenView = (typeof tokenViews)[number]
 
 /**
  * The Tokens tab with a preview for every kind: rows by default, or tiles for a closer look. Sections follow what a
@@ -297,7 +305,7 @@ export function TokensPanel({
   open,
   only
 }: {
-  view?: "list" | "tiles"
+  view?: TokenView
   query?: string
   /** A token shown as hovered, so its motion plays. */
   playing?: string
@@ -335,7 +343,13 @@ export function TokensPanel({
             size="sm"
             spacing={0}
             value={[view]}
-            onValueChange={([value]) => value && setView(value as "list" | "tiles")}
+            onValueChange={([value]) => {
+              const next = optionNamed(tokenViews, value)
+
+              if (next) {
+                setView(next)
+              }
+            }}
             aria-label="Show tokens as"
           >
             <Hint label="List">
@@ -356,7 +370,13 @@ export function TokensPanel({
             size="sm"
             spacing={0}
             value={[source]}
-            onValueChange={([value]) => value && setSource(value as Source)}
+            onValueChange={([value]) => {
+              const next = optionNamed(sources, value)
+
+              if (next) {
+                setSource(next)
+              }
+            }}
             className="min-w-0 flex-1"
           >
             <ToggleGroupItem value="all" className="h-7 flex-1 text-xs">
@@ -433,7 +453,7 @@ function TokenList({
   open
 }: {
   tokens: SampleToken[]
-  view: "list" | "tiles"
+  view: TokenView
   playing?: string
   open?: string
 }) {
@@ -1114,11 +1134,14 @@ const exemplars = [
 ]
 
 /** Where the panel puts a kind today when that's a catch-all rather than a section of its own. */
-const catchAll: Partial<Record<string, string>> = { other: "Under Other today", effect: "Under Effects today" }
+const catchAll = new Map([
+  ["other", "Under Other today"],
+  ["effect", "Under Effects today"]
+])
 
 function KindCard({ token }: { token: SampleToken }) {
   const { playing, handlers } = useHoverPlay(token.kind)
-  const today = catchAll[token.category]
+  const today = catchAll.get(token.category)
   const section = tokenSections.find((entry) => entry.kinds.some((kind) => kind.kind === token.kind))
   const heading = section?.kinds.find((kind) => kind.kind === token.kind)?.heading
 

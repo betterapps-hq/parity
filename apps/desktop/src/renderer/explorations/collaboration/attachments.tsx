@@ -43,8 +43,15 @@ const kinds: { match: RegExp; label: string; icon: LucideIcon; hue: number }[] =
   { match: /\.(json|ts|tsx|js|jsx|css|html|svg)$/i, label: "Code", icon: FileCode, hue: 200 }
 ]
 
+/** A kind of file, as its chip shows it: a label, an icon and the icon's hue. */
+export interface FileKind {
+  label: string
+  icon: LucideIcon
+  hue?: number
+}
+
 /** What kind of file a name is, for its chip. */
-export function fileKind(name: string): { label: string; icon: LucideIcon; hue?: number } {
+export function fileKind(name: string): FileKind {
   const known = kinds.find((kind) => kind.match.test(name))
 
   if (known) {
