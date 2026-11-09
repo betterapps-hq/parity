@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Show a project's first frame sooner when it opens: its boards measure their sizes together, laying the page out once rather than once per board",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
