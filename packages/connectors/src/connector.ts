@@ -163,6 +163,10 @@ export interface ConnectorInfo {
   name: string
   /** The source's site. */
   site: string
+  /** Its mark, which the window shows beside its name wherever it credits the source. */
+  mark: Mark
+  /** How to search it well, which the window shows before a search. */
+  guide: Guide
   /** What it finds, the first being what it searches for when none is named. */
   finds: readonly [FindKind, ...FindKind[]]
   /** The filters it takes, in the order the window shows them. A search can only name these. */
@@ -173,6 +177,23 @@ export interface ConnectorInfo {
   more: MoreResults
   /** The key it needs, for a connector that needs one. */
   apiKey?: ApiKey
+}
+
+/**
+ * A source's mark as it publishes it, in one color, so the window can draw it in the color of the text beside it: the
+ * path's `d`, and the box it's drawn in, as an SVG `viewBox`.
+ */
+export interface Mark {
+  box: string
+  path: string
+}
+
+/** How a source's search likes things described, in the source's own guidance, for people and agents. */
+export interface Guide {
+  /** Searches that show how to describe something, which the window offers to run. The first is its example. */
+  examples: readonly [string, ...string[]]
+  /** What to know before searching, a sentence each. */
+  tips: readonly string[]
 }
 
 /**
@@ -195,6 +216,8 @@ export interface FilterValue {
   id: string
   /** Its name, for people: "iOS". */
   name: string
+  /** A color to show beside its name, for a value that is one, as CSS: `black`, or a gradient for two. */
+  swatch?: string
 }
 
 /** A connector's key: what the source calls it, where people get one, and the variable a development copy sets. */

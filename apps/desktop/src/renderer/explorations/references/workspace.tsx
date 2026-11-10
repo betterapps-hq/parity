@@ -66,9 +66,9 @@ export interface Start {
 const gap = { beside: 160, between: 48, rows: 140 }
 
 const firstRecent: (Searched & { library: LibraryId })[] = [
-  { library: "mobbin", query: "sign in page", filters: {} },
+  { library: "mobbin", query: "landing page", filters: {} },
   { library: "mobbin", query: "paywall with a free trial", filters: { platform: "ios" } },
-  { library: "mobbin", query: "dashboard with a usage chart", filters: {} },
+  { library: "mobbin", query: "support inbox", filters: {} },
   { library: "unsplash", query: "mountains", filters: {} },
   { library: "unsplash", query: "desk", filters: { orientation: "landscape" } }
 ]
@@ -325,10 +325,11 @@ function Window({ start }: { start: Start }) {
         onSearched={({ query, filters }) => {
           const library = browser?.library ?? "mobbin"
 
+          // One entry for each description, with the filters it was last searched with.
           const same = (each: (typeof recent)[number]) =>
-            each.library === library && each.query === query && JSON.stringify(each.filters) === JSON.stringify(filters)
+            each.library === library && each.query.toLowerCase() === query.toLowerCase()
 
-          setRecent((current) => [{ library, query, filters }, ...current.filter((each) => !same(each))].slice(0, 10))
+          setRecent((current) => [{ library, query, filters }, ...current.filter((each) => !same(each))].slice(0, 20))
         }}
         onPlace={place}
         onOpenAtSource={openAtSource}

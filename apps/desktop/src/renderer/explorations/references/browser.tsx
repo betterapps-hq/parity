@@ -47,8 +47,9 @@ import type { Source } from "./data.ts"
 import {
   creditOf,
   depthOf,
+  fieldLabel,
+  filterNames,
   labelOf,
-  filtersInWords,
   type Library,
   type LibraryId,
   Picture,
@@ -78,6 +79,8 @@ export interface BrowserStart {
   deep?: boolean
   /** An answer held for a story: still waiting, or one of the problems a connector can answer with. */
   status?: "searching" | "limited" | "failed" | "no-key"
+  /** The seconds a held limit asks to wait: 20 unless given, and 0 for a source that doesn't say. */
+  wait?: number
   /** Results already picked. */
   picked?: Found[]
   /** The id of the result shown larger. */
@@ -135,7 +138,7 @@ function Browser({
   const [chosen, setChosen] = useState<Readonly<Record<string, string>>>(start.filters ?? {})
   const [search, setSearch] = useState(first)
   const [status, setStatus] = useState<Status>(firstStatus(start, !!first, !!ready))
-  const [problem, setProblem] = useState(start.status && start.status !== "searching" ? held[start.status] : undefined)
+  const [problem, setProblem] = useState(() => heldProblem(start))
   const [results, setResults] = useState<Found[]>(ready?.found ?? [])
   const [allowance, setAllowance] = useState(ready?.allowance)
   const [more, setMore] = useState<"can" | "loading" | "none">(ready && !ready.full ? "none" : "can")
@@ -304,8 +307,8 @@ function Browser({
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   maxLength={500}
-                  aria-label={library.field.label}
-                  placeholder={library.field.placeholder}
+                  aria-label={fieldLabel(library)}
+                  placeholder={`${fieldLabel(library)}, like “${info.guide.examples[0]}”`}
                 />
               </InputGroup>
               {shownFilters(info).map((filter) => (
@@ -359,6 +362,17 @@ function Browser({
   )
 }
 
+/** The problem a story holds the browser on. */
+function heldProblem(start: BrowserStart): Problem | undefined {
+  if (!start.status || start.status === "searching") {
+    return undefined
+  }
+
+  return start.status === "limited" && start.wait !== undefined
+    ? { ...held.limited, retryAfter: start.wait }
+    : held[start.status]
+}
+
 function firstStatus(start: BrowserStart, searched: boolean, answered: boolean): Status {
   if (start.status) {
     return start.status === "searching" ? "searching" : "problem"
@@ -403,30 +417,21 @@ function searchesLeft({ remaining, limit }: Allowance): string {
   return limit ? `${remaining} of ${limit} ${searches} left` : `${remaining} ${searches} left`
 }
 
-/** The sources' marks, as each publishes it, drawn in the text's color. */
-const marks: Record<LibraryId, { box: string; path: string }> = {
-  mobbin: {
-    box: "18 29.5 44 21",
-    path: "M44.7009 50.1296H33.2479V44.848L28.3096 50.1293L18 50.1246V39.3516L26.9614 29.8706H39.3491V34.9105L44.1747 29.8706H54.907V38.1601H62V50.1296H49.3749V45.1307L44.7009 50.1296Z"
-  },
-  unsplash: { box: "0 0 24 24", path: "M7.5 6.75V0h9v6.75h-9zm9 3.75H24V24H0V10.5h7.5v6.75h9V10.5z" }
-}
-
-/** Where the results are from: the source's mark and name, as a link to it. */
+/** Where the results are from: the source's own mark and name, from its connector, as a link to it. */
 function SourceCredit({ library }: { library: Library }) {
-  const mark = marks[library.id]
+  const { name, site, mark } = library.info
 
   return (
     <a
-      href={library.info.site}
+      href={site}
       target="_blank"
       rel="noreferrer"
-      className="flex items-center gap-2 rounded-sm text-sm font-medium text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+      className="flex items-center gap-2 rounded-sm text-sm font-medium text-foreground outline-none hover:text-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/50"
     >
       <svg viewBox={mark.box} aria-hidden className="h-3.5 w-auto shrink-0 fill-current">
         <path d={mark.path} />
       </svg>
-      {library.info.name}
+      {name}
     </a>
   )
 }
@@ -437,21 +442,6 @@ const any = "any"
 const valueIcons = new Map<string, LucideIcon>([
   ["web", Monitor],
   ["ios", Smartphone]
-])
-
-/** Unsplash's colors as swatches, by the value's id. */
-const swatches = new Map([
-  ["black_and_white", "linear-gradient(135deg, black 50%, white 50%)"],
-  ["black", "black"],
-  ["white", "white"],
-  ["yellow", "oklch(0.86 0.17 95)"],
-  ["orange", "oklch(0.72 0.18 55)"],
-  ["red", "oklch(0.6 0.22 25)"],
-  ["purple", "oklch(0.52 0.2 300)"],
-  ["magenta", "oklch(0.62 0.25 345)"],
-  ["green", "oklch(0.62 0.17 145)"],
-  ["teal", "oklch(0.65 0.11 195)"],
-  ["blue", "oklch(0.56 0.18 255)"]
 ])
 
 /**
@@ -503,7 +493,7 @@ function FilterControl({
         <SelectValue>
           {(id: string) => (
             <span className="flex items-center gap-2">
-              <Swatch id={id} /> {nameOf(id)}
+              <Swatch fill={filter.values.find((each) => each.id === id)?.swatch} /> {nameOf(id)}
             </span>
           )}
         </SelectValue>
@@ -512,7 +502,7 @@ function FilterControl({
         <SelectItem value={any}>{nameOf(any)}</SelectItem>
         {filter.values.map((each) => (
           <SelectItem key={each.id} value={each.id}>
-            <Swatch id={each.id} /> {each.name}
+            <Swatch fill={each.swatch} /> {each.name}
           </SelectItem>
         ))}
       </SelectContent>
@@ -520,9 +510,8 @@ function FilterControl({
   )
 }
 
-function Swatch({ id }: { id: string }) {
-  const fill = swatches.get(id)
-
+/** A filter value's color, when its connector gives it one. */
+function Swatch({ fill }: { fill: string | undefined }) {
   return fill ? <span aria-hidden className="size-3 shrink-0 rounded-full border" style={{ background: fill }} /> : null
 }
 
@@ -816,7 +805,10 @@ function Filmstrip({
   )
 }
 
-/** Before a search: the last few to run again, and how the source's search likes things described. */
+/**
+ * Before a search: the last few to run again, beside searches the source suggests trying, with what its connector
+ * says about searching it underneath. A click on any runs it.
+ */
 function Start({
   library,
   recent,
@@ -826,41 +818,71 @@ function Start({
   recent: BrowserProps["recent"]
   onRun: (search: Searched) => void
 }) {
+  const { guide, name } = library.info
+  const latest = recent.slice(0, 5)
+
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-10">
-      {recent.length > 0 && (
-        <section aria-labelledby="recent-searches" className="flex flex-col gap-1">
-          <h3 id="recent-searches" className="px-2 text-xs font-medium text-muted-foreground">
-            Recent
-          </h3>
-          <ul>
-            {recent.slice(0, 5).map(({ query, filters }) => (
-              <li key={`${query} ${JSON.stringify(filters)}`}>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-2.5 px-2 font-normal"
-                  onClick={() => onRun({ query, filters })}
-                >
-                  <History className="text-muted-foreground" />
-                  <span className="truncate">{query}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">{filtersInWords(library.info, filters)}</span>
-                </Button>
-              </li>
+    <div className={`mx-auto flex flex-col gap-6 px-6 py-8 ${latest.length > 0 ? "max-w-3xl" : "max-w-md"}`}>
+      <div className={`grid gap-x-8 gap-y-6 ${latest.length > 0 ? "sm:grid-cols-2" : ""}`}>
+        {latest.length > 0 && (
+          <SearchList title="Recent" id="recent-searches">
+            {latest.map(({ query, filters }) => (
+              <SearchRow key={query} query={query} onRun={() => onRun({ query, filters })}>
+                <History className="text-muted-foreground" />
+                {filterNames(library.info, filters).map((filter) => (
+                  <Badge key={filter} variant="outline" className="font-normal text-muted-foreground">
+                    {filter}
+                  </Badge>
+                ))}
+              </SearchRow>
             ))}
-          </ul>
-        </section>
-      )}
-      <section aria-labelledby="describing-it" className="flex flex-col gap-2 px-2">
-        <h3 id="describing-it" className="text-xs font-medium text-muted-foreground">
-          Searching {library.info.name}
-        </h3>
-        <ul className="flex list-disc flex-col gap-1.5 pl-4 text-sm text-muted-foreground">
-          {library.tips.map((tip) => (
+          </SearchList>
+        )}
+        <SearchList title={`Try on ${name}`} id="suggested-searches">
+          {guide.examples.map((query) => (
+            <SearchRow key={query} query={query} onRun={() => onRun({ query, filters: {} })}>
+              <Search className="text-muted-foreground" />
+            </SearchRow>
+          ))}
+        </SearchList>
+      </div>
+      {guide.tips.length > 0 && (
+        <ul
+          aria-label={`Searching ${name}`}
+          className="flex flex-col gap-1 border-t px-2 pt-4 text-xs text-muted-foreground"
+        >
+          {guide.tips.map((tip) => (
             <li key={tip}>{tip}</li>
           ))}
         </ul>
-      </section>
+      )}
     </div>
+  )
+}
+
+function SearchList({ title, id, children }: { title: string; id: string; children: ReactNode }) {
+  return (
+    <section aria-labelledby={id} className="flex min-w-0 flex-col gap-1">
+      <h3 id={id} className="px-2 text-xs font-medium text-muted-foreground">
+        {title}
+      </h3>
+      <ul>{children}</ul>
+    </section>
+  )
+}
+
+/** A search to run with a click: its icon first, then its words, then anything that narrows it. */
+function SearchRow({ query, onRun, children }: { query: string; onRun: () => void; children: ReactNode }) {
+  const [icon, ...rest] = Array.isArray(children) ? children : [children]
+
+  return (
+    <li>
+      <Button variant="ghost" className="w-full justify-start gap-2.5 px-2 font-normal" onClick={onRun}>
+        {icon}
+        <span className="truncate">{query}</span>
+        <span className="ml-auto flex shrink-0 items-center gap-1">{rest}</span>
+      </Button>
+    </li>
   )
 }
 

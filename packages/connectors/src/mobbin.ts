@@ -56,6 +56,25 @@ export const mobbin: Connector = {
     id: "mobbin",
     name: "Mobbin",
     site: "https://mobbin.com",
+    // From Mobbin's own logo file for apps that connect to it (github.com/mobbin/skills).
+    mark: {
+      box: "18 29.5 44 21",
+      path: "M44.7009 50.1296H33.2479V44.848L28.3096 50.1293L18 50.1246V39.3516L26.9614 29.8706H39.3491V34.9105L44.1747 29.8706H54.907V38.1601H62V50.1296H49.3749V45.1307L44.7009 50.1296Z"
+    },
+    // From the API reference's notes on `query`, and Mobbin's guidance for agents.
+    guide: {
+      examples: [
+        "pricing page with a yearly toggle",
+        "sign in page with Google",
+        "dashboard with a usage chart",
+        "billing settings"
+      ],
+      tips: [
+        "Say what kind of screen it is, then what's on it.",
+        "Name an app to see only that app's screens.",
+        "Search for one screen at a time. Words like “clean” or “modern” don't help."
+      ]
+    },
     finds: ["screens"],
     filters: [
       {

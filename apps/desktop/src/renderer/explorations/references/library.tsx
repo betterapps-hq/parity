@@ -13,25 +13,21 @@ import { PhotoArt } from "./photos.tsx"
 import { ScreenPicture } from "./screens.tsx"
 
 /*
- * The libraries the browser searches, each a connector (packages/connectors) with the few words and choices that are
- * the browser's own: what it's called, how to describe what you're after, and what happens to what you pick. What a
- * search can be narrowed by isn't here: the browser draws that from the connector's own `filters`.
+ * The libraries the browser searches, each a connector (packages/connectors) with the few choices that are the
+ * browser's own: what it's called, how its results are laid out, and what happens to what you pick. The source's name,
+ * mark, filters and guidance on searching it aren't here: the browser reads those from the connector.
  */
 
 export type LibraryId = "mobbin" | "unsplash"
 
 export interface Library {
   id: LibraryId
-  /** What the connector says about itself: its name, site, filters and how it gives more results. */
+  /** What the connector says about itself: its name, site, mark, filters, guidance and how it gives more results. */
   info: ConnectorInfo
   /** The browser's name, and what opens it. */
   title: string
-  /** The search field's name and its example. */
-  field: { label: string; placeholder: string }
-  /** What it finds, for counts: "9 screens". */
+  /** What it finds, for counts and for the search field: "9 screens", "Describe a screen". */
   noun: { one: string; many: string }
-  /** How the source's search likes things described, from its own guidance. */
-  tips: readonly string[]
   /** Screens sit in rows of one shape; photos of every shape pack into columns. */
   layout: "rows" | "columns"
   /** What the button says for this many picked. */
@@ -45,13 +41,7 @@ export const libraries: Record<LibraryId, Library> = {
     id: "mobbin",
     info: mobbin.info,
     title: "Find references",
-    field: { label: "Describe a screen", placeholder: "Describe a screen, like “checkout with a promo code field”" },
     noun: { one: "screen", many: "screens" },
-    tips: [
-      "Say what kind of screen it is, then what's on it: “paywall with plan cards and a free trial button”.",
-      "Name an app to see only that app: “Ledgerly pricing page”.",
-      "Search for one screen at a time. Words like “clean” or “modern” don't help."
-    ],
     layout: "rows",
     place: (count) => (count === 0 ? "Place on canvas" : `Place ${count} on canvas`),
     // Three rows of web pages, or two of phones.
@@ -61,13 +51,7 @@ export const libraries: Record<LibraryId, Library> = {
     id: "unsplash",
     info: unsplash.info,
     title: "Find photos",
-    field: { label: "Describe a photo", placeholder: "Describe a photo, like “desk with a laptop and coffee”" },
     noun: { one: "photo", many: "photos" },
-    tips: [
-      "Say what's in the photo: “mountain lake at sunrise”, “team around a laptop”.",
-      "Orientation and color narrow a search without changing its words.",
-      "Each photo you add goes into the project's images, with its photographer's name."
-    ],
     layout: "columns",
     place: (count) => {
       if (count === 0) {
@@ -120,11 +104,16 @@ export function requestFor(library: Library, searched: Searched, shown: readonly
     : { ...request, page: Math.floor(shown.length / limit) + 1 }
 }
 
-/** The filters' chosen values in words, as a recent search lists them: "iOS", "Portrait, Teal". */
-export function filtersInWords(info: ConnectorInfo, filters: Readonly<Record<string, string>>): string {
-  return shownFilters(info)
-    .flatMap((filter) => filter.values.find((value) => value.id === filters[filter.id])?.name ?? [])
-    .join(", ")
+/** The search field's name: "Describe a screen". */
+export function fieldLabel(library: Library): string {
+  return `Describe a ${library.noun.one}`
+}
+
+/** The names of the filters' chosen values, as a recent search lists them: "iOS", or "Portrait" and "Teal". */
+export function filterNames(info: ConnectorInfo, filters: Readonly<Record<string, string>>): string[] {
+  return shownFilters(info).flatMap(
+    (filter) => filter.values.find((value) => value.id === filters[filter.id])?.name ?? []
+  )
 }
 
 /** Who a result is credited to first: the app a screen is from, or a photo's photographer. */

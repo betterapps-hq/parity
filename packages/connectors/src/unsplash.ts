@@ -44,6 +44,19 @@ export const unsplash: Connector = {
     id: "unsplash",
     name: "Unsplash",
     site: "https://unsplash.com",
+    mark: { box: "0 0 24 24", path: "M7.5 6.75V0h9v6.75h-9zm9 3.75H24V24H0V10.5h7.5v6.75h9V10.5z" },
+    guide: {
+      examples: [
+        "mountain lake at sunrise",
+        "desk with a laptop and coffee",
+        "city skyline at dusk",
+        "portrait in window light"
+      ],
+      tips: [
+        "Say what's in the photo, in a few words.",
+        "Orientation and color narrow a search without changing its words."
+      ]
+    },
     finds: ["photos"],
     filters: [
       {
@@ -59,17 +72,21 @@ export const unsplash: Connector = {
         id: "color",
         name: "Color",
         values: [
-          { id: "black_and_white", name: "Black and white" },
-          { id: "black", name: "Black" },
-          { id: "white", name: "White" },
-          { id: "yellow", name: "Yellow" },
-          { id: "orange", name: "Orange" },
-          { id: "red", name: "Red" },
-          { id: "purple", name: "Purple" },
-          { id: "magenta", name: "Magenta" },
-          { id: "green", name: "Green" },
-          { id: "teal", name: "Teal" },
-          { id: "blue", name: "Blue" }
+          {
+            id: "black_and_white",
+            name: "Black and white",
+            swatch: "linear-gradient(135deg, black 50%, white 50%)"
+          },
+          { id: "black", name: "Black", swatch: "black" },
+          { id: "white", name: "White", swatch: "white" },
+          { id: "yellow", name: "Yellow", swatch: "oklch(0.86 0.17 95)" },
+          { id: "orange", name: "Orange", swatch: "oklch(0.72 0.18 55)" },
+          { id: "red", name: "Red", swatch: "oklch(0.6 0.22 25)" },
+          { id: "purple", name: "Purple", swatch: "oklch(0.52 0.2 300)" },
+          { id: "magenta", name: "Magenta", swatch: "oklch(0.62 0.25 345)" },
+          { id: "green", name: "Green", swatch: "oklch(0.62 0.17 145)" },
+          { id: "teal", name: "Teal", swatch: "oklch(0.65 0.11 195)" },
+          { id: "blue", name: "Blue", swatch: "oklch(0.56 0.18 255)" }
         ]
       }
     ],

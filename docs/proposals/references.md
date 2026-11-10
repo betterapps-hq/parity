@@ -56,15 +56,27 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   Images tab; they move to the browser, and the tab becomes the project's images.
 - **Each library is a connector** (`packages/connectors`, PAR-829), and the browser is one component for all of them. It
   reads the connector's own description rather than knowing each source.
-- **Filters come from the connector's `filters`.** A filter that always has a value, between a few, is a switch, as
-  Mobbin's platform is. One that can be left open is a select starting on "Any", as Unsplash's orientation and color
-  are. A new filter on a connector shows up without a change to the browser. The one exception is Mobbin's depth, which
-  the browser offers as Search deeper on the results rather than as a choice before searching.
+- **The source's name and mark come from its connector,** as `name`, `site` and `mark`, and sit at the foot of the
+  browser as a link to the source. The mark is one path, drawn in the text's color, so it reads in both themes.
+- **Filters come from the connector's `filters`.** Every filter today is one choice from a fixed list, so there's one
+  data type, and the browser picks between two controls from the list's shape. A filter that always has a value, between
+  a few, is a switch, as Mobbin's platform is. One that can be left open is a select starting on "Any", as Unsplash's
+  orientation and color are. A value can carry a `swatch`, which the select shows beside its name. A new filter on a
+  connector shows up without a change to the browser. A filter that isn't a choice, such as a number or free text, would
+  need the connector to say its type, which it doesn't yet.
+- **Unsplash's colors are a fixed list.** Its API takes eleven named colors and nothing else, so there's no picking your
+  own.
+- **Mobbin's depth is the one filter the browser treats by name:** it's offered as Search deeper on the results rather
+  than as a choice before searching.
+- **Guidance on searching comes from the connector's `guide`:** a few example searches and a few tips, from the source's
+  own documentation. The browser shows them before a search, uses the first example in the search field, and runs an
+  example on a click. Agents can be given the same words.
 - **More results follows the connector's `more`:** leaving out what's shown for Mobbin, the next page for Unsplash.
 - **A connector's problems are the browser's states:** no key, a key turned down, a plan without access, a limit reached
   with the wait counted down, a search it can't take, and a source that can't be reached.
-- **Searches left show when the connector says.** Unsplash sends how many remain with every answer, 50 an hour until it
-  approves an app. Under ten, the browser says so beside the credit.
+- **Searches left show when the connector says.** Unsplash sends how many remain in the hour with every answer, in its
+  rate limit headers, which the connector passes on as `allowance`: 50 an hour until Unsplash approves an app for
+  production, then 5,000. Under ten, the browser says so beside the credit. Mobbin doesn't say until it's too late.
 - **What differs for each library is small:** its name and the words around the search field, whether results sit in
   rows or pack into columns, and what the button does with what's picked.
 
@@ -76,9 +88,8 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   menu and in Search actions.
 - **With a design selected it opens already searched:** the design's name as the description ("pricing page"), on the
   web when the design's main preview is wider than 600 pixels and on iOS otherwise. That first search is a quick one.
-- **With nothing selected it opens on the last few searches** to run again, and three lines on describing a screen, from
-  Mobbin's own guidance: say what kind of screen it is and then what's on it, name an app to see only that app, and
-  search for one screen at a time.
+- **With nothing selected it opens on the last few searches** to run again, one for each description with the filters it
+  last had, beside the example searches from the connector, with the connector's tips underneath.
 - **A search runs on Enter,** not as you type, since each one is a request to Mobbin. Switching between Web and iOS runs
   the same description again.
 
@@ -203,7 +214,10 @@ that ([Build an integration](https://docs.mobbin.com/mcp/build-an-integration.md
   by its id. So either Parity keeps a copy of a placed reference's picture, which needs Mobbin's say-so, or it finds the
   screen again by searching for its app and matching the id. Until that's settled, a reference whose picture has expired
   shows its app's name and Open in Mobbin.
-- **Searches aren't kept,** apart from the last five on this computer, for the browser's Recent list.
+- **Recent searches are kept on this computer, for the person,** in the app's own preferences beside the panel layout:
+  the last five descriptions for each library, each with the filters it last had. They aren't in the project, so they're
+  not shared or committed, and nothing is sent anywhere until one is run again. In the exploration they last only until
+  the story reloads.
 
 ## The spike
 

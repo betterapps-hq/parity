@@ -1,30 +1,25 @@
-import type { Found } from "@parity-app/connectors"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
-import { setLayout } from "../../chrome/layout.ts"
-import { design, example, openProjects, typeInto } from "../../stories/fixtures.tsx"
 import type { Placed } from "./canvas.tsx"
-import { sampleFound, samples } from "./data.ts"
-import { Explainer, live, ReferencesWorkspace, type Start } from "./workspace.tsx"
+import { body, found, opening, workspace } from "./story-kit.tsx"
+import { Explainer, live } from "./workspace.tsx"
 
 /**
- * Searching a library outside the project (docs/proposals/references.md): Mobbin's screens to place beside a design,
- * and Unsplash's photos to add to one. Both use one browser over the canvas, where pictures are big enough to judge.
- * It asks for a description and whatever the library's connector says it filters by: Mobbin's platform, Unsplash's
- * orientation and color. Find references is on the toolbar and R; Find photos is in the Images tab, which lists the
- * project's own images.
+ * References from Mobbin (docs/proposals/references.md): screens from real apps, placed beside a design to look at,
+ * never in it. Find references, on the toolbar and R, opens the library browser on Mobbin's connector. It asks for a
+ * description and the one filter the connector shows, the platform, and offers the connector's deep search as Search
+ * deeper. The browser is the one Unsplash's stories use; only what the connector says differs.
  *
- * Every story is the same window, started in a different place, and all of it works: describe something and press
- * Enter, change a filter, click results to pick them, double-click one to see it larger, and place what you picked.
- * On the canvas, wheel to pan, Ctrl and wheel to zoom, drag a reference to move it, Delete to remove it, and select
- * one to see it in the inspector.
+ * Every story is the same window, started in a different place, and all of it works: describe a screen and press
+ * Enter, switch between Web and iOS, Search deeper, click results to pick them, double-click one to see it larger, and
+ * place what you picked. On the canvas, wheel to pan, Ctrl and wheel to zoom, drag a reference to move it, Delete to
+ * remove it, and select one to see it in the inspector.
  *
- * Most stories search made-up samples, drawn where the browser would show the source's pictures, so they look the
- * same everywhere. The two under Live search the real Mobbin and Unsplash through the connectors, which Storybook's
- * dev server runs with the keys in `apps/desktop/.env.local`; in a built Storybook they say there's no key.
+ * All but Live search made-up samples, drawn where the browser would show Mobbin's screenshots. Live searches the
+ * real Mobbin through the connector.
  */
 const meta = {
-  title: "Parity/Explorations/References",
+  title: "Parity/Explorations/References/Mobbin",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
@@ -32,25 +27,7 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** Opens the example with Pricing selected, or with nothing selected, on a tab of the left panel. */
-const opening =
-  (selected: boolean, leftTab = "layers") =>
-  async () => {
-    await openProjects("example")
-    example().selection.set(selected ? { design: design("Pricing") } : {})
-    setLayout({ leftTab })
-  }
-
-function workspace(start: Start = {}) {
-  return () => <ReferencesWorkspace start={start} />
-}
-
-const body = () => within(document.body)
-
-/** Samples as a search would return them, leaving out any id that isn't one. */
-const found = (...ids: string[]): Found[] => ids.flatMap((id) => sampleFound(id) ?? [])
-
-// Finding references
+// Finding
 
 /**
  * Find references with Pricing selected: the browser opens on "pricing page" for the web, because that's the design's
@@ -73,15 +50,15 @@ export const FromTheToolbar: Story = {
 }
 
 /**
- * Opened with nothing selected: the last few searches to run again, and how Mobbin's search likes a screen described,
- * from Mobbin's own guidance.
+ * Opened with nothing selected: the last few searches to run again, one for each description, beside searches Mobbin's
+ * connector suggests, with its tips underneath. A click on any runs it.
  */
 export const NothingSelected: Story = {
   loaders: [opening(false)],
   render: workspace({ browser: { library: "mobbin" } })
 }
 
-/** iOS, the other value of Mobbin's platform filter: phones are tall, so six fit across. */
+/** iOS, the other value of the connector's platform filter: phones are tall, so six fit across. */
 export const PhoneScreens: Story = {
   loaders: [opening(true)],
   render: workspace({
@@ -99,8 +76,8 @@ export const QuickResults: Story = {
 }
 
 /**
- * The same description at Mobbin's deep depth: only the screens that fit all of it, so fewer than a full page. It
- * takes a few seconds, which is why it's asked for rather than the default.
+ * The same description at the connector's deep depth: only the screens that fit all of it, so fewer than a full page.
+ * It takes a few seconds, which is why it's asked for rather than the default.
  */
 export const DeepSearch: Story = {
   loaders: [opening(true)],
@@ -192,15 +169,15 @@ export const NoResults: Story = {
 }
 
 /**
- * The source turned the search away: Mobbin gives a key 60 requests a minute, shared by everyone searching through
- * it. The button waits out the time the answer gives.
+ * Mobbin turned the search away: it gives a key 60 requests a minute, shared by everyone searching through it. The
+ * button waits out the time the answer gives.
  */
 export const LimitReached: Story = {
   loaders: [opening(true)],
   render: workspace({ browser: { library: "mobbin", query: "pricing page", status: "limited" } })
 }
 
-/** The source, or the way to it, is down. */
+/** Mobbin, or the way to it, is down. */
 export const CouldNotReachMobbin: Story = {
   loaders: [opening(true)],
   render: workspace({ browser: { library: "mobbin", query: "pricing page", status: "failed" } })
@@ -250,7 +227,7 @@ const notes = [
 
 /**
  * What an agent leaves after it's asked to rework Pricing: the screens it looked at, each with a note on what it took
- * from it, so you can see what the change is based on. Agents search through the same connectors.
+ * from it, so you can see what the change is based on. Agents search through the same connector.
  */
 export const PlacedByAnAgent: Story = {
   loaders: [opening(false)],
@@ -260,96 +237,14 @@ export const PlacedByAnAgent: Story = {
   })
 }
 
-// Photos
-
-/**
- * The Images tab as the project's own images: what's in its images folder, however it got there. A photo from
- * Unsplash keeps its photographer's name. Find photos opens the browser on Unsplash.
- */
-export const ImagesTab: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace()
-}
-
-/** Searching the project's images for something it doesn't have offers to look for it on Unsplash. */
-export const ImageNotInTheProject: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace(),
-  play: async ({ canvasElement }) => {
-    const field = await within(canvasElement).findByRole("textbox", { name: "Search images" })
-
-    if (!(field instanceof HTMLInputElement)) {
-      throw new Error("The Images tab's search isn't a text field")
-    }
-
-    await typeInto(field, "coast")
-    await expect(await body().findByRole("button", { name: "Find “coast” on Unsplash" })).toBeInTheDocument()
-  }
-}
-
-/**
- * Find photos: the same browser on Unsplash. Photos come in every shape, so they pack into columns, each with its
- * photographer's name. The filters are Unsplash's own, orientation and color, each open until you choose.
- */
-export const FindPhotos: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace({ browser: { library: "unsplash", query: "nature" } })
-}
-
-/** Orientation and color chosen: the same words, narrowed. Clearing either searches again. */
-export const PhotoFilters: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace({
-    browser: { library: "unsplash", query: "nature", filters: { orientation: "landscape", color: "orange" } }
-  })
-}
-
-/** A photo shown larger, with what it shows beside its photographer's name, and the strip of every result. */
-export const PhotoLarger: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace({
-    browser: { library: "unsplash", query: "nature", viewing: "rocky-coast", picked: found("lake-at-sunrise") }
-  })
-}
-
-/**
- * Picks two photos and adds them. They're saved into the project, so they show in the Images tab, and they land on a
- * new screen, as image files dropped on the empty canvas do.
- */
-export const AddPhotos: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace({ browser: { library: "unsplash", query: "nature" } }),
-  play: async ({ canvasElement }) => {
-    await userEvent.click(await body().findByRole("button", { name: /^Rolling green hills/ }))
-    await userEvent.click(body().getByRole("button", { name: /^Waves on a rocky coast/ }))
-    await userEvent.click(body().getByRole("button", { name: "Add 2 photos" }))
-    const panel = within(canvasElement).getByRole("list", { name: "Images in this project" })
-    await waitFor(() => expect(within(panel).getByText("rocky-coast.jpg")).toBeInTheDocument())
-  }
-}
-
-/**
- * Unsplash says how many searches are left with every answer, 50 an hour until it approves an app. Under ten, the
- * browser says so beside its credit.
- */
-export const FewSearchesLeft: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace({ source: samples({ searchesLeft: 4 }), browser: { library: "unsplash", query: "nature" } })
-}
-
 // Live
 
 /**
  * Mobbin for real, through the connector, for the selected design. It needs `PARITY_MOBBIN_API_KEY` in
- * `apps/desktop/.env.local` and Storybook run from the repository; without them it says the connector isn't set up.
+ * `apps/desktop/.env.local` and Storybook run from the repository, whose dev server runs the connector so the key
+ * never reaches the page. Without them, as in a built Storybook, it says the connector isn't set up.
  */
-export const LiveMobbin: Story = {
+export const Live: Story = {
   loaders: [opening(true)],
   render: workspace({ source: live, browser: { library: "mobbin" } })
-}
-
-/** Unsplash for real, through the connector. It needs `PARITY_UNSPLASH_ACCESS_KEY`, as Mobbin's story needs its key. */
-export const LiveUnsplash: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace({ source: live, browser: { library: "unsplash", query: "mountain lake" } })
 }

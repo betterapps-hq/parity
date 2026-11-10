@@ -18,6 +18,8 @@ function fakeConnector(
       id,
       name: "Fake",
       site: "https://fake.example",
+      mark: { box: "0 0 1 1", path: "M0 0h1v1H0z" },
+      guide: { examples: ["login screen"], tips: [] },
       finds: [finds],
       filters: [],
       limit: { default: 10, max: 10 },
