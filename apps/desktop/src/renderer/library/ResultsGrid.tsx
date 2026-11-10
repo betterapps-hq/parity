@@ -1,6 +1,5 @@
 import { Button, Spinner } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  clockOf,
   creditOf,
   type Found,
   kindFor,
@@ -10,8 +9,9 @@ import {
   type Searched,
   sizeOf
 } from "@parity-app/connectors"
+import { VideoLength } from "@parity-app/media-player"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { Check, Maximize2, Play } from "lucide-react"
+import { Check, Maximize2 } from "lucide-react"
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { chipColors } from "../canvas/kinds.tsx"
 import { IconButton } from "../chrome/IconButton.tsx"
@@ -208,11 +208,19 @@ interface ResultCardProps {
 
 /**
  * One result: its picture, and the app it's from or who made it. A click picks it or lets it go, or shows it larger
- * when it can't be picked here; a double-click or its corner button shows it larger. A video plays while pointed at.
+ * when it can't be picked here; a double-click or its corner button shows it larger. A video plays while pointed at,
+ * its length counting down.
  */
 function ResultCard({ found, picked, pickable, onToggle, onView }: ResultCardProps) {
   const name = creditOf(found)
   const [playing, setPlaying] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+
+  // Each time it plays, it plays from the start.
+  const play = (on: boolean) => {
+    setPlaying(on)
+    setElapsed(0)
+  }
 
   return (
     <div className="group relative flex flex-col gap-1.5">
@@ -222,20 +230,16 @@ function ResultCard({ found, picked, pickable, onToggle, onView }: ResultCardPro
         aria-label={labelOf(found)}
         onClick={pickable ? onToggle : onView}
         onDoubleClick={onView}
-        onPointerEnter={() => setPlaying(true)}
-        onPointerLeave={() => setPlaying(false)}
-        onFocus={() => setPlaying(true)}
-        onBlur={() => setPlaying(false)}
+        onPointerEnter={() => play(true)}
+        onPointerLeave={() => play(false)}
+        onFocus={() => play(true)}
+        onBlur={() => play(false)}
         className={`relative rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           picked ? "ring-3 ring-(--canvas-layer) ring-offset-2 ring-offset-popover" : ""
         }`}
       >
-        <ResultPicture found={found} small playing={playing} className="rounded-lg border" />
-        {found.video && (
-          <span className="pointer-events-none absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-0.5 text-2xs font-medium text-white tabular-nums">
-            <Play aria-hidden className="size-2.5 fill-current" /> {clockOf(found.video.duration)}
-          </span>
-        )}
+        <ResultPicture found={found} small playing={playing} onTime={setElapsed} className="rounded-lg border" />
+        {found.video && <VideoLength seconds={found.video.duration} elapsed={elapsed} />}
       </button>
       {picked && <PickedMark />}
       <div className="absolute top-1.5 right-1.5 rounded-md bg-popover/95 opacity-0 shadow-sm transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">

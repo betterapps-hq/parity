@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import {
   choose,
-  clockOf,
   countOf,
   depthOf,
   fieldLabel,
@@ -168,11 +167,6 @@ describe("results", () => {
   it("lets photos into the project and keeps screens out", () => {
     expect(isPlaceable(photo)).toBe(true)
     expect(isPlaceable({ kind: "screens" })).toBe(false)
-  })
-
-  it("shows a length as a player does", () => {
-    expect(clockOf(18)).toBe("0:18")
-    expect(clockOf(65.4)).toBe("1:05")
   })
 })
 

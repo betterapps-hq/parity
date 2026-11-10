@@ -251,13 +251,6 @@ export function isPlaceable(found: Pick<Found, "kind">): boolean {
   return placeableKinds.includes(found.kind)
 }
 
-/** A length in seconds as a player shows it: "0:18", "1:05". */
-export function clockOf(seconds: number): string {
-  const whole = Math.max(0, Math.round(seconds))
-
-  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`
-}
-
 /**
  * Who a picture added to a project is credited to: who made it, and its own page at its library, which the Media tab
  * opens it at.

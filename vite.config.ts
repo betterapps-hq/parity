@@ -10,8 +10,11 @@ import { defineConfig } from "vite-plus"
 /** Packages that read a project's files but never write them or start processes; writes go through project edits. */
 const readers = ["code", "project", "registry"]
 
-/** Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters and fixtures. */
-const edge = ["agent", "builder-vite", "cli", "fixtures", "libgen", "renderer-react", "styles-tailwind"]
+/**
+ * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters, the media player
+ * and fixtures.
+ */
+const edge = ["agent", "builder-vite", "cli", "fixtures", "libgen", "media-player", "renderer-react", "styles-tailwind"]
 
 const packageFiles = (names: string[]) => names.map((name) => `packages/${name}/**`)
 const packageImports = (names: string[]) => names.flatMap((name) => [`@parity-app/${name}`, `@parity-app/${name}/**`])
@@ -24,7 +27,7 @@ const appOnly = {
 
 const noUi = {
   group: ["react", "react/**", "react-dom", "react-dom/**"],
-  message: "Only renderer-react and the app use React; logic packages take data and return data."
+  message: "Only edge packages and the app use React; logic packages take data and return data."
 }
 
 /** Writing to the file system, from node:fs and node:fs/promises. */
