@@ -29,7 +29,7 @@ import {
   skillOperation
 } from "./operations.ts"
 import { readSkill } from "./skills.ts"
-import { type CliAttributes, recordCli } from "./telemetry.ts"
+import { type CliAttributes, flushCliTelemetry, recordCli } from "./telemetry.ts"
 
 interface Tool {
   name: string
@@ -258,6 +258,8 @@ type Params = NonNullable<z.output<typeof message>["params"]>
 /** Serves Parity's tools over MCP on stdin and stdout. */
 export function serveMcp(): void {
   const lines = createInterface({ input: process.stdin })
+  // A client that closes stdin is done; write what's held now rather than in the next 10 seconds (PAR-806).
+  lines.on("close", flushCliTelemetry)
   const send = <Reply>(reply: Reply) => process.stdout.write(`${JSON.stringify(reply)}\n`)
   lines.on("line", (line) => {
     if (!line.trim()) {

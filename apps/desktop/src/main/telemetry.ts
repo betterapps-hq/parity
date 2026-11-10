@@ -34,6 +34,7 @@ import { z } from "zod"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import type { TelemetryRun } from "../shared/telemetry-run.ts"
+import { type FailedFramePicture, failedFrameFor } from "./frame-telemetry.ts"
 import type { HangWatchMessage, HangWatchStart } from "./hang-watch.ts"
 import { createLogFileSink, createLogFiles } from "./log-files.ts"
 
@@ -43,30 +44,24 @@ import { createLogFileSink, createLogFiles } from "./log-files.ts"
  */
 const dsn = "https://1367d69a56a94bcd328db394a4a5a2d4@o4512381874274304.ingest.us.sentry.io/4512381906190336"
 
-/** A picture of the frame that last failed to draw offscreen, and when, for the errors that follow it. */
-let lastFailedFrame: { attachment: { filename: string; data: Uint8Array; contentType: string }; at: number } | undefined
-
-/** How long a failed frame's picture goes with errors, in milliseconds. */
-const failedFrameKeptMs = 10 * 60_000
+/** The frame that last failed to draw offscreen, pictured, for the errors about it. */
+let lastFailedFrame: FailedFramePicture | undefined
 
 /**
- * Keeps a picture of a frame that failed to draw offscreen, as a PNG, which the Sentry errors that follow carry as
- * `failed-frame.png` for 10 minutes or until another frame fails (PAR-638). `frame.failed` itself is a log, not an
- * error, since a project's own code failing isn't Parity's bug.
+ * Keeps a picture of a frame that failed to draw offscreen, as a PNG, which the Sentry errors about that frame carry as
+ * `failed-frame.png` for 10 minutes or until another frame fails (PAR-638, PAR-812): those from its offscreen window,
+ * or in the trace that asked for it. `frame.failed` itself is a log, not an error, since a project's own code failing
+ * isn't Parity's bug.
  */
-export function keepFailedFrame(png: Uint8Array): void {
+export function keepFailedFrame(png: Uint8Array, traceId: string | undefined): void {
   lastFailedFrame = {
     attachment: { filename: "failed-frame.png", data: png, contentType: "image/png" },
     at: Date.now()
   }
-}
 
-function failedFrame(): { filename: string; data: Uint8Array; contentType: string } | undefined {
-  if (lastFailedFrame && Date.now() - lastFailedFrame.at > failedFrameKeptMs) {
-    lastFailedFrame = undefined
+  if (traceId) {
+    lastFailedFrame.traceId = traceId
   }
-
-  return lastFailedFrame?.attachment
 }
 
 export interface TelemetryStart {
@@ -181,8 +176,8 @@ export function startTelemetry(
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
     // Every process's errors, logs and spans come through here; whether any leave is `applyTelemetry`'s switch.
     beforeSend: (event, hint) => {
-      // An error carries the frame that last failed to draw offscreen, while it's recent (PAR-638).
-      const frame = failedFrame()
+      // An error about the frame that last failed to draw offscreen carries its picture, while it's recent (PAR-812).
+      const frame = failedFrameFor(lastFailedFrame, event, Date.now())
 
       if (frame) {
         hint.attachments = [...(hint.attachments ?? []), frame]

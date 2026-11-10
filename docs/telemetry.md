@@ -147,7 +147,8 @@ Agents' calls are recorded where they're answered, once for every operation, whi
 - **A command never waits for Sentry.** Loading `@sentry/node` takes about 300 ms, so a command keeps what it would
   send, writes it to `~/.parity/outbox` as it exits (`PARITY_CLI_OUTBOX` names another folder), and starts a detached
   `parity` process that sends it and exits. That costs a command about 20 ms. `parity mcp` hands over what's waiting
-  every 10 seconds as well. One sender runs at a time, and a batch a day old is dropped.
+  every 10 seconds as well, and as soon as its client closes stdin or stops it with a signal (PAR-806). One sender runs
+  at a time, and a batch a day old is dropped.
 - **The CLI's release** is `parity-cli@<version>` when `npm publish` built it, and otherwise the commit it was built
   from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Published to npm, it reports as
   `release` while its version is on `next`, and `production` once it's been `latest` (PAR-799): the sender asks npm's
@@ -176,7 +177,8 @@ Every frame and component preview drawn offscreen is recorded, so a slow or brok
   failure the render page throws while the frame is settled, checked or measured is recorded the same way, with the
   page's own message and stack rather than Electron's "Script failed to execute". It's a warning, a log rather than a
   Sentry issue, since a project's own component failing isn't Parity's bug. Main keeps a picture of what the window
-  showed, and the Sentry errors in the 10 minutes after carry it as `failed-frame.png`, until another frame fails.
+  showed, and the Sentry errors about that frame in the 10 minutes after carry it as `failed-frame.png`, until another
+  frame fails: those from the offscreen window, or in the trace that asked for the frame. Other errors don't (PAR-812).
 - **`preview.made` and `preview.failed`** come from the service: each preview's component, size and time, or why it
   couldn't be made.
 - **`bitmapCache.used`** gives the session's hits and misses for frame bitmaps and component previews kept on disk, each
