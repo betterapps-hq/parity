@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { typeInto } from "../../stories/fixtures.tsx"
 import { samples } from "./data.ts"
-import { body, found, opening, workspace } from "./story-kit.tsx"
+import { found, opening, workspace } from "./story-kit.tsx"
 import { live } from "./workspace.tsx"
 
 /**
@@ -26,6 +26,9 @@ const meta = {
 export default meta
 
 type Story = StoryObj<typeof meta>
+
+/** The whole page, since the browser opens over the window rather than inside the story's own element. */
+const body = () => within(document.body)
 
 // The Images tab
 

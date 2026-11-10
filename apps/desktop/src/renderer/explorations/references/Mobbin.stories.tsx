@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import type { Placed } from "./canvas.tsx"
-import { body, found, opening, workspace } from "./story-kit.tsx"
+import { found, opening, workspace } from "./story-kit.tsx"
 import { Explainer, live } from "./workspace.tsx"
 
 /**
@@ -26,6 +26,9 @@ const meta = {
 export default meta
 
 type Story = StoryObj<typeof meta>
+
+/** The whole page, since the browser opens over the window rather than inside the story's own element. */
+const body = () => within(document.body)
 
 // Finding
 
