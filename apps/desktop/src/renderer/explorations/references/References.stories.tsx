@@ -129,12 +129,19 @@ export const Picked: Story = {
 }
 
 /**
- * A screen shown larger, from a double-click or its corner button: the arrow keys move through the results, and Esc
- * goes back to them. Open in Mobbin goes to the screen's page there.
+ * A screen shown larger, from a double-click or its corner button, in place of the search and its results. Its bar
+ * names the app and its platform, and the X or Esc closes it. The strip underneath is every result, with the current
+ * one outlined and the picked ones checked; a click or the arrow keys moves through them.
  */
 export const Larger: Story = {
   loaders: [opening(true)],
-  render: workspace({ browser: { query: "pricing page", viewing: "quill-pricing-two" } })
+  render: workspace({
+    browser: {
+      query: "pricing page",
+      viewing: "quill-pricing-two",
+      picked: ["ledgerly-pricing-tiers", "kite-pricing-usage"]
+    }
+  })
 }
 
 /** Picks two screens and places them: they land in a row beside Pricing, and the canvas fits them in. */

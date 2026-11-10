@@ -1,4 +1,5 @@
 import {
+  Badge,
   Button,
   Dialog,
   DialogClose,
@@ -256,67 +257,72 @@ function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMob
         <DialogDescription className="sr-only">
           Search Mobbin for screens from real apps, and place the ones you pick on the canvas.
         </DialogDescription>
-        <form onSubmit={submit} className="flex shrink-0 items-center gap-2 border-b p-3">
-          <InputGroup className="h-9 flex-1">
-            <InputGroupAddon>
-              <Search />
-            </InputGroupAddon>
-            <InputGroupInput
-              ref={field}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              maxLength={500}
-              aria-label="Describe a screen"
-              placeholder="Describe a screen, like “checkout with a promo code field”"
-            />
-          </InputGroup>
-          <ToggleGroup
-            variant="outline"
-            spacing={0}
-            value={[platform]}
-            onValueChange={([value]) => {
-              if (value === "web" || value === "ios") {
-                changePlatform(value)
-              }
-            }}
-            aria-label="Platform"
-          >
-            <ToggleGroupItem value="web" className="gap-1.5 px-2.5">
-              <Monitor /> Web
-            </ToggleGroupItem>
-            <ToggleGroupItem value="ios" className="gap-1.5 px-2.5">
-              <Smartphone /> iOS
-            </ToggleGroupItem>
-          </ToggleGroup>
-          <DialogClose render={<Button variant="ghost" size="icon" aria-label="Close" />}>
-            <X />
-          </DialogClose>
-        </form>
         {shown ? (
           <Larger
             sample={shown}
+            results={results}
             picked={isPicked(shown)}
-            onBack={() => setViewing(undefined)}
+            isPicked={isPicked}
+            onClose={() => setViewing(undefined)}
             onStep={step}
+            onView={setViewing}
             onToggle={() => toggle(shown)}
             onOpenInMobbin={() => onOpenInMobbin(shown)}
           />
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <Body
-              status={status}
-              search={search}
-              results={results}
-              more={more}
-              retryIn={retryIn}
-              recent={recent}
-              isPicked={isPicked}
-              onRun={run}
-              onToggle={toggle}
-              onView={setViewing}
-              onMore={loadMore}
-            />
-          </div>
+          <>
+            <form onSubmit={submit} className="flex shrink-0 items-center gap-2 border-b p-3">
+              <InputGroup className="h-9 flex-1">
+                <InputGroupAddon>
+                  <Search />
+                </InputGroupAddon>
+                <InputGroupInput
+                  ref={field}
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  maxLength={500}
+                  aria-label="Describe a screen"
+                  placeholder="Describe a screen, like “checkout with a promo code field”"
+                />
+              </InputGroup>
+              <ToggleGroup
+                variant="outline"
+                spacing={0}
+                value={[platform]}
+                onValueChange={([value]) => {
+                  if (value === "web" || value === "ios") {
+                    changePlatform(value)
+                  }
+                }}
+                aria-label="Platform"
+              >
+                <ToggleGroupItem value="web" className="gap-1.5 px-2.5">
+                  <Monitor /> Web
+                </ToggleGroupItem>
+                <ToggleGroupItem value="ios" className="gap-1.5 px-2.5">
+                  <Smartphone /> iOS
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <DialogClose render={<Button variant="ghost" size="icon" aria-label="Close" />}>
+                <X />
+              </DialogClose>
+            </form>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <Body
+                status={status}
+                search={search}
+                results={results}
+                more={more}
+                retryIn={retryIn}
+                recent={recent}
+                isPicked={isPicked}
+                onRun={run}
+                onToggle={toggle}
+                onView={setViewing}
+                onMore={loadMore}
+              />
+            </div>
+          </>
         )}
         <footer className="flex shrink-0 items-center gap-2 border-t px-4 py-2.5">
           <span className="text-xs text-muted-foreground">Screens from Mobbin</span>
@@ -561,30 +567,40 @@ function Card({
   )
 }
 
-/** A result shown as large as the browser allows, with the ones beside it a key away. */
+/**
+ * A result shown as large as the browser allows, in place of the search and its results. Its own bar names the app
+ * and its platform and closes it, and a strip of every result runs under it, so what's before and after is in view.
+ */
 function Larger({
   sample,
+  results,
   picked,
-  onBack,
+  isPicked,
+  onClose,
   onStep,
+  onView,
   onToggle,
   onOpenInMobbin
 }: {
   sample: Sample
+  results: Sample[]
   picked: boolean
-  onBack: () => void
+  isPicked: (sample: Sample) => boolean
+  onClose: () => void
   onStep: (by: number) => void
+  onView: (id: string) => void
   onToggle: () => void
   onOpenInMobbin: () => void
 }) {
+  const PlatformIcon = sample.platform === "ios" ? Smartphone : Monitor
+
   return (
     <section aria-label={sample.app} className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ChevronLeft /> Results
-        </Button>
-        <span className="text-sm font-medium">{sample.app}</span>
-        <span className="text-xs text-muted-foreground">{platformNames[sample.platform]}</span>
+      <div className="flex shrink-0 items-center gap-2 border-b p-3">
+        <h3 className="pl-1 text-sm font-medium">{sample.app}</h3>
+        <Badge variant="secondary">
+          <PlatformIcon /> {platformNames[sample.platform]}
+        </Badge>
         <div className="ml-auto flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onOpenInMobbin}>
             <ExternalLink /> Open in Mobbin
@@ -592,6 +608,9 @@ function Larger({
           <Button variant={picked ? "secondary" : "outline"} size="sm" aria-pressed={picked} onClick={onToggle}>
             {picked && <Check />} {picked ? "Picked" : "Pick"}
           </Button>
+          <IconButton label="Close" shortcut="Esc" size="icon" onClick={onClose}>
+            <X />
+          </IconButton>
         </div>
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center gap-3 bg-muted/40 p-4 dark:bg-muted/20">
@@ -603,14 +622,65 @@ function Larger({
             key={sample.id}
             screen={sample}
             className="rounded-lg border shadow-md"
-            style={sample.platform === "ios" ? { height: "100%" } : { width: "100%", maxWidth: 900 }}
+            style={sample.platform === "ios" ? { height: "100%" } : { width: "100%", maxWidth: 820 }}
           />
         </div>
         <IconButton label="Next screen" shortcut="→" size="icon" onClick={() => onStep(1)}>
           <ChevronRight />
         </IconButton>
       </div>
+      <Filmstrip results={results} current={sample.id} isPicked={isPicked} onView={onView} />
     </section>
+  )
+}
+
+/** Every result in a row under the one shown larger: the current one outlined, the picked ones checked. */
+function Filmstrip({
+  results,
+  current,
+  isPicked,
+  onView
+}: {
+  results: Sample[]
+  current: string
+  isPicked: (sample: Sample) => boolean
+  onView: (id: string) => void
+}) {
+  const strip = useRef<HTMLUListElement>(null)
+
+  // Keeps the current screen in the middle of the strip as the arrows move through.
+  useEffect(() => {
+    strip.current?.querySelector("[aria-current]")?.scrollIntoView({ inline: "center", block: "nearest" })
+  }, [current])
+
+  return (
+    <ul ref={strip} aria-label="All results" className="flex shrink-0 gap-2 overflow-x-auto border-t p-3">
+      {results.map((each) => (
+        <li key={each.id} className="relative shrink-0">
+          <button
+            type="button"
+            aria-label={each.app}
+            aria-current={each.id === current ? "true" : undefined}
+            onClick={() => onView(each.id)}
+            className="block rounded-md opacity-60 outline-none hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 aria-[current]:opacity-100 aria-[current]:ring-2 aria-[current]:ring-foreground aria-[current]:ring-offset-2 aria-[current]:ring-offset-popover"
+          >
+            <ScreenPicture
+              screen={each}
+              className="rounded-md border"
+              style={{ height: each.platform === "ios" ? 72 : 56 }}
+            />
+          </button>
+          {isPicked(each) && (
+            <span
+              className="pointer-events-none absolute top-1 left-1 grid size-3.5 place-items-center rounded-full outline outline-current"
+              style={chipColors.layer}
+            >
+              <Check className="size-2.5" strokeWidth={3.5} />
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
   )
 }
 

@@ -70,8 +70,10 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   although the API's is `deep`, because deep is the search Mobbin charges for.
 - **A click picks a screen, and picks carry across searches,** so you can gather a web page and a phone paywall in one
   go. The button says how many: "Place 3 on canvas". Ctrl+Enter places them too.
-- **A double-click, or a screen's corner button, shows it larger,** with Open in Mobbin and Pick. The arrow keys move
-  through the results, and Esc goes back to them.
+- **A double-click, or a screen's corner button, shows it larger,** in place of the search and its results. Its bar has
+  the app's name, its platform as a badge, Open in Mobbin, Pick, and an X that closes it, as Esc does. A strip of every
+  result runs underneath, the current one outlined and the picked ones checked, and a click or the arrow keys moves
+  through them.
 - **More results** asks again without the screens already shown. When a pull comes back short there are no more, and the
   browser says to describe it another way.
 - **When a search can't answer** it says which of four things happened: nothing matches, with a button to try the other
