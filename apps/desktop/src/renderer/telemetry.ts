@@ -7,6 +7,7 @@ import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { readTelemetryRun } from "../shared/telemetry-run.ts"
 import { bitmapAttachment, framesAttachment, framesOnScreen, onFailedRender } from "./canvas/frames-on-screen.ts"
+import { consoleCallStack, loggedByProject } from "./console-breadcrumbs.ts"
 
 /**
  * Scrubs secrets from what this window sends before it leaves, and main scrubs them again (PAR-621), the open projects'
@@ -25,10 +26,16 @@ export function startTelemetry(options: Parameters<typeof Sentry.init>[0] = {}):
   // Named on each event, since this window's scope is copied into main's: the editor window, or an offscreen renderer.
   const kind = location.pathname.endsWith("/render.html") ? "render" : "renderer"
   window.parityTelemetry?.onSecrets((secrets) => scrubber.use(secrets))
+  const scrubbing = sentryScrubbing(scrubber, Sentry)
   Sentry.init({
     ...options,
     allowUrls: [location.origin],
-    ...sentryScrubbing(scrubber, Sentry),
+    ...scrubbing,
+    // What the project's own code logs is the project's, so only Parity's console calls become breadcrumbs (PAR-814).
+    beforeBreadcrumb: (breadcrumb) =>
+      breadcrumb.category === "console" && loggedByProject(consoleCallStack(), location.origin)
+        ? null
+        : scrubbing.beforeBreadcrumb(breadcrumb),
     beforeSend: (event, hint) => {
       // An error says which frames were on the canvas (PAR-624).
       const frames = framesOnScreen()
