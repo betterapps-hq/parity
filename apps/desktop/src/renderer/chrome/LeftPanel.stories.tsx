@@ -88,8 +88,8 @@ export const ComponentsTab: Story = { loaders: [openOn("components")] }
 /** The Icons tab open. */
 export const IconsTab: Story = { loaders: [openOn("icons")] }
 
-/** The Images tab open. */
-export const ImagesTab: Story = { loaders: [openOn("images")] }
+/** The Media tab open. */
+export const MediaTab: Story = { loaders: [openOn("media")] }
 
 /** The Tokens tab open. */
 export const TokensTab: Story = { loaders: [openOn("tokens")] }

@@ -75,7 +75,7 @@ const extras: Item[] = [
     label: "Clear bitmap cache",
     run: () => void clearBitmapCache()
   },
-  ...(["icons", "images", "tokens"] as const).map((tab): Item => ({
+  ...(["icons", "media", "tokens"] as const).map((tab): Item => ({
     id: `action:show-${tab}`,
     group: "View",
     label: `Show ${tab[0]!.toUpperCase()}${tab.slice(1)}`,

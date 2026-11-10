@@ -48,6 +48,8 @@ export * from "./layers-tree.ts"
 
 export * from "./locking.ts"
 
+export * from "./media-wall.ts"
+
 export * from "./move-layers.ts"
 
 export * from "./move-resize.ts"

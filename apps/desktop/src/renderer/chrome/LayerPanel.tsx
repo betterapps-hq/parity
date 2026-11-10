@@ -64,6 +64,7 @@ import { formatKeys } from "./keys.ts"
 import { layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
+import { PhotoCredit } from "./PhotoCredit.tsx"
 import { type PropValue, readPropValue, textValue, valueKind } from "./prop-values.ts"
 import { PropsSection } from "./PropsSection.tsx"
 import { revealSelection } from "./reveal.ts"
@@ -987,15 +988,7 @@ function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode 
           }
         />
       </Field>
-      {node.credit && (
-        <p className="-mt-1 ml-24 text-xs text-muted-foreground">
-          Photo by{" "}
-          <a href={node.credit.url} target="_blank" rel="noreferrer" className="text-foreground hover:underline">
-            {node.credit.name}
-          </a>
-          {node.credit.source ? ` on ${node.credit.source}` : ""}
-        </p>
-      )}
+      {node.credit && <PhotoCredit credit={node.credit} className="-mt-1 ml-24" />}
     </PanelSection>
   )
 }

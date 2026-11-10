@@ -1,6 +1,7 @@
 import type { DesignNode } from "@parity-app/core"
 import {
   designOfImages,
+  type DroppedImage,
   dropLabel,
   fileBaseName,
   type HereLayout,
@@ -64,13 +65,17 @@ export function fileDropAt(session: ProjectSession, area: ParentNode, point: Poi
   return at ? { kind: "canvas", at } : { kind: "none" }
 }
 
+/** An image file saved into the project: the layer that shows it, and the file's name as it came. */
+export interface SavedImage {
+  node: DesignNode
+  name: string
+}
+
 /**
- * Adds the image files dropped `target`, measured when they were dropped: each saved into the project, then all placed
- * as one undo step and selected. Files that aren't images Parity takes, or are too large, are skipped with a message
- * naming them, and so are any that fail to save.
+ * The image files among `files` that Parity takes, in the order they came. The rest, which aren't images or are too
+ * large, are named in a message with why.
  */
-export async function dropFiles(session: ProjectSession, target: FileDrop, files: readonly File[]): Promise<void> {
-  const { store, selection } = session
+function takenFrom(files: readonly File[]): DroppedImage[] {
   const { images, skipped } = sortDrop(files)
   const message = skippedMessage(skipped)
 
@@ -78,22 +83,23 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
     toast.warning(message.title, { description: message.description })
   }
 
-  if (images.length === 0) {
-    return
-  }
+  return images
+}
 
-  if (target.kind === "none") {
-    toast.info("There's no layout here to drop into")
-
-    return
-  }
-
+/**
+ * Saves image files into the project, saying so while it does. One at a time, in the order given: each is read whole
+ * before it's sent, so a folder of large photos isn't all in memory at once, and the same image given twice reuses the
+ * file the first one saved. Any that fail to save are named in a message, and the rest are returned.
+ */
+async function saveImages(
+  session: ProjectSession,
+  files: readonly File[],
+  images: readonly DroppedImage[]
+): Promise<SavedImage[]> {
   const progress = toast.loading(images.length === 1 ? "Adding the image…" : `Adding ${images.length} images…`)
-  const added: { node: DesignNode; name: string }[] = []
+  const added: SavedImage[] = []
   const failed: { name: string; error: unknown }[] = []
 
-  // One at a time, in the order dropped: each is read whole before it's sent, so a folder of large photos isn't all in
-  // memory at once, and the same image dropped twice reuses the file the first one saved.
   for (const { index, type } of images) {
     const file = files[index]!
 
@@ -119,6 +125,40 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
   } else {
     toast.dismiss(progress)
   }
+
+  return added
+}
+
+/**
+ * Adds image files to the project without placing them, as dropping them on the Media tab does (PAR-838): each is
+ * saved under `public/images/`, and what was saved comes back. Files that aren't taken, or fail to save, are named.
+ */
+export async function addImageFiles(session: ProjectSession, files: readonly File[]): Promise<SavedImage[]> {
+  const images = takenFrom(files)
+
+  return images.length === 0 ? [] : saveImages(session, files, images)
+}
+
+/**
+ * Adds the image files dropped `target`, measured when they were dropped: each saved into the project, then all placed
+ * as one undo step and selected. Files that aren't images Parity takes, or are too large, are skipped with a message
+ * naming them, and so are any that fail to save.
+ */
+export async function dropFiles(session: ProjectSession, target: FileDrop, files: readonly File[]): Promise<void> {
+  const { store, selection } = session
+  const images = takenFrom(files)
+
+  if (images.length === 0) {
+    return
+  }
+
+  if (target.kind === "none") {
+    toast.info("There's no layout here to drop into")
+
+    return
+  }
+
+  const added = await saveImages(session, files, images)
 
   if (added.length === 0) {
     return
