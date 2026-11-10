@@ -20,8 +20,9 @@ export interface DetectionInputs {
 }
 
 /**
- * What detection reads of the project at `root` now. Throws when its package.json is missing or can't be read, as
- * while an editor or package manager rewrites it, so a moment without it never reads as a change.
+ * What detection reads of the project at `root` now. Throws when its package.json is missing or can't be read, or its
+ * components.json is there but can't be read, as while an editor or package manager rewrites them, so a moment
+ * without them never reads as a change.
  */
 export async function detectionInputs(root: string): Promise<DetectionInputs> {
   const manifest = (await readPackage(root))?.manifest
@@ -30,7 +31,14 @@ export async function detectionInputs(root: string): Promise<DetectionInputs> {
     throw new Error(`There's no package.json in ${root}`)
   }
 
-  const shadcn = await shadcnConfig(root, [])
+  const problems: string[] = []
+  const shadcn = await shadcnConfig(root, problems)
+
+  // A components.json there but unreadable is caught mid-write, not taken away.
+  if (problems.length > 0) {
+    throw new Error(problems.join("; "))
+  }
+
   const { styles, packageStyles } = await stylesWith(root, shadcn, [])
   const entry = await htmlEntry(root)
 

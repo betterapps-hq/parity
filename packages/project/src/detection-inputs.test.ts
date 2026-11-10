@@ -71,4 +71,12 @@ describe("detectionInputs", () => {
     await rm(join(root, "package.json"))
     await expect(detectionInputs(root)).rejects.toThrow("There's no package.json")
   })
+
+  it("fails while components.json is half-written, though one that isn't there is no failure", async () => {
+    const before = await detectionInputs(root)
+    await write("components.json", '{ "tailwind": { "css": "src/sty')
+    await expect(detectionInputs(root)).rejects.toThrow("Couldn't load components")
+    await rm(join(root, "components.json"))
+    expect((await detectionInputs(root)).key).toBe(before.key)
+  })
 })

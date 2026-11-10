@@ -590,6 +590,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     projects.set(root, project)
+    // What detection read was taken before the watcher started, so a change made while the project opened is caught.
+    void tellDetectionChanged(project)
     logNote(`[service] ${info.name}: ${renderer.name} via ${builder.name} ${session.toolVersion} at ${info.guestUrl}`)
 
     for (const tool of [detection.packageManager, ...detection.tools]) {

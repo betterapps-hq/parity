@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -48,12 +49,19 @@ interface Failures {
   start?: Error
 }
 
+/** What a test runs as the fake builder starts. */
+interface BuilderHooks {
+  /** Runs as the builder starts, once detection has read the project. */
+  starting?: () => void
+}
+
 /** A builder that serves at the port it's given, and what it was asked. */
 function fakeBuilder() {
   const started: number[] = []
   const closed: string[] = []
   const crashes: Parameters<ProjectAdapters["startBuilder"]>[1]["onCrash"][] = []
   const failures: Failures = {}
+  const hooks: BuilderHooks = {}
 
   const builder: BuilderAdapter = {
     id: "fake",
@@ -68,6 +76,7 @@ function fakeBuilder() {
   const startBuilder: ProjectAdapters["startBuilder"] = (options, { onCrash }) => {
     const port = options.port!
     started.push(port)
+    hooks.starting?.()
     crashes.push(onCrash)
 
     const session: BuilderProcessSession = {
@@ -94,7 +103,7 @@ function fakeBuilder() {
     failures[at] = error
   }
 
-  return { builder, startBuilder, started, closed, crash, fail }
+  return { builder, startBuilder, started, closed, crash, fail, hooks }
 }
 
 /** A watcher whose changes the test reports, as `fs.watch` reports them: names relative to the folder. */
@@ -413,6 +422,14 @@ describe("an open project's files", () => {
     await projects.close(root)
     expect((await projects.open(root)).notes).toContain("styles from components.json: src/styles/app.css")
     expect(await projects.detectAgain(root)).toBe(false)
+  })
+
+  it("tell the windows when what detection reads changed while the project opened", async () => {
+    const { projects, detectionChanged, builder } = setUp()
+    builder.hooks.starting = () =>
+      writeFileSync(join(root, "components.json"), JSON.stringify({ tailwind: { css: "src/styles/app.css" } }))
+    await projects.open(root)
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
   })
 
   it("aren't saved outside the project, even in a sibling folder whose name starts with the root's", async () => {
