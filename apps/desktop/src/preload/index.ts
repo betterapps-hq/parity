@@ -180,17 +180,8 @@ const host: CanvasHost = {
   },
   connectors: {
     get: () => invoke(ipc.connectorsState),
-    subscribe: (listener) => {
-      const changed = (_event: Electron.IpcRendererEvent, states: Parameters<typeof listener>[0]) => listener(states)
-      ipcRenderer.on(ipc.connectorsChanged, changed)
-
-      return () => {
-        ipcRenderer.removeListener(ipc.connectorsChanged, changed)
-      }
-    },
     search: (search) => invoke(ipc.connectorsSearch, search),
-    setKey: (connector, key) => invoke(ipc.connectorsSetKey, { connector, key }),
-    clearKey: (connector) => invoke<void>(ipc.connectorsClearKey, connector),
+    recent: () => invoke(ipc.connectorsRecent),
     picked: (found) => invoke<void>(ipc.connectorsPicked, found)
   },
   initialProject: process.argv

@@ -1,45 +1,56 @@
-import type {
-  Access,
-  Connector,
-  Fetch,
-  FindKind,
-  Found,
-  ProblemAnswer,
-  SearchAnswer,
-  SearchRequest
+import {
+  type Access,
+  type CheckedRequest,
+  checkRequest,
+  type Connector,
+  type Fetch,
+  type Found,
+  type ProblemAnswer,
+  type RecentSearch,
+  type SearchAnswer,
+  type SearchRequest
 } from "@parity-app/connectors"
-import type { ConnectorState, KeySource, SetKeyAnswer } from "../shared/connectors.ts"
-import type { KeyStore } from "./connector-keys.ts"
+import type { ConnectorState, KeySource } from "../shared/connectors.ts"
+import type { SearchHistory } from "./search-history.ts"
 
 export interface ConnectorHubOptions {
   connectors: readonly Connector[]
-  keys: KeyStore
-  /** Keys set in the environment, by connector id, which win over saved ones, as in a development copy. */
-  environment: Readonly<Record<string, string | undefined>>
+  /**
+   * Keys by connector id, which the app's owner arranges: a development copy sets them in the environment. People never
+   * enter one.
+   */
+  keys: Readonly<Record<string, string>>
   fetch: Fetch
   /** A service that searches some connectors with keys of its own, used for those without a key here. */
   service?: SearchService
+  /** Where the person's recent searches are kept. */
+  history: SearchHistory
   /** How long a search may take before it's given up, in milliseconds. Deep searches take several seconds. */
   timeout: number
-  /** Tells the windows what changed. */
-  changed(states: ConnectorState[]): void
-  /** Every key's value, whenever they change, to scrub from telemetry. */
+  /**
+   * How many searches each connector runs a minute, so a loop in an agent or a window can't spend a source's allowance,
+   * or the credits of the plan behind its key, on its own.
+   */
+  budget: number
+  /** The keys' values, as Parity starts, to scrub from telemetry. */
   secrets(values: string[]): void
   /** How a search ended, for `connectors.searched`. */
   searched(search: Searched): void
-  /** Milliseconds from a fixed point, to time searches. */
+  /** Milliseconds from a fixed point, to time searches and keep to the budget. */
   now(): number
+  /** Milliseconds since the epoch, for when a recent search was run. */
+  date(): number
 }
 
 /**
- * A service that runs connectors' searches with keys it holds, so a shipped copy can search a source without the person
- * bringing a key, as Parity's own service is planned to for Unsplash (decisions.md). It runs the same adapters, so its
- * answers are the same shape, and the hub sends it a search just as it would run one itself.
+ * A service that runs connectors' searches with keys it holds, so a shipped copy can search a source without a key of
+ * its own, as Parity's own service is planned to (decisions.md). It runs the same adapters, so its answers are the same
+ * shape, and the hub sends it a search just as it would run one itself.
  */
 export interface SearchService {
   /** The connectors it searches, by id. */
   connectors: readonly string[]
-  search(connector: string, request: SearchRequest): Promise<SearchAnswer>
+  search(connector: string, request: CheckedRequest): Promise<SearchAnswer>
   picked(found: Found): Promise<void>
 }
 
@@ -51,7 +62,7 @@ export interface Searched {
   connector: string
   from: SearchedFrom
   kind: string
-  /** The filters it named, which are each connector's own values, never what was typed. */
+  /** Every filter's value it ran with, which are the connector's own, never what was typed. */
   filters?: Record<string, string>
   found?: number
   problem?: string
@@ -59,26 +70,30 @@ export interface Searched {
 }
 
 export interface ConnectorHub {
-  states(): Promise<ConnectorState[]>
+  states(): ConnectorState[]
   /** Runs a search on a connector with its key. Never throws: a failure is a problem in the answer. */
   search(connector: string, request: SearchRequest, from: SearchedFrom): Promise<SearchAnswer>
   /**
-   * Searches the first connector that finds the request's kind and has a key, here or with the service, or the first
-   * that finds it when none has, which asks for one. Agents search this way: by what they need, not by source.
+   * Searches by what's needed rather than by source, as agents do: the connector named, or the first that finds the
+   * request's kind, takes every filter it names and has a key, here or with the service. When none has a key, the first
+   * that would take it answers why it can't search.
    */
-  find(request: SearchRequest, from: SearchedFrom): Promise<SearchAnswer>
+  find(request: SearchRequest, from: SearchedFrom, connector?: string): Promise<SearchAnswer>
+  /** The person's recent searches, newest first. */
+  recent(): Promise<RecentSearch[]>
   /**
-   * Checks a key with the connector's smallest search, then keeps it. A key the source turns down, or whose plan
-   * doesn't include searching, isn't kept. One that couldn't be checked, as when the source didn't answer, is kept,
-   * with why.
+   * Tells the source someone used a result, for a connector whose terms ask for it. Only a result this hub gave lately
+   * is reported, from its own copy, so nothing else can report uses in Parity's name.
    */
-  setKey(connector: string, key: string): Promise<SetKeyAnswer>
-  clearKey(connector: string): Promise<void>
-  /** Tells the source someone picked a result, for a connector whose terms ask for it. */
   picked(found: Found): Promise<void>
-  /** Reads the keys as Parity starts, so their values are scrubbed from telemetry before anything is sent. */
-  start(): Promise<void>
+  /** Gives the keys' values to scrub from telemetry, as Parity starts, before anything is sent. */
+  start(): void
 }
+
+/** How many results the hub remembers it gave, for `picked`. */
+const givenLimit = 500
+
+const minute = 60_000
 
 /**
  * The connectors as main runs them (PAR-829): it holds their keys, and runs every search for the window and for agents,
@@ -86,31 +101,15 @@ export interface ConnectorHub {
  */
 export function createConnectorHub(options: ConnectorHubOptions): ConnectorHub {
   const byId = new Map(options.connectors.map((connector) => [connector.info.id, connector]))
+  const spent = new Map<string, number[]>()
+  const given = new Map<string, Found>()
 
-  const keyOf = async (id: string): Promise<{ key?: string; source: KeySource }> => {
-    const fromEnvironment = options.environment[id]
-
-    if (fromEnvironment) {
-      return { key: fromEnvironment, source: "environment" }
+  const sourceOf = (connector: Connector): KeySource => {
+    if (connector.info.auth.type === "none" || options.keys[connector.info.id]) {
+      return "here"
     }
 
-    const kept = (await options.keys.read())[id]
-
-    if (kept) {
-      return kept
-    }
-
-    return options.service?.connectors.includes(id) ? { source: "service" } : { source: "none" }
-  }
-
-  const states = async () =>
-    Promise.all(options.connectors.map(async ({ info }) => ({ ...info, key: (await keyOf(info.id)).source })))
-
-  const announce = async () => {
-    const kept = await options.keys.read()
-    const values = [...Object.values(kept).map(({ key }) => key), ...Object.values(options.environment)]
-    options.secrets(values.filter((value): value is string => !!value))
-    options.changed(await states())
+    return options.service?.connectors.includes(connector.info.id) ? "service" : "none"
   }
 
   const unknown = (id: string): ProblemAnswer => ({
@@ -121,12 +120,9 @@ export function createConnectorHub(options: ConnectorHubOptions): ConnectorHub {
     }
   })
 
-  const nothingFinds = (kind: FindKind): ProblemAnswer => ({
-    problem: { code: "invalid", message: `No connector in Parity finds ${kind}.`, field: "kind" }
-  })
-
-  const accessWith = (key: string | undefined): Access => {
+  const accessFor = (connector: Connector): Access => {
     const access: Access = { fetch: options.fetch, signal: AbortSignal.timeout(options.timeout) }
+    const key = options.keys[connector.info.id]
 
     if (key) {
       access.key = key
@@ -135,90 +131,131 @@ export function createConnectorHub(options: ConnectorHubOptions): ConnectorHub {
     return access
   }
 
-  const run = async (connector: Connector, request: SearchRequest, key: string | undefined) =>
-    connector.search(request, accessWith(key))
+  /** A problem when the connector has run its budget, counting this search otherwise. */
+  const overBudget = (connector: Connector): ProblemAnswer | undefined => {
+    const now = options.now()
+    const recent = (spent.get(connector.info.id) ?? []).filter((at) => now - at < minute)
 
-  /** Runs a search here with the key, or sends it to the service when that's where the key is. */
-  const searchWith = async (connector: Connector, request: SearchRequest) => {
-    const { key, source } = await keyOf(connector.info.id)
+    if (recent.length >= options.budget) {
+      spent.set(connector.info.id, recent)
+      const wait = Math.max(1, Math.ceil((minute - (now - (recent[0] ?? now))) / 1000))
+      const seconds = wait === 1 ? "1 second" : `${wait} seconds`
 
-    return source === "service" && options.service
+      return {
+        problem: {
+          code: "rate-limited",
+          message: `Parity runs up to ${options.budget} ${connector.info.name} searches a minute. Try again in ${seconds}.`,
+          retryAfter: wait
+        }
+      }
+    }
+
+    spent.set(connector.info.id, [...recent, now])
+
+    return undefined
+  }
+
+  const run = async (connector: Connector, request: CheckedRequest): Promise<SearchAnswer> => {
+    const limited = overBudget(connector)
+
+    if (limited) {
+      return limited
+    }
+
+    return sourceOf(connector) === "service" && options.service
       ? options.service.search(connector.info.id, request)
-      : run(connector, request, key)
+      : connector.search(request, accessFor(connector))
+  }
+
+  const remember = (found: readonly Found[]) => {
+    for (const each of found) {
+      const id = `${each.connector}:${each.id}`
+      given.delete(id)
+      given.set(id, each)
+    }
+
+    for (const id of given.keys()) {
+      if (given.size <= givenLimit) {
+        break
+      }
+
+      given.delete(id)
+    }
   }
 
   const search: ConnectorHub["search"] = async (id, request, from) => {
     const started = options.now()
     const connector = byId.get(id)
-    const answer = connector ? await searchWith(connector, request) : unknown(id)
+    const checked = connector ? checkRequest(connector.info, request) : unknown(id)
+    const sent = connector && "request" in checked ? checked.request : undefined
+    let answer: SearchAnswer = "problem" in checked ? checked : unknown(id)
+
+    if (connector && sent) {
+      answer = await run(connector, sent)
+    }
 
     const searched: Searched = { connector: id, from, kind: request.kind, ms: options.now() - started }
 
-    if (request.filters && Object.keys(request.filters).length > 0) {
-      searched.filters = request.filters
+    if (sent && Object.keys(sent.filters).length > 0) {
+      searched.filters = sent.filters
     }
 
     if ("found" in answer) {
       searched.found = answer.found.length
+      remember(answer.found)
     } else {
       searched.problem = answer.problem.code
     }
 
     options.searched(searched)
 
+    if (from === "window" && sent && "found" in answer) {
+      const { query, kind, filters } = sent
+
+      // A recent search is a convenience: one that can't be kept doesn't fail the search.
+      await options.history.add({ connector: id, kind, query, filters, at: options.date() }).catch(() => undefined)
+    }
+
     return answer
   }
 
   return {
-    states,
+    states: () => options.connectors.map((connector) => ({ ...connector.info, key: sourceOf(connector) })),
     search,
-    async find(request, from) {
+    async find(request, from, named) {
+      if (named) {
+        return search(named, request, from)
+      }
+
       const finding = options.connectors.filter(({ info }) => info.finds.includes(request.kind))
-      const sources = await Promise.all(finding.map(async ({ info }) => (await keyOf(info.id)).source))
-      const id = finding[sources.findIndex((source) => source !== "none")]?.info.id ?? finding[0]?.info.id
+      // Ones that take every filter named, so a filter only one source has picks that source.
+      const taking = finding.filter((connector) => !("problem" in checkRequest(connector.info, request)))
+      const choices = taking.length > 0 ? taking : finding
+      const chosen = choices.find((connector) => sourceOf(connector) !== "none") ?? choices[0]
 
-      return id ? search(id, request, from) : nothingFinds(request.kind)
-    },
-    async setKey(id, key) {
-      const connector = byId.get(id)
-
-      if (!connector) {
-        return unknown(id)
+      if (!chosen) {
+        return { problem: { code: "invalid", message: `No connector in Parity finds ${request.kind}.`, field: "kind" } }
       }
 
-      const probed = await run(connector, connector.probe, key)
-
-      if ("problem" in probed && (probed.problem.code === "key-refused" || probed.problem.code === "no-access")) {
-        return probed
-      }
-
-      const source = await options.keys.set(id, key)
-      await announce()
-
-      // The environment's key still wins, so the window says so rather than that the new one is used.
-      const used = options.environment[id] ? "environment" : source
-
-      return "problem" in probed ? { key: used, problem: probed.problem } : { key: used }
+      return search(chosen.info.id, request, from)
     },
-    async clearKey(id) {
-      await options.keys.clear(id)
-      await announce()
-    },
-    async picked(found) {
-      const connector = byId.get(found.connector)
+    recent: () => options.history.list(),
+    async picked(used) {
+      const connector = byId.get(used.connector)
+      const found = given.get(`${used.connector}:${used.id}`)
 
-      if (!connector?.picked) {
+      if (!connector?.picked || !found) {
         return
       }
 
-      const { key, source } = await keyOf(connector.info.id)
-
-      if (source === "service" && options.service) {
+      if (sourceOf(connector) === "service" && options.service) {
         await options.service.picked(found)
       } else {
-        await connector.picked(found, accessWith(key))
+        await connector.picked(found, accessFor(connector))
       }
     },
-    start: announce
+    start() {
+      options.secrets(Object.values(options.keys).filter(Boolean))
+    }
   }
 }

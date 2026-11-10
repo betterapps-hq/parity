@@ -8,7 +8,7 @@ import type {
 import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
 import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
-import type { Found, SearchAnswer } from "@parity-app/connectors"
+import type { Found, RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type {
   CanvasDocument,
   ChangeConflict,
@@ -30,7 +30,7 @@ import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-ap
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
-import type { ConnectorSearch, ConnectorState, SetKeyAnswer } from "./connectors.ts"
+import type { ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
 
 /**
@@ -448,17 +448,15 @@ export interface CanvasHost {
     use: (email: string) => Promise<void>
   }
   /**
-   * Connectors to outside services, such as Mobbin (PAR-829). Main holds their keys and runs every search; the window
-   * sees where a key comes from, never the key.
+   * Connectors to outside services, such as Mobbin (PAR-829). Main holds their keys, which the app's owner arranges,
+   * and runs every search; the window sees whether this copy can search each one, never a key.
    */
   connectors: {
     get: () => Promise<ConnectorState[]>
-    subscribe: (listener: (states: ConnectorState[]) => void) => () => void
-    /** Never fails: a failure is a problem in the answer. */
+    /** Never fails: a failure is a problem in the answer. A search that works joins the person's recent searches. */
     search: (search: ConnectorSearch) => Promise<SearchAnswer>
-    /** Checks the key with the connector's smallest search, then keeps it, encrypted, in the app's data. */
-    setKey: (connector: string, key: string) => Promise<SetKeyAnswer>
-    clearKey: (connector: string) => Promise<void>
+    /** The person's recent searches, newest first. */
+    recent: () => Promise<RecentSearch[]>
     /**
      * Tells the source a result was used, as when a photo is placed, for a source whose terms ask for it. Call it once
      * per use; it never fails.

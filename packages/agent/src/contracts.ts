@@ -99,6 +99,13 @@ const tabDescription =
   'current folder is in, else "active".'
 
 const tab = text("tab", tabDescription).optional()
+
+/** Which source a search for screens or photos asks, by its connector's id. Without one, any that finds the kind. */
+const connector = z
+  .string("connector must be a connector's id, such as mobbin")
+  .optional()
+  .describe("Source, as mobbin. Defaults to any.")
+
 const design = text("design", "Design id or name.")
 const scaleMessage = "scale must be a finite number from 0.25 to 3"
 const scale = z.number(scaleMessage).min(0.25, scaleMessage).max(3, scaleMessage).default(1).describe("Pixel density.")
@@ -233,11 +240,18 @@ export const requests = {
   }),
   references: fields({
     tab,
-    query: text("query", 'One screen: its type, then up to three parts it shows, as "paywall with a free trial".'),
-    platform: z.enum(["ios", "web"], "platform must be ios or web").default("web"),
+    query: text(
+      "query",
+      'One screen: its type, then up to three parts, as "paywall with a free trial". No platform, style words or negations. Name an app for only its screens.'
+    ),
+    connector,
+    platform: z
+      .enum(["ios", "web"], "platform must be ios or web")
+      .optional()
+      .describe("ios for phone apps. Defaults to web."),
     depth: z
       .enum(["standard", "deep"], "depth must be standard or deep")
-      .default("standard")
+      .optional()
       .describe("deep keeps strong matches, for searches with parts; it spends Mobbin AI credits."),
     limit: limit("Most screens.", 6, 20),
     exclude: z
@@ -249,6 +263,7 @@ export const requests = {
   photos: fields({
     tab,
     query: text("query", 'One subject, as "desk by a window".'),
+    connector,
     orientation: z
       .enum(["landscape", "portrait", "squarish"], "orientation must be landscape, portrait or squarish")
       .optional(),
@@ -262,7 +277,7 @@ export const requests = {
     page: z
       .int("page must be a whole number")
       .min(1, "page must be 1 or more")
-      .default(1)
+      .optional()
       .describe("Next page, for more.")
   }),
   exec: z.union([
@@ -718,6 +733,7 @@ const reportReply = z.looseObject({
  */
 const foundItem = z.looseObject({
   id: z.string().describe("The source's id, which exclude takes."),
+  connector: z.string().describe("The connector that found it, which connector takes: mobbin, unsplash."),
   source: z.string().describe("Where it's from: Mobbin, Unsplash."),
   title: z.string().describe("The app's name, or what a photo shows."),
   platform: z.enum(["ios", "web"]).optional(),
@@ -747,11 +763,16 @@ const foundReply = z.looseObject({
     .describe("Searches the source allows before turning them away, when it says."),
   problem: z
     .looseObject({
-      code: z.string().describe("no-key, key-refused, no-access, rate-limited, invalid or unavailable."),
+      code: z
+        .string()
+        .describe(
+          "no-key, key-refused, no-access, rate-limited, invalid or unavailable. Only invalid is yours to fix."
+        ),
       message: z.string(),
       retryAfter: number.optional().describe("Seconds to wait before searching again.")
     })
-    .optional()
+    .optional(),
+  done: z.boolean().optional().describe("True when more of a search was asked for and there's no more.")
 })
 
 /**

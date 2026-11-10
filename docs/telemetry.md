@@ -357,10 +357,9 @@ the account: WorkOS's answer goes as its status and code.
 - **A window that can't find out who's signed in** records `account.stateFailed`, with where main's answer didn't match
   but not the answer itself.
 
-Main records the `connectors.*` events from `main/connectors.ts` and `main/connector-keys.ts` (PAR-829). Each search is
-`connectors.searched`, with its connector, who asked, its filters, and how many it found or why it found nothing, never
-what was searched for. The file that keeps connectors' keys going unreadable is `connectors.storeFailed`, as with
-accounts. Keys are scrubbed from what main sends, and never reach a window or the service.
+Main records `connectors.searched` from `main/connectors.ts` (PAR-829) for each search: its connector, who asked, every
+filter it ran with, and how many it found or why it found nothing, never what was searched for. Keys are scrubbed from
+what main sends, and never reach a window or the service.
 
 ## Levels and sampling
 
@@ -448,7 +447,6 @@ Some failures are recorded for you, so code doesn't record them again:
 | `command.ran`             | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                                    |
 | `component.changed`       | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                     |
 | `connectors.searched`     | info  | all  | main                                    | A connector's search ends, with what it found or why it found nothing.                                            |
-| `connectors.storeFailed`  | warn  | all  | main                                    | The file that keeps connectors' keys can't be read or written.                                                    |
 | `data.invalid`            | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                           |
 | `dialog.opened`           | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                               |
 | `document.conflicted`     | warn  | all  | renderer                                | A design file changes on disk while it has unsaved changes here, which are kept until the person chooses.         |
@@ -731,24 +729,15 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `connectors.searched`
 
-| Attribute   | Type                  | Meaning                                                                                         |
-| ----------- | --------------------- | ----------------------------------------------------------------------------------------------- |
-| `connector` | `string`              | The connector searched, such as `mobbin`                                                        |
-| `from`      | `"window" \| "agent"` | Who asked: the person in the window, or an agent through the service                            |
-| `kind`      | `string`              | What it searched for: `screens`, `flows`, `sections` or `photos`                                |
-| `filters`   | `object`, optional    | The filters it named, as `{ platform: ios }`: each connector's own values, never what was typed |
-| `found`     | `integer`, optional   | How many results came back, when the search worked                                              |
-| `problem`   | `string`, optional    | Why it found nothing to show, such as `rate-limited` or `key-refused`, when it didn't work      |
-| `ms`        | `number`              | How long the search took, in milliseconds                                                       |
-
-### `connectors.storeFailed`
-
-| Attribute | Type                                                                 | Meaning                                                                                             |
-| --------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `action`  | `"read" \| "write"`                                                  | Whether Parity was reading the kept keys or writing them                                            |
-| `stage`   | `"file" \| "decrypt" \| "json" \| "schema" \| "reencrypt"`, optional | Where reading failed. A file that can't be decrypted is cleared, so its keys have to be added again |
-| `error`   | `string`                                                             | The error's name, never its message, which can hold what was decrypted                              |
-| `code`    | `string`, optional                                                   | The system error code, as `EPERM`, when there is one                                                |
+| Attribute   | Type                  | Meaning                                                                                                    |
+| ----------- | --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `connector` | `string`              | The connector searched, such as `mobbin`                                                                   |
+| `from`      | `"window" \| "agent"` | Who asked: the person in the window, or an agent through the service                                       |
+| `kind`      | `string`              | What it searched for: `screens`, `flows`, `sections` or `photos`                                           |
+| `filters`   | `object`, optional    | Every filter's value it ran with, as `{ platform: ios }`: the connector's own values, never what was typed |
+| `found`     | `integer`, optional   | How many results came back, when the search worked                                                         |
+| `problem`   | `string`, optional    | Why it found nothing to show, such as `rate-limited` or `no-key`, when it didn't work                      |
+| `ms`        | `number`              | How long the search took, in milliseconds                                                                  |
 
 ### `data.invalid`
 

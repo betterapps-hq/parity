@@ -32,7 +32,7 @@ const photo = z.object({
   height: z.int().positive(),
   description: z.string().nullish(),
   alt_description: z.string().nullish(),
-  urls: z.object({ regular: z.url() }),
+  urls: z.object({ regular: z.url(), small: z.url() }),
   links: z.object({ html: z.url() }),
   user: z.object({ name: z.string(), links: z.object({ html: z.url() }) })
 })
@@ -92,13 +92,9 @@ export const unsplash: Connector = {
     ],
     limit: { default: 20, max: 30 },
     more: "page",
-    apiKey: {
-      name: "Access Key",
-      page: "https://unsplash.com/oauth/applications",
-      variable: "PARITY_UNSPLASH_ACCESS_KEY"
-    }
+    // The Access Key of Parity's app on Unsplash.
+    auth: { type: "key", variable: "PARITY_UNSPLASH_ACCESS_KEY" }
   },
-  probe: { query: "desk", kind: "photos", limit: 1 },
   search: searchUnsplash,
   picked: tellUnsplash
 }
@@ -157,6 +153,8 @@ function foundPhoto(each: z.infer<typeof photo>): Found {
     kind: "photos",
     title: each.alt_description || each.description || `Photo by ${each.user.name}`,
     image,
+    // Unsplash's small size is 400 pixels wide.
+    preview: { url: each.urls.small },
     link: withReferral(each.links.html),
     credit: [
       { name: each.user.name, url: withReferral(each.user.links.html) },
@@ -174,7 +172,7 @@ function refused(response: Response, body: string): ProblemAnswer {
   if (response.status === 401) {
     return refusal(
       "key-refused",
-      "Unsplash didn't accept this Access Key. Check it, or copy it again from your app on Unsplash."
+      "Unsplash turned down this copy of Parity's key, so it can't search Unsplash right now."
     )
   }
 
@@ -186,7 +184,7 @@ function refused(response: Response, body: string): ProblemAnswer {
   }
 
   if (response.status === 403) {
-    return refusal("no-access", "Unsplash turned this search down for this app's key.")
+    return refusal("no-access", "Unsplash turned this search down for Parity's key.")
   }
 
   return refusal("unavailable", "Unsplash isn't answering right now. Try again in a moment.")

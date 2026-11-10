@@ -218,10 +218,11 @@ that ([Build an integration](https://docs.mobbin.com/mcp/build-an-integration.md
   by its id. So either Parity keeps a copy of a placed reference's picture, which needs Mobbin's say-so, or it finds the
   screen again by searching for its app and matching the id. Until that's settled, a reference whose picture has expired
   shows its app's name and Open in Mobbin.
-- **Recent searches are kept on this computer, for the person,** in the app's own preferences beside the panel layout:
-  the last five descriptions for each library, each with the filters it last had. They aren't in the project, so they're
-  not shared or committed, and nothing is sent anywhere until one is run again. In the exploration they last only until
-  the story reloads.
+- **Recent searches are kept for the person, by main,** which adds each search that works in the window: the last five
+  descriptions for each library, each with every filter it last ran with. For now they're in a file in the app's data
+  (`recent-searches.json`); once Parity's service keeps them on the person's account, main asks it instead and the
+  window doesn't change. They aren't in the project, so they're not shared or committed. Agents' searches aren't kept.
+  In the exploration they last only until the story reloads.
 
 ## The spike
 

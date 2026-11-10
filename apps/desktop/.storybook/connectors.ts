@@ -61,11 +61,11 @@ async function search(request: IncomingMessage, keys: Record<string, string>): P
 
   const key = keys[connector.info.id]
 
-  if (connector.info.apiKey && !key) {
+  if (connector.info.auth.type === "key" && !key) {
     return {
       problem: {
         code: "no-key",
-        message: `Set ${connector.info.apiKey.variable} in apps/desktop/.env.local, then start Storybook again.`
+        message: `Set ${connector.info.auth.variable} in apps/desktop/.env.local, then start Storybook again.`
       }
     }
   }

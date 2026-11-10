@@ -105,8 +105,9 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             search Mobbin for screens from real apps, one screen per search, with
                                             the key Parity holds; prints each app, link and id, and saves each
                                             preview under ~/.parity/references. --deep reads intent and keeps strong
-                                            matches, spending the person's Mobbin AI credits; --exclude (repeated)
-                                            leaves out screens already seen. Exits with 1 when it can't search
+                                            matches, spending Mobbin AI credits; --exclude (repeated) leaves out
+                                            screens already seen; --connector names the source. Exits with 1 when
+                                            the search itself is wrong or the source fails, not when Parity has no key
   parity photos "<subject>" [--orientation landscape|portrait|squarish] [--color c] [--limit 6] [--page 1]
                                             search Unsplash for stock photos, one subject per search, the same way;
                                             --color keeps to one of Unsplash's colors, as teal or black_and_white,
@@ -158,6 +159,7 @@ const { positionals, values } = parseArgs({
     node: { type: "string" },
     since: { type: "string" },
     session: { type: "string" },
+    connector: { type: "string" },
     platform: { type: "string" },
     deep: { type: "boolean" },
     exclude: { type: "string", multiple: true },
@@ -365,6 +367,7 @@ async function main(): Promise<void> {
         operations.references,
         {
           query: rest.join(" ") || undefined,
+          connector: values.connector,
           platform: values.platform,
           depth: values.deep ? "deep" : undefined,
           limit,
@@ -377,6 +380,7 @@ async function main(): Promise<void> {
         operations.photos,
         {
           query: rest.join(" ") || undefined,
+          connector: values.connector,
           orientation: values.orientation,
           color: values.color,
           limit,

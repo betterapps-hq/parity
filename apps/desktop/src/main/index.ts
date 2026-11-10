@@ -5,7 +5,7 @@ import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
-import { connectors, found, keysFromEnvironment, searchRequest, withoutKeys } from "@parity-app/connectors"
+import { connectors, found, keysFromEnvironment, keyVariable, withoutKeys } from "@parity-app/connectors"
 import {
   CodedError,
   drawsNothing,
@@ -40,7 +40,7 @@ import {
 import { type AccountState, accountEmail, organizationId, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
-import { connectorId, connectorKey, connectorSearch, type ConnectorState } from "../shared/connectors.ts"
+import { connectorFind, connectorSearch } from "../shared/connectors.ts"
 import {
   betaSetting,
   checked,
@@ -71,7 +71,6 @@ import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
-import { keyStore } from "./connector-keys.ts"
 import { createConnectorHub } from "./connectors.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
@@ -85,6 +84,7 @@ import { launchLink, passLink } from "./pass-link.ts"
 import { privateMemory } from "./private-memory.ts"
 import { auditResult, canvasHeightResult, PageError, pageAnswer, pageCall, renderResult } from "./render-results.ts"
 import { createReports, offersCrashReports } from "./report.ts"
+import { localHistory } from "./search-history.ts"
 import { sessionStore } from "./session-store.ts"
 import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
@@ -320,7 +320,11 @@ function startService(): UtilityProcess {
       console: ({ origin, clear }) => consoleLog.read(origin, clear).map(({ id: _id, ...entry }) => entry),
       // Another copy got a sign-in link and asks whether it's this copy's: it answers at once, then trades the code.
       // An agent's search: main holds the keys, so it runs here (PAR-829). The service passes on what an agent sent.
-      connectorFind: (params) => connectorHub.find(parseData(searchRequest, params), "agent"),
+      connectorFind: (params) => {
+        const { connector, request } = parseData(connectorFind, params)
+
+        return connectorHub.find(request, "agent", connector)
+      },
       signInLink: ({ link }) => {
         const taken = account.owns(link)
 
@@ -764,29 +768,37 @@ app.on("open-url", (event, url) => {
 })
 
 /**
- * Connectors to outside services, such as Mobbin (PAR-829). Main keeps their keys, encrypted in the app's data, and runs
- * every search, for the window over IPC and for agents through the service. A development copy can set each key with
- * the variable its connector names, as `PARITY_MOBBIN_API_KEY`.
+ * Connectors' keys, which the app's owner arranges: a development copy sets each with the variable its connector names,
+ * as `PARITY_MOBBIN_API_KEY`. They're read once, then taken out of main's environment, so no process main starts gets
+ * them.
+ */
+const connectorKeys = keysFromEnvironment(process.env)
+
+for (const name of Object.keys(process.env)) {
+  if (keyVariable.test(name)) {
+    delete process.env[name]
+  }
+}
+
+/**
+ * Connectors to outside services, such as Mobbin (PAR-829). Main holds their keys and runs every search, for the window
+ * over IPC and for agents through the service, and keeps the person's recent searches.
  */
 const connectorHub = createConnectorHub({
   connectors,
-  keys: keyStore(join(app.getPath("userData"), "connector-keys"), safeStorage, process.platform, (problem) =>
-    events.telemetry.track("connectors.storeFailed", problem)
-  ),
-  environment: keysFromEnvironment(process.env),
+  keys: connectorKeys,
+  history: localHistory(join(app.getPath("userData"), "recent-searches.json")),
   fetch: (url, init) => net.fetch(url, init),
   timeout: 30_000,
-  changed: (states: ConnectorState[]) => {
-    for (const window of appWindows()) {
-      window.webContents.send(ipc.connectorsChanged, states)
-    }
-  },
+  // Mobbin allows 60 a minute for everyone sharing the key; this keeps one copy's runaway loop to half that.
+  budget: 30,
   secrets: (values) => {
     connectorSecrets = values
     scrubber.use([...projectSecrets, ...connectorSecrets])
   },
   searched: (search) => events.telemetry.track("connectors.searched", search),
-  now: () => performance.now()
+  now: () => performance.now(),
+  date: () => Date.now()
 })
 
 /** Connectors' keys, scrubbed from what main sends to Sentry. Windows never have them, so they aren't sent there. */
@@ -809,23 +821,11 @@ handle(
   })
 )
 
-handle(
-  "connectorsSetKey",
-  checked(connectorKey, (event: Electron.IpcMainInvokeEvent, { connector, key }) => {
-    appWindowOf(event, connectorRefusal)
+handle("connectorsRecent", (event) => {
+  appWindowOf(event, connectorRefusal)
 
-    return connectorHub.setKey(connector, key)
-  })
-)
-
-handle(
-  "connectorsClearKey",
-  checked(connectorId, (event: Electron.IpcMainInvokeEvent, connector) => {
-    appWindowOf(event, connectorRefusal)
-
-    return connectorHub.clearKey(connector)
-  })
-)
+  return connectorHub.recent()
+})
 
 handle(
   "connectorsPicked",
@@ -1547,7 +1547,7 @@ void app.whenReady().then(() => {
   createWindow()
   // The keychain is only ready once the app is.
   void account.restore()
-  void connectorHub.start()
+  connectorHub.start()
   void updates.check()
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

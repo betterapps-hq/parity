@@ -102,13 +102,9 @@ export const mobbin: Connector = {
     ],
     limit: { default: 20, max: 100 },
     more: "exclude",
-    apiKey: {
-      name: "API key",
-      page: "https://mobbin.com/settings/team/api-keys",
-      variable: "PARITY_MOBBIN_API_KEY"
-    }
+    // Made in Mobbin's team settings, under API keys.
+    auth: { type: "key", variable: "PARITY_MOBBIN_API_KEY" }
   },
-  probe: { query: "login screen", kind: "screens", limit: 1 },
   search: searchMobbin
 }
 
@@ -167,17 +163,14 @@ function foundScreen(each: z.infer<typeof screen>): Found {
   }
 }
 
-/** What each of Mobbin's failures means for the person, from its status and, for a bad request, its own words. */
+/** What each of Mobbin's failures means for the person or agent, from its status and, for a bad request, its own words. */
 function refused(response: Response, body: string): ProblemAnswer {
   if (response.status === 401) {
-    return refusal(
-      "key-refused",
-      "Mobbin didn't accept this API key. Check it, or create another in Mobbin's settings."
-    )
+    return refusal("key-refused", "Mobbin turned down this copy of Parity's key, so it can't search Mobbin right now.")
   }
 
   if (response.status === 403) {
-    return refusal("no-access", "Searching from other apps needs a Mobbin Team or Enterprise plan.")
+    return refusal("no-access", "Parity's Mobbin plan doesn't include searching from other apps.")
   }
 
   if (response.status === 429) {
@@ -186,7 +179,7 @@ function refused(response: Response, body: string): ProblemAnswer {
 
     const limited: Problem = {
       code: "rate-limited",
-      message: `Mobbin allows 60 searches a minute for your workspace. Try again ${when}.`
+      message: `Mobbin allows 60 searches a minute. Try again ${when}.`
     }
 
     if (wait !== undefined) {

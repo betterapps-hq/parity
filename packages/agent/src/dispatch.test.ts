@@ -168,9 +168,10 @@ function fixtureHost() {
         found: [
           {
             id: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+            connector: "mobbin",
             source: "Mobbin",
             title: "Calm",
-            platform: request.platform,
+            platform: request.platform ?? "web",
             link: "https://mobbin.com/screens/1b9d6bcd",
             image: "https://images.mobbin.com/a.webp",
             credit: [{ name: "Calm" }, { name: "Mobbin" }],
@@ -501,7 +502,7 @@ describe("exportPictures", () => {
 })
 
 describe("references", () => {
-  it("passes the search on with its defaults: the web, standard depth, six screens, nothing excluded", async () => {
+  it("passes the search on with six screens and nothing excluded, leaving filters to the connector", async () => {
     const fixture = fixtureHost()
     const asked: unknown[] = []
 
@@ -516,12 +517,10 @@ describe("references", () => {
 
     await dispatch("references", { query: "paywall with a free trial" }, host, caller)
 
-    expect(asked).toEqual([
-      { query: "paywall with a free trial", platform: "web", depth: "standard", limit: 6, exclude: [] }
-    ])
+    expect(asked).toEqual([{ query: "paywall with a free trial", limit: 6, exclude: [] }])
   })
 
-  it("passes a photo search on with its defaults: six photos, the first page, and only the filters named", async () => {
+  it("passes a photo search on with its defaults: six photos, and only the filters named", async () => {
     const fixture = fixtureHost()
     const asked: unknown[] = []
 
@@ -536,7 +535,7 @@ describe("references", () => {
 
     await dispatch("photos", { query: "desk", color: "teal" }, host, caller)
 
-    expect(asked).toEqual([{ query: "desk", color: "teal", limit: 6, page: 1 }])
+    expect(asked).toEqual([{ query: "desk", color: "teal", limit: 6 }])
     await expect(dispatch("photos", { query: "desk", color: "beige" }, host, caller)).rejects.toThrow(/color must be/)
   })
 

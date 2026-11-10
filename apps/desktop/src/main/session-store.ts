@@ -56,7 +56,19 @@ export function sessionStore(
   platform: NodeJS.Platform,
   failed: (problem: StoreProblem) => void = () => undefined
 ): SessionStore {
-  const persistent = () => keepsSecrets(encryption, platform)
+  const persistent = async () => {
+    if (!(await encryption.isAsyncEncryptionAvailable())) {
+      return false
+    }
+
+    if (platform !== "linux") {
+      return true
+    }
+
+    const backend = encryption.getSelectedStorageBackend?.()
+
+    return backend !== undefined && backend !== "basic_text" && backend !== "unknown"
+  }
 
   const clear = () => rmSync(file, { force: true })
 
@@ -129,24 +141,6 @@ export function sessionStore(
     },
     clear
   }
-}
-
-/**
- * Whether `safeStorage` really encrypts here, so a secret can be written to a file: false where it would fall back to
- * plain text, on Linux without a keyring.
- */
-export async function keepsSecrets(encryption: Encryption, platform: NodeJS.Platform): Promise<boolean> {
-  if (!(await encryption.isAsyncEncryptionAvailable())) {
-    return false
-  }
-
-  if (platform !== "linux") {
-    return true
-  }
-
-  const backend = encryption.getSelectedStorageBackend?.()
-
-  return backend !== undefined && backend !== "basic_text" && backend !== "unknown"
 }
 
 type ReadStage = "file" | "decrypt" | "json" | "schema" | "reencrypt"

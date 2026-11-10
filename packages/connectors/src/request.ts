@@ -24,8 +24,8 @@ export function refusal(code: Problem["code"], message: string): ProblemAnswer {
 }
 
 /**
- * A search checked against what the connector takes, with its key: a problem naming the field at fault or asking for a
- * key, or the search with its defaults and the key to send.
+ * A search checked against what the connector takes, with its key: a problem naming the field at fault or saying
+ * there's no key, or the search with its defaults and the key to send.
  */
 export function prepare(
   info: ConnectorInfo,
@@ -39,9 +39,10 @@ export function prepare(
   }
 
   if (!access.key) {
-    const name = info.apiKey?.name ?? "key"
-
-    return refusal("no-key", `Add ${article(info.name)} ${info.name} ${name} to search ${info.name}.`)
+    return refusal(
+      "no-key",
+      `This copy of Parity has no ${info.name} key, so it can't search ${info.name}. Carry on without ${info.name}.`
+    )
   }
 
   return { request: checked.request, key: access.key }
@@ -150,8 +151,4 @@ export function readJson<T>(text: string, schema: z.ZodType<T>): T | undefined {
   } catch {
     return undefined
   }
-}
-
-function article(word: string): string {
-  return /^[aeiou]/i.test(word) ? "an" : "a"
 }

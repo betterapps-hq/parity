@@ -8,7 +8,10 @@ const photo = {
   height: 3000,
   description: "A desk by a window",
   alt_description: "white desk",
-  urls: { regular: "https://images.unsplash.com/photo-1?ixid=x&w=1080" },
+  urls: {
+    regular: "https://images.unsplash.com/photo-1?ixid=x&w=1080",
+    small: "https://images.unsplash.com/photo-1?ixid=x&w=400"
+  },
   links: { html: "https://unsplash.com/photos/Dwu85P9SOIk" },
   user: { name: "Ada Park", links: { html: "https://unsplash.com/@adapark" } }
 }
@@ -49,6 +52,7 @@ describe("unsplash", () => {
           kind: "photos",
           title: "white desk",
           image: { url: photo.urls.regular, width: 1080, height: 810 },
+          preview: { url: photo.urls.small },
           link: "https://unsplash.com/photos/Dwu85P9SOIk?utm_source=parity&utm_medium=referral",
           credit: [
             { name: "Ada Park", url: "https://unsplash.com/@adapark?utm_source=parity&utm_medium=referral" },

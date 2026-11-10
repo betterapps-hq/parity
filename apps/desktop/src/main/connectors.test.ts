@@ -1,16 +1,24 @@
-import type { Connector, Fetch, FindKind, Found, SearchRequest } from "@parity-app/connectors"
+import type { Connector, Fetch, FindKind, Found, RecentSearch, SearchRequest } from "@parity-app/connectors"
 import { describe, expect, it } from "vite-plus/test"
-import type { ConnectorState } from "../shared/connectors.ts"
-import type { KeptKey, KeyStore } from "./connector-keys.ts"
 import { type ConnectorHubOptions, createConnectorHub, type SearchService, type Searched } from "./connectors.ts"
+import type { SearchHistory } from "./search-history.ts"
+
+function result(connector: string, id = "1"): Found {
+  return {
+    connector,
+    id,
+    kind: "screens",
+    title: "App",
+    image: { url: "https://fake.example/1.png" },
+    link: "https://fake.example/1",
+    credit: [{ name: "App" }]
+  }
+}
 
 /** A connector that finds one screen with the key "good", and answers other keys as `refuse` says. */
-function fakeConnector(
-  refuse: "key-refused" | "no-access" | "unavailable" = "key-refused",
-  id = "fake",
-  finds: FindKind = "screens"
-) {
+function fakeConnector(id = "fake", finds: FindKind = "screens", filter?: string) {
   const keys: (string | undefined)[] = []
+  const sent: SearchRequest[] = []
   const picked: Found[] = []
 
   const connector: Connector = {
@@ -21,53 +29,37 @@ function fakeConnector(
       mark: { box: "0 0 1 1", path: "M0 0h1v1H0z" },
       guide: { examples: ["login screen"], tips: [] },
       finds: [finds],
-      filters: [],
+      filters: filter ? [{ id: filter, name: filter, values: [{ id: "a", name: "A" }], default: "a" }] : [],
       limit: { default: 10, max: 10 },
-      more: "exclude"
+      more: "exclude",
+      auth: { type: "key", variable: `PARITY_${id.toUpperCase()}_KEY` }
     },
-    probe: { query: "login", kind: finds, limit: 1 },
     async picked(found) {
       picked.push(found)
     },
-    async search(_request, access) {
+    async search(request, access) {
       keys.push(access.key)
+      sent.push(request)
 
-      if (access.key === "good") {
-        return {
-          found: [
-            {
-              connector: id,
-              id: "1",
-              kind: "screens",
-              title: "App",
-              image: { url: "https://fake.example/1.png" },
-              link: "https://fake.example/1",
-              credit: [{ name: "App" }]
-            }
-          ]
-        }
-      }
-
-      return { problem: { code: refuse, message: refuse } }
+      return access.key === "good"
+        ? { found: [result(id)] }
+        : { problem: { code: "no-key", message: "This copy of Parity has no Fake key." } }
     }
   }
 
-  return { connector, keys, picked }
+  return { connector, keys, sent, picked }
 }
 
-function memoryKeys(persistent = true): KeyStore {
-  const kept = new Map<string, KeptKey>()
+function memoryHistory(): SearchHistory & { kept: RecentSearch[] } {
+  const kept: RecentSearch[] = []
 
   return {
-    read: async () => Object.fromEntries(kept),
-    async set(id, key) {
-      const source = persistent ? "saved" : "session"
-      kept.set(id, { key, source })
+    kept,
+    list: async () => kept,
+    async add(search) {
+      kept.unshift(search)
 
-      return source
-    },
-    async clear(id) {
-      kept.delete(id)
+      return kept
     }
   }
 }
@@ -76,91 +68,65 @@ const fetch: Fetch = () => Promise.reject(new Error("no network in tests"))
 
 function hub(
   connector: Connector | Connector[],
-  keys = memoryKeys(),
-  environment: Record<string, string> = {},
+  keys: Record<string, string> = {},
   more: Partial<ConnectorHubOptions> = {}
 ) {
-  const changes: ConnectorState[][] = []
   const secrets: string[][] = []
   const searches: Searched[] = []
+  const history = memoryHistory()
   let clock = 0
 
   const made = createConnectorHub({
     connectors: Array.isArray(connector) ? connector : [connector],
     keys,
-    environment,
+    history,
     fetch,
     timeout: 1000,
-    changed: (states) => changes.push(states),
+    budget: 30,
     secrets: (values) => secrets.push(values),
     searched: (search) => searches.push(search),
     now: () => (clock += 5),
+    date: () => 1000,
     ...more
   })
 
-  return { hub: made, changes, secrets, searches }
+  return { hub: made, secrets, searches, history }
 }
 
 const search: SearchRequest = { query: "login", kind: "screens" }
 
 describe("createConnectorHub", () => {
-  it("lists each connector with where its key comes from, and searches with that key", async () => {
+  it("says which connectors this copy can search, and searches with the owner's key", async () => {
     const { connector, keys } = fakeConnector()
-    const { hub: connectors } = hub(connector)
+    const other = fakeConnector("other")
+    const { hub: connectors, secrets } = hub([connector, other.connector], { fake: "good" })
 
-    expect((await connectors.states()).map(({ id, key }) => [id, key])).toEqual([["fake", "none"]])
-    await connectors.setKey("fake", "good")
-    expect((await connectors.states())[0]?.key).toBe("saved")
+    connectors.start()
+
+    expect(connectors.states().map(({ id, key }) => [id, key])).toEqual([
+      ["fake", "here"],
+      ["other", "none"]
+    ])
+    expect(secrets).toEqual([["good"]])
     expect(await connectors.search("fake", search, "window")).toHaveProperty("found")
-    expect(keys.at(-1)).toBe("good")
+    expect(keys).toEqual(["good"])
   })
 
-  it("checks a key before keeping it, and keeps none the source turns down or whose plan can't search", async () => {
-    for (const refuse of ["key-refused", "no-access"] as const) {
-      const { connector } = fakeConnector(refuse)
-      const { hub: connectors, changes } = hub(connector)
+  it("checks a search before sending it, and sends it with the connector's defaults", async () => {
+    const { connector, sent } = fakeConnector("fake", "screens", "platform")
+    const { hub: connectors, searches } = hub(connector, { fake: "good" })
 
-      expect(await connectors.setKey("fake", "bad")).toEqual({ problem: { code: refuse, message: refuse } })
-      expect((await connectors.states())[0]?.key).toBe("none")
-      expect(changes).toHaveLength(0)
-    }
-  })
+    expect(await connectors.search("fake", { ...search, filters: { color: "red" } }, "agent")).toHaveProperty(
+      "problem.field",
+      "filters.color"
+    )
+    await connectors.search("fake", search, "agent")
 
-  it("keeps a key it couldn't check, saying why", async () => {
-    const { connector } = fakeConnector("unavailable")
-    const { hub: connectors } = hub(connector)
-
-    expect(await connectors.setKey("fake", "unchecked")).toEqual({
-      key: "saved",
-      problem: { code: "unavailable", message: "unavailable" }
-    })
-  })
-
-  it("says a key lasts only until Parity quits where the system can't encrypt it", async () => {
-    const { connector } = fakeConnector()
-    const { hub: connectors } = hub(connector, memoryKeys(false))
-
-    expect(await connectors.setKey("fake", "good")).toEqual({ key: "session" })
-  })
-
-  it("uses the environment's key over a saved one, and says so", async () => {
-    const { connector, keys } = fakeConnector()
-    const { hub: connectors } = hub(connector, memoryKeys(), { fake: "good" })
-
-    expect(await connectors.setKey("fake", "good")).toEqual({ key: "environment" })
-    await connectors.search("fake", search, "window")
-    expect(keys.at(-1)).toBe("good")
-  })
-
-  it("tells the windows and the scrubber when keys change, and forgets a cleared key", async () => {
-    const { connector } = fakeConnector()
-    const { hub: connectors, changes, secrets } = hub(connector)
-
-    await connectors.setKey("fake", "good")
-    await connectors.clearKey("fake")
-
-    expect(changes.map((states) => states[0]?.key)).toEqual(["saved", "none"])
-    expect(secrets).toEqual([["good"], []])
+    expect(sent).toEqual([{ ...search, limit: 10, filters: { platform: "a" } }])
+    expect(searches.map(({ filters, problem }) => ({ filters, problem }))).toEqual([
+      { filters: undefined, problem: "invalid" },
+      { filters: { platform: "a" }, problem: undefined }
+    ])
   })
 
   it("names the connectors it has when asked for one it doesn't", async () => {
@@ -177,33 +143,84 @@ describe("createConnectorHub", () => {
     const { hub: connectors, searches } = hub(connector)
 
     await connectors.search("fake", search, "window")
-    await connectors.setKey("fake", "good")
-    await connectors.search("fake", { ...search, filters: { platform: "ios" } }, "agent")
 
-    expect(searches).toEqual([
-      { connector: "fake", from: "window", kind: "screens", problem: "key-refused", ms: 5 },
-      { connector: "fake", from: "agent", kind: "screens", filters: { platform: "ios" }, found: 1, ms: 5 }
-    ])
+    expect(searches).toEqual([{ connector: "fake", from: "window", kind: "screens", problem: "no-key", ms: 10 }])
   })
 
-  it("finds a kind with the first connector that finds it and has a key, or asks the first for one", async () => {
-    const photos = fakeConnector("key-refused", "photos", "photos")
-    const first = fakeConnector("key-refused", "first")
-    const second = fakeConnector("key-refused", "second")
-    const { hub: connectors } = hub([photos.connector, first.connector, second.connector])
+  it("keeps the person's searches that worked, with every filter they ran with, and never an agent's", async () => {
+    const { connector } = fakeConnector("fake", "screens", "platform")
+    const { hub: connectors, history } = hub(connector, { fake: "good" })
 
-    expect(await connectors.find(search, "agent")).toHaveProperty("problem.code", "key-refused")
-    expect([first.keys, second.keys]).toEqual([[undefined], []])
+    await connectors.search("fake", search, "window")
+    await connectors.search("fake", { ...search, query: "agent's" }, "agent")
+    await connectors.search("fake", { ...search, filters: { color: "red" } }, "window")
 
-    await connectors.setKey("second", "good")
+    expect(await connectors.recent()).toEqual([
+      { connector: "fake", kind: "screens", query: "login", filters: { platform: "a" }, at: 1000 }
+    ])
+    expect(history.kept).toHaveLength(1)
+  })
 
-    expect(await connectors.find(search, "agent")).toHaveProperty("found.0.connector", "second")
-    expect(await connectors.find({ query: "desk", kind: "sections" }, "agent")).toEqual({
+  it("still answers a search whose recent search can't be kept", async () => {
+    const { connector } = fakeConnector()
+    const history: SearchHistory = { list: async () => [], add: () => Promise.reject(new Error("disk full")) }
+    const { hub: connectors } = hub(connector, { fake: "good" }, { history })
+
+    expect(await connectors.search("fake", search, "window")).toHaveProperty("found")
+  })
+
+  it("runs each connector's budget of searches a minute, then says how long to wait", async () => {
+    const { connector, sent } = fakeConnector()
+    const { hub: connectors } = hub(connector, { fake: "good" }, { budget: 2 })
+
+    await connectors.search("fake", search, "agent")
+    await connectors.search("fake", search, "agent")
+
+    expect(await connectors.search("fake", search, "agent")).toEqual({
+      problem: {
+        code: "rate-limited",
+        message: "Parity runs up to 2 Fake searches a minute. Try again in 60 seconds.",
+        retryAfter: 60
+      }
+    })
+    expect(sent).toHaveLength(2)
+  })
+
+  it("finds a kind with a connector that takes the filters named and has a key", async () => {
+    const photos = fakeConnector("photos", "photos")
+    const first = fakeConnector("first")
+    const second = fakeConnector("second")
+    const platforms = fakeConnector("platforms", "screens", "platform")
+    const all = [photos.connector, first.connector, second.connector, platforms.connector]
+
+    const { hub: none } = hub(all)
+    expect(await none.find(search, "agent")).toHaveProperty("problem.code", "no-key")
+    expect(first.keys).toEqual([undefined])
+
+    const { hub: keyed } = hub(all, { second: "good", platforms: "good" })
+    expect(await keyed.find(search, "agent")).toHaveProperty("found.0.connector", "second")
+    expect(await keyed.find({ ...search, filters: { platform: "a" } }, "agent")).toHaveProperty(
+      "found.0.connector",
+      "platforms"
+    )
+    expect(await keyed.find(search, "agent", "first")).toHaveProperty("problem.code", "no-key")
+    expect(await keyed.find({ query: "desk", kind: "sections" }, "agent")).toEqual({
       problem: { code: "invalid", message: "No connector in Parity finds sections.", field: "kind" }
     })
   })
 
-  it("sends a search and a pick to the service for a connector with no key here, and uses a key here first", async () => {
+  it("reports only a use of a result it gave, from its own copy", async () => {
+    const { connector, picked } = fakeConnector()
+    const { hub: connectors } = hub(connector, { fake: "good" })
+
+    await connectors.picked(result("fake", "never-found"))
+    await connectors.search("fake", search, "window")
+    await connectors.picked({ ...result("fake"), title: "Changed by the window" })
+
+    expect(picked).toEqual([result("fake")])
+  })
+
+  it("sends a search and a use to the service for a connector with no key here", async () => {
     const { connector, keys, picked } = fakeConnector()
     const asked: string[] = []
 
@@ -212,35 +229,19 @@ describe("createConnectorHub", () => {
       async search(id) {
         asked.push(`search ${id}`)
 
-        return { found: [] }
+        return { found: [result(id)] }
       },
       async picked(found) {
         asked.push(`picked ${found.id}`)
       }
     }
 
-    const { hub: connectors } = hub(connector, memoryKeys(), {}, { service })
+    const { hub: connectors } = hub(connector, {}, { service })
 
-    const result: Found = {
-      connector: "fake",
-      id: "1",
-      kind: "screens",
-      title: "App",
-      image: { url: "https://fake.example/1.png" },
-      link: "https://fake.example/1",
-      credit: []
-    }
-
-    expect((await connectors.states())[0]?.key).toBe("service")
-    expect(await connectors.search("fake", search, "window")).toEqual({ found: [] })
-    await connectors.picked(result)
-    expect([asked, keys, picked]).toEqual([["search fake", "picked 1"], [], []])
-
-    await connectors.setKey("fake", "good")
+    expect(connectors.states()[0]?.key).toBe("service")
     await connectors.search("fake", search, "window")
-    await connectors.picked(result)
+    await connectors.picked(result("fake"))
 
-    expect(asked).toEqual(["search fake", "picked 1"])
-    expect(picked).toEqual([result])
+    expect([asked, keys, picked]).toEqual([["search fake", "picked 1"], [], []])
   })
 })

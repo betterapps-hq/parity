@@ -1,5 +1,6 @@
 import type { AgentReport, ReportSent } from "@parity-app/agent"
-import type { SearchAnswer, SearchRequest } from "@parity-app/connectors"
+import type { SearchAnswer } from "@parity-app/connectors"
+import type { ConnectorFind } from "./connectors.ts"
 import type { ConsoleEntry, RenderedFrame, RenderJob } from "./protocol.ts"
 
 /** Messages from the main process to the project service that aren't requests: a window's port to the service. */
@@ -41,10 +42,10 @@ export interface MainMethods {
    */
   signInLink: { params: { link: string }; result: { taken: boolean } }
   /**
-   * Finds what an agent asked for, from the first connector that finds that kind and has a key (PAR-829). Main holds
-   * the keys, so every search runs there.
+   * Finds what an agent asked for, from the connector it names or the first that finds that kind, takes its filters and
+   * has a key (PAR-829). Main holds the keys, so every search runs there.
    */
-  connectorFind: { params: SearchRequest; result: SearchAnswer }
+  connectorFind: { params: ConnectorFind; result: SearchAnswer }
   /**
    * An event or span the service or its worker recorded, for the local copy and Sentry (PAR-627). Main checks it, since
    * it's sent as data.

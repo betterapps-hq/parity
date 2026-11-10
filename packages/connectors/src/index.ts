@@ -4,6 +4,8 @@ import { unsplash } from "./unsplash.ts"
 
 export * from "./connector.ts"
 
+export * from "./recent.ts"
+
 export * from "./request.ts"
 
 export { mobbin } from "./mobbin.ts"
@@ -17,16 +19,20 @@ export const connectors: readonly Connector[] = [mobbin, unsplash]
 export function keysFromEnvironment(env: Readonly<Record<string, string | undefined>>): Record<string, string> {
   return Object.fromEntries(
     connectors.flatMap(({ info }) => {
-      const key = info.apiKey ? env[info.apiKey.variable]?.trim() : undefined
+      const key = info.auth.type === "key" ? env[info.auth.variable]?.trim() : undefined
 
       return key ? [[info.id, key]] : []
     })
   )
 }
 
-/** The environment without any connector's key, for a process that mustn't have them. */
-export function withoutKeys(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const variables = new Set(connectors.flatMap(({ info }) => (info.apiKey ? [info.apiKey.variable] : [])))
+/** What a key's variable looks like, as each connector names it: `PARITY_MOBBIN_API_KEY`. */
+export const keyVariable = /^PARITY_\w+_KEY$/
 
-  return Object.fromEntries(Object.entries(env).filter(([name]) => !variables.has(name)))
+/**
+ * The environment without any connector's key, for a process that mustn't have them. It leaves out every variable
+ * that looks like one, as `pnpm dev` passes on every such variable from `.env.local`, not only the ones named today.
+ */
+export function withoutKeys(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([name]) => !keyVariable.test(name)))
 }

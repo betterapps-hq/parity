@@ -1,8 +1,9 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { Fetch, Found, SearchAnswer, SearchRequest } from "@parity-app/connectors"
+import type { Fetch, Found, SearchAnswer } from "@parity-app/connectors"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import type { ConnectorFind } from "../shared/connectors.ts"
 import { searchPhotos, searchReferences } from "./references.ts"
 
 let folder = ""
@@ -28,7 +29,7 @@ const webp = Buffer.from("RIFF0000WEBPVP8 ")
 
 /** Main's side, answering with `answer`, and a fetch that serves pictures by URL. */
 function options(answer: SearchAnswer, pictures: Record<string, { type: string; bytes: Buffer }> = {}) {
-  const searched: SearchRequest[] = []
+  const searched: ConnectorFind[] = []
 
   const fetch: Fetch = async (url) => {
     const picture = pictures[url]
@@ -43,7 +44,7 @@ function options(answer: SearchAnswer, pictures: Record<string, { type: string; 
   return {
     searched,
     options: {
-      find: async (search: SearchRequest) => {
+      find: async (search: ConnectorFind) => {
         searched.push(search)
 
         return answer
@@ -74,16 +75,19 @@ describe("searchReferences", () => {
 
     expect(searched).toEqual([
       {
-        query: request.query,
-        kind: "screens",
-        filters: { platform: "ios", depth: "standard" },
-        limit: 6,
-        exclude: []
+        request: {
+          query: request.query,
+          kind: "screens",
+          filters: { platform: "ios", depth: "standard" },
+          limit: 6,
+          exclude: []
+        }
       }
     ])
     expect(answer.found).toEqual([
       {
         id: calm.id,
+        connector: "mobbin",
         source: "Mobbin",
         title: "Calm",
         platform: "ios",
@@ -128,22 +132,62 @@ describe("searchReferences", () => {
       id: "Dwu85P9SOIk",
       kind: "photos",
       title: "white desk",
-      image: { url: "https://images.unsplash.com/photo-1" }
+      image: { url: "https://images.unsplash.com/photo-1" },
+      preview: { url: "https://images.unsplash.com/photo-1-small" }
     }
 
-    const { options: given, searched } = options({ found: [desk], allowance: { remaining: 49, limit: 50 } })
+    const { options: given, searched } = options(
+      { found: [desk], allowance: { remaining: 49, limit: 50 } },
+      { "https://images.unsplash.com/photo-1-small": { type: "image/jpeg", bytes: Buffer.from("jpeg") } }
+    )
 
-    const answer = await searchPhotos(given, { query: "desk", orientation: "portrait", limit: 6, page: 2 })
+    const answer = await searchPhotos(given, {
+      query: "desk",
+      connector: "unsplash",
+      orientation: "portrait",
+      limit: 6,
+      page: 2
+    })
 
     expect(searched).toEqual([
-      { query: "desk", kind: "photos", filters: { orientation: "portrait" }, limit: 6, page: 2 }
+      {
+        connector: "unsplash",
+        request: { query: "desk", kind: "photos", filters: { orientation: "portrait" }, limit: 6, page: 2 }
+      }
     ])
     expect(answer.allowance).toEqual({ remaining: 49, limit: 50 })
-    expect(answer.found.map(({ title, platform }) => [title, platform])).toEqual([["white desk", undefined]])
+    expect(answer.found.map(({ title, platform, preview }) => [title, platform, preview?.mimeType])).toEqual([
+      ["white desk", undefined, "image/jpeg"]
+    ])
+  })
+
+  it("says a search has run out when more was asked for and none came", async () => {
+    const { options: given } = options({ found: [] })
+
+    expect(await searchReferences(given, { ...request, exclude: [calm.id] })).toEqual({ found: [], done: true })
+    expect(await searchReferences(given, request)).toEqual({ found: [] })
+  })
+
+  it("leaves out a preview that's too big, and keeps a long title out of the file name", async () => {
+    const long = { ...calm, id: "3", title: "A".repeat(300), image: { url: "https://images.mobbin.com/long" } }
+    const huge = { ...calm, id: "4", image: { url: "https://images.mobbin.com/huge" } }
+
+    const { options: given } = options(
+      { found: [long, huge] },
+      {
+        "https://images.mobbin.com/long": { type: "image/webp", bytes: webp },
+        "https://images.mobbin.com/huge": { type: "image/webp", bytes: Buffer.alloc(4 * 1024 * 1024 + 1) }
+      }
+    )
+
+    const answer = await searchReferences(given, request)
+
+    expect(answer.found[0]?.preview?.path).toMatch(/[/\\]a{40}-3-[0-9a-f]{8}\.webp$/)
+    expect(answer.found[1]?.preview).toBeUndefined()
   })
 
   it("passes on why a search found nothing", async () => {
-    const problem = { code: "no-key" as const, message: "Add a Mobbin API key to search Mobbin." }
+    const problem = { code: "no-key" as const, message: "This copy of Parity has no Mobbin key." }
     const { options: given } = options({ problem })
 
     expect(await searchReferences(given, request)).toEqual({ found: [], problem })

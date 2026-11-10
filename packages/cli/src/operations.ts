@@ -150,11 +150,11 @@ export type TokensResponse = z.output<typeof tokensResult>
 /**
  * How a search for screens or photos is routed and read. Any running copy can search: main holds the keys, whatever
  * projects are open (PAR-829). --json and structuredContent leave the previews' base64 out; MCP shows them as images,
- * and the CLI names their files.
+ * and the CLI names their files. A copy with no key for the source isn't a failure: the agent carries on without it.
  */
 const finding: Options<FindResponse> = {
   routing: "tab-or-any",
-  failed: (result) => result.problem !== undefined,
+  failed: (result) => result.problem !== undefined && result.problem.code !== "no-key",
   structured: (result) => ({
     ...result,
     found: result.found.map(({ preview, ...item }) => {

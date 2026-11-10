@@ -949,6 +949,10 @@ function describeFound(result: FindResponse, words: FoundWords): string {
     return result.problem.message
   }
 
+  if (result.done) {
+    return "No more results for this search."
+  }
+
   if (result.found.length === 0) {
     return words.none
   }

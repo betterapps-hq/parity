@@ -213,13 +213,13 @@ const tools: Tool[] = [
   ),
   operationTool(
     "find_references",
-    "Search Mobbin for real apps' screens before designing a common one (onboarding, paywall, checkout), and look at the previews. Follow their patterns with the project's own components and tokens, never an app's layout, text or branding, and name the apps you drew on.",
+    "Search real apps' screens (Mobbin) before designing a common one, as onboarding or a paywall, and look at the previews. Follow their patterns with the project's own components and tokens, never an app's layout, text or branding; name the apps you drew on.",
     operations.references,
     (result) => [text(describeReferences(result)), ...previews(result)]
   ),
   operationTool(
     "find_photos",
-    "Search Unsplash for stock photos when a design needs a real one (a hero, an avatar, a product shot), and look at the previews. Use the image URL, and credit the photographer and Unsplash where the design shows it.",
+    "Search stock photos (Unsplash) when a design needs a real one, as a hero or an avatar, and look at the previews. Use the image URL; credit the photographer and source where the design shows it.",
     operations.photos,
     (result) => [text(describePhotos(result)), ...previews(result)]
   ),

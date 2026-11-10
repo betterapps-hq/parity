@@ -6826,14 +6826,12 @@ calls:
   connector for that is a later choice, not part of this one. Standard is the default, since a deep search that finds
   something spends 5 of the person's AI credits. Tried live on 2026-11-10: a standard search took about 3 seconds and a
   deep one about 8, and the images are public WebP files of about 13 KB whose links last 30 days.
-- **Main keeps the keys and runs every search.** They're kept in one file in the app's data, encrypted with
-  `safeStorage`, never in a project, local storage or a window; where `safeStorage` would write plain text, a key lasts
-  until Parity quits. A key is checked with the connector's smallest search before it's kept, and one Mobbin turns down
-  isn't. The window asks over IPC and sees only where a key comes from. Agents ask through the service, which asks main.
-  Main scrubs the keys from what it sends to Sentry, and never passes them to the service, whose builders run project
-  code.
+- **Main keeps the keys and runs every search.** The window asks over IPC and sees only whether it can search. (A key
+  file and a setting for keys were built here, then dropped the same day: keys are the app owner's, below.) Agents ask
+  through the service, which asks main. Main scrubs the keys from what it sends to Sentry, and never passes them to the
+  service, whose builders run project code.
 - **A development copy reads `PARITY_MOBBIN_API_KEY`,** from the shell or from `apps/desktop/.env.local`, which
-  `pnpm dev` passes to main alone. It wins over a saved key until a setting for keys is designed.
+  `pnpm dev` passes to main alone.
 - **Agents get `find_references` and `parity references`,** for screens only, with up to 6 by default and 20 at most.
   The previews are saved under `~/.parity/references`; MCP shows them as images, and `--json` names their files. The
   skill says to look at real apps before designing a common screen, and to follow their patterns with the project's own
@@ -6861,7 +6859,7 @@ You asked on 2026-11-10 for the pattern changes that adding Unsplash showed. My 
   searches and picks alike, and the window sees the key's source as `service`. None is plugged in yet.
 - **`connectors.searched` records `filters`** in place of `platform` and `depth`. They're each connector's own values,
   never typed text.
-- **Not done:** an agent that uses a photo doesn't report it to Unsplash yet. The window does, through `picked`.
+- **Not done:** no photo use is reported to Unsplash yet, since nothing places one. How it will be is below.
 
 ## Unsplash is the second connector (PAR-829)
 
@@ -6874,8 +6872,8 @@ You got an Unsplash key on 2026-11-10 and asked for it on the same branch as Mob
   are for acting on a person's own Unsplash account, which Parity doesn't do. For now main holds it, from
   `PARITY_UNSPLASH_ACCESS_KEY` in development; a service of Parity's still holds it for shipping, as decided on
   2026-10-28.
-- **Its terms are kept:** photos load from Unsplash's own links, `picked` reports each one used to its download endpoint
-  (the window calls `canvasHost.connectors.picked`), and every photo credits its photographer and Unsplash, linked with
+- **Its terms are kept:** photos load from Unsplash's own links, `picked` reports a use to its download endpoint
+  (nothing calls it yet; see below), and every photo credits its photographer and Unsplash, linked with
   `utm_source=parity&utm_medium=referral`. Searches keep out photos Unsplash marks unsuitable for every audience
   (`content_filter=high`).
 - **A photo is named by its alt text first,** then its description, then its photographer, since descriptions are often
@@ -6885,3 +6883,31 @@ You got an Unsplash key on 2026-11-10 and asked for it on the same branch as Mob
 - **Each connector names its own key variable,** which main reads and keeps from the service, and `pnpm dev` passes on
   every `PARITY_*_KEY` in `.env.local`, so the next connector needs no changes there. What else would make the next one
   easier is in [connectors.md](connectors.md#pattern-changes-to-make).
+
+## Keys are the app owner's, and Parity reports uses itself (PAR-829)
+
+A review of the connectors on 2026-11-10 found twelve things to fix. You decided two of them, and the rest are my calls:
+
+- **People never enter a key** (your call): connectors are a built-in feature, and the app's owner arranges the keys. So
+  the key file, setting and clearing a key, the check before keeping one, `probe` and `connectors.storeFailed` are gone.
+  A connector's `auth` is none or a key with its variable. A development copy sets keys in the environment; a shipped
+  copy will search through Parity's service. Main reads the keys once and deletes them from its own environment, and the
+  service's environment leaves out every `PARITY_*_KEY`, not only the ones named today.
+- **No agent tool reports a use** (your call): an agent could skip it. Parity reports an Unsplash photo itself when the
+  photo is placed in a design, whether a person or an agent placed it, by noticing the Unsplash image in what's written.
+  Not built yet, since nothing places photos. Until then `picked` reports only a result the hub gave lately, from its
+  own copy, so nothing can report uses in Parity's name.
+- **A missing key isn't the agent's problem.** `no-key` says this copy can't search the source and to carry on without
+  it, and the CLI and MCP don't treat it as an error. Messages about a refused key no longer tell the person to fix it.
+- **Main checks a search before it routes or records it,** and records every filter as checked. Each connector runs up
+  to 30 searches a minute, half of Mobbin's shared allowance, so one copy's runaway loop can't spend it.
+- **Agents search one shape per kind.** Each call can name a `connector`. The contracts no longer fill in Mobbin's
+  defaults, every other field is passed on as a filter, and main picks a connector that takes the filters named, so a
+  second screens source doesn't get `invalid`. Each result names its connector. A search that asked for more and got
+  none says "No more results for this search."
+- **Recent searches are kept by main** (you asked on 2026-11-10 for them to move to the person's account once there's a
+  service). The hub adds each search the person runs that works, never an agent's, through a `SearchHistory`. For now
+  it's a file in the app's data, `recent-searches.json`, keeping each connector's latest five; an account's store will
+  take its place without a change to the window. A search whose recent search can't be kept still answers.
+- **Previews can't fail a search.** Each is fetched and saved on its own, read up to 4 MB, named with at most 40 letters
+  of its title, and taken from the source's smaller picture when it has one (Unsplash's small, 400 pixels).

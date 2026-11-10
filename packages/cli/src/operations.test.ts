@@ -123,6 +123,7 @@ const reported: ReportResponse = {
 
 const calm = {
   id: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+  connector: "mobbin",
   source: "Mobbin",
   title: "Calm",
   platform: "ios" as const,
@@ -138,6 +139,7 @@ const photos: FindResponse = {
   found: [
     {
       id: "Dwu85P9SOIk",
+      connector: "unsplash",
       source: "Unsplash",
       title: "white desk",
       link: "https://unsplash.com/photos/Dwu85P9SOIk",
@@ -331,7 +333,7 @@ const cases: Case[] = [
     tool: "find_references",
     method: "references",
     input: { query: "paywall with a free trial", platform: "ios" },
-    params: { query: "paywall with a free trial", platform: "ios", depth: "standard", limit: 6, exclude: [] },
+    params: { query: "paywall with a free trial", platform: "ios", limit: 6, exclude: [] },
     result: references,
     structured: references,
     text: describeReferences(references)
@@ -989,8 +991,9 @@ describe("remaining transport contracts", processTests, () => {
     const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     const tools = toolReply(protocol.stdout)?.result?.tools
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
-    // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos.
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(16 * 1024)
+    // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos, 16.1 KB with a
+    // connector to name on each.
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(16.5 * 1024)
   })
 
   it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {
@@ -1009,14 +1012,24 @@ describe("remaining transport contracts", processTests, () => {
     ])
   })
 
-  it("says why a references search found nothing, and exits with 1", async () => {
-    const result = { found: [], problem: { code: "no-key", message: "Add a Mobbin API key to search Mobbin." } }
-    fixture.response = { result }
+  it("says why a references search found nothing, and exits with 1 only when it's something to fix", async () => {
+    const noKey = "This copy of Parity has no Mobbin key, so it can't search Mobbin. Carry on without Mobbin."
+    fixture.response = { result: { found: [], problem: { code: "no-key", message: noKey } } }
+    const without = await run(["references", "paywall"])
+    fixture.response = {
+      result: { found: [], problem: { code: "invalid", message: "Mobbin's platform can be web or ios." } }
+    }
+    const invalid = await run(["references", "paywall"])
 
-    const cli = await run(["references", "paywall"])
+    expect([without.stdout.trim(), without.code]).toEqual([noKey, 0])
+    expect([invalid.stdout.trim(), invalid.code]).toEqual(["Mobbin's platform can be web or ios.", 1])
+  })
 
-    expect(cli.stdout.trim()).toBe("Add a Mobbin API key to search Mobbin.")
-    expect(cli.code).toBe(1)
+  it("says a search has run out rather than that nothing matches", () => {
+    expect(describeReferences({ found: [], done: true })).toBe("No more results for this search.")
+    expect(describeReferences({ found: [] })).toBe(
+      "Nothing matches. Try fewer parts, other words, or the other platform."
+    )
   })
 
   it("lists each screen found with its link, id and preview, and what to do with them", () => {

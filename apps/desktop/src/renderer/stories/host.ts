@@ -249,18 +249,17 @@ const storyConnectors: CanvasHost["connectors"] = {
 
     return connectors.map(({ info }) => ({
       ...info,
-      key: keyed.success && keyed.data.includes(info.id) ? "environment" : "none"
+      key: keyed.success && keyed.data.includes(info.id) ? "here" : "none"
     }))
   },
-  subscribe: () => () => undefined,
   search: async (search) => {
     const answered = await askConnectors("search", search)
     const answer = searchAnswer.safeParse(await answered?.json())
 
     return answer.success ? answer.data : noServer
   },
-  setKey: () => Promise.resolve({ problem: { code: "invalid", message: "Stories keep no keys." } }),
-  clearKey: () => Promise.resolve(),
+  // Stories keep their recent searches themselves, so each starts from what it shows.
+  recent: () => Promise.resolve([]),
   picked: () => Promise.resolve()
 }
 

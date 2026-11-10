@@ -5,7 +5,7 @@ import { z } from "zod"
  * stock photos from Unsplash next (docs/proposals/extensions.md, "Connector"). Each one says what it finds and which
  * filters it takes, and turns a search into the same results and the same problems, so the app, its window and agents
  * handle every source one way. Connectors take data and return data: `fetch` and the key come in, and nothing here
- * keeps state, touches Electron or reads the environment.
+ * keeps state, touches Electron or reads the environment. Keys are the app owner's to arrange, never the person's.
  */
 
 /** What a connector finds: a screen of an app, a multi-step flow, a section of a website, or a photo. */
@@ -75,6 +75,8 @@ export const found = z.strictObject({
   title: z.string(),
   platform: platform.optional(),
   image: foundImage,
+  /** A smaller picture of it, for a list of results, when the source has one, as Unsplash does. */
+  preview: foundImage.optional(),
   /** Its page at the source. */
   link: z.url(),
   credit: z.array(credit)
@@ -83,11 +85,11 @@ export const found = z.strictObject({
 export type Found = z.infer<typeof found>
 
 /**
- * Why a search found nothing to show. Each code says what the person or agent can do: set a key, change plans, wait,
- * change the search, or try again later.
+ * Why a search found nothing to show. Each code says what the person or agent can do: carry on without the source,
+ * wait, change the search, or try again later.
  */
 export const problemCode = z.enum([
-  /** No key is set for a connector that needs one. */
+  /** This copy of Parity has no key for a connector that needs one, which only the app's owner can arrange. */
   "no-key",
   /** The source turned the key down: it's wrong, revoked, or for another service. */
   "key-refused",
@@ -175,8 +177,8 @@ export interface ConnectorInfo {
   limit: { default: number; max: number }
   /** How it gives more results for the same search. */
   more: MoreResults
-  /** The key it needs, for a connector that needs one. */
-  apiKey?: ApiKey
+  /** How it reaches the source: with nothing, or with a key the app's owner arranges. */
+  auth: Auth
 }
 
 /**
@@ -234,28 +236,25 @@ export interface FilterValue {
   swatch?: string
 }
 
-/** A connector's key: what the source calls it, where people get one, and the variable a development copy sets. */
-export interface ApiKey {
-  /** What the source calls it, in a sentence: "API key", "Access Key". */
-  name: string
-  /** The page where people get one. */
-  page: string
-  /**
-   * The environment variable a development copy sets it with, as `PARITY_MOBBIN_API_KEY`. Main reads it and keeps it
-   * from the processes it starts, and `pnpm dev` passes it on from `.env.local`.
-   */
-  variable: string
-}
+/**
+ * How a connector reaches its source. A key is the app owner's, never the person's: a development copy sets it in the
+ * environment, and a shipped copy will search through Parity's own service, which holds it.
+ */
+export type Auth =
+  | { type: "none" }
+  | {
+      type: "key"
+      /**
+       * The environment variable a development copy sets it with, as `PARITY_MOBBIN_API_KEY`. Main reads it, takes it
+       * out of its own environment, and keeps it from the processes it starts. `pnpm dev` passes it on from `.env.local`.
+       */
+      variable: string
+    }
 
 export interface Connector {
   info: ConnectorInfo
   /** Searches the source. Never throws: a failure is a problem in the answer. */
   search(request: SearchRequest, access: Access): Promise<SearchAnswer>
-  /**
-   * The cheapest search that tells whether a key works, which setting a key runs before keeping it. It returns one
-   * result at most, with the filters' defaults.
-   */
-  probe: SearchRequest
   /**
    * Tells the source someone picked a result, for a source whose terms ask for it, as Unsplash's do for each photo
    * used. Never throws.

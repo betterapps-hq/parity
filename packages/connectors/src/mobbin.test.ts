@@ -132,7 +132,10 @@ describe("mobbin", () => {
     const { fetch, sent } = answering(200, { screens: [] })
 
     expect(await mobbin.search(paywalls, { fetch })).toEqual({
-      problem: { code: "no-key", message: "Add a Mobbin API key to search Mobbin." }
+      problem: {
+        code: "no-key",
+        message: "This copy of Parity has no Mobbin key, so it can't search Mobbin. Carry on without Mobbin."
+      }
     })
     expect(sent).toHaveLength(0)
   })
@@ -164,7 +167,7 @@ describe("mobbin", () => {
     expect(await mobbin.search(paywalls, { fetch, key: "k" })).toEqual({
       problem: {
         code: "rate-limited",
-        message: "Mobbin allows 60 searches a minute for your workspace. Try again in 12 seconds.",
+        message: "Mobbin allows 60 searches a minute. Try again in 12 seconds.",
         retryAfter: 12
       }
     })
@@ -186,13 +189,6 @@ describe("mobbin", () => {
       "Mobbin took too long to answer. Try again.",
       "Mobbin answered with something Parity couldn't read. Try again."
     ])
-  })
-
-  it("probes with the smallest search it takes", async () => {
-    const { fetch, sent } = answering(200, { screens: [screen] })
-
-    expect(await mobbin.search(mobbin.probe, { fetch, key: "k" })).toHaveProperty("found")
-    expect(sentJson(sent[0])).toMatchObject({ limit: 1, mode: "standard" })
   })
 })
 

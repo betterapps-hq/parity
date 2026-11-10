@@ -61,15 +61,12 @@ export const ipc = {
   reportSend: "canvas:report-send",
   /** The window asks once, as it starts, whether the last run crashed. */
   reportLastCrash: "canvas:report-last-crash",
-  /** The connectors and where each one's key comes from, never the key (PAR-829). */
+  /** The connectors and whether this copy can search each one, never a key (PAR-829). */
   connectorsState: "canvas:connectors-state",
-  /** Main tells windows a connector's key was set or cleared. */
-  connectorsChanged: "canvas:connectors-changed",
   /** The window asks main to search a connector, which main does with its key. */
   connectorsSearch: "canvas:connectors-search",
-  /** The window gives main a key the person typed, which main checks before keeping. */
-  connectorsSetKey: "canvas:connectors-set-key",
-  connectorsClearKey: "canvas:connectors-clear-key",
+  /** The person's recent searches, which main keeps. */
+  connectorsRecent: "canvas:connectors-recent",
   /** The window tells main a result was used, for a source whose terms ask to be told, as Unsplash's do. */
   connectorsPicked: "canvas:connectors-picked"
 } as const
