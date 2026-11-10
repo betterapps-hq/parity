@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Redraw frames, bitmaps and screenshots with a project stylesheet's new CSS as soon as it's saved",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

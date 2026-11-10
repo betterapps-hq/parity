@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test"
-import type { BuilderAdapter, BuilderStartOptions, RendererAdapter } from "./adapters.ts"
+import type { BuilderAdapter, BuilderStartOptions, CodeChange, RendererAdapter } from "./adapters.ts"
 import {
   type BuilderProcessClientOptions,
   type BuilderProcessReply,
@@ -139,7 +139,7 @@ describe("a builder in its own process", () => {
   })
 
   it("passes on the files whose code changed while the builder runs, and stops once it's closing", async () => {
-    let tell: (change: { paths: string[]; stamp: number }) => void = () => undefined
+    let tell: (change: CodeChange) => void = () => undefined
     const { builder } = fakeBuilder()
     const start = builder.start.bind(builder)
     builder.start = async (options) => ({
@@ -150,15 +150,35 @@ describe("a builder in its own process", () => {
         return () => undefined
       }
     })
-    const onCodeChange = vi.fn<(change: { paths: string[]; stamp: number }) => void>()
+    const onCodeChange = vi.fn<(change: CodeChange) => void>()
     const { client } = connect(builder, { onCodeChange })
     const session = await client.session
-    tell({ paths: ["src/button.tsx"], stamp: 7 })
-    await vi.waitFor(() => expect(onCodeChange).toHaveBeenCalledWith({ paths: ["src/button.tsx"], stamp: 7 }))
+    tell({ paths: ["src/button.tsx"], stamp: 7, styles: true })
+    await vi.waitFor(() =>
+      expect(onCodeChange).toHaveBeenCalledWith({ paths: ["src/button.tsx"], stamp: 7, styles: true })
+    )
     void session.close()
     tell({ paths: ["src/button.tsx"], stamp: 8 })
     await new Promise((resolve) => setTimeout(resolve, 10))
     expect(onCodeChange).toHaveBeenCalledTimes(1)
+  })
+
+  it("asks the builder's process where it serves the guest restyled, and has no answer from one that can't", async () => {
+    const { builder } = fakeBuilder()
+    const start = builder.start.bind(builder)
+    builder.start = async (options) => {
+      const session = await start(options)
+
+      return { ...session, restyledGuestUrl: (stamp) => `${session.guestUrl}?styles=${stamp}` }
+    }
+
+    const restyling = await connect(builder).client.session
+    expect(await restyling.restyledGuestUrl?.(9)).toBe("http://127.0.0.1:5400/guest?styles=9")
+    void restyling.close()
+    expect(await restyling.restyledGuestUrl?.(10)).toBeUndefined()
+
+    const plain = await connect(fakeBuilder().builder).client.session
+    expect(await plain.restyledGuestUrl?.(9)).toBeUndefined()
   })
 
   it("closes the builder, then the process, and resolves once the process has ended", async () => {

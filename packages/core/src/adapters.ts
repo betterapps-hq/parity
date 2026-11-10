@@ -165,6 +165,13 @@ export interface BuilderSession {
    * it touches again. Returns what stops it.
    */
   codeChanges?(listener: (change: CodeChange) => void): () => void
+  /**
+   * Where the guest is served with its stylesheets as they are after the change stamped `stamp` (PAR-821). A builder
+   * whose changes say `styles` serves there a guest that imports its stylesheets as they are now, at an address the
+   * windows haven't loaded, since a page never loads a module twice; it keeps serving it there until it closes. A
+   * builder without it is started again on a new port when its stylesheets change instead.
+   */
+  restyledGuestUrl?(stamp: number): string
   close(): Promise<void>
 }
 
@@ -177,6 +184,11 @@ export interface CodeChange {
   paths: string[]
   /** What they're stamped with, which goes up with each change. */
   stamp: number
+  /**
+   * One of the stylesheets the guest's compiled CSS is made from changed too, so the guest's CSS is new: the guest at
+   * `BuilderSession.restyledGuestUrl(stamp)` imports them afresh (PAR-821).
+   */
+  styles?: boolean
 }
 
 /** A module as a build loaded it: its exports by name, whatever the customer's package exports. */
