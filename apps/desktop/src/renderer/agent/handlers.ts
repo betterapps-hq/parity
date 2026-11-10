@@ -11,6 +11,7 @@ import type {
   WindowMethods
 } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
+import { track } from "../report-error.ts"
 import { reportIds } from "../telemetry.ts"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
@@ -125,10 +126,17 @@ const handlers: Handlers = {
 
     // Unsaved changes here win until the person says otherwise.
     if (store && !store.reloadDocument(path, document)) {
+      track("document.conflicted", { file: path })
       toast.warning(`${path} changed on disk`, {
         description: "Your unsaved changes are kept. Saving writes them over it.",
         duration: 15000,
-        action: { label: "Load from disk", onClick: () => store.reloadDocument(path, document, true) }
+        action: {
+          label: "Load from disk",
+          onClick: () => {
+            store.reloadDocument(path, document, true)
+            track("document.loadedFromDisk", { file: path })
+          }
+        }
       })
     }
 
