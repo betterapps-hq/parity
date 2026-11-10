@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 10 Nov 2026 10:25:44 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 11:20:34 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.49.0
+
+Tue, 10 Nov 2026 11:20:34 GMT
+
+### Minor changes
+
+- Search Mobbin's screens from main with an API key, kept encrypted, through a connector the window and agents share
+  (ajcraswell@gmail.com)
 
 ## 0.48.0
 
