@@ -551,15 +551,10 @@ function searchPhotos({ query, limit = 20, filters = {}, page = 1 }: SearchReque
 /** How long the samples take to answer, as the real searches do. */
 const wait = { quick: 450, deep: 2200 }
 
-/**
- * The sample libraries as a source. `searchesLeft` is how many searches Unsplash says remain this hour, which it sends
- * with every answer.
- */
-export function samples({ searchesLeft = 42 }: { searchesLeft?: number } = {}): Source {
+/** The sample libraries as a source. */
+export function samples(): Source {
   const instant = (connector: string, request: SearchRequest): SearchAnswer =>
-    connector === "unsplash"
-      ? { found: searchPhotos(request), allowance: { remaining: searchesLeft, limit: 50 } }
-      : { found: searchScreens(request) }
+    connector === "unsplash" ? { found: searchPhotos(request) } : { found: searchScreens(request) }
 
   return {
     instant,

@@ -30,7 +30,7 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
-import type { Allowance, Filter, FilterValue, Found, Problem, SearchAnswer } from "@parity-app/connectors"
+import type { Filter, FilterValue, Found, Problem, SearchAnswer } from "@parity-app/connectors"
 import {
   Check,
   ChevronLeft,
@@ -159,7 +159,6 @@ function Browser({
   const [status, setStatus] = useState<Status>(firstStatus(start, !!first, !!ready))
   const [problem, setProblem] = useState(() => heldProblem(start, info.name))
   const [results, setResults] = useState<Found[]>(ready?.found ?? [])
-  const [allowance, setAllowance] = useState(ready?.allowance)
   const [more, setMore] = useState<"can" | "loading" | "none">(ready && !ready.full ? "none" : "can")
 
   const [picked, setPicked] = useState<Picked[]>(() =>
@@ -189,7 +188,6 @@ function Browser({
       }
 
       setResults([...after, ...answer.found])
-      setAllowance(answer.allowance)
       setStatus("ready")
       setMore(answer.found.length < (request.limit ?? 0) ? "none" : "can")
     }
@@ -365,9 +363,6 @@ function Browser({
         )}
         <footer className="flex shrink-0 items-center gap-2 border-t px-4 py-2.5">
           <SourceCredit library={library} />
-          {allowance && allowance.remaining <= 10 && (
-            <span className="pl-2 text-xs text-muted-foreground">{searchesLeft(allowance)}</span>
-          )}
           <div className="ml-auto flex items-center gap-2">
             {picked.length > 0 && (
               <Button variant="outline" size="sm" onClick={() => setPicked([])}>
@@ -414,7 +409,6 @@ function opened(library: Library, source: Source, search: Searched, more: number
   }
 
   const found: Found[] = []
-  let allowance: Allowance | undefined
   let full = true
 
   for (let pull = 0; pull <= more; pull++) {
@@ -426,17 +420,10 @@ function opened(library: Library, source: Source, search: Searched, more: number
     }
 
     found.push(...answer.found)
-    allowance = answer.allowance
     full = answer.found.length === request.limit
   }
 
-  return { found, allowance, full }
-}
-
-function searchesLeft({ remaining, limit }: Allowance): string {
-  const searches = remaining === 1 ? "search" : "searches"
-
-  return limit ? `${remaining} of ${limit} ${searches} left` : `${remaining} ${searches} left`
+  return { found, full }
 }
 
 /** Where the results are from: the source's own mark and name, from its connector, as a link to it. */

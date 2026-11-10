@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { typeInto } from "../../stories/fixtures.tsx"
-import { samples } from "./data.ts"
 import { found, opening, workspace } from "./story-kit.tsx"
 import { live } from "./workspace.tsx"
 
@@ -123,15 +122,9 @@ export const NoResults: Story = {
 }
 
 /**
- * Unsplash sends how many searches are left this hour with every answer, in its rate limit headers: 50 an hour until
- * it approves an app for production, then 5,000. Under ten, the browser says so beside its credit.
+ * The hour's searches are used up: 50 an hour until Unsplash approves an app for production, then 5,000. This is the
+ * only time the browser mentions the limit. Unsplash doesn't say how long is left, so it doesn't count down.
  */
-export const FewSearchesLeft: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace({ source: samples({ searchesLeft: 4 }), browser: { library: "unsplash", query: "nature" } })
-}
-
-/** The hour's searches are used up. Unsplash doesn't say how long is left, so the browser doesn't count down. */
 export const LimitReached: Story = {
   loaders: [opening(false, "images")],
   render: workspace({ browser: { library: "unsplash", query: "nature", status: "limited", wait: 0 } })

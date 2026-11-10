@@ -76,9 +76,9 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 - **More results follows the connector's `more`:** leaving out what's shown for Mobbin, the next page for Unsplash.
 - **A connector's problems are the browser's states:** no key, a key turned down, a plan without access, a limit reached
   with the wait counted down, a search it can't take, and a source that can't be reached.
-- **Searches left show when the connector says.** Unsplash sends how many remain in the hour with every answer, in its
-  rate limit headers, which the connector passes on as `allowance`: 50 an hour until Unsplash approves an app for
-  production, then 5,000. Under ten, the browser says so beside the credit. Mobbin doesn't say until it's too late.
+- **A limit shows only once it's reached,** as the "Too many searches right now" state. Unsplash sends how many searches
+  remain in the hour with every answer, 50 an hour until it approves an app for production and 5,000 after, which the
+  connector passes on as `allowance`. The browser doesn't show the count.
 - **What differs for each library is small:** its name and the words around the search field, whether results sit in
   rows or pack into columns, and what the button does with what's picked.
 
