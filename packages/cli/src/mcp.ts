@@ -12,6 +12,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeReferences,
   describeReport,
   describeStatus,
   describeTokens,
@@ -49,7 +50,10 @@ interface Reply {
   isError?: boolean
 }
 
-type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }
+/** The picture types MCP clients show. */
+type ImageType = "image/png" | "image/jpeg" | "image/webp" | "image/gif"
+
+type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: ImageType }
 
 /**
  * One adapter for RPC-backed tools: operation contracts own defaults, validation, failure semantics and the structured
@@ -199,6 +203,15 @@ const tools: Tool[] = [
     "Read a component's props from source, and its composition: the parents or provider it goes inside, the parts it holds, its slots and an example node to insert. all includes attributes it passes through.",
     operations.props,
     (result) => [text(describeProps(result))]
+  ),
+  operationTool(
+    "find_references",
+    "Search Mobbin for real apps' screens before designing a common one (onboarding, paywall, checkout), and look at the previews. Follow their patterns with the project's own components and tokens, never an app's layout, text or branding, and name the apps you drew on.",
+    operations.references,
+    (result) => [
+      text(describeReferences(result)),
+      ...result.found.flatMap((each) => (each.preview?.data ? [image(each.preview.data, each.preview.mimeType)] : []))
+    ]
   ),
   operationTool(
     "report_problem",
@@ -369,6 +382,6 @@ function text(value: string): Content {
   return { type: "text", text: value }
 }
 
-function image(data: string): Content {
-  return { type: "image", data, mimeType: "image/png" }
+function image(data: string, mimeType: ImageType = "image/png"): Content {
+  return { type: "image", data, mimeType }
 }

@@ -14,6 +14,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeReferences,
   describeReport,
   describeStatus,
   describeTokens
@@ -99,6 +100,12 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             feedback with a screenshot of the window, its replay, this command's trace
                                             and frames of the design named, tagged with what it's about and the test
                                             pass (PARITY_TEST_RUN unless --test-run says). Prints its link
+  parity references "<screen>" [--platform web|ios] [--deep] [--limit 6] [--exclude id]
+                                            search Mobbin for screens from real apps, one screen per search, with
+                                            the key Parity holds; prints each app, link and id, and saves each
+                                            preview under ~/.parity/references. --deep reads intent and keeps strong
+                                            matches, spending the person's Mobbin AI credits; --exclude (repeated)
+                                            leaves out screens already seen. Exits with 1 when it can't search
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
@@ -146,6 +153,9 @@ const { positionals, values } = parseArgs({
     node: { type: "string" },
     since: { type: "string" },
     session: { type: "string" },
+    platform: { type: "string" },
+    deep: { type: "boolean" },
+    exclude: { type: "string", multiple: true },
     help: { type: "boolean", short: "h" }
   }
 })
@@ -341,6 +351,18 @@ async function main(): Promise<void> {
           testRun: values["test-run"]
         },
         describeReport
+      )
+    case "references":
+      return show(
+        operations.references,
+        {
+          query: rest.join(" ") || undefined,
+          platform: values.platform,
+          depth: values.deep ? "deep" : undefined,
+          limit,
+          exclude: values.exclude
+        },
+        describeReferences
       )
     case "console":
       return show(operations.console, { tab: values.tab, clear: values.clear, limit }, describeConsole)

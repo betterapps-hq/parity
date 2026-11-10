@@ -28,6 +28,7 @@ import { currentTrace, inSpan } from "../shared/tracing.ts"
 import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
+import { searchReferences } from "./references.ts"
 import { renderOffscreen } from "./render.ts"
 import { scrubSecrets } from "./telemetry.ts"
 import { composePicture, cutPicture } from "./webp.ts"
@@ -40,6 +41,8 @@ interface WindowChannel {
 }
 
 const screenshotDir = join(homedir(), ".parity", "screenshots")
+
+const referencesDir = join(homedir(), ".parity", "references")
 
 /**
  * The local endpoint agents use (through `parity` or its MCP server). It listens on 127.0.0.1 only and requires the
@@ -205,6 +208,17 @@ export function desktopHost(window: WindowChannel): AgentHost {
 
       return mainProcess.request("report", filed)
     },
+    // Main holds connectors' keys, so it runs the search; the previews are fetched and saved here (PAR-829).
+    references: (request) =>
+      searchReferences(
+        {
+          search: (search) => mainProcess.request("connectorSearch", search),
+          fetch,
+          folder: referencesDir,
+          timeout: 15_000
+        },
+        request
+      ),
     async saveScreenshots(screenshots) {
       await mkdir(screenshotDir, { recursive: true })
       const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-")

@@ -177,7 +177,25 @@ export const operations = {
   components: operation("components"),
   props: operation("props"),
   // A report goes to a running copy even with no project open, as long as it names no tab.
-  report: withTestRun(operation("report", { routing: "tab-or-any" }))
+  report: withTestRun(operation("report", { routing: "tab-or-any" })),
+  // Any running copy can search: main holds the key, whatever projects are open (PAR-829). --json and
+  // structuredContent leave the previews' base64 out; MCP shows them as images, and the CLI names their files.
+  references: operation("references", {
+    routing: "tab-or-any",
+    failed: (result) => result.problem !== undefined,
+    structured: (result) => ({
+      ...result,
+      found: result.found.map(({ preview, ...reference }) => {
+        if (!preview) {
+          return reference
+        }
+
+        const { data: _data, ...saved } = preview
+
+        return { ...reference, preview: saved }
+      })
+    })
+  })
 }
 
 /**

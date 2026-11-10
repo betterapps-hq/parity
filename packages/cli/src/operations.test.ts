@@ -7,6 +7,7 @@ import {
   type ModesResponse,
   type ProblemsResponse,
   type PropsResponse,
+  type ReferencesResponse,
   type ReportResponse,
   type StatusResponse,
   describeAccessibility,
@@ -16,6 +17,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeReferences,
   describeReport,
   describeStatus,
   describeTokens
@@ -117,6 +119,17 @@ const reported: ReportResponse = {
   tags: { tab: "Project", design: "home", state: "default", node: "title" },
   attachments: ["screenshot.png", "home default mobile-light.png", "events.jsonl"]
 }
+
+const calm = {
+  id: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+  app: "Calm",
+  platform: "ios" as const,
+  link: "https://mobbin.com/screens/1b9d6bcd",
+  image: "https://images.mobbin.com/calm.webp",
+  preview: { path: "/references/calm.webp", mimeType: "image/webp" as const }
+}
+
+const references: ReferencesResponse = { found: [calm] }
 
 const project = resolve("some/../project")
 
@@ -294,6 +307,17 @@ const cases: Case[] = [
     result: reported,
     structured: reported,
     text: describeReport(reported)
+  },
+  {
+    name: "references",
+    cli: ["references", "paywall", "with", "a", "free", "trial", "--platform", "ios"],
+    tool: "find_references",
+    method: "references",
+    input: { query: "paywall with a free trial", platform: "ios" },
+    params: { query: "paywall with a free trial", platform: "ios", depth: "standard", limit: 6, exclude: [] },
+    result: references,
+    structured: references,
+    text: describeReferences(references)
   }
 ]
 
@@ -937,7 +961,43 @@ describe("remaining transport contracts", processTests, () => {
     const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     const tools = toolReply(protocol.stdout)?.result?.tools
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
-    // report_problem (PAR-646).
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(14 * 1024)
+    // report_problem (PAR-646); 14.6 KB with find_references (PAR-829).
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(15 * 1024)
+  })
+
+  it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {
+    const result = { found: [{ ...calm, preview: { ...calm.preview, data: "UklGRg==" } }] }
+    fixture.response = { result }
+
+    const [cli, protocol] = await Promise.all([
+      run(["references", "paywall", "--json"]),
+      mcp({ query: "paywall" }, "find_references")
+    ])
+
+    expect(JSON.parse(cli.stdout)).toEqual(references)
+    expect(toolReply(protocol.stdout)?.result?.content).toEqual([
+      { type: "text", text: describeReferences(result) },
+      { type: "image", data: "UklGRg==", mimeType: "image/webp" }
+    ])
+  })
+
+  it("says why a references search found nothing, and exits with 1", async () => {
+    const result = { found: [], problem: { code: "no-key", message: "Add a Mobbin API key to search Mobbin." } }
+    fixture.response = { result }
+
+    const cli = await run(["references", "paywall"])
+
+    expect(cli.stdout.trim()).toBe("Add a Mobbin API key to search Mobbin.")
+    expect(cli.code).toBe(1)
+  })
+
+  it("lists each screen found with its link, id and preview, and what to do with them", () => {
+    expect(describeReferences(references).split("\n")).toEqual([
+      "1 screen from Mobbin:",
+      "1. Calm (ios) https://mobbin.com/screens/1b9d6bcd",
+      "   id 1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+      "   preview /references/calm.webp",
+      "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and Mobbin."
+    ])
   })
 })

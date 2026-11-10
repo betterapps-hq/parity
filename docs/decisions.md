@@ -6807,3 +6807,36 @@ The plan attached the last log file to a crash, and main's hangs said how long b
 - **Frames are named `app:///` from the app's folder,** as Sentry's Electron SDK names them, with the bundles' debug IDs
   from main, so Sentry maps them to the uploaded source maps and no one's home folder is sent.
 - **`where` is the innermost of Parity's own frames,** not the innermost frame, which is often Node's own code.
+
+## Connectors search outside services from main (PAR-829)
+
+You asked on 2026-11-09 to build the Mobbin integration with patterns that make Unsplash and later sources easier. My
+calls:
+
+- **A connector is one adapter in `@parity-app/connectors`,** which takes data and returns data, as
+  [extensions.md](proposals/extensions.md) describes connectors. Each one says what it finds (screens, flows, sections
+  or photos), the platforms and depths it takes, its limits and where to get a key, and turns a search into one result
+  shape and one set of problems: no key, a key turned down, a plan without access, a rate limit with when to retry, a
+  search it can't run, or a source that didn't answer. A failure is data in the answer, not a thrown error, so it
+  reaches the window and agents whole across IPC and the service's channel. Unsplash (PAR-131) adds one adapter, and its
+  download ping is the connector's `picked`.
+- **Mobbin is its REST API, which searches screens only.** `POST /v1/screens/search` takes a query, the platform (`ios`
+  or `web`, required), the mode (`standard` or `deep`), a limit up to 100 and ids to leave out, and that's the whole
+  API. Flows and sections are only in Mobbin's MCP server, which signs each person in with their own account; a
+  connector for that is a later choice, not part of this one. Standard is the default, since a deep search that finds
+  something spends 5 of the person's AI credits. Tried live on 2026-11-10: a standard search took about 3 seconds and a
+  deep one about 8, and the images are public WebP files of about 13 KB whose links last 30 days.
+- **Main keeps the keys and runs every search.** They're kept in one file in the app's data, encrypted with
+  `safeStorage`, never in a project, local storage or a window; where `safeStorage` would write plain text, a key lasts
+  until Parity quits. A key is checked with the connector's smallest search before it's kept, and one Mobbin turns down
+  isn't. The window asks over IPC and sees only where a key comes from. Agents ask through the service, which asks main.
+  Main scrubs the keys from what it sends to Sentry, and never passes them to the service, whose builders run project
+  code.
+- **A development copy reads `PARITY_MOBBIN_API_KEY`,** from the shell or from `apps/desktop/.env.local`, which
+  `pnpm dev` passes to main alone. It wins over a saved key until a setting for keys is designed.
+- **Agents get `find_references` and `parity references`,** for screens only, with up to 6 by default and 20 at most.
+  The previews are saved under `~/.parity/references`; MCP shows them as images, and `--json` names their files. The
+  skill says to look at real apps before designing a common screen, and to follow their patterns with the project's own
+  components and tokens, never an app's layout, text or branding.
+- **Each search is recorded** as `connectors.searched`, with its connector, filters, count or problem and time, never
+  what was searched for.

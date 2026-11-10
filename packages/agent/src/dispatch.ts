@@ -63,6 +63,11 @@ export interface AgentHost {
    * (PAR-646).
    */
   report(report: AgentReport): Promise<ReportSent>
+  /**
+   * Searches Mobbin for screens with the key main holds, and saves each preview as a file (PAR-829). A search that
+   * found nothing to show answers with why, rather than failing.
+   */
+  references(request: Params<"references">): Promise<Answer<"references">>
 }
 
 /** Who's calling, when the CLI or MCP knows: its name for people, and an id that tells same-named callers apart. */
@@ -199,7 +204,8 @@ const methods: MethodTable = {
 
     return readOnly(snapshot).Props(params.component, { all: params.all })
   },
-  report: (params, { host }) => report(host, params)
+  report: (params, { host }) => report(host, params),
+  references: (params, { host }) => host.references(params)
 }
 
 /** Each method's params schema. `copy` takes none, as `tabs` doesn't. */

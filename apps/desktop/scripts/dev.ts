@@ -7,8 +7,9 @@
 //                                      a component reloads the page (scripts/react-build.ts); it passes --react production
 //   PARITY_STANDARD_ELECTRON=1  run Electron as installed, not Parity's copy of it (scripts/parity-electron.ts)
 import { type ChildProcess, spawn } from "node:child_process"
-import { cpSync } from "node:fs"
+import { cpSync, existsSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
+import { parseEnv } from "node:util"
 import { type BuildContext, type BuildOptions, context, type Plugin } from "esbuild"
 import { createServer } from "vite"
 import { currentCommit } from "../../../scripts/commit.ts"
@@ -141,8 +142,34 @@ const builds: BuildContext[] = [
   })
 ]
 
+/**
+ * Connectors' keys from `.env.local` beside the app, which Git ignores, for main (PAR-829). Vite reads the same file for
+ * the window, but passes on only `VITE_` settings, so the keys never reach a page. One already set in the shell wins.
+ */
+function connectorKeys(): NodeJS.ProcessEnv {
+  const file = join(appDir, ".env.local")
+
+  if (!existsSync(file)) {
+    return {}
+  }
+
+  const { PARITY_MOBBIN_API_KEY, PARITY_UNSPLASH_ACCESS_KEY } = parseEnv(readFileSync(file, "utf8"))
+  const keys: NodeJS.ProcessEnv = {}
+
+  if (PARITY_MOBBIN_API_KEY) {
+    keys.PARITY_MOBBIN_API_KEY = PARITY_MOBBIN_API_KEY
+  }
+
+  if (PARITY_UNSPLASH_ACCESS_KEY) {
+    keys.PARITY_UNSPLASH_ACCESS_KEY = PARITY_UNSPLASH_ACCESS_KEY
+  }
+
+  return keys
+}
+
 function startElectron(): void {
   const env: NodeJS.ProcessEnv = {
+    ...connectorKeys(),
     ...process.env,
     PARITY_RENDERER_URL: rendererUrl,
     PARITY_PROJECT: project,

@@ -72,6 +72,8 @@ export type ConsoleEntry = z.output<typeof replies.console>["entries"][number]
 
 export type ReportResponse = z.output<typeof replies.report>
 
+export type ReferencesResponse = z.output<typeof replies.references>
+
 let caller = cliCallerName(process.env)
 
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
@@ -908,6 +910,34 @@ export function describeReport(result: ReportResponse): string {
     ...(tags.length > 0 ? [`Tagged ${tags.join(", ")}.`] : []),
     `Sent with ${result.attachments.join(", ")}.`,
     "Sentry files it in Linear and links the issue from the feedback."
+  ].join("\n")
+}
+
+/**
+ * A readable account of the screens a references search found on Mobbin, each with its app, platform, link and saved
+ * preview, or why it found nothing to show.
+ */
+export function describeReferences(result: ReferencesResponse): string {
+  if (result.problem) {
+    return result.problem.message
+  }
+
+  if (result.found.length === 0) {
+    return "Nothing on Mobbin matches. Try fewer parts, other words, or the other platform."
+  }
+
+  const count = result.found.length === 1 ? "1 screen" : `${result.found.length} screens`
+
+  const lines = result.found.map((each, index) => {
+    const preview = each.preview ? `preview ${each.preview.path}` : "no preview: open the link"
+
+    return `${index + 1}. ${each.app} (${each.platform}) ${each.link}\n   id ${each.id}\n   ${preview}`
+  })
+
+  return [
+    `${count} from Mobbin:`,
+    ...lines,
+    "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and Mobbin."
   ].join("\n")
 }
 

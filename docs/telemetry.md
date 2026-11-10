@@ -357,6 +357,11 @@ the account: WorkOS's answer goes as its status and code.
 - **A window that can't find out who's signed in** records `account.stateFailed`, with where main's answer didn't match
   but not the answer itself.
 
+Main records the `connectors.*` events from `main/connectors.ts` and `main/connector-keys.ts` (PAR-829). Each search is
+`connectors.searched`, with its connector, who asked, its filters, and how many it found or why it found nothing, never
+what was searched for. The file that keeps connectors' keys going unreadable is `connectors.storeFailed`, as with
+accounts. Keys are scrubbed from what main sends, and never reach a window or the service.
+
 ## Levels and sampling
 
 Each event has a level, lowest first: `debug`, `info`, `warn`, `error` and `fatal`. `error` and `fatal` events also

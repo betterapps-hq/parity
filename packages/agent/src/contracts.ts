@@ -231,6 +231,21 @@ export const requests = {
     node: text("node", "Node id.").optional(),
     testRun: text("testRun", "Test pass. Defaults to PARITY_TEST_RUN.").optional()
   }),
+  references: fields({
+    tab,
+    query: text("query", 'One screen: its type, then up to three parts it shows, as "paywall with a free trial".'),
+    platform: z.enum(["ios", "web"], "platform must be ios or web").default("web"),
+    depth: z
+      .enum(["standard", "deep"], "depth must be standard or deep")
+      .default("standard")
+      .describe("deep keeps strong matches, for searches with parts; it spends Mobbin AI credits."),
+    limit: limit("Most screens.", 6, 20),
+    exclude: z
+      .array(nonblank("exclude must be a list of screen ids"), "exclude must be a list of screen ids")
+      .max(100, "exclude takes up to 100 ids")
+      .default([])
+      .describe("Ids already seen, for more.")
+  }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
     executeKind({ tab: execute.tab, label: execute.label, editId: execute.editId, edits: execute.edits })
@@ -678,6 +693,37 @@ const reportReply = z.looseObject({
   attachments: strings.describe("The files sent with it: the window's screenshot, the frames and the diagnostics.")
 })
 
+/** A screen found on Mobbin (PAR-829), with its preview saved as a file for the agent to look at. */
+const reference = z.looseObject({
+  id: z.string().describe("Mobbin's id, which exclude takes."),
+  app: z.string(),
+  platform: z.enum(["ios", "web"]),
+  link: z.string().describe("The screen on Mobbin."),
+  image: z.string().describe("The full image, which loads for 30 days."),
+  width: z.int().optional(),
+  height: z.int().optional(),
+  preview: z
+    .looseObject({
+      path: z.string().describe("Where the preview was saved."),
+      mimeType: z.enum(["image/png", "image/jpeg", "image/webp", "image/gif"]),
+      data: z.string().optional().describe("The preview as base64, which MCP shows and --json leaves out.")
+    })
+    .optional()
+    .describe("Missing when the preview couldn't be fetched.")
+})
+
+/** What a references search found, or why it found nothing to show. */
+const referencesReply = z.looseObject({
+  found: z.array(reference),
+  problem: z
+    .looseObject({
+      code: z.string().describe("no-key, key-refused, no-access, rate-limited, invalid or unavailable."),
+      message: z.string(),
+      retryAfter: number.optional().describe("Seconds to wait before searching again.")
+    })
+    .optional()
+})
+
 /**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,
  * which calls are routed by (PAR-514): its tabs, and when its window last had focus, missing from a copy too old to
@@ -698,7 +744,8 @@ export const replies = {
   tokens: z.array(tokenInfo),
   components: componentsReply,
   props: propsReply,
-  report: reportReply
+  report: reportReply,
+  references: referencesReply
 }
 
 /**

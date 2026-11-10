@@ -77,13 +77,23 @@ interface Asked {
   saved: number
   console: boolean[]
   reports: AgentReport[]
+  references: Answer<"references">[]
 }
 
 /** The tests' host: the fixture tab, frames drawn as data, and everything asked of it kept to look at. */
 function fixtureHost() {
   const tab = snapshot()
 
-  const asked: Asked = { snapshots: [], presence: [], frames: [], applied: [], saved: 0, console: [], reports: [] }
+  const asked: Asked = {
+    snapshots: [],
+    presence: [],
+    frames: [],
+    applied: [],
+    saved: 0,
+    console: [],
+    reports: [],
+    references: []
+  }
 
   const host: AgentHost = {
     tabs: async () => [tab.tab],
@@ -152,6 +162,24 @@ function fixtureHost() {
         traceId: "t1",
         attachments: ["screenshot.png", ...report.frames.map((frame) => frame.name)]
       }
+    },
+    references: async (request) => {
+      const answer = {
+        found: [
+          {
+            id: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+            app: "Calm",
+            platform: request.platform,
+            link: "https://mobbin.com/screens/1b9d6bcd",
+            image: "https://images.mobbin.com/a.webp",
+            preview: { path: "D:/references/calm.webp", mimeType: "image/webp" as const, data: "UklG" }
+          }
+        ].slice(0, request.limit)
+      }
+
+      asked.references.push(answer)
+
+      return answer
     }
   }
 
@@ -193,7 +221,8 @@ describe("dispatch", () => {
       ["accessibility", { design: "signup" }],
       ["screenshot", { design: "signup", scale: 1 }],
       ["exec", { label: "Read", code: "Print(Designs().length)" }],
-      ["report", { message: "The title is cut off" }]
+      ["report", { message: "The title is cut off" }],
+      ["references", { query: "paywall with a free trial" }]
     ]
 
     const answered: string[] = []
@@ -464,5 +493,37 @@ describe("exportPictures", () => {
     const { host, tab } = fixtureHost()
     const { files } = await exportPictures(host, tab, ["signup"], 2)
     expect(files).toEqual([{ name: "Sign up@2x.png", png: "iVBOR" }])
+  })
+})
+
+describe("references", () => {
+  it("passes the search on with its defaults: the web, standard depth, six screens, nothing excluded", async () => {
+    const fixture = fixtureHost()
+    const asked: unknown[] = []
+
+    const host: AgentHost = {
+      ...fixture.host,
+      references: async (request) => {
+        asked.push(request)
+
+        return { found: [] }
+      }
+    }
+
+    await dispatch("references", { query: "paywall with a free trial" }, host, caller)
+
+    expect(asked).toEqual([
+      { query: "paywall with a free trial", platform: "web", depth: "standard", limit: 6, exclude: [] }
+    ])
+  })
+
+  it("turns down a search with no query or a platform Mobbin doesn't have, before asking the host", async () => {
+    const fixture = fixtureHost()
+
+    await expect(dispatch("references", {}, fixture.host, caller)).rejects.toThrow(/query/)
+    await expect(
+      dispatch("references", { query: "paywall", platform: "android" }, fixture.host, caller)
+    ).rejects.toThrow(/platform must be ios or web/)
+    expect(fixture.asked.references).toEqual([])
   })
 })
