@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 05:21:48 GMT",
+      "version": "0.47.0",
+      "tag": "@parity-app/desktop_v0.47.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7fb70764c0197af629af92641ffbc304adad151c",
+            "comment": "Attach the last 5 minutes of events to crashes and fatal errors, and say where main was stuck in a hang"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 05:09:47 GMT",
       "version": "0.46.0",
       "tag": "@parity-app/desktop_v0.46.0",

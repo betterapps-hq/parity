@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 10 Nov 2026 05:09:47 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 05:21:48 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.47.0
+
+Tue, 10 Nov 2026 05:21:48 GMT
+
+### Minor changes
+
+- Attach the last 5 minutes of events to crashes and fatal errors, and say where main was stuck in a hang
+  (ajcraswell@gmail.com)
 
 ## 0.46.0
 
