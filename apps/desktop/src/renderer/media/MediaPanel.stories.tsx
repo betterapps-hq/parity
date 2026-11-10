@@ -92,14 +92,19 @@ async function openUsedMedia(): Promise<void> {
   showIn("Settings", { src: "/images/old-hero.png" })
 }
 
-/** The wall, once every picture on it has loaded. */
+/** The wall, once every picture on it has loaded and every video knows its size. */
 async function wall(canvasElement: HTMLElement): Promise<HTMLElement> {
   const list = await within(canvasElement).findByRole("list", { name: "Media in this project" })
 
   await waitFor(() => {
     const images = [...list.querySelectorAll("img")]
+    const videos = [...list.querySelectorAll("video")]
 
-    if (images.length === 0 || !images.every((image) => image.complete)) {
+    const loaded =
+      images.every((image) => image.complete) &&
+      videos.every((video) => video.readyState >= HTMLMediaElement.HAVE_METADATA)
+
+    if (images.length + videos.length === 0 || !loaded) {
       throw new Error("The pictures are still loading")
     }
   })
