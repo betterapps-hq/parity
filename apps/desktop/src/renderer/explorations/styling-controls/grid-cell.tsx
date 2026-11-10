@@ -17,7 +17,7 @@ import {
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
-import { Field, TitleMenu } from "./field-row.tsx"
+import { Field, Segments, TitleMenu } from "./field-row.tsx"
 import { type Area, columnTracks, placeChildren, rowCount, trackOf, trackWeights } from "./layout-controls.tsx"
 
 /*
@@ -78,8 +78,8 @@ const flexPlace = { start: "flex-start", center: "center", end: "flex-end", fill
 
 /** Auto leaves it to the grid; Manual places it at the cells chosen, pinned where it is to start with. */
 const placings = [
-  { label: "Auto", detail: "In the grid's next free cell", auto: true },
-  { label: "Manual", detail: "In the cells you choose", auto: false }
+  { value: "auto", label: "Auto", detail: "In the grid's next free cell" },
+  { value: "manual", label: "Manual", detail: "In the cells you choose" }
 ] as const
 
 /** Every line unset, so the grid places it. */
@@ -288,36 +288,21 @@ export function GridCellSection({ draft, set }: SectionProps) {
         </div>
         <div className="flex flex-col gap-1">
           {/* How it's placed, as Penpot's Auto and Manual: Manual pins it where it is, which the map then moves. */}
-          <div className="flex h-6 items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground">Cells</span>
-            <fieldset aria-label="How it's placed" className="m-0 flex h-6 items-center gap-px rounded-md border p-0.5">
-              {placings.map((placing) => {
-                const pressed = placing.auto === auto
-
-                return (
-                  <Hint key={placing.label} label={placing.label} detail={placing.detail}>
-                    <button
-                      type="button"
-                      aria-pressed={pressed}
-                      onClick={() => {
-                        if (pressed) {
-                          return
-                        }
-
-                        if (placing.auto) {
-                          toAuto()
-                        } else {
-                          place(area)
-                        }
-                      }}
-                      className={`h-full rounded-sm px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring ${pressed ? "bg-accent text-foreground shadow-xs" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`}
-                    >
-                      {placing.label}
-                    </button>
-                  </Hint>
-                )
-              })}
-            </fieldset>
+            <Segments
+              label="How it's placed"
+              fit
+              value={auto ? "auto" : "manual"}
+              options={placings}
+              onChange={(next) => {
+                if (next === "auto" && !auto) {
+                  toAuto()
+                } else if (next === "manual" && auto) {
+                  place(area)
+                }
+              }}
+            />
           </div>
           <CellMap
             draft={draft}

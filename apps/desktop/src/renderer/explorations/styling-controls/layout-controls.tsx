@@ -8,9 +8,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Toggle,
-  ToggleGroup,
-  ToggleGroupItem
+  Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   ArrowDown,
@@ -41,7 +39,7 @@ import {
   typedContentSizes
 } from "./data.ts"
 import { arrowMoves, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
-import { EachToggle, Field, nameMenuButton, TitleMenu } from "./field-row.tsx"
+import { EachToggle, Field, IconSegments, nameMenuButton, TitleMenu } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
 import { moved, RemoveButton, useOrderKeys } from "./list-parts.tsx"
 import { type Side, sideNumber, sideRules } from "./sides-writes.ts"
@@ -236,28 +234,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
           <div ref={beside} className="flex min-w-0 flex-col gap-2.5">
             <Field half label="Type">
               <div ref={typeRow} className="flex items-center gap-1.5">
-                <ToggleGroup
-                  variant="outline"
-                  size="sm"
-                  spacing={0}
-                  aria-label="Type"
-                  value={[mode]}
-                  onValueChange={([value]) => {
-                    const next = layoutTypes.find((type) => type.value === value)?.value
-
-                    if (next) {
-                      toMode(next)
-                    }
-                  }}
-                >
-                  {layoutTypes.map((type) => (
-                    <Hint key={type.value} label={type.label} detail={type.detail}>
-                      <ToggleGroupItem value={type.value} aria-label={type.label} className="h-7 px-2">
-                        {type.icon}
-                      </ToggleGroupItem>
-                    </Hint>
-                  ))}
-                </ToggleGroup>
+                <IconSegments label="Type" value={mode} options={layoutTypes} onChange={toMode} />
                 {/* A grid places its children by cell, so it has no direction to reverse. */}
                 {!grid && (
                   <Hint

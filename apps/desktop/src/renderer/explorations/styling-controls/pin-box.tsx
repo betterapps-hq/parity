@@ -1,4 +1,4 @@
-import { DropdownMenuCheckboxItem, ToggleGroup, ToggleGroupItem } from "@buildkitgg/shadcn-baseui-kit"
+import { DropdownMenuCheckboxItem } from "@buildkitgg/shadcn-baseui-kit"
 import { AppWindow, ArrowUpToLine, Crosshair, Layers, Maximize, Move, MoveDiagonal2, Rows3 } from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
@@ -7,7 +7,7 @@ import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { SideValue } from "./box-model.tsx"
 import { formatNumber, tint } from "./css-values.ts"
 import { MessageLine, useTokens } from "./field-parts.tsx"
-import { Field, NameToggle, TitleMenu } from "./field-row.tsx"
+import { Field, IconSegments, NameToggle, TitleMenu } from "./field-row.tsx"
 import {
   distances,
   inFlow,
@@ -150,28 +150,12 @@ export function PositionSection({
         {/* Side by side, as both say how the layer sits among the others. */}
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2">
           <Field label="Placement" half>
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              spacing={0}
-              aria-label="Placement"
-              value={[placement]}
-              onValueChange={([next]) => {
-                const chosen = placements.find((option) => option.value === next)
-
-                if (chosen) {
-                  choose(chosen.value)
-                }
-              }}
-            >
-              {shownPlacements.map((option) => (
-                <Hint key={option.value} label={option.label} detail={option.detail}>
-                  <ToggleGroupItem value={option.value} aria-label={option.label} className="h-7 px-2">
-                    <option.Icon />
-                  </ToggleGroupItem>
-                </Hint>
-              ))}
-            </ToggleGroup>
+            <IconSegments
+              label="Placement"
+              value={placement}
+              options={shownPlacements.map((option) => ({ ...option, icon: <option.Icon /> }))}
+              onChange={choose}
+            />
           </Field>
           {layerOrderShown && <LayerOrderField value={layerOrder} context={context} half onChange={onLayerOrder} />}
         </div>

@@ -1,4 +1,12 @@
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, Switch } from "@buildkitgg/shadcn-baseui-kit"
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  Switch,
+  ToggleGroup,
+  ToggleGroupItem
+} from "@buildkitgg/shadcn-baseui-kit"
 import { Ellipsis, Lock, LockOpen, Minus, Plus, RotateCcw } from "lucide-react"
 import {
   type ComponentProps,
@@ -228,13 +236,68 @@ export interface Segment<V extends string> {
   value: V
   label: string
   detail?: string
+  /** Drawn in the label's place, which then names it for screen readers and in its hint. */
+  icon?: ReactNode
+  /** A mark in its corner, as a value that isn't Baseline has. */
+  mark?: ReactNode
 }
 
 /**
- * Two or three options as segments across the row, drawn as the keyword toggles are: the one chosen raised, each named
- * in its hint with what it writes. One click changes it, where a menu would take two.
+ * A choice of one from a few, as segments in a box, the chosen one raised. Unset, the option it comes to anyway shows
+ * faintly (`faint`), as an inherited keyword does. They share the row's width, or `fit` their content, as a set of
+ * keywords or a short switch does.
  */
 export function Segments<V extends string>({
+  label,
+  value,
+  faint,
+  fit = false,
+  options,
+  onChange
+}: {
+  label: string
+  value: V | undefined
+  faint?: V
+  fit?: boolean
+  options: readonly Segment<V>[]
+  onChange: (value: V) => void
+}) {
+  return (
+    <fieldset
+      aria-label={label}
+      className={`m-0 flex h-7 items-center gap-px rounded-md border p-0.5 ${fit ? "" : "min-w-0"}`}
+    >
+      {options.map((option) => {
+        const pressed = option.value === value
+        let look = "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+
+        if (pressed) {
+          look = "bg-accent text-foreground shadow-xs"
+        } else if (value === undefined && option.value === faint) {
+          look = "bg-accent/40 text-muted-foreground"
+        }
+
+        return (
+          <Hint key={option.value} label={option.label} detail={option.detail}>
+            <button
+              type="button"
+              aria-label={option.label}
+              aria-pressed={pressed}
+              onClick={() => onChange(option.value)}
+              className={`h-full rounded-sm px-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring ${fit ? "relative grid min-w-6 place-items-center" : "min-w-0 flex-1 truncate"} ${look}`}
+            >
+              {option.icon ?? option.label}
+              {option.mark}
+            </button>
+          </Hint>
+        )
+      })}
+    </fieldset>
+  )
+}
+
+/** A choice of one drawn as icons in a row, each named in its hint: Layout's Type, Position's Placement. */
+export function IconSegments<V extends string>({
   label,
   value,
   options,
@@ -242,28 +305,32 @@ export function Segments<V extends string>({
 }: {
   label: string
   value: V
-  options: readonly Segment<V>[]
+  options: readonly (Segment<V> & { icon: ReactNode })[]
   onChange: (value: V) => void
 }) {
   return (
-    <fieldset aria-label={label} className="m-0 flex h-7 min-w-0 items-center gap-px rounded-md border p-0.5">
-      {options.map((option) => {
-        const pressed = option.value === value
+    <ToggleGroup
+      variant="outline"
+      size="sm"
+      spacing={0}
+      aria-label={label}
+      value={[value]}
+      onValueChange={([next]) => {
+        const chosen = options.find((option) => option.value === next)
 
-        return (
-          <Hint key={option.value} label={option.label} detail={option.detail}>
-            <button
-              type="button"
-              aria-pressed={pressed}
-              onClick={() => onChange(option.value)}
-              className={`h-full min-w-0 flex-1 truncate rounded-sm px-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring ${pressed ? "bg-accent text-foreground shadow-xs" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`}
-            >
-              {option.label}
-            </button>
-          </Hint>
-        )
-      })}
-    </fieldset>
+        if (chosen) {
+          onChange(chosen.value)
+        }
+      }}
+    >
+      {options.map((option) => (
+        <Hint key={option.value} label={option.label} detail={option.detail}>
+          <ToggleGroupItem value={option.value} aria-label={option.label} className="h-7 px-2">
+            {option.icon}
+          </ToggleGroupItem>
+        </Hint>
+      ))}
+    </ToggleGroup>
   )
 }
 

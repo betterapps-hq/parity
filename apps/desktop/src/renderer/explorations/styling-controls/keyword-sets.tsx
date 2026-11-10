@@ -16,7 +16,7 @@ import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Crop } f
 import { type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { fieldBox, NotBaseline, NotBaselineMark, type Reading, TokenMark, ValueField } from "./field-parts.tsx"
-import { TitleMenu } from "./field-row.tsx"
+import { Segments, TitleMenu } from "./field-row.tsx"
 import type { KeywordOption, KeywordValue } from "./text-writes.ts"
 import { cursorTokens } from "./tokens.ts"
 
@@ -172,47 +172,31 @@ export function KeywordToggles({
 
   return (
     <div className="flex flex-wrap items-center gap-1">
-      <fieldset aria-label={label} className="m-0 flex h-7 items-center gap-px rounded-md border p-0.5">
-        {choices.map((choice) => {
-          const pressed = value !== undefined && "option" in value && value.option === choice.value
-          const faint = value === undefined && !showMixed && choice.value === inherited
-          let look = "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-
-          if (pressed) {
-            look = "bg-accent text-foreground shadow-xs"
-          }
-
-          if (faint) {
-            look = "bg-accent/40 text-muted-foreground"
-          }
-
-          const detail = [
+      <Segments
+        label={label}
+        fit
+        value={value !== undefined && "option" in value ? value.option : undefined}
+        faint={showMixed ? undefined : inherited}
+        options={choices.map((choice) => ({
+          value: choice.value,
+          label: choice.label,
+          icon: choice.icon,
+          detail: [
             choice.css,
-            faint ? `Unset: ${inheritedFrom ? `inherited from ${inheritedFrom}` : "the starting value"}` : undefined,
+            value === undefined && !showMixed && choice.value === inherited
+              ? `Unset: ${inheritedFrom ? `inherited from ${inheritedFrom}` : "the starting value"}`
+              : undefined,
             choice.browsers ? `Not Baseline: only ${choice.browsers} draws it` : undefined
           ]
             .filter(Boolean)
-            .join("\n")
-
-          return (
-            <Hint key={choice.value} label={choice.label} detail={detail}>
-              <button
-                type="button"
-                aria-label={choice.label}
-                aria-pressed={pressed}
-                onClick={() => {
-                  setEditingCustom(false)
-                  onChange({ option: choice.value })
-                }}
-                className={`relative grid h-full min-w-6 place-items-center rounded-sm px-1 text-xs ${look}`}
-              >
-                {choice.icon ?? choice.label}
-                {choice.browsers && <NotBaselineMark className="absolute -top-0.5 right-0 text-2xs leading-none" />}
-              </button>
-            </Hint>
-          )
-        })}
-      </fieldset>
+            .join("\n"),
+          mark: choice.browsers && <NotBaselineMark className="absolute -top-0.5 right-0 text-2xs leading-none" />
+        }))}
+        onChange={(option) => {
+          setEditingCustom(false)
+          onChange({ option })
+        }}
+      />
       {showMixed && <span className="text-xs text-muted-foreground">Mixed</span>}
       {(custom !== undefined || editingCustom) && (
         <CustomKeyword
