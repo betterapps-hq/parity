@@ -118,7 +118,8 @@ export function TransitionsSection({
               onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
             />
           ))}
-          {/* It's the whole list that's written this way, so it's said under the list, as Fill and Effects say it. */}
+          {/* It's the whole list that's written this way, so it's said under the list, as Effects says it, and stays
+              put while an entry's carried. */}
           {mixed && savedAs === undefined && (
             <div className={entries.length > 1 ? "pl-4" : ""}>
               <SaveAsToken
