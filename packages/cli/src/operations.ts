@@ -203,7 +203,9 @@ export const operations = {
   references: operation("references", finding),
   photos: operation("photos", finding),
   // Placing edits a design, so it goes to the copy with the tab, and a result that wasn't placed exits with 1.
-  place: operation("place", { failed: (result) => !result.placed })
+  place: operation("place", { failed: (result) => !result.placed }),
+  images: operation("images"),
+  removeImage: operation("removeImage")
 }
 
 /**

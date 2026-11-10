@@ -1,8 +1,19 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 10 Nov 2026 05:22:06 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 05:43:33 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.33.1
+
+Tue, 10 Nov 2026 05:43:33 GMT
+
+### Patches
+
+- Redraw frames, bitmaps and screenshots with a project stylesheet's new CSS as soon as it's saved
+  (ajcraswell@gmail.com)
+- Count warnings in export.done, and record a design file that changed on disk while it had unsaved changes
+  (ajcraswell@gmail.com)
 
 ## 0.33.0
 

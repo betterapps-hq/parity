@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 05:43:33 GMT",
+      "version": "0.33.1",
+      "tag": "@parity-app/cli_v0.33.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "623d3f296b3110e154bd9c488af3047be1bb79ee",
+            "comment": "Redraw frames, bitmaps and screenshots with a project stylesheet's new CSS as soon as it's saved"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c3005861eb4e7b743c83bb4d4864c3eb1b2216cf",
+            "comment": "Count warnings in export.done, and record a design file that changed on disk while it had unsaved changes"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 05:22:06 GMT",
       "version": "0.33.0",
       "tag": "@parity-app/cli_v0.33.0",

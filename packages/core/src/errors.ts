@@ -25,6 +25,10 @@ export const errorCodes = [
   "unknown_icon_set",
   /** A retry named a failed snippet the app doesn't have, so the whole snippet has to be sent again. */
   "unknown_edit_id",
+  /** No image in the project matches the path or address given. */
+  "unknown_image",
+  /** The image is still used by a design or the project's code, so it isn't removed. */
+  "image_in_use",
   /** The call's changes collided with edits made in the editor meanwhile. Running it again may succeed. */
   "conflict",
   /** A snippet threw. Retry it with its editId and edits. */

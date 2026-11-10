@@ -8,7 +8,9 @@ import {
   type ProblemsResponse,
   type PropsResponse,
   type FindResponse,
+  type ImagesResponse,
   type PlaceResponse,
+  type RemoveImageResponse,
   type ReportResponse,
   type StatusResponse,
   describeAccessibility,
@@ -18,9 +20,11 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeImages,
   describePhotos,
   describePlace,
   describeReferences,
+  describeRemovedImage,
   describeReport,
   describeStatus,
   describeTokens
@@ -113,6 +117,33 @@ const modes: ModesResponse = {
   ],
   designs: [{ id: "home", name: "Home", state: "default", states: ["default"], main: "mobile-light", beside: [] }]
 }
+
+const imagesFound: ImagesResponse = {
+  images: [
+    {
+      kind: "file",
+      src: "/images/hero.png",
+      path: "public/images/hero.png",
+      name: "hero.png",
+      bytes: 2048,
+      alt: "A desk",
+      usedBy: [{ document: "app.par", design: "home", designName: "Home", node: "hero" }],
+      usedInCode: [{ path: "src/index.css", line: 2 }]
+    },
+    {
+      kind: "linked",
+      src: "https://images.unsplash.com/photo-1",
+      name: "Photo by Ada Park",
+      credit: { name: "Ada Park", url: "https://unsplash.com/@adapark", source: "Unsplash" },
+      usedBy: [],
+      usedInCode: []
+    }
+  ],
+  total: 3,
+  truncated: true
+}
+
+const removedImage: RemoveImageResponse = { path: "public/images/unused.webp", label: "Remove image" }
 
 const reported: ReportResponse = {
   feedbackId: "0a1b2c",
@@ -366,6 +397,28 @@ const cases: Case[] = [
     result: placed,
     structured: placed,
     text: describePlace(placed)
+  },
+  {
+    name: "images",
+    cli: ["images", "--search", "desk", "--unused"],
+    tool: "get_images",
+    method: "images",
+    input: { search: "desk", unused: true },
+    params: { search: "desk", unused: true, limit: 50 },
+    result: imagesFound,
+    structured: imagesFound,
+    text: describeImages(imagesFound)
+  },
+  {
+    name: "remove image",
+    cli: ["images", "remove", "unused.webp"],
+    tool: "remove_image",
+    method: "removeImage",
+    input: { image: "unused.webp" },
+    params: { image: "unused.webp" },
+    result: removedImage,
+    structured: removedImage,
+    text: describeRemovedImage(removedImage)
   }
 ]
 
@@ -1010,8 +1063,8 @@ describe("remaining transport contracts", processTests, () => {
     const tools = toolReply(protocol.stdout)?.result?.tools
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
     // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos, 16.1 KB with a
-    // connector to name on each, 17.2 KB with place_result.
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(17.5 * 1024)
+    // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834).
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(19 * 1024)
   })
 
   it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {
