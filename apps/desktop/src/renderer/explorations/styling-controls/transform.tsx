@@ -4,14 +4,14 @@ import { useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { formatNumber, stepSpacing } from "./css-values.ts"
+import { formatNumber, stepCount, stepSpacing } from "./css-values.ts"
 import type { Draft } from "./data.ts"
 import { PercentField, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import type { Move, TransformValue } from "./motion-data.ts"
 import { Card, drawnStyle, PreviewStage } from "./playground.tsx"
 import { PositionInBox } from "./position-box.tsx"
-import { readLength } from "./typing.ts"
+import { isBareNumber, readLength } from "./typing.ts"
 
 /*
  * Transform (PAR-652): Move, Scale with its flips, and Origin, as fixed rows, since CSS applies translate, rotate and
@@ -186,7 +186,7 @@ function MoveField({
 
   const read = (text: string): Reading<Move | undefined> => {
     // A bare number keeps the unit shown, so 25 in a field showing % is 25%.
-    const bare = /^\s*-?\d*\.?\d+\s*$/.test(text)
+    const bare = isBareNumber(text)
 
     const reading = readLength(bare && percent ? `${text}%` : text, {
       label,
@@ -225,7 +225,7 @@ function MoveField({
       read={read}
       onCommit={onChange}
       onStep={(up, { shift }) => {
-        const count = (up ? 1 : -1) * (shift ? 10 : 1)
+        const count = stepCount(up, shift)
         onChange(moved(percent ? amount + count : stepSpacing(amount, count)))
       }}
     />

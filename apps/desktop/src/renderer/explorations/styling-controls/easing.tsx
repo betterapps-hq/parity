@@ -24,7 +24,7 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { EasingArt, easingRange, easingScale, useReducedMotion } from "../../chrome/token-previews.tsx"
 import { optionNamed } from "../parts.tsx"
-import { clamp, formatNumber } from "./css-values.ts"
+import { clamp, formatNumber, sameValue, stepCount } from "./css-values.ts"
 import {
   drag,
   MissingMark,
@@ -233,7 +233,7 @@ export function EasingField({
   ]
 
   const step = (up: boolean) => {
-    const index = order.findIndex((option) => JSON.stringify(option) === JSON.stringify(value))
+    const index = order.findIndex((option) => sameValue(option, value))
 
     const from =
       index === -1 ? order.findIndex((option) => "keyword" in option && option.keyword === "ease-in-out") : index
@@ -442,7 +442,7 @@ function EasingEditor({
 
   const plot = easingPlot(value, tokens)
   const spring = value !== undefined && "spring" in value ? value.spring : undefined
-  const isSelected = (option: Easing) => JSON.stringify(option) === JSON.stringify(value)
+  const isSelected = (option: Easing) => sameValue(option, value)
   const { live, rowProps } = useLiveRow()
 
   return (
@@ -838,7 +838,7 @@ function SpringNumber({
         narrow
         read={read}
         onCommit={set}
-        onStep={(up, { shift }) => set(value + (up ? 1 : -1) * step * (shift ? 10 : 1))}
+        onStep={(up, { shift }) => set(value + stepCount(up, shift) * step)}
       />
       <Slider
         aria-labelledby={id}

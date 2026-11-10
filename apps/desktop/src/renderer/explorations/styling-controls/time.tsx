@@ -1,4 +1,5 @@
 import { DurationArt } from "../../chrome/token-previews.tsx"
+import { stepCount } from "./css-values.ts"
 import { nearestToken, type Reading, readUnitNumber, useLiveRow, useTokens, ValueField } from "./field-parts.tsx"
 import { splitUnit, type Time, timeMs, timeUnits } from "./motion-data.ts"
 import { durationToken } from "./tokens.ts"
@@ -102,7 +103,7 @@ export function TimeField({
       return
     }
 
-    set((ms ?? defaultMs) + (up ? 1 : -1) * (shift ? 100 : 10))
+    set((ms ?? defaultMs) + stepCount(up, shift) * 10)
   }
 
   // Its time drawn as Easing draws its curve, with the Tokens panel's mark: a track whose dot crosses it in that time

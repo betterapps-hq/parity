@@ -3,7 +3,7 @@ import { ALargeSmall, ChevronDown, Italic, MoveHorizontal, MoveVertical, Triangl
 import { type KeyboardEvent, type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { clamp, formatNumber, lengthForm } from "./css-values.ts"
+import { clamp, formatNumber, lengthForm, stepCount } from "./css-values.ts"
 import {
   fieldBox,
   type Message,
@@ -532,9 +532,7 @@ export function WeightField({
                     return { value: Math.round(reading.value) }
                   }}
                   onCommit={(next) => onChange(weightValue(next))}
-                  onStep={(up, { shift }) =>
-                    onChange(weightValue(clamp(shown + (up ? 1 : -1) * (shift ? 100 : 10), 1, 1000)))
-                  }
+                  onStep={(up, { shift }) => onChange(weightValue(clamp(shown + stepCount(up, shift) * 10, 1, 1000)))}
                 />
               </div>
             )}
@@ -759,7 +757,7 @@ export function LineHeightField({
 
     if (unit === "px") {
       const from = currentIn(value, "px") ?? size?.lineHeight ?? fontSize * 1.5
-      onChange(fromPx(Math.max(0, Math.round(from) + sign * (keys.shift ? 10 : 1))))
+      onChange(fromPx(Math.max(0, Math.round(from) + stepCount(up, keys.shift))))
 
       return
     }
@@ -1002,8 +1000,7 @@ export function FontSizeField({
           return
         }
 
-        const by = keys.shift ? 10 : 1
-        onChange({ px: Math.max(1, (px ?? inherited) + (up ? by : -by)) })
+        onChange({ px: Math.max(1, (px ?? inherited) + stepCount(up, keys.shift)) })
       }}
     />
   )

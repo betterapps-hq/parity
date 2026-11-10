@@ -13,8 +13,8 @@ import {
 import { ChevronDown, Eye, EyeOff, GripVertical, Minus } from "lucide-react"
 import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { clamp, formatNumber } from "./css-values.ts"
-import { drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
+import { clamp, formatNumber, stepCount } from "./css-values.ts"
+import { arrowMoves, drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { type Carried, useSortable } from "./sortable.ts"
 
@@ -449,7 +449,7 @@ export function CenteredSlider({
           unit={unit || undefined}
           read={read}
           onCommit={onChange}
-          onStep={(up, { shift }) => onChange(clamp(value + (up ? 1 : -1) * (shift ? 10 : 1), min, max))}
+          onStep={(up, { shift }) => onChange(clamp(value + stepCount(up, shift), min, max))}
         />
       </div>
     </Field>
@@ -480,14 +480,7 @@ export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: 
       tabIndex={0}
       onPointerDown={press}
       onKeyDown={(event) => {
-        const moves = new Map([
-          ["ArrowLeft", [-1, 0]],
-          ["ArrowRight", [1, 0]],
-          ["ArrowUp", [0, -1]],
-          ["ArrowDown", [0, 1]]
-        ])
-
-        const move = moves.get(event.key)
+        const move = arrowMoves.get(event.key)
 
         if (!move) {
           return

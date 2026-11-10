@@ -243,3 +243,12 @@ export function spotKeywords({ x, y }: BoxPoint): string | undefined {
 
   return `${vertical} ${horizontal}`
 }
+
+/** Up and Down's count of steps: one, or ten with Shift. */
+export const stepCount = (up: boolean, shift: boolean) => (up ? 1 : -1) * (shift ? 10 : 1)
+
+/** Whether two values a style holds are the same, part for part. */
+export const sameValue = <T>(a: T, b: T) => JSON.stringify(a) === JSON.stringify(b)
+
+/** A color toward transparent, at `strength` percent, as the canvas tints what it marks. */
+export const tint = (color: string, strength: number) => `color-mix(in oklch, ${color} ${strength}%, transparent)`

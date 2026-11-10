@@ -98,6 +98,20 @@ const sizeModes = ["hug", "fill", "min", "max"] as const
 
 export type SizeMode = (typeof sizeModes)[number]
 
+/** Min content and Max content, with what each does, as W and H and a grid's tracks name them. */
+export const contentSizeWords = {
+  min: { name: "Min content", detail: "As small as its content goes" },
+  max: { name: "Max content", detail: "Its content at full size, without wrapping" }
+} as const
+
+/** Min and Max content as they're typed, in CSS's words or the panel's. */
+export const typedContentSizes = new Map<string, "min" | "max">([
+  ["min", "min"],
+  ["min-content", "min"],
+  ["max", "max"],
+  ["max-content", "max"]
+])
+
 /** A width or height: pixels (Fixed), a percentage of the parent, or a size mode. */
 export type Size = number | { percent: number } | SizeMode
 

@@ -22,7 +22,7 @@ import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { checker } from "../../chrome/token-previews.tsx"
 import { AngleField } from "./angle.tsx"
 import { ColorInput } from "./color-picker.tsx"
-import { clamp, gradientCss } from "./css-values.ts"
+import { clamp, gradientCss, stepCount } from "./css-values.ts"
 import { usedColors } from "./data.ts"
 import { drag, MessageLine, PercentField, TokenChip, TokenList, useTokens } from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
@@ -847,7 +847,7 @@ function StopsBar({
                   }
 
                   event.preventDefault()
-                  const step = (event.key === "ArrowRight" ? 1 : -1) * (event.shiftKey ? 10 : 1)
+                  const step = stepCount(event.key === "ArrowRight", event.shiftKey)
                   setStop(stop.id, { hint: clamp(Math.round(at) + step, stop.position + 1, after.position - 1) })
                 }}
                 className={`absolute top-1 size-2 -translate-x-1/2 touch-none rotate-45 border outline-none focus-visible:ring-2 focus-visible:ring-ring ${stop.hint === undefined ? "border-muted-foreground/60 bg-background" : "border-foreground bg-foreground"}`}
@@ -867,7 +867,7 @@ function StopsBar({
             onKeyDown={(event) => {
               if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
                 event.preventDefault()
-                const step = (event.key === "ArrowRight" ? 1 : -1) * (event.shiftKey ? 10 : 1)
+                const step = stepCount(event.key === "ArrowRight", event.shiftKey)
                 setStop(stop.id, { position: clamp(stop.position + step, 0, 100) })
               }
 

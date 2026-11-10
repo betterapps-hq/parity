@@ -1,15 +1,15 @@
 import { scrubSteps } from "@parity-app/core"
 import { type ReactNode, useState } from "react"
-import { formatNumber, stepSpacing } from "./css-values.ts"
+import { formatNumber, sameValue, stepSpacing } from "./css-values.ts"
 import {
   type FieldChip,
   type MenuKeywords,
-  type Message,
   nearestToken,
   notAStep,
   type Reading,
   type ScrubBy,
   type ScrubKeys,
+  type SharedLine,
   UnitMenu,
   useTokens,
   ValueField
@@ -26,6 +26,7 @@ import {
   stepSide
 } from "./sides-writes.ts"
 import { lengthToken } from "./tokens.ts"
+import { isBareNumber } from "./typing.ts"
 
 /*
  * The Four sides field (PAR-652's Four sides type) and the one-side field it's made of, shared by Padding, Margin,
@@ -108,7 +109,7 @@ export interface SideFieldProps {
   /** What a percentage is of, for its hint: Pricing's height. */
   percentOf?: string
   /** A line its messages go to instead of its own, as the box-model widget's under itself. */
-  line?: { message: Message | undefined; onMessage: (message: Message | undefined) => void }
+  line?: SharedLine
   /** Where a grid places its row, so what it says goes under every field in the grid. */
   rowClassName?: string
   onChange: (value: Side, spread: Spread) => void
@@ -267,7 +268,7 @@ export function SideField({
   }
 
   const read = (text: string): Reading<SideEntry> => {
-    const bare = /^\s*-?\d*\.?\d+\s*$/.test(text)
+    const bare = isBareNumber(text)
 
     const reading = readSide(
       rules.percent && unitNow === "%" && bare ? `${text.trim()}%` : text,
@@ -381,14 +382,12 @@ export function SideField({
   )
 }
 
-const same = (a: Side, b: Side) => JSON.stringify(a) === JSON.stringify(b)
-
 /** What four sides show together, before Each side opens them: vertical and horizontal, or one field for all four. */
 export type Together = "pair" | "one"
 
 /** Whether the fields shown together can show the sides as they are, without saying Mixed. */
 function fitsTogether(together: Together, sides: Sides, mixed: readonly boolean[]): boolean {
-  const alike = (a: number, b: number) => same(sides[a], sides[b]) && Boolean(mixed[a]) === Boolean(mixed[b])
+  const alike = (a: number, b: number) => sameValue(sides[a], sides[b]) && Boolean(mixed[a]) === Boolean(mixed[b])
 
   if (together === "one") {
     return alike(0, 1) && alike(0, 2) && alike(0, 3)
@@ -467,7 +466,7 @@ export function FourSidesField({
   /** A field for some of the sides: alone and wide, or narrow in a cell of the two-column grid. */
   const field = (indexes: number[], fieldLabel: string, inner: ReactNode, cell?: number) => {
     const first = indexes[0]!
-    const alike = indexes.every((index) => same(sides[index], sides[first]))
+    const alike = indexes.every((index) => sameValue(sides[index], sides[first]))
     const isMixed = !alike || indexes.some((index) => mixed[index])
 
     return (

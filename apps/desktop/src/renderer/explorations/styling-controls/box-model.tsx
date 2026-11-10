@@ -3,7 +3,7 @@ import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState }
 import { KeyHints } from "../../canvas/KeyHints.tsx"
 import { spacingColors } from "../../canvas/spacing-colors.ts"
 import { gestures as held } from "../../chrome/keymap.ts"
-import { formatNumber } from "./css-values.ts"
+import { formatNumber, sameValue, tint } from "./css-values.ts"
 import { useTokens } from "./field-parts.tsx"
 import { type Side, type SideRules, type Sides, sideInline, sideNames, sideRules } from "./sides-writes.ts"
 import { setSides, SideField, type Spread, spreadTo } from "./sides.tsx"
@@ -27,8 +27,6 @@ export interface SpacingHover {
  * (PAR-797). The canvas doesn't draw margin yet.
  */
 const colors = spacingColors
-
-const tint = (color: string, strength: number) => `color-mix(in oklch, ${color} ${strength}%, transparent)`
 
 /** Padding, hatched in its color as the canvas hatches it (CanvasOverlay). Margin is flat, outside the layer. */
 const hatched = (color: string) =>
@@ -380,7 +378,7 @@ export function SpacingPreview({
       }
     }
 
-    if (JSON.stringify(next) === JSON.stringify(box)) {
+    if (sameValue(next, box)) {
       return
     }
 

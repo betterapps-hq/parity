@@ -68,3 +68,6 @@ export function readLength(
 
   return { px: Math.round((quarters / 4) * 100) / 100 }
 }
+
+/** Whether what's typed is a bare number, which a field reads in the unit it shows. */
+export const isBareNumber = (text: string) => /^\s*-?\d*\.?\d+\s*$/.test(text)

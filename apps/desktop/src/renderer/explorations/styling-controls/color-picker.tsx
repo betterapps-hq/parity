@@ -35,13 +35,15 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { checker, swatch } from "../../chrome/token-previews.tsx"
 import { optionNamed } from "../parts.tsx"
-import { clamp, mixColor } from "./css-values.ts"
+import { clamp, mixColor, stepCount } from "./css-values.ts"
 import {
+  arrowMoves,
   drag,
   type Message,
   MessageLine,
   PercentField,
   type Reading,
+  type SharedLine,
   ThemeMark,
   TokenMenu,
   useTokens,
@@ -104,9 +106,6 @@ const models: { value: ColorModel; label: string }[] = [
 const written = (color: Rgba, model: ColorModel) =>
   model === "oklch" ? formatOklch({ ...color, a: 1 }) : formatHex({ ...color, a: 1 })
 
-/** The line under the model's fields, which they share. */
-type Line = { message: Message | undefined; onMessage: (message: Message | undefined) => void }
-
 /**
  * The square, hue and alpha strips, the model's fields and the eyedropper, on an opaque color and its alpha (0 to 100,
  * unset for opaque): one alpha, shown here and as the % beside the swatch.
@@ -127,7 +126,7 @@ export function ColorEditor({
   const [model, setModel] = useState<ColorModel>(modelAtStart ?? (value.startsWith("oklch") ? "oklch" : "hex"))
   // What the model's fields say, on one line under their row, as any row of fields does.
   const [message, setMessage] = useState<Message>()
-  const line: Line = { message, onMessage: setMessage }
+  const line: SharedLine = { message, onMessage: setMessage }
   const opacity = alpha ?? 100
   const color = hsbToRgba(hsb)
 
@@ -315,7 +314,7 @@ export function ColorEditor({
  * A hex field: `2F6FED` with or without `#`, of 3, 6 or 8 digits; an `oklch()` pasted in is read too. What's typed is
  * checked as CSS checks a color (`CSS.supports`) and must read as hex or `oklch()`.
  */
-function HexField({ color, onChange, line }: { color: Rgba; onChange: (color: Rgba) => void; line: Line }) {
+function HexField({ color, onChange, line }: { color: Rgba; onChange: (color: Rgba) => void; line: SharedLine }) {
   const typed = useTyped<Rgba>({
     label: "Hex",
     shown: formatHex(color).slice(1).toUpperCase(),
@@ -359,7 +358,7 @@ function ChannelField({
   step?: number
   places?: number
   onChange: (value: number) => void
-  line: Line
+  line: SharedLine
 }) {
   const typed = useTyped<number>({
     label,
@@ -372,7 +371,7 @@ function ChannelField({
         : { reason: `${label} goes from 0 to ${max}` }
     },
     onCommit: onChange,
-    onStep: (up, shift) => onChange(clamp(value + (up ? step : -step) * (shift ? 10 : 1), 0, max)),
+    onStep: (up, shift) => onChange(clamp(value + step * stepCount(up, shift), 0, max)),
     line
   })
 
@@ -418,14 +417,7 @@ function Strip2d({
       aria-valuenow={Math.round(x * 100)}
       tabIndex={0}
       onKeyDown={(event) => {
-        const moves = new Map([
-          ["ArrowLeft", [-1, 0]],
-          ["ArrowRight", [1, 0]],
-          ["ArrowUp", [0, -1]],
-          ["ArrowDown", [0, 1]]
-        ])
-
-        const move = moves.get(event.key)
+        const move = arrowMoves.get(event.key)
 
         if (!move) {
           return

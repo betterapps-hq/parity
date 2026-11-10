@@ -11,11 +11,20 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { type SectionProps, SizeField, useMeasured } from "./controls.tsx"
-import { clamp } from "./css-values.ts"
+import { clamp, tint } from "./css-values.ts"
 import type { Draft, SelfAlign, Size, Span } from "./data.ts"
-import { drag, type Message, MessageLine, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
+import {
+  arrowMoves,
+  drag,
+  type Message,
+  MessageLine,
+  type Reading,
+  type SharedLine,
+  useTokenSets,
+  ValueField
+} from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
-import { type Area, columnTracks, placeChildren, trackWeights } from "./layout-controls.tsx"
+import { type Area, columnTracks, placeChildren, rowCount, trackOf, trackWeights } from "./layout-controls.tsx"
 
 /*
  * Grid placement (PAR-186): Size for a child of a grid, sharing the tracks and where the children sit with Layout
@@ -30,26 +39,10 @@ import { type Area, columnTracks, placeChildren, trackWeights } from "./layout-c
 /** The layer's color, which the canvas draws the selected layer and its measurements in. */
 const layerColor = kindColors.layer
 
-const tint = (strength: number) => `color-mix(in oklab, ${layerColor} ${strength}%, transparent)`
-
-/** The way each arrow key moves across and down. */
-const arrowMoves = new Map<string, [number, number]>([
-  ["ArrowLeft", [-1, 0]],
-  ["ArrowRight", [1, 0]],
-  ["ArrowUp", [0, -1]],
-  ["ArrowDown", [0, 1]]
-])
-
 /** A line or tracks a field points at, which the map lights up while it's hovered or focused. */
 interface Pointing {
   axis: "col" | "row"
   part: "start" | "span" | "end"
-}
-
-/** Where a field's messages go instead of under itself. */
-interface FieldLine {
-  message: Message | undefined
-  onMessage: (message: Message | undefined) => void
 }
 
 /** A cell, by its column and row from 0. */
@@ -62,7 +55,10 @@ const inArea = (area: Area, cell: Cell) =>
   cell.col >= area.col && cell.col < area.col + area.cols && cell.row >= area.row && cell.row < area.row + area.rows
 
 /** A line as the map draws it, from 1: a negative one counts back from after the last track, `count + 1`. */
-const lineAt = (line: number, count: number) => (line > 0 ? line : count + 2 + line)
+const lineAt = (line: number, count: number) => trackOf(line, count) + 1
+
+/** A span as the draft keeps it: one, the default, unset. */
+const spanOf = (count: number) => (count === 1 ? undefined : count)
 
 type Place = "start" | "center" | "end"
 
@@ -123,8 +119,6 @@ export function GridCellSection({ draft, set }: SectionProps) {
 
   // Placed at an area: by its lines, or by its start and span, where All stays All while it still covers every column.
   const place = (to: Area) => {
-    const span = (count: number) => (count === 1 ? undefined : count)
-
     if (endLines) {
       set({ colStart: to.col + 1, colEnd: to.col + to.cols + 1, rowStart: to.row + 1, rowEnd: to.row + to.rows + 1 })
 
@@ -135,9 +129,9 @@ export function GridCellSection({ draft, set }: SectionProps) {
 
     set({
       colStart: all ? undefined : to.col + 1,
-      colSpan: all ? "all" : span(to.cols),
+      colSpan: all ? "all" : spanOf(to.cols),
       rowStart: to.row + 1,
-      rowSpan: span(to.rows)
+      rowSpan: spanOf(to.rows)
     })
   }
 
@@ -146,8 +140,8 @@ export function GridCellSection({ draft, set }: SectionProps) {
     set({
       ...unsetPlace,
       endLines: undefined,
-      colSpan: area.cols === 1 ? undefined : area.cols,
-      rowSpan: area.rows === 1 ? undefined : area.rows
+      colSpan: spanOf(area.cols),
+      rowSpan: spanOf(area.rows)
     })
 
   /*
@@ -174,7 +168,7 @@ export function GridCellSection({ draft, set }: SectionProps) {
 
   const axisRow = (axis: "col" | "row") => {
     const across = axis === "col"
-    const count = across ? columns : Math.max(1, draft.rows?.length ?? 0)
+    const count = across ? columns : rowCount(draft)
     const start = across ? draft.colStart : draft.rowStart
     const span = across ? draft.colSpan : draft.rowSpan
     const end = across ? draft.colEnd : draft.rowEnd
@@ -272,8 +266,8 @@ export function GridCellSection({ draft, set }: SectionProps) {
                         endLines: undefined,
                         colEnd: undefined,
                         rowEnd: undefined,
-                        colSpan: area.cols === 1 ? undefined : area.cols,
-                        rowSpan: area.rows === 1 ? undefined : area.rows
+                        colSpan: spanOf(area.cols),
+                        rowSpan: spanOf(area.rows)
                       }
                 )
               }
@@ -665,7 +659,7 @@ function CellMap({
               style={{
                 gridColumn: `${hovered.col + 1} / span ${hovered.cols}`,
                 gridRow: `${hovered.row + 1} / span ${hovered.rows}`,
-                borderColor: tint(70)
+                borderColor: tint(layerColor, 70)
               }}
             />
           )}
@@ -678,12 +672,12 @@ function CellMap({
               gridRow: `${shown.row + 1} / span ${shown.rows}`,
               justifyContent: flexPlace[sits.x],
               alignItems: flexPlace[sits.y],
-              outline: sits.x === "fill" && sits.y === "fill" ? undefined : `1px solid ${tint(45)}`
+              outline: sits.x === "fill" && sits.y === "fill" ? undefined : `1px solid ${tint(layerColor, 45)}`
             }}
           >
             <span
               className={`flex min-w-0 items-center rounded-sm border px-1 text-2xs leading-none font-medium text-foreground ${auto && !dragged ? "border-dashed" : ""} ${sits.x === "fill" ? "flex-1" : ""} ${sits.y === "fill" ? "" : "h-3.5"}`}
-              style={{ borderColor: layerColor, background: tint(dragged ? 45 : 30) }}
+              style={{ borderColor: layerColor, background: tint(layerColor, dragged ? 45 : 30) }}
             >
               <span className="truncate">Pro plan</span>
             </span>
@@ -737,7 +731,7 @@ function Pointed({
 }) {
   const across = pointing.axis === "col"
   // Rows have no count until they're set, so a negative row line counts from the rows there are, or one.
-  const count = across ? columns : Math.max(1, draft.rows?.length ?? 0)
+  const count = across ? columns : rowCount(draft)
 
   if (pointing.part === "span") {
     const from = across ? area.col : area.row
@@ -750,7 +744,7 @@ function Pointed({
         style={{
           gridColumn: across ? `${from + 1} / span ${spanned}` : "1 / -1",
           gridRow: across ? "1 / -1" : `${from + 1} / span ${spanned}`,
-          background: tint(14)
+          background: tint(layerColor, 14)
         }}
       />
     )
@@ -802,7 +796,7 @@ function LineField({
 }: {
   label: string
   /** The line its messages go to, under the table. */
-  line: FieldLine
+  line: SharedLine
   tracks: "columns" | "rows"
   value: number | undefined
   placeholder: string
@@ -889,7 +883,7 @@ function SpanField({
 }: {
   tracks: "columns" | "rows"
   /** The line its messages go to, under the table. */
-  line: FieldLine
+  line: SharedLine
   value: Span | undefined
   count: number
   onChange: (span: Span | undefined) => void
@@ -1045,7 +1039,7 @@ function CellBox({ draft, set }: Pick<SectionProps, "draft" | "set">) {
         width={width}
         height={height}
         rx="2"
-        fill={ghost ? "currentColor" : tint(dashed ? 30 : 100)}
+        fill={ghost ? "currentColor" : tint(layerColor, dashed ? 30 : 100)}
         fillOpacity={ghost ? 0.3 : 1}
         stroke={ghost ? "none" : layerColor}
         strokeDasharray={dashed ? "3 2" : undefined}

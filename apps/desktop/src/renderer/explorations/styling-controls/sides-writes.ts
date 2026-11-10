@@ -6,7 +6,17 @@
  * token made with Create token reads and steps as any other.
  */
 import type { PreviewKind } from "@parity-app/tokens"
-import { arbitrary, formatNumber, fraction, lengthClass, lengthCss, lengthForm, stepSpacing } from "./css-values.ts"
+import {
+  arbitrary,
+  formatNumber,
+  fraction,
+  lengthClass,
+  lengthCss,
+  lengthForm,
+  sameValue,
+  stepCount,
+  stepSpacing
+} from "./css-values.ts"
 import type { LengthToken } from "./tokens.ts"
 import { readLength } from "./typing.ts"
 import { type StoredObject, type StoredValue, withAllow, type Writes } from "./writes.ts"
@@ -287,7 +297,7 @@ export function stepSide(
     }
   }
 
-  const by = (up ? 1 : -1) * (shift ? 10 : 1)
+  const by = stepCount(up, shift)
 
   if (side !== undefined && side !== "auto" && "percent" in side) {
     return { percent: side.percent + by }
@@ -471,7 +481,7 @@ export function sideStored(kind: SideKind, side: SideValue): StoredObject {
   return withAllow({ step: side.number }, side.allow)
 }
 
-const sameSide = (a: Side, b: Side) => a !== undefined && b !== undefined && JSON.stringify(a) === JSON.stringify(b)
+const sameSide = (a: Side, b: Side) => a !== undefined && b !== undefined && sameValue(a, b)
 const isZero = (side: Side) => side !== undefined && side !== "auto" && "number" in side && side.number === 0
 
 /**

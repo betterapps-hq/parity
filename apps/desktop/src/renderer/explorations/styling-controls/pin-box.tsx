@@ -22,7 +22,7 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { SideValue } from "./box-model.tsx"
-import { formatNumber } from "./css-values.ts"
+import { formatNumber, tint } from "./css-values.ts"
 import { MessageLine, useTokens } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import {
@@ -48,8 +48,6 @@ import { setSides, SideField, spreadTo } from "./sides.tsx"
 
 /** The layer's color, which the canvas draws a selected layer's outline and measurements in. */
 const layerColor = kindColors.layer
-
-const tint = (strength: number) => `color-mix(in oklch, ${layerColor} ${strength}%, transparent)`
 
 const placements = [
   { value: "static", label: "In layout", detail: "Placed by its layout, as its children are", Icon: Rows3 },
@@ -487,7 +485,7 @@ function InsetBox({
         {band(3)}
         <div
           className="relative col-start-2 row-start-2 rounded-sm border bg-background"
-          style={{ borderColor: tint(70) }}
+          style={{ borderColor: tint(layerColor, 70) }}
         >
           {!offsets && centerLine(true)}
           {!offsets && centerLine(false)}

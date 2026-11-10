@@ -74,6 +74,20 @@ export interface Message {
 /** What a field makes of what's typed: the value to store, with anything it says about it, or why it can't. */
 export type Reading<T> = { value: T; message?: Message } | { reason: string; action?: MessageAction }
 
+/** The line under a row of fields, which they share for their messages, as each would have its own. */
+export interface SharedLine {
+  message: Message | undefined
+  onMessage: (message: Message | undefined) => void
+}
+
+/** The way each arrow key moves across and down. */
+export const arrowMoves = new Map<string, [number, number]>([
+  ["ArrowLeft", [-1, 0]],
+  ["ArrowRight", [1, 0]],
+  ["ArrowUp", [0, -1]],
+  ["ArrowDown", [0, 1]]
+])
+
 /** A number typed with the app's maths: `8`, `+2`, `*2`, `(24 - 4) / 2`, working from `current` when it starts with one. */
 export function readNumber(
   text: string,
@@ -168,7 +182,7 @@ export function useTyped<T>({
   onCommit: (value: T) => void
   onStep?: (up: boolean, shift: boolean, alt: boolean) => void
   /** A line under the row that several fields share, in place of the field's own. */
-  line?: { message: Message | undefined; onMessage: (message: Message | undefined) => void }
+  line?: SharedLine
   /** Leaving with text it can't read puts the value back saying nothing, as a search does: a field locked to tokens. */
   quiet?: boolean
 }) {
@@ -1885,7 +1899,7 @@ export interface ValueFieldProps<T> {
    * A line its messages go to instead of its own under the row, as the box-model widget's sides say things under the
    * widget: `useTyped`'s `line`. The field then shows nothing under its row; what it comes to is in its hint.
    */
-  line?: { message: Message | undefined; onMessage: (message: Message | undefined) => void }
+  line?: SharedLine
   /**
    * Borderless until hovered or focused, the value centered and no token button, as the box-model widget's sides sit
    * in its rings; typing a token's name, the chip and Alt+Down still reach the tokens.

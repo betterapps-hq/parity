@@ -7,7 +7,7 @@
  * what the Text section shows and writes. PAR-707's exploration, removed once this story carried its chosen design,
  * modeled Fluent, MUI, Chakra and Tailwind projects' presets and their code (`typography-preset/presets.ts` in edcde46e).
  */
-import { formatNumber } from "./css-values.ts"
+import { formatNumber, sameValue } from "./css-values.ts"
 import { resolveFont, sizePx } from "./font-fields.tsx"
 import {
   type FontSize,
@@ -143,8 +143,6 @@ export function shownValue<F extends TypeField>(
   return own === undefined ? { value: undefined, source: "inherited" } : { value: own, source: "own" }
 }
 
-const same = (a: TypeValues[TypeField], b: TypeValues[TypeField]) => JSON.stringify(a) === JSON.stringify(b)
-
 /** Sets a row on the layer. Set to what its preset gives, it follows the preset again rather than overriding it. */
 export function setValue<F extends TypeField>(
   layer: PresetLayer,
@@ -154,7 +152,7 @@ export function setValue<F extends TypeField>(
   const own = { ...layer.own }
   const fromPreset = presetNamed(layer.preset)?.values[field]
 
-  if (value === undefined || (fromPreset !== undefined && same(value, fromPreset))) {
+  if (value === undefined || (fromPreset !== undefined && sameValue(value, fromPreset))) {
     delete own[field]
   } else {
     own[field] = value

@@ -22,20 +22,22 @@ import { ChoiceInput, PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
-import { formatNumber, remPx, stepSpacing } from "./css-values.ts"
+import { formatNumber, remPx, sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import {
   type Columns,
+  contentSizeWords,
   type Draft,
   isFixedSize,
   isLengthToken,
   isSizeMode,
   type Length,
+  placementCss,
   type Radius,
   type Size,
   sizeCss,
   type SizeMode,
   trackCss,
-  placementCss,
+  typedContentSizes,
   usedColors
 } from "./data.ts"
 import {
@@ -54,7 +56,7 @@ import { HighlightOverlay } from "./highlight.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
 import { sideNumber } from "./sides-writes.ts"
 import { lengthToken } from "./tokens.ts"
-import { readLength } from "./typing.ts"
+import { isBareNumber, readLength } from "./typing.ts"
 import type { StrokePosition } from "./writes.ts"
 
 /*
@@ -229,8 +231,7 @@ export function useMeasured(selector: string): { width: number; height: number; 
 const sizeWords = (within: string): Record<SizeMode, { name: string; detail: string }> => ({
   hug: { name: "Hug", detail: "Fits its content" },
   fill: { name: "Fill", detail: `Fills its ${within}` },
-  min: { name: "Min content", detail: "As small as its content goes" },
-  max: { name: "Max content", detail: "Its content at full size, without wrapping" }
+  ...contentSizeWords
 })
 
 /** What each word typed reads as. */
@@ -239,14 +240,8 @@ const typedSizes = new Map<string, SizeMode>([
   ["fit", "hug"],
   ["fit-content", "hug"],
   ["fill", "fill"],
-  ["min", "min"],
-  ["min-content", "min"],
-  ["max", "max"],
-  ["max-content", "max"]
+  ...typedContentSizes
 ])
-
-/** Up and Down's count of steps: one, or ten with Shift. */
-const stepCount = (up: boolean, { shift }: ScrubKeys) => (up ? 1 : -1) * (shift ? 10 : 1)
 
 /**
  * W or H, as PAR-652's Size type has it, for a layer and for a grid child alike: a number in its unit, or a word as a
@@ -328,7 +323,7 @@ export function SizeField({
       return { value: word }
     }
 
-    const bare = /^-?(\d*\.?\d+)$/.test(typed)
+    const bare = isBareNumber(typed)
     let input = typed
 
     if (bare && percent !== undefined) {
@@ -362,13 +357,13 @@ export function SizeField({
 
   const step = (up: boolean, keys: ScrubKeys) => {
     if (percent !== undefined) {
-      onChange({ percent: Math.max(0, percent + stepCount(up, keys)) })
+      onChange({ percent: Math.max(0, percent + stepCount(up, keys.shift)) })
 
       return
     }
 
     // A word, or Auto, becomes Fixed at what it comes to and steps from there.
-    onChange(Math.max(4, stepSpacing(fixed ?? measured ?? 0, stepCount(up, keys))))
+    onChange(Math.max(4, stepSpacing(fixed ?? measured ?? 0, stepCount(up, keys.shift))))
   }
 
   const toUnit = (next: "px" | "%" | "rem") => {
@@ -557,8 +552,6 @@ const cornersAsLaidOut = [0, 1, 3, 2] as const
 /** A radius for each corner, from the top left, clockwise, as a style holds them. */
 type CornerRadii = [Radius?, Radius?, Radius?, Radius?]
 
-const sameRadius = (a: Radius | undefined, b: Radius | undefined) => JSON.stringify(a) === JSON.stringify(b)
-
 /**
  * Appearance's Radius, as the simpler fields lay it out (PAR-186): one field under its name, and each corner, laid out
  * where it is, once Each corner at the end of the name's row is pressed. It opens pressed when the corners differ.
@@ -570,7 +563,7 @@ export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: Se
     ? draft.radius
     : [draft.radius, draft.radius, draft.radius, draft.radius]
 
-  const alike = radii.every((radius) => sameRadius(radius, radii[0]))
+  const alike = radii.every((radius) => sameValue(radius, radii[0]))
   const [each, setEach] = useState(!alike)
 
   return (
@@ -1065,7 +1058,7 @@ function LengthField({
       return
     }
 
-    const by = (up ? 1 : -1) * (shift ? 10 : 1)
+    const by = stepCount(up, shift)
 
     if (percent !== undefined) {
       onChange({ percent: capped(percent + by) })
@@ -1537,7 +1530,7 @@ export function Num({
    */
   const read = (text: string): Reading<number | undefined> => {
     if (pixels) {
-      const bare = /^\s*-?(\d*\.?\d+)\s*$/.test(text)
+      const bare = isBareNumber(text)
       const reading = readLength(inRem && bare ? `${text}rem` : text, { label, current: value })
 
       if ("clear" in reading) {
@@ -1595,7 +1588,7 @@ export function Num({
       read={read}
       onCommit={onChange}
       onStep={(up, keys) => {
-        const count = stepCount(up, keys)
+        const count = stepCount(up, keys.shift)
         onChange(Math.max(min, spacing ? stepSpacing(from(), count) : from() + count))
       }}
     />

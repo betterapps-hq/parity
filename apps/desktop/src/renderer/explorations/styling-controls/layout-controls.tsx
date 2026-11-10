@@ -35,9 +35,17 @@ import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { Num, type SectionProps } from "./controls.tsx"
-import { clamp, formatNumber, remPx } from "./css-values.ts"
-import { type Columns, type Draft, type SelfAlign, type Span, type Track } from "./data.ts"
-import { type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
+import { clamp, formatNumber, remPx, sameValue, stepCount, tint } from "./css-values.ts"
+import {
+  type Columns,
+  contentSizeWords,
+  type Draft,
+  type SelfAlign,
+  type Span,
+  type Track,
+  typedContentSizes
+} from "./data.ts"
+import { arrowMoves, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
 import { EachToggle, Field } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
 import { moved, useOrderKeys } from "./list-parts.tsx"
@@ -463,14 +471,6 @@ function arrangementOf(draft: Draft): Arrangement {
 
   return column ? { x: cross, y: main } : { x: main, y: cross }
 }
-
-/** The way each arrow key moves across and down. */
-const arrowMoves = new Map<string, [number, number]>([
-  ["ArrowLeft", [-1, 0]],
-  ["ArrowRight", [1, 0]],
-  ["ArrowUp", [0, -1]],
-  ["ArrowDown", [0, 1]]
-])
 
 /** Whether a spot shows the children: on their place, or anywhere along an axis they fill or spread across. */
 const covers = (arrangement: Arrangement, spot: BoxSpot) =>
@@ -1038,8 +1038,7 @@ export function trackWeights(tracks: Track[], room = contentWidth): number[] {
 const hug: Track = { kind: "auto" }
 
 /** Whether every track is the same size, so they're one count and one size: `grid-cols-3`. */
-const sameTracks = (tracks: readonly Track[]) =>
-  tracks.every((track) => JSON.stringify(track) === JSON.stringify(tracks[0]))
+const sameTracks = (tracks: readonly Track[]) => tracks.every((track) => sameValue(track, tracks[0]))
 
 /** How many rows Plans' children fill, as the browser adds them while Rows is Auto. */
 function childRows(draft: Draft, spacing: readonly LengthToken[]) {
@@ -1329,12 +1328,8 @@ function trackWords(track: Track): { name: string; detail?: string; about: strin
     return { name: "Hug", about: "As big as its content" }
   }
 
-  if (track.kind === "min") {
-    return { name: "Min content", about: "As small as its content goes" }
-  }
-
-  if (track.kind === "max") {
-    return { name: "Max content", about: "Its content at full size, without wrapping" }
+  if (track.kind === "min" || track.kind === "max") {
+    return { name: contentSizeWords[track.kind].name, about: contentSizeWords[track.kind].detail }
   }
 
   return undefined
@@ -1360,13 +1355,8 @@ const trackSizes = [
       max: track.kind === "fr" ? track.value : 1
     })
   },
-  { key: "min", name: "Min content", detail: "As small as its content goes", make: (): Track => ({ kind: "min" }) },
-  {
-    key: "max",
-    name: "Max content",
-    detail: "Its content at full size, without wrapping",
-    make: (): Track => ({ kind: "max" })
-  }
+  { key: "min", ...contentSizeWords.min, make: (): Track => ({ kind: "min" }) },
+  { key: "max", ...contentSizeWords.max, make: (): Track => ({ kind: "max" }) }
 ] as const
 
 const px = (value: number): Track => ({ kind: "px", value: Math.round(value) })
@@ -1626,7 +1616,7 @@ function GridPicker({
                   style={
                     lit
                       ? {
-                          background: `color-mix(in oklab, ${kindColors.layer} 35%, transparent)`,
+                          background: tint(kindColors.layer, 35),
                           borderColor: kindColors.layer
                         }
                       : undefined
@@ -1665,10 +1655,7 @@ function readTrack(text: string): Reading<Track> {
     ["fill", fr(1)],
     ["auto", { kind: "auto" }],
     ["hug", { kind: "auto" }],
-    ["min", { kind: "min" }],
-    ["min-content", { kind: "min" }],
-    ["max", { kind: "max" }],
-    ["max-content", { kind: "max" }]
+    ...[...typedContentSizes].map(([word, kind]): [string, Track] => [word, { kind }])
   ])
 
   const word = words.get(typed)
@@ -1715,7 +1702,7 @@ function readTrack(text: string): Reading<Track> {
 
 /** Steps a track's size by its own unit: a share by one, pixels by one or ten, a percentage by one. */
 function stepTrack(track: Track, up: boolean, shift: boolean): Track {
-  const by = (up ? 1 : -1) * (shift ? 10 : 1)
+  const by = stepCount(up, shift)
 
   if (track.kind === "fr") {
     return fr(Math.max(1, track.value + (up ? 1 : -1)))
@@ -1747,7 +1734,7 @@ export interface Area {
 }
 
 /** A line number as a track from 0: line 2 is the second track, and -1, after the last, ends the grid. */
-const trackOf = (line: number, count: number) => (line > 0 ? line - 1 : count + 1 + line)
+export const trackOf = (line: number, count: number) => (line > 0 ? line - 1 : count + 1 + line)
 
 /**
  * Where Plans' children sit in its grid, as the browser's auto-placement puts them (sparse, row by row): the heading
@@ -1837,6 +1824,9 @@ export function placeChildren(draft: Draft, columns: number): { name: string; ar
   return [...result, ...placed]
 }
 
+/** The rows a grid has to count a line from: those set, or one, as rows unset are added as children need them. */
+export const rowCount = (draft: Draft) => Math.max(1, draft.rows?.length ?? 0)
+
 /** Pro plan's start track and span on each axis, from its lines, its span, or All. */
 function proAxes(draft: Draft, columns: number) {
   const axis = (start: number | undefined, span: Span | undefined, end: number | undefined, count: number) => {
@@ -1861,12 +1851,7 @@ function proAxes(draft: Draft, columns: number) {
   const col = axis(draft.colStart, draft.colSpan, draft.endLines ? draft.colEnd : undefined, columns)
 
   // Rows have no count until they're set, so a row's negative line counts from the rows there are, or one.
-  const row = axis(
-    draft.rowStart,
-    draft.rowSpan,
-    draft.endLines ? draft.rowEnd : undefined,
-    Math.max(1, draft.rows?.length ?? 0)
-  )
+  const row = axis(draft.rowStart, draft.rowSpan, draft.endLines ? draft.rowEnd : undefined, rowCount(draft))
 
   return { col: col.at, cols: Math.min(col.span, columns), row: row.at, rows: row.span }
 }
