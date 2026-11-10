@@ -1,139 +1,175 @@
 # Proposal: design references from Mobbin
 
-Status: draft, 2026-11-09 (PAR-827). Nothing is built. The design is the exploration under
+Status: draft, second pass, 2026-11-09 (PAR-827). Nothing is built. The design is the exploration under
 Parity/Explorations/References
 ([References.stories.tsx](../../apps/desktop/src/renderer/explorations/references/References.stories.tsx)).
 
 ## In one line
 
-A References tab searches real apps' screens, flows and sections on Mobbin. A reference you pick goes on the canvas
-beside your designs to look at, and never into a design or the project. Agents search the same library before they
-design. Each person connects their own Mobbin account at first. Parity's own key, held by a service as the Unsplash key
-will be, comes only once Mobbin agrees to it in writing.
+Find references opens a browser over the canvas. You describe a screen, choose Web or iOS, pick from real apps' screens
+on Mobbin, and they land beside your design to look at, never in it. Agents search the same way before they design. It
+runs on Mobbin's REST API with Parity's own key, so nobody needs a Mobbin account, and that needs Mobbin's agreement
+before it reaches anyone outside the team.
 
-## Why Mobbin
+## What changed from the first pass
 
-You asked on 2026-11-09 for a library agents can search for design examples, and compared Mobbin, Refero and Lazyweb.
+- **There's no References tab.** The left panel is about 280 pixels wide, where a web screenshot can't be read, and it
+  would have been a sixth tab. Looking for references starts from a design, so it starts there, and it opens wide.
+- **The filters are the API's.** The first pass had Screens, Flows and Sections beside Web and iOS. Flows and sections
+  are tools of Mobbin's MCP server only. The REST API has one endpoint, which searches screens, with the platform as its
+  one filter.
+- **Parity's key comes first,** as you asked, with each person's own Mobbin account as the fallback rather than the
+  start.
 
-- **Mobbin is the biggest library of real apps,** with screens, multi-step flows and website sections, on iOS and the
-  web. Third-party estimates put it at about 1,500 apps and over 300,000 screens.
-- **It's built for apps to connect to.** Its MCP server lets an app connect on each person's behalf with OAuth and
-  dynamic client registration, with no fee for the app and nothing to set up with Mobbin first
-  ([Build an integration](https://docs.mobbin.com/mcp/build-an-integration.md)).
-- **Refero is the second source to add.** Each screen there comes with written details: its page type, UX patterns, UI
-  elements, fonts and colors, and its styles describe a page's type scale, spacing and colors as data. That's more for
-  an agent to reason over than Mobbin's pictures. It's the only library whose terms describe a business plan for putting
-  it in a product ([Terms of Use](https://doc.refero.design/legal/terms-of-use)), so it may be the first one Parity can
-  offer without each person needing an account.
-- **Neither has desktop or creative tools.** Both are web and iOS apps. For an editor's panels and canvas controls,
-  Penpot and Figma stay the references.
+## What the API takes
+
+`POST https://api.mobbin.com/v1/screens/search` is the whole REST API
+([reference](https://docs.mobbin.com/api-reference/screens/search-screens-with-natural-language.md)). It needs a Team or
+Enterprise plan, and its key belongs to a workspace.
+
+| The API                                            | In Parity                                                             |
+| -------------------------------------------------- | --------------------------------------------------------------------- |
+| `query`, 1 to 500 characters describing one screen | The description field                                                 |
+| `platform`, `ios` or `web`, required               | Web or iOS, starting from the selected design                         |
+| `mode`, `standard` or `deep`, `deep` when left out | Quick results first, and Search deeper for `deep`                     |
+| `limit`, 1 to 100, 20 when left out                | 24 a search (9 for the web and 12 for iOS in the exploration)         |
+| `exclude_screen_ids`, up to 100                    | More results: the same description, without the screens shown         |
+| `image_quality`, `optimized` or `high`             | `optimized` in the results, `high` shown larger and on the canvas     |
+| Returns `id`, `app_name`, `platform`, `mobbin_url` | The app's name under each screen, and Open in Mobbin                  |
+| Returns `image` with its size and `url_expires_at` | A reference's size on the canvas, and when to fetch its picture again |
+| 429 with `Retry-After`, at 60 requests a minute    | "Too many searches right now", with the wait counted down             |
+| 403 without a Team or Enterprise plan              | Nobody using Parity sees this; the service reports it to us           |
+
+Two things the description does by itself, so they need no control: naming an app keeps the results to that app, and
+naming a language keeps them to that language.
+
+**What it doesn't have:** flows, website sections, categories, patterns or tags to filter by, Android, saved
+collections, paging, or a way to fetch one screen by its id. The design offers none of them.
 
 ## Where it shows
 
-### A References tab in the left panel
+### Finding references
 
-My call: references get a tab of their own after Images, rather than a part of the Images tab. Images holds photos that
-go into designs and are saved with the project; references are for looking at and stay out of designs. Mixing them would
-blur which one ends up in the code.
+- **Find references is on the toolbar,** after the review tools, with R as its key. It's also in a design's right-click
+  menu as "Find references for Pricing", and in Search actions.
+- **With a design selected it opens already searched:** the design's name as the description ("pricing page"), on the
+  web when the design's main preview is wider than 600 pixels and on iOS otherwise. That first search is a quick one.
+- **With nothing selected it opens on the last few searches** to run again, and three lines on describing a screen, from
+  Mobbin's own guidance: say what kind of screen it is and then what's on it, name an app to see only that app, and
+  search for one screen at a time.
+- **A search runs on Enter,** not as you type, since each one is a request to Mobbin. Switching between Web and iOS runs
+  the same description again.
 
-The tab, top to bottom:
+### The browser
 
-- **Search,** in plain words, as Mobbin's search takes them: "onboarding for a budgeting app", "pricing page with a
-  yearly toggle".
-- **What to find:** Screens, Flows or Sections, as Mobbin's three searches. Sections are web only.
-- **Where:** Web or iOS. It starts on Web when the project's primary mode is wider than 600 pixels, and iOS otherwise,
-  and remembers the choice per project.
-- **Results,** as a grid that fits the panel: wide thumbnails for the web, tall ones for iOS, each with the app's name
-  under it. Hovering one shows Place on canvas and Open in Mobbin.
-- **A flow opens in place,** its steps in order with each step's caption, and Back to results above them. Each step can
-  be placed by itself, or the whole flow in a row.
-- **"From Mobbin"** and the account's menu sit at the foot of the panel, so the source is always named.
+- **It's a wide dialog over the canvas,** up to 1,120 pixels, so web screens sit three across at about 340 pixels each
+  and phone screens six across. Each has its app's name under it.
+- **Quick results come first, and Search deeper is asked for.** A quick search returns everything near the description,
+  the closest first. Search deeper runs it in the API's `deep` mode, which checks each screen against the description
+  and keeps the close matches, so it takes a few seconds and can return fewer screens. My call: quick is the default
+  although the API's is `deep`, because deep is the search Mobbin charges for.
+- **A click picks a screen, and picks carry across searches,** so you can gather a web page and a phone paywall in one
+  go. The button says how many and where they'll go: "Place 3 beside Pricing". Ctrl+Enter places them too.
+- **A double-click, or a screen's corner button, shows it larger,** with Open in Mobbin and Pick. The arrow keys move
+  through the results, and Esc goes back to them.
+- **More results** asks again without the screens already shown. When a pull comes back short there are no more, and the
+  browser says to describe it another way.
+- **When a search can't answer** it says which of four things happened: nothing matches, with a button to try the other
+  platform; a deep search found no close matches, with the way back to the quick ones; Mobbin's limit, with the wait; or
+  Mobbin can't be reached.
+- **"Screens from Mobbin"** stays at the foot of the browser, so the source is always named.
 
 ### On the canvas
 
-- **Dragging a result onto the canvas, or Place on canvas, puts a reference there.** Place on canvas puts it to the
-  right of the selected design, or in the middle of the view when nothing is selected. A flow placed whole is a row of
-  references, one per step.
-- **A reference is a canvas item, not a design.** It has no board, states, modes or layers, and it's never written to
-  code. Layers lists references together in their own group under the designs.
-- **It's labeled with its app and source** under the image, in the canvas's quiet caption type, and a double-click opens
-  it in Mobbin.
-- **It can be moved, resized, kept to its aspect ratio, and deleted.** It can't be pasted into a design, and an image
-  layer can't take a reference's image.
+- **References land in a row beside the design** they were found for, or in the middle of the view when there wasn't
+  one, and the canvas fits them in. A later batch starts a new row under the last.
+- **A reference is a canvas item, not a design.** It has no board, states, modes or layers, it isn't in Layers, and it's
+  never written to code. Each is its picture at its own size, with its app's name and "Mobbin" under it.
+- **Selecting one shows it in the inspector's Design tab,** as a selected note is: where it's from, its platform, the
+  description that found it and who placed it, with Open in Mobbin, More from that app, and a note for why it's here.
+- **It can be moved and deleted,** and a double-click opens it in Mobbin. It can't be pasted into a design, and an image
+  layer can't take its picture.
 - **Exports leave references out,** so a design's PNG is the design alone.
 
 ### For agents
 
-- **A `find_references` tool** beside `screenshot`: a search, the kind (screens, flows or sections), the platform, and a
-  limit of 10 by default. It returns each result's app, platform, link and id as text, with the previews as images the
-  agent can look at, as `screenshot` returns renders.
-- **`PlaceReference(id, { near })` in `execute`** puts one on the canvas beside a design, so the person sees what the
-  agent based a design on.
-- **The skill says to look first.** Before designing a screen of a common kind (onboarding, pricing, settings, a
-  checkout), search for a few, say which patterns you're following, and build them from the project's own components and
-  tokens. Never copy another app's layout, text or branding.
-- **Searches count against the person's own Mobbin limit,** the same 60 requests a minute and 500 deep searches a day,
-  so an agent searches once per screen, not once per element.
+- **A `find_references` tool** beside `screenshot`, taking what the API takes: a description, a platform, the mode and a
+  limit of 10 unless told otherwise. It returns each screen's app, platform, link and id as text, with the pictures as
+  images the agent can look at.
+- **`PlaceReference(id, { near, note })` in `execute`** puts one beside a design with a note on what the agent took from
+  it. The story Placed by an agent shows what's left behind: the screens it looked at, each saying why.
+- **The skill carries Mobbin's own rules for a good search:** one screen per search, at most three details, the platform
+  as the parameter and never in the description, quick when the description has no details and deep when it has, and
+  check the app's name before saying whose screen it is.
+- **And Parity's rule for what to do with them:** say which patterns you're following, and build them from the project's
+  own components and tokens. Never copy another app's layout, text or branding.
 
-## Accounts
+## Accounts and cost
 
-### First: each person's own Mobbin account
+### Parity's key, through Parity's service
 
-- **Connect Mobbin** in the tab opens Mobbin's sign-in in the person's browser, as Parity's own sign-in does
-  ([sign-in.md](sign-in.md)). Parity registers itself as a client with dynamic client registration, so there's no client
-  ID to manage.
-- **Main keeps the tokens,** encrypted with the system keychain through Electron's `safeStorage`, in the app's data,
-  never in a project. It refreshes them, and only main calls Mobbin.
-- **Main calls Mobbin's MCP server** (`https://api.mobbin.com/mcp`) with the person's token, and the window asks main
-  through the project service. The window never sees a token.
-- **Mobbin's MCP needs a Pro, Team or Enterprise plan.** Someone on Mobbin's free plan can connect, but searching says
-  their plan doesn't include it, with a link to Mobbin's plans.
+- **A service of Parity's holds the key** and answers the app's and agents' searches, as the stock photo service will
+  for Unsplash (PAR-131). The key never ships in the app.
+- **It needs a Parity sign-in,** so the service can tell people apart. The key's 60 requests a minute are shared by
+  everyone, so the service gives each person a share and answers repeated searches from memory for a few minutes, if
+  Mobbin's terms allow that.
+- **What a search costs us isn't published.** Mobbin's docs say API usage doesn't draw on a plan's AI credits and that
+  API pricing "will be handled separately". Until there's a price, deep searches may need a daily allowance per person.
+- **This needs Mobbin's written agreement.** A workspace's key is for its members, and the published terms don't cover
+  showing results to people who aren't. What to ask for is in [Questions for Mobbin](#questions-for-mobbin).
 
-### Later: Parity's own key, after an agreement with Mobbin
+### The fallback: each person's own Mobbin account
 
-- **A service of Parity's holds the key** and answers the app's searches, as the stock photo service will for Unsplash
-  (PAR-131). The key never ships in the app.
-- **Connect Mobbin goes away** and the tab just works, perhaps on Parity's paid plans only, since each search costs.
-- **This needs Mobbin's written agreement first.** Mobbin's REST API is on Team and Enterprise plans, with a key scoped
-  to one workspace and 60 requests a minute shared by everyone using it. Its published terms don't let a workspace serve
-  people who aren't its members. What to ask for is in [Questions for Mobbin](#questions-for-mobbin).
-- **The tab and the agent tool stay the same either way.** Only where main sends a search changes.
+If Mobbin won't agree, the same browser can run on each person's account through Mobbin's MCP server, which is built for
+that ([Build an integration](https://docs.mobbin.com/mcp/build-an-integration.md)).
+
+- **It adds a Connect Mobbin step,** with OAuth in the browser, and needs the person to be on Mobbin's Pro, Team or
+  Enterprise plan.
+- **Deep searches would draw on the person's AI credits:** 5 a search, from 300 a month on Pro and 600 a member on Team,
+  and at most 500 deep searches a day. Mobbin isn't enforcing the allowance during a beta that began on 12 October 2026
+  and is expected to run about six months.
+- **It would add flows and sections,** which only the MCP server has. They'd be designed then, not now.
 
 ## What's kept
 
-- **A reference on the canvas keeps its source, id, kind, app, platform, Mobbin link, size and place,** in the designs
-  file with the canvas's other items. It isn't saved into `public/images/`.
-- **Mobbin's image links expire after 30 days.** Main fetches a fresh link by the reference's id when one has expired,
-  and a reference whose image can't load shows its app's name and Open in Mobbin.
-- **The app keeps fetched images in its own cache,** in the app's data rather than the project, only if Mobbin's terms
-  allow it. Until they say, every image loads from Mobbin.
-- **Searches aren't kept,** apart from the last one per project, so the tab opens where it was.
+- **A reference keeps its Mobbin id, app, platform, link, size, place, the description that found it and its note,** in
+  the designs file with the canvas's other items. It isn't saved into `public/images/`.
+- **Its picture is the open problem.** Mobbin's image links expire, about 30 days out, and the API can't fetch a screen
+  by its id. So either Parity keeps a copy of a placed reference's picture, which needs Mobbin's say-so, or it finds the
+  screen again by searching for its app and matching the id. Until that's settled, a reference whose picture has expired
+  shows its app's name and Open in Mobbin.
+- **Searches aren't kept,** apart from the last five on this computer, for the browser's Recent list.
 
 ## The spike
 
-Before building it: a Mobbin Team plan with one seat, $72 for 3 months, the cheapest plan with both the REST API and
-MCP.
+A Mobbin Team plan with one seat, $72 for 3 months, and an API key from Settings, used only on your machine.
 
-- Connect with OAuth from a dev copy and search through MCP, as the first version will.
-- Search through the REST API from a small service, as the later version would, to see its results and speed.
-- Check whether the MCP search can fetch a screen by its id, which refreshing expired links needs.
-- Check how long a deep search takes, and whether standard mode is good enough for the tab.
+- Call the endpoint from the main process and show real results in the browser built from this exploration.
+- Time `standard` against `deep`, and compare what they return for the same descriptions, to check that quick first is
+  the right default.
+- See how far `url_expires_at` is from now, and what sizes `optimized` and `high` give.
+- Try finding a placed screen again by its app's name, for refreshing a picture.
+- Run the agent tool against it and see whether an agent's designs get better for having looked.
 
-Only your team sees the results during the spike, which a Team plan covers.
+Only your team sees results during the spike, which a Team plan covers.
 
 ## Questions for Mobbin
 
 In this order, since the first decides whether the rest matter:
 
 1. **Showing results to people who aren't Mobbin members,** through Parity's key, inside Parity.
-2. **Keeping images:** caching them in the app, and keeping a reference's image past 30 days.
-3. **How Mobbin wants to be credited** in the tab and on the canvas.
-4. **A price per search** instead of per seat, and whether deep searches cost more.
-5. **A higher limit** than 60 requests a minute for the workspace.
+2. **Keeping a placed reference's picture** past its link's expiry, or a way to fetch a screen by its id.
+3. **What API usage costs,** per search, and whether deep costs more.
+4. **A higher limit** than 60 requests a minute for the workspace.
+5. **How Mobbin wants to be credited** in the browser and on the canvas.
+6. **Whether flows and sections are coming to the REST API.**
 
 ## Still to decide
 
 - **Whether references belong to a project or to the person.** This proposal keeps them in the project's designs file,
-  so everyone on the project sees them, which means they're in the repository. A person-only board would keep them out.
-- **Refero as a second source,** in the same tab with a source picker, once there's a reason to have both.
-- **A free fallback** for people without a Mobbin account. None of the libraries offers one that's worth showing.
+  so everyone on the project sees them and they're in the repository. A person-only board would keep them out.
+- **Whether Find references earns a place on the toolbar,** which I've given it, or lives only in the right-click menu,
+  Search actions and R.
+- **Refero as a second source.** Its screens come with written details, such as page type, patterns and fonts, which
+  would give this browser real filters. It's also the only library whose terms describe a plan for putting it in a
+  product.

@@ -1,167 +1,229 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
-import { panelLimits, setLayout } from "../../chrome/layout.ts"
-import { openProjects } from "../../stories/fixtures.tsx"
-import { Explainer, type Placed, ReferencesWorkspace, type Start } from "./workspace.tsx"
+import { expect, userEvent, waitFor, within } from "storybook/test"
+import { design, example, openProjects } from "../../stories/fixtures.tsx"
+import type { Placed } from "./canvas.tsx"
+import { Explainer, ReferencesWorkspace, type Start } from "./workspace.tsx"
 
 /**
- * Design references from Mobbin (docs/proposals/references.md). A References tab after Images searches real apps'
- * screens, flows and sections in plain words. A result placed on the canvas sits beside your designs to look at, labeled
- * with its app and source, and never goes into a design, the project's files or its code.
+ * Design references from Mobbin (docs/proposals/references.md), second pass. There's no References tab. Find references,
+ * on the toolbar and R, opens a browser over the canvas, where screenshots are big enough to read. It asks for what
+ * Mobbin's REST API takes, a description of one screen and a platform, and nothing else: the API searches screens only,
+ * with no flows, sections, categories or tags.
  *
- * Every story is the same window, started in a different place, and all of it works: search, switch between Screens,
- * Flows and Sections and between Web and iOS, click a result to place it, or drag one onto the canvas. On the canvas,
- * drag a reference to move it, press Delete to remove the selected one, and double-click one to open it in Mobbin.
- * The apps and their screens are made up, drawn in plain blocks where the tab would show Mobbin's screenshots.
+ * Every story is the same window, started in a different place, and all of it works: describe a screen and press
+ * Enter, switch between Web and iOS, Search deeper, click results to pick them, double-click one to see it larger, and
+ * place what you picked. On the canvas, wheel to pan, Ctrl and wheel to zoom, drag a reference to move it, Delete to
+ * remove it, and select one to see it in the inspector. The apps and their screens are made up, drawn where the browser
+ * would show Mobbin's screenshots.
  */
 const meta = {
   title: "Parity/Explorations/References",
-  parameters: { layout: "fullscreen" },
-  loaders: [
-    async () => {
-      await openProjects("example")
-      setLayout({ leftTab: "references" })
-    }
-  ]
+  parameters: { layout: "fullscreen" }
 } satisfies Meta
 
 export default meta
 
 type Story = StoryObj<typeof meta>
 
+/** Opens the example with Pricing selected, or with nothing selected. */
+const opening = (selected: boolean) => async () => {
+  await openProjects("example")
+  example().selection.set(selected ? { design: design("Pricing") } : {})
+}
+
 function workspace(start: Start = {}) {
   return () => <ReferencesWorkspace start={start} />
 }
 
-// Connecting
+const body = () => within(document.body)
+
+// Finding
 
 /**
- * Before connecting: what the tab does, that references stay out of designs and code, and which Mobbin plans it needs.
- * Connect Mobbin opens Mobbin's sign-in in the browser, and the tab waits for it.
+ * Find references with Pricing selected: the browser opens on "pricing page" for the web, because that's the design's
+ * name and its main preview is a desktop one. Nine screens to a search, three across, each with its app's name.
  */
-export const NotConnected: Story = {
-  render: workspace({ state: { account: "disconnected" } })
+export const ForADesign: Story = {
+  loaders: [opening(true)],
+  render: workspace({ browser: {} })
 }
 
-/** Waiting for the browser, with Cancel. Once the person allows Parity there, the tab shows results. */
-export const Connecting: Story = {
-  render: workspace({ state: { account: "connecting" } })
-}
-
-/** Connect Mobbin, then the wait for the browser, then results once the person allows Parity there. */
-export const ConnectMobbin: Story = {
-  render: workspace({ state: { account: "disconnected" } }),
-  play: async ({ canvasElement }) => {
-    const body = within(canvasElement)
-    await userEvent.click(body.getByRole("button", { name: "Connect Mobbin" }))
-    await expect(await body.findByText("Finish connecting in your browser")).toBeVisible()
-    await expect(await body.findByRole("list", { name: "Results" }, { timeout: 3000 })).toBeVisible()
+/** The toolbar's Find references, or R, with Pricing selected: the search runs as the browser opens. */
+export const FromTheToolbar: Story = {
+  loaders: [opening(true)],
+  render: workspace(),
+  play: async () => {
+    await userEvent.click(await body().findByRole("button", { name: "Find references" }))
+    await expect(await body().findByRole("list", { name: "Results" }, { timeout: 3000 })).toBeInTheDocument()
+    await expect(body().getByRole("textbox", { name: "Describe a screen" })).toHaveValue("pricing page")
   }
 }
 
 /**
- * Connected, on a Mobbin plan without search from other apps: the free plan. The tab says which plans have it and
- * links to Mobbin's plans.
+ * Opened with nothing selected: the last few searches to run again, and how Mobbin's search likes a screen described,
+ * from Mobbin's own guidance.
  */
-export const PlanWithoutAccess: Story = {
-  render: workspace({ state: { account: "no-plan" } })
+export const NothingSelected: Story = {
+  loaders: [opening(false)],
+  render: workspace({ browser: {} })
 }
 
-// Searching
+/** iOS, the API's other platform: phones are tall, so six fit across. */
+export const PhoneScreens: Story = {
+  loaders: [opening(true)],
+  render: workspace({ browser: { query: "paywall with a free trial", platform: "ios" } })
+}
 
 /**
- * Web screens for "pricing", one to a row so each is big enough to read. Hover one for Place on canvas and Open in
- * Mobbin; a click places it beside Pricing.
+ * A description with a detail in it, searched quickly: every pricing page comes back, the ones with a yearly toggle
+ * first. Search deeper is for when that's too loose.
  */
-export const WebScreens: Story = {
-  render: workspace()
+export const QuickResults: Story = {
+  loaders: [opening(true)],
+  render: workspace({ browser: { query: "pricing page with a yearly toggle" } })
 }
 
-/** iOS screens, tall, as many to a row as fit. */
-export const PhoneScreens: Story = {
-  render: workspace({ state: { platform: "ios", query: "pricing" } })
+/**
+ * The same description in the API's deep mode: only the screens that fit all of it, so fewer than a full page. It takes
+ * a few seconds, which is why it's asked for rather than the default.
+ */
+export const DeepSearch: Story = {
+  loaders: [opening(true)],
+  render: workspace({ browser: { query: "pricing page with a yearly toggle", mode: "deep" } })
 }
 
-/** Flows, each with how many steps it has. A click opens one; its + places every step in a row. */
-export const Flows: Story = {
-  render: workspace({ state: { kind: "flows", platform: "ios", query: "onboarding" } })
+/** Search deeper, pressed: the wait, then the close matches. */
+export const SearchDeeper: Story = {
+  loaders: [opening(true)],
+  render: workspace({ browser: { query: "pricing page with a yearly toggle" } }),
+  play: async () => {
+    await userEvent.click(await body().findByRole("button", { name: "Search deeper" }))
+    await expect(await body().findByText("Checking each screen against your description")).toBeInTheDocument()
+    await expect(await body().findByText(/close matches from a deep search/, {}, { timeout: 5000 })).toBeInTheDocument()
+  }
 }
 
-/** A flow open in place of the results: its steps in order, each placeable by itself, or Place all. */
-export const FlowOpen: Story = {
+/** Naming an app keeps the results to that app, as the API does: Ledgerly's screens, whatever they show. */
+export const OneApp: Story = {
+  loaders: [opening(false)],
+  render: workspace({ browser: { query: "Ledgerly" } })
+}
+
+/**
+ * More results asks again for the same description, leaving out what's shown, which is how the API gives more. When a
+ * pull comes back short, there are no more.
+ */
+export const MoreResults: Story = {
+  loaders: [opening(true)],
+  render: workspace({ browser: { query: "pricing page", more: 1 } })
+}
+
+// Picking
+
+/** Three picked, across the results. The button says how many and where they'll go. */
+export const Picked: Story = {
+  loaders: [opening(true)],
   render: workspace({
-    state: { kind: "flows", platform: "ios", query: "onboarding", flow: "budgetbird-onboarding-flow" }
+    browser: { query: "pricing page", picked: ["ledgerly-pricing-tiers", "quill-pricing-two", "kite-pricing-usage"] }
   })
 }
 
-/** Website sections, such as pricing tables and footers. Sections are web only, so iOS is off. */
-export const Sections: Story = {
-  render: workspace({ state: { kind: "sections", query: "pricing" } })
+/**
+ * A screen shown larger, from a double-click or its corner button: the arrow keys move through the results, and Esc
+ * goes back to them. Open in Mobbin goes to the screen's page there.
+ */
+export const Larger: Story = {
+  loaders: [opening(true)],
+  render: workspace({ browser: { query: "pricing page", viewing: "quill-pricing-two" } })
 }
 
-/** Waiting on Mobbin, as a deep search takes a moment. */
+/** Picks two screens and places them: they land in a row beside Pricing, and the canvas fits them in. */
+export const PlaceReferences: Story = {
+  loaders: [opening(true)],
+  render: workspace({ browser: {} }),
+  play: async () => {
+    await userEvent.click(await body().findByRole("button", { name: "Ledgerly" }))
+    await userEvent.click(body().getByRole("button", { name: "Quill" }))
+    await userEvent.click(body().getByRole("button", { name: "Place 2 beside Pricing" }))
+    const canvas = body().getByRole("application", { name: "Canvas" })
+    await waitFor(() => expect(within(canvas).getAllByRole("img", { name: /^Reference: / })).toHaveLength(2))
+  }
+}
+
+// When a search can't answer
+
+/** Waiting on Mobbin. */
 export const Searching: Story = {
-  render: workspace({ state: { status: "searching" } })
+  loaders: [opening(true)],
+  render: workspace({ browser: { query: "pricing page", status: "searching" } })
 }
 
-/** Nothing matches. */
+/** Nothing fits. Mobbin's guidance is to say it another way or try the other platform. */
 export const NoResults: Story = {
-  render: workspace({ state: { query: "spaceship cockpit" } })
+  loaders: [opening(false)],
+  render: workspace({ browser: { query: "spaceship cockpit" } })
 }
 
-/** Mobbin's limit of 60 searches a minute, reached. Agents searching through the same account count too. */
+/**
+ * Mobbin turned the search away: an API key gets 60 requests a minute, shared by everyone searching through it. The
+ * button waits out the time Mobbin's answer gives.
+ */
 export const LimitReached: Story = {
-  render: workspace({ state: { status: "limited" } })
+  loaders: [opening(true)],
+  render: workspace({ browser: { query: "pricing page", status: "limited" } })
 }
 
-/** The tab at the panel's narrowest. */
-export const NarrowPanel: Story = {
-  render: workspace(),
-  loaders: [
-    async () => {
-      await openProjects("example")
-      setLayout({ leftTab: "references", leftWidth: panelLimits.left[0] })
-    }
-  ]
+/** Mobbin, or the way to it, is down. */
+export const CouldNotReachMobbin: Story = {
+  loaders: [opening(true)],
+  render: workspace({ browser: { query: "pricing page", status: "failed" } })
 }
 
 // On the canvas
 
+/** Where references start beside the design: past its phone preview. */
+const beside = 1734 + 160
+
 const placed: Placed[] = [
-  { key: "ledgerly", id: "ledgerly-pricing", x: 1400, y: 0, width: 1440 },
-  { key: "step-1", id: "lumen-paywall", x: 2960, y: 0, width: 390 },
-  { key: "section", id: "northwind-pricing-section", x: 1400, y: 1060, width: 1440 }
+  { key: "ledgerly", id: "ledgerly-pricing-tiers", x: beside, y: 0, query: "pricing page with a yearly toggle" },
+  { key: "quill", id: "quill-pricing-two", x: beside + 1328, y: 0, query: "pricing page with a yearly toggle" },
+  { key: "budgetbird", id: "budgetbird-paywall-plans", x: beside + 2656, y: 0, query: "paywall with a free trial" }
 ]
 
 /**
- * References beside Pricing: a web screen, a phone paywall and a pricing section. Each has its picture at its own
- * size and its app and source under it, with no board, states or modes. Drag one to move it, Delete removes the
- * selected one, and a double-click opens it in Mobbin.
+ * References beside Pricing, one selected. Each is its picture at its own size, with its app and Mobbin under it. The
+ * inspector's Design tab shows where the selected one is from and the description that found it, with a note to say
+ * why it's here. More from Ledgerly searches for that app's other screens.
  */
 export const OnTheCanvas: Story = {
+  loaders: [opening(false)],
   render: workspace({
     placed,
     selected: "ledgerly",
-    zoom: 0.25,
-    pan: { x: 48, y: 96 },
-    overlay: (
-      <div className="rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur">
-        <Explainer title="For looking at, not building with" width={280}>
-          References aren&apos;t designs: they never go into one, into the project&apos;s files or into code, and
-          exports leave them out.
-        </Explainer>
-      </div>
+    note: (
+      <Explainer title="For looking at, not building with">
+        References aren&apos;t designs: they never go into one, into the project&apos;s files or into code, and exports
+        leave them out.
+      </Explainer>
     )
   })
 }
 
-/** A click on a result places it to the right of what's on the canvas, selected, and says it stays out of designs. */
-export const PlaceAReference: Story = {
-  render: workspace({ zoom: 0.25, pan: { x: 48, y: 96 } }),
-  play: async ({ canvasElement }) => {
-    const body = within(canvasElement)
-    await userEvent.click(body.getByRole("button", { name: "Place Ledgerly on canvas" }))
-    const canvas = body.getByRole("application", { name: "Canvas" })
-    await expect(await within(canvas).findByRole("img", { name: "Reference: Ledgerly, from Mobbin" })).toBeVisible()
-  }
+const notes = [
+  "Yearly is picked by default, and the saving sits on the toggle itself.",
+  "Two plans only, the free one first. Questions sit straight under the plans.",
+  "On a phone the trial is part of the yearly option, not a step of its own."
+]
+
+/**
+ * What an agent leaves after it's asked to rework Pricing: the screens it looked at, each with a note on what it took
+ * from it, so you can see what the change is based on. Agents search through the same service, with the same two
+ * inputs.
+ */
+export const PlacedByAnAgent: Story = {
+  loaders: [opening(false)],
+  render: workspace({
+    placed: placed.map((each, index) => ({ ...each, by: "Claude", note: notes[index] })),
+    selected: "quill"
+  })
 }
