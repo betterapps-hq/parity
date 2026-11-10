@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 10 Nov 2026 13:40:41 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 14:26:25 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.52.1
+
+Tue, 10 Nov 2026 14:26:25 GMT
+
+### Patches
+
+- Media card: stays open while you search where a picture is used, Escape steps back, small pictures keep their size,
+  and files of the same name are told apart (ajcraswell@gmail.com)
 
 ## 0.52.0
 

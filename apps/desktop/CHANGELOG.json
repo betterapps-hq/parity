@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 14:26:25 GMT",
+      "version": "0.52.1",
+      "tag": "@parity-app/desktop_v0.52.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6625f407676a45a9505a9790098d2bcec5d2382f",
+            "comment": "Media card: stays open while you search where a picture is used, Escape steps back, small pictures keep their size, and files of the same name are told apart"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 13:40:41 GMT",
       "version": "0.52.0",
       "tag": "@parity-app/desktop_v0.52.0",
