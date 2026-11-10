@@ -70,7 +70,9 @@ picker can ask for them; the rest stay finer kinds inside a category.
 
 **On the design's sheet.** Kinds about how a design looks (shadows, blur, opacity, type) sit on the project's own
 background in its default theme, so a shadow reads as it will in the design rather than on Parity's dark chrome. Kinds
-that are measurements (spacing, radius, z-index, motion) are diagrams in Parity's ink.
+that are measurements (spacing, radius, z-index, motion) are diagrams in Parity's ink. A duration and an easing draw
+alike, so the two match side by side, in a field as in the panel: the line the dot travels, a duration's track or an
+easing's curve, is the mark's own ink, and the dot is one size, 8px, or 5px in a mark under 32px wide.
 
 **Motion only while looked at.** A motion preview runs through the Web Animations API while its row is hovered or
 focused, its picker option is highlighted, or its detail is open, and is cancelled the moment that stops. One-off

@@ -17,7 +17,7 @@ import { type KeyboardEvent, type PointerEvent, useId, useRef, useState } from "
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { EasingDot } from "../../chrome/token-previews.tsx"
+import { EasingDot, motionDot } from "../../chrome/token-previews.tsx"
 import { optionNamed } from "../parts.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
 import {
@@ -142,7 +142,7 @@ export function CurveThumb({
         left={scale}
         bottom={at(0)}
         rise={at(0) - at(1)}
-        size={Math.max(3, Math.round(size / 5))}
+        size={motionDot(size, size)}
         playing={playing}
         duration={duration}
       />

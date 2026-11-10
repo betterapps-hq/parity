@@ -373,6 +373,12 @@ export function easingPath(value: string, width: number, height: number, pad = 0
 }
 
 /**
+ * The dot a duration or an easing moves while playing, one size for both, so the two match side by side, in a field as
+ * in the Tokens panel: 8px, or 5px in a mark under 32px wide, which still leaves it room to travel.
+ */
+export const motionDot = (width: number, height: number) => Math.min(8, height - 4, Math.max(5, Math.round(width / 4)))
+
+/**
  * The dot that rides an easing's curve while playing, left to right in time and up by progress: two moves on two
  * elements, one steady and one eased, which is what the curve plots. It's placed over a curve drawn `width` across,
  * whose 0 is `bottom` from the top and whose 1 is `rise` above that, `left` in from the edge.
@@ -452,7 +458,6 @@ export function EasingArt({
   const pad = 0.18
   const top = height * pad
   const span = height - top * 2
-  const dot = Math.max(4, stroke * 3)
 
   return (
     <span className="relative block" style={{ width, height }}>
@@ -482,7 +487,7 @@ export function EasingArt({
         width={width}
         bottom={height - top}
         rise={span}
-        size={dot}
+        size={motionDot(width, height)}
         playing={playing}
         duration={duration}
       />
@@ -490,7 +495,10 @@ export function EasingArt({
   )
 }
 
-/** A duration: a dot that crosses its track in that time while playing, with CSS's default easing. */
+/**
+ * A duration: a dot that crosses its track in that time while playing, with CSS's default easing. The track is drawn
+ * as an easing's curve is, in the mark's color, so the two read as one kind of line.
+ */
 export function DurationArt({
   value,
   width,
@@ -509,8 +517,7 @@ export function DurationArt({
 }) {
   const dot = useRef<HTMLSpanElement>(null)
   const time = ms(value)
-  // At most a quarter of the track, so a small mark's dot still has room to cross.
-  const size = Math.min(8, height - 4, Math.round(width / 4))
+  const size = motionDot(width, height)
   const travel = width - size
   const loop = period ?? time + rest
   usePlayback(
@@ -526,10 +533,10 @@ export function DurationArt({
 
   return (
     <span className="relative flex items-center" style={{ width, height }}>
-      <span className="absolute inset-x-0 h-px bg-current opacity-20" />
-      {/* At rest, the track's fill says how long it is against half a second. */}
+      <span className="absolute inset-x-0 h-px bg-current" />
+      {/* At rest, a thicker stretch of the track says how long it is against half a second. */}
       <span
-        className="absolute left-0 h-[3px] rounded-full bg-current opacity-60"
+        className="absolute left-0 h-[3px] rounded-full bg-current"
         style={{ width: `${Math.min(1, (time || 0) / 500) * 100}%`, visibility: playing ? "hidden" : "visible" }}
       />
       <span

@@ -11,7 +11,7 @@ import {
   PopoverTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, Eye, EyeOff, GripVertical, Minus } from "lucide-react"
-import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react"
+import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, useRef } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
 import { drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
@@ -78,6 +78,11 @@ export interface ListRowProps {
     open?: boolean
     onOpenChange?: (open: boolean) => void
     className?: string
+    /**
+     * Focus the popover itself as it opens, not its first field, where that field is one whose list opens on focus (a
+     * transition's Changes), so the list doesn't cover the rest. Tab still goes to it first.
+     */
+    focusesPopup?: boolean
   }
   /**
    * What follows the entry before the eye, as a gradient's alpha does. It's placed in the row's second column
@@ -110,6 +115,7 @@ export function ListRow({
 }: ListRowProps) {
   const { live, rowProps } = useLiveRow()
   const sort = useSortable({ group, label: name, onMove, onCarry })
+  const popup = useRef<HTMLDivElement>(null)
   const drawn = renderPreview ? renderPreview(live(name)) : preview
 
   const parts = (
@@ -139,7 +145,12 @@ export function ListRow({
             {parts}
           </PopoverTrigger>
         </Hint>
-        <PopoverContent className={details.className ?? "w-72 p-2"} align="start">
+        <PopoverContent
+          ref={popup}
+          className={details.className ?? "w-72 p-2"}
+          align="start"
+          initialFocus={details.focusesPopup ? popup : undefined}
+        >
           {details.content}
         </PopoverContent>
       </Popover>

@@ -203,7 +203,7 @@ function EntryRow({
           duration={ms ?? defaultDuration}
         />
       )}
-      details={{ content: details, className: "w-80 gap-1 p-3" }}
+      details={{ content: details, className: "w-80 gap-1 p-3", focusesPopup: true }}
       title={label}
     >
       {/* Inline text, so the commas sit after each part and the whole summary is cut at its end. */}

@@ -297,8 +297,9 @@ Motion's Transitions.
 - **Details:** Changes is one field. Focused, it lists the sets with their utilities (`transition-colors`); typing
   narrows them or names a property of its own (`width`, offered as `transition-[width]`), and Enter takes the
   highlighted one. Duration and Delay draw their time as Easing draws its curve, with the Tokens panel's mark: a track
-  filled for how long it is against half a second, whose dot crosses in that time while the field's hovered. One of
-  Tailwind's easings is a chip (`out` for `ease-out`), as a token is, so Backspace takes it off whole.
+  filled for how long it is against half a second, whose dot crosses in that time while the field's hovered. The dot and
+  the track match the Easing's dot and curve. One of Tailwind's easings is a chip (`out` for `ease-out`), as a token is,
+  so Backspace takes it off whole.
 - **Tokens:** transition for a whole entry, which has no kind ([design-options-tokens.md](design-options-tokens.md),
   Fields and token kinds); duration and easing for its parts.
 - **Writes:** Tailwind allows one transition property, duration, easing and delay per element. One entry is utilities

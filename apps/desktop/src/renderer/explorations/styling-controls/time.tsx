@@ -106,13 +106,14 @@ export function TimeField({
   }
 
   // Its time drawn as Easing draws its curve, with the Tokens panel's mark: a track filled for how long it is against
-  // half a second, whose dot crosses in that time while the field's hovered or focused. Unset, it's faint.
+  // half a second, whose dot crosses in that time while the field's hovered or focused. Its track is the color of the
+  // Easing's curve, faint where it's unset, as the curve is.
   const { live, rowProps } = useLiveRow()
 
   const preview = (
     <span
       aria-hidden
-      className={`grid w-5 shrink-0 place-items-center text-muted-foreground ${value === undefined && !setBy ? "opacity-60" : ""}`}
+      className={`grid w-5 shrink-0 place-items-center ${value === undefined && !setBy ? "text-muted-foreground/60" : "text-foreground"}`}
     >
       <DurationArt value={`${ms ?? defaultMs}ms`} width={18} height={12} playing={live(label)} />
     </span>
