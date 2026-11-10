@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 10 Nov 2026 10:26:05 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 11:20:50 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.35.0
+
+Tue, 10 Nov 2026 11:20:50 GMT
+
+### Minor changes
+
+- Search Mobbin's screens from main with an API key, kept encrypted, through a connector the window and agents share
+  (ajcraswell@gmail.com)
 
 ## 0.34.0
 
