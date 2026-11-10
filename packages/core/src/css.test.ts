@@ -121,11 +121,13 @@ describe("prepareCanvasCss", () => {
   it("draws the root with a class or attribute on it as the frame's host and body with it, and with :not() as the body", () => {
     const scoped = (css: string) => prepareCanvasCss(css, options).scoped
 
-    expect(scoped(":root.dark { --c: #000; }")).toBe(":host(.dark), [data-canvas-body].dark { --c: #000; }")
+    expect(scoped(":root.dark { --c: #000; }")).toBe(":host(.dark), :where([data-canvas-body].dark) { --c: #000; }")
     expect(scoped("html[data-theme=dark] .card { color: white; }")).toBe(
       ":host([data-theme=dark]) .card, [data-canvas-body][data-theme=dark] .card { color: white; }"
     )
-    expect(scoped(":root:not(.dark), .x { --c: #fff; }")).toBe("[data-canvas-body]:not(.dark), .x { --c: #fff; }")
+    expect(scoped(":root:not(.dark), .x { --c: #fff; }")).toBe(
+      ":where([data-canvas-body]:not(.dark)), .x { --c: #fff; }"
+    )
     expect(scoped(":root { --c: #fff; }")).toBe(":host { --c: #fff; }")
   })
 
@@ -135,9 +137,9 @@ describe("prepareCanvasCss", () => {
     )
   })
 
-  it("changes only the root's own font size in a qualified root's rule", () => {
+  it("makes a qualified root's font size the frame's rem where only the body has the qualifier", () => {
     expect(prepareCanvasCss(":root.big { font-size: 125%; }", options).scoped).toBe(
-      ":host(.big) { font-size: calc(125 / 100 * 16px); } [data-canvas-body].big { font-size: 125%; }"
+      ":host(.big) { font-size: calc(125 / 100 * 16px); } :where([data-canvas-body].big) { font-size: calc(125 / 100 * 16px);  --canvas-root-font-size: 1em; --canvas-rem: var(--canvas-root-font-size); }"
     )
   })
 

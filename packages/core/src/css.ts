@@ -356,9 +356,21 @@ function serialize(
     const others = selectors.filter((part) => !rootSelector.test(part))
     const otherBody = others.length > 0 ? serialize(children, options, globals, { inRule: true }) : rootBody
 
-    // A rule for the root and other elements at once, as `html, body`, is split when the root's font size changes, so
-    // only the root's does.
-    if (rootBody === otherBody) {
+    const bodyRoots = roots.filter((part) => part.startsWith(bodyRootPrefix))
+    const hostRoots = roots.filter((part) => !part.startsWith(bodyRootPrefix))
+
+    // A qualified root's font size, drawn on the body, makes the body's own size what `rem` measures inside it.
+    if (bodyRoots.length > 0 && /(?:^|[;\s])font-size\s*:/i.test(rootBody)) {
+      const parts = [
+        hostRoots.length > 0 ? `${scope(hostRoots.join(", "))} {${rootBody}}` : "",
+        `${scope(bodyRoots.join(", "))} {${rootBody}${remFromFontSize}}`,
+        others.length > 0 ? `${scope(others.join(", "))} {${otherBody}}` : ""
+      ]
+
+      output += leading + parts.filter(Boolean).join(" ")
+    } else if (rootBody === otherBody) {
+      // A rule for the root and other elements at once, as `html, body`, is split when the root's font size changes,
+      // so only the root's does.
       output += `${leading}${scope(selector)} {${rootBody}}`
     } else {
       output += `${leading}${scope(roots.join(", "))} {${rootBody}} ${scope(others.join(", "))} {${otherBody}}`
@@ -377,8 +389,17 @@ function serialize(
   return output
 }
 
-/** A selector for the frame's root alone, as `:root` and `html` become: `:host`, or `:host(.dark)`. */
-const rootSelector = /^:host(?:\([^()]*\))?$/
+/**
+ * A selector for the frame's root alone, as `:root` and `html` become: `:host`, `:host(.dark)`, or the body standing in
+ * for a qualified root, `:where([data-canvas-body].dark)` (see `splitQualifiedRoots`).
+ */
+const rootSelector = new RegExp(String.raw`^(?::host(?:\([^()]*\))?|:where\(\[${bodyAttribute}\][\s\S]*\))$`)
+
+/** The body standing in for a qualified root, whose font size is the frame's `rem` as the host's is otherwise. */
+const bodyRootPrefix = `:where([${bodyAttribute}]`
+
+/** Declarations that make an element's font size the frame's `rem` for what's inside it, as the host's is. */
+const remFromFontSize = ` ${rootFontSizeProperty}: 1em; ${remProperty}: var(${rootFontSizeProperty}); `
 
 /** The colour scheme a `prefers-color-scheme` block asks for, unless it's left alone. */
 function schemeOfBlock(node: CssNode, options: PrepareCssOptions): ColorScheme | undefined {
@@ -507,8 +528,8 @@ const qualifiedRoot = /^:host((?:\.[\w-]+|\[[^\]]*\]|:not\([^()]*\))+)([\s\S]*)$
  * Draws a selector for the root with something on it (`:root.dark`, `html[data-theme=dark]`, `:root:not(.dark)`) as two:
  * the frame's host with it, as `:host(.dark)`, since the host matches nothing written after `:host` but only inside
  * `:host()`, and the frame's body with it, where a mode's class and a theme's attributes go. A decorator that sets an
- * attribute on the host, as Mantine's does, matches the first; a mode's class matches the second. A root with a `:not()`
- * on it is drawn as the body alone.
+ * attribute on the host, as a decorator might set, matches the first; a mode's class matches the second. A root with a
+ * `:not()` on it is drawn as the body alone.
  */
 function splitQualifiedRoots(selector: string): string {
   return splitSelectorList(selector)
@@ -520,7 +541,9 @@ function splitQualifiedRoots(selector: string): string {
       }
 
       const [, qualifiers, rest] = qualified
-      const body = `[${bodyAttribute}]${qualifiers}${rest}`
+      // The root's own values reach the body as inherited ones would, adding nothing to its specificity, so the body's
+      // own rules still win over them. Below the root, the selector keeps the specificity it was written with.
+      const body = rest ? `[${bodyAttribute}]${qualifiers}${rest}` : `:where([${bodyAttribute}]${qualifiers})`
 
       // The host never has the mode's class, so what's not on it would hold in every mode.
       return qualifiers!.includes(":not(") ? body : `:host(${qualifiers})${rest}, ${body}`
