@@ -178,9 +178,6 @@ export function addProjectImage(fileName: string, preview: string): string {
   return `/images/${name}`
 }
 
-export const imagePreview = (src: string): string | undefined =>
-  images.find((image) => `/images/${image.name}` === src)?.preview
-
 /** A photo a stock provider's search returns: its title and the words it's found by. */
 export interface StockPhoto {
   id: string
@@ -190,8 +187,22 @@ export interface StockPhoto {
 }
 
 /**
+ * Where a fill links an Unsplash photo from, as Unsplash's terms ask, rather than copying it into the project
+ * (decisions.md, Unsplash is the first stock source). A stand-in address, as the photos are.
+ */
+export const stockSrc = (photo: StockPhoto) => `https://images.unsplash.com/${photo.id}`
+
+export const imagePreview = (src: string): string | undefined =>
+  images.find((image) => `/images/${image.name}` === src)?.preview ??
+  stockPhotos.find((photo) => stockSrc(photo) === src)?.preview
+
+/** An image as its row names it: the project's by its file's name, Unsplash's by its title. */
+export const imageName = (src: string): string =>
+  stockPhotos.find((photo) => stockSrc(photo) === src)?.title ?? src.replace("/images/", "")
+
+/**
  * Stand-ins for what Unsplash's search returns once it's connected, drawn here, so the results can be laid out and
- * picked. Picking one copies it into the project, as the real one will.
+ * picked. Picking one links it from Unsplash, crediting its photographer, as the real one will.
  */
 export const stockPhotos: StockPhoto[] = [
   {

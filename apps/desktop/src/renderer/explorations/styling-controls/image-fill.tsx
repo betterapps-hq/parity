@@ -21,6 +21,7 @@ import {
   type ImagePaint,
   projectImages,
   stockPhotos,
+  stockSrc,
   watchProjectImages
 } from "./lists-data.ts"
 import { PositionInBox } from "./position-box.tsx"
@@ -28,7 +29,8 @@ import { PositionInBox } from "./position-box.tsx"
 /*
  * An image fill's editor (design-options-values.md, Paint stack), without tabs: one search over the project's images and
  * Unsplash's, each a section of the same grid, with Upload first among the project's; an image dropped or pasted
- * anywhere on it is added to the project and used. Then how it's drawn: its fit, Crop's scale, and where it sits.
+ * anywhere on it is added to the project and used, and an Unsplash photo is linked from there. Then how it's drawn: its
+ * fit, Crop's scale, and where it sits.
  */
 
 const fits: readonly ImageFit[] = ["fill", "fit", "crop", "tile"]
@@ -261,18 +263,15 @@ export function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: 
         )}
         {stock.length > 0 && (
           <Results title="Unsplash">
+            {/* Picked, a photo is linked from Unsplash where it is, as its terms ask: ticked here, not copied in. */}
             {stock.map((photo) => (
               <ImageTile
                 key={photo.id}
                 name={photo.title}
                 preview={photo.preview}
-                hint="From Unsplash, copied into public/images/ when it's picked"
-                chosen={false}
-                onPick={() => {
-                  const src = addProjectImage(`${photo.id}.jpg`, photo.preview)
-                  choose(src)
-                  setSaid(`Added ${photo.title} to the project`)
-                }}
+                hint="Linked from Unsplash, with its photographer credited"
+                chosen={paint.src === stockSrc(photo)}
+                onPick={() => choose(stockSrc(photo))}
               />
             ))}
           </Results>
@@ -313,7 +312,8 @@ export function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: 
             <SelectTrigger size="sm" aria-label="Fit" className="h-7 w-full px-2 text-xs">
               <SelectValue />
             </SelectTrigger>
-            <PanelSelectContent>
+            {/* Wider than its half-row trigger, so what each fit does reads whole, and lined up with its left edge. */}
+            <PanelSelectContent className="w-56" align="start" alignItemWithTrigger={false}>
               {fits.map((fit) => (
                 <SelectItem key={fit} value={fit}>
                   <span className="flex flex-col gap-0.5">

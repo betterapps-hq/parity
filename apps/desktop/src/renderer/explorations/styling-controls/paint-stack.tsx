@@ -33,6 +33,7 @@ import {
   type GradientKind,
   type GradientPaint,
   gradientDirections,
+  imageName,
   imagePreview,
   type ImagePaint,
   type Interpolation,
@@ -370,7 +371,7 @@ function PaintRow({
         }}
         title="Image"
       >
-        <span className="truncate">{paint.src.replace("/images/", "")}</span>
+        <span className="truncate">{imageName(paint.src)}</span>
       </ListRow>
     )
   }
