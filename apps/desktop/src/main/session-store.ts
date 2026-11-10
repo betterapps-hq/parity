@@ -50,7 +50,12 @@ export interface SessionStore {
  * project or local storage (proposals/sign-in.md, "What's kept where"). Where `safeStorage` would only obscure them, on
  * Linux without a keyring, nothing is written, and the person stays signed in until Parity quits.
  */
-export function sessionStore(file: string, encryption: Encryption, platform: NodeJS.Platform): SessionStore {
+export function sessionStore(
+  file: string,
+  encryption: Encryption,
+  platform: NodeJS.Platform,
+  failed: (problem: StoreProblem) => void = () => undefined
+): SessionStore {
   const persistent = async () => {
     if (!(await encryption.isAsyncEncryptionAvailable())) {
       return false
@@ -86,22 +91,36 @@ export function sessionStore(file: string, encryption: Encryption, platform: Nod
 
     try {
       encrypted = await readFile(file)
-    } catch {
+    } catch (error) {
+      // No file is no account kept; anything else is worth knowing about, though the file stays.
+      const thrown = thrownError.parse(error)
+
+      if (thrown.code !== "ENOENT") {
+        failed(storeProblem("read", thrown, "file"))
+      }
+
       return undefined
     }
 
+    let stage: ReadStage = "decrypt"
+
     try {
       const { result, shouldReEncrypt } = await encryption.decryptStringAsync(encrypted)
-      const kept = storedAccounts.parse(JSON.parse(result))
+      stage = "json"
+      const json: unknown = JSON.parse(result)
+      stage = "schema"
+      const kept = storedAccounts.parse(json)
 
       // The keychain's key was rotated: write it again with the new one.
       if (shouldReEncrypt) {
+        stage = "reencrypt"
         await write(kept)
       }
 
       return kept
-    } catch {
+    } catch (error) {
       // Unreadable, as after the keychain changed or from a build that kept one account: sign in again.
+      failed(storeProblem("read", thrownError.parse(error), stage))
       clear()
 
       return undefined
@@ -121,6 +140,38 @@ export function sessionStore(file: string, encryption: Encryption, platform: Nod
       return true
     },
     clear
+  }
+}
+
+type ReadStage = "file" | "decrypt" | "json" | "schema" | "reencrypt"
+
+/**
+ * Why the kept accounts couldn't be read or written, for `account.storeFailed`: the error's name and system code, never
+ * its message, which can quote what was decrypted.
+ */
+export interface StoreProblem {
+  action: "read" | "write"
+  stage?: ReadStage
+  error: string
+  code?: string
+}
+
+/** What a thrown error says about itself that's safe to record: its name and system code, not its message. */
+export const thrownError = z.object({ name: z.string(), code: z.string().optional() }).catch({ name: "unknown" })
+
+export type ThrownError = z.output<typeof thrownError>
+
+/** A failure reading or writing the kept accounts, as `account.storeFailed` records it. */
+export function storeProblem(
+  action: StoreProblem["action"],
+  { name, code }: ThrownError,
+  stage?: ReadStage
+): StoreProblem {
+  return {
+    action,
+    ...(stage !== undefined && { stage }),
+    error: name,
+    ...(code !== undefined && { code })
   }
 }
 
