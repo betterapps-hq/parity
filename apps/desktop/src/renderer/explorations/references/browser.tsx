@@ -1111,7 +1111,7 @@ function useSampleClock(seconds: number, running: boolean) {
  * A result's picture in the list. A video's plays while `playing`, without sound: a sample's drawing moves, and a real
  * one's small copy runs over its poster.
  */
-function Preview({ found, playing, className }: { found: Found; playing: boolean; className: string }) {
+export function Preview({ found, playing, className }: { found: Found; playing: boolean; className: string }) {
   const clip = clipOf(found)
   const sample = isSample(found)
   const [time] = useSampleClock(clip?.seconds ?? 0, playing && sample)
@@ -1166,7 +1166,7 @@ function Stage({ found }: { found: Found }) {
  * A video, playing as it opens, without sound, over three controls: play or pause, a scrubber to move through it, and
  * where it is in its length. It's the kit's slider and a button under a plain video, with no player library.
  */
-function Player({ found, seconds, url }: { found: Found; seconds: number; url: string }) {
+export function Player({ found, seconds, url }: { found: Found; seconds: number; url: string }) {
   const sample = isSample(found)
   const video = useRef<HTMLVideoElement>(null)
   const [playing, setPlaying] = useState(true)

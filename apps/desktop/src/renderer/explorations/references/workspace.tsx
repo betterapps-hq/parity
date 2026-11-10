@@ -5,7 +5,7 @@ import {
   Accessibility,
   CodeXml,
   Component,
-  ImageIcon,
+  ImagePlay,
   Layers,
   MonitorSmartphone,
   Palette,
@@ -30,19 +30,22 @@ import { useSelection } from "../../selection.ts"
 import { ProjectStage } from "../../stories/fixtures.tsx"
 import { type BrowserStart, LibraryBrowser, type Picked } from "./browser.tsx"
 import { boxOf, CanvasSketch, designBox, type Dropped, type DroppedImage, type Placed, type View } from "./canvas.tsx"
-import { sampleFound, samples, type Source } from "./data.ts"
-import { type ImageUse, type ProjectImage, ProjectImagesPanel } from "./images-panel.tsx"
-import { creditOf, libraries, type LibraryId, type Searched, shownFilters } from "./library.tsx"
+import { sampleFound, sampleMedia, samples, type Source } from "./data.ts"
+import { creditOf, libraries, type LibraryId, type Searched, shownFilters, sizeOf, sourceOf } from "./library.tsx"
+import { MediaPanel, type MediaUse, type ProjectMedia } from "./media-panel.tsx"
 import { ReferencePanel } from "./reference-panel.tsx"
 
 /*
  * The exploration as one window you can use: the app's own panels around a sketch of the canvas. Searching a library
  * outside the project happens in one browser over the canvas, whichever library it is. Find references, on the
- * toolbar and R, searches Mobbin and places what's picked beside the design. Find photos, in the Images tab, searches
- * Unsplash and adds what's picked to the project. The Images tab itself lists the project's own images. Image files
- * dropped on the tab are added to the project, and dropped on the canvas are placed too (PAR-835); an image's menu
- * removes it (PAR-836).
+ * toolbar and R, searches Mobbin and places what's picked beside the design. Add, in the Media tab, searches the stock
+ * library, Pixabay, and adds what's picked to the project. The Media tab itself is the project's own media: pressing
+ * one places it in the design, and it drags onto the canvas. Image files dropped on the tab are added to the project,
+ * and dropped on the canvas are placed too (PAR-835); removing one asks first when something uses it (PAR-836).
  */
+
+/** The stock library the Media tab adds from. Unsplash's connector is kept, and not offered. */
+const stock: LibraryId = "pixabay"
 
 /** The real connectors, through the host, as the window reaches them: main in the app, the dev server in Storybook. */
 export const live: Source = {
@@ -73,8 +76,8 @@ export interface Start {
   placed?: Placed[]
   /** The selected reference's key. */
   selected?: string
-  /** The project's images, in place of the ones it starts with, with what each looks like by its `src`. */
-  images?: ImagesStart
+  /** The project's media, in place of what it starts with, with what each looks like by its `src`. */
+  media?: MediaStart
   view?: View
 }
 
@@ -86,68 +89,98 @@ const firstRecent: (Searched & { library: LibraryId })[] = [
   { library: "mobbin", query: "paywall with a free trial", filters: { platform: "ios" } },
   { library: "mobbin", query: "support inbox", filters: {} },
   { library: "unsplash", query: "mountains", filters: {} },
-  { library: "unsplash", query: "desk", filters: { orientation: "landscape" } }
+  { library: "unsplash", query: "desk", filters: { orientation: "landscape" } },
+  { library: "pixabay", query: "mountain lake", filters: {} },
+  { library: "pixabay", query: "waves", filters: { type: "videos" } }
 ]
 
-/** Pasted, dropped and added images use the same folder, as `images.import` saves them. */
+/** Pasted, dropped and added images use the same folder, as `images.import` saves them. Videos have one beside it. */
 const folder = "public/images"
 
-/** A file in the project's images folder, drawn as a sample. */
-function sampleFile(name: string, id: string, uses: Partial<Pick<ProjectImage, "usedBy" | "usedInCode">> = {}) {
+/** Where a file of this name is kept, and the address it's served at. */
+function placeOf(name: string) {
+  const kept = name.endsWith(".mp4") ? "videos" : "images"
+
+  return { src: `/${kept}/${name}`, path: `public/${kept}/${name}` }
+}
+
+/** A use of one of the project's media by a layer of Pricing, the design on the canvas. */
+const inPricing = (node: string): MediaUse => ({ document: "app.par", design: "pricing", designName: "Pricing", node })
+
+/** The project's media, and what each looks like by its `src`. */
+interface MediaStart {
+  media: ProjectMedia[]
+  pictures: Record<string, Found>
+}
+
+/** Who a picture is credited to, and the library it's from, as the project keeps them with its file. */
+function creditFor(picture: Found): ProjectMedia["credit"] {
+  return {
+    name: creditOf(picture),
+    url: picture.credit[0]?.url ?? picture.link,
+    source: sourceOf(picture)?.name ?? picture.connector
+  }
+}
+
+/** A file in the project, drawn as a sample. One from a stock library keeps who made it. */
+function sampleFile(
+  name: string,
+  id: string,
+  { bytes, own, ...uses }: { bytes: number; own?: boolean } & Partial<Pick<ProjectMedia, "usedBy" | "usedInCode">>
+) {
   const picture = sampleFound(id)
 
-  const image: ProjectImage = {
+  const item: ProjectMedia = {
     kind: "file",
-    src: `/images/${name}`,
-    path: `${folder}/${name}`,
+    ...placeOf(name),
     name,
-    bytes: 180_000,
+    bytes,
     usedBy: uses.usedBy ?? [],
     usedInCode: uses.usedInCode ?? []
   }
 
-  return { image, picture }
-}
+  if (picture && !own) {
+    item.credit = creditFor(picture)
+  }
 
-/** A use of an image by a layer of Pricing, the design on the canvas. */
-const inPricing = (node: string): ImageUse => ({ document: "app.par", design: "pricing", designName: "Pricing", node })
-
-/** The project's images, and what each looks like by its `src`. */
-interface ImagesStart {
-  images: ProjectImage[]
-  pictures: Record<string, Found>
+  return { item, picture }
 }
 
 /**
- * What the project has before anything's added: a photo from Unsplash that Pricing shows, a pasted image nothing uses, a
- * dropped one the project's code names, a photo Pricing links to at Unsplash, and a path Pricing names with no file.
+ * What the project has before anything's added, one of each case: photos, illustrations, a vector and videos from
+ * Pixabay, some used by Pricing and some not; a pasted screenshot nothing uses; a dropped photo the project's code
+ * names; a photo Pricing links to at Unsplash rather than keeping; and a path Pricing names with no file there.
  */
-function startingImages(): ImagesStart {
-  const lake = sampleFile("lake-at-sunrise.jpg", "lake-at-sunrise", { usedBy: [inPricing("hero-photo")] })
+function startingMedia(): MediaStart {
+  const files = [
+    sampleFile("lake-at-sunrise.jpg", "pixabay-lake-at-sunrise", { bytes: 412_000, usedBy: [inPricing("hero-photo")] }),
+    sampleFile("waves-at-dusk.mp4", "pixabay-waves-at-dusk", { bytes: 6_400_000, usedBy: [inPricing("hero-video")] }),
+    sampleFile("team-portrait.jpg", "portrait-on-teal", {
+      bytes: 268_000,
+      own: true,
+      usedInCode: [{ path: "src/pages/About.tsx", line: 14 }]
+    }),
+    sampleFile("rocket.svg", "pixabay-rocket", { bytes: 4000, usedBy: [inPricing("launch-icon")] }),
+    sampleFile("old-dashboard.png", "northwind-dashboard", { bytes: 180_000, own: true }),
+    sampleFile("shapes-warm.png", "pixabay-shapes-warm", { bytes: 96_000 }),
+    sampleFile("figure-in-green.png", "pixabay-figure-in-green", { bytes: 142_000, usedBy: [inPricing("empty-state")] })
+  ]
+
+  const after = [
+    sampleFile("leaves-flat.png", "pixabay-leaves-flat", { bytes: 88_000 }),
+    sampleFile("gradient-loop.mp4", "pixabay-gradient-loop", { bytes: 2_100_000 })
+  ]
+
   const coast = sampleFound("rocky-coast")
   const pictures: Record<string, Found> = {}
 
-  if (lake.picture) {
-    lake.image.credit = {
-      name: creditOf(lake.picture),
-      url: lake.picture.credit[0]?.url ?? lake.picture.link,
-      source: "Unsplash"
-    }
-  }
-
-  const files = [
-    lake,
-    sampleFile("old-dashboard.png", "northwind-dashboard"),
-    sampleFile("team-portrait.jpg", "portrait-on-teal", { usedInCode: [{ path: "src/pages/About.tsx", line: 14 }] })
-  ]
-
-  for (const { image, picture } of files) {
+  for (const { item, picture } of [...files, ...after]) {
     if (picture) {
-      pictures[image.src] = picture
+      pictures[item.src] = picture
     }
   }
 
-  const linked: ProjectImage[] = []
+  const linked: ProjectMedia[] = []
 
   if (coast) {
     pictures[coast.image.url] = coast
@@ -155,13 +188,13 @@ function startingImages(): ImagesStart {
       kind: "linked",
       src: coast.image.url,
       name: `Photo by ${creditOf(coast)}`,
-      credit: { name: creditOf(coast), url: coast.credit[0]?.url ?? coast.link, source: "Unsplash" },
+      credit: creditFor(coast),
       usedBy: [inPricing("testimonial-photo"), inPricing("footer-photo")],
       usedInCode: []
     })
   }
 
-  const missing: ProjectImage = {
+  const missing: ProjectMedia = {
     kind: "missing",
     src: "/images/old-logo.svg",
     name: "/images/old-logo.svg",
@@ -169,7 +202,17 @@ function startingImages(): ImagesStart {
     usedInCode: []
   }
 
-  return { images: [...files.map(({ image }) => image), ...linked, missing], pictures }
+  return {
+    media: [...files.map(({ item }) => item), ...linked, ...after.map(({ item }) => item), missing],
+    pictures
+  }
+}
+
+/** What a stock picture's file is called in the project: after what it is at its library, in the form it downloads in. */
+function fileNameOf(picture: Found): string {
+  const kept = sampleMedia(picture.id)?.type === "vectors" ? "svg" : "jpg"
+
+  return `${picture.id.replace(/^pixabay-/, "")}.${picture.video ? "mp4" : kept}`
 }
 
 /** A dropped file's natural size, read from the file itself; square when it can't be read. */
@@ -189,7 +232,10 @@ function frameName(images: readonly DroppedImage[]): string {
   return images.length === 1 && only ? fileBaseName(only.name) : "Images"
 }
 
-/** How long an image just added stays marked, in milliseconds. */
+/** How wide something placed from the Media tab or dropped as a file is on the canvas: 80 steps. */
+const placedWidth = 320
+
+/** How long one just added stays marked, in milliseconds. */
 const freshFor = 1600
 
 let counter = 0
@@ -220,8 +266,8 @@ function Window({ start }: { start: Start }) {
   const [source] = useState(() => start.source ?? samples())
   const [placed, setPlaced] = useState<Placed[]>(start.placed ?? [])
   const [photos, setPhotos] = useState<Found[]>([])
-  const [first] = useState(() => start.images ?? startingImages())
-  const [images, setImages] = useState(first.images)
+  const [first] = useState(() => start.media ?? startingMedia())
+  const [images, setImages] = useState(first.media)
   const [pictures, setPictures] = useState(first.pictures)
   const [fresh, setFresh] = useState<string[]>([])
   const [dropped, setDropped] = useState<Dropped[]>([])
@@ -287,7 +333,7 @@ function Window({ start }: { start: Start }) {
   const findReferences = (from?: BrowserStart) =>
     setBrowser({ library: "mobbin", start: from ?? { ...forDesign(), fresh: true } })
 
-  const findPhotos = (query?: string) => setBrowser({ library: "unsplash", start: query ? { query, fresh: true } : {} })
+  const findStock = (query?: string) => setBrowser({ library: stock, start: query ? { query, fresh: true } : {} })
 
   const placeReferences = (picked: Picked[]) => {
     const boxes = placed.map(boxOf)
@@ -307,24 +353,24 @@ function Window({ start }: { start: Start }) {
     toast(added.length === 1 ? "Placed a reference on the canvas" : `Placed ${added.length} references on the canvas`)
   }
 
-  /** Marks images just added for a moment, as they arrive in the Images tab. */
+  /** Marks the ones just added for a moment, as they arrive in the Media tab. */
   const markFresh = (srcs: string[]) => {
     setFresh(srcs)
     setTimeout(() => setFresh((current) => current.filter((src) => !srcs.includes(src))), freshFor)
   }
 
-  const addPhotos = (picked: Picked[]) => {
+  /** What was picked in a stock library, saved into the project as files, each keeping who made it. */
+  const addStock = (picked: Picked[]) => {
     const added = picked.flatMap(({ found }) => (photos.some((each) => each.id === found.id) ? [] : [found]))
 
-    const files = added.map((picture): ProjectImage => {
-      const name = `${picture.id}.jpg`
+    const files = added.map((picture): ProjectMedia => {
+      const name = fileNameOf(picture)
 
       return {
         kind: "file",
-        src: `/images/${name}`,
-        path: `${folder}/${name}`,
+        ...placeOf(name),
         name,
-        credit: { name: creditOf(picture), url: picture.credit[0]?.url ?? picture.link, source: "Unsplash" },
+        credit: creditFor(picture),
         usedBy: [{ document: "app.par", design: "photos", designName: "Photos", node: picture.id }],
         usedInCode: []
       }
@@ -337,14 +383,17 @@ function Window({ start }: { start: Start }) {
       ...Object.fromEntries(files.map((image, index) => [image.src, added[index]!]))
     }))
     markFresh(files.map((image) => image.src))
-    toast(added.length === 1 ? "Added a photo to the project" : `Added ${added.length} photos to the project`, {
-      description: "They're in Images, each with its photographer's name."
-    })
+
+    const [only] = files
+
+    toast(
+      files.length === 1 && only ? `Added ${only.name} to the project` : `Added ${files.length} files to the project`
+    )
   }
 
   const place = (picked: Picked[]) => {
-    if (browser?.library === "unsplash") {
-      addPhotos(picked)
+    if (browser && libraries[browser.library].goes === "into") {
+      addStock(picked)
     } else {
       placeReferences(picked)
     }
@@ -365,10 +414,10 @@ function Window({ start }: { start: Start }) {
   }
 
   /**
-   * Image files dropped on the Images tab or the canvas, saved into the project as `images.import` saves them, named
+   * Image files dropped on the Media tab or the canvas, saved into the project as `images.import` saves them, named
    * after the file. Each one's picture is the file itself. Files that aren't images, or are too large, are named.
    */
-  const addFiles = async (files: File[]): Promise<{ image: ProjectImage; dropped: DroppedImage }[]> => {
+  const addFiles = async (files: File[]): Promise<{ image: ProjectMedia; dropped: DroppedImage }[]> => {
     const { images: taken, skipped } = sortDrop(files)
     const message = skippedMessage(skipped)
 
@@ -401,7 +450,7 @@ function Window({ start }: { start: Start }) {
           credit: []
         }
 
-        const image: ProjectImage = {
+        const image: ProjectMedia = {
           kind: "file",
           src,
           path: `${folder}/${name}`,
@@ -411,7 +460,7 @@ function Window({ start }: { start: Start }) {
           usedInCode: []
         }
 
-        const width = 320
+        const width = placedWidth
 
         return {
           image,
@@ -437,24 +486,28 @@ function Window({ start }: { start: Start }) {
     return added
   }
 
-  /** Files dropped on the canvas: added to the project, and placed where they were dropped, selected. */
-  const dropFiles = async (files: File[], at: { x: number; y: number }, onto: "design" | "canvas") => {
-    const added = await addFiles(files)
-
-    if (added.length === 0) {
+  /**
+   * Puts media on the canvas, selected: at a point on the design, on top, or in a new frame on the empty canvas. Each
+   * one's layer is added to where the Media tab says it's used.
+   */
+  const land = (
+    landing: { src: string; dropped: DroppedImage }[],
+    at: { x: number; y: number },
+    onto: "design" | "canvas"
+  ) => {
+    if (landing.length === 0) {
       return
     }
 
     const key = newKey()
-    const frame = onto === "canvas" ? frameName(added.map((each) => each.dropped)) : undefined
-    const drop: Dropped = { key, x: at.x, y: at.y, images: added.map((each) => each.dropped) }
+    const frame = onto === "canvas" ? frameName(landing.map((each) => each.dropped)) : undefined
+    const drop: Dropped = { key, x: at.x, y: at.y, images: landing.map((each) => each.dropped) }
 
     if (frame) {
       drop.frame = frame
     }
 
-    // The new layers use them now, so the Images tab says where.
-    const use = (node: string): ImageUse => ({
+    const use = (node: string): MediaUse => ({
       document: "app.par",
       design: onto === "design" ? "pricing" : key,
       designName: frame ?? "Pricing",
@@ -463,9 +516,9 @@ function Window({ start }: { start: Start }) {
 
     setImages((current) =>
       current.map((image) => {
-        const placedAs = added.find((each) => each.image.src === image.src)
+        const landed = landing.find((each) => each.src === image.src)
 
-        return placedAs ? { ...image, usedBy: [use(placedAs.dropped.key)] } : image
+        return landed ? { ...image, usedBy: [...image.usedBy, use(landed.dropped.key)] } : image
       })
     )
     setDropped((current) => [...current, drop])
@@ -474,8 +527,45 @@ function Window({ start }: { start: Start }) {
     selection.set({})
   }
 
-  /** Removes an image, and the layers that show it with it, in one step Undo takes back. */
-  const removeImage = (image: ProjectImage) => {
+  /** Files dropped on the canvas: added to the project, and placed where they were dropped. */
+  const dropFiles = async (files: File[], at: { x: number; y: number }, onto: "design" | "canvas") => {
+    const added = await addFiles(files)
+
+    land(
+      added.map((each) => ({ src: each.image.src, dropped: each.dropped })),
+      at,
+      onto
+    )
+  }
+
+  /**
+   * One of the project's media placed from its tab: where it was dropped, or, when it was pressed, in the design, each
+   * a little further down and across than the last so they don't hide one another.
+   */
+  const placeMedia = (src: string, at?: { x: number; y: number }, onto: "design" | "canvas" = "design") => {
+    const item = images.find((each) => each.src === src)
+    const picture = pictures[src]
+
+    if (!item || !picture || item.kind === "missing") {
+      return
+    }
+
+    const size = sizeOf(picture)
+    const step = 32 * (dropped.length % 6)
+
+    const placing: DroppedImage = {
+      key: newKey(),
+      picture,
+      name: item.name,
+      width: placedWidth,
+      height: Math.round((placedWidth / size.width) * size.height)
+    }
+
+    land([{ src, dropped: placing }], at ?? { x: designBox.x + 96 + step, y: designBox.y + 120 + step }, onto)
+  }
+
+  /** Removes one, and the layers that show it with it, in one step Undo takes back. */
+  const removeImage = (image: ProjectMedia) => {
     const index = images.findIndex((each) => each.src === image.src)
     const layers = image.usedBy.length === 1 ? "1 layer" : `${image.usedBy.length} layers`
     const named = image.kind === "file" ? image.name : layers
@@ -490,8 +580,8 @@ function Window({ start }: { start: Start }) {
     })
   }
 
-  /** Shows a layer that uses an image: selects the design it's in, on the canvas. */
-  const showUse = (use: ImageUse) => {
+  /** Shows a layer that uses one: selects the design it's in, on the canvas. */
+  const showUse = (use: MediaUse) => {
     setSelected(undefined)
 
     if (use.design === "pricing" && pricing) {
@@ -501,7 +591,7 @@ function Window({ start }: { start: Start }) {
     }
   }
 
-  const openImageAtSource = (image: ProjectImage) => {
+  const openImageAtSource = (image: ProjectMedia) => {
     const picture = pictures[image.src]
 
     if (picture) {
@@ -521,7 +611,7 @@ function Window({ start }: { start: Start }) {
           { value: "layers", label: "Layers", icon: Layers },
           { value: "components", label: "Components", icon: Component },
           { value: "icons", label: "Icons", icon: Smile },
-          { value: "images", label: "Images", icon: ImageIcon },
+          { value: "images", label: "Media", icon: ImagePlay },
           { value: "tokens", label: "Tokens", icon: Palette }
         ]}
       >
@@ -535,13 +625,15 @@ function Window({ start }: { start: Start }) {
           <IconsPanel />
         </TabsContent>
         <TabsContent value="images" className="flex min-h-0 flex-col">
-          <ProjectImagesPanel
-            images={images}
+          <MediaPanel
+            media={images}
             pictures={pictures}
             fresh={fresh}
-            onFind={findPhotos}
+            stock={libraries[stock].info}
+            onFind={findStock}
             onOpenAtSource={openImageAtSource}
             onAdd={(files) => void addFiles(files)}
+            onPlace={(item) => placeMedia(item.src)}
             onRemove={removeImage}
             onShow={showUse}
           />
@@ -562,6 +654,7 @@ function Window({ start }: { start: Start }) {
         dropped={dropped}
         landed={landed}
         onDropFiles={(files, at, onto) => void dropFiles(files, at, onto)}
+        onDropMedia={placeMedia}
         onSelectDesign={() => {
           setLanded([])
           setSelected(undefined)

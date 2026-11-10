@@ -22,8 +22,8 @@ import { useTool } from "../../selection.ts"
 import type { Look } from "../start/data.ts"
 import { desktop, phone } from "../start/render-kit.tsx"
 import { DesignRender } from "../start/renders.tsx"
-import { useFileDrag } from "./images-panel.tsx"
 import { creditOf, Picture, sizeOf } from "./library.tsx"
+import { useFileDrag } from "./media-panel.tsx"
 
 /*
  * A sketch of the canvas, standing in for the board: the Pricing design with its desktop and phone previews, the
@@ -194,6 +194,8 @@ interface CanvasProps {
   landed?: readonly string[]
   /** Files dropped at a point in canvas pixels, onto the design or onto the empty canvas. */
   onDropFiles?: (files: File[], at: { x: number; y: number }, onto: "design" | "canvas") => void
+  /** One of the project's media dragged from its tab, by `src`, dropped the same way. */
+  onDropMedia?: (src: string, at: { x: number; y: number }, onto: "design" | "canvas") => void
 }
 
 export function CanvasSketch({
@@ -213,7 +215,8 @@ export function CanvasSketch({
   onFind,
   dropped = [],
   landed = [],
-  onDropFiles
+  onDropFiles,
+  onDropMedia
 }: CanvasProps) {
   const session = useProject()
   const tool = useTool(session.selection)
@@ -243,13 +246,22 @@ export function CanvasSketch({
     )
   }
 
-  const fileDrag = useFileDrag((files) => {
-    if (pointer && onDropFiles) {
-      onDropFiles(files, toCanvas(pointer), overDesign(pointer) ? "design" : "canvas")
-    }
+  const fileDrag = useFileDrag(
+    (files) => {
+      if (pointer && onDropFiles) {
+        onDropFiles(files, toCanvas(pointer), overDesign(pointer) ? "design" : "canvas")
+      }
 
-    setPointer(undefined)
-  })
+      setPointer(undefined)
+    },
+    (src) => {
+      if (pointer && onDropMedia) {
+        onDropMedia(src, toCanvas(pointer), overDesign(pointer) ? "design" : "canvas")
+      }
+
+      setPointer(undefined)
+    }
+  )
 
   const fit = () => {
     const element = ref.current

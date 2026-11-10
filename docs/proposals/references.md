@@ -1,17 +1,20 @@
-# Proposal: design references and stock photos, in one browser
+# Proposal: design references and stock media, in one browser
 
-Status: draft, second pass, 2026-11-09 (PAR-827). Nothing is built. The design is the exploration under
-Parity/Explorations/References
-([References.stories.tsx](../../apps/desktop/src/renderer/explorations/references/References.stories.tsx)).
+Status: draft, second pass, 2026-11-10 (PAR-827). The connectors are built (PAR-829, PAR-837); the browser and the Media
+tab are designed, not built. The design is the exploration under Parity/Explorations/References, one set of stories for
+each library and one for the tab: [Mobbin](../../apps/desktop/src/renderer/explorations/references/Mobbin.stories.tsx),
+[Pixabay](../../apps/desktop/src/renderer/explorations/references/Pixabay.stories.tsx),
+[Unsplash](../../apps/desktop/src/renderer/explorations/references/Unsplash.stories.tsx) and
+[Project media](../../apps/desktop/src/renderer/explorations/references/ProjectMedia.stories.tsx).
 
 ## In one line
 
 Searching a library outside the project happens in one wide browser over the canvas, whichever library it is. Find
 references searches Mobbin's screens from real apps and places what you pick beside your design to look at, never in it.
-Find photos searches Unsplash and adds what you pick to the project. Each library is a connector, and the browser draws
-its filters from what the connector says it takes. Agents search the same connectors. Both run on Parity's own keys, so
-nobody needs an account with either. Mobbin's terms allow its API inside a product, and I'd still get its yes in writing
-before this reaches anyone outside the team.
+Add, in the Media tab, searches Pixabay's photos, illustrations, vectors and videos and adds what you pick to the
+project. Each library is a connector, and the browser draws its filters from what the connector says it takes. Agents
+search the same connectors. Both run on Parity's own keys, so nobody needs an account with either. Mobbin's terms allow
+its API inside a product, and I'd still get its yes in writing before this reaches anyone outside the team.
 
 ## What changed from the first pass
 
@@ -53,18 +56,22 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 - **The left panel holds what's in the project; the browser searches what's outside it.** Layers, components, icons,
   images and tokens are the project's own, small and known, and they stay in the panel. Judging strangers' pictures
   needs room and is a short task, find, pick, done, so it gets the wide browser. Stock photos were planned for the
-  Images tab; they move to the browser, and the tab becomes the project's images.
+  Images tab; they move to the browser, and the tab becomes the project's own media.
 - **Each library is a connector** (`packages/connectors`, PAR-829), and the browser is one component for all of them. It
   reads the connector's own description rather than knowing each source.
 - **The source's name and mark come from its connector,** as `name`, `site` and `mark`, and sit at the foot of the
   browser as a link to the source. The mark is one path, drawn in the text's color, so it reads in both themes.
 - **Filters come from the connector's `filters`.** Every filter today is one choice from a fixed list, so there's one
-  data type, and the browser picks between two controls from the list's shape. A filter that always has a value, between
-  a few, is a switch, as Mobbin's platform is. One that can be left open is a select starting on "Any", as Unsplash's
-  orientation and color are. A value can carry a `swatch` or name an `icon`, which shows beside its name wherever the
-  value appears: in the control, and on a recent search. A new filter on a connector shows up without a change to the
-  browser. A filter that isn't a choice, such as a number or free text, would need the connector to say its type, which
-  it doesn't yet.
+  data type, and the browser picks between three controls from the list's shape. A filter with one value is on or off,
+  as Pixabay's editor's choice is. One that always has a value, between a few, is a switch, as Mobbin's platform is. Any
+  other is a select, starting on "Any" when it can be left open, as Unsplash's orientation and color are. A value can
+  carry a `swatch` or name an `icon`, which shows beside its name wherever the value appears: in the control, and on a
+  recent search. A new filter on a connector shows up without a change to the browser. A filter that isn't a choice,
+  such as a number or free text, would need the connector to say its type, which it doesn't yet.
+- **Three filters sit beside the search field, and the rest are behind Filters,** in the connector's order, which is
+  most used first. The button counts how many of its filters are set. Pixabay has seven, so it's the first to need this.
+- **A filter can depend on another's choice,** through its `when`. Pixabay's orientation and color are for pictures and
+  its footage is for videos, so choosing Videos swaps which sit beside the search field.
 - **Unsplash's colors are a fixed list.** Its API takes eleven named colors and nothing else, so there's no picking your
   own.
 - **Mobbin's depth is the one filter the browser treats by name:** it's offered as Search deeper on the results rather
@@ -138,25 +145,43 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   layer can't take its picture.
 - **Exports leave references out,** so a design's PNG is the design alone.
 
-### Photos from Unsplash
+### Stock media from Pixabay
 
-- **Find photos is in the Images tab,** as a button under its search. Searching the project's images for something it
-  doesn't have offers to look for the same words on Unsplash.
-- **It's the same browser.** Photos come in every shape, so they pack into columns, each with its photographer's name
-  under it. Orientation and color sit beside the search field, each on "Any" until chosen, and changing one searches
-  again. Unsplash's mark and name sit at the foot.
-- **The button adds what's picked to the project:** "Add 3 photos". They go where dropped image files go (PAR-24): into
-  the selected layout, or onto a new screen when nothing's selected. Each one shows in the Images tab from then on.
-- **Each photo used is reported to Unsplash,** and keeps its photographer's name and its Unsplash link, as Unsplash's
-  terms ask (decisions.md, "Unsplash is the first stock source"). The connector's `picked` does the report.
+- **Pixabay is the stock library** (decisions.md, "Pixabay finds photos in place of Unsplash"). Unsplash's connector and
+  its stories are kept, and it isn't offered. Turning it on later is one line, since the browser is the same.
+- **Add, beside the Media tab's search, opens it,** as "Find on Pixabay" under Pixabay's own mark, above "Choose files".
+  Searching the project's media for something it doesn't have offers to look for the same words on Pixabay.
+- **It's the same browser.** Results come in every shape, so they pack into columns, each with its contributor's name
+  under it. Type, orientation and color sit beside the search field, and category, editor's choice and order are behind
+  Filters. Vectors show on checks, so you can see they're see-through.
+- **Videos are the fourth type.** A result says how long it runs and plays, without sound, while pointed at. Shown
+  larger, it plays in a player with a scrubber. The player in the stories is a stand-in, the kit's slider under a plain
+  video; which player to use is under Still to decide.
+- **The button adds what's picked to the project:** "Add 3 to project". Pixabay's links last a day and its terms ask
+  that pictures aren't loaded from them, so each one is saved as a file, keeping its contributor's name and its page on
+  Pixabay.
+- **Where something is from is the connector's to say.** A result carries its connector's id, and the connector has the
+  name and the mark, so the Media tab and the inspector name the source without knowing the libraries.
 
-### The Images tab
+### The Media tab
 
-- **It lists the project's own images:** every file in its images folder, whether pasted, dropped or added from
-  Unsplash. Today the tab is a placeholder, and an image you've added can't be seen or used again.
-- **Each has its file's name, and how it got there:** "Photo by" and the photographer for one from Unsplash, with a link
-  to it there; "Pasted" or "Dropped in" otherwise.
-- **Its search looks through the project's images,** by file name and, for a photo, what it shows.
+- **It's the Images tab, renamed,** since what a project keeps is no longer only images. Today the tab is a placeholder,
+  and something you've added can't be seen or used again.
+- **It's a wall of the pictures themselves:** two across, each in its own proportions, in whichever column is shorter,
+  with nothing written under them. A picture says what it is faster than its file's name does, and a 256 pixel panel has
+  room for one or the other. Pointing at one shows its name over its foot.
+- **What needs saying about one is on it:** a video's length, a mark on a picture a layer links to rather than a file
+  the project keeps, and a dashed place, with the file's name, for a path a layer names that has no file.
+- **Resting on one opens its card,** as a component's does, and the right arrow opens it from the keyboard: the picture
+  larger, or a video in its player; its name and where its file is; its size in pixels and on disk; who made it and the
+  library it's from, under that library's mark; each layer and line of code that uses it, with Show; and Insert, Open in
+  Pixabay and Remove.
+- **Pressing one places it in the selected design, and it drags onto the canvas,** as a component does. Dropped on a
+  design it lands where it's dropped; on the empty canvas it makes a frame named after it.
+- **Images, Vectors and Videos narrow it,** and show only when the project has more than one of them. Its search looks
+  through the project's own, by file name, by who made it, and by what a stock picture shows.
+- **Files dragged onto it are added to the project** (PAR-835), and removing one asks first when a layer or the code
+  still uses it (PAR-836).
 - **It tracks files, not searches.** What you searched for isn't kept beyond the browser's Recent list.
 
 ### For agents
@@ -176,9 +201,9 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 
 - **Most stories search made-up samples** that answer in the connectors' own types, so the browser is the same code
   against samples as against the real thing, and the stories look the same everywhere.
-- **Live Mobbin and Live Unsplash search the real libraries.** Storybook's dev server runs the connectors with the keys
-  in `apps/desktop/.env.local` (`.storybook/connectors.ts`), as main does for the window, so a key never reaches the
-  page. The stories' host asks it at `/__connectors`.
+- **Each library's Live story searches the real one.** Storybook's dev server runs the connectors with the keys in
+  `apps/desktop/.env.local` (`.storybook/connectors.ts`), as main does for the window, so a key never reaches the page.
+  The stories' host asks it at `/__connectors`.
 - **A built Storybook has no server,** so there the live stories show the "isn't available" state. The pull request's
   preview is one of those.
 - **Stories never report a photo as used,** since they place nothing for real.
@@ -262,8 +287,13 @@ In this order, since the first decides whether the rest matter:
   Search actions and R.
 - **A list of placed references.** Nothing lists them, so they're found only by seeing them on the canvas. A References
   group at the foot of Layers would do it without a new tab.
-- **Whether an added photo is a file in the project or a link to Unsplash.** Unsplash's terms ask that photos load from
-  its own links. The mock says a photo goes into the project's images without settling which.
+- **Which video player.** I'd add Kibo UI's video player, a shadcn registry component of about a hundred lines over
+  `media-chrome` (MIT, one dependency), which has play, a scrubber, the time, mute and volume, and takes the kit's
+  colors. `media-chrome` would be a new dependency, so it waits for your yes.
+- **What a video is on the canvas.** Placing one from the Media tab shows its first frame, as an image. Whether a design
+  can hold a playing video, and what that is in the project's code, isn't designed.
+- **Where video files are kept.** Images go in `public/images`, as `images.import` saves them. The stories keep videos
+  in `public/videos` beside it, which nothing has decided.
 - **A sharper picture for the larger view and the canvas.** The Mobbin connector asks for the API's `optimized`
   pictures, 768 pixels wide for a web screen in the searches I ran. The API's `high` would suit a reference at its own
   size.

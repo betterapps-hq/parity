@@ -5,10 +5,9 @@ import { found, opening, workspace } from "./story-kit.tsx"
 import { live } from "./workspace.tsx"
 
 /**
- * Stock photos from Unsplash (docs/proposals/references.md): photos added to the project, to use in designs. Find
- * photos, in the Images tab, opens the library browser on Unsplash's connector. It asks for a description and the
- * connector's two filters, orientation and color, each open until chosen. The browser is the one Mobbin's stories use;
- * only what the connector says differs. The Images tab itself lists the project's own images.
+ * Stock photos from Unsplash (docs/proposals/references.md), kept for turning on later: Pixabay is the stock library
+ * the Media tab adds from. It's the library browser Mobbin's and Pixabay's stories use, on Unsplash's connector, which
+ * asks for a description and has two filters, orientation and color, each open until chosen.
  *
  * Every story is the same window, started in a different place, and all of it works: describe a photo and press
  * Enter, choose an orientation or a color, click results to pick them, double-click one to see it larger, and add
@@ -28,33 +27,6 @@ type Story = StoryObj<typeof meta>
 
 /** The whole page, since the browser opens over the window rather than inside the story's own element. */
 const body = () => within(document.body)
-
-// The Images tab
-
-/**
- * The Images tab as the project's own images: what's in its images folder, however it got there. A photo from
- * Unsplash keeps its photographer's name. Find photos opens the browser on Unsplash.
- */
-export const ImagesTab: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace()
-}
-
-/** Searching the project's images for something it doesn't have offers to look for it on Unsplash. */
-export const ImageNotInTheProject: Story = {
-  loaders: [opening(false, "images")],
-  render: workspace(),
-  play: async ({ canvasElement }) => {
-    const field = await within(canvasElement).findByRole("textbox", { name: "Search images" })
-
-    if (!(field instanceof HTMLInputElement)) {
-      throw new Error("The Images tab's search isn't a text field")
-    }
-
-    await typeInto(field, "coast")
-    await expect(await body().findByRole("button", { name: "Find “coast” on Unsplash" })).toBeInTheDocument()
-  }
-}
 
 // Finding
 
@@ -115,7 +87,7 @@ export const Larger: Story = {
 }
 
 /**
- * Picks two photos and adds them. They show in the Images tab from then on, and they land on a new screen, as image
+ * Picks two photos and adds them. They show in the Media tab from then on, and they land on a new screen, as image
  * files dropped on the empty canvas do.
  */
 export const AddPhotos: Story = {
@@ -125,7 +97,7 @@ export const AddPhotos: Story = {
     await userEvent.click(await body().findByRole("button", { name: /^Rolling green hills/ }))
     await userEvent.click(body().getByRole("button", { name: /^Waves on a rocky coast/ }))
     await userEvent.click(body().getByRole("button", { name: "Add 2 photos" }))
-    const panel = within(canvasElement).getByRole("list", { name: "Images in this project" })
+    const panel = within(canvasElement).getByRole("list", { name: "Media in this project" })
     await waitFor(() => expect(within(panel).getByText("rocky-coast.jpg")).toBeInTheDocument())
   }
 }
