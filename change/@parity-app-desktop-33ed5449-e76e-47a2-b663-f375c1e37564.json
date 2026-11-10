@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Link each published version's Sentry release to the commits since the previous version",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
