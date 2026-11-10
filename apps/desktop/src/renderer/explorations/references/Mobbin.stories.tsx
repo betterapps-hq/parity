@@ -34,7 +34,8 @@ const body = () => within(document.body)
 
 /**
  * Find references with Pricing selected: the browser opens on "pricing page" for the web, because that's the design's
- * name and its main preview is a desktop one. Nine screens to a search, three across, each with its app's name.
+ * name and its main preview is a desktop one. Screens sit three across, each with its app's name, and more load as
+ * you scroll toward the end.
  */
 export const ForADesign: Story = {
   loaders: [opening(true)],
@@ -106,8 +107,9 @@ export const OneApp: Story = {
 }
 
 /**
- * More results asks again for the same description, leaving out what's shown, which is how Mobbin gives more. When a
- * pull comes back short, there are no more.
+ * Scrolled to the end: more load as the end comes near, by asking again for the same description without what's
+ * shown, which is how Mobbin gives more. When a pull comes back short there are no more, and it says so. Only the
+ * results in view are drawn, so a long search stays light.
  */
 export const MoreResults: Story = {
   loaders: [opening(true)],

@@ -213,16 +213,19 @@ export function sizeOf(found: Found) {
 
 /**
  * A result's picture, filling its box's width, or its height when `style` gives one. A sample is drawn; anything else
- * loads from the source's own link. `at` is how far through a sample video is, from 0 to 1, which moves its drawing.
+ * loads from the source's own link, its smaller copy when `small` and it has one. `at` is how far through a sample
+ * video is, from 0 to 1, which moves its drawing.
  */
 export function Picture({
   found,
   at,
+  small,
   className = "",
   style
 }: {
   found: Found
   at?: number
+  small?: boolean
   className?: string
   style?: CSSProperties
 }) {
@@ -241,7 +244,7 @@ export function Picture({
         <PhotoArt photo={photo} at={at} />
       ) : (
         <img
-          src={found.image.url}
+          src={(small && found.preview?.url) || found.image.url}
           alt=""
           draggable={false}
           className="absolute inset-0 size-full bg-muted object-cover"
