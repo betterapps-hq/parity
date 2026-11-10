@@ -362,11 +362,12 @@ export function LayoutSection({ draft, set }: SectionProps) {
             )}
           </div>
         </div>
+        {/* The tracks are the grid's own, so a little more room sets them apart from where children sit. */}
         {grid && (
-          <>
+          <div className="mt-2 flex flex-col gap-2.5">
             <TracksField one="column" draft={draft} set={set} />
             <TracksField one="row" draft={draft} set={set} />
-          </>
+          </div>
         )}
       </div>
     </PanelSection>
