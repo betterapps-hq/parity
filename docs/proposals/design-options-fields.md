@@ -179,7 +179,7 @@ the picker's Custom tab.
 Fills, shadows, filters, transforms and transitions are ordered lists. Every entry has the same row, with little in it
 so it reads at a glance. First comes a drag handle, always shown, where the entry has another in its group to move past;
 a list of one has none. Then the entry: one button with its preview (swatch, gradient strip, shadow card, filter glyph),
-what it is (Drop shadow, Linear, Colors) and a faint summary (the token's chip, `0 4 12 −2 black 10%`, `180°`,
+what it is (Drop shadow, Linear, Colors) and a faint summary (the token's chip, `0px 4px 12px −2px black 10%`, `180°`,
 `200ms, Ease out`), which opens its details in one popover shared by every list, as Figma's effect settings do. Last
 come the eye, which turns it off (it stays in the file but isn't drawn or written to code, as Figma's eye), and −. A
 solid fill's row is its color field instead, as Figma's is.
@@ -199,7 +199,15 @@ entries.
 Clicking selects an entry and Shift-click extends; Delete removes the selection; Ctrl+C and Ctrl+V copy entries between
 layers, as Figma's rows do. Dragging reorders: shadows within their Inside and Outside groups, where an order other than
 Tailwind's writes one arbitrary value (Shadow list in [design-options-values.md](design-options-values.md)), while
-filters keep Tailwind's order (Filter list). A token for a whole entry is the entry's chip, with its parts under a
-disclosure (Composite token, in the same page). A list set in a state colors its label and marks the entries that differ
-from the base. A list that differs between the selected layers shows "Several fills" with + to replace them all, as
-Figma's does.
+filters keep Tailwind's order (Filter list).
+
+An entry is picked up by its handle at once, or by the entry itself once the pointer has moved 4px, so a click still
+opens its details. It lifts off the list as a card, raised and a little larger, and follows the pointer up and down.
+Each entry it covers half of slides aside to make room, and when it's let go it settles into the gap. Past either end of
+its group it gives a little and stops, and near the edge of a scrolling panel it scrolls. Escape puts it back. Up and
+Down on its handle move it a place, the entries sliding the same way, and a screen reader hears where it went. Every
+list that's put in order by hand moves this way (`sortable.ts`).
+
+A token for a whole entry is the entry's chip, with its parts under a disclosure (Composite token, in the same page). A
+list set in a state colors its label and marks the entries that differ from the base. A list that differs between the
+selected layers shows "Several fills" with + to replace them all, as Figma's does.

@@ -11,10 +11,11 @@ import { newEntryId, previewTransition, TransitionsSection } from "./transitions
  * Motion's Transitions (PAR-652's Transition list), on its own: Motion is a title with + until something's set, and +
  * adds Colors at Tailwind's defaults (150ms, its default curve), shown faintly. Each entry says what changes (All,
  * Colors, Opacity, Transform, Shadow, or a property), then its timing, with the eye, which turns it off without
- * deleting it, and −, as every list's rows do; with two entries or more, its handle drags it, or moves it with Up and
- * Down. The entry opens its details: what changes, Duration, Easing and Delay. Tailwind takes one
- * transition per element, so one entry is utilities, entries with one timing merge into one property list, and entries
- * with different timings are one arbitrary value, which the entry that causes it says, offering Save as token.
+ * deleting it, and −, as every list's rows do; with two entries or more, it's picked up by its handle or its body and
+ * carried to another place, or moved with Up and Down on its handle. The entry opens its details: what changes,
+ * Duration, Easing and Delay. Tailwind takes one transition per element, so one entry is utilities, entries with one
+ * timing merge into one property list, and entries with different timings are one arbitrary value, which a note under
+ * the list says, offering Save as token.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Transition list",
@@ -91,8 +92,8 @@ export const SameTiming: Story = {
 }
 
 /**
- * Colors over 200ms and Transform over 300ms with the project's snappy easing: one arbitrary value, which the
- * Transform entry says, offering Save as token.
+ * Colors over 200ms and Transform over 300ms with the project's snappy easing: one arbitrary value, which a note
+ * under the list says, offering Save as token.
  */
 export const DifferentTimings: Story = {
   render: () => (

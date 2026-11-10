@@ -412,7 +412,6 @@ function ShadowRow({
     <ListRow
       name={name}
       group={group}
-      index={index}
       off={entry.off}
       onMove={onMove}
       gutter={gutter}

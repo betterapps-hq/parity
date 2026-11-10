@@ -11,18 +11,12 @@ import {
   PopoverTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, Eye, EyeOff, GripVertical, Minus } from "lucide-react"
-import {
-  type CSSProperties,
-  type DragEvent,
-  type KeyboardEvent,
-  type PointerEvent,
-  type ReactNode,
-  useState
-} from "react"
+import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
 import { drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
+import { useSortable } from "./sortable.ts"
 
 /*
  * What the list fields share (design-options-fields.md, Lists): the entry's row, in the spec's order (the drag handle
@@ -38,9 +32,11 @@ const entryBox =
 export interface ListRowProps {
   /** What the entry is, for its buttons' names: "Drop shadow 1". */
   name: string
-  /** Rows are reordered only among rows of the same group (Inside or Outside shadows). */
+  /**
+   * Rows are reordered only among rows of the same group (Inside or Outside shadows), which are siblings in the list,
+   * in order.
+   */
   group: string
-  index: number
   off?: boolean
   /**
    * Set where the row can move: its group has another row. Unset for a row alone in its group, or a list in a fixed
@@ -89,12 +85,11 @@ export interface ListRowProps {
  * One entry's row, in the order design-options-fields.md's Lists sets: a drag handle where the row can move, always
  * shown, which also moves it with Up and Down and removes it with Delete; the entry, its preview, its name and a faint
  * summary, which opens its details; the eye, which turns it off without removing it (pressed while it's off); and −.
- * Rows are dragged within their group only.
+ * A row that can move is picked up by its handle, or dragged by its entry, and carried within its group (sortable.ts).
  */
 export function ListRow({
   name,
   group,
-  index,
   off = false,
   onMove,
   gutter = false,
@@ -107,11 +102,9 @@ export function ListRow({
   details,
   after
 }: ListRowProps) {
-  const [draggable, setDraggable] = useState(false)
-  const [over, setOver] = useState(false)
   const { live, rowProps } = useLiveRow()
+  const sort = useSortable({ group, label: name, onMove })
   const drawn = renderPreview ? renderPreview(live(name)) : preview
-  const dataType = `application/x-parity-${group}`
 
   const parts = (
     <>
@@ -132,6 +125,8 @@ export function ListRow({
         <Hint label={`Edit ${name.toLowerCase()}`} wait>
           <PopoverTrigger
             aria-label={`Edit ${name}`}
+            // Dragging the entry carries the row, as its handle does; a click still opens its details.
+            data-sort-grip
             className={`${entryBox} outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent`}
             {...rowProps(name)}
           >
@@ -160,65 +155,34 @@ export function ListRow({
     </div>
   )
 
-  if (onMove === undefined) {
-    return (
-      <div className="group/row flex min-h-7 items-start gap-1 rounded-md">
-        {gutter && <span aria-hidden className="w-3 shrink-0" />}
-        {content}
-        <RowButtons name={name} off={off} onToggle={onToggle} onRemove={onRemove} />
-      </div>
-    )
-  }
+  let handle: ReactNode = gutter ? <span aria-hidden className="w-3 shrink-0" /> : null
 
-  return (
-    <div
-      draggable={draggable}
-      onDragStart={(event: DragEvent) => {
-        event.dataTransfer.setData(dataType, String(index))
-        event.dataTransfer.effectAllowed = "move"
-      }}
-      onDragEnd={() => setDraggable(false)}
-      onDragOver={(event: DragEvent) => {
-        if (!event.dataTransfer.types.includes(dataType)) {
-          return
-        }
-
-        event.preventDefault()
-        setOver(true)
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(event: DragEvent) => {
-        setOver(false)
-        const from = Number(event.dataTransfer.getData(dataType))
-
-        if (Number.isFinite(from) && from !== index) {
-          onMove(from, index)
-        }
-      }}
-      className={`group/row flex min-h-7 items-start gap-1 rounded-md ${over ? "ring-2 ring-ring" : ""}`}
-    >
+  if (onMove !== undefined) {
+    handle = (
       <Hint label="Drag to reorder" detail="Up and Down move it; Delete removes it">
         <button
           type="button"
           aria-label={`Move ${name}`}
-          onPointerDown={() => setDraggable(true)}
-          onPointerUp={() => setDraggable(false)}
-          onKeyDown={(event: KeyboardEvent) => {
-            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-              event.preventDefault()
-              onMove(index, index + (event.key === "ArrowUp" ? -1 : 1))
-            }
+          onPointerDown={sort.handle.onPointerDown}
+          onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+            sort.handle.onKeyDown(event)
 
             if (event.key === "Delete" || event.key === "Backspace") {
               event.preventDefault()
               onRemove()
             }
           }}
-          className="grid h-7 w-3 shrink-0 cursor-grab place-items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="grid h-7 w-3 shrink-0 cursor-grab touch-none place-items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           <GripVertical className="size-3" />
         </button>
       </Hint>
+    )
+  }
+
+  return (
+    <div {...sort.item} className="group/row flex min-h-7 items-start gap-1 rounded-md">
+      {handle}
       {content}
       <RowButtons name={name} off={off} onToggle={onToggle} onRemove={onRemove} />
     </div>

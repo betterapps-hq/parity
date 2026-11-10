@@ -195,7 +195,6 @@ function FilterRow({
 
   const row = {
     group: "filters",
-    index: 0,
     off: entry.off,
     onToggle: () => onChange({ ...entry, off: !entry.off }),
     onRemove

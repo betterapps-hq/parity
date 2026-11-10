@@ -318,7 +318,6 @@ function PaintRow({
   const row = {
     name,
     group: "fills",
-    index,
     off: entry.off,
     onMove,
     onToggle: () => onChange({ off: !entry.off }),

@@ -285,9 +285,10 @@ Motion's Transitions.
 - **Writes:** Tailwind allows one transition property, duration, easing and delay per element. One entry is utilities
   (`transition-colors duration-200 ease-out delay-75`). Entries with the same timing merge into one property list
   (`transition-[color,opacity] duration-200`). Entries with different timings are one arbitrary value
-  (`[transition:color_200ms_var(--ease-out),opacity_300ms_var(--ease-snappy)]`); the entry that causes this says so and
-  offers Save as token, as the shadow list does. A merged or arbitrary list spells out each entry's properties as its
-  utility does: Transform as `transform, translate, scale, rotate`, and Colors as `transition-colors`' list.
+  (`[transition:color_200ms_var(--ease-out),opacity_300ms_var(--ease-snappy)]`); a note under the list says "Mixed
+  timings are written as one arbitrary value." and offers Save as token, as the shadow list does. A merged or arbitrary
+  list spells out each entry's properties as its utility does: Transform as `transform, translate, scale, rotate`, and
+  Colors as `transition-colors`' list.
 - **Compared:** Webflow stacks transitions, each with its own timing; Figma and Framer set one transition per
   interaction.
 

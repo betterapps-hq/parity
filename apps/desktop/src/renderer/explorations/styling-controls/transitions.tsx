@@ -37,8 +37,8 @@ import type { TokenSets } from "./tokens.ts"
  * Motion's Transitions (PAR-652's Transition list): each entry is a list row, as every list's are: the handle, the
  * curve that opens the entry's details (what changes, Duration, Easing and Delay), what changes, its timing, the eye
  * and −. An unset duration or easing shows Tailwind's default faintly, and + adds Colors at those defaults. Entries
- * with different timings can't be written as Tailwind's utilities, so the entry that causes it says so and offers Save
- * as token.
+ * with different timings can't be written as Tailwind's utilities, so a note under the list says so and offers Save as
+ * token.
  */
 
 let nextId = 0
@@ -62,8 +62,8 @@ export function TransitionsSection({
   const update = (id: string, change: Partial<TransitionEntry>) =>
     onChange(entries.map((entry) => (entry.id === id ? { ...entry, ...change } : entry)))
 
-  // The first entry whose timing differs from the first one's is the one that makes it one arbitrary value.
-  const cause = form === "arbitrary" ? on.find((entry) => timingOf(entry) !== timingOf(on[0]!)) : undefined
+  // Entries of more than one timing make the list one arbitrary value.
+  const mixed = form === "arbitrary"
 
   const add = (
     <Hint label="Add a transition">
@@ -100,55 +100,49 @@ export function TransitionsSection({
               </Button>
             </div>
           )}
-          {entries.map((entry, index) => (
-            <div key={entry.id} className="flex flex-col gap-1">
-              <EntryRow
-                entry={entry}
-                index={index}
-                onChange={(change) => update(entry.id, change)}
-                // One transition has nothing to move past, so it has no handle.
-                onMove={
-                  entries.length > 1
-                    ? (from, to) => {
-                        if (to >= 0 && to < entries.length) {
-                          onChange(moved(entries, from, to))
-                        }
+          {entries.map((entry) => (
+            <EntryRow
+              key={entry.id}
+              entry={entry}
+              onChange={(change) => update(entry.id, change)}
+              // One transition has nothing to move past, so it has no handle.
+              onMove={
+                entries.length > 1
+                  ? (from, to) => {
+                      if (to >= 0 && to < entries.length) {
+                        onChange(moved(entries, from, to))
                       }
-                    : undefined
-                }
-                onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
-              />
-              {cause?.id === entry.id && savedAs === undefined && (
-                <div className={`pb-1 ${entries.length > 1 ? "pl-6" : "pl-2"}`}>
-                  <SaveAsToken
-                    says="Its timing differs from the others', so the list is written as one arbitrary value."
-                    placeholder="card-hover"
-                    isTaken={() => false}
-                    onSave={(name) => onSaveToken(name.replace(/^transition-/, ""))}
-                  />
-                </div>
-              )}
-            </div>
+                    }
+                  : undefined
+              }
+              onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
+            />
           ))}
+          {/* It's the whole list that's written this way, so it's said under the list, as Fill and Effects say it. */}
+          {mixed && savedAs === undefined && (
+            <div className={entries.length > 1 ? "pl-4" : ""}>
+              <SaveAsToken
+                says="Mixed timings are written as one arbitrary value."
+                placeholder="card-hover"
+                isTaken={() => false}
+                onSave={(name) => onSaveToken(name.replace(/^transition-/, ""))}
+              />
+            </div>
+          )}
         </div>
       )}
     </PanelSection>
   )
 }
 
-const timingOf = (entry: TransitionEntry) =>
-  JSON.stringify([entry.duration ?? null, entry.easing ?? null, entry.delay ?? null])
-
 /** One entry: the list's row, with the curve that opens its details, what changes and its timing. */
 function EntryRow({
   entry,
-  index,
   onChange,
   onMove,
   onRemove
 }: {
   entry: TransitionEntry
-  index: number
   onChange: (change: Partial<TransitionEntry>) => void
   onMove?: (from: number, to: number) => void
   onRemove: () => void
@@ -205,7 +199,6 @@ function EntryRow({
     <ListRow
       name={name}
       group="transitions"
-      index={index}
       off={entry.off}
       onMove={onMove}
       onToggle={() => onChange({ off: !entry.off || undefined })}
