@@ -393,6 +393,14 @@ export const imageCredit = fileObject({
 
 export type ImageCredit = z.infer<typeof imageCredit>
 
+/** What a project keeps about one of its image files: what it shows, and who made it. */
+export const imageDetails = fileObject({
+  alt: z.string().optional(),
+  credit: imageCredit.optional()
+})
+
+export type ImageDetails = z.infer<typeof imageDetails>
+
 const imageNode = nodeBase.extend({
   type: z.literal("image"),
   /** A URL, or a path the project's dev server serves, like `/images/photo.jpg`. */
@@ -684,7 +692,13 @@ export const canvasDocument = fileObject({
   /** Links the person drew by hand. Links found in code or traces are read each time and never saved. */
   links: linkSpecs.optional(),
   /** The source each lens reads, where the person switched from the one Parity picked. */
-  sources: lensSources.optional()
+  sources: lensSources.optional(),
+  /**
+   * What the project knows about its image files that the files don't say, by each file's path from the root: what a
+   * stock picture shows and who made it, kept as it's added to the project, so the Media tab can credit it before any
+   * layer shows it.
+   */
+  images: z.record(z.string().min(1), imageDetails).optional()
 })
 
 /**

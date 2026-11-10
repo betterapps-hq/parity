@@ -1,11 +1,11 @@
 # Proposal: design references and stock media, in one browser
 
-Status: approved 2026-11-10 (PAR-827), being built. The connectors are built (PAR-829, PAR-837), and so is the Media tab
-(PAR-838, [its stories](../../apps/desktop/src/renderer/media/MediaPanel.stories.tsx)); stock media and videos in it
-follow. The browser is designed, not built. Its design is the exploration under Parity/Explorations/References, one set
-of stories for each library: [Mobbin](../../apps/desktop/src/renderer/explorations/references/Mobbin.stories.tsx),
-[Pixabay](../../apps/desktop/src/renderer/explorations/references/Pixabay.stories.tsx) and
-[Unsplash](../../apps/desktop/src/renderer/explorations/references/Unsplash.stories.tsx).
+Status: approved 2026-11-10 (PAR-827), being built. The connectors are built (PAR-829, PAR-837), and so are the Media
+tab (PAR-838, [its stories](../../apps/desktop/src/renderer/media/MediaPanel.stories.tsx)) and the browser, which adds
+Pixabay's photos to the project from the Media tab (PAR-839,
+[its stories](../../apps/desktop/src/renderer/library/LibraryBrowser.stories.tsx)). References on the canvas (PAR-840)
+and videos (PAR-841) follow. What's left of the design is the exploration under Parity/Explorations/References:
+[Mobbin](../../apps/desktop/src/renderer/explorations/references/Mobbin.stories.tsx).
 
 ## In one line
 

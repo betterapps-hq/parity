@@ -1,10 +1,12 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { connectorNamed } from "@parity-app/connectors"
 import { type ImageMedium, inUse, mediumOf, type PictureSize, type ProjectImage } from "@parity-app/editor"
 import { ExternalLink, ImageIcon, type LucideIcon, PenTool, Plus, Trash2 } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
 import { IconButton } from "../chrome/IconButton.tsx"
 import { Name } from "../chrome/Name.tsx"
+import { SourceMark } from "../library/SourceMark.tsx"
 import { CardUses, EveryUse, type MediaLayers } from "./MediaUses.tsx"
 import { PictureMissing, ProjectPicture, transparencyGrid } from "./ProjectPicture.tsx"
 
@@ -154,10 +156,16 @@ function hostOf(src: string): string {
   return URL.canParse(src) ? new URL(src).host : src
 }
 
-/** Who made it, linked to them, on the library it's from, with a way to its page there. */
+/**
+ * Who made it, linked to them, on the library it's from, with a way to its page there, and the library's mark when
+ * Parity knows that library.
+ */
 function Credit({ credit }: { credit: NonNullable<ProjectImage["credit"]> }) {
+  const library = credit.source ? connectorNamed(credit.source)?.info : undefined
+
   return (
     <span className="flex min-w-0 items-center gap-1">
+      {library && <SourceMark mark={library.mark} className="size-3.5 shrink-0 text-muted-foreground" />}
       <a href={credit.url} target="_blank" rel="noreferrer" className="truncate hover:underline">
         {credit.name}
       </a>

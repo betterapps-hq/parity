@@ -1,4 +1,13 @@
-import { Button, Skeleton, ToggleGroup, ToggleGroupItem } from "@buildkitgg/shadcn-baseui-kit"
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Skeleton,
+  ToggleGroup,
+  ToggleGroupItem
+} from "@buildkitgg/shadcn-baseui-kit"
 import {
   filterImages,
   imageAccept,
@@ -15,11 +24,12 @@ import { useProject } from "../canvas/context.ts"
 import { addImageFiles } from "../canvas/drop-files.ts"
 import { chipColors } from "../canvas/kinds.tsx"
 import { SearchField } from "../chrome/AssetsPanel.tsx"
-import { IconButton } from "../chrome/IconButton.tsx"
 import { addAtSelection } from "../chrome/insert-from-panel.ts"
 import { revealSelection } from "../chrome/reveal.ts"
 import { containerKey } from "../design-store.ts"
+import { SourceMark } from "../library/SourceMark.tsx"
 import type { ProjectSession } from "../workspace.ts"
+import { findStock, stockLibrary } from "./add-stock.ts"
 import { useFileDrag } from "./file-drag.ts"
 import type { MediaLayers } from "./MediaUses.tsx"
 import { MediaWall } from "./MediaWall.tsx"
@@ -79,9 +89,7 @@ export function MediaPanel() {
         <div className="flex-1">
           <SearchField value={query} onChange={setQuery} placeholder="Search media" />
         </div>
-        <IconButton label="Add images" className="mt-2" onClick={() => picker.current?.click()}>
-          <Plus />
-        </IconButton>
+        <AddMedia onFind={() => findStock(session)} onChoose={() => picker.current?.click()} />
         <input
           ref={picker}
           type="file"
@@ -130,7 +138,13 @@ export function MediaPanel() {
             onShow={show}
           />
         )}
-        {!loading && matching.length === 0 && <NoMedia query={query.trim()} onChoose={() => picker.current?.click()} />}
+        {!loading && matching.length === 0 && (
+          <NoMedia
+            query={query.trim()}
+            onFind={(words) => findStock(session, words)}
+            onChoose={() => picker.current?.click()}
+          />
+        )}
       </div>
       {drag.over && <DropTarget images={drag.images} />}
       <RemoveMediaDialog
@@ -192,10 +206,51 @@ function WallLoading() {
   )
 }
 
-/** Nothing to show: nothing matches the search, or the project has no media yet. */
-function NoMedia({ query, onChoose }: { query: string; onChoose: () => void }) {
+/** Add, beside the search: the stock library's browser, or files from the computer. */
+function AddMedia({ onFind, onChoose }: { onFind: () => void; onChoose: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="ghost" size="icon-sm" className="mt-2" aria-label="Add media">
+            <Plus />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="min-w-48">
+        {stockLibrary && (
+          <DropdownMenuItem onClick={onFind}>
+            <SourceMark mark={stockLibrary.mark} /> Find on {stockLibrary.name}
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={onChoose}>
+          <FolderOpen /> Choose files
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+interface NoMediaProps {
+  query: string
+  /** Opens the stock library's browser, on the words searched for when there are some. */
+  onFind: (query?: string) => void
+  onChoose: () => void
+}
+
+/** Nothing to show: nothing matches the search, which the stock library may have, or the project has no media yet. */
+function NoMedia({ query, onFind, onChoose }: NoMediaProps) {
   if (query) {
-    return <p className="type-empty px-4 py-10 text-center font-medium text-foreground">Nothing matches “{query}”</p>
+    return (
+      <div className="type-empty flex flex-col items-center gap-3 px-4 py-10 text-center text-muted-foreground">
+        <p className="font-medium text-foreground">Nothing matches “{query}”</p>
+        {stockLibrary && (
+          <Button variant="outline" size="sm" onClick={() => onFind(query)}>
+            <SourceMark mark={stockLibrary.mark} /> Find it on {stockLibrary.name}
+          </Button>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -203,9 +258,15 @@ function NoMedia({ query, onChoose }: { query: string; onChoose: () => void }) {
       <ImagePlay className="size-6" />
       <p className="font-medium text-foreground">No media yet</p>
       <p>Drop images here or on the canvas.</p>
-      <Button variant="outline" size="sm" onClick={onChoose}>
-        <FolderOpen /> Choose files
-      </Button>
+      {stockLibrary ? (
+        <Button variant="outline" size="sm" onClick={() => onFind()}>
+          <SourceMark mark={stockLibrary.mark} /> Find on {stockLibrary.name}
+        </Button>
+      ) : (
+        <Button variant="outline" size="sm" onClick={onChoose}>
+          <FolderOpen /> Choose files
+        </Button>
+      )}
     </div>
   )
 }

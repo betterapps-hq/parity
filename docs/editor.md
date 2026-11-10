@@ -2500,16 +2500,79 @@ Tests:
   gaps weighed with widths.
 - `packages/editor/src/project-images.test.ts`: `mediumOf`, `designsUsing` grouping and ordering, code grouped by file,
   what a card lists and leaves out, finding uses by name, `removalOf` for each case, and `imageItem`.
-- `media/MediaPanel.stories.tsx` (19 stories, each with its check): no media, loading, the wall, linked and missing
+- `media/MediaPanel.stories.tsx` (21 stories, each with its check): no media, loading, the wall, linked and missing
   pictures, searching, nothing matching, vectors only, a card and its facts, a linked photo's card with its credit, a
   card for one nothing uses, one for a missing file, a logo in a hundred layers and four files of code (every place, its
   search and Back), Show selecting every layer in a design, inserting at the selection, removing an unused file,
-  removing one in use with its layers, one the code names, dropping files, and the narrowest panel. The stories'
-  pictures are drawn for them and served at `/images/`, as a builder serves `public/images/`.
+  removing one in use with its layers, one the code names, dropping files, the narrowest panel, adding a picture from
+  Pixabay, and a search that finds nothing offering Pixabay. The stories' pictures are drawn for them and served at
+  `/images/`, as a builder serves `public/images/`.
 
-Gaps: stock media (Find on Pixabay) and videos aren't in the tab yet (PAR-839, PAR-841). Removing a component layer that
-takes the image as a prop removes the whole layer, as the dialog's count says. There are no thumbnails: every picture
-loads whole as the tab opens, so a project with hundreds of large images loads them all.
+Gaps: videos aren't in the tab yet (PAR-841). Removing a component layer that takes the image as a prop removes the
+whole layer, as the dialog's count says. There are no thumbnails: every picture loads whole as the tab opens, so a
+project with hundreds of large images loads them all.
+
+### The library browser (PAR-839)
+
+Searching a library outside the project happens in one wide dialog over the window, whichever library it is. Its
+controls come from what the library's connector says about itself (connectors.md), so a new library needs no change to
+it.
+
+- **Before a search** it lists the last few searches, each with what narrowed it, beside searches the library suggests.
+  A click runs one. Tips, a click away from the field, say how to search that library.
+- **Searching:** the field names what the type chosen finds ("Describe a vector"), and Enter searches. Up to three
+  filters show beside it; the rest wait behind Filters, which counts the ones set. Choosing a filter searches again with
+  the same words, and a filter shows only where it applies (`shownFilters`, `choose`, `setPastView`).
+- **Results** come a page at a time, and more arrive as the view nears the end (`requestFor`, `mayHaveMore`). Pictures
+  pack into columns at their own proportions; screens sit in rows of one shape, three web pages or four phones across
+  (`layoutFor`, `sizeOf`). Each says who made it, a video how long it runs, and the count names the type (`countOf`).
+  Mobbin's Search deeper checks each screen against the description.
+- **Picking:** a click picks a result and another lets it go; the footer's button counts them ("Add 2 to project"),
+  Clear lets them all go, and Ctrl+Enter presses it. What can't be picked, as a video until PAR-841, opens larger
+  instead (`isPlaceable`).
+- **Larger:** a double click shows a result as large as the dialog allows, with Open in the library, Pick and a strip of
+  every result under it. The arrows step through them, and Esc goes back to the results before it closes the dialog.
+- **When a search fails:** nothing matching says what to change, with Clear filters, or the other platform on Mobbin
+  (`otherSide`). Too many searches counts down the wait the source asked for before Try again; a source that didn't
+  answer offers Try again; a library this copy has no key for says it isn't available, with nothing to set up.
+
+Code: `packages/connectors/src/browse.ts`; `apps/desktop/src/renderer/library/`: `library-browser.ts` (which library is
+open and what picking does), `use-library-search.ts` (the search, its pages and its state), `LibraryBrowser.tsx`,
+`FilterControls.tsx`, `ResultsGrid.tsx`, `ResultPicture.tsx`, `LargerView.tsx`, `BrowserStates.tsx` and
+`SourceMark.tsx`.
+
+Tests:
+
+- `packages/connectors/src/browse.test.ts` (22): the filters shown and chosen, the count behind Filters, the kind and
+  layout, a result's size, the request for each page and for videos, when more may come, what's found is called, what
+  narrowed a recent search, the other platform, the depth's names, a result's label, what can be picked, a video's
+  length, and a picture's credit.
+- `library/LibraryBrowser.stories.tsx` (23 stories, each with its check except Searching and the two Live ones): just
+  opened, recent searches, results, a typed search, choosing a type, filters behind Filters, picking, larger, more as
+  you scroll, videos, nothing found, too many searches, no answer, no key, Mobbin's screens, phones, nothing found and
+  deep search, and Unsplash. The Live stories search Pixabay and Mobbin with the keys in `apps/desktop/.env.local`.
+
+### Adding stock pictures (PAR-839)
+
+The Media tab's **Add media** menu has Find on Pixabay beside Choose files, and a search that finds nothing in the
+project offers "Find it on Pixabay" with the same words. Both open the library browser on Pixabay.
+
+- **Adding:** "Add 2 to project" saves each picture picked into `public/images/`, one at a time in the order picked,
+  with a toast while it does (`images.saveFrom`). Any that fail are named, and the rest are kept. They arrive on the
+  wall marked.
+- **Credit:** what each shows and who made it go into the project's main file, in its `images` map, as one undoable step
+  (`keepImageDetails`). The card's Credit row names the author, linked to the picture's page, with Pixabay's mark and
+  Open in Pixabay, before any layer uses it (`pictureCredit`, `projectImages`).
+- **Usage:** each is reported as placed, with `media` as its design (connectors.md).
+
+Code: `apps/desktop/src/renderer/media/add-stock.ts`, `MediaPanel.tsx` (the menu and the offer) and `MediaCard.tsx` (the
+credit); `keepImageDetails` in `packages/editor/src/project-images.ts`; `saveImageFrom` behind `images.saveFrom`.
+
+Tests:
+
+- `packages/editor/src/project-images.test.ts`: a file credited with what the project kept, and `keepImageDetails`.
+- `packages/connectors/src/browse.test.ts`: `pictureCredit`.
+- `media/MediaPanel.stories.tsx`: adding a picture from Pixabay, and a search that finds nothing offering Pixabay.
 
 ## Exporting
 

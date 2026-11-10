@@ -5,8 +5,10 @@ import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { insertContext } from "../canvas/insert.ts"
 import { panelLimits, setLayout } from "../chrome/layout.ts"
 import { LeftPanel } from "../chrome/LeftPanel.tsx"
+import { LibraryBrowserHost } from "../library/LibraryBrowser.tsx"
 import { design, example, never, openProjects, ProjectStage } from "../stories/fixtures.tsx"
-import { answering, media, requests } from "../stories/host.ts"
+import { answering, answeringSearches, media, requests } from "../stories/host.ts"
+import { storyResults } from "../stories/library-results.ts"
 import { MediaPanel } from "./MediaPanel.tsx"
 
 /**
@@ -17,7 +19,12 @@ import { MediaPanel } from "./MediaPanel.tsx"
 const meta = {
   title: "Parity/Left panel/Media",
   component: MediaPanel,
-  render: () => <LeftPanel />,
+  render: () => (
+    <>
+      <LeftPanel />
+      <LibraryBrowserHost />
+    </>
+  ),
   decorators: [
     (Story) => (
       <ProjectStage>
@@ -67,6 +74,7 @@ function showIn(designName: string, image: { src: string; alt?: string; credit?:
 /** Opens the example on the Media tab with the files given. */
 async function openMedia(files: ImageFile[] = pictures): Promise<void> {
   media.files = [...files]
+  answeringSearches(storyResults)
   await openProjects("example")
   setLayout({ leftTab: "media" })
 }
@@ -101,7 +109,7 @@ async function wall(canvasElement: HTMLElement): Promise<HTMLElement> {
 
 /** A tile on the wall, by its name. */
 async function tile(canvasElement: HTMLElement, name: string): Promise<HTMLElement> {
-  return within(await wall(canvasElement)).getByRole("button", { name })
+  return within(await wall(canvasElement)).findByRole("button", { name })
 }
 
 /** Opens a tile's card with the keyboard, as resting on it would, and returns the card. */
@@ -386,4 +394,36 @@ export const NarrowPanel: Story = {
       setLayout({ leftWidth: panelLimits.left[0] })
     }
   ]
+}
+
+/** Add, then Find on Pixabay: a picture picked there is saved into the project, credited, and arrives marked. */
+export const AddFromPixabay: Story = {
+  loaders: [() => openMedia(pictures.filter((file) => file.path !== "public/images/dusk-hills.jpg"))],
+  play: async ({ canvasElement }) => {
+    const page = within(document.body)
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Add media" }))
+    await userEvent.click(await page.findByRole("menuitem", { name: "Find on Pixabay" }))
+    await userEvent.type(await page.findByRole("textbox", { name: "Describe a photo" }), "hills{Enter}")
+    const results = await page.findByRole("list", { name: "Results" })
+    await userEvent.click(within(results).getAllByRole("button", { name: "Hills at dusk, by Lena Ray" })[0]!)
+    await userEvent.click(page.getByRole("button", { name: "Add 1 to project" }))
+    const card = await openCard(canvasElement, "dusk-hills.jpg")
+    await expect(within(card).getByRole("link", { name: "Lena Ray" })).toHaveAttribute(
+      "href",
+      "https://pixabay.com/photos/dusk-hills-0/"
+    )
+    await within(card).findByRole("link", { name: "Open in Pixabay" })
+  }
+}
+
+/** A search that finds nothing in the project offers the same words on Pixabay. */
+export const MissOffersPixabay: Story = {
+  loaders: [() => openMedia()],
+  play: async ({ canvasElement }) => {
+    await search(canvasElement, "mountain lake")
+    await userEvent.click(await within(canvasElement).findByRole("button", { name: "Find it on Pixabay" }))
+    await expect(await within(document.body).findByRole("textbox", { name: "Describe a photo" })).toHaveValue(
+      "mountain lake"
+    )
+  }
 }

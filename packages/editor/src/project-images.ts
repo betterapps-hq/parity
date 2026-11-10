@@ -1,4 +1,11 @@
-import { type CanvasDocument, type ImageCredit, type InstanceNode, type StateSpec, walkNodes } from "@parity-app/core"
+import {
+  type CanvasDocument,
+  type ImageCredit,
+  type ImageDetails,
+  type InstanceNode,
+  type StateSpec,
+  walkNodes
+} from "@parity-app/core"
 import { z } from "zod"
 import type { InsertItem } from "./insert.ts"
 import type { PictureSize } from "./media-wall.ts"
@@ -64,11 +71,12 @@ export interface ImagesInput {
 /** The project's images: its files by path, then linked photos, then paths with no file, each with what uses it. */
 export function projectImages({ files, references, documents }: ImagesInput): ProjectImage[] {
   const bySrc = new Map<string, ProjectImage>()
+  const details = keptDetails(documents)
 
   for (const file of [...files].sort((a, b) => a.path.localeCompare(b.path))) {
     const src = srcOf(file.path)
 
-    bySrc.set(src, {
+    const image: ProjectImage = {
       kind: "file",
       src,
       path: file.path,
@@ -78,7 +86,19 @@ export function projectImages({ files, references, documents }: ImagesInput): Pr
       usedInCode: references
         .filter((reference) => reference.image === file.path)
         .map(({ path, line }) => ({ path, line }))
-    })
+    }
+
+    // What the project kept as the file was added comes before what the first layer showing it says.
+    const kept = details.get(file.path)
+    bySrc.set(src, image)
+
+    if (kept?.alt) {
+      image.alt = kept.alt
+    }
+
+    if (kept?.credit) {
+      image.credit = kept.credit
+    }
   }
 
   const added: ProjectImage[] = []
@@ -111,6 +131,35 @@ export function projectImages({ files, references, documents }: ImagesInput): Pr
   const order = { file: 0, linked: 1, missing: 2 }
 
   return [...bySrc.values()].sort((a, b) => order[a.kind] - order[b.kind])
+}
+
+/**
+ * A project file with what it keeps about some of its image files, by each file's path, as adding stock pictures
+ * records what each shows and who made it. A file it already kept details for takes the new ones.
+ */
+export function keepImageDetails(
+  document: CanvasDocument,
+  details: Readonly<Record<string, ImageDetails>>
+): CanvasDocument {
+  return { ...document, images: { ...document.images, ...details } }
+}
+
+/**
+ * What the project's files keep about its image files, by path: what each shows and who made it, as adding a stock
+ * picture keeps them. The first file to say wins, as the main file comes first.
+ */
+function keptDetails(documents: ImagesInput["documents"]): Map<string, ImageDetails> {
+  const details = new Map<string, ImageDetails>()
+
+  for (const { document } of documents) {
+    for (const [path, kept] of Object.entries(document.images ?? {})) {
+      if (!details.has(path)) {
+        details.set(path, kept)
+      }
+    }
+  }
+
+  return details
 }
 
 /** Images whose name, path, address, alt text or credit holds `search`, and only unused ones when asked. */
