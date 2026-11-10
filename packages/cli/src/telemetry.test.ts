@@ -13,7 +13,9 @@ import {
   recordCli,
   runTraceHeaders,
   setCliTelemetry,
-  telemetryNotice
+  type StopTarget,
+  telemetryNotice,
+  writeOnStop
 } from "./telemetry.ts"
 
 function testTelemetry() {
@@ -211,5 +213,23 @@ describe("batchRun", () => {
       published: true
     })
     expect(batchRun({}, "install", true, { published: false }, true).environment).toBe("preview")
+  })
+})
+
+describe("writeOnStop", () => {
+  it("writes what's held, then exits as the signal would, when an MCP client stops the server (PAR-806)", () => {
+    const handlers = new Map<string, () => void>()
+    const happened: string[] = []
+
+    const target: StopTarget = {
+      once: (signal, handler) => handlers.set(signal, handler),
+      exit: (code) => happened.push(`exit ${String(code)}`)
+    }
+
+    writeOnStop(() => happened.push("write"), target)
+
+    expect([...handlers.keys()]).toEqual(["SIGTERM", "SIGINT", "SIGHUP"])
+    handlers.get("SIGTERM")?.()
+    expect(happened).toEqual(["write", "exit 143"])
   })
 })

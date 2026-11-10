@@ -2,7 +2,7 @@ import { createTelemetry, createTestSink, frameTimeoutMs, registeredEvents } fro
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { inSpan, traceWith } from "../shared/tracing.ts"
-import { watchFrame } from "./frame-telemetry.ts"
+import { failedFrameFor, failedFrameKeptMs, watchFrame } from "./frame-telemetry.ts"
 
 const sink = createTestSink()
 
@@ -182,5 +182,23 @@ describe("watchFrame", () => {
       stack: "TypeError: canvasHeight is broken\n  at measure"
     })
     expect(failed).toHaveBeenCalledOnce()
+  })
+})
+
+describe("failedFrameFor", () => {
+  const attachment = { filename: "failed-frame.png", data: new Uint8Array([1]), contentType: "image/png" }
+  const picture = { attachment, at: 1000, traceId: "trace-a" }
+
+  it("goes with errors from the offscreen window or in the frame's trace, while it's recent (PAR-812)", () => {
+    expect(failedFrameFor(picture, { tags: { process: "render" } }, 2000)).toBe(attachment)
+    expect(failedFrameFor(picture, { contexts: { trace: { trace_id: "trace-a" } } }, 2000)).toBe(attachment)
+    expect(failedFrameFor(picture, { tags: { process: "render" } }, 1000 + failedFrameKeptMs + 1)).toBeUndefined()
+  })
+
+  it("leaves it off an unrelated error, from another process or trace", () => {
+    expect(failedFrameFor(picture, { tags: { process: "service" } }, 2000)).toBeUndefined()
+    expect(failedFrameFor(picture, { contexts: { trace: { trace_id: "trace-b" } } }, 2000)).toBeUndefined()
+    expect(failedFrameFor({ attachment, at: 1000 }, {}, 2000)).toBeUndefined()
+    expect(failedFrameFor(undefined, { tags: { process: "render" } }, 2000)).toBeUndefined()
   })
 })

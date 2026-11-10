@@ -145,7 +145,8 @@ Agents' calls are recorded where they're answered, once for every operation, whi
 - **A command never waits for Sentry.** Loading `@sentry/node` takes about 300 ms, so a command keeps what it would
   send, writes it to `~/.parity/outbox` as it exits (`PARITY_CLI_OUTBOX` names another folder), and starts a detached
   `parity` process that sends it and exits. That costs a command about 20 ms. `parity mcp` hands over what's waiting
-  every 10 seconds as well. One sender runs at a time, and a batch a day old is dropped.
+  every 10 seconds as well, and as soon as its client closes stdin or stops it with a signal (PAR-806). One sender runs
+  at a time, and a batch a day old is dropped.
 - **The CLI's release** is `parity-cli@<version>` when `npm publish` built it, and otherwise the commit it was built
   from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Published to npm, it reports as
   `release` while its version is on `next`, and `production` once it's been `latest` (PAR-799): the sender asks npm's
@@ -174,7 +175,8 @@ Every frame and component preview drawn offscreen is recorded, so a slow or brok
   failure the render page throws while the frame is settled, checked or measured is recorded the same way, with the
   page's own message and stack rather than Electron's "Script failed to execute". It's a warning, a log rather than a
   Sentry issue, since a project's own component failing isn't Parity's bug. Main keeps a picture of what the window
-  showed, and the Sentry errors in the 10 minutes after carry it as `failed-frame.png`, until another frame fails.
+  showed, and the Sentry errors about that frame in the 10 minutes after carry it as `failed-frame.png`, until another
+  frame fails: those from the offscreen window, or in the trace that asked for the frame. Other errors don't (PAR-812).
 - **`preview.made` and `preview.failed`** come from the service: each preview's component, size and time, or why it
   couldn't be made.
 - **`bitmapCache.used`** gives the session's hits and misses for frame bitmaps and component previews kept on disk, each
@@ -413,6 +415,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                   |
 | `insert.done`         | info  | all  | renderer                                | Something is inserted onto the canvas.                                                                       |
 | `inspector.changed`   | info  | all  | renderer                                | A field in the inspector changes a layer, a design or a token.                                               |
+| `installId.unsaved`   | warn  | all  | main                                    | A new install ID can't be saved to `telemetry.json`, so the next start makes another.                        |
 | `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                                                      |
 | `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                                             |
 | `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                     |
@@ -765,6 +768,13 @@ Some failures are recorded for you, so code doesn't record them again:
 | `from`    | `string`           | The value before, as JSON; `mixed` when the layers differed                                                                                                                     |
 | `to`      | `string`           | The value after, as JSON                                                                                                                                                        |
 | `gesture` | `boolean`          | Whether it's part of a run of Up and Down presses                                                                                                                               |
+
+### `installId.unsaved`
+
+| Attribute | Type               | Meaning                                                                      |
+| --------- | ------------------ | ---------------------------------------------------------------------------- |
+| `code`    | `string`, optional | The file system's error code, such as `EACCES` or `ENOSPC`, when it gave one |
+| `message` | `string`           | What went wrong                                                              |
 
 ### `ipc.failed`
 

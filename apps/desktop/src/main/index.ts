@@ -196,6 +196,11 @@ const events = startEvents({
 
 const telemetryRun = writeTelemetryRun(events.run)
 
+// An install ID that couldn't be saved changes every start; say why, once there's somewhere to say it (PAR-811).
+if (telemetrySetting.unsaved) {
+  events.telemetry.track("installId.unsaved", telemetrySetting.unsaved)
+}
+
 // What main does for the service is a span in the trace the service's request came with (PAR-629).
 traceWith(events.telemetry)
 
@@ -1334,7 +1339,7 @@ function renderOffscreen(
       drawing.set(window, consoleContextOf(job.design))
     }
 
-    // A frame that fails is pictured as the window shows it, for the errors that follow.
+    // A frame that fails is pictured as the window shows it, for the errors about it (PAR-812).
     const watch = watchFrame(job, priority, span, () => {
       if (window.isDestroyed() || rendererCrashed(window)) {
         return
@@ -1342,7 +1347,7 @@ function renderOffscreen(
 
       void window.webContents
         .capturePage()
-        .then((image) => keepFailedFrame(image.toPNG()))
+        .then((image) => keepFailedFrame(image.toPNG(), span?.traceId))
         .catch(() => undefined)
     })
 
