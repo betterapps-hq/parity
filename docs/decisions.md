@@ -1343,6 +1343,18 @@ recommended answer to each of its questions.
   service; the key never ships in the app. Unsplash allows 50 requests an hour until it approves an app for production,
   then 5,000, and raises that further on request. Only searches and download pings count; loading the images themselves
   doesn't.
+- **Pixabay finds photos in place of Unsplash** (your call, 2026-11-10, PAR-837). Unsplash's terms ask for more, it
+  allows 50 searches an hour until it approves the app, and it has no videos. Pixabay has photos, illustrations, vectors
+  and videos, and allows 100 requests a minute for a key, which it raises for an app that uses its API well. Unsplash's
+  connector stays in `connectors`, so a result or image that came from it is still named, but only `offered` ones are
+  searched; going back is one line in `packages/connectors/src/index.ts`. Parity owns the key, as with Unsplash's.
+  Pixabay's terms (pixabay.com/api/docs) ask three things:
+  - show where results are from wherever they're shown, which each result's `credit` and the browser's credit do;
+  - use its image links only to show search results, and they work for 24 hours, so a picture placed in a design is
+    saved into the project rather than linked. Its videos may be played from its own links, though it suggests keeping a
+    copy;
+  - keep each search's answer for 24 hours rather than ask again, and send only searches people make, never mass
+    downloads. Main doesn't keep answers yet.
 - **Image files dropped from Explorer or Finder land as pasted layers do (PAR-24).** My calls, all in editor.md's
   "Dropping image files":
   - Over a layout they go where Paste here would put them: the slot under the pointer by `slotAt`, or at the pointer in

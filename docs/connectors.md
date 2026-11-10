@@ -1,7 +1,7 @@
 # Connectors
 
-A connector brings things in from an outside service: screens from Mobbin and photos from Unsplash today. This page says
-how one is built and what adding the next one takes. What was decided, and why, is in
+A connector brings things in from an outside service: screens from Mobbin, and photos and videos from Pixabay. This page
+says how one is built and what adding the next one takes. What was decided, and why, is in
 [decisions.md](decisions.md#connectors-search-outside-services-from-main-par-829).
 
 ## How it fits together
@@ -12,8 +12,9 @@ how one is built and what adding the next one takes. What was decided, and why, 
 ├── recent.ts                 a recent search, and how one joins the list: remember
 ├── request.ts                what every adapter shares: prepare, sendSearch, notify, refusal
 ├── mobbin.ts                 Mobbin's REST API: screens, by platform and depth, paged by exclude
-├── unsplash.ts               Unsplash's API: photos, by orientation and color, paged by page, with placed
-└── index.ts                  `connectors`, the list main runs, and the key variables
+├── pixabay.ts                Pixabay's API: photos, illustrations, vectors and videos, by type and more, paged by page
+├── unsplash.ts               Unsplash's API: photos, by orientation and color, paged by page, with placed; not offered
+└── index.ts                  `connectors`, every one Parity has; `offered`, the ones main runs; and the key variables
 
 apps/desktop
 ├── main/connectors.ts        the hub: keys, every search checked and budgeted, find, recent, placed, a service
@@ -31,7 +32,7 @@ apps/desktop
   copy can search it, never a key), searches, lists the person's recent searches, and says a result was placed
   (`placed`), though no Place in the window calls that yet.
 - **Main checks every search before it routes it,** against what the connector takes, and fills in its defaults. Each
-  connector declares its source's `rateLimit` (Mobbin 60 a minute, Unsplash 50 an hour), and main runs half of it, so a
+  connector declares its source's `rateLimit` (Mobbin 60 a minute, Pixabay 100 a minute), and main runs half of it, so a
   loop can't spend a source's allowance. `connectors.searched` records the filters as checked, and names only connectors
   Parity has.
 - **Agents search by kind, not by source.** `find_references` (`parity references`) finds screens and `find_photos`
@@ -54,11 +55,19 @@ apps/desktop
   3. calls the connector's own `placed`, if it has one, which says whether the source took it. Unsplash's reports the
      photo to its download endpoint. One that didn't take it is tried again as Parity next starts.
 - **Filters are data.** Each connector lists its filters in `info.filters`, with their values and defaults: Mobbin's
-  platform and depth, Unsplash's orientation and color. A search sends `filters: { platform: "ios" }`, `checkRequest`
-  refuses a filter or value the connector doesn't list and fills in defaults, and the window can draw the controls from
-  the list.
+  platform and depth, Pixabay's type, orientation, color, footage, category, editor's choice and order. A search sends
+  `filters: { platform: "ios" }`, `checkRequest` refuses a filter or value the connector doesn't list and fills in
+  defaults, and the window can draw the controls from the list.
+- **A filter can apply to some values of another.** Its `when` names them: Pixabay's orientation and color apply to
+  photos, illustrations and vectors, and its footage (film or animation) to videos. `checkRequest` refuses one named
+  where it doesn't apply and leaves out its default there, and `applies` tells the window whether to show it.
+- **Offered, or only known.** `connectors` lists every connector Parity has, so a result or a project's image from one
+  is named by `connectorById` even when it isn't searched. Main runs `offered`: Mobbin and Pixabay. Unsplash is kept but
+  not offered.
+- **Videos are results too.** A video's `Found` has kind `videos`, its poster in `image`, and its footage in `video`:
+  the clip, its size, how long it runs, and a smaller clip for a list of results.
 - **An answer says how many searches are left** when the source says, as `allowance`. `sendSearch` reads the
-  `X-RateLimit-Remaining` and `X-RateLimit-Limit` headers, which Unsplash sends and Mobbin doesn't.
+  `X-RateLimit-Remaining` and `X-RateLimit-Limit` headers, which Pixabay and Unsplash send and Mobbin doesn't.
 - **A service can run searches for main.** The hub takes a `SearchService` that searches some connectors with keys of
   its own, with the hub's timeout. A connector with no key here goes to it, for searches and placements, and a key here
   still wins. Nothing implements one yet: it's where Parity's own service plugs in to hold the keys.
@@ -81,9 +90,9 @@ apps/desktop
    reads how many searches are left. What's left is the adapter's own: its URL and request, its answer's schema, mapping
    a result to `Found`, and what each of the source's failures means, in words a person or agent can act on, never
    advice about the key, which only the app's owner can change. Test them with a stand-in `fetch`.
-2. **Add it to `connectors`** in `packages/connectors/src/index.ts`. Main, `pnpm dev`, Storybook's live stories, the
-   window's list, recent searches, placing and agents' search for its kind pick it up from there. Then check the words
-   that name today's sources, which don't come from the connector:
+2. **Add it to `connectors`, and to `offered`** to search with it, in `packages/connectors/src/index.ts`. Main,
+   `pnpm dev`, Storybook's live stories, the window's list, recent searches, placing and agents' search for its kind
+   pick it up from there. Then check the words that name today's sources, which don't come from the connector:
    - a filter agents should know by name: an optional field on its kind's contract in `packages/agent/src/contracts.ts`,
      named by the filter's id, and its flag in `packages/cli/src/bin.ts` (the parse options, the command and the help);
    - the MCP tools' descriptions in `packages/cli/src/mcp.ts`, the result text in `packages/cli/src/client.ts`, and the
@@ -137,4 +146,15 @@ What a second review found, and what changed:
 - **Reports are retried.** A source that didn't take one hears of it again as Parity starts.
 - **The rule for what goes in designs is shared,** in `placeableKinds`, and main enforces it for the window too.
 
-Still open: the window has no Place for photos yet, so only agents place them today.
+What adding Pixabay in place of Unsplash showed, and what changed:
+
+- **What to find can be a filter.** Pixabay searches photos, illustrations, vectors and videos apart. Its `type` filter
+  says which, with photos by default, and a search for the `videos` kind is one for that type.
+- **Filters that apply to some types,** with `when`, so the window hides the ones that don't and a search can't name
+  them.
+- **Videos,** as a kind and as `Found.video`.
+- **Offered apart from known,** so a source can stop being searched and its results still be named.
+
+Still open: the window has no Place for photos yet, so only agents place them today. Main doesn't keep Pixabay's answers
+for 24 hours as its terms ask, and placing a Pixabay picture still has to save its file, as its links expire, and no
+agent call finds videos yet.

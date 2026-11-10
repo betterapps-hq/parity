@@ -5,7 +5,7 @@ import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
-import { connectors, keysFromEnvironment, keyVariable, placeableKinds, withoutKeys } from "@parity-app/connectors"
+import { keysFromEnvironment, keyVariable, offered, placeableKinds, withoutKeys } from "@parity-app/connectors"
 import {
   CodedError,
   drawsNothing,
@@ -802,7 +802,8 @@ for (const name of Object.keys(process.env)) {
  * over IPC and for agents through the service, and keeps the person's recent searches.
  */
 const connectorHub = createConnectorHub({
-  connectors,
+  // The ones offered: Pixabay finds photos, and Unsplash's connector is kept but not searched.
+  connectors: offered,
   keys: connectorKeys,
   history: localHistory(join(app.getPath("userData"), "recent-searches.json")),
   placements: localPlacements(join(app.getPath("userData"), "connector-placements.json")),
