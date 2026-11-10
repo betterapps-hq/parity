@@ -27,7 +27,7 @@ themselves. Paths on this page are under `apps/desktop/src`, except that `cli/` 
 
 | Surface                    | Sentry SDK                                                  | Errors and crashes                                                                                                                                                           | Spans                                                                    | Events (logs, breadcrumbs)                                                                                                                       | Replay | Attachments                                                                    |
 | -------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------ |
-| Desktop main               | `@sentry/electron/main` (`main/telemetry.ts:165`)           | Uncaught errors, native minidumps, child processes that exit abnormally, run out of memory or fail to launch; main's loop blocked 2 s or more, as it starts and when it ends | Its own requests, `request.handled`                                      | Startup, quitting, updates, memory every 5 minutes, hangs, and every other process's events, which pass through main                             | No     | `failed-frame.png` on every error for 10 minutes after a frame fails offscreen |
+| Desktop main               | `@sentry/electron/main` (`main/telemetry.ts:165`)           | Uncaught errors, native minidumps, child processes that exit abnormally, run out of memory or fail to launch; main's loop blocked 2 s or more, as it starts and when it ends | `request.handled` for every request it answers                           | Startup, quitting, updates, memory every 5 minutes, hangs, and every other process's events, which pass through main                             | No     | `failed-frame.png` on every error for 10 minutes after a frame fails offscreen |
 | Editor window              | `@sentry/electron/renderer` (`renderer/telemetry.ts:28`)    | Uncaught errors, React render errors with the component stack, `error.caught` from every error toast, `ipc.failed`                                                           | `command.ran` for every action, `gesture.ran` for every drag             | Commands, gestures, inspector changes, inserts, pastes, undo, tabs, panels, dialogs, settings. The SDK adds console, click and fetch breadcrumbs | Yes    | `frames.json` on every error; `frame.webp` when an offscreen capture fails     |
 | Render windows (offscreen) | `@sentry/electron/renderer`                                 | Uncaught errors; a frame whose capture fails                                                                                                                                 | `frame.rendered` for every frame                                         | `frame.failed`, with the guest's message and stack                                                                                               | No     | The frame's last bitmap                                                        |
 | Service                    | `@sentry/electron/utility` (`utility/telemetry.ts:29`)      | Uncaught errors; a builder that crashes, with its last 50 lines of output                                                                                                    | `request.handled` for every request, `frame.rendered`, `builder.started` | Project opening and closing, detection, builders, previews, the bitmap cache, saves, exports, libraries, `data.invalid`, `service.degraded`      | No     | None                                                                           |
@@ -116,8 +116,9 @@ while it's off.
 before anything leaves. It runs on events as they're recorded and in every Sentry hook (`beforeSend`,
 `beforeSendTransaction`, `beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`). It catches keys and tokens with a
 known shape, `Bearer` tokens, passwords in URLs, the values of fields named like `password` or `apiKey`, long random
-strings, and the open projects' `.env` values. The CLI doesn't know the `.env` values. Sentry's server-side scrubbing is
-a second net. [telemetry.md](telemetry.md#secrets-are-scrubbed) has the details.
+strings, and the open projects' `.env` values. The CLI's sender reads them itself, with those of the project each
+command ran in. Sentry's server-side scrubbing is a second net. [telemetry.md](telemetry.md#secrets-are-scrubbed) has
+the details.
 
 **The replay masks almost nothing.** `maskAllText` is on, but only so every text node passes through the scrubber, which
 returns it unchanged unless it's a secret. `maskAllInputs` and `blockAllMedia` are off, and the canvas integration
@@ -172,15 +173,13 @@ are the gaps left. Each comes from the code or from Sentry, with the Linear issu
 
 ### Signals that never arrive
 
-| Gap                                     | Evidence                                                                                                                                                                                                                          | Issue   |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| A crash comes without the log before it | The plan attached the last log file to a crash. Main's `beforeSend` attaches only `failed-frame.png` (`main/telemetry.ts:176`), and the log goes only with a report. Main's hangs say how long, not where (`:393`)                | PAR-805 |
-| Main's own requests aren't timed        | Main's 33 `ipcMain` handlers in `main/index.ts` (account, report, update, file pickers) don't run in `request.handled`, which wraps only the service's channel (`shared/tracing.ts:86`), and `ipc.failed` covers only the service | PAR-810 |
+| Gap                                     | Evidence                                                                                                                                                                                                           | Issue   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| A crash comes without the log before it | The plan attached the last log file to a crash. Main's `beforeSend` attaches only `failed-frame.png` (`main/telemetry.ts:176`), and the log goes only with a report. Main's hangs say how long, not where (`:393`) | PAR-805 |
 
 ### Privacy risks
 
 These go beyond "names and values as written", which the decisions above cover.
 
-| Risk                                | Evidence                                                                                                                                                                           | Issue   |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| The CLI doesn't scrub `.env` values | Only the service reads them ([telemetry.md](telemetry.md#secrets-are-scrubbed)), so a secret in an uncaught error's message or stack leaves the CLI unless its shape gives it away | PAR-815 |
+| Risk | Evidence | Issue |
+| ---- | -------- | ----- |

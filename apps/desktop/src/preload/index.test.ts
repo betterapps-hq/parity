@@ -4,13 +4,16 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { runInNewContext } from "node:vm"
-import type { Envelope } from "@parity-app/telemetry"
+import type { Envelope, TraceHeaders } from "@parity-app/telemetry"
 import { build } from "esbuild"
 import { beforeAll, describe, expect, it, vi } from "vite-plus/test"
-import type { BuildInfo, CanvasHost } from "../shared/protocol.ts"
+import type { BuildInfo, CanvasHost, ConsoleContext } from "../shared/protocol.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import { projectEnvSecrets } from "../utility/env-secrets.ts"
 import type { TelemetryHost } from "./telemetry.ts"
+
+/** What the preload sends main before a console message. */
+type ConsoleAnnouncement = ConsoleContext & { level: string }
 
 let code = ""
 
@@ -31,12 +34,14 @@ beforeAll(async () => {
 function preload() {
   const ipc = new EventEmitter()
 
-  const invoke = vi.fn<(channel: string) => Promise<Partial<BuildInfo> | string[] | undefined>>(async () => ({
+  const invoke = vi.fn<
+    (channel: string, argument?: string, trace?: TraceHeaders) => Promise<Partial<BuildInfo> | string[] | undefined>
+  >(async () => ({
     version: "0.3.0",
     channel: "beta"
   }))
 
-  const send = vi.fn<(channel: string, value?: Envelope) => void>()
+  const send = vi.fn<(channel: string, value?: Envelope | ConsoleAnnouncement, trace?: TraceHeaders) => void>()
   let host: CanvasHost | undefined
   let telemetry: TelemetryHost | undefined
   runInNewContext(code, {
@@ -127,6 +132,27 @@ it("exposes installed build identity through its own IPC request", async () => {
   const { host, invoke } = preload()
   expect(await host.getBuildInfo()).toEqual({ version: "0.3.0", channel: "beta" })
   expect(invoke).toHaveBeenCalledExactlyOnceWith("canvas:build-info")
+})
+
+it("sends main the page's trace after what each request sends", async () => {
+  const { host, invoke, send, telemetry } = preload()
+  const trace = { "sentry-trace": "4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-1" }
+  let current: typeof trace | undefined = trace
+  telemetry.traceFrom(() => current)
+
+  await host.pickFolder("Export to")
+  await host.metrics()
+  host.console.announce("warning", { design: "Card" })
+  expect(invoke.mock.calls).toEqual([
+    ["canvas:pick-folder", "Export to", trace],
+    ["canvas:metrics", undefined, trace]
+  ])
+  expect(send).toHaveBeenCalledExactlyOnceWith("canvas:console-announce", { level: "warning", design: "Card" }, trace)
+
+  // Outside an action, a request sends only what it did.
+  current = undefined
+  await host.pickFolder("Open project")
+  expect(invoke).toHaveBeenLastCalledWith("canvas:pick-folder", "Open project")
 })
 
 describe("native update menu handoff", () => {

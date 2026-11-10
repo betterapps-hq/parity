@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Main's IPC handlers run in request.handled spans in the window's trace, with the error code when they fail",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

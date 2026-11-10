@@ -7,7 +7,7 @@ import {
   traceHeaders
 } from "@parity-app/telemetry"
 import { describe, expect, it } from "vite-plus/test"
-import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } from "./tracing.ts"
+import { currentTrace, currentTraceHeaders, handleInSpan, handlerInSpan, inSpan, traceWith } from "./tracing.ts"
 
 const sink = createTestSink()
 
@@ -63,6 +63,49 @@ describe("handleInSpan", () => {
     sink.clear()
     expect(await handleInSpan({ method: "record", trace: traceHeaders(sent) }, () => "kept")).toBe("kept")
     expect(sink.spans).toEqual([])
+  })
+})
+
+describe("handlerInSpan", () => {
+  const sender = { id: 1 }
+
+  it("runs one of main's handlers in the window's trace, given what the window sent", async () => {
+    sink.clear()
+    let asked: unknown
+
+    const handler = handlerInSpan("pickFolder", async (event: typeof sender, title) => {
+      await Promise.resolve()
+      asked = currentTraceHeaders()
+
+      return `${event.id}: ${String(title)}`
+    })
+
+    expect(await handler(sender, "Export to", traceHeaders(sent))).toBe("1: Export to")
+    const [span] = sink.spans
+    expect(span).toMatchObject({
+      name: "request.handled",
+      traceId: sent.traceId,
+      parentSpanId: sent.spanId,
+      outcome: "ok",
+      attributes: { method: "pickFolder" }
+    })
+    expect(asked).toEqual(traceHeaders({ traceId: sent.traceId, spanId: span!.spanId }))
+  })
+
+  it("starts a trace when the window sent none, and records a failure's code", async () => {
+    sink.clear()
+    const refused = Object.assign(new Error("Only the Parity window can sign in."), { code: "not_app_window" })
+
+    const handler = handlerInSpan("accountState", () => {
+      throw refused
+    })
+
+    await expect(handler(sender)).rejects.toBe(refused)
+    expect(sink.spans[0]).toMatchObject({
+      outcome: "error",
+      attributes: { method: "accountState", code: "not_app_window" }
+    })
+    expect(sink.spans[0]?.parentSpanId).toBeUndefined()
   })
 })
 

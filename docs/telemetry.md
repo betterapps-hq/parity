@@ -83,6 +83,9 @@ One action is one trace in Sentry, across every process that works on it (PAR-62
   drag, as `gesture.ran` with its kind from `canvas/gesture.ts`. The service's requests made while it runs carry it.
 - **Requests carry the trace** as `sentry-trace` and `baggage`, in the channel message's `trace` field. The service and
   main answer each in a `request.handled` span, with the error code when it fails.
+- **Requests to main's own IPC channels carry it too,** such as signing in, sending a report, checking for updates or
+  picking a file. The preload sends the window's trace after each request's argument, and main runs each handler in a
+  `request.handled` span named by its channel in `shared/channels.ts`, such as `pickFolder` (PAR-810).
 - **Queued work keeps its trace:** an offscreen frame or preview is a `frame.rendered` span with how long it waited for
   a window, and a builder's start is `builder.started`.
 - **An agent's call starts its trace in the CLI.** A `parity` command's calls carry its `cli.ran` span, and each MCP
@@ -265,8 +268,9 @@ CLI's `send.ts`) starts Sentry with `sentryScrubbing()`, which runs one in `befo
 The values it's given are the open projects' `.env`, `.env.local` and other `.env.*` values. The service reads them with
 `envSecrets()` whenever a project opens or closes and sends them to main. Main scrubs them from every process's events
 and passes them to each window, which asks for them as its telemetry starts. Each process's telemetry gets them through
-`setSecrets()`. The CLI reads none: it scrubs keys, tokens and passwords, as every process does, but not a project's
-`.env` values, which only the service reads.
+`setSecrets()`. The CLI's sender (`packages/cli/src/send.ts`) reads its own: the `.env` values of the projects the app
+has open, from `open-projects.json` in the app's data folder, and of the project each command ran in, from the folder it
+ran in up to the nearest `package.json`. Values it has read stay scrubbed for the rest of its run.
 
 Replays are scrubbed in the editor window as they're recorded, by the window's own scrubber, so they lose the same
 secrets, `.env` values included (`replayPrivacy` in `apps/desktop/src/renderer/replay.ts`):
@@ -370,12 +374,16 @@ so recording never stops the work it describes.
 - **In main and the service,** `track` and `inSpan` from `shared/tracing.ts` record under the span the process is
   working in, followed across `await`s. A request to another process carries it with `currentTraceHeaders()`, and queued
   work keeps it with `currentTrace()`. A channel's handlers each run in a `request.handled` span through `handleInSpan`.
+  Main's IPC handlers are registered with `handle` and `listen` from `main/ipc-handlers.ts`, which run each in one
+  through `handlerInSpan`. Only `telemetry`, where each span would record another, and the window's `closePending` reply
+  skip them. The window gives its preload its trace with `traceFrom`, as `renderer/main.tsx` does.
 - **In the CLI,** `recordCli` records an event under the running command, and `inCliRun` runs a command in its `cli.ran`
   span. `runTraceHeaders()` gives the headers that carry that span to the app.
 
 Some failures are recorded for you, so code doesn't record them again:
 
 - **A failed request from the window to the service** is recorded as `ipc.failed` by `request` in `renderer/service.ts`.
+- **A failed request from the window to main** ends main's `request.handled` span as `error`, with the error's code.
 - **A failed check of data Parity didn't make,** through `checkData`, `parseData` or `parseInput` in `@parity-app/core`,
   is recorded as `data.invalid` in every process.
 - **Uncaught errors and crashes** reach Sentry through each app process's Sentry setup, and what a React render throws
