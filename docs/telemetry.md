@@ -142,7 +142,8 @@ Agents' calls are recorded where they're answered, once for every operation, whi
 - **A command never waits for Sentry.** Loading `@sentry/node` takes about 300 ms, so a command keeps what it would
   send, writes it to `~/.parity/outbox` as it exits (`PARITY_CLI_OUTBOX` names another folder), and starts a detached
   `parity` process that sends it and exits. That costs a command about 20 ms. `parity mcp` hands over what's waiting
-  every 10 seconds as well. One sender runs at a time, and a batch a day old is dropped.
+  every 10 seconds as well, and as soon as its client closes stdin or stops it with a signal (PAR-806). One sender runs
+  at a time, and a batch a day old is dropped.
 - **The CLI's release** is `parity-cli@<version>` when `npm publish` built it, and otherwise the commit it was built
   from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Published to npm, it reports as
   `release` while its version is on `next`, and `production` once it's been `latest` (PAR-799): the sender asks npm's
