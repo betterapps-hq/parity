@@ -1,5 +1,9 @@
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -11,7 +15,7 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ArrowLeftRight, ChevronDown, Image as ImageIcon, Minus, Plus, Repeat, RotateCw } from "lucide-react"
+import { ArrowLeftRight, ChevronDown, Minus, Plus, Repeat, RotateCw } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent, Swatch } from "../../chrome/fields.tsx"
@@ -23,9 +27,10 @@ import { ColorInput } from "./color-picker.tsx"
 import { clamp, gradientCss } from "./css-values.ts"
 import { usedColors } from "./data.ts"
 import { drag, MessageLine, PercentField, TokenChip, TokenList, useTokens } from "./field-parts.tsx"
-import { ListRow, type ListRowProps, moved, type TypeOption } from "./list-parts.tsx"
+import { EntryType, ListRow, type ListRowProps, moved, TypeMenu, type TypeOption } from "./list-parts.tsx"
 import {
   drawListColor,
+  type GradientKind,
   type GradientPaint,
   gradientDirections,
   imagePreview,
@@ -48,10 +53,12 @@ import { type ColorToken, type GradientToken, gradientToken, gradientTokens } fr
 
 /*
  * Fill's paint stack (design-options-values.md, Paint stack): solids, gradients and images, top first, as CSS paints
- * them. Each entry is a list row: a gradient's strip or an image's thumbnail with its type and summary or token chip,
- * which opens its editor, a gradient's alpha, the eye and −. A solid is the color field, whose swatch opens the color
- * picker. Each editor and the picker start with the fill's type, as Figma's do. A gradient's editor has the bar of stops, the Stops list, the angle with Flip and
- * Rotate 90°, Repeat and the interpolation; an image's has the project's images, the fit and its position in the box.
+ * them. + opens a menu of the types, each drawn as the fill it adds, and the fill it adds opens its editor. Each entry is
+ * a list row: a gradient's strip or an image's thumbnail with its type and summary or token chip, which opens its
+ * editor, a gradient's alpha, the eye and −. A solid is the color field, whose swatch opens the color picker. A
+ * gradient's editor names its kind in a menu (Linear, Radial or Angular), then has the bar of stops, the Stops list, the
+ * angle with Flip and Rotate 90°, Repeat and the interpolation; an image's has the project's images, the fit and its
+ * position in the box. A fill's type is picked as it's added, so neither the picker nor an editor offers the others.
  */
 
 const kindNames = { solid: "Solid", linear: "Linear", radial: "Radial", angular: "Angular", image: "Image" } as const
@@ -68,97 +75,69 @@ type PaintKind = keyof typeof kindNames
 const isGradient = (paint: Paint): paint is GradientPaint =>
   paint.kind === "linear" || paint.kind === "radial" || paint.kind === "angular"
 
-const glyphs: Record<Exclude<PaintKind, "image">, string> = {
-  solid: "currentColor",
-  linear: "linear-gradient(90deg, currentColor, transparent)",
-  radial: "radial-gradient(circle, currentColor, transparent 75%)",
-  angular: "conic-gradient(currentColor, transparent, currentColor)"
-}
+/** Every type a fill can be, in the order + lists them. */
+const paintKinds = ["solid", "linear", "radial", "angular", "image"] as const satisfies readonly PaintKind[]
 
-/** A small mark for each type, for the types a fill's editor and picker start with. */
-function TypeGlyph({ kind }: { kind: PaintKind }) {
-  if (kind === "image") {
-    return <ImageIcon className="size-3.5" />
-  }
-
-  return (
-    <span
-      aria-hidden
-      className="block size-3.5 rounded-sm border border-current/40"
-      style={{ background: glyphs[kind] }}
-    />
-  )
-}
-
-/** Every type a fill can be, in the order its editor and picker list them. */
-const paintTypes: TypeOption<PaintKind>[] = (["solid", "linear", "radial", "angular", "image"] as const).map(
-  (kind) => ({
-    value: kind,
-    label: kindNames[kind],
-    glyph: <TypeGlyph kind={kind} />
-  })
-)
+/** A gradient's kinds, which the menu at the top of its editor switches between, keeping its stops. */
+const gradientKinds: TypeOption<GradientKind>[] = (["linear", "radial", "angular"] as const).map((kind) => ({
+  value: kind,
+  label: kindNames[kind]
+}))
 
 /**
- * A fill's type, by glyph, as Figma's fill picker starts: Solid, Linear, Radial, Angular and Image. Picking one changes
- * the fill, keeping its colors.
+ * What a fill of each type starts as, in the project's palette, so it shows on any layer and in either theme, and + can
+ * draw it as it'll be: blue-500, or a gradient from blue-500 to teal-600, the colors of its brand gradient, in two stops
+ * so it's written as utilities; an image, the project's first.
  */
-function PaintKinds({ value, onChange }: { value: PaintKind; onChange: (kind: PaintKind) => void }) {
-  return (
-    <ToggleGroup
-      variant="outline"
-      size="sm"
-      spacing={0}
-      aria-label="Fill type"
-      value={[value]}
-      onValueChange={([kind]) => {
-        const picked = paintTypes.find((option) => option.value === kind)
-
-        if (picked) {
-          onChange(picked.value)
-        }
-      }}
-    >
-      {paintTypes.map((option) => (
-        <Hint key={option.value} label={option.label}>
-          <ToggleGroupItem value={option.value} aria-label={option.label} className="h-7 px-2">
-            {option.glyph}
-          </ToggleGroupItem>
-        </Hint>
-      ))}
-    </ToggleGroup>
-  )
-}
-
-/** A paint changed to another type, keeping its colors: a solid becomes a gradient from it to it at 0%. */
-function changeKind(paint: Paint, kind: PaintKind): Paint {
-  if (paint.kind === kind) {
-    return paint
-  }
-
-  const first = isGradient(paint) ? paint.stops[0] : undefined
-  const color = paint.kind === "solid" ? { color: paint.color || "primary", alpha: paint.alpha } : first
-
+function newPaint(kind: PaintKind): Paint {
   if (kind === "solid") {
-    return { kind: "solid", color: color?.color ?? "primary", alpha: color?.alpha }
+    return { kind: "solid", color: "blue-500" }
   }
 
   if (kind === "image") {
     return { kind: "image", src: "/images/hero.jpg", fit: "fill", position: [50, 50] }
   }
 
-  if (isGradient(paint)) {
-    return { ...paint, kind, token: undefined }
-  }
-
   return {
     kind,
     angle: kind === "angular" ? 0 : 90,
     stops: [
-      { id: newId("stop"), position: 0, color: color?.color ?? "primary", alpha: color?.alpha },
-      { id: newId("stop"), position: 100, color: color?.color ?? "primary", alpha: 0 }
+      { id: newId("stop"), position: 0, color: "blue-500" },
+      { id: newId("stop"), position: 100, color: "teal-600" }
     ]
   }
+}
+
+/** Each type as + draws it: the fill it adds. */
+const samples: Record<PaintKind, Paint> = {
+  solid: newPaint("solid"),
+  linear: newPaint("linear"),
+  radial: newPaint("radial"),
+  angular: newPaint("angular"),
+  image: newPaint("image")
+}
+
+/**
+ * A type in + as the fill it adds looks, in the project's colors, over chrome's checkerboard where it's clear, so a type
+ * is picked by its look.
+ */
+function KindSample({ kind, colors }: { kind: PaintKind; colors: readonly ColorToken[] }) {
+  const paint = samples[kind]
+  let look: CSSProperties = { backgroundImage: `url("${paint.kind === "image" ? imagePreview(paint.src) : ""}")` }
+
+  if (paint.kind === "solid") {
+    look = { background: drawListColor(paint, colors) }
+  } else if (isGradient(paint)) {
+    look = overChecker(drawnGradient(paint, colors))
+  }
+
+  return (
+    <span
+      aria-hidden
+      className="block h-6 w-9 shrink-0 rounded-sm bg-cover bg-center inset-ring inset-ring-foreground/10"
+      style={look}
+    />
+  )
 }
 
 /** Why a gradient is written as one value rather than from, via and to, naming what makes it so. */
@@ -222,23 +201,42 @@ export function PaintStack({
   /** The entry whose editor is open at first, for a story. */
   openId?: string
 }) {
+  const { tokens: colors } = useTokens("color")
+  // The fill + just added, whose editor opens as it's drawn, so it's set up straight away.
+  const [added, setAdded] = useState<string>()
+
   const update = (id: string, paint: Partial<PaintEntry>) =>
     onChange(entries.map((entry) => (entry.id === id ? { ...entry, ...paint } : entry)))
 
-  const add = () => {
-    const added: PaintEntry = { id: newId("fill"), paint: { kind: "solid", color: "background" } }
-    onChange(mixed ? [added] : [added, ...entries])
+  const add = (kind: PaintKind) => {
+    const entry: PaintEntry = { id: newId("fill"), paint: newPaint(kind) }
+    setAdded(entry.id)
+    onChange(mixed ? [entry] : [entry, ...entries])
   }
 
   return (
     <PanelSection
       title="Fill"
       action={
-        <Hint label={mixed ? "Replace every layer's fills with one" : "Add fill"}>
-          <Button variant="ghost" size="icon-sm" className="size-6" aria-label="Add fill" onClick={add}>
-            <Plus />
-          </Button>
-        </Hint>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Hint label={mixed ? "Replace every layer's fills with one" : "Add fill"}>
+                <Button variant="ghost" size="icon-sm" className="size-6" aria-label="Add fill">
+                  <Plus />
+                </Button>
+              </Hint>
+            }
+          />
+          <DropdownMenuContent align="end" className="w-36">
+            {paintKinds.map((kind) => (
+              <DropdownMenuItem key={kind} className="gap-2.5 text-xs" onClick={() => add(kind)}>
+                <KindSample kind={kind} colors={colors} />
+                {kindNames[kind]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       }
     >
       {mixed && (
@@ -256,7 +254,7 @@ export function PaintStack({
               tokensOnly={tokensOnly}
               saved={saved}
               onSave={onSave}
-              startOpen={entry.id === openId}
+              startOpen={entry.id === openId || entry.id === added}
               onChange={(change) => update(entry.id, change)}
               // One fill has nothing to move past, so it has no handle.
               onMove={
@@ -325,7 +323,6 @@ function PaintRow({
         onSave={onSave}
         startOpen={startOpen}
         onChange={setPaint}
-        onKind={(kind) => setPaint(changeKind(paint, kind))}
       />
     )
   }
@@ -341,12 +338,7 @@ function PaintRow({
           />
         }
         details={{
-          content: (
-            <div className="flex flex-col gap-2">
-              <PaintKinds value={paint.kind} onChange={(kind) => setPaint(changeKind(paint, kind))} />
-              <ImageEditor paint={paint} onChange={setPaint} />
-            </div>
-          ),
+          content: <ImageEditor paint={paint} onChange={setPaint} />,
           defaultOpen: startOpen,
           className: "w-64 p-2"
         }}
@@ -357,12 +349,11 @@ function PaintRow({
     )
   }
 
-  // A solid is the color field, whose swatch is its preview and opens the color picker, which starts with its type.
+  // A solid is the color field, whose swatch is its preview and opens the color picker.
   return (
     <ListRow {...row}>
       <div className="min-w-0 flex-1">
         <ColorInput
-          header={<PaintKinds value={paint.kind} onChange={(kind) => setPaint(changeKind(paint, kind))} />}
           label={name}
           value={paint.color === "" ? undefined : paint.color}
           alpha={paint.alpha}
@@ -389,8 +380,7 @@ function GradientRow({
   saved,
   onSave,
   startOpen,
-  onChange,
-  onKind
+  onChange
 }: {
   row: Omit<ListRowProps, "children">
   paint: GradientPaint
@@ -399,7 +389,6 @@ function GradientRow({
   onSave: (token: GradientToken) => void
   startOpen: boolean
   onChange: (paint: GradientPaint) => void
-  onKind: (kind: PaintKind) => void
 }) {
   const { tokens: colors } = useTokens("color")
   const resolved = resolveGradient(paint, saved)
@@ -421,12 +410,12 @@ function GradientRow({
       details={{
         content: (
           <GradientEditor
+            name={row.name}
             paint={paint}
             tokensOnly={tokensOnly}
             saved={saved}
             onSave={onSave}
             onChange={onChange}
-            onKind={onKind}
           />
         ),
         defaultOpen: startOpen,
@@ -464,24 +453,25 @@ function GradientRow({
 }
 
 /**
- * A gradient's editor: its kind, the bar of stops, the angle or center, Repeat and how colors blend, then the Stops
- * list. A gradient token's stops show here too; editing one detaches it, writing its stops as the fill's own.
+ * A gradient's editor: its kind in a menu, as an entry's type is in Effects, the bar of stops, the angle or center,
+ * Repeat and how colors blend, then the Stops list. A gradient token's stops show here too; editing one detaches it,
+ * writing its stops as the fill's own.
  */
 export function GradientEditor({
+  name,
   paint,
   tokensOnly = false,
   saved = [],
   onSave,
-  onChange,
-  onKind
+  onChange
 }: {
+  /** The fill's name, for its kind menu's accessible name: "Fill 1". */
+  name: string
   paint: GradientPaint
   tokensOnly?: boolean
   saved?: GradientToken[]
   onSave?: (token: GradientToken) => void
   onChange: (paint: GradientPaint) => void
-  /** Changes the fill to another type, Solid or Image as well as another gradient. */
-  onKind: (kind: PaintKind) => void
 }) {
   const resolved = resolveGradient(paint, saved)
   const [selected, setSelected] = useState(resolved.stops[0]?.id)
@@ -506,17 +496,10 @@ export function GradientEditor({
   return (
     <div className="flex flex-col gap-2 p-2">
       <div className="flex items-center gap-1">
-        <PaintKinds
-          value={resolved.kind}
-          onChange={(kind) => {
-            // Another gradient keeps the stops, as editing does; Solid and Image change the fill.
-            if (kind === "linear" || kind === "radial" || kind === "angular") {
-              edit({ kind })
-            } else {
-              onKind(kind)
-            }
-          }}
-        />
+        <EntryType>
+          {/* Another kind keeps the stops, and detaches a token, as editing does. */}
+          <TypeMenu label={name} value={resolved.kind} options={gradientKinds} onChange={(kind) => edit({ kind })} />
+        </EntryType>
         <Popover open={tokensOpen} onOpenChange={setTokensOpen}>
           <PopoverTrigger
             aria-label="Gradient tokens"

@@ -11,9 +11,9 @@ import { mixedWrites } from "./writes.ts"
 /**
  * Fill's paint stack (PAR-652's Paint stack): solids, gradients and images, top first, as CSS paints them. Each entry is
  * its preview, its type and its value or token, which open its editor, then its alpha, the eye and −; with two fills or
- * more, drag the handle to reorder. A solid is the color field, whose swatch opens the color picker. The editor and the
- * picker start with the fill's five types by glyph, as Figma's fill picker does. + adds the
- * project's usual fill, `bg-background`, on top. A gradient's editor has the bar of stops (click to add, drag to move,
+ * more, drag the handle to reorder. A solid is the color field, whose swatch opens the color picker. + is a menu of the
+ * five types, each drawn as the fill it adds, in the project's palette (`bg-blue-500`, or blue-500 to teal-600); the fill
+ * goes on top with its editor open. A gradient's editor names its kind in a menu, then has the bar of stops (click to add, drag to move,
  * drag off to remove, drag the diamond for a color hint), the angle with its dial, Flip and Rotate 90°, Repeat, how
  * colors blend, and the Stops list; an image's has the project's images, the fit and its position in the box. The
  * bottom solid is written as `background-color`, the rest as `background-image` layers.
@@ -91,7 +91,7 @@ const blueToTeal: GradientPaint = {
   stops: [stop("a", 0, "blue-500"), stop("b", 100, "teal-600")]
 }
 
-/** No fills yet: Fill is a title with +, which adds `bg-background` on top. */
+/** No fills yet: Fill is a title with +, a menu of the five types, each drawn as the fill it adds. */
 export const Empty: Story = { render: () => <Paints start={[]} /> }
 
 /** One solid, a token: `bg-card`, written as the background color. Its alpha is the % after the chip. */

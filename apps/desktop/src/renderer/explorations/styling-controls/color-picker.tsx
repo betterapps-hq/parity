@@ -539,8 +539,7 @@ export function ColorInput({
   tab: tabAtStart,
   model,
   mixed = false,
-  theme,
-  header
+  theme
 }: {
   label: string
   value: string | undefined
@@ -561,8 +560,6 @@ export function ColorInput({
   /** The tab it opens on at first, for a story; afterwards it opens on the one for the color's form. */
   tab?: "tokens" | "custom"
   model?: ColorModel
-  /** What the picker starts with, above its tabs, as a fill's type does. */
-  header?: ReactNode
 }) {
   const { tokens: colors, create } = useTokens("color")
   const [open, setOpen] = useState(openAtStart)
@@ -661,7 +658,6 @@ export function ColorInput({
         }
       }}
     >
-      {header && <div className="px-2 pt-2">{header}</div>}
       <TabsList className="m-2 mb-0 w-[calc(100%-1rem)]">
         <TabsTrigger value="tokens" className="text-xs">
           Tokens

@@ -365,13 +365,13 @@ stroke of its own, for an SVG that doesn't draw in `currentColor`.
 
 Shows for every layer; on text, it's a highlight or badge behind the text (today). A stack of fills, the top one first,
 as in Figma (Paint stack in [design-options-values.md](design-options-values.md)). With nothing set, it's a title with
-+. A gradient token is one fill's paint, chosen in that fill's paint editor. There's no token button for the whole
-section, since a fill stack can hold a token and other fills at once.
++, a menu of the five fill types. A gradient token is one fill's paint, chosen in that fill's paint editor. There's no
+token button for the whole section, since a fill stack can hold a token and other fills at once.
 
 On a text layer, the section's title reads Background, and its + menu starts with Text color, which opens Text's Color,
-then Background (the highlight behind the text). With no fill, the empty title says "Text color is in Text". A text
-layer brought from Figma has its fill read as Text's Color ([design-options-research.md](design-options-research.md),
-Bringing a design from Figma).
+then the fill types, for the highlight behind the text. With no fill, the empty title says "Text color is in Text". A
+text layer brought from Figma has its fill read as Text's Color
+([design-options-research.md](design-options-research.md), Bringing a design from Figma).
 
 | Row       | Control                                                                                                 | Writes                                                                   | Figma                                                                                      |
 | --------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
