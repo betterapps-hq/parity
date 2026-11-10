@@ -164,8 +164,9 @@ addresses.
 
 Most of the original plan landed. Every event it named is registered and sent, and so are Report a problem, the offer to
 report after a crash, `parity diagnostics`, `parity logs` and the lint rule against bare `toast.error`. Two pieces were
-canceled: the cost budget in `pnpm perf` (PAR-647) and counting the CLI's dropped batches (PAR-776). These are the gaps
-left. Each comes from the code or from Sentry, and none has an issue yet. The titles are proposed, not filed.
+canceled, the cost budget in `pnpm perf` (PAR-647) and counting the CLI's dropped batches (PAR-776), and stay so. These
+are the gaps left. Each comes from the code or from Sentry, and none has an issue yet. The titles are proposed, not
+filed.
 
 ### Signals that never arrive
 
@@ -173,7 +174,6 @@ left. Each comes from the code or from Sentry, and none has an issue yet. The ti
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | A hang that never ends sends nothing                | A window that stops answering adds only a breadcrumb; the error and `window.hung` are sent when it answers again (`main/telemetry.ts:350`). `main.blocked` also waits for the loop to run (`:405`). A force-quit leaves nothing                                                                            | Record a window or main hang as it starts, not only when it ends           |
 | A crash comes without the log before it             | The plan attached the last log file to a crash. Main's `beforeSend` attaches only `failed-frame.png` (`main/telemetry.ts:176`), and the log goes only with a report. Main's hangs say how long, not where (`:393`)                                                                                         | Attach the local copy's last minutes to crashes, and find where main hangs |
-| The CLI loses batches silently                      | A batch file is deleted before it's sent, on purpose, so a batch that breaks the sender isn't retried forever (`cli/outbox.ts:228`); one a day old is dropped uncounted (`:153`), the sender's output goes nowhere (`:179`), and client reports are off (`cli/send.ts:123`). PAR-776 was canceled          | Keep the CLI's batches until Sentry accepts them                           |
 | `parity mcp` loses its last 10 seconds              | It writes its outbox every 10 seconds and on `exit` (`cli/telemetry.ts:295`). Nothing in the CLI handles `SIGTERM` or `SIGINT`, Node skips `exit` on a signal, and MCP clients usually end the server that way                                                                                             | Flush the MCP server's outbox on a signal and when stdin closes            |
 | Signing in has no events                            | No `account.*` event is registered. An unreadable session store is cleared, signing the person out (`main/session-store.ts:103`); a refused refresh ends the session unrecorded (`main/account.ts:389`); other failures only reach the console (`:197`, `:450`)                                            | Record signing in, refreshing, signing out and session store failures      |
 | The service degrades without a word                 | Failing to watch a project for changes only calls `console.warn` (`utility/projects.ts:803`, `:835`, `:877`, `:927`), as do sharp failing to load, which turns the bitmap cache off (`utility/webp.ts:32`), keeping bitmaps (`utility/bitmap-store.ts:94`) and prop inference (`utility/projects.ts:1026`) | Record the service's degraded modes as events                              |
@@ -186,7 +186,6 @@ left. Each comes from the code or from Sentry, and none has an issue yet. The ti
 | Gap                                    | Evidence                                                                                                                                                                                                                                    | Proposed issue                                                             |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | The trial's end stops bugs being filed | The Business trial ends on 2026-11-19 ([sentry.md](../sentry.md#the-organisation)). The Linear integration and metric monitors need Team. Every plan includes 50 replays a month, and `development` alone starts about 240 sessions a month | Choose Sentry's plan and set replay rates by environment before 2026-11-19 |
-| Telemetry's cost isn't watched         | PAR-647, a budget in `pnpm perf`, was canceled. `pnpm perf` can soak with diagnostics on or off (`apps/desktop/scripts/perf.ts:18`) but fails on nothing telemetry costs                                                                    | Fail `pnpm perf` when telemetry's cost passes a budget                     |
 
 ### Privacy risks
 
