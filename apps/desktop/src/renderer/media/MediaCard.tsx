@@ -1,26 +1,12 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import {
-  designsUsing,
-  type ImageMedium,
-  inUse,
-  mediumOf,
-  type PictureSize,
-  type ProjectImage
-} from "@parity-app/editor"
-import { Code, ImageIcon, type LucideIcon, PenTool, Plus, Trash2 } from "lucide-react"
-import { useState } from "react"
-import { DesignIcon, kindColors } from "../canvas/kinds.tsx"
+import { type ImageMedium, inUse, mediumOf, type PictureSize, type ProjectImage } from "@parity-app/editor"
+import { ExternalLink, ImageIcon, type LucideIcon, PenTool, Plus, Trash2 } from "lucide-react"
+import { type ReactNode, useState } from "react"
+import { kindColors } from "../canvas/kinds.tsx"
 import { IconButton } from "../chrome/IconButton.tsx"
 import { Name } from "../chrome/Name.tsx"
-import { PhotoCredit } from "../chrome/PhotoCredit.tsx"
-import { PictureMissing, ProjectPicture } from "./ProjectPicture.tsx"
-
-/** A layer that shows one of the project's media, to select on the canvas. */
-export interface MediaLayer {
-  document: string
-  design: string
-  node: string
-}
+import { CardUses, EveryUse, type MediaLayers } from "./MediaUses.tsx"
+import { PictureMissing, ProjectPicture, transparencyGrid } from "./ProjectPicture.tsx"
 
 /** Each medium's icon, beside a name. */
 export const mediumIcons: Record<ImageMedium, LucideIcon> = { image: ImageIcon, vector: PenTool }
@@ -38,58 +24,37 @@ interface MediaCardProps {
   /** Inserts it at the selection, which needs its picture's size. */
   onInsert?: () => void
   onRemove: () => void
-  onShow: (layer: MediaLayer) => void
+  onShow: (layers: MediaLayers) => void
 }
 
 /**
- * One of the project's media on its card, laid out as a component's is: the picture large; its name and where its file
- * is; its size; who took it; the designs and lines of code that use it; and a bar with what to do with it.
+ * One of the project's media on its card (PAR-871): the picture large, its name, its facts in labelled rows, where
+ * it's used, and a bar with what to do with it. Where it's used opens every place in the card's stead when there's
+ * more than the card lists.
  */
 export function MediaCard({ image, url, size, onInsert, onRemove, onShow }: MediaCardProps) {
+  const [everyUse, setEveryUse] = useState(false)
+
+  if (everyUse) {
+    return <EveryUse image={image} onBack={() => setEveryUse(false)} onShow={onShow} />
+  }
+
   const Icon = mediumIcons[mediumOf(image)]
-
-  const facts: string[] = []
-
-  if (size) {
-    facts.push(`${size.width} × ${size.height}`)
-  }
-
-  if (image.bytes !== undefined) {
-    facts.push(bytesOf(image.bytes))
-  }
-
-  if (!inUse(image)) {
-    facts.push("Not used yet")
-  }
 
   return (
     <div className="flex flex-col">
       <div className="p-2 pb-0">
         <CardStage image={image} url={url} size={size} />
       </div>
-      <div className="flex flex-col gap-0.5 px-3 pt-2.5 pb-3">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <Icon aria-hidden className="size-3.5 shrink-0" style={{ color: kindColors.layer }} />
-          <Name className="min-w-0 text-sm font-medium">{image.name}</Name>
-        </div>
-        {image.path && <span className="truncate font-mono text-2xs text-muted-foreground">{image.path}</span>}
-        {image.kind === "linked" && (
-          <span className="text-xs text-muted-foreground">Linked, not saved in the project</span>
-        )}
-        {image.kind === "missing" && <span className="text-xs text-(--process-starting)">No file at {image.src}</span>}
-        {facts.length > 0 && (
-          <span className="flex gap-3 text-xs text-muted-foreground tabular-nums">
-            {facts.map((fact) => (
-              <span key={fact}>{fact}</span>
-            ))}
-          </span>
-        )}
-        {image.credit && <PhotoCredit credit={image.credit} className="mt-1" />}
+      <div className="flex min-w-0 items-center gap-1.5 px-3 pt-3 pb-2">
+        <Icon aria-hidden className="size-3.5 shrink-0" style={{ color: kindColors.layer }} />
+        <Name className="min-w-0 text-sm font-medium">{image.name}</Name>
       </div>
-      {inUse(image) && (
-        <div className="border-t py-1.5 pr-1.5 pl-3 text-xs">
-          <MediaUses image={image} onShow={onShow} shown={usesShown} />
-        </div>
+      <Facts image={image} size={size} />
+      {inUse(image) ? (
+        <CardUses image={image} onShow={onShow} onAll={() => setEveryUse(true)} />
+      ) : (
+        <p className="border-t px-3 py-2.5 text-xs text-muted-foreground">Not used yet</p>
       )}
       <div className="flex items-center gap-1 border-t px-2 py-1.5">
         {onInsert && (
@@ -110,6 +75,110 @@ export function MediaCard({ image, url, size, onInsert, onRemove, onShow }: Medi
   )
 }
 
+/**
+ * What it is, a fact a row, each under the same label on every card: its size, its file and where it is, and who made
+ * it. A row with nothing to say is left out.
+ */
+function Facts({ image, size }: { image: ProjectImage; size: PictureSize | undefined }) {
+  return (
+    <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 px-3 pb-3 text-xs">
+      {size && <Fact label="Size">{`${size.width} × ${size.height}`}</Fact>}
+      <FileFacts image={image} />
+      {image.credit && (
+        <Fact label="Credit">
+          <Credit credit={image.credit} />
+        </Fact>
+      )}
+    </dl>
+  )
+}
+
+/** Whether it's saved in the project, and where: its path, a linked picture's site, or the path with no file. */
+function FileFacts({ image }: { image: ProjectImage }) {
+  if (image.kind === "linked") {
+    return (
+      <>
+        <Fact label="File">Linked, not saved</Fact>
+        <Fact label="Link">
+          <Where text={hostOf(image.src)} full={image.src} />
+        </Fact>
+      </>
+    )
+  }
+
+  if (image.kind === "missing") {
+    return (
+      <>
+        <Fact label="File">
+          <span className="text-(--process-starting)">Missing</span>
+        </Fact>
+        <Fact label="Path">
+          <Where text={image.src} full={image.src} />
+        </Fact>
+      </>
+    )
+  }
+
+  return (
+    <>
+      {image.bytes !== undefined && <Fact label="File">{bytesOf(image.bytes)}</Fact>}
+      {image.path && (
+        <Fact label="Path">
+          <Where text={image.path} full={image.path} />
+        </Fact>
+      )}
+    </>
+  )
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 tabular-nums">{children}</dd>
+    </>
+  )
+}
+
+/** A path or address, cut to fit, whole in its tooltip. */
+function Where({ text, full }: { text: string; full: string }) {
+  return (
+    <span className="block truncate font-mono text-2xs" title={full}>
+      {text}
+    </span>
+  )
+}
+
+/** A link's site, as "cdn.pixabay.com", or the link itself when it isn't one a URL can read. */
+function hostOf(src: string): string {
+  return URL.canParse(src) ? new URL(src).host : src
+}
+
+/** Who made it, linked to them, on the library it's from, with a way to its page there. */
+function Credit({ credit }: { credit: NonNullable<ProjectImage["credit"]> }) {
+  return (
+    <span className="flex min-w-0 items-center gap-1">
+      <a href={credit.url} target="_blank" rel="noreferrer" className="truncate hover:underline">
+        {credit.name}
+      </a>
+      {credit.source && (
+        <>
+          <span className="shrink-0 text-muted-foreground">on {credit.source}</span>
+          <a
+            href={credit.url}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open in ${credit.source}`}
+            className="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+          >
+            <ExternalLink className="size-3" />
+          </a>
+        </>
+      )}
+    </span>
+  )
+}
+
 /** A file's size as a person reads one: "180 kB", "2.4 MB". */
 function bytesOf(bytes: number): string {
   const [unit, amount] = bytes < 1_000_000 ? ["kilobyte", Math.max(1, bytes / 1000)] : ["megabyte", bytes / 1_000_000]
@@ -124,7 +193,11 @@ function bytesOf(bytes: number): string {
 /** The picture's box on a card: the card's width less its padding, and at most this tall. */
 const stage = { width: 304, height: 228 }
 
-/** The card's picture: as wide as the card, or as tall as its box when it's taller than that. */
+/**
+ * The card's picture, as large as its box allows, over the transparency grid. The grid is behind the picture alone,
+ * so where it shows the picture is see-through, and the plain gray round one that doesn't fill the box is outside it.
+ * Until its size is known it's as wide as the box.
+ */
 function CardStage({ image, url, size }: { image: ProjectImage; url: string; size: PictureSize | undefined }) {
   if (image.kind === "missing") {
     return (
@@ -134,92 +207,26 @@ function CardStage({ image, url, size }: { image: ProjectImage; url: string; siz
     )
   }
 
-  const tall = size !== undefined && size.height / size.width > stage.height / stage.width
+  const fitted = fittedIn(stage, size)
 
   return (
     <div className="flex justify-center overflow-hidden rounded-md bg-muted ring-1 ring-border ring-inset">
-      <ProjectPicture
-        url={url}
-        className={tall ? "object-contain" : "w-full object-contain"}
-        style={tall ? { height: stage.height } : { maxHeight: stage.height }}
-      />
-    </div>
-  )
-}
-
-/** How many of the places that use one its card lists before the rest wait behind a button. */
-const usesShown = 3
-
-interface MediaUsesProps {
-  image: ProjectImage
-  onShow: (layer: MediaLayer) => void
-  /** How many to list before the rest wait behind a button; all of them when not given. */
-  shown?: number
-  className?: string
-}
-
-/**
- * Where one is used: a row for each design, the one with the most layers first, with Show, then each line of code
- * that names it. A logo can be in a hundred layers, and they're in a handful of designs, so the designs are listed.
- */
-export function MediaUses({ image, onShow, shown, className = "" }: MediaUsesProps) {
-  const [all, setAll] = useState(false)
-
-  const rows = [
-    ...designsUsing(image).map((design) => {
-      const [first] = design.layers
-
-      return (
-        <li key={`${design.document}#${design.design}`} className="flex h-7 shrink-0 items-center gap-2">
-          <DesignIcon kind="screen" className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate">
-            {design.name}{" "}
-            <span className="text-muted-foreground">
-              {design.layers.length === 1 ? "1 layer" : `${design.layers.length} layers`}
-            </span>
-          </span>
-          {first && (
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={`Show in ${design.name}`}
-              className="h-6 px-1.5 text-xs"
-              onClick={() => onShow({ document: design.document, design: design.design, node: first })}
-            >
-              Show
-            </Button>
-          )}
-        </li>
-      )
-    }),
-    ...image.usedInCode.map((use) => (
-      <li key={`${use.path}:${use.line}`} className="flex h-7 shrink-0 items-center gap-2">
-        <Code aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-mono text-2xs">
-          {use.path}, line {use.line}
-        </span>
-      </li>
-    ))
-  ]
-
-  const listed = all || shown === undefined ? rows : rows.slice(0, shown)
-  const more = rows.length - listed.length
-
-  return (
-    <div className={className}>
-      <ul aria-label="Where it's used" className={`flex flex-col ${all ? "max-h-42 overflow-y-auto" : ""}`}>
-        {listed}
-      </ul>
-      {more > 0 && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="-ml-1.5 h-6 px-1.5 text-xs text-muted-foreground"
-          onClick={() => setAll(true)}
-        >
-          Show {more} more
-        </Button>
+      {fitted ? (
+        <ProjectPicture url={url} style={{ ...transparencyGrid, ...fitted }} />
+      ) : (
+        <ProjectPicture url={url} className="w-full object-contain" style={{ maxHeight: stage.height }} />
       )}
     </div>
   )
+}
+
+/** A picture's size scaled to fit a box, keeping its proportions, or none while its size isn't known. */
+function fittedIn(box: PictureSize, size: PictureSize | undefined): PictureSize | undefined {
+  if (!size || size.width <= 0 || size.height <= 0) {
+    return undefined
+  }
+
+  const scale = Math.min(box.width / size.width, box.height / size.height)
+
+  return { width: Math.round(size.width * scale), height: Math.round(size.height * scale) }
 }

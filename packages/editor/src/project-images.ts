@@ -206,6 +206,66 @@ export function designsUsing(image: Pick<ProjectImage, "usedBy">): DesignUse[] {
   return [...designs.values()].toSorted((a, b) => b.layers.length - a.layers.length)
 }
 
+/** A file of the project's code that names an image, with each line that does. */
+export interface CodeFileUse {
+  path: string
+  /** From 1, in order. */
+  lines: number[]
+}
+
+/** The files of the project's code that name an image, in the order they were found, each with its lines. */
+export function codeFilesUsing(image: Pick<ProjectImage, "usedInCode">): CodeFileUse[] {
+  const files = new Map<string, number[]>()
+
+  for (const { path, line } of image.usedInCode) {
+    files.set(path, [...(files.get(path) ?? []), line])
+  }
+
+  return [...files].map(([path, lines]) => ({ path, lines: lines.toSorted((a, b) => a - b) }))
+}
+
+/** Where an image is used, as its card lists it: designs then files of code, and how many of each wait past them. */
+export interface UsesOnCard {
+  designs: DesignUse[]
+  files: CodeFileUse[]
+  moreDesigns: number
+  moreFiles: number
+}
+
+/**
+ * What a card that has room for so many rows lists of where an image is used: the designs with the most layers first,
+ * then files of code in what room is left, and how many of each it leaves out.
+ */
+export function usesOnCard(image: Pick<ProjectImage, "usedBy" | "usedInCode">, rows: number): UsesOnCard {
+  const allDesigns = designsUsing(image)
+  const allFiles = codeFilesUsing(image)
+  const designs = allDesigns.slice(0, rows)
+  const files = allFiles.slice(0, Math.max(0, rows - designs.length))
+
+  return {
+    designs,
+    files,
+    moreDesigns: allDesigns.length - designs.length,
+    moreFiles: allFiles.length - files.length
+  }
+}
+
+/** Every place an image is used, designs then files of code. */
+export interface ImageUses {
+  designs: DesignUse[]
+  files: CodeFileUse[]
+}
+
+/** Every place an image is used whose design name or file path holds `search`, designs then files of code. */
+export function findUses(image: Pick<ProjectImage, "usedBy" | "usedInCode">, search: string): ImageUses {
+  const wanted = search.trim().toLowerCase()
+
+  return {
+    designs: designsUsing(image).filter(({ name }) => name.toLowerCase().includes(wanted)),
+    files: codeFilesUsing(image).filter(({ path }) => path.toLowerCase().includes(wanted))
+  }
+}
+
 /**
  * What removing an image in the window takes. A file nothing uses goes at once (`file`). One designs use goes with the
  * layers that show it (`file-and-layers`). One the project's code names stays until the code changes (`code`), since

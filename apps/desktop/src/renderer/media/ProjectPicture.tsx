@@ -11,6 +11,17 @@ export function pictureUrl(session: ProjectSession, src: string): string {
   return new URL(src, new URL(session.info.guestUrl).origin).href
 }
 
+/**
+ * What shows through where one of the project's pictures is transparent: a grid of squares in the theme's own grays,
+ * quiet in the dark UI and the light one, behind a picture alone so its see-through parts are told from what's round it.
+ */
+export const transparencyGrid: CSSProperties = {
+  backgroundColor: "var(--muted)",
+  backgroundImage:
+    "repeating-conic-gradient(color-mix(in oklch, var(--foreground) 18%, transparent) 0 25%, transparent 0 50%)",
+  backgroundSize: "12px 12px"
+}
+
 interface ProjectPictureProps {
   url: string
   className?: string

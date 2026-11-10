@@ -2452,18 +2452,27 @@ of the pictures themselves, two across, each as tall as its own proportions make
   so one panorama or long screenshot doesn't take the wall, and takes a photo's proportions until it has loaded. Files
   and linked photos load from the project's builder, as the canvas's guest loads them; a linked photo is marked with a
   link, and a path with no file is a dashed tile with its file's name. Pointing at one shows its name over its foot.
+  Where a picture is transparent, a grid of squares in the theme's grays shows through (`transparencyGrid`, PAR-871).
 - **Search and type:** Search media matches a name, path, address, alt text or credit (`filterImages`). With both photos
   and SVGs in the project, All, Images and Vectors narrow the wall by file type (`mediumOf`).
 - **Inserting:** pressing a picture inserts it at the selection, as an icon or component is inserted, or as a new frame
   with nothing selected; it drags onto the canvas the same way (`imageItem`, through the Assets panel's insert and drag,
   now shared in `chrome/insert-from-panel.ts`). It's 320px wide at its own proportions, with the alt text and credit it
   has elsewhere. A path with no file can't be inserted.
-- **Its card** opens after resting on a picture for half a second, or with the right arrow, as a component's card does:
-  the picture larger, its name and path, its size in pixels and bytes, "Not used yet" when nothing uses it, who took it,
-  where it's used, and Insert and remove. Where it's used lists the designs, the one with the most layers first, each
-  with how many layers and Show, which selects the first of them and scrolls to it; then the lines of code naming it.
-  The first three show, and the rest wait behind "Show 2 more" (`designsUsing`), so a logo in a hundred layers is a
-  handful of rows.
+- **Its card** opens after resting on a picture for half a second, or with the right arrow, as a component's card does
+  (redesigned in PAR-871): the picture as large as its box allows, over the transparency grid, which is behind the
+  picture alone, so the plain gray round one that doesn't fill the box is outside it. Then its name, and its facts in
+  labelled rows: Size; File (its size in bytes, "Linked, not saved" or "Missing"); Path, or Link for a linked photo's
+  site, cut to fit and whole in its tooltip; and Credit, who took it on which library, with Open in that library. A row
+  with nothing to say is left out. Insert and remove are in its bar.
+- **Where it's used,** on the card, is up to three rows (`usesOnCard`): the designs with the most layers first
+  (`designsUsing`), then files of code, one row a file with its lines (`codeFilesUsing`). A design's row is its Show
+  button, which selects every layer in it that shows the picture and scrolls to them; Show takes the layer count's place
+  under the pointer or focus. Past three rows, the heading gives the total layers and a last row counts the rest, "2
+  more designs and 4 files of code", which opens every place in the card's stead: Designs then Code, each with its count
+  and a heading that stays at the top while its rows scroll, a search by name once there are eight or more (`findUses`),
+  and Back. Focus moves into it, so the card stays open with the pointer away. A logo in hundreds of layers is still
+  three rows on its card. Nothing using it says "Not used yet".
 - **Adding:** image files dropped on the tab, or chosen with **+**, are saved under `public/images/` as dropped files
   are (`addImageFiles`), and arrive marked for a moment. The tab outlines itself while files are over it, saying what a
   drop adds or that only the five types can be added.
@@ -2476,25 +2485,27 @@ of the pictures themselves, two across, each as tall as its own proportions make
   didn't have, as one pasted onto the canvas meanwhile; the designs themselves are read as they are, unsaved changes
   included. Before the first answer the tab shows the wall's shape; a failed scan says so and shows what it last had.
 
-Code: `packWall` and `tallnessOf` in `packages/editor/src/media-wall.ts`; `mediumOf`, `designsUsing`, `removalOf` and
-`imageItem` in `packages/editor/src/project-images.ts`; `imageAccept` and `imageKinds` in `drop-files.ts`. The tab is
-`apps/desktop/src/renderer/media/`: `MediaPanel.tsx` (search, type, adding, the remove dialog's flow), `MediaWall.tsx`
-(the wall and its tiles), `MediaCard.tsx` (the card and where it's used), `RemoveMediaDialog.tsx`, `ProjectPicture.tsx`
-(a picture at the builder's address, noting its size in `picture-sizes.ts`), `project-media.ts` (the scan, kept per open
-project) and `remove-media.ts`.
+Code: `packWall` and `tallnessOf` in `packages/editor/src/media-wall.ts`; `mediumOf`, `designsUsing`, `codeFilesUsing`,
+`usesOnCard`, `findUses`, `removalOf` and `imageItem` in `packages/editor/src/project-images.ts`; `imageAccept` and
+`imageKinds` in `drop-files.ts`. The tab is `apps/desktop/src/renderer/media/`: `MediaPanel.tsx` (search, type, adding,
+the remove dialog's flow), `MediaWall.tsx` (the wall and its tiles), `MediaCard.tsx` (the card and its facts),
+`MediaUses.tsx` (where it's used on the card, every place, and the remove dialog's list), `RemoveMediaDialog.tsx`,
+`ProjectPicture.tsx` (a picture at the builder's address, noting its size in `picture-sizes.ts`, and the transparency
+grid), `project-media.ts` (the scan, kept per open project) and `remove-media.ts`.
 
 Tests:
 
 - `packages/editor/src/media-wall.test.ts` (8): proportions kept between the strip and the card, a photo's before the
   size is known, the shortest column first, what's above each, the wall's length, earlier pictures never moving, and
   gaps weighed with widths.
-- `packages/editor/src/project-images.test.ts`: `mediumOf`, `designsUsing` grouping and ordering, `removalOf` for each
-  case, and `imageItem`.
-- `media/MediaPanel.stories.tsx` (17 stories, each with its check): no media, loading, the wall, linked and missing
-  pictures, searching, nothing matching, vectors only, a card, a linked photo's card, a logo used in a hundred layers,
-  Show, inserting at the selection, removing an unused file, removing one in use with its layers, one the code names,
-  dropping files, and the narrowest panel. The stories' pictures are drawn for them and served at `/images/`, as a
-  builder serves `public/images/`.
+- `packages/editor/src/project-images.test.ts`: `mediumOf`, `designsUsing` grouping and ordering, code grouped by file,
+  what a card lists and leaves out, finding uses by name, `removalOf` for each case, and `imageItem`.
+- `media/MediaPanel.stories.tsx` (19 stories, each with its check): no media, loading, the wall, linked and missing
+  pictures, searching, nothing matching, vectors only, a card and its facts, a linked photo's card with its credit, a
+  card for one nothing uses, one for a missing file, a logo in a hundred layers and four files of code (every place, its
+  search and Back), Show selecting every layer in a design, inserting at the selection, removing an unused file,
+  removing one in use with its layers, one the code names, dropping files, and the narrowest panel. The stories'
+  pictures are drawn for them and served at `/images/`, as a builder serves `public/images/`.
 
 Gaps: stock media (Find on Pixabay) and videos aren't in the tab yet (PAR-839, PAR-841). Removing a component layer that
 takes the image as a prop removes the whole layer, as the dialog's count says. There are no thumbnails: every picture

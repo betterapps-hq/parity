@@ -1,12 +1,12 @@
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@buildkitgg/shadcn-baseui-kit"
 import { type ProjectImage, removalOf } from "@parity-app/editor"
-import { type MediaLayer, MediaUses } from "./MediaCard.tsx"
+import { type MediaLayers, MediaUses } from "./MediaUses.tsx"
 
 interface RemoveMediaDialogProps {
   /** The one being removed; the dialog is closed without one. */
   image: ProjectImage | undefined
   onClose: () => void
-  onShow: (layer: MediaLayer) => void
+  onShow: (layers: MediaLayers) => void
   onRemove: (image: ProjectImage) => void
 }
 

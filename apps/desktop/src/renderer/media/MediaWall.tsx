@@ -22,8 +22,9 @@ import { Link2, Trash2 } from "lucide-react"
 import type { CSSProperties, KeyboardEvent } from "react"
 import { useHoverCard } from "../chrome/hover-card.ts"
 import { dragItem } from "../chrome/insert-from-panel.ts"
-import { type MediaLayer, MediaCard, removeLabel } from "./MediaCard.tsx"
-import { PictureMissing, ProjectPicture } from "./ProjectPicture.tsx"
+import { MediaCard, removeLabel } from "./MediaCard.tsx"
+import type { MediaLayers } from "./MediaUses.tsx"
+import { PictureMissing, ProjectPicture, transparencyGrid } from "./ProjectPicture.tsx"
 
 /** How many sit across the wall, the space between them, and a tile's width in a panel at its usual width. */
 const wallLayout = { across: 2, gap: 8, usual: 116 }
@@ -36,7 +37,7 @@ function down({ widths, gaps }: Stretch): string {
 interface MediaActions {
   onInsert: (item: InsertItem) => void
   onRemove: (image: ProjectImage) => void
-  onShow: (layer: MediaLayer) => void
+  onShow: (layers: MediaLayers) => void
 }
 
 interface WallProps extends MediaActions {
@@ -134,6 +135,8 @@ function Tile({ image, url, size, fresh, past, onInsert, onRemove, onShow }: Til
       type="button"
       aria-label={image.name}
       aria-expanded={card.open}
+      // Where a picture is see-through, the grid shows through it.
+      style={image.kind === "missing" ? undefined : transparencyGrid}
       aria-controls={card.open ? card.id : undefined}
       draggable={!!drag}
       onDragStart={(event) => {
