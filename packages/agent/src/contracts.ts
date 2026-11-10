@@ -215,6 +215,10 @@ export const requests = {
     category: text("category", "Token category.").optional(),
     source: text("source", "Token source, such as semantic or theme.").optional(),
     search: z.string("search must be a string").optional().describe("Token name search."),
+    nearest: text(
+      "nearest",
+      "A color or length that isn't a token, such as #2f6fed or 13px: the tokens nearest it first."
+    ).optional(),
     limit: limit("Most tokens to return.", 100, 1000)
   }),
   components: fields({ tab }),
@@ -587,7 +591,11 @@ const tokenInfo = z.looseObject({
   name: z.string(),
   category: z.string(),
   source: z.string(),
-  values: z.record(z.string(), z.string()).describe("Value per theme.")
+  values: z.record(z.string(), z.string()).describe("Value per theme."),
+  distance: z
+    .number()
+    .optional()
+    .describe("Given nearest: how far it is, in pixels for a length, in OKLab for a color (under 0.02 looks the same).")
 })
 
 const componentsReply = z.looseObject({

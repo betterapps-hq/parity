@@ -1911,6 +1911,16 @@ recommended answer to each of its questions.
   `parity problems` exits with 1 when it finds any.
 - **Reads for a terminal are CLI only:** `parity tokens`, `parity components` and `parity props <Component>`. Agents do
   these in a snippet (`GetTokens`, `Components`, `Props`), so the MCP tool list stays short.
+- **Agents find the token nearest a raw value through `GetTokens({ nearest })`** (PAR-833, my call, as the issue asked).
+  A design handed over often has a color or length that isn't a token, such as `#2f6fed` or `13px`, and the skill
+  forbids writing one raw. `nearest` lists the tokens that can be compared with it, nearest first, with how far each is:
+  OKLab for a color, as contrast fixes and PAR-186's styling controls measure it, and pixels for a length. It's a filter
+  on the read agents already make, so `parity tokens` gains `--nearest`, MCP's `get_tokens` gains `nearest`, and the
+  tool list stays as it is. The other way, a note on each call that writes a raw value, comes after the value is
+  written, so the "isn't a token" warning only names the `GetTokens({ nearest })` call to make. Colors are compared in
+  the default theme, and ties go to semantic tokens, which the skill prefers. Colors are read with `parseColor` from
+  `color.ts`, hex and `oklch()` only, so `rgb()`, `hsl()` and named colors aren't compared yet. It lands with PAR-186's
+  branch, as you asked (2026-11-10).
 - **Agents see what the Components panel shows** (your call, 2026-10-29): `parity components` lists the components that
   fail to draw on the canvas and why, and the person's corrections, saved or not, as well as the exports that aren't
   components (`0004a01`). `Components()` in a snippet still returns names, which closes PAR-254: snippets use them to

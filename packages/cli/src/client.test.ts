@@ -382,6 +382,26 @@ describe("describeTokens", () => {
       "Narrow them with category, source or search, or raise limit, to see the rest."
     ])
   })
+
+  it("keeps the tokens nearest a value in their order, each with how far it is (PAR-833)", () => {
+    const text = describeTokens({
+      tokens: [
+        { name: "color-blue-500", category: "color", source: "theme", values: { default: "#2b7fff" }, distance: 0.046 },
+        { name: "primary", category: "color", source: "semantic", values: { default: "#155dfc" }, distance: 0.052 }
+      ],
+      total: 2,
+      truncated: false
+    })
+
+    expect(text).toBe(
+      [
+        '2 tokens, nearest first. Name them in styles without "--".',
+        "",
+        "  color-blue-500 (color, theme, distance 0.046): default #2b7fff",
+        "  primary (color, semantic, distance 0.052): default #155dfc"
+      ].join("\n")
+    )
+  })
 })
 
 describe("describeExec", () => {

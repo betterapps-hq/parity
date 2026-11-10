@@ -124,6 +124,9 @@ parity status --summary
 - **Use the project's tokens.** Colours, radii, shadows, fonts, sizes, leading and tracking name a token, such as
   `muted-foreground`, `radius-lg` or `text-sm`, without the `--`. Lengths are steps of the spacing scale: `4` is four
   spacing units (1rem in a default Tailwind project). `GetTokens()` lists them. Never write a raw colour or pixel value.
+  When a design hands you one, such as `#2f6fed` or `13px`, use the nearest token: `GetTokens({ nearest: "#2f6fed" })`
+  lists the closest first, and a length takes a category too, as in
+  `GetTokens({ nearest: "13px", category: "font-size" })`.
 - **Prefer semantic colours** (`background`, `foreground`, `card`, `muted`, `muted-foreground`, `primary`, `border`,
   `destructive`) over palette ones (`color-blue-500`). They change with the theme; palette colours don't.
 - **Layout is auto layout.** A `layout` node is a flex box (or a grid with `display: "grid"`); children fill, hug or

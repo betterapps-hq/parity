@@ -99,7 +99,8 @@ const units = new Map([
   ["em", 16]
 ])
 
-function pixels(text: string): number | undefined {
+/** A length written in px, rem or em, in pixels (16 to a rem or an em); undefined for anything else. */
+export function pixels(text: string): number | undefined {
   const match = /^(-?\d*\.?\d+)(px|rem|em)$/.exec(text.trim())
 
   return match ? Number(match[1]) * units.get(match[2]!)! : undefined

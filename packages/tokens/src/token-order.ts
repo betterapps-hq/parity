@@ -84,6 +84,20 @@ function topLevelWords(value: string): string[] {
   return words.filter((each) => !each.includes("(") || /^(?:calc|min|max|clamp)\(/i.test(each))
 }
 
+/** The kinds whose values are lengths, which `scaleValue` measures in pixels. */
+export const lengthKinds: ReadonlySet<PreviewKind> = new Set<PreviewKind>([
+  "spacing",
+  "radius",
+  "font-size",
+  "tracking",
+  "border-width",
+  "blur",
+  "backdrop-blur",
+  "perspective",
+  "breakpoint",
+  "container"
+])
+
 /**
  * Where a token falls in its scale, for the kinds whose values are measured: a length in pixels, a duration in
  * milliseconds, a weight, a ratio, how far a shadow reaches, an animation's duration, or a plain number. `none` is 0.
@@ -103,21 +117,15 @@ export function scaleValue(
     return undefined
   }
 
+  if (lengthKinds.has(kind)) {
+    const measured = text === "none" ? 0 : length(text)
+
+    return Number.isFinite(measured) ? measured : undefined
+  }
+
   let measured: number
 
   switch (kind) {
-    case "spacing":
-    case "radius":
-    case "font-size":
-    case "tracking":
-    case "border-width":
-    case "blur":
-    case "backdrop-blur":
-    case "perspective":
-    case "breakpoint":
-    case "container":
-      measured = text === "none" ? 0 : length(text)
-      break
     case "duration":
       measured = parsedDuration(text)
       break

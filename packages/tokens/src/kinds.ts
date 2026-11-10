@@ -60,7 +60,7 @@ const isMapped = (kind: InferredKind): kind is keyof typeof previewOf => kind in
  * the tokens it refers to, so `calc(var(--radius) * 0.8)` is read as the length it comes to.
  */
 export function previewKind(
-  token: Pick<Token, "name" | "category" | "values">,
+  token: Pick<Token, "name" | "values"> & { category: string },
   type?: string,
   lookup?: (name: string, theme?: string) => string | undefined
 ): PreviewKind {

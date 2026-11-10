@@ -187,6 +187,10 @@ const methods: MethodTable = {
       filter.search = params.search
     }
 
+    if (params.nearest !== undefined) {
+      filter.nearest = params.nearest
+    }
+
     return readOnly(snapshot).GetTokens(filter)
   },
   async components(params, { host }) {

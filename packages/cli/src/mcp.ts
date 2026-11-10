@@ -184,7 +184,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "get_tokens",
-    "Read tokens filtered by category, source or name, with values in every theme.",
+    "Read tokens filtered by category, source or name, with values in every theme. Given nearest, a color or length that isn't a token (#2f6fed, 13px), lists the tokens nearest it first, with how far each is.",
     operations.tokens,
     (result) => [text(describeTokens(result))]
   ),

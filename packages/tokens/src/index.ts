@@ -10,6 +10,8 @@ export * from "./kinds.ts"
 
 export * from "./matching.ts"
 
+export * from "./nearest.ts"
+
 export * from "./policy.ts"
 
 export * from "./stylesheet.ts"

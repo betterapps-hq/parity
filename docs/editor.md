@@ -3563,6 +3563,41 @@ and the design taking it without a warning while a color named `radius-full` is 
 `--radius-full` listed as its token). Gaps: the inspector's radius picker doesn't offer Full yet, and the Tokens panel
 doesn't list it; a node an agent rounds this way shows `radius-full` in the field as it would an unknown token.
 
+### The token nearest a raw value, for agents (PAR-833)
+
+A design handed to an agent often has colors and sizes that aren't tokens, such as `#2f6fed` or `13px`. The skill tells
+it never to write one raw, and `GetTokens({ nearest: "#2f6fed" })` (`parity tokens --nearest`, MCP `get_tokens`) says
+what to write instead: the tokens that can be compared with the value, nearest first, each with its `distance`. It's the
+hint PAR-186's styling controls give designers ("Nearest to 12px"), for agents.
+
+- **Colors with colors, lengths with lengths.** A color is read from hex or `oklch()` and compared only with color
+  tokens; a length in px, rem or em (16px to a rem) only with length tokens: spacing, radius, type size, tracking,
+  border width, blur, breakpoints and containers. The other filters narrow it, so `category: "font-size"` keeps a `13px`
+  to type sizes. Anything else, such as `blue` or a bare `13`, is refused as `invalid_input` on `nearest`.
+- **How far.** A color's distance is OKLab's, with any difference in alpha added, to three decimals; under 0.02 looks
+  the same. A length's is in pixels, to two decimals.
+- **What a token comes to.** Each token is read in the default theme, or the one theme that sets it, with the tokens it
+  refers to worked out and simple `calc()` done: `primary: var(--color-blue-600)` is that blue, `spacing-3` is 12px and
+  `radius-md`'s `calc(var(--radius) - 2px)` is 8px. A token that can't be read that way, such as a color name, `clamp()`
+  or `radius-full`'s infinity, is left out.
+- **Ties go to the project's own tokens,** the semantic ones the skill prefers, then by name.
+- **The warning says so too.** When a design names a color under `background`, `foreground` or `border`, or a length
+  under `radius`, `size` or `tracking`, its "isn't a token" warning names the call:
+  `Use a name from GetTokens({ nearest: "#2f6fed", category: "color" }), which lists the nearest first.`
+
+Code: `readNearValue` and `nearestTokens` in `packages/tokens/src/nearest.ts`, reading colors with `parseColor` in
+`packages/tokens/src/color.ts` and lengths with `scaleValue` and `lengthKinds` in `token-order.ts`; `getTokens` in
+`packages/agent/src/workspace.ts`; `nearestHint` in `packages/agent/src/lint.ts`; `describeTokens` in
+`packages/cli/src/client.ts`.
+
+Tests: `packages/tokens/src/nearest.test.ts` (reading values, colors through references, the same color written another
+way, alpha, themes, lengths through `calc()`, what's left out); `packages/agent/src/run.test.ts` ("lists the tokens
+nearest a color or a length", and `nearest: "blue"` refused); `packages/agent/src/lint.test.ts` ("names the call that
+lists the tokens nearest a raw color or length"); `packages/cli/src/client.test.ts` and `operations.test.ts` (the
+printed order, and `--nearest` reaching the app as MCP's `nearest` does); the skill's example in `execute.md`, run by
+`packages/cli/src/skill-examples.test.ts`. Gaps: `rgb()`, `hsl()` and named colors aren't read, so a project that writes
+its colors that way gets no nearest color; colors are compared in the default theme only.
+
 ## Accessibility
 
 How the Accessibility tab checks a design and helps fix what it finds.
