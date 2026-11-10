@@ -23,6 +23,11 @@ Telemetry lens, which reads OpenTelemetry from the app a person builds, shares n
 The app sends to the `parity-desktop` project and the CLI to `parity-cli`; [sentry.md](sentry.md) says how Sentry is set
 up.
 
+A hang is sent as it starts and again when it ends (PAR-804). A window's start is `window.hang_started`. Main can't send
+while it's stuck, so a watchdog thread sends "Main stopped answering" to Sentry after 2 seconds without main's
+heartbeat. A hang still open when the app exits, as in a force-quit, is kept in `<userData>/hangs` and reported by the
+next run as `window.hung` or `main.blocked` with `ended: "exited"`.
+
 ## Who's driving
 
 Every error, span, log and replay is tagged so a test pass can be found and filtered in Sentry:
@@ -438,7 +443,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `ipc.failed`            | warn  | all  | renderer                                | A request to the project service fails.                                                                           |
 | `library.added`         | info  | all  | renderer                                | A catalog library is installed into the project.                                                                  |
 | `library.failed`        | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                          |
-| `main.blocked`          | warn  | all  | main                                    | Main's event loop runs again after being blocked for over 2 seconds.                                              |
+| `main.blocked`          | warn  | all  | main                                    | Main's event loop runs again after being blocked for over 2 seconds, or the app exits while it's blocked.         |
 | `mcp.session`           | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                                                 |
 | `mode.switched`         | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.                               |
 | `panel.shown`           | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                                             |
@@ -475,7 +480,8 @@ Some failures are recorded for you, so code doesn't record them again:
 | `update.downloaded`     | info  | all  | main                                    | An update finishes downloading.                                                                                   |
 | `update.failed`         | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                          |
 | `update.installed`      | info  | all  | main                                    | The app quits to install a downloaded update.                                                                     |
-| `window.hung`           | warn  | all  | main                                    | A window that stopped answering answers again.                                                                    |
+| `window.hang_started`   | warn  | all  | main                                    | A window stops answering, which Electron reports once it has been stuck for a few seconds (PAR-804).              |
+| `window.hung`           | warn  | all  | main                                    | A window that stopped answering answers again, is closed, or the app quits or exits while it's stuck.             |
 
 ### `account.refreshFailed`
 
@@ -888,9 +894,10 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `main.blocked`
 
-| Attribute | Type      | Meaning                                                                 |
-| --------- | --------- | ----------------------------------------------------------------------- |
-| `stuckMs` | `integer` | How late main's timer ran, which is how long its event loop was blocked |
+| Attribute | Type                     | Meaning                                                                                                                                      |
+| --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stuckMs` | `integer`                | How long main's event loop was blocked                                                                                                       |
+| `ended`   | `"answered" \| "exited"` | How the hang ended: main's loop `answered` again, or the app `exited` while it was blocked, such as a force-quit, which the next run reports |
 
 ### `mcp.session`
 
@@ -1214,11 +1221,18 @@ Some failures are recorded for you, so code doesn't record them again:
 | `version`   | `string`             | The version running now               |
 | `available` | `string`             | The version being installed           |
 
-### `window.hung`
+### `window.hang_started`
 
 | Attribute | Type                     | Meaning                                                                                 |
 | --------- | ------------------------ | --------------------------------------------------------------------------------------- |
 | `window`  | `"renderer" \| "render"` | Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames |
-| `stuckMs` | `integer`                | How long the window didn't answer                                                       |
+
+### `window.hung`
+
+| Attribute | Type                                           | Meaning                                                                                                                                                                   |
+| --------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `window`  | `"renderer" \| "render"`                       | Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames                                                                                   |
+| `stuckMs` | `integer`                                      | How long the window didn't answer                                                                                                                                         |
+| `ended`   | `"answered" \| "closed" \| "quit" \| "exited"` | How the hang ended: the window `answered` again, was `closed`, the app was `quit`, or the app `exited` without quitting, such as a force-quit, which the next run reports |
 
 <!-- End of the generated events. -->

@@ -92,6 +92,7 @@ import {
   serviceStarted,
   startEvents,
   startTelemetry,
+  quitCancelled,
   watchWindowHangs
 } from "./telemetry.ts"
 import { savedTheme } from "./theme-file.ts"
@@ -519,6 +520,7 @@ function createWindow(): void {
     updateRestarts.delete(window.id)
     deciding = false
     quitting = false
+    quitCancelled()
   })
   ipcMain.removeAllListeners(ipc.closeReady)
   ipcMain.on(ipc.closeReady, (event) => {
@@ -533,6 +535,7 @@ function createWindow(): void {
         ready = false
         deciding = false
         quitting = false
+        quitCancelled()
       }
 
       if (!updates?.install(resetClose)) {

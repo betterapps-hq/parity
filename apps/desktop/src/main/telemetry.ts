@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto"
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { Worker } from "node:worker_threads"
 import { CodedError } from "@parity-app/core"
 import {
   createDriverTracker,
@@ -9,6 +11,12 @@ import {
   envelopeSchema,
   hangThresholdMs,
   lagCheck,
+  leftoverHangs,
+  type OpenHangs,
+  openHangsSchema,
+  openHangsFile,
+  openHangsOwner,
+  openHangsRun,
   registeredEvents,
   serviceExit,
   isSpanEnvelope,
@@ -31,6 +39,7 @@ import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import type { TelemetryRun } from "../shared/telemetry-run.ts"
 import { type FailedFramePicture, failedFrameFor } from "./frame-telemetry.ts"
+import type { HangWatchMessage, HangWatchStart } from "./hang-watch.ts"
 import { createLogFileSink, createLogFiles } from "./log-files.ts"
 import { createReportOnlyGate } from "./report-only.ts"
 
@@ -86,6 +95,7 @@ function tagDriver(): void {
   const now = driver.current()
   Sentry.setTags(driverTags(now))
   Sentry.setUser(telemetryUser(installId, runVariables, now))
+  syncWatchdog()
 }
 
 /** The driver's tags on an event, checked as it's sent, since an agent that stopped calling hands back to the person. */
@@ -203,6 +213,7 @@ export function startTelemetry(
 /** Tags what follows with the update channel an installed build takes, stable or beta, as it starts and when it changes. */
 export function tagUpdateChannel(beta: boolean): void {
   Sentry.setTag("update_channel", beta ? "beta" : "stable")
+  syncWatchdog()
 }
 
 /** Main's Sentry as the sink sends to it. A log in a trace goes in a scope that continues it, so Sentry links them. */
@@ -284,6 +295,7 @@ export function startEvents({
 
   scrubber.follow(telemetry)
   recorded = telemetry
+  startHangWatch(join(userData, "hangs"))
 
   return { run, telemetry, flushLogs: () => logFile.flush() }
 }
@@ -354,9 +366,19 @@ export function applyTelemetry(next: { level: TelemetryLevel; installId: string 
   tagDriver()
 }
 
+/** How a window's hang ended, as `window.hung` names it. */
+type WindowHangEnd = "answered" | "closed" | "quit"
+
+/** The windows stuck now, by window ID: what they are, since when, and how to end their hang. */
+const stuckWindows = new Map<
+  number,
+  { kind: "renderer" | "render"; since: number; end: (how: WindowHangEnd) => void }
+>()
+
 /**
- * Reports a window that stops answering, once it answers again, with how long it was stuck: as a Sentry message tagged
- * `hang`, and as `window.hung`, whose `stuckMs` can be searched and charted (PAR-771).
+ * Reports a window that stops answering as it happens, as a Sentry message tagged `hang` and as `window.hang_started`
+ * (PAR-804), and again once the hang ends, with how long it lasted: as a Sentry message, and as `window.hung`, whose
+ * `stuckMs` can be searched and charted (PAR-771). It ends when the window answers, is closed or the app quits.
  */
 export function watchWindowHangs(
   window: BrowserWindow,
@@ -364,26 +386,232 @@ export function watchWindowHangs(
   kind: "renderer" | "render",
   onHang?: () => void
 ): void {
-  let since: number | undefined
-  window.on("unresponsive", () => {
-    since = performance.now()
-    onHang?.()
-    Sentry.addBreadcrumb({ category: "window", level: "warning", message: `The ${name} stopped answering` })
-  })
-  window.on("responsive", () => {
-    if (since === undefined) {
+  const id = window.id
+
+  const end = (how: WindowHangEnd) => {
+    const stuck = stuckWindows.get(id)
+
+    if (!stuck) {
       return
     }
 
-    const stuckMs = Math.round(performance.now() - since)
-    since = undefined
-    Sentry.captureMessage(`The ${name} was unresponsive for ${(stuckMs / 1000).toFixed(1)}s`, {
+    stuckWindows.delete(id)
+    keepStuckWindows()
+    const stuckMs = Math.round(performance.now() - stuck.since)
+    const until = { answered: "", closed: " until it was closed", quit: " until the app quit" }[how]
+    Sentry.captureMessage(`The ${name} was unresponsive for ${(stuckMs / 1000).toFixed(1)}s${until}`, {
       level: "warning",
       tags: { process: kind, hang: "window" },
       extra: { stuckMs }
     })
-    recorded?.track("window.hung", { window: kind, stuckMs })
+    recorded?.track("window.hung", { window: kind, stuckMs, ended: how })
+  }
+
+  window.on("unresponsive", () => {
+    if (stuckWindows.has(id)) {
+      return
+    }
+
+    stuckWindows.set(id, { kind, since: performance.now(), end })
+    keepStuckWindows()
+    onHang?.()
+    Sentry.captureMessage(`The ${name} stopped answering`, {
+      level: "warning",
+      tags: { process: kind, hang: "window" }
+    })
+    recorded?.track("window.hang_started", { window: kind })
   })
+  window.on("responsive", () => end("answered"))
+  window.on("closed", () => end(quitAsked ? "quit" : "closed"))
+}
+
+/** Whether the app was asked to quit and hasn't been told it was cancelled, so a stuck window that closes says `quit`. */
+let quitAsked = false
+
+app.on("before-quit", () => (quitAsked = true))
+
+// What's still stuck as the app quits for good ends with it.
+app.prependListener("will-quit", () => {
+  for (const { end } of stuckWindows.values()) {
+    end("quit")
+  }
+})
+
+/**
+ * The editor cancelled quitting, as when someone keeps unsaved changes: its hangs stay open, and a window that closes
+ * later says `closed`.
+ */
+export function quitCancelled(): void {
+  quitAsked = false
+}
+
+/** Where the stuck windows are kept while they last, for the next run if the app exits first: none until it starts. */
+let stuckWindowsFile: string | undefined
+
+/** Keeps the windows stuck now, and for how long, in their file, or removes it once none are. */
+function keepStuckWindows(): void {
+  if (!stuckWindowsFile) {
+    return
+  }
+
+  try {
+    if (stuckWindows.size === 0) {
+      rmSync(stuckWindowsFile, { force: true })
+
+      return
+    }
+
+    const now = performance.now()
+
+    const options = Sentry.getClient()?.getOptions()
+
+    const open: OpenHangs = {
+      release: options?.release,
+      environment: options?.environment,
+      hangs: [...stuckWindows.values()].map(({ kind, since }) => ({ kind, stuckMs: Math.round(now - since) }))
+    }
+
+    writeFileSync(stuckWindowsFile, JSON.stringify(open))
+  } catch (error) {
+    console.warn("[telemetry] couldn't keep the stuck windows:", error)
+  }
+}
+
+/** The thread that watches main's heartbeat, once it's started. */
+let watchdog: Worker | undefined
+
+/** Main's heartbeat, in milliseconds, which its own lag check and the watchdog both go by. */
+const beatEveryMs = 500
+
+/**
+ * Reports the hangs earlier runs left open, since they exited before the hangs ended, then starts the watchdog thread
+ * that records main's hangs while they last (PAR-804). Both keep their open hangs in `folder`, in files named by this
+ * process, so another copy of the app sharing the folder keeps its own and isn't reported while it runs.
+ */
+function startHangWatch(folder: string): void {
+  const mainFile = join(folder, openHangsFile("main", process.pid))
+  const windowsFile = join(folder, openHangsFile("windows", process.pid))
+
+  try {
+    mkdirSync(folder, { recursive: true })
+  } catch (error) {
+    console.warn("[telemetry] couldn't make the folder for open hangs:", error)
+
+    return
+  }
+
+  for (const file of exitedRunsHangs(folder)) {
+    const kept = readOpenHangs(file)
+    // Reported under the release that hung, not this run's, which may be an update (PAR-804).
+    const run = openHangsRun(kept)
+
+    for (const leftover of leftoverHangs(kept)) {
+      const { stuckMs } = leftover.attributes
+
+      const what =
+        leftover.name === "main.blocked"
+          ? "Main was blocked"
+          : `A ${leftover.attributes.window} window was unresponsive`
+
+      Sentry.captureEvent({
+        message: `${what} for ${(stuckMs / 1000).toFixed(1)}s when the app exited`,
+        level: "warning",
+        tags: { hang: leftover.name === "main.blocked" ? "main" : "window" },
+        extra: { stuckMs },
+        ...run
+      })
+
+      if (leftover.name === "main.blocked") {
+        recorded?.track(leftover.name, leftover.attributes)
+      } else {
+        recorded?.track(leftover.name, leftover.attributes)
+      }
+    }
+
+    rmSync(file, { force: true })
+  }
+
+  stuckWindowsFile = windowsFile
+
+  try {
+    const start: HangWatchStart = { file: mainFile, every: beatEveryMs, threshold: hangThresholdMs, dsn }
+    watchdog = new Worker(new URL("./hang-watch.mjs", import.meta.url), { workerData: start })
+    watchdog.on("error", (error) => console.warn("[telemetry] the hang watchdog stopped:", error))
+    watchdog.unref()
+    syncWatchdog()
+  } catch (error) {
+    console.warn("[telemetry] couldn't start the hang watchdog:", error)
+  }
+}
+
+/** The open-hang files in `folder` whose process has exited. */
+function exitedRunsHangs(folder: string): string[] {
+  let names: string[]
+
+  try {
+    names = readdirSync(folder)
+  } catch {
+    return []
+  }
+
+  return names
+    .filter((name) => {
+      const owner = openHangsOwner(name)
+
+      return owner !== undefined && owner !== process.pid && !running(owner)
+    })
+    .map((name) => join(folder, name))
+}
+
+/** Whether a process is running: signal 0 checks without sending anything, and one we may not signal still runs. */
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch (error) {
+    return error instanceof Error && "code" in error && error.code === "EPERM"
+  }
+}
+
+/** What an earlier run kept in an open-hang file, checked by `openHangsSchema`, or nothing when it can't be read. */
+function readOpenHangs(file: string): OpenHangs | undefined {
+  try {
+    const read = openHangsSchema.safeParse(JSON.parse(readFileSync(file, "utf8")))
+
+    return read.success ? read.data : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Tells the watchdog whether Sentry sends and what main's events carry now, so its message matches theirs. */
+function syncWatchdog(): void {
+  if (!watchdog) {
+    return
+  }
+
+  const options = Sentry.getClient()?.getOptions()
+
+  const tags = {
+    ...Sentry.getGlobalScope().getScopeData().tags,
+    ...Sentry.getIsolationScope().getScopeData().tags,
+    ...Sentry.getCurrentScope().getScopeData().tags
+  }
+
+  const message: HangWatchMessage = {
+    type: "scope",
+    enabled: level !== "off",
+    scope: scrubber.value({
+      release: options?.release,
+      environment: options?.environment,
+      dist: options?.dist,
+      tags: Object.fromEntries(Object.entries(tags).map(([key, value]) => [key, String(value)])),
+      user: { id: Sentry.getIsolationScope().getUser()?.id?.toString() }
+    })
+  }
+
+  watchdog.postMessage(message)
 }
 
 /**
@@ -410,10 +638,12 @@ export function serviceStarted(restarted: boolean): void {
 /**
  * Reports main's own event loop being blocked, once it runs again, as a Sentry message tagged `hang` and as
  * `main.blocked` (PAR-771). Sentry's native hang detection needs a module built for Electron's ABI, which isn't shipped
- * yet, so this measures how late a timer fires instead: it says how long main was stuck, though not where.
+ * yet, so this measures how late a timer fires instead: it says how long main was stuck, though not where. The same
+ * timer is the heartbeat the watchdog thread watches, which reports the hang as it starts (PAR-804), and it keeps how
+ * long any window has been stuck.
  */
 function watchMainLoop(): void {
-  const check = lagCheck({ every: 500, threshold: hangThresholdMs, start: performance.now() })
+  const check = lagCheck({ every: beatEveryMs, threshold: hangThresholdMs, start: performance.now() })
   // A computer that slept leaves the timer late without main being stuck.
   let slept = false
   void app.whenReady().then(() => {
@@ -421,6 +651,12 @@ function watchMainLoop(): void {
     powerMonitor.on("resume", () => (slept = true))
   })
   setInterval(() => {
+    watchdog?.postMessage({ type: "beat" } satisfies HangWatchMessage)
+
+    if (stuckWindows.size > 0) {
+      keepStuckWindows()
+    }
+
     const stuckMs = check.tick(performance.now(), slept)
     slept = false
 
@@ -433,6 +669,6 @@ function watchMainLoop(): void {
       tags: { hang: "main" },
       extra: { stuckMs }
     })
-    recorded?.track("main.blocked", { stuckMs })
-  }, 500).unref()
+    recorded?.track("main.blocked", { stuckMs, ended: "answered" })
+  }, beatEveryMs).unref()
 }
