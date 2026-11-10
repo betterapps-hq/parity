@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 10 Nov 2026 12:19:07 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 13:05:34 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.51.0
+
+Tue, 10 Nov 2026 13:05:34 GMT
+
+### Minor changes
+
+- Find stock pictures on Pixabay in a library browser and add them to the project from the Media tab, credited
+  (ajcraswell@gmail.com)
 
 ## 0.50.0
 
