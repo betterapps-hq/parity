@@ -1,4 +1,5 @@
-import { nearestToken, type Reading, readUnitNumber, useTokens, ValueField } from "./field-parts.tsx"
+import { DurationArt } from "../../chrome/token-previews.tsx"
+import { nearestToken, type Reading, readUnitNumber, useLiveRow, useTokens, ValueField } from "./field-parts.tsx"
 import { splitUnit, type Time, timeMs, timeUnits } from "./motion-data.ts"
 import { durationToken } from "./tokens.ts"
 
@@ -104,61 +105,77 @@ export function TimeField({
     set((ms ?? defaultMs) + (up ? 1 : -1) * (shift ? 100 : 10))
   }
 
+  // Its time drawn as Easing draws its curve, with the Tokens panel's mark: a track filled for how long it is against
+  // half a second, whose dot crosses in that time while the field's hovered or focused. Unset, it's faint.
+  const { live, rowProps } = useLiveRow()
+
+  const preview = (
+    <span
+      aria-hidden
+      className={`grid w-5 shrink-0 place-items-center text-muted-foreground ${value === undefined && !setBy ? "opacity-60" : ""}`}
+    >
+      <DurationArt value={`${ms ?? defaultMs}ms`} width={18} height={12} playing={live(label)} />
+    </span>
+  )
+
   return (
-    <ValueField
-      label={label}
-      shown={own === undefined || setBy || ms === undefined ? undefined : String(ms)}
-      placeholder={String(setBy ? setBy.ms : defaultMs)}
-      mixed={mixed}
-      chip={
-        name === undefined
-          ? undefined
-          : {
-              name,
-              token,
-              namespace,
-              onRemove: () => onChange(undefined),
-              onDetach: token ? () => onChange({ step: token.ms }) : undefined,
-              onReplace: (replacement) => onChange({ token: replacement })
-            }
-      }
-      unit="ms"
-      comesTo={comesTo}
-      own={
-        own === undefined || setBy || ms === undefined
-          ? undefined
-          : {
-              text: `${ms}ms`,
-              nearest,
-              same: nearest?.ms === ms,
-              namespace,
-              onCreate:
-                create &&
-                ((made) => {
-                  create(durationToken(made, ms))
-                  onChange({ token: made })
-                }),
-              allowed: own.allow,
-              onAllow: (reason) => {
-                const plain = "step" in own ? { step: own.step } : { value: own.value }
-                onChange(reason === undefined ? plain : { ...plain, allow: reason })
+    <div className="min-w-0" {...rowProps(label)}>
+      <ValueField
+        label={label}
+        inner={preview}
+        shown={own === undefined || setBy || ms === undefined ? undefined : String(ms)}
+        placeholder={String(setBy ? setBy.ms : defaultMs)}
+        mixed={mixed}
+        chip={
+          name === undefined
+            ? undefined
+            : {
+                name,
+                token,
+                namespace,
+                onRemove: () => onChange(undefined),
+                onDetach: token ? () => onChange({ step: token.ms }) : undefined,
+                onReplace: (replacement) => onChange({ token: replacement })
               }
-            }
-      }
-      tokens={
-        tokens.length > 0
-          ? { list: tokens, current: name, onPick: (picked) => onChange(picked ? { token: picked } : undefined) }
-          : undefined
-      }
-      read={read}
-      onCommit={(typed) => {
-        if ("ms" in typed) {
-          set(typed.ms)
-        } else {
-          onChange(typed.time)
         }
-      }}
-      onStep={(up, { shift }) => step(up, shift)}
-    />
+        unit="ms"
+        comesTo={comesTo}
+        own={
+          own === undefined || setBy || ms === undefined
+            ? undefined
+            : {
+                text: `${ms}ms`,
+                nearest,
+                same: nearest?.ms === ms,
+                namespace,
+                onCreate:
+                  create &&
+                  ((made) => {
+                    create(durationToken(made, ms))
+                    onChange({ token: made })
+                  }),
+                allowed: own.allow,
+                onAllow: (reason) => {
+                  const plain = "step" in own ? { step: own.step } : { value: own.value }
+                  onChange(reason === undefined ? plain : { ...plain, allow: reason })
+                }
+              }
+        }
+        tokens={
+          tokens.length > 0
+            ? { list: tokens, current: name, onPick: (picked) => onChange(picked ? { token: picked } : undefined) }
+            : undefined
+        }
+        read={read}
+        onCommit={(typed) => {
+          if ("ms" in typed) {
+            set(typed.ms)
+          } else {
+            onChange(typed.time)
+          }
+        }}
+        onStep={(up, { shift }) => step(up, shift)}
+      />
+    </div>
   )
 }

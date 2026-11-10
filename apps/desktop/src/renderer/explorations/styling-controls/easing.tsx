@@ -228,6 +228,15 @@ export function EasingField({
     current = easingClass(value)
   }
 
+  // One of Tailwind's easings is a chip, as a project token is, since the list offers both alike: Backspace takes it
+  // off whole and typing replaces it, rather than its name being text to erase a letter at a time.
+  const preset = presetTokens.find((option) => option.name === current)
+  const chipName = name ?? preset?.name
+
+  if (preset) {
+    comesTo = preset.detail
+  }
+
   // Up and Down go through Tailwind's easings, then the project's, in order.
   const order: Easing[] = [
     ...easingPresets.map((preset) => ({ keyword: preset.keyword })),
@@ -294,10 +303,14 @@ export function EasingField({
       <ValueField
         label={label}
         inner={editor}
-        shown={value === undefined || name !== undefined ? undefined : easingName(value)}
+        shown={value === undefined || chipName !== undefined ? undefined : easingName(value)}
         placeholder="Default"
         mixed={mixed}
-        chip={name === undefined ? undefined : { name, token, namespace, onRemove: () => onChange(undefined) }}
+        chip={
+          chipName === undefined
+            ? undefined
+            : { name: chipName, token: token ?? preset, namespace, onRemove: () => onChange(undefined) }
+        }
         comesTo={comesTo}
         status={{ missing: name !== undefined && !token ? <MissingMark name={name} /> : undefined }}
         tokens={{

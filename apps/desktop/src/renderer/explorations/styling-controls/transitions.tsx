@@ -1,19 +1,9 @@
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Input
-} from "@buildkitgg/shadcn-baseui-kit"
-import { ChevronDown, Plus } from "lucide-react"
-import { useId, useState } from "react"
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Plus } from "lucide-react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { CurveThumb, EasingField, SaveAsToken } from "./easing.tsx"
-import { useTokens } from "./field-parts.tsx"
+import { type FieldSearch, type Reading, type SearchOption, useTokens, ValueField } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { ListRow, moved } from "./list-parts.tsx"
 import {
@@ -160,7 +150,7 @@ function EntryRow({
     <>
       <p className="pb-1 text-sm font-medium">{label} transition</p>
       <Field label="Changes">
-        <PropertyMenu property={entry.property} onChange={(property) => onChange({ property })} />
+        <PropertyField property={entry.property} onChange={(property) => onChange({ property })} />
       </Field>
       <Field label="Duration">
         <TimeField
@@ -229,77 +219,97 @@ function EntryRow({
 
 const sets = ["all", "colors", "opacity", "transform", "shadow"] as const
 
-/** What changes: one of Tailwind's sets, or a property typed in. */
-function PropertyMenu({
+/** A CSS property this browser knows, such as `width` or a custom property. */
+const isProperty = (name: string) => /^-?-?[a-z][a-z0-9-]*$/i.test(name) && CSS.supports(name, "initial")
+
+/** The set a name typed is, by its key, label or utility: `colors`, `Colors` or `transition-colors`. */
+function setNamed(text: string) {
+  const words = text.trim().toLowerCase()
+
+  return sets.find((set) =>
+    [set, transitionSets[set].label, transitionSets[set].utility].some((name) => name.toLowerCase() === words)
+  )
+}
+
+/** A set or a property as the list under What changes draws it: its name, then what it writes. */
+function changesOption(name: string, writes: string, mono = false) {
+  return (
+    <>
+      <span className={mono ? "font-mono" : ""}>{name}</span>
+      <span className="text-muted-foreground">{writes}</span>
+    </>
+  )
+}
+
+/** What typing in What changes finds: the sets whose name or utility has it, then a property of that name. */
+const changesSearch: FieldSearch<TransitionProperty> = {
+  label: "What changes",
+  options: (text) => {
+    const name = text.trim()
+    const words = name.toLowerCase()
+
+    const matching = sets.filter((set) =>
+      [transitionSets[set].label, transitionSets[set].utility].some((each) => each.toLowerCase().includes(words))
+    )
+
+    const options: (SearchOption & { value: TransitionProperty })[] = matching.map((set) => ({
+      key: set,
+      value: set,
+      content: changesOption(transitionSets[set].label, transitionSets[set].utility)
+    }))
+
+    if (words !== "" && setNamed(words) === undefined && isProperty(name)) {
+      options.push({
+        key: `property-${words}`,
+        value: { property: name },
+        group: matching.length > 0 ? "A property" : undefined,
+        content: changesOption(name, `transition-[${name}]`, true)
+      })
+    }
+
+    return options
+  },
+  empty: (text) => `No set or property named “${text.trim()}”`
+}
+
+/**
+ * What changes, as one field: focused, it lists Tailwind's sets with their utilities; typing narrows them, or names a
+ * property of its own (`width`), offered after any set it matches. Enter takes the highlighted one.
+ */
+function PropertyField({
   property,
   onChange
 }: {
   property: TransitionProperty
   onChange: (property: TransitionProperty) => void
 }) {
-  const chosenSet = sets.find((option) => option === property)
-  // A property of its own is labelled with its name.
-  const [typed, setTyped] = useState(chosenSet === undefined ? transitionLabel(property) : "")
-  const id = useId()
+  const read = (text: string): Reading<TransitionProperty> => {
+    const name = text.trim()
+    const set = setNamed(name)
+
+    if (name === "") {
+      return { value: property }
+    }
+
+    if (set) {
+      return { value: set }
+    }
+
+    return isProperty(name) ? { value: { property: name } } : { reason: "Enter a set or a property, such as width" }
+  }
 
   return (
-    <div className="flex flex-col gap-1">
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="outline" size="sm" className="h-7 w-full justify-between px-2 text-xs font-normal">
-              {transitionLabel(property)}
-              <ChevronDown className="size-3.5 text-muted-foreground" />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="start" className="w-48">
-          <DropdownMenuRadioGroup
-            value={chosenSet ?? "property"}
-            onValueChange={(next) => {
-              const set = sets.find((option) => option === next)
-
-              if (set) {
-                onChange(set)
-              }
-            }}
-          >
-            {sets.map((set) => (
-              <DropdownMenuRadioItem key={set} value={set} className="text-xs">
-                {transitionSets[set].label}
-                <span className="ml-auto text-muted-foreground">
-                  {transitionSets[set].utility.replace("transition-", "")}
-                </span>
-              </DropdownMenuRadioItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuRadioItem value="property" className="text-xs">
-              A property
-            </DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <label htmlFor={id} className="sr-only">
-        Property
-      </label>
-      <Input
-        id={id}
-        value={typed}
-        placeholder="Or type a property"
-        onChange={(event) => setTyped(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && typed.trim() !== "") {
-            onChange({ property: typed.trim() })
-          }
-        }}
-        onBlur={() => {
-          if (typed.trim() !== "") {
-            onChange({ property: typed.trim() })
-          }
-        }}
-        className="h-7 text-xs"
-      />
-    </div>
+    <ValueField
+      label="Changes"
+      shown={transitionLabel(property)}
+      placeholder="All"
+      hint={{ label: "What changes", detail: "Pick a set, or type a property, such as width" }}
+      inputMode="text"
+      selectOnFocus
+      search={changesSearch}
+      read={read}
+      onCommit={onChange}
+    />
   )
 }
 

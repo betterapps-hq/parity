@@ -12,8 +12,9 @@ import { newEntryId, previewTransition, TransitionsSection } from "./transitions
  * adds Colors at Tailwind's defaults (150ms, its default curve), shown faintly. Each entry says what changes (All,
  * Colors, Opacity, Transform, Shadow, or a property), then its timing, with the eye, which turns it off without
  * deleting it, and −, as every list's rows do; with two entries or more, it's picked up by its handle or its body and
- * carried to another place, or moved with Up and Down on its handle. The entry opens its details: what changes,
- * Duration, Easing and Delay. Tailwind takes one transition per element, so one entry is utilities, entries with one
+ * carried to another place, or moved with Up and Down on its handle. The entry opens its details: Changes, one field
+ * that lists the sets and takes a property typed; Duration and Delay, each drawn as a track for its time; and Easing,
+ * drawn as its curve. Tailwind takes one transition per element, so one entry is utilities, entries with one
  * timing merge into one property list, and entries with different timings are one arbitrary value, which a note under
  * the list says, offering Save as token.
  */
@@ -123,7 +124,7 @@ export const Spring: Story = {
   render: () => <Transitions start={[{ property: "transform", easing: { spring: { duration: 500, bounce: 0.3 } } }]} />
 }
 
-/** A property of its own, typed in its details: `transition-[filter]`. */
+/** A property of its own, typed into Changes in its details: `transition-[filter]`. */
 export const PropertyOfItsOwn: Story = {
   render: () => <Transitions start={[{ property: { property: "filter" }, duration: { step: 300 } }]} />
 }
