@@ -133,6 +133,15 @@ describe("prepareCanvasCss", () => {
     expect(scoped(":root { --c: #fff; }")).toBe(":host { --c: #fff; }")
   })
 
+  it("takes a qualified root's rem from its own font size, not a nested rule's, and drops importance on the body", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+
+    expect(scoped(":root.dark { --c: #000; .title { font-size: 24px; } }")).not.toContain("--canvas-root-font-size")
+    expect(scoped(":root.dark { --c: #000 !important; }")).toBe(
+      ":host(.dark) { --c: #000 !important; } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --c: #000; } }"
+    )
+  })
+
   it("keeps a qualified root as one selector when asked to, for reading its theme as a token's", () => {
     expect(prepareCanvasCss(":root.dark { --c: #000; }", { ...options, qualifiedRoots: false }).scoped).toBe(
       ":host.dark { --c: #000; }"

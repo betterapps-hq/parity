@@ -368,8 +368,23 @@ function serialize(
     if (bodyRoots.length > 0) {
       // A qualified root drawn on the body goes in a layer below the project's own, so the body's own rules beat its
       // values, as they beat what a page's body inherits from its root. Its font size is what `rem` measures inside
-      // the body, whatever the body's own is.
-      const rootFontSize = [...rootBody.matchAll(fontSizeValue)].at(-1)?.[1]?.trim()
+      // the body, whatever the body's own is. An inherited value carries no importance, so the root's own declarations
+      // lose theirs on the body, and only those, not a nested rule's, give its font size.
+      const unimportant = children.map((child) =>
+        child.kind === "text" ? { ...child, text: child.text.replace(importance, "") } : child
+      )
+
+      // Serialized again into a list of its own, so what the root's rule moves to the document isn't moved twice.
+      const bodyRootBody = serialize(unimportant, options, [], { root: true, inRule: true })
+
+      const ownText = serialize(
+        unimportant.filter((child) => child.kind === "text"),
+        options,
+        [],
+        { root: true, inRule: true }
+      )
+
+      const rootFontSize = [...ownText.matchAll(fontSizeValue)].at(-1)?.[1]?.trim()
 
       const rem = rootFontSize
         ? `${rootFontSizeProperty}: ${rootFontSize}; ${remProperty}: var(${rootFontSizeProperty}); `
@@ -377,7 +392,7 @@ function serialize(
 
       const parts = [
         hostRoots.length > 0 ? `${scope(hostRoots.join(", "))} {${rootBody}}` : "",
-        `@layer ${qualifiedRootLayer} { ${scope(bodyRoots.join(", "))} {${rootBody}${rem}} }`,
+        `@layer ${qualifiedRootLayer} { ${scope(bodyRoots.join(", "))} {${bodyRootBody}${rem}} }`,
         others.length > 0 ? `${scope(others.join(", "))} {${otherBody}}` : ""
       ]
 
@@ -417,6 +432,9 @@ const bodyRootPrefix = `:where([${bodyAttribute}])`
  * `rewriteRootFontSize`), so the registered length takes it as the root's size, not the body's own.
  */
 const fontSizeValue = /(?:^|[;\s])font-size\s*:([^;]*)/gi
+
+/** A declaration's `!important`, which a value the body inherits from its root doesn't keep. */
+const importance = /\s*!\s*important\b/gi
 
 /** The colour scheme a `prefers-color-scheme` block asks for, unless it's left alone. */
 function schemeOfBlock(node: CssNode, options: PrepareCssOptions): ColorScheme | undefined {
