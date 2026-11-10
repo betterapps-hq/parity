@@ -78,7 +78,7 @@ const groups: { name: string; entries: Entry[] }[] = [
       { name: "Frame size", Story: composeStories(frameSize).Desktop, reviewed: true },
       { name: "Layout direction and alignment", Story: composeStories(layout).HorizontalCentered, reviewed: true },
       { name: "Grid tracks", Story: composeStories(gridTracks).SizedTracks, reviewed: true },
-      { name: "Grid placement", Story: composeStories(gridPlacement).SpanAndStart }
+      { name: "Grid placement", Story: composeStories(gridPlacement).SpanAndStart, reviewed: true }
     ]
   },
   {
