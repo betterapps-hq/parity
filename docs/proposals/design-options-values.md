@@ -158,17 +158,17 @@ Fill's list of solids, gradients and images.
   color popover. A gradient's editor names its kind at the top, in a menu that draws the gradient as each of Linear,
   Radial and Angular and switches between them keeping the stops. Under it is the bar of stops (click to add, drag off
   to remove, each a color and a position), with handles on the canvas, then the gradient's settings, each named above
-  its control: Angle (Start angle for Angular), a field Figma lacks, with Rotate 90° beside its name; Center, for Radial
-  and Angular; Blend, `in oklab` as Tailwind v4's, with `in oklch` and sRGB in its menu; and Repeat's switch, which
-  writes `repeating-*-gradient`. A divider sets the stops apart: each stop is a row, as Figma's gradient editor has
-  them, with a position field in %, the color field (a token chip or a value, with its alpha), and − once there are more
-  than the two a gradient needs. Flip, which reverses the stops, and the button that adds one sit beside the Stops
-  title. Clicking a row selects that stop on the bar and on the canvas. Keys and scrubbing are as in every field. CSS's
-  gradient line spans the box at its angle, so dragging the line's ends sets the angle and moves the first and last
-  stops. Radial's handles set the ellipse's two radii and center (`radial-gradient(ellipse 40% 60% at 30% 20%, …)`), as
-  Figma's do; Angular's set a center and start angle, and its hint names `conic-gradient`. Delete removes the selected
-  stop, and Left and Right move it 1%, Shift 10%. Two stops at one position make a hard edge; a midpoint dragged between
-  two stops writes a color hint (`red, 30%, blue`), which Figma lacks.
+  its control: Angle (Start angle for Angular), a field Figma lacks; Center, for Radial and Angular; Blend, `in oklab`
+  as Tailwind v4's, with `in oklch` and sRGB in its menu; and Repeat's switch, which writes `repeating-*-gradient`. A
+  divider sets the stops apart: each stop is a row, as Figma's gradient editor has them, with a position field in %, the
+  color field (a token chip or a value, with its alpha), and − once there are more than the two a gradient needs. Flip,
+  which reverses the stops, and the button that adds one sit beside the Stops title. Clicking a row selects that stop on
+  the bar and on the canvas. Keys and scrubbing are as in every field. CSS's gradient line spans the box at its angle,
+  so dragging the line's ends sets the angle and moves the first and last stops. Radial's handles set the ellipse's two
+  radii and center (`radial-gradient(ellipse 40% 60% at 30% 20%, …)`), as Figma's do; Angular's set a center and start
+  angle, and its hint names `conic-gradient`. Delete removes the selected stop, and Left and Right move it 1%, Shift
+  10%. Two stops at one position make a hard edge; a midpoint dragged between two stops writes a color hint
+  (`red, 30%, blue`), which Figma lacks.
 - **Image:** no tabs, unlike the pickers that split Upload, Link and Unsplash apart. One search covers the project's
   images (`public/images/`) and a stock provider's (Unsplash), each a section of one grid, three to a row, with Upload
   first among the project's, and the fill's image ringed and ticked where it was picked. An image dropped or pasted

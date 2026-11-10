@@ -9,7 +9,7 @@ import { type Angle, angleDegrees, angleOf, angleUnits, splitUnit } from "./moti
 const snapped = (degrees: number, shift: boolean) => (shift ? Math.round(degrees / 15) * 15 : Math.round(degrees))
 
 /** An angle within one turn, 0 to 360, as a gradient's: 370° is 10°, and −90° is 270°. */
-export const wrapped = (degrees: number) => Number((((degrees % 360) + 360) % 360).toFixed(2))
+const wrapped = (degrees: number) => Number((((degrees % 360) + 360) % 360).toFixed(2))
 
 /** The whole turns in an angle and where it ends after them: 450° is 1 turn and 90°, −450° is −1 turn and −90°. */
 function turnsOf(degrees: number) {

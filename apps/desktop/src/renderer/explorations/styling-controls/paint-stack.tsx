@@ -13,14 +13,14 @@ import {
   SelectValue,
   Switch
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ArrowLeftRight, ChevronDown, Minus, Plus, RotateCw } from "lucide-react"
+import { ArrowLeftRight, ChevronDown, Minus, Plus } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent, Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { checker } from "../../chrome/token-previews.tsx"
-import { AngleField, wrapped } from "./angle.tsx"
+import { AngleField } from "./angle.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { clamp, gradientCss } from "./css-values.ts"
 import { usedColors } from "./data.ts"
@@ -55,7 +55,7 @@ import { type ColorToken, type GradientToken, gradientToken, gradientTokens } fr
  * a list row: a gradient's strip or an image's thumbnail with its type and summary or token chip, which opens its
  * editor, a gradient's alpha, the eye and −. A solid is the color field, whose swatch opens the color picker. A
  * gradient's editor names its kind in a menu (Linear, Radial or Angular), then has the bar of stops, its settings named
- * above each (the angle with Rotate 90°, the center, the blend, Repeat), and apart from them the Stops list with Flip.
+ * above each (the angle, the center, the blend, Repeat), and apart from them the Stops list with Flip.
  * An image's is in image-fill.tsx, and an image dropped on the section adds an image fill. A fill's type is picked as
  * it's added, so neither the picker nor an editor offers the others.
  */
@@ -112,10 +112,6 @@ function newPaint(kind: PaintKind): Paint {
     ]
   }
 }
-
-/** A small button at the end of a setting's name, as a field's reset arrow is drawn: Rotate 90° beside Angle. */
-const nameAction =
-  "grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 
 /** Each type as + draws it: the fill it adds. */
 const samples: Record<PaintKind, Paint> = {
@@ -572,21 +568,7 @@ export function GradientEditor({
       {/* The gradient's own settings, each named above its control, apart from its stops below. */}
       <FieldGrid className="pt-1">
         {(resolved.kind === "linear" || resolved.kind === "angular") && (
-          <Field
-            label={resolved.kind === "linear" ? "Angle" : "Start angle"}
-            action={
-              <Hint label="Rotate 90°">
-                <button
-                  type="button"
-                  aria-label="Rotate 90°"
-                  className={nameAction}
-                  onClick={() => edit({ angle: wrapped(resolved.angle + 90) })}
-                >
-                  <RotateCw className="size-3" />
-                </button>
-              </Hint>
-            }
-          >
+          <Field label={resolved.kind === "linear" ? "Angle" : "Start angle"}>
             <AngleField
               label={resolved.kind === "linear" ? "Angle" : "Start angle"}
               value={angleOf(resolved.angle)}
