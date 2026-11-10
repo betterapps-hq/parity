@@ -188,5 +188,4 @@ These go beyond "names and values as written", which the decisions above cover.
 
 | Risk                                             | Evidence                                                                                                                                    | Issue   |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| A report with sharing off can send other events  | `sendFeedback` turns Sentry on for the whole of main while the report flushes, up to 15 seconds (`main/report.ts:237`)                      | PAR-813 |
 | The project's console output becomes breadcrumbs | The project's components run in the editor's page (`renderer/telemetry.ts:19`), and the browser SDK's console breadcrumbs are on by default | PAR-814 |
