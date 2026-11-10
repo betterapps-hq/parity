@@ -6,6 +6,7 @@ import {
   type ContainerSpec,
   type DesignNode,
   type ImageNode,
+  type VideoNode,
   detachInstance,
   finiteNumber,
   generateId,
@@ -27,9 +28,18 @@ import { placedAt } from "./paste-here.ts"
  * design that comes back as one undo step.
  */
 
+/** A picture or a video, at its own size in pixels, with what it shows and who made it. */
+const mediaItem = z.object({
+  src: z.string(),
+  alt: z.string().optional(),
+  credit: imageCredit.optional(),
+  width: finiteNumber,
+  height: finiteNumber
+})
+
 /**
- * Something from the Assets panel: one of the project's or a library's components (icons included), a component
- * design, or an image.
+ * Something from the Assets panel or the Media tab: one of the project's or a library's components (icons included), a
+ * component design, an image or a video.
  */
 const insertItem = z.discriminatedUnion("kind", [
   z.object({
@@ -44,14 +54,8 @@ const insertItem = z.discriminatedUnion("kind", [
     /** Placed as a copy of what it shows, no longer linked, as a library's design can be. */
     detached: z.literal(true).optional()
   }),
-  z.object({
-    kind: z.literal("image"),
-    src: z.string(),
-    alt: z.string().optional(),
-    credit: imageCredit.optional(),
-    width: finiteNumber,
-    height: finiteNumber
-  })
+  mediaItem.extend({ kind: z.literal("image") }),
+  mediaItem.extend({ kind: z.literal("video") })
 ])
 
 export type InsertItem = z.infer<typeof insertItem>
@@ -61,7 +65,7 @@ export function readInsertItem(text: string): InsertItem | undefined {
   return jsonText(insertItem).safeParse(text).data
 }
 
-/** Images go in this many spacing steps wide (320px at 4px a step), their height following their shape. */
+/** Images and videos go in this many spacing steps wide (320px at 4px a step), their height following their shape. */
 const imageSteps = 80
 
 /** The component's name without its library: `nova/Button` reads as Button. */
@@ -69,7 +73,7 @@ export function componentLabel(component: string): string {
   return component.split("/").at(-1) ?? component
 }
 
-/** The undo step's label for inserting an item: "Add Button", "Add component", "Add copy" or "Add image". */
+/** The undo step's label for inserting an item: "Add Button", "Add component", "Add copy", "Add image" or "Add video". */
 export function insertLabel(item: InsertItem): string {
   if (item.kind === "component") {
     return `Add ${componentLabel(item.component)}`
@@ -79,7 +83,7 @@ export function insertLabel(item: InsertItem): string {
     return item.detached ? "Add copy" : "Add component"
   }
 
-  return "Add image"
+  return item.kind === "video" ? "Add video" : "Add image"
 }
 
 /**
@@ -92,22 +96,22 @@ export function nodeForItem(item: InsertItem, info: ComponentInfo | undefined, t
     return { type: "instance", id: generateId(taken), design: item.design }
   }
 
-  if (item.kind === "image") {
+  if (item.kind === "image" || item.kind === "video") {
     const height = Math.max(1, Math.round((imageSteps * item.height) / Math.max(1, item.width)))
 
-    const image: ImageNode = { type: "image", id: generateId(taken), src: item.src }
+    const media: ImageNode | VideoNode = { type: item.kind, id: generateId(taken), src: item.src }
 
     if (item.alt) {
-      image.alt = item.alt
+      media.alt = item.alt
     }
 
     if (item.credit) {
-      image.credit = item.credit
+      media.credit = item.credit
     }
 
-    image.style = { width: imageSteps, height }
+    media.style = { width: imageSteps, height }
 
-    return image
+    return media
   }
 
   return componentNode(item.component, info, taken, item.props)

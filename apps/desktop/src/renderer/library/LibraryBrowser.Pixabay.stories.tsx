@@ -125,16 +125,24 @@ export const MoreAsYouScroll: Story = {
   }
 }
 
-/** Videos show how long they run, and can't be added to the project yet, so pressing one shows it larger. */
+/**
+ * Videos show how long they run and are picked as pictures are (PAR-841). Shown larger, one plays in the player, and
+ * Pick there picks it too.
+ */
 export const Videos: Story = {
   loaders: [opening(pixabay, { query: "waves", filters: { type: "videos" } })],
   play: async () => {
     const list = await results()
     const first = within(list).getAllByRole("button", { name: "Hills at dusk, by Lena Ray" })[0]!
-    await expect(first).not.toHaveAttribute("aria-pressed")
     await userEvent.click(first)
-    await body().findByRole("region", { name: "Lena Ray" })
-    await expect(body().queryByRole("button", { name: "Pick" })).toBeNull()
+    await expect(first).toHaveAttribute("aria-pressed", "true")
+
+    await userEvent.dblClick(within(list).getAllByRole("button", { name: "Potted palm, by Mia Torres" })[0]!)
+    const larger = await body().findByRole("region", { name: "Mia Torres" })
+    await within(larger).findByRole("group", { name: "Potted palm, by Mia Torres" })
+    await userEvent.click(within(larger).getByRole("button", { name: "Pick" }))
+    await userEvent.click(body().getByRole("button", { name: "Add 2 to project" }))
+    await waitFor(() => expect(taken().map(({ kind }) => kind)).toEqual(["videos", "videos"]))
   }
 }
 

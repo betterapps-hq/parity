@@ -26,6 +26,10 @@ export function layerKind(
     return plain("Image")
   }
 
+  if (node.type === "video") {
+    return plain("Video")
+  }
+
   if (node.type === "instance") {
     return { label: "Instance", description: `Instance of ${designName(node.design) ?? node.design}` }
   }

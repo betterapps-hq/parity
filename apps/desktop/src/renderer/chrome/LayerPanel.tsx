@@ -10,6 +10,7 @@ import {
   editsDesign,
   findNode,
   type ImageNode,
+  type VideoNode,
   innerChanges,
   type InstanceNode,
   isInnerPath,
@@ -442,7 +443,7 @@ function LayerSections({
         </PanelSection>
       )}
 
-      {node.type === "image" && !inner && <ImageSection entry={entry} node={node} />}
+      {(node.type === "image" || node.type === "video") && !inner && <MediaSection entry={entry} node={node} />}
 
       <PanelSection title="Visibility">
         <Field label="Visible" changed={override?.hidden !== undefined} onReset={() => reset({ kind: "hidden" })}>
@@ -916,54 +917,76 @@ function BaseDesignNote({ entry, what }: { entry: ContainerEntry; what: string }
   )
 }
 
-/** An image's file, its description for screen readers, how it fills its box, and who to credit. */
-function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode }) {
-  const { store } = useProject()
+/** A picture's or a video's layer, which the section edits the same way. */
+type MediaNode = ImageNode | VideoNode
 
-  const edit = (label: string, field: "src" | "alt" | "fit", update: (image: ImageNode) => ImageNode) =>
+/**
+ * An image's or a video's file, its description for screen readers, how it fills its box, and who to credit; and for a
+ * video, whether it shows its controls or plays by itself (PAR-841).
+ */
+function MediaSection({ entry, node }: { entry: ContainerEntry; node: MediaNode }) {
+  const { store } = useProject()
+  const kind = node.type
+  const noun = kind === "video" ? "video" : "image"
+
+  const edit = (label: string, field: "src" | "alt" | "fit" | "controls", update: (media: MediaNode) => MediaNode) =>
     updateAndRecord(
       store,
       entry.key,
       label,
       (container) => ({
         ...container,
-        root: mapNode(container.root, node.id, (current) => (current.type === "image" ? update(current) : current))
+        root: mapNode(container.root, node.id, (current) => (current.type === kind ? update(current) : current))
       }),
       {
-        field: `image.${field}`,
+        field: `${kind}.${field}`,
         layers: [node.id],
         read: (container) => {
-          const image = findNode(container.root, node.id)
+          const media = findNode(container.root, node.id)
 
-          return image?.type === "image" ? image[field] : undefined
+          if (media?.type !== kind) {
+            return undefined
+          }
+
+          if (field !== "controls") {
+            return media[field]
+          }
+
+          return media.type === "video" ? media.controls : undefined
         }
       }
     )
 
+  /** The node without `field` when `value` is empty or off, and with it otherwise. */
+  const setting = <K extends "alt" | "fit">(media: MediaNode, field: K, value: MediaNode[K] | undefined): MediaNode => {
+    const next = { ...media }
+
+    if (value) {
+      next[field] = value
+    } else {
+      delete next[field]
+    }
+
+    return next
+  }
+
   return (
-    <PanelSection title="Image">
-      <BaseDesignNote entry={entry} what="File, alt text and fit" />
+    <PanelSection title={kind === "video" ? "Video" : "Image"}>
+      <BaseDesignNote
+        entry={entry}
+        what={kind === "video" ? "File, alt text, fit and controls" : "File, alt text and fit"}
+      />
       <Field label="File">
         <TextInput
           value={node.src}
-          onCommit={(src) => src && edit("Change image", "src", (image) => ({ ...image, src }))}
+          onCommit={(src) => src && edit(`Change ${noun}`, "src", (media) => ({ ...media, src }))}
         />
       </Field>
       <Field label="Alt text" hint="What it shows, for screen readers. Leave empty if it's decoration.">
         <TextInput
           multiline
           value={node.alt ?? ""}
-          onCommit={(alt) =>
-            edit("Describe image", "alt", (image) => {
-              const next: ImageNode = { ...image, alt }
-
-              if (!alt) {
-                delete next.alt
-              }
-
-              return next
-            })
-          }
+          onCommit={(alt) => edit(`Describe ${noun}`, "alt", (media) => setting(media, "alt", alt))}
         />
       </Field>
       <Field label="Fit">
@@ -975,19 +998,28 @@ function ImageSection({ entry, node }: { entry: ContainerEntry; node: ImageNode 
             { value: "contain", label: "Contain, shown whole" },
             { value: "fill", label: "Fill, stretched" }
           ]}
-          onChange={(fit) =>
-            edit("Change fit", "fit", (image) => {
-              const next: ImageNode = { ...image, fit }
-
-              if (!fit) {
-                delete next.fit
-              }
-
-              return next
-            })
-          }
+          onChange={(fit) => edit("Change fit", "fit", (media) => setting(media, "fit", fit))}
         />
       </Field>
+      {node.type === "video" && (
+        <Field label="Controls">
+          <SwitchInput
+            label="Controls"
+            value={node.controls === true}
+            onChange={(controls) =>
+              edit(controls ? "Show controls" : "Hide controls", "controls", (media) => {
+                if (media.type !== "video") {
+                  return media
+                }
+
+                const { controls: _was, ...rest } = media
+
+                return controls ? { ...rest, controls } : rest
+              })
+            }
+          />
+        </Field>
+      )}
       {node.credit && <PhotoCredit credit={node.credit} className="-mt-1 ml-24" />}
     </PanelSection>
   )

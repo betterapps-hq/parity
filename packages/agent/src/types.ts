@@ -355,16 +355,18 @@ export interface AgentHooks {
 }
 
 /**
- * A result a connector found, as placing takes it from main's own copy (PAR-829): what kind it is, its image and who to
- * credit. The agent names it by connector and id, so what goes in a design is what the source gave.
+ * A result a connector found, as placing takes it from main's own copy (PAR-829): what kind it is, its image, a video's
+ * footage, and who to credit. The agent names it by connector and id, so what goes in a design is what the source gave.
  */
 export interface PlaceableResult {
   kind: string
-  /** Whether it can go in a design: pictures can; screens from real apps and videos are for looking at. */
+  /** Whether it can go in a design: pictures and videos can; screens from real apps are for looking at. */
   placeable: boolean
   title: string
-  /** Its picture, with when its link stops working for a source whose links expire. */
+  /** Its picture, or a video's poster, with when its link stops working for a source whose links expire. */
   image: { url: string; expiresAt?: number }
+  /** A video's footage, which placing puts in a video layer (PAR-841). */
+  video?: { url: string }
   credit: { name: string; url?: string }[]
 }
 

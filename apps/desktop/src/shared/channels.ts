@@ -21,6 +21,8 @@ export const ipc = {
   pickProjectFile: "canvas:pick-project-file",
   saveDialog: "canvas:save-dialog",
   showItem: "canvas:show-item",
+  /** The file copied in Explorer or Finder, which the window's own clipboard can't read (PAR-841). */
+  copiedFiles: "canvas:copied-files",
   openInEditor: "canvas:open-in-editor",
   quit: "canvas:quit",
   toggleDevTools: "canvas:toggle-dev-tools",

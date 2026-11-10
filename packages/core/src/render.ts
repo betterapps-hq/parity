@@ -15,7 +15,8 @@ import type {
   PatchUnset,
   PropValues,
   Size,
-  StateSpec
+  StateSpec,
+  VideoNode
 } from "./document.ts"
 import { isNamedLength } from "./document.ts"
 import type { ResolvedMode } from "./modes.ts"
@@ -587,6 +588,17 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             children: []
           }
         ]
+      case "video":
+        return [
+          {
+            kind: "element",
+            nodeId: id(node),
+            tag: "video",
+            style: { display: "block", objectFit: shown.fit ?? "cover", ...componentCss(style, parent) },
+            attributes: videoAttributes(shown),
+            children: []
+          }
+        ]
       case "component": {
         const props = { ...shown.props }
         // A component's own styles come from its props; what the design sets on it lands on its root as inline styles.
@@ -841,6 +853,23 @@ function textCss(style: NodeStyle, parent: Direction | undefined): InlineStyle {
   }
 
   return css
+}
+
+/**
+ * A video's attributes, by their HTML names as the project's code would write them: one with controls waits to be
+ * played; one without plays by itself, without sound (which a browser needs before it plays one by itself), round and
+ * round, in its place rather than full screen on a phone.
+ */
+export function videoAttributes(video: Pick<VideoNode, "src" | "alt" | "controls">): ElementAttributes {
+  const attributes: ElementAttributes = { src: video.src }
+
+  if (video.alt) {
+    attributes["aria-label"] = video.alt
+  }
+
+  return video.controls
+    ? { ...attributes, controls: "", playsinline: "" }
+    : { ...attributes, autoplay: "", muted: "", loop: "", playsinline: "" }
 }
 
 /** Everything a design can set on a component: its surface, spacing, place in the layout and type. */

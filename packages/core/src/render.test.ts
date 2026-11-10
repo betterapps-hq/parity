@@ -35,6 +35,46 @@ const root: DesignNode = {
 }
 
 describe("resolveDesign", () => {
+  it("draws a video as a <video> that plays by itself, without sound, unless it has controls (PAR-841)", () => {
+    const page: DesignNode = {
+      type: "layout",
+      id: "page",
+      children: [
+        { type: "video", id: "hero", src: "/videos/waves.mp4", alt: "Waves", style: { width: 80, height: 45 } },
+        { type: "video", id: "talk", src: "/videos/talk.webm", fit: "contain", controls: true }
+      ]
+    }
+
+    const [drawn] = resolveDesign(page, undefined, "desktop")
+
+    expect(drawn).toMatchObject({
+      children: [
+        {
+          tag: "video",
+          nodeId: "hero",
+          style: { display: "block", objectFit: "cover", width: "calc(var(--spacing) * 80)" },
+          attributes: {
+            src: "/videos/waves.mp4",
+            "aria-label": "Waves",
+            autoplay: "",
+            muted: "",
+            loop: "",
+            playsinline: ""
+          }
+        },
+        {
+          tag: "video",
+          nodeId: "talk",
+          style: { objectFit: "contain" },
+          attributes: { src: "/videos/talk.webm", controls: "", playsinline: "" }
+        }
+      ]
+    })
+    expect(
+      drawn?.kind === "element" && drawn.children[1]?.kind === "element" && drawn.children[1].attributes
+    ).not.toHaveProperty("autoplay")
+  })
+
   it("maps layout and text styles to token-backed CSS", () => {
     const [page] = resolveDesign(root, undefined, "desktop")
     expect(page).toMatchObject({

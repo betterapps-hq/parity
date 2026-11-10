@@ -21,6 +21,11 @@ describe("layerKind", () => {
     })
   })
 
+  it("says an image is an image and a video a video (PAR-841)", () => {
+    expect(kind({ type: "image", id: "i", src: "/images/hero.png" }).label).toBe("Image")
+    expect(kind({ type: "video", id: "v", src: "/videos/waves.mp4" }).label).toBe("Video")
+  })
+
   it("names a layout by its direction, as the insert picker does, and a grid as a grid", () => {
     expect(kind({ type: "layout", id: "a", children: [] }).label).toBe("Vertical layout")
     expect(kind({ type: "layout", id: "b", style: { direction: "row" }, children: [] }).label).toBe("Horizontal layout")

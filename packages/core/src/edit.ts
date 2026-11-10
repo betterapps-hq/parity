@@ -115,6 +115,10 @@ export function nodeLabel(node: DesignNode, designName?: (id: string) => string 
     return node.alt || "Image"
   }
 
+  if (node.type === "video") {
+    return node.alt || "Video"
+  }
+
   return node.style?.direction === "row" ? "Row" : "Column"
 }
 

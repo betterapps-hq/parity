@@ -43,7 +43,7 @@ function recordInsert(
   track("insert.done", done)
 }
 
-/** Which item it is: the component, the design an instance places, or the image's file. */
+/** Which item it is: the component, the design an instance places, or the image's or video's file. */
 function itemName(item: InsertItem): string {
   if (item.kind === "component") {
     return item.component
@@ -52,9 +52,9 @@ function itemName(item: InsertItem): string {
   return item.kind === "instance" ? item.design : item.src
 }
 
-/** The Assets panel section an item is from: an icon set's icons, images, or components. */
+/** The panel an item is from: an icon set's icons, the Media tab's images and videos, or components. */
 function insertSource(session: ProjectSession, item: InsertItem): "components" | "icons" | "images" {
-  if (item.kind === "image") {
+  if (item.kind === "image" || item.kind === "video") {
     return "images"
   }
 

@@ -11,13 +11,25 @@ import type { InsertItem } from "./insert.ts"
 import type { PictureSize } from "./media-wall.ts"
 
 /*
- * A project's images (PAR-834): the files under `public/images/`, which pasting, dropping and downloading save there,
- * and the photos image layers link to at a stock library's own address. What uses each one, in designs and in the
- * project's code, says whether it can be removed. Reading the files and the code, and removing a file, stay in the app.
+ * A project's images and videos (PAR-834, PAR-841): the files under `public/images/` and `public/videos/`, which
+ * pasting, dropping and downloading save there, and the photos image layers link to at a stock library's own address.
+ * What uses each one, in designs and in the project's code, says whether it can be removed. Reading the files and the
+ * code, and removing a file, stay in the app.
  */
 
 /** Where a project's own image files are, from its root. */
 export const imagesFolder = "public/images"
+
+/** Where a project's own video files are, from its root, beside its images (PAR-841). */
+export const videosFolder = "public/videos"
+
+/** The folders a project's media files are in, from its root. */
+export const mediaFolders = [imagesFolder, videosFolder] as const
+
+/** The media folder a path from the project's root is in, or undefined for a path in neither. */
+export function mediaFolderOf(path: string): (typeof mediaFolders)[number] | undefined {
+  return mediaFolders.find((folder) => path.startsWith(`${folder}/`))
+}
 
 /** An image file in the project, by its path from the root with forward slashes, and its size in bytes. */
 export interface ImageFile {
@@ -80,7 +92,7 @@ export function projectImages({ files, references, documents }: ImagesInput): Pr
       kind: "file",
       src,
       path: file.path,
-      name: file.path.slice(imagesFolder.length + 1),
+      name: file.path.slice((mediaFolderOf(file.path) ?? "public").length + 1),
       bytes: file.bytes,
       usedBy: [],
       usedInCode: references
@@ -125,7 +137,8 @@ export function projectImages({ files, references, documents }: ImagesInput): Pr
   }
 
   for (const image of added) {
-    image.name = image.alt || (image.credit ? `Photo by ${image.credit.name}` : image.src)
+    const by = mediumOf(image) === "video" ? "Video" : "Photo"
+    image.name = image.alt || (image.credit ? `${by} by ${image.credit.name}` : image.src)
   }
 
   const order = { file: 0, linked: 1, missing: 2 }
@@ -197,7 +210,7 @@ export function cantRemove(images: readonly ProjectImage[], named: string): stri
   const image = findImage(images, named)
 
   if (!image) {
-    return `${named} isn't one of the project's images. Those are the files in ${imagesFolder}/ and the photos layers link to.`
+    return `${named} isn't one of the project's images or videos. Those are the files in ${imagesFolder}/ and ${videosFolder}/, and the photos layers link to.`
   }
 
   if (image.kind !== "file") {
@@ -218,11 +231,15 @@ export function cantRemove(images: readonly ProjectImage[], named: string): stri
   return `${image.name} is still used in ${listed(places)}. Remove or replace it there first.`
 }
 
-/** What an image is made of, which a list of them can narrow to: pixels, or shapes that scale. */
-export type ImageMedium = "image" | "vector"
+/** What one of the project's media is, which a list of them can narrow to: pixels, shapes that scale, or a video. */
+export type ImageMedium = "image" | "vector" | "video"
 
-/** Whether an image is pixels or shapes, by its file's extension. */
+/** Whether one of the project's media is pixels, shapes or a video, by its file's extension. */
 export function mediumOf(image: Pick<ProjectImage, "src">): ImageMedium {
+  if (/\.(?:mp4|webm)(?:[?#]|$)/i.test(image.src)) {
+    return "video"
+  }
+
   return /\.svg(?:[?#]|$)/i.test(image.src) ? "vector" : "image"
 }
 
@@ -364,21 +381,21 @@ export function removalOf(image: ProjectImage): Removal {
 }
 
 /**
- * One of the project's images as something to insert, as the Media tab places one: a layer that shows it by its `src`,
- * at its picture's own proportions, with the alt text and credit it already has elsewhere.
+ * One of the project's images or videos as something to insert, as the Media tab places one: a layer that shows it by
+ * its `src`, at its picture's own proportions, with the alt text and credit it already has elsewhere.
  */
 export function imageItem(image: Pick<ProjectImage, "src" | "alt" | "credit">, size: PictureSize): InsertItem {
-  const item: InsertItem = { kind: "image", src: image.src, width: size.width, height: size.height }
+  const item = { src: image.src, width: size.width, height: size.height, alt: image.alt, credit: image.credit }
 
-  if (image.alt) {
-    item.alt = image.alt
+  if (!item.alt) {
+    delete item.alt
   }
 
-  if (image.credit) {
-    item.credit = image.credit
+  if (!item.credit) {
+    delete item.credit
   }
 
-  return item
+  return mediumOf(image) === "video" ? { kind: "video", ...item } : { kind: "image", ...item }
 }
 
 /** An image by its file's path, its `src`, or its file name. */
@@ -488,7 +505,7 @@ function imageLayers(documents: ImagesInput["documents"]): ImageLayer[] {
       }
 
       walkNodes(design.root, (node) => {
-        if (node.type === "image") {
+        if (node.type === "image" || node.type === "video") {
           const layer: ImageLayer = { src: node.src, use: usage(node.id) }
 
           if (node.alt) {

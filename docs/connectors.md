@@ -48,11 +48,12 @@ apps/desktop
   with every filter it ran with, and `remember` keeps each connector's latest five. `localHistory` keeps them in a file
   for now; once Parity's service keeps them on the person's account, main passes the hub one that asks it.
 - **Placing a result is Parity's own step, so Parity reports it.** An agent puts a picture in a design with
-  `place_result` (`parity place <connector> <id> "<design/node>"`). In an image node it sets `src`, `alt` and the
-  author's `credit`, keeping the node's id and style; in a component it sets a prop the component declares. Only kinds
-  in `placeableKinds` (photos, which covers illustrations and vectors) go in designs. A picture whose link expires, as
-  Pixabay's do, is saved into `public/images/` first, as a pasted image is, and the node shows the file; placing it
-  again reuses the file. Once the edit applies, the hub's `placed` runs, only for a result it gave lately:
+  `place_result` (`parity place <connector> <id> "<design/node>"`). In an image node, or a video node for a video, it
+  sets `src`, `alt` and the author's `credit`, keeping the node's id and style; in a component it sets a prop the
+  component declares. Only kinds in `placeableKinds` (photos, which covers illustrations and vectors, and videos) go in
+  designs. A picture whose link expires, as Pixabay's do, is saved into `public/images/` first, as a pasted image is,
+  and the node shows the file; a video is always saved, into `public/videos/`. Placing it again reuses the file. Once
+  the edit applies, the hub's `placed` runs, only for a result it gave lately:
   1. counts it in a `PlacementLog` as the source's usage, once for each design, under a key that hashes the project,
      file and design so it holds no path. The account's store will replace the file;
   2. only when it's new, records `connectors.placed`;
@@ -161,8 +162,8 @@ What adding Pixabay in place of Unsplash showed, and what changed:
 - **Offered apart from known,** so a source can stop being searched and its results still be named.
 
 - **Agents' calls name no source,** and say pictures rather than photos: `find_photos` became `find_media`
-  (`parity media`), with a `type` filter for photos, illustrations, vectors or videos. Videos are found but, like
-  screens, are for looking at.
+  (`parity media`), with a `type` filter for photos, illustrations, vectors or videos. Videos were found but, like
+  screens, only for looking at, until the video layer (PAR-841) let them be placed.
 - **Placing saves a picture whose link expires** into the project, since Pixabay's links last 24 hours and may only show
   results.
 

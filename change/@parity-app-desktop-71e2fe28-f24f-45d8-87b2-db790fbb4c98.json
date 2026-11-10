@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Add a video layer: MP4 and WebM files are imported by drop, paste and the Media tab into public/videos, found and played in the Media tab, added from Pixabay, and placed by agents with place_result",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

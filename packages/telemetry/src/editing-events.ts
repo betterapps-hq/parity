@@ -49,9 +49,9 @@ const pasteHow = z
 
 /** What was on the clipboard. */
 const clipboardContent = z
-  .enum(["layers", "designs", "notes", "image", "svg", "text", "empty", "unreadable"])
+  .enum(["layers", "designs", "notes", "image", "svg", "video", "text", "empty", "unreadable"])
   .describe(
-    "What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, text, nothing, or a copy that can't be read"
+    "What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, a copied video file, text, nothing, or a copy that can't be read"
   )
 
 /**
@@ -123,9 +123,12 @@ export const editingEvents = [
         .enum(["click", "drag", "quickInsert", "clipboard", "files"])
         .describe("How: clicked or dragged from the panel, Quick insert, the clipboard, or files dropped"),
       kind: z
-        .enum(["component", "instance", "image", "layers", "designs", "notes", "text"])
+        .enum(["component", "instance", "image", "video", "layers", "designs", "notes", "text"])
         .describe("What it inserted"),
-      item: z.string().optional().describe("Which: the component, the design an instance places, or the image's file"),
+      item: z
+        .string()
+        .optional()
+        .describe("Which: the component, the design an instance places, or the image's or video's file"),
       count: z.int().min(0).describe("How many layers, designs or notes went in"),
       design: z.string().optional().describe("The design it went into, by key"),
       newDesign: z.boolean().describe("Whether it made a design of its own, with nothing to go into")

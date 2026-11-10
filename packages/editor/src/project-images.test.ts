@@ -148,7 +148,7 @@ describe("cantRemove", () => {
     )
     expect(cantRemove(images, "/images/gone.png")).toMatch(/has no file in the project/)
     expect(cantRemove(images, "src/main.tsx")).toBe(
-      "src/main.tsx isn't one of the project's images. Those are the files in public/images/ and the photos layers link to."
+      "src/main.tsx isn't one of the project's images or videos. Those are the files in public/images/ and public/videos/, and the photos layers link to."
     )
   })
 })
@@ -159,6 +159,58 @@ describe("mediumOf", () => {
     expect(mediumOf({ src: "/images/logo.SVG?v=2" })).toBe("vector")
     expect(mediumOf({ src: "/images/hero.png" })).toBe("image")
     expect(mediumOf({ src: "https://images.example.com/svg-of-a-cat.jpg" })).toBe("image")
+  })
+
+  it("tells a video by its file's extension", () => {
+    expect(mediumOf({ src: "/videos/waves.mp4" })).toBe("video")
+    expect(mediumOf({ src: "/videos/loop.WEBM?v=2" })).toBe("video")
+    expect(mediumOf({ src: "/images/mp4-poster.png" })).toBe("image")
+  })
+})
+
+describe("a project's videos (PAR-841)", () => {
+  const clip: ContainerSpec = {
+    id: "landing",
+    name: "Landing",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "page",
+      children: [
+        { type: "video", id: "hero", src: "/videos/waves.mp4", alt: "Waves at dusk" },
+        { type: "video", id: "stock", src: "https://cdn.example.com/surf.webm", credit }
+      ]
+    },
+    states: [{ id: "default", name: "Default" }]
+  }
+
+  const videos = projectImages({
+    files: [
+      { path: "public/videos/waves.mp4", bytes: 4_000_000 },
+      { path: "public/images/hero.png", bytes: 1200 }
+    ],
+    references: [],
+    documents: [{ path: "app.par", document: { version: 3, containers: [clip] } }]
+  })
+
+  it("lists video files under public/videos by their name there, with the layers that play them", () => {
+    expect(videos.map(({ kind, name, path }) => [kind, name, path])).toEqual([
+      ["file", "hero.png", "public/images/hero.png"],
+      ["file", "waves.mp4", "public/videos/waves.mp4"],
+      ["linked", "Video by Ada Park", undefined]
+    ])
+    expect(findImage(videos, "waves.mp4")?.usedBy.map(({ node }) => node)).toEqual(["hero"])
+    expect(findImage(videos, "public/videos/waves.mp4")?.alt).toBe("Waves at dusk")
+  })
+
+  it("inserts a video as a video", () => {
+    expect(imageItem({ src: "/videos/waves.mp4", alt: "Waves at dusk" }, { width: 1920, height: 1080 })).toEqual({
+      kind: "video",
+      src: "/videos/waves.mp4",
+      alt: "Waves at dusk",
+      width: 1920,
+      height: 1080
+    })
   })
 })
 

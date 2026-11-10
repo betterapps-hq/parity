@@ -2,11 +2,33 @@ import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import ts from "typescript"
 import { describe, expect, it } from "vite-plus/test"
-import { createGuest } from "./guest.ts"
+import { attributesFor, createGuest } from "./guest.ts"
 
 const cog = () => null
 const bell = () => null
 const solidCog = () => null
+
+describe("an element's attributes as React props", () => {
+  it("turns a video's flags on by React's names and keeps its other attributes (PAR-841)", () => {
+    const src = "https://cdn.example/waves.mp4"
+    const attributes = { src, "aria-label": "Waves", autoplay: "", muted: "", loop: "", playsinline: "" }
+
+    expect(attributesFor("video", attributes)).toEqual({
+      src,
+      "aria-label": "Waves",
+      autoPlay: true,
+      muted: true,
+      loop: true,
+      playsInline: true
+    })
+    expect(attributesFor("video", { src, controls: "" })).toEqual({ src, controls: true })
+  })
+
+  it("leaves another element's attributes as they are", () => {
+    expect(attributesFor("div", { muted: "" })).toEqual({ muted: "" })
+    expect(attributesFor("p", undefined)).toEqual({})
+  })
+})
 
 describe("createGuest with icon sets", () => {
   it("draws a style kept in a module of its own from that module, and lists its icons apart", () => {

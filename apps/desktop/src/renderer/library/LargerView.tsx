@@ -1,5 +1,6 @@
 import { Badge, Button } from "@buildkitgg/shadcn-baseui-kit"
 import { type ConnectorInfo, creditOf, type Found, labelOf, sizeOf } from "@parity-app/connectors"
+import { VideoPlayer } from "@parity-app/media-player"
 import { Check, ChevronLeft, ChevronRight, ExternalLink, Monitor, Smartphone, X } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { IconButton } from "../chrome/IconButton.tsx"
@@ -76,23 +77,18 @@ export function LargerView({
   )
 }
 
-/** The result itself, as large as the space allows. A video plays, without sound, with the browser's own controls. */
+/** The result itself, as large as the space allows. A video plays in the player, without sound until it's turned up. */
 function Stage({ found }: { found: Found }) {
   const { width, height } = sizeOf(found)
 
   if (found.video) {
     return (
       <div className="flex h-full min-w-0 flex-1 items-center justify-center">
-        <video
+        <VideoPlayer
           src={found.video.url}
           poster={found.image.url}
-          muted
-          autoPlay
-          loop
-          playsInline
-          controls
-          aria-label={labelOf(found)}
-          className="max-h-full max-w-full rounded-lg border shadow-md"
+          label={labelOf(found)}
+          className="h-full max-w-[820px] flex-1"
         />
       </div>
     )

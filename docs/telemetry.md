@@ -695,20 +695,20 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `clipboard.failed`
 
-| Attribute | Type                                                                                        | Meaning                                                                                                                                                                          |
-| --------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `how`     | `"paste" \| "over" \| "replace" \| "here"`                                                  | Which paste: Paste, Paste over selection, Paste to replace, or Paste here                                                                                                        |
-| `content` | `"layers" \| "designs" \| "notes" \| "image" \| "svg" \| "text" \| "empty" \| "unreadable"` | What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, text, nothing, or a copy that can't be read                                                  |
-| `reason`  | `"empty" \| "unreadable" \| "wrongKind" \| "noTarget" \| "instance" \| "imageFailed"`       | Why nothing was pasted: nothing to paste, a copy that can't be read, content that can't go there, no layout there, layers inside an instance, or an image that couldn't be saved |
-| `code`    | `string`, optional                                                                          | The error code, when saving an image failed                                                                                                                                      |
+| Attribute | Type                                                                                                   | Meaning                                                                                                                                                                          |
+| --------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `how`     | `"paste" \| "over" \| "replace" \| "here"`                                                             | Which paste: Paste, Paste over selection, Paste to replace, or Paste here                                                                                                        |
+| `content` | `"layers" \| "designs" \| "notes" \| "image" \| "svg" \| "video" \| "text" \| "empty" \| "unreadable"` | What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, a copied video file, text, nothing, or a copy that can't be read                             |
+| `reason`  | `"empty" \| "unreadable" \| "wrongKind" \| "noTarget" \| "instance" \| "imageFailed"`                  | Why nothing was pasted: nothing to paste, a copy that can't be read, content that can't go there, no layout there, layers inside an instance, or an image that couldn't be saved |
+| `code`    | `string`, optional                                                                                     | The error code, when saving an image failed                                                                                                                                      |
 
 ### `clipboard.pasted`
 
-| Attribute | Type                                                                                        | Meaning                                                                                                                         |
-| --------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `how`     | `"paste" \| "over" \| "replace" \| "here"`                                                  | Which paste: Paste, Paste over selection, Paste to replace, or Paste here                                                       |
-| `content` | `"layers" \| "designs" \| "notes" \| "image" \| "svg" \| "text" \| "empty" \| "unreadable"` | What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, text, nothing, or a copy that can't be read |
-| `count`   | `integer`                                                                                   | How many layers, designs or notes were pasted                                                                                   |
+| Attribute | Type                                                                                                   | Meaning                                                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `how`     | `"paste" \| "over" \| "replace" \| "here"`                                                             | Which paste: Paste, Paste over selection, Paste to replace, or Paste here                                                                            |
+| `content` | `"layers" \| "designs" \| "notes" \| "image" \| "svg" \| "video" \| "text" \| "empty" \| "unreadable"` | What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, a copied video file, text, nothing, or a copy that can't be read |
+| `count`   | `integer`                                                                                              | How many layers, designs or notes were pasted                                                                                                        |
 
 ### `command.ran`
 
@@ -902,15 +902,15 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `insert.done`
 
-| Attribute   | Type                                                                                 | Meaning                                                                                       |
-| ----------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `source`    | `"components" \| "icons" \| "images" \| "paste" \| "drop"`                           | Where it came from: the Assets panel's Components, Icons or Images, a paste, or files dropped |
-| `via`       | `"click" \| "drag" \| "quickInsert" \| "clipboard" \| "files"`                       | How: clicked or dragged from the panel, Quick insert, the clipboard, or files dropped         |
-| `kind`      | `"component" \| "instance" \| "image" \| "layers" \| "designs" \| "notes" \| "text"` | What it inserted                                                                              |
-| `item`      | `string`, optional                                                                   | Which: the component, the design an instance places, or the image's file                      |
-| `count`     | `integer`                                                                            | How many layers, designs or notes went in                                                     |
-| `design`    | `string`, optional                                                                   | The design it went into, by key                                                               |
-| `newDesign` | `boolean`                                                                            | Whether it made a design of its own, with nothing to go into                                  |
+| Attribute   | Type                                                                                            | Meaning                                                                                       |
+| ----------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `source`    | `"components" \| "icons" \| "images" \| "paste" \| "drop"`                                      | Where it came from: the Assets panel's Components, Icons or Images, a paste, or files dropped |
+| `via`       | `"click" \| "drag" \| "quickInsert" \| "clipboard" \| "files"`                                  | How: clicked or dragged from the panel, Quick insert, the clipboard, or files dropped         |
+| `kind`      | `"component" \| "instance" \| "image" \| "video" \| "layers" \| "designs" \| "notes" \| "text"` | What it inserted                                                                              |
+| `item`      | `string`, optional                                                                              | Which: the component, the design an instance places, or the image's or video's file           |
+| `count`     | `integer`                                                                                       | How many layers, designs or notes went in                                                     |
+| `design`    | `string`, optional                                                                              | The design it went into, by key                                                               |
+| `newDesign` | `boolean`                                                                                       | Whether it made a design of its own, with nothing to go into                                  |
 
 ### `inspector.changed`
 

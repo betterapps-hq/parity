@@ -1,13 +1,14 @@
 # Proposal: design references and stock media, in one browser
 
-Status: approved 2026-11-10 (PAR-827), being built. The connectors are built (PAR-829, PAR-837), and so are the Media
-tab (PAR-838, [its stories](../../apps/desktop/src/renderer/media/MediaPanel.stories.tsx)) and the browser, which adds
+Status: approved 2026-11-10 (PAR-827), built. The connectors are built (PAR-829, PAR-837), and so are the Media tab
+(PAR-838, [its stories](../../apps/desktop/src/renderer/media/MediaPanel.stories.tsx)) and the browser, which adds
 Pixabay's photos to the project from the Media tab (PAR-839,
 [its stories](../../apps/desktop/src/renderer/library/LibraryBrowser.Pixabay.stories.tsx)), and references on the
 canvas, placed from Find references and by agents (PAR-840,
 [their stories](../../apps/desktop/src/renderer/references/References.stories.tsx)), kept in the project's `.par` file
 beside notes rather than in the designs file as "What's kept" first said, and read by agents with `get_references`
-(PAR-889). Videos (PAR-841) follow. The exploration is gone, since the real stories replace it.
+(PAR-889), and videos, a layer of their own that the Media tab plays (PAR-841). The exploration is gone, since the real
+stories replace it.
 
 ## In one line
 
@@ -39,7 +40,7 @@ Enterprise plan, and its key belongs to a workspace.
 | `query`, 1 to 500 characters describing one screen | The description field                                                 |
 | `platform`, `ios` or `web`, required               | Web or iOS, starting from the selected design                         |
 | `mode`, `standard` or `deep`, `deep` when left out | Quick results first, and Search deeper for `deep`                     |
-| `limit`, 1 to 100, 20 when left out                | 24 a search (9 for the web and 12 for iOS in the exploration)         |
+| `limit`, 1 to 100, 20 when left out                | 24 a search                                                           |
 | `exclude_screen_ids`, up to 100                    | More as you scroll: the same description, without the screens shown   |
 | `image_quality`, `optimized` or `high`             | `optimized` in the results, `high` shown larger and on the canvas     |
 | Returns `id`, `app_name`, `platform`, `mobbin_url` | The app's name under each screen, and Open in Mobbin                  |
@@ -157,8 +158,7 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   under it. Type, orientation and color sit beside the search field, and category, editor's choice and order are behind
   Filters. Vectors show on checks, so you can see they're see-through.
 - **Videos are the fourth type.** A result says how long it runs and plays, without sound, while pointed at. Shown
-  larger, it plays in a player with a scrubber. The player in the stories is a stand-in, the kit's slider under a plain
-  video; which player to use is under Still to decide.
+  larger, it plays in Parity's own player (PAR-891), and picking it adds it to the project (PAR-841).
 - **The button adds what's picked to the project:** "Add 3 to project". Pixabay's links last a day and its terms ask
   that pictures aren't loaded from them, so each one is saved as a file, keeping its contributor's name and its page on
   Pixabay.
@@ -258,13 +258,12 @@ that ([Build an integration](https://docs.mobbin.com/mcp/build-an-integration.md
   descriptions for each library, each with every filter it last ran with. For now they're in a file in the app's data
   (`recent-searches.json`); once Parity's service keeps them on the person's account, main asks it instead and the
   window doesn't change. They aren't in the project, so they're not shared or committed. Agents' searches aren't kept.
-  In the exploration they last only until the story reloads.
 
 ## The spike
 
 A Mobbin Team plan with one seat, $72 for 3 months, and an API key from Settings, used only on your machine.
 
-- Call the endpoint from the main process and show real results in the browser built from this exploration.
+- Call the endpoint from the main process and show real results in the browser.
 - Time `standard` against `deep`, and compare what they return for the same descriptions, to check that quick first is
   the right default.
 - See how far `url_expires_at` is from now, and what sizes `optimized` and `high` give.
@@ -293,13 +292,6 @@ In this order, since the first decides whether the rest matter:
   Search actions and R.
 - **A list of placed references.** Nothing lists them, so they're found only by seeing them on the canvas. A References
   group at the foot of Layers would do it without a new tab.
-- **Which video player.** I'd add Kibo UI's video player, a shadcn registry component of about a hundred lines over
-  `media-chrome` (MIT, one dependency), which has play, a scrubber, the time, mute and volume, and takes the kit's
-  colors. `media-chrome` would be a new dependency, so it waits for your yes.
-- **What a video is on the canvas.** Placing one from the Media tab shows its first frame, as an image. Whether a design
-  can hold a playing video, and what that is in the project's code, isn't designed.
-- **Where video files are kept.** Images go in `public/images`, as `images.import` saves them. The stories keep videos
-  in `public/videos` beside it, which nothing has decided.
 - **A sharper picture for the larger view and the canvas.** The Mobbin connector asks for the API's `optimized`
   pictures, 768 pixels wide for a web screen in the searches I ran. The API's `high` would suit a reference at its own
   size.
