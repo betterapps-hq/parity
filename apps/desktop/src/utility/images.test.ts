@@ -36,7 +36,9 @@ describe("scanImages", () => {
   it("lists the images under public/images, and the lines of the project's own code that name them", async () => {
     const { files, references } = await scanImages(project)
 
-    expect(files.map(({ path, bytes }) => [path, bytes]).sort()).toEqual([
+    const sorted = files.toSorted((a, b) => a.path.localeCompare(b.path))
+
+    expect(sorted.map(({ path, bytes }) => [path, bytes])).toEqual([
       ["public/images/hero.png", 4],
       ["public/images/icons/star.svg", 6]
     ])
