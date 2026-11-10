@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
-import { connectorById, connectors, keysFromEnvironment, keyVariable, offered, withoutKeys } from "./index.ts"
+import {
+  connectorById,
+  connectorNamed,
+  connectors,
+  keysFromEnvironment,
+  keyVariable,
+  offered,
+  withoutKeys
+} from "./index.ts"
 
 describe("connectors", () => {
   it("each has its own id and key variable", () => {
@@ -16,6 +24,7 @@ describe("connectors", () => {
     expect(offered.every((connector) => connectors.includes(connector))).toBe(true)
     expect(connectorById("unsplash")?.info.name).toBe("Unsplash")
     expect(connectorById("nothing")).toBeUndefined()
+    expect(connectorNamed("Pixabay")?.info.id).toBe("pixabay")
   })
 
   it("reads each connector's key from the variable it names, leaving blank ones unset", () => {

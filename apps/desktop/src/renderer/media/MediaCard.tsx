@@ -1,4 +1,5 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { connectorNamed } from "@parity-app/connectors"
 import {
   designsUsing,
   type ImageMedium,
@@ -7,12 +8,13 @@ import {
   type PictureSize,
   type ProjectImage
 } from "@parity-app/editor"
-import { Code, ImageIcon, type LucideIcon, PenTool, Plus, Trash2 } from "lucide-react"
+import { Code, ExternalLink, ImageIcon, type LucideIcon, PenTool, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { DesignIcon, kindColors } from "../canvas/kinds.tsx"
 import { IconButton } from "../chrome/IconButton.tsx"
 import { Name } from "../chrome/Name.tsx"
 import { PhotoCredit } from "../chrome/PhotoCredit.tsx"
+import { SourceMark } from "../library/SourceMark.tsx"
 import { PictureMissing, ProjectPicture } from "./ProjectPicture.tsx"
 
 /** A layer that shows one of the project's media, to select on the canvas. */
@@ -84,7 +86,7 @@ export function MediaCard({ image, url, size, onInsert, onRemove, onShow }: Medi
             ))}
           </span>
         )}
-        {image.credit && <PhotoCredit credit={image.credit} className="mt-1" />}
+        {image.credit && <Credit credit={image.credit} />}
       </div>
       {inUse(image) && (
         <div className="border-t py-1.5 pr-1.5 pl-3 text-xs">
@@ -97,6 +99,15 @@ export function MediaCard({ image, url, size, onInsert, onRemove, onShow }: Medi
             <Plus /> Insert
           </Button>
         )}
+        {image.credit?.source && (
+          <IconButton
+            label={`Open in ${image.credit.source}`}
+            className="size-7"
+            onClick={() => window.open(image.credit?.url, "_blank")}
+          >
+            <ExternalLink />
+          </IconButton>
+        )}
         <span className="flex-1" />
         <IconButton
           label={removeLabel(image)}
@@ -106,6 +117,18 @@ export function MediaCard({ image, url, size, onInsert, onRemove, onShow }: Medi
           <Trash2 />
         </IconButton>
       </div>
+    </div>
+  )
+}
+
+/** Who made it, under the mark of the library it's from when Parity knows that library. */
+function Credit({ credit }: { credit: NonNullable<ProjectImage["credit"]> }) {
+  const library = credit.source ? connectorNamed(credit.source)?.info : undefined
+
+  return (
+    <div className="mt-1 flex min-w-0 items-center gap-1.5">
+      {library && <SourceMark mark={library.mark} className="size-3.5 text-muted-foreground" />}
+      <PhotoCredit credit={credit} className="truncate" />
     </div>
   )
 }

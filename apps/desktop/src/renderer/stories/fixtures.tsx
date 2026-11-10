@@ -14,6 +14,7 @@ import { getPreferences, type Preferences, setPreferences } from "../chrome/pref
 import { forgetLastAction } from "../chrome/repeat.ts"
 import { startPreviews } from "../component-previews.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
+import { closeLibraryBrowser } from "../library/library-browser.ts"
 import { useResolvedTheme } from "../theme.ts"
 import { type ProjectSession, useActiveTabId, useTabs, workspace } from "../workspace.ts"
 import { answering, projectInfo, resetHost, roots } from "./host.ts"
@@ -53,9 +54,10 @@ export async function openProjects(...names: ProjectName[]): Promise<void> {
     componentsView: "list"
   })
   setTabOrderShown(false)
-  // Nothing done or picked yet, as in a new window.
+  // Nothing done or picked yet, and no library browser left open, as in a new window.
   forgetLastAction()
   forgetRecentPicks()
+  closeLibraryBrowser()
   await workspace.flush().catch(() => undefined)
 
   for (const tab of workspace.getTabs()) {

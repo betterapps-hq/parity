@@ -7,6 +7,7 @@ import {
   filterImages,
   findImage,
   imageItem,
+  keepImageDetails,
   mediumOf,
   projectImages,
   removalOf
@@ -95,6 +96,24 @@ describe("projectImages", () => {
     expect(photo?.credit).toEqual(credit)
     expect(findImage(images, "public/images/ada.jpg")).toBe(findImage(images, "/images/ada.jpg"))
     expect(findImage(images, ".\\public\\images\\ada.jpg")?.name).toBe("ada.jpg")
+  })
+
+  it("credits a file with what the project kept as it was added, before any layer's", () => {
+    const kept = { name: "Lena Ray", url: "https://pixabay.com/users/lena", source: "Pixabay" }
+
+    const withDetails = projectImages({
+      files,
+      references: [],
+      documents: [
+        {
+          path: "app.par",
+          document: { ...document, images: { "public/images/unused.webp": { alt: "Lake", credit: kept } } }
+        }
+      ]
+    })
+
+    expect(findImage(withDetails, "unused.webp")).toMatchObject({ alt: "Lake", credit: kept })
+    expect(filterImages(withDetails, { search: "lake" }).map(({ name }) => name)).toEqual(["unused.webp"])
   })
 })
 
@@ -215,5 +234,17 @@ describe("imageItem", () => {
       width: 64,
       height: 64
     })
+  })
+})
+
+describe("keepImageDetails", () => {
+  it("records what each file shows and who made it, keeping what was there", () => {
+    const kept = keepImageDetails(
+      { ...document, images: { "public/images/a.jpg": { alt: "A" } } },
+      { "public/images/b.jpg": { alt: "B", credit } }
+    )
+
+    expect(kept.images).toEqual({ "public/images/a.jpg": { alt: "A" }, "public/images/b.jpg": { alt: "B", credit } })
+    expect(kept.containers).toBe(document.containers)
   })
 })

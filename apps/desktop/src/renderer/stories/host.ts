@@ -247,9 +247,14 @@ async function askConnectors(path: "keys" | "search", search?: ConnectorSearch):
 
 /**
  * The searches the real connectors answered in stories, newest first, kept as main keeps a person's: one for each
- * description, the latest few for each connector. They last until the page reloads.
+ * description, the latest few for each connector. They last until the story ends.
  */
 let recentNow: RecentSearch[] = []
+
+/** Gives the person recent searches until the story ends, newest first. */
+export function rememberingSearches(recent: RecentSearch[]): void {
+  recentNow = recent
+}
 
 /** Adds a search that worked to the recent ones, with every filter it ran with, as main's hub does. */
 function recall({ connector, request }: ConnectorSearch): void {
@@ -262,6 +267,19 @@ function recall({ connector, request }: ConnectorSearch): void {
   }
 }
 
+/** A story's own answer to the window's searches, in place of the connectors Storybook's dev server runs. */
+type SearchStandIn = (search: ConnectorSearch) => SearchAnswer | Promise<SearchAnswer>
+
+let searchStandIn: SearchStandIn | undefined
+
+/**
+ * Answers the window's searches another way until the story ends, as every connector having a key: results drawn for
+ * the story, or one of the problems a connector answers with. A search that finds something joins the recent ones.
+ */
+export function answeringSearches(answer: SearchStandIn): void {
+  searchStandIn = answer
+}
+
 /**
  * The connectors in stories (PAR-827): Storybook's dev server searches Mobbin and Unsplash with the keys in
  * `.env.local`, as main does for the window, so a key never reaches the page. A search that works joins the recent
@@ -270,6 +288,10 @@ function recall({ connector, request }: ConnectorSearch): void {
  */
 const storyConnectors: CanvasHost["connectors"] = {
   get: async () => {
+    if (searchStandIn) {
+      return connectors.map(({ info }) => ({ ...info, key: "here" as const }))
+    }
+
     const answered = await askConnectors("keys")
     const keyed = z.array(z.string()).safeParse(await answered?.json())
 
@@ -279,6 +301,16 @@ const storyConnectors: CanvasHost["connectors"] = {
     }))
   },
   search: async (search) => {
+    if (searchStandIn) {
+      const answer = await searchStandIn(search)
+
+      if ("found" in answer) {
+        recall(search)
+      }
+
+      return answer
+    }
+
     const answered = await askConnectors("search", search)
     const answer = searchAnswer.safeParse(await answered?.json())
 
@@ -309,6 +341,8 @@ export function resetHost(): void {
   telemetryNow = defaultTelemetry
   Object.assign(service, defaultService)
   running.processes = []
+  searchStandIn = undefined
+  recentNow = []
   media.files = []
   media.references = []
   clearOverrides()
@@ -677,6 +711,16 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
         ...media.files.filter((file) => file.path !== path),
         { path, bytes: Math.round(data.length * 0.75) }
       ]
+
+      return { src: path.slice("public".length), path }
+    }
+
+    case "images.saveFrom": {
+      // Story pictures are served at /images/, so the file saved is the one the link names.
+      const name = new URL(request.params.url).pathname.split("/").at(-1) ?? "picture.jpg"
+      const path = `public/images/${name}`
+
+      media.files = [...media.files.filter((file) => file.path !== path), { path, bytes: 120_000 }]
 
       return { src: path.slice("public".length), path }
     }

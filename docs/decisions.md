@@ -7023,3 +7023,26 @@ My calls:
   the image layer's panel (`PhotoCredit`), rather than copied.
 - **The exploration's Media tab stories are gone,** since the real ones replace them. Its prototype panel stays while
   the library browser's explorations still run on it, and goes with them.
+
+## The library browser and stock pictures in the Media tab (PAR-839)
+
+The second of the four pull requests that build the references design. My calls:
+
+- **One browser for every library,** drawn from what its connector says about itself: its filters, what it finds, how it
+  pages, its tips and its mark. The rules it follows (which filters show, the request for a page, what a result is
+  called, its credit) are `browse.ts` in `@parity-app/connectors`, tested without Electron. The window keeps the dialog,
+  its store and the search hook.
+- **It opens from a store, with a pick action.** The Media tab opens it on Pixabay with "Add to project"; references on
+  the canvas (PAR-840) will open it on Mobbin with their own action, with no change to the browser.
+- **A picture added from Pixabay is saved into `public/images/`,** since Pixabay's links stop working. The service
+  fetches it (`images.saveFrom`, https only), one at a time in the order picked; any that fail are named, and the rest
+  are kept.
+- **Its credit is kept in the project's main file,** in a new `images` map by path: the alt text and the credit, whose
+  link is the picture's own page on Pixabay rather than its author's, so it names where it came from. The Media tab
+  credits it before any layer uses it, and a layer's own credit still wins. Recording it is one undoable step.
+- **Adding counts as placing.** Each picture is reported to the hub's `placed` with `media` as its design, so it counts
+  once as the source's usage, as a picture an agent places does.
+- **Videos show, with how long they run, but can't be picked** until the Media tab plays them (PAR-841). Pressing one
+  shows it larger. `placeableKinds` decides, so PAR-841 changes one list.
+- **The exploration's Pixabay and Unsplash stories are gone,** since the real browser's stories replace them. Its Mobbin
+  stories and prototype stay until references on the canvas are built (PAR-840).
