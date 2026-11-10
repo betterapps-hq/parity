@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A report sent with Share diagnostics off sends only the report, and what was written loses its secrets",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
