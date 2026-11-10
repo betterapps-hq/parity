@@ -257,8 +257,9 @@ CLI's `send.ts`) starts Sentry with `sentryScrubbing()`, which runs one in `befo
 The values it's given are the open projects' `.env`, `.env.local` and other `.env.*` values. The service reads them with
 `envSecrets()` whenever a project opens or closes and sends them to main. Main scrubs them from every process's events
 and passes them to each window, which asks for them as its telemetry starts. Each process's telemetry gets them through
-`setSecrets()`. The CLI reads none: it scrubs keys, tokens and passwords, as every process does, but not a project's
-`.env` values, which only the service reads.
+`setSecrets()`. The CLI's sender (`packages/cli/src/send.ts`) reads its own: the `.env` values of the projects the app
+has open, from `open-projects.json` in the app's data folder, and of the project each command ran in, from the folder it
+ran in up to the nearest `package.json`. Values it has read stay scrubbed for the rest of its run.
 
 Replays are scrubbed in the editor window as they're recorded, by the window's own scrubber, so they lose the same
 secrets, `.env` values included (`replayPrivacy` in `apps/desktop/src/renderer/replay.ts`):

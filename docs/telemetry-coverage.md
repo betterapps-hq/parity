@@ -116,8 +116,9 @@ while it's off.
 before anything leaves. It runs on events as they're recorded and in every Sentry hook (`beforeSend`,
 `beforeSendTransaction`, `beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`). It catches keys and tokens with a
 known shape, `Bearer` tokens, passwords in URLs, the values of fields named like `password` or `apiKey`, long random
-strings, and the open projects' `.env` values. The CLI doesn't know the `.env` values. Sentry's server-side scrubbing is
-a second net. [telemetry.md](telemetry.md#secrets-are-scrubbed) has the details.
+strings, and the open projects' `.env` values. The CLI's sender reads them itself, with those of the project each
+command ran in. Sentry's server-side scrubbing is a second net. [telemetry.md](telemetry.md#secrets-are-scrubbed) has
+the details.
 
 **The replay masks almost nothing.** `maskAllText` is on, but only so every text node passes through the scrubber, which
 returns it unchanged unless it's a secret. `maskAllInputs` and `blockAllMedia` are off, and the canvas integration
@@ -187,9 +188,8 @@ are the gaps left. Each comes from the code or from Sentry, with the Linear issu
 
 These go beyond "names and values as written", which the decisions above cover.
 
-| Risk                                                | Evidence                                                                                                                                                                           | Issue   |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| A failed frame's picture goes with unrelated errors | `failed-frame.png` goes with every error for 10 minutes after a frame fails offscreen, whatever the process or cause (`main/telemetry.ts:44`, `:180`)                              | PAR-812 |
-| A report with sharing off can send other events     | `sendFeedback` turns Sentry on for the whole of main while the report flushes, up to 15 seconds (`main/report.ts:237`)                                                             | PAR-813 |
-| The project's console output becomes breadcrumbs    | The project's components run in the editor's page (`renderer/telemetry.ts:19`), and the browser SDK's console breadcrumbs are on by default                                        | PAR-814 |
-| The CLI doesn't scrub `.env` values                 | Only the service reads them ([telemetry.md](telemetry.md#secrets-are-scrubbed)), so a secret in an uncaught error's message or stack leaves the CLI unless its shape gives it away | PAR-815 |
+| Risk                                                | Evidence                                                                                                                                              | Issue   |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| A failed frame's picture goes with unrelated errors | `failed-frame.png` goes with every error for 10 minutes after a frame fails offscreen, whatever the process or cause (`main/telemetry.ts:44`, `:180`) | PAR-812 |
+| A report with sharing off can send other events     | `sendFeedback` turns Sentry on for the whole of main while the report flushes, up to 15 seconds (`main/report.ts:237`)                                | PAR-813 |
+| The project's console output becomes breadcrumbs    | The project's components run in the editor's page (`renderer/telemetry.ts:19`), and the browser SDK's console breadcrumbs are on by default           | PAR-814 |

@@ -31,6 +31,8 @@ export interface BatchRun {
   commit?: string
   /** The folder whose Git commit names the release of a checkout run from source, read by the sender. */
   source?: string
+  /** The folder the command ran in, whose project's `.env` values the sender scrubs (PAR-815). */
+  folder?: string
   tags: Record<string, string>
   user: { id: string; username?: string }
 }
