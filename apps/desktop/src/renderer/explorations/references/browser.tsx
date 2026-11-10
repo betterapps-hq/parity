@@ -33,6 +33,7 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { Filter, FilterValue, Found, Problem, SearchAnswer } from "@parity-app/connectors"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   Check,
   ChevronLeft,
@@ -53,7 +54,16 @@ import {
   Square,
   X
 } from "lucide-react"
-import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState
+} from "react"
 import { chipColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { IconButton } from "../../chrome/IconButton.tsx"
@@ -177,6 +187,7 @@ function Browser({
   const [viewing, setViewing] = useState(start.viewing)
   const latest = useRef(0)
   const field = useRef<HTMLInputElement>(null)
+  const scroller = useRef<HTMLDivElement>(null)
 
   /** Asks for a search's first results, or more of them after `after`, and takes the answer if it's still wanted. */
   const ask = (next: Searched, after: Found[]) => {
@@ -380,8 +391,9 @@ function Browser({
                 <X />
               </DialogClose>
             </form>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto">
               <Body
+                scroller={scroller}
                 library={library}
                 status={status}
                 search={search}
@@ -650,6 +662,8 @@ function FilterControl({
 }
 
 interface BodyProps {
+  /** What the results scroll in. */
+  scroller: RefObject<HTMLDivElement | null>
   library: Library
   status: Status
   search?: Searched
@@ -665,6 +679,7 @@ interface BodyProps {
 }
 
 function Body({
+  scroller,
   library,
   status,
   search,
@@ -706,44 +721,216 @@ function Body({
         </p>
         {depthOf(library.info) && <Deepen search={search} onRun={onRun} />}
       </div>
-      <ul aria-label="Results" className={layouts[library.layout](search)}>
-        {results.map((found) => (
-          <li key={found.id} className={library.layout === "columns" ? "mb-4 break-inside-avoid" : undefined}>
-            <Card
-              found={found}
-              picked={isPicked(found)}
-              onToggle={() => onToggle(found)}
-              onView={() => onView(found.id)}
-            />
-          </li>
-        ))}
-      </ul>
-      <div className="flex justify-center py-2">
-        {more === "none" ? (
-          results.length > library.pageSize(search.filters) && (
-            <p className="text-xs text-muted-foreground">
-              That&apos;s every match. Describe it another way to see others.
-            </p>
-          )
-        ) : (
-          <Button variant="outline" size="sm" disabled={more === "loading"} onClick={onMore}>
-            {more === "loading" && <Spinner aria-hidden />} More results
-          </Button>
-        )}
-      </div>
+      <ResultsGrid
+        scroller={scroller}
+        library={library}
+        search={search}
+        results={results}
+        more={more}
+        isPicked={isPicked}
+        onToggle={onToggle}
+        onView={onView}
+        onMore={onMore}
+      />
     </div>
   )
 }
 
-/** How results are laid out: screens of one shape in rows, phones narrower than pages; photos packed into columns. */
-const layouts: Record<Library["layout"], (search: Searched) => string> = {
-  rows: (search) =>
-    `grid gap-x-4 gap-y-5 ${
-      search.filters.platform === "ios"
-        ? "grid-cols-[repeat(auto-fill,minmax(150px,1fr))]"
-        : "grid-cols-[repeat(auto-fill,minmax(300px,1fr))]"
-    }`,
-  columns: () => "columns-[240px] gap-4"
+/** The narrowest a result is drawn, which sets how many sit across: pictures and web pages wider than phones. */
+function narrowestOf(library: Library, search: Searched): number {
+  if (library.layout === "columns") {
+    return 240
+  }
+
+  return search.filters.platform === "ios" ? 150 : 300
+}
+
+/** The space between results, and the room under each picture for its name. */
+const spacing = { across: 16, down: 20, caption: 22 }
+
+/** How close to the end of the results the view gets before more are asked for. */
+const nearEnd = 320
+
+interface ResultsGridProps extends Pick<BodyProps, "scroller" | "library" | "results" | "more" | "isPicked"> {
+  search: Searched
+  onToggle: (found: Found) => void
+  onView: (id: string) => void
+  onMore: () => void
+}
+
+/**
+ * The results, each as wide as its column and as tall as its own picture, each going to whichever column is shortest,
+ * so a later page never moves an earlier one. Only the ones in view are drawn, since a search can run to hundreds.
+ * More load as the end comes near; a deep search waits to be asked, since each of its pages is one Mobbin charges for.
+ */
+function ResultsGrid({
+  scroller,
+  library,
+  search,
+  results,
+  more,
+  isPicked,
+  onToggle,
+  onView,
+  onMore
+}: ResultsGridProps) {
+  const list = useRef<HTMLUListElement>(null)
+  const [room, setRoom] = useState({ width: 0, above: 0 })
+
+  // The list's width, and how far down the scroller it starts: as it's first drawn, once more straight after, since
+  // the scroller around it may be drawn in the same pass and not be there to measure yet, and whenever it's resized.
+  useLayoutEffect(() => {
+    const measure = () => {
+      const element = list.current
+      const within = scroller.current
+
+      if (!element || !within) {
+        return
+      }
+
+      const width = element.clientWidth
+      const above = element.getBoundingClientRect().top - within.getBoundingClientRect().top + within.scrollTop
+
+      setRoom((now) => (now.width === width && now.above === above ? now : { width, above }))
+    }
+
+    measure()
+    const soon = setTimeout(measure, 0)
+    const observer = new ResizeObserver(measure)
+
+    if (list.current) {
+      observer.observe(list.current)
+    }
+
+    return () => {
+      clearTimeout(soon)
+      observer.disconnect()
+    }
+  }, [scroller])
+
+  const narrowest = narrowestOf(library, search)
+  const across = Math.max(1, Math.floor((room.width + spacing.across) / (narrowest + spacing.across)))
+  const wide = Math.max(0, (room.width - spacing.across * (across - 1)) / across)
+
+  // The app doesn't use the React Compiler, whose memoizing this rule guards against.
+  // oxlint-disable-next-line react/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: results.length,
+    getScrollElement: () => scroller.current,
+    estimateSize: (index) => {
+      const { width, height } = sizeOf(results[index]!)
+
+      return wide * (height / width) + spacing.caption
+    },
+    getItemKey: (index) => results[index]!.id,
+    lanes: across,
+    gap: spacing.down,
+    scrollMargin: room.above,
+    overscan: across * 2
+  })
+
+  // Every result's height follows its column's width, so a change in either lays them out again.
+  useLayoutEffect(() => {
+    virtualizer.measure()
+  }, [virtualizer, across, wide])
+
+  const automatic = !search.deep
+
+  // Asks for more when the end is near: as results arrive, and as the view scrolls.
+  useEffect(() => {
+    const within = scroller.current
+
+    if (!within || !automatic || more !== "can" || room.width === 0) {
+      return undefined
+    }
+
+    const check = () => {
+      if (within.scrollHeight - within.scrollTop - within.clientHeight < nearEnd) {
+        onMore()
+      }
+    }
+
+    check()
+    within.addEventListener("scroll", check, { passive: true })
+
+    return () => within.removeEventListener("scroll", check)
+  }, [scroller, automatic, more, results.length, room.width, onMore])
+
+  return (
+    <>
+      <ul ref={list} aria-label="Results" className="relative" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((item) => {
+          const found = results[item.index]!
+
+          return (
+            <li
+              key={item.key}
+              className="absolute"
+              style={{ top: item.start - room.above, left: item.lane * (wide + spacing.across), width: wide }}
+            >
+              <Card
+                found={found}
+                picked={isPicked(found)}
+                onToggle={() => onToggle(found)}
+                onView={() => onView(found.id)}
+              />
+            </li>
+          )
+        })}
+      </ul>
+      <div className="flex min-h-8 items-center justify-center">
+        <ResultsEnd
+          more={more}
+          automatic={automatic}
+          past={results.length > library.pageSize(search.filters)}
+          onMore={onMore}
+        />
+      </div>
+    </>
+  )
+}
+
+/** What's under the results: more arriving, the way to more of a deep search, or that there are no more. */
+function ResultsEnd({
+  more,
+  automatic,
+  past,
+  onMore
+}: {
+  more: BodyProps["more"]
+  automatic: boolean
+  /** Whether more than a first page is showing. */
+  past: boolean
+  onMore: () => void
+}) {
+  if (more === "loading") {
+    return (
+      <output className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Spinner aria-hidden /> Loading more
+      </output>
+    )
+  }
+
+  if (more === "none") {
+    return past ? (
+      <p className="text-xs text-muted-foreground">That&apos;s every match. Describe it another way to see others.</p>
+    ) : null
+  }
+
+  return automatic ? null : (
+    <Button variant="outline" size="sm" onClick={onMore}>
+      More results
+    </Button>
+  )
+}
+
+/** How the placeholders for results are laid out while a search runs: phones narrower than pages. */
+function waitingGrid(search: Searched): string {
+  return `grid gap-x-4 gap-y-5 ${
+    search.filters.platform === "ios"
+      ? "grid-cols-[repeat(auto-fill,minmax(150px,1fr))]"
+      : "grid-cols-[repeat(auto-fill,minmax(300px,1fr))]"
+  }`
 }
 
 function countOf(count: number, one: string, many: string): string {
@@ -930,7 +1117,7 @@ function Preview({ found, playing, className }: { found: Found; playing: boolean
   const [time] = useSampleClock(clip?.seconds ?? 0, playing && sample)
 
   if (!clip) {
-    return <Picture found={found} className={className} />
+    return <Picture found={found} small className={className} />
   }
 
   if (sample) {
@@ -1082,7 +1269,7 @@ function Filmstrip({
             onClick={() => onView(each.id)}
             className="block rounded-md opacity-60 outline-none hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 aria-[current]:opacity-100 aria-[current]:ring-2 aria-[current]:ring-foreground aria-[current]:ring-offset-2 aria-[current]:ring-offset-popover"
           >
-            <Picture found={each} className="rounded-md border" style={{ height: 64 }} />
+            <Picture found={each} small className="rounded-md border" style={{ height: 64 }} />
           </button>
           {isPicked(each) && (
             <span
@@ -1215,7 +1402,7 @@ function Searching({ library, search }: { library: Library; search: Searched }) 
         <Spinner aria-hidden />
         {search.deep ? "Checking each screen against your description" : `Searching ${library.info.name}`}
       </output>
-      <div aria-hidden className={layouts.rows(search)}>
+      <div aria-hidden className={waitingGrid(search)}>
         {Array.from({ length: 6 }, (_, index) => (
           <Skeleton key={index} className={`rounded-lg ${proportions}`} />
         ))}
