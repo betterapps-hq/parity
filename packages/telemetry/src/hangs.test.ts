@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vite-plus/test"
 import {
+  debugImages,
   hangWatch,
   leftoverHangs,
   mainHangEvent,
   openHangsFile,
   openHangsOwner,
   openHangsRun,
-  sentryEnvelope
+  sentryEnvelope,
+  stackFrames,
+  stuckWhere
 } from "./hangs.ts"
 
 describe("hangWatch", () => {
@@ -144,5 +147,66 @@ describe("sentryEnvelope", () => {
     expect(sentryEnvelope("https://o1.ingest.sentry.io/456", event, new Date(0))).toBeUndefined()
     expect(sentryEnvelope("https://key@o1.ingest.sentry.io/", event, new Date(0))).toBeUndefined()
     expect(sentryEnvelope("not a dsn", event, new Date(0))).toBeUndefined()
+  })
+})
+
+describe("main's stack", () => {
+  const root = String.raw`C:\Users\someone\AppData\Local\Programs\Parity\resources\app.asar`
+
+  const paused = [
+    {
+      functionName: "readEverything",
+      url: "file:///C:/Users/someone/AppData/Local/Programs/Parity/resources/app.asar/main.mjs",
+      location: { lineNumber: 9, columnNumber: 4 }
+    },
+    {
+      functionName: "",
+      url: "node:internal/timers",
+      location: { lineNumber: 0, columnNumber: 0 }
+    }
+  ]
+
+  it("names the app's files from its folder, outermost frame first", () => {
+    expect(stackFrames(paused, root)).toEqual([
+      { filename: "node:internal/timers", function: "<anonymous>", lineno: 1, colno: 1, in_app: false },
+      { filename: "app:///main.mjs", function: "readEverything", lineno: 10, colno: 5, in_app: true }
+    ])
+  })
+
+  it("says where main was stuck by the innermost of the app's own frames", () => {
+    const frames = stackFrames([paused[1], paused[0], paused[1]].reverse(), root)
+    expect(stuckWhere(frames)).toBe("readEverything (app:///main.mjs:10:5)")
+    expect(stuckWhere([])).toBeUndefined()
+  })
+
+  it("finds each bundle's debug ID from the stacks it's kept by", () => {
+    const stack = `Error\n    at file:///C:/Users/someone/AppData/Local/Programs/Parity/resources/app.asar/main.mjs:1:120`
+    expect(debugImages({ [stack]: "id-1", nonsense: "id-2" }, root)).toEqual([
+      { type: "sourcemap", code_file: "app:///main.mjs", debug_id: "id-1" }
+    ])
+  })
+
+  it("puts the stack on the watchdog's event, named by where it was stuck", () => {
+    const frames = stackFrames(paused, root)
+
+    const event = mainHangEvent({
+      stuckMs: 2500,
+      scope: { tags: {} },
+      eventId: "abc",
+      now: 1,
+      stack: { frames, images: [] }
+    })
+
+    expect(event.exception?.values[0]).toMatchObject({
+      type: "ApplicationNotResponding",
+      value: "Main stopped answering in readEverything (app:///main.mjs:10:5)",
+      stacktrace: { frames }
+    })
+  })
+
+  it("carries where main was stuck into the next run's report", () => {
+    expect(leftoverHangs({ hangs: [{ kind: "main", stuckMs: 3000, where: "f (app:///main.mjs:1:1)" }] })).toEqual([
+      { name: "main.blocked", attributes: { stuckMs: 3000, ended: "exited", where: "f (app:///main.mjs:1:1)" } }
+    ])
   })
 })

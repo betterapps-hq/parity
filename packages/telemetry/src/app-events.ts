@@ -213,6 +213,13 @@ export const mainBlocked = defineEvent(
       .describe(
         "How the hang ended: main's loop `answered` again, or the app `exited` while it was blocked, such as a " +
           "force-quit, which the next run reports"
+      ),
+    where: z
+      .string()
+      .optional()
+      .describe(
+        "Where main was stuck: the innermost of Parity's own functions on its stack, with its file, line and column, " +
+          "when the watchdog could pause main to look (PAR-805)"
       )
   }),
   {

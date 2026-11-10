@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Attach the last 5 minutes of events to crashes and fatal errors, and say where main was stuck in a hang",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
