@@ -67,6 +67,8 @@ export {
   sharedPreviewFiles
 } from "./preview-key.ts"
 
+export { type DetectionInputs, detectionInputs } from "./detection-inputs.ts"
+
 export { detectionFingerprint, fingerprintInputs } from "./fingerprint.ts"
 
 export { changesLockfiles, findLockfiles, lockfileFolders } from "./lockfile.ts"
