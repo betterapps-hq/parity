@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Agents list a project's images with get_images and parity images, with what uses each, and remove an unused one with remove_image and parity images remove",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

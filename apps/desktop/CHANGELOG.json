@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 10:25:44 GMT",
+      "version": "0.48.0",
+      "tag": "@parity-app/desktop_v0.48.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "99c771ab306e37d407f8ce11d468f6a784909107",
+            "comment": "Agents list a project's images with get_images and parity images, with what uses each, and remove an unused one with remove_image and parity images remove"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 07:08:11 GMT",
       "version": "0.47.2",
       "tag": "@parity-app/desktop_v0.47.2",
