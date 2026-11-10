@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { homedir } from "node:os"
+import { constants, homedir } from "node:os"
 import { dirname, join, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { errorDetails } from "@parity-app/core/errors"
@@ -300,6 +300,37 @@ function hand(outbox: Outbox, installId: string, installed: boolean, promoted: b
 
   if (serving) {
     setInterval(write, 10_000).unref()
+    writeOnStop(write, process)
+    flushServing = write
+  }
+}
+
+/** Writes what `parity mcp` holds, as its client closes stdin, rather than waiting for the next 10 seconds (PAR-806). */
+export function flushCliTelemetry(): void {
+  flushServing?.()
+}
+
+let flushServing: (() => void) | undefined
+
+/** The signals an MCP client stops `parity mcp` with. Node doesn't fire `exit` for them, so nothing would be written. */
+const stopSignals = ["SIGTERM", "SIGINT", "SIGHUP"] as const
+
+/** What `writeOnStop` listens on and exits through: `process`, or a stand-in in tests. */
+export interface StopTarget {
+  once(signal: (typeof stopSignals)[number], handler: () => void): void
+  exit(code: number): void
+}
+
+/**
+ * Writes what's held, then exits as the signal would have, when one of `stopSignals` arrives (PAR-806). Handling a
+ * signal replaces Node's own exit, so this exits itself, with 128 plus the signal's number as a shell reports it.
+ */
+export function writeOnStop(write: () => void, target: StopTarget): void {
+  for (const signal of stopSignals) {
+    target.once(signal, () => {
+      write()
+      target.exit(128 + constants.signals[signal])
+    })
   }
 }
 
