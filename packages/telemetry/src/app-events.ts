@@ -124,6 +124,57 @@ export const serviceExited = defineEvent(
   }
 )
 
+/** What the project service can stop doing while it keeps running: the values of `service.degraded`'s `feature`. */
+export const degradedFeatures = [
+  "watch",
+  "config_watch",
+  "design_reload",
+  "component_reread",
+  "config_reread",
+  "type_check",
+  "prop_inference",
+  "bitmap_cache",
+  "frame_bitmap",
+  "component_preview",
+  "preview_index",
+  "reopening"
+] as const
+
+export type DegradedFeature = (typeof degradedFeatures)[number]
+
+/** What each degraded feature means for the person, for the event's description. */
+const degradedMeaning: Record<DegradedFeature, string> = {
+  watch: "A project's files aren't watched, so outside edits don't show until it's opened again",
+  config_watch: "A project's config isn't followed, so a changed tsconfig, package.json or lockfile isn't noticed",
+  design_reload: "A project file changed on disk but can't be read, so the canvas keeps the version it had",
+  component_reread: "Changed component files can't be read again, so the component list keeps what it had",
+  config_reread: "Props can't be read again after the config changed",
+  type_check: "The type checker can't read the components, so their props aren't known",
+  prop_inference: "Component props can't be inferred, so panels fall back to free-form props",
+  bitmap_cache: "sharp can't load, so no frame bitmaps or component previews are kept",
+  frame_bitmap: "A frame's bitmap can't be kept",
+  component_preview: "A component preview can't be kept",
+  preview_index: "The component preview index can't be kept",
+  reopening: "The open projects can't be kept, so they don't reopen next time"
+}
+
+export const serviceDegraded = defineEvent(
+  "service.degraded",
+  z.object({
+    feature: z
+      .enum(degradedFeatures)
+      .describe(degradedFeatures.map((feature) => `\`${feature}\`: ${degradedMeaning[feature]}.`).join(" ")),
+    message: z.string().describe("Why, as the error said it"),
+    code: z.string().optional().describe("The `CodedError` code, when the failure has one"),
+    root: z.string().optional().describe("The project's folder, when it's one project's")
+  }),
+  {
+    level: "warn",
+    sentBy: ["service"],
+    when: "The project service stops doing something, such as watching a project or keeping bitmaps, and runs on without it."
+  }
+)
+
 export const windowHung = defineEvent(
   "window.hung",
   z.object({
@@ -161,6 +212,7 @@ export const appEvents = [
   processMemory,
   serviceLag,
   serviceExited,
+  serviceDegraded,
   windowHung,
   mainBlocked,
   rendererLongTask
