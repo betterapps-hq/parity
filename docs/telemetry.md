@@ -410,6 +410,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `gesture.ran`             | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                   |
 | `insert.done`             | info  | all  | renderer                                | Something is inserted onto the canvas.                                                                       |
 | `inspector.changed`       | info  | all  | renderer                                | A field in the inspector changes a layer, a design or a token.                                               |
+| `installId.unsaved`       | warn  | all  | main                                    | A new install ID can't be saved to `telemetry.json`, so the next start makes another.                        |
 | `ipc.failed`              | warn  | all  | renderer                                | A request to the project service fails.                                                                      |
 | `library.added`           | info  | all  | renderer                                | A catalog library is installed into the project.                                                             |
 | `library.failed`          | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                     |
@@ -775,6 +776,13 @@ Some failures are recorded for you, so code doesn't record them again:
 | `from`    | `string`           | The value before, as JSON; `mixed` when the layers differed                                                                                                                     |
 | `to`      | `string`           | The value after, as JSON                                                                                                                                                        |
 | `gesture` | `boolean`          | Whether it's part of a run of Up and Down presses                                                                                                                               |
+
+### `installId.unsaved`
+
+| Attribute | Type               | Meaning                                                                      |
+| --------- | ------------------ | ---------------------------------------------------------------------------- |
+| `code`    | `string`, optional | The file system's error code, such as `EACCES` or `ENOSPC`, when it gave one |
+| `message` | `string`           | What went wrong                                                              |
 
 ### `ipc.failed`
 
