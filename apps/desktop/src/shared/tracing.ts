@@ -97,3 +97,18 @@ export function handleInSpan<Result>(
 
   return inSpan("request.handled", { method }, answer, readTraceHeaders(trace))
 }
+
+/**
+ * One of main's IPC handlers, run in a `request.handled` span named `method` that continues the trace the window sent
+ * after the handler's argument, or starts one when it sent none (PAR-810). What the handler returns or throws passes
+ * through, and a failure's code is on the span.
+ */
+export function handlerInSpan<Event, Result>(
+  method: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent over IPC, which the handler checks
+  handler: (event: Event, argument: unknown) => Result | Promise<Result>
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent over IPC
+): (event: Event, argument?: unknown, trace?: unknown) => Promise<Result> {
+  return (event, argument, trace) =>
+    inSpan("request.handled", { method }, () => handler(event, argument), readTraceHeaders(trace))
+}

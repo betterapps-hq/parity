@@ -83,6 +83,9 @@ One action is one trace in Sentry, across every process that works on it (PAR-62
   drag, as `gesture.ran` with its kind from `canvas/gesture.ts`. The service's requests made while it runs carry it.
 - **Requests carry the trace** as `sentry-trace` and `baggage`, in the channel message's `trace` field. The service and
   main answer each in a `request.handled` span, with the error code when it fails.
+- **Requests to main's own IPC channels carry it too,** such as signing in, sending a report, checking for updates or
+  picking a file. The preload sends the window's trace after each request's argument, and main runs each handler in a
+  `request.handled` span named by its channel in `shared/channels.ts`, such as `pickFolder` (PAR-810).
 - **Queued work keeps its trace:** an offscreen frame or preview is a `frame.rendered` span with how long it waited for
   a window, and a builder's start is `builder.started`.
 - **An agent's call starts its trace in the CLI.** A `parity` command's calls carry its `cli.ran` span, and each MCP
@@ -371,12 +374,16 @@ so recording never stops the work it describes.
 - **In main and the service,** `track` and `inSpan` from `shared/tracing.ts` record under the span the process is
   working in, followed across `await`s. A request to another process carries it with `currentTraceHeaders()`, and queued
   work keeps it with `currentTrace()`. A channel's handlers each run in a `request.handled` span through `handleInSpan`.
+  Main's IPC handlers are registered with `handle` and `listen` from `main/ipc-handlers.ts`, which run each in one
+  through `handlerInSpan`. Only `telemetry`, where each span would record another, and the window's `closePending` reply
+  skip them. The window gives its preload its trace with `traceFrom`, as `renderer/main.tsx` does.
 - **In the CLI,** `recordCli` records an event under the running command, and `inCliRun` runs a command in its `cli.ran`
   span. `runTraceHeaders()` gives the headers that carry that span to the app.
 
 Some failures are recorded for you, so code doesn't record them again:
 
 - **A failed request from the window to the service** is recorded as `ipc.failed` by `request` in `renderer/service.ts`.
+- **A failed request from the window to main** ends main's `request.handled` span as `error`, with the error's code.
 - **A failed check of data Parity didn't make,** through `checkData`, `parseData` or `parseInput` in `@parity-app/core`,
   is recorded as `data.invalid` in every process.
 - **Uncaught errors and crashes** reach Sentry through each app process's Sentry setup, and what a React render throws

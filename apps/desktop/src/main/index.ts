@@ -72,6 +72,7 @@ import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } fr
 import { readEnvironment } from "./environment.ts"
 import { watchFrame } from "./frame-telemetry.ts"
 import { idleClose } from "./idle-close.ts"
+import { handle, listen } from "./ipc-handlers.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
@@ -512,7 +513,7 @@ function createWindow(): void {
     }, 3000)
   })
   ipcMain.removeAllListeners(ipc.closeCancel)
-  ipcMain.on(ipc.closeCancel, (event) => {
+  listen("closeCancel", (event) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) {
       return
     }
@@ -523,7 +524,7 @@ function createWindow(): void {
     quitCancelled()
   })
   ipcMain.removeAllListeners(ipc.closeReady)
-  ipcMain.on(ipc.closeReady, (event) => {
+  listen("closeReady", (event) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || ready) {
       return
     }
@@ -756,14 +757,14 @@ app.on("open-url", (event, url) => {
 
 const signInRefusal = "Only the Parity window can sign in."
 
-ipcMain.handle(ipc.accountState, (event) => {
+handle("accountState", (event) => {
   appWindowOf(event, signInRefusal)
 
   return account.state()
 })
 
-ipcMain.handle(
-  ipc.accountSignIn,
+handle(
+  "accountSignIn",
   checked(signInRequest, (event: Electron.IpcMainInvokeEvent, request) => {
     appWindowOf(event, signInRefusal)
 
@@ -771,19 +772,19 @@ ipcMain.handle(
   })
 )
 
-ipcMain.handle(ipc.accountReopen, (event) => {
+handle("accountReopen", (event) => {
   appWindowOf(event, signInRefusal)
 
   return account.reopen()
 })
 
-ipcMain.handle(ipc.accountCancel, (event) => {
+handle("accountCancel", (event) => {
   appWindowOf(event, signInRefusal)
   account.cancel()
 })
 
-ipcMain.handle(
-  ipc.accountSwitch,
+handle(
+  "accountSwitch",
   checked(organizationId, (event: Electron.IpcMainInvokeEvent, id) => {
     appWindowOf(event, signInRefusal)
 
@@ -791,8 +792,8 @@ ipcMain.handle(
   })
 )
 
-ipcMain.handle(
-  ipc.accountSignOut,
+handle(
+  "accountSignOut",
   checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
     appWindowOf(event, signInRefusal)
 
@@ -800,8 +801,8 @@ ipcMain.handle(
   })
 )
 
-ipcMain.handle(
-  ipc.accountUse,
+handle(
+  "accountUse",
   checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
     appWindowOf(event, signInRefusal)
 
@@ -809,7 +810,7 @@ ipcMain.handle(
   })
 )
 
-ipcMain.handle(ipc.buildInfo, (event) => {
+handle("buildInfo", (event) => {
   updateOwner(event)
 
   return installedBuild.get()
@@ -818,19 +819,19 @@ ipcMain.handle(ipc.buildInfo, (event) => {
 /** The open projects' `.env` values the service last sent, which a window asks for as its telemetry starts (PAR-672). */
 let projectSecrets: string[] = []
 
-ipcMain.handle(ipc.telemetrySecrets, () => projectSecrets)
+handle("telemetrySecrets", () => projectSecrets)
 
 /** The setting is the person's, so only the Parity window may read or change it. */
 const telemetryRefusal = "Only the Parity window can change the Telemetry setting."
 
-ipcMain.handle(ipc.telemetryState, (event) => {
+handle("telemetryState", (event) => {
   appWindowOf(event, telemetryRefusal)
 
   return telemetrySetting.get()
 })
 
-ipcMain.handle(
-  ipc.telemetryLevel,
+handle(
+  "telemetryLevel",
   checked(telemetryLevelCheck, (event: Electron.IpcMainInvokeEvent, level) => {
     appWindowOf(event, telemetryRefusal)
     const state = telemetrySetting.setLevel(level)
@@ -852,41 +853,41 @@ const reports = createReports({
 
 const reportRefusal = "Only the Parity window can send a report."
 
-ipcMain.handle(ipc.reportPrepare, (event) => reports.prepare(appWindowOf(event, reportRefusal)))
+handle("reportPrepare", (event) => reports.prepare(appWindowOf(event, reportRefusal)))
 
-ipcMain.handle(
-  ipc.reportSend,
+handle(
+  "reportSend",
   checked(problemReport, (event: Electron.IpcMainInvokeEvent, report) =>
     reports.send(appWindowOf(event, reportRefusal), report)
   )
 )
 
-ipcMain.handle(ipc.reportLastCrash, (event) => {
+handle("reportLastCrash", (event) => {
   appWindowOf(event, reportRefusal)
 
   return reports.takeLastCrash()
 })
 
-ipcMain.handle(ipc.updateState, (event) => {
+handle("updateState", (event) => {
   updateOwner(event)
 
   return updates?.get() ?? { phase: "disabled", beta: false }
 })
 
-ipcMain.handle(ipc.updateCheck, async (event) => {
+handle("updateCheck", async (event) => {
   updateOwner(event)
   await updates?.check()
 })
 
-ipcMain.handle(
-  ipc.updateBeta,
+handle(
+  "updateBeta",
   checked(betaSetting, (event: Electron.IpcMainInvokeEvent, beta) => {
     updateOwner(event)
     updates?.setBeta(beta)
   })
 )
 
-ipcMain.handle(ipc.updateAct, async (event) => {
+handle("updateAct", async (event) => {
   const window = updateOwner(event)
   const state = updates?.get()
 
@@ -907,14 +908,14 @@ async function showOpen(event: Electron.IpcMainInvokeEvent, options: Electron.Op
   return result.canceled ? undefined : result.filePaths[0]
 }
 
-ipcMain.handle(
-  ipc.pickFolder,
+handle(
+  "pickFolder",
   checked(folderPickerTitle, (event: Electron.IpcMainInvokeEvent, title) =>
     showOpen(event, { title: title ?? "Open project", properties: ["openDirectory", "createDirectory"] })
   )
 )
 
-ipcMain.handle(ipc.pickProjectFile, (event) =>
+handle("pickProjectFile", (event) =>
   showOpen(event, {
     title: "Open project file",
     properties: ["openFile"],
@@ -922,8 +923,8 @@ ipcMain.handle(ipc.pickProjectFile, (event) =>
   })
 )
 
-ipcMain.handle(
-  ipc.saveDialog,
+handle(
+  "saveDialog",
   checked(saveDialogOptions, async (event: Electron.IpcMainInvokeEvent, settings) => {
     const owner = ownerOf(event)
     const result = owner ? await dialog.showSaveDialog(owner, settings) : await dialog.showSaveDialog(settings)
@@ -932,13 +933,13 @@ ipcMain.handle(
   })
 )
 
-ipcMain.handle(
-  ipc.showItem,
+handle(
+  "showItem",
   checked(shownItem, (_event, path) => shell.showItemInFolder(path))
 )
 
-ipcMain.handle(
-  ipc.openInEditor,
+handle(
+  "openInEditor",
   checked(openInEditorRequest, (_event, request) => openInEditor(request))
 )
 
@@ -957,7 +958,7 @@ ipcMain.on(ipc.telemetry, (event, sent: unknown) => {
 // The editor says which frame's event it's handling just before a console message is written there (PAR-147). Word
 // that isn't one is ignored, and the message is kept as the project's.
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent, parsed here
-ipcMain.on(ipc.consoleAnnounce, (event, announcement: unknown) => {
+listen("consoleAnnounce", (event, announcement: unknown) => {
   const read = consoleAnnouncement.safeParse(announcement)
 
   if (!read.success) {
@@ -968,22 +969,22 @@ ipcMain.on(ipc.consoleAnnounce, (event, announcement: unknown) => {
   announced.announce(event.sender.id, level, context)
 })
 
-ipcMain.handle(
-  ipc.consoleRead,
+handle(
+  "consoleRead",
   checked(consoleOrigin, (_event, origin) => consoleLog.read(origin))
 )
 
-ipcMain.handle(
-  ipc.consoleClear,
+handle(
+  "consoleClear",
   checked(consoleOrigin, (_event, origin) => consoleLog.clear(origin))
 )
 
-ipcMain.handle(ipc.quit, () => app.quit())
+handle("quit", () => app.quit())
 
-ipcMain.handle(ipc.toggleDevTools, (event) => event.sender.toggleDevTools())
+handle("toggleDevTools", (event) => event.sender.toggleDevTools())
 
-ipcMain.handle(
-  ipc.setTheme,
+handle(
+  "setTheme",
   checked(themeSource, (_event, theme) => {
     if (nativeTheme.themeSource === theme) {
       return
@@ -1028,7 +1029,7 @@ function builderReadings(): Promise<BuilderReading[]> {
 // project service starts run outside the app, so they aren't counted, apart from each project's builder, which runs
 // in a process of its own the service starts. Memory is what each process uses on its own, as the system's monitor
 // counts it (see private-memory.ts), and its working set where the system won't say.
-ipcMain.handle(ipc.metrics, (event) => processUsage(event.sender))
+handle("metrics", (event) => processUsage(event.sender))
 
 /** Each process's CPU and memory, with `asker` named as this window. */
 async function processUsage(asker?: Electron.WebContents): Promise<ProcessUsage[]> {
