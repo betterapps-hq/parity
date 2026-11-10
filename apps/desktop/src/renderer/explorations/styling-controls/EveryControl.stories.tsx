@@ -110,7 +110,8 @@ const groups: { name: string; entries: Entry[] }[] = [
   {
     name: "Fill and stroke",
     entries: [
-      { name: "Paint stack", Story: composeStories(paints).Solid },
+      // Reviewed, with its image fill to revisit once Unsplash is integrated (PAR-129), as its search is a stand-in.
+      { name: "Paint stack", Story: composeStories(paints).Solid, reviewed: true },
       { name: "Stroke", Story: composeStories(stroke).AllSides, reviewed: true },
       { name: "Stroke width", Story: composeStories(strokeWidth).VerticalAndHorizontal, reviewed: true },
       { name: "Stroke style", Story: k.StrokeStyle, reviewed: true }

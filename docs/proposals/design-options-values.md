@@ -265,7 +265,7 @@ Fill's list of solids, gradients and images.
   ([design-options-tokens.md](design-options-tokens.md), Framework steps). An animation's duration and delay have no
   Tailwind utility, so they're written in the animation's own value or as an arbitrary property
   (`[animation-duration:200ms]`), as Iterations is.
-- **Tokens:** duration, as a track against half a second.
+- **Tokens:** duration, as a track whose dot crosses it in that time.
 - **Writes:** `duration-200`, `delay-75`, or `duration-[0.2s]` as read from code.
 - **Compared:** Figma's Motion has timing variables.
 
@@ -273,8 +273,10 @@ Fill's list of solids, gradients and images.
 
 - **At rest:** a small curve and its name: the token's name, a preset (Ease out, Linear, Steps 4), Spring (400ms, bounce
   0.2), or Custom.
-- **Editing:** a popover with the curve and its two handles, presets, Steps, and Spring: time and bounce, or stiffness,
-  damping and mass, as Framer's.
+- **Editing:** a popover with the curve and its two handles, presets, Steps, and Spring, whose Set by menu picks time
+  and bounce or stiffness, damping and mass, as Framer's springs are set. While it's open, a dot rides the curve, as a
+  token's detail plays it. A spring says Tailwind has no utility for springs, so it's written as an arbitrary value, and
+  offers Save as token, as the shadow list's note does.
 - **States:** a spring decides how long the motion takes, so with a spring the Duration field shows its settle time, set
   by Easing.
 - **Tokens:** easing, as a curve.
@@ -297,9 +299,9 @@ Motion's Transitions.
 - **Details:** Changes is one field. Focused, it lists the sets with their utilities (`transition-colors`); typing
   narrows them or names a property of its own (`width`, offered as `transition-[width]`), and Enter takes the
   highlighted one. Duration and Delay draw their time as Easing draws its curve, with the Tokens panel's mark: a track
-  filled for how long it is against half a second, whose dot crosses in that time while the field's hovered. The dot and
-  the track match the Easing's dot and curve. One of Tailwind's easings is a chip (`out` for `ease-out`), as a token is,
-  so Backspace takes it off whole.
+  of one weight, whose dot crosses it in that time while the field's hovered. The dot and the track match the Easing's
+  dot and curve. One of Tailwind's easings is a chip (`out` for `ease-out`), as a token is, so Backspace takes it off
+  whole.
 - **Tokens:** transition for a whole entry, which has no kind ([design-options-tokens.md](design-options-tokens.md),
   Fields and token kinds); duration and easing for its parts.
 - **Writes:** Tailwind allows one transition property, duration, easing and delay per element. One entry is utilities

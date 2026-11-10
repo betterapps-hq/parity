@@ -496,8 +496,9 @@ export function EasingArt({
 }
 
 /**
- * A duration: a dot that crosses its track in that time while playing, with CSS's default easing. The track is drawn
- * as an easing's curve is, in the mark's color, so the two read as one kind of line.
+ * A duration: a dot that crosses its track in that time while playing, with CSS's default easing. The track is one
+ * line of one weight, drawn as an easing's curve is, in the mark's color, so the two read as one kind of line; how long
+ * it is shows in the dot's crossing, and in the value beside it.
  */
 export function DurationArt({
   value,
@@ -534,11 +535,6 @@ export function DurationArt({
   return (
     <span className="relative flex items-center" style={{ width, height }}>
       <span className="absolute inset-x-0 h-px bg-current" />
-      {/* At rest, a thicker stretch of the track says how long it is against half a second. */}
-      <span
-        className="absolute left-0 h-[3px] rounded-full bg-current"
-        style={{ width: `${Math.min(1, (time || 0) / 500) * 100}%`, visibility: playing ? "hidden" : "visible" }}
-      />
       <span
         ref={dot}
         className="absolute left-0 rounded-full"

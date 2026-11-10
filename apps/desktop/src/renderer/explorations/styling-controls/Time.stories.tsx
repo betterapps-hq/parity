@@ -22,7 +22,7 @@ import { mixedWrites, type Writes } from "./writes.ts"
  * A time (PAR-652's Time), as a transition's Duration and Delay take it: milliseconds. `0.2s` typed becomes 200ms; one
  * read from code keeps `s` until it's edited. Any whole millisecond is a step (`duration-200`), with no mark; once the
  * project has duration tokens, Tokens offers the nearest first. Up and Down step 10ms, Shift 100ms; a token steps to
- * the next. Duration tokens show as a track against half a second in the token list. With a spring, Duration shows the
+ * the next. Duration tokens show as a track whose dot crosses it in that time in the token list. With a spring, Duration shows the
  * spring's settle time, set by Easing.
  */
 const meta = {

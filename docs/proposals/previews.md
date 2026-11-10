@@ -60,7 +60,7 @@ picker can ask for them; the rest stay finer kinds inside a category.
 | Drop and text shadow, blur, perspective   | The real effect, scaled down as a whole             | The same at full size                          |
 | Font, size, weight, line height, tracking | "Ag", "Aa", "ABC" or lines of text in the value     | A specimen in the project's type               |
 | Opacity                                   | A block at that opacity over a checkerboard         | The same, larger                               |
-| Duration                                  | Its length against half a second                    | A race against the rest of its scale           |
+| Duration                                  | A track its dot crosses in that time                | A race against the rest of its scale           |
 | Easing                                    | Its curve, overshoot included                       | The curve over the project's other easings     |
 | Animation                                 | Its first frame                                     | Its keyframes, playing                         |
 | Z-index                                   | Stacked sheets, its own lit                         | The whole scale as a stack                     |

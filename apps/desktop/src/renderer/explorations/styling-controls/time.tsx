@@ -13,7 +13,7 @@ const namespace = "duration-"
  * read from code keeps `s` until it's edited. Any whole millisecond is a step (`duration-200`), unmarked while the
  * project has no duration tokens and marked once it has some. Up and Down step 10ms, Shift 100ms; a token steps to the
  * next. With a spring, the spring decides how long it takes, so Duration shows its settle time, set by Easing. Its
- * tokens are the project's (`useTokens`), drawn as a track against half a second.
+ * tokens are the project's (`useTokens`), drawn as a track whose dot crosses it in that time.
  */
 export function TimeField({
   label,
@@ -105,9 +105,9 @@ export function TimeField({
     set((ms ?? defaultMs) + (up ? 1 : -1) * (shift ? 100 : 10))
   }
 
-  // Its time drawn as Easing draws its curve, with the Tokens panel's mark: a track filled for how long it is against
-  // half a second, whose dot crosses in that time while the field's hovered or focused. Its track is the color of the
-  // Easing's curve, faint where it's unset, as the curve is.
+  // Its time drawn as Easing draws its curve, with the Tokens panel's mark: a track whose dot crosses it in that time
+  // while the field's hovered or focused. Its track is the color of the Easing's curve, faint where it's unset, as the
+  // curve is.
   const { live, rowProps } = useLiveRow()
 
   const preview = (

@@ -5,6 +5,10 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Slider,
   Tabs,
   TabsContent,
@@ -15,9 +19,10 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type KeyboardEvent, type PointerEvent, useId, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
+import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { EasingDot, motionDot } from "../../chrome/token-previews.tsx"
+import { EasingDot, motionDot, useReducedMotion } from "../../chrome/token-previews.tsx"
 import { optionNamed } from "../parts.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
 import {
@@ -329,16 +334,20 @@ export function EasingField({
       />
       {/* The editor says it too, so it isn't left under the open popover. */}
       {!open && value !== undefined && easingIsLong(value) && (
-        <SaveAsToken
-          says={`Writes a ${easingClass(value).length}-character class.`}
-          placeholder="springy"
-          isTaken={isTaken}
-          onSave={saveToken}
-        />
+        <SaveAsToken says={writtenLong(value)} placeholder="springy" isTaken={isTaken} onSave={saveToken} />
       )}
     </div>
   )
 }
+
+/**
+ * Why a long easing is written as an arbitrary value, said as the shadow list and a repeating gradient say theirs, before
+ * Save as token.
+ */
+const writtenLong = (easing: Easing) =>
+  "spring" in easing
+    ? "Tailwind has no utility for springs, so this is written as an arbitrary value."
+    : "Tailwind has no utility for this curve, so it's written as an arbitrary value."
 
 /** Says a class runs long and offers to save it as a token, named in a small popover. */
 export function SaveAsToken({
@@ -408,6 +417,11 @@ const defaultSprings = {
 
 /** How a spring is set: by time and bounce, or by its physics. */
 const springModes = ["time", "physics"] as const
+
+const springModeItems = [
+  { value: "time", label: "Time and bounce" },
+  { value: "physics", label: "Physics" }
+]
 
 /** The popover's tabs. */
 const editorTabs = ["curve", "spring"] as const
@@ -512,7 +526,7 @@ function EasingEditor({
         <SpringEditor spring={spring} onChange={(next) => onChange({ spring: next })} />
         {spring && (
           <SaveAsToken
-            says={`Writes a ${easingClass({ spring }).length}-character class.`}
+            says={writtenLong({ spring })}
             placeholder="springy"
             isTaken={(name) => tokens.some((other) => other.name === name || other.name === namespace + name)}
             onSave={onSave}
@@ -529,6 +543,7 @@ const hundredths = (value: number) => Number(formatNumber(value, 2))
 /** The curve, with its two handles dragged or moved with the arrow keys (0.01, Shift 0.1). */
 function CurveEditor({ curve, onChange }: { curve: Bezier; onChange: (curve: Bezier) => void }) {
   const box = useRef<SVGSVGElement>(null)
+  const reduced = useReducedMotion()
   const size = 200
   const pad = 20
   const low = -0.25
@@ -588,44 +603,56 @@ function CurveEditor({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <svg ref={box} width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="touch-none">
-        <rect x={x(0)} y={y(1)} width={inner} height={y(0) - y(1)} className="fill-muted/40 stroke-border" />
-        <line x1={x(0)} y1={y(0)} x2={x(1)} y2={y(1)} className="stroke-border" strokeDasharray="3 3" />
-        <path
-          d={`M${x(0)},${y(0)} C${x(curve[0])},${y(curve[1])} ${x(curve[2])},${y(curve[3])} ${x(1)},${y(1)}`}
-          fill="none"
-          className="stroke-foreground"
-          strokeWidth={2}
+      {/* While the editor's open, the dot rides the curve, as a token's detail plays its easing. */}
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg ref={box} width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="touch-none">
+          <rect x={x(0)} y={y(1)} width={inner} height={y(0) - y(1)} className="fill-muted/40 stroke-border" />
+          <line x1={x(0)} y1={y(0)} x2={x(1)} y2={y(1)} className="stroke-border" strokeDasharray="3 3" />
+          <path
+            d={`M${x(0)},${y(0)} C${x(curve[0])},${y(curve[1])} ${x(curve[2])},${y(curve[3])} ${x(1)},${y(1)}`}
+            fill="none"
+            className="stroke-foreground"
+            strokeWidth={2}
+          />
+          {handles.map((handle, index) => (
+            <g key={handle.name}>
+              <line
+                x1={x(handle.from[0])}
+                y1={y(handle.from[1])}
+                x2={x(handle.at[0])}
+                y2={y(handle.at[1])}
+                stroke={kindColors.layer}
+                strokeWidth={1.5}
+              />
+              <circle
+                role="slider"
+                tabIndex={0}
+                aria-label={handle.name}
+                aria-valuenow={handle.at[1]}
+                aria-valuetext={`x ${handle.at[0]}, y ${handle.at[1]}`}
+                cx={x(handle.at[0])}
+                cy={y(handle.at[1])}
+                r={6}
+                fill="white"
+                stroke={kindColors.layer}
+                strokeWidth={2}
+                onPointerDown={press(index === 0 ? 0 : 1)}
+                onKeyDown={key(index === 0 ? 0 : 1)}
+                className="cursor-grab outline-none focus-visible:stroke-[3]"
+              />
+            </g>
+          ))}
+        </svg>
+        <EasingDot
+          value={bezierCss(curve)}
+          width={inner}
+          left={pad}
+          bottom={y(0)}
+          rise={y(0) - y(1)}
+          size={motionDot(size, size)}
+          playing={!reduced}
         />
-        {handles.map((handle, index) => (
-          <g key={handle.name}>
-            <line
-              x1={x(handle.from[0])}
-              y1={y(handle.from[1])}
-              x2={x(handle.at[0])}
-              y2={y(handle.at[1])}
-              stroke={kindColors.layer}
-              strokeWidth={1.5}
-            />
-            <circle
-              role="slider"
-              tabIndex={0}
-              aria-label={handle.name}
-              aria-valuenow={handle.at[1]}
-              aria-valuetext={`x ${handle.at[0]}, y ${handle.at[1]}`}
-              cx={x(handle.at[0])}
-              cy={y(handle.at[1])}
-              r={6}
-              fill="white"
-              stroke={kindColors.layer}
-              strokeWidth={2}
-              onPointerDown={press(index === 0 ? 0 : 1)}
-              onKeyDown={key(index === 0 ? 0 : 1)}
-              className="cursor-grab outline-none focus-visible:stroke-[3]"
-            />
-          </g>
-        ))}
-      </svg>
+      </div>
       <code className="font-mono text-2xs text-muted-foreground">{bezierCss(curve)}</code>
     </div>
   )
@@ -640,6 +667,7 @@ function StepsEditor({
   onChange: (value: Easing) => void
 }) {
   const id = useId()
+  const reduced = useReducedMotion()
 
   const write = (count: number, jump: "start" | "end") =>
     onChange({ value: jump === "end" ? `steps(${count})` : `steps(${count}, jump-start)` })
@@ -647,7 +675,7 @@ function StepsEditor({
   return (
     <div className="flex flex-col gap-2">
       <div className="grid place-items-center rounded-md border bg-muted/40 p-2">
-        <CurveThumb plot={plot} size={96} />
+        <CurveThumb plot={plot} size={96} playing={!reduced} />
       </div>
       <div className="flex items-center gap-2">
         <label htmlFor={id} className="w-12 text-xs text-muted-foreground">
@@ -694,37 +722,52 @@ function StepsEditor({
 function SpringEditor({ spring, onChange }: { spring: Spring | undefined; onChange: (spring: Spring) => void }) {
   const mode = spring !== undefined && "stiffness" in spring ? "physics" : "time"
   const shown = spring ?? defaultSprings.time
+  const id = useId()
+  // The curve plays while the editor's open, as a token's detail does, at the spring's own time.
+  const reduced = useReducedMotion()
 
   return (
     <div className="flex flex-col gap-2">
-      <ToggleGroup
-        variant="outline"
-        size="sm"
-        spacing={0}
-        aria-label="Set the spring by"
-        value={[mode]}
-        onValueChange={([next]) => {
-          const picked = optionNamed(springModes, next)
-
-          if (picked) {
-            onChange({ ...defaultSprings[picked] })
-          }
-        }}
-        className="w-full"
-      >
-        <ToggleGroupItem value="time" className="h-7 flex-1 text-xs">
-          Time and bounce
-        </ToggleGroupItem>
-        <ToggleGroupItem value="physics" className="h-7 flex-1 text-xs">
-          Physics
-        </ToggleGroupItem>
-      </ToggleGroup>
       <div className="grid place-items-center rounded-md border bg-muted/40 p-2">
-        <CurveThumb plot={easingPlot({ spring: shown }, [])} size={120} faint={spring === undefined} />
+        <CurveThumb
+          plot={easingPlot({ spring: shown }, [])}
+          size={120}
+          faint={spring === undefined}
+          playing={!reduced}
+          duration={springSettle(shown)}
+        />
       </div>
       <p className="type-description text-muted-foreground">
         Settles in {springSettle(shown)}ms, which is the duration.
       </p>
+      {/* How it's set is a choice among its rows, as its numbers are, rather than tabs inside the popover's tabs. */}
+      <div className="grid grid-cols-[60px_minmax(0,1fr)] items-center gap-2">
+        <span id={id} className="text-xs text-muted-foreground">
+          Set by
+        </span>
+        <Select
+          items={springModeItems}
+          value={mode}
+          onValueChange={(next) => {
+            const picked = optionNamed(springModes, next ?? undefined)
+
+            if (picked && picked !== mode) {
+              onChange({ ...defaultSprings[picked] })
+            }
+          }}
+        >
+          <SelectTrigger size="sm" aria-labelledby={id} className="h-7 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <PanelSelectContent>
+            {springModeItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </PanelSelectContent>
+        </Select>
+      </div>
       {"duration" in shown ? (
         <>
           <SpringNumber
