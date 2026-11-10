@@ -31,6 +31,7 @@ import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import type { TelemetryRun } from "../shared/telemetry-run.ts"
 import { createLogFileSink, createLogFiles } from "./log-files.ts"
+import { createReportOnlyGate } from "./report-only.ts"
 
 /**
  * Parity's errors, crashes and hangs go to Sentry's `parity-desktop` project, on by default (PAR-620). Windows and the
@@ -174,22 +175,20 @@ export function startTelemetry(
     // The process an event came from, by the telemetry envelope's names. Windows and the service name theirs on each
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
     // Every process's errors, logs and spans come through here; whether any leave is `applyTelemetry`'s switch.
-    beforeSend: (event, hint) => {
-      if (reportOnly) {
-        return null
-      }
+    beforeSend: (event, hint) =>
+      reportGate.drop(event, () => {
+        // An error carries the frame that last failed to draw offscreen, while it's recent (PAR-638).
+        const frame = failedFrame()
 
-      // An error carries the frame that last failed to draw offscreen, while it's recent (PAR-638).
-      const frame = failedFrame()
+        if (frame) {
+          hint.attachments = [...(hint.attachments ?? []), frame]
+        }
 
-      if (frame) {
-        hint.attachments = [...(hint.attachments ?? []), frame]
-      }
-
-      return scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } }))
-    },
-    beforeSendTransaction: (event) => (reportOnly ? null : scrubbing.beforeSendTransaction(withDriver(event))),
-    beforeSendLog: (log) => (reportOnly ? null : scrubbing.beforeSendLog(log)),
+        return scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } }))
+      }),
+    beforeSendTransaction: (event) =>
+      reportGate.drop(event, (kept) => scrubbing.beforeSendTransaction(withDriver(kept))),
+    beforeSendLog: (log) => reportGate.drop(log, (kept) => scrubbing.beforeSendLog(kept)),
     integrations: [
       // A renderer that runs out of memory may leave no minidump, so it's reported as well as the default exits.
       Sentry.childProcessIntegration({ events: ["abnormal-exit", "launch-failed", "integrity-failure", "oom"] })
@@ -330,8 +329,8 @@ export function recordForwarded(sent: unknown, process?: Envelope["process"]): E
  * Sends at this level from now on, reporting as this install. Sentry checks whether it's enabled on every send, so a
  * change needs no restart.
  */
-/** Whether Sentry is on only to send a report while diagnostics are off, so nothing else may leave (PAR-813). */
-let reportOnly = false
+/** Lets only a report leave while diagnostics are off (PAR-813). */
+const reportGate = createReportOnlyGate()
 
 /**
  * Runs `send`, which sends a report the person asked to send, with Sentry on for it even while diagnostics are off.
@@ -345,19 +344,7 @@ export async function whileSendingReport<T>(send: () => Promise<T>): Promise<T> 
     throw new CodedError("Sentry isn't running, so the report can't be sent", { code: "app_error" })
   }
 
-  if (options.enabled) {
-    return send()
-  }
-
-  options.enabled = true
-  reportOnly = true
-
-  try {
-    return await send()
-  } finally {
-    options.enabled = false
-    reportOnly = false
-  }
+  return reportGate.run(options, send)
 }
 
 export function applyTelemetry(next: { level: TelemetryLevel; installId: string }): void {
