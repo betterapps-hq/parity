@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "What a project's own code logs to the console no longer goes to Sentry as breadcrumbs",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
