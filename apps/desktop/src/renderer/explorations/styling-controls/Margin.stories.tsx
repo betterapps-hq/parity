@@ -101,7 +101,7 @@ function Margin({
   )
 }
 
-/** Auto across, centering Plans: `mx-auto`, with what each side comes to after Auto. */
+/** Auto across, centering Plans: `mx-auto`, a chip in the field, with what each side comes to in its hint. */
 export const AutoAcross: Story = { render: () => <Margin start={[undefined, "auto", undefined, "auto"]} /> }
 
 /** −8 at the top, pulling Plans up over the header: the top side alone, `-mt-2`. */

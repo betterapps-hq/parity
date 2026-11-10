@@ -9,13 +9,15 @@ import { layoutWrites } from "./writes.ts"
 /**
  * Layout's direction, alignment and gap (PAR-186). Type is Figma's four: Vertical, Horizontal, Wrap and Grid, with
  * Reverse direction beside them. The alignment box draws the children where they'll sit, as bars that run the way the
- * layout does, and shows them faintly at a spot as it's hovered; clicking the chosen spot again stretches them. It's
- * one stop for Tab: arrow keys move them, S stretches them, X spreads them out and B lines up their text. It stays
- * physical when reversed, so its top left is the top left whichever way the layout runs, and what's written flips. Type and Gap sit beside it, and the
- * box is as tall as both. Gap is the field padding uses, with the spacing tokens in its menu, and its Auto spreads the
- * children, as space between, around or evenly. Once it wraps, a second gap is between the lines, and Lines says where
- * the lines sit. More holds what's set rarely: wrapping a vertical layout into columns, and lining up text baselines,
- * which the box then draws.
+ * layout does, and shows them faintly at a spot as it's hovered. Clicking the children stretches them, then spreads
+ * them out with an Auto gap, then packs them again at the spot clicked, and hovering them shows the next. It's one stop
+ * for Tab: arrow keys move them, S stretches them, X spreads them out and B lines up their text. It stays physical when
+ * reversed, so its top left is the top left whichever way the layout runs, and what's written flips. Type and Gap sit
+ * beside it, and the box is as tall as both. Gap is the field padding uses, with the spacing tokens in its menu. Auto
+ * is first there, a row for each way it spreads the children (space between, around or evenly), and set, it's a chip
+ * that says which; Backspace takes it off, back to the gap before. Once it wraps, a second gap is between the lines,
+ * and Lines says where the lines sit. More holds what's set rarely: wrapping a vertical layout into columns, and lining
+ * up text baselines, which the box then draws.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Layout direction and alignment",
@@ -59,7 +61,7 @@ export const TokenGap: Story = {
   render: () => <Layout start={{ direction: "row", gap: { token: "spacing-gutter" }, align: "center" }} />
 }
 
-/** Spread out by an Auto gap: space between them, the first and last at the edges, as Figma's Auto gap does. */
+/** Spread out by an Auto gap, a chip in Gap: space between them, the first and last at the edges, as Figma's does. */
 export const SpreadOut: Story = {
   render: () => <Layout start={{ direction: "row", gap: "auto", align: "center" }} />
 }

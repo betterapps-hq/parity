@@ -1025,6 +1025,10 @@ export interface TokenChipProps {
   preview?: ReactNode
   /** What it comes to, faintly in the chip, for a chip outside a field; a field shows it after the chip instead. */
   detail?: string
+  /** What its hint says where there's no token to say it: what a word the field holds does. */
+  about?: string
+  /** The name stays whole and what comes after it cuts short instead: a word the field holds, as Auto is. */
+  keepsName?: boolean
   /** A token the project no longer has: struck through in the warning color. */
   struck?: boolean
   /** A composite token with a part changed here: a dot on the chip in the override color. */
@@ -1070,6 +1074,8 @@ export function TokenChip({
   namespace,
   preview,
   detail,
+  about,
+  keepsName = false,
   struck = false,
   overridden = false,
   fill = false,
@@ -1095,7 +1101,7 @@ export function TokenChip({
   const replacement = token?.deprecated
   let tone = "bg-foreground/10 hover:bg-foreground/15"
   let hintLabel = name
-  let hintDetail = token?.detail
+  let hintDetail = token?.detail ?? about
   let named = `${label ? `${label}: ` : ""}${name}`
 
   if (struck) {
@@ -1109,11 +1115,20 @@ export function TokenChip({
     named += `, replaced by ${replacement}`
   }
 
+  // A chip shrinks to leave room to type beside it; a word's, short, keeps its width unless the field is narrow.
+  let sizing = fill ? "min-w-0 shrink" : "max-w-full min-w-0 shrink"
+
+  if (keepsName && !fill) {
+    sizing = "shrink-0"
+  }
+
   const content = (
     <>
       {drawn}
-      <span className="truncate">{shownName}</span>
-      {detail && <span className="shrink-0 text-muted-foreground">{detail}</span>}
+      <span className={keepsName ? "shrink-0" : "truncate"}>{shownName}</span>
+      {detail && (
+        <span className={`text-muted-foreground ${keepsName ? "min-w-0 truncate" : "shrink-0"}`}>{detail}</span>
+      )}
     </>
   )
 
@@ -1160,9 +1175,7 @@ export function TokenChip({
   )
 
   return (
-    <span
-      className={`group/chip relative flex h-5 ${fill ? "min-w-0 shrink" : "max-w-full min-w-0 shrink"} items-center rounded text-xs ${tone}`}
-    >
+    <span className={`group/chip relative flex h-5 ${sizing} items-center rounded text-xs ${tone}`}>
       {hint ? (
         <Hint label={hintLabel} detail={hintDetail} wait>
           {main}
@@ -1379,6 +1392,14 @@ export interface TokenMenuProps<T extends FieldToken> {
   /** Makes a token of the value of its own, by the whole name given; without it, the menu has no Create token. */
   onCreate?: (name: string) => void
   onPick: (name: string | undefined) => void
+  /** Words the field takes besides its tokens, as rows above them under a heading: Gap's Auto, one for each spread. */
+  keywords?: MenuKeywords
+}
+
+/** Words a field takes besides its tokens, as its token menu lists them: Gap's Auto, a row for each way it spreads. */
+export interface MenuKeywords {
+  heading: string
+  rows: { key: string; name: string; detail: string; current: boolean; onPick: () => void }[]
 }
 
 /**
@@ -1403,7 +1424,8 @@ export function TokenMenu<T extends FieldToken>({
   allowed,
   onAllow,
   onCreate,
-  onPick
+  onPick,
+  keywords
 }: TokenMenuProps<T>) {
   const [naming, setNaming] = useState<string>()
   const [reason, setReason] = useState<string>()
@@ -1417,6 +1439,26 @@ export function TokenMenu<T extends FieldToken>({
 
   return (
     <div className="flex min-w-0 flex-col">
+      {keywords && (
+        <div className="mb-1 flex flex-col border-b pb-1">
+          <p className="px-2 pt-1 pb-0.5 type-description text-muted-foreground">{keywords.heading}</p>
+          {keywords.rows.map((row) => (
+            <button
+              key={row.key}
+              type="button"
+              aria-current={row.current || undefined}
+              onClick={row.onPick}
+              className={`${menuRow} ${row.current ? "bg-accent" : ""}`}
+            >
+              <span className="flex min-w-0 flex-col">
+                <span className={rowName}>{row.name}</span>
+                <span className="truncate text-2xs text-muted-foreground">{row.detail}</span>
+              </span>
+              {row.current && <Check aria-hidden className="ml-auto size-3.5 shrink-0" />}
+            </button>
+          ))}
+        </div>
+      )}
       {replaced && (
         <button
           type="button"
@@ -1699,6 +1741,11 @@ export interface FieldChip {
   onDetach?: () => void
   /** Swaps a replaced token's replacement in, from the top of the token list. */
   onReplace?: (replacement: string) => void
+  /**
+   * A word the field holds as a whole rather than a token, as Gap's Auto is: drawn plainly, with `detail` faintly after
+   * it and `about` in its hint, and taken off whole, as a token is.
+   */
+  keyword?: { detail?: string; about?: string }
 }
 
 /**
@@ -1760,6 +1807,8 @@ export interface ValueFieldProps<T> {
     /** What unset comes to, drawn in the first row where the tokens' preview can (`0px`). */
     noneValue?: string
     onPick: (name: string | undefined) => void
+    /** Words the field takes besides its tokens, listed above them. */
+    keywords?: MenuKeywords
   }
   /**
    * A picker of the field's own in place of the token list, as Color's Tokens and Custom tabs are. Its `swatch` opens
@@ -1782,8 +1831,6 @@ export interface ValueFieldProps<T> {
   refused?: { nearest: FieldToken; onUse: () => void }
   /** A button after the field, as Angle's dial is. */
   trailing?: ReactNode
-  /** The unit slot shows beside a word too, where it's a control of its own: Gap's menu of how Auto spreads. */
-  keepsUnit?: boolean
   /**
    * Under about 96px, as sides and corners are: what the value comes to is in the hint
    * and under the row while focused.
@@ -2018,7 +2065,6 @@ export function ValueField<T>({
   onStep,
   refused,
   trailing,
-  keepsUnit = false,
   narrow = false,
   hint,
   disabled = false,
@@ -2168,7 +2214,7 @@ export function ValueField<T>({
   // hint names.
   const typedOwnUnit = typing && /[a-z%°×]\s*$/i.test(typed.typed ?? "")
   const showsWord = !typing && /[a-z]/i.test(shown ?? fieldPlaceholder ?? "")
-  const showUnit = unit !== undefined && !typedOwnUnit && !showChip && (keepsUnit || !showsWord) && !(narrow && mark)
+  const showUnit = unit !== undefined && !typedOwnUnit && !showChip && !showsWord && !(narrow && mark)
   let unitPart: ReactNode
 
   if (showUnit && unitWord !== undefined) {
@@ -2290,7 +2336,10 @@ export function ValueField<T>({
             namespace={chip.namespace}
             // The swatch before the pill draws the color, so the pill is the name alone.
             preview={picker?.swatch === undefined ? chip.preview : null}
-            struck={chip.token === undefined}
+            struck={chip.token === undefined && chip.keyword === undefined}
+            detail={chip.keyword?.detail}
+            about={chip.keyword?.about}
+            keepsName={chip.keyword !== undefined}
             overridden={chip.overridden}
             fill={narrow}
             label={label}
@@ -2496,7 +2545,7 @@ export function ValueField<T>({
           none={tokens.none}
           noneValue={tokens.noneValue}
           own={own?.text}
-          holdsOwn={chip === undefined && shown !== undefined && shown !== ""}
+          holdsOwn={(chip === undefined || chip.keyword !== undefined) && shown !== undefined && shown !== ""}
           nearest={own?.nearest}
           same={own?.same}
           replaced={chip && replacedBy ? { name: chip.name, by: replacedBy } : undefined}
@@ -2521,6 +2570,18 @@ export function ValueField<T>({
             tokens.onPick(name)
             close()
           }}
+          keywords={
+            tokens.keywords && {
+              ...tokens.keywords,
+              rows: tokens.keywords.rows.map((row) => ({
+                ...row,
+                onPick: () => {
+                  row.onPick()
+                  close()
+                }
+              }))
+            }
+          }
         />
         {showChip && chip.token && (
           <div className="mt-1 border-t pt-1">

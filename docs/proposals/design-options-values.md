@@ -11,8 +11,9 @@ with no Editing, the type has only typing, keys and the token button; with no To
 
 ## Length and percentage
 
-- **At rest:** the number with its unit as the suffix; Auto in words with the measured size after. The panel's px or rem
-  setting applies to steps, tokens and what they come to. A value shows in the unit it was typed in or read in.
+- **At rest:** the number with its unit as the suffix; Auto as a chip, with the measured size after it where there's
+  room, and in a narrow field's hint. The panel's px or rem setting applies to steps, tokens and what they come to. A
+  value shows in the unit it was typed in or read in.
 - **Forms:** a token; a step of the field's scale where it has one
   ([design-options-tokens.md](design-options-tokens.md), Framework steps), so 13px is `p-3.25` and 50% is `w-1/2`; Font
   size and Radius have none; a value in any unit; `auto`; an expression.

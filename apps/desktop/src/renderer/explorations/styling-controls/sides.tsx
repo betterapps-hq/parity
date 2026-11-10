@@ -2,6 +2,8 @@ import { scrubSteps } from "@parity-app/core"
 import { type ReactNode, useState } from "react"
 import { formatNumber, stepSpacing } from "./css-values.ts"
 import {
+  type FieldChip,
+  type MenuKeywords,
   type Message,
   nearestToken,
   notAStep,
@@ -112,19 +114,22 @@ export interface SideFieldProps {
   onChange: (value: Side, spread: Spread) => void
   /** Shorthand typed into this side, filling every side in CSS's order. */
   onShorthand?: (sides: Sides) => void
-  /** The unit slot's own control, where the kind has one: Gap's menu, which offers Auto, and how Auto spreads. */
-  unitSlot?: ReactNode
-  /** What the hint says when the value has nothing else to: what Auto does, or that a negative gap overlaps. */
+  /** What the hint says when the value has nothing else to: that a negative gap overlaps. */
   note?: string
+  /**
+   * Auto as the kind offers it, where it does more than one thing: rows for it above the tokens in the field's menu,
+   * what its chip says after Auto and in its hint, and what taking the chip off puts back. Gap's spreads the children.
+   */
+  auto?: { keywords: MenuKeywords; detail: string; about: string; onRemove: () => void }
 }
 
 /**
  * One side, or any one value of a side's kind, on the shared ValueField: a number in the field's unit, a percentage, a
- * token as a chip, or Auto in words with what it comes to. It types like the app's fields (maths, units, `spacing-4`, a
- * token's name), and shorthand typed into it (`8 16`) fills every side. A number of its own has no mark: its token list
- * offers the nearest token first, then Create token. Where the side takes a percentage, its unit is a menu of px and
- * %, which keeps the number, as Radius's does, and a number typed bare is in the unit shown. Narrow, what it comes to
- * is in its hint.
+ * token as a chip, or Auto as a chip too, with what it comes to faintly after it. It types like the app's fields
+ * (maths, units, `spacing-4`, a token's name), and shorthand typed into it (`8 16`) fills every side. A number of its
+ * own has no mark: its token list offers the nearest token first, then Create token. Where the side takes a percentage,
+ * its unit is a menu of px and %, which keeps the number, as Radius's does, and a number typed bare is in the unit
+ * shown. Narrow, what it comes to is in its hint.
  */
 export function SideField({
   label,
@@ -144,8 +149,8 @@ export function SideField({
   rowClassName,
   onChange,
   onShorthand,
-  unitSlot,
-  note
+  note,
+  auto
 }: SideFieldProps) {
   const { tokens, create } = useTokens(rules.tokens.set)
   // `auto` is the one form that isn't an object.
@@ -237,6 +242,27 @@ export function SideField({
     status = mixedNote
   }
 
+  // A token is a chip, and so is Auto, a word the field holds whole: Backspace takes it off, and typing replaces it.
+  let chip: FieldChip | undefined
+
+  if (tokenName !== undefined) {
+    chip = {
+      name: tokenName,
+      token,
+      namespace: rules.namespace,
+      onRemove: () => onChange(undefined, "side"),
+      onDetach: token ? () => onChange({ number: token.px }, "side") : undefined,
+      onReplace: (replacement) => onChange({ token: replacement }, "side")
+    }
+  } else if (value === "auto") {
+    chip = {
+      name: "Auto",
+      // What Auto comes to stays in sight, faintly in the chip; a narrow field's hint says it instead.
+      keyword: { detail: auto?.detail ?? (narrow ? undefined : comesTo), about: auto?.about },
+      onRemove: auto?.onRemove ?? (() => onChange(undefined, "side"))
+    }
+  }
+
   const read = (text: string): Reading<SideEntry> => {
     const bare = /^\s*-?\d*\.?\d+\s*$/.test(text)
 
@@ -277,20 +303,8 @@ export function SideField({
       shown={shown}
       placeholder={placeholder}
       mixed={mixed}
-      chip={
-        tokenName === undefined
-          ? undefined
-          : {
-              name: tokenName,
-              token,
-              namespace: rules.namespace,
-              onRemove: () => onChange(undefined, "side"),
-              onDetach: token ? () => onChange({ number: token.px }, "side") : undefined,
-              onReplace: (replacement) => onChange({ token: replacement }, "side")
-            }
-      }
-      unit={unitSlot ?? shownUnit}
-      keepsUnit={value === "auto" && unitSlot !== undefined}
+      chip={chip}
+      unit={shownUnit}
       unitName={rules.percent ? unitNow : undefined}
       comesTo={comesTo}
       own={
@@ -314,6 +328,7 @@ export function SideField({
             }
       }
       tokens={{
+        keywords: auto?.keywords,
         list: tokens,
         current: tokenName,
         none: rules.unset,
@@ -354,8 +369,6 @@ export function SideField({
       line={line}
       rowClassName={rowClassName}
       hint={{ detail: status ?? note }}
-      // Auto in words is selected on focus, so what's typed replaces it.
-      selectOnFocus={value === "auto"}
       read={read}
       onCommit={commit}
       onStep={(up, keys) =>

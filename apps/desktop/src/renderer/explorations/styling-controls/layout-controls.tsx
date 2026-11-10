@@ -4,9 +4,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Popover,
   PopoverContent,
@@ -60,7 +57,7 @@ import { withVariables } from "../parts.tsx"
 import { Num, type SectionProps, SizeField, useMeasured } from "./controls.tsx"
 import { clamp, formatNumber, remPx } from "./css-values.ts"
 import { type Columns, type Draft, type SelfAlign, type Span, type Track, trackLabel } from "./data.ts"
-import { drag, type Reading, unitButtonClass, UnitMenu, useTokenSets, ValueField } from "./field-parts.tsx"
+import { drag, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
 import { type Side, sideNumber, sideRules } from "./sides-writes.ts"
@@ -170,7 +167,20 @@ export function LayoutSection({ draft, set }: SectionProps) {
     set({ gap, distribute })
   }
 
-  const spread = (on: boolean) => (on ? setGap("auto") : set({ gap: gapBeforeAuto, distribute: undefined }))
+  const spread = (on: boolean, also: Partial<Draft> = {}) => {
+    if (!on) {
+      set({ ...also, gap: gapBeforeAuto, distribute: undefined })
+
+      return
+    }
+
+    if (fixedGap !== undefined) {
+      setGapBeforeAuto(fixedGap)
+    }
+
+    set({ ...also, gap: "auto" })
+  }
+
   const beside = useRef<HTMLDivElement>(null)
   const typeRow = useRef<HTMLDivElement>(null)
   const gapRows = useRef<HTMLDivElement>(null)
@@ -508,8 +518,10 @@ const spotName = (spot: BoxSpot) => {
 /**
  * The alignment box: three spots across and three down, with the children drawn where they'll sit, as bars that run
  * the way the layout does, in the layer's color. Hovering a spot shows them there, faintly, before it's chosen.
- * Stretched children fill the box across; an Auto gap spreads them along it. Clicking the chosen spot again stretches
- * them. In a grid it's where each child sits in its cell, drawn in four cells.
+ * Stretched children fill the box across; an Auto gap spreads them along it. Clicking the children cycles how they
+ * fill it: stretched across, then spread out along it, then packed again at the spot clicked; hovering them shows the
+ * next, faintly. On the baseline, it cycles spread out and packed. In a grid it's where each child sits in its cell,
+ * drawn in four cells, and clicking the chosen spot again stretches them.
  *
  * It's one stop for Tab, as Figma's is: arrow keys move the children, X spreads them out (an Auto gap), S stretches
  * them, and B lines up their text in a row.
@@ -520,8 +532,8 @@ export function LayoutBox({
   onSpread,
   size
 }: Pick<SectionProps, "draft" | "set"> & {
-  /** Spreads the children out with an Auto gap, or puts the gap back. */
-  onSpread: (on: boolean) => void
+  /** Spreads the children out with an Auto gap, or puts the gap back, with what else changes with it. */
+  onSpread: (on: boolean, also?: Partial<Draft>) => void
   /** Its width and height, to line up with the rows beside it; 80px until they're measured. */
   size?: number
 }) {
@@ -550,6 +562,49 @@ export function LayoutBox({
     }
 
     set({ justify: main, align: again ? undefined : cross })
+  }
+
+  // What clicking the children at a spot does next: stretched, then spread out, then packed at that spot.
+  const nextFill = (spot: BoxSpot): NextFill => {
+    const main = column ? spot.y : spot.x
+    const cross = column ? spot.x : spot.y
+    const spreadOut = draft.gap === "auto"
+
+    if (isBaseline(draft.align)) {
+      return spreadOut ? { spread: false, change: { justify: main } } : { spread: true, change: {} }
+    }
+
+    if (spreadOut) {
+      return { spread: false, change: { justify: main, align: cross } }
+    }
+
+    if (draft.align === undefined || draft.align === "stretch") {
+      return { spread: true, change: { align: cross } }
+    }
+
+    return { change: { align: undefined } }
+  }
+
+  const fill = (spot: BoxSpot) => {
+    const { spread, change } = nextFill(spot)
+
+    if (spread === undefined) {
+      set(change)
+    } else {
+      onSpread(spread, change)
+    }
+  }
+
+  // The children as the next click on them leaves them, for the hover preview.
+  const filledNext = (spot: BoxSpot) => {
+    const { spread, change } = nextFill(spot)
+    let gap = draft.gap
+
+    if (spread !== undefined) {
+      gap = spread ? "auto" : undefined
+    }
+
+    return arrangementOf({ ...draft, ...change, gap })
   }
 
   const focusSpot = (spot: BoxSpot) =>
@@ -588,15 +643,27 @@ export function LayoutBox({
 
   const baseline = !grid && !column && isBaseline(draft.align)
   let keys = "Arrow keys move them. S stretches them."
+  let clicks = "Click the chosen spot again to stretch them."
 
   if (!grid) {
     keys += column ? " X spreads them out." : " X spreads them out. B lines up their text."
+    clicks = baseline
+      ? "Clicking the children spreads them out, then packs them again."
+      : "Clicking the children stretches them, then spreads them out, then packs them again."
+  }
+
+  let ghost: Arrangement | undefined
+
+  if (hovered && !covers(arrangement, hovered)) {
+    ghost = previewOf(arrangement, hovered, grid, column)
+  } else if (hovered && !grid) {
+    ghost = filledNext(hovered)
   }
 
   return (
     <Hint
       label={grid ? "Where each child sits in its cell" : "Where the children sit"}
-      detail={`${baseline ? "Their text is lined up on its baseline, set in More.\n" : ""}${keys}\nClick the chosen spot again to stretch them.`}
+      detail={`${baseline ? "Their text is lined up on its baseline, set in More.\n" : ""}${keys}\n${clicks}`}
       wait
     >
       <fieldset
@@ -608,16 +675,23 @@ export function LayoutBox({
       >
         <svg aria-hidden viewBox="0 0 60 60" className="pointer-events-none absolute inset-0 size-full">
           {grid && <GridCells />}
-          {hovered && !covers(arrangement, hovered) && (
+          {ghost && (
             <Children
               grid={grid}
               column={column}
               baseline={baseline}
-              arrangement={previewOf(arrangement, hovered, grid, column)}
+              arrangement={ghost}
+              spread={draft.distribute}
               ghost
             />
           )}
-          <Children grid={grid} column={column} baseline={baseline} arrangement={arrangement} />
+          <Children
+            grid={grid}
+            column={column}
+            baseline={baseline}
+            arrangement={arrangement}
+            spread={draft.distribute}
+          />
         </svg>
         {places.flatMap((y) =>
           places.map((x) => {
@@ -635,7 +709,13 @@ export function LayoutBox({
                 aria-pressed={on}
                 onKeyDown={onKeyDown}
                 onPointerEnter={() => setHovered(spot)}
-                onClick={() => choose(spot, isAnchor && on && arrangement.x !== "fill" && arrangement.y !== "fill")}
+                onClick={() => {
+                  if (on && !grid) {
+                    fill(spot)
+                  } else {
+                    choose(spot, isAnchor && on && arrangement.x !== "fill" && arrangement.y !== "fill")
+                  }
+                }}
                 className="group/spot relative z-10 grid place-items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {!on && (
@@ -650,6 +730,12 @@ export function LayoutBox({
       </fieldset>
     </Hint>
   )
+}
+
+/** What clicking the children does next: what changes, and whether the gap goes Auto or back, where it does. */
+interface NextFill {
+  spread?: boolean
+  change: Partial<Draft>
 }
 
 /** The children as they'd sit with a spot chosen, for the hover preview. */
@@ -707,12 +793,15 @@ function Children({
   grid,
   column,
   arrangement,
+  spread,
   baseline = false,
   ghost = false
 }: {
   grid: boolean
   column: boolean
   arrangement: Arrangement
+  /** How an Auto gap spreads them, besides Space between: with some of the room at the edges too. */
+  spread?: Draft["distribute"]
   baseline?: boolean
   ghost?: boolean
 }) {
@@ -744,10 +833,16 @@ function Children({
   const cross = column ? placeX : placeY
   const run = barLengths.length * bar + (barLengths.length - 1) * barGap
 
-  const starts =
+  // Spread out, the room left over goes between them, or a share of it at the edges: half a gap around, a whole evenly.
+  const room = 48 - barLengths.length * bar
+  const edgeShares = spread === undefined ? 0 : { around: 0.5, evenly: 1 }[spread]
+  const spreadGap = room / (barLengths.length - 1 + 2 * edgeShares)
+
+  const starts = barLengths.map((_, index) =>
     main === undefined
-      ? [6, 30 - bar / 2, 54 - bar]
-      : barLengths.map((_, index) => along(main, run) + index * (bar + barGap))
+      ? 6 + edgeShares * spreadGap + index * (bar + spreadGap)
+      : along(main, run) + index * (bar + barGap)
+  )
 
   const bars = barLengths.map((length, index) => {
     if (baseline) {
@@ -814,8 +909,9 @@ const spreads = [
 /**
  * A gap, on the field padding uses (SideField): a length a spacing step at a time, or one of the spacing tokens, as a
  * chip, with the nearest token offered for a length of its own. Where it's taken, Auto spreads the children out to
- * fill the room, as Figma's Auto does, and the unit's menu then says how, in CSS's words: Space between, around or
- * evenly. Typing `auto` sets it, and typing a length goes back. A negative gap overlaps the children, where it's taken.
+ * fill the room, as Figma's Auto does: it's first in the field's menu, one row for each way it spreads in CSS's words
+ * (Space between, around or evenly), and set, it's a chip that says how. Backspace takes it off, back to the gap it had
+ * before, and typing a length replaces it. A negative gap overlaps the children, where it's taken.
  */
 function GapField({
   label,
@@ -840,52 +936,25 @@ function GapField({
   onFixed?: () => void
 }) {
   const rules = { ...sideRules.gap, auto: takesAuto, negatives: takesNegative }
-  const spread = distribute ?? "between"
-  const spreadLabel = spreads.find((each) => each.value === spread)!.label
-  let note = takesNegative ? "Negative overlaps the children" : undefined
-  let unitSlot: ReactNode
+  const spread = spreads.find((each) => each.value === (distribute ?? "between"))!
 
-  if (value === "auto") {
-    note = `Auto: ${spreadLabel.toLowerCase()}, so the children fill the room`
-    unitSlot = (
-      <DropdownMenu>
-        <Hint label="How Auto spreads the children">
-          <DropdownMenuTrigger aria-label={`${label}: ${spreadLabel}`} className={unitButtonClass}>
-            {spread}
-          </DropdownMenuTrigger>
-        </Hint>
-        <DropdownMenuContent align="end" className="w-60">
-          <DropdownMenuRadioGroup
-            value={spread}
-            onValueChange={(next: string) => {
-              const chosen = spreads.find((each) => each.value === next)?.value
-              onChange("auto", chosen === "between" ? undefined : chosen)
-            }}
-          >
-            {spreads.map((each) => (
-              <DropdownMenuRadioItem key={each.value} value={each.value} closeOnClick className="text-xs">
-                <MenuItemText name={each.label} detail={each.detail} />
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-xs" onClick={() => (onFixed ? onFixed() : onChange(undefined))}>
-            Fixed gap
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )
-  } else if (takesAuto) {
-    unitSlot = (
-      <UnitMenu
-        label={label}
-        unit="px"
-        units={[{ unit: "px", label: "Pixels" }]}
-        extra={{ label: "Auto: spread them out", run: () => onChange("auto") }}
-        onUnit={() => undefined}
-      />
-    )
-  }
+  const auto = takesAuto
+    ? {
+        keywords: {
+          heading: "Auto",
+          rows: spreads.map((each) => ({
+            key: each.value,
+            name: each.label,
+            detail: each.detail,
+            current: value === "auto" && each.value === spread.value,
+            onPick: () => onChange("auto", each.value === "between" ? undefined : each.value)
+          }))
+        },
+        detail: spread.value,
+        about: `${spread.label}: ${spread.detail.toLowerCase()}`,
+        onRemove: () => (onFixed ? onFixed() : onChange(undefined))
+      }
+    : undefined
 
   return (
     <SideField
@@ -894,8 +963,8 @@ function GapField({
       rules={rules}
       value={value}
       placeholder={placeholder}
-      unitSlot={unitSlot}
-      note={note}
+      note={takesNegative ? "Negative overlaps the children" : undefined}
+      auto={auto}
       onChange={(next) => onChange(next, next === "auto" ? distribute : undefined)}
     />
   )

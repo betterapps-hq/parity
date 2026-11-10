@@ -75,7 +75,7 @@ export const EachSide: Story = {
   render: () => <Spacing padding={[px(16), px(16), px(24), px(16)]} margin={[px(8), undefined, px(8), undefined]} />
 }
 
-/** Auto across: margin's horizontal field says Auto, with what it comes to after it. */
+/** Auto across: margin's horizontal field holds Auto as a chip, with what it comes to in its hint, as it's narrow. */
 export const AutoMargin: Story = {
   render: () => <Spacing padding={[px(12), px(12), px(12), px(12)]} margin={[undefined, "auto", undefined, "auto"]} />
 }
