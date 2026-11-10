@@ -3098,10 +3098,11 @@ decisions.md's "Saving is explicit" sets out.
   root, while `:root.dark.contrast` still beats `:root.dark`. A font size there, in a nested `@media` too, sets the
   frame's `rem`, whatever the body's own font size is, and its `!important` is dropped there, as an inherited value has
   none. Left as is: a qualified root's value beats a plain root's on the body even where the page's cascade would pick
-  the plain one, as with a `:root.dark` in an earlier layer than `:root`. A root with a `:not()` on it is drawn as the
-  body alone, since the host never has the mode's class. Tokens are read with the rule as written
-  (`qualifiedRoots: false`), so `:root.dark` is still the `dark` theme in the Tokens tab, and now the Dark frame draws
-  those values too.
+  the plain one, as with a `:root.dark` in an earlier layer than `:root`. A `var()` in its values resolves on the body,
+  so a `body` rule that changes a variable the root's value refers to changes that value too, where a page's body would
+  inherit it as the root worked it out. A root with a `:not()` on it is drawn as the body alone, since the host never
+  has the mode's class. Tokens are read with the rule as written (`qualifiedRoots: false`), so `:root.dark` is still the
+  `dark` theme in the Tokens tab, and now the Dark frame draws those values too.
 
 Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
 (`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and
