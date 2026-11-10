@@ -26,6 +26,31 @@ export const searchDepth = z.enum(["standard", "deep"])
 
 export type SearchDepth = z.infer<typeof searchDepth>
 
+/** Which way a photo is shaped. */
+export const orientation = z.enum(["landscape", "portrait", "squarish"])
+
+export type Orientation = z.infer<typeof orientation>
+
+/** The colors a photo search can keep to, as Unsplash names them. */
+export const photoColor = z.enum([
+  "black_and_white",
+  "black",
+  "white",
+  "yellow",
+  "orange",
+  "red",
+  "purple",
+  "magenta",
+  "green",
+  "teal",
+  "blue"
+])
+
+export type PhotoColor = z.infer<typeof photoColor>
+
+/** How a connector gives more results for the same search: by leaving out ids already shown, or by page. */
+export type MoreResults = "exclude" | "page"
+
 /** The longest search any connector takes, which is Mobbin's. */
 export const queryLimit = 500
 
@@ -40,8 +65,14 @@ export const searchRequest = z.strictObject({
   limit: z.int().min(1).optional(),
   /** The connector's own default without one. */
   depth: searchDepth.optional(),
-  /** Results already shown, left out, so the same search brings new ones. */
-  exclude: z.array(z.string().min(1)).max(100).optional()
+  /** Results already shown, left out, so the same search brings new ones, for a connector that pages by `exclude`. */
+  exclude: z.array(z.string().min(1)).max(100).optional(),
+  /** The page of results, from 1, for a connector that pages by `page`. */
+  page: z.int().min(1).optional(),
+  /** Photos of this shape only, for a connector that names orientations. */
+  orientation: orientation.optional(),
+  /** Photos in this color only, for a connector that names colors. */
+  color: photoColor.optional()
 })
 
 export type SearchRequest = z.infer<typeof searchRequest>
@@ -155,8 +186,27 @@ export interface ConnectorInfo {
   depths: readonly [SearchDepth, ...SearchDepth[]]
   /** How many results it returns by default, and at most. */
   limit: { default: number; max: number }
-  /** The page where people get a key, for a connector that needs one. */
-  keyPage?: string
+  /** How it gives more results for the same search. */
+  more: MoreResults
+  /** The orientations it filters by, when it does. */
+  orientations?: readonly Orientation[]
+  /** The colors it filters by, when it does. */
+  colors?: readonly PhotoColor[]
+  /** The key it needs, for a connector that needs one. */
+  apiKey?: ApiKey
+}
+
+/** A connector's key: what the source calls it, where people get one, and the variable a development copy sets. */
+export interface ApiKey {
+  /** What the source calls it, in a sentence: "API key", "Access Key". */
+  name: string
+  /** The page where people get one. */
+  page: string
+  /**
+   * The environment variable a development copy sets it with, as `PARITY_MOBBIN_API_KEY`. Main reads it and keeps it
+   * from the processes it starts, and `pnpm dev` passes it on from `.env.local`.
+   */
+  variable: string
 }
 
 export interface Connector {
@@ -207,6 +257,22 @@ export function checkRequest(info: ConnectorInfo, request: SearchRequest): Probl
 
   if (request.depth && !info.depths.includes(request.depth)) {
     return invalid("depth", `${info.name} searches at ${listed(info.depths, "or")} depth only.`)
+  }
+
+  if (request.exclude?.length && info.more !== "exclude") {
+    return invalid("exclude", `${info.name} gives more results by page. Ask for the next page instead.`)
+  }
+
+  if (request.page !== undefined && info.more !== "page") {
+    return invalid("page", `${info.name} gives more results by leaving out what's shown. Pass exclude instead.`)
+  }
+
+  if (request.orientation && !info.orientations?.includes(request.orientation)) {
+    return invalid("orientation", `${info.name} doesn't filter by orientation.`)
+  }
+
+  if (request.color && !info.colors?.includes(request.color)) {
+    return invalid("color", `${info.name} doesn't filter by color.`)
   }
 
   return {

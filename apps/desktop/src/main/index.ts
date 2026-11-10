@@ -5,7 +5,7 @@ import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
-import { connectors } from "@parity-app/connectors"
+import { connectors, found, keysFromEnvironment, withoutKeys } from "@parity-app/connectors"
 import {
   CodedError,
   drawsNothing,
@@ -294,7 +294,7 @@ function startService(): UtilityProcess {
     stdio: "inherit",
     env: {
       // Connectors' keys stay in main: the service runs projects' builders, whose code mustn't see them.
-      ...withoutConnectorKeys(process.env),
+      ...withoutKeys(process.env),
       PARITY_ALLOWED_ORIGINS: rendererOrigin,
       // Which projects were open, so the service opens them again as it starts, before the window asks (PAR-179).
       PARITY_REOPEN_FILE: join(app.getPath("userData"), "open-projects.json"),
@@ -769,15 +769,15 @@ app.on("open-url", (event, url) => {
 
 /**
  * Connectors to outside services, such as Mobbin (PAR-829). Main keeps their keys, encrypted in the app's data, and runs
- * every search, for the window over IPC and for agents through the service. A development copy can set a key with
- * `PARITY_MOBBIN_API_KEY` instead.
+ * every search, for the window over IPC and for agents through the service. A development copy can set each key with
+ * the variable its connector names, as `PARITY_MOBBIN_API_KEY`.
  */
 const connectorHub = createConnectorHub({
   connectors,
   keys: keyStore(join(app.getPath("userData"), "connector-keys"), safeStorage, process.platform, (problem) =>
     events.telemetry.track("connectors.storeFailed", problem)
   ),
-  environment: { mobbin: environment.PARITY_MOBBIN_API_KEY },
+  environment: keysFromEnvironment(process.env),
   fetch: (url, init) => net.fetch(url, init),
   timeout: 30_000,
   changed: (states: ConnectorState[]) => {
@@ -795,13 +795,6 @@ const connectorHub = createConnectorHub({
 
 /** Connectors' keys, scrubbed from what main sends to Sentry. Windows never have them, so they aren't sent there. */
 let connectorSecrets: string[] = []
-
-/** The environment without connectors' keys, for the processes main starts. */
-function withoutConnectorKeys(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const { PARITY_MOBBIN_API_KEY: _mobbin, ...rest } = env
-
-  return rest
-}
 
 const connectorRefusal = "Only the Parity window can use connectors."
 
@@ -835,6 +828,16 @@ handle(
     appWindowOf(event, connectorRefusal)
 
     return connectorHub.clearKey(connector)
+  })
+)
+
+handle(
+  "connectorsPicked",
+  checked(found, (event: Electron.IpcMainInvokeEvent, used) => {
+    appWindowOf(event, connectorRefusal)
+
+    // Reporting a use is the source's count, not something the person waits on.
+    void connectorHub.picked(used).catch(() => undefined)
   })
 )
 

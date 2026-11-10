@@ -8,7 +8,7 @@ import type {
 import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
 import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
-import type { SearchAnswer } from "@parity-app/connectors"
+import type { Found, SearchAnswer } from "@parity-app/connectors"
 import type {
   CanvasDocument,
   ChangeConflict,
@@ -459,6 +459,11 @@ export interface CanvasHost {
     /** Checks the key with the connector's smallest search, then keeps it, encrypted, in the app's data. */
     setKey: (connector: string, key: string) => Promise<SetKeyAnswer>
     clearKey: (connector: string) => Promise<void>
+    /**
+     * Tells the source a result was used, as when a photo is placed, for a source whose terms ask for it. Call it once
+     * per use; it never fails.
+     */
+    picked: (found: Found) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string

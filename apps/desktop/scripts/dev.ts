@@ -143,8 +143,10 @@ const builds: BuildContext[] = [
 ]
 
 /**
- * Connectors' keys from `.env.local` beside the app, which Git ignores, for main (PAR-829). Vite reads the same file for
- * the window, but passes on only `VITE_` settings, so the keys never reach a page. One already set in the shell wins.
+ * Connectors' keys from `.env.local` beside the app, which Git ignores, for main (PAR-829): every `PARITY_` variable
+ * ending in `_KEY`, so a new connector needs nothing here. Main reads only the ones its connectors name. Vite reads the
+ * same file for the window but passes on only `VITE_` settings, so the keys never reach a page. One set in the shell
+ * wins.
  */
 function connectorKeys(): NodeJS.ProcessEnv {
   const file = join(appDir, ".env.local")
@@ -153,18 +155,9 @@ function connectorKeys(): NodeJS.ProcessEnv {
     return {}
   }
 
-  const { PARITY_MOBBIN_API_KEY, PARITY_UNSPLASH_ACCESS_KEY } = parseEnv(readFileSync(file, "utf8"))
-  const keys: NodeJS.ProcessEnv = {}
+  const set = Object.entries(parseEnv(readFileSync(file, "utf8")))
 
-  if (PARITY_MOBBIN_API_KEY) {
-    keys.PARITY_MOBBIN_API_KEY = PARITY_MOBBIN_API_KEY
-  }
-
-  if (PARITY_UNSPLASH_ACCESS_KEY) {
-    keys.PARITY_UNSPLASH_ACCESS_KEY = PARITY_UNSPLASH_ACCESS_KEY
-  }
-
-  return keys
+  return Object.fromEntries(set.filter(([name, value]) => /^PARITY_\w+_KEY$/.test(name) && value?.trim()))
 }
 
 function startElectron(): void {

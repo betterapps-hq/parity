@@ -69,5 +69,7 @@ export const ipc = {
   connectorsSearch: "canvas:connectors-search",
   /** The window gives main a key the person typed, which main checks before keeping. */
   connectorsSetKey: "canvas:connectors-set-key",
-  connectorsClearKey: "canvas:connectors-clear-key"
+  connectorsClearKey: "canvas:connectors-clear-key",
+  /** The window tells main a result was used, for a source whose terms ask to be told, as Unsplash's do. */
+  connectorsPicked: "canvas:connectors-picked"
 } as const

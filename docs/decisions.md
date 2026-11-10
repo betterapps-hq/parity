@@ -6840,3 +6840,26 @@ calls:
   components and tokens, never an app's layout, text or branding.
 - **Each search is recorded** as `connectors.searched`, with its connector, filters, count or problem and time, never
   what was searched for.
+
+## Unsplash is the second connector (PAR-829)
+
+You got an Unsplash key on 2026-11-10 and asked for it on the same branch as Mobbin. My calls:
+
+- **It's an adapter like Mobbin's,** in `packages/connectors/src/unsplash.ts`: photos, 20 by default and 30 at most, by
+  orientation (landscape, portrait or squarish) and Unsplash's colors, paged by page rather than by leaving out ids.
+  Those three filters joined the shared request, and `checkRequest` refuses them for a connector that doesn't name them.
+- **Its key is the app's Access Key with Public access only,** sent as `Client-ID`. The Secret Key and the other scopes
+  are for acting on a person's own Unsplash account, which Parity doesn't do. For now main holds it, from
+  `PARITY_UNSPLASH_ACCESS_KEY` in development; a service of Parity's still holds it for shipping, as decided on
+  2026-10-28.
+- **Its terms are kept:** photos load from Unsplash's own links, `picked` reports each one used to its download endpoint
+  (the window calls `canvasHost.connectors.picked`), and every photo credits its photographer and Unsplash, linked with
+  `utm_source=parity&utm_medium=referral`. Searches keep out photos Unsplash marks unsuitable for every audience
+  (`content_filter=high`).
+- **A photo is named by its alt text first,** then its description, then its photographer, since descriptions are often
+  the photographer's own notes.
+- **Unsplash says its limit is reached with a 403,** not a 429, so a 403 with no requests left reads as `rate-limited`.
+  Tried live on 2026-11-10: a search took under half a second, the demo limit is 50 an hour, and images are JPEGs.
+- **Each connector names its own key variable,** which main reads and keeps from the service, and `pnpm dev` passes on
+  every `PARITY_*_KEY` in `.env.local`, so the next connector needs no changes there. What else would make the next one
+  easier is in [connectors.md](connectors.md#pattern-changes-to-make).

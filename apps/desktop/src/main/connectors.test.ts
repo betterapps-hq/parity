@@ -15,7 +15,8 @@ function fakeConnector(refuse: "key-refused" | "no-access" | "unavailable" = "ke
       site: "https://fake.example",
       finds: ["screens"],
       depths: ["standard"],
-      limit: { default: 10, max: 10 }
+      limit: { default: 10, max: 10 },
+      more: "exclude"
     },
     probe: { query: "login", kind: "screens", limit: 1 },
     async search(_request, access) {

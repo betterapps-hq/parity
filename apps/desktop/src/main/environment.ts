@@ -43,11 +43,6 @@ const mainEnvironment = z.object({
   PARITY_TEST_RUN: nonBlankString.optional(),
   /** The tester's name, shown as Sentry's user (PAR-630). */
   PARITY_TESTER: nonBlankString.optional(),
-  /**
-   * A Mobbin API key for a development copy (PAR-829), used in place of one saved in the app. Main keeps it from the
-   * project service, so no project's code sees it.
-   */
-  PARITY_MOBBIN_API_KEY: nonBlankString.optional(),
   /** Where an AppImage is, which its runtime sets; Linux updates only work from one. */
   APPIMAGE: z.string().optional()
 })

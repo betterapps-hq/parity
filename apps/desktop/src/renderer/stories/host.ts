@@ -266,7 +266,8 @@ export function installHost(): void {
       subscribe: () => () => undefined,
       search: () => Promise.resolve({ problem: { code: "no-key", message: "Stories have no connectors." } }),
       setKey: () => Promise.resolve({ problem: { code: "no-key", message: "Stories have no connectors." } }),
-      clearKey: () => Promise.resolve()
+      clearKey: () => Promise.resolve(),
+      picked: () => Promise.resolve()
     },
     serve: () => undefined,
     onReconnect: () => undefined,
