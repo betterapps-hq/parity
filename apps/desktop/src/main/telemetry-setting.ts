@@ -5,6 +5,7 @@ import {
   type TelemetryLevel,
   type TelemetryVariables
 } from "@parity-app/telemetry"
+import { z } from "zod"
 import type { TelemetryState } from "../shared/protocol.ts"
 
 export interface TelemetrySettingOptions {
@@ -24,6 +25,9 @@ export interface TelemetrySettingOptions {
 export class TelemetrySetting {
   private saved: SavedTelemetry & { installId: string }
 
+  /** Why a new install ID couldn't be saved, for main to record once its telemetry starts (PAR-811). */
+  readonly unsaved: { code?: string; message: string } | undefined
+
   constructor(private readonly options: TelemetrySettingOptions) {
     const saved = readSavedTelemetry(options.read())
 
@@ -37,8 +41,9 @@ export class TelemetrySetting {
 
     try {
       this.write(this.saved)
-    } catch {
-      // The ID still names this run's reports; the next run makes another.
+    } catch (cause) {
+      // The ID still names this run's reports; the next run makes another, so Sentry counts each run as a new user.
+      this.unsaved = unsavedBecause(cause)
     }
   }
 
@@ -63,4 +68,14 @@ export class TelemetrySetting {
   private write(value: SavedTelemetry): void {
     this.options.save(`${JSON.stringify(value, null, 2)}\n`)
   }
+}
+
+/** A file system error's code, such as `EACCES`, which Node puts on the error. */
+const errnoCode = z.object({ code: z.string() })
+
+function unsavedBecause(cause: unknown): { code?: string; message: string } {
+  const message = cause instanceof Error ? cause.message : String(cause)
+  const code = errnoCode.safeParse(cause).data?.code
+
+  return code ? { code, message } : { message }
 }
