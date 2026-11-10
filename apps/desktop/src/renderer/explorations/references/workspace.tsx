@@ -1,5 +1,6 @@
 import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
 import type { Found, RecentSearch } from "@parity-app/connectors"
+import { fileBaseName, skippedMessage, sortDrop } from "@parity-app/editor"
 import {
   Accessibility,
   CodeXml,
@@ -28,9 +29,9 @@ import { useContainerEntries, useModeSettings } from "../../design-store.ts"
 import { useSelection } from "../../selection.ts"
 import { ProjectStage } from "../../stories/fixtures.tsx"
 import { type BrowserStart, LibraryBrowser, type Picked } from "./browser.tsx"
-import { boxOf, CanvasSketch, designBox, type Placed, type View } from "./canvas.tsx"
+import { boxOf, CanvasSketch, designBox, type Dropped, type DroppedImage, type Placed, type View } from "./canvas.tsx"
 import { sampleFound, samples, type Source } from "./data.ts"
-import { type ProjectImage, ProjectImagesPanel } from "./images-panel.tsx"
+import { type ImageUse, type ProjectImage, ProjectImagesPanel } from "./images-panel.tsx"
 import { creditOf, libraries, type LibraryId, type Searched, shownFilters } from "./library.tsx"
 import { ReferencePanel } from "./reference-panel.tsx"
 
@@ -38,7 +39,9 @@ import { ReferencePanel } from "./reference-panel.tsx"
  * The exploration as one window you can use: the app's own panels around a sketch of the canvas. Searching a library
  * outside the project happens in one browser over the canvas, whichever library it is. Find references, on the
  * toolbar and R, searches Mobbin and places what's picked beside the design. Find photos, in the Images tab, searches
- * Unsplash and adds what's picked to the project. The Images tab itself lists the project's own images.
+ * Unsplash and adds what's picked to the project. The Images tab itself lists the project's own images. Image files
+ * dropped on the tab are added to the project, and dropped on the canvas are placed too (PAR-835); an image's menu
+ * removes it (PAR-836).
  */
 
 /** The real connectors, through the host, as the window reaches them: main in the app, the dev server in Storybook. */
@@ -70,8 +73,8 @@ export interface Start {
   placed?: Placed[]
   /** The selected reference's key. */
   selected?: string
-  /** The project's images, in place of the three it starts with. */
-  images?: ProjectImage[]
+  /** The project's images, in place of the ones it starts with, with what each looks like by its `src`. */
+  images?: ImagesStart
   view?: View
 }
 
@@ -86,18 +89,108 @@ const firstRecent: (Searched & { library: LibraryId })[] = [
   { library: "unsplash", query: "desk", filters: { orientation: "landscape" } }
 ]
 
-function image(name: string, from: ProjectImage["from"], id: string): ProjectImage[] {
+/** Pasted, dropped and added images use the same folder, as `images.import` saves them. */
+const folder = "public/images"
+
+/** A file in the project's images folder, drawn as a sample. */
+function sampleFile(name: string, id: string, uses: Partial<Pick<ProjectImage, "usedBy" | "usedInCode">> = {}) {
   const picture = sampleFound(id)
 
-  return picture ? [{ name, from, picture }] : []
+  const image: ProjectImage = {
+    kind: "file",
+    src: `/images/${name}`,
+    path: `${folder}/${name}`,
+    name,
+    bytes: 180_000,
+    usedBy: uses.usedBy ?? [],
+    usedInCode: uses.usedInCode ?? []
+  }
+
+  return { image, picture }
 }
 
-/** What the project's images folder holds before anything's added: a stock photo, a pasted image and a dropped one. */
-const firstImages: ProjectImage[] = [
-  ...image("lake-at-sunrise.jpg", "unsplash", "lake-at-sunrise"),
-  ...image("old-dashboard.png", "pasted", "northwind-dashboard"),
-  ...image("team-portrait.jpg", "dropped", "portrait-on-teal")
-]
+/** A use of an image by a layer of Pricing, the design on the canvas. */
+const inPricing = (node: string): ImageUse => ({ document: "app.par", design: "pricing", designName: "Pricing", node })
+
+/** The project's images, and what each looks like by its `src`. */
+interface ImagesStart {
+  images: ProjectImage[]
+  pictures: Record<string, Found>
+}
+
+/**
+ * What the project has before anything's added: a photo from Unsplash that Pricing shows, a pasted image nothing uses, a
+ * dropped one the project's code names, a photo Pricing links to at Unsplash, and a path Pricing names with no file.
+ */
+function startingImages(): ImagesStart {
+  const lake = sampleFile("lake-at-sunrise.jpg", "lake-at-sunrise", { usedBy: [inPricing("hero-photo")] })
+  const coast = sampleFound("rocky-coast")
+  const pictures: Record<string, Found> = {}
+
+  if (lake.picture) {
+    lake.image.credit = {
+      name: creditOf(lake.picture),
+      url: lake.picture.credit[0]?.url ?? lake.picture.link,
+      source: "Unsplash"
+    }
+  }
+
+  const files = [
+    lake,
+    sampleFile("old-dashboard.png", "northwind-dashboard"),
+    sampleFile("team-portrait.jpg", "portrait-on-teal", { usedInCode: [{ path: "src/pages/About.tsx", line: 14 }] })
+  ]
+
+  for (const { image, picture } of files) {
+    if (picture) {
+      pictures[image.src] = picture
+    }
+  }
+
+  const linked: ProjectImage[] = []
+
+  if (coast) {
+    pictures[coast.image.url] = coast
+    linked.push({
+      kind: "linked",
+      src: coast.image.url,
+      name: `Photo by ${creditOf(coast)}`,
+      credit: { name: creditOf(coast), url: coast.credit[0]?.url ?? coast.link, source: "Unsplash" },
+      usedBy: [inPricing("testimonial-photo"), inPricing("footer-photo")],
+      usedInCode: []
+    })
+  }
+
+  const missing: ProjectImage = {
+    kind: "missing",
+    src: "/images/old-logo.svg",
+    name: "/images/old-logo.svg",
+    usedBy: [inPricing("logo")],
+    usedInCode: []
+  }
+
+  return { images: [...files.map(({ image }) => image), ...linked, missing], pictures }
+}
+
+/** A dropped file's natural size, read from the file itself; square when it can't be read. */
+function naturalSize(url: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    const picture = new Image()
+    picture.onload = () => resolve({ width: picture.naturalWidth || 1, height: picture.naturalHeight || 1 })
+    picture.onerror = () => resolve({ width: 1, height: 1 })
+    picture.src = url
+  })
+}
+
+/** What a new frame of dropped images is called: after the file when there's one, and Images when there are several. */
+function frameName(images: readonly DroppedImage[]): string {
+  const [only] = images
+
+  return images.length === 1 && only ? fileBaseName(only.name) : "Images"
+}
+
+/** How long an image just added stays marked, in milliseconds. */
+const freshFor = 1600
 
 let counter = 0
 
@@ -127,7 +220,12 @@ function Window({ start }: { start: Start }) {
   const [source] = useState(() => start.source ?? samples())
   const [placed, setPlaced] = useState<Placed[]>(start.placed ?? [])
   const [photos, setPhotos] = useState<Found[]>([])
-  const [images, setImages] = useState(start.images ?? firstImages)
+  const [first] = useState(() => start.images ?? startingImages())
+  const [images, setImages] = useState(first.images)
+  const [pictures, setPictures] = useState(first.pictures)
+  const [fresh, setFresh] = useState<string[]>([])
+  const [dropped, setDropped] = useState<Dropped[]>([])
+  const [landed, setLanded] = useState<string[]>([])
   const [selected, setSelected] = useState(start.selected)
   const [recent, setRecent] = useState(source.recent ? [] : firstRecent)
   const [fitKey, setFitKey] = useState(0)
@@ -209,14 +307,36 @@ function Window({ start }: { start: Start }) {
     toast(added.length === 1 ? "Placed a reference on the canvas" : `Placed ${added.length} references on the canvas`)
   }
 
+  /** Marks images just added for a moment, as they arrive in the Images tab. */
+  const markFresh = (srcs: string[]) => {
+    setFresh(srcs)
+    setTimeout(() => setFresh((current) => current.filter((src) => !srcs.includes(src))), freshFor)
+  }
+
   const addPhotos = (picked: Picked[]) => {
     const added = picked.flatMap(({ found }) => (photos.some((each) => each.id === found.id) ? [] : [found]))
 
+    const files = added.map((picture): ProjectImage => {
+      const name = `${picture.id}.jpg`
+
+      return {
+        kind: "file",
+        src: `/images/${name}`,
+        path: `${folder}/${name}`,
+        name,
+        credit: { name: creditOf(picture), url: picture.credit[0]?.url ?? picture.link, source: "Unsplash" },
+        usedBy: [{ document: "app.par", design: "photos", designName: "Photos", node: picture.id }],
+        usedInCode: []
+      }
+    })
+
     setPhotos((current) => [...current, ...added])
-    setImages((current) => [
-      ...added.map((picture): ProjectImage => ({ name: `${picture.id}.jpg`, from: "unsplash", picture })),
-      ...current.filter(({ picture }) => !added.some((each) => each.id === picture.id))
-    ])
+    setImages((current) => [...files, ...current.filter((image) => !files.some((each) => each.src === image.src))])
+    setPictures((current) => ({
+      ...current,
+      ...Object.fromEntries(files.map((image, index) => [image.src, added[index]!]))
+    }))
+    markFresh(files.map((image) => image.src))
     toast(added.length === 1 ? "Added a photo to the project" : `Added ${added.length} photos to the project`, {
       description: "They're in Images, each with its photographer's name."
     })
@@ -241,6 +361,151 @@ function Window({ start }: { start: Start }) {
       toast(`Opening ${creditOf(found)} on ${source?.info.name ?? found.connector} in your browser`)
     } else {
       window.open(found.link, "_blank", "noreferrer")
+    }
+  }
+
+  /**
+   * Image files dropped on the Images tab or the canvas, saved into the project as `images.import` saves them, named
+   * after the file. Each one's picture is the file itself. Files that aren't images, or are too large, are named.
+   */
+  const addFiles = async (files: File[]): Promise<{ image: ProjectImage; dropped: DroppedImage }[]> => {
+    const { images: taken, skipped } = sortDrop(files)
+    const message = skippedMessage(skipped)
+
+    if (message) {
+      toast(message.title, { description: message.description })
+    }
+
+    const added = await Promise.all(
+      taken.map(async ({ index }) => {
+        const file = files[index]!
+        const url = URL.createObjectURL(file)
+        const size = await naturalSize(url)
+
+        const base = fileBaseName(file.name)
+          .toLowerCase()
+          .replaceAll(/[^a-z0-9]+/g, "-")
+
+        // As `images.import` names it: after the file, with a short hash of its content.
+        const name = `${base}-${crypto.randomUUID().slice(0, 8)}${file.name.slice(file.name.lastIndexOf("."))}`
+
+        const src = `/images/${name}`
+
+        const picture: Found = {
+          connector: "project",
+          id: src,
+          kind: "photos",
+          title: file.name,
+          image: { url, ...size },
+          link: url,
+          credit: []
+        }
+
+        const image: ProjectImage = {
+          kind: "file",
+          src,
+          path: `${folder}/${name}`,
+          name,
+          bytes: file.size,
+          usedBy: [],
+          usedInCode: []
+        }
+
+        const width = 320
+
+        return {
+          image,
+          picture,
+          dropped: {
+            key: newKey(),
+            picture,
+            name: file.name,
+            width,
+            height: Math.round((width / size.width) * size.height)
+          }
+        }
+      })
+    )
+
+    setImages((current) => [...added.map(({ image }) => image), ...current])
+    setPictures((current) => ({
+      ...current,
+      ...Object.fromEntries(added.map(({ image, picture }) => [image.src, picture]))
+    }))
+    markFresh(added.map(({ image }) => image.src))
+
+    return added
+  }
+
+  /** Files dropped on the canvas: added to the project, and placed where they were dropped, selected. */
+  const dropFiles = async (files: File[], at: { x: number; y: number }, onto: "design" | "canvas") => {
+    const added = await addFiles(files)
+
+    if (added.length === 0) {
+      return
+    }
+
+    const key = newKey()
+    const frame = onto === "canvas" ? frameName(added.map((each) => each.dropped)) : undefined
+    const drop: Dropped = { key, x: at.x, y: at.y, images: added.map((each) => each.dropped) }
+
+    if (frame) {
+      drop.frame = frame
+    }
+
+    // The new layers use them now, so the Images tab says where.
+    const use = (node: string): ImageUse => ({
+      document: "app.par",
+      design: onto === "design" ? "pricing" : key,
+      designName: frame ?? "Pricing",
+      node
+    })
+
+    setImages((current) =>
+      current.map((image) => {
+        const placedAs = added.find((each) => each.image.src === image.src)
+
+        return placedAs ? { ...image, usedBy: [use(placedAs.dropped.key)] } : image
+      })
+    )
+    setDropped((current) => [...current, drop])
+    setLanded([key])
+    setSelected(undefined)
+    selection.set({})
+  }
+
+  /** Removes an image, and the layers that show it with it, in one step Undo takes back. */
+  const removeImage = (image: ProjectImage) => {
+    const index = images.findIndex((each) => each.src === image.src)
+    const layers = image.usedBy.length === 1 ? "1 layer" : `${image.usedBy.length} layers`
+    const named = image.kind === "file" ? image.name : layers
+    const removed = image.kind === "file" && image.usedBy.length > 0 ? `${image.name} and ${layers}` : named
+
+    setImages((current) => current.filter((each) => each.src !== image.src))
+    toast(`Removed ${removed}`, {
+      action: {
+        label: "Undo",
+        onClick: () => setImages((current) => [...current.slice(0, index), image, ...current.slice(index)])
+      }
+    })
+  }
+
+  /** Shows a layer that uses an image: selects the design it's in, on the canvas. */
+  const showUse = (use: ImageUse) => {
+    setSelected(undefined)
+
+    if (use.design === "pricing" && pricing) {
+      selection.set({ design: pricing.key })
+    } else {
+      setLanded(dropped.some((drop) => drop.key === use.design) ? [use.design] : [])
+    }
+  }
+
+  const openImageAtSource = (image: ProjectImage) => {
+    const picture = pictures[image.src]
+
+    if (picture) {
+      openAtSource(picture)
     }
   }
 
@@ -270,7 +535,16 @@ function Window({ start }: { start: Start }) {
           <IconsPanel />
         </TabsContent>
         <TabsContent value="images" className="flex min-h-0 flex-col">
-          <ProjectImagesPanel images={images} onFind={findPhotos} onOpenAtSource={openAtSource} />
+          <ProjectImagesPanel
+            images={images}
+            pictures={pictures}
+            fresh={fresh}
+            onFind={findPhotos}
+            onOpenAtSource={openImageAtSource}
+            onAdd={(files) => void addFiles(files)}
+            onRemove={removeImage}
+            onShow={showUse}
+          />
         </TabsContent>
         <TabsContent value="tokens" className="flex min-h-0 flex-col">
           <TokensPanel />
@@ -285,11 +559,16 @@ function Window({ start }: { start: Start }) {
         selected={selected}
         view={start.view}
         fitKey={fitKey}
+        dropped={dropped}
+        landed={landed}
+        onDropFiles={(files, at, onto) => void dropFiles(files, at, onto)}
         onSelectDesign={() => {
+          setLanded([])
           setSelected(undefined)
           selection.set(pricing ? { design: pricing.key } : {})
         }}
         onSelect={(key) => {
+          setLanded([])
           setSelected(key)
           selection.set({})
         }}

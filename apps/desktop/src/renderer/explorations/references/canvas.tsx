@@ -1,8 +1,10 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- the design and the references stand in for the canvas's items, which take the pointer; the keyboard reaches them through the canvas's keys, as in the app */
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import type { Found } from "@parity-app/connectors"
+import { dropHint } from "@parity-app/editor"
 import { Layers, Maximize, Minus, Plus, Telescope } from "lucide-react"
 import {
+  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -11,7 +13,7 @@ import {
   useState
 } from "react"
 import { useProject } from "../../canvas/context.ts"
-import { DesignIcon, kindColors } from "../../canvas/kinds.tsx"
+import { chipColors, DesignIcon, kindColors } from "../../canvas/kinds.tsx"
 import { Tools } from "../../chrome/FloatingToolbar/Tools.tsx"
 import { IconButton } from "../../chrome/IconButton.tsx"
 import { keymap } from "../../chrome/keymap.ts"
@@ -20,6 +22,7 @@ import { useTool } from "../../selection.ts"
 import type { Look } from "../start/data.ts"
 import { desktop, phone } from "../start/render-kit.tsx"
 import { DesignRender } from "../start/renders.tsx"
+import { useFileDrag } from "./images-panel.tsx"
 import { creditOf, Picture, sizeOf } from "./library.tsx"
 
 /*
@@ -41,6 +44,49 @@ export interface Placed {
   note?: string
   /** The agent that placed it, when one did. */
   by?: string
+}
+
+/** An image file dropped on the canvas, at 80 steps (320px) wide and as tall as its proportions make it. */
+export interface DroppedImage {
+  key: string
+  picture: Found
+  name: string
+  width: number
+  height: number
+}
+
+/**
+ * Image files dropped together (PAR-835): onto the design, where they land at the drop point, on top, as in a layout
+ * that's absolutely placed; or onto the empty canvas, where they make a new frame there, named after the file or Images.
+ */
+export interface Dropped {
+  key: string
+  /** Where the drop was, in canvas pixels: the top left of the images or of their frame. */
+  x: number
+  y: number
+  frame?: string
+  images: DroppedImage[]
+}
+
+/** How images dropped together lie: side by side, this far apart, inside a new frame's padding. */
+const dropLayout = { gap: 16, padding: 32 }
+
+/** Where each image in a drop sits, from the drop's top left, and the box they take with the frame's padding. */
+function dropBoxes(drop: Dropped) {
+  const inset = drop.frame ? dropLayout.padding : 0
+  let x = inset
+
+  const images = drop.images.map((image) => {
+    const box = { image, x, y: inset }
+    x += image.width + dropLayout.gap
+
+    return box
+  })
+
+  const width = x - dropLayout.gap + inset
+  const height = Math.max(...drop.images.map((image) => image.height)) + inset * 2
+
+  return { images, box: { x: drop.x, y: drop.y, width, height } }
 }
 
 /** Where the canvas is looking: its zoom, and where the canvas's origin sits in the view. */
@@ -142,6 +188,12 @@ interface CanvasProps {
   onDelete: (key: string) => void
   onOpen: (found: Found) => void
   onFind: () => void
+  /** Image files dropped on the canvas so far. */
+  dropped?: readonly Dropped[]
+  /** The drops just made, by key, which stay marked in the selection's color until something else is selected. */
+  landed?: readonly string[]
+  /** Files dropped at a point in canvas pixels, onto the design or onto the empty canvas. */
+  onDropFiles?: (files: File[], at: { x: number; y: number }, onto: "design" | "canvas") => void
 }
 
 export function CanvasSketch({
@@ -158,7 +210,10 @@ export function CanvasSketch({
   onMove,
   onDelete,
   onOpen,
-  onFind
+  onFind,
+  dropped = [],
+  landed = [],
+  onDropFiles
 }: CanvasProps) {
   const session = useProject()
   const tool = useTool(session.selection)
@@ -169,6 +224,32 @@ export function CanvasSketch({
   const pan = useRef<{ from: { x: number; y: number }; start: View }>(undefined)
   const drag = useRef<{ key: string; from: { x: number; y: number }; start: { x: number; y: number } }>(undefined)
   const fitted = useRef(firstView ? fitKey : undefined)
+  const [pointer, setPointer] = useState<{ x: number; y: number }>()
+
+  /** A point in the view, in canvas pixels. */
+  const toCanvas = (point: { x: number; y: number }) => ({
+    x: (point.x - view.x) / view.zoom,
+    y: (point.y - view.y) / view.zoom
+  })
+
+  const overDesign = (point: { x: number; y: number }) => {
+    const at = toCanvas(point)
+
+    return (
+      at.x >= designBox.x &&
+      at.x <= designBox.x + designBox.width &&
+      at.y >= designBox.y &&
+      at.y <= designBox.y + designBox.height
+    )
+  }
+
+  const fileDrag = useFileDrag((files) => {
+    if (pointer && onDropFiles) {
+      onDropFiles(files, toCanvas(pointer), overDesign(pointer) ? "design" : "canvas")
+    }
+
+    setPointer(undefined)
+  })
 
   const fit = () => {
     const element = ref.current
@@ -178,7 +259,14 @@ export function CanvasSketch({
     }
 
     const added = photosBox(photos)
-    const boxes = [designBox, ...placed.map(boxOf), ...(added ? [added] : [])]
+
+    const boxes = [
+      designBox,
+      ...placed.map(boxOf),
+      ...(added ? [added] : []),
+      ...dropped.map((drop) => dropBoxes(drop).box)
+    ]
+
     const left = Math.min(...boxes.map((box) => box.x))
     const top = Math.min(...boxes.map((box) => box.y))
     const right = Math.max(...boxes.map((box) => box.x + box.width))
@@ -361,6 +449,12 @@ export function CanvasSketch({
       onPointerUp={() => {
         pan.current = undefined
       }}
+      {...fileDrag.handlers}
+      onDragOver={(event) => {
+        fileDrag.handlers.onDragOver(event)
+        const box = event.currentTarget.getBoundingClientRect()
+        setPointer({ x: event.clientX - box.left, y: event.clientY - box.top })
+      }}
       className={`relative min-w-0 flex-1 touch-none overflow-hidden bg-muted/40 outline-none dark:bg-muted/20 ${
         panning ? "cursor-grab active:cursor-grabbing" : ""
       }`}
@@ -383,6 +477,9 @@ export function CanvasSketch({
           }}
         />
         <PhotoScreen photos={photos} zoom={view.zoom} />
+        {dropped.map((drop) => (
+          <DroppedImages key={drop.key} drop={drop} zoom={view.zoom} marked={landed.includes(drop.key)} />
+        ))}
         {placed.map((item) => (
           <PlacedReference
             key={item.key}
@@ -398,6 +495,23 @@ export function CanvasSketch({
           />
         ))}
       </div>
+      {fileDrag.over && pointer && (
+        <DropCue
+          count={fileDrag.count}
+          pointer={pointer}
+          width={ref.current?.clientWidth ?? 0}
+          design={
+            overDesign(pointer)
+              ? {
+                  x: view.x + previews.desktop.x * view.zoom,
+                  y: view.y + previews.desktop.y * view.zoom,
+                  width: desktop.width * view.zoom,
+                  height: designBox.height * view.zoom
+                }
+              : undefined
+          }
+        />
+      )}
       <div
         className={`absolute top-3 right-3 flex items-center gap-0.5 ${floatingBar}`}
         onPointerDown={(event) => event.stopPropagation()}
@@ -433,6 +547,118 @@ export function CanvasSketch({
           <Telescope />
         </IconButton>
       </div>
+    </div>
+  )
+}
+
+/**
+ * What the canvas shows while files are dragged over it, as the app's drop does (PAR-24): over the design, its layout
+ * outlined; a corner where the images' top left will land; and beside the pointer, what a drop there does.
+ */
+function DropCue({
+  count,
+  pointer,
+  width,
+  design
+}: {
+  count: number
+  pointer: { x: number; y: number }
+  /** The canvas's width, so the label turns to the pointer's left near the right edge. */
+  width: number
+  design: Box | undefined
+}) {
+  const flipped = pointer.x > width - 240
+
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0">
+      {design && (
+        <div
+          className="absolute rounded-sm border-2 border-dashed border-(--canvas-layer) bg-(--canvas-layer)/5"
+          style={{ left: design.x, top: design.y, width: design.width, height: design.height }}
+        />
+      )}
+      {count > 0 && (
+        <div
+          className="absolute size-3 border-t-2 border-l-2 border-(--canvas-layer)"
+          style={{ left: pointer.x, top: pointer.y }}
+        />
+      )}
+      <span
+        className="absolute rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-sm"
+        style={{
+          ...chipColors.layer,
+          left: flipped ? undefined : pointer.x + 16,
+          right: flipped ? width - pointer.x + 16 : undefined,
+          top: pointer.y + 16
+        }}
+      >
+        {dropHint(count, design ? "layout" : "canvas")}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Images just dropped, landing: each grows from the drop point into its place, one after another, then stays outlined
+ * in the selection's color, as the app selects what a drop adds. Reduced motion skips the landing.
+ */
+function DroppedImages({ drop, zoom, marked }: { drop: Dropped; zoom: number; marked: boolean }) {
+  const { images, box } = dropBoxes(drop)
+  const outline = marked ? `${onScreen(2, zoom)}px solid var(--canvas-layer)` : undefined
+
+  return (
+    <div
+      role="group"
+      aria-label={drop.frame ?? "Dropped images"}
+      className="absolute"
+      style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
+    >
+      <style>{`@keyframes parity-image-landing { from { opacity: 0; transform: translate(var(--from-x), var(--from-y)) scale(0.4) } to { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) { [data-landing] { animation: none !important } }`}</style>
+      {drop.frame && (
+        <>
+          <div
+            className="absolute left-0 flex items-center font-medium whitespace-nowrap text-muted-foreground"
+            style={{
+              bottom: box.height + onScreen(8, zoom),
+              gap: onScreen(6, zoom),
+              fontSize: onScreen(12, zoom),
+              color: marked ? "var(--canvas-layer)" : undefined
+            }}
+          >
+            <DesignIcon kind="frame" style={{ width: onScreen(14, zoom), height: onScreen(14, zoom) }} />
+            {drop.frame}
+          </div>
+          <div
+            className="absolute inset-0 bg-background"
+            style={{ outline: `${onScreen(1, zoom)}px solid var(--border)` }}
+          />
+        </>
+      )}
+      {images.map(({ image, x, y }, index) => (
+        <div
+          key={image.key}
+          role="img"
+          aria-label={image.name}
+          data-landing
+          className="absolute"
+          // SAFETY: the two custom properties are strings, which CSS takes; React's type only lists standard ones.
+          style={
+            {
+              left: x,
+              top: y,
+              width: image.width,
+              height: image.height,
+              outline,
+              "--from-x": `${-x}px`,
+              "--from-y": `${-y}px`,
+              animation: `parity-image-landing 420ms cubic-bezier(0.2, 0.8, 0.2, 1) ${index * 70}ms both`
+            } as CSSProperties
+          }
+        >
+          <Picture found={image.picture} style={{ width: image.width, height: image.height }} />
+        </div>
+      ))}
     </div>
   )
 }
