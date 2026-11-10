@@ -326,11 +326,10 @@ function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMob
         )}
         <footer className="flex shrink-0 items-center gap-2 border-t px-4 py-2.5">
           <span className="text-xs text-muted-foreground">Screens from Mobbin</span>
-          <span className="ml-auto text-xs text-muted-foreground">
-            {picked.length === 0 ? "Pick screens to place them" : `${picked.length} picked`}
-          </span>
-          {picked.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setPicked([])}>
+          {picked.length === 0 ? (
+            <span className="ml-auto text-xs text-muted-foreground">Pick screens to place them</span>
+          ) : (
+            <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => setPicked([])}>
               Clear
             </Button>
           )}
