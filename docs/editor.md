@@ -3095,10 +3095,13 @@ decisions.md's "Saving is explicit" sets out.
   (`:host(.dark)`), where a decorator may set attributes, and the frame's body with it (`[data-canvas-body].dark`),
   where a mode's class goes. On the body, the root's own rule sits in a cascade layer the frame declares before the
   project's (`qualifiedRootLayer`), so the body's own rules beat it, as they beat what a page's body inherits from its
-  root, while `:root.dark.contrast` still beats `:root.dark`. A font size there sets the frame's `rem`, whatever the
-  body's own font size is. A root with a `:not()` on it is drawn as the body alone, since the host never has the mode's
-  class. Tokens are read with the rule as written (`qualifiedRoots: false`), so `:root.dark` is still the `dark` theme
-  in the Tokens tab, and now the Dark frame draws those values too.
+  root, while `:root.dark.contrast` still beats `:root.dark`. A font size there, in a nested `@media` too, sets the
+  frame's `rem`, whatever the body's own font size is, and its `!important` is dropped there, as an inherited value has
+  none. Left as is: a qualified root's value beats a plain root's on the body even where the page's cascade would pick
+  the plain one, as with a `:root.dark` in an earlier layer than `:root`. A root with a `:not()` on it is drawn as the
+  body alone, since the host never has the mode's class. Tokens are read with the rule as written
+  (`qualifiedRoots: false`), so `:root.dark` is still the `dark` theme in the Tokens tab, and now the Dark frame draws
+  those values too.
 
 Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
 (`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and

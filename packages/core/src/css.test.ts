@@ -137,6 +137,9 @@ describe("prepareCanvasCss", () => {
     const scoped = (css: string) => prepareCanvasCss(css, options).scoped
 
     expect(scoped(":root.dark { --c: #000; .title { font-size: 24px; } }")).not.toContain("--canvas-root-font-size")
+    expect(scoped(":root.dark { @media (min-width: 600px) { font-size: 24px; } }")).toContain(
+      "@container canvas-viewport (min-width: 600px) { font-size: 24px; --canvas-root-font-size: 24px;"
+    )
     expect(scoped(":root.dark { --c: #000 !important; }")).toBe(
       ":host(.dark) { --c: #000 !important; } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --c: #000; } }"
     )
