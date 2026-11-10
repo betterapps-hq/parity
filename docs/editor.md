@@ -2616,24 +2616,50 @@ no board, states, modes or layers, it isn't in Layers, and code and exports leav
   the agent lately, beside the design `near` names or the selected one, after the last one the call placed. It goes
   through the same change, as part of the call's one undo step, and names the agent that placed it.
 
+### Agents read the references beside a design (PAR-889)
+
+A reference records the design it was found for, by id, whether Find references or `PlaceReference` placed it. Agents
+read references three ways:
+
+- **`get_app_state`** gives each design with references a `references` count.
+- **`References(design?)` in `execute`** lists each one's id, app, platform, link, picture link (with `expired` once it
+  stops working), the description that found it, its note, the agent that placed it, and the design it's for: the one
+  recorded while that design is still there, or else the design whose board edge is nearest (`nearestBox`). A design
+  keeps the list to its own.
+- **`get_references`** (`parity references placed [design]`) answers the same list with each picture fetched and saved
+  under `~/.parity/references`, as `find_references` saves previews, and MCP shows them as images. A picture whose link
+  has run out isn't fetched.
+
+The skill tells agents to look at a design's references before changing it.
+
 Code: `referenceSpec` in `packages/core/src/document.ts`; `packages/editor/src/references.ts` (the changes, size, row
 and searches) and `mergeAgentChanges` in `design-changes.ts`; `apps/desktop/src/renderer/references/find-references.ts`,
 `canvas/ReferenceUtil.tsx`, `chrome/ReferencePanel.tsx`, and the references in `design-store.ts`,
 `canvas/CanvasEditor.tsx`, `canvas/nudge.ts` and `chrome/commands.ts`; `PlaceReference` in
-`packages/agent/src/workspace.ts`, with `foundScreen` in `apps/desktop/src/utility/references.ts`.
+`packages/agent/src/workspace.ts`, with `foundScreen` in `apps/desktop/src/utility/references.ts`. Reading them:
+`References` (`listReferences`) in `workspace.ts`, `placedReferences` and the count in `state` in `dispatch.ts`,
+`savePictures` in `apps/desktop/src/utility/references.ts`, and `get_references` in `packages/cli/src/mcp.ts` with
+`describePlacedReferences` in `client.ts`.
 
 Tests:
 
-- `packages/editor/src/references.test.ts` (14): kept in the file and read back, a new file, a note, a change and a
+- `packages/editor/src/references.test.ts` (16): kept in the file and read back, a new file, a note, a change and a
   deletion, an agent's references merged, the size for each platform, an expired picture, the row beside a design, under
-  the last batch, past a design in the way and around the view, the search for a design and for more from an app, and a
-  screen turned into a reference.
-- `apps/desktop/src/renderer/references/find-references.test.ts` (2): placing as one step with each one's search, and
-  deleting with Undo.
+  the last batch, past a design in the way and around the view, the search for a design and for more from an app, a
+  screen turned into a reference with the design it's for, and the nearest design by edge, overlapping or with none.
+- `apps/desktop/src/renderer/references/find-references.test.ts` (3): placing as one step with each one's search, the
+  design they were found for recorded, and deleting with Undo.
 - `apps/desktop/src/renderer/canvas/nudge.test.ts`: a reference nudged, as one step to undo.
 - `apps/desktop/src/renderer/chrome/canvas-menu.test.ts`: Find references in both right-click menus.
-- `packages/agent/src/dispatch.test.ts`: `PlaceReference` beside a design in a row with the agent's name and note, and
-  nothing placed for a screen Parity hasn't found or with no design to put it beside.
+- `packages/agent/src/dispatch.test.ts`: `PlaceReference` beside a design in a row with the agent's name, note and the
+  design, and nothing placed for a screen Parity hasn't found or with no design to put it beside; `References` with the
+  recorded design over the nearest one, one design's, and one placed in the same call; `get_references` with pictures,
+  not asking for an expired one; and the count per design in `get_app_state`.
+- `apps/desktop/src/utility/references.test.ts`: each reference's picture saved by its app and id, and one that can't be
+  fetched left out.
+- `packages/cli/src/operations.test.ts`: `get_references` and `parity references placed` with the same input and answer,
+  the pictures shown over MCP and their base64 left out of `--json`, and the text for references and for none.
+- `packages/cli/src/skill-examples.test.ts`: the skill's `References` example runs.
 - `references/References.stories.tsx` under Parity/Canvas/References: from the toolbar and placing (with checks), on the
   canvas, placed by an agent, and an expired picture (with a check). Dragging a reference and Delete then Undo were
   tried by hand in the Place references story.

@@ -48,6 +48,7 @@ import {
   removeState,
   renameState,
   resolveDesign,
+  type ReferenceSpec,
   type ResolvedMode,
   resolveModes,
   type StateSpec,
@@ -63,7 +64,9 @@ import {
   newDesign,
   type ReferenceAdded,
   type ReferenceAnchor,
+  nearestBox,
   referenceBounds,
+  referenceExpired,
   referenceFrom,
   referenceRow,
   referenceSize,
@@ -137,6 +140,7 @@ import type {
   DiscardedPatches,
   ExecResult,
   FrameContrast,
+  PlacedReference,
   Problem,
   Screenshot,
   TokenChange
@@ -327,6 +331,8 @@ export class AgentWorkspace {
         this.screenshot(design(reference), readFields(screenshotOptions, options, "options")),
       Accessibility: (reference: string, options?: MatrixOptions) =>
         this.accessibility(design(reference), readFields(matrixOptions, options, "options")),
+      References: (reference?: string) =>
+        this.listReferences(readArgument(designReference.optional(), reference, "design")),
       PlaceReference: (id: string, options?: z.infer<typeof referenceOptions>) =>
         this.placeReference(text(id, "id"), readFields(referenceOptions, options ?? {}, "options")),
       FindEmptySpace: (options: z.infer<typeof spaceOptions>) =>
@@ -1607,14 +1613,7 @@ export class AgentWorkspace {
     const all = [...this.documents.values()].flatMap((each) => each.references ?? [])
     const previous = this.lastReference.get(container.id)
 
-    const boxes = this.boards().map((board) => ({
-      id: board.id,
-      minX: board.x,
-      minY: board.y,
-      maxX: board.x + board.width,
-      maxY: board.y + board.height
-    }))
-
+    const boxes = this.boards().map(boardBox)
     const beside = boxes.find((box) => box.id === container.id)
     let anchor: ReferenceAnchor = beside ? { beside } : { around: container.position }
 
@@ -1625,7 +1624,7 @@ export class AgentWorkspace {
     const [position] = referenceRow(anchor, [referenceSize(screen)], all.map(referenceBounds), boxes)
 
     const taken = new Set(all.map((each) => each.id))
-    const origin = { by: this.hooks.caller, note: options.note }
+    const origin = { by: this.hooks.caller, note: options.note, design: container.id }
     const reference = referenceFrom(screen, generateId(taken), position!, origin)
 
     this.documents.set(path, { ...document, references: [...(document.references ?? []), reference] })
@@ -1633,6 +1632,29 @@ export class AgentWorkspace {
     this.lastReference.set(container.id, referenceBounds(reference))
 
     return reference.id
+  }
+
+  /**
+   * The references on the canvas (PAR-889), each with the design it's for: the one it was placed for while that design
+   * is still there, or else the one it sits nearest. Only one design's when `reference` names it.
+   */
+  private listReferences(reference?: string): PlacedReference[] {
+    const boxes = this.boards().map(boardBox)
+    const only = reference === undefined ? undefined : this.findDesign(reference)
+    const now = Date.now()
+
+    return [...this.documents].flatMap(([path, document]) =>
+      (document.references ?? []).flatMap((each) => {
+        const placedFor = each.design && boxes.find((box) => box.key === key(path, each.design!))
+        const design = placedFor || nearestBox(referenceBounds(each), boxes)
+
+        if (only && design?.key !== key(only.path, only.container.id)) {
+          return []
+        }
+
+        return [placedReference(each, design, now)]
+      })
+    )
   }
 
   private findEmptySpace(options: SpaceOptions): CanvasPoint {
@@ -1960,6 +1982,55 @@ type Visit = (node: DesignNode, context: VisitContext) => unknown
 /** A function a snippet passed `Get` to call for every node. */
 // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the snippet runs in its own vm context, whose functions aren't instances of this one's `Function`
 const visitFunction = z.custom<Visit>((value) => typeof value === "function")
+
+/** A board's box on the canvas, with its key, id and name. */
+function boardBox(board: Board): Bounds & Pick<Board, "key" | "id" | "name"> {
+  return {
+    key: board.key,
+    id: board.id,
+    name: board.name,
+    minX: board.x,
+    minY: board.y,
+    maxX: board.x + board.width,
+    maxY: board.y + board.height
+  }
+}
+
+/** A reference as an agent reads it, for `design`, with what's unset left out. */
+function placedReference(
+  reference: ReferenceSpec,
+  design: Pick<Board, "id" | "name"> | undefined,
+  now: number
+): PlacedReference {
+  const placed: PlacedReference = {
+    id: reference.id,
+    app: reference.app,
+    link: reference.link,
+    picture: reference.image.url
+  }
+
+  if (reference.platform) {
+    placed.platform = reference.platform
+  }
+
+  if (referenceExpired(reference, now)) {
+    placed.expired = true
+  }
+
+  for (const field of ["query", "note", "by"] as const) {
+    const value = reference[field]
+
+    if (value) {
+      placed[field] = value
+    }
+  }
+
+  if (design) {
+    placed.design = { id: design.id, name: design.name }
+  }
+
+  return placed
+}
 
 function key(path: string, id: string): string {
   return `${path}#${id}`

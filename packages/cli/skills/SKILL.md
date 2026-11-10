@@ -45,6 +45,7 @@ project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the 
 | `get_tabs`            | `parity tabs`                                   | The open projects.                                                                                                                                                                  |
 | `open_project`        | `parity open <folder>`                          | Opens a project in a new tab.                                                                                                                                                       |
 | `find_references`     | `parity references "<screen>"`                  | Screens from real apps, with previews to look at, when this copy of Parity can search.                                                                                              |
+| `get_references`      | `parity references placed [design]`             | The screens placed beside designs as references, with who placed each and why, and their pictures to look at.                                                                       |
 | `find_media`          | `parity media "<subject>"`                      | Stock photos, illustrations, vectors or videos, with previews to look at.                                                                                                           |
 | `place_result`        | `parity place <connector> <id> "<design/node>"` | Puts a picture a search found into an image node, or a component's prop, as one undoable edit. Credit its author and the source where the design shows it.                          |
 | `report_problem`      | `parity report "<problem>"`                     | Reports a problem in Parity itself to its developers, with the window's screenshot and replay and the design's frames; returns the link.                                            |
@@ -103,7 +104,9 @@ keeping the designs there, so ask before running that in someone's project.
    illustration, look at `find_media` previews and put the one you choose in an image node with `place_result`; searches
    give no image link to paste.
 3. **Look before you change.** Read the design with `Get("design-id", { depth: 3 })` in `execute`, and take a screenshot
-   of what's there. Find the components you need with `Components()` and their props with `Props()`.
+   of what's there. When `get_app_state` gives the design `references`, look at them with `get_references` first:
+   they're the screens the person or an agent picked for it, with notes on why. Find the components you need with
+   `Components()` and their props with `Props()`.
 4. **Change it in one snippet.** Build or edit the design with `Insert`, `Update`, `Replace`, `Move` and the rest. A
    snippet either applies whole, as one step the person can undo, or changes nothing. Name the layouts you make. If it
    fails because the person changed a design it changes, run it again by its `editId`.

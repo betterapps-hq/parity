@@ -15,12 +15,12 @@ import {
   describeImages,
   describeMedia,
   describePlace,
+  describePlacedReferences,
   describeReferences,
   describeRemovedImage,
   describeReport,
   describeStatus,
   describeTokens,
-  type FindResponse,
   setCaller
 } from "./client.ts"
 import { operationError, renamePath } from "./errors.ts"
@@ -91,9 +91,9 @@ function operationTool<Result>(
   }
 }
 
-/** Each found item's saved preview, as an image the client shows. */
-function previews(result: FindResponse): Content[] {
-  return result.found.flatMap((each) => (each.preview?.data ? [image(each.preview.data, each.preview.mimeType)] : []))
+/** Each item's saved preview, as an image the client shows: what a search found, or the references on the canvas. */
+function previews(items: readonly { preview?: { data?: string; mimeType: ImageType } }[]): Content[] {
+  return items.flatMap((each) => (each.preview?.data ? [image(each.preview.data, each.preview.mimeType)] : []))
 }
 
 /** Results that are data to begin with, as compact JSON text for clients that don't read structuredContent. */
@@ -230,13 +230,19 @@ const tools: Tool[] = [
     "find_references",
     "Search real apps' screens before designing a common one, as onboarding or a paywall, and look at the previews. Follow their patterns with the project's own components and tokens, never an app's layout, text or branding; name the apps you drew on.",
     operations.references,
-    (result) => [text(describeReferences(result)), ...previews(result)]
+    (result) => [text(describeReferences(result)), ...previews(result.found)]
+  ),
+  operationTool(
+    "get_references",
+    "List the real apps' screens placed beside designs as references, with who placed each and why, and look at them before changing a design.",
+    operations.placedReferences,
+    (result) => [text(describePlacedReferences(result)), ...previews(result.references)]
   ),
   operationTool(
     "find_media",
     "Search stock photos, illustrations, vectors or videos when a design needs one, as a hero or an avatar, and look at the previews. Place a picture with place_result.",
     operations.media,
-    (result) => [text(describeMedia(result)), ...previews(result)]
+    (result) => [text(describeMedia(result)), ...previews(result.found)]
   ),
   operationTool(
     "place_result",

@@ -9,7 +9,7 @@ import {
 } from "@parity-app/agent/contracts"
 import { type JsonValue, jsonValue } from "@parity-app/core/schema"
 import { z } from "zod"
-import type { FindResponse, Routing } from "./client.ts"
+import type { FindResponse, PlacedReferencesResponse, Routing } from "./client.ts"
 import { type ExecResponse, execResponse, executionFailed, structuredExec } from "./execute.ts"
 
 /**
@@ -169,6 +169,25 @@ const finding: Options<FindResponse> = {
   })
 }
 
+/**
+ * How the references on the canvas are read (PAR-889): --json and structuredContent leave the pictures' base64 out, as
+ * a search's previews do.
+ */
+const placed: Options<PlacedReferencesResponse> = {
+  structured: (result) => ({
+    ...result,
+    references: result.references.map(({ preview, ...reference }) => {
+      if (!preview) {
+        return reference
+      }
+
+      const { data: _data, ...saved } = preview
+
+      return { ...reference, preview: saved }
+    })
+  })
+}
+
 export const operations = {
   tabs: mapped("tabs", (tabs): TabsResponse => ({ tabs })),
   state: operation("state"),
@@ -202,6 +221,7 @@ export const operations = {
   report: withTestRun(operation("report", { routing: "tab-or-any" })),
   references: operation("references", finding),
   media: operation("media", finding),
+  placedReferences: operation("placedReferences", placed),
   // Placing edits a design, so it goes to the copy with the tab, and a result that wasn't placed exits with 1.
   place: operation("place", { failed: (result) => !result.placed }),
   images: operation("images"),

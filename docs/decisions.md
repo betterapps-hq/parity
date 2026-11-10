@@ -7071,3 +7071,19 @@ in the project's `.par` file beside notes, rather than for the person alone. My 
   source's usage, since the hub counts only what goes in designs.
 - **The exploration is gone.** Its Mobbin stories and the workspace and Media tab prototype came out of Storybook; the
   stories under Parity/Canvas/References and Parity/Library browser/Mobbin replace them.
+
+## A reference records the design it's for, and agents read them (PAR-889)
+
+You asked on 2026-11-10 for agents to find the references placed beside a design, so they know what it's meant to be. My
+calls:
+
+- **A reference records the design it was found for,** by id, in the file it shares with that design. A row of
+  references slides right past other designs in the way, so where one sits doesn't say which design it's for. One placed
+  with nothing selected, or whose design has gone, is read as for the design whose board edge is nearest. Moving a
+  reference by hand keeps what it recorded.
+- **`References(design?)` reads them in `execute`,** alongside `PlaceReference`, and `get_references`
+  (`parity references placed`) gives the same list with each picture fetched and saved, as `find_references` previews
+  are, so MCP shows them as images. It's a subcommand of `parity references`, as `parity images remove` is of images.
+- **`get_app_state` counts each design's references,** and leaves the count out when there are none, so an agent knows
+  to look without the state growing for projects that don't use them.
+- **The skill tells agents to look at a design's references before changing it,** in "Look before you change".

@@ -144,6 +144,28 @@ export function referenceRow(
   })
 }
 
+/**
+ * The box nearest a reference, by the gap between their edges, as the design a reference without one recorded is for.
+ * The first wins a tie.
+ */
+export function nearestBox<T extends Bounds>(reference: Bounds, boxes: readonly T[]): T | undefined {
+  let nearest: T | undefined
+  let shortest = Infinity
+
+  for (const box of boxes) {
+    const across = Math.max(0, box.minX - reference.maxX, reference.minX - box.maxX)
+    const down = Math.max(0, box.minY - reference.maxY, reference.minY - box.maxY)
+    const gap = Math.hypot(across, down)
+
+    if (gap < shortest) {
+      nearest = box
+      shortest = gap
+    }
+  }
+
+  return nearest
+}
+
 /** A screen a search found, as a connector gives it, with what a reference keeps of it. */
 export interface FoundScreen {
   connector: string
@@ -155,11 +177,15 @@ export interface FoundScreen {
   image: { url: string; width?: number; height?: number; expiresAt?: number }
 }
 
-/** How a reference came to be placed: the description that found it, why it's here, and the agent that placed it. */
+/**
+ * How a reference came to be placed: the description that found it, why it's here, the agent that placed it, and the
+ * design it's for, by id.
+ */
 export interface ReferenceOrigin {
   query?: string
   note?: string
   by?: string
+  design?: string
 }
 
 /** A screen a search found, as the reference that keeps it at `position` on the canvas. */
@@ -195,7 +221,7 @@ export function referenceFrom(
     reference.platform = screen.platform
   }
 
-  for (const key of ["query", "note", "by"] as const) {
+  for (const key of ["query", "note", "by", "design"] as const) {
     const value = origin[key]?.trim()
 
     if (value) {

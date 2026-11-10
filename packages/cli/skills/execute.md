@@ -96,6 +96,7 @@ Accessibility(design, { state?, mode? }?): Finding[]
 // The canvas
 FindEmptySpace({ width, height, direction?, near?, padding? }): { x, y }
 Overlaps(design?): Overlap[]
+References(design?): Reference[]                          // what's placed beside designs to look at
 PlaceReference(id, { near?, note?, connector? }): string  // async: a find_references screen beside a design
 Print(...values): void
 ```
@@ -544,6 +545,21 @@ await PlaceReference("7c1e2f3a-4b5c-4d6e-8f90-a1b2c3d4e5f6", { near: "dashboard"
 ```
 
 A screen Parity hasn't found lately fails with `invalid_input` on `id`: search again, then place one of its screens.
+
+### References
+
+`References(design?)` lists the screens on the canvas as references, the person's and agents', only `design`'s when it's
+given. Each has its `id`, `app`, `platform`, `link`, `picture` (its link, with `expired` once that stops working), the
+`query` that found it, the `note` on why it's there, `by` (the agent that placed it; missing when the person did), and
+`design`, the `{ id, name }` it was placed for, or else the design it sits nearest. They're what the design is meant to
+follow, so read them before changing it, and look at the pictures with `get_references` (`parity references placed`).
+
+```js
+// Why each reference beside Dashboard is there, before changing it.
+for (const { app, note, by } of References("dashboard")) {
+  Print(`${app}, placed by ${by ?? "the person"}: ${note ?? "no note"}`)
+}
+```
 
 ## Examples
 

@@ -4,7 +4,7 @@ import { join } from "node:path"
 import type { Fetch, Found, SearchAnswer } from "@parity-app/connectors"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import type { ConnectorFind } from "../shared/connectors.ts"
-import { searchMedia, searchReferences } from "./references.ts"
+import { savePictures, searchMedia, searchReferences } from "./references.ts"
 
 let folder = ""
 
@@ -211,5 +211,26 @@ describe("searchReferences", () => {
     const { options: given } = options({ problem })
 
     expect(await searchReferences(given, request)).toEqual({ found: [], problem })
+  })
+})
+
+describe("savePictures", () => {
+  it("saves each reference's picture for the agent, by its app and id, and skips one that can't be fetched", async () => {
+    const { options: given } = options({ found: [] }, { [calm.image.url]: { type: "image/webp", bytes: webp } })
+
+    const saved = await savePictures(given, [
+      { title: "Calm", id: "r1", url: calm.image.url },
+      { title: "Ledgerly", id: "r2", url: "https://images.mobbin.com/gone.png" }
+    ])
+
+    expect(saved).toEqual([
+      {
+        path: expect.stringMatching(/calm-r1-[0-9a-f]{8}\.webp$/),
+        mimeType: "image/webp",
+        data: webp.toString("base64")
+      },
+      undefined
+    ])
+    expect(readFileSync(saved[0]!.path)).toEqual(webp)
   })
 })

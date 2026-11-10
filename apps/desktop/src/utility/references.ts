@@ -14,6 +14,11 @@ type FindAnswer = Awaited<ReturnType<AgentHost["references"]>>
 
 type FoundItem = FindAnswer["found"][number]
 
+/** A picture to fetch for an agent: what it's of and its id, which name its file, and its link. */
+type Picture = Parameters<AgentHost["pictures"]>[0][number]
+
+type SavedPicture = NonNullable<Awaited<ReturnType<AgentHost["pictures"]>>[number]>
+
 /** The picture types an agent's client shows, by the extension a saved preview gets. */
 const previewTypes = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif" } as const
 
@@ -153,23 +158,51 @@ async function withPreview(options: FindOptions, found: Found): Promise<FoundIte
     item.height = found.image.height
   }
 
-  try {
-    const preview = await fetchPreview(options, (found.preview ?? found.image).url)
+  const preview = await savePicture(options, {
+    title: found.title,
+    id: found.id,
+    url: (found.preview ?? found.image).url
+  })
 
-    if (preview) {
-      // Named by the result and what it shows, so the same one found again reuses its file.
-      const hash = createHash("sha256").update(preview.bytes).digest("hex").slice(0, 8)
-      const name = `${slug(found.title)}-${slug(found.id).slice(0, 8)}-${hash}.${previewTypes[preview.mimeType]}`
-      const path = join(options.folder, name)
-      await mkdir(options.folder, { recursive: true })
-      await writeFile(path, preview.bytes)
-      item.preview = { path, mimeType: preview.mimeType, data: preview.bytes.toString("base64") }
-    }
-  } catch {
-    // A preview is a convenience: without one, the result still has its link and image.
+  if (preview) {
+    item.preview = preview
   }
 
   return item
+}
+
+/**
+ * The pictures of the references on the canvas, fetched and saved as a search's previews are, for an agent to look at
+ * (PAR-889). One that can't be fetched or saved is undefined.
+ */
+export async function savePictures(options: FindOptions, pictures: Picture[]): Promise<(SavedPicture | undefined)[]> {
+  const saved = await Promise.all(pictures.map((picture) => savePicture(options, picture)))
+  await pruneOld(options.folder, Date.now() - previewAge)
+
+  return saved
+}
+
+/** A picture fetched and saved under `folder`, or undefined when it can't be. */
+async function savePicture(options: FindOptions, picture: Picture): Promise<SavedPicture | undefined> {
+  try {
+    const preview = await fetchPreview(options, picture.url)
+
+    if (!preview) {
+      return undefined
+    }
+
+    // Named by what it's of and what it shows, so the same one fetched again reuses its file.
+    const hash = createHash("sha256").update(preview.bytes).digest("hex").slice(0, 8)
+    const name = `${slug(picture.title)}-${slug(picture.id).slice(0, 8)}-${hash}.${previewTypes[preview.mimeType]}`
+    const path = join(options.folder, name)
+    await mkdir(options.folder, { recursive: true })
+    await writeFile(path, preview.bytes)
+
+    return { path, mimeType: preview.mimeType, data: preview.bytes.toString("base64") }
+  } catch {
+    // A preview is a convenience: without one, the result still has its link and image.
+    return undefined
+  }
 }
 
 async function fetchPreview(
