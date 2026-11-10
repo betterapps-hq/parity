@@ -1,4 +1,5 @@
 import type { SharpConstructor } from "sharp"
+import { degraded } from "./degraded.ts"
 
 /**
  * Frame bitmaps and component previews are kept as lossless WebP, encoded here in the project service with sharp's
@@ -29,7 +30,7 @@ function loadSharp(): Promise<SharpConstructor> {
       return sharp
     },
     (cause: unknown) => {
-      console.warn(`[service] sharp couldn't load, so bitmaps and previews aren't kept: ${String(cause)}`)
+      degraded("bitmap_cache", "sharp couldn't load, so bitmaps and previews aren't kept", cause)
       throw cause
     }
   )
