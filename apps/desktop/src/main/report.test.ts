@@ -35,7 +35,23 @@ vi.mock("@sentry/electron/main", () => sentry)
 
 vi.mock("electron", () => ({ app: { getVersion: () => "1.2.3" } }))
 
-vi.mock("./telemetry.ts", () => ({ scrubber: { value: (text: string) => text } }))
+/** Main's telemetry: a scrubber that hides `sk-secret`, and report-only sending that says it ran (PAR-813). */
+const telemetry = vi.hoisted(() => ({
+  reportOnly: vi.fn<() => void>(),
+  scrubber: {
+    value: <Value>(value: Value) => value,
+    text: (text: string) => text.replaceAll("sk-secret", "[redacted]")
+  }
+}))
+
+vi.mock("./telemetry.ts", () => ({
+  scrubber: telemetry.scrubber,
+  whileSendingReport: async <Result>(send: () => Promise<Result>) => {
+    telemetry.reportOnly()
+
+    return send()
+  }
+}))
 
 const { createReports, feedbackLink, offersCrashReports, reportsOff } = await import("./report.ts")
 
@@ -163,5 +179,12 @@ describe("a person's report (PAR-635)", () => {
       source: "report-a-problem"
     })
     expect(sentry.scope.setTags).toHaveBeenCalledWith({ report: "help menu" })
+  })
+
+  it("sends through report-only sending, with the secrets in what was written scrubbed (PAR-813)", async () => {
+    telemetry.reportOnly.mockClear()
+    await reports("off").created.send(window, { ...report, message: "My key sk-secret stopped working" })
+    expect(telemetry.reportOnly).toHaveBeenCalledOnce()
+    expect(sentry.captureFeedback.mock.calls.at(-1)![0].message).toBe("My key [redacted] stopped working")
   })
 })

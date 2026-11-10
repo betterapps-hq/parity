@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "parity mcp writes its telemetry when its client stops it or closes stdin, rather than losing the last 10 seconds",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

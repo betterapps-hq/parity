@@ -185,7 +185,6 @@ are the gaps left. Each comes from the code or from Sentry, with the Linear issu
 
 These go beyond "names and values as written", which the decisions above cover.
 
-| Risk                                            | Evidence                                                                                                                                                                           | Issue   |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| A report with sharing off can send other events | `sendFeedback` turns Sentry on for the whole of main while the report flushes, up to 15 seconds (`main/report.ts:237`)                                                             | PAR-813 |
-| The CLI doesn't scrub `.env` values             | Only the service reads them ([telemetry.md](telemetry.md#secrets-are-scrubbed)), so a secret in an uncaught error's message or stack leaves the CLI unless its shape gives it away | PAR-815 |
+| Risk                                | Evidence                                                                                                                                                                           | Issue   |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| The CLI doesn't scrub `.env` values | Only the service reads them ([telemetry.md](telemetry.md#secrets-are-scrubbed)), so a secret in an uncaught error's message or stack leaves the CLI unless its shape gives it away | PAR-815 |
