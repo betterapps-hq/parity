@@ -1,6 +1,15 @@
 import { DurationArt } from "../../chrome/token-previews.tsx"
 import { stepCount, stepThrough } from "./css-values.ts"
-import { nearestToken, type Reading, readUnitNumber, useLiveRow, useTokens, ValueField } from "./field-parts.tsx"
+import {
+  asToken,
+  nearestToken,
+  type Reading,
+  readUnitNumber,
+  tokenChip,
+  useLiveRow,
+  useTokens,
+  ValueField
+} from "./field-parts.tsx"
 import { splitUnit, type Time, timeMs, timeUnits } from "./motion-data.ts"
 import { durationToken } from "./tokens.ts"
 
@@ -128,18 +137,11 @@ export function TimeField({
         shown={own === undefined || setBy || ms === undefined ? undefined : String(ms)}
         placeholder={String(setBy ? setBy.ms : defaultMs)}
         mixed={mixed}
-        chip={
-          name === undefined
-            ? undefined
-            : {
-                name,
-                token,
-                namespace,
-                onRemove: () => onChange(undefined),
-                onDetach: token ? () => onChange({ step: token.ms }) : undefined,
-                onReplace: (replacement) => onChange({ token: replacement })
-              }
-        }
+        chip={tokenChip(name, token, {
+          namespace,
+          pick: (picked) => onChange(asToken(picked)),
+          detach: (each) => onChange({ step: each.ms })
+        })}
         unit="ms"
         comesTo={comesTo}
         own={

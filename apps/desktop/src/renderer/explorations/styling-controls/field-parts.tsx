@@ -46,7 +46,15 @@ import { numberValue, textValue } from "../../chrome/prop-values.ts"
 import { moving, onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepSpacing, stepThrough } from "./css-values.ts"
 import { useRowScrub } from "./field-row.tsx"
-import { type FieldToken, type OpacityToken, type TokenSetName, type TokenSets, tokenSets } from "./tokens.ts"
+import {
+  type FieldToken,
+  type LengthToken,
+  lengthToken,
+  type OpacityToken,
+  type TokenSetName,
+  type TokenSets,
+  tokenSets
+} from "./tokens.ts"
 
 /*
  * The one field every styling control builds on, as PAR-652's design-options-fields.md sets its anatomy: an inner
@@ -1801,6 +1809,143 @@ export interface OwnValue {
   onAllow?: (reason: string | undefined) => void
 }
 
+/** A token's name as a field stores it, `{ token }`, or nothing for none. */
+export const asToken = (name: string | undefined) => (name === undefined ? undefined : { token: name })
+
+/**
+ * The chip for a token a field holds, `token` where the project still has it: Backspace takes it off (`pick` with
+ * nothing), Detach keeps what it comes to (`detach`), and a replaced one swaps for what replaced it (`pick`).
+ */
+export function tokenChip<T extends FieldToken>(
+  name: string | undefined,
+  token: T | undefined,
+  {
+    pick,
+    detach,
+    namespace
+  }: { pick: (name: string | undefined) => void; detach: (token: T) => void; namespace?: string }
+): FieldChip | undefined {
+  if (name === undefined) {
+    return undefined
+  }
+
+  return {
+    name,
+    token,
+    namespace,
+    onRemove: () => pick(undefined),
+    onDetach: token ? () => detach(token) : undefined,
+    onReplace: (replacement) => pick(replacement)
+  }
+}
+
+/** What a hint says first of a token a field holds, or a value of its own: it's deprecated, missing or allowed here. */
+export function tokenStatus(
+  name: string | undefined,
+  token: FieldToken | undefined,
+  allow: string | undefined
+): string | undefined {
+  if (token?.deprecated) {
+    return `Deprecated: use ${token.deprecated} instead`
+  }
+
+  if (name !== undefined && !token) {
+    return "Missing: the project has no token by this name now"
+  }
+
+  return allow === undefined ? undefined : `Allowed here: ${allow}`
+}
+
+/**
+ * A length of a field's own, as its token list offers it: the nearest token first, or the same one, then Create token,
+ * which makes a token of it and takes that (`onToken`), and Allow here under Tokens only.
+ */
+export function ownLength({
+  px,
+  unit,
+  tokens,
+  kind,
+  namespace,
+  create,
+  tokensOnly,
+  allow,
+  onToken,
+  onAllow
+}: {
+  px: number
+  unit: string
+  tokens: readonly LengthToken[]
+  kind: PreviewKind
+  namespace?: string
+  create?: (token: LengthToken) => void
+  tokensOnly: boolean
+  allow: string | undefined
+  onToken: (name: string) => void
+  onAllow: (reason: string | undefined) => void
+}): OwnValue {
+  const nearest = nearestToken(tokens, (each) => each.px, px)
+
+  return {
+    text: `${formatNumber(px)}${unit}`,
+    nearest,
+    same: nearest?.px === px,
+    namespace,
+    onCreate:
+      create &&
+      ((name) => {
+        create(lengthToken(kind, name, px))
+        onToken(name)
+      }),
+    tokensOnly,
+    allowed: allow,
+    onAllow
+  }
+}
+
+/**
+ * The px or % a length field shows, and its unit's menu of the two, which keeps the number (12px becomes 12%), as
+ * Webflow's does. Unset, a number typed bare is in the unit last chosen there.
+ */
+export function usePercentUnit(
+  px: number | undefined,
+  percent: number | undefined,
+  to: { px: (number: number) => void; percent: (number: number) => void }
+) {
+  const [chosen, setChosen] = useState<"px" | "%">("px")
+  let unit = chosen
+
+  if (percent !== undefined) {
+    unit = "%"
+  } else if (px !== undefined) {
+    unit = "px"
+  }
+
+  const toUnit = (next: "px" | "%") => {
+    setChosen(next)
+
+    if (next === "%" && px !== undefined) {
+      to.percent(px)
+    } else if (next === "px" && percent !== undefined) {
+      to.px(percent)
+    }
+  }
+
+  /** The menu, for the field called `label`, with what a percentage is `of`. */
+  const menu = (label: string, of: string) => (
+    <UnitMenu
+      label={label}
+      unit={unit}
+      units={[
+        { unit: "px", label: "Pixels" },
+        { unit: "%", label: `Of ${of}` }
+      ]}
+      onUnit={toUnit}
+    />
+  )
+
+  return { unit, menu }
+}
+
 export interface ValueFieldProps<T> {
   /** The field's accessible name, and what its messages call it. */
   label: string
@@ -2776,17 +2921,10 @@ export function PercentField({
       shown={value === undefined ? undefined : formatNumber(value, places)}
       placeholder={placeholder}
       mixed={mixed}
-      chip={
-        tokens?.current === undefined
-          ? undefined
-          : {
-              name: tokens.current,
-              token: held,
-              onRemove: () => tokens.onPick(undefined),
-              onDetach: held ? () => onChange(held.percent) : undefined,
-              onReplace: (replacement) => tokens.onPick(replacement)
-            }
-      }
+      chip={tokenChip(tokens?.current, held, {
+        pick: (name) => tokens?.onPick(name),
+        detach: (token) => onChange(token.percent)
+      })}
       unit="%"
       comesTo={held?.detail}
       status={status}

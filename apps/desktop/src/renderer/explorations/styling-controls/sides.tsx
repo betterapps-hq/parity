@@ -2,15 +2,18 @@ import { scrubSteps } from "@parity-app/core"
 import { type ReactNode, useState } from "react"
 import { formatNumber, sameValue, stepSpacing } from "./css-values.ts"
 import {
-  type FieldChip,
+  asToken,
   type MenuKeywords,
   nearestToken,
   notAStep,
+  ownLength,
   type Reading,
   type ScrubBy,
   type ScrubKeys,
   type SharedLine,
-  UnitMenu,
+  tokenChip,
+  tokenStatus,
+  usePercentUnit,
   useTokens,
   ValueField
 } from "./field-parts.tsx"
@@ -25,7 +28,6 @@ import {
   sideNumber,
   stepSide
 } from "./sides-writes.ts"
-import { lengthToken } from "./tokens.ts"
 import { isBareNumber } from "./typing.ts"
 
 /*
@@ -165,7 +167,6 @@ export function SideField({
   const unit = rules.unit ?? ""
   const nearestStep = own === undefined ? 0 : Math.round(own.number)
   const useNearest = () => onChange({ number: nearestStep }, "side")
-  const nearest = own === undefined ? undefined : nearestToken(tokens, (each) => each.px, own.number)
   const spreadFrom = (keys: ScrubKeys): Spread => (spreads ? spreadOf(keys) : "side")
 
   let shown: string | undefined
@@ -179,39 +180,16 @@ export function SideField({
   }
 
   // The unit a bare number is typed in: the value's, or the one last chosen from the menu while the side was unset.
-  const [chosenUnit, setChosenUnit] = useState<"px" | "%">("px")
-  let unitNow = chosenUnit
+  const percentUnit = usePercentUnit(own?.number, percent, {
+    px: (number) => onChange({ number }, "side"),
+    percent: (share) => onChange({ percent: share }, "side")
+  })
 
-  if (percent !== undefined) {
-    unitNow = "%"
-  } else if (own) {
-    unitNow = "px"
-  }
-
-  const toUnit = (next: "px" | "%") => {
-    setChosenUnit(next)
-
-    if (next === "%" && own) {
-      onChange({ percent: own.number }, "side")
-    } else if (next === "px" && percent !== undefined) {
-      onChange({ number: percent }, "side")
-    }
-  }
-
+  const unitNow = percentUnit.unit
   let shownUnit: ReactNode
 
   if (rules.percent) {
-    shownUnit = (
-      <UnitMenu
-        label={label}
-        unit={unitNow}
-        units={[
-          { unit: "px", label: "Pixels" },
-          { unit: "%", label: `Of ${percentOf ?? "the parent's width"}` }
-        ]}
-        onUnit={toUnit}
-      />
-    )
+    shownUnit = percentUnit.menu(label, percentOf ?? "the parent's width")
   } else if (percent !== undefined) {
     shownUnit = "%"
   } else {
@@ -232,13 +210,7 @@ export function SideField({
   // The hint carries the value's status, which a narrow field has no room to say.
   let status: string | undefined
 
-  if (token?.deprecated) {
-    status = `Deprecated: use ${token.deprecated} instead`
-  } else if (tokenName !== undefined && !token) {
-    status = "Missing: the project has no token by this name now"
-  } else if (own?.allow !== undefined) {
-    status = `Allowed here: ${own.allow}`
-  } else if (offSystem) {
+  if (offSystem) {
     status = `Nearest step: ${nearestStep}${unit}`
   } else if (percent !== undefined && percentOf) {
     status = `${formatNumber(percent)}% of ${percentOf}`
@@ -246,19 +218,16 @@ export function SideField({
     status = mixedNote
   }
 
-  // A token is a chip, and so is Auto, a word the field holds whole: Backspace takes it off, and typing replaces it.
-  let chip: FieldChip | undefined
+  status = tokenStatus(tokenName, token, own?.allow) ?? status
 
-  if (tokenName !== undefined) {
-    chip = {
-      name: tokenName,
-      token,
-      namespace: rules.namespace,
-      onRemove: () => onChange(undefined, "side"),
-      onDetach: token ? () => onChange({ number: token.px }, "side") : undefined,
-      onReplace: (replacement) => onChange({ token: replacement }, "side")
-    }
-  } else if (value === "auto") {
+  // A token is a chip, and so is Auto, a word the field holds whole: Backspace takes it off, and typing replaces it.
+  let chip = tokenChip(tokenName, token, {
+    namespace: rules.namespace,
+    pick: (name) => onChange(asToken(name), "side"),
+    detach: (each) => onChange({ number: each.px }, "side")
+  })
+
+  if (!chip && value === "auto") {
     chip = {
       name: "Auto",
       // What Auto comes to stays in sight, faintly in the chip; a narrow field's hint says it instead.
@@ -314,22 +283,19 @@ export function SideField({
       own={
         own === undefined
           ? undefined
-          : {
-              text: `${formatNumber(own.number)}${unit}`,
-              nearest,
-              same: nearest?.px === own.number,
+          : ownLength({
+              px: own.number,
+              unit,
+              tokens,
+              kind: rules.tokens.kind,
               namespace: rules.namespace,
-              onCreate:
-                create &&
-                ((name) => {
-                  create(lengthToken(rules.tokens.kind, name, own.number))
-                  onChange({ token: name }, "side")
-                }),
+              create,
               tokensOnly,
-              allowed: own.allow,
+              allow: own.allow,
+              onToken: (name) => onChange({ token: name }, "side"),
               onAllow: (reason) =>
                 onChange(reason === undefined ? { number: own.number } : { ...own, allow: reason }, "side")
-            }
+            })
       }
       tokens={{
         keywords: auto?.keywords,
@@ -338,7 +304,7 @@ export function SideField({
         none: rules.unset,
         // None is no padding, margin or stroke, which the previews draw; Auto is worked out, so it has none.
         noneValue: rules.unset === "None" ? "0px" : undefined,
-        onPick: (name) => onChange(name === undefined ? undefined : { token: name }, "side")
+        onPick: (name) => onChange(asToken(name), "side")
       }}
       refusal={refused ? notAStep(`${nearestStep}${unit}`, useNearest) : undefined}
       // Locked, a side still takes a step on the scale as typed, as Tokens only allows, besides its tokens.

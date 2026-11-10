@@ -5,6 +5,7 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { clamp, formatNumber, lengthForm, stepCount, stepThrough } from "./css-values.ts"
 import {
+  asToken,
   fieldBox,
   type Message,
   MessageLine,
@@ -14,6 +15,7 @@ import {
   readNumber,
   type ScrubKeys,
   type SearchOption,
+  tokenChip,
   UnitMenu,
   useTokens,
   ValueField
@@ -230,17 +232,10 @@ export function FontFamilyField({
         shown={own ? resolved?.name : undefined}
         placeholder={inherited.font.name}
         mixed={mixed}
-        chip={
-          held === undefined
-            ? undefined
-            : {
-                name: held,
-                token: heldToken,
-                onRemove: () => change(undefined),
-                onDetach: heldToken ? () => change({ stack: heldToken.stack }) : undefined,
-                onReplace: (replacement) => change({ token: replacement })
-              }
-        }
+        chip={tokenChip(held, heldToken, {
+          pick: (name) => change(asToken(name)),
+          detach: (token) => change({ stack: token.stack })
+        })}
         comesTo={comesTo}
         status={{ missing }}
         own={
@@ -789,17 +784,10 @@ export function LineHeightField({
       shown={shown}
       placeholder={placeholder}
       mixed={mixed}
-      chip={
-        held === undefined
-          ? undefined
-          : {
-              name: held,
-              token,
-              onRemove: () => onChange(undefined),
-              onDetach: token ? () => onChange({ multiple: token.multiple }) : undefined,
-              onReplace: (name) => onChange({ token: name })
-            }
-      }
+      chip={tokenChip(held, token, {
+        pick: (name) => onChange(asToken(name)),
+        detach: (each) => onChange({ multiple: each.multiple })
+      })}
       unit={
         auto ? undefined : (
           <UnitMenu
@@ -937,17 +925,10 @@ export function FontSizeField({
       shown={own === undefined ? undefined : formatNumber(own.px)}
       placeholder={formatNumber(inherited)}
       mixed={mixed}
-      chip={
-        held === undefined
-          ? undefined
-          : {
-              name: held,
-              token,
-              onRemove: () => onChange(undefined),
-              onDetach: token ? () => onChange({ px: token.px }) : undefined,
-              onReplace: (name) => onChange({ token: name })
-            }
-      }
+      chip={tokenChip(held, token, {
+        pick: (name) => onChange(asToken(name)),
+        detach: (each) => onChange({ px: each.px })
+      })}
       unit="px"
       comesTo={token ? `${formatNumber(token.px)}px` : undefined}
       own={
@@ -1112,17 +1093,10 @@ export function LetterSpacingField({
       shown={shown}
       placeholder="0"
       mixed={mixed}
-      chip={
-        held === undefined
-          ? undefined
-          : {
-              name: held,
-              token,
-              onRemove: () => onChange(undefined),
-              onDetach: token ? () => onChange({ em: token.em }) : undefined,
-              onReplace: (name) => onChange({ token: name })
-            }
-      }
+      chip={tokenChip(held, token, {
+        pick: (name) => onChange(asToken(name)),
+        detach: (each) => onChange({ em: each.em })
+      })}
       unit={
         <UnitMenu
           label="Letter spacing"

@@ -43,10 +43,14 @@ import {
 import {
   nearestToken,
   NotBaseline,
+  ownLength,
   type Reading,
   type ScrubKeys,
+  tokenChip,
+  tokenStatus,
   unitButtonClass,
   UnitMenu,
+  usePercentUnit,
   useTokens,
   useTokenSets,
   ValueField
@@ -56,7 +60,6 @@ import { HighlightOverlay } from "./highlight.tsx"
 import { RemoveButton } from "./list-parts.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
 import { sideNumber } from "./sides-writes.ts"
-import { lengthToken } from "./tokens.ts"
 import { isBareNumber, readLength } from "./typing.ts"
 import type { StrokePosition } from "./writes.ts"
 
@@ -931,15 +934,14 @@ function LengthField({
   const own = value !== undefined && !isLengthToken(value) && "px" in value ? value : undefined
   const percent = value !== undefined && !isLengthToken(value) && "percent" in value ? value.percent : undefined
   const capped = (share: number) => Math.min(percentMax, Math.max(0, share))
-  // The unit a bare number is typed in while the field holds no value of its own, as the menu last set it.
-  const [chosenUnit, setChosenUnit] = useState<"px" | "%">("px")
-  let unitNow = chosenUnit
 
-  if (percent !== undefined) {
-    unitNow = "%"
-  } else if (own) {
-    unitNow = "px"
-  }
+  // The unit a bare number is typed in while the field holds no value of its own, as the menu last set it.
+  const percentUnit = usePercentUnit(own?.px, percent, {
+    px: (px) => onChange({ px }),
+    percent: (share) => onChange({ percent: capped(share) })
+  })
+
+  const unitNow = percentUnit.unit
 
   // Deprecated tokens are neither offered as the nearest nor stepped onto: they're on their way out.
   const scale = tokens.filter((other) => other.deprecated === undefined)
@@ -1025,42 +1027,12 @@ function LengthField({
   }
 
   // The unit's menu keeps the number and changes its unit, as Webflow's does: 12px becomes 12%.
-  const toUnit = (next: "px" | "%") => {
-    setChosenUnit(next)
-
-    if (next === "%" && own) {
-      onChange({ percent: capped(own.px) })
-    } else if (next === "px" && percent !== undefined) {
-      onChange({ px: percent })
-    }
-  }
-
-  let unit: ReactNode = "px"
-
-  if (takesPercent) {
-    unit = (
-      <UnitMenu
-        label={label}
-        unit={unitNow}
-        units={[
-          { unit: "px", label: "Pixels" },
-          { unit: "%", label: "Of the layer's size" }
-        ]}
-        onUnit={toUnit}
-      />
-    )
-  }
+  const unit: ReactNode = takesPercent ? percentUnit.menu(label, "the layer's size") : "px"
 
   // A narrow field's hint carries the value's status, which has no room in the field.
   let status: string | undefined
 
-  if (token?.deprecated) {
-    status = `Deprecated: use ${token.deprecated} instead`
-  } else if (name !== undefined && !token) {
-    status = "Missing: the project has no token by this name now"
-  } else if (own?.allow !== undefined) {
-    status = `Allowed here: ${own.allow}`
-  } else if (own && nearest) {
+  if (own && nearest) {
     status = `Nearest token: ${nearest.name}, ${nearest.detail}`
   } else if (percent !== undefined) {
     status = `${formatNumber(percent)}% of the layer's width across and height down`
@@ -1069,6 +1041,8 @@ function LengthField({
   } else if (value === undefined) {
     status = "Unset"
   }
+
+  status = tokenStatus(name, token, own?.allow) ?? status
 
   const shownPercent = percent === undefined ? undefined : formatNumber(percent)
   // A percentage of its own is offered no nearest token or Create token, as tokens are lengths.
@@ -1087,39 +1061,25 @@ function LengthField({
       shown={own ? formatNumber(own.px) : shownPercent}
       placeholder={placeholder}
       mixed={mixed}
-      chip={
-        name === undefined
-          ? undefined
-          : {
-              name,
-              token,
-              namespace,
-              onRemove: () => onChange(undefined),
-              onDetach: token ? () => onChange({ px: token.px }) : undefined,
-              onReplace: (replacement) => onChange(replacement)
-            }
-      }
+      chip={tokenChip(name, token, { namespace, pick: onChange, detach: (each) => onChange({ px: each.px }) })}
       unit={unit}
       unitName={unitNow}
       comesTo={token?.detail}
       own={
         own === undefined
           ? ownPercent
-          : {
-              text: `${formatNumber(own.px)}px`,
-              nearest,
-              same: nearest?.px === own.px,
+          : ownLength({
+              px: own.px,
+              unit: "px",
+              tokens,
+              kind,
               namespace,
-              onCreate:
-                create &&
-                ((made) => {
-                  create(lengthToken(kind, made, own.px))
-                  onChange(made)
-                }),
+              create,
               tokensOnly,
-              allowed: own.allow,
+              allow: own.allow,
+              onToken: onChange,
               onAllow: (reason) => onChange(reason === undefined ? { px: own.px } : { ...own, allow: reason })
-            }
+            })
       }
       // None draws as no radius or no blur, so the scale starts from it.
       tokens={{ list: tokens, current: name, none: "None", noneValue: "0px", onPick: onChange }}
