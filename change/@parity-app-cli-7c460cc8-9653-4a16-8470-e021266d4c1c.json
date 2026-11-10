@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Record why a new install ID couldn't be saved, as telemetry.saveFailed",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
