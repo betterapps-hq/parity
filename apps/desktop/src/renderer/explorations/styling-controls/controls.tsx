@@ -15,7 +15,7 @@ import {
   SelectValue,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ChevronDown, LayoutTemplate, Link2, Minus, Monitor, Plus, Squircle } from "lucide-react"
+import { ChevronDown, LayoutTemplate, Link2, Monitor, Plus, Squircle } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { ChoiceInput, PanelSelectContent } from "../../chrome/fields.tsx"
@@ -51,8 +51,9 @@ import {
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
-import { CornerGlyph, EachToggle, Field, SideGlyph, TitleMenu } from "./field-row.tsx"
+import { CornerGlyph, EachToggle, Field, SectionButton, SideGlyph, TitleMenu } from "./field-row.tsx"
 import { HighlightOverlay } from "./highlight.tsx"
+import { RemoveButton } from "./list-parts.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
 import { sideNumber } from "./sides-writes.ts"
 import { lengthToken } from "./tokens.ts"
@@ -173,17 +174,7 @@ export function SizeSection({ draft, set }: SectionProps) {
                       onChange={(next) => set({ [key]: next ?? 0 })}
                     />
                   </div>
-                  <Hint label={`Remove ${label.toLowerCase()}`}>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="size-7"
-                      aria-label={`Remove ${label.toLowerCase()}`}
-                      onClick={() => set({ [key]: undefined })}
-                    >
-                      <Minus />
-                    </Button>
-                  </Hint>
+                  <RemoveButton label={`Remove ${label.toLowerCase()}`} onClick={() => set({ [key]: undefined })} />
                 </div>
               </Field>
             )
@@ -688,19 +679,6 @@ function CornerStyle({
   )
 }
 
-/** A section title's + or −, for a section that starts empty: Fill, Stroke, Effects. */
-function SectionButton({ adds, what, onClick }: { adds: boolean; what: string; onClick: () => void }) {
-  const label = adds ? `Add ${what}` : `Remove ${what}`
-
-  return (
-    <Hint label={label}>
-      <Button variant="ghost" size="icon-sm" className="size-6" aria-label={label} onClick={onClick}>
-        {adds ? <Plus /> : <Minus />}
-      </Button>
-    </Hint>
-  )
-}
-
 /**
  * Fill, a section of its own in call 5's order: the layer's fill, or a title with + until it has one, which adds
  * `bg-background`, the project's usual fill. The row stays while its token is taken off to type another.
@@ -812,20 +790,13 @@ export function EffectsSection({ draft, set, tokensOnly, mixed }: SectionProps) 
                     onChange={(value) => set({ [effect.key]: value })}
                   />
                 </div>
-                <Hint label={`Remove ${effect.label.toLowerCase()}`}>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="size-7"
-                    aria-label={`Remove ${effect.label.toLowerCase()}`}
-                    onClick={() => {
-                      setAdded((current) => ({ ...current, [effect.key]: false }))
-                      set({ [effect.key]: undefined })
-                    }}
-                  >
-                    <Minus />
-                  </Button>
-                </Hint>
+                <RemoveButton
+                  label={`Remove ${effect.label.toLowerCase()}`}
+                  onClick={() => {
+                    setAdded((current) => ({ ...current, [effect.key]: false }))
+                    set({ [effect.key]: undefined })
+                  }}
+                />
               </div>
             </Field>
           ))}

@@ -13,7 +13,7 @@ import {
   SelectValue,
   Switch
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ArrowLeftRight, ChevronDown, Minus, Plus } from "lucide-react"
+import { ArrowLeftRight, ChevronDown, Plus } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent, Swatch } from "../../chrome/fields.tsx"
@@ -25,9 +25,9 @@ import { ColorInput } from "./color-picker.tsx"
 import { clamp, gradientCss, stepCount } from "./css-values.ts"
 import { usedColors } from "./data.ts"
 import { drag, MessageLine, PercentField, TokenChip, TokenList, useTokens } from "./field-parts.tsx"
-import { Field, FieldGrid } from "./field-row.tsx"
+import { Field, FieldGrid, SectionButton } from "./field-row.tsx"
 import { addImageFile, DropCover, ImageEditor, useImageDrop } from "./image-fill.tsx"
-import { EntryType, ListRow, type ListRowProps, moved, TypeMenu, type TypeOption } from "./list-parts.tsx"
+import { EntryType, ListRow, type ListRowProps, moved, RemoveButton, TypeMenu, type TypeOption } from "./list-parts.tsx"
 import {
   drawListColor,
   type GradientKind,
@@ -232,13 +232,7 @@ export function PaintStack({
         action={
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={
-                <Hint label={mixed ? "Replace every layer's fills with one" : "Add fill"}>
-                  <Button variant="ghost" size="icon-sm" className="size-6" aria-label="Add fill">
-                    <Plus />
-                  </Button>
-                </Hint>
-              }
+              render={<SectionButton what="fill" hint={mixed ? "Replace every layer's fills with one" : undefined} />}
             />
             <DropdownMenuContent align="end" className="w-56">
               {paintKinds.map((kind) => (
@@ -711,17 +705,12 @@ export function GradientEditor({
               />
             </div>
             {removable && (
-              <Hint label="Remove stop">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="col-start-3 row-start-1 size-7"
-                  aria-label={`Remove stop ${index + 1}`}
-                  onClick={() => setStops(resolved.stops.filter((other) => other.id !== stop.id))}
-                >
-                  <Minus />
-                </Button>
-              </Hint>
+              <RemoveButton
+                label={`Remove stop ${index + 1}`}
+                hint="Remove stop"
+                className="col-start-3 row-start-1"
+                onClick={() => setStops(resolved.stops.filter((other) => other.id !== stop.id))}
+              />
             )}
           </div>
         ))}

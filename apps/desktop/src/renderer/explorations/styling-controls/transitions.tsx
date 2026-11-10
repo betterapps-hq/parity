@@ -1,10 +1,9 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import { Plus } from "lucide-react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { CurveThumb, EasingField, SaveAsToken } from "./easing.tsx"
 import { type FieldSearch, type Reading, type SearchOption, useTokens, ValueField } from "./field-parts.tsx"
-import { Field } from "./field-row.tsx"
+import { Field, SectionButton } from "./field-row.tsx"
 import { ListRow, moved } from "./list-parts.tsx"
 import {
   defaultDuration,
@@ -56,17 +55,10 @@ export function TransitionsSection({
   const mixed = form === "arbitrary"
 
   const add = (
-    <Hint label="Add a transition">
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="size-6"
-        aria-label="Add a transition"
-        onClick={() => onChange([{ id: newEntryId(), property: "colors" }, ...entries])}
-      >
-        <Plus />
-      </Button>
-    </Hint>
+    <SectionButton
+      what="a transition"
+      onClick={() => onChange([{ id: newEntryId(), property: "colors" }, ...entries])}
+    />
   )
 
   return (

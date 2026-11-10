@@ -6,7 +6,7 @@ import {
   DropdownMenuItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { PreviewKind } from "@parity-app/tokens"
-import { ChevronDown, ChevronRight, Plus, Unlink } from "lucide-react"
+import { ChevronDown, ChevronRight, Unlink } from "lucide-react"
 import { useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
@@ -24,7 +24,7 @@ import {
   useTokens,
   ValueField
 } from "./field-parts.tsx"
-import { Field, FieldGrid, type Segment, Segments, SwitchRow, TitleMenu } from "./field-row.tsx"
+import { Field, FieldGrid, SectionButton, type Segment, Segments, SwitchRow, TitleMenu } from "./field-row.tsx"
 import { EntryType, ListRow, moved, OffsetPad, TypeMenu, type TypeOption } from "./list-parts.tsx"
 import {
   boxLayersOf,
@@ -222,17 +222,11 @@ export function ShadowList({
               Add drop shadow that follows the shape
             </DropdownMenuItem>
           </TitleMenu>
-          <Hint label={mixed ? "Replace every layer's shadows with one" : "Add drop shadow"}>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="size-6"
-              aria-label="Add drop shadow"
-              onClick={() => add("drop")}
-            >
-              <Plus />
-            </Button>
-          </Hint>
+          <SectionButton
+            what="drop shadow"
+            hint={mixed ? "Replace every layer's shadows with one" : undefined}
+            onClick={() => add("drop")}
+          />
         </div>
       }
     >

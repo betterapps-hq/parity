@@ -1,6 +1,7 @@
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, Switch } from "@buildkitgg/shadcn-baseui-kit"
-import { Ellipsis, Lock, LockOpen, RotateCcw } from "lucide-react"
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, Switch } from "@buildkitgg/shadcn-baseui-kit"
+import { Ellipsis, Lock, LockOpen, Minus, Plus, RotateCcw } from "lucide-react"
 import {
+  type ComponentProps,
   createContext,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -414,5 +415,27 @@ export function TitleMenu({
         {children}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+/**
+ * A section title's + or −, for a section that starts empty (Fill, Stroke, Effects): Add or Remove `what`, which its
+ * hint says too, or `hint` where there's more to say, as a mixed selection's Replace. It takes a trigger's props, so a
+ * menu can open from it.
+ */
+export function SectionButton({
+  adds = true,
+  what,
+  hint,
+  ...props
+}: { adds?: boolean; what: string; hint?: string } & Omit<ComponentProps<typeof Button>, "children">) {
+  const label = adds ? `Add ${what}` : `Remove ${what}`
+
+  return (
+    <Hint label={hint ?? label}>
+      <Button variant="ghost" size="icon-sm" className="size-6" aria-label={label} {...props}>
+        {adds ? <Plus /> : <Minus />}
+      </Button>
+    </Hint>
   )
 }

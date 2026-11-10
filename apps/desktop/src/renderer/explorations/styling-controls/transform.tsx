@@ -1,5 +1,5 @@
-import { Button, Toggle } from "@buildkitgg/shadcn-baseui-kit"
-import { FlipHorizontal2, FlipVertical2, Link2, Minus, Plus } from "lucide-react"
+import { Toggle } from "@buildkitgg/shadcn-baseui-kit"
+import { FlipHorizontal2, FlipVertical2, Link2 } from "lucide-react"
 import { useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -7,7 +7,7 @@ import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { formatNumber, stepCount, stepSpacing } from "./css-values.ts"
 import type { Draft } from "./data.ts"
 import { PercentField, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
-import { Field } from "./field-row.tsx"
+import { Field, SectionButton } from "./field-row.tsx"
 import type { Move, TransformValue } from "./motion-data.ts"
 import { Card, drawnStyle, PreviewStage } from "./playground.tsx"
 import { PositionInBox } from "./position-box.tsx"
@@ -33,23 +33,17 @@ export function TransformSection({
   const change = (part: Partial<TransformValue>) => onChange({ ...value, ...part })
 
   const action = (
-    <Hint label={shown ? "Remove transform" : "Add transform"}>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="size-6"
-        aria-label={shown ? "Remove transform" : "Add transform"}
-        onClick={() => {
-          if (shown) {
-            onChange({})
-          }
+    <SectionButton
+      adds={!shown}
+      what="transform"
+      onClick={() => {
+        if (shown) {
+          onChange({})
+        }
 
-          setAdded(!shown)
-        }}
-      >
-        {shown ? <Minus /> : <Plus />}
-      </Button>
-    </Hint>
+        setAdded(!shown)
+      }}
+    />
   )
 
   const linked = value.scaleLinked ?? true

@@ -11,7 +11,15 @@ import {
   PopoverTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, Eye, EyeOff, GripVertical, Minus } from "lucide-react"
-import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
+import {
+  type ComponentProps,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  useRef,
+  useState
+} from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { clamp, formatNumber, stepCount } from "./css-values.ts"
 import { arrowMoves, drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
@@ -245,11 +253,7 @@ function RowButtons({
           {off ? <EyeOff /> : <Eye />}
         </Button>
       </Hint>
-      <Hint label={`Remove ${name.toLowerCase()}`}>
-        <Button variant="ghost" size="icon-sm" className="size-7" aria-label={`Remove ${name}`} onClick={onRemove}>
-          <Minus />
-        </Button>
-      </Hint>
+      <RemoveButton label={`Remove ${name}`} hint={`Remove ${name.toLowerCase()}`} onClick={onRemove} />
     </>
   )
 }
@@ -501,5 +505,24 @@ export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: 
         style={{ left: `${50 + (x / reach) * 50}%`, top: `${50 + (y / reach) * 50}%` }}
       />
     </div>
+  )
+}
+
+/** − at a row's end, which takes the row off: `label` names it, and `hint` says it where that differs ("Remove stop"). */
+export function RemoveButton({
+  label,
+  hint,
+  className = "",
+  ...props
+}: { label: string; hint?: string; className?: string } & Omit<
+  ComponentProps<typeof Button>,
+  "children" | "aria-label" | "variant" | "size"
+>) {
+  return (
+    <Hint label={hint ?? label}>
+      <Button variant="ghost" size="icon-sm" className={`size-7 ${className}`} aria-label={label} {...props}>
+        <Minus />
+      </Button>
+    </Hint>
   )
 }

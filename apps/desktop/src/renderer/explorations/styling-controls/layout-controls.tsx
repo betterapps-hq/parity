@@ -21,7 +21,6 @@ import {
   CornerDownLeft,
   GripVertical,
   LayoutGrid,
-  Minus,
   Plus,
   Rows3
 } from "lucide-react"
@@ -44,7 +43,7 @@ import {
 import { arrowMoves, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
 import { EachToggle, Field, TitleMenu } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
-import { moved, useOrderKeys } from "./list-parts.tsx"
+import { moved, RemoveButton, useOrderKeys } from "./list-parts.tsx"
 import { type Side, sideNumber, sideRules } from "./sides-writes.ts"
 import { SideField } from "./sides.tsx"
 import { useSortable } from "./sortable.ts"
@@ -1510,18 +1509,12 @@ function TrackRow({
           onChange={onChange}
         />
       </div>
-      <Hint label={`Remove ${name.toLowerCase()}`}>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="size-7"
-          aria-label={`Remove ${name}`}
-          disabled={!removable}
-          onClick={onRemove}
-        >
-          <Minus />
-        </Button>
-      </Hint>
+      <RemoveButton
+        label={`Remove ${name}`}
+        hint={`Remove ${name.toLowerCase()}`}
+        disabled={!removable}
+        onClick={onRemove}
+      />
     </div>
   )
 }
