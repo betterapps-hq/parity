@@ -346,6 +346,32 @@ export interface AgentHooks {
   supports?(queries: { property: string; value: string }[]): Promise<boolean[]>
 }
 
+/**
+ * A result a connector found, as placing takes it from main's own copy (PAR-829): what kind it is, its image and who to
+ * credit. The agent names it by connector and id, so what goes in a design is what the source gave.
+ */
+export interface PlaceableResult {
+  kind: string
+  /** Whether it can go in a design: pictures can; screens from real apps and videos are for looking at. */
+  placeable: boolean
+  title: string
+  /** Its picture, with when its link stops working for a source whose links expire. */
+  image: { url: string; expiresAt?: number }
+  credit: { name: string; url?: string }[]
+}
+
+/**
+ * Where a result was placed: the project's folder, the design's file in it and the design's id. Main turns them into a
+ * key that holds no path, so the same design is counted once and nothing about the computer leaves it.
+ */
+export interface PlacedIn {
+  connector: string
+  id: string
+  project: string
+  file: string
+  design: string
+}
+
 /** What a call changed: each design it touched with how it found it, the modes when it set them, and token values. */
 export interface AgentChangeSet {
   designs: DesignChange[]

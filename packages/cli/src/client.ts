@@ -72,6 +72,12 @@ export type ConsoleEntry = z.output<typeof replies.console>["entries"][number]
 
 export type ReportResponse = z.output<typeof replies.report>
 
+/** What a search for screens, pictures or videos answers, which is the same shape. */
+export type FindResponse = z.output<typeof replies.references>
+
+/** What placing a result answers. */
+export type PlaceResponse = z.output<typeof replies.place>
+
 export type ImagesResponse = z.output<typeof replies.images>
 
 export type RemoveImageResponse = z.output<typeof replies.removeImage>
@@ -899,7 +905,7 @@ function frameList(frames: { state: string; mode: string }[]): string {
 
 /** Where a report went, what it's tied to and tagged with, and what went with it (PAR-646). */
 /**
- * A readable account of the project's images: each file with its path and size, each linked photo with its credit, and
+ * A readable account of the project's images: each file with its path and size, each linked image with its credit, and
  * what uses each, or that nothing does.
  */
 export function describeImages(result: ImagesResponse): string {
@@ -970,6 +976,84 @@ export function describeReport(result: ReportResponse): string {
     `Sent with ${result.attachments.join(", ")}.`,
     "Sentry files it in Linear and links the issue from the feedback."
   ].join("\n")
+}
+
+/**
+ * A readable account of the screens a references search found, each with its app, platform, link and saved preview, or
+ * why it found nothing to show.
+ */
+export function describeReferences(result: FindResponse): string {
+  return describeFound(result, {
+    one: "screen",
+    many: "screens",
+    none: "Nothing matches. Try fewer parts, other words, or the other platform.",
+    use: "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and the source."
+  })
+}
+
+/** What placing a result did: the node it went in and who to credit, or why it wasn't placed. */
+export function describePlace(result: PlaceResponse): string {
+  if (!result.placed) {
+    return result.problem?.message ?? "Nothing was placed."
+  }
+
+  const credit = (result.credit ?? []).map(({ name }) => name).join(", then ")
+  const lines = [`Placed in ${result.node}.`]
+
+  if (credit) {
+    lines.push(`Credit ${credit} where the design shows it.`)
+  }
+
+  return lines.join("\n")
+}
+
+/**
+ * A readable account of the stock pictures or videos a search found, each with what it shows, its credit, link and
+ * saved preview.
+ */
+export function describeMedia(result: FindResponse): string {
+  return describeFound(result, {
+    one: "result",
+    many: "results",
+    none: "Nothing matches. Try other words, or fewer filters.",
+    use: 'Place a picture in an image node with place_result (parity place <connector> <id> "<node>"), then credit its author and the source where the design shows it.'
+  })
+}
+
+interface FoundWords {
+  one: string
+  many: string
+  none: string
+  use: string
+}
+
+function describeFound(result: FindResponse, words: FoundWords): string {
+  if (result.problem) {
+    return result.problem.message
+  }
+
+  if (result.done) {
+    return "No more results for this search."
+  }
+
+  if (result.found.length === 0) {
+    return words.none
+  }
+
+  const count = result.found.length === 1 ? `1 ${words.one}` : `${result.found.length} ${words.many}`
+  const source = result.found[0]?.source ?? "the source"
+
+  const lines = result.found.map((each, index) => {
+    const preview = each.preview ? `preview ${each.preview.path}` : "no preview: open the link"
+    const platform = each.platform ? ` (${each.platform})` : ""
+    const by = each.credit.length > 1 ? `\n   by ${each.credit[0]?.name}` : ""
+
+    return `${index + 1}. ${each.title}${platform} ${each.link}${by}\n   ${each.connector} ${each.id}\n   ${preview}`
+  })
+
+  const left = result.allowance ? [`${source} allows ${result.allowance.remaining} more searches for now.`] : []
+
+  return [`${count} from ${source}:`, ...lines, ...left, words.use].join("\n")
 }
 
 /** A readable account of what a project's code wrote to the console, oldest first, with where each came from. */

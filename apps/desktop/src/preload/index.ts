@@ -2,6 +2,7 @@ import { createChannel, domPort, type Handlers, plainErrors } from "@parity-app/
 import { contextBridge, ipcRenderer } from "electron"
 import type { SignInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
+import type { ConnectorPlaced, ConnectorSearch } from "../shared/connectors.ts"
 import {
   type CanvasHost,
   type ConsoleChange,
@@ -102,7 +103,15 @@ function send(channel: string, argument?: ConsoleAnnouncement): void {
  * What a window sends main with a request: text, such as an email, a path or a theme, a setting, or one of these
  * requests.
  */
-type InvokeArgument = string | boolean | SignInRequest | SaveDialogOptions | OpenInEditorRequest | ProblemReportRequest
+type InvokeArgument =
+  | string
+  | boolean
+  | SignInRequest
+  | SaveDialogOptions
+  | OpenInEditorRequest
+  | ProblemReportRequest
+  | ConnectorSearch
+  | ConnectorPlaced
 
 /** What a window says before a console message: its level and the frame it comes from. */
 type ConsoleAnnouncement = { level: Parameters<CanvasHost["console"]["announce"]>[0] } & Parameters<
@@ -166,6 +175,12 @@ const host: CanvasHost = {
     signOut: (email) => invoke<void>(ipc.accountSignOut, email),
     switchOrganization: (organizationId) => invoke<void>(ipc.accountSwitch, organizationId),
     use: (email) => invoke<void>(ipc.accountUse, email)
+  },
+  connectors: {
+    get: () => invoke(ipc.connectorsState),
+    search: (search) => invoke(ipc.connectorsSearch, search),
+    recent: () => invoke(ipc.connectorsRecent),
+    placed: (placed) => invoke<void>(ipc.connectorsPlaced, placed)
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))

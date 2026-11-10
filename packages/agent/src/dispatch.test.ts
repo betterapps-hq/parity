@@ -1,10 +1,18 @@
-import { CodedError, type ContainerSpec, defaultModeSettings, resolveModes } from "@parity-app/core"
+import { CodedError, type ContainerSpec, defaultModeSettings, type DesignNode, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { z } from "zod"
 import type { requests } from "./contracts.ts"
 import { type AgentMethod, replies } from "./contracts.ts"
 import { type AgentHost, type Answer, answerRequest, dispatch, exportPictures } from "./dispatch.ts"
-import type { AgentChangeSet, AgentReport, FrameRequest, FrameResult, PresenceEvent, TabSnapshot } from "./types.ts"
+import type {
+  AgentChangeSet,
+  AgentReport,
+  FrameRequest,
+  FrameResult,
+  PlaceableResult,
+  PresenceEvent,
+  TabSnapshot
+} from "./types.ts"
 
 /** A tab with one screen, Sign up, holding a title and a Button, in the default modes. */
 function snapshot(): TabSnapshot {
@@ -77,7 +85,22 @@ interface Asked {
   saved: number
   console: boolean[]
   reports: AgentReport[]
+  references: Answer<"references">[]
+  placed: { connector: string; id: string; design: string }[]
   removed: string[]
+  savedImages: { url: string; name: string }[]
+}
+
+/** A photo main found lately, as placing takes it. */
+const desk: PlaceableResult = {
+  kind: "photos",
+  placeable: true,
+  title: "white desk",
+  image: { url: "https://images.unsplash.com/photo-1" },
+  credit: [
+    { name: "Ada Park", url: "https://unsplash.com/@adapark" },
+    { name: "Unsplash", url: "https://unsplash.com" }
+  ]
 }
 
 /** The tests' host: the fixture tab, frames drawn as data, and everything asked of it kept to look at. */
@@ -92,7 +115,10 @@ function fixtureHost() {
     saved: 0,
     console: [],
     reports: [],
-    removed: []
+    references: [],
+    placed: [],
+    removed: [],
+    savedImages: []
   }
 
   const host: AgentHost = {
@@ -174,6 +200,36 @@ function fixtureHost() {
         traceId: "t1",
         attachments: ["screenshot.png", ...report.frames.map((frame) => frame.name)]
       }
+    },
+    references: async (request) => {
+      const answer = {
+        found: [
+          {
+            id: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+            connector: "mobbin",
+            source: "Mobbin",
+            title: "Calm",
+            platform: request.platform === "ios" ? ("ios" as const) : ("web" as const),
+            link: "https://mobbin.com/screens/1b9d6bcd",
+            credit: [{ name: "Calm" }, { name: "Mobbin" }],
+            preview: { path: "D:/references/calm.webp", mimeType: "image/webp" as const, data: "UklG" }
+          }
+        ].slice(0, request.limit)
+      }
+
+      asked.references.push(answer)
+
+      return answer
+    },
+    media: async () => ({ found: [] }),
+    saveImage: async (_projectId, image) => {
+      asked.savedImages.push(image)
+
+      return { src: "/images/white-desk-1a2b3c4d.jpg" }
+    },
+    result: async (connector, id) => (connector === "unsplash" && id === "desk" ? desk : undefined),
+    placed: async (placed) => {
+      asked.placed.push(placed)
     }
   }
 
@@ -216,6 +272,9 @@ describe("dispatch", () => {
       ["screenshot", { design: "signup", scale: 1 }],
       ["exec", { label: "Read", code: "Print(Designs().length)" }],
       ["report", { message: "The title is cut off" }],
+      ["references", { query: "paywall with a free trial" }],
+      ["media", { query: "desk by a window" }],
+      ["place", { connector: "unsplash", id: "desk", node: "signup/title" }],
       ["images", {}],
       ["removeImage", { image: "unused.webp" }]
     ]
@@ -542,5 +601,199 @@ describe("exportPictures", () => {
     const { host, tab } = fixtureHost()
     const { files } = await exportPictures(host, tab, ["signup"], 2)
     expect(files).toEqual([{ name: "Sign up@2x.png", png: "iVBOR" }])
+  })
+})
+
+/** The fixture host, its sign-up design holding a photo, and Button taking a picture through `src`. */
+function placingHost() {
+  const fixture = fixtureHost()
+  const signup = fixture.tab.documents[0]!.document.containers[0]!
+  const photo: DesignNode = { type: "image", id: "photo", name: "Photo", src: "/images/old.jpg", style: { width: 40 } }
+
+  if (signup.root.type === "layout") {
+    signup.root.children.push(photo)
+  }
+
+  fixture.tab.props.Button!.props.push({ name: "src", kind: "string", group: "own" })
+
+  return fixture
+}
+
+describe("place", () => {
+  it("puts main's copy of a photo in an image as one edit, with its description and credit, then tells main", async () => {
+    const { host, asked } = placingHost()
+
+    const answer = await dispatch("place", { connector: "unsplash", id: "desk", node: "signup/photo" }, host, caller)
+
+    expect(answer).toEqual({ placed: true, node: "signup/photo", credit: desk.credit })
+    expect(asked.applied.map(({ label }) => label)).toEqual(["Place white desk"])
+    expect(asked.applied[0]?.changes.designs[0]?.after?.root).toMatchObject({
+      children: expect.arrayContaining([
+        {
+          type: "image",
+          id: "photo",
+          name: "Photo",
+          src: desk.image.url,
+          alt: "white desk",
+          credit: { name: "Ada Park", url: "https://unsplash.com/@adapark", source: "Unsplash" },
+          style: { width: 40 }
+        }
+      ])
+    })
+    expect(asked.placed).toEqual([
+      { connector: "unsplash", id: "desk", project: "D:/app", file: "app.par", design: "signup" }
+    ])
+  })
+
+  it("puts it in a component's declared prop, and only a prop the component declares", async () => {
+    const { host, asked } = placingHost()
+
+    const missing = await dispatch(
+      "place",
+      { connector: "unsplash", id: "desk", node: "signup/submit", prop: "image" },
+      host,
+      caller
+    )
+
+    await dispatch("place", { connector: "unsplash", id: "desk", node: "signup/submit" }, host, caller)
+
+    expect(missing).toEqual({
+      placed: false,
+      problem: { code: "invalid", message: "Button has no image prop. Name the prop that takes the image with prop." }
+    })
+    expect(asked.applied[0]?.changes.designs[0]?.after?.root).toMatchObject({
+      children: expect.arrayContaining([expect.objectContaining({ id: "submit", props: { src: desk.image.url } })])
+    })
+    expect(asked.placed).toHaveLength(1)
+  })
+
+  it("reports a photo the image already shows without changing anything, so main counts it once", async () => {
+    const { host, asked } = placingHost()
+    const signup = (await host.snapshot(undefined)).documents[0]!.document.containers[0]!
+
+    if (signup.root.type === "layout") {
+      signup.root.children[2] = { type: "image", id: "photo", src: desk.image.url }
+    }
+
+    expect(await dispatch("place", { connector: "unsplash", id: "desk", node: "signup/photo" }, host, caller)).toEqual({
+      placed: true,
+      node: "signup/photo",
+      credit: desk.credit
+    })
+    expect([asked.applied, asked.placed.length]).toEqual([[], 1])
+  })
+
+  it("saves a picture whose link stops working into the project first, and shows the file", async () => {
+    const { host, asked } = placingHost()
+    const fleeting = { ...desk, image: { url: "https://cdn.pixabay.com/photo/desk.jpg", expiresAt: 1 } }
+    const pixabay: AgentHost = { ...host, result: async () => fleeting }
+
+    const answer = await dispatch("place", { connector: "pixabay", id: "1", node: "signup/photo" }, pixabay, caller)
+
+    expect(answer).toMatchObject({ placed: true, node: "signup/photo" })
+    expect(asked.savedImages).toEqual([{ url: "https://cdn.pixabay.com/photo/desk.jpg", name: "white desk" }])
+    expect(asked.applied[0]?.changes.designs[0]?.after?.root).toMatchObject({
+      children: expect.arrayContaining([
+        expect.objectContaining({ id: "photo", src: "/images/white-desk-1a2b3c4d.jpg", alt: "white desk" })
+      ])
+    })
+  })
+
+  it("says why, and places nothing, when the picture can't be saved", async () => {
+    const { host, asked } = placingHost()
+    const fleeting = { ...desk, image: { url: "https://cdn.pixabay.com/photo/desk.jpg", expiresAt: 1 } }
+
+    const failing: AgentHost = {
+      ...host,
+      result: async () => fleeting,
+      saveImage: () => Promise.reject(new Error("the source answered 403"))
+    }
+
+    const answer = await dispatch("place", { connector: "pixabay", id: "1", node: "signup/photo" }, failing, caller)
+
+    expect(answer).toEqual({
+      placed: false,
+      problem: { code: "invalid", message: "Parity couldn't save white desk into the project: the source answered 403" }
+    })
+    expect([asked.applied, asked.placed]).toEqual([[], []])
+  })
+
+  it("places nothing, and tells main nothing, where a picture can't go", async () => {
+    const { host, asked } = placingHost()
+
+    const screens: AgentHost = {
+      ...host,
+      result: async () => ({ ...desk, kind: "screens", placeable: false, credit: [{ name: "Mobbin" }] })
+    }
+
+    const tries: [AgentHost, Request<"place">][] = [
+      [host, { connector: "unsplash", id: "gone", node: "signup/photo" }],
+      [screens, { connector: "mobbin", id: "s", node: "signup/photo" }],
+      [host, { connector: "unsplash", id: "desk", node: "signup/nothing" }],
+      [host, { connector: "unsplash", id: "desk", node: "signup/title" }],
+      [host, { connector: "unsplash", id: "desk", node: "signup/photo", state: "default" }]
+    ]
+
+    const answers: Answer<"place">[] = []
+
+    for (const [asking, request] of tries) {
+      answers.push(replies.place.parse(await dispatch("place", request, asking, caller)))
+    }
+
+    expect(answers.map((answer) => answer.problem?.message)).toEqual([
+      "Parity hasn't found unsplash gone lately. Search again, then place one of its results.",
+      "Mobbin's screens are for looking at, not for designs.",
+      "There's no node at signup/nothing. Read the design with Get to find the image's path.",
+      "signup/title is a text, which can't show a picture. Place it in an image or a component.",
+      "An image's picture belongs to the whole design, not one state. Place it without a state."
+    ])
+    expect([asked.applied, asked.placed]).toEqual([[], []])
+  })
+})
+
+describe("references", () => {
+  it("passes the search on with six screens and nothing excluded, leaving filters to the connector", async () => {
+    const fixture = fixtureHost()
+    const asked: unknown[] = []
+
+    const host: AgentHost = {
+      ...fixture.host,
+      references: async (request) => {
+        asked.push(request)
+
+        return { found: [] }
+      }
+    }
+
+    await dispatch("references", { query: "paywall with a free trial" }, host, caller)
+
+    expect(asked).toEqual([{ query: "paywall with a free trial", limit: 6 }])
+  })
+
+  it("passes a stock search on with its defaults: six results, and only the filters named", async () => {
+    const fixture = fixtureHost()
+    const asked: unknown[] = []
+
+    const host: AgentHost = {
+      ...fixture.host,
+      media: async (request) => {
+        asked.push(request)
+
+        return { found: [] }
+      }
+    }
+
+    await dispatch("media", { query: "desk", type: "vectors", color: "blue" }, host, caller)
+
+    expect(asked).toEqual([{ query: "desk", type: "vectors", color: "blue", limit: 6 }])
+  })
+
+  it("turns down a search with no query before asking the host, and leaves filter values to the connector", async () => {
+    const fixture = fixtureHost()
+
+    await expect(dispatch("references", {}, fixture.host, caller)).rejects.toThrow(/query/)
+    expect(fixture.asked.references).toEqual([])
+    await dispatch("references", { query: "paywall", platform: "android" }, fixture.host, caller)
+    expect(fixture.asked.references).toHaveLength(1)
   })
 })

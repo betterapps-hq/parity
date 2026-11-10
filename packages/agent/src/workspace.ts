@@ -15,6 +15,7 @@ import {
   dropPatches,
   designModes,
   type DesignNode,
+  type ImageNode,
   editNode,
   type EvalScope,
   drawnNode,
@@ -876,7 +877,19 @@ export class AgentWorkspace {
 
     const stateId = options.state === undefined ? container.states[0]!.id : findState(container, options.state).id
     const base = stateId === container.states[0]!.id
-    const renames = (["name", "tag", "component"] as const).filter((name) => change[name] !== undefined)
+
+    const renames = (["name", "tag", "component", "src", "alt", "credit"] as const).filter(
+      (name) => change[name] !== undefined
+    )
+
+    const picture = (["src", "alt", "credit"] as const).find((name) => change[name] !== undefined)
+
+    if (picture && node.type !== "image") {
+      throw new CodedError(`Only an image has ${picture}; a component takes its picture as a prop`, {
+        code: "invalid_input",
+        field: picture
+      })
+    }
 
     if (!base && renames.length > 0) {
       throw new CodedError("A state can only change hidden, text, props, style and unset", {
@@ -911,6 +924,10 @@ export class AgentWorkspace {
 
           if (updated.type === "component" && change.component !== undefined) {
             updated.component = change.component
+          }
+
+          if (updated.type === "image") {
+            pictured(updated, change)
           }
 
           return updated
@@ -1684,6 +1701,20 @@ export class AgentWorkspace {
     )
   }
 
+  /**
+   * A node by `designId/nodeId`, with the file and id of the design it's in, or nothing when the reference names none,
+   * for a caller that checks a node before changing it, as placing a picture does.
+   */
+  locate(reference: string): { node: DesignNode; design: { path: string; id: string } } | undefined {
+    try {
+      const { node, path, container } = this.findNode(reference)
+
+      return { node, design: { path, id: container.id } }
+    } catch {
+      return undefined
+    }
+  }
+
   /** A node by `designId/nodeId`, or by node id alone when only one design has it. */
   private findNode(reference: string): Located & { node: DesignNode } {
     const slash = reference.lastIndexOf("/")
@@ -2145,4 +2176,23 @@ function describeDropped(dropped: DroppedParts): string | undefined {
   const said = lines.flatMap(([what, names]) => (names.length > 0 ? [`${what} dropped: ${names.join(", ")}.`] : []))
 
   return said.length > 0 ? said.join(" ") : undefined
+}
+
+/** Sets an image's picture, description and credit from an Update, where `null` takes the description or credit away. */
+function pictured(image: ImageNode, change: UpdateChange): void {
+  if (change.src !== undefined) {
+    image.src = change.src
+  }
+
+  if (change.alt === null) {
+    delete image.alt
+  } else if (change.alt !== undefined) {
+    image.alt = change.alt
+  }
+
+  if (change.credit === null) {
+    delete image.credit
+  } else if (change.credit !== undefined) {
+    image.credit = change.credit
+  }
 }

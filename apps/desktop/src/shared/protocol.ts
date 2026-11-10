@@ -8,6 +8,7 @@ import type {
 import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
 import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
+import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type {
   CanvasDocument,
   ChangeConflict,
@@ -29,6 +30,7 @@ import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-ap
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
+import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
 
 /**
@@ -454,6 +456,22 @@ export interface CanvasHost {
     switchOrganization: (organizationId: string) => Promise<void>
     /** Switches to another account signed in, by its email, at once: each keeps its own session. */
     use: (email: string) => Promise<void>
+  }
+  /**
+   * Connectors to outside services, such as Mobbin (PAR-829). Main holds their keys, which the app's owner arranges,
+   * and runs every search; the window sees whether this copy can search each one, never a key.
+   */
+  connectors: {
+    get: () => Promise<ConnectorState[]>
+    /** Never fails: a failure is a problem in the answer. A search that works joins the person's recent searches. */
+    search: (search: ConnectorSearch) => Promise<SearchAnswer>
+    /** The person's recent searches, newest first. */
+    recent: () => Promise<RecentSearch[]>
+    /**
+     * Says the person placed a result in a design. Main records it the first time it goes into that design, counts it
+     * as the source's usage, and tells the source if its terms ask. Call it whenever one is placed; it never fails.
+     */
+    placed: (placed: ConnectorPlaced) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string

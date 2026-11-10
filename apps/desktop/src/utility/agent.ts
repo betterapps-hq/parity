@@ -28,6 +28,7 @@ import { currentTrace, inSpan } from "../shared/tracing.ts"
 import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
+import { type FindOptions, searchMedia, searchReferences } from "./references.ts"
 import { renderOffscreen } from "./render.ts"
 import { scrubSecrets } from "./telemetry.ts"
 import { composePicture, cutPicture } from "./webp.ts"
@@ -41,6 +42,16 @@ interface WindowChannel {
 
 const screenshotDir = join(homedir(), ".parity", "screenshots")
 
+const referencesDir = join(homedir(), ".parity", "references")
+
+/** How agents' searches reach main, which picks the connector and holds its key, and where previews are saved. */
+const finding: FindOptions = {
+  find: (request) => mainProcess.request("connectorFind", request),
+  fetch,
+  folder: referencesDir,
+  timeout: 15_000
+}
+
 /**
  * The local endpoint agents use (through `parity` or its MCP server). It listens on 127.0.0.1 only and requires the
  * token in this copy's agent registry entry, which only the person's own account can read.
@@ -49,12 +60,13 @@ const screenshotDir = join(homedir(), ".parity", "screenshots")
  * (PAR-514). The main process removes the entry when this copy quits.
  */
 /** What agents' image calls need of the service: reading a project's image files, and removing one (PAR-834). */
-export type AgentImages = Pick<AgentHost, "scanImages" | "removeImage">
+export type AgentImages = Pick<AgentHost, "scanImages" | "removeImage" | "saveImage">
 
 /** For hosts that only draw and export, which never list or remove images. */
 const noImages: AgentImages = {
   scanImages: () => Promise.reject(new Error("Images can't be read here")),
-  removeImage: () => Promise.reject(new Error("Images can't be removed here"))
+  removeImage: () => Promise.reject(new Error("Images can't be removed here")),
+  saveImage: () => Promise.reject(new Error("Images can't be saved here"))
 }
 
 export async function startAgentServer(window: () => WindowChannel, images: AgentImages): Promise<void> {
@@ -221,6 +233,11 @@ export function desktopHost(window: WindowChannel, images: AgentImages = noImage
 
       return mainProcess.request("report", filed)
     },
+    // Main holds connectors' keys, so it runs the search; the previews are fetched and saved here (PAR-829).
+    references: (request) => searchReferences(finding, request),
+    media: (request) => searchMedia(finding, request),
+    result: async (connector, id) => (await mainProcess.request("connectorResult", { connector, id })) ?? undefined,
+    placed: (placed) => mainProcess.request("connectorPlaced", placed),
     async saveScreenshots(screenshots) {
       await mkdir(screenshotDir, { recursive: true })
       const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-")

@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Search Mobbin's screens from main with an API key, kept encrypted, through a connector the window and agents share",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

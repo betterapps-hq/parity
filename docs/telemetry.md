@@ -146,8 +146,9 @@ Agents' calls are recorded where they're answered, once for every operation, whi
   warning groups are listed by category. An `exec` call's snippet goes on the span by itself, so a failed snippet reads
   beside its error. `agentCallStart`, `agentCallAnswered` and `agentCallFailed` in `@parity-app/telemetry` read these
   from the body and the answer, scrubbing the open projects' `.env` values before the params are serialized or cut,
-  since an escaped or shortened secret wouldn't match later. When the server can't start, the service records
-  `agent.serverFailed`.
+  since an escaped or shortened secret wouldn't match later. A search's params leave out what it searched for and the
+  ids it left out, and `place`'s leave out which result went in which node, as `connectors.*` never send them. When the
+  server can't start, the service records `agent.serverFailed`.
 - **The CLI records its own runs** through `@parity-app/telemetry`: `cli.ran` for each command, with the flags' names
   but not their values; `cli.connectFailed` when no copy of the app is registered (`not_running`) or none answers
   (`not_answering`); `cli.versionMismatch` when the app is newer than the CLI reads, or its answer doesn't check; and
@@ -357,6 +358,11 @@ the account: WorkOS's answer goes as its status and code.
 - **A window that can't find out who's signed in** records `account.stateFailed`, with where main's answer didn't match
   but not the answer itself.
 
+Main records `connectors.searched` from `main/connectors.ts` (PAR-829) for each search: its connector, who asked, every
+filter it ran with, and how many it found or why it found nothing, never what was searched for. A result placed in a
+design for the first time is `connectors.placed`, with its connector, kind and who placed it, never which result or
+where. Keys are scrubbed from what main sends, and never reach a window or the service.
+
 ## Levels and sampling
 
 Each event has a level, lowest first: `debug`, `info`, `warn`, `error` and `fatal`. `error` and `fatal` events also
@@ -442,6 +448,8 @@ Some failures are recorded for you, so code doesn't record them again:
 | `clipboard.pasted`        | info  | all  | renderer                                | A paste puts something on the canvas.                                                                             |
 | `command.ran`             | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                                    |
 | `component.changed`       | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                     |
+| `connectors.placed`       | info  | all  | main                                    | A connector's result goes into a design for the first time, before the source is told, if it asks to be.          |
+| `connectors.searched`     | info  | all  | main                                    | A connector's search ends, with what it found or why it found nothing.                                            |
 | `data.invalid`            | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                           |
 | `dialog.opened`           | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                               |
 | `document.conflicted`     | warn  | all  | renderer                                | A design file changes on disk while it has unsaved changes here, which are kept until the person chooses.         |
@@ -721,6 +729,26 @@ Some failures are recorded for you, so code doesn't record them again:
 | `design`    | `string`                          | The design whose layers it changed, by key                                                                                    |
 | `layers`    | `string[]`                        | The layers: the instance detached or pushed, a layer inside one by path, or the layers made a component                       |
 | `component` | `string`                          | The component, by id: the one the copy follows, or the one made                                                               |
+
+### `connectors.placed`
+
+| Attribute   | Type                  | Meaning                                                     |
+| ----------- | --------------------- | ----------------------------------------------------------- |
+| `connector` | `string`              | The connector the result came from, such as `unsplash`      |
+| `kind`      | `string`              | What was placed: `screens`, `flows`, `sections` or `photos` |
+| `from`      | `"window" \| "agent"` | Who placed it: the person in the window, or an agent        |
+
+### `connectors.searched`
+
+| Attribute   | Type                  | Meaning                                                                                                    |
+| ----------- | --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `connector` | `string`              | The connector searched, such as `mobbin`                                                                   |
+| `from`      | `"window" \| "agent"` | Who asked: the person in the window, or an agent through the service                                       |
+| `kind`      | `string`              | What it searched for: `screens`, `flows`, `sections` or `photos`                                           |
+| `filters`   | `object`, optional    | Every filter's value it ran with, as `{ platform: ios }`: the connector's own values, never what was typed |
+| `found`     | `integer`, optional   | How many results came back, when the search worked                                                         |
+| `problem`   | `string`, optional    | Why it found nothing to show, such as `rate-limited` or `no-key`, when it didn't work                      |
+| `ms`        | `number`              | How long the search took, in milliseconds                                                                  |
 
 ### `data.invalid`
 

@@ -67,7 +67,7 @@ DeleteDesign(design): void
 
 // Nodes
 Insert(parent, node, { index?, slot? }?): string // returns the new node's id
-Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, unset, component
+Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, unset, component; an image's src, alt, credit
 Replace(path, node): string
 Move(path, parent, { index?, slot? }?): void     // within one design
 Copy(path, parent, { index?, slot?, name? }?): string
@@ -304,7 +304,9 @@ const form = Insert("settings/Content", {
 ### Update
 
 Changes a node. `change` takes `name`, `text`, `tag`, `hidden`, `props`, `args` (an instance's values), `style`, `unset`
-and `component`. `props`, `args` and `style` merge with what's there; set a key to `null` to remove it.
+and `component`. `props`, `args` and `style` merge with what's there; set a key to `null` to remove it. An image node
+also takes `src`, `alt` and `credit` (`[{ name, url? }]`), in the base design only. To put a photo a search found in
+one, use `place_result`, which tells the source it was used.
 
 With `{ state: "loading" }` the change belongs to that state instead of the base design, and `null` takes back the
 state's change to that key. A state can change only `hidden`, `text`, `props`, `style` and `unset`. To turn off in one

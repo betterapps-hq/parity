@@ -1,5 +1,13 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
 import {
+  checkRequest,
+  connectors,
+  type RecentSearch,
+  remember,
+  type SearchAnswer,
+  searchAnswer
+} from "@parity-app/connectors"
+import {
   type ComponentInfo,
   type ContainerSpec,
   defaultModeSettings,
@@ -10,6 +18,7 @@ import discovered from "virtual:parity/example-project"
 import { z } from "zod"
 import desktop from "../../../package.json"
 import { type AccountState, type SignedInAccount, type SignInAttempt, signedOut } from "../../shared/account.ts"
+import type { ConnectorSearch } from "../../shared/connectors.ts"
 import type {
   CanvasHost,
   ProjectEditResult,
@@ -207,6 +216,81 @@ const storyTelemetry: CanvasHost["telemetry"] = {
   }
 }
 
+/** The answer where there's no server running the connectors, as in a built Storybook. */
+const noServer: SearchAnswer = {
+  problem: {
+    code: "no-key",
+    message: "This Storybook has no keys. Run it from the repository, with the keys in apps/desktop/.env.local."
+  }
+}
+
+/**
+ * Asks the connectors Storybook's dev server runs (`.storybook/connectors.ts`). Nothing comes back where it isn't
+ * running, or where it didn't answer with JSON.
+ */
+async function askConnectors(path: "keys" | "search", search?: ConnectorSearch): Promise<Response | undefined> {
+  try {
+    const response = await fetch(`/__connectors/${path}`, {
+      method: search ? "POST" : "GET",
+      headers: { "content-type": "application/json" },
+      body: search ? JSON.stringify(search) : undefined
+    })
+
+    const sent = response.headers.get("content-type") ?? ""
+
+    return response.ok && sent.startsWith("application/json") ? response : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The searches the real connectors answered in stories, newest first, kept as main keeps a person's: one for each
+ * description, the latest few for each connector. They last until the page reloads.
+ */
+let recentNow: RecentSearch[] = []
+
+/** Adds a search that worked to the recent ones, with every filter it ran with, as main's hub does. */
+function recall({ connector, request }: ConnectorSearch): void {
+  const info = connectors.find((each) => each.info.id === connector)?.info
+  const checked = info && checkRequest(info, request)
+
+  if (checked && "request" in checked) {
+    const { query, kind, filters } = checked.request
+    recentNow = remember(recentNow, { connector, kind, query, filters, at: Date.now() })
+  }
+}
+
+/**
+ * The connectors in stories (PAR-827): Storybook's dev server searches Mobbin and Unsplash with the keys in
+ * `.env.local`, as main does for the window, so a key never reaches the page. A search that works joins the recent
+ * searches, as it does in the app. Nothing here tells a source a result was used, since a story places nothing for
+ * real.
+ */
+const storyConnectors: CanvasHost["connectors"] = {
+  get: async () => {
+    const answered = await askConnectors("keys")
+    const keyed = z.array(z.string()).safeParse(await answered?.json())
+
+    return connectors.map(({ info }) => ({
+      ...info,
+      key: keyed.success && keyed.data.includes(info.id) ? "here" : "none"
+    }))
+  },
+  search: async (search) => {
+    const answered = await askConnectors("search", search)
+    const answer = searchAnswer.safeParse(await answered?.json())
+
+    if (answer.success && "found" in answer.data) {
+      recall(search)
+    }
+
+    return answer.success ? answer.data : noServer
+  },
+  recent: () => Promise.resolve(recentNow),
+  placed: () => Promise.resolve()
+}
+
 /** Puts the service and the system dialogs back as they were before any story changed them. */
 export function resetHost(): void {
   telemetryNow = defaultTelemetry
@@ -260,6 +344,7 @@ export function installHost(): void {
       })
     }),
     account: storyAccount,
+    connectors: storyConnectors,
     serve: () => undefined,
     onReconnect: () => undefined,
     ...cancelled,

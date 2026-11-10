@@ -8,6 +8,8 @@ export * from "./catalog.ts"
 
 export * from "./check-events.ts"
 
+export * from "./connector-events.ts"
+
 export * from "./crash-log.ts"
 
 export * from "./diagnostics.ts"

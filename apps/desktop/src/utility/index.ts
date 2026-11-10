@@ -26,7 +26,7 @@ import { undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
-import { importImage, removeImage, scanImages } from "./images.ts"
+import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
 import { keepOnlyPictures, readPictures, storePicture } from "./pictures.ts"
@@ -249,7 +249,8 @@ const agentImages: AgentImages = {
     const removed = await removeImage(projects.get(projectId), path)
 
     return { path: removed.path, label: removed.edit.label }
-  }
+  },
+  saveImage: async (projectId, image) => saveImageFrom(projects.get(projectId), image, fetch)
 }
 
 void startAgentServer(editorWindow, agentImages).catch((cause: unknown) => {

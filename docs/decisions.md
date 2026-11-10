@@ -1343,6 +1343,27 @@ recommended answer to each of its questions.
   service; the key never ships in the app. Unsplash allows 50 requests an hour until it approves an app for production,
   then 5,000, and raises that further on request. Only searches and download pings count; loading the images themselves
   doesn't.
+- **Pixabay finds photos in place of Unsplash** (your call, 2026-11-10, PAR-837). Unsplash's terms ask for more, it
+  allows 50 searches an hour until it approves the app, and it has no videos. Pixabay has photos, illustrations, vectors
+  and videos, and allows 100 requests a minute for a key, which it raises for an app that uses its API well. Unsplash's
+  connector stays in `connectors`, so a result or image that came from it is still named, but only `offered` ones are
+  searched; going back is one line in `packages/connectors/src/index.ts`. Parity owns the key, as with Unsplash's.
+  Pixabay's terms (pixabay.com/api/docs) ask three things:
+  - show where results are from wherever they're shown, which each result's `credit` and the browser's credit do;
+  - use its image links only to show search results, and they work for 24 hours, so a picture placed in a design is
+    saved into the project rather than linked. Its videos may be played from its own links, though it suggests keeping a
+    copy;
+  - keep each search's answer for 24 hours rather than ask again, and send only searches people make, never mass
+    downloads. Parity's service will keep them, shared by every user (PAR-131), so the app keeps no cache of its own
+    (your call, 2026-11-10).
+- **Agents' calls name no source, and don't say photos** (your call, 2026-11-10, PAR-837). A source can change, as
+  Unsplash did, and one finds more than photos. `find_photos` (`parity photos`) became `find_media` (`parity media`),
+  with a `type` filter (photos, illustrations, vectors or videos) and filter examples that name no source. Placing a
+  result says picture, and its credit names the author. Videos and screens are found but not placed.
+- **Placing a picture whose link expires saves it first** (PAR-837). `place_result` downloads it into `public/images/`
+  as a pasted image is saved, named after it with a hash of its content, and the node shows the file, so a saved design
+  never holds a link that stops working. Saving is its own undoable edit, before the placing one. Placing what Unsplash
+  linked still sets its link, as Unsplash's terms ask.
 - **Image files dropped from Explorer or Finder land as pasted layers do (PAR-24).** My calls, all in editor.md's
   "Dropping image files":
   - Over a layout they go where Paste here would put them: the slot under the pointer by `slotAt`, or at the pointer in
@@ -6807,6 +6828,156 @@ The plan attached the last log file to a crash, and main's hangs said how long b
 - **Frames are named `app:///` from the app's folder,** as Sentry's Electron SDK names them, with the bundles' debug IDs
   from main, so Sentry maps them to the uploaded source maps and no one's home folder is sent.
 - **`where` is the innermost of Parity's own frames,** not the innermost frame, which is often Node's own code.
+
+## Connectors search outside services from main (PAR-829)
+
+You asked on 2026-11-09 to build the Mobbin integration with patterns that make Unsplash and later sources easier. My
+calls:
+
+- **A connector is one adapter in `@parity-app/connectors`,** which takes data and returns data, as
+  [extensions.md](proposals/extensions.md) describes connectors. Each one says what it finds (screens, flows, sections
+  or photos), the platforms and depths it takes, its limits and where to get a key, and turns a search into one result
+  shape and one set of problems: no key, a key turned down, a plan without access, a rate limit with when to retry, a
+  search it can't run, or a source that didn't answer. A failure is data in the answer, not a thrown error, so it
+  reaches the window and agents whole across IPC and the service's channel. Unsplash (PAR-131) adds one adapter, and its
+  download ping is the connector's `picked`.
+- **Mobbin is its REST API, which searches screens only.** `POST /v1/screens/search` takes a query, the platform (`ios`
+  or `web`, required), the mode (`standard` or `deep`), a limit up to 100 and ids to leave out, and that's the whole
+  API. Flows and sections are only in Mobbin's MCP server, which signs each person in with their own account; a
+  connector for that is a later choice, not part of this one. Standard is the default, since a deep search that finds
+  something spends 5 of the person's AI credits. Tried live on 2026-11-10: a standard search took about 3 seconds and a
+  deep one about 8, and the images are public WebP files of about 13 KB whose links last 30 days.
+- **Main keeps the keys and runs every search.** The window asks over IPC and sees only whether it can search. (A key
+  file and a setting for keys were built here, then dropped the same day: keys are the app owner's, below.) Agents ask
+  through the service, which asks main. Main scrubs the keys from what it sends to Sentry, and never passes them to the
+  service, whose builders run project code.
+- **A development copy reads `PARITY_MOBBIN_API_KEY`,** from the shell or from `apps/desktop/.env.local`, which
+  `pnpm dev` passes to main alone.
+- **Agents get `find_references` and `parity references`,** for screens only, with up to 6 by default and 20 at most.
+  The previews are saved under `~/.parity/references`; MCP shows them as images, and `--json` names their files. The
+  skill says to look at real apps before designing a common screen, and to follow their patterns with the project's own
+  components and tokens, never an app's layout, text or branding.
+- **Each search is recorded** as `connectors.searched`, with its connector, filters, count or problem and time, never
+  what was searched for.
+
+## Connectors declare their filters, and agents search by kind (PAR-829)
+
+You asked on 2026-11-10 for the pattern changes that adding Unsplash showed. My calls:
+
+- **A connector lists its filters as data,** each with an id, a name, its values and an optional default. Mobbin's
+  platform defaults to the web and its depth to standard. Unsplash's orientation and color have none, so leaving them
+  out means any. A search sends `filters`, and `checkRequest` refuses any filter or value the connector doesn't list.
+  This replaces `platform`, `depth`, `orientation` and `color` on the shared request. Mobbin no longer needs a platform
+  named, since the web is its default.
+- **Agents search by kind.** `find_references` finds screens and the new `find_photos` (`parity photos`) finds photos.
+  Main runs each with the first connector that finds that kind and has a key. Both answer in one shape: each result's
+  source, title, link, image and credit, with its preview saved under `~/.parity/references`. A result's `app` became
+  `title`, since a photo has no app.
+- **An answer carries `allowance`,** the searches left before the source turns them away, read from the standard
+  rate-limit headers. Unsplash sends them; Mobbin doesn't, as a live check on 2026-11-10 showed, so its answers carry
+  none.
+- **The hub takes a `SearchService`** for connectors whose keys a service holds. It's used when there's no key here, for
+  searches and placements alike, and the window sees the key's source as `service`. None is plugged in yet.
+- **`connectors.searched` records `filters`** in place of `platform` and `depth`. They're each connector's own values,
+  never typed text.
+- **Not done:** no photo use is reported to Unsplash yet, since nothing places one. How it will be is below.
+
+## Unsplash is the second connector (PAR-829)
+
+You got an Unsplash key on 2026-11-10 and asked for it on the same branch as Mobbin. My calls:
+
+- **It's an adapter like Mobbin's,** in `packages/connectors/src/unsplash.ts`: photos, 20 by default and 30 at most, by
+  orientation (landscape, portrait or squarish) and Unsplash's colors, paged by page rather than by leaving out ids.
+  Those three filters joined the shared request, and `checkRequest` refuses them for a connector that doesn't name them.
+- **Its key is the app's Access Key with Public access only,** sent as `Client-ID`. The Secret Key and the other scopes
+  are for acting on a person's own Unsplash account, which Parity doesn't do. For now main holds it, from
+  `PARITY_UNSPLASH_ACCESS_KEY` in development; a service of Parity's still holds it for shipping, as decided on
+  2026-10-28.
+- **Its terms are kept:** photos load from Unsplash's own links, `picked` reports a use to its download endpoint
+  (nothing calls it yet; see below), and every photo credits its photographer and Unsplash, linked with
+  `utm_source=parity&utm_medium=referral`. Searches keep out photos Unsplash marks unsuitable for every audience
+  (`content_filter=high`).
+- **A photo is named by its alt text first,** then its description, then its photographer, since descriptions are often
+  the photographer's own notes.
+- **Unsplash says its limit is reached with a 403,** not a 429, so a 403 with no requests left reads as `rate-limited`.
+  Tried live on 2026-11-10: a search took under half a second, the demo limit is 50 an hour, and images are JPEGs.
+- **Each connector names its own key variable,** which main reads and keeps from the service, and `pnpm dev` passes on
+  every `PARITY_*_KEY` in `.env.local`, so the next connector needs no changes there. What else would make the next one
+  easier is in [connectors.md](connectors.md#pattern-changes-made).
+
+## Keys are the app owner's, and Parity reports uses itself (PAR-829)
+
+A review of the connectors on 2026-11-10 found twelve things to fix. You decided two of them, and the rest are my calls:
+
+- **People never enter a key** (your call): connectors are a built-in feature, and the app's owner arranges the keys. So
+  the key file, setting and clearing a key, the check before keeping one, `probe` and `connectors.storeFailed` are gone.
+  A connector's `auth` is none or a key with its variable. A development copy sets keys in the environment; a shipped
+  copy will search through Parity's service. Main reads the keys once and deletes them from its own environment, and the
+  service's environment leaves out every `PARITY_*_KEY`, not only the ones named today.
+- **No agent tool reports a use** (your call): an agent could skip it. Placing is the step instead, below.
+- **A missing key isn't the agent's problem.** `no-key` says this copy can't search the source and to carry on without
+  it, and the CLI and MCP don't treat it as an error. Messages about a refused key no longer tell the person to fix it.
+- **Main checks a search before it routes or records it,** and records every filter as checked. Each connector runs up
+  to 30 searches a minute, half of Mobbin's shared allowance, so one copy's runaway loop can't spend it.
+- **Agents search one shape per kind.** Each call can name a `connector`. The contracts no longer fill in Mobbin's
+  defaults, every other field is passed on as a filter, and main picks a connector that takes the filters named, so a
+  second screens source doesn't get `invalid`. Each result names its connector. A search that asked for more and got
+  none says "No more results for this search."
+- **Recent searches are kept by main** (you asked on 2026-11-10 for them to move to the person's account once there's a
+  service). The hub adds each search the person runs that works, never an agent's, through a `SearchHistory`. For now
+  it's a file in the app's data, `recent-searches.json`, keeping each connector's latest five; an account's store will
+  take its place without a change to the window. A search whose recent search can't be kept still answers.
+- **Previews can't fail a search.** Each is fetched and saved on its own, read up to 4 MB, named with at most 40 letters
+  of its title, and taken from the source's smaller picture when it has one (Unsplash's small, 400 pixels).
+
+## Placing a result is a step of its own (PAR-829)
+
+You asked on 2026-11-10 for a hook when a connector's result is placed, for telemetry and usage, with each connector
+deciding what else to do, and for agents to get two tools: one to search and one to place. Your calls and mine:
+
+- **Agents search, then place** (your call). `find_photos` and `find_references` give previews to look at and ids, but
+  no image link, so an agent can't put a photo in a design by pasting one. `place_result` (`parity place`) names a
+  result by connector and id and an image node by path; Parity sets the node's `src` (and `alt`, from the photo's title)
+  from main's own copy, as one undoable edit, and only once that's applied tells main. You asked how an agent sees a
+  photo without its link: through the preview each search saves, which MCP shows inline.
+- **The hub's `placed` runs the same steps for every connector** (your call): it counts the placement as the source's
+  usage, and only when it's new records `connectors.placed` and calls the connector's own `placed`, which for Unsplash
+  reports the photo to its download endpoint. `picked` became `placed`. Telemetry carries the connector, kind and who
+  placed it, never which result or where.
+- **Usage counts once for each design.** A `PlacementLog` keeps them, a file in the app's data for now
+  (`connector-placements.json`, the latest 2,000), so placing the same photo in the same design again isn't reported
+  twice. A log that can't be read or written counts the placement as new, since a source's terms prefer being told twice
+  to not at all. Once Parity's service counts usage on the person's account, main passes the hub its store.
+- **Only photos go in designs.** Placing a Mobbin screen is refused: references are for looking at, as the proposal
+  says.
+- **The window places through `canvasHost.connectors.placed`,** with the result's connector and id and the design, and
+  main uses its own copy. Nothing in the window calls it yet, since there's no Place for photos.
+
+## A second review of placing and the hub (PAR-829)
+
+You asked on 2026-11-10 for another LLM-as-judge review, and to fix what it confirmed. My calls:
+
+- **Placing works in Parity's own image nodes.** `Update` couldn't change an image's picture, so placing set a prop the
+  node didn't have. `Update` now takes `src`, `alt` and `credit` on an image node, in a design's base state only, since
+  a state can't change which picture it shows. `place_result` checks its target before it edits: an image node, or a
+  component that declares the prop named. It refuses one that already shows the photo, and says why with a code.
+- **Placements are keyed without paths.** A design's key is a hash of its project, file and design, so two designs with
+  the same id in different files count apart, and the log, and later the account's store, hold no path.
+- **Each connector declares its source's rate limit,** and main runs half of it: Mobbin's 60 a minute and Unsplash's 50
+  an hour. This replaces 30 searches a minute for every connector, which would have spent Unsplash's hour in two
+  minutes.
+- **A connector can need no key,** with `auth: { type: "none" }`, and searches. Key variables are any
+  `PARITY_<NAME>_KEY`, in any letter case.
+- **A report a source didn't take is tried again** as Parity next starts. The log keeps whether each was told.
+- **The contracts take filters as plain text** by the connectors' ids, and both ways of asking for more, so main checks
+  them against whichever connector runs the search. `place_result` can name the tab.
+- **Main enforces which kinds go in designs,** from `placeableKinds`, for the window as well as agents, and refuses a
+  photo whose link expires.
+- **The hub never throws** to the window or an agent: an adapter or service that throws answers `unavailable`, and the
+  service gets the hub's timeout. The stores re-read their file before each change and write through a temporary file of
+  their own, so two copies of Parity don't lose each other's entries.
+- **`agent.called` leaves out what was searched for and which result was placed where,** as `connectors.*` already did.
+- **Old previews are deleted** after a week.
 
 ## A project's images are listed and removed in one shape (PAR-834)
 

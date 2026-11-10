@@ -99,6 +99,31 @@ const tabDescription =
   'current folder is in, else "active".'
 
 const tab = text("tab", tabDescription).optional()
+
+/** Which source a search asks, by its connector's id. Without one, any that finds the kind. */
+const connector = z
+  .string("connector must be a connector's id, from a result")
+  .optional()
+  .describe("A connector's id, from a result. Defaults to any.")
+
+/**
+ * A filter a search names by the connector's own id for it. Main checks the value against the connector that runs the
+ * search, so a second source of the same kind with other values takes them without a change here.
+ */
+function filter(name: string, description: string) {
+  return text(name, description).optional()
+}
+
+/** Results already shown, for a source that gives more by leaving them out. Main says which way the source pages. */
+const exclude = z
+  .array(nonblank("exclude must be a list of ids"), "exclude must be a list of ids")
+  .max(100, "exclude takes up to 100 ids")
+  .optional()
+  .describe("Ids already seen, for more.")
+
+/** The page of results, for a source that gives more by page. */
+const page = z.int("page must be a whole number").min(1, "page must be 1 or more").optional().describe("Next page.")
+
 const design = text("design", "Design id or name.")
 const scaleMessage = "scale must be a finite number from 0.25 to 3"
 const scale = z.number(scaleMessage).min(0.25, scaleMessage).max(3, scaleMessage).default(1).describe("Pixel density.")
@@ -230,6 +255,38 @@ export const requests = {
     state: text("state", "State id. Defaults to the shown one.").optional(),
     node: text("node", "Node id.").optional(),
     testRun: text("testRun", "Test pass. Defaults to PARITY_TEST_RUN.").optional()
+  }),
+  references: fields({
+    tab,
+    query: text(
+      "query",
+      'One screen: its type, then up to three parts, as "paywall with a free trial". No platform, style words or negations. Name an app for only its screens.'
+    ),
+    connector,
+    platform: filter("platform", "ios for phone apps, or web. Defaults to web."),
+    depth: filter("depth", "deep keeps strong matches, for searches with parts; it spends the source's AI credits."),
+    limit: limit("Most screens.", 6, 20),
+    exclude,
+    page
+  }),
+  media: fields({
+    tab,
+    query: text("query", 'One subject, as "desk by a window".'),
+    connector,
+    type: filter("type", "photos (default), illustrations, vectors or videos."),
+    orientation: filter("orientation", "horizontal or vertical."),
+    color: filter("color", "One color, as blue, grayscale or transparent."),
+    limit: limit("Most results.", 6, 20),
+    exclude,
+    page
+  }),
+  place: fields({
+    tab,
+    connector: text("connector", "The result's connector, from the search."),
+    id: text("id", "The result's id, from a search."),
+    node: text("node", 'The image, or a component with an image prop, as design/node: "home/photo".'),
+    prop: text("prop", "A component's prop that takes the image. Defaults to src.").optional(),
+    state: text("state", "State id, for a component's prop in one state.").optional()
   }),
   images: fields({
     tab,
@@ -688,7 +745,7 @@ const reportReply = z.looseObject({
   attachments: strings.describe("The files sent with it: the window's screenshot, the frames and the diagnostics.")
 })
 
-/** One of the project's images (PAR-834): a file, a linked photo, or a path layers name with no file. */
+/** One of the project's images (PAR-834): a file, a linked image, or a path layers name with no file. */
 const projectImage = z.looseObject({
   kind: z.enum(["file", "linked", "missing"]),
   src: z.string().describe("What layers set src to."),
@@ -713,6 +770,66 @@ const imagesReply = z.looseObject({
 const removeImageReply = z.looseObject({ path: z.string(), label: z.string() })
 
 /**
+ * Something a connector found (PAR-829): a screen from a real app, or a stock picture or video, the same shape from
+ * every source, with its preview saved as a file for the agent to look at.
+ */
+const foundItem = z.looseObject({
+  id: z.string().describe("The source's id, which exclude takes."),
+  connector: z.string().describe("The connector that found it, which connector and place take."),
+  source: z.string().describe("Where it's from, to credit."),
+  kind: z.string().optional().describe("screens, photos or videos; only photos go in designs."),
+  title: z.string().describe("The app's name, or what a picture shows."),
+  platform: z.enum(["ios", "web"]).optional(),
+  link: z.string().describe("Its page at the source."),
+  width: z.int().optional(),
+  height: z.int().optional(),
+  credit: z
+    .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
+    .describe("Who to credit, in order: the app or its author, then the source."),
+  preview: z
+    .looseObject({
+      path: z.string().describe("Where the preview was saved."),
+      mimeType: z.enum(["image/png", "image/jpeg", "image/webp", "image/gif"]),
+      data: z.string().optional().describe("The preview as base64, which MCP shows and --json leaves out.")
+    })
+    .optional()
+    .describe("Missing when the preview couldn't be fetched.")
+})
+
+/** What a search found, or why it found nothing to show. */
+const foundReply = z.looseObject({
+  found: z.array(foundItem),
+  allowance: z
+    .looseObject({ remaining: z.int(), limit: z.int().optional() })
+    .optional()
+    .describe("Searches the source allows before turning them away, when it says."),
+  problem: z
+    .looseObject({
+      code: z
+        .string()
+        .describe(
+          "no-key, key-refused, no-access, rate-limited, invalid or unavailable. Only invalid is yours to fix."
+        ),
+      message: z.string(),
+      retryAfter: number.optional().describe("Seconds to wait before searching again.")
+    })
+    .optional(),
+  done: z.boolean().optional().describe("True when more of a search was asked for and there's no more.")
+})
+
+/** What placing a result did: the node it went in and who to credit, or why it wasn't placed. */
+const placeReply = z.looseObject({
+  placed: z.boolean(),
+  node: z.string().optional(),
+  warnings: z.array(z.string()).optional(),
+  credit: z
+    .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
+    .optional()
+    .describe("Who to credit where the design shows it, in order: its author, then the source."),
+  problem: z.looseObject({ code: z.string(), message: z.string() }).optional()
+})
+
+/**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,
  * which calls are routed by (PAR-514): its tabs, and when its window last had focus, missing from a copy too old to
  * say. A screenshot is a snippet Parity writes, so it answers as `exec` does.
@@ -733,6 +850,9 @@ export const replies = {
   components: componentsReply,
   props: propsReply,
   report: reportReply,
+  references: foundReply,
+  media: foundReply,
+  place: placeReply,
   images: imagesReply,
   removeImage: removeImageReply
 }

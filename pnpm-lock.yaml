@@ -325,6 +325,9 @@ importers:
       '@parity-app/code':
         specifier: workspace:*
         version: link:../../packages/code
+      '@parity-app/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@parity-app/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -582,6 +585,12 @@ importers:
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+
+  packages/connectors:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/core:
     dependencies:

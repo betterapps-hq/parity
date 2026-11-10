@@ -13,10 +13,14 @@ import {
   describeProblems,
   describeProps,
   describeImages,
+  describeMedia,
+  describePlace,
+  describeReferences,
   describeRemovedImage,
   describeReport,
   describeStatus,
   describeTokens,
+  type FindResponse,
   setCaller
 } from "./client.ts"
 import { operationError, renamePath } from "./errors.ts"
@@ -51,7 +55,10 @@ interface Reply {
   isError?: boolean
 }
 
-type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }
+/** The picture types MCP clients show. */
+type ImageType = "image/png" | "image/jpeg" | "image/webp" | "image/gif"
+
+type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: ImageType }
 
 /**
  * One adapter for RPC-backed tools: operation contracts own defaults, validation, failure semantics and the structured
@@ -82,6 +89,11 @@ function operationTool<Result>(
       }
     }
   }
+}
+
+/** Each found item's saved preview, as an image the client shows. */
+function previews(result: FindResponse): Content[] {
+  return result.found.flatMap((each) => (each.preview?.data ? [image(each.preview.data, each.preview.mimeType)] : []))
 }
 
 /** Results that are data to begin with, as compact JSON text for clients that don't read structuredContent. */
@@ -198,7 +210,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "get_images",
-    "List the project's images (files in public/images, linked photos, paths with no file) and what uses each. search matches a name, alt text or credit.",
+    "List the project's images (files in public/images, linked images, paths with no file) and what uses each. search matches a name, alt text or credit.",
     operations.images,
     (result) => [text(describeImages(result))]
   ),
@@ -213,6 +225,24 @@ const tools: Tool[] = [
     "Read a component's props from source, and its composition: the parents or provider it goes inside, the parts it holds, its slots and an example node to insert. all includes attributes it passes through.",
     operations.props,
     (result) => [text(describeProps(result))]
+  ),
+  operationTool(
+    "find_references",
+    "Search real apps' screens before designing a common one, as onboarding or a paywall, and look at the previews. Follow their patterns with the project's own components and tokens, never an app's layout, text or branding; name the apps you drew on.",
+    operations.references,
+    (result) => [text(describeReferences(result)), ...previews(result)]
+  ),
+  operationTool(
+    "find_media",
+    "Search stock photos, illustrations, vectors or videos when a design needs one, as a hero or an avatar, and look at the previews. Place a picture with place_result.",
+    operations.media,
+    (result) => [text(describeMedia(result)), ...previews(result)]
+  ),
+  operationTool(
+    "place_result",
+    "Put a picture a search found into an image node, as one undoable edit. Parity saves the file when the link doesn't last and tells the source it was used. Credit who it names where the design shows it.",
+    operations.place,
+    (result) => [text(describePlace(result))]
   ),
   operationTool(
     "report_problem",
@@ -383,6 +413,6 @@ function text(value: string): Content {
   return { type: "text", text: value }
 }
 
-function image(data: string): Content {
-  return { type: "image", data, mimeType: "image/png" }
+function image(data: string, mimeType: ImageType = "image/png"): Content {
+  return { type: "image", data, mimeType }
 }

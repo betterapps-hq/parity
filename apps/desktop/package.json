@@ -38,6 +38,7 @@
   "devDependencies": {
     "@buildkitgg/storybook-config": "catalog:",
     "@parity-app/account": "workspace:*",
+    "@parity-app/connectors": "workspace:*",
     "@parity-app/agent": "workspace:*",
     "@parity-app/builder-vite": "workspace:*",
     "@parity-app/channel": "workspace:*",

@@ -60,5 +60,13 @@ export const ipc = {
   reportPrepare: "canvas:report-prepare",
   reportSend: "canvas:report-send",
   /** The window asks once, as it starts, whether the last run crashed. */
-  reportLastCrash: "canvas:report-last-crash"
+  reportLastCrash: "canvas:report-last-crash",
+  /** The connectors and whether this copy can search each one, never a key (PAR-829). */
+  connectorsState: "canvas:connectors-state",
+  /** The window asks main to search a connector, which main does with its key. */
+  connectorsSearch: "canvas:connectors-search",
+  /** The person's recent searches, which main keeps. */
+  connectorsRecent: "canvas:connectors-recent",
+  /** The window tells main the person placed a result in a design, which main records and tells the source of. */
+  connectorsPlaced: "canvas:connectors-placed"
 } as const
