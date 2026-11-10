@@ -123,6 +123,7 @@ describe("mainHangEvent", () => {
       message: "Main stopped answering",
       tags: { driver: "person", process: "main", hang: "main" },
       extra: { stuckMs: 2500 },
+      fingerprint: ["main-stopped-answering"],
       release: "parity-desktop@1.0.0",
       environment: "development",
       user: { id: "i" }
@@ -202,6 +203,22 @@ describe("main's stack", () => {
       value: "Main stopped answering in readEverything (app:///main.mjs:10:5)",
       stacktrace: { frames }
     })
+  })
+
+  it("groups hangs caught on different frames as one Sentry issue", () => {
+    const caughtOn = (functionName: string) =>
+      mainHangEvent({
+        stuckMs: 2500,
+        scope: { tags: {} },
+        eventId: "abc",
+        now: 1,
+        stack: {
+          frames: [{ filename: "app:///main.mjs", function: functionName, lineno: 1, colno: 1, in_app: true }],
+          images: []
+        }
+      }).fingerprint
+
+    expect(caughtOn("emit")).toEqual(caughtOn("isPackaged"))
   })
 
   it("carries where main was stuck into the next run's report", () => {

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Group every main hang, and every UnknownVizError, as one Sentry issue each, so Sentry's alert files one Linear bug instead of one per stack",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
