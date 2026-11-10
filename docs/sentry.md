@@ -46,8 +46,8 @@ Until 2026-11-09, `preview` and `release` were one environment, `tester` (PAR-77
 
 `production` is the app's GitHub release once it's no longer a pre-release (PAR-779). Promotion doesn't rebuild the app,
 so it learns it was promoted from GitHub: it asks as it starts, saves the answer in `installed-build.json`, and reports
-`production` from its next start. The first start of a newly promoted version reports `release`. No build has been
-promoted yet, so Sentry hasn't seen `production`, and the monitors that watch it can't be made until it has.
+`production` from its next start. The first start of a newly promoted version reports `release`. v0.45.1 was the first
+promoted build, and its first `production` session reached Sentry on 2026-11-09.
 
 The CLI's `production` is a version that's been npm's `latest` (PAR-799). Every merge publishes the CLI to `next`, and
 approving `cd-npm.yml`'s Production job moves `latest` to it. The CLI's sender asks npm after it sends, saves the answer
@@ -128,9 +128,9 @@ source. The calls are in [decisions.md](decisions.md#every-build-is-a-sentry-rel
 
 ## Alerts
 
-Three alerts file Linear bugs. Each has one action, Linear's "Create a Linear issue": team Parity, project Parity,
-status Todo, label Bug, no priority. The calls behind them are in
-[decisions.md](decisions.md#sentry-files-linear-bugs-par-622) and
+Four alerts file Linear bugs with Linear's "Create a Linear issue": team Parity, project Parity, status Todo, label Bug.
+Three file with no priority, and "Email critical monitor breaches" files at Urgent and emails too. The calls behind them
+are in [decisions.md](decisions.md#sentry-files-linear-bugs-par-622) and
 [decisions.md](decisions.md#sentry-watches-agent-failures-and-crash-free-sessions-par-643).
 
 | Alert                                                                                               | Fires on                                   | For                                                 | At most        |
@@ -138,21 +138,48 @@ status Todo, label Bug, no priority. The calls behind them are in
 | [File new issues and regressions in Linear](https://better-apps.sentry.io/monitors/alerts/6301645/) | A new issue, or a resolved one coming back | Every issue but user feedback, from desktop and CLI | Once in 30 min |
 | [File user feedback in Linear](https://better-apps.sentry.io/monitors/alerts/6301647/)              | A new issue                                | User feedback, from desktop and CLI                 | Every time     |
 | [File monitor breaches in Linear](https://better-apps.sentry.io/monitors/alerts/6310188/)           | A monitor's issue opening, or coming back  | The metric monitors below that are connected to it  | Once in 30 min |
+| [Email critical monitor breaches](https://better-apps.sentry.io/monitors/alerts/6318452/)           | A monitor's issue at High priority or more | The metric monitors below, in `production`          | Once in 30 min |
+
+"Email critical monitor breaches" emails `admin@betterapps.io` and files the issue in Linear with the same settings as
+the others but at Urgent. It fires on every event of a monitor's issue whose priority is High or more, so it catches a
+monitor that opens at its critical level and one that climbs to it from its warning level.
 
 ### Metric monitors
 
 A metric monitor opens a Sentry issue while its number is past its threshold and resolves it once it's back, and the
 alert above files that issue in Linear.
 
-**Only `production` alerts,** and nothing sends it until Parity is public, so no monitor is on. Development, CI and
-testers' builds are watched on the [dashboards](#dashboards) instead. The monitors on-call gets once `production` sends,
-with their thresholds, are in [proposals/on-call-health.md](proposals/on-call-health.md#the-monitors), and PAR-779 makes
-them.
+**Only `production` alerts.** Development, CI and testers' builds are watched on the [dashboards](#dashboards) instead.
+PAR-779 made these monitors on 2026-11-09, once v0.45.1 sent `production`, from the list in
+[proposals/on-call-health.md](proposals/on-call-health.md#the-monitors). Each is in `parity-desktop`, scoped to
+`production`, and connected to both "File monitor breaches in Linear" and "Email critical monitor breaches". Sentry
+calls the warning level Medium and the critical level High: High here is Sentry's Medium, which files a bug with no
+priority, and Critical is Sentry's High, which also emails and files at Urgent.
 
-| Monitor                                                                         | Project          | Watches                                                                                      | State                                      |
-| ------------------------------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| [Agent calls failing over 5%](https://better-apps.sentry.io/monitors/10889795/) | `parity-desktop` | `failure_rate()` of spans with `span.op:agent.called`, every environment, over the last hour | Off since 2026-11-09, until PAR-779        |
-| Crash-free sessions under 99% in production (PAR-714)                           | `parity-desktop` | A crash-free session rate, environment `production`, over the last hour                      | Not made: waits for `production` (PAR-779) |
+| Monitor                                                                                         | Watches                                                      | Window | High      | Critical  |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------ | --------- | --------- |
+| [Crash-free sessions under 99% in production](https://better-apps.sentry.io/monitors/10905109/) | Releases: `crash_free_rate(session)`                         | 1 h    | Under 99% | Under 97% |
+| [Agent calls failing over 5%](https://better-apps.sentry.io/monitors/10889795/)                 | Spans: `failure_rate()` of `span.op:agent.called`            | 1 h    | Over 5%   | Over 20%  |
+| [Saves failing](https://better-apps.sentry.io/monitors/10905110/)                               | Logs: `count()` of `message:document.saveFailed`             | 1 h    | 1         | 3         |
+| [Project opens failing](https://better-apps.sentry.io/monitors/10905111/)                       | Logs: `count()` of `message:project.openFailed`              | 1 h    | 5         |           |
+| [Render windows crashing](https://better-apps.sentry.io/monitors/10905113/)                     | Spans: `count()` of `span.op:frame.rendered failure:crashed` | 1 h    | 5         |           |
+| [Builders crashing](https://better-apps.sentry.io/monitors/10905114/)                           | Logs: `count()` of `message:builder.crashed`                 | 1 h    | 3         |           |
+| [Agent server down](https://better-apps.sentry.io/monitors/10905115/)                           | Logs: `count()` of `message:agent.serverFailed`              | 1 h    | 1         |           |
+| [Updates failing](https://better-apps.sentry.io/monitors/10905116/)                             | Logs: `count()` of `message:update.failed`                   | 24 h   | 1         |           |
+| [Main blocked](https://better-apps.sentry.io/monitors/10905117/)                                | Errors: `count()` of `hang:main`                             | 1 h    | 5         |           |
+| [Windows hung](https://better-apps.sentry.io/monitors/10905119/)                                | Errors: `count()` of `hang:window`                           | 1 h    | 3         |           |
+| [Service lagging](https://better-apps.sentry.io/monitors/10905120/)                             | Logs: `count()` of `message:service.lag`                     | 1 h    | 20        |           |
+| [Data checks failing](https://better-apps.sentry.io/monitors/10905121/)                         | Logs: `count()` of `message:data.invalid`                    | 1 h    | 20        |           |
+| [Opening slow](https://better-apps.sentry.io/monitors/10905122/)                                | Logs: `p95(durationMs)` of `message:project.loaded`          | 6 h    | Over 20 s |           |
+| [First frame slow](https://better-apps.sentry.io/monitors/10905123/)                            | Logs: `p95(durationMs)` of `message:project.drawn`           | 6 h    | Over 30 s |           |
+| [Saving slow](https://better-apps.sentry.io/monitors/10905124/)                                 | Logs: `p95(durationMs)` of `message:document.saved`          | 1 h    | Over 1 s  |           |
+| [Frames slow](https://better-apps.sentry.io/monitors/10905125/)                                 | Spans: `p95(span.duration)` of `span.op:frame.rendered`      | 1 h    | Over 2 s  |           |
+| [Agent calls slow](https://better-apps.sentry.io/monitors/10905126/)                            | Spans: `p95(span.duration)` of `span.op:agent.called`        | 1 h    | Over 3 s  |           |
+| [Startup slow](https://better-apps.sentry.io/monitors/10905127/)                                | Logs: `p95(firstPaintMs)` of `message:app.started`           | 24 h   | Over 25 s |           |
+
+A count monitor fires at its number or more and resolves below it. The others fire past their threshold and resolve once
+they're back. Log attributes are queried as `tags[durationMs,number]` and `tags[firstPaintMs,number]`, since Sentry
+reads them as strings otherwise.
 
 What a filed issue carries:
 
@@ -233,11 +260,9 @@ so a Sentry module needs them to take a Sentry token first. Until then, these we
     `production` alerts (PAR-716).
 11. Turned on "Prevent storing of IP addresses" under Security & Privacy in `parity-desktop` and `parity-cli`, on
     2026-11-09 (PAR-619). Sentry still works out each event's location from the address, so the country stays.
+12. Made the on-call [metric monitors](#metric-monitors) and "Email critical monitor breaches" on 2026-11-09, through
+    Sentry's API from a signed-in browser, and turned "Agent calls failing over 5%" on again, scoped to `production`
+    with a Critical level over 20% (PAR-779, PAR-714).
 
 PAR-658 brings all of this into Terraform in `infra/sentry`, which the Sentry provider supports for monitors, alerts and
 dashboards.
-
-## Still to do
-
-1. **Make the on-call monitors (PAR-779)** once public builds send `production`, the crash-free monitor (PAR-714) among
-   them, and turn "Agent calls failing over 5%" on again for `production`.

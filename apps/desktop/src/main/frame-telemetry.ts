@@ -130,3 +130,36 @@ export function watchFrame(
     }
   }
 }
+
+/** A picture of the frame that last failed to draw offscreen, when, and the trace that asked for it. */
+export interface FailedFramePicture {
+  attachment: { filename: string; data: Uint8Array; contentType: string }
+  at: number
+  traceId?: string
+}
+
+/** How long a failed frame's picture goes with the errors about it, in milliseconds. */
+export const failedFrameKeptMs = 10 * 60_000
+
+/**
+ * The failed frame's picture, for an error about that frame: one from the offscreen window that drew it, or in the
+ * trace that asked for it, within 10 minutes (PAR-812). Any other error goes without it, so an unrelated failure never
+ * carries a picture of someone's design.
+ */
+export function failedFrameFor(
+  picture: FailedFramePicture | undefined,
+  event: {
+    tags?: { process?: string | number | boolean | bigint | symbol | null }
+    contexts?: { trace?: { trace_id?: string } }
+  },
+  now: number
+): FailedFramePicture["attachment"] | undefined {
+  if (!picture || now - picture.at > failedFrameKeptMs) {
+    return undefined
+  }
+
+  const fromRender = event.tags?.process === "render"
+  const inTrace = picture.traceId !== undefined && event.contexts?.trace?.trace_id === picture.traceId
+
+  return fromRender || inTrace ? picture.attachment : undefined
+}

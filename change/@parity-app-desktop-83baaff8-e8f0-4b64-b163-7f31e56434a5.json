@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A failed frame's picture goes only with errors about that frame, not every error for 10 minutes",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
