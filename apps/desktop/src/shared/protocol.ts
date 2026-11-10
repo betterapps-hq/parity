@@ -8,6 +8,7 @@ import type {
 import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
 import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
+import type { SearchAnswer } from "@parity-app/connectors"
 import type {
   CanvasDocument,
   ChangeConflict,
@@ -29,6 +30,7 @@ import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-ap
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
+import type { ConnectorSearch, ConnectorState, SetKeyAnswer } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
 
 /**
@@ -444,6 +446,19 @@ export interface CanvasHost {
     switchOrganization: (organizationId: string) => Promise<void>
     /** Switches to another account signed in, by its email, at once: each keeps its own session. */
     use: (email: string) => Promise<void>
+  }
+  /**
+   * Connectors to outside services, such as Mobbin (PAR-829). Main holds their keys and runs every search; the window
+   * sees where a key comes from, never the key.
+   */
+  connectors: {
+    get: () => Promise<ConnectorState[]>
+    subscribe: (listener: (states: ConnectorState[]) => void) => () => void
+    /** Never fails: a failure is a problem in the answer. */
+    search: (search: ConnectorSearch) => Promise<SearchAnswer>
+    /** Checks the key with the connector's smallest search, then keeps it, encrypted, in the app's data. */
+    setKey: (connector: string, key: string) => Promise<SetKeyAnswer>
+    clearKey: (connector: string) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string

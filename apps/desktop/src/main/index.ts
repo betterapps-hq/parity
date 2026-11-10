@@ -5,12 +5,14 @@ import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
+import { connectors } from "@parity-app/connectors"
 import {
   CodedError,
   drawsNothing,
   fitInside,
   type JsonValue,
   offscreenWindows,
+  parseData,
   previewSizes,
   type RenderPriority,
   renderQueue,
@@ -38,6 +40,7 @@ import {
 import { type AccountState, accountEmail, organizationId, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
+import { connectorId, connectorKey, connectorSearch, type ConnectorState } from "../shared/connectors.ts"
 import {
   betaSetting,
   checked,
@@ -68,6 +71,8 @@ import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
+import { keyStore } from "./connector-keys.ts"
+import { createConnectorHub } from "./connectors.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
 import { watchFrame } from "./frame-telemetry.ts"
@@ -288,7 +293,8 @@ function startService(): UtilityProcess {
     serviceName,
     stdio: "inherit",
     env: {
-      ...process.env,
+      // Connectors' keys stay in main: the service runs projects' builders, whose code mustn't see them.
+      ...withoutConnectorKeys(process.env),
       PARITY_ALLOWED_ORIGINS: rendererOrigin,
       // Which projects were open, so the service opens them again as it starts, before the window asks (PAR-179).
       PARITY_REOPEN_FILE: join(app.getPath("userData"), "open-projects.json"),
@@ -313,6 +319,12 @@ function startService(): UtilityProcess {
       // Agents get the entries without the id windows keep them by.
       console: ({ origin, clear }) => consoleLog.read(origin, clear).map(({ id: _id, ...entry }) => entry),
       // Another copy got a sign-in link and asks whether it's this copy's: it answers at once, then trades the code.
+      // An agent's search: main holds the keys, so it runs here (PAR-829). The service passes on what an agent sent.
+      connectorSearch: (params) => {
+        const { connector, request } = parseData(connectorSearch, params)
+
+        return connectorHub.search(connector, request, "agent")
+      },
       signInLink: ({ link }) => {
         const taken = account.owns(link)
 
@@ -326,7 +338,7 @@ function startService(): UtilityProcess {
       // The open projects' `.env` values, scrubbed here and in every window (PAR-672).
       secrets: (secrets) => {
         projectSecrets = secrets.filter(isText)
-        scrubber.use(projectSecrets)
+        scrubber.use([...projectSecrets, ...connectorSecrets])
 
         for (const window of BrowserWindow.getAllWindows()) {
           window.webContents.send(ipc.telemetrySecretsChanged, projectSecrets)
@@ -754,6 +766,77 @@ app.on("open-url", (event, url) => {
   event.preventDefault()
   void receiveLink(url)
 })
+
+/**
+ * Connectors to outside services, such as Mobbin (PAR-829). Main keeps their keys, encrypted in the app's data, and runs
+ * every search, for the window over IPC and for agents through the service. A development copy can set a key with
+ * `PARITY_MOBBIN_API_KEY` instead.
+ */
+const connectorHub = createConnectorHub({
+  connectors,
+  keys: keyStore(join(app.getPath("userData"), "connector-keys"), safeStorage, process.platform, (problem) =>
+    events.telemetry.track("connectors.storeFailed", problem)
+  ),
+  environment: { mobbin: environment.PARITY_MOBBIN_API_KEY },
+  fetch: (url, init) => net.fetch(url, init),
+  timeout: 30_000,
+  changed: (states: ConnectorState[]) => {
+    for (const window of appWindows()) {
+      window.webContents.send(ipc.connectorsChanged, states)
+    }
+  },
+  secrets: (values) => {
+    connectorSecrets = values
+    scrubber.use([...projectSecrets, ...connectorSecrets])
+  },
+  searched: (search) => events.telemetry.track("connectors.searched", search),
+  now: () => performance.now()
+})
+
+/** Connectors' keys, scrubbed from what main sends to Sentry. Windows never have them, so they aren't sent there. */
+let connectorSecrets: string[] = []
+
+/** The environment without connectors' keys, for the processes main starts. */
+function withoutConnectorKeys(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const { PARITY_MOBBIN_API_KEY: _mobbin, ...rest } = env
+
+  return rest
+}
+
+const connectorRefusal = "Only the Parity window can use connectors."
+
+handle("connectorsState", (event) => {
+  appWindowOf(event, connectorRefusal)
+
+  return connectorHub.states()
+})
+
+handle(
+  "connectorsSearch",
+  checked(connectorSearch, (event: Electron.IpcMainInvokeEvent, { connector, request }) => {
+    appWindowOf(event, connectorRefusal)
+
+    return connectorHub.search(connector, request, "window")
+  })
+)
+
+handle(
+  "connectorsSetKey",
+  checked(connectorKey, (event: Electron.IpcMainInvokeEvent, { connector, key }) => {
+    appWindowOf(event, connectorRefusal)
+
+    return connectorHub.setKey(connector, key)
+  })
+)
+
+handle(
+  "connectorsClearKey",
+  checked(connectorId, (event: Electron.IpcMainInvokeEvent, connector) => {
+    appWindowOf(event, connectorRefusal)
+
+    return connectorHub.clearKey(connector)
+  })
+)
 
 const signInRefusal = "Only the Parity window can sign in."
 
@@ -1465,6 +1548,7 @@ void app.whenReady().then(() => {
   createWindow()
   // The keychain is only ready once the app is.
   void account.restore()
+  void connectorHub.start()
   void updates.check()
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

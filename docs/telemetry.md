@@ -442,6 +442,8 @@ Some failures are recorded for you, so code doesn't record them again:
 | `clipboard.pasted`        | info  | all  | renderer                                | A paste puts something on the canvas.                                                                             |
 | `command.ran`             | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                                    |
 | `component.changed`       | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                     |
+| `connectors.searched`     | info  | all  | main                                    | A connector's search ends, with what it found or why it found nothing.                                            |
+| `connectors.storeFailed`  | warn  | all  | main                                    | The file that keeps connectors' keys can't be read or written.                                                    |
 | `data.invalid`            | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                           |
 | `dialog.opened`           | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                               |
 | `document.conflicted`     | warn  | all  | renderer                                | A design file changes on disk while it has unsaved changes here, which are kept until the person chooses.         |
@@ -721,6 +723,28 @@ Some failures are recorded for you, so code doesn't record them again:
 | `design`    | `string`                          | The design whose layers it changed, by key                                                                                    |
 | `layers`    | `string[]`                        | The layers: the instance detached or pushed, a layer inside one by path, or the layers made a component                       |
 | `component` | `string`                          | The component, by id: the one the copy follows, or the one made                                                               |
+
+### `connectors.searched`
+
+| Attribute   | Type                  | Meaning                                                                                    |
+| ----------- | --------------------- | ------------------------------------------------------------------------------------------ |
+| `connector` | `string`              | The connector searched, such as `mobbin`                                                   |
+| `from`      | `"window" \| "agent"` | Who asked: the person in the window, or an agent through the service                       |
+| `kind`      | `string`              | What it searched for: `screens`, `flows`, `sections` or `photos`                           |
+| `platform`  | `string`, optional    | The platform searched, `ios` or `web`, for a connector that takes one                      |
+| `depth`     | `string`, optional    | How hard it asked the source to look, `standard` or `deep`, when it said                   |
+| `found`     | `integer`, optional   | How many results came back, when the search worked                                         |
+| `problem`   | `string`, optional    | Why it found nothing to show, such as `rate-limited` or `key-refused`, when it didn't work |
+| `ms`        | `number`              | How long the search took, in milliseconds                                                  |
+
+### `connectors.storeFailed`
+
+| Attribute | Type                                                                 | Meaning                                                                                             |
+| --------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `action`  | `"read" \| "write"`                                                  | Whether Parity was reading the kept keys or writing them                                            |
+| `stage`   | `"file" \| "decrypt" \| "json" \| "schema" \| "reencrypt"`, optional | Where reading failed. A file that can't be decrypted is cleared, so its keys have to be added again |
+| `error`   | `string`                                                             | The error's name, never its message, which can hold what was decrypted                              |
+| `code`    | `string`, optional                                                   | The system error code, as `EPERM`, when there is one                                                |
 
 ### `data.invalid`
 

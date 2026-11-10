@@ -60,5 +60,14 @@ export const ipc = {
   reportPrepare: "canvas:report-prepare",
   reportSend: "canvas:report-send",
   /** The window asks once, as it starts, whether the last run crashed. */
-  reportLastCrash: "canvas:report-last-crash"
+  reportLastCrash: "canvas:report-last-crash",
+  /** The connectors and where each one's key comes from, never the key (PAR-829). */
+  connectorsState: "canvas:connectors-state",
+  /** Main tells windows a connector's key was set or cleared. */
+  connectorsChanged: "canvas:connectors-changed",
+  /** The window asks main to search a connector, which main does with its key. */
+  connectorsSearch: "canvas:connectors-search",
+  /** The window gives main a key the person typed, which main checks before keeping. */
+  connectorsSetKey: "canvas:connectors-set-key",
+  connectorsClearKey: "canvas:connectors-clear-key"
 } as const
