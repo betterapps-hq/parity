@@ -11,11 +11,12 @@ import {
   envelopeSchema,
   hangThresholdMs,
   lagCheck,
-  type LeftoverHang,
   leftoverHangs,
   type OpenHangs,
+  openHangsSchema,
   openHangsFile,
   openHangsOwner,
+  openHangsRun,
   registeredEvents,
   serviceExit,
   isSpanEnvelope,
@@ -462,7 +463,11 @@ function keepStuckWindows(): void {
 
     const now = performance.now()
 
+    const options = Sentry.getClient()?.getOptions()
+
     const open: OpenHangs = {
+      release: options?.release,
+      environment: options?.environment,
       hangs: [...stuckWindows.values()].map(({ kind, since }) => ({ kind, stuckMs: Math.round(now - since) }))
     }
 
@@ -496,7 +501,11 @@ function startHangWatch(folder: string): void {
   }
 
   for (const file of exitedRunsHangs(folder)) {
-    for (const leftover of leftoverHangsIn(file)) {
+    const kept = readOpenHangs(file)
+    // Reported under the release that hung, not this run's, which may be an update (PAR-804).
+    const run = openHangsRun(kept)
+
+    for (const leftover of leftoverHangs(kept)) {
       const { stuckMs } = leftover.attributes
 
       const what =
@@ -504,10 +513,12 @@ function startHangWatch(folder: string): void {
           ? "Main was blocked"
           : `A ${leftover.attributes.window} window was unresponsive`
 
-      Sentry.captureMessage(`${what} for ${(stuckMs / 1000).toFixed(1)}s when the app exited`, {
+      Sentry.captureEvent({
+        message: `${what} for ${(stuckMs / 1000).toFixed(1)}s when the app exited`,
         level: "warning",
         tags: { hang: leftover.name === "main.blocked" ? "main" : "window" },
-        extra: { stuckMs }
+        extra: { stuckMs },
+        ...run
       })
 
       if (leftover.name === "main.blocked") {
@@ -563,12 +574,14 @@ function running(pid: number): boolean {
   }
 }
 
-/** The hangs an earlier run left open in `file`, or none when there's no such file or it can't be read. */
-function leftoverHangsIn(file: string): LeftoverHang[] {
+/** What an earlier run kept in an open-hang file, checked by `openHangsSchema`, or nothing when it can't be read. */
+function readOpenHangs(file: string): OpenHangs | undefined {
   try {
-    return leftoverHangs(JSON.parse(readFileSync(file, "utf8")))
+    const read = openHangsSchema.safeParse(JSON.parse(readFileSync(file, "utf8")))
+
+    return read.success ? read.data : undefined
   } catch {
-    return []
+    return undefined
   }
 }
 

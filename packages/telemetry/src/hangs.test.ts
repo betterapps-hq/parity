@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
-import { hangWatch, leftoverHangs, mainHangEvent, openHangsFile, openHangsOwner, sentryEnvelope } from "./hangs.ts"
+import {
+  hangWatch,
+  leftoverHangs,
+  mainHangEvent,
+  openHangsFile,
+  openHangsOwner,
+  openHangsRun,
+  sentryEnvelope
+} from "./hangs.ts"
 
 describe("hangWatch", () => {
   it("starts a hang once the heartbeat is over the threshold late, then reports it as ongoing", () => {
@@ -39,6 +47,20 @@ describe("hangWatch", () => {
     expect(watch.check(60_500)).toBeUndefined()
     expect(watch.check(62_000)).toBeUndefined()
     expect(watch.check(62_500)).toEqual({ state: "started", stuckMs: 2500 })
+  })
+})
+
+describe("openHangsRun", () => {
+  it("gives the release and environment a file was kept under", () => {
+    expect(openHangsRun({ release: "parity-desktop@1.2.0", environment: "release", hangs: [] })).toEqual({
+      release: "parity-desktop@1.2.0",
+      environment: "release"
+    })
+  })
+
+  it("gives neither for a file that doesn't say, or isn't one", () => {
+    expect(openHangsRun({ hangs: [] })).toEqual({})
+    expect(openHangsRun("nonsense")).toEqual({})
   })
 })
 

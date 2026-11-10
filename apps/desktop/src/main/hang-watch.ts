@@ -45,7 +45,8 @@ if (parentPort) {
   let sending: Sending = { enabled: false, scope: { tags: {} } }
 
   const keep = (stuckMs: number) => {
-    const open: OpenHangs = { hangs: [{ kind: "main", stuckMs }] }
+    const { release, environment } = sending.scope
+    const open: OpenHangs = { release, environment, hangs: [{ kind: "main", stuckMs }] }
 
     try {
       writeFileSync(file, JSON.stringify(open))

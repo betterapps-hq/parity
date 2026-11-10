@@ -68,6 +68,9 @@ export function hangWatch({ every, threshold, start }: { every: number; threshol
 
 /** The hangs still open, as each writer keeps them in its file while they last: main's, or windows' by `window.hung`'s names. */
 export const openHangsSchema = z.object({
+  /** The Sentry release and environment of the run that kept them, which the next run, maybe updated, reports under. */
+  release: z.string().optional(),
+  environment: z.string().optional(),
   hangs: z.array(
     z.object({
       kind: z.enum(["main", "renderer", "render"]),
@@ -77,6 +80,29 @@ export const openHangsSchema = z.object({
 })
 
 export type OpenHangs = z.infer<typeof openHangsSchema>
+
+/** The Sentry release and environment of the run that kept an open-hang file, as far as it says. */
+export interface OpenHangsRun {
+  release?: string
+  environment?: string
+}
+
+/** The release and environment an open-hang file was kept under, or none for a file that doesn't say. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: a file an earlier run wrote
+export function openHangsRun(read: unknown): OpenHangsRun {
+  const parsed = openHangsSchema.safeParse(read)
+  const run: OpenHangsRun = {}
+
+  if (parsed.success && parsed.data.release !== undefined) {
+    run.release = parsed.data.release
+  }
+
+  if (parsed.success && parsed.data.environment !== undefined) {
+    run.environment = parsed.data.environment
+  }
+
+  return run
+}
 
 /** Who keeps an open-hang file: main's watchdog, or main for its windows. */
 export type OpenHangsWriter = "main" | "windows"
