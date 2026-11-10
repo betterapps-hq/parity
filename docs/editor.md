@@ -3133,6 +3133,9 @@ Tests:
   with its designs; Show every state off again leaving the file clean; another state and back from a file with its view
   written out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk
   taken as saved, unless they have unsaved changes; and no token override left once an edit is undone (PAR-465).
+- `apps/desktop/src/renderer/agent/file-changed-events.test.ts` (2): a file changed on disk with unsaved changes here
+  records `document.conflicted`, and Load from disk records `document.loadedFromDisk`; one with nothing unsaved records
+  neither (PAR-809).
 - `packages/editor/src/design-changes.test.ts` (14): changing, moving, adding and deleting designs, and notes; merging
   an agent's call: two calls changing different designs in one file both kept, the person's edit to another design kept,
   a design changed on both sides refused by name with nothing applied, tokens included ("refuses a design changed by

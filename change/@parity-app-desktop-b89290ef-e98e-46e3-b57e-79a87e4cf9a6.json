@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Count warnings in export.done, and record a design file that changed on disk while it had unsaved changes",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
