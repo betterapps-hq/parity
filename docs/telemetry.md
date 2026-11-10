@@ -50,7 +50,8 @@ which the CLI shares:
 
 - **In the process that records it,** an event or span becomes a breadcrumb, so an error there carries the events before
   it (Sentry keeps the last 100). An `error.*` event, or one at the `error` or `fatal` level, becomes a Sentry error,
-  linked to its trace.
+  linked to its trace. Sentry's SDK adds its own breadcrumbs beside them, such as console calls, but in the windows only
+  Parity's: a call with the project's code in its stack, loaded from its builder, is left out (PAR-814).
 - **Then it goes to main:** a window's over IPC from its preload, a render window's from a preload that gives the page
   only that, the service's over its channel to main, and the props worker's through the service, which adds them to its
   own breadcrumbs and errors.
