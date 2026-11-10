@@ -78,6 +78,15 @@ const isGradient = (paint: Paint): paint is GradientPaint =>
 /** Every type a fill can be, in the order + lists them. */
 const paintKinds = ["solid", "linear", "radial", "angular", "image"] as const satisfies readonly PaintKind[]
 
+/** What each type draws, under its name in +, for whoever doesn't know a gradient's kinds by name. */
+const kindDetails: Record<PaintKind, string> = {
+  solid: "One color",
+  linear: "Along a line",
+  radial: "Out from the center",
+  angular: "Around the center",
+  image: "A picture"
+}
+
 /** A gradient's kinds, which the menu at the top of its editor switches between, keeping its stops. */
 const gradientKinds: TypeOption<GradientKind>[] = (["linear", "radial", "angular"] as const).map((kind) => ({
   value: kind,
@@ -86,12 +95,12 @@ const gradientKinds: TypeOption<GradientKind>[] = (["linear", "radial", "angular
 
 /**
  * What a fill of each type starts as, in the project's palette, so it shows on any layer and in either theme, and + can
- * draw it as it'll be: blue-500, or a gradient from blue-500 to teal-600, the colors of its brand gradient, in two stops
- * so it's written as utilities; an image, the project's first.
+ * draw it as it'll be: blue-600, or a gradient from white to blue-600, light to dark so its shape shows at a glance
+ * (a line, a glow, a sweep), in two stops so it's written as utilities; an image, the project's first.
  */
 function newPaint(kind: PaintKind): Paint {
   if (kind === "solid") {
-    return { kind: "solid", color: "blue-500" }
+    return { kind: "solid", color: "blue-600" }
   }
 
   if (kind === "image") {
@@ -102,8 +111,8 @@ function newPaint(kind: PaintKind): Paint {
     kind,
     angle: kind === "angular" ? 0 : 90,
     stops: [
-      { id: newId("stop"), position: 0, color: "blue-500" },
-      { id: newId("stop"), position: 100, color: "teal-600" }
+      { id: newId("stop"), position: 0, color: "white" },
+      { id: newId("stop"), position: 100, color: "blue-600" }
     ]
   }
 }
@@ -134,7 +143,7 @@ function KindSample({ kind, colors }: { kind: PaintKind; colors: readonly ColorT
   return (
     <span
       aria-hidden
-      className="block h-6 w-9 shrink-0 rounded-sm bg-cover bg-center inset-ring inset-ring-foreground/10"
+      className="block h-8 w-12 shrink-0 rounded-md bg-cover bg-center inset-ring inset-ring-foreground/15"
       style={look}
     />
   )
@@ -228,11 +237,14 @@ export function PaintStack({
               </Hint>
             }
           />
-          <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuContent align="end" className="w-56">
             {paintKinds.map((kind) => (
-              <DropdownMenuItem key={kind} className="gap-2.5 text-xs" onClick={() => add(kind)}>
+              <DropdownMenuItem key={kind} className="gap-3 text-xs" onClick={() => add(kind)}>
                 <KindSample kind={kind} colors={colors} />
-                {kindNames[kind]}
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="font-medium">{kindNames[kind]}</span>
+                  <span className="truncate text-muted-foreground">{kindDetails[kind]}</span>
+                </span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

@@ -188,15 +188,16 @@ The + button adds the list's usual entry at once, on top, as Figma's does (a new
 shadows, below any rings, so Tailwind's order holds): a drop shadow, a transition on Colors at Tailwind's default
 timing. It's in a form the project's level allows: the kind's most common token where there is one (`shadow-sm`,
 `border-border`), otherwise Figma's defaults. Fill's + is a menu of its five types instead (Solid, Linear, Radial,
-Angular and Image), each drawn as the fill it adds, and the fill it adds opens its editor. A new fill is in the
-project's palette, `bg-blue-500` or a gradient from blue-500 to teal-600, so it shows on any layer in either theme. On a
-text layer the menu starts with Text color ([design-options-panel.md](design-options-panel.md), Fill). An entry's
-details start with its type, which changes it to another: a menu (Inner shadow, Ring). A fill's type is picked as it's
-added, so a gradient's editor offers only Linear, Radial and Angular in that menu, and a solid's color picker and an
-image's editor offer none. Presets (Layered shadow, Frosted glass) and Ring are in the type menu and the section's menu,
-not behind +. A preset (Spring, Layered shadow) keeps its settings in the file
-(`{ spring: { duration: 400, bounce: 0.2 } }`), since the `linear()` or shadow list it writes can't be read back into
-them. Code still matching the settings reads back as the preset; code that differs, as a Custom curve or plain entries.
+Angular and Image), each drawn as the fill it adds with what it draws under its name (Along a line, Out from the
+center), and the fill it adds opens its editor. A new fill is in the project's palette, `bg-blue-600` or a gradient from
+white to blue-600, light to dark so a gradient's shape shows at a glance, on any layer in either theme. On a text layer
+the menu starts with Text color ([design-options-panel.md](design-options-panel.md), Fill). An entry's details start
+with its type, which changes it to another: a menu (Inner shadow, Ring). A fill's type is picked as it's added, so a
+gradient's editor offers only Linear, Radial and Angular in that menu, and a solid's color picker and an image's editor
+offer none. Presets (Layered shadow, Frosted glass) and Ring are in the type menu and the section's menu, not behind +.
+A preset (Spring, Layered shadow) keeps its settings in the file (`{ spring: { duration: 400, bounce: 0.2 } }`), since
+the `linear()` or shadow list it writes can't be read back into them. Code still matching the settings reads back as the
+preset; code that differs, as a Custom curve or plain entries.
 
 Clicking selects an entry and Shift-click extends; Delete removes the selection; Ctrl+C and Ctrl+V copy entries between
 layers, as Figma's rows do. Dragging reorders: shadows within their Inside and Outside groups, where an order other than

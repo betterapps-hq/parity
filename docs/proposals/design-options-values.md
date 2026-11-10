@@ -151,8 +151,9 @@ Fill's list of solids, gradients and images.
 
 - **At rest:** each entry is a preview (swatch, gradient strip or image), its type or token chip, its alpha %, the eye
   and −, top first, as CSS paints.
-- **Adding:** + is a menu of the five types, each drawn as the fill it adds in the project's colors over the
-  checkerboard, and the fill it adds opens its editor.
+- **Adding:** + is a menu of the five types, each drawn as the fill it adds, a gradient from white to blue-600 so its
+  shape shows, with what it draws under its name (One color, Along a line, Out from the center, Around the center, A
+  picture). The fill it adds opens its editor.
 - **Editing:** the preview opens the paint editor for the fill's type, which was picked as it was added. Solid is the
   color popover. Linear, Radial and Angular name their kind in a menu at the top, which switches between the three
   keeping the stops, and have a bar of stops (click to add, drag off to remove, each a color and a position) and handles
