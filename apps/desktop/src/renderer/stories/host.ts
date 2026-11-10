@@ -1,5 +1,12 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
-import { connectors, type SearchAnswer, searchAnswer } from "@parity-app/connectors"
+import {
+  checkRequest,
+  connectors,
+  type RecentSearch,
+  remember,
+  type SearchAnswer,
+  searchAnswer
+} from "@parity-app/connectors"
 import {
   type ComponentInfo,
   type ContainerSpec,
@@ -238,9 +245,27 @@ async function askConnectors(path: "keys" | "search", search?: ConnectorSearch):
 }
 
 /**
+ * The searches the real connectors answered in stories, newest first, kept as main keeps a person's: one for each
+ * description, the latest few for each connector. They last until the page reloads.
+ */
+let recentNow: RecentSearch[] = []
+
+/** Adds a search that worked to the recent ones, with every filter it ran with, as main's hub does. */
+function recall({ connector, request }: ConnectorSearch): void {
+  const info = connectors.find((each) => each.info.id === connector)?.info
+  const checked = info && checkRequest(info, request)
+
+  if (checked && "request" in checked) {
+    const { query, kind, filters } = checked.request
+    recentNow = remember(recentNow, { connector, kind, query, filters, at: Date.now() })
+  }
+}
+
+/**
  * The connectors in stories (PAR-827): Storybook's dev server searches Mobbin and Unsplash with the keys in
- * `.env.local`, as main does for the window, so a key never reaches the page. Nothing here keeps a key or tells a
- * source a result was used, since a story places nothing for real.
+ * `.env.local`, as main does for the window, so a key never reaches the page. A search that works joins the recent
+ * searches, as it does in the app. Nothing here tells a source a result was used, since a story places nothing for
+ * real.
  */
 const storyConnectors: CanvasHost["connectors"] = {
   get: async () => {
@@ -256,10 +281,13 @@ const storyConnectors: CanvasHost["connectors"] = {
     const answered = await askConnectors("search", search)
     const answer = searchAnswer.safeParse(await answered?.json())
 
+    if (answer.success && "found" in answer.data) {
+      recall(search)
+    }
+
     return answer.success ? answer.data : noServer
   },
-  // Stories keep their recent searches themselves, so each starts from what it shows.
-  recent: () => Promise.resolve([]),
+  recent: () => Promise.resolve(recentNow),
   picked: () => Promise.resolve()
 }
 

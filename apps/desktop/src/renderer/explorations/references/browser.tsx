@@ -102,10 +102,20 @@ export interface BrowserStart {
 
 type Status = "idle" | "searching" | "ready" | "problem"
 
-const held: Record<Exclude<BrowserStart["status"], "searching" | undefined>, Problem> = {
-  limited: { code: "rate-limited", message: "Too many searches for now.", retryAfter: 20 },
-  failed: { code: "unavailable", message: "The source didn't answer." },
-  "no-key": { code: "no-key", message: "Add a key for it in Settings, under Connectors." }
+/** The problems a story can hold the browser on, in the words the connectors answer with. */
+function held(status: Exclude<BrowserStart["status"], "searching" | undefined>, name: string): Problem {
+  if (status === "limited") {
+    return { code: "rate-limited", message: "Too many searches for now.", retryAfter: 20 }
+  }
+
+  if (status === "failed") {
+    return { code: "unavailable", message: `${name} didn't answer.` }
+  }
+
+  return {
+    code: "no-key",
+    message: `This copy of Parity has no ${name} key, so it can't search ${name}. Carry on without ${name}.`
+  }
 }
 
 interface BrowserProps {
@@ -147,7 +157,7 @@ function Browser({
   const [chosen, setChosen] = useState<Readonly<Record<string, string>>>(start.filters ?? {})
   const [search, setSearch] = useState(first)
   const [status, setStatus] = useState<Status>(firstStatus(start, !!first, !!ready))
-  const [problem, setProblem] = useState(() => heldProblem(start))
+  const [problem, setProblem] = useState(() => heldProblem(start, info.name))
   const [results, setResults] = useState<Found[]>(ready?.found ?? [])
   const [allowance, setAllowance] = useState(ready?.allowance)
   const [more, setMore] = useState<"can" | "loading" | "none">(ready && !ready.full ? "none" : "can")
@@ -375,14 +385,14 @@ function Browser({
 }
 
 /** The problem a story holds the browser on. */
-function heldProblem(start: BrowserStart): Problem | undefined {
+function heldProblem(start: BrowserStart, name: string): Problem | undefined {
   if (!start.status || start.status === "searching") {
     return undefined
   }
 
-  return start.status === "limited" && start.wait !== undefined
-    ? { ...held.limited, retryAfter: start.wait }
-    : held[start.status]
+  const problem = held(start.status, name)
+
+  return start.status === "limited" && start.wait !== undefined ? { ...problem, retryAfter: start.wait } : problem
 }
 
 function firstStatus(start: BrowserStart, searched: boolean, answered: boolean): Status {
@@ -1024,8 +1034,9 @@ function NothingFound({
 
 /** What each problem is called, apart from the two that can be tried again. */
 function problemTitle(code: Problem["code"], name: string): string {
+  // A key is the app owner's to arrange, so there's nothing for the person to set up.
   if (code === "no-key") {
-    return `${name} isn't set up yet`
+    return `${name} isn't available`
   }
 
   if (code === "key-refused") {

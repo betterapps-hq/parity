@@ -1,5 +1,5 @@
 import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
-import type { Found } from "@parity-app/connectors"
+import type { Found, RecentSearch } from "@parity-app/connectors"
 import {
   Accessibility,
   CodeXml,
@@ -11,7 +11,7 @@ import {
   SlidersHorizontal,
   Smile
 } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { useProject } from "../../canvas/context.ts"
 import { designColor } from "../../canvas/kinds.tsx"
@@ -31,7 +31,7 @@ import { type BrowserStart, LibraryBrowser, type Picked } from "./browser.tsx"
 import { boxOf, CanvasSketch, designBox, type Placed, type View } from "./canvas.tsx"
 import { sampleFound, samples, type Source } from "./data.ts"
 import { type ProjectImage, ProjectImagesPanel } from "./images-panel.tsx"
-import { creditOf, libraries, type LibraryId, type Searched } from "./library.tsx"
+import { creditOf, libraries, type LibraryId, type Searched, shownFilters } from "./library.tsx"
 import { ReferencePanel } from "./reference-panel.tsx"
 
 /*
@@ -43,7 +43,22 @@ import { ReferencePanel } from "./reference-panel.tsx"
 
 /** The real connectors, through the host, as the window reaches them: main in the app, the dev server in Storybook. */
 export const live: Source = {
-  search: (connector, request) => window.canvasHost.connectors.search({ connector, request })
+  search: (connector, request) => window.canvasHost.connectors.search({ connector, request }),
+  recent: () => window.canvasHost.connectors.recent()
+}
+
+/** A recent search the host kept, as the browser lists one, when it's from a library the browser has. */
+function fromKept({ connector, query, filters }: RecentSearch): (Searched & { library: LibraryId })[] {
+  const library = Object.values(libraries).find((each) => each.id === connector)
+
+  if (!library) {
+    return []
+  }
+
+  // The host keeps every filter a search ran with. The browser's own are the ones it shows.
+  const shown = shownFilters(library.info).flatMap(({ id }) => (filters[id] ? [[id, filters[id]]] : []))
+
+  return [{ library: library.id, query, filters: Object.fromEntries(shown) }]
 }
 
 /** Where a story starts. */
@@ -116,7 +131,7 @@ function Window({ start }: { start: Start }) {
   const [photos, setPhotos] = useState<Found[]>([])
   const [images, setImages] = useState(start.images ?? firstImages)
   const [selected, setSelected] = useState(start.selected)
-  const [recent, setRecent] = useState(firstRecent)
+  const [recent, setRecent] = useState(source.recent ? [] : firstRecent)
   const [fitKey, setFitKey] = useState(0)
 
   /** How references open for the selected design: its name as the description, for the platform it's drawn for. */
@@ -140,6 +155,27 @@ function Window({ start }: { start: Start }) {
 
     return { library, start: library === "mobbin" ? { ...forDesign(), ...from } : from }
   })
+
+  // A source that keeps the recent searches is asked for them each time the browser opens.
+  const opened = browser?.library
+
+  useEffect(() => {
+    if (!opened || !source.recent) {
+      return undefined
+    }
+
+    let wanted = true
+
+    void source.recent().then((kept) => {
+      if (wanted) {
+        setRecent(kept.flatMap(fromKept))
+      }
+    })
+
+    return () => {
+      wanted = false
+    }
+  }, [opened, source])
 
   // Selecting a design, here or in Layers, lets go of the selected reference.
   const [lastDesign, setLastDesign] = useState(real.design)
@@ -323,6 +359,11 @@ function Window({ start }: { start: Start }) {
         recent={recent}
         onClose={() => setBrowser(undefined)}
         onSearched={({ query, filters }) => {
+          // A source that keeps the recent searches adds this one itself, once it has worked.
+          if (source.recent) {
+            return
+          }
+
           const library = browser?.library ?? "mobbin"
 
           // One entry for each description, with the filters it was last searched with.

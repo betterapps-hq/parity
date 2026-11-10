@@ -115,7 +115,8 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   browser says to describe it another way.
 - **When a search can't answer** it says which thing happened: nothing matches, with a button to try the other platform;
   a deep search found no close matches, with the way back to the quick ones; Mobbin's limit, with the wait; Mobbin can't
-  be reached; or the connector isn't set up, in the connector's own words.
+  be reached; or this copy of Parity has no key for it, where the browser says Mobbin isn't available, in the
+  connector's own words. A key is the app owner's to arrange, so there's nothing for the person to set up.
 - **Mobbin's mark and name sit at the foot of the browser,** as a link to mobbin.com, so the source is always named. The
   mark is drawn in the text's color, so it reads in both themes. Mobbin's terms don't ask for a credit. I've kept one
   because the screens are theirs to show, each reference on the canvas already says "Mobbin", and it's the first thing
@@ -174,7 +175,7 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 - **Live Mobbin and Live Unsplash search the real libraries.** Storybook's dev server runs the connectors with the keys
   in `apps/desktop/.env.local` (`.storybook/connectors.ts`), as main does for the window, so a key never reaches the
   page. The stories' host asks it at `/__connectors`.
-- **A built Storybook has no server,** so there the live stories show the "isn't set up" state. The pull request's
+- **A built Storybook has no server,** so there the live stories show the "isn't available" state. The pull request's
   preview is one of those.
 - **Stories never report a photo as used,** since they place nothing for real.
 

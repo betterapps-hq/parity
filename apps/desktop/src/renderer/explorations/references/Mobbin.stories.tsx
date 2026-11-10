@@ -187,8 +187,11 @@ export const CouldNotReachMobbin: Story = {
   render: workspace({ browser: { library: "mobbin", query: "pricing page", status: "failed" } })
 }
 
-/** No key for the connector, as before one is added in Settings. The connector's own words say what to do. */
-export const NotSetUp: Story = {
+/**
+ * This copy of Parity has no key for the connector. Keys are the app owner's to arrange, so there's nothing for the
+ * person to set up: the browser says Mobbin isn't available, in the connector's own words.
+ */
+export const NotAvailable: Story = {
   loaders: [opening(true)],
   render: workspace({ browser: { library: "mobbin", query: "pricing page", status: "no-key" } })
 }
@@ -246,7 +249,9 @@ export const PlacedByAnAgent: Story = {
 /**
  * Mobbin for real, through the connector, for the selected design. It needs `PARITY_MOBBIN_API_KEY` in
  * `apps/desktop/.env.local` and Storybook run from the repository, whose dev server runs the connector so the key
- * never reaches the page. Without them, as in a built Storybook, it says the connector isn't set up.
+ * never reaches the page. Without them, as in a built Storybook, it says Mobbin isn't available. A search that works
+ * joins Recent, which the host keeps as the app's main process does: close the browser and open it with nothing
+ * selected to see it.
  */
 export const Live: Story = {
   loaders: [opening(true)],

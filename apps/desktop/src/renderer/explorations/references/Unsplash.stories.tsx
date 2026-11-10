@@ -142,7 +142,8 @@ export const LimitReached: Story = {
 /**
  * Unsplash for real, through the connector. It needs `PARITY_UNSPLASH_ACCESS_KEY` in `apps/desktop/.env.local` and
  * Storybook run from the repository, whose dev server runs the connector so the key never reaches the page. Without
- * them, as in a built Storybook, it says the connector isn't set up.
+ * them, as in a built Storybook, it says Unsplash isn't available. A search that works joins Recent, which the
+ * host keeps as the app's main process does.
  */
 export const Live: Story = {
   loaders: [opening(false, "images")],

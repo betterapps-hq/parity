@@ -1,4 +1,4 @@
-import type { Found, SearchAnswer, SearchRequest } from "@parity-app/connectors"
+import type { Found, RecentSearch, SearchAnswer, SearchRequest } from "@parity-app/connectors"
 import {
   Anchor,
   Apple,
@@ -37,6 +37,11 @@ export interface Source {
   search(connector: string, request: SearchRequest): Promise<SearchAnswer>
   /** The answer without the wait, for a story that opens on results. Only the samples have one. */
   instant?(connector: string, request: SearchRequest): SearchAnswer
+  /**
+   * The person's recent searches, newest first, from a source that keeps them, as the app's main process does. Without
+   * it the window keeps its own.
+   */
+  recent?(): Promise<RecentSearch[]>
 }
 
 type Platform = "web" | "ios"
