@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { packWall, tallnessOf } from "./media-wall.ts"
+import { fitPicture, packWall, tallnessOf } from "./media-wall.ts"
 
 const layout = { across: 2, gap: 8, usual: 116 }
 
@@ -56,5 +56,24 @@ describe("packWall", () => {
     const { spots } = pack([1, 0.48, 0.48, 0.5])
 
     expect(spots.at(-1)?.column).toBe(0)
+  })
+})
+
+describe("fitPicture", () => {
+  const box = { width: 304, height: 228 }
+
+  it("fits a large picture to the box at its own proportions", () => {
+    expect(fitPicture(box, { width: 1500, height: 500 })).toEqual({ width: 304, height: 101 })
+    expect(fitPicture(box, { width: 600, height: 860 })).toEqual({ width: 159, height: 228 })
+  })
+
+  it("shows a small picture at its own size, and a vector as large as the box", () => {
+    expect(fitPicture(box, { width: 24, height: 24 })).toEqual({ width: 24, height: 24 })
+    expect(fitPicture(box, { width: 64, height: 64 }, true)).toEqual({ width: 228, height: 228 })
+  })
+
+  it("has none while the size isn't known", () => {
+    expect(fitPicture(box, undefined)).toBeUndefined()
+    expect(fitPicture(box, { width: 0, height: 0 })).toBeUndefined()
   })
 })

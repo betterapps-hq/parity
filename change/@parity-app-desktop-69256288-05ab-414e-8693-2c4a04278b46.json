@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Media card: stays open while you search where a picture is used, Escape steps back, small pictures keep their size, and files of the same name are told apart",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

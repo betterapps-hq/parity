@@ -56,6 +56,21 @@ export function tallnessOf(size: PictureSize | undefined): number {
   return Math.min(tallnessRange.most, Math.max(tallnessRange.least, size.height / size.width))
 }
 
+/**
+ * A picture's size fitted to a box, keeping its proportions, or none while its size isn't known. One smaller than the
+ * box is shown at its own size unless it `grows`, as a vector can without blurring.
+ */
+export function fitPicture(box: PictureSize, size: PictureSize | undefined, grows = false): PictureSize | undefined {
+  if (!size || size.width <= 0 || size.height <= 0) {
+    return undefined
+  }
+
+  const fits = Math.min(box.width / size.width, box.height / size.height)
+  const scale = grows ? fits : Math.min(1, fits)
+
+  return { width: Math.round(size.width * scale), height: Math.round(size.height * scale) }
+}
+
 /** Where each picture sits, in the order given, and how long the wall is. */
 export function packWall<Item>(
   items: readonly Item[],

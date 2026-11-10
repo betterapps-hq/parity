@@ -258,11 +258,16 @@ export function designsUsing(image: Pick<ProjectImage, "usedBy">): DesignUse[] {
 /** A file of the project's code that names an image, with each line that does. */
 export interface CodeFileUse {
   path: string
+  /** What a person is shown: its file's name, with as many of its folders as tell it from another of that name. */
+  name: string
   /** From 1, in order. */
   lines: number[]
 }
 
-/** The files of the project's code that name an image, in the order they were found, each with its lines. */
+/**
+ * The files of the project's code that name an image, in the order they were found, each with its lines and a name
+ * that tells it apart: `index.tsx` alone, or `pages/index.tsx` beside `components/index.tsx`.
+ */
 export function codeFilesUsing(image: Pick<ProjectImage, "usedInCode">): CodeFileUse[] {
   const files = new Map<string, number[]>()
 
@@ -270,7 +275,28 @@ export function codeFilesUsing(image: Pick<ProjectImage, "usedInCode">): CodeFil
     files.set(path, [...(files.get(path) ?? []), line])
   }
 
-  return [...files].map(([path, lines]) => ({ path, lines: lines.toSorted((a, b) => a - b) }))
+  const paths = [...files.keys()]
+
+  return [...files].map(([path, lines]) => ({
+    path,
+    name: distinctName(path, paths),
+    lines: lines.toSorted((a, b) => a - b)
+  }))
+}
+
+/** A path's end, as few of its parts as no other path ends with. */
+function distinctName(path: string, paths: readonly string[]): string {
+  const parts = path.split("/")
+
+  for (let take = 1; take < parts.length; take++) {
+    const end = parts.slice(-take).join("/")
+
+    if (!paths.some((other) => other !== path && (other === end || other.endsWith(`/${end}`)))) {
+      return end
+    }
+  }
+
+  return path
 }
 
 /** Where an image is used, as its card lists it: designs then files of code, and how many of each wait past them. */
@@ -283,13 +309,15 @@ export interface UsesOnCard {
 
 /**
  * What a card that has room for so many rows lists of where an image is used: the designs with the most layers first,
- * then files of code in what room is left, and how many of each it leaves out.
+ * then files of code in what room is left, and how many of each it leaves out. One place past the room is listed
+ * rather than counted, since a row saying "1 more" takes the room the place itself would.
  */
 export function usesOnCard(image: Pick<ProjectImage, "usedBy" | "usedInCode">, rows: number): UsesOnCard {
   const allDesigns = designsUsing(image)
   const allFiles = codeFilesUsing(image)
-  const designs = allDesigns.slice(0, rows)
-  const files = allFiles.slice(0, Math.max(0, rows - designs.length))
+  const room = allDesigns.length + allFiles.length === rows + 1 ? rows + 1 : rows
+  const designs = allDesigns.slice(0, room)
+  const files = allFiles.slice(0, Math.max(0, room - designs.length))
 
   return {
     designs,
