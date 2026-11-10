@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 10 Nov 2026 21:00:09 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 21:21:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.39.1
+
+Tue, 10 Nov 2026 21:21:43 GMT
+
+### Patches
+
+- Group every main hang, and every UnknownVizError, as one Sentry issue each, so Sentry's alert files one Linear bug
+  instead of one per stack (ajcraswell@gmail.com)
 
 ## 0.39.0
 
