@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { mkdir, readdir, rm, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { AgentHost } from "@parity-app/agent"
-import type { Fetch, Found, SearchAnswer, SearchRequest } from "@parity-app/connectors"
+import { type Fetch, type Found, offered, type SearchAnswer, type SearchRequest } from "@parity-app/connectors"
 import type { ConnectorFind } from "../shared/connectors.ts"
 
 type ReferencesRequest = Parameters<AgentHost["references"]>[0]
@@ -39,6 +39,29 @@ export interface FindOptions {
   folder: string
   /** How long fetching one preview may take, in milliseconds. */
   timeout: number
+}
+
+/** The connector agents' references come from when they don't name one: the first offered that finds screens. */
+const screensConnector = offered.find(({ info }) => info.finds.includes("screens"))?.info.id
+
+/**
+ * A screen main found lately, for an agent to place as a reference (PAR-840): from the connector named, or the one that
+ * finds screens. A result that isn't a screen, as a stock photo, isn't one.
+ */
+export async function foundScreen(
+  id: string,
+  connector: string | undefined,
+  result: (connector: string, id: string) => Promise<Found | null>
+): Promise<Found | undefined> {
+  const from = connector ?? screensConnector
+
+  if (!from) {
+    return undefined
+  }
+
+  const found = await result(from, id)
+
+  return found?.kind === "screens" ? found : undefined
 }
 
 /** An agent's search for screens from real apps (PAR-829), from the connector it names or any that finds them. */

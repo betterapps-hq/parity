@@ -77,6 +77,8 @@ function LibraryBrowser({ opening }: { opening: BrowserOpening }) {
   const [input, setInput] = useState(opening.search?.query ?? "")
   const [chosen, setChosen] = useState<Readonly<Record<string, string>>>(opening.search?.filters ?? {})
   const [picked, setPicked] = useState<Found[]>([])
+  // The description each pick was found with, by its id, kept as it's picked.
+  const foundWith = useRef(new Map<string, string>())
   const [viewing, setViewing] = useState<string>()
   const field = useRef<HTMLInputElement>(null)
   const scroller = useRef<HTMLDivElement>(null)
@@ -132,15 +134,20 @@ function LibraryBrowser({ opening }: { opening: BrowserOpening }) {
 
   const isPicked = (found: Found) => picked.some((each) => each.id === found.id)
 
-  const toggle = (found: Found) =>
+  const toggle = (found: Found) => {
+    if (search && !isPicked(found)) {
+      foundWith.current.set(found.id, search.query)
+    }
+
     setPicked((now) =>
       now.some((each) => each.id === found.id) ? now.filter((each) => each.id !== found.id) : [...now, found]
     )
+  }
 
   const take = () => {
     if (picked.length > 0) {
       closeLibraryBrowser()
-      pick.take(picked)
+      pick.take(picked, foundWith.current)
     }
   }
 

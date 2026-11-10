@@ -9,15 +9,18 @@ import {
   type ModesChange,
   type NoteSpec,
   projectComponentLibrary,
+  type ReferenceSpec,
   reachableLibrary
 } from "@parity-app/core"
 import {
   addDesign,
   addNote,
+  addReferences,
   type ChangeOptions,
   changeDesign,
   changeDesigns,
   changeNote,
+  changeReference,
   type Checkpoint,
   checkpoint as historyCheckpoint,
   type DesignHistory,
@@ -43,6 +46,7 @@ import {
   redoChange,
   mergeAgentChanges,
   type Picked,
+  type ReferenceAdded,
   reloadFile,
   reorderDesign,
   replaceDocuments,
@@ -81,6 +85,12 @@ export interface NoteEntry {
   note: NoteSpec
 }
 
+export interface ReferenceEntry {
+  key: string
+  path: string
+  reference: ReferenceSpec
+}
+
 interface Persistence {
   saveDocument(path: string, document: CanvasDocument): Promise<void>
   /** Whether each change saves itself a moment later, or waits for Save. */
@@ -113,6 +123,7 @@ export class DesignStore {
   private libraries: ReadonlyMap<string, ComponentLibrary> = new Map()
   private library: ComponentLibrary = noLibrary
   private notes: readonly NoteEntry[] = []
+  private references: readonly ReferenceEntry[] = []
   private readonly listeners = new Set<() => void>()
   /** Saves waiting to happen, with automatic saving on. */
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -153,6 +164,8 @@ export class DesignStore {
   /** The component designs the project's libraries bring, for drawing elsewhere with the same library. */
   getLibraryDesigns = (): readonly ContainerSpec[] => this.libraryDesigns
   getNotes = () => this.notes
+  getReferences = () => this.references
+  getReference = (key: string) => this.references.find((entry) => entry.key === key)
   getModes = (): ModeSettings => this.state.current.modes
   /** What an edit to what's `picked` lands on: its design, in the state and viewport of the frame it was picked in. */
   editFrame = (picked: Picked): EditFrame | undefined =>
@@ -412,6 +425,29 @@ export class DesignStore {
     this.change(label, (snapshot) => changeNote(snapshot, note, update), options)
   }
 
+  /** References placed in a file together, as one step. Gives back their keys, in order. */
+  addReferences(path: string, references: readonly ReferenceSpec[], label: string): string[] {
+    this.change(label, (snapshot) => addReferences(snapshot, path, references))
+
+    return references.map((reference) => containerKey(path, reference.id))
+  }
+
+  updateReference(
+    key: string,
+    label: string,
+    update: (reference: ReferenceSpec) => ReferenceSpec | undefined,
+    options?: ChangeOptions
+  ): void {
+    const entry = this.getReference(key)
+
+    if (!entry) {
+      return
+    }
+
+    const reference = { path: entry.path, id: entry.reference.id }
+    this.change(label, (snapshot) => changeReference(snapshot, reference, update), options)
+  }
+
   /** Saves: writes every file with unsaved changes, and resolves once they're all on disk. */
   async flush(): Promise<void> {
     for (const timer of this.timers.values()) {
@@ -456,9 +492,10 @@ export class DesignStore {
     label: string,
     designs: readonly DesignChange[],
     modes: ModesChange | undefined,
-    tokens: readonly TokenEdit[]
+    tokens: readonly TokenEdit[],
+    references: readonly ReferenceAdded[] = []
   ): ChangeConflict[] {
-    const merged = mergeAgentChanges(this.state.current, designs, modes, tokens)
+    const merged = mergeAgentChanges(this.state.current, designs, modes, tokens, references)
 
     if (merged.conflicts.length === 0) {
       this.change(label, () => merged.snapshot)
@@ -522,6 +559,17 @@ export class DesignStore {
     )
     this.notes = [...documents].flatMap(([path, document]) =>
       (document.notes ?? []).map((note) => ({ key: containerKey(path, note.id), path, note }))
+    )
+
+    // A reference that didn't change keeps its entry, so only the ones that did draw again.
+    const kept = new Map(this.references.map((entry) => [entry.key, entry]))
+    this.references = [...documents].flatMap(([path, document]) =>
+      (document.references ?? []).map((reference) => {
+        const key = containerKey(path, reference.id)
+        const before = kept.get(key)
+
+        return before?.reference === reference ? before : { key, path, reference }
+      })
     )
   }
 
@@ -604,6 +652,10 @@ export function useLibrary(store: DesignStore, key: string): ComponentLibrary {
 
 export function useNotes(store: DesignStore): readonly NoteEntry[] {
   return useSyncExternalStore(store.subscribe, store.getNotes)
+}
+
+export function useReference(store: DesignStore, key: string | undefined): ReferenceEntry | undefined {
+  return useSyncExternalStore(store.subscribe, () => (key ? store.getReference(key) : undefined))
 }
 
 export function useModeSettings(store: DesignStore): ModeSettings {

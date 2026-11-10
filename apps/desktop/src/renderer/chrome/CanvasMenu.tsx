@@ -338,7 +338,9 @@ function designUnder(
 
   const page = editor.screenToPage(point)
 
-  if (editor.getShapeAtPoint(page, { hitInside: true })?.type === "canvas-note") {
+  const item = editor.getShapeAtPoint(page, { hitInside: true })?.type
+
+  if (item === "canvas-note" || item === "canvas-reference") {
     return undefined
   }
 

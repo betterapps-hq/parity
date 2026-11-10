@@ -15,6 +15,7 @@ import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
+import { ReferencePanel } from "./ReferencePanel.tsx"
 import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { StatesSection } from "./StatesSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
@@ -46,6 +47,10 @@ function SelectedPanel() {
 
   if (selected.note) {
     return <NotePanel noteKey={selected.note} />
+  }
+
+  if (selected.reference) {
+    return <ReferencePanel referenceKey={selected.reference} />
   }
 
   if (!entry) {

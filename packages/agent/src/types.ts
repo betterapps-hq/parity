@@ -15,6 +15,7 @@ import type {
   ResolvedMode,
   ThemeVariable
 } from "@parity-app/core"
+import type { FoundScreen, ReferenceAdded } from "@parity-app/editor"
 import type { Token } from "@parity-app/tokens"
 import type { WarningGroup } from "./warnings.ts"
 
@@ -344,6 +345,13 @@ export interface AgentHooks {
    * is its token's kind. The agent runs without a browser; without the hook, kinds aren't checked.
    */
   supports?(queries: { property: string; value: string }[]): Promise<boolean[]>
+  /**
+   * A screen from a real app main found lately, for `PlaceReference`: from the connector named, or the one that finds
+   * screens. Without it, references can't be placed.
+   */
+  screen?(id: string, connector: string | undefined): Promise<FoundScreen | undefined>
+  /** Who's calling, when it says, as the references it places name it. */
+  caller?: string
 }
 
 /**
@@ -372,11 +380,15 @@ export interface PlacedIn {
   design: string
 }
 
-/** What a call changed: each design it touched with how it found it, the modes when it set them, and token values. */
+/**
+ * What a call changed: each design it touched with how it found it, the modes when it set them, token values, and the
+ * references it placed.
+ */
 export interface AgentChangeSet {
   designs: DesignChange[]
   modes?: ModesChange
   tokens: TokenChange[]
+  references?: ReferenceAdded[]
 }
 
 export interface TokenChange {

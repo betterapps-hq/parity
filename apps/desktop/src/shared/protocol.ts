@@ -24,7 +24,7 @@ import type {
   ThemeVariable,
   UpdateState
 } from "@parity-app/core"
-import type { CodeReference, EditStatus, ExportSize, ImageFile } from "@parity-app/editor"
+import type { CodeReference, EditStatus, ExportSize, ImageFile, ReferenceAdded } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
@@ -382,6 +382,8 @@ export interface AgentChanges {
   designs: DesignChange[]
   modes?: ModesChange
   tokens?: TokenChange[]
+  /** The references the call placed (PAR-840), which are only ever added. */
+  references?: ReferenceAdded[]
 }
 
 /** Installed release identity, independent of the user's update channel preference. */

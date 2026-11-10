@@ -96,6 +96,7 @@ Accessibility(design, { state?, mode? }?): Finding[]
 // The canvas
 FindEmptySpace({ width, height, direction?, near?, padding? }): { x, y }
 Overlaps(design?): Overlap[]
+PlaceReference(id, { near?, note?, connector? }): string  // async: a find_references screen beside a design
 Print(...values): void
 ```
 
@@ -523,6 +524,26 @@ for (const { names, titleOnly, estimated } of Overlaps()) {
 const room = FindEmptySpace({ width: 1400, height: 1000, near: "settings", direction: "below" })
 CreateDesign({ name: "Plans", x: room.x, y: room.y })
 ```
+
+### PlaceReference
+
+`await PlaceReference(id, { near, note })` puts a screen from `find_references` on the canvas beside the design `near`
+names (the selected one when it's left out), as a reference the person can look at, with your `note` on what you took
+from it. It's never part of the design or its code. Pass the screen's `id` from a search you ran lately, and `connector`
+only when the search named one. It returns the reference's id. A call's references sit in a row beside the design, after
+any already there, and land with the call's other changes as one step the person can undo; the canvas says you placed
+them.
+
+```js
+// Two screens find_references returned, beside Dashboard, each with what it showed.
+await PlaceReference("1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed", {
+  near: "dashboard",
+  note: "Revenue and users sit first, each with the change since last week."
+})
+await PlaceReference("7c1e2f3a-4b5c-4d6e-8f90-a1b2c3d4e5f6", { near: "dashboard", note: "The sidebar folds to icons." })
+```
+
+A screen Parity hasn't found lately fails with `invalid_input` on `id`: search again, then place one of its screens.
 
 ## Examples
 

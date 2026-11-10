@@ -98,9 +98,10 @@ keeping the designs there, so ask before running that in someone's project.
 2. **See how real apps do it,** for a common screen such as onboarding, a paywall, settings or a checkout:
    `find_references` with one screen per search, its type and up to three parts it shows ("paywall with a free trial").
    Follow the patterns you see with the project's own components and tokens, never an app's layout, text or branding,
-   and say which apps you drew on. If it says there's no key, carry on without it. For a real photo or illustration,
-   look at `find_media` previews and put the one you choose in an image node with `place_result`; searches give no image
-   link to paste.
+   and say which apps you drew on. Leave the ones you drew on beside the design with `PlaceReference` in `execute`, each
+   with a note on what you took from it. If it says there's no key, carry on without it. For a real photo or
+   illustration, look at `find_media` previews and put the one you choose in an image node with `place_result`; searches
+   give no image link to paste.
 3. **Look before you change.** Read the design with `Get("design-id", { depth: 3 })` in `execute`, and take a screenshot
    of what's there. Find the components you need with `Components()` and their props with `Props()`.
 4. **Change it in one snippet.** Build or edit the design with `Insert`, `Update`, `Replace`, `Move` and the rest. A

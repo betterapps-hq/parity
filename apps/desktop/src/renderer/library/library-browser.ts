@@ -13,8 +13,11 @@ export interface PickAction {
   label: (count: number) => string
   /** Whether a result can be picked here: a photo can go into the project, and a screen can't. */
   accepts: (found: Found) => boolean
-  /** Takes what's picked, in the order it was picked. The browser closes first. */
-  take: (picked: readonly Found[]) => void
+  /**
+   * Takes what's picked, in the order it was picked, with the description each was found with, by its id, since picks
+   * carry across searches. The browser closes first.
+   */
+  take: (picked: readonly Found[], foundWith: ReadonlyMap<string, string>) => void
 }
 
 export interface BrowserOpening {

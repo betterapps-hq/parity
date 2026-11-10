@@ -3,9 +3,11 @@
 Status: approved 2026-11-10 (PAR-827), being built. The connectors are built (PAR-829, PAR-837), and so are the Media
 tab (PAR-838, [its stories](../../apps/desktop/src/renderer/media/MediaPanel.stories.tsx)) and the browser, which adds
 Pixabay's photos to the project from the Media tab (PAR-839,
-[its stories](../../apps/desktop/src/renderer/library/LibraryBrowser.Pixabay.stories.tsx)). References on the canvas
-(PAR-840) and videos (PAR-841) follow. What's left of the design is the exploration under
-Parity/Explorations/References: [Mobbin](../../apps/desktop/src/renderer/explorations/references/Mobbin.stories.tsx).
+[its stories](../../apps/desktop/src/renderer/library/LibraryBrowser.Pixabay.stories.tsx)), and references on the
+canvas, placed from Find references and by agents (PAR-840,
+[their stories](../../apps/desktop/src/renderer/references/References.stories.tsx)), kept in the project's `.par` file
+beside notes rather than in the designs file as "What's kept" first said. Videos (PAR-841) follow. The exploration is
+gone, since the real stories replace it.
 
 ## In one line
 

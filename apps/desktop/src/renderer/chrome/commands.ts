@@ -479,7 +479,7 @@ export function duplicateSelection(session = activeSession()): void {
   }
 }
 
-/** Deletes the selected layers, designs or text note. */
+/** Deletes the selected layers, designs, text note or reference. */
 export function deleteSelection(session = activeSession()): void {
   if (!session) {
     return
@@ -494,6 +494,9 @@ export function deleteSelection(session = activeSession()): void {
 
   if (current.note) {
     store.updateNote(current.note, "Delete text", () => undefined)
+    selection.set({})
+  } else if (current.reference) {
+    store.updateReference(current.reference, "Delete reference", () => undefined)
     selection.set({})
   }
 }
@@ -647,7 +650,7 @@ export function renameSelection(session = activeSession()): void {
 
 export function zoomToSelection(session = activeSession()): void {
   const current = session?.selection.get()
-  const key = current?.note ?? current?.design
+  const key = current?.note ?? current?.reference ?? current?.design
   const bounds = key ? session?.editor?.getShapePageBounds(canvasIdFor(key)) : undefined
 
   if (bounds) {

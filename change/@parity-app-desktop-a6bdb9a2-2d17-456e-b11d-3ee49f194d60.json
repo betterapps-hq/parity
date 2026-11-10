@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Place references from Mobbin on the canvas, from Find references and by agents' PlaceReference, kept in the project's file beside notes",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

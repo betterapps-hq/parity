@@ -56,7 +56,19 @@ import {
   walkNodes,
   withFreshIds
 } from "@parity-app/core"
-import { componentComposition, type DroppedParts, newDesign, turnInto } from "@parity-app/editor"
+import {
+  type Bounds,
+  componentComposition,
+  type DroppedParts,
+  newDesign,
+  type ReferenceAdded,
+  type ReferenceAnchor,
+  referenceBounds,
+  referenceFrom,
+  referenceRow,
+  referenceSize,
+  turnInto
+} from "@parity-app/editor"
 import {
   builtOn,
   categorize,
@@ -90,6 +102,7 @@ import {
   placeOptions,
   propsOptions,
   readArgument,
+  referenceOptions,
   readFields,
   screenshotOptions,
   spaceOptions,
@@ -116,6 +129,7 @@ import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyl
 import { lintDocument, propWarnings } from "./lint.ts"
 import type {
   AccessibilityFinding,
+  AgentChangeSet,
   AgentEvent,
   AgentHooks,
   AgentSnapshot,
@@ -229,6 +243,10 @@ export class AgentWorkspace {
   private readonly inserted = new Set<string>()
   /** Designs this call changed or moved, by key, whose overlaps it reports. */
   private readonly touched = new Set<string>()
+  /** References this call placed, in order. */
+  private readonly references: ReferenceAdded[] = []
+  /** The reference this call placed last beside each design, by the design's id, which the next one goes after. */
+  private readonly lastReference = new Map<string, Bounds>()
 
   private readonly snapshot: AgentSnapshot
   private readonly hooks: AgentHooks
@@ -309,6 +327,8 @@ export class AgentWorkspace {
         this.screenshot(design(reference), readFields(screenshotOptions, options, "options")),
       Accessibility: (reference: string, options?: MatrixOptions) =>
         this.accessibility(design(reference), readFields(matrixOptions, options, "options")),
+      PlaceReference: (id: string, options?: z.infer<typeof referenceOptions>) =>
+        this.placeReference(text(id, "id"), readFields(referenceOptions, options ?? {}, "options")),
       FindEmptySpace: (options: z.infer<typeof spaceOptions>) =>
         this.findEmptySpace(readFields(spaceOptions, options, "options")),
       Overlaps: (reference?: string) => this.overlaps(readArgument(designReference.optional(), reference, "design")),
@@ -347,10 +367,14 @@ export class AgentWorkspace {
 
     const designs = [...this.changed].flatMap((path) => this.designChanges(path))
 
-    const changes =
+    const changes: AgentChangeSet =
       this.modesChanged && !isDeepStrictEqual(this.modes, this.snapshot.modes)
         ? { designs, modes: { base: this.snapshot.modes, after: this.modes }, tokens: this.tokenChanges }
         : { designs, tokens: this.tokenChanges }
+
+    if (this.references.length > 0) {
+      changes.references = this.references
+    }
 
     const head = {
       changes,
@@ -1553,6 +1577,62 @@ export class AgentWorkspace {
   /** Notes a finding for the result, with the node or frame it's about kept apart from what to do. */
   private warn(category: WarningCategory, message: string, at?: string): void {
     this.found.push(at === undefined ? { category, message } : { category, message, at })
+  }
+
+  /**
+   * Places a screen main found lately beside a design, as a reference to look at (PAR-840): after the last one this call
+   * placed beside it, or in a new row under any already there. It names the agent that placed it, with its note.
+   */
+  private async placeReference(id: string, options: z.infer<typeof referenceOptions>): Promise<string> {
+    const screen = await this.hooks.screen?.(id, options.connector)
+
+    if (!screen) {
+      throw new CodedError(
+        `Parity hasn't found the screen ${id} lately. Search with find_references, then place one of its screens by id.`,
+        { code: "invalid_input", field: "id" }
+      )
+    }
+
+    const near = options.near ?? this.snapshot.selection.design
+
+    if (near === undefined) {
+      throw new CodedError('Name the design the reference is for: PlaceReference(id, { near: "pricing" }).', {
+        code: "invalid_input",
+        field: "options/near"
+      })
+    }
+
+    const { path, container } = this.findDesign(near)
+    const document = this.documents.get(path)!
+    const all = [...this.documents.values()].flatMap((each) => each.references ?? [])
+    const previous = this.lastReference.get(container.id)
+
+    const boxes = this.boards().map((board) => ({
+      id: board.id,
+      minX: board.x,
+      minY: board.y,
+      maxX: board.x + board.width,
+      maxY: board.y + board.height
+    }))
+
+    const beside = boxes.find((box) => box.id === container.id)
+    let anchor: ReferenceAnchor = beside ? { beside } : { around: container.position }
+
+    if (previous) {
+      anchor = { after: previous }
+    }
+
+    const [position] = referenceRow(anchor, [referenceSize(screen)], all.map(referenceBounds), boxes)
+
+    const taken = new Set(all.map((each) => each.id))
+    const origin = { by: this.hooks.caller, note: options.note }
+    const reference = referenceFrom(screen, generateId(taken), position!, origin)
+
+    this.documents.set(path, { ...document, references: [...(document.references ?? []), reference] })
+    this.references.push({ path, reference })
+    this.lastReference.set(container.id, referenceBounds(reference))
+
+    return reference.id
   }
 
   private findEmptySpace(options: SpaceOptions): CanvasPoint {

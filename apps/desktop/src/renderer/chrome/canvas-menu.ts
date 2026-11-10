@@ -79,13 +79,13 @@ export interface MenuTarget {
 /**
  * The menu for a right-click: over a design, Figma's canvas menu as far as Parity's commands go, for the selection,
  * which the right-click has already made (see `rightClickSelection`); on the canvas around designs (`target`
- * undefined), New screen, New component and Insert, then Paste here, then Select all and Zoom to fit, which have
+ * undefined), New screen, New component, Insert and Find references, then Paste here, then Select all and Zoom to fit, which have
  * nothing to act on when the canvas holds no design and none of its `notes`. Items for layers only (Paste to replace,
  * the order, Wrap in layout and Hide) are left out with designs selected, and Go to the main component unless an
  * instance is. Each is unavailable when the menubar's would be, and, for layers inside an instance, when it can't act
  * on them: Copy, Duplicate, the order, Wrap in layout, Hide and Lock. Lock, beside Hide, reads Unlock when every
  * selected layer, or every selected design, is locked (PAR-192). Paste over and Paste to replace stay, and say why they
- * can't. Export, at the Export section's sizes (PAR-185), then, over an element a project file wrote, Open in editor at
+ * can't. Find references for designs (PAR-840) and Export, at the Export section's sizes (PAR-185), then, over an element a project file wrote, Open in editor at
  * its line (PAR-167) end the menu.
  */
 export function canvasMenu(
@@ -99,7 +99,12 @@ export function canvasMenu(
     const something = entries.length > 0 || notes > 0
 
     return sections([
-      [item("newScreen", true), item("newComponent", true), item("insert", true, "Insert…")],
+      [
+        item("newScreen", true),
+        item("newComponent", true),
+        item("insert", true, "Insert…"),
+        item("findReferences", true, "Find references…")
+      ],
       [item("pasteHere", true)],
       [item("selectAll", something), item("zoomToFit", something)]
     ])
@@ -148,7 +153,7 @@ export function canvasMenu(
       ...(layers ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : []),
       item("lock", layers ? can.lock : !!entry, locked ? "Unlock" : "Lock")
     ],
-    [item("exportSelection", true, "Export…")],
+    [...(layers ? [] : [item("findReferences", true, "Find references…")]), item("exportSelection", true, "Export…")],
     target.source ? [{ kind: "open-source", label: "Open in editor", source: target.source }] : []
   ])
 }

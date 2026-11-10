@@ -325,5 +325,5 @@ async function apply(changes: AgentChanges): Promise<ChangeConflict[]> {
   const session = ready(findTab(changes.tab))
   const tokens = session.tokens.edits(changes.tokens ?? [])
 
-  return session.store.applyAgentChanges(changes.label, changes.designs, changes.modes, tokens)
+  return session.store.applyAgentChanges(changes.label, changes.designs, changes.modes, tokens, changes.references)
 }
