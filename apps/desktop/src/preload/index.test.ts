@@ -142,12 +142,12 @@ it("sends main the page's trace after what each request sends", async () => {
 
   await host.pickFolder("Export to")
   await host.metrics()
-  host.console.announce("warn", { design: "Card" })
+  host.console.announce("warning", { design: "Card" })
   expect(invoke.mock.calls).toEqual([
     ["canvas:pick-folder", "Export to", trace],
     ["canvas:metrics", undefined, trace]
   ])
-  expect(send).toHaveBeenCalledExactlyOnceWith("canvas:console-announce", { level: "warn", design: "Card" }, trace)
+  expect(send).toHaveBeenCalledExactlyOnceWith("canvas:console-announce", { level: "warning", design: "Card" }, trace)
 
   // Outside an action, a request sends only what it did.
   current = undefined
