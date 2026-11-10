@@ -541,13 +541,13 @@ function Card({
         onClick={onToggle}
         onDoubleClick={onView}
         className={`rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
-          picked ? "ring-2 ring-primary ring-offset-2 ring-offset-popover" : ""
+          picked ? "ring-3 ring-(--canvas-layer) ring-offset-2 ring-offset-popover" : ""
         }`}
       >
         <ScreenPicture screen={sample} className="rounded-lg border" />
       </button>
       {picked && (
-        <span className="pointer-events-none absolute top-2 left-2 grid size-5 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm">
+        <span className="pointer-events-none absolute top-2 left-2 grid size-5 place-items-center rounded-full bg-(--canvas-layer-chip) text-white shadow-sm ring-2 ring-white">
           <Check className="size-3" strokeWidth={3} />
         </span>
       )}
