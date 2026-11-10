@@ -192,6 +192,22 @@ export const mainBlocked = defineEvent(
   { level: "warn", sentBy: ["main"], when: "Main's event loop runs again after being blocked for over 2 seconds." }
 )
 
+export const installIdUnsaved = defineEvent(
+  "installId.unsaved",
+  z.object({
+    code: z
+      .string()
+      .optional()
+      .describe("The file system's error code, such as `EACCES` or `ENOSPC`, when it gave one"),
+    message: z.string().describe("What went wrong")
+  }),
+  {
+    level: "warn",
+    sentBy: ["main"],
+    when: "A new install ID can't be saved to `telemetry.json`, so the next start makes another."
+  }
+)
+
 export const rendererLongTask = defineEvent(
   "renderer.long_task",
   z.object({
@@ -215,6 +231,7 @@ export const appEvents = [
   serviceDegraded,
   windowHung,
   mainBlocked,
+  installIdUnsaved,
   rendererLongTask
 ] as const
 
