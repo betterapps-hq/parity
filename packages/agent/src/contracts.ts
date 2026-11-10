@@ -287,6 +287,16 @@ export const requests = {
     prop: text("prop", "A component's prop that takes the image. Defaults to src.").optional(),
     state: text("state", "State id, for a component's prop in one state.").optional()
   }),
+  images: fields({
+    tab,
+    search: text("search", "Text in a name, alt text or credit.").optional(),
+    unused: flag("unused", "Only images no design or code uses."),
+    limit: limit("Most images.", 50, 500)
+  }),
+  removeImage: fields({
+    tab,
+    image: text("image", "Path, address (/images/hero.png) or file name.")
+  }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
     executeKind({ tab: execute.tab, label: execute.label, editId: execute.editId, edits: execute.edits })
@@ -734,6 +744,30 @@ const reportReply = z.looseObject({
   attachments: strings.describe("The files sent with it: the window's screenshot, the frames and the diagnostics.")
 })
 
+/** One of the project's images (PAR-834): a file, a linked photo, or a path layers name with no file. */
+const projectImage = z.looseObject({
+  kind: z.enum(["file", "linked", "missing"]),
+  src: z.string().describe("What layers set src to."),
+  path: z.string().optional().describe("The file, from the project's root."),
+  name: z.string(),
+  bytes: z.int().optional(),
+  alt: z.string().optional(),
+  credit: z.looseObject({ name: z.string(), url: z.string(), source: z.string().optional() }).optional(),
+  usedBy: z
+    .array(z.looseObject({ document: z.string(), design: z.string(), designName: z.string(), node: z.string() }))
+    .describe("The layers that show it."),
+  usedInCode: z.array(z.looseObject({ path: z.string(), line: z.int() })).describe("The lines of code that name it.")
+})
+
+const imagesReply = z.looseObject({
+  images: z.array(projectImage),
+  total: z.int().describe("How many matched before the limit."),
+  truncated: z.boolean()
+})
+
+/** An image removed: its file, and the edit's label. */
+const removeImageReply = z.looseObject({ path: z.string(), label: z.string() })
+
 /**
  * Something a connector found (PAR-829): a screen from Mobbin or a photo from Unsplash, the same shape from every
  * source, with its preview saved as a file for the agent to look at.
@@ -816,7 +850,9 @@ export const replies = {
   report: reportReply,
   references: foundReply,
   photos: foundReply,
-  place: placeReply
+  place: placeReply,
+  images: imagesReply,
+  removeImage: removeImageReply
 }
 
 /**

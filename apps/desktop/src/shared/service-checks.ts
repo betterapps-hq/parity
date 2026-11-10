@@ -67,6 +67,8 @@ const serviceParams = {
   "library.importStyles": project.extend({ library: z.string() }),
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
   "images.import": project.extend({ name: z.string(), type: z.string(), data: z.string() }),
+  "images.scan": project,
+  "images.remove": project.extend({ path: z.string() }),
   "project.undoEdit": project.extend({ id: z.string() }),
   "storybook.open": project.extend({ component: z.string().optional() }),
   "document.saveCopy": z.object({ path: z.string(), document: canvasDocument }),

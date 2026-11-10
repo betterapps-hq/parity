@@ -239,7 +239,9 @@ describe("each operation's routing", () => {
       report: "tab-or-any",
       references: "tab-or-any",
       photos: "tab-or-any",
-      place: "tab"
+      place: "tab",
+      images: "tab",
+      removeImage: "tab"
     })
   })
 })

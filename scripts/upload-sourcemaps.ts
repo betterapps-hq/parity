@@ -14,8 +14,12 @@ import { parseArgs } from "node:util"
 import { parseData } from "@parity-app/core/schema"
 import { telemetryRelease } from "@parity-app/telemetry"
 import { SentryCli } from "@sentry/cli"
+import { z } from "zod"
 import { print } from "./output.ts"
+import { commitRange, previousVersionCommit, remoteTags } from "./release-commits.ts"
 import { sourceMapsBuild } from "./sourcemaps.ts"
+
+const namedPackage = z.object({ name: z.string() })
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -64,18 +68,21 @@ if (values["link-commits"]) {
   }
 
   try {
-    sentry(
-      "releases",
-      "set-commits",
-      release,
-      "--commit",
-      `betterapps-hq/parity@${build.commit}`,
-      "--org",
-      "better-apps"
-    )
+    const previous = values.published
+      ? previousVersionCommit(remoteTags(packageFolder), packageName(), build.version)
+      : undefined
+
+    const commits = commitRange(build.commit, previous)
+    print(`Linking ${release} to ${commits}`)
+    sentry("releases", "set-commits", release, "--commit", commits, "--org", "better-apps")
   } catch {
     print(`::warning::The source maps are uploaded, but ${release} isn't linked to its commit.`)
   }
+}
+
+/** The package's name, which its Beachball tags start with. */
+function packageName(): string {
+  return parseData(namedPackage, JSON.parse(readFileSync(join(packageFolder!, "package.json"), "utf8"))).name
 }
 
 function sentry(...args: string[]): void {

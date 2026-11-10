@@ -78,6 +78,10 @@ export type FindResponse = z.output<typeof replies.references>
 /** What placing a result answers. */
 export type PlaceResponse = z.output<typeof replies.place>
 
+export type ImagesResponse = z.output<typeof replies.images>
+
+export type RemoveImageResponse = z.output<typeof replies.removeImage>
+
 let caller = cliCallerName(process.env)
 
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
@@ -900,6 +904,63 @@ function frameList(frames: { state: string; mode: string }[]): string {
 }
 
 /** Where a report went, what it's tied to and tagged with, and what went with it (PAR-646). */
+/**
+ * A readable account of the project's images: each file with its path and size, each linked photo with its credit, and
+ * what uses each, or that nothing does.
+ */
+export function describeImages(result: ImagesResponse): string {
+  if (result.images.length === 0) {
+    return "No images in the project match."
+  }
+
+  const count = result.total === 1 ? "1 image" : `${result.total} images`
+  const shown = result.truncated ? `, the first ${result.images.length} shown` : ""
+
+  const lines = result.images.map((image, index) => {
+    const credit = image.credit
+      ? [`   credit ${image.credit.name}${image.credit.source ? ` (${image.credit.source})` : ""}`]
+      : []
+
+    const designs = [...new Set(image.usedBy.map((use) => use.designName))]
+    const code = image.usedInCode.map((use) => `${use.path} line ${use.line}`)
+    const used = [...designs, ...code]
+
+    return [
+      `${index + 1}. ${image.name} ${whereImage(image)}`,
+      ...credit,
+      `   ${used.length > 0 ? `used in ${used.join(", ")}` : "unused"}`
+    ].join("\n")
+  })
+
+  return [`${count}${shown}:`, ...lines].join("\n")
+}
+
+/** Where an image is: a file's path and size, or a link, or a path with no file. */
+function whereImage(image: ImagesResponse["images"][number]): string {
+  if (image.kind === "linked") {
+    return `${image.src} (linked)`
+  }
+
+  if (image.kind === "missing") {
+    return `${image.src} (no file)`
+  }
+
+  return `${image.path ?? image.src}${image.bytes === undefined ? "" : `, ${size(image.bytes)}`}`
+}
+
+/** What removing an image did. */
+export function describeRemovedImage(result: RemoveImageResponse): string {
+  return `Removed ${result.path}.`
+}
+
+function size(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+
+  return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 export function describeReport(result: ReportResponse): string {
   const tied = [
     ...(result.traceId ? [`trace ${result.traceId}`] : []),

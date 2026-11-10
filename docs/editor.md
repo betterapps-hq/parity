@@ -2397,6 +2397,50 @@ direction. Files land in a component's slot as Paste here does (PAR-419), which 
 browser rather than the system (a picture dragged from a web page carries a URL, not a file) aren't handled. Interact's
 drop into a design wasn't tried.
 
+### Listing and removing a project's images (PAR-834)
+
+A project's images are the files under `public/images/`, which pasting, dropping and downloading save there, and the
+photos image layers link to at a stock library's own address. `projectImages` in `@parity-app/editor` lists them, in the
+same shape for the window and for agents:
+
+- **Each image** has its kind (a file, a linked photo, or a path layers name with no file there), its `src`, its file's
+  path and size, its alt text and credit from the first layer showing it, and what uses it.
+- **What uses an image** is every layer that names it in the designs as they are, unsaved changes included: image
+  layers, the props components and instances are given (an avatar's `src`), and the props states, variants, viewports
+  and instances' overrides patch in. A prop counts when it's called `src`, or its value names a file in `/images/`. The
+  project's own code counts too: any line naming `images/<file>`, as an `<img>`, an import or a CSS `url()` does, in
+  scripts, styles, markup and framework components outside `node_modules`, `public` and build folders.
+- **The order** is files by path, then linked photos, then paths with no file.
+
+Agents list them with `get_images` (`parity images`), narrowed by text in a name, alt text or credit, or to images
+nothing uses, 50 at a time by default. `remove_image` (`parity images remove <image>`) takes a path, an address or a
+file name.
+
+**Removing** takes only a file in `public/images/` that no design and no code uses. Otherwise it says why and where
+("hero.png is still used in Home and src/index.css (line 2). Remove or replace it there first."), with the error code
+`image_in_use`, or `unknown_image` for an image the project doesn't have. A linked photo or a missing file has no file
+to remove, so it says to remove or replace the layers instead. The file is removed as a project edit, so
+`project.undoEdit` puts it back. The service checks the code again before removing, and refuses a path outside
+`public/images/` or a file that isn't an image.
+
+The service's `images.scan` reads the files and the code that names them, and `images.remove` removes one. The window
+doesn't list or remove images yet: that waits on the design (PAR-836).
+
+Tests:
+
+- `packages/editor/src/project-images.test.ts` (8): the order and kinds, every place a design names an image, the lines
+  of code, finding an image by path, address or file name, filtering, and why one can't be removed.
+- `apps/desktop/src/utility/images.test.ts` (3): scanning real files and skipping installed and built code, removing as
+  an edit that undoing puts back, and refusing a file the code names, a path outside the folder and what isn't an image.
+- `packages/agent/src/dispatch.test.ts`: listing with what uses each image, keeping to unused ones, and removing one
+  nothing uses while refusing one a design shows or the project doesn't have.
+- `packages/cli/src/operations.test.ts`: `parity images` and `get_images`, `parity images remove` and `remove_image`,
+  through both transports.
+
+Gaps: an agent's removal isn't in the window's undo history, so undoing it from the window waits on the design. A string
+that only builds an image's path at run time (`` `/images/${name}.png` ``) isn't found in code. Images elsewhere in
+`public/`, or imported from `src/assets/`, aren't listed.
+
 ## Exporting
 
 ### Layers and designs as PNG or JPG (PAR-185)
