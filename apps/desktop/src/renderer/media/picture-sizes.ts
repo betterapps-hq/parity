@@ -14,7 +14,7 @@ const listeners = new Set<() => void>()
 export function notePictureSize(url: string, size: PictureSize): void {
   const known = sizes.get(url)
 
-  if (known?.width === size.width && known.height === size.height) {
+  if (known?.width === size.width && known.height === size.height && known.seconds === size.seconds) {
     return
   }
 

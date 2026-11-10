@@ -22,6 +22,7 @@ beforeEach(async () => {
   await write("public/images/hero.png", png)
   await write("public/images/icons/star.svg", "<svg/>")
   await write("public/images/notes.txt", "not an image")
+  await write("public/videos/waves.mp4", new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112]))
   await write("public/favicon.png", png)
   await write("src/App.tsx", 'export const App = () => <img src="/images/hero.png" />\n')
   await write("node_modules/kit/index.js", 'const star = "/images/icons/star.svg"\n')
@@ -33,14 +34,15 @@ afterEach(async () => {
 })
 
 describe("scanImages", () => {
-  it("lists the images under public/images, and the lines of the project's own code that name them", async () => {
+  it("lists the images and videos under public/images and public/videos, and the code that names them", async () => {
     const { files, references } = await scanImages(project)
 
     const sorted = files.toSorted((a, b) => a.path.localeCompare(b.path))
 
     expect(sorted.map(({ path, bytes }) => [path, bytes])).toEqual([
       ["public/images/hero.png", 4],
-      ["public/images/icons/star.svg", 6]
+      ["public/images/icons/star.svg", 6],
+      ["public/videos/waves.mp4", 8]
     ])
     expect(references).toEqual([{ image: "public/images/hero.png", path: "src/App.tsx", line: 1 }])
   })
@@ -58,17 +60,26 @@ describe("removeImage", () => {
     expect(existsSync(join(project.info.root, path))).toBe(true)
   })
 
-  it("refuses an image the code names, a path outside public/images, and what isn't an image", async () => {
+  it("removes a video from public/videos", async () => {
+    const { path, edit } = await removeImage(project, "public/videos/waves.mp4")
+
+    expect(edit.label).toBe("Remove video")
+    expect(existsSync(join(project.info.root, path))).toBe(false)
+  })
+
+  it("refuses an image the code names, a path outside the media folders, and what isn't an image or video", async () => {
     await expect(removeImage(project, "public/images/hero.png")).rejects.toThrow(
       "public/images/hero.png is still used in src/App.tsx (line 1). Remove or replace it there first."
     )
-    await expect(removeImage(project, "public/favicon.png")).rejects.toThrow(/Only images in public\/images\//)
-    await expect(removeImage(project, "public/images/../../src/App.tsx")).rejects.toThrow(/Only images in/)
+    await expect(removeImage(project, "public/favicon.png")).rejects.toThrow(
+      /Only files in public\/images\/ and public\/videos\//
+    )
+    await expect(removeImage(project, "public/images/../../src/App.tsx")).rejects.toThrow(/Only files in/)
     await expect(removeImage(project, "public/images/notes.txt")).rejects.toThrow(
-      "public/images/notes.txt isn't an image."
+      "public/images/notes.txt isn't an image or a video."
     )
     await expect(removeImage(project, "public/images/gone.png")).rejects.toThrow(
-      "There's no image at public/images/gone.png."
+      "There's no file at public/images/gone.png."
     )
     expect(existsSync(join(project.info.root, "public/images/hero.png"))).toBe(true)
   })
@@ -90,12 +101,24 @@ describe("saveImageFrom", () => {
     expect(existsSync(join(project.info.root, first.path))).toBe(true)
   })
 
-  it("refuses a link that fails or gives something other than a picture", async () => {
+  it("saves a video from its link under public/videos", async () => {
+    const saved = await saveImageFrom(
+      project,
+      { url: "https://cdn.example/waves.mp4", name: "Waves" },
+      picture("video/mp4")
+    )
+
+    expect(saved.src).toMatch(/^\/videos\/waves-[0-9a-f]{8}\.mp4$/)
+    expect(saved.path).toBe(`public${saved.src}`)
+    expect(existsSync(join(project.info.root, saved.path))).toBe(true)
+  })
+
+  it("refuses a link that fails or gives something other than a picture or a video", async () => {
     const image = { url: "https://cdn.example/desk.jpg", name: "desk" }
 
     await expect(saveImageFrom(project, image, picture("image/jpeg", 403))).rejects.toThrow("the source answered 403")
     await expect(saveImageFrom(project, image, picture("text/html"))).rejects.toThrow(
-      "the link gave text/html rather than a picture"
+      "the link gave text/html rather than a picture or a video"
     )
   })
 })

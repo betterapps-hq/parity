@@ -6,6 +6,7 @@ import type { ConnectorPlaced, ConnectorSearch } from "../shared/connectors.ts"
 import {
   type CanvasHost,
   type ConsoleChange,
+  type CopiedFile,
   type LoggedEntry,
   type OpenInEditorRequest,
   type ProblemReportRequest,
@@ -202,6 +203,7 @@ const host: CanvasHost = {
   pickProjectFile: () => invoke<string | undefined>(ipc.pickProjectFile),
   saveFile: (options) => invoke<string | undefined>(ipc.saveDialog, options),
   showItem: (path) => invoke<void>(ipc.showItem, path),
+  copiedFiles: () => invoke<CopiedFile[]>(ipc.copiedFiles),
   openInEditor: (request) => invoke<{ opened: string }>(ipc.openInEditor, request),
   quit: () => invoke<void>(ipc.quit),
   toggleDevTools: () => invoke<void>(ipc.toggleDevTools),

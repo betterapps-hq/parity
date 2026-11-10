@@ -316,6 +316,8 @@ function structure(node: DesignNode): string {
       return JSON.stringify({ ...base, tag: node.tag ?? null })
     case "image":
       return JSON.stringify({ ...base, fit: node.fit ?? null })
+    case "video":
+      return JSON.stringify({ ...base, fit: node.fit ?? null, controls: node.controls ?? null })
     case "instance":
       return JSON.stringify({
         ...base,

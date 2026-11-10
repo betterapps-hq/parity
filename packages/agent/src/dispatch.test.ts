@@ -935,6 +935,43 @@ describe("place", () => {
     })
   })
 
+  it("saves a video into the project and puts it in a video node, keeping pictures and videos apart (PAR-841)", async () => {
+    const { host, asked } = placingHost()
+    const signup = (await host.snapshot(undefined)).documents[0]!.document.containers[0]!
+
+    if (signup.root.type === "layout") {
+      signup.root.children.push({ type: "video", id: "clip", src: "/videos/old.mp4" })
+    }
+
+    const waves: PlaceableResult = {
+      ...desk,
+      kind: "videos",
+      title: "waves",
+      image: { url: "https://cdn.pixabay.com/video/waves.jpg", expiresAt: 1 },
+      video: { url: "https://cdn.pixabay.com/video/waves.mp4" }
+    }
+
+    const pixabay: AgentHost = { ...host, result: async () => waves }
+    const answer = await dispatch("place", { connector: "pixabay", id: "2", node: "signup/clip" }, pixabay, caller)
+    const intoImage = await dispatch("place", { connector: "pixabay", id: "2", node: "signup/photo" }, pixabay, caller)
+    const pictureIn = await dispatch("place", { connector: "unsplash", id: "desk", node: "signup/clip" }, host, caller)
+
+    expect(answer).toMatchObject({ placed: true, node: "signup/clip" })
+    expect(asked.savedImages[0]).toEqual({ url: "https://cdn.pixabay.com/video/waves.mp4", name: "waves" })
+    expect(asked.applied[0]?.changes.designs[0]?.after?.root).toMatchObject({
+      children: expect.arrayContaining([
+        expect.objectContaining({ type: "video", id: "clip", src: "/images/white-desk-1a2b3c4d.jpg", alt: "waves" })
+      ])
+    })
+    expect(replies.place.parse(intoImage).problem?.message).toBe(
+      "signup/photo is an image, which can't show a video. Place it in a video or a component."
+    )
+    expect(replies.place.parse(pictureIn).problem?.message).toBe(
+      "signup/clip is a video, which can't show a picture. Place it in an image or a component."
+    )
+    expect(asked.applied).toHaveLength(1)
+  })
+
   it("says why, and places nothing, when the picture can't be saved", async () => {
     const { host, asked } = placingHost()
     const fleeting = { ...desk, image: { url: "https://cdn.pixabay.com/photo/desk.jpg", expiresAt: 1 } }

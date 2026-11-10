@@ -1197,7 +1197,7 @@ describe("remaining transport contracts", processTests, () => {
       "   unsplash Dwu85P9SOIk",
       "   no preview: open the link",
       "Unsplash allows 49 more searches for now.",
-      'Place a picture in an image node with place_result (parity place <connector> <id> "<node>"), then credit its author and the source where the design shows it.'
+      'Place a picture in an image node, or a video in a video node, with place_result (parity place <connector> <id> "<node>"), then credit its author and the source where the design shows it.'
     ])
   })
 

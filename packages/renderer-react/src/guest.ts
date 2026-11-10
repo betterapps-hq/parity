@@ -61,12 +61,36 @@ type DecoratorValue = LibraryDecorator["class"]
  */
 const projectOrigin = new URL(import.meta.url).origin
 
-function attributesFor(tag: string, attributes: ElementAttributes | undefined): ElementAttributes {
-  if (tag !== "img" || !attributes?.src?.startsWith("/") || attributes.src.startsWith("//")) {
+/** A video's boolean attributes by their HTML names, as `videoAttributes` writes them, with the props React takes. */
+const videoFlags: ReadonlyMap<string, string> = new Map([
+  ["autoplay", "autoPlay"],
+  ["muted", "muted"],
+  ["loop", "loop"],
+  ["playsinline", "playsInline"],
+  ["controls", "controls"]
+])
+
+/** An element's attributes as React props: a picture's or video's path against the project, a video's flags on. */
+export function attributesFor(tag: string, attributes: ElementAttributes | undefined) {
+  if ((tag !== "img" && tag !== "video") || !attributes) {
     return attributes ?? {}
   }
 
-  return { ...attributes, src: new URL(attributes.src, projectOrigin).href }
+  const props: Props = {}
+
+  for (const [name, value] of Object.entries(attributes)) {
+    const flag = tag === "video" ? videoFlags.get(name) : undefined
+
+    if (flag) {
+      props[flag] = true
+    } else if (name === "src" && value.startsWith("/") && !value.startsWith("//")) {
+      props.src = new URL(value, projectOrigin).href
+    } else {
+      props[name] = value
+    }
+  }
+
+  return props
 }
 
 const missingStyle = {

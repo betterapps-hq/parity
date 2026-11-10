@@ -1,6 +1,7 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { fitPicture, type ImageMedium, inUse, mediumOf, type PictureSize, type ProjectImage } from "@parity-app/editor"
-import { ExternalLink, ImageIcon, type LucideIcon, PenTool, Plus, Trash2 } from "lucide-react"
+import { clockOf, VideoPlayer } from "@parity-app/media-player"
+import { ExternalLink, Film, ImageIcon, type LucideIcon, PenTool, Plus, Trash2 } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
 import { IconButton } from "../chrome/IconButton.tsx"
@@ -9,7 +10,7 @@ import { CardUses, EveryUse, type MediaLayers } from "./MediaUses.tsx"
 import { PictureMissing, ProjectPicture, transparencyGrid } from "./ProjectPicture.tsx"
 
 /** Each medium's icon, beside a name. */
-export const mediumIcons: Record<ImageMedium, LucideIcon> = { image: ImageIcon, vector: PenTool }
+export const mediumIcons: Record<ImageMedium, LucideIcon> = { image: ImageIcon, vector: PenTool, video: Film }
 
 /** What removing one says it does: a file goes from the project, and a link or a path from the designs using it. */
 export function removeLabel(image: ProjectImage): string {
@@ -28,9 +29,9 @@ interface MediaCardProps {
 }
 
 /**
- * One of the project's media on its card (PAR-871): the picture large, its name, its facts in labelled rows, where
- * it's used, and a bar with what to do with it. Where it's used opens every place in the card's stead when there's
- * more than the card lists.
+ * One of the project's media on its card (PAR-871): the picture large, or a video in its player (PAR-841), its name,
+ * its facts in labelled rows, where it's used, and a bar with what to do with it. Where it's used opens every place in
+ * the card's stead when there's more than the card lists.
  */
 export function MediaCard({ image, url, size, onInsert, onRemove, onShow }: MediaCardProps) {
   const [view, setView] = useState<"card" | "every-use" | "back">("card")
@@ -89,6 +90,7 @@ function Facts({ image, size }: { image: ProjectImage; size: PictureSize | undef
   return (
     <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 px-3 pb-3 text-xs">
       {size && <Fact label="Size">{`${size.width} × ${size.height}`}</Fact>}
+      {size?.seconds !== undefined && <Fact label="Length">{clockOf(Math.round(size.seconds))}</Fact>}
       <FileFacts image={image} />
       {image.credit && (
         <Fact label="Credit">
@@ -209,6 +211,10 @@ function CardStage({ image, url, size }: { image: ProjectImage; url: string; siz
         <PictureMissing />
       </div>
     )
+  }
+
+  if (mediumOf(image) === "video") {
+    return <VideoPlayer key={url} src={url} label={nameOf(image)} size="sm" className="w-full" />
   }
 
   // A vector grows to the box without blurring; pixels stop at their own size.

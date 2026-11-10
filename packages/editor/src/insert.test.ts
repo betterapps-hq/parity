@@ -119,6 +119,19 @@ describe("the layer an item becomes", () => {
     expect(node.style).toEqual({ width: 80, height: 45 })
   })
 
+  it("makes a video layer at its proportions from a video item (PAR-841)", () => {
+    const credit = { name: "Ada Park", url: "https://pixabay.com/users/adapark", source: "Pixabay" }
+
+    const node = nodeForItem(
+      { kind: "video", src: "/videos/waves.mp4", alt: "Waves", credit, width: 1920, height: 1080 },
+      undefined,
+      new Set()
+    )
+
+    expect(node).toMatchObject({ type: "video", src: "/videos/waves.mp4", alt: "Waves", credit })
+    expect(node.style).toEqual({ width: 80, height: 45 })
+  })
+
   it("keeps an image at least a step tall, and leaves out alt text it wasn't given", () => {
     const node = nodeForItem({ kind: "image", src: "line.png", width: 0, height: 0 }, undefined, new Set())
     expect(node.style).toEqual({ width: 80, height: 1 })
@@ -154,6 +167,7 @@ describe("labels", () => {
     expect(insertLabel({ kind: "instance", design: "badge" })).toBe("Add component")
     expect(insertLabel({ kind: "instance", design: "badge", detached: true })).toBe("Add copy")
     expect(insertLabel({ kind: "image", src: "a.png", width: 1, height: 1 })).toBe("Add image")
+    expect(insertLabel({ kind: "video", src: "a.mp4", width: 1, height: 1 })).toBe("Add video")
   })
 })
 

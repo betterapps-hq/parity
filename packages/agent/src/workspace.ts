@@ -16,6 +16,7 @@ import {
   designModes,
   type DesignNode,
   type ImageNode,
+  type VideoNode,
   editNode,
   type EvalScope,
   drawnNode,
@@ -914,8 +915,8 @@ export class AgentWorkspace {
 
     const picture = (["src", "alt", "credit"] as const).find((name) => change[name] !== undefined)
 
-    if (picture && node.type !== "image") {
-      throw new CodedError(`Only an image has ${picture}; a component takes its picture as a prop`, {
+    if (picture && node.type !== "image" && node.type !== "video") {
+      throw new CodedError(`Only an image or a video has ${picture}; a component takes its picture as a prop`, {
         code: "invalid_input",
         field: picture
       })
@@ -956,7 +957,7 @@ export class AgentWorkspace {
             updated.component = change.component
           }
 
-          if (updated.type === "image") {
+          if (updated.type === "image" || updated.type === "video") {
             pictured(updated, change)
           }
 
@@ -2346,8 +2347,11 @@ function describeDropped(dropped: DroppedParts): string | undefined {
   return said.length > 0 ? said.join(" ") : undefined
 }
 
-/** Sets an image's picture, description and credit from an Update, where `null` takes the description or credit away. */
-function pictured(image: ImageNode, change: UpdateChange): void {
+/**
+ * Sets an image's picture or a video's footage, its description and its credit from an Update, where `null` takes the
+ * description or credit away.
+ */
+function pictured(image: ImageNode | VideoNode, change: UpdateChange): void {
   if (change.src !== undefined) {
     image.src = change.src
   }

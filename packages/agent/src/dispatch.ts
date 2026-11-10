@@ -499,12 +499,12 @@ function renderFor(host: AgentHost, snapshot: TabSnapshot): AgentHooks["render"]
 }
 
 /**
- * Places a result a connector found in a design (PAR-829): the image from main's own copy goes in the node as one
- * undoable edit, and only once it's applied is main told, which records it and tells the source. So a placement is
- * reported because Parity made it, not because an agent said so. An image node takes the picture, its description and
- * its credit; a component takes it in a prop it declares. Only what main says can be placed goes in designs: pictures,
- * not screens from real apps or videos, which are for looking at. A picture whose link stops working is saved into the
- * project first, and the node shows the file.
+ * Places a result a connector found in a design (PAR-829): the picture or video from main's own copy goes in the node
+ * as one undoable edit, and only once it's applied is main told, which records it and tells the source. So a placement
+ * is reported because Parity made it, not because an agent said so. An image node takes a picture, and a video node a
+ * video (PAR-841), each with its description and its credit; a component takes either in a prop it declares. Only what
+ * main says can be placed goes in designs: pictures and videos, not screens from real apps, which are for looking at. A
+ * picture whose link stops working, and every video, is saved into the project first, and the node shows the file.
  */
 async function place(host: AgentHost, presence: Call["presence"], request: Params<"place">): Promise<Answer<"place">> {
   const { connector, id, node, state } = request
@@ -541,7 +541,7 @@ async function place(host: AgentHost, presence: Call["presence"], request: Param
   let warnings: string[] = []
 
   // Placing what the node already shows changes nothing, and is still reported, which main counts once.
-  if (target.holds !== shown.image.url) {
+  if (target.holds !== placedUrl(shown)) {
     const options = state ? `, ${JSON.stringify({ state })}` : ""
 
     const result = await execIn(host, presence, snapshot, {
@@ -573,23 +573,31 @@ async function place(host: AgentHost, presence: Call["presence"], request: Param
   return answer
 }
 
+/** What placing a result puts in a design: a video's footage, or its picture. */
+function placedUrl(found: PlaceableResult): string {
+  return found.video?.url ?? found.image.url
+}
+
 /**
  * A link that stops working would leave a broken picture in a saved design, so such a picture is saved into the
- * project's images folder first, and the node shows the file. Saving the same picture again reuses its file.
+ * project's images folder first, and the node shows the file. A video is always saved into its videos folder, as the
+ * Media tab saves one, since a stock library asks for a copy to be kept. Saving the same one again reuses its file.
  */
 async function savedIfFleeting(
   host: AgentHost,
   projectId: string,
   found: PlaceableResult
 ): Promise<PlaceableResult | { refusal: string }> {
-  if (found.image.expiresAt === undefined) {
+  if (found.image.expiresAt === undefined && !found.video) {
     return found
   }
 
   try {
-    const { src } = await host.saveImage(projectId, { url: found.image.url, name: found.title })
+    const { src } = await host.saveImage(projectId, { url: placedUrl(found), name: found.title })
 
-    return { ...found, image: { ...found.image, url: src } }
+    return found.video
+      ? { ...found, video: { ...found.video, url: src } }
+      : { ...found, image: { ...found.image, url: src } }
   } catch (cause) {
     const why = cause instanceof Error ? cause.message : String(cause)
 
@@ -597,10 +605,10 @@ async function savedIfFleeting(
   }
 }
 
-/** What `Update` gets to place a picture: an image's own fields, or a component's props. */
+/** What `Update` gets to place a picture or video: an image's or a video's own fields, or a component's props. */
 type PlaceChange = ImagePlace | { props: { [prop: string]: string } }
 
-/** An image's own fields, as placing a picture sets them. */
+/** An image's or a video's own fields, as placing a picture or video sets them. */
 interface ImagePlace {
   src: string
   alt: string
@@ -609,13 +617,16 @@ interface ImagePlace {
 
 interface PlaceTarget {
   change: PlaceChange
-  /** The picture the node already shows, to tell placing again from placing anew. */
+  /** The picture or video the node already shows, to tell placing again from placing anew. */
   holds: unknown
   /** The design the node is in, for a placement that needed no edit. */
   design: { path: string; id: string }
 }
 
-/** What placing into `path` changes, or why it can't take a picture: an image, or a component's declared prop. */
+/**
+ * What placing into `path` changes, or why it can't take what was found: a picture in an image, a video in a video, or
+ * either in a component's declared prop.
+ */
 function placeTarget(
   snapshot: TabSnapshot,
   path: string,
@@ -633,13 +644,27 @@ function placeTarget(
 
   const { node, design } = located
   const [author, source] = found.credit
+  const url = placedUrl(found)
+  const media = found.video ? "video" : "image"
 
-  if (node.type === "image") {
+  if ((node.type === "image" || node.type === "video") && node.type !== media) {
+    const what = found.video ? "a video" : "a picture"
+
+    return {
+      refusal: `${path} is ${node.type === "video" ? "a video" : "an image"}, which can't show ${what}. Place it in ${
+        found.video ? "a video" : "an image"
+      } or a component.`
+    }
+  }
+
+  if (node.type === "image" || node.type === "video") {
     if (state) {
-      return { refusal: "An image's picture belongs to the whole design, not one state. Place it without a state." }
+      const own = node.type === "video" ? "A video's footage" : "An image's picture"
+
+      return { refusal: `${own} belongs to the whole design, not one state. Place it without a state.` }
     }
 
-    const change: ImagePlace = { src: found.image.url, alt: found.title }
+    const change: ImagePlace = { src: url, alt: found.title }
 
     if (author?.url) {
       change.credit = { name: author.name, url: author.url, source: source?.name }
@@ -649,18 +674,21 @@ function placeTarget(
   }
 
   if (node.type !== "component") {
-    return { refusal: `${path} is a ${node.type}, which can't show a picture. Place it in an image or a component.` }
+    const what = found.video ? "a video" : "a picture"
+
+    return {
+      refusal: `${path} is a ${node.type}, which can't show ${what}. Place it in ${found.video ? "a video" : "an image"} or a component.`
+    }
   }
 
   const declared = new Set(snapshot.props[node.component]?.props.map((each) => each.name) ?? [])
   const named = prop ?? "src"
 
   if (!declared.has(named)) {
-    return { refusal: `${node.component} has no ${named} prop. Name the prop that takes the image with prop.` }
+    return { refusal: `${node.component} has no ${named} prop. Name the prop that takes the ${media} with prop.` }
   }
 
-  const props =
-    named === "src" && declared.has("alt") ? { src: found.image.url, alt: found.title } : { [named]: found.image.url }
+  const props = named === "src" && declared.has("alt") ? { src: url, alt: found.title } : { [named]: url }
 
   return { change: { props }, holds: node.props?.[named], design }
 }

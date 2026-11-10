@@ -456,7 +456,34 @@ const imageNode = nodeBase.extend({
 /** A picture: a file in the project, or a photo from a stock library saved into it. */
 export type ImageNode = z.infer<typeof imageNode>
 
-const designNode = z.discriminatedUnion("type", [layoutNode, componentNode, textNode, instanceNode, imageNode])
+const videoNode = nodeBase.extend({
+  type: z.literal("video"),
+  /** A URL, or a path the project's dev server serves, like `/videos/waves.mp4`. */
+  src: z.string(),
+  /** What it shows, for screen readers, as its `aria-label`. */
+  alt: z.string().optional(),
+  /** How it fills its box: cropped to cover it (the default), shown whole, or stretched. */
+  fit: z.enum(imageFits).optional(),
+  /**
+   * Shows the browser's controls and waits to be played. Without them it plays by itself, without sound, round and
+   * round, as a video behind a page's heading does.
+   */
+  controls: z.boolean().optional(),
+  /** Who made it and where it came from, for stock footage that asks to be credited. */
+  credit: imageCredit.optional()
+})
+
+/** A video: a file in the project, or stock footage saved into it (PAR-841). */
+export type VideoNode = z.infer<typeof videoNode>
+
+const designNode = z.discriminatedUnion("type", [
+  layoutNode,
+  componentNode,
+  textNode,
+  instanceNode,
+  imageNode,
+  videoNode
+])
 
 export type DesignNode = z.infer<typeof designNode>
 

@@ -147,13 +147,13 @@ describe("dropping image files", () => {
     await expect.poll(async () => (await app.designs()).length).toBe(before.length)
   })
 
-  it("skips files that aren't images with a message naming them, and adds the rest", async () => {
+  it("skips files that aren't images or videos with a message naming them, and adds the rest", async () => {
     await app.show("Pricing", 0.5, hero)
     await app.dropFiles([files.text, files.png], await belowLede())
     await expect.poll(async () => (await app.children("Pricing", hero)).length, { timeout: 10_000 }).toBe(5)
     await expect
       .poll(async () => (await toasts()).join("\n"))
-      .toContain("notes.txt isn't a PNG, JPEG, GIF, WebP or SVG image.")
+      .toContain("notes.txt isn't a PNG, JPEG, GIF, WebP, SVG, MP4 or WebM file.")
     expect((await toasts()).join("\n")).toContain("Skipped notes.txt")
     expect(await app.undoLabel()).toBe("Drop image")
   })

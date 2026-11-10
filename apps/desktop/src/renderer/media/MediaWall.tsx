@@ -12,19 +12,21 @@ import {
 import {
   imageItem,
   type InsertItem,
+  mediumOf,
   packWall,
   type PictureSize,
   type ProjectImage,
   type Stretch,
   tallnessOf
 } from "@parity-app/editor"
+import { VideoLength, VideoPreview } from "@parity-app/media-player"
 import { Link2, Trash2 } from "lucide-react"
-import type { CSSProperties, KeyboardEvent } from "react"
+import { type CSSProperties, type KeyboardEvent, useState } from "react"
 import { useHoverCard } from "../chrome/hover-card.ts"
 import { dragItem } from "../chrome/insert-from-panel.ts"
 import { MediaCard, removeLabel } from "./MediaCard.tsx"
 import type { MediaLayers } from "./MediaUses.tsx"
-import { PictureMissing, ProjectPicture, transparencyGrid } from "./ProjectPicture.tsx"
+import { PictureMissing, ProjectPicture, ProjectVideo, transparencyGrid } from "./ProjectPicture.tsx"
 
 /** How many sit across the wall, the space between them, and a tile's width in a panel at its usual width. */
 const wallLayout = { across: 2, gap: 8, usual: 116 }
@@ -107,12 +109,22 @@ interface TileProps extends MediaActions {
 }
 
 /**
- * One of the project's media: its picture, with its name over its foot while it's pointed at. Pressing it inserts it
+ * One of the project's media: its picture, with its name over its foot while it's pointed at. A video says how long it
+ * runs in its corner, and plays without sound while it's pointed at, counting down what's left. Pressing it inserts it
  * at the selection, and it drags onto the canvas, as a component does. Resting on it, or the right arrow, opens its
  * card. A path with no file has no picture to insert until there's a file there.
  */
 function Tile({ image, url, size, fresh, past, onInsert, onRemove, onShow }: TileProps) {
   const card = useHoverCard()
+  const video = image.kind !== "missing" && mediumOf(image) === "video"
+  const [pointed, setPointed] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+
+  const point = (on: boolean) => {
+    setPointed(on)
+    setElapsed(0)
+  }
+
   // Pressing it, to insert or drag it, or right-clicking it puts the card away.
   const putAway = () => card.setOpen(false)
   const item = size && imageItem(image, size)
@@ -143,8 +155,14 @@ function Tile({ image, url, size, fresh, past, onInsert, onRemove, onShow }: Til
       }}
       onDragEnd={drag?.onDragEnd}
       onClick={insert}
-      onPointerEnter={card.enter}
-      onPointerLeave={card.leave}
+      onPointerEnter={() => {
+        point(true)
+        card.enter()
+      }}
+      onPointerLeave={() => {
+        point(false)
+        card.leave()
+      }}
       onPointerDown={putAway}
       onContextMenu={putAway}
       onKeyDown={onKeyDown}
@@ -156,11 +174,16 @@ function Tile({ image, url, size, fresh, past, onInsert, onRemove, onShow }: Til
           : ""
       }`}
     >
-      {image.kind === "missing" ? (
-        <PictureMissing label={image.src.slice(image.src.lastIndexOf("/") + 1)} />
-      ) : (
-        // Where a picture is see-through, the grid shows through it, and only there.
-        <ProjectPicture url={url} className="size-full" style={transparencyGrid} />
+      {image.kind === "missing" && <PictureMissing label={image.src.slice(image.src.lastIndexOf("/") + 1)} />}
+      {image.kind !== "missing" &&
+        (video ? (
+          <ProjectVideo url={url} className="size-full" />
+        ) : (
+          // Where a picture is see-through, the grid shows through it, and only there.
+          <ProjectPicture url={url} className="size-full" style={transparencyGrid} />
+        ))}
+      {video && pointed && (
+        <VideoPreview src={url} onTime={setElapsed} className="absolute inset-0 size-full object-cover" />
       )}
       {image.kind === "linked" && (
         <span className="pointer-events-none absolute top-1 left-1 grid size-4.5 place-items-center rounded-sm bg-black/70 text-white">
@@ -170,11 +193,15 @@ function Tile({ image, url, size, fresh, past, onInsert, onRemove, onShow }: Til
       {image.kind !== "missing" && (
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-black/75 to-transparent px-1.5 pt-5 pb-1 text-2xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 group-aria-expanded:opacity-100"
+          // A video's name stops short of its length, in the corner beside it.
+          className={`pointer-events-none absolute inset-x-0 bottom-0 truncate bg-linear-to-t from-black/75 to-transparent pt-5 pb-1 pl-1.5 text-2xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 group-aria-expanded:opacity-100 ${
+            video ? "pr-16" : "pr-1.5"
+          }`}
         >
           {image.name}
         </span>
       )}
+      {video && size?.seconds !== undefined && <VideoLength seconds={size.seconds} elapsed={elapsed} />}
     </button>
   )
 

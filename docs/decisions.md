@@ -7117,3 +7117,26 @@ keep it in a package of its own so other media can join it later. My calls:
 - **A preview counts its length down** while it plays, from the length it showed, to 0:00, and shows the whole length
   again once the pointer leaves. The library browser's result tiles use `VideoPreview` and `VideoLength` now, and
   `clockOf` left `@parity-app/connectors` for the package's own.
+
+## Videos are a layer of their own (PAR-841)
+
+The last of the four pull requests that build the references design. My calls:
+
+- **A video is its own node,** `video`, beside `image`, rather than an image that plays. It keeps `src`, `alt`, `fit`
+  and `credit` as an image does, and adds `controls`. It's written to code as `<video>`: without controls it plays by
+  itself, without sound, round and round (`autoplay muted loop playsinline`), the way a video in a design usually plays;
+  with controls it waits to be played. `alt` is its `aria-label`, since `<video>` has no `alt`.
+- **Video files are kept in `public/videos/`,** beside `public/images/`, named and listed the same way, and removed from
+  either folder. MP4 and WebM files up to 100 MB are taken, where images stop at 20 MB.
+- **The `images` service methods kept their names** (`images.import`, `images.saveFrom`, `images.list`, `images.remove`)
+  and take videos, choosing the folder by the file's type, so the Media tab, dropping, pasting and placing share one
+  path.
+- **A video from a stock library is always saved into the project,** whether added from the Media tab or placed by an
+  agent, since its link isn't one to show from a design.
+- **Pasting a copied video file reads it in main.** The browser's clipboard gives a page only images, so main reads the
+  file the system clipboard names (Windows' `FileNameW`, macOS's file URL), and pasting takes it as dropping it would.
+  Images copied as pictures still paste as before.
+- **`place_result` places videos into video nodes,** and a component's prop, and refuses an image node for a video or a
+  video node for a picture, saying which to use. `Update` takes `src`, `alt` and `credit` on a video as on an image.
+- **The player is `@parity-app/media-player`'s** (PAR-891): `VideoPlayer` in the larger view and on a Media card,
+  `VideoPreview` and `VideoLength` on a tile.

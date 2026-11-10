@@ -2331,7 +2331,8 @@ the Media tab, which lists the project's images.
 ### Dropping image files from Explorer or Finder (PAR-24)
 
 PNG, JPEG, GIF, WebP and SVG files dragged from the desktop, Explorer or Finder onto the canvas are saved into the
-project under `public/images/` through `images.import`, as a pasted image is, and land where they're dropped.
+project under `public/images/` through `images.import`, as a pasted image is, and land where they're dropped. MP4 and
+WebM files land the same way, into `public/videos/` (Videos, below).
 
 - **Over a layout inside a design** they go into the deepest of the design's own layouts under the pointer, in the frame
   there, at the slot under the pointer, where a dragged layer would land (`slotAt`), as Paste here puts layers. In a
@@ -2453,8 +2454,9 @@ of the pictures themselves, two across, each as tall as its own proportions make
   and linked photos load from the project's builder, as the canvas's guest loads them; a linked photo is marked with a
   link, and a path with no file is a dashed tile with its file's name. Pointing at one shows its name over its foot.
   Where a picture is transparent, a grid of squares in the theme's grays shows through (`transparencyGrid`, PAR-871).
-- **Search and type:** Search media matches a name, path, address, alt text or credit (`filterImages`). With both photos
-  and SVGs in the project, All, Images and Vectors narrow the wall by file type (`mediumOf`).
+- **Search and type:** Search media matches a name, path, address, alt text or credit (`filterImages`). With more than
+  one of photos, SVGs and videos in the project, All, Images, Vectors and Videos narrow the wall by file type
+  (`mediumOf`).
 - **Inserting:** pressing a picture inserts it at the selection, as an icon or component is inserted, or as a new frame
   with nothing selected; it drags onto the canvas the same way (`imageItem`, through the Assets panel's insert and drag,
   now shared in `chrome/insert-from-panel.ts`). It's 320px wide at its own proportions, with the alt text and credit it
@@ -2477,9 +2479,9 @@ of the pictures themselves, two across, each as tall as its own proportions make
   (`findUses`), and Back. Focus moves into it and the card holds it, so it stays open with the pointer away. Escape
   clears the search, then goes back to the card, to the row that opened every place. A logo in hundreds of layers is
   still three rows on its card. Nothing using it says "Not used yet".
-- **Adding:** image files dropped on the tab, or chosen with **+**, are saved under `public/images/` as dropped files
-  are (`addImageFiles`), and arrive marked for a moment. The tab outlines itself while files are over it, saying what a
-  drop adds or that only the five types can be added.
+- **Adding:** image and video files dropped on the tab, or chosen with **+**, are saved under `public/images/` or
+  `public/videos/` as dropped files are (`addImageFiles`), and arrive marked for a moment. The tab outlines itself while
+  files are over it, saying what a drop adds or that only the seven types can be added. Videos are under Videos, below.
 - **Removing,** from the card, the right-click menu or Delete, follows `removalOf`. A file nothing uses goes at once, as
   a project edit whose Undo puts it back. One that designs use asks first, listing where, and "Remove file and 3 layers"
   removes the layers that show it as one step of the designs' history, then the file; the file's Undo puts the layers
@@ -2490,8 +2492,8 @@ of the pictures themselves, two across, each as tall as its own proportions make
   included. Before the first answer the tab shows the wall's shape; a failed scan says so and shows what it last had.
 
 Code: `packWall` and `tallnessOf` in `packages/editor/src/media-wall.ts`; `mediumOf`, `designsUsing`, `codeFilesUsing`,
-`usesOnCard`, `findUses`, `removalOf` and `imageItem` in `packages/editor/src/project-images.ts`; `imageAccept` and
-`imageKinds` in `drop-files.ts`. The tab is `apps/desktop/src/renderer/media/`: `MediaPanel.tsx` (search, type, adding,
+`usesOnCard`, `findUses`, `removalOf` and `imageItem` in `packages/editor/src/project-images.ts`; `mediaAccept` and
+`mediaKinds` in `drop-files.ts`. The tab is `apps/desktop/src/renderer/media/`: `MediaPanel.tsx` (search, type, adding,
 the remove dialog's flow), `MediaWall.tsx` (the wall and its tiles), `MediaCard.tsx` (the card and its facts),
 `MediaUses.tsx` (where it's used on the card, every place, and the remove dialog's list), `RemoveMediaDialog.tsx`,
 `ProjectPicture.tsx` (a picture at the builder's address, noting its size in `picture-sizes.ts`, and the transparency
@@ -2505,17 +2507,18 @@ Tests:
 - `packages/editor/src/project-images.test.ts`: `mediumOf`, `designsUsing` grouping and ordering, code grouped by file
   and named apart, what a card lists and leaves out (one past the room listed), finding uses by name, `removalOf` for
   each case, and `imageItem`.
-- `media/MediaPanel.stories.tsx` (21 stories, each with its check): no media, loading, the wall, linked and missing
-  pictures, searching, nothing matching, vectors only, a card and its facts, a linked photo's card with its credit, a
-  card for one nothing uses, one for a missing file, a logo in a hundred layers and four files of code (every place, its
-  search, staying open with the pointer away, and Escape back to the card), Show selecting every layer in a design,
-  inserting at the selection, removing an unused file, removing one in use with its layers, one the code names, dropping
-  files, the narrowest panel, adding a picture from Pixabay, and a search that finds nothing offering Pixabay. The
-  stories' pictures are drawn for them and served at `/images/`, as a builder serves `public/images/`.
+- `media/MediaPanel.stories.tsx` (23 stories, each with its check): no media, loading, the wall, linked and missing
+  pictures, searching, nothing matching, vectors only, videos, a video's card, a card and its facts, a linked photo's
+  card with its credit, a card for one nothing uses, one for a missing file, a logo in a hundred layers and four files
+  of code (every place, its search, staying open with the pointer away, and Escape back to the card), Show selecting
+  every layer in a design, inserting at the selection, removing an unused file, removing one in use with its layers, one
+  the code names, dropping files, the narrowest panel, adding a picture from Pixabay, and a search that finds nothing
+  offering Pixabay. The stories' pictures are drawn for them and served at `/images/`, as a builder serves
+  `public/images/`.
 
-Gaps: videos aren't in the tab yet (PAR-841). Removing a component layer that takes the image as a prop removes the
-whole layer, as the dialog's count says. There are no thumbnails: every picture loads whole as the tab opens, so a
-project with hundreds of large images loads them all.
+Gaps: Removing a component layer that takes the image as a prop removes the whole layer, as the dialog's count says.
+There are no thumbnails: every picture loads whole as the tab opens, so a project with hundreds of large images loads
+them all.
 
 ### The library browser (PAR-839)
 
@@ -2533,10 +2536,11 @@ it.
   (`layoutFor`, `sizeOf`). Each says who made it, a video how long it runs, and the count names the type (`countOf`).
   Mobbin's Search deeper checks each screen against the description.
 - **Picking:** a click picks a result and another lets it go; the footer's button counts them ("Add 2 to project"),
-  Clear lets them all go, and Ctrl+Enter presses it. What can't be picked, as a video until PAR-841, opens larger
-  instead (`isPlaceable`).
-- **Larger:** a double click shows a result as large as the dialog allows, with Open in the library, Pick and a strip of
-  every result under it. The arrows step through them, and Esc goes back to the results before it closes the dialog.
+  Clear lets them all go, and Ctrl+Enter presses it. Pictures and videos can be picked (PAR-841); what can't, as a
+  screen in a browser opened only to look, opens larger instead (`isPlaceable`).
+- **Larger:** a double click shows a result as large as the dialog allows, a video in the player (`VideoPlayer`), with
+  Open in the library, Pick and a strip of every result under it. The arrows step through them, and Esc goes back to the
+  results before it closes the dialog.
 - **When a search fails:** nothing matching says what to change, with Clear filters, or the other platform on Mobbin
   (`otherSide`). Too many searches counts down the wait the source asked for before Try again; a source that didn't
   answer offers Try again; a library this copy has no key for says it isn't available, with nothing to set up.
@@ -2581,6 +2585,97 @@ Tests:
 - `packages/editor/src/project-images.test.ts`: a file credited with what the project kept, and `keepImageDetails`.
 - `packages/connectors/src/browse.test.ts`: `pictureCredit`.
 - `media/MediaPanel.stories.tsx`: adding a picture from Pixabay, and a search that finds nothing offering Pixabay.
+
+## Videos
+
+### The video layer (PAR-841)
+
+A video is a layer of its own, beside the image layer: `video` in the design file, with `src`, `alt`, `fit`, `controls`
+and `credit` (decisions.md). It's written to the frame as a `<video>`, with its path resolved against the project's
+builder, as an image's is.
+
+- **How it plays:** by itself, without sound, round and round, in its place rather than full screen on a phone
+  (`autoplay muted loop playsinline`), as a video behind a page's heading does. A browser plays a video by itself only
+  without sound. With **Controls** on, it shows the browser's controls and waits to be played (`controls playsinline`).
+- **On the canvas** it plays as it does in the frame, since the canvas draws the frame. A frame's bitmap, drawn while
+  zoomed out, shows the picture it was on.
+- **Its inspector section,** Video, has File, Alt text (its `aria-label`), Fit (cover, contain or fill) and Controls,
+  with its credit under them when it has one. Its layer's icon is a strip of film, its kind is Video, and an unnamed one
+  is named by its alt text, or Video.
+- **Inserting:** a video goes in 320px wide at its own proportions, as an image does (`nodeForItem`), from the Media
+  tab, a drop or a paste. Several dropped on the empty canvas make a frame called Videos, or Media with images among
+  them.
+- **Agents** write one as a `video` node, and put a video a search found in one with `place_result`, which saves it into
+  the project first (connectors.md). `Update` takes `src`, `alt` and `credit` on a video, as on an image.
+
+Code: the node in `packages/core/src/document.ts` (`VideoNode`); `videoAttributes` and the `video` case in
+`packages/core/src/render.ts`; `attributesFor` in `packages/renderer-react/src/guest.ts`, which turns its flags into
+React's props; the inspector's `MediaSection` in `apps/desktop/src/renderer/chrome/LayerPanel.tsx`; `NodeIcon` in
+`canvas/kinds.tsx` and `layerKind` in `chrome/layer-kind.ts`; placing in `packages/agent/src/dispatch.ts`
+(`placeTarget`, `savedIfFleeting`).
+
+Tests:
+
+- `packages/core/src/render.test.ts`: a video drawn as a `<video>` that plays by itself without sound, and one with
+  controls that waits.
+- `packages/renderer-react/src/guest.test.ts`: a video's flags turned on by React's names, and another element's
+  attributes left alone.
+- `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
+- `chrome/layer-kind.test.ts`: an image is Image and a video Video.
+- `packages/agent/src/dispatch.test.ts`: a video saved and placed in a video node, and a picture and a video each
+  refused by the other's node.
+
+Gaps: a frame's bitmap doesn't wait for a video's first picture, so one drawn before it loads shows the video's box
+empty. The Media tab inserts and drops place a video; there's no video in the Assets panel's other tabs. No end-to-end
+test drops or plays a video yet.
+
+### Importing and finding video files (PAR-841)
+
+MP4 and WebM files import as images do, into `public/videos/` beside `public/images/` (decisions.md), named after the
+file with a short hash of its content, so the same file twice reuses one.
+
+- **Dropping** them on the canvas, from Explorer or Finder, lands them as dropped images land (above), up to 100 MB
+  each; images stay at 20 MB. The label while dragging counts them as videos ("Add the video here", "New frame with 3
+  files" for some of each), and the undo step says "Drop video". A file too large or of another type is named with why,
+  as an image is ("film.webm is larger than 100 MB.").
+- **Pasting** a video file copied in Explorer or Finder places it as a pasted image is, as "Paste video". The window's
+  clipboard holds no files, so main reads where the copied file is from the system's clipboard (Explorer's `FileNameW`,
+  Finder's file link) and gives the window its bytes. An image file copied the same way pastes too.
+- **The Media tab** takes them by a drop or **+**, lists them with the images, and its type filter adds Videos once the
+  project has them beside another type. A video's tile shows its first picture with how long it runs in its corner
+  (`VideoLength`), and plays without sound while it's pointed at, the time left counting down (`VideoPreview`). Its card
+  plays it in the player (`VideoPlayer`, `@parity-app/media-player`) in place of the picture, with a Length row beside
+  Size. Removing one works as an image's does.
+- **The library browser** picks a stock library's videos as it picks pictures (`placeableKinds` takes `videos`), and
+  "Add 2 to project" saves each video's footage, not its poster, into `public/videos/`, with its credit, as a picture is
+  saved (`images.saveFrom`). Shown larger, a video plays in the same player.
+- **Agents** list videos with `get_images`, beside the images, and remove one with `remove_image`.
+
+Code: the types, limits and words in `packages/editor/src/drop-files.ts` (`mediumOfType`, `limitOf`, `sortDrop`,
+`dropHint`, `dropLabel`, `pasteLabel`); `videosFolder`, `mediaFolderOf` and `mediumOf` in `project-images.ts`; saving,
+listing and removing in `apps/desktop/src/utility/images.ts`; `importMedia` in `canvas/import-media.ts`, which measures
+a video before it's saved; `addImageFiles` and drops in `canvas/drop-files.ts`; pasting in `canvas/clipboard.ts` with
+`apps/desktop/src/main/clipboard-files.ts`; the tiles, card and filter in `media/`; `add-stock.ts` and `LargerView.tsx`.
+
+Tests:
+
+- `packages/editor/src/drop-files.test.ts`: MP4 and WebM by type and extension, QuickTime left out, a video's own limit,
+  what a drag may be, the messages for each limit, the hints and labels for videos and for some of each, and frames
+  called Videos and Media.
+- `packages/editor/src/project-images.test.ts`: video files listed from `public/videos/` with the layers that play them,
+  a linked video named by its credit, `mediumOf` for videos, and a video inserted as a video.
+- `apps/desktop/src/utility/images.test.ts`: videos listed beside images, a video removed as "Remove video", one saved
+  from a link into `public/videos/`, and the messages for what isn't an image or a video.
+- `apps/desktop/src/main/clipboard-files.test.ts` (4): Explorer's first file, Finder's file link, none elsewhere, and
+  the copied file's bytes, with nothing for a folder or a file that's gone.
+- `packages/connectors/src/browse.test.ts`: videos can be picked.
+- `media/MediaPanel.stories.tsx`: Videos (the filter, the length, playing while pointed at) and Video card (the player
+  and the Length row). `library/LibraryBrowser.Pixabay.stories.tsx`: Videos (picking one, the player shown larger, and
+  Pick there).
+
+Gaps: pasting takes the first file copied, as the system's clipboard gives one path. A video is read whole in the window
+and sent to the service as text, as an image is, so a 100 MB video holds about twice that while it's saved. No poster is
+saved: a tile shows the video's own first picture.
 
 ## References
 

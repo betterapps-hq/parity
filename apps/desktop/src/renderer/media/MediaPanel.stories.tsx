@@ -92,14 +92,19 @@ async function openUsedMedia(): Promise<void> {
   showIn("Settings", { src: "/images/old-hero.png" })
 }
 
-/** The wall, once every picture on it has loaded. */
+/** The wall, once every picture on it has loaded and every video knows its size. */
 async function wall(canvasElement: HTMLElement): Promise<HTMLElement> {
   const list = await within(canvasElement).findByRole("list", { name: "Media in this project" })
 
   await waitFor(() => {
     const images = [...list.querySelectorAll("img")]
+    const videos = [...list.querySelectorAll("video")]
 
-    if (images.length === 0 || !images.every((image) => image.complete)) {
+    const loaded =
+      images.every((image) => image.complete) &&
+      videos.every((video) => video.readyState >= HTMLMediaElement.HAVE_METADATA)
+
+    if (images.length + videos.length === 0 || !loaded) {
       throw new Error("The pictures are still loading")
     }
   })
@@ -216,6 +221,41 @@ export const VectorsOnly: Story = {
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label"))
     ).toEqual(["logo.svg", "wave.svg"])
+  }
+}
+
+/** The example's files with a video among them, served at `/videos/` as the builder serves `public/videos/`. */
+const withVideo: ImageFile[] = [...pictures, { path: "public/videos/sample-clip.mp4", bytes: 2_100_000 }]
+
+/**
+ * Videos (PAR-841): narrowed to them, a video says how long it runs in its corner and plays without sound while it's
+ * pointed at, counting down the time left.
+ */
+export const Videos: Story = {
+  loaders: [() => openMedia(withVideo)],
+  play: async ({ canvasElement }) => {
+    await userEvent.click(await within(canvasElement).findByRole("button", { name: "Videos" }))
+    const clip = await tile(canvasElement, "sample-clip.mp4")
+    await within(clip).findByText("0:12")
+
+    await userEvent.hover(clip)
+    await waitFor(() => expect(clip.querySelector("video[autoplay]")).toBeTruthy())
+    await waitFor(() => expect(clip.querySelector<HTMLVideoElement>("video[autoplay]")?.paused).toBe(false))
+    await userEvent.unhover(clip)
+    await expect(clip.querySelector("video[autoplay]")).toBeNull()
+  }
+}
+
+/** A video's card: the video in the player, without sound until it's turned up, and how long it runs. */
+export const VideoCard: Story = {
+  loaders: [() => openMedia(withVideo)],
+  play: async ({ canvasElement }) => {
+    const card = await openCard(canvasElement, "sample-clip.mp4")
+    const player = await within(card).findByRole("group", { name: "sample-clip.mp4" })
+    await waitFor(() => expect(player.querySelector("video")?.paused).toBe(false))
+    await expect(player.querySelector("video")?.muted).toBe(true)
+    await within(card).findByText("0:12")
+    await within(card).findByText("public/videos/sample-clip.mp4")
   }
 }
 

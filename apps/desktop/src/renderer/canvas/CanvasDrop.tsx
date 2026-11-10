@@ -1,4 +1,4 @@
-import { type Box, dropHint, mayBeImage, readInsertItem } from "@parity-app/editor"
+import { type Box, countMedia, dropHint, mayBeMedia, readInsertItem } from "@parity-app/editor"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useProject } from "./context.ts"
@@ -76,10 +76,10 @@ export function CanvasDrop() {
       event.composedPath().some((target) => target instanceof HTMLElement && target.hasAttribute("data-frame"))
 
     const fileIndicator = (drop: FileDrop, types: string[], point: Point): Indicator => {
-      const count = types.filter(mayBeImage).length
+      const count = countMedia(types.map(mayBeMedia))
       const hint = { text: dropHint(count, drop.kind), at: relative({ ...point, w: 0, h: 0 }) }
 
-      if (count === 0 || drop.kind === "none") {
+      if (count.images + count.videos === 0 || drop.kind === "none") {
         return { hint }
       }
 

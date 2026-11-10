@@ -164,8 +164,9 @@ describe("results", () => {
     expect(labelOf({ kind: "screens", title: "Pricing", credit: [{ name: "Linear" }] })).toBe("Linear")
   })
 
-  it("lets photos into the project and keeps screens out", () => {
+  it("lets photos and videos into the project and keeps screens out", () => {
     expect(isPlaceable(photo)).toBe(true)
+    expect(isPlaceable({ kind: "videos" })).toBe(true)
     expect(isPlaceable({ kind: "screens" })).toBe(false)
   })
 })

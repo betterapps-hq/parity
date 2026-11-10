@@ -10,9 +10,10 @@ import {
   isParityCopy,
   isSvgMarkup,
   kindsName,
+  countMedia,
   missingComponents,
-  nodeForItem,
   pastedPlacement,
+  pasteLabel,
   pasteHere,
   pasteLayers,
   type PasteTarget,
@@ -29,14 +30,16 @@ import {
   selectedNodes
 } from "@parity-app/editor"
 import { toast } from "sonner"
+import type { CopiedFile } from "../../shared/protocol.ts"
 import type { Attributes } from "../chrome/event-attributes.ts"
 import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { errorCode, errorMessage, reportError, track } from "../report-error.ts"
-import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { canvasIdFor } from "./CanvasEditor.tsx"
+import { addImageFiles, mediumOfNode } from "./drop-files.ts"
 import { bringIntoView, bringIntoViewOnceSized, takenBounds } from "./free-space.ts"
 import type { Point } from "./hit.ts"
+import { importMedia } from "./import-media.ts"
 import { addFrameOfLayers, addFrameOfText, viewCenter } from "./new-screen.ts"
 import { placeAtPoint } from "./paste-here.ts"
 
@@ -101,6 +104,10 @@ export async function pasteClipboard(session: ProjectSession): Promise<void> {
     return pasteImage(session, content)
   }
 
+  if (content.kind === "files") {
+    return pasteFiles(session, content)
+  }
+
   if (content.kind === "text") {
     pasted("paste", "text", 1, pasteText(session, content.text))
   }
@@ -119,7 +126,7 @@ export async function pasteClipboard(session: ProjectSession): Promise<void> {
 type PasteHow = "paste" | "over" | "replace" | "here"
 
 /** What was on the clipboard, as `clipboard.pasted` and `clipboard.failed` name it. */
-type PastedContent = "layers" | "designs" | "notes" | "image" | "svg" | "text" | "empty" | "unreadable"
+type PastedContent = "layers" | "designs" | "notes" | "image" | "svg" | "video" | "text" | "empty" | "unreadable"
 
 /** What a read of the clipboard holds, as `clipboard.pasted` names it. */
 function contentOf(content: ClipboardContent): PastedContent {
@@ -129,6 +136,10 @@ function contentOf(content: ClipboardContent): PastedContent {
 
   if (content.kind === "image") {
     return content.blob.type === "image/svg+xml" ? "svg" : "image"
+  }
+
+  if (content.kind === "files") {
+    return content.files.every(({ name }) => /\.(?:mp4|webm)$/i.test(name)) ? "video" : "image"
   }
 
   return content.kind
@@ -180,6 +191,8 @@ function pasteFailed(
 type ClipboardContent =
   | { kind: "envelope"; envelope: ClipboardEnvelope }
   | { kind: "image"; blob: Blob; name: string }
+  /** A file copied in Explorer or Finder (PAR-841). */
+  | { kind: "files"; files: CopiedFile[] }
   | { kind: "text"; text: string }
   | { kind: "unreadable" }
   | { kind: "empty" }
@@ -187,8 +200,9 @@ type ClipboardContent =
 const unreadableCopy = "The copy on the clipboard couldn't be read, so nothing was pasted"
 
 /**
- * What's on the system clipboard: Parity's own copy, an image or SVG markup, or plain text. A Parity copy that can't be
- * read, such as one from a newer version, is unreadable rather than text, so its JSON never pastes as a text layer.
+ * What's on the system clipboard: Parity's own copy, a file copied in Explorer or Finder, an image or SVG markup, or
+ * plain text. A Parity copy that can't be read, such as one from a newer version, is unreadable rather than text, so
+ * its JSON never pastes as a text layer.
  */
 async function readClipboard(): Promise<ClipboardContent> {
   let text = ""
@@ -207,6 +221,13 @@ async function readClipboard(): Promise<ClipboardContent> {
 
   if (isParityCopy(text)) {
     return { kind: "unreadable" }
+  }
+
+  // The system's clipboard can't be read in a story or a test without the app around it, which then holds no file.
+  const files = await window.canvasHost.copiedFiles().catch(() => [])
+
+  if (files.length > 0) {
+    return { kind: "files", files }
   }
 
   const image = await clipboardImage()
@@ -516,10 +537,22 @@ async function clipboardLayers(
     return undefined
   }
 
+  if (content.kind === "files") {
+    const nodes = await savedFiles(session, content)
+
+    if (nodes.length === 0) {
+      pasteFailed(how, kind, "imageFailed")
+
+      return undefined
+    }
+
+    return { nodes, content: kind }
+  }
+
   const progress = toast.loading("Adding the image…")
 
   try {
-    const node = await importImage(session, content.blob, content.name)
+    const node = await importMedia(session, content.blob, content.name)
     toast.dismiss(progress)
 
     return { nodes: [node], content: kind }
@@ -553,12 +586,41 @@ async function clipboardImage(): Promise<Blob | undefined> {
   return undefined
 }
 
+/**
+ * Saves a file copied in Explorer or Finder into the project, as dropping it would, and gives the layer that shows it.
+ * One that isn't an image or video Parity takes, or is too large, is named in a message, as a dropped one is.
+ */
+async function savedFiles(
+  session: ProjectSession,
+  content: ClipboardContent & { kind: "files" }
+): Promise<DesignNode[]> {
+  const described = content.files.map(({ name, size }) => ({ name, type: "", size }))
+  const files = content.files.map(({ name, data }) => new File(data ? [new Uint8Array(data)] : [], name))
+  const saved = await addImageFiles(session, files, described)
+
+  return saved.map(({ node }) => node)
+}
+
+/** Pastes a file copied in Explorer or Finder like a pasted layer, at its own proportions (PAR-841). */
+async function pasteFiles(session: ProjectSession, content: ClipboardContent & { kind: "files" }): Promise<void> {
+  const nodes = await savedFiles(session, content)
+
+  if (nodes.length === 0) {
+    pasteFailed("paste", contentOf(content), "imageFailed")
+
+    return
+  }
+
+  const place = placeLayers(session, nodes, pasteLabel(countMedia(nodes.map(mediumOfNode))))
+  pasted("paste", contentOf(content), nodes.length, place?.design)
+}
+
 /** Saves a pasted image into the project and places it like a pasted layer, at its own proportions. */
 async function pasteImage(session: ProjectSession, content: ClipboardContent & { kind: "image" }): Promise<void> {
   const progress = toast.loading("Adding the image…")
 
   try {
-    const place = placeLayers(session, [await importImage(session, content.blob, content.name)], "Paste image")
+    const place = placeLayers(session, [await importMedia(session, content.blob, content.name)], "Paste image")
     toast.dismiss(progress)
     pasted("paste", contentOf(content), 1, place?.design)
   } catch (error) {
@@ -570,54 +632,6 @@ async function pasteImage(session: ProjectSession, content: ClipboardContent & {
     })
     pasteFailed("paste", contentOf(content), "imageFailed", error)
   }
-}
-
-/**
- * Saves an image pasted or dropped into the project, and gives the layer that shows it at its own proportions. `type`
- * is its media type, for a file the system gave none.
- */
-export async function importImage(
-  session: ProjectSession,
-  blob: Blob,
-  name: string,
-  type = blob.type
-): Promise<DesignNode> {
-  const [size, data] = await Promise.all([imageSize(blob, type), base64(blob)])
-
-  const { src } = await request("images.import", {
-    projectId: session.id,
-    name,
-    type,
-    data
-  })
-
-  return nodeForItem({ kind: "image", src, width: size.width, height: size.height }, undefined, new Set())
-}
-
-/** An image's natural size, in pixels; SVGs without one count as square. */
-function imageSize(blob: Blob, type: string): Promise<{ width: number; height: number }> {
-  // An SVG only draws from a blob that says it's one.
-  const url = URL.createObjectURL(blob.type === type ? blob : new Blob([blob], { type }))
-
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => resolve({ width: image.naturalWidth || 1, height: image.naturalHeight || 1 })
-    image.onerror = () => reject(new Error("The image couldn't be read"))
-    image.src = url
-  }).finally(() => URL.revokeObjectURL(url))
-}
-
-function base64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    // A data URL, since it's read as one.
-    reader.onload = () =>
-      resolve(
-        reader.result === null || reader.result instanceof ArrayBuffer ? "" : reader.result.replace(/^data:[^,]*,/, "")
-      )
-    reader.onerror = () => reject(reader.error ?? new Error("The image couldn't be read"))
-    reader.readAsDataURL(blob)
-  })
 }
 
 /** Copies the selected designs, placing the copies in the first free space to the right of the originals. */

@@ -23,6 +23,7 @@ import { type Span, telemetryFileName } from "@parity-app/telemetry"
 import {
   app,
   BrowserWindow,
+  clipboard,
   dialog,
   ipcMain,
   Menu,
@@ -70,6 +71,7 @@ import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } fr
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
+import { copiedFiles, rawFormat } from "./clipboard-files.ts"
 import { openInEditor } from "./code-editor.ts"
 import { createConnectorHub } from "./connectors.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
@@ -1042,6 +1044,8 @@ handle(
   "showItem",
   checked(shownItem, (_event, path) => shell.showItemInFolder(path))
 )
+
+handle("copiedFiles", () => copiedFiles({ platform: process.platform, raw: (format) => rawFormat(clipboard, format) }))
 
 handle(
   "openInEditor",

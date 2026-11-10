@@ -10,10 +10,12 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   filterImages,
-  imageAccept,
   type ImageMedium,
-  imageKinds,
   layersSelection,
+  type MediaCount,
+  mediaAccept,
+  mediaKinds,
+  mediaWords,
   mediumOf,
   type ProjectImage,
   removalOf
@@ -48,7 +50,8 @@ import { RemoveMediaDialog } from "./RemoveMediaDialog.tsx"
 
 const mediums: readonly { id: ImageMedium; many: string }[] = [
   { id: "image", many: "Images" },
-  { id: "vector", many: "Vectors" }
+  { id: "vector", many: "Vectors" },
+  { id: "video", many: "Videos" }
 ]
 
 export function MediaPanel() {
@@ -94,9 +97,9 @@ export function MediaPanel() {
           ref={picker}
           type="file"
           multiple
-          accept={imageAccept}
+          accept={mediaAccept}
           hidden
-          aria-label="Images to add"
+          aria-label="Files to add"
           onChange={(event) => {
             add([...(event.currentTarget.files ?? [])])
             event.currentTarget.value = ""
@@ -146,7 +149,7 @@ export function MediaPanel() {
           />
         )}
       </div>
-      {drag.over && <DropTarget images={drag.images} />}
+      {drag.over && <DropTarget count={drag.count} />}
       <RemoveMediaDialog
         image={removing}
         onClose={() => setRemoving(undefined)}
@@ -163,7 +166,7 @@ export function MediaPanel() {
   )
 }
 
-/** Adds image files to the project, then lists them, marked for a moment as they arrive on the wall. */
+/** Adds image and video files to the project, then lists them, marked for a moment as they arrive on the wall. */
 async function addFiles(session: ProjectSession, files: readonly File[]): Promise<void> {
   const saved = await addImageFiles(session, files)
 
@@ -173,15 +176,15 @@ async function addFiles(session: ProjectSession, files: readonly File[]): Promis
 
   const media = mediaFilesOf(session)
   await media.scan()
-  media.markFresh(saved.flatMap(({ node }) => (node.type === "image" ? [node.src] : [])))
+  media.markFresh(saved.flatMap(({ node }) => (node.type === "image" || node.type === "video" ? [node.src] : [])))
 }
 
 /** What the tab shows while files are over it: its edge in the selection's color, and what a drop adds. */
-function DropTarget({ images }: { images: number }) {
+function DropTarget({ count }: { count: MediaCount }) {
   const label =
-    images === 0
-      ? `Only ${imageKinds} images can be added`
-      : `Add ${images === 1 ? "the image" : `${images} images`} to the project`
+    count.images + count.videos === 0
+      ? `Only ${mediaKinds} files can be added`
+      : `Add ${mediaWords(count)} to the project`
 
   return (
     <div
@@ -257,7 +260,7 @@ function NoMedia({ query, onFind, onChoose }: NoMediaProps) {
     <div className="type-empty flex flex-col items-center gap-3 px-4 py-10 text-center text-muted-foreground">
       <ImagePlay className="size-6" />
       <p className="font-medium text-foreground">No media yet</p>
-      <p>Drop images here or on the canvas.</p>
+      <p>Drop images or videos here or on the canvas.</p>
       {stockLibrary ? (
         <Button variant="outline" size="sm" onClick={() => onFind()}>
           <SourceMark mark={stockLibrary.mark} /> Find on {stockLibrary.name}
