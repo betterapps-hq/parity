@@ -48,7 +48,12 @@ export const packageManifest = z.looseObject({
     .union([z.string(), z.looseObject({ url: z.string().optional(), directory: z.string().optional() })])
     .optional(),
   /** The package manager and version a project asks for, as Corepack writes it (`pnpm@10.4.0`). */
-  packageManager: z.string().optional()
+  packageManager: z.string().optional(),
+  /**
+   * The versions of the tools a package ships inside it, by package name, as Vite+'s core writes them
+   * (`{ "vite": "8.3.5" }`). Detection reads it when a project installs the package under one of those names.
+   */
+  bundledVersions: z.record(z.string(), z.string()).optional()
 })
 
 export type PackageManifest = z.infer<typeof packageManifest>

@@ -26,7 +26,7 @@ export type ShadcnConfig = z.infer<typeof shadcnComponents>
  * Where an app keeps its global styles when neither `components.json` nor the entry says: Vite's and Create React App's
  * `src/index.css`, the usual alternatives, and Next's `globals.css`, which its layout imports with no HTML entry.
  */
-const conventionalStylesheets = [
+export const conventionalStylesheets = [
   "src/index.css",
   "src/styles.css",
   "src/app.css",
@@ -56,8 +56,7 @@ export async function stylesWith(root: string, shadcn: ShadcnConfig | undefined,
   }
 
   // Otherwise follow the app entry: index.html → module script → its stylesheet imports.
-  const html = await readText(join(root, "index.html"))
-  const entry = html && /<script[^>]*type=["']module["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]
+  const entry = await htmlEntry(root)
 
   if (entry) {
     const entryPath = join(root, entry.replace(/^\//, ""))
@@ -91,6 +90,13 @@ export async function stylesWith(root: string, shadcn: ShadcnConfig | undefined,
   notes.push("no global styles found")
 
   return { styles: [], packageStyles: [] }
+}
+
+/** The module script `index.html` loads, as it writes it (`/src/main.tsx`), when there is one. */
+export async function htmlEntry(root: string): Promise<string | undefined> {
+  const html = await readText(join(root, "index.html"))
+
+  return (html && /<script[^>]*type=["']module["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]) || undefined
 }
 
 /**

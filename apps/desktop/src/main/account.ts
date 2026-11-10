@@ -11,6 +11,7 @@ import {
   type Session,
   startSignIn
 } from "@parity-app/account"
+import type { EventAttributes, registeredEvents, Telemetry } from "@parity-app/telemetry"
 import type {
   AccountPerson,
   AccountState,
@@ -26,6 +27,8 @@ import {
   type SessionStore,
   type StoredAccount,
   type StoredAccounts,
+  storeProblem,
+  thrownError,
   withAccount,
   withoutAccount
 } from "./session-store.ts"
@@ -59,6 +62,8 @@ export interface AccountOptions {
   now(): number
   /** Runs `run` after `ms`, returning a way to cancel it. */
   later(run: () => void, ms: number): () => void
+  /** Records the `account.*` events, which never carry a token or an email (PAR-807). */
+  telemetry: Pick<Telemetry<typeof registeredEvents>, "track">
 }
 
 export interface Account {
@@ -195,6 +200,7 @@ export function createAccount(options: AccountOptions): Account {
       return await options.store.update(change)
     } catch (error) {
       console.error("Parity couldn't keep the accounts", error)
+      options.telemetry.track("account.storeFailed", storeProblem("write", thrownError.parse(error)))
 
       return false
     }
@@ -258,13 +264,15 @@ export function createAccount(options: AccountOptions): Account {
     attempt = null
     endedHere = null
     emit()
+    options.telemetry.track("account.signedIn", { provider, again: !!before, kept: live.kept, accounts: lives.length })
   }
 
   /**
    * WorkOS ended `live`'s session. It stays listed, to sign in to again. If you were in it, you're in the account you
    * used last now, and Session ended says so over whatever's open.
    */
-  const ended = (live: Live) => {
+  const ended = (live: Live, reason: "refused" | "elsewhere") => {
+    options.telemetry.track("account.sessionEnded", { reason, current: current === live })
     stop(live)
     live.refreshToken = undefined
     live.failures = 0
@@ -327,15 +335,22 @@ export function createAccount(options: AccountOptions): Account {
 
       if (!kept) {
         // Signed out in another copy.
+        const here = current === live
         drop(live)
         emit()
+        options.telemetry.track("account.signedOut", {
+          reason: "elsewhere",
+          current: here,
+          ended: false,
+          accounts: lives.length
+        })
 
         return
       }
 
       if (kept.refreshToken === undefined) {
         // Its session ended in another copy.
-        ended(live)
+        ended(live, "elsewhere")
 
         return
       }
@@ -359,6 +374,7 @@ export function createAccount(options: AccountOptions): Account {
     }
 
     if (result.kind === "session") {
+      options.telemetry.track("account.refreshed", { organization: false, retries: live.failures })
       await refreshed(live, result.session)
 
       return
@@ -366,6 +382,7 @@ export function createAccount(options: AccountOptions): Account {
 
     if (result.kind === "unavailable") {
       live.failures++
+      options.telemetry.track("account.refreshFailed", refreshFailure(result, live.failures, false))
       schedule(live, retryDelay(live.failures))
 
       return
@@ -381,21 +398,29 @@ export function createAccount(options: AccountOptions): Account {
       return
     }
 
-    if (newer && live.failures++ < 3) {
+    if (newer && live.failures < 3) {
+      live.failures++
+      options.telemetry.track("account.refreshFailed", {
+        ...refreshFailure(result, live.failures, false),
+        reason: "superseded"
+      })
       schedule(live, 0)
 
       return
     }
 
-    ended(live)
+    options.telemetry.track("account.refreshFailed", refreshFailure(result, live.failures + 1, false))
+    ended(live, "refused")
   }
 
   const problem = (
     provider: SignInProvider,
-    said: Omit<Extract<SignInAttempt, { at: "problem" }>, "at" | "provider">
+    said: Omit<Extract<SignInAttempt, { at: "problem" }>, "at" | "provider">,
+    answer: WorkosAnswer = {}
   ) => {
     attempt = { at: "problem", provider, ...said }
     emit()
+    options.telemetry.track("account.signInProblem", { provider, problem: said.problem, ...answer })
   }
 
   return {
@@ -447,7 +472,10 @@ export function createAccount(options: AccountOptions): Account {
       attempt = { at: "waiting", provider, url, ...(email !== undefined && { email }) }
       endedHere = null
       emit()
-      await options.openBrowser(url).catch((cause: unknown) => console.error("The browser didn't open", cause))
+      await options.openBrowser(url).catch((cause: unknown) => {
+        console.error("The browser didn't open", cause)
+        options.telemetry.track("account.signInProblem", { provider, problem: "browser" })
+      })
     },
 
     async reopen() {
@@ -471,6 +499,7 @@ export function createAccount(options: AccountOptions): Account {
       }
 
       const here = current === live
+      const wasEnded = live.refreshToken === undefined
       drop(live)
 
       if (here) {
@@ -484,6 +513,12 @@ export function createAccount(options: AccountOptions): Account {
       }
 
       emit()
+      options.telemetry.track("account.signedOut", {
+        reason: "person",
+        current: here,
+        ended: wasEnded,
+        accounts: lives.length
+      })
       await update((kept) => keepCurrent(withoutAccount(kept, email)))
     },
 
@@ -530,9 +565,11 @@ export function createAccount(options: AccountOptions): Account {
       }
 
       if (result.kind !== "session") {
+        options.telemetry.track("account.refreshFailed", refreshFailure(result, 1, true))
         throw new Error(`WorkOS didn't switch: ${problemOf(result).details}`)
       }
 
+      options.telemetry.track("account.refreshed", { organization: true, retries: 0 })
       await refreshed(live, result.session)
     },
 
@@ -563,7 +600,11 @@ export function createAccount(options: AccountOptions): Account {
       }
 
       if (read.kind === "failed") {
-        problem(provider, { problem: "failed", details: [read.error, read.description].filter(Boolean).join("\n") })
+        problem(
+          provider,
+          { problem: "failed", details: [read.error, read.description].filter(Boolean).join("\n") },
+          { code: read.error }
+        )
 
         return "problem"
       }
@@ -590,7 +631,7 @@ export function createAccount(options: AccountOptions): Account {
         named = said.organizations
       }
 
-      problem(provider, said)
+      problem(provider, said, workosAnswer(result))
 
       // Choosing an organization or using single sign-on isn't a failure, only one more step in Parity.
       return said.problem === "choose-organization" || said.problem === "single-sign-on" ? "continue" : "problem"
@@ -610,6 +651,28 @@ export function personOf(session: Session): AccountPerson {
     ...(session.organizationId !== undefined && { organizationId: session.organizationId }),
     ...(token.role !== undefined && { role: token.role })
   }
+}
+
+/** What WorkOS answered, for telemetry: its status and code, never its message, which can name the account. */
+interface WorkosAnswer {
+  status?: number
+  code?: string
+}
+
+function workosAnswer(result: Exclude<AuthenticateResult, { kind: "session" }>): WorkosAnswer {
+  return {
+    ...(result.status !== undefined && { status: result.status }),
+    ...(result.kind === "refused" && result.code !== undefined && { code: result.code })
+  }
+}
+
+/** A refresh that failed, as `account.refreshFailed` records it. */
+function refreshFailure(
+  result: Exclude<AuthenticateResult, { kind: "session" }>,
+  failures: number,
+  organization: boolean
+): EventAttributes<typeof registeredEvents, "account.refreshFailed"> {
+  return { reason: result.kind, organization, failures, ...workosAnswer(result) }
 }
 
 /** Codes WorkOS answers with when the account's organization requires its single sign-on. */

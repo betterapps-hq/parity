@@ -46,6 +46,11 @@ export interface ServiceMethods {
   /** Opens a project, or returns it if it's already open. Without a root, opens the default project. */
   "project.open": { params: { root?: string }; result: ProjectInfo }
   "project.close": { params: { projectId: string }; result: undefined }
+  /**
+   * Whether what detection reads of an open project (its stylesheets, `components.json`, dependencies, Vite config)
+   * changed since it opened, so only opening it again takes that in (PAR-820).
+   */
+  "project.detectAgain": { params: { projectId: string }; result: boolean }
   /** The project's components and their props, once inferred from source. */
   "project.components": { params: { projectId: string }; result: Record<string, ComponentInfo> }
   /**
@@ -300,6 +305,8 @@ export interface WindowMethods {
   "project.guestMoved": { params: { projectId: string; guestUrl: string }; result: undefined }
   /** Component files whose code changed on disk, which the tab's guest loads again (PAR-165). */
   "project.codeChanged": { params: { projectId: string } & CodeChange; result: undefined }
+  /** What detection reads of the project changed since it opened, so its tab opens it again (PAR-820). */
+  "project.detectionChanged": { params: { projectId: string }; result: undefined }
 }
 
 /**
@@ -334,7 +341,8 @@ export const windowMethods = Object.keys({
   "project.fileChanged": true,
   "project.componentsChanged": true,
   "project.guestMoved": true,
-  "project.codeChanged": true
+  "project.codeChanged": true,
+  "project.detectionChanged": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }

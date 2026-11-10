@@ -59,6 +59,7 @@ const roots = z.object({ roots: z.array(z.string()) })
 const serviceParams = {
   "project.open": z.object({ root: z.string().optional() }),
   "project.close": project,
+  "project.detectAgain": project,
   "project.components": project,
   "project.correctComponents": project.extend({ corrections: detectionCorrections.optional() }),
   "library.catalog": project,

@@ -4811,6 +4811,45 @@ reopen serves the project on a new port. Gaps: the offscreen renderer's side has
 `restartBuilder` sending `project.guestMoved` to the window. A project service started again forgets the ports, while
 the window keeps what it loaded from them.
 
+### Detected again when what detection reads changes (PAR-820)
+
+An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: a
+`components.json` added or changed, a stylesheet created where the conventions look, `index.html` or the entry it loads
+changed, a dependency added or removed, or a Vite config added. A TanStack Start app has no `index.html`, so
+`components.json`'s `tailwind.css` is how its stylesheet is found; before, adding one to an open project changed nothing
+until Parity restarted.
+
+- **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's stylesheets,
+  the packages' stylesheets the entry imports, `components.json`'s UI kit alias, the dependencies' names and which Vite
+  config there is. It reads them before detection, compares again once the project's watcher has started, so a change
+  made while the project opened counts, and again 400 ms after a change to one of the files they came from. A
+  stylesheet's contents, a script in package.json or a version bump change nothing it compares, so they don't reopen the
+  project. A package.json that's missing or half-written, or a `components.json` that's there but half-written, as while
+  they're rewritten, fails the read, which counts as no change; a `components.json` taken away is a change.
+- **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
+  (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is. A tab
+  told while it's still loading asks again once it's ready, since what it loaded may have been read before the change.
+- **`parity open` on an open project** asks the service whether detection changed (`project.detectAgain`) and opens it
+  again first when it did, so the answer describes the project as detected now.
+
+Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
+`styles.ts`; `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
+`apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
+`shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
+`renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
+
+Tests: `packages/project/src/detection-inputs.test.ts` (5: `components.json` naming a stylesheet changes the key; a
+conventional stylesheet or Vite config appearing changes it, and the entry `index.html` names is followed; dependencies
+change it while scripts, versions and a stylesheet's contents don't; a missing or half-written package.json fails; a
+half-written `components.json` fails while one taken away doesn't). `apps/desktop/src/utility/projects.test.ts` (2: an
+open project whose `components.json` now names its stylesheet tells the windows, a file detection doesn't read doesn't,
+a moment without package.json isn't a change, and opened again it's detected from the new file; a `components.json`
+written while the builder starts is told once the project is open). `apps/desktop/src/renderer/workspace.test.ts` (2:
+asked to detect again, a tab opens its project again only when the service says detection changed; a tab told while
+loading asks again once it's ready). Gaps: the handlers wiring `agent.open` and `project.detectionChanged` to the
+workspace is checked by reading; the UI kit's folder filling with files, a `.storybook` folder added and a Vite config's
+contents aren't compared (Vite restarts its own server when its config changes).
+
 ### A tab closed while its project opens (PAR-427)
 
 Closing a tab whose project is still opening, as tabs restored at launch can be, closes the project once the service has
@@ -4979,13 +5018,14 @@ turns it off with the pointer, checking its description stays put.
 Help > Report a problem asks what happened and sends it to the Parity team with a screenshot of the window (on by
 default, shown in the dialog, taken once the menu has closed), and lists what else goes: the last minute of the window
 as a replay, the last hour of the local log, the versions of Parity and the system, and the open projects. Send stays
-off until something is written. It's sent even with Share diagnostics off, since the person asked; nothing else is. A
-sent report says thanks and nothing more: no link, since only the team can open it. A report that can't be sent says to
-check the connection, and keeps what was written. When the last run of an installed build ended without quitting, Parity
-offers the same dialog as it starts, titled "Parity closed unexpectedly", with the crash in the list and Not now in
-place of Cancel. Opened from a part's fallback, the list starts with the error that part caught, named by the part's
-title: "The error from Layers" (PAR-757). It's listed only when the report is linked to that error, which a thrown
-string or number can't be. `parity diagnostics` writes a zip of the same files, for a bug filed by hand.
+off until something is written. It's sent even with Share diagnostics off, since the person asked; nothing else is, even
+while it's sent (PAR-813). What was written loses its secrets, as every event does. A sent report says thanks and
+nothing more: no link, since only the team can open it. A report that can't be sent says to check the connection, and
+keeps what was written. When the last run of an installed build ended without quitting, Parity offers the same dialog as
+it starts, titled "Parity closed unexpectedly", with the crash in the list and Not now in place of Cancel. Opened from a
+part's fallback, the list starts with the error that part caught, named by the part's title: "The error from Layers"
+(PAR-757). It's listed only when the report is linked to that error, which a thrown string or number can't be.
+`parity diagnostics` writes a zip of the same files, for a bug filed by hand.
 
 `@parity-app/telemetry`'s `diagnostics.test.ts` covers finding a run that didn't quit (ignoring runs only the CLI
 recorded), reading the local log's lines, and the files a report takes: the last hour of events, versions, projects and

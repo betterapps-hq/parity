@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
@@ -49,6 +50,12 @@ interface Failures {
   start?: Error
 }
 
+/** What a test runs as the fake builder starts. */
+interface BuilderHooks {
+  /** Runs as the builder starts, once detection has read the project. */
+  starting?: () => void
+}
+
 /** A builder that serves at the port it's given, and what it was asked. */
 function fakeBuilder() {
   const started: number[] = []
@@ -56,6 +63,7 @@ function fakeBuilder() {
   const crashes: Parameters<ProjectAdapters["startBuilder"]>[1]["onCrash"][] = []
   const codeChanges: Parameters<ProjectAdapters["startBuilder"]>[1]["onCodeChange"][] = []
   const failures: Failures = {}
+  const hooks: BuilderHooks = {}
 
   const builder: BuilderAdapter = {
     id: "fake",
@@ -70,6 +78,7 @@ function fakeBuilder() {
   const startBuilder: ProjectAdapters["startBuilder"] = (options, { onCrash, onCodeChange }) => {
     const port = options.port!
     started.push(port)
+    hooks.starting?.()
     crashes.push(onCrash)
     codeChanges.push(onCodeChange)
 
@@ -100,7 +109,7 @@ function fakeBuilder() {
   /** Says files changed, as the builder started last does when they're saved. */
   const changeCode = (change: CodeChange) => codeChanges.at(-1)?.(change)
 
-  return { builder, startBuilder, started, closed, crash, fail, changeCode }
+  return { builder, startBuilder, started, closed, crash, fail, changeCode, hooks }
 }
 
 /** A watcher whose changes the test reports, as `fs.watch` reports them: names relative to the folder. */
@@ -150,6 +159,7 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
 
   const fileChanged: WindowMethods["project.fileChanged"]["params"][] = []
   const moves: WindowMethods["project.guestMoved"]["params"][] = []
+  const detectionChanged: WindowMethods["project.detectionChanged"]["params"][] = []
   let port = 5100
 
   const projects = openProjects({
@@ -169,13 +179,14 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
         moves.push(move)
 
         return Promise.resolve(true)
-      }
+      },
+      detectionChanged: (change) => detectionChanged.push(change)
     },
     environment,
     unsupported
   })
 
-  return { projects, builder, watcher, detections, checker, fileChanged, moves }
+  return { projects, builder, watcher, detections, checker, fileChanged, moves, detectionChanged }
 }
 
 beforeEach(async () => {
@@ -416,6 +427,44 @@ describe("an open project's files", () => {
     await new Promise((done) => setTimeout(done, 300))
     expect(fileChanged).toHaveLength(1)
     expect(await readFile(join(root, "shop.par"), "utf8")).toContain("Saved from the canvas")
+  })
+
+  it("tell the windows when components.json changes what detection finds, so they open the project again", async () => {
+    const { projects, watcher, detectionChanged } = setUp()
+    // Somewhere no convention looks, as a TanStack Start app with no index.html keeps it.
+    await write("src/styles/app.css", ":root { --primary: red; }")
+    expect((await projects.open(root)).notes).toContain("no global styles found")
+
+    // A file detection doesn't read changes nothing.
+    await write("src/styles/app.css", ":root { --primary: blue; }")
+    watcher.change("src/styles/app.css")
+    // Longer than the watcher waits after a change.
+    await new Promise((done) => setTimeout(done, 500))
+    expect(detectionChanged).toEqual([])
+
+    await write("components.json", JSON.stringify({ tailwind: { css: "src/styles/app.css" } }))
+    expect(await projects.detectAgain(root)).toBe(true)
+    watcher.change("components.json")
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
+
+    // A moment without package.json, as while it's rewritten, isn't a change.
+    const manifest = await readFile(join(root, "package.json"), "utf8")
+    await rm(join(root, "package.json"))
+    expect(await projects.detectAgain(root)).toBe(false)
+    await write("package.json", manifest)
+
+    // Opened again, it's detected from the files as they are now.
+    await projects.close(root)
+    expect((await projects.open(root)).notes).toContain("styles from components.json: src/styles/app.css")
+    expect(await projects.detectAgain(root)).toBe(false)
+  })
+
+  it("tell the windows when what detection reads changed while the project opened", async () => {
+    const { projects, detectionChanged, builder } = setUp()
+    builder.hooks.starting = () =>
+      writeFileSync(join(root, "components.json"), JSON.stringify({ tailwind: { css: "src/styles/app.css" } }))
+    await projects.open(root)
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
   })
 
   it("aren't saved outside the project, even in a sibling folder whose name starts with the root's", async () => {
