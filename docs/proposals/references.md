@@ -159,7 +159,8 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 
 - **A `find_references` tool** beside `screenshot`, taking what the API takes: a description, a platform, the mode and a
   limit of 10 unless told otherwise. It returns each screen's app, platform, link and id as text, with the pictures as
-  images the agent can look at. `find_photos` does the same for Unsplash. Both are built (PAR-829).
+  images the agent can look at. `find_media` does the same for stock pictures and videos. Both are built (PAR-829,
+  PAR-837).
 - **`PlaceReference(id, { near, note })` in `execute`** puts one beside a design with a note on what the agent took from
   it. The story Placed by an agent shows what's left behind: the screens it looked at, each saying why.
 - **The skill carries Mobbin's own rules for a good search:** one screen per search, at most three details, the platform

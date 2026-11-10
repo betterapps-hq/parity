@@ -1354,7 +1354,16 @@ recommended answer to each of its questions.
     saved into the project rather than linked. Its videos may be played from its own links, though it suggests keeping a
     copy;
   - keep each search's answer for 24 hours rather than ask again, and send only searches people make, never mass
-    downloads. Main doesn't keep answers yet.
+    downloads. Parity's service will keep them, shared by every user (PAR-131), so the app keeps no cache of its own
+    (your call, 2026-11-10).
+- **Agents' calls name no source, and don't say photos** (your call, 2026-11-10, PAR-837). A source can change, as
+  Unsplash did, and one finds more than photos. `find_photos` (`parity photos`) became `find_media` (`parity media`),
+  with a `type` filter (photos, illustrations, vectors or videos) and filter examples that name no source. Placing a
+  result says picture, and its credit names the author. Videos and screens are found but not placed.
+- **Placing a picture whose link expires saves it first** (PAR-837). `place_result` downloads it into `public/images/`
+  as a pasted image is saved, named after it with a hash of its content, and the node shows the file, so a saved design
+  never holds a link that stops working. Saving is its own undoable edit, before the placing one. Placing what Unsplash
+  linked still sets its link, as Unsplash's terms ask.
 - **Image files dropped from Explorer or Finder land as pasted layers do (PAR-24).** My calls, all in editor.md's
   "Dropping image files":
   - Over a layout they go where Paste here would put them: the slot under the pointer by `slotAt`, or at the pointer in

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { type EditedProject, undoProjectEdit } from "./edits.ts"
-import { removeImage, scanImages } from "./images.ts"
+import { removeImage, saveImageFrom, scanImages } from "./images.ts"
 
 let project: EditedProject
 
@@ -71,5 +71,31 @@ describe("removeImage", () => {
       "There's no image at public/images/gone.png."
     )
     expect(existsSync(join(project.info.root, "public/images/hero.png"))).toBe(true)
+  })
+})
+
+describe("saveImageFrom", () => {
+  const picture =
+    (type: string, status = 200) =>
+    async () =>
+      new Response(new Uint8Array([255, 216, 255]), { status, headers: { "content-type": type } })
+
+  it("saves a picture from its link under public/images, named after it, and reuses the file the next time", async () => {
+    const image = { url: "https://cdn.example/desk.jpg", name: "White desk" }
+    const first = await saveImageFrom(project, image, picture("image/jpeg"))
+    const again = await saveImageFrom(project, image, picture("image/jpeg"))
+
+    expect(first.src).toMatch(/^\/images\/white-desk-[0-9a-f]{8}\.jpg$/)
+    expect(again).toEqual(first)
+    expect(existsSync(join(project.info.root, first.path))).toBe(true)
+  })
+
+  it("refuses a link that fails or gives something other than a picture", async () => {
+    const image = { url: "https://cdn.example/desk.jpg", name: "desk" }
+
+    await expect(saveImageFrom(project, image, picture("image/jpeg", 403))).rejects.toThrow("the source answered 403")
+    await expect(saveImageFrom(project, image, picture("text/html"))).rejects.toThrow(
+      "the link gave text/html rather than a picture"
+    )
   })
 })

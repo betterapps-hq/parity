@@ -28,7 +28,7 @@ import { currentTrace, inSpan } from "../shared/tracing.ts"
 import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
-import { type FindOptions, searchPhotos, searchReferences } from "./references.ts"
+import { type FindOptions, searchMedia, searchReferences } from "./references.ts"
 import { renderOffscreen } from "./render.ts"
 import { scrubSecrets } from "./telemetry.ts"
 import { composePicture, cutPicture } from "./webp.ts"
@@ -60,12 +60,13 @@ const finding: FindOptions = {
  * (PAR-514). The main process removes the entry when this copy quits.
  */
 /** What agents' image calls need of the service: reading a project's image files, and removing one (PAR-834). */
-export type AgentImages = Pick<AgentHost, "scanImages" | "removeImage">
+export type AgentImages = Pick<AgentHost, "scanImages" | "removeImage" | "saveImage">
 
 /** For hosts that only draw and export, which never list or remove images. */
 const noImages: AgentImages = {
   scanImages: () => Promise.reject(new Error("Images can't be read here")),
-  removeImage: () => Promise.reject(new Error("Images can't be removed here"))
+  removeImage: () => Promise.reject(new Error("Images can't be removed here")),
+  saveImage: () => Promise.reject(new Error("Images can't be saved here"))
 }
 
 export async function startAgentServer(window: () => WindowChannel, images: AgentImages): Promise<void> {
@@ -234,7 +235,7 @@ export function desktopHost(window: WindowChannel, images: AgentImages = noImage
     },
     // Main holds connectors' keys, so it runs the search; the previews are fetched and saved here (PAR-829).
     references: (request) => searchReferences(finding, request),
-    photos: (request) => searchPhotos(finding, request),
+    media: (request) => searchMedia(finding, request),
     result: async (connector, id) => (await mainProcess.request("connectorResult", { connector, id })) ?? undefined,
     placed: (placed) => mainProcess.request("connectorPlaced", placed),
     async saveScreenshots(screenshots) {

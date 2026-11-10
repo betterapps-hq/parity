@@ -4,7 +4,7 @@ import { join } from "node:path"
 import type { Fetch, Found, SearchAnswer } from "@parity-app/connectors"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import type { ConnectorFind } from "../shared/connectors.ts"
-import { searchPhotos, searchReferences } from "./references.ts"
+import { searchMedia, searchReferences } from "./references.ts"
 
 let folder = ""
 
@@ -88,6 +88,7 @@ describe("searchReferences", () => {
         id: calm.id,
         connector: "mobbin",
         source: "Mobbin",
+        kind: "screens",
         title: "Calm",
         platform: "ios",
         link: calm.link,
@@ -121,7 +122,7 @@ describe("searchReferences", () => {
     ])
   })
 
-  it("asks main for photos with only the filters named, and passes on how many searches are left", async () => {
+  it("asks main for pictures with only the filters named, and passes on how many searches are left", async () => {
     const { platform: _platform, ...screen } = calm
 
     const desk: Found = {
@@ -139,7 +140,7 @@ describe("searchReferences", () => {
       { "https://images.unsplash.com/photo-1-small": { type: "image/jpeg", bytes: Buffer.from("jpeg") } }
     )
 
-    const answer = await searchPhotos(given, {
+    const answer = await searchMedia(given, {
       query: "desk",
       connector: "unsplash",
       orientation: "portrait",
@@ -154,9 +155,17 @@ describe("searchReferences", () => {
       }
     ])
     expect(answer.allowance).toEqual({ remaining: 49, limit: 50 })
-    expect(answer.found.map(({ title, platform, preview }) => [title, platform, preview?.mimeType])).toEqual([
-      ["white desk", undefined, "image/jpeg"]
-    ])
+    expect(
+      answer.found.map(({ title, kind, platform, preview }) => [title, kind, platform, preview?.mimeType])
+    ).toEqual([["white desk", "photos", undefined, "image/jpeg"]])
+  })
+
+  it("asks main for videos when the type is videos", async () => {
+    const { options: given, searched } = options({ found: [] }, {})
+
+    await searchMedia(given, { query: "waves", type: "videos", limit: 6 })
+
+    expect(searched).toEqual([{ request: { query: "waves", kind: "videos", filters: { type: "videos" }, limit: 6 } }])
   })
 
   it("deletes previews saved more than a week ago, and keeps newer ones", async () => {

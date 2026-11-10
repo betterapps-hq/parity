@@ -21,7 +21,7 @@ import {
   describeProblems,
   describeProps,
   describeImages,
-  describePhotos,
+  describeMedia,
   describePlace,
   describeReferences,
   describeRemovedImage,
@@ -377,15 +377,15 @@ const cases: Case[] = [
     text: describeReferences(references)
   },
   {
-    name: "photos",
-    cli: ["photos", "desk", "by", "a", "window", "--orientation", "portrait", "--page", "2"],
-    tool: "find_photos",
-    method: "photos",
-    input: { query: "desk by a window", orientation: "portrait", page: 2 },
-    params: { query: "desk by a window", orientation: "portrait", limit: 6, page: 2 },
+    name: "media",
+    cli: ["media", "desk", "by", "a", "window", "--type", "vectors", "--orientation", "vertical", "--page", "2"],
+    tool: "find_media",
+    method: "media",
+    input: { query: "desk by a window", type: "vectors", orientation: "vertical", page: 2 },
+    params: { query: "desk by a window", type: "vectors", orientation: "vertical", limit: 6, page: 2 },
     result: photos,
     structured: photos,
-    text: describePhotos(photos)
+    text: describeMedia(photos)
   },
   {
     name: "place",
@@ -1062,9 +1062,9 @@ describe("remaining transport contracts", processTests, () => {
     const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     const tools = toolReply(protocol.stdout)?.result?.tools
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
-    // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos, 16.1 KB with a
-    // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834).
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(19 * 1024)
+    // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos (now find_media), 16.1 KB with a
+    // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834), 19 KB with find_media taking a type (PAR-837).
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(19.5 * 1024)
   })
 
   it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {
@@ -1114,15 +1114,15 @@ describe("remaining transport contracts", processTests, () => {
     ])
   })
 
-  it("lists each photo found with its photographer, and how many searches are left", () => {
-    expect(describePhotos(photos).split("\n")).toEqual([
-      "1 photo from Unsplash:",
+  it("lists each stock result found with its author, and how many searches are left", () => {
+    expect(describeMedia(photos).split("\n")).toEqual([
+      "1 result from Unsplash:",
       "1. white desk https://unsplash.com/photos/Dwu85P9SOIk",
       "   by Ada Park",
       "   unsplash Dwu85P9SOIk",
       "   no preview: open the link",
       "Unsplash allows 49 more searches for now.",
-      'Place one in an image node with place_result (parity place <connector> <id> "<node>"), then credit the photographer and the source where the design shows it.'
+      'Place a picture in an image node with place_result (parity place <connector> <id> "<node>"), then credit its author and the source where the design shows it.'
     ])
   })
 

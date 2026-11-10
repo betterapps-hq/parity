@@ -72,7 +72,7 @@ export type ConsoleEntry = z.output<typeof replies.console>["entries"][number]
 
 export type ReportResponse = z.output<typeof replies.report>
 
-/** What a search for screens or photos answers, which is the same shape. */
+/** What a search for screens, pictures or videos answers, which is the same shape. */
 export type FindResponse = z.output<typeof replies.references>
 
 /** What placing a result answers. */
@@ -905,7 +905,7 @@ function frameList(frames: { state: string; mode: string }[]): string {
 
 /** Where a report went, what it's tied to and tagged with, and what went with it (PAR-646). */
 /**
- * A readable account of the project's images: each file with its path and size, each linked photo with its credit, and
+ * A readable account of the project's images: each file with its path and size, each linked image with its credit, and
  * what uses each, or that nothing does.
  */
 export function describeImages(result: ImagesResponse): string {
@@ -1007,13 +1007,16 @@ export function describePlace(result: PlaceResponse): string {
   return lines.join("\n")
 }
 
-/** A readable account of the photos a search found, each with what it shows, its credit, link and saved preview. */
-export function describePhotos(result: FindResponse): string {
+/**
+ * A readable account of the stock pictures or videos a search found, each with what it shows, its credit, link and
+ * saved preview.
+ */
+export function describeMedia(result: FindResponse): string {
   return describeFound(result, {
-    one: "photo",
-    many: "photos",
+    one: "result",
+    many: "results",
     none: "Nothing matches. Try other words, or fewer filters.",
-    use: 'Place one in an image node with place_result (parity place <connector> <id> "<node>"), then credit the photographer and the source where the design shows it.'
+    use: 'Place a picture in an image node with place_result (parity place <connector> <id> "<node>"), then credit its author and the source where the design shows it.'
   })
 }
 

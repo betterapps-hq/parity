@@ -88,6 +88,7 @@ interface Asked {
   references: Answer<"references">[]
   placed: { connector: string; id: string; design: string }[]
   removed: string[]
+  savedImages: { url: string; name: string }[]
 }
 
 /** A photo main found lately, as placing takes it. */
@@ -116,7 +117,8 @@ function fixtureHost() {
     reports: [],
     references: [],
     placed: [],
-    removed: []
+    removed: [],
+    savedImages: []
   }
 
   const host: AgentHost = {
@@ -219,7 +221,12 @@ function fixtureHost() {
 
       return answer
     },
-    photos: async () => ({ found: [] }),
+    media: async () => ({ found: [] }),
+    saveImage: async (_projectId, image) => {
+      asked.savedImages.push(image)
+
+      return { src: "/images/white-desk-1a2b3c4d.jpg" }
+    },
     result: async (connector, id) => (connector === "unsplash" && id === "desk" ? desk : undefined),
     placed: async (placed) => {
       asked.placed.push(placed)
@@ -266,7 +273,7 @@ describe("dispatch", () => {
       ["exec", { label: "Read", code: "Print(Designs().length)" }],
       ["report", { message: "The title is cut off" }],
       ["references", { query: "paywall with a free trial" }],
-      ["photos", { query: "desk by a window" }],
+      ["media", { query: "desk by a window" }],
       ["place", { connector: "unsplash", id: "desk", node: "signup/title" }],
       ["images", {}],
       ["removeImage", { image: "unused.webp" }]
@@ -676,6 +683,41 @@ describe("place", () => {
     expect([asked.applied, asked.placed.length]).toEqual([[], 1])
   })
 
+  it("saves a picture whose link stops working into the project first, and shows the file", async () => {
+    const { host, asked } = placingHost()
+    const fleeting = { ...desk, image: { url: "https://cdn.pixabay.com/photo/desk.jpg", expiresAt: 1 } }
+    const pixabay: AgentHost = { ...host, result: async () => fleeting }
+
+    const answer = await dispatch("place", { connector: "pixabay", id: "1", node: "signup/photo" }, pixabay, caller)
+
+    expect(answer).toMatchObject({ placed: true, node: "signup/photo" })
+    expect(asked.savedImages).toEqual([{ url: "https://cdn.pixabay.com/photo/desk.jpg", name: "white desk" }])
+    expect(asked.applied[0]?.changes.designs[0]?.after?.root).toMatchObject({
+      children: expect.arrayContaining([
+        expect.objectContaining({ id: "photo", src: "/images/white-desk-1a2b3c4d.jpg", alt: "white desk" })
+      ])
+    })
+  })
+
+  it("says why, and places nothing, when the picture can't be saved", async () => {
+    const { host, asked } = placingHost()
+    const fleeting = { ...desk, image: { url: "https://cdn.pixabay.com/photo/desk.jpg", expiresAt: 1 } }
+
+    const failing: AgentHost = {
+      ...host,
+      result: async () => fleeting,
+      saveImage: () => Promise.reject(new Error("the source answered 403"))
+    }
+
+    const answer = await dispatch("place", { connector: "pixabay", id: "1", node: "signup/photo" }, failing, caller)
+
+    expect(answer).toEqual({
+      placed: false,
+      problem: { code: "invalid", message: "Parity couldn't save white desk into the project: the source answered 403" }
+    })
+    expect([asked.applied, asked.placed]).toEqual([[], []])
+  })
+
   it("places nothing, and tells main nothing, where a picture can't go", async () => {
     const { host, asked } = placingHost()
 
@@ -728,22 +770,22 @@ describe("references", () => {
     expect(asked).toEqual([{ query: "paywall with a free trial", limit: 6 }])
   })
 
-  it("passes a photo search on with its defaults: six photos, and only the filters named", async () => {
+  it("passes a stock search on with its defaults: six results, and only the filters named", async () => {
     const fixture = fixtureHost()
     const asked: unknown[] = []
 
     const host: AgentHost = {
       ...fixture.host,
-      photos: async (request) => {
+      media: async (request) => {
         asked.push(request)
 
         return { found: [] }
       }
     }
 
-    await dispatch("photos", { query: "desk", color: "teal" }, host, caller)
+    await dispatch("media", { query: "desk", type: "vectors", color: "blue" }, host, caller)
 
-    expect(asked).toEqual([{ query: "desk", color: "teal", limit: 6 }])
+    expect(asked).toEqual([{ query: "desk", type: "vectors", color: "blue", limit: 6 }])
   })
 
   it("turns down a search with no query before asking the host, and leaves filter values to the connector", async () => {

@@ -15,7 +15,7 @@ import {
   describeProblems,
   describeProps,
   describeImages,
-  describePhotos,
+  describeMedia,
   describePlace,
   describeReferences,
   describeRemovedImage,
@@ -62,7 +62,7 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             unless --limit says
   parity components [--tab t]               the components designs can use, by library
   parity images [--search s] [--unused] [--limit 50] [--tab t]
-                                            the project's images: files in public/images, photos layers link to and
+                                            the project's images: files in public/images, images layers link to and
                                             paths with no file, each with what uses it, in designs and in code
   parity images remove <image> [--tab t]    remove an image file from public/images, by path or file name; refused
                                             while a design or the project's code uses it, saying where
@@ -110,19 +110,21 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             and frames of the design named, tagged with what it's about and the test
                                             pass (PARITY_TEST_RUN unless --test-run says). Prints its link
   parity references "<screen>" [--platform web|ios] [--deep] [--limit 6] [--exclude id]
-                                            search Mobbin for screens from real apps, one screen per search, with
+                                            search for screens from real apps, one screen per search, with
                                             the key Parity holds; prints each app, link and id, and saves each
                                             preview under ~/.parity/references. --deep reads intent and keeps strong
-                                            matches, spending Mobbin AI credits; --exclude (repeated) leaves out
+                                            matches, spending the source's AI credits; --exclude (repeated) leaves out
                                             screens already seen; --connector names the source. Exits with 1 when
                                             the search itself is wrong or the source fails, not when Parity has no key
-  parity photos "<subject>" [--orientation landscape|portrait|squarish] [--color c] [--limit 6] [--page 1]
-                                            search Unsplash for stock photos, one subject per search, the same way;
-                                            --color keeps to one of Unsplash's colors, as teal or black_and_white,
-                                            and --page 2 brings the next ones. Credit the photographer and Unsplash
+  parity media "<subject>" [--type photos|illustrations|vectors|videos] [--orientation horizontal|vertical]
+               [--color c] [--limit 6] [--page 1]
+                                            search stock pictures or videos, one subject per search, the same way;
+                                            --color keeps to one color, as blue, grayscale or transparent, and
+                                            --page 2 brings the next ones. Credit the author and the source
   parity place <connector> <id> "<design/node>" [--prop src] [--state s] [--tab t]
-                                            put a photo a search found into an image node, as "home/photo", or a
-                                            component's --prop, as one undoable edit from the source's own link;
+                                            put a picture a search found into an image node, as "home/photo", or a
+                                            component's --prop, as one undoable edit, saving the file when the
+                                            source's link doesn't last;
                                             Parity tells the source it was used. Exits with 1 when it wasn't placed
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
@@ -176,6 +178,7 @@ const { positionals, values } = parseArgs({
     platform: { type: "string" },
     deep: { type: "boolean" },
     exclude: { type: "string", multiple: true },
+    type: { type: "string" },
     orientation: { type: "string" },
     color: { type: "string" },
     page: { type: "string" },
@@ -400,19 +403,20 @@ async function main(): Promise<void> {
         },
         describeReferences
       )
-    case "photos":
+    case "media":
       return show(
-        operations.photos,
+        operations.media,
         {
           tab: values.tab,
           query: rest.join(" ") || undefined,
           connector: values.connector,
+          type: values.type,
           orientation: values.orientation,
           color: values.color,
           limit,
           page: values.page === undefined ? undefined : Number(values.page)
         },
-        describePhotos
+        describeMedia
       )
     case "place":
       return show(

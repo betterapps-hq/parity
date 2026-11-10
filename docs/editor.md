@@ -2403,14 +2403,14 @@ A project's images are the files under `public/images/`, which pasting, dropping
 photos image layers link to at a stock library's own address. `projectImages` in `@parity-app/editor` lists them, in the
 same shape for the window and for agents:
 
-- **Each image** has its kind (a file, a linked photo, or a path layers name with no file there), its `src`, its file's
+- **Each image** has its kind (a file, a linked image, or a path layers name with no file there), its `src`, its file's
   path and size, its alt text and credit from the first layer showing it, and what uses it.
 - **What uses an image** is every layer that names it in the designs as they are, unsaved changes included: image
   layers, the props components and instances are given (an avatar's `src`), and the props states, variants, viewports
   and instances' overrides patch in. A prop counts when it's called `src`, or its value names a file in `/images/`. The
   project's own code counts too: any line naming `images/<file>`, as an `<img>`, an import or a CSS `url()` does, in
   scripts, styles, markup and framework components outside `node_modules`, `public` and build folders.
-- **The order** is files by path, then linked photos, then paths with no file.
+- **The order** is files by path, then linked images, then paths with no file.
 
 Agents list them with `get_images` (`parity images`), narrowed by text in a name, alt text or credit, or to images
 nothing uses, 50 at a time by default. `remove_image` (`parity images remove <image>`) takes a path, an address or a
@@ -2418,7 +2418,7 @@ file name.
 
 **Removing** takes only a file in `public/images/` that no design and no code uses. Otherwise it says why and where
 ("hero.png is still used in Home and src/index.css (line 2). Remove or replace it there first."), with the error code
-`image_in_use`, or `unknown_image` for an image the project doesn't have. A linked photo or a missing file has no file
+`image_in_use`, or `unknown_image` for an image the project doesn't have. A linked image or a missing file has no file
 to remove, so it says to remove or replace the layers instead. The file is removed as a project edit, so
 `project.undoEdit` puts it back. The service checks the code again before removing, and refuses a path outside
 `public/images/` or a file that isn't an image.

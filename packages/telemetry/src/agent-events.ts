@@ -122,7 +122,7 @@ function cut(text: string, limit: number): string {
  */
 const privateFields = new Map([
   ["references", ["query", "exclude"]],
-  ["photos", ["query", "exclude"]],
+  ["media", ["query", "exclude"]],
   ["place", ["id", "node"]]
 ])
 

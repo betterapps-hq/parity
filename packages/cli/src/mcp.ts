@@ -13,7 +13,7 @@ import {
   describeProblems,
   describeProps,
   describeImages,
-  describePhotos,
+  describeMedia,
   describePlace,
   describeReferences,
   describeRemovedImage,
@@ -210,7 +210,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "get_images",
-    "List the project's images (files in public/images, linked photos, paths with no file) and what uses each. search matches a name, alt text or credit.",
+    "List the project's images (files in public/images, linked images, paths with no file) and what uses each. search matches a name, alt text or credit.",
     operations.images,
     (result) => [text(describeImages(result))]
   ),
@@ -228,19 +228,19 @@ const tools: Tool[] = [
   ),
   operationTool(
     "find_references",
-    "Search real apps' screens (Mobbin) before designing a common one, as onboarding or a paywall, and look at the previews. Follow their patterns with the project's own components and tokens, never an app's layout, text or branding; name the apps you drew on.",
+    "Search real apps' screens before designing a common one, as onboarding or a paywall, and look at the previews. Follow their patterns with the project's own components and tokens, never an app's layout, text or branding; name the apps you drew on.",
     operations.references,
     (result) => [text(describeReferences(result)), ...previews(result)]
   ),
   operationTool(
-    "find_photos",
-    "Search stock photos (Unsplash) when a design needs a real one, as a hero or an avatar, and look at the previews. Put one in a design with place_result.",
-    operations.photos,
-    (result) => [text(describePhotos(result)), ...previews(result)]
+    "find_media",
+    "Search stock photos, illustrations, vectors or videos when a design needs one, as a hero or an avatar, and look at the previews. Place a picture with place_result.",
+    operations.media,
+    (result) => [text(describeMedia(result)), ...previews(result)]
   ),
   operationTool(
     "place_result",
-    "Put a photo a search found into an image node, as one undoable edit. Parity sets the image from the source and tells the source it was used. Credit who it names where the design shows it.",
+    "Put a picture a search found into an image node, as one undoable edit. Parity saves the file when the link doesn't last and tells the source it was used. Credit who it names where the design shows it.",
     operations.place,
     (result) => [text(describePlace(result))]
   ),

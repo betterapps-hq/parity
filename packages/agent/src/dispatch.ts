@@ -79,8 +79,13 @@ export interface AgentHost {
    * A search that found nothing to show answers with why, rather than failing.
    */
   references(request: Params<"references">): Promise<Answer<"references">>
-  /** Searches for stock photos (Unsplash's) the same way. */
-  photos(request: Params<"photos">): Promise<Answer<"photos">>
+  /** Searches stock pictures and videos the same way, from whichever connector is offered for them. */
+  media(request: Params<"media">): Promise<Answer<"media">>
+  /**
+   * Saves a picture from a link into the project's images folder, as an edit the window can undo, for a result whose
+   * link doesn't last or may only show results. Answers what layers set `src` to.
+   */
+  saveImage(projectId: string, image: { url: string; name: string }): Promise<{ src: string }>
   /** Main's own copy of a result it found lately, which placing puts in a design. Undefined for one it didn't find. */
   result(connector: string, id: string): Promise<PlaceableResult | undefined>
   /** Tells main a result went into a design, which main records, counts and tells the source of. */
@@ -227,7 +232,7 @@ const methods: MethodTable = {
   },
   report: (params, { host }) => report(host, params),
   references: (params, { host }) => host.references(params),
-  photos: (params, { host }) => host.photos(params),
+  media: (params, { host }) => host.media(params),
   place: (params, call) => place(call.host, call.presence, params),
   images: async (params, { host }) => {
     const { images } = await imagesOf(host, params.tab)
@@ -444,8 +449,9 @@ function renderFor(host: AgentHost, snapshot: TabSnapshot): AgentHooks["render"]
  * Places a result a connector found in a design (PAR-829): the image from main's own copy goes in the node as one
  * undoable edit, and only once it's applied is main told, which records it and tells the source. So a placement is
  * reported because Parity made it, not because an agent said so. An image node takes the picture, its description and
- * its credit; a component takes it in a prop it declares. Only what main says can be placed goes in designs: photos,
- * not screens from real apps, which are for looking at.
+ * its credit; a component takes it in a prop it declares. Only what main says can be placed goes in designs: pictures,
+ * not screens from real apps or videos, which are for looking at. A picture whose link stops working is saved into the
+ * project first, and the node shows the file.
  */
 async function place(host: AgentHost, presence: Call["presence"], request: Params<"place">): Promise<Answer<"place">> {
   const { connector, id, node, state } = request
@@ -459,13 +465,20 @@ async function place(host: AgentHost, presence: Call["presence"], request: Param
     return refused(`${found.credit.at(-1)?.name ?? connector}'s ${found.kind} are for looking at, not for designs.`)
   }
 
-  // A link that stops working would leave a broken picture in a saved design.
-  if (found.image.expiresAt !== undefined) {
-    return refused(`${found.title}'s link stops working after a while, so it can't go in a design.`)
+  const snapshot = await host.snapshot(request.tab)
+  const checked = placeTarget(snapshot, node, found, request.prop, state)
+
+  if ("refusal" in checked) {
+    return refused(checked.refusal)
   }
 
-  const snapshot = await host.snapshot(request.tab)
-  const target = placeTarget(snapshot, node, found, request.prop, state)
+  const shown = await savedIfFleeting(host, snapshot.projectId, found)
+
+  if ("refusal" in shown) {
+    return refused(shown.refusal)
+  }
+
+  const target = shown === found ? checked : placeTarget(snapshot, node, shown, request.prop, state)
 
   if ("refusal" in target) {
     return refused(target.refusal)
@@ -475,7 +488,7 @@ async function place(host: AgentHost, presence: Call["presence"], request: Param
   let warnings: string[] = []
 
   // Placing what the node already shows changes nothing, and is still reported, which main counts once.
-  if (target.holds !== found.image.url) {
+  if (target.holds !== shown.image.url) {
     const options = state ? `, ${JSON.stringify({ state })}` : ""
 
     const result = await execIn(host, presence, snapshot, {
@@ -507,10 +520,34 @@ async function place(host: AgentHost, presence: Call["presence"], request: Param
   return answer
 }
 
-/** What `Update` gets to place a photo: an image's own fields, or a component's props. */
+/**
+ * A link that stops working would leave a broken picture in a saved design, so such a picture is saved into the
+ * project's images folder first, and the node shows the file. Saving the same picture again reuses its file.
+ */
+async function savedIfFleeting(
+  host: AgentHost,
+  projectId: string,
+  found: PlaceableResult
+): Promise<PlaceableResult | { refusal: string }> {
+  if (found.image.expiresAt === undefined) {
+    return found
+  }
+
+  try {
+    const { src } = await host.saveImage(projectId, { url: found.image.url, name: found.title })
+
+    return { ...found, image: { ...found.image, url: src } }
+  } catch (cause) {
+    const why = cause instanceof Error ? cause.message : String(cause)
+
+    return { refusal: `Parity couldn't save ${found.title} into the project: ${why}` }
+  }
+}
+
+/** What `Update` gets to place a picture: an image's own fields, or a component's props. */
 type PlaceChange = ImagePlace | { props: { [prop: string]: string } }
 
-/** An image's own fields, as placing a photo sets them. */
+/** An image's own fields, as placing a picture sets them. */
 interface ImagePlace {
   src: string
   alt: string
@@ -542,7 +579,7 @@ function placeTarget(
   }
 
   const { node, design } = located
-  const [photographer, source] = found.credit
+  const [author, source] = found.credit
 
   if (node.type === "image") {
     if (state) {
@@ -551,8 +588,8 @@ function placeTarget(
 
     const change: ImagePlace = { src: found.image.url, alt: found.title }
 
-    if (photographer?.url) {
-      change.credit = { name: photographer.name, url: photographer.url, source: source?.name }
+    if (author?.url) {
+      change.credit = { name: author.name, url: author.url, source: source?.name }
     }
 
     return { change, holds: node.src, design }

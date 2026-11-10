@@ -12,15 +12,14 @@ import {
 } from "@parity-app/editor"
 import type { ServiceMethods } from "../shared/protocol.ts"
 import { applyProjectEdit, type EditedProject } from "./edits.ts"
-import type { OpenProject } from "./projects.ts"
 
 /**
  * Saves an image pasted or dropped onto the canvas under `public/images/`, named after it with a short hash of its
  * content, so adding the same image twice reuses one file. The types and the limit are the ones a drop checks first.
  */
 export async function importImage(
-  project: OpenProject,
-  { name, type, data }: ServiceMethods["images.import"]["params"]
+  project: EditedProject,
+  { name, type, data }: Pick<ServiceMethods["images.import"]["params"], "name" | "type" | "data">
 ): Promise<ServiceMethods["images.import"]["result"]> {
   const extension = imageExtension(type)
 
@@ -91,6 +90,40 @@ const codeLimit = 512 * 1024
  * A project's image files under `public/images/`, and the lines of its code that name them (PAR-834). Designs aren't
  * read here: the window and agents have them, unsaved changes included, and `projectImages` puts the two together.
  */
+/** How long fetching a picture to save may take, in milliseconds. */
+const saveTimeout = 20_000
+
+/**
+ * Saves a picture from a link into `public/images/`, as `importImage` saves a pasted one, for a result whose link stops
+ * working or may only show results, as Pixabay's (PAR-837). Refuses what isn't a picture Parity takes, or is too large.
+ */
+export async function saveImageFrom(
+  project: EditedProject,
+  { url, name }: { url: string; name: string },
+  fetcher: (url: string, init: RequestInit) => Promise<Response>
+): Promise<{ src: string; path: string }> {
+  const response = await fetcher(url, { signal: AbortSignal.timeout(saveTimeout) })
+
+  if (!response.ok) {
+    throw new Error(`the source answered ${response.status}`)
+  }
+
+  const type = (response.headers.get("content-type") ?? "").split(";")[0]?.trim() ?? ""
+
+  if (!imageExtension(type)) {
+    throw new Error(`the link gave ${type || "something"} rather than a picture`)
+  }
+
+  if (Number(response.headers.get("content-length") ?? 0) > imageLimit) {
+    throw new Error("the picture is larger than 20 MB")
+  }
+
+  const data = Buffer.from(await response.arrayBuffer()).toString("base64")
+  const { src, path } = await importImage(project, { name, type, data })
+
+  return { src, path }
+}
+
 export async function scanImages(project: EditedProject): Promise<{ files: ImageFile[]; references: CodeReference[] }> {
   const root = project.info.root
   const files = await imageFiles(root)

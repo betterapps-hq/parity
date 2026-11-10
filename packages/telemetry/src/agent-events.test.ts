@@ -42,11 +42,11 @@ describe("agentCallStart", () => {
   })
 
   it("keeps what an agent searched for and which result it placed where out of its inputs", () => {
-    const search = { method: "photos", params: { query: "my client's office", color: "teal", exclude: ["a"] } }
-    const place = { method: "place", params: { connector: "unsplash", id: "abc", node: "home/photo" } }
+    const search = { method: "media", params: { query: "my client's office", color: "blue", exclude: ["a"] } }
+    const place = { method: "place", params: { connector: "pixabay", id: "abc", node: "home/photo" } }
 
-    expect(agentCallStart(JSON.stringify(search)).input).toBe('{"color":"teal"}')
-    expect(agentCallStart(JSON.stringify(place)).input).toBe('{"connector":"unsplash"}')
+    expect(agentCallStart(JSON.stringify(search)).input).toBe('{"color":"blue"}')
+    expect(agentCallStart(JSON.stringify(place)).input).toBe('{"connector":"pixabay"}')
   })
 
   it("cuts long inputs and snippets", () => {
