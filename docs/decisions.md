@@ -6773,3 +6773,21 @@ the app, with the exploration's bars removed. PAR-795 builds it;
   Changes state is ToggleRight, Data is Braces, Analytics is ChartColumn, Landmark is PanelsTopLeft and Motion is Film.
 - **The bar beside the toolbar stays in the stories** (Parity/Collaboration/Annotations/Toolbar, WhileReviewing), as you
   may use it later. The PAR-184 bars from the exploration are gone.
+
+## Hangs are recorded as they start (PAR-804)
+
+Until 2026-11-09 a window or main hang was sent only once it ended, so one that ended in a force-quit sent nothing. My
+calls:
+
+- **A window's hang is sent as it starts,** when Electron reports `unresponsive`: a Sentry message tagged `hang` and
+  `window.hang_started`. `window.hung` follows with how long it lasted and `ended`: the window answered, was closed, or
+  the app quit.
+- **A watchdog thread in main sends main's own hang,** since main can't while it's stuck. Main's half-second timer is
+  the heartbeat; after 2 seconds without one, the thread sends one Sentry message, "Main stopped answering", straight to
+  Sentry's envelope endpoint, with the release, tags and user main last gave it. It doesn't load Sentry's SDK, so it
+  sends nothing else. It sends only while main's level isn't Off.
+- **An open hang is kept in `<userData>/hangs` while it lasts,** with how long so far, and removed when it ends. The
+  next run reports what's left as `main.blocked` or `window.hung` with `ended: "exited"` and a Sentry message, so a
+  force-quit's hang arrives with its length when the app next starts. Each process keeps its own files, named by its
+  process ID, and a run reports only those whose process has exited, since two copies of the app can share the folder.
+- **The local copy gets main's hang when it ends,** as before: the watchdog writes only Sentry and the open-hang file.

@@ -95,9 +95,15 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
   // The theme's own values measure the frame as the project's CSS does, though they never went through preparing.
   const fallbacks = rewriteSheetFrameUnits(themeFallbackCss(css.scoped, theme))
   const sheet = guestSheet(fallbacks + packages.scoped + css.scoped)
+
   // Tokens keep the values the project wrote, `0.25rem` rather than what a frame draws it with, and its
-  // `prefers-color-scheme` blocks, which frames draw as rules for their colour scheme.
-  const written = prepareCanvasCss(guest.css, { baseUrl: new URL(url).origin, units: false, colorSchemes: false })
+  // `prefers-color-scheme` blocks, which frames draw as rules for their colour scheme, and a qualified root as written.
+  const written = prepareCanvasCss(guest.css, {
+    baseUrl: new URL(url).origin,
+    units: false,
+    colorSchemes: false,
+    qualifiedRoots: false
+  })
 
   return {
     guest,
