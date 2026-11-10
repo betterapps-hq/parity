@@ -145,6 +145,17 @@ describe("prepareCanvasCss", () => {
     )
   })
 
+  it("keeps a qualified root's nested rules in the project's layer, and draws its colour-scheme block on the body", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+
+    expect(scoped(":root.dark { --c: #000; .title { color: white; } }")).toBe(
+      ":host(.dark) { --c: #000; .title { color: white; } } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --c: #000; } } [data-canvas-body].dark { .title { color: white; }}"
+    )
+    expect(scoped(":root.dark { @media (prefers-color-scheme: dark) { --c: #000; } }")).toContain(
+      '@layer canvas-qualified-root { :where([data-canvas-body][data-canvas-color-scheme="dark"]).dark { --c: #000; } }'
+    )
+  })
+
   it("keeps a qualified root as one selector when asked to, for reading its theme as a token's", () => {
     expect(prepareCanvasCss(":root.dark { --c: #000; }", { ...options, qualifiedRoots: false }).scoped).toBe(
       ":host.dark { --c: #000; }"

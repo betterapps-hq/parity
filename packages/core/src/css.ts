@@ -378,14 +378,20 @@ function serialize(
     const hostRoots = roots.filter((part) => !part.startsWith(bodyRootPrefix))
 
     if (bodyRoots.length > 0) {
-      // A qualified root drawn on the body goes in a layer below the project's own, so the body's own rules beat its
-      // values, as they beat what a page's body inherits from its root. Serialized again into a list of its own, so what
-      // the root's rule moves to the document isn't moved twice.
-      const bodyRootBody = serialize(children, options, [], { root: true, inRule: true, bodyRoot: true })
+      // A qualified root's own declarations, drawn on the body, go in a layer below the project's, so the body's own
+      // rules beat them, as they beat what a page's body inherits from its root. Its nested rules are for elements
+      // inside, which inherit nothing, so they stay in the project's layer, with the specificity they were written with.
+      // Each is serialized again into a list of its own, so what the root's rule moves to the document isn't moved twice.
+      const nested = children.filter((child) => child.kind === "block" && !child.prelude.trim().startsWith("@"))
+      const own = children.filter((child) => !nested.includes(child))
+      const bodyRootBody = serialize(own, options, [], { root: true, inRule: true, bodyRoot: true })
+      const nestedBody = nested.length > 0 ? serialize(nested, options, [], { root: true, inRule: true }) : ""
+      const qualifiedBodies = bodyRoots.map((part) => `[${bodyAttribute}]${part.slice(bodyRootPrefix.length)}`)
 
       const parts = [
         hostRoots.length > 0 ? `${scope(hostRoots.join(", "))} {${rootBody}}` : "",
         `@layer ${qualifiedRootLayer} { ${scope(bodyRoots.join(", "))} {${bodyRootBody}} }`,
+        nestedBody ? `${scope(qualifiedBodies.join(", "))} {${nestedBody}}` : "",
         others.length > 0 ? `${scope(others.join(", "))} {${otherBody}}` : ""
       ]
 
@@ -403,8 +409,26 @@ function serialize(
         continue
       }
 
+      const scheme = schemeOfBlock(block, options)!
       const body = serialize(block.children, options, globals, { root: true, inRule: true })
-      output += ` ${scopeToColorScheme(selector, schemeOfBlock(block, options)!)} {${body}}`
+      const plain = selectors.filter((part) => !part.startsWith(bodyRootPrefix) && !part.startsWith(":host("))
+      const qualified = selectors.filter((part) => part.startsWith(bodyRootPrefix))
+
+      if (plain.length > 0) {
+        output += ` ${scopeToColorScheme(plain.join(", "), scheme)} {${body}}`
+      }
+
+      // A qualified root's block is for the body in that scheme with the qualifier on it. The host can't be in a scheme,
+      // which only the body says, so its side is left out.
+      if (qualified.length > 0) {
+        const inScheme = qualified.map(
+          (part) =>
+            `:where([${bodyAttribute}][${colorSchemeAttribute}="${scheme}"])${part.slice(bodyRootPrefix.length)}`
+        )
+
+        const bodyRootBody = serialize(block.children, options, [], { root: true, inRule: true, bodyRoot: true })
+        output += ` @layer ${qualifiedRootLayer} { ${inScheme.join(", ")} {${bodyRootBody}} }`
+      }
     }
   }
 
