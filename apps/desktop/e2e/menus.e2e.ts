@@ -218,6 +218,8 @@ describe("right-click menus", () => {
       "New screen Ctrl+Alt+N",
       "New component Ctrl+Alt+Shift+N",
       "Insert… /",
+      // Find references, for nothing selected (PAR-840).
+      "Find references… R",
       "Paste here",
       "Select all Ctrl+A",
       "Zoom to fit Shift+1"

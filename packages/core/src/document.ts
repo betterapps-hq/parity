@@ -185,7 +185,12 @@ export const referenceSpec = fileObject({
   /** Why it's here, in a person's or an agent's words. */
   note: z.string().optional(),
   /** The agent that placed it. Unset when the person did. */
-  by: z.string().optional()
+  by: z.string().optional(),
+  /**
+   * The design it was found for, by id, in the same file (PAR-889). Unset when nothing was selected, and agents then
+   * read it as for the design it sits nearest.
+   */
+  design: z.string().optional()
 })
 
 export type ReferenceSpec = z.infer<typeof referenceSpec>

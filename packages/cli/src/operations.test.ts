@@ -10,6 +10,7 @@ import {
   type FindResponse,
   type ImagesResponse,
   type PlaceResponse,
+  type PlacedReferencesResponse,
   type RemoveImageResponse,
   type ReportResponse,
   type StatusResponse,
@@ -23,6 +24,7 @@ import {
   describeImages,
   describeMedia,
   describePlace,
+  describePlacedReferences,
   describeReferences,
   describeRemovedImage,
   describeReport,
@@ -166,6 +168,33 @@ const calm = {
 }
 
 const references: FindResponse = { found: [calm] }
+
+/** Two references on the canvas: one an agent placed for Pricing, with a note, and one whose picture has expired. */
+const onCanvas: PlacedReferencesResponse = {
+  tab: { id: "tab-1", name: "Project" },
+  references: [
+    {
+      id: "r1",
+      app: "Calm",
+      platform: "ios",
+      link: "https://mobbin.com/screens/1b9d6bcd",
+      picture: "https://images.mobbin.com/calm.png",
+      query: "pricing page",
+      note: "Yearly is picked by default",
+      by: "Claude",
+      design: { id: "pricing", name: "Pricing", file: "app.par" },
+      preview: { path: "/references/calm-r1.png", mimeType: "image/png" }
+    },
+    {
+      id: "r2",
+      app: "Ledgerly",
+      link: "https://mobbin.com/screens/2",
+      picture: "https://images.mobbin.com/ledgerly.png",
+      expired: true,
+      design: { id: "pricing", name: "Pricing", file: "app.par" }
+    }
+  ]
+}
 
 const placed: PlaceResponse = {
   placed: true,
@@ -375,6 +404,17 @@ const cases: Case[] = [
     result: references,
     structured: references,
     text: describeReferences(references)
+  },
+  {
+    name: "placed references",
+    cli: ["references", "placed", "pricing"],
+    tool: "get_references",
+    method: "placedReferences",
+    input: { design: "pricing" },
+    params: { design: "pricing", limit: 6 },
+    result: onCanvas,
+    structured: onCanvas,
+    text: describePlacedReferences(onCanvas)
   },
   {
     name: "media",
@@ -1063,8 +1103,8 @@ describe("remaining transport contracts", processTests, () => {
     const tools = toolReply(protocol.stdout)?.result?.tools
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
     // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos (now find_media), 16.1 KB with a
-    // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834), 19 KB with find_media taking a type (PAR-837).
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(19.5 * 1024)
+    // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834), 19 KB with find_media taking a type (PAR-837), 19.5 KB with get_references (PAR-889).
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(20 * 1024)
   })
 
   it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {
@@ -1112,6 +1152,41 @@ describe("remaining transport contracts", processTests, () => {
       "   preview /references/calm.webp",
       "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and the source."
     ])
+  })
+
+  it("shows each placed reference's picture over MCP, and leaves its base64 out of --json", async () => {
+    const [first, second] = onCanvas.references
+    const preview = { path: "/references/calm-r1.png", mimeType: "image/png" as const, data: "iVBORw==" }
+    const result = { ...onCanvas, references: [{ ...first, preview }, second] }
+    fixture.response = { result }
+
+    const [cli, protocol] = await Promise.all([run(["references", "placed", "--json"]), mcp({}, "get_references")])
+
+    expect(JSON.parse(cli.stdout)).toEqual(onCanvas)
+    expect(toolReply(protocol.stdout)?.result?.content).toEqual([
+      { type: "text", text: describePlacedReferences(result) },
+      { type: "image", data: "iVBORw==", mimeType: "image/png" }
+    ])
+  })
+
+  it("lists each placed reference with the design it's for, who placed it and why, and its picture", () => {
+    expect(describePlacedReferences(onCanvas).split("\n")).toEqual([
+      "2 references on Project's canvas:",
+      "1. Calm (ios) https://mobbin.com/screens/1b9d6bcd",
+      "   for Pricing, placed by Claude: Yearly is picked by default",
+      '   found with "pricing page"',
+      "   picture /references/calm-r1.png",
+      "2. Ledgerly https://mobbin.com/screens/2",
+      "   for Pricing, placed by the person",
+      "   picture expired",
+      "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding."
+    ])
+    expect(describePlacedReferences({ ...onCanvas, references: [] })).toBe("No references to show.")
+    expect(
+      describePlacedReferences({ ...onCanvas, withoutPictures: 3 })
+        .split("\n")
+        .at(-2)
+    ).toBe("3 more without pictures: name a design or raise limit to see them.")
   })
 
   it("lists each stock result found with its author, and how many searches are left", () => {

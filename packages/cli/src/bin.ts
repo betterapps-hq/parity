@@ -17,6 +17,7 @@ import {
   describeImages,
   describeMedia,
   describePlace,
+  describePlacedReferences,
   describeReferences,
   describeRemovedImage,
   describeReport,
@@ -116,6 +117,11 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             matches, spending the source's AI credits; --exclude (repeated) leaves out
                                             screens already seen; --connector names the source. Exits with 1 when
                                             the search itself is wrong or the source fails, not when Parity has no key
+  parity references placed [design] [--limit 6] [--tab t]
+                                            the screens placed on the canvas as references, each with the design
+                                            it's for, who placed it and why; with a design, only the ones for it.
+                                            The first 6 pictures unless --limit says are saved under
+                                            ~/.parity/references
   parity media "<subject>" [--type photos|illustrations|vectors|videos] [--orientation horizontal|vertical]
                [--color c] [--limit 6] [--page 1]
                                             search stock pictures or videos, one subject per search, the same way;
@@ -390,6 +396,14 @@ async function main(): Promise<void> {
         describeReport
       )
     case "references":
+      if (rest[0] === "placed") {
+        return show(
+          operations.placedReferences,
+          { tab: values.tab, design: rest.slice(1).join(" ") || undefined, limit },
+          describePlacedReferences
+        )
+      }
+
       return show(
         operations.references,
         {

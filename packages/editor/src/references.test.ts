@@ -6,6 +6,7 @@ import {
   addReferences,
   changeReference,
   moreFromApp,
+  nearestBox,
   referenceExpired,
   referenceFrom,
   referenceRow,
@@ -163,7 +164,9 @@ describe("a screen a search found, as a reference", () => {
   }
 
   it("keeps its source, app, platform, link, picture and how it was found", () => {
-    expect(referenceFrom(screen, "a", { x: 10, y: 20 }, { query: "pricing page", by: "Claude", note: " " })).toEqual({
+    const origin = { query: "pricing page", by: "Claude", note: " ", design: "pricing" }
+
+    expect(referenceFrom(screen, "a", { x: 10, y: 20 }, origin)).toEqual({
       id: "a",
       connector: "mobbin",
       sourceId: "screen-1",
@@ -173,7 +176,33 @@ describe("a screen a search found, as a reference", () => {
       image: { url: "https://images.example/1.png", width: 768, height: 480, expiresAt: 5000 },
       position: { x: 10, y: 20 },
       query: "pricing page",
-      by: "Claude"
+      by: "Claude",
+      design: "pricing"
     })
+  })
+})
+
+describe("the design a reference is for, when none was recorded", () => {
+  const pricing = { name: "Pricing", minX: 0, minY: 0, maxX: 1280, maxY: 900 }
+  const checkout = { name: "Checkout", minX: 3000, minY: 0, maxX: 4280, maxY: 900 }
+
+  it("is the one whose edge is nearest", () => {
+    const reference = { minX: 1440, minY: 0, maxX: 2720, maxY: 800 }
+
+    expect(nearestBox(reference, [checkout, pricing])?.name).toBe("Pricing")
+  })
+
+  it("is the one it overlaps, and nothing when there are no designs", () => {
+    const reference = { minX: 3500, minY: 500, maxX: 4780, maxY: 1300 }
+
+    expect(nearestBox(reference, [pricing, checkout])?.name).toBe("Checkout")
+    expect(nearestBox(reference, [])).toBeUndefined()
+  })
+
+  it("is nothing when every design is further than the distance given", () => {
+    const reference = { minX: 1440, minY: 0, maxX: 2720, maxY: 800 }
+
+    expect(nearestBox(reference, [pricing], 160)?.name).toBe("Pricing")
+    expect(nearestBox(reference, [pricing], 159)).toBeUndefined()
   })
 })

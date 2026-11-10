@@ -80,6 +80,11 @@ export interface AgentHost {
    * A search that found nothing to show answers with why, rather than failing.
    */
   references(request: Params<"references">): Promise<Answer<"references">>
+  /**
+   * Fetches each picture and saves it as a file, as a search's previews are, for an agent to look at: the pictures of
+   * the references on the canvas (PAR-889). Undefined for one that couldn't be fetched or saved.
+   */
+  pictures(pictures: { title: string; id: string; url: string }[]): Promise<(SavedPicture | undefined)[]>
   /** Searches stock pictures and videos the same way, from whichever connector is offered for them. */
   media(request: Params<"media">): Promise<Answer<"media">>
   /**
@@ -124,6 +129,9 @@ type Known<T> = T extends readonly (infer Item)[]
 export type Answer<M extends AgentMethod> = Known<AgentMethods[M]["result"]>
 
 type Params<M extends AgentMethod> = AgentMethods[M]["params"]
+
+/** A picture saved as a file for an agent, with its bytes for MCP to show. */
+export type SavedPicture = NonNullable<Answer<"placedReferences">["references"][number]["preview"]>
 
 /** One call: the host, the caller's presence on a tab, and who's calling when it says. */
 interface Call {
@@ -241,6 +249,30 @@ const methods: MethodTable = {
   references: (params, { host }) => host.references(params),
   media: (params, { host }) => host.media(params),
   place: (params, call) => place(call.host, call.presence, params),
+  async placedReferences(params, { host }) {
+    const snapshot = await host.snapshot(params.tab)
+    const placed = readOnly(snapshot).References(params.design)
+    // A picture whose link has stopped working isn't asked for, and only the first `limit` are: each is a whole screen.
+    const fresh = placed.filter((reference) => !reference.expired)
+    const asked = fresh.slice(0, params.limit)
+    const saved = await host.pictures(asked.map(({ app, id, picture }) => ({ title: app, id, url: picture })))
+    // Paired by position, since nothing stops two files' references sharing an id.
+    const previews = new Map(asked.map((reference, index) => [reference, saved[index]]))
+
+    const references = placed.map((reference) => {
+      const preview = previews.get(reference)
+
+      return preview ? { ...reference, preview } : reference
+    })
+
+    const answer: Answer<"placedReferences"> = { tab: tabRef(snapshot), references }
+
+    if (fresh.length > asked.length) {
+      answer.withoutPictures = fresh.length - asked.length
+    }
+
+    return answer
+  },
   images: async (params, { host }) => {
     const { images } = await imagesOf(host, params.tab)
     const found = filterImages(images, params)
@@ -416,13 +448,27 @@ function state(snapshot: TabSnapshot): Answer<"state"> {
   const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
   const api = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state").api()
   const semantic = snapshot.tokens.filter((token) => token.source === "semantic")
+  // By file and id, since two files can hold designs with the same id.
+  const references = new Map<string, number>()
+
+  for (const { design } of api.References()) {
+    if (design) {
+      const where = `${design.file}#${design.id}`
+      references.set(where, (references.get(where) ?? 0) + 1)
+    }
+  }
 
   return {
     tab: snapshot.tab,
     // Changes with every change to the tab's designs, modes or token edits; `status` says what's saved.
     revision: snapshot.revision,
     selection: api.Selection(),
-    designs: api.Designs(),
+    // Each design says how many references are for it, for the agent to look at before changing it (PAR-889).
+    designs: api.Designs().map((design) => {
+      const count = references.get(`${design.file}#${design.id}`)
+
+      return count ? { ...design, references: count } : design
+    }),
     // Boards on top of each other, to move apart.
     overlaps: api.Overlaps(),
     // resolveModes makes new objects on every call, so the first one is the primary mode by position (PAR-579).

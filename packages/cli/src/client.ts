@@ -75,6 +75,9 @@ export type ReportResponse = z.output<typeof replies.report>
 /** What a search for screens, pictures or videos answers, which is the same shape. */
 export type FindResponse = z.output<typeof replies.references>
 
+/** The references on the canvas, with their pictures saved to look at (PAR-889). */
+export type PlacedReferencesResponse = z.output<typeof replies.placedReferences>
+
 /** What placing a result answers. */
 export type PlaceResponse = z.output<typeof replies.place>
 
@@ -989,6 +992,44 @@ export function describeReferences(result: FindResponse): string {
     none: "Nothing matches. Try fewer parts, other words, or the other platform.",
     use: "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and the source."
   })
+}
+
+/**
+ * A readable account of the references on the canvas (PAR-889): each app with its link, the design it's for, who placed
+ * it and why, the description that found it and its saved picture.
+ */
+export function describePlacedReferences(result: PlacedReferencesResponse): string {
+  if (result.references.length === 0) {
+    return "No references to show."
+  }
+
+  const count = result.references.length === 1 ? "1 reference" : `${result.references.length} references`
+
+  const lines = result.references.map((each, index) => {
+    const platform = each.platform ? ` (${each.platform})` : ""
+    const placed = [each.design ? `for ${each.design.name}` : "", `placed by ${each.by ?? "the person"}`]
+    const note = each.note ? `: ${each.note}` : ""
+    const found = each.query ? [`found with "${each.query}"`] : []
+    let picture = each.preview ? `picture ${each.preview.path}` : "no picture"
+
+    if (each.expired) {
+      picture = "picture expired"
+    }
+
+    const details = [`${placed.filter(Boolean).join(", ")}${note}`, ...found, picture]
+
+    return [`${index + 1}. ${each.app}${platform} ${each.link}`, ...details.map((line) => `   ${line}`)].join("\n")
+  })
+
+  const without = result.withoutPictures
+  const left = without ? [`${without} more without pictures: name a design or raise limit to see them.`] : []
+
+  return [
+    `${count} on ${result.tab.name}'s canvas:`,
+    ...lines,
+    ...left,
+    "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding."
+  ].join("\n")
 }
 
 /** What placing a result did: the node it went in and who to credit, or why it wasn't placed. */
