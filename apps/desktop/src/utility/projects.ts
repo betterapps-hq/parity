@@ -58,6 +58,7 @@ import type { ProjectEditResult, ProjectInfo, ServiceMethods, WindowMethods } fr
 import { inSpan, track } from "../shared/tracing.ts"
 import type { ServedCode } from "./bitmap-store.ts"
 import type { BuilderExit, StartedBuilder } from "./builders.ts"
+import { degraded } from "./degraded.ts"
 import type { SavedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
 import { environment, type ServiceEnvironment } from "./environment.ts"
@@ -781,7 +782,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       rescanning = rescanning
         .then(() => rescanComponents(project, paths))
         .catch((cause: unknown) => {
-          console.warn(`[service] couldn't read the changed components: ${message(cause)}`)
+          degraded("component_reread", "couldn't read the changed components", cause, root)
         })
     }
 
@@ -793,14 +794,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
           rescanning = rescanning
             .then(() => rereadConfig(project, configChanged))
             .catch((cause: unknown) => {
-              console.warn(`[service] couldn't read props again after the config changed: ${message(cause)}`)
+              degraded("config_reread", "couldn't read props again after the config changed", cause, root)
             })
         }, 400)
       )
     }
 
     void followConfig(project, configChanged).catch((cause: unknown) => {
-      console.warn(`[service] can't follow ${root}'s config for changes: ${message(cause)}`)
+      degraded("config_watch", `can't follow ${root}'s config for changes`, cause, root)
     })
 
     const reload = async (path: string) => {
@@ -832,7 +833,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         listeners.fileChanged({ projectId: project.info.id, path, document })
       } catch (error) {
         // Often a file caught mid-write; the next change event brings the rest.
-        console.warn(`[service] ${path} changed on disk but can't be read: ${message(error)}`)
+        degraded("design_reload", `${path} changed on disk but can't be read`, error, root)
       }
     }
 
@@ -874,7 +875,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         }
       }
     } catch (error) {
-      console.warn(`[service] can't watch ${root} for changes: ${message(error)}`)
+      degraded("watch", `can't watch ${root} for changes`, error, root)
 
       return undefined
     }
@@ -924,7 +925,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
             })
           ]
         } catch (error) {
-          console.warn(`[service] can't watch ${folder} for config changes: ${message(error)}`)
+          degraded("config_watch", `can't watch ${folder} for config changes`, error, root)
 
           return []
         }
@@ -1023,7 +1024,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     try {
       checked = await checker.checkComponents(root, files)
     } catch (error) {
-      console.warn(`[service] the type checker couldn't read the components: ${message(error)}`)
+      degraded("type_check", "the type checker couldn't read the components", error, root)
       task.set("failed", { summary: "Couldn't read the components", error: message(error) })
 
       return false
@@ -1074,7 +1075,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     try {
       checked = await checker.checkComponents(root, toCheck)
     } catch (error) {
-      console.warn(`[service] the type checker couldn't read the changed components: ${message(error)}`)
+      degraded("type_check", "the type checker couldn't read the changed components", error, root)
 
       return
     }
@@ -1164,7 +1165,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     files?: string[]
   ): Promise<Record<string, ComponentInfo>> {
     return checker.inferComponents(root, sources, files).catch((cause: unknown) => {
-      console.warn(`[service] couldn't infer component props: ${message(cause)}`)
+      degraded("prop_inference", "couldn't infer component props", cause, root)
 
       return {}
     })

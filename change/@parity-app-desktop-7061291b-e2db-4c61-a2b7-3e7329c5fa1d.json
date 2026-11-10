@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Record the project service's degraded modes, such as a project it can't watch or bitmaps it can't keep, as service.degraded events",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
