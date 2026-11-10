@@ -142,6 +142,69 @@ function Abstract({ hue }: { hue: number }) {
   )
 }
 
+/** An illustration of overlapping flat shapes. */
+function Collage({ hue }: { hue: number }) {
+  return (
+    <>
+      <rect width="120" height="80" fill={tone(hue, 0.95, 0.03)} />
+      <circle cx="40" cy="36" r="24" fill={tone(hue, 0.7, 0.16)} />
+      <rect x="56" y="22" width="40" height="40" rx="4" fill={tone(hue + 60, 0.62, 0.17)} opacity="0.9" />
+      <path d="M22 70 L50 30 L78 70Z" fill={tone(hue - 50, 0.5, 0.15)} opacity="0.85" />
+      <circle cx="96" cy="20" r="7" fill={tone(hue + 120, 0.8, 0.14)} />
+    </>
+  )
+}
+
+/** An illustration of someone at a desk. */
+function Figure({ hue }: { hue: number }) {
+  return (
+    <>
+      <rect width="120" height="80" fill={tone(hue, 0.93, 0.04)} />
+      <rect x="18" y="58" width="84" height="4" rx="2" fill={tone(hue, 0.35, 0.05)} />
+      <path d="M46 58 Q46 36 60 36 Q74 36 74 58Z" fill={tone(hue, 0.55, 0.16)} />
+      <circle cx="60" cy="26" r="9" fill={tone(hue + 40, 0.82, 0.07)} />
+      <rect x="66" y="46" width="22" height="12" rx="1.5" fill={tone(hue, 0.3, 0.04)} />
+      <path d="M24 58 V44 Q20 38 24 32 Q28 38 24 44" stroke={tone(hue + 100, 0.5, 0.14)} strokeWidth="2" fill="none" />
+      <rect x="20" y="52" width="8" height="6" rx="1" fill={tone(hue + 100, 0.45, 0.1)} />
+    </>
+  )
+}
+
+/** A vector of a rocket, on nothing. */
+function Rocket({ hue }: { hue: number }) {
+  return (
+    <>
+      <path d="M60 10 Q76 28 72 52 H48 Q44 28 60 10Z" fill={tone(hue, 0.62, 0.19)} />
+      <circle cx="60" cy="32" r="6" fill={tone(hue + 180, 0.92, 0.05)} />
+      <path d="M48 44 L36 60 L48 56Z M72 44 L84 60 L72 56Z" fill={tone(hue, 0.45, 0.16)} />
+      <path d="M54 54 L60 72 L66 54Z" fill={tone(70, 0.82, 0.17)} />
+    </>
+  )
+}
+
+/** A vector of a heart, on nothing. */
+function Heart({ hue }: { hue: number }) {
+  return (
+    <path
+      d="M60 68 C28 46 30 18 46 18 C54 18 58 24 60 28 C62 24 66 18 74 18 C90 18 92 46 60 68Z"
+      fill={tone(hue, 0.62, 0.2)}
+    />
+  )
+}
+
+/** A vector of a star, on nothing. */
+function Star({ hue }: { hue: number }) {
+  return (
+    <path
+      d="M60 12 L68 32 L90 34 L73 48 L79 70 L60 58 L41 70 L47 48 L30 34 L52 32Z"
+      fill={tone(hue, 0.78, 0.17)}
+      stroke={tone(hue, 0.5, 0.14)}
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+  )
+}
+
 const scenes: Record<Scene, (props: { hue: number }) => ReactNode> = {
   hills: Hills,
   coast: Coast,
@@ -149,12 +212,22 @@ const scenes: Record<Scene, (props: { hue: number }) => ReactNode> = {
   desk: Desk,
   portrait: Portrait,
   leaves: Leaves,
-  abstract: Abstract
+  abstract: Abstract,
+  collage: Collage,
+  figure: Figure,
+  rocket: Rocket,
+  heart: Heart,
+  star: Star
 }
 
-/** A sample photo's drawing, filling its box and cropped to it, as a photo is. */
-export function PhotoArt({ photo }: { photo: SamplePhoto }) {
+/**
+ * A sample's drawing, filling its box and cropped to it, as a photo is. A sample with nothing behind it, as a vector
+ * has, sits on the checks that stand for see-through. `at` is how far through a sample video is, from 0 to 1: the
+ * drawing drifts out and back over its length, so playing it and scrubbing it both show.
+ */
+export function PhotoArt({ photo, at = 0 }: { photo: SamplePhoto; at?: number }) {
   const Drawn = scenes[photo.scene]
+  const drift = Math.sin(Math.PI * at)
 
   return (
     <svg viewBox="0 0 120 80" preserveAspectRatio="xMidYMid slice" aria-hidden className="absolute inset-0 size-full">
@@ -163,8 +236,15 @@ export function PhotoArt({ photo }: { photo: SamplePhoto }) {
           <stop offset="0" stopColor={tone(photo.hue, 0.72, 0.12)} />
           <stop offset="1" stopColor={tone(photo.hue + 30, 0.92, 0.06)} />
         </linearGradient>
+        <pattern id="see-through" width="10" height="10" patternUnits="userSpaceOnUse">
+          <rect width="10" height="10" fill="white" />
+          <path d="M0 0H5V5H0Z M5 5H10V10H5Z" fill="oklch(0.9 0 0)" />
+        </pattern>
       </defs>
-      <Drawn hue={photo.hue} />
+      {photo.color === "transparent" && <rect width="120" height="80" fill="url(#see-through)" />}
+      <g transform={`translate(${-14 * drift} ${-6 * drift}) scale(${1 + 0.18 * drift})`}>
+        <Drawn hue={photo.hue} />
+      </g>
     </svg>
   )
 }

@@ -203,7 +203,19 @@ export function sampleScreen(id: string): SampleScreen | undefined {
 }
 
 /** What a sample photo is of, which picks its drawing. */
-export type Scene = "hills" | "coast" | "city" | "desk" | "portrait" | "leaves" | "abstract"
+export type Scene =
+  | "hills"
+  | "coast"
+  | "city"
+  | "desk"
+  | "portrait"
+  | "leaves"
+  | "abstract"
+  | "collage"
+  | "figure"
+  | "rocket"
+  | "heart"
+  | "star"
 
 /** A sample photo: what Unsplash would return for it, and what its drawing needs. */
 export interface SamplePhoto {
@@ -428,8 +440,196 @@ const photos: readonly SamplePhoto[] = [
   }
 ]
 
+/** What a Pixabay sample is, which its search's Type filter picks between. */
+export type MediaType = "photos" | "illustrations" | "vectors" | "videos"
+
+/** A sample from Pixabay's library: a picture of one of its types, or a video with its length. */
+export interface SampleMedia extends SamplePhoto {
+  type: MediaType
+  /** A video's length in seconds. */
+  seconds?: number
+  /** A video that's drawn rather than filmed. */
+  animated?: boolean
+}
+
+const film = { width: 3840, height: 2160 }
+const clear = "transparent"
+
+function media(
+  type: MediaType,
+  id: string,
+  description: string,
+  by: string,
+  rest: Omit<SampleMedia, "id" | "description" | "by" | "type">
+): SampleMedia {
+  return { type, id: `pixabay-${id}`, description, by, ...rest }
+}
+
+/** Pixabay's samples: the photos above under its own contributors' names, then illustrations, vectors and videos. */
+const mediaList: readonly SampleMedia[] = [
+  ...photos.map((photo): SampleMedia => ({
+    ...photo,
+    id: `pixabay-${photo.id}`,
+    type: "photos"
+  })),
+  media("illustrations", "shapes-warm", "Overlapping shapes in warm colors", "studio_kelp", {
+    scene: "collage",
+    hue: 40,
+    ...wide,
+    color: "orange",
+    tags: "abstract shapes geometric pattern background backgrounds"
+  }),
+  media("illustrations", "figure-at-desk", "A person working at a laptop", "inkfold", {
+    scene: "figure",
+    hue: 255,
+    ...wide,
+    color: "blue",
+    tags: "person people work office business computer laptop"
+  }),
+  media("illustrations", "shapes-cool", "Overlapping shapes in cool colors", "studio_kelp", {
+    scene: "collage",
+    hue: 200,
+    ...square,
+    color: "teal",
+    tags: "abstract shapes geometric pattern background backgrounds"
+  }),
+  media("illustrations", "figure-in-green", "A person at a desk with a plant", "inkfold", {
+    scene: "figure",
+    hue: 150,
+    ...tall,
+    color: "green",
+    tags: "person people work office business nature plant"
+  }),
+  media("illustrations", "hills-flat", "Flat hills at dusk", "paperhill", {
+    scene: "hills",
+    hue: 300,
+    ...wide,
+    color: "purple",
+    tags: "nature landscape mountains travel places"
+  }),
+  media("illustrations", "leaves-flat", "Flat leaves on cream", "paperhill", {
+    scene: "leaves",
+    hue: 95,
+    ...square,
+    color: "green",
+    tags: "nature plant leaves botanical"
+  }),
+  media("vectors", "rocket", "A rocket", "vektorhaus", {
+    scene: "rocket",
+    hue: 25,
+    ...square,
+    color: clear,
+    tags: "rocket launch startup business science icon"
+  }),
+  media("vectors", "heart", "A heart", "vektorhaus", {
+    scene: "heart",
+    hue: 10,
+    ...square,
+    color: clear,
+    tags: "heart love feelings health icon"
+  }),
+  media("vectors", "star", "A star", "linework", {
+    scene: "star",
+    hue: 85,
+    ...square,
+    color: clear,
+    tags: "star rating favorite icon"
+  }),
+  media("vectors", "rocket-blue", "A blue rocket", "linework", {
+    scene: "rocket",
+    hue: 250,
+    ...square,
+    color: clear,
+    tags: "rocket launch startup business science icon"
+  }),
+  media("vectors", "star-violet", "A violet star", "vektorhaus", {
+    scene: "star",
+    hue: 300,
+    ...square,
+    color: clear,
+    tags: "star rating favorite icon"
+  }),
+  media("vectors", "heart-teal", "A teal heart", "linework", {
+    scene: "heart",
+    hue: 190,
+    ...square,
+    color: clear,
+    tags: "heart love feelings health icon"
+  }),
+  media("videos", "clouds-over-hills", "Clouds moving over hills", "slowframe", {
+    scene: "hills",
+    hue: 215,
+    ...film,
+    color: "blue",
+    tags: "nature landscape mountains sky travel",
+    seconds: 18
+  }),
+  media("videos", "waves-at-dusk", "Waves coming in at dusk", "slowframe", {
+    scene: "coast",
+    hue: 30,
+    ...film,
+    color: "orange",
+    tags: "nature sea ocean water travel places",
+    seconds: 24
+  }),
+  media("videos", "city-lights", "City lights at night", "nightshift", {
+    scene: "city",
+    hue: 265,
+    ...film,
+    color: "purple",
+    tags: "city buildings urban travel places",
+    seconds: 12
+  }),
+  media("videos", "gradient-loop", "A looping gradient", "loopyard", {
+    scene: "abstract",
+    hue: 190,
+    ...film,
+    color: "teal",
+    tags: "abstract gradient background backgrounds loop",
+    seconds: 8,
+    animated: true
+  }),
+  media("videos", "typing-at-a-desk", "Typing at a desk", "nightshift", {
+    scene: "desk",
+    hue: 60,
+    ...film,
+    color: "yellow",
+    tags: "office work desk business computer laptop",
+    seconds: 15
+  }),
+  media("videos", "green-valley", "A green valley from above", "slowframe", {
+    scene: "hills",
+    hue: 140,
+    ...film,
+    color: "green",
+    tags: "nature landscape mountains travel",
+    seconds: 30
+  }),
+  media("videos", "shapes-loop", "Shapes moving in a loop", "loopyard", {
+    scene: "collage",
+    hue: 320,
+    ...film,
+    color: "purple",
+    tags: "abstract shapes background backgrounds loop",
+    seconds: 10,
+    animated: true
+  }),
+  media("videos", "morning-coast", "A coast in the morning", "slowframe", {
+    scene: "coast",
+    hue: 200,
+    ...film,
+    color: "teal",
+    tags: "nature sea ocean water travel places",
+    seconds: 21
+  })
+]
+
+export function sampleMedia(id: string): SampleMedia | undefined {
+  return mediaList.find((each) => each.id === id)
+}
+
 export function samplePhoto(id: string): SamplePhoto | undefined {
-  return photos.find((each) => each.id === id)
+  return photos.find((each) => each.id === id) ?? sampleMedia(id)
 }
 
 /** Words that say nothing about a screen or a photo. */
@@ -488,9 +688,71 @@ export function sampleFound(id: string): Found | undefined {
     return foundScreen(screen)
   }
 
+  const item = sampleMedia(id)
+
+  if (item) {
+    return foundMedia(item)
+  }
+
   const photo = samplePhoto(id)
 
   return photo && foundPhoto(photo)
+}
+
+function foundMedia(item: SampleMedia): Found {
+  const found: Found = {
+    connector: "pixabay",
+    id: item.id,
+    kind: item.seconds === undefined ? "photos" : "videos",
+    title: item.description,
+    image: { url: drawn(item.id), width: item.width, height: item.height },
+    link: `https://pixabay.com/${item.type}/${item.id}`,
+    credit: [
+      { name: item.by, url: `https://pixabay.com/users/${item.by}` },
+      { name: "Pixabay", url: "https://pixabay.com" }
+    ]
+  }
+
+  if (item.seconds !== undefined) {
+    found.video = { url: `https://example.com/samples/${item.id}.mp4`, duration: item.seconds }
+  }
+
+  return found
+}
+
+/** Pixabay's names for the colors the samples are filed under. */
+const pixabayColors = new Map([
+  ["purple", "lilac"],
+  ["teal", "turquoise"],
+  ["black_and_white", "grayscale"]
+])
+
+/**
+ * Searches the Pixabay samples the way its API does: a type first, then words, then whatever narrows them, a page at a
+ * time.
+ */
+function searchMedia({ query, limit = 20, filters = {}, page = 1 }: SearchRequest): Found[] {
+  const words = wordsOf(query)
+
+  const type = filters.type ?? "photos"
+
+  const scored = mediaList.flatMap((item) => {
+    const fits = words.filter((word) => says(item.description, word) || says(item.tags, word)).length
+    const wide = item.width > item.height ? "horizontal" : "vertical"
+
+    const kept =
+      item.type === type &&
+      (!filters.orientation || (item.width !== item.height && wide === filters.orientation)) &&
+      (!filters.color || (pixabayColors.get(item.color) ?? item.color) === filters.color) &&
+      (!filters.footage || (filters.footage === "animation") === !!item.animated) &&
+      (!filters.category || says(item.tags, filters.category))
+
+    return fits > 0 && kept ? [{ item, fits }] : []
+  })
+
+  const ranked = scored.toSorted((first, second) => second.fits - first.fits)
+
+  return ranked.slice((page - 1) * limit, page * limit).map(({ item }) => foundMedia(item))
 }
 
 /**
@@ -553,8 +815,13 @@ const wait = { quick: 450, deep: 2200 }
 
 /** The sample libraries as a source. */
 export function samples(): Source {
-  const instant = (connector: string, request: SearchRequest): SearchAnswer =>
-    connector === "unsplash" ? { found: searchPhotos(request) } : { found: searchScreens(request) }
+  const instant = (connector: string, request: SearchRequest): SearchAnswer => {
+    if (connector === "pixabay") {
+      return { found: searchMedia(request) }
+    }
+
+    return connector === "unsplash" ? { found: searchPhotos(request) } : { found: searchScreens(request) }
+  }
 
   return {
     instant,

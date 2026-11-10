@@ -26,7 +26,9 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
+  Slider,
   Spinner,
+  Switch,
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
@@ -40,10 +42,13 @@ import {
   Lightbulb,
   Maximize2,
   Monitor,
+  Pause,
+  Play,
   RectangleHorizontal,
   RectangleVertical,
   ScanSearch,
   Search,
+  SlidersHorizontal,
   Smartphone,
   Square,
   X
@@ -54,9 +59,13 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { IconButton } from "../../chrome/IconButton.tsx"
 import type { Source } from "./data.ts"
 import {
+  clipOf,
+  clockOf,
   creditOf,
   depthOf,
   fieldLabel,
+  filtersInView,
+  isSample,
   labelOf,
   narrowedBy,
   type Library,
@@ -245,11 +254,16 @@ function Browser({
   }
 
   const choose = (filter: Filter, value: string | undefined) => {
-    const filters = Object.fromEntries(Object.entries(chosen).filter(([id]) => id !== filter.id))
+    const next = Object.fromEntries(Object.entries(chosen).filter(([id]) => id !== filter.id))
 
     if (value !== undefined) {
-      filters[filter.id] = value
+      next[filter.id] = value
     }
+
+    // A choice can take other filters away, as choosing videos takes away the ones for pictures. Theirs go with them.
+    const filters = Object.fromEntries(
+      shownFilters(info, next).flatMap(({ id }) => (next[id] === undefined ? [] : [[id, next[id]]]))
+    )
 
     setChosen(filters)
 
@@ -312,7 +326,7 @@ function Browser({
       >
         <DialogTitle className="sr-only">{library.title}</DialogTitle>
         <DialogDescription className="sr-only">
-          Search {info.name} for {library.noun.many}, and pick the ones to bring into the project.
+          Search {info.name} for {library.noun(chosen).many}, and pick the ones to bring into the project.
         </DialogDescription>
         {shown ? (
           <Larger
@@ -329,8 +343,8 @@ function Browser({
           />
         ) : (
           <>
-            <form onSubmit={submit} className="flex shrink-0 items-center gap-2 border-b p-3">
-              <InputGroup className="h-9 flex-1">
+            <form onSubmit={submit} className="flex shrink-0 flex-wrap items-center gap-2 border-b p-3">
+              <InputGroup className="h-9 min-w-64 flex-1">
                 <InputGroupAddon>
                   <Search />
                 </InputGroupAddon>
@@ -340,21 +354,28 @@ function Browser({
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={onFieldKeyDown}
                   maxLength={500}
-                  aria-label={fieldLabel(library)}
-                  placeholder={`${fieldLabel(library)}, like “${info.guide.examples[0]}”`}
+                  aria-label={fieldLabel(library, chosen)}
+                  placeholder={`${fieldLabel(library, chosen)}, like “${info.guide.examples[0]}”`}
                 />
                 <InputGroupAddon align="inline-end">
                   <SearchTips library={library} />
                 </InputGroupAddon>
               </InputGroup>
-              {shownFilters(info).map((filter) => (
-                <FilterControl
-                  key={filter.id}
-                  filter={filter}
-                  value={chosen[filter.id]}
-                  onChange={(value) => choose(filter, value)}
-                />
-              ))}
+              {shownFilters(info, chosen)
+                .slice(0, filtersInView)
+                .map((filter) => (
+                  <FilterControl
+                    key={filter.id}
+                    filter={filter}
+                    value={chosen[filter.id]}
+                    onChange={(value) => choose(filter, value)}
+                  />
+                ))}
+              <MoreFilters
+                filters={shownFilters(info, chosen).slice(filtersInView)}
+                chosen={chosen}
+                onChoose={choose}
+              />
               <DialogClose render={<Button variant="ghost" size="icon" aria-label="Close" />}>
                 <X />
               </DialogClose>
@@ -490,19 +511,93 @@ function ValueMark({ value }: { value: FilterValue | undefined }) {
 }
 
 /**
- * One of the connector's filters as a control, chosen from what the filter says about itself: a filter that always has
- * a value, between a few, is a switch, as Mobbin's platform is; one that can be left open is a select starting on any,
- * as Unsplash's orientation and color are.
+ * The filters past the first few, behind one button that counts how many of them are set, each on a row of its own
+ * with its name. A connector lists its filters most used first, so the ones here are the ones reached for least.
+ */
+function MoreFilters({
+  filters,
+  chosen,
+  onChoose
+}: {
+  filters: readonly Filter[]
+  chosen: Readonly<Record<string, string>>
+  onChoose: (filter: Filter, value: string | undefined) => void
+}) {
+  if (filters.length === 0) {
+    return null
+  }
+
+  const set = filters.filter(({ id, default: usual }) => chosen[id] !== undefined && chosen[id] !== usual).length
+
+  return (
+    <Popover>
+      <PopoverTrigger render={<Button variant="outline" className="h-9 gap-1.5" />}>
+        <SlidersHorizontal /> Filters
+        {set > 0 && (
+          <Badge variant="secondary" className="px-1.5 tabular-nums">
+            {set}
+          </Badge>
+        )}
+      </PopoverTrigger>
+      <PopoverContent align="end" className="flex w-80 flex-col gap-3">
+        {filters.map((filter) => (
+          <div key={filter.id} className="flex min-h-9 items-center justify-between gap-3">
+            <span className="text-sm">{filter.name}</span>
+            <FilterControl
+              filter={filter}
+              value={chosen[filter.id]}
+              named
+              onChange={(value) => onChoose(filter, value)}
+            />
+          </div>
+        ))}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/**
+ * One of the connector's filters as a control, chosen from what the filter says about itself. A filter with one value
+ * is on or off, as Pixabay's editor's choice is. One that always has a value, between a few, is a switch between
+ * them, as Mobbin's platform is. Any other is a select, starting on any when it can be left open, as Unsplash's
+ * orientation and color are. `named` is for a filter whose name is written beside it.
  */
 function FilterControl({
   filter,
   value,
+  named,
   onChange
 }: {
   filter: Filter
   value: string | undefined
+  named?: boolean
   onChange: (value: string | undefined) => void
 }) {
+  const [only] = filter.values
+
+  if (filter.values.length === 1 && named) {
+    return (
+      <Switch
+        aria-label={filter.name}
+        checked={value !== undefined}
+        onCheckedChange={(on) => onChange(on ? only.id : undefined)}
+      />
+    )
+  }
+
+  if (filter.values.length === 1) {
+    return (
+      <Button
+        variant={value === undefined ? "outline" : "secondary"}
+        aria-pressed={value !== undefined}
+        className="h-9"
+        onClick={() => onChange(value === undefined ? only.id : undefined)}
+      >
+        {only.name}
+      </Button>
+    )
+  }
+
   if (filter.default && filter.values.length <= 3) {
     return (
       <ToggleGroup
@@ -529,8 +624,11 @@ function FilterControl({
     filter.values.find((each) => each.id === id)?.name ?? `Any ${filter.name.toLowerCase()}`
 
   return (
-    <Select<string> value={value ?? any} onValueChange={(next) => onChange(!next || next === any ? undefined : next)}>
-      <SelectTrigger aria-label={filter.name} className="h-9 w-40">
+    <Select<string>
+      value={value ?? filter.default ?? any}
+      onValueChange={(next) => onChange(!next || next === any ? undefined : next)}
+    >
+      <SelectTrigger aria-label={filter.name} className="h-9 w-36">
         <SelectValue>
           {(id: string) => (
             <span className="flex items-center gap-2">
@@ -540,7 +638,7 @@ function FilterControl({
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={any}>{nameOf(any)}</SelectItem>
+        {!filter.default && <SelectItem value={any}>{nameOf(any)}</SelectItem>}
         {filter.values.map((each) => (
           <SelectItem key={each.id} value={each.id}>
             <ValueMark value={each} /> {each.name}
@@ -596,7 +694,7 @@ function Body({
     return <NothingFound library={library} search={search} onRun={onRun} />
   }
 
-  const { noun } = library
+  const noun = library.noun(search.filters)
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -687,6 +785,8 @@ function Card({
   onView: () => void
 }) {
   const name = creditOf(found)
+  const clip = clipOf(found)
+  const [playing, setPlaying] = useState(false)
 
   return (
     <div className="group relative flex flex-col gap-1.5">
@@ -696,11 +796,16 @@ function Card({
         aria-label={labelOf(found)}
         onClick={onToggle}
         onDoubleClick={onView}
-        className={`rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
+        onPointerEnter={() => setPlaying(true)}
+        onPointerLeave={() => setPlaying(false)}
+        onFocus={() => setPlaying(true)}
+        onBlur={() => setPlaying(false)}
+        className={`relative rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           picked ? "ring-3 ring-(--canvas-layer) ring-offset-2 ring-offset-popover" : ""
         }`}
       >
-        <Picture found={found} className="rounded-lg border" />
+        <Preview found={found} playing={playing} className="rounded-lg border" />
+        {clip && <ClipLength seconds={clip.seconds} />}
       </button>
       {picked && (
         <span
@@ -717,6 +822,15 @@ function Card({
       </div>
       <span className="truncate px-0.5 text-xs">{name}</span>
     </div>
+  )
+}
+
+/** How long a video runs, over the corner of its picture, with the mark that says it's one. */
+function ClipLength({ seconds }: { seconds: number }) {
+  return (
+    <span className="pointer-events-none absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
+      <Play aria-hidden className="size-2.5 fill-current" /> {clockOf(seconds)}
+    </span>
   )
 }
 
@@ -748,7 +862,6 @@ function Larger({
   onOpenAtSource: () => void
 }) {
   const name = creditOf(found)
-  const { width, height } = sizeOf(found)
 
   return (
     <section aria-label={name} className="flex min-h-0 flex-1 flex-col">
@@ -777,21 +890,165 @@ function Larger({
         <IconButton label="Previous" shortcut="←" size="icon" onClick={() => onStep(-1)}>
           <ChevronLeft />
         </IconButton>
-        <div className="flex h-full min-w-0 flex-1 items-center justify-center">
-          <Picture
-            key={found.id}
-            found={found}
-            className="rounded-lg border shadow-md"
-            // Wide pictures fill the width; square and tall ones the height.
-            style={width / height > 1.3 ? { width: "100%", maxWidth: 820 } : { height: "100%" }}
-          />
-        </div>
+        <Stage key={found.id} found={found} />
         <IconButton label="Next" shortcut="→" size="icon" onClick={() => onStep(1)}>
           <ChevronRight />
         </IconButton>
       </div>
       <Filmstrip results={results} current={found.id} isPicked={isPicked} onView={onView} />
     </section>
+  )
+}
+
+/**
+ * A sample video's place in its length, in seconds, which moves on while it runs and goes round at the end. A real
+ * video keeps its own.
+ */
+function useSampleClock(seconds: number, running: boolean) {
+  const [time, setTime] = useState(0)
+
+  useEffect(() => {
+    if (!running || seconds === 0) {
+      return undefined
+    }
+
+    const tick = setInterval(() => setTime((now) => (now + 0.1) % seconds), 100)
+
+    return () => clearInterval(tick)
+  }, [running, seconds])
+
+  return [time, setTime] as const
+}
+
+/**
+ * A result's picture in the list. A video's plays while `playing`, without sound: a sample's drawing moves, and a real
+ * one's small copy runs over its poster.
+ */
+function Preview({ found, playing, className }: { found: Found; playing: boolean; className: string }) {
+  const clip = clipOf(found)
+  const sample = isSample(found)
+  const [time] = useSampleClock(clip?.seconds ?? 0, playing && sample)
+
+  if (!clip) {
+    return <Picture found={found} className={className} />
+  }
+
+  if (sample) {
+    return <Picture found={found} at={time / clip.seconds} className={className} />
+  }
+
+  return (
+    <div className={`relative overflow-hidden ${className}`}>
+      <Picture found={found} />
+      {playing && (
+        <video
+          src={clip.preview ?? clip.url}
+          muted
+          autoPlay
+          loop
+          playsInline
+          className="absolute inset-0 size-full object-cover"
+        />
+      )}
+    </div>
+  )
+}
+
+/** The result itself, as large as the space allows. A video gets its player. */
+function Stage({ found }: { found: Found }) {
+  const { width, height } = sizeOf(found)
+  const clip = clipOf(found)
+
+  if (clip) {
+    return <Player found={found} seconds={clip.seconds} url={clip.url} />
+  }
+
+  return (
+    <div className="flex h-full min-w-0 flex-1 items-center justify-center">
+      <Picture
+        found={found}
+        className="rounded-lg border shadow-md"
+        // Wide pictures fill the width; square and tall ones the height.
+        style={width / height > 1.3 ? { width: "100%", maxWidth: 820 } : { height: "100%" }}
+      />
+    </div>
+  )
+}
+
+/**
+ * A video, playing as it opens, without sound, over three controls: play or pause, a scrubber to move through it, and
+ * where it is in its length. It's the kit's slider and a button under a plain video, with no player library.
+ */
+function Player({ found, seconds, url }: { found: Found; seconds: number; url: string }) {
+  const sample = isSample(found)
+  const video = useRef<HTMLVideoElement>(null)
+  const [playing, setPlaying] = useState(true)
+  const [time, setTime] = useSampleClock(seconds, playing && sample)
+
+  useEffect(() => {
+    const element = video.current
+
+    if (!element) {
+      return
+    }
+
+    if (playing) {
+      // A browser may refuse to start a video by itself; then it waits for Play.
+      void element.play().catch(() => setPlaying(false))
+    } else {
+      element.pause()
+    }
+  }, [playing])
+
+  const seek = (to: number) => {
+    setTime(to)
+
+    if (video.current) {
+      video.current.currentTime = to
+    }
+  }
+
+  return (
+    <div className="flex h-full min-w-0 flex-1 flex-col items-center gap-3">
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+        {sample ? (
+          <Picture
+            found={found}
+            at={time / seconds}
+            className="rounded-lg border shadow-md"
+            style={{ width: "100%", maxWidth: 820 }}
+          />
+        ) : (
+          <video
+            ref={video}
+            src={url}
+            poster={found.image.url}
+            muted
+            loop
+            playsInline
+            onTimeUpdate={(event) => setTime(event.currentTarget.currentTime)}
+            className="max-h-full max-w-full rounded-lg border shadow-md"
+          />
+        )}
+      </div>
+      <div className="flex w-full max-w-[820px] shrink-0 items-center gap-3">
+        <IconButton label={playing ? "Pause" : "Play"} size="icon" onClick={() => setPlaying(!playing)}>
+          {playing ? <Pause className="fill-current" /> : <Play className="fill-current" />}
+        </IconButton>
+        <Slider
+          aria-label="Position in the video"
+          min={0}
+          max={seconds}
+          step={0.1}
+          value={[time]}
+          onValueChange={(next) => seek(Array.isArray(next) ? (next[0] ?? 0) : next)}
+          className="flex-1"
+        />
+        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+          {clockOf(time)} / {clockOf(seconds)}
+        </span>
+      </div>
+    </div>
   )
 }
 
@@ -993,9 +1250,11 @@ function NothingFound({
     )
   }
 
-  const title = `No ${library.noun.many} match “${search.query}”`
+  const title = `No ${library.noun(search.filters).many} match “${search.query}”`
   const narrowed = Object.keys(search.filters).length > 0
-  const switched = shownFilters(library.info).find((filter) => filter.default && filter.values.length === 2)
+  // A library whose first filter is a switch between two, as Mobbin's platform is, may have it on the other side.
+  const [first] = shownFilters(library.info, search.filters)
+  const switched = first?.default && first.values.length === 2 ? first : undefined
   const now = switched && (search.filters[switched.id] ?? switched.default)
   const other = switched?.values.find((value) => value.id !== now)
 

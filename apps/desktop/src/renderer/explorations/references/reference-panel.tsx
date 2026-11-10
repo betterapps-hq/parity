@@ -4,7 +4,7 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { panelEnd, PanelSection } from "../../chrome/PanelSection.tsx"
 import { headingIcon, headingName, SelectionHeading } from "../../chrome/SelectionHeading.tsx"
 import type { Placed } from "./canvas.tsx"
-import { creditOf } from "./library.tsx"
+import { creditOf, sourceOf } from "./library.tsx"
 
 /*
  * The inspector's Design tab for a selected reference, as a selected note has its own: where the screen is from, how
@@ -22,6 +22,7 @@ interface ReferencePanelProps {
 export function ReferencePanel({ placed, onNote, onOpen, onMore }: ReferencePanelProps) {
   const { found } = placed
   const app = creditOf(found)
+  const source = sourceOf(found)?.name ?? found.connector
 
   return (
     <>
@@ -30,14 +31,14 @@ export function ReferencePanel({ placed, onNote, onOpen, onMore }: ReferencePane
           icon={<Telescope className={headingIcon} />}
           color={kindColors.layer}
           kind="Reference"
-          detail="Reference, from Mobbin"
+          detail={`Reference, from ${source}`}
           name={<span className={`truncate px-1.5 ${headingName}`}>{app}</span>}
         />
       </div>
       <PanelSection title="Source">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 px-1 text-xs">
           <dt className="text-muted-foreground">From</dt>
-          <dd>Mobbin</dd>
+          <dd>{source}</dd>
           <dt className="text-muted-foreground">Platform</dt>
           <dd>{found.platform === "ios" ? "iOS" : "Web"}</dd>
           <dt className="text-muted-foreground">Found with</dt>
@@ -47,7 +48,7 @@ export function ReferencePanel({ placed, onNote, onOpen, onMore }: ReferencePane
         </dl>
         <div className="mt-3 flex flex-col gap-1.5">
           <Button variant="outline" size="sm" onClick={onOpen}>
-            <ExternalLink /> Open in Mobbin
+            <ExternalLink /> Open in {source}
           </Button>
           <Button variant="outline" size="sm" onClick={onMore}>
             <Search /> More from {app}
