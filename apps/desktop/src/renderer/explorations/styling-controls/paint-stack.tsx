@@ -11,11 +11,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Toggle,
+  Switch,
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ArrowLeftRight, ChevronDown, Minus, Plus, Repeat, RotateCw } from "lucide-react"
+import { ArrowLeftRight, ChevronDown, Minus, Plus, RotateCw } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent, Swatch } from "../../chrome/fields.tsx"
@@ -27,6 +27,7 @@ import { ColorInput } from "./color-picker.tsx"
 import { clamp, gradientCss } from "./css-values.ts"
 import { usedColors } from "./data.ts"
 import { drag, MessageLine, PercentField, TokenChip, TokenList, useTokens } from "./field-parts.tsx"
+import { Field, FieldGrid } from "./field-row.tsx"
 import { EntryType, ListRow, type ListRowProps, moved, TypeMenu, type TypeOption } from "./list-parts.tsx"
 import {
   drawListColor,
@@ -65,9 +66,9 @@ const kindNames = { solid: "Solid", linear: "Linear", radial: "Radial", angular:
 
 /** How a gradient blends its colors, `in oklab` unless another is chosen. */
 const blends: { value: Interpolation; label: string }[] = [
-  { value: "oklab", label: "In OKLab" },
-  { value: "oklch", label: "In OKLCH" },
-  { value: "srgb", label: "In sRGB" }
+  { value: "oklab", label: "OKLab" },
+  { value: "oklch", label: "OKLCH" },
+  { value: "srgb", label: "sRGB" }
 ]
 
 type PaintKind = keyof typeof kindNames
@@ -88,10 +89,7 @@ const kindDetails: Record<PaintKind, string> = {
 }
 
 /** A gradient's kinds, which the menu at the top of its editor switches between, keeping its stops. */
-const gradientKinds: TypeOption<GradientKind>[] = (["linear", "radial", "angular"] as const).map((kind) => ({
-  value: kind,
-  label: kindNames[kind]
-}))
+const gradientKinds = ["linear", "radial", "angular"] as const satisfies readonly GradientKind[]
 
 /**
  * What a fill of each type starts as, in the project's palette, so it shows on any layer and in either theme, and + can
@@ -117,6 +115,10 @@ function newPaint(kind: PaintKind): Paint {
   }
 }
 
+/** A small button at the end of a setting's name, as a field's reset arrow is drawn: Rotate 90° beside Angle. */
+const nameAction =
+  "grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+
 /** Each type as + draws it: the fill it adds. */
 const samples: Record<PaintKind, Paint> = {
   solid: newPaint("solid"),
@@ -127,11 +129,10 @@ const samples: Record<PaintKind, Paint> = {
 }
 
 /**
- * A type in + as the fill it adds looks, in the project's colors, over chrome's checkerboard where it's clear, so a type
- * is picked by its look.
+ * A paint as a menu draws it to pick by its look, in the project's colors, over chrome's checkerboard where it's clear:
+ * the fill a type in + adds, or the gradient as each kind in its kind menu.
  */
-function KindSample({ kind, colors }: { kind: PaintKind; colors: readonly ColorToken[] }) {
-  const paint = samples[kind]
+function PaintSample({ paint, colors }: { paint: Paint; colors: readonly ColorToken[] }) {
   let look: CSSProperties = { backgroundImage: `url("${paint.kind === "image" ? imagePreview(paint.src) : ""}")` }
 
   if (paint.kind === "solid") {
@@ -240,7 +241,7 @@ export function PaintStack({
           <DropdownMenuContent align="end" className="w-56">
             {paintKinds.map((kind) => (
               <DropdownMenuItem key={kind} className="gap-3 text-xs" onClick={() => add(kind)}>
-                <KindSample kind={kind} colors={colors} />
+                <PaintSample paint={samples[kind]} colors={colors} />
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="font-medium">{kindNames[kind]}</span>
                   <span className="truncate text-muted-foreground">{kindDetails[kind]}</span>
@@ -485,8 +486,18 @@ export function GradientEditor({
   onSave?: (token: GradientToken) => void
   onChange: (paint: GradientPaint) => void
 }) {
+  const { tokens: colors } = useTokens("color")
   const resolved = resolveGradient(paint, saved)
   const [selected, setSelected] = useState(resolved.stops[0]?.id)
+
+  // Each kind drawn with this gradient's own stops, so the menu shows what switching to it would look like.
+  const kinds: TypeOption<GradientKind>[] = gradientKinds.map((kind) => ({
+    value: kind,
+    label: kindNames[kind],
+    detail: kindDetails[kind],
+    glyph: <PaintSample paint={{ ...resolved, kind }} colors={colors} />
+  }))
+
   const [detached, setDetached] = useState<string>()
   const [tokensOpen, setTokensOpen] = useState(false)
 
@@ -512,7 +523,7 @@ export function GradientEditor({
       <div className="flex items-center gap-1">
         <EntryType>
           {/* Another kind keeps the stops, and detaches a token, as editing does. */}
-          <TypeMenu label={name} value={resolved.kind} options={gradientKinds} onChange={(kind) => edit({ kind })} />
+          <TypeMenu label={name} value={resolved.kind} options={kinds} onChange={(kind) => edit({ kind })} />
         </EntryType>
         <Popover open={tokensOpen} onOpenChange={setTokensOpen}>
           <PopoverTrigger
@@ -544,22 +555,99 @@ export function GradientEditor({
         <MessageLine message={{ tone: "note", text: `Detached from ${detached}.` }} />
       )}
       <StopsBar paint={resolved} selected={selected} onSelect={setSelected} onChange={setStops} />
-      {(resolved.kind === "linear" || resolved.kind === "angular") && (
-        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-1">
-          <AngleField
+      {/* The gradient's own settings, each named above its control, apart from its stops below. */}
+      <FieldGrid className="pt-1">
+        {(resolved.kind === "linear" || resolved.kind === "angular") && (
+          <Field
             label={resolved.kind === "linear" ? "Angle" : "Start angle"}
-            value={angleOf(resolved.angle)}
-            // A linear gradient's named directions read as their angles: `to right` is 90°.
-            keywords={resolved.kind === "linear" ? gradientDirections : undefined}
-            // Only a gradient's direction matters, so it comes back round past 360°.
-            wraps
-            onChange={(angle) => edit({ angle: angleDegrees(angle) })}
-          />
+            action={
+              <Hint label="Rotate 90°">
+                <button
+                  type="button"
+                  aria-label="Rotate 90°"
+                  className={nameAction}
+                  onClick={() => edit({ angle: wrapped(resolved.angle + 90) })}
+                >
+                  <RotateCw className="size-3" />
+                </button>
+              </Hint>
+            }
+          >
+            <AngleField
+              label={resolved.kind === "linear" ? "Angle" : "Start angle"}
+              value={angleOf(resolved.angle)}
+              // A linear gradient's named directions read as their angles: `to right` is 90°.
+              keywords={resolved.kind === "linear" ? gradientDirections : undefined}
+              // Only a gradient's direction matters, so it comes back round past 360°.
+              wraps
+              onChange={(angle) => edit({ angle: angleDegrees(angle) })}
+            />
+          </Field>
+        )}
+        {(resolved.kind === "radial" || resolved.kind === "angular") && (
+          <Field label="Center">
+            <div className="grid grid-cols-2 gap-x-1">
+              {(["X", "Y"] as const).map((axis, which) => (
+                <PercentField
+                  key={axis}
+                  label={`Center ${axis}`}
+                  inner={axis}
+                  value={center[which]}
+                  placeholder="50"
+                  onChange={(value) => {
+                    const next: [number, number] = [...center]
+                    next[which] = value ?? 50
+                    edit({ center: next })
+                  }}
+                />
+              ))}
+            </div>
+          </Field>
+        )}
+        <Field label="Blend" hint="How the colors mix between stops: in oklab, Tailwind's own" half>
+          <Select
+            items={blends}
+            value={resolved.interpolation ?? "oklab"}
+            onValueChange={(interpolation) => {
+              const picked = blends.find((blend) => blend.value === interpolation)
+
+              if (picked) {
+                edit({ interpolation: picked.value })
+              }
+            }}
+          >
+            <SelectTrigger size="sm" aria-label="Blend colors in" className="h-7 w-full px-2 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <PanelSelectContent>
+              {blends.map((blend) => (
+                <SelectItem key={blend.value} value={blend.value}>
+                  {blend.label}
+                </SelectItem>
+              ))}
+            </PanelSelectContent>
+          </Select>
+        </Field>
+        <Field label="Repeat" hint="Repeats the stops past the last: repeating-linear-gradient and its kin" half>
+          <div className="flex h-7 items-center">
+            <Switch
+              size="sm"
+              aria-label="Repeat"
+              checked={resolved.repeat ?? false}
+              onCheckedChange={(repeat) => edit({ repeat: repeat || undefined })}
+            />
+          </div>
+        </Field>
+      </FieldGrid>
+      <div className="-mx-2 mt-1 border-t" />
+      <div className="flex items-center justify-between">
+        <GroupLabel>Stops</GroupLabel>
+        <span className="flex items-center">
           <Hint label="Flip" detail="Reverses the stops">
             <Button
               variant="ghost"
               size="icon-sm"
-              className="col-start-2 row-start-1 size-7"
+              className="size-6"
               aria-label="Flip"
               onClick={() =>
                 setStops(resolved.stops.map((stop) => ({ ...stop, position: 100 - stop.position, hint: undefined })))
@@ -568,97 +656,29 @@ export function GradientEditor({
               <ArrowLeftRight />
             </Button>
           </Hint>
-          <Hint label="Rotate 90°">
+          <Hint label="Add stop">
             <Button
               variant="ghost"
               size="icon-sm"
-              className="col-start-3 row-start-1 size-7"
-              aria-label="Rotate 90°"
-              onClick={() => edit({ angle: wrapped(resolved.angle + 90) })}
+              className="size-6"
+              aria-label="Add stop"
+              onClick={() => {
+                const gaps = sorted.slice(1).map((stop, index) => ({
+                  at: (stop.position + sorted[index]!.position) / 2,
+                  size: stop.position - sorted[index]!.position,
+                  from: sorted[index]!
+                }))
+
+                const widest = gaps.reduce((best, gap) => (gap.size > best.size ? gap : best), gaps[0]!)
+                const added = { ...widest.from, id: newId("stop"), position: Math.round(widest.at), hint: undefined }
+                setSelected(added.id)
+                setStops([...resolved.stops, added])
+              }}
             >
-              <RotateCw />
+              <Plus />
             </Button>
           </Hint>
-        </div>
-      )}
-      {(resolved.kind === "radial" || resolved.kind === "angular") && (
-        <div className="grid grid-cols-2 gap-x-1">
-          {(["X", "Y"] as const).map((axis, which) => (
-            <PercentField
-              key={axis}
-              label={`Center ${axis}`}
-              inner={axis}
-              value={center[which]}
-              placeholder="50"
-              onChange={(value) => {
-                const next: [number, number] = [...center]
-                next[which] = value ?? 50
-                edit({ center: next })
-              }}
-            />
-          ))}
-        </div>
-      )}
-      <div className="flex items-center gap-1">
-        <Hint label="Repeat" detail="Writes repeating-linear-gradient and its kin">
-          <Toggle
-            variant="outline"
-            size="sm"
-            className="h-7 gap-1 px-2 text-xs"
-            aria-label="Repeat"
-            pressed={resolved.repeat ?? false}
-            onPressedChange={(repeat) => edit({ repeat: repeat || undefined })}
-          >
-            <Repeat /> Repeat
-          </Toggle>
-        </Hint>
-        <Select
-          items={blends}
-          value={resolved.interpolation ?? "oklab"}
-          onValueChange={(interpolation) => {
-            const picked = blends.find((blend) => blend.value === interpolation)
-
-            if (picked) {
-              edit({ interpolation: picked.value })
-            }
-          }}
-        >
-          <SelectTrigger size="sm" aria-label="Blend colors in" className="ml-auto h-7 px-2 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <PanelSelectContent>
-            {blends.map((blend) => (
-              <SelectItem key={blend.value} value={blend.value}>
-                {blend.label}
-              </SelectItem>
-            ))}
-          </PanelSelectContent>
-        </Select>
-      </div>
-      <div className="flex items-center justify-between">
-        <GroupLabel>Stops</GroupLabel>
-        <Hint label="Add stop">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="size-6"
-            aria-label="Add stop"
-            onClick={() => {
-              const gaps = sorted.slice(1).map((stop, index) => ({
-                at: (stop.position + sorted[index]!.position) / 2,
-                size: stop.position - sorted[index]!.position,
-                from: sorted[index]!
-              }))
-
-              const widest = gaps.reduce((best, gap) => (gap.size > best.size ? gap : best), gaps[0]!)
-              const added = { ...widest.from, id: newId("stop"), position: Math.round(widest.at), hint: undefined }
-              setSelected(added.id)
-              setStops([...resolved.stops, added])
-            }}
-          >
-            <Plus />
-          </Button>
-        </Hint>
+        </span>
       </div>
       <div className="flex flex-col gap-1">
         {sorted.map((stop, index) => (

@@ -266,6 +266,8 @@ export interface TypeOption<K extends string> {
   value: K
   label: string
   glyph?: ReactNode
+  /** What it draws, under its name in the menu: "Along a line". */
+  detail?: string
 }
 
 export interface TypeMenuProps<K extends string> {
@@ -291,10 +293,12 @@ export function TypeMenu<K extends string>({ label, value, options, onChange }: 
     </DropdownMenuTrigger>
   )
 
+  const described = options.some((option) => option.detail !== undefined)
+
   return (
     <DropdownMenu>
       {trigger}
-      <DropdownMenuContent align="start" className="w-40">
+      <DropdownMenuContent align="start" className={described ? "w-56" : "w-40"}>
         <DropdownMenuRadioGroup
           value={value}
           onValueChange={(next) => {
@@ -306,9 +310,16 @@ export function TypeMenu<K extends string>({ label, value, options, onChange }: 
           }}
         >
           {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-2 text-xs">
+            <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-3 text-xs">
               {option.glyph}
-              {option.label}
+              {option.detail === undefined ? (
+                option.label
+              ) : (
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="font-medium">{option.label}</span>
+                  <span className="truncate text-muted-foreground">{option.detail}</span>
+                </span>
+              )}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

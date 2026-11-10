@@ -155,21 +155,22 @@ Fill's list of solids, gradients and images.
   shape shows, with what it draws under its name (One color, Along a line, Out from the center, Around the center, A
   picture). The fill it adds opens its editor.
 - **Editing:** the preview opens the paint editor for the fill's type, which was picked as it was added. Solid is the
-  color popover. Linear, Radial and Angular name their kind in a menu at the top, which switches between the three
-  keeping the stops, and have a bar of stops (click to add, drag off to remove, each a color and a position) and handles
-  on the canvas. Under the bar, Stops lists each stop as a row, as Figma's gradient editor does: a position field in %,
-  the color field (a token chip or a value, with its alpha), and − once there are more than the two a gradient needs,
-  with
-  - to add a stop. Clicking a row selects that stop on the bar and on the canvas. Keys and scrubbing are as in every
-    field. CSS's gradient line spans the box at its angle, so dragging the line's ends sets the angle and moves the
-    first and last stops. Radial's handles set the ellipse's two radii and center
-    (`radial-gradient(ellipse 40% 60% at 30% 20%, …)`), as Figma's do; Angular's set a center and start angle, and its
-    hint names `conic-gradient`. An Angle field, which Figma lacks, sits beside the line, with Flip and Rotate 90° as in
-    Figma. Delete removes the selected stop, and Left and Right move it 1%, Shift 10%. Two stops at one position make a
-    hard edge; a midpoint dragged between two stops writes a color hint (`red, 30%, blue`), which Figma lacks. Repeat
-    writes `repeating-*-gradient`. Interpolation is `in oklab`, as Tailwind v4's, with `in oklch` and sRGB in its menu.
-    Image takes the project's images (`public/images/`) or one dropped or pasted, copied there, with Fill, Fit, Crop and
-    Tile (`background-size` and `background-repeat`) and a nine-spot position.
+  color popover. A gradient's editor names its kind at the top, in a menu that draws the gradient as each of Linear,
+  Radial and Angular and switches between them keeping the stops. Under it is the bar of stops (click to add, drag off
+  to remove, each a color and a position), with handles on the canvas, then the gradient's settings, each named above
+  its control: Angle (Start angle for Angular), a field Figma lacks, with Rotate 90° beside its name; Center, for Radial
+  and Angular; Blend, `in oklab` as Tailwind v4's, with `in oklch` and sRGB in its menu; and Repeat's switch, which
+  writes `repeating-*-gradient`. A divider sets the stops apart: each stop is a row, as Figma's gradient editor has
+  them, with a position field in %, the color field (a token chip or a value, with its alpha), and − once there are more
+  than the two a gradient needs. Flip, which reverses the stops, and the button that adds one sit beside the Stops
+  title. Clicking a row selects that stop on the bar and on the canvas. Keys and scrubbing are as in every field. CSS's
+  gradient line spans the box at its angle, so dragging the line's ends sets the angle and moves the first and last
+  stops. Radial's handles set the ellipse's two radii and center (`radial-gradient(ellipse 40% 60% at 30% 20%, …)`), as
+  Figma's do; Angular's set a center and start angle, and its hint names `conic-gradient`. Delete removes the selected
+  stop, and Left and Right move it 1%, Shift 10%. Two stops at one position make a hard edge; a midpoint dragged between
+  two stops writes a color hint (`red, 30%, blue`), which Figma lacks. Image takes the project's images
+  (`public/images/`) or one dropped or pasted, copied there, with Fill, Fit, Crop and Tile (`background-size` and
+  `background-repeat`) and a nine-spot position.
 - **Tokens:** color and gradient. A gradient token is one fill's paint; editing its stops offers Detach.
 - **Writes:** the bottom solid as `background-color`; the rest as `background-image` layers, a solid above the bottom as
   `linear-gradient(c, c)`. A simple gradient is utilities (`bg-linear-to-r from-blue-500 to-teal-400`), a longer one is
