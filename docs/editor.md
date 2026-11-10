@@ -3086,8 +3086,23 @@ decisions.md's "Saving is explicit" sets out.
 - **A frame shows a theme set by attribute** (PAR-22): a mode whose class names a theme the stylesheet switches on with
   an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
   body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
-  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. An attribute on the
-  root (`:root[data-theme="dark"]`) still never applies in a frame, as the frame's root is its shadow host.
+  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. A theme's attribute
+  on the root (`:root[data-theme="dark"]`) isn't set this way: it applies only where the mode or a decorator sets it, as
+  below.
+- **A frame draws the root with a class or attribute on it** (PAR-819): `:root.dark`, `html[data-theme=dark]` and
+  `:root:not(.dark)` apply in frames as in a page. The frame's root is its shadow host, which matches nothing written
+  after `:host`, only inside `:host()`, so `prepareCanvasCss` draws such a rule as two selectors: the host with it
+  (`:host(.dark)`), where a decorator may set attributes, and the frame's body with it (`[data-canvas-body].dark`),
+  where a mode's class goes. On the body, the root's own rule sits in a cascade layer the frame declares before the
+  project's (`qualifiedRootLayer`), so the body's own rules beat it, as they beat what a page's body inherits from its
+  root, while `:root.dark.contrast` still beats `:root.dark`. A font size there, in a nested `@media` too, sets the
+  frame's `rem`, whatever the body's own font size is, and its `!important` is dropped there, as an inherited value has
+  none. Left as is: a qualified root's value beats a plain root's on the body even where the page's cascade would pick
+  the plain one, as with a `:root.dark` in an earlier layer than `:root`. A `var()` in its values resolves on the body,
+  so a `body` rule that changes a variable the root's value refers to changes that value too, where a page's body would
+  inherit it as the root worked it out. A root with a `:not()` on it is drawn as the body alone, since the host never
+  has the mode's class. Tokens are read with the rule as written (`qualifiedRoots: false`), so `:root.dark` is still the
+  `dark` theme in the Tokens tab, and now the Dark frame draws those values too.
 
 Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
 (`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and
@@ -3155,6 +3170,10 @@ Tests:
   `packages/core/src/css.test.ts`, how frames draw the block, at the top level, nested in a rule or in the root's own
   rule, under a layer, and left as written for reading tokens; `apps/desktop/src/renderer/frame.test.ts`, in Chrome, a
   frame drawing the block for its own scheme while the window prefers dark; and `fixtures/mantine/expected.json`.
+- A root with a class or attribute on it (PAR-819): `packages/core/src/css.test.ts` (3): `:root.dark`,
+  `html[data-theme=dark] .card` and `:root:not(.dark), .x` drawn as the frame's host and body, a plain `:root` left as
+  `:host` ("draws the root with a class or attribute on it as the frame's host and body"); a qualified root's font size
+  setting the frame's `rem` where only the body has the qualifier; and the rule kept as written for reading tokens.
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).

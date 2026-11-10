@@ -118,6 +118,56 @@ describe("prepareCanvasCss", () => {
     expect(scoped).toContain("[data-canvas-body] > main {")
   })
 
+  it("draws the root with a class or attribute on it as the frame's host and body with it, and with :not() as the body", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+
+    expect(scoped(":root.dark { --c: #000; }")).toBe(
+      ":host(.dark) { --c: #000; } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --c: #000; } }"
+    )
+    expect(scoped("html[data-theme=dark] .card { color: white; }")).toBe(
+      ":host([data-theme=dark]) .card, [data-canvas-body][data-theme=dark] .card { color: white; }"
+    )
+    expect(scoped(":root:not(.dark), .x { --c: #fff; }")).toBe(
+      "@layer canvas-qualified-root { :where([data-canvas-body]):not(.dark) { --c: #fff; } } .x { --c: #fff; }"
+    )
+    expect(scoped(":root { --c: #fff; }")).toBe(":host { --c: #fff; }")
+  })
+
+  it("takes a qualified root's rem from its own font size, not a nested rule's, and drops importance on the body", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+
+    expect(scoped(":root.dark { --c: #000; .title { font-size: 24px; } }")).not.toContain("--canvas-root-font-size")
+    expect(scoped(":root.dark { @media (min-width: 600px) { font-size: 24px; } }")).toContain(
+      "@container canvas-viewport (min-width: 600px) { font-size: 24px; --canvas-root-font-size: 24px;"
+    )
+    expect(scoped(":root.dark { --c: #000 !important; }")).toBe(
+      ":host(.dark) { --c: #000 !important; } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --c: #000; } }"
+    )
+  })
+
+  it("keeps a qualified root's nested rules in the project's layer, and draws its colour-scheme block on the body", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+
+    expect(scoped(":root.dark { --c: #000; .title { color: white; } }")).toBe(
+      ":host(.dark) { --c: #000; .title { color: white; } } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --c: #000; } } [data-canvas-body].dark { .title { color: white; }}"
+    )
+    expect(scoped(":root.dark { @media (prefers-color-scheme: dark) { --c: #000; } }")).toContain(
+      '@layer canvas-qualified-root { :where([data-canvas-body][data-canvas-color-scheme="dark"]).dark { --c: #000; } }'
+    )
+  })
+
+  it("keeps a qualified root as one selector when asked to, for reading its theme as a token's", () => {
+    expect(prepareCanvasCss(":root.dark { --c: #000; }", { ...options, qualifiedRoots: false }).scoped).toBe(
+      ":host.dark { --c: #000; }"
+    )
+  })
+
+  it("makes a qualified root's font size the frame's rem where only the body has the qualifier", () => {
+    expect(prepareCanvasCss(":root.big { font-size: 125%; }", options).scoped).toBe(
+      ":host(.big) { font-size: calc(125 / 100 * 16px); } @layer canvas-qualified-root { :where([data-canvas-body]).big { font-size: calc(125 / 100 * 16px); --canvas-root-font-size: calc(125 / 100 * 16px); --canvas-rem: var(--canvas-root-font-size); } }"
+    )
+  })
+
   it("keeps class names that contain document words", () => {
     const { scoped } = prepareCanvasCss(".bodyText, .html-preview { color: red; }", options)
     expect(scoped).toContain(".bodyText, .html-preview {")
