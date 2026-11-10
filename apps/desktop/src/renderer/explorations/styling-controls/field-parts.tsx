@@ -1811,6 +1811,8 @@ export interface ValueFieldProps<T> {
     onPick: (name: string | undefined) => void
     /** Words the field takes besides its tokens, listed above them. */
     keywords?: MenuKeywords
+    /** What its button calls the list where it holds words rather than tokens, as W's Sizing does. */
+    name?: string
   }
   /**
    * A picker of the field's own in place of the token list, as Color's Tokens and Custom tabs are. Its `swatch` opens
@@ -2302,8 +2304,12 @@ export function ValueField<T>({
       {offers && picker?.swatch === undefined && !bare && (
         // The list's one trigger, there whatever the field holds, so what the list's anchored to never leaves while
         // it's open, as a pick sets a token or takes one off.
-        <Hint label={picker ? "Picker" : "Tokens"} detail={altSteps ? undefined : "Alt+Down"}>
-          <PopoverTrigger aria-label={`${label} tokens`} disabled={disabled} className={fieldEndButtonShown}>
+        <Hint label={picker ? "Picker" : (tokens?.name ?? "Tokens")} detail={altSteps ? undefined : "Alt+Down"}>
+          <PopoverTrigger
+            aria-label={`${label} ${tokens?.name?.toLowerCase() ?? "tokens"}`}
+            disabled={disabled}
+            className={fieldEndButtonShown}
+          >
             <ChevronDown className="size-3.5" />
           </PopoverTrigger>
         </Hint>

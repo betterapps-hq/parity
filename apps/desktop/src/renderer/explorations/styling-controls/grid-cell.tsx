@@ -10,12 +10,22 @@ import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { type SectionProps, SizeField, useMeasured } from "./controls.tsx"
-import { clamp } from "./css-values.ts"
-import type { Draft, SelfAlign, Size, Span } from "./data.ts"
-import { drag, type Message, MessageLine, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
+import { type SectionProps, useMeasured } from "./controls.tsx"
+import { clamp, formatNumber, remPx, stepSpacing } from "./css-values.ts"
+import { type Draft, isFixedSize, isSizeMode, type SelfAlign, type Size, type SizeMode, type Span } from "./data.ts"
+import {
+  drag,
+  type Message,
+  MessageLine,
+  type Reading,
+  type ScrubKeys,
+  UnitMenu,
+  useTokenSets,
+  ValueField
+} from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { type Area, columnTracks, placeChildren, trackWeights } from "./layout-controls.tsx"
+import { readLength } from "./typing.ts"
 
 /*
  * Grid placement, another take (PAR-186): the same draft as Size's grid rows (layout-controls.tsx), laid out around
@@ -84,6 +94,12 @@ function sitsIn(draft: Draft, axis: "x" | "y"): Sits {
 
 /** Where flex puts a box at a place, or stretched across a fill. */
 const flexPlace = { start: "flex-start", center: "center", end: "flex-end", fill: "stretch" } as const
+
+/** Auto leaves it to the grid; Manual places it at the cells chosen, pinned where it is to start with. */
+const placings = [
+  { label: "Auto", detail: "In the grid's next free cell", auto: true },
+  { label: "Manual", detail: "In the cells you choose", auto: false }
+] as const
 
 /** Every line unset, so the grid places it. */
 const unsetPlace = { colStart: undefined, rowStart: undefined, colEnd: undefined, rowEnd: undefined }
@@ -282,14 +298,14 @@ export function GridCellSection({ draft, set }: SectionProps) {
     >
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-2 items-start gap-1 pr-1">
-          <SizeField
+          <CellSizeField
             axis="Width"
             value={draft.childWidth ?? (sitsIn(draft, "x") === "fill" ? "fill" : "hug")}
             measured={measured?.width}
             parent={measured?.parent}
             onChange={(size) => setSize("x", size)}
           />
-          <SizeField
+          <CellSizeField
             axis="Height"
             value={draft.childHeight ?? (sitsIn(draft, "y") === "fill" ? "fill" : "hug")}
             measured={measured?.height}
@@ -297,21 +313,39 @@ export function GridCellSection({ draft, set }: SectionProps) {
             onChange={(size) => setSize("y", size)}
           />
         </div>
-        <Field
-          label="Cells"
-          action={
-            <Hint label={auto ? "Pin it where it is" : "Place it automatically"}>
-              <button
-                type="button"
-                aria-pressed={auto}
-                onClick={() => (auto ? place(area) : toAuto())}
-                className="h-5 rounded px-1.5 text-xs text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:text-foreground dark:aria-pressed:bg-input/60"
-              >
-                Auto
-              </button>
-            </Hint>
-          }
-        >
+        <div className="flex flex-col gap-1">
+          {/* How it's placed, as Penpot's Auto and Manual: Manual pins it where it is, which the map then moves. */}
+          <div className="flex h-6 items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">Cells</span>
+            <fieldset aria-label="How it's placed" className="m-0 flex h-6 items-center gap-px rounded-md border p-0.5">
+              {placings.map((placing) => {
+                const pressed = placing.auto === auto
+
+                return (
+                  <Hint key={placing.label} label={placing.label} detail={placing.detail}>
+                    <button
+                      type="button"
+                      aria-pressed={pressed}
+                      onClick={() => {
+                        if (pressed) {
+                          return
+                        }
+
+                        if (placing.auto) {
+                          toAuto()
+                        } else {
+                          place(area)
+                        }
+                      }}
+                      className={`h-full rounded-sm px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring ${pressed ? "bg-accent text-foreground shadow-xs" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`}
+                    >
+                      {placing.label}
+                    </button>
+                  </Hint>
+                )
+              })}
+            </fieldset>
+          </div>
           <CellMap
             draft={draft}
             columns={columns}
@@ -322,7 +356,7 @@ export function GridCellSection({ draft, set }: SectionProps) {
             onPlace={place}
             onAuto={toAuto}
           />
-        </Field>
+        </div>
         {/* Where it sits in its cell, beside where its cell is: the box lines up with the two rows of fields. */}
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3">
           <Field half label="In its cell">
@@ -1083,5 +1117,200 @@ function CellBox({ draft, set }: Pick<SectionProps, "draft" | "set">) {
         )}
       </fieldset>
     </Hint>
+  )
+}
+
+/** The sizes a grid child takes in words, each with what it does, in W's and H's menu and their chips' hints. */
+const sizeWords: Record<SizeMode, { name: string; detail: string }> = {
+  hug: { name: "Hug", detail: "Fits its content" },
+  fill: { name: "Fill", detail: "Fills its cell" },
+  min: { name: "Min content", detail: "As small as its content goes" },
+  max: { name: "Max content", detail: "Its content at full size, without wrapping" }
+}
+
+/** What each word typed reads as. */
+const typedSizes = new Map<string, SizeMode>([
+  ["hug", "hug"],
+  ["fit", "hug"],
+  ["fit-content", "hug"],
+  ["fill", "fill"],
+  ["min", "min"],
+  ["min-content", "min"],
+  ["max", "max"],
+  ["max-content", "max"]
+])
+
+/** Up and Down's count of steps: one, or ten with Shift. */
+const stepCount = (up: boolean, { shift }: ScrubKeys) => (up ? 1 : -1) * (shift ? 10 : 1)
+
+/**
+ * W or H for a grid child: a number in its unit, or a word as a chip, Fill or Hug, with what it comes to faintly in
+ * the chip, as Gap's Auto is. The chevron at the end is always there and opens Sizing: Fixed, Hug, Fill, and Min and
+ * Max content. The unit, after a number, is only ever a unit: px, % of its cell, or rem. Backspace on a word's chip
+ * leaves it Fixed at what it came to, ready to type over; typing a word, `fill` or `hug`, makes it that.
+ */
+function CellSizeField({
+  axis,
+  value,
+  measured,
+  parent,
+  onChange
+}: {
+  axis: "Width" | "Height"
+  value: Size
+  measured: number | undefined
+  /** What a percentage is of, on this axis, where it's known. */
+  parent: number | undefined
+  onChange: (size: Size) => void
+}) {
+  const [unit, setUnit] = useState<"px" | "rem">("px")
+  const mode = isSizeMode(value) ? value : undefined
+  const fixed = isFixedSize(value) ? value : undefined
+  const percent = isFixedSize(value) || isSizeMode(value) ? undefined : value.percent
+  // What Fixed starts at: the size it is now, as Figma's Fixed keeps it.
+  const now = Math.max(1, Math.round(fixed ?? measured ?? 100))
+  const of = axis === "Width" ? "width" : "height"
+  let shown: string | undefined
+
+  if (mode !== undefined) {
+    shown = sizeWords[mode].name
+  } else if (fixed !== undefined) {
+    shown = unit === "rem" ? formatNumber(fixed / remPx) : String(fixed)
+  } else if (percent !== undefined) {
+    shown = formatNumber(percent)
+  }
+
+  const read = (text: string): Reading<Size> => {
+    const typed = text.trim().toLowerCase()
+
+    // Left empty, as Backspace on the chip leaves it, it keeps what it has.
+    if (typed === "") {
+      return { value }
+    }
+
+    if (typed === "fixed") {
+      return { value: now }
+    }
+
+    const word = typedSizes.get(typed)
+
+    if (word !== undefined) {
+      return { value: word }
+    }
+
+    const bare = /^-?(\d*\.?\d+)$/.test(typed)
+    let input = typed
+
+    if (bare && percent !== undefined) {
+      input = `${typed}%`
+    } else if (bare && unit === "rem") {
+      input = `${typed}rem`
+    }
+
+    const reading = readLength(input, { label: axis, current: fixed ?? measured, takesPercent: true })
+
+    if ("percent" in reading) {
+      return { value: { percent: Math.max(0, Math.round(reading.percent * 10) / 10) } }
+    }
+
+    if ("px" in reading) {
+      return { value: Math.max(1, reading.px) }
+    }
+
+    return { reason: "Enter a length, Hug or Fill" }
+  }
+
+  const step = (up: boolean, keys: ScrubKeys) => {
+    if (percent !== undefined) {
+      onChange({ percent: Math.max(0, percent + stepCount(up, keys)) })
+
+      return
+    }
+
+    // A word becomes Fixed at what it comes to, and steps from there.
+    onChange(Math.max(4, stepSpacing(fixed ?? measured ?? 0, stepCount(up, keys))))
+  }
+
+  const toUnit = (next: "px" | "%" | "rem") => {
+    if (next === "%") {
+      onChange({ percent: parent ? Math.round((now / parent) * 1000) / 10 : 100 })
+
+      return
+    }
+
+    setUnit(next)
+
+    if (percent !== undefined) {
+      onChange(Math.max(1, Math.round(measured ?? now)))
+    }
+  }
+
+  return (
+    <ValueField
+      label={axis}
+      inner={axis[0]}
+      // Dragging W or H scrubs the size a spacing step per 2 screen pixels, making a word Fixed first.
+      scrub={{ from: () => fixed ?? measured ?? 0, apply: (px) => onChange(px), by: { spacing: true, min: 1 } }}
+      shown={shown}
+      chip={
+        mode === undefined
+          ? undefined
+          : {
+              name: sizeWords[mode].name,
+              keyword: {
+                detail: measured === undefined ? undefined : String(measured),
+                about: sizeWords[mode].detail
+              },
+              onRemove: () => onChange(now)
+            }
+      }
+      unit={
+        mode === undefined ? (
+          <UnitMenu
+            label={axis}
+            unit={percent === undefined ? unit : "%"}
+            units={[
+              { unit: "px", label: "Pixels" },
+              { unit: "%", label: `Of its cell's ${of}` },
+              { unit: "rem", label: "Root em, 16px" }
+            ]}
+            onUnit={toUnit}
+          />
+        ) : undefined
+      }
+      comesTo={percent !== undefined && measured !== undefined ? String(measured) : undefined}
+      tokens={{
+        name: "Sizing",
+        list: [],
+        keywords: {
+          heading: axis,
+          rows: [
+            {
+              key: "fixed",
+              name: "Fixed",
+              detail: `${now}px`,
+              current: mode === undefined,
+              onPick: () => {
+                if (mode !== undefined) {
+                  onChange(now)
+                }
+              }
+            },
+            ...(["hug", "fill", "min", "max"] as const).map((each) => ({
+              key: each,
+              name: sizeWords[each].name,
+              detail: sizeWords[each].detail,
+              current: mode === each,
+              onPick: () => onChange(each)
+            }))
+          ]
+        },
+        onPick: () => undefined
+      }}
+      selectOnFocus
+      read={read}
+      onCommit={onChange}
+      onStep={step}
+    />
   )
 }

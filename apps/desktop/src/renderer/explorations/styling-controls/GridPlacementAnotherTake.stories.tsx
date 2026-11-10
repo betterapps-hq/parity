@@ -12,11 +12,13 @@ import { placementWrites } from "./writes.ts"
  * Grid placement, another take (PAR-186): the same grid child, Pro plan in Plans' three-column grid, with what the
  * other controls taught. The map is where it's placed: its lines numbered along the top and down the side, Pro plan's
  * own in the layer's color. Drag across cells to place it, drag it to move it, or drag an edge to move that line; a
- * click on a cell moves it there, keeping its span, as the faint outline under the pointer shows. Auto, in the map's
- * header, leaves it to the grid's next free cell, and pressed again pins it where it is. Under the map, where it sits
- * in its cell is a box of spots, as Layout's is, beside Start and Span for columns and rows, lined up as a table;
- * hovering or focusing a field lights up its line, or the tracks it spans, in the map. Span takes All, a chip, from its
- * menu. A spot on an axis Pro plan fills makes it hug, and Fill stretches it again, so the box and W and H always
+ * click on a cell moves it there, keeping its span, as the faint outline under the pointer shows. Auto and Manual,
+ * beside Cells, say how it's placed: Auto leaves it to the grid's next free cell, and Manual pins it where it is, for
+ * the map to move. Under the map, where it sits in its cell is a box of spots, as Layout's is, beside Start and Span
+ * for columns and rows, lined up as a table; hovering or focusing a field lights up its line, or the tracks it spans,
+ * in the map. Span takes All, a chip, from its menu. W and H show a word as a chip, Fill or Hug, with what it comes to
+ * faintly, as Gap's Auto does; the chevron at their end is always there and opens Sizing, and their unit is only ever a
+ * unit. A spot on an axis Pro plan fills makes it hug, and Fill stretches it again, so the box and W and H always
  * agree. Compare it with Grid placement, the first take.
  */
 const meta = {
