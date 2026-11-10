@@ -69,12 +69,12 @@ export const FourSides: Story = { render: () => <Padding start={[px(16), px(16),
 /** 13 down, a quarter of the way between whole steps: `py-3.25`, still a step, so unmarked. */
 export const QuarterStep: Story = { render: () => <Padding start={[px(13), px(16), px(13), px(16)]} /> }
 
-/** The project's gutter token across: a chip, with what it comes to after it, writing `px-gutter`. */
+/** The project's gutter token across: a chip, with what it comes to in its hint, writing `px-gutter`. */
 export const Token: Story = {
   render: () => <Padding start={[px(16), { token: "spacing-gutter" }, px(16), { token: "spacing-gutter" }]} />
 }
 
-/** 13.5 down, off the steps: no mark, and Tokens offers the nearest token first, then Create token and Allow here. */
+/** 13.5 down, off the steps: no mark, and Tokens offers the nearest token first, then Create token. */
 export const OffTheSteps: Story = { render: () => <Padding start={[px(13.5), px(16), px(13.5), px(16)]} /> }
 
 /** 13.5 allowed here, with its reason under Allowed here in Tokens. */

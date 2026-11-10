@@ -97,7 +97,7 @@ const ring: ShadowEntry = {
 /** No shadows yet: Effects is a title with +, and the menu beside it adds an inner shadow, a ring or a drop shadow. */
 export const Empty: Story = { render: () => <Shadows start={[]} /> }
 
-/** A shadow token, `shadow-md`, as a chip with its first layer's numbers after it. */
+/** A shadow token, `shadow-md`, as a chip; its numbers are in its hint and its editor. */
 export const Token: Story = { render: () => <Shadows start={[drop("md", "shadow-md")]} /> }
 
 /**

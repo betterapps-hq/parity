@@ -1,5 +1,5 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
-import { createContext, type CSSProperties, type ReactNode, useContext, useState } from "react"
+import { type CSSProperties, type ReactNode, useState } from "react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { numberValue } from "../../chrome/prop-values.ts"
 import { type Comparison, Comparisons, type Point } from "./comparisons.tsx"
@@ -23,12 +23,6 @@ export function useDraft(start: Draft) {
   return [draft, (change: Partial<Draft>) => setDraft((current) => ({ ...current, ...change }))] as const
 }
 
-/**
- * Set around stories shown together, as Every control does, so each Playground inside shows its control alone, without
- * what it writes or its preview.
- */
-export const ControlOnly = createContext(false)
-
 export function Playground({
   writes,
   preview,
@@ -47,8 +41,6 @@ export function Playground({
   points?: readonly Point[]
   children: ReactNode
 }) {
-  const only = useContext(ControlOnly)
-
   // The inspector's width, so the control lays out as it will there.
   const control = (
     <section aria-label="Control" className="flex w-80 shrink-0 flex-col gap-1 rounded-lg border p-3">
@@ -60,24 +52,20 @@ export function Playground({
     <TooltipProvider>
       <ProjectTokens tokens={tokens}>
         <HighlightProvider>
-          {only ? (
-            control
-          ) : (
-            // It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't.
-            <div className="flex h-screen flex-wrap content-start items-start gap-6 overflow-y-auto bg-background p-6 text-foreground">
-              {control}
-              <Readout writes={writes} />
-              {preview && (
-                <section
-                  aria-label="Preview"
-                  className="grid shrink-0 place-items-center rounded-lg border bg-muted/40 p-6"
-                >
-                  {preview}
-                </section>
-              )}
-              {comparisons && <Comparisons items={comparisons} points={points} />}
-            </div>
-          )}
+          {/* It scrolls itself: the app's stylesheet keeps the page from scrolling, as the app's window mustn't. */}
+          <div className="flex h-screen flex-wrap content-start items-start gap-6 overflow-y-auto bg-background p-6 text-foreground">
+            {control}
+            <Readout writes={writes} />
+            {preview && (
+              <section
+                aria-label="Preview"
+                className="grid shrink-0 place-items-center rounded-lg border bg-muted/40 p-6"
+              >
+                {preview}
+              </section>
+            )}
+            {comparisons && <Comparisons items={comparisons} points={points} />}
+          </div>
         </HighlightProvider>
       </ProjectTokens>
     </TooltipProvider>

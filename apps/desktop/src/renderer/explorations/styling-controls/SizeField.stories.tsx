@@ -10,7 +10,8 @@ import { sizeRowWrites } from "./writes.ts"
  * Size and aspect ratio (PAR-186, PAR-652's Size type), on its own. W and H take a length (typed with the app's maths
  * and units, `spacing-4` included), a percentage of the parent, or a word: Hug, Fill, Min content or Max content, each
  * a chip with what it comes to faintly. The chevron at each field's end opens Sizing, which lists the words after
- * Fixed, then Add min and Add max; the unit, after a number, is only ever a unit. Grid placement's W and H are this
+ * Fixed, then Add min and Add max, then the spacing and container tokens, with the nearest and Create token; the
+ * unit, after a number, is only ever a unit. Grid placement's W and H are this
  * field too. Dragging a label scrubs; Up and Down step a whole spacing step. The lock keeps the ratio the layer has,
  * freeing H (Auto, set by Aspect ratio), with the ratio in its own row.
  */

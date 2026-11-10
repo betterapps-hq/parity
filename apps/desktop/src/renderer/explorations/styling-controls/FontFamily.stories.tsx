@@ -54,7 +54,7 @@ export const Token: Story = { render: () => <Font start={{ token: "sans" }} /> }
 /** Unset: Geist, muted, inherited from Plans, which the hint names. Nothing is written. */
 export const Unset: Story = { render: () => <Font /> }
 
-/** A font of its own, Segoe UI, picked from More fonts: marked, with font-sans as the nearest token. */
+/** A font of its own, Segoe UI, picked from More fonts, with no mark: Tokens offers sans, the nearest, first. */
 export const ValueOfItsOwn: Story = { render: () => <Font start={{ stack: '"Segoe UI", sans-serif' }} /> }
 
 /** Segoe UI allowed here, with its reason in Tokens, which can stop allowing it. */

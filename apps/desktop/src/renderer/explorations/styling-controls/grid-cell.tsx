@@ -85,9 +85,9 @@ const placings = [
 const unsetPlace = { colStart: undefined, rowStart: undefined, colEnd: undefined, rowEnd: undefined }
 
 /**
- * Size for a child of a grid, another take: W and H; its cells, as a map of the grid with its lines numbered, to drag
- * across, drag, or drag by an edge; then where it sits in its cell, as a box of spots, beside Start and Span for each
- * axis. Auto, in the map's header, leaves it to the grid's next free cell, and pressed again pins it where it is.
+ * Size for a child of a grid: W and H; its cells, as a map of the grid with its lines numbered, to drag across, drag,
+ * or drag by an edge; then where it sits in its cell, as a box of spots, beside Start and Span for each axis. Auto and
+ * Manual, beside Cells, leave it to the grid's next free cell or pin it where it is.
  */
 export function GridCellSection({ draft, set }: SectionProps) {
   const spacing = useTokenSets().spacing

@@ -110,7 +110,7 @@ export const FromSize: Story = { render: () => <TextSpacing size="sm" /> }
 /** 24px, a spacing step, beside `text-sm`: written `text-sm/6`. Up makes it 25px. */
 export const Step: Story = { render: () => <TextSpacing size="sm" line={{ px: 24 }} /> }
 
-/** A multiple, 1.5×: `text-sm/[1.5]`, marked as a value of its own, with leading-normal as the nearest token. */
+/** A multiple, 1.5×: `text-sm/[1.5]`, a value of its own: Tokens offers leading-normal, the nearest, first. */
 export const Multiple: Story = { render: () => <TextSpacing size="sm" line={{ multiple: 1.5 }} /> }
 
 /** A leading token, `snug`, as a pill with what it comes to in its hint: `text-sm/snug`. Up and Down step the scale. */
@@ -164,10 +164,10 @@ export const InvalidAsTyped: Story = {
   }
 }
 
-/** A tracking token, `tight`, as a chip showing −2.5% of the font size: `tracking-tight`. */
+/** A tracking token, `tight`, as a chip, with −2.5% of the font size in its hint: `tracking-tight`. */
 export const LetterSpacingToken: Story = { render: () => <TextSpacing size="sm" letter={{ token: "tight" }} /> }
 
-/** 5% of the font size, written in em, `tracking-[0.05em]`, and marked with tracking-wider as the nearest token. */
+/** 5% of the font size, written in em, `tracking-[0.05em]`: Tokens offers tracking-wider, the nearest, first. */
 export const LetterSpacingPercent: Story = { render: () => <TextSpacing size="sm" letter={{ em: 0.05 }} /> }
 
 /** −0.5px, typed in px, kept in px: `tracking-[-0.5px]`. */

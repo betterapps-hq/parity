@@ -80,7 +80,7 @@ export const AutoMargin: Story = {
   render: () => <Spacing padding={[px(12), px(12), px(12), px(12)]} margin={[undefined, "auto", undefined, "auto"]} />
 }
 
-/** A token across: the project's gutter, a chip with what it comes to after it. */
+/** A token across: the project's gutter, a chip with what it comes to in its hint. */
 export const Token: Story = {
   render: () => <Spacing padding={[px(16), { token: "spacing-gutter" }, px(16), { token: "spacing-gutter" }]} />
 }

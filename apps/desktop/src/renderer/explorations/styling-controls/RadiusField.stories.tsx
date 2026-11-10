@@ -83,7 +83,7 @@ export const AllowedHere: Story = {
  */
 export const LockedToTokens: Story = { render: () => <Radius start={{ radius: { px: 12 } }} tokensOnly /> }
 
-/** Unset: 0, muted. The token button shows on hover. */
+/** Unset: 0, muted. The chevron at its end lists the tokens. */
 export const Unset: Story = { render: () => <Radius start={{}} /> }
 
 /** Layers with different radii: Mixed, until something's typed or chosen for them all. */

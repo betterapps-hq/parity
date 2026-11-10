@@ -15,6 +15,7 @@ import { layoutWrites } from "./writes.ts"
  * padding's Each side is, lists the tracks one a row: a grip to reorder, the track's number and size, and − to remove,
  * with Add at the name's end; hovering a row highlights its track on the canvas. The grid picker sets both counts at
  * once, as Figma's does. The alignment box says where children sit in their cells, with Type and the gaps beside it.
+ * More holds Fill gaps.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Controls/Grid tracks",

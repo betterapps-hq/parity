@@ -9,7 +9,7 @@ import { colorWrites, inState, mixedWrites, type Writes } from "./writes.ts"
 
 /**
  * The color field (PAR-186, PAR-652's Color type), on its own: a token is a chip; a value of its own shows in short
- * form with a mark, as every field takes one (call 1). It types like a text field with the chip in it: click beside the
+ * form with no mark, as every field takes one (call 1). It types like a text field with the chip in it: click beside the
  * chip to type a hex or a token's name, and Backspace removes it. A click on the chip focuses the field, and once
  * it's focused opens the picker, as the swatch does.
  * Beside it, what it stores and what it writes as CSS and as Tailwind.
@@ -99,7 +99,7 @@ export const TokenWithOpacity: Story = { render: () => <ColorField value="card" 
  */
 export const PlainValue: Story = { render: () => <ColorField value="#2f6fed" /> }
 
-/** The same blue allowed here, with a reason: the mark is filled, and its hint gives the reason, stored with the value. */
+/** The same blue allowed here, with a reason: its reason shows in Tokens, which can stop allowing it, stored with the value. */
 export const AllowedHere: Story = {
   render: () => <ColorField value="#2f6fed" allowed="Partner brand blue" />
 }
@@ -126,7 +126,7 @@ export const SetForATheme: Story = {
   render: () => <ColorField value="card" theme={{ name: "Dark", value: "secondary" }} />
 }
 
-/** A deprecated token, `brand-blue`: the chip carries a warning, whose hint names the replacement, and clicking swaps it in. */
+/** A deprecated token, `brand-blue`: its pill is amber, and Tokens offers blue-600 in its place first. */
 export const Deprecated: Story = { render: () => <ColorField value="brand-blue" /> }
 
 /** A token the project no longer has, `brand-old`: struck through, until another is chosen. */

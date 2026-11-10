@@ -9,7 +9,7 @@ import { SideField } from "./sides.tsx"
 import { lengthWrites, type Writes } from "./writes.ts"
 
 /**
- * The number field (PAR-186), which every length and count in these controls uses: committed on Enter or on leaving,
+ * The plain number field (PAR-186), for lengths and counts without words, and the side field that offers tokens: committed on Enter or on leaving,
  * with a short label inside that scrubs when dragged, and a unit after it that stays while typing, until what's typed
  * brings its own. A length takes the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`) and is kept in pixels,
  * shown in px or rem as chosen from its unit's menu. A spacing length steps a whole spacing step (4px) on Up and Down;
@@ -80,7 +80,7 @@ const outlineOffsetWrites = (px: number | undefined): Writes =>
       }
 
 /** Gap on the side field, which offers the spacing tokens. */
-function GapField({ start }: { start: Side }) {
+function GapField({ start, tokensOnly = false }: { start: Side; tokensOnly?: boolean }) {
   const [value, setValue] = useState<Side>(start)
 
   const writes: Writes =
@@ -95,7 +95,13 @@ function GapField({ start }: { start: Side }) {
   return (
     <Playground writes={writes}>
       <Field label="Gap">
-        <SideField label="Gap" rules={sideRules.gap} value={value} onChange={(next) => setValue(next)} />
+        <SideField
+          label="Gap"
+          rules={sideRules.gap}
+          value={value}
+          tokensOnly={tokensOnly}
+          onChange={(next) => setValue(next)}
+        />
       </Field>
     </Playground>
   )
@@ -122,6 +128,26 @@ export const Plain: Story = {
  */
 export const WithTokens: Story = { render: () => <GapField start={{ number: 18 }} /> }
 
+/** Holding a token, spacing-gutter, as its pill: what it comes to is in its hint, and its chevron offers Detach. */
+export const Token: Story = { render: () => <GapField start={{ token: "spacing-gutter" }} /> }
+
+/**
+ * In a project set to Tokens only, 18 is refused: it shows in the error color, with the nearest token, spacing-inset,
+ * one click away, and Allow here in its menu.
+ */
+export const LockedToTokens: Story = { render: () => <GapField start={{ number: 18 }} tokensOnly /> }
+
+/** The selected layers differ: it says Mixed, and what's typed sets them all. */
+export const Mixed: Story = {
+  render: () => (
+    <Playground writes={{ stored: undefined, css: [], tailwind: [] }}>
+      <Field label="Outline offset">
+        <Num label="Outline offset" pixels mixed value={undefined} onChange={() => undefined} />
+      </Field>
+    </Playground>
+  )
+}
+
 /** Shown in rem, 40rem: rem chosen from the unit's menu, and the value kept in pixels either way. */
 export const InRem: Story = {
   render: () => (
@@ -134,17 +160,20 @@ export const InRem: Story = {
   }
 }
 
-/** A narrow field, as a side's padding is: the unit still shows, and its message spans the row. */
+/** A narrow field, as a corner's or a stroke side's is: the unit still shows, and its message spans the row. */
 export const Narrow: Story = {
   render: () => (
     <NumberField
-      label="Top padding"
+      label="Top stroke width"
       inner="T"
-      start={12}
+      start={2}
       pixels
-      spacing
       narrow
-      writes={(px) => lengthWrites("padding-top", "pt", px)}
+      writes={(px) =>
+        px === undefined
+          ? { stored: undefined, css: [], tailwind: [] }
+          : { stored: { value: `${px}px` }, css: [`border-top-width: ${px}px`], tailwind: [`border-t-${px}`] }
+      }
     />
   )
 }
@@ -154,16 +183,15 @@ export const Count: Story = {
   render: () => <NumberField label="Columns" start={3} min={1} writes={columnsWrites} />
 }
 
-/** Unset, with what it is unset in its placeholder: a frame's height hugs. */
+/** Unset, with what it is unset in its placeholder: a max height that isn't set, None. */
 export const Unset: Story = {
   render: () => (
     <NumberField
-      label="Height"
-      inner="H"
+      label="Max height"
       start={undefined}
       pixels
-      placeholder="Hug"
-      writes={(px) => lengthWrites("height", "h", px)}
+      placeholder="None"
+      writes={(px) => lengthWrites("max-height", "max-h", px)}
     />
   )
 }

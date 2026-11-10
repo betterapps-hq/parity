@@ -10,7 +10,8 @@ import { mergeWrites } from "./writes.ts"
 /**
  * Spacing as one box (PAR-186, PAR-652's Spacing): margin's ring around padding's around the layer's size, as DevTools
  * and Webflow lay them out. Spacing's Fields are the other way, kept for where rows suit better. Each side shows its
- * measurement and unit where the side is (`16px`, `10%`, `Auto`), a token's shaded as Webflow shades a variable's.
+ * measurement and unit where the side is (`16px`, `10%`, `Auto`), on a faint fill that lightens on hover, a token's
+ * shaded as Webflow shades a variable's.
  * Hovering one opens its field in a popover after a moment, and pressing it or Enter opens it at once: the field every
  * side has, with the token's name and value, its unit and the app's maths, and the keys that reach both sides or all
  * four. Hovering a side highlights it in the preview. Padding is hatched in modes' green and margin is flat pink, the
@@ -103,7 +104,7 @@ export const WithMargin: Story = {
   render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} margin={[px(8), undefined, px(8), undefined]} />
 }
 
-/** Auto across: margin's sides say Auto, and their names say what they come to. */
+/** Auto across: margin's sides say Auto, and their popovers say what it comes to. */
 export const AutoMargin: Story = {
   render: () => <Spacing padding={[px(12), px(12), px(12), px(12)]} margin={[undefined, "auto", undefined, "auto"]} />
 }

@@ -116,7 +116,7 @@ export const Named: Story = { render: () => <Weight font={{ token: "sans" }} sta
 /** Unset: Regular, muted, inherited. Nothing is written. */
 export const Unset: Story = { render: () => <Weight font={{ token: "sans" }} /> }
 
-/** 550 in Geist, a variable font: the menu has a slider over its axis, and 550, between tokens, is marked. */
+/** 550 in Geist, a variable font: the menu has a slider over its axis, and 550, between tokens, is a value of its own. */
 export const VariableFont: Story = { render: () => <Weight font={{ token: "sans" }} start={{ value: 550 }} /> }
 
 /** Semibold in Georgia, which has Regular and Bold: drawn with Bold, the nearest face, as the hint says. */

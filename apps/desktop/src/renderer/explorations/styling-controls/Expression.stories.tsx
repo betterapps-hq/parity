@@ -12,7 +12,7 @@ import { TextSample } from "./text-preview.tsx"
  * row, with completion for `calc()`, `min()`, `max()`, `clamp()`, `color-mix()` and tokens inside `var()`, those the
  * field can take listed before anything's typed, each `var()` drawn as a token chip and what it comes to beside it.
  * Backspace with nothing typed takes the `=` away. At rest it's the expression whole, cut to the field's width, and
- * what it comes to (`clamp(1rem, 2vw, 2rem) 25.6`) after an `ƒ` mark that opens it, or only `ƒ` in a field under 96px; focusing it, clicking it or pressing Enter in it opens it again. A
+ * what it comes to (`clamp(1rem, 2vw, 2rem) 25.6`), a length's after an `ƒ` mark that opens it, or only `ƒ` in a field under 96px; focusing it, clicking it or pressing Enter in it opens it again. A
  * `clamp()` opens its three fields: least, preferred and most, from the field or the button after it. Enter checks it
  * with `CSS.supports` and stores it in its simplest form, so `calc(var(--spacing) * 18)` is a step. Enter and Escape put
  * focus back on the field.
@@ -184,7 +184,7 @@ export const SimplestForm: Story = {
   }
 }
 
-/** A fill of `color-mix(in oklab, var(--color-primary) 50%, transparent)`: stored as primary at 50%, `bg-primary/50`. */
+/** A fill of `color-mix(in oklab, var(--color-primary) 50%, transparent)`: stored as chart-2 at 50%, `bg-chart-2/50`. */
 export const ColorMix: Story = {
   render: () => (
     <Expr

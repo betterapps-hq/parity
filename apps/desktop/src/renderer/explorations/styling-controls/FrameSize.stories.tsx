@@ -8,7 +8,8 @@ import { Playground } from "./playground.tsx"
 /**
  * A design's frame, typed (PAR-186): its width and height in the viewport shown, which the section's header names
  * with its icon. W takes pixels or one of the project's breakpoints (`xl`, 1280), with the nearest one offered for a
- * width of its own. H takes pixels or Hug, the design's own height, as a chip with what it comes to. Dragging the frame's edges sets it too. It's the design's own setting, not a style, so it writes no
+ * width of its own. H takes pixels or Hug, the design's own height, as a chip with what it comes to; its chevron opens Sizing,
+ * Fixed or Hug. Dragging the frame's edges sets it too. It's the design's own setting, not a style, so it writes no
  * CSS.
  */
 const meta = {

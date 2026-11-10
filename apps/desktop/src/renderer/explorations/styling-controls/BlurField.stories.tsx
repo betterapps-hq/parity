@@ -8,7 +8,7 @@ import { blurWrites, mergeWrites, mixedWrites } from "./writes.ts"
 /**
  * Layer blur and Background blur (PAR-186), PAR-652's names for `filter: blur()` and `backdrop-filter: blur()`, in
  * Effects: a title with + until an effect is added, and a − on each row to take it off. Each takes a blur token or a
- * value of its own, marked (call 1), typed with the app's maths and checked by `CSS.supports`. The preview's shapes
+ * value of its own, with no mark (call 1), typed with the app's maths and checked by `CSS.supports`. The preview's shapes
  * show what a background blur does through a translucent fill.
  */
 const meta = {

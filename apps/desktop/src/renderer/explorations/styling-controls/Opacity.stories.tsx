@@ -12,7 +12,7 @@ import { type Opacity, opacityWrites } from "./text-writes.ts"
 /**
  * Opacity and blend mode (PAR-186, design-options-values.md's Percentage and opacity), Appearance's row on its own: a
  * percentage with opacity tokens, then the blend menu. Opacity on its steps, a quarter of a percent, is written bare
- * (`opacity-47.5`); finer, it's a value of its own in brackets and marked. Up and Down step 1%, Shift 10%, Alt a
+ * (`opacity-47.5`); finer, it's a value of its own in brackets, with no mark. Up and Down step 1%, Shift 10%, Alt a
  * quarter, and the icon scrubs. Hovering or moving through the blend menu previews each mode on the layer. A color's
  * own alpha isn't here: it's the % beside its swatch.
  */
@@ -81,10 +81,10 @@ export const Step: Story = { render: () => <Appearance opacity={{ percent: 50 }}
 /** 47.5%, on a quarter of a percent, still a step: `opacity-47.5`, unmarked. */
 export const OnAQuarterStep: Story = { render: () => <Appearance opacity={{ percent: 47.5 }} /> }
 
-/** 47.3%, finer than the steps: `opacity-[.473]`, marked, with opacity-47.25 as the nearest step. */
+/** 47.3%, finer than the steps: `opacity-[.473]`, with no mark: Tokens offers disabled, the nearest, first. */
 export const ValueOfItsOwn: Story = { render: () => <Appearance opacity={{ percent: 47.3 }} /> }
 
-/** An opacity token, `disabled`, as a chip with 50% after it. Up steps to `muted`; the token button lists them. */
+/** An opacity token, `disabled`, as a chip with 50% in its hint. Up steps to `muted`; the chevron lists them. */
 export const Token: Story = { render: () => <Appearance opacity={{ token: "disabled" }} /> }
 
 /** Layers with different opacities and blends: Mixed in both. */

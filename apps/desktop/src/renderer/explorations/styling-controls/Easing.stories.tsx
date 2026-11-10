@@ -33,17 +33,7 @@ function EasingPreview({ easing, ms }: { easing: Easing | undefined; ms: number 
   return <HoverCard transition={`translate ${ms}ms ${drawnEasing(easing, tokens)}`} />
 }
 
-function EasingStory({
-  start,
-  open = false,
-  tab,
-  mixed = false
-}: {
-  start?: Easing
-  open?: boolean
-  tab?: "curve" | "steps" | "spring"
-  mixed?: boolean
-}) {
+function EasingStory({ start, open = false, mixed = false }: { start?: Easing; open?: boolean; mixed?: boolean }) {
   const [easing, setEasing] = useState(start)
   const spring = easing !== undefined && "spring" in easing ? easing.spring : undefined
   // A spring sets the duration to its settle time; otherwise the preview runs slow enough to see the curve.
@@ -71,7 +61,6 @@ function EasingStory({
           value={easing}
           mixed={mixed && easing === undefined}
           defaultOpen={open}
-          defaultTab={tab}
           onChange={setEasing}
         />
       </Field>
@@ -104,12 +93,12 @@ export const Steps: Story = { render: () => <EasingStory start={{ value: "steps(
  * offered under it.
  */
 export const SpringByTimeAndBounce: Story = {
-  render: () => <EasingStory start={{ spring: { duration: 400, bounce: 0.2 } }} open tab="spring" />
+  render: () => <EasingStory start={{ spring: { duration: 400, bounce: 0.2 } }} open />
 }
 
 /** A spring set by its physics, stiffness 170, damping 12, mass 1: it settles when its bounces die away. */
 export const SpringByPhysics: Story = {
-  render: () => <EasingStory start={{ spring: { stiffness: 170, damping: 12, mass: 1 } }} open tab="spring" />
+  render: () => <EasingStory start={{ spring: { stiffness: 170, damping: 12, mass: 1 } }} open />
 }
 
 /** Layers with different easings: Mixed, until one is chosen for them all. */
