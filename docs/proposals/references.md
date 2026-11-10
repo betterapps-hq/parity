@@ -35,7 +35,7 @@ Enterprise plan, and its key belongs to a workspace.
 | `platform`, `ios` or `web`, required               | Web or iOS, starting from the selected design                         |
 | `mode`, `standard` or `deep`, `deep` when left out | Quick results first, and Search deeper for `deep`                     |
 | `limit`, 1 to 100, 20 when left out                | 24 a search (9 for the web and 12 for iOS in the exploration)         |
-| `exclude_screen_ids`, up to 100                    | More results: the same description, without the screens shown         |
+| `exclude_screen_ids`, up to 100                    | More as you scroll: the same description, without the screens shown   |
 | `image_quality`, `optimized` or `high`             | `optimized` in the results, `high` shown larger and on the canvas     |
 | Returns `id`, `app_name`, `platform`, `mobbin_url` | The app's name under each screen, and Open in Mobbin                  |
 | Returns `image` with its size and `url_expires_at` | A reference's size on the canvas, and when to fetch its picture again |
@@ -73,7 +73,11 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   own documentation. The browser offers the examples to run before a search and uses the first in the search field. The
   tips sit behind Tips, a button in the search field, in every state, since they're most use when a search has come back
   thin. Agents can be given the same words.
-- **More results follows the connector's `more`:** leaving out what's shown for Mobbin, the next page for Unsplash.
+- **More results load as you scroll,** the way the connector's `more` says: leaving out what's shown for Mobbin, the
+  next page for Unsplash and Pixabay. Each result goes to whichever column is shortest, so a new page never moves an
+  earlier one, and only the results in view are drawn (TanStack Virtual, which the insert picker already uses), since a
+  Pixabay search can run to 500. A deep Mobbin search doesn't load more by itself, since each page is one Mobbin charges
+  for: it keeps a More results button.
 - **A connector's problems are the browser's states:** no key, a key turned down, a plan without access, a limit reached
   with the wait counted down, a search it can't take, and a source that can't be reached.
 - **A limit shows only once it's reached,** as the "Too many searches right now" state. Unsplash sends how many searches
@@ -111,8 +115,8 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   the app's name, its platform as a badge, Open in Mobbin, Pick, and an X that closes it, as Esc does. A strip of every
   result runs underneath, the current one outlined and the picked ones checked, and a click or the arrow keys moves
   through them.
-- **More results** asks again without the screens already shown. When a pull comes back short there are no more, and the
-  browser says to describe it another way.
+- **More results load as you scroll toward the end,** without the screens already shown. When a pull comes back short
+  there are no more, and the browser says to describe it another way.
 - **When a search can't answer** it says which thing happened: nothing matches, with a button to try the other platform;
   a deep search found no close matches, with the way back to the quick ones; Mobbin's limit, with the wait; Mobbin can't
   be reached; or this copy of Parity has no key for it, where the browser says Mobbin isn't available, in the
