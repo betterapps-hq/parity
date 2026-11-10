@@ -403,6 +403,12 @@ describe("an open project's files", () => {
     watcher.change("components.json")
     await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
 
+    // A moment without package.json, as while it's rewritten, isn't a change.
+    const manifest = await readFile(join(root, "package.json"), "utf8")
+    await rm(join(root, "package.json"))
+    expect(await projects.detectAgain(root)).toBe(false)
+    await write("package.json", manifest)
+
     // Opened again, it's detected from the files as they are now.
     await projects.close(root)
     expect((await projects.open(root)).notes).toContain("styles from components.json: src/styles/app.css")

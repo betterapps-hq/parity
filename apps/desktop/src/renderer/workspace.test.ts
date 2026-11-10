@@ -485,6 +485,19 @@ describe("a tab closed while its project opens", () => {
     expect(workspace.getTab(info.id)?.status).toBe("ready")
   })
 
+  it("checks detection again once a tab told it changed while loading is ready (PAR-820)", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    workspace.detectionChanged(info.id)
+    detection.changed = true
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    await vi.waitFor(() => expect(closes).toEqual([info.id]))
+    expect(opens).toHaveLength(2)
+  })
+
   it("reopens once when asked again while it reopens, so closing the tab cancels it", async () => {
     const workspace = new Workspace()
     const opening = workspace.open(info.root)

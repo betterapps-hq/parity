@@ -64,4 +64,11 @@ describe("detectionInputs", () => {
     )
     expect((await detectionInputs(root)).key).not.toBe(before.key)
   })
+
+  it("fails while package.json is missing or half-written, rather than reading as a change", async () => {
+    await write("package.json", '{ "name": "ap')
+    await expect(detectionInputs(root)).rejects.toThrow("package.json")
+    await rm(join(root, "package.json"))
+    await expect(detectionInputs(root)).rejects.toThrow("There's no package.json")
+  })
 })

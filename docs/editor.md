@@ -4784,24 +4784,28 @@ until Parity restarted.
   the packages' stylesheets the entry imports, `components.json`'s UI kit alias, the dependencies' names and which Vite
   config there is. It reads them as the project opens, and again 400 ms after a change to one of the files they came
   from, which the project's watcher already sees. A stylesheet's contents, a script in package.json or a version bump
-  change nothing it compares, so they don't reopen the project. A file caught mid-write reads as no change.
+  change nothing it compares, so they don't reopen the project. A file caught mid-write, or a moment without
+  package.json while it's rewritten, reads as no change.
 - **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
-  (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is.
+  (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is. A tab
+  told while it's still loading asks again once it's ready, since what it loaded may have been read before the change.
 - **`parity open` on an open project** asks the service whether detection changed (`project.detectAgain`) and opens it
   again first when it did, so the answer describes the project as detected now.
 
 Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
 `styles.ts`; `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
 `apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
-`shared/service-checks.ts` and `utility/index.ts`; `detectAgain` in `renderer/workspace.ts`; `agent.open` and
-`project.detectionChanged` in `renderer/agent/handlers.ts`.
+`shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
+`renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
 
-Tests: `packages/project/src/detection-inputs.test.ts` (3: `components.json` naming a stylesheet changes the key, a
+Tests: `packages/project/src/detection-inputs.test.ts` (4: `components.json` naming a stylesheet changes the key, a
 conventional stylesheet or Vite config appearing changes it and the entry `index.html` names is followed, dependencies
-change it while scripts, versions and a stylesheet's contents don't). `apps/desktop/src/utility/projects.test.ts` (1: an
-open project whose `components.json` now names its stylesheet tells the windows, a file detection doesn't read doesn't,
-and opened again it's detected from the new file). `apps/desktop/src/renderer/workspace.test.ts` (1: asked to detect
-again, a tab opens its project again only when the service says detection changed). Gaps: the handlers wiring
+change it while scripts, versions and a stylesheet's contents don't, and a missing or half-written package.json fails
+rather than reading as a change). `apps/desktop/src/utility/projects.test.ts` (1: an open project whose
+`components.json` now names its stylesheet tells the windows, a file detection doesn't read doesn't, a moment without
+package.json isn't a change, and opened again it's detected from the new file).
+`apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, a tab opens its project again only when the
+service says detection changed, and a tab told while loading asks again once it's ready). Gaps: the handlers wiring
 `agent.open` and `project.detectionChanged` to the workspace is checked by reading; the UI kit's folder filling with
 files, a `.storybook` folder added and a Vite config's contents aren't compared (Vite restarts its own server when its
 config changes).

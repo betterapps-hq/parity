@@ -120,6 +120,8 @@ export class Workspace {
   private readonly moves = new Map<string, string>()
   /** The address each project's guest last moved to while one loads, so a move a later one overtook is let go. */
   private readonly latestMoves = new Map<string, string>()
+  /** Projects whose detection changed while their tab was loading, to check again once it's ready (PAR-820). */
+  private readonly detections = new Set<string>()
   private readonly listeners = new Set<() => void>()
 
   subscribe = (listener: () => void) => {
@@ -274,6 +276,7 @@ export class Workspace {
       this.replace(info.id, { id: info.id, title: info.name, status: "ready", session })
       recordLoaded()
       this.settleMove(info.id)
+      this.settleDetection(info.id)
       this.remember(info.root)
 
       return this.getTab(info.id)!
@@ -459,6 +462,7 @@ export class Workspace {
       this.replace(id, { id, title: info.name, status: "ready", session })
       recordLoaded()
       this.settleMove(id)
+      this.settleDetection(id)
     } catch (error) {
       this.endAttempt(attempt, id)
 
@@ -495,6 +499,27 @@ export class Workspace {
     }
 
     await this.reload(id, "Detecting the project again")
+  }
+
+  /**
+   * Opens a project's tab again because what detection reads of it changed (`project.detectionChanged`). A tab still
+   * loading checks again once it's ready, since what it loads may have been read before the change.
+   */
+  detectionChanged(projectId: string): void {
+    const tab = this.tabs.find((candidate) => candidate.session?.id === projectId)
+
+    if (tab) {
+      void this.reload(tab.id, "Detecting the project again")
+    } else {
+      this.detections.add(projectId)
+    }
+  }
+
+  /** Checks a tab that has just loaded against what detection reads now, if that changed while it loaded. */
+  private settleDetection(id: string): void {
+    if (this.detections.delete(id)) {
+      void this.detectAgain(id)
+    }
   }
 
   /**

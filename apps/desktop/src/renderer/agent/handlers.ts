@@ -119,11 +119,7 @@ const handlers: Handlers = {
     return undefined
   },
   "project.detectionChanged": ({ projectId }) => {
-    const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
-
-    if (tab) {
-      void workspace.reload(tab.id, "Detecting the project again")
-    }
+    workspace.detectionChanged(projectId)
 
     return undefined
   },

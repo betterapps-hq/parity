@@ -19,23 +19,31 @@ export interface DetectionInputs {
   files: string[]
 }
 
-/** What detection reads of the project at `root` now. Throws when its package.json can't be read, as mid-write. */
+/**
+ * What detection reads of the project at `root` now. Throws when its package.json is missing or can't be read, as
+ * while an editor or package manager rewrites it, so a moment without it never reads as a change.
+ */
 export async function detectionInputs(root: string): Promise<DetectionInputs> {
   const manifest = (await readPackage(root))?.manifest
+
+  if (!manifest) {
+    throw new Error(`There's no package.json in ${root}`)
+  }
+
   const shadcn = await shadcnConfig(root, [])
   const { styles, packageStyles } = await stylesWith(root, shadcn, [])
   const entry = await htmlEntry(root)
 
   const dependencies = [
     ...new Set(
-      [manifest?.dependencies, manifest?.devDependencies, manifest?.optionalDependencies].flatMap((versions) =>
+      [manifest.dependencies, manifest.devDependencies, manifest.optionalDependencies].flatMap((versions) =>
         Object.keys(versions ?? {})
       )
     )
   ].sort()
 
   const key = JSON.stringify({
-    package: manifest ? { name: manifest.name ?? null, dependencies } : null,
+    package: { name: manifest.name ?? null, dependencies },
     styles,
     packageStyles,
     ui: shadcn?.aliases?.ui ?? null,
