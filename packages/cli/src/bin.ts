@@ -15,6 +15,7 @@ import {
   describeProblems,
   describeProps,
   describePhotos,
+  describePlace,
   describeReferences,
   describeReport,
   describeStatus,
@@ -112,6 +113,10 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             search Unsplash for stock photos, one subject per search, the same way;
                                             --color keeps to one of Unsplash's colors, as teal or black_and_white,
                                             and --page 2 brings the next ones. Credit the photographer and Unsplash
+  parity place <connector> <id> "<node>" [--prop src] [--state s]
+                                            put a photo a search found into an image node, as one undoable edit, from
+                                            the source's own link; Parity tells the source it was used. Exits with 1
+                                            when it wasn't placed
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
@@ -160,6 +165,7 @@ const { positionals, values } = parseArgs({
     since: { type: "string" },
     session: { type: "string" },
     connector: { type: "string" },
+    prop: { type: "string" },
     platform: { type: "string" },
     deep: { type: "boolean" },
     exclude: { type: "string", multiple: true },
@@ -387,6 +393,19 @@ async function main(): Promise<void> {
           page: values.page === undefined ? undefined : Number(values.page)
         },
         describePhotos
+      )
+    case "place":
+      return show(
+        operations.place,
+        {
+          tab: values.tab,
+          connector: rest[0],
+          id: rest[1],
+          node: rest[2],
+          prop: values.prop,
+          state: values.state?.[0]
+        },
+        describePlace
       )
     case "console":
       return show(operations.console, { tab: values.tab, clear: values.clear, limit }, describeConsole)

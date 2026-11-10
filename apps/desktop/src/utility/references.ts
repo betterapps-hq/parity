@@ -98,7 +98,6 @@ async function withPreview(options: FindOptions, found: Found): Promise<FoundIte
     source: found.credit.at(-1)?.name ?? found.connector,
     title: found.title,
     link: found.link,
-    image: found.image.url,
     credit: found.credit
   }
 

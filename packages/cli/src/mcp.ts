@@ -13,6 +13,7 @@ import {
   describeProblems,
   describeProps,
   describePhotos,
+  describePlace,
   describeReferences,
   describeReport,
   describeStatus,
@@ -219,9 +220,15 @@ const tools: Tool[] = [
   ),
   operationTool(
     "find_photos",
-    "Search stock photos (Unsplash) when a design needs a real one, as a hero or an avatar, and look at the previews. Use the image URL; credit the photographer and source where the design shows it.",
+    "Search stock photos (Unsplash) when a design needs a real one, as a hero or an avatar, and look at the previews. Put one in a design with place_result.",
     operations.photos,
     (result) => [text(describePhotos(result)), ...previews(result)]
+  ),
+  operationTool(
+    "place_result",
+    "Put a photo a search found into an image node, as one undoable edit. Parity sets the image from the source and tells the source it was used. Credit who it names where the design shows it.",
+    operations.place,
+    (result) => [text(describePlace(result))]
   ),
   operationTool(
     "report_problem",

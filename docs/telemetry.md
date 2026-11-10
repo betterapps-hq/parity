@@ -358,8 +358,9 @@ the account: WorkOS's answer goes as its status and code.
   but not the answer itself.
 
 Main records `connectors.searched` from `main/connectors.ts` (PAR-829) for each search: its connector, who asked, every
-filter it ran with, and how many it found or why it found nothing, never what was searched for. Keys are scrubbed from
-what main sends, and never reach a window or the service.
+filter it ran with, and how many it found or why it found nothing, never what was searched for. A result placed in a
+design for the first time is `connectors.placed`, with its connector, kind and who placed it, never which result or
+where. Keys are scrubbed from what main sends, and never reach a window or the service.
 
 ## Levels and sampling
 
@@ -446,6 +447,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `clipboard.pasted`        | info  | all  | renderer                                | A paste puts something on the canvas.                                                                             |
 | `command.ran`             | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                                    |
 | `component.changed`       | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                     |
+| `connectors.placed`       | info  | all  | main                                    | A connector's result goes into a design for the first time, before the source is told, if it asks to be.          |
 | `connectors.searched`     | info  | all  | main                                    | A connector's search ends, with what it found or why it found nothing.                                            |
 | `data.invalid`            | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                           |
 | `dialog.opened`           | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                               |
@@ -726,6 +728,14 @@ Some failures are recorded for you, so code doesn't record them again:
 | `design`    | `string`                          | The design whose layers it changed, by key                                                                                    |
 | `layers`    | `string[]`                        | The layers: the instance detached or pushed, a layer inside one by path, or the layers made a component                       |
 | `component` | `string`                          | The component, by id: the one the copy follows, or the one made                                                               |
+
+### `connectors.placed`
+
+| Attribute   | Type                  | Meaning                                                     |
+| ----------- | --------------------- | ----------------------------------------------------------- |
+| `connector` | `string`              | The connector the result came from, such as `unsplash`      |
+| `kind`      | `string`              | What was placed: `screens`, `flows`, `sections` or `photos` |
+| `from`      | `"window" \| "agent"` | Who placed it: the person in the window, or an agent        |
 
 ### `connectors.searched`
 

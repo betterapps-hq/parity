@@ -6893,10 +6893,7 @@ A review of the connectors on 2026-11-10 found twelve things to fix. You decided
   A connector's `auth` is none or a key with its variable. A development copy sets keys in the environment; a shipped
   copy will search through Parity's service. Main reads the keys once and deletes them from its own environment, and the
   service's environment leaves out every `PARITY_*_KEY`, not only the ones named today.
-- **No agent tool reports a use** (your call): an agent could skip it. Parity reports an Unsplash photo itself when the
-  photo is placed in a design, whether a person or an agent placed it, by noticing the Unsplash image in what's written.
-  Not built yet, since nothing places photos. Until then `picked` reports only a result the hub gave lately, from its
-  own copy, so nothing can report uses in Parity's name.
+- **No agent tool reports a use** (your call): an agent could skip it. Placing is the step instead, below.
 - **A missing key isn't the agent's problem.** `no-key` says this copy can't search the source and to carry on without
   it, and the CLI and MCP don't treat it as an error. Messages about a refused key no longer tell the person to fix it.
 - **Main checks a search before it routes or records it,** and records every filter as checked. Each connector runs up
@@ -6911,3 +6908,26 @@ A review of the connectors on 2026-11-10 found twelve things to fix. You decided
   take its place without a change to the window. A search whose recent search can't be kept still answers.
 - **Previews can't fail a search.** Each is fetched and saved on its own, read up to 4 MB, named with at most 40 letters
   of its title, and taken from the source's smaller picture when it has one (Unsplash's small, 400 pixels).
+
+## Placing a result is a step of its own (PAR-829)
+
+You asked on 2026-11-10 for a hook when a connector's result is placed, for telemetry and usage, with each connector
+deciding what else to do, and for agents to get two tools: one to search and one to place. Your calls and mine:
+
+- **Agents search, then place** (your call). `find_photos` and `find_references` give previews to look at and ids, but
+  no image link, so an agent can't put a photo in a design by pasting one. `place_result` (`parity place`) names a
+  result by connector and id and an image node by path; Parity sets the node's `src` (and `alt`, from the photo's title)
+  from main's own copy, as one undoable edit, and only once that's applied tells main. You asked how an agent sees a
+  photo without its link: through the preview each search saves, which MCP shows inline.
+- **The hub's `placed` runs the same steps for every connector** (your call): it records `connectors.placed`, counts the
+  placement as the source's usage, then calls the connector's own `placed`, which for Unsplash reports the photo to its
+  download endpoint. `picked` became `placed`. Telemetry carries the connector, kind and who placed it, never which
+  result or where.
+- **Usage counts once for each design.** A `PlacementLog` keeps them, a file in the app's data for now
+  (`connector-placements.json`, the latest 2,000), so placing the same photo in the same design again isn't reported
+  twice. A log that can't be read or written counts the placement as new, since a source's terms prefer being told twice
+  to not at all. Once Parity's service counts usage on the person's account, main passes the hub its store.
+- **Only photos go in designs.** Placing a Mobbin screen is refused: references are for looking at, as the proposal
+  says.
+- **The window places through `canvasHost.connectors.placed`,** with the result's connector and id and the design, and
+  main uses its own copy. Nothing in the window calls it yet, since there's no Place for photos.

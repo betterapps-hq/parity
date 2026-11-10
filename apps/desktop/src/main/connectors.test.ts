@@ -1,6 +1,13 @@
 import type { Connector, Fetch, FindKind, Found, RecentSearch, SearchRequest } from "@parity-app/connectors"
 import { describe, expect, it } from "vite-plus/test"
-import { type ConnectorHubOptions, createConnectorHub, type SearchService, type Searched } from "./connectors.ts"
+import {
+  type ConnectorHubOptions,
+  createConnectorHub,
+  type PlacedEvent,
+  type SearchService,
+  type Searched
+} from "./connectors.ts"
+import { type Placement, type PlacementLog } from "./placements.ts"
 import type { SearchHistory } from "./search-history.ts"
 
 function result(connector: string, id = "1"): Found {
@@ -34,7 +41,7 @@ function fakeConnector(id = "fake", finds: FindKind = "screens", filter?: string
       more: "exclude",
       auth: { type: "key", variable: `PARITY_${id.toUpperCase()}_KEY` }
     },
-    async picked(found) {
+    async placed(found) {
       picked.push(found)
     },
     async search(request, access) {
@@ -66,6 +73,23 @@ function memoryHistory(): SearchHistory & { kept: RecentSearch[] } {
 
 const fetch: Fetch = () => Promise.reject(new Error("no network in tests"))
 
+function memoryPlacements(): PlacementLog & { kept: Placement[] } {
+  const kept: Placement[] = []
+
+  return {
+    kept,
+    async add(placed) {
+      if (kept.some((each) => each.design === placed.design && each.id === placed.id)) {
+        return false
+      }
+
+      kept.push(placed)
+
+      return true
+    }
+  }
+}
+
 function hub(
   connector: Connector | Connector[],
   keys: Record<string, string> = {},
@@ -73,24 +97,28 @@ function hub(
 ) {
   const secrets: string[][] = []
   const searches: Searched[] = []
+  const placedEvents: PlacedEvent[] = []
   const history = memoryHistory()
+  const placements = memoryPlacements()
   let clock = 0
 
   const made = createConnectorHub({
     connectors: Array.isArray(connector) ? connector : [connector],
     keys,
     history,
+    placements,
     fetch,
     timeout: 1000,
     budget: 30,
     secrets: (values) => secrets.push(values),
     searched: (search) => searches.push(search),
+    placed: (placed) => placedEvents.push(placed),
     now: () => (clock += 5),
     date: () => 1000,
     ...more
   })
 
-  return { hub: made, secrets, searches, history }
+  return { hub: made, secrets, searches, history, placements, placedEvents }
 }
 
 const search: SearchRequest = { query: "login", kind: "screens" }
@@ -209,18 +237,42 @@ describe("createConnectorHub", () => {
     })
   })
 
-  it("reports only a use of a result it gave, from its own copy", async () => {
+  it("records a result placed in a design once, counts it, then tells the source, from its own copy", async () => {
     const { connector, picked } = fakeConnector()
-    const { hub: connectors } = hub(connector, { fake: "good" })
+    const { hub: connectors, placements, placedEvents } = hub(connector, { fake: "good" })
+    const home = { design: "D:/shop::home", from: "agent" as const }
 
-    await connectors.picked(result("fake", "never-found"))
+    await connectors.placed(result("fake", "never-found"), home)
     await connectors.search("fake", search, "window")
-    await connectors.picked({ ...result("fake"), title: "Changed by the window" })
+    await connectors.placed({ ...result("fake"), title: "Changed by the window" }, home)
+    await connectors.placed(result("fake"), home)
+    await connectors.placed(result("fake"), { design: "D:/shop::pricing", from: "window" })
+
+    expect(connectors.result("fake", "1")).toEqual(result("fake"))
+    expect(connectors.result("fake", "never-found")).toBeUndefined()
+    expect(picked).toEqual([result("fake"), result("fake")])
+    expect(placements.kept.map(({ design, from }) => [design, from])).toEqual([
+      ["D:/shop::home", "agent"],
+      ["D:/shop::pricing", "window"]
+    ])
+    expect(placedEvents).toEqual([
+      { connector: "fake", kind: "screens", from: "agent" },
+      { connector: "fake", kind: "screens", from: "window" }
+    ])
+  })
+
+  it("still tells the source when a placement can't be counted", async () => {
+    const { connector, picked } = fakeConnector()
+    const placements: PlacementLog = { add: () => Promise.reject(new Error("disk full")) }
+    const { hub: connectors } = hub(connector, { fake: "good" }, { placements })
+
+    await connectors.search("fake", search, "agent")
+    await connectors.placed(result("fake"), { design: "D:/shop::home", from: "agent" })
 
     expect(picked).toEqual([result("fake")])
   })
 
-  it("sends a search and a use to the service for a connector with no key here", async () => {
+  it("sends a search and a placement to the service for a connector with no key here", async () => {
     const { connector, keys, picked } = fakeConnector()
     const asked: string[] = []
 
@@ -231,8 +283,8 @@ describe("createConnectorHub", () => {
 
         return { found: [result(id)] }
       },
-      async picked(found) {
-        asked.push(`picked ${found.id}`)
+      async placed(found) {
+        asked.push(`placed ${found.id}`)
       }
     }
 
@@ -240,8 +292,8 @@ describe("createConnectorHub", () => {
 
     expect(connectors.states()[0]?.key).toBe("service")
     await connectors.search("fake", search, "window")
-    await connectors.picked(result("fake"))
+    await connectors.placed(result("fake"), { design: "D:/shop::home", from: "window" })
 
-    expect([asked, keys, picked]).toEqual([["search fake", "picked 1"], [], []])
+    expect([asked, keys, picked]).toEqual([["search fake", "placed 1"], [], []])
   })
 })

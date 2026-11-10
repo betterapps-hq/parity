@@ -11,6 +11,7 @@ import {
   type SearchRequest
 } from "@parity-app/connectors"
 import type { ConnectorState, KeySource } from "../shared/connectors.ts"
+import type { PlacementLog } from "./placements.ts"
 import type { SearchHistory } from "./search-history.ts"
 
 export interface ConnectorHubOptions {
@@ -25,6 +26,8 @@ export interface ConnectorHubOptions {
   service?: SearchService
   /** Where the person's recent searches are kept. */
   history: SearchHistory
+  /** Where placements are counted, as each source's usage. */
+  placements: PlacementLog
   /** How long a search may take before it's given up, in milliseconds. Deep searches take several seconds. */
   timeout: number
   /**
@@ -36,6 +39,8 @@ export interface ConnectorHubOptions {
   secrets(values: string[]): void
   /** How a search ended, for `connectors.searched`. */
   searched(search: Searched): void
+  /** A result placed in a design for the first time, for `connectors.placed`. */
+  placed(placed: PlacedEvent): void
   /** Milliseconds from a fixed point, to time searches and keep to the budget. */
   now(): number
   /** Milliseconds since the epoch, for when a recent search was run. */
@@ -51,7 +56,7 @@ export interface SearchService {
   /** The connectors it searches, by id. */
   connectors: readonly string[]
   search(connector: string, request: CheckedRequest): Promise<SearchAnswer>
-  picked(found: Found): Promise<void>
+  placed(found: Found): Promise<void>
 }
 
 /** Who asked for a search: the person in the window, or an agent through the service. */
@@ -69,6 +74,20 @@ export interface Searched {
   ms: number
 }
 
+/** A placement as `connectors.placed` records it: its connector, kind and who placed it, never what or where. */
+export interface PlacedEvent {
+  connector: string
+  kind: string
+  from: SearchedFrom
+}
+
+/** Where a result was placed, and who placed it. */
+export interface PlacedIn {
+  /** The design: its project's folder and the design's id. */
+  design: string
+  from: SearchedFrom
+}
+
 export interface ConnectorHub {
   states(): ConnectorState[]
   /** Runs a search on a connector with its key. Never throws: a failure is a problem in the answer. */
@@ -82,15 +101,21 @@ export interface ConnectorHub {
   /** The person's recent searches, newest first. */
   recent(): Promise<RecentSearch[]>
   /**
-   * Tells the source someone used a result, for a connector whose terms ask for it. Only a result this hub gave lately
-   * is reported, from its own copy, so nothing else can report uses in Parity's name.
+   * This hub's own copy of a result it gave lately, which is what gets placed: the window or an agent names a result,
+   * and its image and credit come from here. Undefined for one it didn't give, or gave too long ago.
    */
-  picked(found: Found): Promise<void>
+  result(connector: string, id: string): Found | undefined
+  /**
+   * A result went into a design. The first time it goes into that design, Parity records it, counts it as the source's
+   * usage, and then does what the connector asks, as telling Unsplash. Only a result this hub gave lately counts, so
+   * nothing can report uses in Parity's name. Never throws.
+   */
+  placed(found: Found, where: PlacedIn): Promise<void>
   /** Gives the keys' values to scrub from telemetry, as Parity starts, before anything is sent. */
   start(): void
 }
 
-/** How many results the hub remembers it gave, for `picked`. */
+/** How many results the hub remembers it gave, for `result` and `placed`. */
 const givenLimit = 500
 
 const minute = 60_000
@@ -240,18 +265,33 @@ export function createConnectorHub(options: ConnectorHubOptions): ConnectorHub {
       return search(chosen.info.id, request, from)
     },
     recent: () => options.history.list(),
-    async picked(used) {
+    result: (connector, id) => given.get(`${connector}:${id}`),
+    async placed(used, { design, from }) {
       const connector = byId.get(used.connector)
       const found = given.get(`${used.connector}:${used.id}`)
 
-      if (!connector?.picked || !found) {
+      if (!connector || !found) {
         return
       }
 
-      if (sourceOf(connector) === "service" && options.service) {
-        await options.service.picked(found)
-      } else {
-        await connector.picked(found, accessFor(connector))
+      const placement = { connector: found.connector, id: found.id, kind: found.kind, design, from, at: options.date() }
+      // A log that can't be written counts the placement as new, so a source is told rather than left out.
+      const fresh = await options.placements.add(placement).catch(() => true)
+
+      if (!fresh) {
+        return
+      }
+
+      options.placed({ connector: found.connector, kind: found.kind, from })
+
+      try {
+        if (sourceOf(connector) === "service" && options.service) {
+          await options.service.placed(found)
+        } else {
+          await connector.placed?.(found, accessFor(connector))
+        }
+      } catch {
+        // What a source asks for is its count, not something the person waits on.
       }
     },
     start() {

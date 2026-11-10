@@ -1,9 +1,8 @@
 import { createChannel, domPort, type Handlers, plainErrors } from "@parity-app/channel"
-import type { Found } from "@parity-app/connectors"
 import { contextBridge, ipcRenderer } from "electron"
 import type { SignInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
-import type { ConnectorSearch } from "../shared/connectors.ts"
+import type { ConnectorPlaced, ConnectorSearch } from "../shared/connectors.ts"
 import {
   type CanvasHost,
   type ConsoleChange,
@@ -112,8 +111,7 @@ type InvokeArgument =
   | OpenInEditorRequest
   | ProblemReportRequest
   | ConnectorSearch
-  | { connector: string; key: string }
-  | Found
+  | ConnectorPlaced
 
 /** What a window says before a console message: its level and the frame it comes from. */
 type ConsoleAnnouncement = { level: Parameters<CanvasHost["console"]["announce"]>[0] } & Parameters<
@@ -182,7 +180,7 @@ const host: CanvasHost = {
     get: () => invoke(ipc.connectorsState),
     search: (search) => invoke(ipc.connectorsSearch, search),
     recent: () => invoke(ipc.connectorsRecent),
-    picked: (found) => invoke<void>(ipc.connectorsPicked, found)
+    placed: (placed) => invoke<void>(ipc.connectorsPlaced, placed)
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))

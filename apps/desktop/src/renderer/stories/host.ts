@@ -288,7 +288,7 @@ const storyConnectors: CanvasHost["connectors"] = {
     return answer.success ? answer.data : noServer
   },
   recent: () => Promise.resolve(recentNow),
-  picked: () => Promise.resolve()
+  placed: () => Promise.resolve()
 }
 
 /** Puts the service and the system dialogs back as they were before any story changed them. */

@@ -280,6 +280,14 @@ export const requests = {
       .optional()
       .describe("Next page, for more.")
   }),
+  place: fields({
+    tab,
+    connector: text("connector", "The result's connector, as unsplash."),
+    id: text("id", "The result's id, from a search."),
+    node: text("node", 'The image node it goes in, by path, as "home/Hero/Photo".'),
+    prop: text("prop", "The prop that takes the image. Defaults to src.").optional(),
+    state: text("state", "State id, for a change that belongs to one state.").optional()
+  }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
     executeKind({ tab: execute.tab, label: execute.label, editId: execute.editId, edits: execute.edits })
@@ -738,7 +746,6 @@ const foundItem = z.looseObject({
   title: z.string().describe("The app's name, or what a photo shows."),
   platform: z.enum(["ios", "web"]).optional(),
   link: z.string().describe("Its page at the source."),
-  image: z.string().describe("The full image. Mobbin's load for 30 days."),
   width: z.int().optional(),
   height: z.int().optional(),
   credit: z
@@ -775,6 +782,18 @@ const foundReply = z.looseObject({
   done: z.boolean().optional().describe("True when more of a search was asked for and there's no more.")
 })
 
+/** What placing a result did: the node it went in and who to credit, or why it wasn't placed. */
+const placeReply = z.looseObject({
+  placed: z.boolean(),
+  node: z.string().optional(),
+  image: z.string().optional().describe("The image now in the node, from the source's own link."),
+  credit: z
+    .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
+    .optional()
+    .describe("Who to credit where the design shows it, in order: the photographer, then the source."),
+  problem: z.looseObject({ code: z.string(), message: z.string() }).optional()
+})
+
 /**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,
  * which calls are routed by (PAR-514): its tabs, and when its window last had focus, missing from a copy too old to
@@ -797,7 +816,8 @@ export const replies = {
   props: propsReply,
   report: reportReply,
   references: foundReply,
-  photos: foundReply
+  photos: foundReply,
+  place: placeReply
 }
 
 /**

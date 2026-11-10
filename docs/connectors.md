@@ -12,11 +12,12 @@ how one is built and what adding the next one takes. What was decided, and why, 
 ├── recent.ts                 a recent search, and how one joins the list: remember
 ├── request.ts                what every adapter shares: prepare, sendSearch, notify, refusal
 ├── mobbin.ts                 Mobbin's REST API: screens, by platform and depth, paged by exclude
-├── unsplash.ts               Unsplash's API: photos, by orientation and color, paged by page, with picked
+├── unsplash.ts               Unsplash's API: photos, by orientation and color, paged by page, with placed
 └── index.ts                  `connectors`, the list main runs, and the key variables
 
 apps/desktop
-├── main/connectors.ts        the hub: keys, every search checked and budgeted, find, recent, picked, a service
+├── main/connectors.ts        the hub: keys, every search checked and budgeted, find, recent, placed, a service
+├── main/placements.ts        placements counted as each source's usage, in <userData>/connector-placements.json
 ├── main/search-history.ts    the person's recent searches, in <userData>/recent-searches.json for now
 ├── shared/connectors.ts      what the window sees and sends, checked with zod
 ├── utility/references.ts     agents' searches for screens and photos, through main, with previews saved
@@ -38,9 +39,14 @@ apps/desktop
 - **Recent searches go through a `SearchHistory`.** The hub adds each search that works in the window, never an agent's,
   with every filter it ran with, and `remember` keeps each connector's latest five. `localHistory` keeps them in a file
   for now; once Parity's service keeps them on the person's account, main passes the hub one that asks it.
-- **Uses are reported by Parity, not by whoever used the result.** `picked` sends only a result the hub gave lately,
-  from its own copy. Agents get no call for it, since one could skip it: the plan is for Parity to report an Unsplash
-  photo when it's placed in a design, by a person or an agent. Nothing places photos yet.
+- **Placing a result is Parity's own step, so Parity reports it.** Searches give previews and ids, never an image link
+  to paste. An agent puts a photo in a design with `place_result` (`parity place`), which sets an image node from main's
+  own copy of the result as one undoable edit; the window's Place calls `canvasHost.connectors.placed`. Either way the
+  hub's `placed` runs once the result is in the design, and only for a result it gave lately:
+  1. records `connectors.placed`, for every connector;
+  2. counts it in a `PlacementLog` as the source's usage, once for each design, which the account's store will replace;
+  3. calls the connector's own `placed`, if it has one: Unsplash's reports the photo to its download endpoint. Screens
+     from Mobbin are for looking at, so placing one in a design is refused.
 - **Filters are data.** Each connector lists its filters in `info.filters`, with their values and defaults: Mobbin's
   platform and depth, Unsplash's orientation and color. A search sends `filters: { platform: "ios" }`, `checkRequest`
   refuses a filter or value the connector doesn't list and fills in defaults, and the window can draw the controls from
@@ -60,13 +66,14 @@ apps/desktop
 ## Adding a connector
 
 1. **Write the adapter** in `packages/connectors/src/<id>.ts`: its `info` (what it finds, which filters it takes, its
-   limits, how it pages, and its `auth`: none, or a key and its variable), `search`, and `picked` when the source's
-   terms ask to be told of each use. Its filters go in `info.filters`, each with the source's own values, so the adapter
-   can send them as they come. `search` starts with `prepare`, which refuses a filter the connector doesn't take and
-   says when there's no key, then sends with `sendSearch`, which turns a failed, slow or unreadable answer into a
-   problem and reads how many searches are left. What's left is the adapter's own: its URL and request, its answer's
-   schema, mapping a result to `Found`, and what each of the source's failures means, in words a person or agent can act
-   on, never advice about the key, which only the app's owner can change. Test them with a stand-in `fetch`.
+   limits, how it pages, and its `auth`: none, or a key and its variable), `search`, and `placed` when the source's
+   terms ask for something when one of its results goes into a design. Its filters go in `info.filters`, each with the
+   source's own values, so the adapter can send them as they come. `search` starts with `prepare`, which refuses a
+   filter the connector doesn't take and says when there's no key, then sends with `sendSearch`, which turns a failed,
+   slow or unreadable answer into a problem and reads how many searches are left. What's left is the adapter's own: its
+   URL and request, its answer's schema, mapping a result to `Found`, and what each of the source's failures means, in
+   words a person or agent can act on, never advice about the key, which only the app's owner can change. Test them with
+   a stand-in `fetch`.
 2. **Add it to `connectors`** in `packages/connectors/src/index.ts`. Main, `pnpm dev`, the window's list, recent
    searches and agents' search for its kind pick it up from there. A filter agents should know by name goes on its
    kind's contract in `packages/agent`, as an optional field named by the filter's id. A kind no agent call finds yet
@@ -100,9 +107,11 @@ What a review of the pattern found next, and what changed:
 - **One search shape per kind.** The agent contracts had Mobbin's and Unsplash's filters with their defaults, so a
   second screens source got `invalid`. Now the contracts leave defaults to the connector, and main routes by filter.
 - **Check before routing.** Main checked a search only in the adapter, after choosing a connector and recording it.
-- **Budget, and picks only of results given,** so nothing in the window or an agent's loop can spend a source's
+- **Budget, and placements only of results given,** so nothing in the window or an agent's loop can spend a source's
   allowance or report uses Parity didn't have.
 - **Recent searches** go through one interface, so the account's store can replace the file.
 
-Still open: reporting an Unsplash photo when it's placed in a design. Nothing places photos yet; when something does,
-Parity reports it through `picked` as the photo is written, whoever placed it.
+- **Placing is a step of its own.** `picked` became `placed`, called by the hub after it records and counts a placement,
+  and agents place with `place_result` instead of pasting an image link, so a use is reported because Parity made it.
+
+Still open: the window has no Place for photos yet, so only agents place them today.

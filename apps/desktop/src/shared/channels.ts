@@ -67,6 +67,6 @@ export const ipc = {
   connectorsSearch: "canvas:connectors-search",
   /** The person's recent searches, which main keeps. */
   connectorsRecent: "canvas:connectors-recent",
-  /** The window tells main a result was used, for a source whose terms ask to be told, as Unsplash's do. */
-  connectorsPicked: "canvas:connectors-picked"
+  /** The window tells main the person placed a result in a design, which main records and tells the source of. */
+  connectorsPlaced: "canvas:connectors-placed"
 } as const

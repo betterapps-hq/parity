@@ -13,7 +13,7 @@ import { notify, prepare, refusal, sendSearch } from "./request.ts"
 /*
  * Unsplash's API (unsplash.com/documentation), with an app's Access Key and its public scope only. Its terms ask three
  * things of an app (decisions.md, "Unsplash is the first stock source"): photos load from Unsplash's own links, each one
- * someone uses is reported to its download endpoint, which `picked` does, and every photo credits its photographer and
+ * someone uses is reported to its download endpoint, which `placed` does, and every photo credits its photographer and
  * Unsplash, linked with Parity's referral. A new app gets 50 requests an hour until Unsplash approves it for production.
  */
 
@@ -96,7 +96,7 @@ export const unsplash: Connector = {
     auth: { type: "key", variable: "PARITY_UNSPLASH_ACCESS_KEY" }
   },
   search: searchUnsplash,
-  picked: tellUnsplash
+  placed: tellUnsplash
 }
 
 async function searchUnsplash(request: SearchRequest, access: Access): Promise<SearchAnswer> {
@@ -129,7 +129,7 @@ async function searchUnsplash(request: SearchRequest, access: Access): Promise<S
   })
 }
 
-/** Reports a photo someone used to Unsplash's download endpoint, as its terms ask. A failure is let go. */
+/** Reports a photo placed in a design to Unsplash's download endpoint, as its terms ask. A failure is let go. */
 async function tellUnsplash(found: Found, access: Access): Promise<void> {
   if (access.key) {
     await notify(access, `${api}/photos/${encodeURIComponent(found.id)}/download`, { headers: headers(access.key) })

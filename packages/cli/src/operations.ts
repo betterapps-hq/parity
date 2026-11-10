@@ -201,7 +201,9 @@ export const operations = {
   // A report goes to a running copy even with no project open, as long as it names no tab.
   report: withTestRun(operation("report", { routing: "tab-or-any" })),
   references: operation("references", finding),
-  photos: operation("photos", finding)
+  photos: operation("photos", finding),
+  // Placing edits a design, so it goes to the copy with the tab, and a result that wasn't placed exits with 1.
+  place: operation("place", { failed: (result) => !result.placed })
 }
 
 /**

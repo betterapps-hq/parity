@@ -92,7 +92,6 @@ describe("searchReferences", () => {
         title: "Calm",
         platform: "ios",
         link: calm.link,
-        image: calm.image.url,
         width: 390,
         height: 844,
         credit: calm.credit,

@@ -8,6 +8,7 @@ import {
   type ProblemsResponse,
   type PropsResponse,
   type FindResponse,
+  type PlaceResponse,
   type ReportResponse,
   type StatusResponse,
   describeAccessibility,
@@ -18,6 +19,7 @@ import {
   describeProblems,
   describeProps,
   describePhotos,
+  describePlace,
   describeReferences,
   describeReport,
   describeStatus,
@@ -128,12 +130,18 @@ const calm = {
   title: "Calm",
   platform: "ios" as const,
   link: "https://mobbin.com/screens/1b9d6bcd",
-  image: "https://images.mobbin.com/calm.webp",
   credit: [{ name: "Calm" }, { name: "Mobbin", url: "https://mobbin.com/screens/1b9d6bcd" }],
   preview: { path: "/references/calm.webp", mimeType: "image/webp" as const }
 }
 
 const references: FindResponse = { found: [calm] }
+
+const placed: PlaceResponse = {
+  placed: true,
+  node: "home/Hero/Photo",
+  image: "https://images.unsplash.com/photo-1",
+  credit: [{ name: "Ada Park" }, { name: "Unsplash" }]
+}
 
 const photos: FindResponse = {
   found: [
@@ -143,7 +151,6 @@ const photos: FindResponse = {
       source: "Unsplash",
       title: "white desk",
       link: "https://unsplash.com/photos/Dwu85P9SOIk",
-      image: "https://images.unsplash.com/photo-1",
       credit: [{ name: "Ada Park" }, { name: "Unsplash" }]
     }
   ],
@@ -348,6 +355,17 @@ const cases: Case[] = [
     result: photos,
     structured: photos,
     text: describePhotos(photos)
+  },
+  {
+    name: "place",
+    cli: ["place", "unsplash", "Dwu85P9SOIk", "home/Hero/Photo"],
+    tool: "place_result",
+    method: "place",
+    input: { connector: "unsplash", id: "Dwu85P9SOIk", node: "home/Hero/Photo" },
+    params: { connector: "unsplash", id: "Dwu85P9SOIk", node: "home/Hero/Photo" },
+    result: placed,
+    structured: placed,
+    text: describePlace(placed)
   }
 ]
 
@@ -992,8 +1010,8 @@ describe("remaining transport contracts", processTests, () => {
     const tools = toolReply(protocol.stdout)?.result?.tools
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
     // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos, 16.1 KB with a
-    // connector to name on each.
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(16.5 * 1024)
+    // connector to name on each, 17.2 KB with place_result.
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(17.5 * 1024)
   })
 
   it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {
@@ -1037,8 +1055,7 @@ describe("remaining transport contracts", processTests, () => {
       "1 screen from Mobbin:",
       "1. Calm (ios) https://mobbin.com/screens/1b9d6bcd",
       "   by Calm",
-      "   id 1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
-      "   image https://images.mobbin.com/calm.webp",
+      "   mobbin 1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
       "   preview /references/calm.webp",
       "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and the source."
     ])
@@ -1049,11 +1066,20 @@ describe("remaining transport contracts", processTests, () => {
       "1 photo from Unsplash:",
       "1. white desk https://unsplash.com/photos/Dwu85P9SOIk",
       "   by Ada Park",
-      "   id Dwu85P9SOIk",
-      "   image https://images.unsplash.com/photo-1",
+      "   unsplash Dwu85P9SOIk",
       "   no preview: open the link",
       "Unsplash allows 49 more searches for now.",
-      "Use a photo by its image URL, and credit the photographer and the source where the design shows it."
+      'Place one in an image node with place_result (parity place <connector> <id> "<node>"), then credit the photographer and the source where the design shows it.'
     ])
+  })
+
+  it("says where a photo was placed and who to credit, or why it wasn't", () => {
+    expect(describePlace(placed).split("\n")).toEqual([
+      "Placed in home/Hero/Photo.",
+      "Credit Ada Park, then Unsplash where the design shows it."
+    ])
+    expect(describePlace({ placed: false, problem: { code: "invalid", message: "Search again." } })).toBe(
+      "Search again."
+    )
   })
 })

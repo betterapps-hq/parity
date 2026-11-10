@@ -8,7 +8,7 @@ import type {
 import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
 import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
-import type { Found, RecentSearch, SearchAnswer } from "@parity-app/connectors"
+import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type {
   CanvasDocument,
   ChangeConflict,
@@ -30,7 +30,7 @@ import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-ap
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
-import type { ConnectorSearch, ConnectorState } from "./connectors.ts"
+import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
 
 /**
@@ -458,10 +458,10 @@ export interface CanvasHost {
     /** The person's recent searches, newest first. */
     recent: () => Promise<RecentSearch[]>
     /**
-     * Tells the source a result was used, as when a photo is placed, for a source whose terms ask for it. Call it once
-     * per use; it never fails.
+     * Says the person placed a result in a design. Main records it the first time it goes into that design, counts it
+     * as the source's usage, and tells the source if its terms ask. Call it whenever one is placed; it never fails.
      */
-    picked: (found: Found) => Promise<void>
+    placed: (placed: ConnectorPlaced) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string

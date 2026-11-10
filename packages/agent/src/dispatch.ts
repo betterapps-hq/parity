@@ -16,6 +16,7 @@ import type {
   FrameRequest,
   FrameResult,
   IconNames,
+  PlaceableResult,
   PresenceEvent,
   ReportSent,
   Screenshot,
@@ -70,6 +71,10 @@ export interface AgentHost {
   references(request: Params<"references">): Promise<Answer<"references">>
   /** Searches for stock photos (Unsplash's) the same way. */
   photos(request: Params<"photos">): Promise<Answer<"photos">>
+  /** Main's own copy of a result it found lately, which placing puts in a design. Undefined for one it didn't find. */
+  result(connector: string, id: string): Promise<PlaceableResult | undefined>
+  /** Tells main a result went into a design, which main records, counts and tells the source of. */
+  placed(placed: { connector: string; id: string; design: string }): Promise<void>
 }
 
 /** Who's calling, when the CLI or MCP knows: its name for people, and an id that tells same-named callers apart. */
@@ -208,7 +213,8 @@ const methods: MethodTable = {
   },
   report: (params, { host }) => report(host, params),
   references: (params, { host }) => host.references(params),
-  photos: (params, { host }) => host.photos(params)
+  photos: (params, { host }) => host.photos(params),
+  place: (params, call) => place(call.host, call.presence, params)
 }
 
 /** Each method's params schema. `copy` takes none, as `tabs` doesn't. */
@@ -379,6 +385,49 @@ function renderFor(host: AgentHost, snapshot: TabSnapshot): AgentHooks["render"]
   return (request) => host.render(snapshot, request)
 }
 
+/**
+ * Places a result a connector found in a design (PAR-829): the image from main's own copy goes in the node's prop as
+ * one undoable edit, and only once it's applied is main told, which records it and tells the source. So a placement
+ * is reported because Parity made it, not because an agent said so. Only photos go in designs; screens from real apps
+ * are for looking at.
+ */
+async function place(host: AgentHost, presence: Call["presence"], request: Params<"place">): Promise<Answer<"place">> {
+  const { connector, id, node, prop = "src", state } = request
+  const found = await host.result(connector, id)
+
+  if (!found) {
+    return refused(`Parity hasn't found ${connector} ${id} lately. Search again, then place one of its results.`)
+  }
+
+  if (found.kind !== "photos") {
+    return refused(`${found.credit.at(-1)?.name ?? connector}'s ${found.kind} are for looking at, not for designs.`)
+  }
+
+  const snapshot = await host.snapshot(request.tab)
+  const props = prop === "src" ? { src: found.image.url, alt: found.title } : { [prop]: found.image.url }
+  const options = state ? `, ${JSON.stringify({ state })}` : ""
+
+  // The snippet is Parity's own, so a failure has nothing for the agent to retry by editId.
+  const { editId: _editId, ...result } = await execIn(host, presence, snapshot, {
+    label: `Place ${found.title}`,
+    code: `Update(${JSON.stringify(node)}, ${JSON.stringify({ props })}${options})`
+  })
+
+  const design = result.changes.designs[0]?.id
+
+  if (!result.applied || !design) {
+    return refused(result.error ?? `Nothing changed at ${node}, so nothing was placed.`)
+  }
+
+  await host.placed({ connector, id, design: `${snapshot.tab.root}::${design}` })
+
+  return { placed: true, node, image: found.image.url, credit: found.credit }
+}
+
+function refused(message: string): Answer<"place"> {
+  return { placed: false, problem: { code: "invalid", message } }
+}
+
 /** Runs a snippet in a tab, applies what it changed there, and keeps its screenshots as files. */
 async function exec(
   host: AgentHost,
@@ -386,7 +435,18 @@ async function exec(
   tab: string | undefined,
   request: ExecRequest
 ): Promise<Answer<"exec">> {
-  const snapshot = await host.snapshot(tab)
+  // What changed is for the editor and for placing, not the agent's answer.
+  const { changes: _changes, ...answer } = await execIn(host, presence, await host.snapshot(tab), request)
+
+  return answer
+}
+
+async function execIn(
+  host: AgentHost,
+  presence: Call["presence"],
+  snapshot: TabSnapshot,
+  request: ExecRequest
+): Promise<Answer<"exec"> & { changes: AgentChangeSet }> {
   const tabId = snapshot.tab.id
   const label = request.label || "Agent edit"
 
@@ -418,6 +478,7 @@ async function exec(
 
   return {
     ...rest,
+    changes,
     applied: result.ok && hasChanges,
     screenshots: screenshots.map((shot, index) => ({
       path: paths[index] ?? "",

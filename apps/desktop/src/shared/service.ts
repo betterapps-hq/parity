@@ -1,6 +1,6 @@
 import type { AgentReport, ReportSent } from "@parity-app/agent"
-import type { SearchAnswer } from "@parity-app/connectors"
-import type { ConnectorFind } from "./connectors.ts"
+import type { Found, SearchAnswer } from "@parity-app/connectors"
+import type { ConnectorFind, ConnectorPlaced } from "./connectors.ts"
 import type { ConsoleEntry, RenderedFrame, RenderJob } from "./protocol.ts"
 
 /** Messages from the main process to the project service that aren't requests: a window's port to the service. */
@@ -46,6 +46,13 @@ export interface MainMethods {
    * has a key (PAR-829). Main holds the keys, so every search runs there.
    */
   connectorFind: { params: ConnectorFind; result: SearchAnswer }
+  /**
+   * Main's own copy of a result it gave lately, which an agent's `place_result` puts in a design: null for one it didn't
+   * give, or gave too long ago.
+   */
+  connectorResult: { params: { connector: string; id: string }; result: Found | null }
+  /** An agent placed a result in a design, which main records and tells the source of. */
+  connectorPlaced: { params: ConnectorPlaced; result: undefined }
   /**
    * An event or span the service or its worker recorded, for the local copy and Sentry (PAR-627). Main checks it, since
    * it's sent as data.

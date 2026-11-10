@@ -27,25 +27,26 @@ The same tools are MCP tools and `parity` commands in a terminal. They act on a 
 the active tab of the Parity window they used last. When the person says "this" or "what I've selected" without naming a
 project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the selection.
 
-| MCP                   | CLI                            | What it does                                                                                                                                                                        |
-| --------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get_app_state`       | `parity state`                 | Designs, the selection, modes (the primary one marked), components and token names, and what Parity detected (builder and config, package manager, installed versions). Start here. |
-| `get_status`          | `parity status`                | The revision, whether anything is unsaved and which files and tokens, the last save, and undo and redo; `summary` names them.                                                       |
-| `get_modes`           | `parity modes [design]`        | Viewports (the ids `Responsive` takes), modes (the ids renders take) and what each design shows; a design adds its frames.                                                          |
-| `execute`             | `parity exec`                  | Runs a JavaScript snippet against the designs. Its changes land as one undo step, merged per design with edits made meanwhile.                                                      |
-| `screenshot`          | `parity screenshot <design>`   | Renders a design in its states and modes, offscreen, and returns the images.                                                                                                        |
-| `find_problems`       | `parity problems <design>`     | Render errors, overflow, clipping and unknown components, per frame.                                                                                                                |
-| `check_accessibility` | `parity a11y <design>`         | axe-core against WCAG 2.2 AA, per frame, on the layers that break each rule.                                                                                                        |
-| `get_console`         | `parity console`               | What the project's own code wrote to the console, on the canvas and offscreen.                                                                                                      |
-| `get_tokens`          | `parity tokens`                | Tokens filtered by category, source or name, with values in every theme.                                                                                                            |
-| `get_components`      | `parity components`            | Components, libraries, icon sets and exports left out or failing to render.                                                                                                         |
-| `get_props`           | `parity props <Component>`     | Props from source, then what it goes inside and holds, its slots and an example to insert; `all` adds passed-through attributes.                                                    |
-| `get_tabs`            | `parity tabs`                  | The open projects.                                                                                                                                                                  |
-| `open_project`        | `parity open <folder>`         | Opens a project in a new tab.                                                                                                                                                       |
-| `find_references`     | `parity references "<screen>"` | Screens from real apps on Mobbin, with previews to look at, when this copy of Parity can search Mobbin.                                                                             |
-| `find_photos`         | `parity photos "<subject>"`    | Stock photos from Unsplash, with previews to look at. Use one by its image URL, and credit the photographer and Unsplash where the design shows it.                                 |
-| `report_problem`      | `parity report "<problem>"`    | Reports a problem in Parity itself to its developers, with the window's screenshot and replay and the design's frames; returns the link.                                            |
-| `read_skill`          | `parity skill [file]`          | This skill.                                                                                                                                                                         |
+| MCP                   | CLI                                      | What it does                                                                                                                                                                        |
+| --------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_app_state`       | `parity state`                           | Designs, the selection, modes (the primary one marked), components and token names, and what Parity detected (builder and config, package manager, installed versions). Start here. |
+| `get_status`          | `parity status`                          | The revision, whether anything is unsaved and which files and tokens, the last save, and undo and redo; `summary` names them.                                                       |
+| `get_modes`           | `parity modes [design]`                  | Viewports (the ids `Responsive` takes), modes (the ids renders take) and what each design shows; a design adds its frames.                                                          |
+| `execute`             | `parity exec`                            | Runs a JavaScript snippet against the designs. Its changes land as one undo step, merged per design with edits made meanwhile.                                                      |
+| `screenshot`          | `parity screenshot <design>`             | Renders a design in its states and modes, offscreen, and returns the images.                                                                                                        |
+| `find_problems`       | `parity problems <design>`               | Render errors, overflow, clipping and unknown components, per frame.                                                                                                                |
+| `check_accessibility` | `parity a11y <design>`                   | axe-core against WCAG 2.2 AA, per frame, on the layers that break each rule.                                                                                                        |
+| `get_console`         | `parity console`                         | What the project's own code wrote to the console, on the canvas and offscreen.                                                                                                      |
+| `get_tokens`          | `parity tokens`                          | Tokens filtered by category, source or name, with values in every theme.                                                                                                            |
+| `get_components`      | `parity components`                      | Components, libraries, icon sets and exports left out or failing to render.                                                                                                         |
+| `get_props`           | `parity props <Component>`               | Props from source, then what it goes inside and holds, its slots and an example to insert; `all` adds passed-through attributes.                                                    |
+| `get_tabs`            | `parity tabs`                            | The open projects.                                                                                                                                                                  |
+| `open_project`        | `parity open <folder>`                   | Opens a project in a new tab.                                                                                                                                                       |
+| `find_references`     | `parity references "<screen>"`           | Screens from real apps on Mobbin, with previews to look at, when this copy of Parity can search Mobbin.                                                                             |
+| `find_photos`         | `parity photos "<subject>"`              | Stock photos from Unsplash, with previews to look at.                                                                                                                               |
+| `place_result`        | `parity place <connector> <id> "<node>"` | Puts a photo a search found into an image node as one undoable edit. Credit the photographer and Unsplash where the design shows it.                                                |
+| `report_problem`      | `parity report "<problem>"`              | Reports a problem in Parity itself to its developers, with the window's screenshot and replay and the design's frames; returns the link.                                            |
+| `read_skill`          | `parity skill [file]`                    | This skill.                                                                                                                                                                         |
 
 The token, component and prop tools read what designs can use without writing a snippet in either transport.
 `parity components` also says which file each of the project's own components is written in, which of the app's exports
@@ -95,7 +96,9 @@ keeping the designs there, so ask before running that in someone's project.
 2. **See how real apps do it,** for a common screen such as onboarding, a paywall, settings or a checkout:
    `find_references` with one screen per search, its type and up to three parts it shows ("paywall with a free trial").
    Follow the patterns you see with the project's own components and tokens, never an app's layout, text or branding,
-   and say which apps you drew on. If it says there's no Mobbin key, carry on without it.
+   and say which apps you drew on. If it says there's no Mobbin key, carry on without it. For a real photo, look at
+   `find_photos` previews and put the one you choose in an image node with `place_result`; searches give no image link
+   to paste.
 3. **Look before you change.** Read the design with `Get("design-id", { depth: 3 })` in `execute`, and take a screenshot
    of what's there. Find the components you need with `Components()` and their props with `Props()`.
 4. **Change it in one snippet.** Build or edit the design with `Insert`, `Update`, `Replace`, `Move` and the rest. A

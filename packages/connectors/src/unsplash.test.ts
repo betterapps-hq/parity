@@ -139,7 +139,7 @@ describe("unsplash", () => {
     expect(sent).toHaveLength(0)
   })
 
-  it("reports a photo someone used to its download endpoint, and lets a failure go", async () => {
+  it("reports a placed photo to its download endpoint, and lets a failure go", async () => {
     const { fetch, sent } = answering(200, { url: "https://images.unsplash.com/photo-1" })
 
     const found: Found = {
@@ -152,8 +152,8 @@ describe("unsplash", () => {
       credit: []
     }
 
-    await unsplash.picked?.(found, { fetch, key: "k" })
-    await unsplash.picked?.(found, { fetch: () => Promise.reject(new Error("offline")), key: "k" })
+    await unsplash.placed?.(found, { fetch, key: "k" })
+    await unsplash.placed?.(found, { fetch: () => Promise.reject(new Error("offline")), key: "k" })
 
     expect(sent.map(({ url }) => url)).toEqual(["https://api.unsplash.com/photos/Dwu85P9SOIk/download"])
     expect(new Headers(sent[0]?.init.headers).get("authorization")).toBe("Client-ID k")

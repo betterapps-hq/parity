@@ -5,7 +5,7 @@ import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
-import { connectors, found, keysFromEnvironment, keyVariable, withoutKeys } from "@parity-app/connectors"
+import { connectors, keysFromEnvironment, keyVariable, withoutKeys } from "@parity-app/connectors"
 import {
   CodedError,
   drawsNothing,
@@ -40,7 +40,7 @@ import {
 import { type AccountState, accountEmail, organizationId, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
-import { connectorFind, connectorSearch } from "../shared/connectors.ts"
+import { connectorFind, connectorPlaced, connectorSearch } from "../shared/connectors.ts"
 import {
   betaSetting,
   checked,
@@ -81,6 +81,7 @@ import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
 import { launchLink, passLink } from "./pass-link.ts"
+import { localPlacements } from "./placements.ts"
 import { privateMemory } from "./private-memory.ts"
 import { auditResult, canvasHeightResult, PageError, pageAnswer, pageCall, renderResult } from "./render-results.ts"
 import { createReports, offersCrashReports } from "./report.ts"
@@ -324,6 +325,18 @@ function startService(): UtilityProcess {
         const { connector, request } = parseData(connectorFind, params)
 
         return connectorHub.find(request, "agent", connector)
+      },
+      connectorResult: ({ connector, id }) => connectorHub.result(connector, id) ?? null,
+      // Reporting a placement is the source's count, not something the agent waits on.
+      connectorPlaced: (params) => {
+        const { connector, id, design } = parseData(connectorPlaced, params)
+        const placed = connectorHub.result(connector, id)
+
+        if (placed) {
+          void connectorHub.placed(placed, { design, from: "agent" })
+        }
+
+        return undefined
       },
       signInLink: ({ link }) => {
         const taken = account.owns(link)
@@ -788,6 +801,7 @@ const connectorHub = createConnectorHub({
   connectors,
   keys: connectorKeys,
   history: localHistory(join(app.getPath("userData"), "recent-searches.json")),
+  placements: localPlacements(join(app.getPath("userData"), "connector-placements.json")),
   fetch: (url, init) => net.fetch(url, init),
   timeout: 30_000,
   // Mobbin allows 60 a minute for everyone sharing the key; this keeps one copy's runaway loop to half that.
@@ -797,6 +811,7 @@ const connectorHub = createConnectorHub({
     scrubber.use([...projectSecrets, ...connectorSecrets])
   },
   searched: (search) => events.telemetry.track("connectors.searched", search),
+  placed: (placed) => events.telemetry.track("connectors.placed", placed),
   now: () => performance.now(),
   date: () => Date.now()
 })
@@ -828,12 +843,15 @@ handle("connectorsRecent", (event) => {
 })
 
 handle(
-  "connectorsPicked",
-  checked(found, (event: Electron.IpcMainInvokeEvent, used) => {
+  "connectorsPlaced",
+  checked(connectorPlaced, (event: Electron.IpcMainInvokeEvent, { connector, id, design }) => {
     appWindowOf(event, connectorRefusal)
+    const placed = connectorHub.result(connector, id)
 
-    // Reporting a use is the source's count, not something the person waits on.
-    void connectorHub.picked(used).catch(() => undefined)
+    // Reporting a placement is the source's count, not something the person waits on.
+    if (placed) {
+      void connectorHub.placed(placed, { design, from: "window" })
+    }
   })
 )
 

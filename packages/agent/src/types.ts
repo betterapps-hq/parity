@@ -346,6 +346,17 @@ export interface AgentHooks {
   supports?(queries: { property: string; value: string }[]): Promise<boolean[]>
 }
 
+/**
+ * A result a connector found, as placing takes it from main's own copy (PAR-829): what kind it is, its image and who to
+ * credit. The agent names it by connector and id, so what goes in a design is what the source gave.
+ */
+export interface PlaceableResult {
+  kind: string
+  title: string
+  image: { url: string }
+  credit: { name: string; url?: string }[]
+}
+
 /** What a call changed: each design it touched with how it found it, the modes when it set them, and token values. */
 export interface AgentChangeSet {
   designs: DesignChange[]

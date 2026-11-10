@@ -27,6 +27,19 @@ export const connectorSearch = z.strictObject({ connector: connectorId, request:
 
 export type ConnectorSearch = z.infer<typeof connectorSearch>
 
+/**
+ * A result someone placed in a design, named by its connector and id: main uses its own copy of the result, so what
+ * gets reported is what it found.
+ */
+export const connectorPlaced = z.strictObject({
+  connector: connectorId,
+  id: z.string().min(1),
+  /** The design it went into: its project's folder and the design's id. */
+  design: z.string().min(1)
+})
+
+export type ConnectorPlaced = z.infer<typeof connectorPlaced>
+
 /** An agent's search by what it needs, from the connector it names or whichever finds the kind. */
 export const connectorFind = z.strictObject({ connector: connectorId.optional(), request: searchRequest })
 

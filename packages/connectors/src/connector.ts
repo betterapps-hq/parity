@@ -256,10 +256,11 @@ export interface Connector {
   /** Searches the source. Never throws: a failure is a problem in the answer. */
   search(request: SearchRequest, access: Access): Promise<SearchAnswer>
   /**
-   * Tells the source someone picked a result, for a source whose terms ask for it, as Unsplash's do for each photo
-   * used. Never throws.
+   * What the source asks for when one of its results is placed in a design, for a source whose terms ask for
+   * something, as Unsplash's ask to be told of each photo used. Parity calls it once a result is in a design, whoever
+   * put it there, after recording the placement itself. Never throws.
    */
-  picked?(found: Found, access: Access): Promise<void>
+  placed?(found: Found, access: Access): Promise<void>
 }
 
 /** A search checked against its connector, with its limit and each filter's default filled in. */

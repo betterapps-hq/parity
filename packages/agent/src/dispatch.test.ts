@@ -4,7 +4,15 @@ import type { z } from "zod"
 import type { requests } from "./contracts.ts"
 import { type AgentMethod, replies } from "./contracts.ts"
 import { type AgentHost, type Answer, answerRequest, dispatch, exportPictures } from "./dispatch.ts"
-import type { AgentChangeSet, AgentReport, FrameRequest, FrameResult, PresenceEvent, TabSnapshot } from "./types.ts"
+import type {
+  AgentChangeSet,
+  AgentReport,
+  FrameRequest,
+  FrameResult,
+  PlaceableResult,
+  PresenceEvent,
+  TabSnapshot
+} from "./types.ts"
 
 /** A tab with one screen, Sign up, holding a title and a Button, in the default modes. */
 function snapshot(): TabSnapshot {
@@ -78,6 +86,15 @@ interface Asked {
   console: boolean[]
   reports: AgentReport[]
   references: Answer<"references">[]
+  placed: { connector: string; id: string; design: string }[]
+}
+
+/** A photo main found lately, as placing takes it. */
+const desk: PlaceableResult = {
+  kind: "photos",
+  title: "white desk",
+  image: { url: "https://images.unsplash.com/photo-1" },
+  credit: [{ name: "Ada Park" }, { name: "Unsplash" }]
 }
 
 /** The tests' host: the fixture tab, frames drawn as data, and everything asked of it kept to look at. */
@@ -92,7 +109,8 @@ function fixtureHost() {
     saved: 0,
     console: [],
     reports: [],
-    references: []
+    references: [],
+    placed: []
   }
 
   const host: AgentHost = {
@@ -184,7 +202,11 @@ function fixtureHost() {
 
       return answer
     },
-    photos: async () => ({ found: [] })
+    photos: async () => ({ found: [] }),
+    result: async (connector, id) => (connector === "unsplash" && id === "desk" ? desk : undefined),
+    placed: async (placed) => {
+      asked.placed.push(placed)
+    }
   }
 
   return { host, asked, tab }
@@ -227,7 +249,8 @@ describe("dispatch", () => {
       ["exec", { label: "Read", code: "Print(Designs().length)" }],
       ["report", { message: "The title is cut off" }],
       ["references", { query: "paywall with a free trial" }],
-      ["photos", { query: "desk by a window" }]
+      ["photos", { query: "desk by a window" }],
+      ["place", { connector: "unsplash", id: "desk", node: "signup/Submit" }]
     ]
 
     const answered: string[] = []
@@ -498,6 +521,51 @@ describe("exportPictures", () => {
     const { host, tab } = fixtureHost()
     const { files } = await exportPictures(host, tab, ["signup"], 2)
     expect(files).toEqual([{ name: "Sign up@2x.png", png: "iVBOR" }])
+  })
+})
+
+describe("place", () => {
+  it("puts main's copy of a photo in the node as one edit, then tells main where it went", async () => {
+    const { host, asked } = fixtureHost()
+
+    const answer = await dispatch("place", { connector: "unsplash", id: "desk", node: "signup/Submit" }, host, caller)
+
+    expect(answer).toEqual({ placed: true, node: "signup/Submit", image: desk.image.url, credit: desk.credit })
+    expect(asked.applied.map(({ label, changes }) => [label, changes.designs[0]?.after?.root])).toEqual([
+      [
+        "Place white desk",
+        expect.objectContaining({
+          children: expect.arrayContaining([
+            expect.objectContaining({ id: "submit", props: { src: desk.image.url, alt: "white desk" } })
+          ])
+        })
+      ]
+    ])
+    expect(asked.placed).toEqual([{ connector: "unsplash", id: "desk", design: "D:/app::signup" }])
+  })
+
+  it("places nothing, and tells main nothing, for a result main didn't find or one that's for looking at", async () => {
+    const { host, asked } = fixtureHost()
+
+    const screens: AgentHost = {
+      ...host,
+      result: async () => ({ ...desk, kind: "screens", credit: [{ name: "Mobbin" }] })
+    }
+
+    expect(await dispatch("place", { connector: "unsplash", id: "gone", node: "signup/Submit" }, host, caller)).toEqual(
+      {
+        placed: false,
+        problem: {
+          code: "invalid",
+          message: "Parity hasn't found unsplash gone lately. Search again, then place one of its results."
+        }
+      }
+    )
+    expect(await dispatch("place", { connector: "mobbin", id: "s", node: "signup/Submit" }, screens, caller)).toEqual({
+      placed: false,
+      problem: { code: "invalid", message: "Mobbin's screens are for looking at, not for designs." }
+    })
+    expect([asked.applied, asked.placed]).toEqual([[], []])
   })
 })
 

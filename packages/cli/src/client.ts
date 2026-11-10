@@ -75,6 +75,9 @@ export type ReportResponse = z.output<typeof replies.report>
 /** What a search for screens or photos answers, which is the same shape. */
 export type FindResponse = z.output<typeof replies.references>
 
+/** What placing a result answers. */
+export type PlaceResponse = z.output<typeof replies.place>
+
 let caller = cliCallerName(process.env)
 
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
@@ -927,13 +930,29 @@ export function describeReferences(result: FindResponse): string {
   })
 }
 
+/** What placing a result did: the node it went in and who to credit, or why it wasn't placed. */
+export function describePlace(result: PlaceResponse): string {
+  if (!result.placed) {
+    return result.problem?.message ?? "Nothing was placed."
+  }
+
+  const credit = (result.credit ?? []).map(({ name }) => name).join(", then ")
+  const lines = [`Placed in ${result.node}.`]
+
+  if (credit) {
+    lines.push(`Credit ${credit} where the design shows it.`)
+  }
+
+  return lines.join("\n")
+}
+
 /** A readable account of the photos a search found, each with what it shows, its credit, link and saved preview. */
 export function describePhotos(result: FindResponse): string {
   return describeFound(result, {
     one: "photo",
     many: "photos",
     none: "Nothing matches. Try other words, or fewer filters.",
-    use: "Use a photo by its image URL, and credit the photographer and the source where the design shows it."
+    use: 'Place one in an image node with place_result (parity place <connector> <id> "<node>"), then credit the photographer and the source where the design shows it.'
   })
 }
 
@@ -965,7 +984,7 @@ function describeFound(result: FindResponse, words: FoundWords): string {
     const platform = each.platform ? ` (${each.platform})` : ""
     const by = each.credit.length > 1 ? `\n   by ${each.credit[0]?.name}` : ""
 
-    return `${index + 1}. ${each.title}${platform} ${each.link}${by}\n   id ${each.id}\n   image ${each.image}\n   ${preview}`
+    return `${index + 1}. ${each.title}${platform} ${each.link}${by}\n   ${each.connector} ${each.id}\n   ${preview}`
   })
 
   const left = result.allowance ? [`${source} allows ${result.allowance.remaining} more searches for now.`] : []

@@ -219,6 +219,8 @@ export function desktopHost(window: WindowChannel): AgentHost {
     // Main holds connectors' keys, so it runs the search; the previews are fetched and saved here (PAR-829).
     references: (request) => searchReferences(finding, request),
     photos: (request) => searchPhotos(finding, request),
+    result: async (connector, id) => (await mainProcess.request("connectorResult", { connector, id })) ?? undefined,
+    placed: (placed) => mainProcess.request("connectorPlaced", placed),
     async saveScreenshots(screenshots) {
       await mkdir(screenshotDir, { recursive: true })
       const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-")
