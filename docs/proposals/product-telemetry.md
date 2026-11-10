@@ -281,7 +281,7 @@ These change protected files, so each needs your approval as its own table when 
 
 Revisit what's sent before anyone outside the testers runs Parity: the default level, a first-run notice, whether names
 and values are sent as written, replay masking and the sample rates. This is PAR-619, and
-[telemetry-coverage.md](telemetry-coverage.md) sets out what's sent today and proposes an answer for each.
+[telemetry-coverage.md](../telemetry-coverage.md) sets out what's sent today and proposes an answer for each.
 
 ## The work
 

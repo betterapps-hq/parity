@@ -1,7 +1,9 @@
-# Proposal: what Parity's telemetry collects, before the first public release
+# Telemetry coverage
 
-Status: for Andrew to decide (PAR-619). Everything below describes the code on `main` on 2026-11-09 and what Sentry held
-that day. Nothing here changes code; the decisions at the end do, once they're made.
+What Parity's own telemetry collects, where it goes, who sees it, and what it still misses. It describes the code on
+`main` and what Sentry holds, and changes with them: work that closes a gap, or changes what's sent, updates this page
+in the same commit. The [decisions](#decisions-for-par-619) for the first public release are still Andrew's to make
+(PAR-619).
 
 ## In one line
 
@@ -10,11 +12,11 @@ That includes design, component and token names, file paths, values, error messa
 showing all its text, and pictures of designs. Only secrets are removed. Before anyone outside the testers runs it, that
 needs a lighter default for public builds, a notice saying it's on, and masked replays.
 [Decisions](#decisions-for-par-619) proposes one for each, and [What we might be missing](#what-we-might-be-missing)
-lists the gaps found along the way.
+lists the gaps that are left.
 
-[telemetry.md](../telemetry.md) catalogues every event and field, [sentry.md](../sentry.md) covers Sentry's setup, and
-[product-telemetry.md](product-telemetry.md) is the original plan. This page doesn't repeat them. It says what all of it
-adds up to.
+[telemetry.md](telemetry.md) catalogues every event and field, [sentry.md](sentry.md) covers Sentry's setup, and
+[product-telemetry.md](proposals/product-telemetry.md) is the original plan. This page doesn't repeat them. It says what
+all of it adds up to.
 
 ## What's collected
 
@@ -93,7 +95,7 @@ while it's off.
 
 ## Personal and project data
 
-[decisions.md](../decisions.md) chose "send it as it is, except secrets" for testers. This is what that sends:
+[decisions.md](decisions.md) chose "send it as it is, except secrets" for testers. This is what that sends:
 
 | Data                                     | Where it goes                                                                                                                                                                  | Sent as written?                                                                                  |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
@@ -115,7 +117,7 @@ before anything leaves. It runs on events as they're recorded and in every Sentr
 `beforeSendTransaction`, `beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`). It catches keys and tokens with a
 known shape, `Bearer` tokens, passwords in URLs, the values of fields named like `password` or `apiKey`, long random
 strings, and the open projects' `.env` values. The CLI doesn't know the `.env` values. Sentry's server-side scrubbing is
-a second net. [telemetry.md](../telemetry.md#secrets-are-scrubbed) has the details.
+a second net. [telemetry.md](telemetry.md#secrets-are-scrubbed) has the details.
 
 **The replay masks almost nothing.** `maskAllText` is on, but only so every text node passes through the scrubber, which
 returns it unchanged unless it's a secret. `maskAllInputs` and `blockAllMedia` are off, and the canvas integration
@@ -136,7 +138,7 @@ it did see.
   in Linear, and a feedback's title is Sentry's summary of what the person wrote. Its description is empty and links to
   Sentry. Anyone in the Better Apps Linear workspace can read it.
 - **Dashboards:** four in Sentry (Parity, performance, workflows, releases and telemetry), covering every project and
-  environment. [on-call-health.md](on-call-health.md) says what each widget reads.
+  environment. [on-call-health.md](proposals/on-call-health.md) says what each widget reads.
 - **GitHub:** CI's spans and logs are an artifact on the run, kept 7 days, readable by anyone who can read the
   repository.
 
@@ -166,29 +168,28 @@ The replay and trace rates apply to anyone who chooses Everything, since Errors 
 Most of the original plan landed. Every event it named is registered and sent, and so are Report a problem, the offer to
 report after a crash, `parity diagnostics`, `parity logs` and the lint rule against bare `toast.error`. Two pieces were
 canceled, the cost budget in `pnpm perf` (PAR-647) and counting the CLI's dropped batches (PAR-776), and stay so. These
-are the gaps left. Each comes from the code or from Sentry, and none has an issue yet. The titles are proposed, not
-filed.
+are the gaps left. Each comes from the code or from Sentry, with the Linear issue that closes it.
 
 ### Signals that never arrive
 
-| Gap                                                 | Evidence                                                                                                                                                                                                                                                                                                   | Proposed issue                                                             |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| A hang that never ends sends nothing                | A window that stops answering adds only a breadcrumb; the error and `window.hung` are sent when it answers again (`main/telemetry.ts:350`). `main.blocked` also waits for the loop to run (`:405`). A force-quit leaves nothing                                                                            | Record a window or main hang as it starts, not only when it ends           |
-| A crash comes without the log before it             | The plan attached the last log file to a crash. Main's `beforeSend` attaches only `failed-frame.png` (`main/telemetry.ts:176`), and the log goes only with a report. Main's hangs say how long, not where (`:393`)                                                                                         | Attach the local copy's last minutes to crashes, and find where main hangs |
-| `parity mcp` loses its last 10 seconds              | It writes its outbox every 10 seconds and on `exit` (`cli/telemetry.ts:295`). Nothing in the CLI handles `SIGTERM` or `SIGINT`, Node skips `exit` on a signal, and MCP clients usually end the server that way                                                                                             | Flush the MCP server's outbox on a signal and when stdin closes            |
-| Signing in has no events                            | No `account.*` event is registered. An unreadable session store is cleared, signing the person out (`main/session-store.ts:103`); a refused refresh ends the session unrecorded (`main/account.ts:389`); other failures only reach the console (`:197`, `:450`)                                            | Record signing in, refreshing, signing out and session store failures      |
-| The service degrades without a word                 | Failing to watch a project for changes only calls `console.warn` (`utility/projects.ts:803`, `:835`, `:877`, `:927`), as do sharp failing to load, which turns the bitmap cache off (`utility/webp.ts:32`), keeping bitmaps (`utility/bitmap-store.ts:94`) and prop inference (`utility/projects.ts:1026`) | Record the service's degraded modes as events                              |
-| Partial failures count as successes                 | An export with layers that couldn't be drawn shows a warning and still records `export.done`, with no count (`renderer/chrome/commands.ts:225`). A save that finds the file changed on disk records nothing (`renderer/agent/handlers.ts:128`)                                                             | Count warnings in `export.done` and record save conflicts                  |
-| Main's own requests aren't timed                    | Main's 33 `ipcMain` handlers in `main/index.ts` (account, report, update, file pickers) don't run in `request.handled`, which wraps only the service's channel (`shared/tracing.ts:86`), and `ipc.failed` covers only the service                                                                          | Run main's IPC handlers in `request.handled` spans                         |
-| An install ID that can't be saved changes every run | The install ID landed in PAR-626. When `telemetry.json` can't be written, the failure is swallowed and the next run makes another ID (`main/telemetry-setting.ts:38`), so Sentry counts each run as a new user, and nothing says why                                                                       | Report a failure to save the install ID                                    |
+| Gap                                                 | Evidence                                                                                                                                                                                                                                                                                                   | Issue   |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| A hang that never ends sends nothing                | A window that stops answering adds only a breadcrumb; the error and `window.hung` are sent when it answers again (`main/telemetry.ts:350`). `main.blocked` also waits for the loop to run (`:405`). A force-quit leaves nothing                                                                            | PAR-804 |
+| A crash comes without the log before it             | The plan attached the last log file to a crash. Main's `beforeSend` attaches only `failed-frame.png` (`main/telemetry.ts:176`), and the log goes only with a report. Main's hangs say how long, not where (`:393`)                                                                                         | PAR-805 |
+| `parity mcp` loses its last 10 seconds              | It writes its outbox every 10 seconds and on `exit` (`cli/telemetry.ts:295`). Nothing in the CLI handles `SIGTERM` or `SIGINT`, Node skips `exit` on a signal, and MCP clients usually end the server that way                                                                                             | PAR-806 |
+| Signing in has no events                            | No `account.*` event is registered. An unreadable session store is cleared, signing the person out (`main/session-store.ts:103`); a refused refresh ends the session unrecorded (`main/account.ts:389`); other failures only reach the console (`:197`, `:450`)                                            | PAR-807 |
+| The service degrades without a word                 | Failing to watch a project for changes only calls `console.warn` (`utility/projects.ts:803`, `:835`, `:877`, `:927`), as do sharp failing to load, which turns the bitmap cache off (`utility/webp.ts:32`), keeping bitmaps (`utility/bitmap-store.ts:94`) and prop inference (`utility/projects.ts:1026`) | PAR-808 |
+| Partial failures count as successes                 | An export with layers that couldn't be drawn shows a warning and still records `export.done`, with no count (`renderer/chrome/commands.ts:225`). A save that finds the file changed on disk records nothing (`renderer/agent/handlers.ts:128`)                                                             | PAR-809 |
+| Main's own requests aren't timed                    | Main's 33 `ipcMain` handlers in `main/index.ts` (account, report, update, file pickers) don't run in `request.handled`, which wraps only the service's channel (`shared/tracing.ts:86`), and `ipc.failed` covers only the service                                                                          | PAR-810 |
+| An install ID that can't be saved changes every run | The install ID landed in PAR-626. When `telemetry.json` can't be written, the failure is swallowed and the next run makes another ID (`main/telemetry-setting.ts:38`), so Sentry counts each run as a new user, and nothing says why                                                                       | PAR-811 |
 
 ### Privacy risks
 
 These go beyond "names and values as written", which the decisions above cover.
 
-| Risk                                                | Evidence                                                                                                                                                                              | Proposed issue                                                     |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| A failed frame's picture goes with unrelated errors | `failed-frame.png` goes with every error for 10 minutes after a frame fails offscreen, whatever the process or cause (`main/telemetry.ts:44`, `:180`)                                 | Attach a failed frame's picture only to errors from that frame     |
-| A report with sharing off can send other events     | `sendFeedback` turns Sentry on for the whole of main while the report flushes, up to 15 seconds (`main/report.ts:237`)                                                                | Send a report without turning sharing on                           |
-| The project's console output becomes breadcrumbs    | The project's components run in the editor's page (`renderer/telemetry.ts:19`), and the browser SDK's console breadcrumbs are on by default                                           | Leave the project's console output out of the editor's breadcrumbs |
-| The CLI doesn't scrub `.env` values                 | Only the service reads them ([telemetry.md](../telemetry.md#secrets-are-scrubbed)), so a secret in an uncaught error's message or stack leaves the CLI unless its shape gives it away | Scrub the open projects' `.env` values in the CLI's sender         |
+| Risk                                                | Evidence                                                                                                                                                                           | Issue   |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| A failed frame's picture goes with unrelated errors | `failed-frame.png` goes with every error for 10 minutes after a frame fails offscreen, whatever the process or cause (`main/telemetry.ts:44`, `:180`)                              | PAR-812 |
+| A report with sharing off can send other events     | `sendFeedback` turns Sentry on for the whole of main while the report flushes, up to 15 seconds (`main/report.ts:237`)                                                             | PAR-813 |
+| The project's console output becomes breadcrumbs    | The project's components run in the editor's page (`renderer/telemetry.ts:19`), and the browser SDK's console breadcrumbs are on by default                                        | PAR-814 |
+| The CLI doesn't scrub `.env` values                 | Only the service reads them ([telemetry.md](telemetry.md#secrets-are-scrubbed)), so a secret in an uncaught error's message or stack leaves the CLI unless its shape gives it away | PAR-815 |
