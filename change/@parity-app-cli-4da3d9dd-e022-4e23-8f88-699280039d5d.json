@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Agents can ask for the tokens nearest a raw color or length: GetTokens({ nearest }), parity tokens --nearest and MCP get_tokens list them nearest first, with how far each is",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

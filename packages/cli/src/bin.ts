@@ -52,9 +52,10 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             what the project's code wrote to the console, on the canvas and in
                                             offscreen renders, the newest 50 unless --limit says; --clear empties it
                                             after reading
-  parity tokens [--category c] [--source semantic|theme] [--search s] [--limit 100] [--tab t]
+  parity tokens [--category c] [--source semantic|theme] [--search s] [--nearest v] [--limit 100] [--tab t]
                                             the tokens styles can name, with their values per theme, the first 100
-                                            unless --limit says
+                                            unless --limit says; --nearest #2f6fed or 13px lists the colors or
+                                            lengths nearest that value first, with how far each is
   parity components [--tab t]               the components designs can use, by library
   parity props <Component> [--all] [--tab t]
                                             a component's props from its source, then what it goes inside and holds,
@@ -127,6 +128,7 @@ const { positionals, values } = parseArgs({
     category: { type: "string" },
     source: { type: "string" },
     search: { type: "string" },
+    nearest: { type: "string" },
     limit: { type: "string" },
     root: { type: "string" },
     out: { type: "string" },
@@ -287,7 +289,14 @@ async function main(): Promise<void> {
     case "tokens":
       return show(
         operations.tokens,
-        { tab: values.tab, category: values.category, source: values.source, search: values.search, limit },
+        {
+          tab: values.tab,
+          category: values.category,
+          source: values.source,
+          search: values.search,
+          nearest: values.nearest,
+          limit
+        },
         describeTokens
       )
     case "components":

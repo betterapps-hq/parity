@@ -83,6 +83,29 @@ describe("lintDocument", () => {
     ])
   })
 
+  it("names the call that lists the tokens nearest a raw color or length (PAR-833)", () => {
+    const root = {
+      type: "layout" as const,
+      id: "page",
+      // A color where a length goes, and a length where a color goes, can't be compared, so they get the plain hint.
+      style: { background: "#2f6fed", radius: "6px", size: "#ffffff", foreground: "13px" },
+      children: []
+    }
+
+    const states = [
+      { id: "default", name: "Default" },
+      { id: "dark", name: "Dark", overrides: { page: { style: { border: "oklch(0.3 0 0)" } } } }
+    ]
+
+    expect(lintDocument(design(root, states), context).map((warning) => warning.message)).toEqual([
+      `background "#2f6fed" isn't a token. Use a name from GetTokens({ nearest: "#2f6fed", category: "color" }), which lists the nearest first.`,
+      `foreground "13px" isn't a token. Use a name from GetTokens().`,
+      `radius "6px" isn't a token. Use a name from GetTokens({ nearest: "6px", category: "radius" }), which lists the nearest first.`,
+      `size "#ffffff" isn't a token. Use a name from GetTokens().`,
+      `border "oklch(0.3 0 0)" isn't a token. Use a name from GetTokens({ nearest: "oklch(0.3 0 0)", category: "color" }), which lists the nearest first.`
+    ])
+  })
+
   it("checks the props and names of only what the call inserted", () => {
     const root = {
       type: "layout" as const,

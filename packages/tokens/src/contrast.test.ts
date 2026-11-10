@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type ContrastFrame, contrastFix, contrastRatio, parseHex } from "./contrast.ts"
+import { parseHex } from "./color.ts"
+import { type ContrastFrame, contrastFix, contrastRatio } from "./contrast.ts"
 
 const color = (hex: string) => parseHex(hex)!
 

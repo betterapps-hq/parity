@@ -611,6 +611,47 @@ Print(JSON.stringify(Overlaps()))`
     ])
   })
 
+  it("lists the tokens nearest a color or a length, nearest first, with how far each is (PAR-833)", async () => {
+    const shadcn = snapshot()
+    shadcn.tokens = [
+      { name: "color-blue-500", category: "color", source: "theme", values: { default: "oklch(62.3% 0.214 259.815)" } },
+      { name: "color-blue-600", category: "color", source: "theme", values: { default: "oklch(54.6% 0.245 262.881)" } },
+      { name: "primary", category: "color", source: "semantic", values: { default: "var(--color-blue-600)" } },
+      { name: "accent", category: "color", source: "semantic", values: { default: "blue" } },
+      { name: "radius", category: "radius", source: "semantic", values: { default: "0.625rem" } },
+      { name: "radius-sm", category: "radius", source: "semantic", values: { default: "calc(var(--radius) - 4px)" } },
+      { name: "text-sm", category: "font-size", source: "theme", values: { default: "0.875rem" } }
+    ]
+
+    const code = [
+      `Print(JSON.stringify(GetTokens({ nearest: "#2f6fed" }).map(({ name, distance }) => [name, distance])))`,
+      `Print(JSON.stringify(GetTokens({ nearest: "#2f6fed", source: "semantic" })[0]))`,
+      `Print(JSON.stringify(GetTokens({ nearest: "7px", category: "radius" }).map(({ name, distance }) => [name, distance])))`
+    ].join("\n")
+
+    const result = await execute({ label: "Nearest", code }, shadcn, hooks())
+    const [colors, semantic, radii] = result.output.map((line) => JSON.parse(line))
+
+    // accent's "blue" can't be read, so it isn't listed; primary comes to blue-600 through its reference.
+    expect(colors).toEqual([
+      ["color-blue-500", 0.046],
+      ["primary", 0.052],
+      ["color-blue-600", 0.052]
+    ])
+    expect(semantic).toEqual({
+      name: "primary",
+      category: "color",
+      source: "semantic",
+      values: { default: "var(--color-blue-600)" },
+      distance: 0.052
+    })
+    // radius-full, the keyword, is as round as the box allows, which no length is near.
+    expect(radii).toEqual([
+      ["radius-sm", 1],
+      ["radius", 3]
+    ])
+  })
+
   it("rejects nodes that don't fit the format", async () => {
     const result = await execute(
       { label: "Bad", code: `Insert("page", {type: "text", text: "x", fontSize: 12})` },
@@ -1719,6 +1760,7 @@ await Problems("signup", { state: "all", mode: "all" })`
     { code: `Props("Button", { every: true })`, field: "every", message: "unknown property" },
     { code: `await Icons("lucide", { limit: 0 })`, field: "limit", message: "expected more than 0" },
     { code: `GetTokens({ category: 1 })`, field: "category", message: "expected a string" },
+    { code: `GetTokens({ nearest: "blue" })`, field: "nearest", message: 'or a length in px or rem, not "blue"' },
     { code: `GetModes(1)`, field: "design", message: "expected a string" },
     { code: `CreateDesign("Home")`, field: "spec", message: "expected an object" },
     { code: `CreateDesign({ name: "Home", file: "home.json" })`, field: "file", message: "expected a .par file" },

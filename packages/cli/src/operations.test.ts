@@ -575,6 +575,14 @@ describe("remaining transport contracts", processTests, () => {
       result: []
     },
     {
+      cli: ["tokens", "--nearest", "13px", "--category", "radius"],
+      tool: "get_tokens",
+      method: "tokens",
+      input: { nearest: "13px", category: "radius" },
+      params: { nearest: "13px", category: "radius", limit: 100 },
+      result: []
+    },
+    {
       cli: ["status", "--summary", "--limit", "3"],
       tool: "get_status",
       method: "status",
