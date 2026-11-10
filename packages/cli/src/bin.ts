@@ -14,6 +14,8 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeImages,
+  describeRemovedImage,
   describeReport,
   describeStatus,
   describeTokens
@@ -56,6 +58,11 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             the tokens styles can name, with their values per theme, the first 100
                                             unless --limit says
   parity components [--tab t]               the components designs can use, by library
+  parity images [--search s] [--unused] [--limit 50] [--tab t]
+                                            the project's images: files in public/images, photos layers link to and
+                                            paths with no file, each with what uses it, in designs and in code
+  parity images remove <image> [--tab t]    remove an image file from public/images, by path or file name; refused
+                                            while a design or the project's code uses it, saying where
   parity props <Component> [--all] [--tab t]
                                             a component's props from its source, then what it goes inside and holds,
                                             with an example to insert; --all adds the attributes it passes on
@@ -146,6 +153,7 @@ const { positionals, values } = parseArgs({
     node: { type: "string" },
     since: { type: "string" },
     session: { type: "string" },
+    unused: { type: "boolean" },
     help: { type: "boolean", short: "h" }
   }
 })
@@ -289,6 +297,16 @@ async function main(): Promise<void> {
         operations.tokens,
         { tab: values.tab, category: values.category, source: values.source, search: values.search, limit },
         describeTokens
+      )
+    case "images":
+      if (rest[0] === "remove") {
+        return show(operations.removeImage, { tab: values.tab, image: rest[1] }, describeRemovedImage)
+      }
+
+      return show(
+        operations.images,
+        { tab: values.tab, search: values.search, unused: values.unused, limit },
+        describeImages
       )
     case "components":
       return show(operations.components, { tab: values.tab }, describeComponents)

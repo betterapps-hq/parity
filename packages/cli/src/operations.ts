@@ -177,7 +177,9 @@ export const operations = {
   components: operation("components"),
   props: operation("props"),
   // A report goes to a running copy even with no project open, as long as it names no tab.
-  report: withTestRun(operation("report", { routing: "tab-or-any" }))
+  report: withTestRun(operation("report", { routing: "tab-or-any" })),
+  images: operation("images"),
+  removeImage: operation("removeImage")
 }
 
 /**

@@ -1,5 +1,13 @@
 import { CodedError, describeRenderStatus, renderProblem, resolveModes, unknownReference } from "@parity-app/core"
 import type { ChangeConflict } from "@parity-app/core"
+import {
+  type CodeReference,
+  cantRemove,
+  filterImages,
+  findImage,
+  type ImageFile,
+  projectImages
+} from "@parity-app/editor"
 import { type TokenFilter } from "./arguments.ts"
 import { callerIdentity } from "./caller.ts"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
@@ -63,6 +71,10 @@ export interface AgentHost {
    * (PAR-646).
    */
   report(report: AgentReport): Promise<ReportSent>
+  /** The project's image files and the lines of its code that name them, read from its folder (PAR-834). */
+  scanImages(projectId: string): Promise<{ files: ImageFile[]; references: CodeReference[] }>
+  /** Removes an image file as an edit the window can undo. Refuses one the project's code names. */
+  removeImage(projectId: string, path: string): Promise<{ path: string; label: string }>
 }
 
 /** Who's calling, when the CLI or MCP knows: its name for people, and an id that tells same-named callers apart. */
@@ -199,7 +211,48 @@ const methods: MethodTable = {
 
     return readOnly(snapshot).Props(params.component, { all: params.all })
   },
-  report: (params, { host }) => report(host, params)
+  report: (params, { host }) => report(host, params),
+  images: async (params, { host }) => {
+    const { images } = await imagesOf(host, params.tab)
+    const found = filterImages(images, params)
+    const shown = found.slice(0, params.limit)
+
+    return { images: shown, total: found.length, truncated: shown.length < found.length }
+  },
+  async removeImage(params, { host }) {
+    const { images, projectId } = await imagesOf(host, params.tab)
+    const image = findImage(images, params.image)
+
+    if (!image) {
+      const names = images.flatMap((each) => (each.path ? [each.path] : []))
+
+      throw unknownReference(
+        "unknown_image",
+        `No image in the project matches "${params.image}"`,
+        params.image,
+        names,
+        "image"
+      )
+    }
+
+    const why = cantRemove(images, params.image)
+
+    if (why || !image.path) {
+      const code = image.kind === "file" ? "image_in_use" : "invalid_input"
+
+      throw new CodedError(why ?? `${params.image} has no file to remove.`, { code, field: "image" })
+    }
+
+    return host.removeImage(projectId, image.path)
+  }
+}
+
+/** The tab's images, from its designs as they are, unsaved changes included, and its folder. */
+async function imagesOf(host: AgentHost, tab: string | undefined) {
+  const snapshot = await host.snapshot(tab)
+  const { files, references } = await host.scanImages(snapshot.projectId)
+
+  return { images: projectImages({ files, references, documents: snapshot.documents }), projectId: snapshot.projectId }
 }
 
 /** Each method's params schema. `copy` takes none, as `tabs` doesn't. */

@@ -231,6 +231,16 @@ export const requests = {
     node: text("node", "Node id.").optional(),
     testRun: text("testRun", "Test pass. Defaults to PARITY_TEST_RUN.").optional()
   }),
+  images: fields({
+    tab,
+    search: text("search", "Text in a name, alt text or credit.").optional(),
+    unused: flag("unused", "Only images no design or code uses."),
+    limit: limit("Most images.", 50, 500)
+  }),
+  removeImage: fields({
+    tab,
+    image: text("image", "Path, address (/images/hero.png) or file name.")
+  }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
     executeKind({ tab: execute.tab, label: execute.label, editId: execute.editId, edits: execute.edits })
@@ -678,6 +688,30 @@ const reportReply = z.looseObject({
   attachments: strings.describe("The files sent with it: the window's screenshot, the frames and the diagnostics.")
 })
 
+/** One of the project's images (PAR-834): a file, a linked photo, or a path layers name with no file. */
+const projectImage = z.looseObject({
+  kind: z.enum(["file", "linked", "missing"]),
+  src: z.string().describe("What layers set src to."),
+  path: z.string().optional().describe("The file, from the project's root."),
+  name: z.string(),
+  bytes: z.int().optional(),
+  alt: z.string().optional(),
+  credit: z.looseObject({ name: z.string(), url: z.string(), source: z.string().optional() }).optional(),
+  usedBy: z
+    .array(z.looseObject({ document: z.string(), design: z.string(), designName: z.string(), node: z.string() }))
+    .describe("The layers that show it."),
+  usedInCode: z.array(z.looseObject({ path: z.string(), line: z.int() })).describe("The lines of code that name it.")
+})
+
+const imagesReply = z.looseObject({
+  images: z.array(projectImage),
+  total: z.int().describe("How many matched before the limit."),
+  truncated: z.boolean()
+})
+
+/** An image removed: its file, and the edit's label. */
+const removeImageReply = z.looseObject({ path: z.string(), label: z.string() })
+
 /**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,
  * which calls are routed by (PAR-514): its tabs, and when its window last had focus, missing from a copy too old to
@@ -698,7 +732,9 @@ export const replies = {
   tokens: z.array(tokenInfo),
   components: componentsReply,
   props: propsReply,
-  report: reportReply
+  report: reportReply,
+  images: imagesReply,
+  removeImage: removeImageReply
 }
 
 /**
