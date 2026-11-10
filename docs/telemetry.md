@@ -50,7 +50,8 @@ which the CLI shares:
 
 - **In the process that records it,** an event or span becomes a breadcrumb, so an error there carries the events before
   it (Sentry keeps the last 100). An `error.*` event, or one at the `error` or `fatal` level, becomes a Sentry error,
-  linked to its trace.
+  linked to its trace. Sentry's SDK adds its own breadcrumbs beside them, such as console calls, but in the windows only
+  Parity's: a call with the project's code in its stack, loaded from its builder, is left out (PAR-814).
 - **Then it goes to main:** a window's over IPC from its preload, a render window's from a preload that gives the page
   only that, the service's over its channel to main, and the props worker's through the service, which adds them to its
   own breadcrumbs and errors.
@@ -323,6 +324,23 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
   that pastes nothing is `clipboard.failed` with why.
 - **`text.edited` comes from the text editor on the canvas** as it closes.
 
+## Signing in
+
+Main records the `account.*` events from `main/account.ts` and `main/session-store.ts` (PAR-807). They describe an
+account by its provider alone and count the accounts. None carries a token, an email or WorkOS's message, which can name
+the account: WorkOS's answer goes as its status and code.
+
+- **Signing in** is `account.signedIn`, or `account.signInProblem` with why it ended without a session, the browser not
+  opening included.
+- **Each refresh** is `account.refreshed`, or `account.refreshFailed` with why: WorkOS didn't answer, turned it down, or
+  another copy of Parity refreshed with the same token first. Switching organizations is a refresh, with `organization`.
+- **A session that ends** without the person signing out is `account.sessionEnded`, and signing out, here or in another
+  copy, is `account.signedOut`.
+- **The file that keeps accounts** going unreadable is `account.storeFailed`, with the step that failed and the error's
+  name, never its message, which can quote what was decrypted. Reading it clears the file, signing every account out.
+- **A window that can't find out who's signed in** records `account.stateFailed`, with where main's answer didn't match
+  but not the answer itself.
+
 ## Levels and sampling
 
 Each event has a level, lowest first: `debug`, `info`, `warn`, `error` and `fatal`. `error` and `fatal` events also
@@ -381,82 +399,158 @@ Some failures are recorded for you, so code doesn't record them again:
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-| Event                 | Level | Kept | Sent by                                 | When                                                                                                              |
-| --------------------- | ----- | ---- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `agent.called`        | info  | all  | service                                 | The agent server answers a call from the CLI or MCP, from reading it to the answer.                               |
-| `agent.serverFailed`  | error | all  | service                                 | The agent server can't start, so agents can't reach this copy.                                                    |
-| `app.first_project`   | info  | all  | main                                    | The first project opened since the app started has its tab ready to draw.                                         |
-| `app.quit`            | info  | all  | main                                    | The app quits.                                                                                                    |
-| `app.started`         | info  | all  | main                                    | The first window has painted and the project service is running.                                                  |
-| `bitmapCache.used`    | info  | all  | service                                 | Each minute in which bitmaps or previews were looked up, with this session's totals so far.                       |
-| `builder.crashed`     | warn  | all  | service                                 | A project's builder stops by itself while the project is open.                                                    |
-| `builder.ready`       | info  | all  | service                                 | A project's builder answers and serves the project.                                                               |
-| `builder.restarted`   | info  | all  | service                                 | A project's builder is started again from the processes list.                                                     |
-| `builder.started`     | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                                                       |
-| `cli.connectFailed`   | warn  | all  | cli                                     | The CLI can't reach a running copy of the app for a call.                                                         |
-| `cli.ran`             | info  | all  | cli                                     | A `parity` command runs, until it's done.                                                                         |
-| `cli.versionMismatch` | warn  | all  | cli                                     | The CLI and the app it calls are versions apart that don't fit.                                                   |
-| `clipboard.failed`    | info  | all  | renderer                                | A paste pastes nothing, and says why.                                                                             |
-| `clipboard.pasted`    | info  | all  | renderer                                | A paste puts something on the canvas.                                                                             |
-| `command.ran`         | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                                    |
-| `component.changed`   | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                     |
-| `data.invalid`        | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                           |
-| `dialog.opened`       | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                               |
-| `document.saveFailed` | warn  | all  | renderer                                | A design file couldn't be saved.                                                                                  |
-| `document.saved`      | info  | all  | renderer                                | A design file is saved.                                                                                           |
-| `edit.redone`         | info  | all  | renderer                                | A step undone is redone.                                                                                          |
-| `edit.undone`         | info  | all  | renderer                                | A step is undone.                                                                                                 |
-| `error.caught`        | error | all  | renderer                                | A failure is shown as an error notification.                                                                      |
-| `export.done`         | info  | all  | renderer                                | An export finishes.                                                                                               |
-| `export.failed`       | warn  | all  | renderer                                | An export fails.                                                                                                  |
-| `frame.failed`        | warn  | all  | main                                    | A frame or preview drawn offscreen fails, or is still drawing 30 seconds after its turn came.                     |
-| `frame.rendered`      | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end, under the trace that asked for it.      |
-| `gesture.ended`       | info  | all  | renderer                                | A gesture ends: a drag, a resize, a run of presses, a pan or a zoom.                                              |
-| `gesture.ran`         | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                        |
-| `insert.done`         | info  | all  | renderer                                | Something is inserted onto the canvas.                                                                            |
-| `inspector.changed`   | info  | all  | renderer                                | A field in the inspector changes a layer, a design or a token.                                                    |
-| `installId.unsaved`   | warn  | all  | main                                    | A new install ID can't be saved to `telemetry.json`, so the next start makes another.                             |
-| `ipc.failed`          | warn  | all  | renderer                                | A request to the project service fails.                                                                           |
-| `library.added`       | info  | all  | renderer                                | A catalog library is installed into the project.                                                                  |
-| `library.failed`      | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                          |
-| `main.blocked`        | warn  | all  | main                                    | Main's event loop runs again after being blocked for over 2 seconds.                                              |
-| `mcp.session`         | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                                                 |
-| `mode.switched`       | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.                               |
-| `panel.shown`         | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                                             |
-| `preview.failed`      | warn  | all  | service                                 | A component's preview can't be made.                                                                              |
-| `preview.made`        | info  | all  | service                                 | A component's preview is drawn and kept.                                                                          |
-| `process.memory`      | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                                               |
-| `project.closed`      | info  | all  | service                                 | An open project is closed.                                                                                        |
-| `project.detected`    | debug | all  | service                                 | The service reads a project's package, tools, files and components as it opens, until it's done.                  |
-| `project.drawn`       | info  | all  | renderer                                | A newly opened project's canvas first draws a frame, in the trace of `project.opening`.                           |
-| `project.loaded`      | info  | all  | renderer                                | A project's tab has its components loaded and is ready to draw.                                                   |
-| `project.openFailed`  | warn  | all  | service                                 | A project can't be opened.                                                                                        |
-| `project.opened`      | info  | all  | service                                 | A project opens, with its builder serving it.                                                                     |
-| `project.opening`     | info  | all  | renderer                                | A tab asks the service to open a project, until the tab is ready or the open fails.                               |
-| `project.unsupported` | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                                                  |
-| `projectEdit.applied` | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                                                        |
-| `projectEdit.undone`  | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                                               |
-| `renderer.long_task`  | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                                 |
-| `report.sent`         | info  | all  | main                                    | Help > Report a problem, parity report or report_problem sends a report.                                          |
-| `request.handled`     | debug | all  | service, main                           | The service or main answers another process's request.                                                            |
-| `server.failed`       | warn  | all  | service                                 | A server the process manager started can't start.                                                                 |
-| `server.started`      | info  | all  | service                                 | A server the process manager started answers at its address.                                                      |
-| `service.degraded`    | warn  | all  | service                                 | The project service stops doing something, such as watching a project or keeping bitmaps, and runs on without it. |
-| `service.exited`      | warn  | all  | main                                    | The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits.        |
-| `service.lag`         | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                          |
-| `setting.changed`     | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                                   |
-| `start.action`        | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                                              |
-| `styles.imported`     | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                                                    |
-| `tab.closed`          | info  | all  | renderer                                | A tab closes.                                                                                                     |
-| `tab.opened`          | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                                                       |
-| `tab.switched`        | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                                                         |
-| `text.edited`         | info  | all  | renderer                                | Editing a text layer in place on the canvas ends.                                                                 |
-| `tokens.saved`        | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                                                       |
-| `update.checked`      | info  | all  | main                                    | A check for an update finds one or finds none.                                                                    |
-| `update.downloaded`   | info  | all  | main                                    | An update finishes downloading.                                                                                   |
-| `update.failed`       | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                          |
-| `update.installed`    | info  | all  | main                                    | The app quits to install a downloaded update.                                                                     |
-| `window.hung`         | warn  | all  | main                                    | A window that stopped answering answers again.                                                                    |
+| Event                   | Level | Kept | Sent by                                 | When                                                                                                              |
+| ----------------------- | ----- | ---- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `account.refreshFailed` | warn  | all  | main                                    | A refresh fails. Parity tries again unless WorkOS turned it down.                                                 |
+| `account.refreshed`     | info  | all  | main                                    | An account's session is refreshed.                                                                                |
+| `account.sessionEnded`  | warn  | all  | main                                    | An account's session ends without the person signing out.                                                         |
+| `account.signInProblem` | warn  | all  | main                                    | A sign-in ends without a session, or its browser doesn't open.                                                    |
+| `account.signedIn`      | info  | all  | main                                    | Someone signs in to an account.                                                                                   |
+| `account.signedOut`     | info  | all  | main                                    | An account is signed out of, or removed after its session ended.                                                  |
+| `account.stateFailed`   | warn  | all  | renderer                                | A window can't find out who's signed in.                                                                          |
+| `account.storeFailed`   | warn  | all  | main                                    | The file that keeps accounts between launches can't be read or written.                                           |
+| `agent.called`          | info  | all  | service                                 | The agent server answers a call from the CLI or MCP, from reading it to the answer.                               |
+| `agent.serverFailed`    | error | all  | service                                 | The agent server can't start, so agents can't reach this copy.                                                    |
+| `app.first_project`     | info  | all  | main                                    | The first project opened since the app started has its tab ready to draw.                                         |
+| `app.quit`              | info  | all  | main                                    | The app quits.                                                                                                    |
+| `app.started`           | info  | all  | main                                    | The first window has painted and the project service is running.                                                  |
+| `bitmapCache.used`      | info  | all  | service                                 | Each minute in which bitmaps or previews were looked up, with this session's totals so far.                       |
+| `builder.crashed`       | warn  | all  | service                                 | A project's builder stops by itself while the project is open.                                                    |
+| `builder.ready`         | info  | all  | service                                 | A project's builder answers and serves the project.                                                               |
+| `builder.restarted`     | info  | all  | service                                 | A project's builder is started again from the processes list.                                                     |
+| `builder.started`       | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                                                       |
+| `cli.connectFailed`     | warn  | all  | cli                                     | The CLI can't reach a running copy of the app for a call.                                                         |
+| `cli.ran`               | info  | all  | cli                                     | A `parity` command runs, until it's done.                                                                         |
+| `cli.versionMismatch`   | warn  | all  | cli                                     | The CLI and the app it calls are versions apart that don't fit.                                                   |
+| `clipboard.failed`      | info  | all  | renderer                                | A paste pastes nothing, and says why.                                                                             |
+| `clipboard.pasted`      | info  | all  | renderer                                | A paste puts something on the canvas.                                                                             |
+| `command.ran`           | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                                    |
+| `component.changed`     | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                     |
+| `data.invalid`          | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                           |
+| `dialog.opened`         | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                               |
+| `document.saveFailed`   | warn  | all  | renderer                                | A design file couldn't be saved.                                                                                  |
+| `document.saved`        | info  | all  | renderer                                | A design file is saved.                                                                                           |
+| `edit.redone`           | info  | all  | renderer                                | A step undone is redone.                                                                                          |
+| `edit.undone`           | info  | all  | renderer                                | A step is undone.                                                                                                 |
+| `error.caught`          | error | all  | renderer                                | A failure is shown as an error notification.                                                                      |
+| `export.done`           | info  | all  | renderer                                | An export finishes.                                                                                               |
+| `export.failed`         | warn  | all  | renderer                                | An export fails.                                                                                                  |
+| `frame.failed`          | warn  | all  | main                                    | A frame or preview drawn offscreen fails, or is still drawing 30 seconds after its turn came.                     |
+| `frame.rendered`        | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end, under the trace that asked for it.      |
+| `gesture.ended`         | info  | all  | renderer                                | A gesture ends: a drag, a resize, a run of presses, a pan or a zoom.                                              |
+| `gesture.ran`           | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                        |
+| `insert.done`           | info  | all  | renderer                                | Something is inserted onto the canvas.                                                                            |
+| `inspector.changed`     | info  | all  | renderer                                | A field in the inspector changes a layer, a design or a token.                                                    |
+| `installId.unsaved`     | warn  | all  | main                                    | A new install ID can't be saved to `telemetry.json`, so the next start makes another.                             |
+| `ipc.failed`            | warn  | all  | renderer                                | A request to the project service fails.                                                                           |
+| `library.added`         | info  | all  | renderer                                | A catalog library is installed into the project.                                                                  |
+| `library.failed`        | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                          |
+| `main.blocked`          | warn  | all  | main                                    | Main's event loop runs again after being blocked for over 2 seconds.                                              |
+| `mcp.session`           | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                                                 |
+| `mode.switched`         | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.                               |
+| `panel.shown`           | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                                             |
+| `preview.failed`        | warn  | all  | service                                 | A component's preview can't be made.                                                                              |
+| `preview.made`          | info  | all  | service                                 | A component's preview is drawn and kept.                                                                          |
+| `process.memory`        | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                                               |
+| `project.closed`        | info  | all  | service                                 | An open project is closed.                                                                                        |
+| `project.detected`      | debug | all  | service                                 | The service reads a project's package, tools, files and components as it opens, until it's done.                  |
+| `project.drawn`         | info  | all  | renderer                                | A newly opened project's canvas first draws a frame, in the trace of `project.opening`.                           |
+| `project.loaded`        | info  | all  | renderer                                | A project's tab has its components loaded and is ready to draw.                                                   |
+| `project.openFailed`    | warn  | all  | service                                 | A project can't be opened.                                                                                        |
+| `project.opened`        | info  | all  | service                                 | A project opens, with its builder serving it.                                                                     |
+| `project.opening`       | info  | all  | renderer                                | A tab asks the service to open a project, until the tab is ready or the open fails.                               |
+| `project.unsupported`   | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                                                  |
+| `projectEdit.applied`   | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                                                        |
+| `projectEdit.undone`    | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                                               |
+| `renderer.long_task`    | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                                 |
+| `report.sent`           | info  | all  | main                                    | Help > Report a problem, parity report or report_problem sends a report.                                          |
+| `request.handled`       | debug | all  | service, main                           | The service or main answers another process's request.                                                            |
+| `server.failed`         | warn  | all  | service                                 | A server the process manager started can't start.                                                                 |
+| `server.started`        | info  | all  | service                                 | A server the process manager started answers at its address.                                                      |
+| `service.degraded`      | warn  | all  | service                                 | The project service stops doing something, such as watching a project or keeping bitmaps, and runs on without it. |
+| `service.exited`        | warn  | all  | main                                    | The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits.        |
+| `service.lag`           | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                          |
+| `setting.changed`       | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                                   |
+| `start.action`          | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                                              |
+| `styles.imported`       | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                                                    |
+| `tab.closed`            | info  | all  | renderer                                | A tab closes.                                                                                                     |
+| `tab.opened`            | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                                                       |
+| `tab.switched`          | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                                                         |
+| `text.edited`           | info  | all  | renderer                                | Editing a text layer in place on the canvas ends.                                                                 |
+| `tokens.saved`          | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                                                       |
+| `update.checked`        | info  | all  | main                                    | A check for an update finds one or finds none.                                                                    |
+| `update.downloaded`     | info  | all  | main                                    | An update finishes downloading.                                                                                   |
+| `update.failed`         | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                          |
+| `update.installed`      | info  | all  | main                                    | The app quits to install a downloaded update.                                                                     |
+| `window.hung`           | warn  | all  | main                                    | A window that stopped answering answers again.                                                                    |
+
+### `account.refreshFailed`
+
+| Attribute      | Type                                         | Meaning                                                                                                         |
+| -------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `reason`       | `"unavailable" \| "refused" \| "superseded"` | Why: WorkOS didn't answer, WorkOS turned it down, or another copy of Parity refreshed with the same token first |
+| `organization` | `boolean`                                    | Whether it moved the account to another organization                                                            |
+| `failures`     | `integer`                                    | The refreshes in a row that failed, this one included                                                           |
+| `status`       | `integer`, optional                          | The HTTP status WorkOS answered with, when it answered                                                          |
+| `code`         | `string`, optional                           | WorkOS's or the browser's error code, when it gave one                                                          |
+
+### `account.refreshed`
+
+| Attribute      | Type      | Meaning                                              |
+| -------------- | --------- | ---------------------------------------------------- |
+| `organization` | `boolean` | Whether it moved the account to another organization |
+| `retries`      | `integer` | The tries that failed before this one                |
+
+### `account.sessionEnded`
+
+| Attribute | Type                       | Meaning                                                       |
+| --------- | -------------------------- | ------------------------------------------------------------- |
+| `reason`  | `"refused" \| "elsewhere"` | Why: WorkOS turned down its refresh, or another copy ended it |
+| `current` | `boolean`                  | Whether it was the account the person was in                  |
+
+### `account.signInProblem`
+
+| Attribute  | Type                                                                                            | Meaning                                                                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `provider` | `"GoogleOAuth" \| "GitHubOAuth" \| "MicrosoftOAuth" \| "authkit"`                               | How they signed in                                                                                                                               |
+| `problem`  | `"canceled" \| "failed" \| "refused" \| "single-sign-on" \| "choose-organization" \| "browser"` | Why: canceled in the browser, failed, turned down by WorkOS, sent to single sign-on, asked to choose an organization, or the browser didn't open |
+| `status`   | `integer`, optional                                                                             | The HTTP status WorkOS answered with, when it answered                                                                                           |
+| `code`     | `string`, optional                                                                              | WorkOS's or the browser's error code, when it gave one                                                                                           |
+
+### `account.signedIn`
+
+| Attribute  | Type                                                              | Meaning                                                                       |
+| ---------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `provider` | `"GoogleOAuth" \| "GitHubOAuth" \| "MicrosoftOAuth" \| "authkit"` | How they signed in                                                            |
+| `again`    | `boolean`                                                         | Whether it signed in to an account already listed, as after its session ended |
+| `kept`     | `boolean`                                                         | Whether it's kept between launches, false where the system has no keyring     |
+| `accounts` | `integer`                                                         | The accounts signed in or listed afterwards                                   |
+
+### `account.signedOut`
+
+| Attribute  | Type                      | Meaning                                                                      |
+| ---------- | ------------------------- | ---------------------------------------------------------------------------- |
+| `reason`   | `"person" \| "elsewhere"` | Who signed out: the person here, or another copy of Parity                   |
+| `current`  | `boolean`                 | Whether it was the account the person was in                                 |
+| `ended`    | `boolean`                 | Whether its session had already ended, so this only removed it from the list |
+| `accounts` | `integer`                 | The accounts signed in or listed afterwards                                  |
+
+### `account.stateFailed`
+
+| Attribute | Type               | Meaning                                                           |
+| --------- | ------------------ | ----------------------------------------------------------------- |
+| `stage`   | `"ask" \| "check"` | Whether asking main failed, or its answer didn't match the schema |
+| `message` | `string`           | What went wrong, without the answer itself                        |
+| `pointer` | `string`, optional | Where the answer didn't match, as a JSON pointer                  |
+
+### `account.storeFailed`
+
+| Attribute | Type                                                                 | Meaning                                                                                                                                              |
+| --------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `action`  | `"read" \| "write"`                                                  | Whether Parity was reading the kept accounts or writing them                                                                                         |
+| `stage`   | `"file" \| "decrypt" \| "json" \| "schema" \| "reencrypt"`, optional | Where reading failed: decrypting, parsing, checking, or writing it again with the keychain's new key. The file is cleared, signing every account out |
+| `error`   | `string`                                                             | The error's name, never its message, which can hold what was decrypted                                                                               |
+| `code`    | `string`, optional                                                   | The system error code, as `EPERM`, when there is one                                                                                                 |
 
 ### `agent.called`
 

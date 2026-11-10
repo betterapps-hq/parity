@@ -687,7 +687,9 @@ const account = createAccount({
       ? Promise.resolve({ uri: schemeRedirect, close: () => undefined })
       : listenOnLoopback((link) => account.takeLink(link)),
   openBrowser: (url) => shell.openExternal(url),
-  store: sessionStore(join(app.getPath("userData"), "account"), safeStorage, process.platform),
+  store: sessionStore(join(app.getPath("userData"), "account"), safeStorage, process.platform, (problem) =>
+    events.telemetry.track("account.storeFailed", problem)
+  ),
   changed: (state: AccountState) => {
     for (const window of appWindows()) {
       window.webContents.send(ipc.accountChanged, state)
@@ -712,7 +714,8 @@ const account = createAccount({
     const timer = setTimeout(run, ms)
 
     return () => clearTimeout(timer)
-  }
+  },
+  telemetry: events.telemetry
 })
 
 /** A sign-in link this copy got from the system: its own sign-in's, or another copy's, which it passes on. */

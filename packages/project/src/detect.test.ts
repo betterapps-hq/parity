@@ -268,6 +268,54 @@ describe("detectProject", () => {
     ])
   })
 
+  it("reads the Vite that Vite+ ships when vite is aliased to its core", async () => {
+    const pkg = { devDependencies: { vite: "npm:@voidzero-dev/vite-plus-core@1.4.0" } }
+    await fixture({
+      "package.json": pkg,
+      "node_modules/vite/package.json": {
+        name: "@voidzero-dev/vite-plus-core",
+        version: "1.4.0",
+        bundledVersions: { vite: "8.3.5", rolldown: "1.2.15" }
+      }
+    })
+
+    const detection = await detectProject(root, pkg, undefined, today)
+    expect(detection.tools).toEqual([
+      {
+        id: "vite",
+        name: "Vite",
+        version: "8.3.5",
+        from: "node_modules/vite",
+        status: "supported",
+        summary: "Vite 8.3.5 from node_modules/vite (@voidzero-dev/vite-plus-core 1.4.0)"
+      }
+    ])
+    expect(detection.notice).toBeUndefined()
+  })
+
+  it("never takes an alias's own version for the tool's", async () => {
+    const pkg = { devDependencies: { vite: "npm:some-vite-fork@1.0.0" } }
+    await fixture({
+      "package.json": pkg,
+      "node_modules/vite/package.json": { name: "some-vite-fork", version: "1.0.0" }
+    })
+
+    const builder = { id: "vite", detection: { found: true, version: "8.3.5", config: "vite.config.ts", summary: "" } }
+    expect((await detectProject(root, pkg, builder, today)).tools[0]).toMatchObject({
+      version: "8.3.5",
+      status: "supported"
+    })
+
+    const [vite] = (await detectProject(root, pkg, undefined, today)).tools
+    expect(vite).toEqual({
+      id: "vite",
+      name: "Vite",
+      from: "node_modules/vite",
+      summary:
+        "Vite from node_modules/vite, installed as some-vite-fork 1.0.0, which doesn't say which Vite version it ships"
+    })
+  })
+
   it("marks a major newer than any Parity knows", async () => {
     const pkg = { dependencies: { react: "^20.0.0" } }
     await fixture({ "package.json": pkg, ...installed("react", "20.0.0") })
