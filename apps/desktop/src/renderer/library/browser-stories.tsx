@@ -49,7 +49,7 @@ export function opening(library: typeof pixabay, search?: Searched, live = false
 }
 
 /** The whole page, since the browser opens over the window rather than inside the story's own element. */
-export const body = () => within(document.body)
+export const body = (): ReturnType<typeof within> => within(document.body)
 
 /** The results, once they've arrived. */
-export const results = () => body().findByRole("list", { name: "Results" })
+export const results = (): Promise<HTMLElement> => body().findByRole("list", { name: "Results" })
