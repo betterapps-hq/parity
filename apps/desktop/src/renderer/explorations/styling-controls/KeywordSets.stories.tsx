@@ -17,11 +17,9 @@ import {
   strokeStyleChoices,
   wrapChoices
 } from "./keyword-sets.tsx"
-import { BlendMenu } from "./opacity-blend.tsx"
 import { Card, Playground, PreviewStage } from "./playground.tsx"
-import type { BlendMode } from "./text-data.ts"
 import { filledLayer, TextSample } from "./text-preview.tsx"
-import { type KeywordValue, keywordWrites, opacityWrites } from "./text-writes.ts"
+import { type KeywordValue, keywordWrites } from "./text-writes.ts"
 
 /**
  * Keyword sets (PAR-186, design-options-values.md's Keyword sets): icon toggles or a menu, each option's hint naming
@@ -390,26 +388,3 @@ export const ClipContent: Story = { render: () => <Clip start={{ option: "clip" 
 
 /** Scroll when needed: `overflow-auto`. */
 export const ClipScrollWhenNeeded: Story = { render: () => <Clip start={{ option: "auto" }} /> }
-
-function Blend({ start }: { start?: BlendMode }) {
-  const [value, setValue] = useState(start)
-  const [hovered, setHovered] = useState<BlendMode>()
-
-  return (
-    <Playground
-      writes={opacityWrites(undefined, value)}
-      preview={
-        <PreviewStage>
-          <Card style={{ ...filledLayer, mixBlendMode: hovered ?? value }} />
-        </PreviewStage>
-      }
-    >
-      <Field label="Blend">
-        <BlendMenu value={value} onChange={setValue} onPreview={setHovered} />
-      </Field>
-    </Playground>
-  )
-}
-
-/** Blend mode on its own: Screen. Moving through the menu previews each mode on the layer. */
-export const BlendModeMenu: Story = { render: () => <Blend start="screen" /> }

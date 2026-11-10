@@ -101,7 +101,7 @@ export function BlendMenu({
         chosen={value !== undefined}
         detail={value === undefined ? "Unset: blends as its parent does (pass through)" : `mix-blend-mode: ${value}`}
         browsers={value !== undefined && "browsers" in chosen ? chosen.browsers : undefined}
-        className="w-24 shrink-0"
+        className="min-w-0 flex-1"
       />
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuRadioGroup
@@ -149,8 +149,11 @@ export function OpacityRow({
   onPreviewBlend: (value: BlendMode | undefined) => void
 }) {
   return (
+    // Opacity needs room for 100 and its %, or a token's name; Blend mode takes the rest, as its names are long (Color dodge).
     <div className="flex items-start gap-1">
-      <OpacityField value={opacity} mixed={mixed} onChange={onOpacity} />
+      <div className="w-32 shrink-0">
+        <OpacityField value={opacity} mixed={mixed} onChange={onOpacity} />
+      </div>
       <BlendMenu value={blend} mixed={mixed} onChange={onBlend} onPreview={onPreviewBlend} />
     </div>
   )

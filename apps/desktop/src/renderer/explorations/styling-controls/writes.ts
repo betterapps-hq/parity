@@ -170,34 +170,6 @@ export function radiusWrites(radius: Draft["radius"], cornerStyle?: string): Wri
   return { stored, css, tailwind }
 }
 
-/** Layer blur (`filter`) or Background blur (`backdrop-filter`). */
-export function blurWrites(which: "blur" | "backdropBlur", value: Length | undefined): Writes {
-  const property = which === "blur" ? "filter" : "backdrop-filter"
-  const prefix = which === "blur" ? "blur" : "backdrop-blur"
-
-  if (value === undefined) {
-    return { stored: undefined, css: [], tailwind: [] }
-  }
-
-  if (isLengthToken(value)) {
-    // A token in the theme's blur namespace (`--blur-*`) is a utility of its own, a token made here included;
-    // another custom property is written as a variable.
-    const themed = value.startsWith("blur-")
-
-    return {
-      stored: { token: value },
-      css: [`${property}: blur(var(--${value}))`],
-      tailwind: [themed ? `${prefix}-${value.replace("blur-", "")}` : `${prefix}-(--${value})`]
-    }
-  }
-
-  return {
-    stored: lengthStored(value),
-    css: [`${property}: blur(${value.px}px)`],
-    tailwind: [`${prefix}-[${value.px}px]`]
-  }
-}
-
 /** Where a stroke is drawn: in layout as a border, or as an outline inside, centered on or outside the edge (call 2). */
 export type StrokePosition = "inside" | "center" | "outside"
 

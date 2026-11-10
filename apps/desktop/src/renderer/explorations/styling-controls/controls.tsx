@@ -2,7 +2,6 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -15,7 +14,7 @@ import {
   SelectValue,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ChevronDown, LayoutTemplate, Link2, Monitor, Plus, Squircle } from "lucide-react"
+import { ChevronDown, LayoutTemplate, Link2, Monitor, Squircle } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { ChoiceInput, PanelSelectContent } from "../../chrome/fields.tsx"
@@ -58,7 +57,7 @@ import {
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
-import { CornerGlyph, EachToggle, Field, SectionButton, SideGlyph, TitleMenu } from "./field-row.tsx"
+import { CornerGlyph, EachToggle, Field, SectionButton, SideGlyph } from "./field-row.tsx"
 import { HighlightOverlay } from "./highlight.tsx"
 import { RemoveButton } from "./list-parts.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
@@ -802,80 +801,6 @@ export function FillSection({
               set({ background, backgroundAlpha, backgroundAllowed: undefined })
             }
           />
-        </div>
-      )}
-    </PanelSection>
-  )
-}
-
-const effects = [
-  { key: "blur", label: "Layer blur", hint: "Blurs the layer itself", added: "blur-sm" },
-  {
-    key: "backdropBlur",
-    label: "Background blur",
-    hint: "Blurs what shows through the layer, for frosted glass",
-    added: "blur-md"
-  }
-] as const
-
-/**
- * Effects, a section of its own in call 5's order, with Layer blur and Background blur as PAR-652's panel names them.
- * It's a title with + until an effect is added; + offers each effect, and each row's − takes it off.
- */
-export function EffectsSection({ draft, set, tokensOnly, mixed }: SectionProps) {
-  // Layers whose background blurs differ show its row, Mixed.
-  const [added, setAdded] = useState(() => ({
-    blur: draft.blur !== undefined,
-    backdropBlur: draft.backdropBlur !== undefined || (mixed ?? false)
-  }))
-
-  const shown = effects.filter((effect) => added[effect.key] || draft[effect.key] !== undefined)
-
-  return (
-    <PanelSection
-      title="Effects"
-      action={
-        <TitleMenu label="Add an effect" icon={<Plus className="size-4" />} hinted menuClassName="w-44">
-          {effects.map((effect) => (
-            <DropdownMenuItem
-              key={effect.key}
-              className="text-xs"
-              disabled={shown.includes(effect)}
-              onClick={() => {
-                setAdded((current) => ({ ...current, [effect.key]: true }))
-                set({ [effect.key]: effect.added })
-              }}
-            >
-              {effect.label}
-            </DropdownMenuItem>
-          ))}
-        </TitleMenu>
-      }
-    >
-      {shown.length > 0 && (
-        <div className="flex flex-col gap-2.5">
-          {shown.map((effect) => (
-            <Field key={effect.key} label={effect.label} hint={effect.hint}>
-              <div className="flex items-start gap-1">
-                <div className="min-w-0 flex-1">
-                  <BlurChoice
-                    label={effect.label}
-                    value={draft[effect.key]}
-                    tokensOnly={tokensOnly}
-                    mixed={mixed}
-                    onChange={(value) => set({ [effect.key]: value })}
-                  />
-                </div>
-                <RemoveButton
-                  label={`Remove ${effect.label.toLowerCase()}`}
-                  onClick={() => {
-                    setAdded((current) => ({ ...current, [effect.key]: false }))
-                    set({ [effect.key]: undefined })
-                  }}
-                />
-              </div>
-            </Field>
-          ))}
         </div>
       )}
     </PanelSection>
