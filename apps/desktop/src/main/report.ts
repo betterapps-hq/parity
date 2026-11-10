@@ -16,7 +16,7 @@ import { app, type BrowserWindow } from "electron"
 import type { ProblemReport } from "../shared/ipc-checks.ts"
 import type { ReportCrash } from "../shared/protocol.ts"
 import type { MainMethods } from "../shared/service.ts"
-import { scrubber } from "./telemetry.ts"
+import { scrubber, whileSendingReport } from "./telemetry.ts"
 
 /**
  * Help > Report a problem (PAR-635): a Sentry user feedback with what the person wrote, a screenshot of the window, the
@@ -223,26 +223,18 @@ export function createReports({
 }
 
 /**
- * Sends the feedback, even with Telemetry set to Off: the person asked to send it, and sees what goes with it. Sentry
- * is switched on only while it's sent.
+ * Sends the feedback, even with Telemetry set to Off: the person asked to send it, and sees what goes with it. While
+ * it's off, only the report leaves (PAR-813). Sentry doesn't pass a feedback through `beforeSend`, so its message and
+ * tags are scrubbed here, as every other event is.
  */
 async function sendFeedback(report: Feedback, attachments: Attachment[]): Promise<string> {
-  const options = Sentry.getClient()?.getOptions()
-
-  if (!options) {
-    throw new CodedError("Sentry isn't running, so the report can't be sent", { code: "app_error" })
-  }
-
-  const wasEnabled = options.enabled
-  options.enabled = true
-
-  try {
+  return whileSendingReport(async () => {
     const feedbackId = Sentry.withScope((scope) => {
       if (report.traceId) {
         scope.setPropagationContext({ traceId: report.traceId, sampleRand: Math.random() })
       }
 
-      scope.setTags(report.tags)
+      scope.setTags(scrubber.value(report.tags))
 
       if (report.replayId) {
         const replayId = report.replayId
@@ -258,7 +250,10 @@ async function sendFeedback(report: Feedback, attachments: Attachment[]): Promis
         })
       }
 
-      const feedback: Parameters<typeof Sentry.captureFeedback>[0] = { message: report.message, source: report.source }
+      const feedback: Parameters<typeof Sentry.captureFeedback>[0] = {
+        message: scrubber.text(report.message),
+        source: report.source
+      }
 
       // Sentry shows the feedback on the error's issue.
       if (report.eventId) {
@@ -273,9 +268,7 @@ async function sendFeedback(report: Feedback, attachments: Attachment[]): Promis
     }
 
     return feedbackId
-  } finally {
-    options.enabled = wasEnabled
-  }
+  })
 }
 
 /** Where the person sent their report from, for its `report` tag. */

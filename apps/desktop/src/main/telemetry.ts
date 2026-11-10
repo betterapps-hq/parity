@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { join } from "node:path"
+import { CodedError } from "@parity-app/core"
 import {
   createDriverTracker,
   driverTags,
@@ -174,6 +175,10 @@ export function startTelemetry(
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
     // Every process's errors, logs and spans come through here; whether any leave is `applyTelemetry`'s switch.
     beforeSend: (event, hint) => {
+      if (reportOnly) {
+        return null
+      }
+
       // An error carries the frame that last failed to draw offscreen, while it's recent (PAR-638).
       const frame = failedFrame()
 
@@ -183,7 +188,8 @@ export function startTelemetry(
 
       return scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } }))
     },
-    beforeSendTransaction: (event) => scrubbing.beforeSendTransaction(withDriver(event)),
+    beforeSendTransaction: (event) => (reportOnly ? null : scrubbing.beforeSendTransaction(withDriver(event))),
+    beforeSendLog: (log) => (reportOnly ? null : scrubbing.beforeSendLog(log)),
     integrations: [
       // A renderer that runs out of memory may leave no minidump, so it's reported as well as the default exits.
       Sentry.childProcessIntegration({ events: ["abnormal-exit", "launch-failed", "integrity-failure", "oom"] })
@@ -324,6 +330,36 @@ export function recordForwarded(sent: unknown, process?: Envelope["process"]): E
  * Sends at this level from now on, reporting as this install. Sentry checks whether it's enabled on every send, so a
  * change needs no restart.
  */
+/** Whether Sentry is on only to send a report while diagnostics are off, so nothing else may leave (PAR-813). */
+let reportOnly = false
+
+/**
+ * Runs `send`, which sends a report the person asked to send, with Sentry on for it even while diagnostics are off.
+ * Then only the report leaves: errors, spans and logs recorded meanwhile are dropped, as they would be while off
+ * (PAR-813).
+ */
+export async function whileSendingReport<T>(send: () => Promise<T>): Promise<T> {
+  const options = Sentry.getClient()?.getOptions()
+
+  if (!options) {
+    throw new CodedError("Sentry isn't running, so the report can't be sent", { code: "app_error" })
+  }
+
+  if (options.enabled) {
+    return send()
+  }
+
+  options.enabled = true
+  reportOnly = true
+
+  try {
+    return await send()
+  } finally {
+    options.enabled = false
+    reportOnly = false
+  }
+}
+
 export function applyTelemetry(next: { level: TelemetryLevel; installId: string }): void {
   level = next.level
   const client = Sentry.getClient()
