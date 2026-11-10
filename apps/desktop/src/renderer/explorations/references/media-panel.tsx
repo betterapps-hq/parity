@@ -641,13 +641,16 @@ function MediaCard({ item, picture, onPlace, onOpenAtSource, onRemove, onShow }:
   const source = picture && sourceOf(picture)
   const clip = shown && clipOf(shown)
   const size = shown && sizeOf(shown)
-  const used = item.usedBy.length > 0 || item.usedInCode.length > 0
+  const places = item.usedBy.length + item.usedInCode.length
+  const used = places > 0
 
   const facts = [
     size && `${size.width} × ${size.height}`,
     item.bytes !== undefined && bytesOf(item.bytes),
     clip && clockOf(clip.seconds),
-    !used && "Not used yet"
+    !used && "Not used yet",
+    // One used in more places than the card lists says how many.
+    places > usesShown && `Used ${places} times`
   ].filter(Boolean)
 
   return (
@@ -684,29 +687,7 @@ function MediaCard({ item, picture, onPlace, onOpenAtSource, onRemove, onShow }:
           </span>
         )}
       </div>
-      {used && (
-        <ul aria-label="Where it's used" className="flex flex-col border-t px-3 py-1.5 text-xs">
-          {item.usedBy.map((use) => (
-            <li key={`${use.design} ${use.node}`} className="flex h-7 items-center gap-2">
-              <DesignIcon kind="screen" className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">
-                {use.designName} <span className="text-muted-foreground">{use.node}</span>
-              </span>
-              <Button variant="ghost" size="sm" className="-mr-1.5 h-6 px-1.5 text-xs" onClick={() => onShow(use)}>
-                Show
-              </Button>
-            </li>
-          ))}
-          {item.usedInCode.map((use) => (
-            <li key={`${use.path} ${use.line}`} className="flex h-7 items-center gap-2">
-              <Code className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              <span className="min-w-0 flex-1 truncate font-mono text-2xs">
-                {use.path}, line {use.line}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {used && <Uses item={item} onShow={onShow} />}
       <div className="flex items-center gap-1 border-t px-2 py-1.5">
         {shown && (
           <Button size="sm" className="h-7 text-xs" onClick={onPlace}>
@@ -727,6 +708,100 @@ function MediaCard({ item, picture, onPlace, onOpenAtSource, onRemove, onShow }:
           <Trash2 />
         </IconButton>
       </div>
+    </div>
+  )
+}
+
+/** How many of the places that use one its card lists before the rest wait behind a button. */
+const usesShown = 3
+
+/** A design that uses one of the project's media, with each of its layers that does. */
+interface DesignUse {
+  design: string
+  name: string
+  layers: MediaUse[]
+}
+
+/**
+ * The designs that use one, the one with the most layers first. A logo can be in a hundred layers, and they're in a
+ * handful of designs, so the designs are what's listed.
+ */
+function designsUsing(item: ProjectMedia): DesignUse[] {
+  const designs = new Map<string, DesignUse>()
+
+  for (const use of item.usedBy) {
+    const known = designs.get(use.design)
+
+    if (known) {
+      known.layers.push(use)
+    } else {
+      designs.set(use.design, { design: use.design, name: use.designName, layers: [use] })
+    }
+  }
+
+  return [...designs.values()].toSorted((a, b) => b.layers.length - a.layers.length)
+}
+
+/** What a design's row says after its name: its one layer by name, or how many layers. */
+function layersOf({ layers }: DesignUse): string {
+  const [only] = layers
+
+  return layers.length === 1 && only ? only.node : `${layers.length} layers`
+}
+
+/**
+ * Where one is used, on its card: a row for each design, with how many of its layers use it and Show, then each line
+ * of code. The first few show, and the rest wait behind a button that opens them in place, in a list that scrolls.
+ */
+function Uses({ item, onShow }: { item: ProjectMedia; onShow: (use: MediaUse) => void }) {
+  const [all, setAll] = useState(false)
+
+  const rows = [
+    ...designsUsing(item).map((design) => (
+      <li key={design.design} className="flex h-7 shrink-0 items-center gap-2">
+        <DesignIcon kind="screen" className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate">
+          {design.name} <span className="text-muted-foreground">{layersOf(design)}</span>
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={`Show in ${design.name}`}
+          className="h-6 px-1.5 text-xs"
+          onClick={() => onShow(design.layers[0]!)}
+        >
+          Show
+        </Button>
+      </li>
+    )),
+    ...item.usedInCode.map((use) => (
+      <li key={`${use.path} ${use.line}`} className="flex h-7 shrink-0 items-center gap-2">
+        <Code className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="min-w-0 flex-1 truncate font-mono text-2xs">
+          {use.path}, line {use.line}
+        </span>
+      </li>
+    ))
+  ]
+
+  const listed = all ? rows : rows.slice(0, usesShown)
+  const more = rows.length - listed.length
+
+  return (
+    <div className="border-t py-1.5 pr-1.5 pl-3 text-xs">
+      <ul aria-label="Where it's used" className={`flex flex-col ${all ? "max-h-42 overflow-y-auto" : ""}`}>
+        {listed}
+      </ul>
+      {more > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-1.5 h-6 px-1.5 text-xs text-muted-foreground"
+          onClick={() => setAll(true)}
+        >
+          Show {more} more
+        </Button>
+      )}
     </div>
   )
 }
@@ -758,7 +833,7 @@ function CardStage({ item, picture }: { item: ProjectMedia; picture: Found | und
 }
 
 /**
- * Removing one something still uses: where it's used, each layer with Show, and what removing it would take. One
+ * Removing one something still uses: where it's used, each design with Show, and what removing it would take. One
  * only designs use goes with its layers, in one step Undo takes back. One the project's code names stays until
  * the code changes, since Parity doesn't edit the person's code for them.
  */
@@ -794,14 +869,22 @@ function InUseDialog({
           <DialogHeader>
             <DialogTitle>{title(image)}</DialogTitle>
           </DialogHeader>
-          <ul aria-label="Where it's used" className="flex flex-col divide-y rounded-md border text-sm">
-            {image.usedBy.map((use) => (
-              <li key={`${use.design} ${use.node}`} className="flex items-center gap-2 py-1.5 pr-1.5 pl-3">
+          <ul
+            aria-label="Where it's used"
+            className="flex max-h-64 flex-col divide-y overflow-y-auto rounded-md border text-sm"
+          >
+            {designsUsing(image).map((design) => (
+              <li key={design.design} className="flex shrink-0 items-center gap-2 py-1.5 pr-1.5 pl-3">
                 <DesignIcon kind="screen" className="size-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate">
-                  {use.designName} <span className="text-muted-foreground">{use.node}</span>
+                  {design.name} <span className="text-muted-foreground">{layersOf(design)}</span>
                 </span>
-                <Button variant="outline" size="sm" onClick={() => onShow(use)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={`Show in ${design.name}`}
+                  onClick={() => onShow(design.layers[0]!)}
+                >
                   Show
                 </Button>
               </li>

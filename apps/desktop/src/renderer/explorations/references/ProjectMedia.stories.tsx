@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { typeInto } from "../../stories/fixtures.tsx"
 import { opening, workspace } from "./story-kit.tsx"
+import { usedEverywhere } from "./workspace.tsx"
 
 /**
  * The Media tab (docs/proposals/references.md): everything the project has to show or play. It's the Images tab
@@ -205,6 +206,35 @@ export const NoFileCard: Story = {
   play: async () => {
     await openCard("/images/old-logo.svg")
     await expect(await body().findByText("No file at this path")).toBeInTheDocument()
+  }
+}
+
+/**
+ * One used all over, as a logo is: 104 layers in eleven designs, and three files of code. Its card says how many
+ * times, and lists the designs rather than the layers, the one with the most first, each with how many of its layers
+ * use it. Three show, and Show 11 more opens the rest in place, in a list that scrolls.
+ */
+export const UsedEverywhere: Story = {
+  loaders: [opening(false, "images")],
+  render: workspace({ media: usedEverywhere() }),
+  play: async () => {
+    await openCard("rocket.svg")
+    await expect(await body().findByText("Used 107 times")).toBeInTheDocument()
+    const more = await body().findByRole("button", { name: "Show 11 more" })
+    more.focus()
+    await userEvent.keyboard("{Enter}")
+    await expect(await body().findByRole("button", { name: "Show in Changelog" })).toBeInTheDocument()
+  }
+}
+
+/** Removing one used all over asks first, with the same designs in a list that scrolls. */
+export const RemoveOneUsedEverywhere: Story = {
+  loaders: [opening(false, "images")],
+  render: workspace({ media: usedEverywhere() }),
+  play: async () => {
+    await fromCard("rocket.svg", "Remove from project")
+    const dialog = within(await body().findByRole("dialog"))
+    await expect(await dialog.findByRole("button", { name: "Show in Pricing" })).toBeInTheDocument()
   }
 }
 
@@ -421,7 +451,9 @@ export const DeleteKeyAndShow: Story = {
     const lake = await tile("lake-at-sunrise.jpg")
     lake.focus()
     await userEvent.keyboard("{Delete}")
-    await userEvent.click(await within(await body().findByRole("dialog")).findByRole("button", { name: "Show" }))
+    await userEvent.click(
+      await within(await body().findByRole("dialog")).findByRole("button", { name: "Show in Pricing" })
+    )
     await expect(body().queryByRole("dialog")).toBeNull()
   }
 }

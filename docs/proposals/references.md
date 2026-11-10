@@ -174,8 +174,11 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   the project keeps, and a dashed place, with the file's name, for a path a layer names that has no file.
 - **Resting on one opens its card,** as a component's does, and the right arrow opens it from the keyboard: the picture
   larger, or a video in its player; its name and where its file is; its size in pixels and on disk; who made it and the
-  library it's from, under that library's mark; each layer and line of code that uses it, with Show; and Insert, Open in
-  Pixabay and Remove.
+  library it's from, under that library's mark; where it's used; and Insert, Open in Pixabay and Remove.
+- **Where it's used is listed by design, not by layer,** since a logo can be in a hundred layers and they're in a
+  handful of designs. Each design's row says how many of its layers use it, with Show, the one with the most first, then
+  each line of code. Three rows show, and the rest open in place behind "Show 11 more", in a list that scrolls. The
+  dialog that asks before removing one lists them the same way.
 - **Pressing one places it in the selected design, and it drags onto the canvas,** as a component does. Dropped on a
   design it lands where it's dropped; on the empty canvas it makes a frame named after it.
 - **Images, Vectors and Videos narrow it,** and show only when the project has more than one of them. Its search looks

@@ -208,6 +208,45 @@ function startingMedia(): MediaStart {
   }
 }
 
+/** How many layers of each design show the rocket, in a project that uses it as its logo. */
+const logoUses: readonly [string, number][] = [
+  ["Pricing", 40],
+  ["Landing", 22],
+  ["Checkout", 12],
+  ["Dashboard", 9],
+  ["Settings", 6],
+  ["Sign in", 5],
+  ["Onboarding", 4],
+  ["Billing", 2],
+  ["Profile", 2],
+  ["Help", 1],
+  ["Changelog", 1]
+]
+
+/** The project it starts with, with one of its media used all over: 104 layers in eleven designs, and three files. */
+export function usedEverywhere(): MediaStart {
+  const start = startingMedia()
+
+  const usedBy = logoUses.flatMap(([designName, layers]) =>
+    Array.from({ length: layers }, (_, index): MediaUse => {
+      const design = designName.toLowerCase().replaceAll(" ", "-")
+
+      return { document: "app.par", design, designName, node: index === 0 ? "logo" : `logo-${index + 1}` }
+    })
+  )
+
+  const usedInCode = [
+    { path: "src/components/Header.tsx", line: 8 },
+    { path: "src/components/Footer.tsx", line: 21 },
+    { path: "src/pages/NotFound.tsx", line: 5 }
+  ]
+
+  return {
+    ...start,
+    media: start.media.map((item) => (item.name === "rocket.svg" ? { ...item, usedBy, usedInCode } : item))
+  }
+}
+
 /** What a stock picture's file is called in the project: after what it is at its library, in the form it downloads in. */
 function fileNameOf(picture: Found): string {
   const kept = sampleMedia(picture.id)?.type === "vectors" ? "svg" : "jpg"
