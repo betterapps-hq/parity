@@ -41,9 +41,10 @@ Across all of them:
   the agent's caller name and MCP client) and `test_run`.
 - **Sentry's user** is the install ID, a random UUID that's replaced when sharing is turned off. Its name is
   `PARITY_TESTER` when that's set, or the agent's caller name while one drives.
-- **Sentry records the sender's IP address and works out their country from it.** No code asks for it, since
-  `sendDefaultPii` isn't set, but Sentry's ingest does it unless a project turns on "Prevent storing IP addresses". The
-  testers' errors and replays from 2026-11-09 have both.
+- **Sentry works out the sender's country from their IP address, but no longer keeps the address.** Sentry's ingest
+  reads it from the connection, though no code asks for it. Until 2026-11-09 it kept the address too. You chose then to
+  keep the country and drop the address, so both projects now have "Prevent storing of IP addresses" on. Sentry still
+  derives the location when that's on: country, and also region and city where it can.
 - **Sentry's own sessions** come from main, so crash-free rates exist for the app. The CLI sends none.
 - **Nothing is sampled.** No process sets `tracesSampleRate` or a sampler, so the SDKs make no spans of their own, and
   every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option.
@@ -107,7 +108,7 @@ while it's off.
 | Error messages and stacks                | Every error                                                                                                                                                                    | Yes. In development, stacks show the worktree's path. A CLI stack can show the user's home folder |
 | Report text and screenshots              | User feedback                                                                                                                                                                  | Yes; the person sees and sends it                                                                 |
 | A tester's name                          | Sentry's user, from `PARITY_TESTER`                                                                                                                                            | Yes, when set                                                                                     |
-| IP address and country                   | Every event, added by Sentry                                                                                                                                                   | Yes                                                                                               |
+| Location                                 | Every event, added by Sentry from the IP address                                                                                                                               | The country, region and city. The IP address isn't kept, since 2026-11-09                         |
 
 **What's removed is secrets, and only secrets.** `createScrubber` replaces them with `[redacted]` in every process
 before anything leaves. It runs on events as they're recorded and in every Sentry hook (`beforeSend`,
@@ -142,7 +143,8 @@ it did see.
 ## Decisions for PAR-619
 
 Each row is one of PAR-619's decisions, for builds that report `release` and `production`. The recommendation keeps
-`development`, `ci` and `preview` as they are, for testers and agents.
+`development`, `ci` and `preview` as they are, for testers and agents. Until Parity has users, it collects as much as it
+can rather than miss an issue, as you chose on 2026-11-09, so nothing is sampled.
 
 | Decision                          | Today                                                                                   | Options                                                                                                                                                                                     | Recommendation                                                                                                                                                                                                                             |
 | --------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -153,12 +155,11 @@ Each row is one of PAR-619's decisions, for builds that report `release` and `pr
 | Values                            | Every inspector change's old and new value, token values, agent parameters and snippets | 1. As written. 2. The kind and size only (`string`, 12 characters). 3. Dropped                                                                                                              | **2.** A value rarely explains a bug that its field and kind don't, and text values are the person's content                                                                                                                               |
 | Messages                          | Error messages, guest errors, builder output and the project's console, as written      | 1. As written. 2. Parity's own messages as written, the project's own (guest errors, builder output, console breadcrumbs) dropped. 3. Codes only                                            | **2.** Parity's messages are Parity's text. What the project's code prints is the project's, and Parity's bugs show in Parity's frames                                                                                                     |
 | Replay masking                    | All text and inputs as written, canvases recorded; secrets scrubbed                     | 1. As today. 2. Replay's defaults (all text, inputs and media masked) with Parity's own interface unmasked by `data-sentry-unmask` on menus, buttons, labels and panel titles. 3. No replay | **2.** The replay still shows what was clicked and which panel was open, without the person's layer names, text or images. Turn the canvas integration off                                                                                 |
-| Replay sample rate                | Every session, and every error's buffer                                                 | 1. Every session. 2. No sessions; the minute before each error. 3. None                                                                                                                     | **2.** `replaysSessionSampleRate: 0`, `replaysOnErrorSampleRate: 1`. Every plan includes 50 replays a month, which every session would use in days                                                                                         |
-| Trace sample rate                 | Every span, every frame                                                                 | 1. Every span. 2. A share of traces, decided where each starts, with every trace that has an error kept. 3. No spans                                                                        | **2.** 10% of traces at the start, and `frame.rendered` at 1%. Without CI, a handful of testers send about 330,000 spans a month, and every plan includes 5 million                                                                        |
+| Replay sample rate                | Every session, and every error's buffer                                                 | 1. Every session. 2. No sessions; the minute before each error. 3. None                                                                                                                     | **1.** Every session, while there are no users. Revisit once volume says so                                                                                                                                                                |
+| Trace sample rate                 | Every span, every frame                                                                 | 1. Every span. 2. A share of traces, decided where each starts, with every trace that has an error kept. 3. No spans                                                                        | **1.** Every span, while there are no users. Revisit once volume says so                                                                                                                                                                   |
 
 The replay and trace rates apply to anyone who chooses Everything, since Errors only sends neither.
-[Privacy risks](#privacy-risks) lists the calls the code turned up that PAR-619 doesn't, such as Sentry keeping IP
-addresses.
+[Privacy risks](#privacy-risks) lists the calls the code turned up that PAR-619 doesn't.
 
 ## What we might be missing
 
@@ -181,12 +182,6 @@ filed.
 | Main's own requests aren't timed                    | Main's 33 `ipcMain` handlers in `main/index.ts` (account, report, update, file pickers) don't run in `request.handled`, which wraps only the service's channel (`shared/tracing.ts:86`), and `ipc.failed` covers only the service                                                                          | Run main's IPC handlers in `request.handled` spans                         |
 | An install ID that can't be saved changes every run | The install ID landed in PAR-626. When `telemetry.json` can't be written, the failure is swallowed and the next run makes another ID (`main/telemetry-setting.ts:38`), so Sentry counts each run as a new user, and nothing says why                                                                       | Report a failure to save the install ID                                    |
 
-### On-call blind spots
-
-| Gap                                    | Evidence                                                                                                                                                                                                                                    | Proposed issue                                                             |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| The trial's end stops bugs being filed | The Business trial ends on 2026-11-19 ([sentry.md](../sentry.md#the-organisation)). The Linear integration and metric monitors need Team. Every plan includes 50 replays a month, and `development` alone starts about 240 sessions a month | Choose Sentry's plan and set replay rates by environment before 2026-11-19 |
-
 ### Privacy risks
 
 These go beyond "names and values as written", which the decisions above cover.
@@ -197,4 +192,3 @@ These go beyond "names and values as written", which the decisions above cover.
 | A report with sharing off can send other events     | `sendFeedback` turns Sentry on for the whole of main while the report flushes, up to 15 seconds (`main/report.ts:237`)                                                                | Send a report without turning sharing on                           |
 | The project's console output becomes breadcrumbs    | The project's components run in the editor's page (`renderer/telemetry.ts:19`), and the browser SDK's console breadcrumbs are on by default                                           | Leave the project's console output out of the editor's breadcrumbs |
 | The CLI doesn't scrub `.env` values                 | Only the service reads them ([telemetry.md](../telemetry.md#secrets-are-scrubbed)), so a secret in an uncaught error's message or stack leaves the CLI unless its shape gives it away | Scrub the open projects' `.env` values in the CLI's sender         |
-| Sentry keeps IP addresses                           | Every tester error and replay in Sentry has the sender's IP address and country                                                                                                       | Turn on "Prevent storing IP addresses" in both Sentry projects     |

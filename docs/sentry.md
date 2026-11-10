@@ -231,6 +231,8 @@ so a Sentry module needs them to take a Sentry token first. Until then, these we
    server, on 2026-11-08, with the same Linear action.
 10. Created the four [dashboards](#dashboards) on 2026-11-09, and turned "Agent calls failing over 5%" off, since only
     `production` alerts (PAR-716).
+11. Turned on "Prevent storing of IP addresses" under Security & Privacy in `parity-desktop` and `parity-cli`, on
+    2026-11-09 (PAR-619). Sentry still works out each event's location from the address, so the country stays.
 
 PAR-658 brings all of this into Terraform in `infra/sentry`, which the Sentry provider supports for monitors, alerts and
 dashboards.
