@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 22:21:38 GMT",
+      "version": "0.54.0",
+      "tag": "@parity-app/desktop_v0.54.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "84392b23a079fe27170cf7eefba8c2172d5ac1a2",
+            "comment": "Agents read the references placed beside a design: References() in execute, get_references with the pictures, and a count per design in get_app_state. A reference records the design it was found for."
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 21:21:25 GMT",
       "version": "0.53.1",
       "tag": "@parity-app/desktop_v0.53.1",
