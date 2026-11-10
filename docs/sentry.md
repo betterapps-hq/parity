@@ -192,6 +192,16 @@ What a filed issue carries:
 - **There's one Linear issue per Sentry issue.** A regression reopens the linked Linear issue in Todo rather than filing
   another, even when the alert fires on it. Linear reopens it in the Parity team's default status, so Todo is the
   default, set in Linear's team settings under Statuses.
+- **Some problems are one Sentry issue however they're reached.** Sentry groups by stack. For errors that reach it from
+  many places, that made a new issue, and so a new Linear bug, for each place. These have a fixed fingerprint instead
+  (PAR-879):
+  - **Main hangs:** the watchdog's `main-stopped-answering`, in `mainHangEvent`. Each event still names the frame main
+    was caught on.
+  - **`UnknownVizError`:** `capturePage` failing to draw, as `unknown-viz-error`, set by `withGrouping` in main's
+    `beforeSend`.
+
+  Add an error there when the backlog shows it filed again under another stack.
+
 - **Linear's "in the next release" is literal.** Events from the release the bug was closed in, and from the next
   release Sentry sees, count as fixed and don't reopen it.
 

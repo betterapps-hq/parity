@@ -34,7 +34,8 @@ import {
   type TelemetryLevel,
   telemetryEnvironment,
   telemetryRelease,
-  telemetryUser
+  telemetryUser,
+  withGrouping
 } from "@parity-app/telemetry"
 import { createSentrySink, type SentryTarget, sentryScrubbing } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
@@ -228,7 +229,8 @@ export function startTelemetry(
           hint.attachments = [...(hint.attachments ?? []), log]
         }
 
-        return scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } }))
+        // Errors that are one problem however they're reached keep to one issue, so Linear gets one bug (PAR-879).
+        return scrubber.value(withDriver(withGrouping({ ...event, tags: { process: "main", ...event.tags } })))
       }),
     beforeSendTransaction: (event) =>
       reportGate.drop(event, (kept) => scrubbing.beforeSendTransaction(withDriver(kept))),

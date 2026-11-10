@@ -174,6 +174,8 @@ export interface WatchdogEvent {
   message: string
   tags: Record<string, string>
   extra: Record<string, number>
+  /** Sentry's grouping key, which keeps every main hang in one issue whatever frame it was caught on (PAR-879). */
+  fingerprint: string[]
   release?: string
   environment?: string
   dist?: string
@@ -274,6 +276,12 @@ export function debugImages(table: Readonly<Record<string, string>>, appRoot: st
   return images
 }
 
+/**
+ * Every main hang's Sentry fingerprint. Grouped by stack, each hang caught on another frame became its own issue, and
+ * Sentry's alert filed each in Linear as a new bug (PAR-879). Each event still carries the frame it was caught on.
+ */
+export const MAIN_HANG_FINGERPRINT = "main-stopped-answering"
+
 /** The Sentry message the watchdog sends as main's hang passes the threshold, tagged as main's own hangs are. */
 export function mainHangEvent({
   stuckMs,
@@ -297,7 +305,8 @@ export function mainHangEvent({
     level: "warning",
     message: "Main stopped answering",
     tags: { ...scope.tags, process: "main", hang: "main" },
-    extra: { stuckMs }
+    extra: { stuckMs },
+    fingerprint: [MAIN_HANG_FINGERPRINT]
   }
 
   if (scope.release !== undefined) {
