@@ -39,14 +39,7 @@ import {
   projectImages,
   type Stop
 } from "./lists-data.ts"
-import {
-  imageSizeCss,
-  layerCss,
-  paintIsArbitrary,
-  paintLayers,
-  resolveGradient,
-  simpleGradient
-} from "./lists-writes.ts"
+import { imageSizeCss, layerCss, paintLayers, resolveGradient, simpleGradient } from "./lists-writes.ts"
 import { angleDegrees, angleOf } from "./motion-data.ts"
 import { Card } from "./playground.tsx"
 import { PositionInBox } from "./position-box.tsx"
@@ -237,8 +230,6 @@ export function PaintStack({
     onChange(mixed ? [added] : [added, ...entries])
   }
 
-  const arbitrary = paintIsArbitrary(entries, saved)
-
   return (
     <PanelSection
       title="Fill"
@@ -281,14 +272,6 @@ export function PaintStack({
               onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
             />
           ))}
-          {arbitrary && (
-            <MessageLine
-              message={{
-                tone: "note",
-                text: "These fills don't fit Tailwind's utilities, so they're written as one arbitrary value."
-              }}
-            />
-          )}
         </div>
       )}
     </PanelSection>

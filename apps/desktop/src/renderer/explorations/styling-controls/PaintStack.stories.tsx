@@ -234,7 +234,7 @@ export const ImageTiled: Story = {
 
 /**
  * A translucent solid and a gradient over an image: more than one layer above the bottom, which Tailwind's utilities
- * can't hold, so they're one arbitrary `bg-[…]`, and the section says so. A solid above the bottom is
+ * can't hold, so they're one arbitrary `bg-[…]`. A solid above the bottom is
  * `linear-gradient(c, c)`.
  */
 export const SeveralLayers: Story = {

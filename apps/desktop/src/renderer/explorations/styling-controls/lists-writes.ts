@@ -252,25 +252,6 @@ export function paintLayers(entries: PaintEntry[], saved: GradientToken[] = []) 
   return { base, images: base ? shown.slice(0, -1) : shown }
 }
 
-/** Whether the fills need one arbitrary value: more than one layer above the bottom fill, or a long gradient. */
-export function paintIsArbitrary(entries: PaintEntry[], saved: GradientToken[] = []): boolean {
-  const { images } = paintLayers(entries, saved)
-
-  if (images.length > 1) {
-    return true
-  }
-
-  const only = images[0]?.paint
-
-  return (
-    only !== undefined &&
-    only.kind !== "solid" &&
-    only.kind !== "image" &&
-    only.token === undefined &&
-    !simpleGradient(only)
-  )
-}
-
 export function paintWrites(entries: PaintEntry[], saved: GradientToken[] = []): Writes {
   if (entries.length === 0) {
     return nothing
