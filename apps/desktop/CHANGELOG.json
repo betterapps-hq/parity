@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 23:55:31 GMT",
+      "version": "0.55.0",
+      "tag": "@parity-app/desktop_v0.55.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "66a52db876300cbcec38352d9f1073aa687e52ec",
+            "comment": "Add a video layer: MP4 and WebM files are imported by drop, paste and the Media tab into public/videos, found and played in the Media tab, added from Pixabay, and placed by agents with place_result"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 22:34:20 GMT",
       "version": "0.54.1",
       "tag": "@parity-app/desktop_v0.54.1",
