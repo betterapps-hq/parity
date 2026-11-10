@@ -45,6 +45,8 @@ function Shadows({
   const [isMixed, setMixed] = useState(mixed)
   const [saved, setSaved] = useState<ShadowToken[]>([])
   const [shadowOf, setShadowOf] = useState<"text" | "box">("text")
+  // The order a shadow's being carried over, drawn before it's let go; what's written stays as it is till then.
+  const [carried, setCarried] = useState<ShadowEntry[]>()
   const onText = text !== undefined && shadowOf === "text"
 
   return (
@@ -53,7 +55,7 @@ function Shadows({
       preview={
         <PreviewStage>
           <ShadowPreview
-            entries={isMixed ? [] : entries}
+            entries={isMixed ? [] : (carried ?? entries)}
             onText={onText}
             filled={text === undefined || text.hasFill}
             saved={saved}
@@ -68,6 +70,7 @@ function Shadows({
         text={text && { hasFill: text.hasFill, shadowOf, onShadowOf: setShadowOf }}
         saved={saved}
         openId={openId}
+        onPreview={setCarried}
         onSave={(token) => setSaved((list) => [...list, token])}
         onChange={(next) => {
           setMixed(false)

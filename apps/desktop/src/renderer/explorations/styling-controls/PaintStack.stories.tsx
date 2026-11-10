@@ -41,13 +41,15 @@ function Paints({
   const [entries, setEntries] = useState(start)
   const [isMixed, setMixed] = useState(mixed)
   const [saved, setSaved] = useState<GradientToken[]>([])
+  // The order a fill's being carried over, drawn before it's let go; what's written stays as it is till then.
+  const [carried, setCarried] = useState<PaintEntry[]>()
 
   return (
     <Playground
       writes={isMixed ? mixedWrites : paintWrites(entries, saved)}
       preview={
         <PreviewStage>
-          <PaintPreview entries={isMixed ? [] : entries} saved={saved} />
+          <PaintPreview entries={isMixed ? [] : (carried ?? entries)} saved={saved} />
         </PreviewStage>
       }
     >
@@ -57,6 +59,7 @@ function Paints({
         tokensOnly={tokensOnly}
         saved={saved}
         openId={openId}
+        onPreview={setCarried}
         onSave={(token) => setSaved((list) => [...list, token])}
         onChange={(next) => {
           setMixed(false)

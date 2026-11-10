@@ -1,55 +1,79 @@
 /*
  * Picking up a list's entry and putting it down somewhere else, for every list that's put in order by hand
  * (design-options-fields.md, Lists). Pressed by its handle, or dragged by its body, the entry lifts off the list as a
- * card that follows the pointer up and down; the entries it passes slide aside to make room; let go, it settles into
- * the gap. Escape puts it back where it was. Up and Down on its handle move it a place, the entries sliding the same
- * way. sort-layout.ts works out where it lands; this draws it, straight on the page so carrying it costs no render,
- * and the list is put in its new order once, when it's let go.
+ * card that follows the pointer up and down; the entries it passes slide aside to make room, and the list can preview
+ * the order it's over; let go, it settles into the gap on a spring and stays a card for a moment, so it's clear where it
+ * landed, before it fades into the list. Escape puts it back where it was. Up and Down on its handle move it a place,
+ * marked the same way. sort-layout.ts works out where it lands; this draws it, straight on the page so carrying it
+ * costs no render, and the list is put in its new order once, when it's let go.
  */
 import { type KeyboardEvent, type PointerEvent, type RefObject, useLayoutEffect, useRef } from "react"
 import { flushSync } from "react-dom"
+import { springLinear } from "./motion-data.ts"
 import { carriedShift, type SortBox, type SortLayout, sortLayout } from "./sort-layout.ts"
 
 type Move = (from: number, to: number) => void
 
-/** Quick to start and soft to stop, as something set down is (Material's emphasized deceleration). */
+/** Where an entry is being carried from and the place it's over, in its group; nothing once it's put down. */
+export type Carried = { from: number; to: number } | undefined
+
+/** Quick to start and soft to stop, as something moved aside is (Material's emphasized deceleration). */
 const ease = "cubic-bezier(0.2, 0, 0, 1)"
 
-/** How long the card takes to lift and set down, the others to slide aside, and the card to settle, in ms. */
-const timings = { lift: 150, slide: 200, settle: 240 }
+/**
+ * How long, in ms, the card takes to lift and set down, the others to slide aside, the card to settle into its place,
+ * how long it stays a card there, and how long it takes to fade into the list.
+ */
+const timings = { lift: 150, slide: 200, settle: 360, hold: 250, fade: 600 }
+
+/**
+ * Settling, a spring with a little give, from the same springs a transition's easing is drawn with, so the card comes
+ * to rest rather than stopping dead.
+ */
+const settling = springLinear({ duration: timings.settle, bounce: 0.3 })
 
 /** How far a press on the card's body moves before it's carrying rather than clicking, in px. */
 const threshold = 4
 
-/**
- * The card as it's carried: raised on the popover's surface, a little larger, edged and shadowed. Its surface reaches
- * 4px past the entry by a spread shadow in the same color, so lifting moves nothing else.
- */
+/** The card's edge: the popover's surface 4px past the entry, by a spread shadow, so lifting moves nothing else. */
+const edge = "0 0 0 4px var(--popover), 0 0 0 5px color-mix(in oklab, var(--foreground) 12%, transparent)"
+
+/** The card as it's carried: raised on the popover's surface, a little larger, edged and shadowed. */
 const raised = {
   backgroundColor: "var(--popover)",
-  boxShadow:
-    "0 0 0 4px var(--popover), 0 0 0 5px color-mix(in oklab, var(--foreground) 12%, transparent), 0 16px 32px -12px oklch(0 0 0 / 50%), 0 4px 10px -4px oklch(0 0 0 / 30%)",
+  boxShadow: `${edge}, 0 16px 32px -12px oklch(0 0 0 / 50%), 0 4px 10px -4px oklch(0 0 0 / 30%)`,
   scale: "1.02"
 }
 
-/** The card set down: the same four shadows at nothing, so each eases away rather than vanishing. */
+/** The card just put down: still a card, flat in its new place, which marks where it landed. */
+const landed = {
+  backgroundColor: "var(--popover)",
+  boxShadow: `${edge}, 0 0 0 0 transparent, 0 0 0 0 transparent`,
+  scale: "1"
+}
+
+/** The card gone into the list: the same four shadows at nothing, so each eases away rather than vanishing. */
 const lowered = {
   backgroundColor: "transparent",
   boxShadow: "0 0 0 0 transparent, 0 0 0 0 transparent, 0 0 0 0 transparent, 0 0 0 0 transparent",
   scale: "1"
 }
 
-/** An entry's movement and look, the movement over `slide` ms. */
-const motion = (slide: number, lift: number) =>
-  ["translate", "scale", "box-shadow", "background-color"]
-    .map((property, at) => `${property} ${at === 0 ? slide : lift}ms ${ease}`)
-    .join(", ")
+/** An entry's movement over `travel` ms on `curve`, and its look over `lift` ms. */
+const motion = (travel: number, lift: number, curve = ease) =>
+  [
+    `translate ${travel}ms ${curve}`,
+    ...["scale", "box-shadow", "background-color"].map((look) => `${look} ${lift}ms ${ease}`)
+  ].join(", ")
 
-/** The timings, or none where the system asks for reduced motion: the card still follows the pointer. */
+/**
+ * The timings, or none where the system asks for reduced motion: the card still follows the pointer, and still marks
+ * where it landed, for a moment, without fading.
+ */
 function timingsIn(page: Document): typeof timings {
   const still = page.defaultView?.matchMedia("(prefers-reduced-motion: reduce)").matches ?? false
 
-  return still ? { lift: 0, slide: 0, settle: 0 } : timings
+  return still ? { lift: 0, slide: 0, settle: 0, hold: 800, fade: 0 } : timings
 }
 
 /** Back to how the list draws it. */
@@ -69,30 +93,55 @@ function release(element: HTMLElement) {
   delete element.dataset.sort
 }
 
-/** Entries still sliding or settling, put back as the list draws them once they're done. */
-let settling: { elements: HTMLElement[]; timer: number } | undefined
+/** Entries still settling or marked as landed, and what's left to do to them. */
+let pending: { elements: HTMLElement[]; timers: number[] } | undefined
 
-function settle(elements: HTMLElement[], after: number) {
-  if (settling) {
-    window.clearTimeout(settling.timer)
+/** Stops what's left to do, leaving the entries as they're drawn now, for a key press that carries on from there. */
+function stopPending() {
+  for (const timer of pending?.timers ?? []) {
+    window.clearTimeout(timer)
   }
 
-  settling = {
-    elements,
-    timer: window.setTimeout(() => {
-      elements.forEach(release)
-      settling = undefined
-    }, after + 50)
-  }
+  pending = undefined
 }
 
-/** Ends a settling at once, for a new carry that has to measure the list as it's laid out. */
-function finishSettling() {
-  if (settling) {
-    window.clearTimeout(settling.timer)
-    settling.elements.forEach(release)
-    settling = undefined
-  }
+/** Ends it all at once, for a carry that has to measure the list as it's laid out. */
+function finishPending() {
+  const elements = pending?.elements ?? []
+  stopPending()
+  elements.forEach(release)
+}
+
+/** Puts `elements` back as the list draws them after `after` ms, running `steps` on the way. */
+function later(elements: HTMLElement[], after: number, steps: [number, () => void][] = []) {
+  stopPending()
+
+  const timers = [
+    ...steps.map(([at, step]) => window.setTimeout(step, at)),
+    window.setTimeout(() => {
+      elements.forEach(release)
+      pending = undefined
+    }, after + 50)
+  ]
+
+  pending = { elements, timers }
+}
+
+/** Marks where `item` landed: a card for a moment once it's settled, then fading into the list. */
+function land(item: HTMLElement, elements: HTMLElement[], travel: number) {
+  const { hold, fade } = timingsIn(item.ownerDocument)
+  item.dataset.sort = "landed"
+  Object.assign(item.style, landed)
+
+  later(elements, travel + hold + fade, [
+    [
+      travel + hold,
+      () => {
+        item.style.transition = `box-shadow ${fade}ms ease, background-color ${fade}ms ease`
+        Object.assign(item.style, lowered)
+      }
+    ]
+  ])
 }
 
 /** The entries of `group` beside `item`, in the list's order, and where `item` is among them. */
@@ -115,14 +164,15 @@ function groupOf(
 
 /**
  * Puts the list in its new order with `change`, at once, and slides each entry from where it was drawn to its new
- * place, so nothing jumps whether it was carried there, made room, or was moved by a key.
+ * place, so nothing jumps whether it was carried there, made room, or was moved by a key. Only the sliding restarts:
+ * a look already easing (a card lifting or landing) carries on.
  */
-function slideInto(elements: HTMLElement[], change: () => void, slide: number, lift: number) {
+function slideInto(elements: HTMLElement[], change: () => void, travel: number, lift: number) {
   const drawn = elements.map((element) => element.getBoundingClientRect().top)
   flushSync(change)
 
   for (const element of elements) {
-    element.style.transition = "none"
+    element.style.transition = motion(0, lift)
     element.style.translate = ""
   }
 
@@ -138,7 +188,7 @@ function slideInto(elements: HTMLElement[], change: () => void, slide: number, l
   void elements[0]?.offsetHeight
 
   for (const element of elements) {
-    element.style.transition = motion(slide, lift)
+    element.style.transition = motion(travel, lift, settling)
     element.style.translate = ""
   }
 }
@@ -191,6 +241,12 @@ function scrollSpeed(scroller: Element, y: number): number {
   return y > bottom - zone ? most * Math.min(1, (y - (bottom - zone)) / zone) : 0
 }
 
+/** What a list hears from its entry: where it's put down, and the place it's over while it's carried. */
+interface Listeners {
+  onMove?: Move
+  onCarry?: (carried: Carried) => void
+}
+
 interface Carry {
   item: HTMLElement
   items: HTMLElement[]
@@ -198,12 +254,14 @@ interface Carry {
   boxes: SortBox[]
   from: number
   label: string
-  move: () => Move | undefined
+  listeners: () => Listeners
   /** Where the pointer was pressed, from the list's top. */
   pressedAt: number
   pointerY: number
   shift: number
   layout: SortLayout
+  /** The place the list was last told it's over, so it hears of each change once. */
+  told: number
   scroller: Element
   speed: number
   frame?: number
@@ -214,7 +272,7 @@ interface Carry {
 
 let carrying: Carry | undefined
 
-/** Draws the card under the pointer and the others aside to make room. */
+/** Draws the card under the pointer and the others aside to make room, and tells the list when the place changes. */
 function draw(carry: Carry) {
   const pointer = carry.pointerY - carry.list.getBoundingClientRect().top - carry.pressedAt
   carry.shift = carriedShift(carry.boxes, carry.from, pointer, carry.boxes[carry.from]!.height * 0.75)
@@ -227,6 +285,11 @@ function draw(carry: Carry) {
     if (at !== carry.from) {
       element.style.translate = by === 0 ? "" : `0 ${by}px`
     }
+  }
+
+  if (carry.layout.to !== carry.told) {
+    carry.told = carry.layout.to
+    carry.listeners().onCarry?.({ from: carry.from, to: carry.told })
   }
 }
 
@@ -265,23 +328,35 @@ function putDown(cancelled: boolean) {
   carry.stop()
   const { item, items, from } = carry
   const page = item.ownerDocument
-  const { lift, settle: settleTime } = timingsIn(page)
+  const { lift, settle } = timingsIn(page)
   const to = cancelled ? from : carry.layout.to
-  const move = carry.move()
+  const { onMove, onCarry } = carry.listeners()
 
-  if (to !== from && move) {
-    slideInto(items, () => move(from, to), settleTime, lift)
+  // The list stops previewing in the same render that puts it in order, so the preview never shows a step between.
+  if (to !== from && onMove) {
+    slideInto(
+      items,
+      () => {
+        onMove(from, to)
+        onCarry?.(undefined)
+      },
+      settle,
+      lift
+    )
+    land(item, items, settle)
     announce(page, `Moved ${carry.label} to place ${to + 1} of ${items.length}`)
   } else {
+    onCarry?.(undefined)
+
     for (const element of items) {
-      element.style.transition = motion(settleTime, lift)
+      element.style.transition = motion(settle, lift, settling)
       element.style.translate = ""
     }
-  }
 
-  Object.assign(item.style, lowered)
-  item.dataset.sort = "settling"
-  settle(items, settleTime)
+    item.dataset.sort = "settling"
+    Object.assign(item.style, lowered)
+    later(items, settle)
+  }
 
   if (carry.byBody) {
     const swallow = (click: Event) => {
@@ -299,14 +374,14 @@ function pickUp(options: {
   item: HTMLElement
   group: string
   label: string
-  move: () => Move | undefined
+  listeners: () => Listeners
   pointerId: number
   pressedY: number
   pointerY: number
   holder: Element
   byBody: boolean
 }): boolean {
-  finishSettling()
+  finishPending()
   const found = groupOf(options.item, options.group)
 
   if (!found || found.from < 0 || found.items.length < 2) {
@@ -376,11 +451,12 @@ function pickUp(options: {
     boxes,
     from,
     label: options.label,
-    move: options.move,
+    listeners: options.listeners,
     pressedAt: options.pressedY - listTop,
     pointerY: options.pointerY,
     shift: 0,
     layout: { to: from, offsets: items.map(() => 0), landing: 0 },
+    told: from,
     scroller: scrollerOf(list),
     speed: 0,
     byBody: options.byBody,
@@ -449,26 +525,28 @@ export interface Sortable<E extends HTMLElement> {
 /**
  * Makes a list's entry one that's picked up and put down to reorder its list. `group` keeps it among its own kind
  * (a shadow list's Inside or Outside); `label` names it in what's announced ("Fill 2"); `onMove` puts the list in its
- * new order, and without it the entry stays put, as one alone in its group does.
+ * new order, and without it the entry stays put, as one alone in its group does. `onCarry` hears the place it's over
+ * each time that changes while it's carried, and nothing once it's put down, so the list can draw that order before
+ * it's let go.
  */
 export function useSortable<E extends HTMLElement = HTMLDivElement>({
   group,
   label,
-  onMove
+  onMove,
+  onCarry
 }: {
   group: string
   label: string
-  onMove?: Move
-}): Sortable<E> {
+} & Listeners): Sortable<E> {
   const node = useRef<E>(null)
-  const latest = useRef(onMove)
+  const latest = useRef<Listeners>({ onMove, onCarry })
 
-  // The list's newest order is what a carry puts down into, though it was picked up before it changed.
+  // The list's newest order is what a carry previews and puts down into, though it was picked up before it changed.
   useLayoutEffect(() => {
-    latest.current = onMove
+    latest.current = { onMove, onCarry }
   })
 
-  const move = () => latest.current
+  const listeners = () => latest.current
 
   return {
     item: {
@@ -501,7 +579,7 @@ export function useSortable<E extends HTMLElement = HTMLDivElement>({
             item,
             group,
             label,
-            move,
+            listeners,
             pointerId,
             pressedY: clientY,
             pointerY: moved.clientY,
@@ -535,7 +613,7 @@ export function useSortable<E extends HTMLElement = HTMLDivElement>({
           item,
           group,
           label,
-          move,
+          listeners,
           pointerId: event.pointerId,
           pressedY: event.clientY,
           pointerY: event.clientY,
@@ -559,17 +637,15 @@ export function useSortable<E extends HTMLElement = HTMLDivElement>({
           return
         }
 
-        // Measured where they're drawn, so a second press while they still slide carries on from there.
-        if (settling) {
-          window.clearTimeout(settling.timer)
-          settling = undefined
-        }
-
-        const { slide, lift } = timingsIn(item.ownerDocument)
+        // Measured where they're drawn, so a second press while they still slide carries on from there, and an entry
+        // still marked as landed stays marked.
+        stopPending()
+        const { lift, settle } = timingsIn(item.ownerDocument)
         item.style.position = "relative"
         item.style.zIndex = "20"
-        slideInto(found.items, () => onMove(found.from, to), slide, lift)
-        settle(found.items, slide)
+        item.style.transition = motion(0, lift)
+        slideInto(found.items, () => onMove(found.from, to), settle, lift)
+        land(item, found.items, settle)
         announce(item.ownerDocument, `Moved ${label} to place ${to + 1} of ${found.items.length}`)
       }
     }

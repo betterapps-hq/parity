@@ -44,6 +44,7 @@ import {
 } from "./lists-data.ts"
 import { shadowDrawing, shadowsFitSlots, shadowTarget } from "./lists-writes.ts"
 import { Card } from "./playground.tsx"
+import type { Carried } from "./sortable.ts"
 import { allShadowTokens, dropShadowTokens, type ShadowToken, shadowToken, shadowTokens } from "./tokens.ts"
 
 /*
@@ -116,6 +117,7 @@ export function ShadowList({
   text,
   saved,
   onSave,
+  onPreview,
   openId
 }: {
   entries: ShadowEntry[]
@@ -126,10 +128,19 @@ export function ShadowList({
   text?: ShadowText
   saved: ShadowToken[]
   onSave: (token: ShadowToken) => void
+  /** The shadows in the order one's being carried over, for the layer to draw before it's let go; nothing after. */
+  onPreview?: (entries: ShadowEntry[] | undefined) => void
   openId?: string
 }) {
   const ordered = inGroups(entries)
   const onText = text !== undefined && text.shadowOf === "text"
+
+  // A shadow moves only past others of its group, its place counted within the group.
+  const reordered = (group: string, rows: ShadowEntry[], from: number, to: number) => {
+    const moves = moved(rows, from, to)
+
+    return inGroups(ordered.map((other) => (groupOf(other) === group ? moves.shift()! : other)))
+  }
 
   const add = (kind: ShadowKind | "follow") => {
     const added = newEntry(kind, onText)
@@ -264,17 +275,13 @@ export function ShadowList({
                 onMove={
                   rows.length > 1
                     ? (from, to) => {
-                        if (to < 0 || to >= rows.length) {
-                          return
+                        if (to >= 0 && to < rows.length) {
+                          onChange(reordered(group, rows, from, to))
                         }
-
-                        const reordered = moved(rows, from, to)
-                        onChange(
-                          inGroups(ordered.map((other) => (groupOf(other) === group ? reordered.shift()! : other)))
-                        )
                       }
                     : undefined
                 }
+                onCarry={(carried) => onPreview?.(carried && reordered(group, rows, carried.from, carried.to))}
                 gutter={handles}
                 onRemove={() => onChange(ordered.filter((other) => other.id !== entry.id))}
               />
@@ -379,6 +386,7 @@ function ShadowRow({
   startOpen,
   onChange,
   onMove,
+  onCarry,
   gutter,
   onRemove
 }: {
@@ -391,6 +399,7 @@ function ShadowRow({
   startOpen: boolean
   onChange: (change: Partial<ShadowEntry>) => void
   onMove?: (from: number, to: number) => void
+  onCarry: (carried: Carried) => void
   gutter: boolean
   onRemove: () => void
 }) {
@@ -414,6 +423,7 @@ function ShadowRow({
       group={group}
       off={entry.off}
       onMove={onMove}
+      onCarry={onCarry}
       gutter={gutter}
       onToggle={() => onChange({ off: !entry.off })}
       onRemove={onRemove}

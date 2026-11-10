@@ -50,6 +50,7 @@ import {
 import { angleDegrees, angleOf } from "./motion-data.ts"
 import { Card } from "./playground.tsx"
 import { PositionInBox } from "./position-box.tsx"
+import type { Carried } from "./sortable.ts"
 import { type ColorToken, type GradientToken, gradientToken, gradientTokens } from "./tokens.ts"
 
 /*
@@ -212,6 +213,7 @@ export function PaintStack({
   tokensOnly = false,
   saved,
   onSave,
+  onPreview,
   openId
 }: {
   entries: PaintEntry[]
@@ -222,6 +224,8 @@ export function PaintStack({
   /** Gradient tokens saved from this story, beside the project's. */
   saved: GradientToken[]
   onSave: (token: GradientToken) => void
+  /** The fills in the order a fill's being carried over, for the layer to draw before it's let go; nothing after. */
+  onPreview?: (entries: PaintEntry[] | undefined) => void
   /** The entry whose editor is open at first, for a story. */
   openId?: string
 }) {
@@ -273,6 +277,7 @@ export function PaintStack({
                     }
                   : undefined
               }
+              onCarry={(carried) => onPreview?.(carried && moved(entries, carried.from, carried.to))}
               onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
             />
           ))}
@@ -299,6 +304,7 @@ function PaintRow({
   startOpen,
   onChange,
   onMove,
+  onCarry,
   onRemove
 }: {
   entry: PaintEntry
@@ -309,6 +315,7 @@ function PaintRow({
   startOpen: boolean
   onChange: (change: Partial<PaintEntry>) => void
   onMove?: (from: number, to: number) => void
+  onCarry: (carried: Carried) => void
   onRemove: () => void
 }) {
   const { paint } = entry
@@ -320,6 +327,7 @@ function PaintRow({
     group: "fills",
     off: entry.off,
     onMove,
+    onCarry,
     onToggle: () => onChange({ off: !entry.off }),
     onRemove
   }

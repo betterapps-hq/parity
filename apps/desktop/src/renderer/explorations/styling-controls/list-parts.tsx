@@ -16,7 +16,7 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
 import { drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
-import { useSortable } from "./sortable.ts"
+import { type Carried, useSortable } from "./sortable.ts"
 
 /*
  * What the list fields share (design-options-fields.md, Lists): the entry's row, in the spec's order (the drag handle
@@ -43,6 +43,11 @@ export interface ListRowProps {
    * order, as the filter list is; then there's no handle.
    */
   onMove?: (from: number, to: number) => void
+  /**
+   * Hears the place the row's carried over, within its group, each time that changes, and nothing once it's put down,
+   * so the list can preview that order before it's let go.
+   */
+  onCarry?: (carried: Carried) => void
   /** Another group in the list has handles, so a row without one keeps their room and the entries line up. */
   gutter?: boolean
   onToggle: () => void
@@ -92,6 +97,7 @@ export function ListRow({
   group,
   off = false,
   onMove,
+  onCarry,
   gutter = false,
   onToggle,
   onRemove,
@@ -103,7 +109,7 @@ export function ListRow({
   after
 }: ListRowProps) {
   const { live, rowProps } = useLiveRow()
-  const sort = useSortable({ group, label: name, onMove })
+  const sort = useSortable({ group, label: name, onMove, onCarry })
   const drawn = renderPreview ? renderPreview(live(name)) : preview
 
   const parts = (

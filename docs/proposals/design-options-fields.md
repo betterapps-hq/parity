@@ -203,10 +203,13 @@ filters keep Tailwind's order (Filter list).
 
 An entry is picked up by its handle at once, or by the entry itself once the pointer has moved 4px, so a click still
 opens its details. It lifts off the list as a card, raised and a little larger, and follows the pointer up and down.
-Each entry it covers half of slides aside to make room, and when it's let go it settles into the gap. Past either end of
-its group it gives a little and stops, and near the edge of a scrolling panel it scrolls. Escape puts it back. Up and
-Down on its handle move it a place, the entries sliding the same way, and a screen reader hears where it went. Every
-list that's put in order by hand moves this way (`sortable.ts`).
+Each entry it covers half of slides aside to make room, and the layer draws the order it's over, so the result shows
+before it's let go; the code doesn't change until then. When it's let go it settles into the gap on a spring and stays a
+card there for a moment, which shows where it landed, before it fades into the list. Past either end of its group it
+gives a little and stops, and near the edge of a scrolling panel it scrolls. Escape puts it and the layer back. Up and
+Down on its handle move it a place, the entries sliding the same way and the entry marked where it lands, and a screen
+reader hears where it went. Reduced motion keeps the mark and drops the easing. Every list that's put in order by hand
+moves this way (`sortable.ts`).
 
 A token for a whole entry is the entry's chip, with its parts under a disclosure (Composite token, in the same page). A
 list set in a state colors its label and marks the entries that differ from the base. A list that differs between the
