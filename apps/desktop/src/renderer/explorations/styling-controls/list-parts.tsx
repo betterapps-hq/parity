@@ -158,25 +158,26 @@ export function ListRow({
   let handle: ReactNode = gutter ? <span aria-hidden className="w-3 shrink-0" /> : null
 
   if (onMove !== undefined) {
+    // No hint: the grip and its grab cursor say what it does, and a hint opened over the rows it's dragged past. Its
+    // keys are named for a screen reader instead.
     handle = (
-      <Hint label="Drag to reorder" detail="Up and Down move it; Delete removes it">
-        <button
-          type="button"
-          aria-label={`Move ${name}`}
-          onPointerDown={sort.handle.onPointerDown}
-          onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
-            sort.handle.onKeyDown(event)
+      <button
+        type="button"
+        aria-label={`Move ${name}`}
+        aria-keyshortcuts="ArrowUp ArrowDown Delete"
+        onPointerDown={sort.handle.onPointerDown}
+        onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+          sort.handle.onKeyDown(event)
 
-            if (event.key === "Delete" || event.key === "Backspace") {
-              event.preventDefault()
-              onRemove()
-            }
-          }}
-          className="grid h-7 w-3 shrink-0 cursor-grab touch-none place-items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <GripVertical className="size-3" />
-        </button>
-      </Hint>
+          if (event.key === "Delete" || event.key === "Backspace") {
+            event.preventDefault()
+            onRemove()
+          }
+        }}
+        className="grid h-7 w-3 shrink-0 cursor-grab touch-none place-items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <GripVertical className="size-3" />
+      </button>
     )
   }
 
