@@ -46,6 +46,7 @@
     "@parity-app/core": "workspace:*",
     "@parity-app/editor": "workspace:*",
     "@parity-app/icons": "workspace:*",
+    "@parity-app/media-player": "workspace:*",
     "@parity-app/project": "workspace:*",
     "@parity-app/registry": "workspace:*",
     "@parity-app/renderer-react": "workspace:*",

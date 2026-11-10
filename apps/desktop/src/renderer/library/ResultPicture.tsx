@@ -1,4 +1,5 @@
 import { type Found, sizeOf } from "@parity-app/connectors"
+import { VideoPreview } from "@parity-app/media-player"
 import type { CSSProperties } from "react"
 import { checker } from "../chrome/token-previews.tsx"
 
@@ -8,6 +9,8 @@ interface ResultPictureProps {
   small?: boolean
   /** A video plays its small copy, without sound, over its poster. */
   playing?: boolean
+  /** Called as a playing video goes with where it is, in seconds. */
+  onTime?: (seconds: number) => void
   className?: string
   style?: CSSProperties
 }
@@ -17,7 +20,7 @@ interface ResultPictureProps {
  * so a vector's see-through parts show. It loads from the source's link, which only shows results; what's added to a
  * project is saved there first.
  */
-export function ResultPicture({ found, small, playing, className = "", style }: ResultPictureProps) {
+export function ResultPicture({ found, small, playing, onTime, className = "", style }: ResultPictureProps) {
   const { width, height } = sizeOf(found)
   const video = playing ? found.video : undefined
 
@@ -34,12 +37,9 @@ export function ResultPicture({ found, small, playing, className = "", style }: 
         className="absolute inset-0 size-full object-cover"
       />
       {video && (
-        <video
+        <VideoPreview
           src={video.preview ?? video.url}
-          muted
-          autoPlay
-          loop
-          playsInline
+          onTime={onTime}
           className="absolute inset-0 size-full object-cover"
         />
       )}

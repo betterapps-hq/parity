@@ -83,7 +83,8 @@ when it's spread through UI code. Today:
   reader that needs a file changed returns a project edit for the service to apply. Readers use no React and depend only
   on pure packages and other readers.
 - **The edge is where Node and React belong:** the CLI, `@parity-app/libgen`, the agent runtime, the adapters
-  (`renderer-react`, the only package with React, `builder-vite` and `styles-tailwind`) and the fixtures.
+  (`renderer-react`, `builder-vite` and `styles-tailwind`), `@parity-app/media-player` and the fixtures.
+  `renderer-react` and the media player are the packages with React.
 - **Dependencies point one way:** the app uses packages, no package imports Electron, tldraw or the app, and core
   imports nothing but zod, which checks the data Parity didn't make (PAR-588).
 - **Each package's tests run in Vitest without Electron.** They may use Node to set up files. A rule that changes gets a
@@ -106,6 +107,7 @@ when it's spread through UI code. Today:
 | `@parity-app/tokens`                    | Reading tokens (Tailwind, DTCG), editing them in stylesheets, matching described tokens to custom properties, and checking what a token edit may write (PAR-569).                                        | `core/tokens.ts`, `core/tokens-dtcg.ts`, `core/css-source.ts`, the Tokens panel's matching.               |
 | `@parity-app/channel`                   | Requests and replies over any port: request ids, waiting for a port, failing on close, coded details both ways, unknown methods and checked params.                                                      | The preload script, `utility/index.ts`, `render.ts`, `console.ts`, `worker-client.ts` and main (PAR-565). |
 | `@parity-app/telemetry`                 | Telemetry's event model without Sentry: the envelope, registered events with zod schemas, spans with W3C trace IDs, sinks, a test sink and the last 500 events.                                          | New code, from [product-telemetry.md](product-telemetry.md) (PAR-618).                                    |
+| `@parity-app/media-player`              | Playing video with the app's own controls, at the edge since it's React: the player, a tile's preview and its length, and what the player's keys do.                                                     | New code, approved in Storybook (PAR-891).                                                                |
 
 ### `@parity-app/code`: design and code, both ways
 

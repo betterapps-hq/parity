@@ -7092,3 +7092,28 @@ calls:
 - **`get_app_state` counts each design's references,** and leaves the count out when there are none, so an agent knows
   to look without the state growing for projects that don't use them.
 - **The skill tells agents to look at a design's references before changing it,** in "Look before you change".
+
+## The video player is Parity's own, in a package (PAR-891)
+
+The player the video layer (PAR-841) uses, approved in Storybook under Parity/Media/Video player before the layer is
+built. You decided on 2026-11-10 to build it on the UI kit rather than on media-chrome with Kibo UI's player, and to
+keep it in a package of its own so other media can join it later. My calls:
+
+- **`@parity-app/media-player` is at the edge,** beside `renderer-react`, since it's React. It has `VideoPlayer` for the
+  larger view and the Media card, `VideoPreview` for a tile while it's pointed at, and `VideoLength` for a tile's
+  length. What its keys do and how a time reads are plain functions beside them, with tests.
+- **No player library.** The kit's Slider and Button and Lucide's icons sit over a plain `<video>`. media-chrome draws
+  its controls inside their own shadow DOM, out of reach of the kit's styles, and Parity plays only MP4 and WebM files.
+  Video.js 10, which took over Vidstack and media-chrome's work, is the one to move to if streaming or casting is
+  wanted.
+- **The controls sit under the video,** as the references design had them: play or pause, the time slider, the time,
+  Mute and full screen. It opens playing without sound and goes round at the end.
+- **The volume is a vertical slider over Mute,** so the time slider keeps the row, even on a card. It opens while Mute
+  is pointed at or the keyboard brings focus into it, and closes when the pointer leaves, even after a click in it, and
+  with Escape, which goes no further. It opens inside the player, not over the page, so it shows in full screen.
+- **Keys work once anything in the player has focus,** clicking the video among them: Space or K, left and right for
+  five seconds, Home and End, up and down for the volume, M and F. A key the player takes goes no further, so the arrows
+  don't also step through the larger view's results.
+- **A preview counts its length down** while it plays, from the length it showed, to 0:00, and shows the whole length
+  again once the pointer leaves. The library browser's result tiles use `VideoPreview` and `VideoLength` now, and
+  `clockOf` left `@parity-app/connectors` for the package's own.

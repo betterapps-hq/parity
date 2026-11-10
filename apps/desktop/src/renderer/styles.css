@@ -6,6 +6,8 @@
  * the Code tab's code showed in one color (PAR-167).
  */
 @source "../../node_modules/@buildkitgg/shadcn-baseui-kit/dist/lib/highlighter.js";
+/* The media player's package sits outside the app, where Tailwind doesn't look for classes by itself. */
+@source "../../../../packages/media-player/src";
 
 /*
  * The interface is set in Inter (PAR-709, docs/typography.md), Inter's own release (4.1, from github.com/rsms/inter)
