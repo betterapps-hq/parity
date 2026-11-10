@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 13:05:50 GMT",
+      "version": "0.37.0",
+      "tag": "@parity-app/cli_v0.37.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6d29c42c748b98cb612663e1bb21aa965c6484f0",
+            "comment": "Find stock pictures on Pixabay in a library browser and add them to the project from the Media tab, credited"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 12:19:22 GMT",
       "version": "0.36.0",
       "tag": "@parity-app/cli_v0.36.0",
