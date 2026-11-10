@@ -434,6 +434,12 @@ Image's Position, Transform's Origin, a fill image's position.
   does.
 - **Writes:** `col-span-2`, `col-start-2`, `row-span-full`, `[grid-area:hero]`.
 - **Compared:** Figma has spans; Webflow adds lines and areas.
+- **Another take (Storybook, PAR-186):** the map numbers its lines along its edges, the child's own in the layer's
+  color; dragging the child moves it, dragging an edge moves that line, and a click on a cell moves it there, keeping
+  its span. Where it sits in its cell is a box of spots beside Start and Span, laid out as a table, and a field hovered
+  or focused lights up its line or tracks in the map. A spot on an axis the child fills makes it hug, and Fill stretches
+  it again, so the box, the map and W and H agree. Auto, in the map's header, pins it where it is when pressed again.
+  Span takes All as a chip.
 
 ## Insets
 
