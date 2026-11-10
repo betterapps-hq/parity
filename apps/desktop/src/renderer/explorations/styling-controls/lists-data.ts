@@ -188,11 +188,12 @@ export function layersOf(entry: ShadowEntry, saved: ShadowToken[] = []): ShadowL
   return entry.colorOverride ? layers.map((part) => ({ ...part, ...entry.colorOverride })) : layers
 }
 
-/** A layer's numbers in words: `0 4 12 −2`, with a real minus, as the panel writes negatives. */
+/** A shadow's length as the panel writes it: in pixels, with a real minus, `−2px`. */
+export const shadowLength = (value: number): string => `${formatNumber(value).replace("-", "−")}px`
+
+/** A layer's X, Y, blur and spread in words: `0px 4px 12px −2px`, each with its unit so none is a bare number. */
 export const layerNumbers = (part: ShadowLayer, spread = true): string =>
-  [part.x, part.y, part.blur, ...(spread ? [part.spread] : [])]
-    .map((value) => formatNumber(value).replace("-", "−"))
-    .join(" ")
+  [part.x, part.y, part.blur, ...(spread ? [part.spread] : [])].map(shadowLength).join(" ")
 
 /**
  * The layers an entry adds to `box-shadow`, top first: a ring is one layer whose spread is its width, and an inner
@@ -208,15 +209,19 @@ export function boxLayersOf(entry: ShadowEntry, saved: ShadowToken[] = []): Shad
 
 /* Filter list */
 
-/** The adjustments, in the panel's order: brightness, contrast and saturation centered on 0, then hue, then 0 to 100. */
+/**
+ * The adjustments, in the panel's order: brightness, contrast and saturation centered on 0, then hue, then 0 to 100.
+ * Each has its unit: hue turns in degrees, and the rest are percentages, a change from 100% for the centered ones
+ * (Brightness +25% writes `brightness(125%)`).
+ */
 export const adjustments = [
-  { key: "brightness", label: "Brightness", min: -100, max: 100, unit: "" },
-  { key: "contrast", label: "Contrast", min: -100, max: 100, unit: "" },
-  { key: "saturate", label: "Saturation", min: -100, max: 100, unit: "" },
+  { key: "brightness", label: "Brightness", min: -100, max: 100, unit: "%" },
+  { key: "contrast", label: "Contrast", min: -100, max: 100, unit: "%" },
+  { key: "saturate", label: "Saturation", min: -100, max: 100, unit: "%" },
   { key: "hue", label: "Hue", min: -180, max: 180, unit: "°" },
-  { key: "grayscale", label: "Grayscale", min: 0, max: 100, unit: "" },
-  { key: "sepia", label: "Sepia", min: 0, max: 100, unit: "" },
-  { key: "invert", label: "Invert", min: 0, max: 100, unit: "" }
+  { key: "grayscale", label: "Grayscale", min: 0, max: 100, unit: "%" },
+  { key: "sepia", label: "Sepia", min: 0, max: 100, unit: "%" },
+  { key: "invert", label: "Invert", min: 0, max: 100, unit: "%" }
 ] as const
 
 export type AdjustmentKey = (typeof adjustments)[number]["key"]

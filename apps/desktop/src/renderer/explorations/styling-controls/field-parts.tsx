@@ -1273,10 +1273,10 @@ export function TokenList({ label, tokens, current, none, noneValue, own = false
             className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent ${selected ? "bg-accent" : ""}`}
           >
             <RowMark token={token} kind={tokens[0]?.kind} noneValue={noneValue} playing={live(name)} />
-            <span className={`min-w-0 flex-1 truncate ${token ? "" : "text-muted-foreground"}`}>{name ?? none}</span>
+            <span className={`${rowName} ${token ? "" : "text-muted-foreground"}`}>{name ?? none}</span>
             {token?.deprecated && <TriangleAlert aria-label="Deprecated" className="size-3 shrink-0 text-amber-500" />}
-            {token && <span className="text-muted-foreground tabular-nums">{token.detail}</span>}
-            {selected && <Check aria-hidden className="size-3.5 shrink-0" />}
+            {token && <span className={rowDetail}>{token.detail}</span>}
+            {selected && <Check aria-hidden className="ml-auto size-3.5 shrink-0" />}
           </button>
         )
       })}
@@ -1312,13 +1312,18 @@ function inScaleOrder<T extends FieldToken>(tokens: readonly T[]): readonly T[] 
 const menuRow =
   "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent"
 
+// A row's name takes the room it needs and what it comes to has the rest, so a long value (a shadow's
+// `0px 25px 50px −12px`) cuts short before the name it belongs to does; only a name too long for the row cuts short.
+const rowName = "min-w-0 truncate"
+const rowDetail = "min-w-12 flex-1 basis-0 truncate text-right text-muted-foreground tabular-nums"
+
 /** Detach, in what a field's chevron opens while it holds a token: keeps what the token comes to, without it. */
 function DetachRow({ token, onDetach }: { token: FieldToken; onDetach: () => void }) {
   return (
     <button type="button" className={menuRow} onClick={onDetach}>
       <Unlink aria-hidden className="size-3.5 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate">Detach</span>
-      <span className="text-muted-foreground tabular-nums">{token.detail}</span>
+      <span className={rowName}>Detach</span>
+      <span className={rowDetail}>{token.detail}</span>
     </button>
   )
 }
@@ -1404,8 +1409,8 @@ export function TokenMenu<T extends FieldToken>({
           </p>
           <button type="button" className={menuRow} onClick={() => onPick(nearest.name)} {...rowProps(nearest.name)}>
             <TokenMark kind={nearest.kind} value={nearest.value} name={nearest.name} playing={live(nearest.name)} />
-            <span className="min-w-0 flex-1 truncate">{nearest.name}</span>
-            <span className="text-muted-foreground tabular-nums">{nearest.detail}</span>
+            <span className={rowName}>{nearest.name}</span>
+            <span className={rowDetail}>{nearest.detail}</span>
           </button>
         </div>
       )}
@@ -2024,13 +2029,16 @@ export function ValueField<T>({
     input.current?.focus()
   }
 
-  // Backspace takes the token off, as it would a typed value, and the field keeps the focus.
+  // Backspace takes the token off, as it would a typed value, and the field keeps the focus, empty and typed into, so
+  // the pill goes even where the value can't be unset (a shadow's color): what's typed next replaces it, and leaving
+  // the field empty, or Escape, puts back what it had.
   const clear = () => {
     if (!chip) {
       return
     }
 
     chip.onRemove()
+    typed.setTyped("")
     input.current?.focus()
   }
 

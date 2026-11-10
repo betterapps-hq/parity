@@ -477,7 +477,8 @@ export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: 
         const step = event.shiftKey ? 10 : 1
         onChange(x + move[0] * step, y + move[1] * step)
       }}
-      className="relative size-20 shrink-0 cursor-crosshair touch-none rounded-md border bg-muted/40 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      // As tall as the X and Y fields it sits beside, two h-7 fields and their gap-1, so its edges line up with theirs.
+      className="relative size-15 shrink-0 cursor-crosshair touch-none rounded-md border bg-muted/40 outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span aria-hidden className="absolute inset-x-0 top-1/2 h-px bg-border" />
       <span aria-hidden className="absolute inset-y-0 left-1/2 w-px bg-border" />

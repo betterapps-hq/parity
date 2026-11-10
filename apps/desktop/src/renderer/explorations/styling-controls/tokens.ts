@@ -259,14 +259,18 @@ const part = (x: number, y: number, blur: number, spread: number, alpha: number)
 
 /** A shadow token of a kind (shadow, inset, drop, text) from its layers, as the stand-ins and Save as token make them. */
 export const shadowToken = (kind: PreviewKind, name: string, layers: ShadowLayer[]): ShadowToken => {
-  const numbers = (one: ShadowLayer) => [one.x, one.y, one.blur, one.spread].join(" ")
+  const spread = kind !== "text-shadow" && kind !== "drop-shadow"
+
+  // Each number with its unit, as lists-data.ts's layerNumbers writes them; a drop or text shadow has no spread.
+  const numbers = (one: ShadowLayer) =>
+    [one.x, one.y, one.blur, ...(spread ? [one.spread] : [])]
+      .map((value) => `${formatNumber(value).replace("-", "−")}px`)
+      .join(" ")
 
   return {
     name,
     kind,
-    value: shadowCss(layers, (one) => drawnColor(one.color, one.alpha), {
-      spread: kind !== "text-shadow" && kind !== "drop-shadow"
-    }),
+    value: shadowCss(layers, (one) => drawnColor(one.color, one.alpha), { spread }),
     detail: layers.length === 1 ? numbers(layers[0]!) : `${layers.length} layers`,
     layers
   }

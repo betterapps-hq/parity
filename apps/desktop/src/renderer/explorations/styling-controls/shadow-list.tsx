@@ -44,7 +44,7 @@ import {
 } from "./lists-data.ts"
 import { shadowDrawing, shadowsFitSlots, shadowTarget } from "./lists-writes.ts"
 import { Card } from "./playground.tsx"
-import { allShadowTokens, type ShadowToken, shadowToken } from "./tokens.ts"
+import { allShadowTokens, dropShadowTokens, type ShadowToken, shadowToken, shadowTokens } from "./tokens.ts"
 
 /*
  * Effects' shadow list (design-options-values.md, Shadow list): drop shadows, inner shadows and rings, in two groups,
@@ -243,41 +243,43 @@ export function ShadowList({
       )}
       {!mixed && entries.length > 0 && (
         <div className="flex flex-col gap-1">
-          {groups.map(({ group, rows }) => (
-            <div key={group} className="flex flex-col gap-1">
-              <GroupLabel className={handles ? "px-4" : ""}>{titles[group]}</GroupLabel>
-              {rows.map((entry, index) => (
-                <ShadowRow
-                  key={entry.id}
-                  entry={entry}
-                  index={index}
-                  group={group}
-                  tokensOnly={tokensOnly}
-                  text={text}
-                  saved={saved}
-                  startOpen={entry.id === openId}
-                  onChange={(change) => set(entry.id, change)}
-                  // A shadow moves only past another in its group, so one alone has no handle.
-                  onMove={
-                    rows.length > 1
-                      ? (from, to) => {
-                          if (to < 0 || to >= rows.length) {
-                            return
-                          }
-
-                          const reordered = moved(rows, from, to)
-                          onChange(
-                            inGroups(ordered.map((other) => (groupOf(other) === group ? reordered.shift()! : other)))
-                          )
+          {/* The groups' titles and rows are siblings, so a shadow that changes group (Follow shape) keeps its row and
+              its open details rather than being drawn anew under the other title. */}
+          {groups.flatMap(({ group, rows }) => [
+            <GroupLabel key={`group-${group}`} className={handles ? "px-4" : ""}>
+              {titles[group]}
+            </GroupLabel>,
+            ...rows.map((entry, index) => (
+              <ShadowRow
+                key={entry.id}
+                entry={entry}
+                index={index}
+                group={group}
+                tokensOnly={tokensOnly}
+                text={text}
+                saved={saved}
+                startOpen={entry.id === openId}
+                onChange={(change) => set(entry.id, change)}
+                // A shadow moves only past another in its group, so one alone has no handle.
+                onMove={
+                  rows.length > 1
+                    ? (from, to) => {
+                        if (to < 0 || to >= rows.length) {
+                          return
                         }
-                      : undefined
-                  }
-                  gutter={handles}
-                  onRemove={() => onChange(ordered.filter((other) => other.id !== entry.id))}
-                />
-              ))}
-            </div>
-          ))}
+
+                        const reordered = moved(rows, from, to)
+                        onChange(
+                          inGroups(ordered.map((other) => (groupOf(other) === group ? reordered.shift()! : other)))
+                        )
+                      }
+                    : undefined
+                }
+                gutter={handles}
+                onRemove={() => onChange(ordered.filter((other) => other.id !== entry.id))}
+              />
+            ))
+          ])}
           {!fits && (
             <div className={`flex flex-col items-start gap-1 ${handles ? "px-4" : ""}`}>
               <MessageLine
@@ -589,7 +591,11 @@ export function ShadowEditor({
           detail="Shadows what's drawn rather than the box, with no spread: filter: drop-shadow(), the filter's last entry"
           checked={entry.follow ?? false}
           onCheckedChange={(follow) => {
-            const next = follow ? "drop-shadow-md" : "shadow-sm"
+            // A token keeps its size across, shadow-lg to drop-shadow-lg and back, where the other scale has it.
+            const size = token?.replace(/^(drop-)?shadow-/, "")
+            const scale = follow ? dropShadowTokens : shadowTokens
+            const same = scale.find((option) => option.name === `${follow ? "drop-shadow" : "shadow"}-${size}`)
+            const next = same?.name ?? (follow ? "drop-shadow-md" : "shadow-sm")
             onChange({
               follow: follow || undefined,
               token: token === undefined ? undefined : next,

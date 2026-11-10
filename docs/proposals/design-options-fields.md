@@ -71,8 +71,9 @@ field implies (`lg` in Radius, `primary` in Fill), then what it comes to, faintl
 own % field after the chip, as Figma's; an alpha that's an opacity token follows a slash in the chip
 (`primary / muted`). Hovering shows the full name, its value in every theme and the class. Clicking the chip opens the
 picker on its Tokens tab. Typing over a focused chip replaces the token with what's typed (marked if it's off the
-system, as Framework steps in [design-options-tokens.md](design-options-tokens.md) says); Backspace unsets the field. A
-chip always means a named token, never a step.
+system, as Framework steps in [design-options-tokens.md](design-options-tokens.md) says); Backspace unsets the field.
+Where a field can't be unset, as a shadow's color can't, Backspace still takes the chip off and leaves the field empty
+to type into; leaving it empty, or Escape, puts the token back. A chip always means a named token, never a step.
 
 **Stored in its simplest form.** What's typed is stored in its simplest form, so it reads back the same way. An
 expression that comes to a step or one token is stored as that: `calc(var(--spacing) * 18)` is `{ step: 18 }` (`p-18`),

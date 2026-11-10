@@ -447,8 +447,11 @@ entries' values.
 
 An entry's details put each row's name above its control, so the control takes the whole row, as the simpler fields do.
 A shadow's Blur and Spread sit side by side, a token's layers are a table of their X, Y, blur and spread, and Detach is
-a button after the token's field. Follow shape is a switch at the end of its row. A blur's row opens straight onto its
-tokens, so one click picks one, with Custom beside Tokens as the color picker has it.
+a button after the token's field. Follow shape is a switch at the end of its row; switching it moves the shadow to its
+group with its details still open, and a token keeps its size where the other scale has it (`shadow-lg` becomes
+`drop-shadow-lg`). A blur's row opens straight onto its tokens, so one click picks one, with Custom beside Tokens as the
+color picker has it. Every number carries its unit, in a row's summary, a token's table and a token list as in the
+fields: px for a shadow's lengths, % for an adjustment and ° for hue.
 
 | Effect                 | Control                                                                                                                | Writes                                                                         | Figma                  |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------- |
