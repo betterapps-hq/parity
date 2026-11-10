@@ -7,6 +7,7 @@ import {
   CodedError,
   containerKinds,
   finiteNumber,
+  imageCredit,
   nodeStyle,
   patchUnset,
   plainObject,
@@ -92,7 +93,11 @@ export const updateChange = z.strictObject(
     tag: z.enum(textTags).nullish(),
     component: z.string().optional(),
     /** An instance's args, as props. */
-    args: plainObject.optional()
+    args: plainObject.optional(),
+    /** An image's picture, its description and who made it, in the base design only. */
+    src: z.string().min(1).optional(),
+    alt: z.string().nullish(),
+    credit: imageCredit.nullish()
   },
   {
     error: (issue) =>
@@ -223,6 +228,13 @@ export const spaceOptions = z.strictObject({
   direction: z.enum(["right", "below"]).optional(),
   padding: finiteNumber.optional(),
   near: z.string().optional()
+})
+
+/** `PlaceReference`'s options: the design it's for, why it's here, and the connector that found it. */
+export const referenceOptions = z.strictObject({
+  near: z.string().optional(),
+  note: z.string().max(500).optional(),
+  connector: z.string().optional()
 })
 
 export const extractNodes = z.union([z.string(), z.array(z.string()).min(1)])

@@ -142,19 +142,45 @@ async function detectTool(
   const file = builder?.config ?? (await tool.config?.(root, pkg))
   const config = file ? { config: file } : {}
 
+  let aliased: { from: string; alias: string } | undefined
+
   for (const name of new Set([...tool.packages, ...dependencies])) {
     const installed = await findPackage(root, name).catch(() => undefined)
-    const version = installed?.manifest.version
 
-    if (!installed || !version) {
+    if (!installed) {
       continue
     }
 
-    return toolDetection(tool, version, { from: toPosix(relative(root, installed.installedAt)), ...config }, today)
+    const { manifest } = installed
+    const from = toPosix(relative(root, installed.installedAt))
+
+    // An alias, such as Vite+ installing `@voidzero-dev/vite-plus-core` as `vite`, has its own version: the tool's is
+    // the one it says it ships.
+    const alias =
+      manifest.name && manifest.name !== name ? `${manifest.name} ${manifest.version ?? ""}`.trim() : undefined
+
+    const version = alias ? manifest.bundledVersions?.[name] : manifest.version
+
+    if (!version) {
+      aliased ??= alias ? { from, alias } : undefined
+      continue
+    }
+
+    return toolDetection(tool, version, { from, ...config }, today, alias)
   }
 
   if (builder?.version) {
     return toolDetection(tool, builder.version, config, today)
+  }
+
+  if (aliased) {
+    return {
+      id: tool.id,
+      name: tool.name,
+      from: aliased.from,
+      ...config,
+      summary: `${tool.name} from ${aliased.from}, installed as ${aliased.alias}, which doesn't say which ${tool.name} version it ships`
+    }
   }
 
   const range = dependencies.map((dependency) => declared[dependency]).find(Boolean)
@@ -168,10 +194,18 @@ async function detectTool(
   }
 }
 
-function toolDetection(tool: Tool, version: string, where: { from?: string; config?: string }, today: Date): Detection {
+/** A tool's detection at a version. `alias` names the package that's installed in its place, when one is. */
+function toolDetection(
+  tool: Tool,
+  version: string,
+  where: { from?: string; config?: string },
+  today: Date,
+  alias?: string
+): Detection {
   const found = [
     `${tool.name} ${version}`,
     where.from ? ` from ${where.from}` : "",
+    alias ? ` (${alias})` : "",
     where.config ? `, config ${where.config}` : ""
   ].join("")
 

@@ -1,15 +1,25 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
 import {
+  checkRequest,
+  connectors,
+  type RecentSearch,
+  remember,
+  type SearchAnswer,
+  searchAnswer
+} from "@parity-app/connectors"
+import {
   type ComponentInfo,
   type ContainerSpec,
   defaultModeSettings,
   type DesignNode,
   parseData
 } from "@parity-app/core"
+import { type CodeReference, type ImageFile, imageExtension } from "@parity-app/editor"
 import discovered from "virtual:parity/example-project"
 import { z } from "zod"
 import desktop from "../../../package.json"
 import { type AccountState, type SignedInAccount, type SignInAttempt, signedOut } from "../../shared/account.ts"
+import type { ConnectorSearch } from "../../shared/connectors.ts"
 import type {
   CanvasHost,
   ProjectEditResult,
@@ -207,11 +217,134 @@ const storyTelemetry: CanvasHost["telemetry"] = {
   }
 }
 
+/** The answer where there's no server running the connectors, as in a built Storybook. */
+const noServer: SearchAnswer = {
+  problem: {
+    code: "no-key",
+    message: "This Storybook has no keys. Run it from the repository, with the keys in apps/desktop/.env.local."
+  }
+}
+
+/**
+ * Asks the connectors Storybook's dev server runs (`.storybook/connectors.ts`). Nothing comes back where it isn't
+ * running, or where it didn't answer with JSON.
+ */
+async function askConnectors(path: "keys" | "search", search?: ConnectorSearch): Promise<Response | undefined> {
+  try {
+    const response = await fetch(`/__connectors/${path}`, {
+      method: search ? "POST" : "GET",
+      headers: { "content-type": "application/json" },
+      body: search ? JSON.stringify(search) : undefined
+    })
+
+    const sent = response.headers.get("content-type") ?? ""
+
+    return response.ok && sent.startsWith("application/json") ? response : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The searches the real connectors answered in stories, newest first, kept as main keeps a person's: one for each
+ * description, the latest few for each connector. They last until the story ends.
+ */
+let recentNow: RecentSearch[] = []
+
+/** Gives the person recent searches until the story ends, newest first. */
+export function rememberingSearches(recent: RecentSearch[]): void {
+  recentNow = recent
+}
+
+/** Adds a search that worked to the recent ones, with every filter it ran with, as main's hub does. */
+function recall({ connector, request }: ConnectorSearch): void {
+  const info = connectors.find((each) => each.info.id === connector)?.info
+  const checked = info && checkRequest(info, request)
+
+  if (checked && "request" in checked) {
+    const { query, kind, filters } = checked.request
+    recentNow = remember(recentNow, { connector, kind, query, filters, at: Date.now() })
+  }
+}
+
+/** A story's own answer to the window's searches, in place of the connectors Storybook's dev server runs. */
+type SearchStandIn = (search: ConnectorSearch) => SearchAnswer | Promise<SearchAnswer>
+
+let searchStandIn: SearchStandIn | undefined
+
+/**
+ * Answers the window's searches another way until the story ends, as every connector having a key: results drawn for
+ * the story, or one of the problems a connector answers with. A search that finds something joins the recent ones.
+ */
+export function answeringSearches(answer: SearchStandIn): void {
+  searchStandIn = answer
+}
+
+/**
+ * The connectors in stories (PAR-827): Storybook's dev server searches Mobbin and Unsplash with the keys in
+ * `.env.local`, as main does for the window, so a key never reaches the page. A search that works joins the recent
+ * searches, as it does in the app. Nothing here tells a source a result was used, since a story places nothing for
+ * real.
+ */
+const storyConnectors: CanvasHost["connectors"] = {
+  get: async () => {
+    if (searchStandIn) {
+      return connectors.map(({ info }) => ({ ...info, key: "here" as const }))
+    }
+
+    const answered = await askConnectors("keys")
+    const keyed = z.array(z.string()).safeParse(await answered?.json())
+
+    return connectors.map(({ info }) => ({
+      ...info,
+      key: keyed.success && keyed.data.includes(info.id) ? "here" : "none"
+    }))
+  },
+  search: async (search) => {
+    if (searchStandIn) {
+      const answer = await searchStandIn(search)
+
+      if ("found" in answer) {
+        recall(search)
+      }
+
+      return answer
+    }
+
+    const answered = await askConnectors("search", search)
+    const answer = searchAnswer.safeParse(await answered?.json())
+
+    if (answer.success && "found" in answer.data) {
+      recall(search)
+    }
+
+    return answer.success ? answer.data : noServer
+  },
+  recent: () => Promise.resolve(recentNow),
+  placed: () => Promise.resolve()
+}
+
+/**
+ * The example's image files and the lines of code that name them, as `images.scan` finds them: none, until a story
+ * gives some. Adding and removing images changes them, as it would the project's folder. The files a story lists are
+ * served from `stories/media/` at `/images/`, as a project's builder serves `public/images/`.
+ */
+export const media: StoryMedia = { files: [], references: [] }
+
+interface StoryMedia {
+  files: ImageFile[]
+  references: CodeReference[]
+}
+
 /** Puts the service and the system dialogs back as they were before any story changed them. */
 export function resetHost(): void {
   telemetryNow = defaultTelemetry
   Object.assign(service, defaultService)
   running.processes = []
+  searchStandIn = undefined
+  recentNow = []
+  media.files = []
+  media.references = []
   clearOverrides()
   Object.assign(window.canvasHost, cancelled)
   accountNow = signedOut
@@ -260,6 +393,7 @@ export function installHost(): void {
       })
     }),
     account: storyAccount,
+    connectors: storyConnectors,
     serve: () => undefined,
     onReconnect: () => undefined,
     ...cancelled,
@@ -559,6 +693,8 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       }
 
       edits.delete(edit.id)
+      putBack.get(edit.id)?.()
+      putBack.delete(edit.id)
 
       return {
         ...edit,
@@ -567,8 +703,48 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       }
     }
 
-    case "images.import":
-      return { src: `/images/${String(request.params.name)}`, path: `public/images/${String(request.params.name)}` }
+    case "images.import": {
+      const { name, type, data } = request.params
+      const path = `public/images/${name}.${imageExtension(type) ?? "png"}`
+
+      media.files = [
+        ...media.files.filter((file) => file.path !== path),
+        { path, bytes: Math.round(data.length * 0.75) }
+      ]
+
+      return { src: path.slice("public".length), path }
+    }
+
+    case "images.saveFrom": {
+      // Story pictures are served at /images/, so the file saved is the one the link names.
+      const name = new URL(request.params.url).pathname.split("/").at(-1) ?? "picture.jpg"
+      const path = `public/images/${name}`
+
+      media.files = [...media.files.filter((file) => file.path !== path), { path, bytes: 120_000 }]
+
+      return { src: path.slice("public".length), path }
+    }
+
+    case "images.scan":
+      return { files: [...media.files], references: [...media.references] }
+    case "images.remove": {
+      const { path } = request.params
+      const removed = media.files.find((file) => file.path === path)
+
+      if (!removed) {
+        throw new Error(`${path} isn't in the project's folder`)
+      }
+
+      media.files = media.files.filter((file) => file !== removed)
+
+      const edit = edited(`Remove ${path.slice(path.lastIndexOf("/") + 1)}`, ["Binary file removed"], path)
+      putBack.set(edit.id, () => {
+        media.files = [...media.files, removed]
+      })
+
+      return { path, edit }
+    }
+
     case "storybook.open":
       return { url: "http://localhost:6006/?path=/docs/components-button--docs" }
     case "layers.export":
@@ -619,10 +795,11 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
 /** The edits the stand-in service made to the example's stylesheet, by id, to undo. */
 const edits = new Map<string, ProjectEditResult>()
 
-/** An edit to the example's stylesheet, as the service describes one it made, with its diff's hunks. */
-function edited(label: string, hunk: string[]): ProjectEditResult {
-  const path = "src/index.css"
+/** What undoing an edit puts back besides the file's text, by the edit's id: a removed image's file. */
+const putBack = new Map<string, () => void>()
 
+/** An edit to one of the example's files, its stylesheet unless said, as the service describes one it made. */
+function edited(label: string, hunk: string[], path = "src/index.css"): ProjectEditResult {
   const edit = {
     id: `edit-${edits.size + 1}`,
     label,

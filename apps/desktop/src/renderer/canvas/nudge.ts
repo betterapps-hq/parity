@@ -81,6 +81,13 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
         gesture
       }
     )
+  } else if (current.reference) {
+    store.updateReference(
+      current.reference,
+      "Nudge reference",
+      (reference) => ({ ...reference, position: nudgedPosition(reference.position, arrow, big) }),
+      { gesture }
+    )
   }
 
   return undefined

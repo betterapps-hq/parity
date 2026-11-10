@@ -1,9 +1,11 @@
+import { writeFileSync } from "node:fs"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import {
   type BuilderAdapter,
   type BuilderProcessSession,
+  type CodeChange,
   type ComponentSource,
   parseCanvasDocument
 } from "@parity-app/core"
@@ -48,12 +50,22 @@ interface Failures {
   start?: Error
 }
 
+/** What a test runs as the fake builder starts. */
+interface BuilderHooks {
+  /** Runs as the builder starts, once detection has read the project. */
+  starting?: () => void
+  /** The builder can't serve its guest restyled (`restyledGuestUrl`), so a stylesheet's change starts it again. */
+  noRestyle?: boolean
+}
+
 /** A builder that serves at the port it's given, and what it was asked. */
 function fakeBuilder() {
   const started: number[] = []
   const closed: string[] = []
   const crashes: Parameters<ProjectAdapters["startBuilder"]>[1]["onCrash"][] = []
+  const codeChanges: Parameters<ProjectAdapters["startBuilder"]>[1]["onCodeChange"][] = []
   const failures: Failures = {}
+  const hooks: BuilderHooks = {}
 
   const builder: BuilderAdapter = {
     id: "fake",
@@ -65,10 +77,12 @@ function fakeBuilder() {
     start: () => Promise.reject(new Error("started in its own process"))
   }
 
-  const startBuilder: ProjectAdapters["startBuilder"] = (options, { onCrash }) => {
+  const startBuilder: ProjectAdapters["startBuilder"] = (options, { onCrash, onCodeChange }) => {
     const port = options.port!
     started.push(port)
+    hooks.starting?.()
     crashes.push(onCrash)
+    codeChanges.push(onCodeChange)
 
     const session: BuilderProcessSession = {
       guestUrl: `http://localhost:${port}/@parity/guest.js`,
@@ -80,6 +94,10 @@ function fakeBuilder() {
       },
       setComponents: () => undefined,
       usage: () => Promise.resolve(undefined)
+    }
+
+    if (!hooks.noRestyle) {
+      session.restyledGuestUrl = (stamp) => Promise.resolve(`${session.guestUrl}?styles=${stamp}`)
     }
 
     return { pid: 1, session: failures.start ? Promise.reject(failures.start) : Promise.resolve(session) }
@@ -94,7 +112,10 @@ function fakeBuilder() {
     failures[at] = error
   }
 
-  return { builder, startBuilder, started, closed, crash, fail }
+  /** Says files changed, as the builder started last does when they're saved. */
+  const changeCode = (change: CodeChange) => codeChanges.at(-1)?.(change)
+
+  return { builder, startBuilder, started, closed, crash, fail, changeCode, hooks }
 }
 
 /** A watcher whose changes the test reports, as `fs.watch` reports them: names relative to the folder. */
@@ -143,6 +164,8 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
   }
 
   const fileChanged: WindowMethods["project.fileChanged"]["params"][] = []
+  const moves: WindowMethods["project.guestMoved"]["params"][] = []
+  const detectionChanged: WindowMethods["project.detectionChanged"]["params"][] = []
   let port = 5100
 
   const projects = openProjects({
@@ -158,13 +181,18 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
       fileChanged: (change) => fileChanged.push(change),
       componentsChanged: () => undefined,
       codeChanged: () => undefined,
-      guestMoved: () => Promise.resolve(true)
+      guestMoved: (move) => {
+        moves.push(move)
+
+        return Promise.resolve(true)
+      },
+      detectionChanged: (change) => detectionChanged.push(change)
     },
     environment,
     unsupported
   })
 
-  return { projects, builder, watcher, detections, checker, fileChanged }
+  return { projects, builder, watcher, detections, checker, fileChanged, moves, detectionChanged }
 }
 
 beforeEach(async () => {
@@ -333,6 +361,44 @@ describe("what opening a project records", () => {
   })
 })
 
+describe("an open project's stylesheets", () => {
+  it("serve its guest from a new address when one changes, which the windows load and bitmaps are named by", async () => {
+    const { projects, builder, moves } = setUp()
+    const { guestUrl } = await projects.open(root)
+
+    // A component's code changing loads only its components again, from the guest the windows have.
+    builder.changeCode({ paths: ["src/Button.tsx"], stamp: 7 })
+    await new Promise((done) => setTimeout(done, 50))
+    expect(moves).toEqual([])
+
+    builder.changeCode({ paths: [], stamp: 8, styles: true })
+    const restyled = `${guestUrl}?styles=8`
+    await vi.waitFor(() => expect(moves).toEqual([{ projectId: root, guestUrl: restyled }]))
+    expect((await projects.open(root)).guestUrl).toBe(restyled)
+    expect(projects.codeServedAt(root, restyled)).toBeDefined()
+
+    // Started again on the same port, the builder serves the guest where the windows already draw it.
+    await restartProcess({ id: `builder:${root}` })
+    expect(builder.started).toEqual([5100, 5100])
+    expect((await projects.open(root)).guestUrl).toBe(restyled)
+    expect(moves).toHaveLength(1)
+  })
+
+  it("start a builder that can't serve its guest restyled again on a new port when one changes", async () => {
+    const { projects, builder, moves } = setUp()
+    builder.hooks.noRestyle = true
+    await projects.open(root)
+
+    builder.changeCode({ paths: [], stamp: 8, styles: true })
+    const moved = "http://localhost:5101/@parity/guest.js"
+    await vi.waitFor(() => expect(moves).toEqual([{ projectId: root, guestUrl: moved }]))
+    expect(builder.started).toEqual([5100, 5101])
+    expect(builder.closed).toEqual(["http://localhost:5100/@parity/guest.js"])
+    expect((await projects.open(root)).guestUrl).toBe(moved)
+    expect(projects.codeServedAt(root, moved)).toBeDefined()
+  })
+})
+
 describe("a project Parity doesn't support", () => {
   function recorded() {
     const sink = createTestSink()
@@ -381,6 +447,44 @@ describe("an open project's files", () => {
     await new Promise((done) => setTimeout(done, 300))
     expect(fileChanged).toHaveLength(1)
     expect(await readFile(join(root, "shop.par"), "utf8")).toContain("Saved from the canvas")
+  })
+
+  it("tell the windows when components.json changes what detection finds, so they open the project again", async () => {
+    const { projects, watcher, detectionChanged } = setUp()
+    // Somewhere no convention looks, as a TanStack Start app with no index.html keeps it.
+    await write("src/styles/app.css", ":root { --primary: red; }")
+    expect((await projects.open(root)).notes).toContain("no global styles found")
+
+    // A file detection doesn't read changes nothing.
+    await write("src/styles/app.css", ":root { --primary: blue; }")
+    watcher.change("src/styles/app.css")
+    // Longer than the watcher waits after a change.
+    await new Promise((done) => setTimeout(done, 500))
+    expect(detectionChanged).toEqual([])
+
+    await write("components.json", JSON.stringify({ tailwind: { css: "src/styles/app.css" } }))
+    expect(await projects.detectAgain(root)).toBe(true)
+    watcher.change("components.json")
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
+
+    // A moment without package.json, as while it's rewritten, isn't a change.
+    const manifest = await readFile(join(root, "package.json"), "utf8")
+    await rm(join(root, "package.json"))
+    expect(await projects.detectAgain(root)).toBe(false)
+    await write("package.json", manifest)
+
+    // Opened again, it's detected from the files as they are now.
+    await projects.close(root)
+    expect((await projects.open(root)).notes).toContain("styles from components.json: src/styles/app.css")
+    expect(await projects.detectAgain(root)).toBe(false)
+  })
+
+  it("tell the windows when what detection reads changed while the project opened", async () => {
+    const { projects, detectionChanged, builder } = setUp()
+    builder.hooks.starting = () =>
+      writeFileSync(join(root, "components.json"), JSON.stringify({ tailwind: { css: "src/styles/app.css" } }))
+    await projects.open(root)
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]))
   })
 
   it("aren't saved outside the project, even in a sibling folder whose name starts with the root's", async () => {

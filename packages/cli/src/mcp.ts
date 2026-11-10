@@ -12,6 +12,12 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeImages,
+  describeMedia,
+  describePlace,
+  describePlacedReferences,
+  describeReferences,
+  describeRemovedImage,
   describeReport,
   describeStatus,
   describeTokens,
@@ -29,7 +35,7 @@ import {
   skillOperation
 } from "./operations.ts"
 import { readSkill } from "./skills.ts"
-import { type CliAttributes, recordCli } from "./telemetry.ts"
+import { type CliAttributes, flushCliTelemetry, recordCli } from "./telemetry.ts"
 
 interface Tool {
   name: string
@@ -49,7 +55,10 @@ interface Reply {
   isError?: boolean
 }
 
-type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: "image/png" }
+/** The picture types MCP clients show. */
+type ImageType = "image/png" | "image/jpeg" | "image/webp" | "image/gif"
+
+type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: ImageType }
 
 /**
  * One adapter for RPC-backed tools: operation contracts own defaults, validation, failure semantics and the structured
@@ -80,6 +89,11 @@ function operationTool<Result>(
       }
     }
   }
+}
+
+/** Each item's saved preview, as an image the client shows: what a search found, or the references on the canvas. */
+function previews(items: readonly { preview?: { data?: string; mimeType: ImageType } }[]): Content[] {
+  return items.flatMap((each) => (each.preview?.data ? [image(each.preview.data, each.preview.mimeType)] : []))
 }
 
 /** Results that are data to begin with, as compact JSON text for clients that don't read structuredContent. */
@@ -118,7 +132,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "get_app_state",
-    "Get a tab's state: its designs (ids, states, modes shown, where their boards are and how big), boards that overlap or crowd each other's titles, the selection, project modes, components and tokens, and what Parity detected in the project (each tool's version, where it's installed and its config, the package manager, and a note naming versions Parity doesn't test). Call it first, and again after the person may have changed things. Keep boards apart: Overlaps() and FindEmptySpace() in execute help place them.",
+    "Get a tab's state: its designs (ids, states, modes shown, where their boards are and how big, how many references are beside each), boards that overlap or crowd each other's titles, the selection, project modes, components and tokens, and what Parity detected in the project (each tool's version, where it's installed and its config, the package manager, and a note naming versions Parity doesn't test). Call it first, and again after the person may have changed things. Keep boards apart: Overlaps() and FindEmptySpace() in execute help place them.",
     operations.state,
     json
   ),
@@ -195,10 +209,46 @@ const tools: Tool[] = [
     (result) => [text(describeComponents(result))]
   ),
   operationTool(
+    "get_images",
+    "List the project's images (files in public/images, linked images, paths with no file) and what uses each. search matches a name, alt text or credit.",
+    operations.images,
+    (result) => [text(describeImages(result))]
+  ),
+  operationTool(
+    "remove_image",
+    "Remove an image file from public/images. Refused while a design or code uses it, saying where.",
+    operations.removeImage,
+    (result) => [text(describeRemovedImage(result))]
+  ),
+  operationTool(
     "get_props",
     "Read a component's props from source, and its composition: the parents or provider it goes inside, the parts it holds, its slots and an example node to insert. all includes attributes it passes through.",
     operations.props,
     (result) => [text(describeProps(result))]
+  ),
+  operationTool(
+    "find_references",
+    "Search real apps' screens before designing a common one, as onboarding or a paywall, and look at the previews. Follow their patterns with the project's own components and tokens, never an app's layout, text or branding; name the apps you drew on.",
+    operations.references,
+    (result) => [text(describeReferences(result)), ...previews(result.found)]
+  ),
+  operationTool(
+    "get_references",
+    "List the real apps' screens placed beside designs as references, with who placed each and why, and look at them before changing a design.",
+    operations.placedReferences,
+    (result) => [text(describePlacedReferences(result)), ...previews(result.references)]
+  ),
+  operationTool(
+    "find_media",
+    "Search stock photos, illustrations, vectors or videos when a design needs one, as a hero or an avatar, and look at the previews. Place a picture with place_result.",
+    operations.media,
+    (result) => [text(describeMedia(result)), ...previews(result.found)]
+  ),
+  operationTool(
+    "place_result",
+    "Put a picture a search found into an image node, as one undoable edit. Parity saves the file when the link doesn't last and tells the source it was used. Credit who it names where the design shows it.",
+    operations.place,
+    (result) => [text(describePlace(result))]
   ),
   operationTool(
     "report_problem",
@@ -258,6 +308,8 @@ type Params = NonNullable<z.output<typeof message>["params"]>
 /** Serves Parity's tools over MCP on stdin and stdout. */
 export function serveMcp(): void {
   const lines = createInterface({ input: process.stdin })
+  // A client that closes stdin is done; write what's held now rather than in the next 10 seconds (PAR-806).
+  lines.on("close", flushCliTelemetry)
   const send = <Reply>(reply: Reply) => process.stdout.write(`${JSON.stringify(reply)}\n`)
   lines.on("line", (line) => {
     if (!line.trim()) {
@@ -367,6 +419,6 @@ function text(value: string): Content {
   return { type: "text", text: value }
 }
 
-function image(data: string): Content {
-  return { type: "image", data, mimeType: "image/png" }
+function image(data: string, mimeType: ImageType = "image/png"): Content {
+  return { type: "image", data, mimeType }
 }

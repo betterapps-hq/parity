@@ -60,17 +60,24 @@ describe("findStyles", () => {
 })
 
 describe("stylesheetImports", () => {
-  it("counts side-effect and default imports of CSS and Sass, but not CSS modules or query imports", () => {
+  it("counts side-effect and default imports of any stylesheet, but not CSS modules or query imports", () => {
     const source = [
       'import "./reset.css"',
       "import theme from '../theme/site.scss'",
+      'import "./legacy.less"',
       'import styles from "./App.module.css"',
+      'import card from "./Card.module.scss"',
       'import inline from "./print.css?inline"',
       'import App from "./App"',
       'import "@mantine/core/styles.css"'
     ].join("\n")
 
-    expect(stylesheetImports(source)).toEqual(["./reset.css", "../theme/site.scss", "@mantine/core/styles.css"])
+    expect(stylesheetImports(source)).toEqual([
+      "./reset.css",
+      "../theme/site.scss",
+      "./legacy.less",
+      "@mantine/core/styles.css"
+    ])
   })
 })
 

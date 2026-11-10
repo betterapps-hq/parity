@@ -753,7 +753,10 @@ function animates(host: HTMLElement): boolean {
   return !!host.shadowRoot?.getAnimations().some((animation) => animation.playState === "running")
 }
 
-/** Whether a free text note is under a point, whose double-click tldraw handles to edit it. */
+/**
+ * Whether a free text note or a reference is under a point, which tldraw handles: a note's double-click edits it, and a
+ * reference's opens it at its source.
+ */
 function overNote(session: ProjectSession, point: Point): boolean {
   const editor = session.editor
 
@@ -761,7 +764,9 @@ function overNote(session: ProjectSession, point: Point): boolean {
     return false
   }
 
-  return editor.getShapeAtPoint(editor.screenToPage(point), { hitInside: true })?.type === "canvas-note"
+  const type = editor.getShapeAtPoint(editor.screenToPage(point), { hitInside: true })?.type
+
+  return type === "canvas-note" || type === "canvas-reference"
 }
 
 function selectHit(session: ProjectSession, hit: Hit, node: string | undefined): void {

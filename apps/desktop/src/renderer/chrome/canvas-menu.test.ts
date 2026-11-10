@@ -228,6 +228,7 @@ describe("the canvas menu", () => {
       "---",
       "lock",
       "---",
+      "findReferences",
       "exportSelection"
     ])
     expect(labelOf(menu, "makeComponent")).toBe("Convert to component")
@@ -248,6 +249,7 @@ describe("the canvas menu", () => {
       "---",
       "lock",
       "---",
+      "findReferences",
       "exportSelection"
     ])
     expect(labelOf(menu, "makeComponent")).toBe(keymap.makeComponent.label)
@@ -277,12 +279,13 @@ describe("the canvas menu", () => {
     ])
   })
 
-  it("offers New screen, New component, Insert, Paste here, Select all and Zoom to fit around designs", () => {
+  it("offers New screen, New component, Insert, Find references, Paste here, Select all and Zoom to fit around designs", () => {
     const menu = canvasMenu(undefined, layersSelection(design, ["title"]), entries)
     expect(outline(menu)).toEqual([
       "newScreen",
       "newComponent",
       "insert",
+      "findReferences",
       "---",
       "pasteHere",
       "---",
@@ -293,6 +296,7 @@ describe("the canvas menu", () => {
       ["New screen", keymap.newScreen.keys[0]],
       ["New component", keymap.newComponent.keys[0]],
       ["Insert…", keymap.insert.keys[0]],
+      ["Find references…", keymap.findReferences.keys[0]],
       ["Paste here", undefined],
       ["Select all", keymap.selectAll.keys[0]],
       ["Zoom to fit", keymap.zoomToFit.keys[0]]

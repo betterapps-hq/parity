@@ -1,6 +1,8 @@
 import { execFileSync } from "node:child_process"
-import { createScrubber, sentryScrubbing, telemetryRelease } from "@parity-app/telemetry"
+import { homedir } from "node:os"
+import { desktopDataFolder, sentryScrubbing, telemetryRelease } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/node"
+import { appOpenProjects, envScrubber, projectFolders } from "./env-secrets.ts"
 import { adoptDebugIds, type Batch, type BatchTarget, sendBatches } from "./outbox.ts"
 import { checkCliPromotion } from "./promotion.ts"
 
@@ -13,7 +15,10 @@ import { checkCliPromotion } from "./promotion.ts"
 /** `parity-cli`'s DSN, as docs/sentry.md lists it. */
 const dsn = "https://65d0cf052034375c83fb8f442e40e7f8@o4512381874274304.ingest.us.sentry.io/4512381906255872"
 
-const scrubber = createScrubber()
+/** Scrubs the `.env` values of the projects the app has open, and of each batch's project as it's sent (PAR-815). */
+const scrubber = envScrubber(
+  appOpenProjects(desktopDataFolder({ platform: process.platform, env: process.env, home: homedir() }))
+)
 
 /** The commit a checkout run from source is at, which names its release, or none outside a Git checkout. */
 function commitOf(folder: string | undefined): string | undefined {
@@ -57,6 +62,11 @@ function send(batch: Batch): void {
   const { run } = batch
   const release = releaseOf(run)
   adoptDebugIds(batch)
+
+  if (run.folder) {
+    scrubber.read(projectFolders(run.folder))
+  }
+
   // Logs take these from the client's options as they're captured, so each batch sets them before its own.
   const options = Sentry.getClient()?.getOptions()
 

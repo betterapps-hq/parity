@@ -15,6 +15,7 @@ import type {
   ResolvedMode,
   ThemeVariable
 } from "@parity-app/core"
+import type { FoundScreen, ReferenceAdded } from "@parity-app/editor"
 import type { Token } from "@parity-app/tokens"
 import type { WarningGroup } from "./warnings.ts"
 
@@ -344,13 +345,74 @@ export interface AgentHooks {
    * is its token's kind. The agent runs without a browser; without the hook, kinds aren't checked.
    */
   supports?(queries: { property: string; value: string }[]): Promise<boolean[]>
+  /**
+   * A screen from a real app main found lately, for `PlaceReference`: from the connector named, or the one that finds
+   * screens. Without it, references can't be placed.
+   */
+  screen?(id: string, connector: string | undefined): Promise<FoundScreen | undefined>
+  /** Who's calling, when it says, as the references it places name it. */
+  caller?: string
 }
 
-/** What a call changed: each design it touched with how it found it, the modes when it set them, and token values. */
+/**
+ * A result a connector found, as placing takes it from main's own copy (PAR-829): what kind it is, its image and who to
+ * credit. The agent names it by connector and id, so what goes in a design is what the source gave.
+ */
+export interface PlaceableResult {
+  kind: string
+  /** Whether it can go in a design: pictures can; screens from real apps and videos are for looking at. */
+  placeable: boolean
+  title: string
+  /** Its picture, with when its link stops working for a source whose links expire. */
+  image: { url: string; expiresAt?: number }
+  credit: { name: string; url?: string }[]
+}
+
+/**
+ * Where a result was placed: the project's folder, the design's file in it and the design's id. Main turns them into a
+ * key that holds no path, so the same design is counted once and nothing about the computer leaves it.
+ */
+export interface PlacedIn {
+  connector: string
+  id: string
+  project: string
+  file: string
+  design: string
+}
+
+/**
+ * A reference on the canvas as an agent reads it (PAR-889): where it's from, why it's there, who placed it and the
+ * design it's for.
+ */
+export interface PlacedReference {
+  /** Its id on the canvas. */
+  id: string
+  app: string
+  platform?: "ios" | "web"
+  /** Its page at the source. */
+  link: string
+  /** Its picture's link, which may have stopped working; `expired` says when it has. */
+  picture: string
+  expired?: true
+  query?: string
+  note?: string
+  /** The agent that placed it. Unset when the person did. */
+  by?: string
+  /**
+   * The design it was placed for, or else the one it sits beside, with the file it's in. Unset when no design is near.
+   */
+  design?: { id: string; name: string; file: string }
+}
+
+/**
+ * What a call changed: each design it touched with how it found it, the modes when it set them, token values, and the
+ * references it placed.
+ */
 export interface AgentChangeSet {
   designs: DesignChange[]
   modes?: ModesChange
   tokens: TokenChange[]
+  references?: ReferenceAdded[]
 }
 
 export interface TokenChange {

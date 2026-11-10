@@ -99,6 +99,31 @@ const tabDescription =
   'current folder is in, else "active".'
 
 const tab = text("tab", tabDescription).optional()
+
+/** Which source a search asks, by its connector's id. Without one, any that finds the kind. */
+const connector = z
+  .string("connector must be a connector's id, from a result")
+  .optional()
+  .describe("A connector's id, from a result. Defaults to any.")
+
+/**
+ * A filter a search names by the connector's own id for it. Main checks the value against the connector that runs the
+ * search, so a second source of the same kind with other values takes them without a change here.
+ */
+function filter(name: string, description: string) {
+  return text(name, description).optional()
+}
+
+/** Results already shown, for a source that gives more by leaving them out. Main says which way the source pages. */
+const exclude = z
+  .array(nonblank("exclude must be a list of ids"), "exclude must be a list of ids")
+  .max(100, "exclude takes up to 100 ids")
+  .optional()
+  .describe("Ids already seen, for more.")
+
+/** The page of results, for a source that gives more by page. */
+const page = z.int("page must be a whole number").min(1, "page must be 1 or more").optional().describe("Next page.")
+
 const design = text("design", "Design id or name.")
 const scaleMessage = "scale must be a finite number from 0.25 to 3"
 const scale = z.number(scaleMessage).min(0.25, scaleMessage).max(3, scaleMessage).default(1).describe("Pixel density.")
@@ -235,6 +260,53 @@ export const requests = {
     node: text("node", "Node id.").optional(),
     testRun: text("testRun", "Test pass. Defaults to PARITY_TEST_RUN.").optional()
   }),
+  references: fields({
+    tab,
+    query: text(
+      "query",
+      'One screen: its type, then up to three parts, as "paywall with a free trial". No platform, style words or negations. Name an app for only its screens.'
+    ),
+    connector,
+    platform: filter("platform", "ios for phone apps, or web. Defaults to web."),
+    depth: filter("depth", "deep keeps strong matches, for searches with parts; it spends the source's AI credits."),
+    limit: limit("Most screens.", 6, 20),
+    exclude,
+    page
+  }),
+  media: fields({
+    tab,
+    query: text("query", 'One subject, as "desk by a window".'),
+    connector,
+    type: filter("type", "photos (default), illustrations, vectors or videos."),
+    orientation: filter("orientation", "horizontal or vertical."),
+    color: filter("color", "One color, as blue, grayscale or transparent."),
+    limit: limit("Most results.", 6, 20),
+    exclude,
+    page
+  }),
+  place: fields({
+    tab,
+    connector: text("connector", "The result's connector, from the search."),
+    id: text("id", "The result's id, from a search."),
+    node: text("node", 'The image, or a component with an image prop, as design/node: "home/photo".'),
+    prop: text("prop", "A component's prop that takes the image. Defaults to src.").optional(),
+    state: text("state", "State id, for a component's prop in one state.").optional()
+  }),
+  placedReferences: fields({
+    tab,
+    design: text("design", "Design id or name, for only its references.").optional(),
+    limit: limit("Most pictures; each is a whole screen.", 6, 20)
+  }),
+  images: fields({
+    tab,
+    search: text("search", "Text in a name, alt text or credit.").optional(),
+    unused: flag("unused", "Only images no design or code uses."),
+    limit: limit("Most images.", 50, 500)
+  }),
+  removeImage: fields({
+    tab,
+    image: text("image", "Path, address (/images/hero.png) or file name.")
+  }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
     executeKind({ tab: execute.tab, label: execute.label, editId: execute.editId, edits: execute.edits })
@@ -301,7 +373,11 @@ const designSummary = z.looseObject({
   height: number.optional(),
   states: z.array(ref),
   showing: z.looseObject({ state: z.string(), mode: z.string(), beside: strings }),
-  nodes: z.int()
+  nodes: z.int(),
+  references: z
+    .int()
+    .optional()
+    .describe("How many references are on the canvas for it, which get_references shows. Missing when none.")
 })
 
 const overlap = z.looseObject({
@@ -686,6 +762,117 @@ const reportReply = z.looseObject({
   attachments: strings.describe("The files sent with it: the window's screenshot, the frames and the diagnostics.")
 })
 
+/** One of the project's images (PAR-834): a file, a linked image, or a path layers name with no file. */
+const projectImage = z.looseObject({
+  kind: z.enum(["file", "linked", "missing"]),
+  src: z.string().describe("What layers set src to."),
+  path: z.string().optional().describe("The file, from the project's root."),
+  name: z.string(),
+  bytes: z.int().optional(),
+  alt: z.string().optional(),
+  credit: z.looseObject({ name: z.string(), url: z.string(), source: z.string().optional() }).optional(),
+  usedBy: z
+    .array(z.looseObject({ document: z.string(), design: z.string(), designName: z.string(), node: z.string() }))
+    .describe("The layers that show it."),
+  usedInCode: z.array(z.looseObject({ path: z.string(), line: z.int() })).describe("The lines of code that name it.")
+})
+
+const imagesReply = z.looseObject({
+  images: z.array(projectImage),
+  total: z.int().describe("How many matched before the limit."),
+  truncated: z.boolean()
+})
+
+/** An image removed: its file, and the edit's label. */
+const removeImageReply = z.looseObject({ path: z.string(), label: z.string() })
+
+/** A picture saved for an agent to look at, as a file, with its bytes for MCP to show. */
+const preview = z.looseObject({
+  path: z.string().describe("Where the preview was saved."),
+  mimeType: z.enum(["image/png", "image/jpeg", "image/webp", "image/gif"]),
+  data: z.string().optional().describe("The preview as base64, which MCP shows and --json leaves out.")
+})
+
+/**
+ * Something a connector found (PAR-829): a screen from a real app, or a stock picture or video, the same shape from
+ * every source, with its preview saved as a file for the agent to look at.
+ */
+const foundItem = z.looseObject({
+  id: z.string().describe("The source's id, which exclude takes."),
+  connector: z.string().describe("The connector that found it, which connector and place take."),
+  source: z.string().describe("Where it's from, to credit."),
+  kind: z.string().optional().describe("screens, photos or videos; only photos go in designs."),
+  title: z.string().describe("The app's name, or what a picture shows."),
+  platform: z.enum(["ios", "web"]).optional(),
+  link: z.string().describe("Its page at the source."),
+  width: z.int().optional(),
+  height: z.int().optional(),
+  credit: z
+    .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
+    .describe("Who to credit, in order: the app or its author, then the source."),
+  preview: preview.optional().describe("Missing when the preview couldn't be fetched.")
+})
+
+/** What a search found, or why it found nothing to show. */
+const foundReply = z.looseObject({
+  found: z.array(foundItem),
+  allowance: z
+    .looseObject({ remaining: z.int(), limit: z.int().optional() })
+    .optional()
+    .describe("Searches the source allows before turning them away, when it says."),
+  problem: z
+    .looseObject({
+      code: z
+        .string()
+        .describe(
+          "no-key, key-refused, no-access, rate-limited, invalid or unavailable. Only invalid is yours to fix."
+        ),
+      message: z.string(),
+      retryAfter: number.optional().describe("Seconds to wait before searching again.")
+    })
+    .optional(),
+  done: z.boolean().optional().describe("True when more of a search was asked for and there's no more.")
+})
+
+/** What placing a result did: the node it went in and who to credit, or why it wasn't placed. */
+const placeReply = z.looseObject({
+  placed: z.boolean(),
+  node: z.string().optional(),
+  warnings: z.array(z.string()).optional(),
+  credit: z
+    .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
+    .optional()
+    .describe("Who to credit where the design shows it, in order: its author, then the source."),
+  problem: z.looseObject({ code: z.string(), message: z.string() }).optional()
+})
+
+/**
+ * A reference on the canvas (PAR-889): where it's from, why it's there, who placed it, the design it's for, and its
+ * picture saved for the agent to look at.
+ */
+const placedReference = z.looseObject({
+  id: z.string().describe("Its id on the canvas, not the source's."),
+  app: z.string(),
+  platform: z.enum(["ios", "web"]).optional(),
+  link: z.string().describe("Its page at the source."),
+  picture: z.string().describe("Its picture's link."),
+  expired: z.boolean().optional().describe("Set when the picture's link has stopped working."),
+  query: z.string().optional().describe("The description that found it."),
+  note: z.string().optional().describe("Why it's there."),
+  by: z.string().optional().describe("The agent that placed it. Missing when the person did."),
+  design: z
+    .looseObject({ id: z.string(), name: z.string(), file: z.string() })
+    .optional()
+    .describe("The design it's for. Missing when it was placed for none and no design is near."),
+  preview: preview.optional().describe("Missing when the picture couldn't be fetched.")
+})
+
+const placedReferencesReply = z.looseObject({
+  tab: ref,
+  references: z.array(placedReference),
+  withoutPictures: z.int().optional().describe("How many past limit have no picture. Name a design or raise limit.")
+})
+
 /**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,
  * which calls are routed by (PAR-514): its tabs, and when its window last had focus, missing from a copy too old to
@@ -706,7 +893,13 @@ export const replies = {
   tokens: z.array(tokenInfo),
   components: componentsReply,
   props: propsReply,
-  report: reportReply
+  report: reportReply,
+  references: foundReply,
+  media: foundReply,
+  place: placeReply,
+  placedReferences: placedReferencesReply,
+  images: imagesReply,
+  removeImage: removeImageReply
 }
 
 /**

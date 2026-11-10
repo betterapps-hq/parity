@@ -83,8 +83,16 @@ const exportAttributes = {
 
 export const exportDone = defineEvent(
   "export.done",
-  z.object({ ...exportAttributes, files: z.number().int().nonnegative().describe("The files written") }),
-  { level: "info", sentBy: ["renderer"], when: "An export finishes." }
+  z.object({
+    ...exportAttributes,
+    files: z.number().int().nonnegative().describe("The files written"),
+    warnings: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe("The layers that couldn't be drawn, or the previews that had problems, which a warning lists")
+  }),
+  { level: "info", sentBy: ["renderer"], when: "An export finishes, with or without warnings." }
 )
 
 export const exportFailed = defineEvent("export.failed", z.object({ ...exportAttributes, code }), {
@@ -92,6 +100,26 @@ export const exportFailed = defineEvent("export.failed", z.object({ ...exportAtt
   sentBy: ["renderer"],
   when: "An export fails."
 })
+
+export const documentConflicted = defineEvent(
+  "document.conflicted",
+  z.object({ file: z.string().describe("The design file that changed on disk") }),
+  {
+    level: "warn",
+    sentBy: ["renderer"],
+    when: "A design file changes on disk while it has unsaved changes here, which are kept until the person chooses."
+  }
+)
+
+export const documentLoadedFromDisk = defineEvent(
+  "document.loadedFromDisk",
+  z.object({ file: z.string().describe("The design file loaded again") }),
+  {
+    level: "info",
+    sentBy: ["renderer"],
+    when: "The person chooses Load from disk after a conflict, putting away their unsaved changes."
+  }
+)
 
 export const libraryAdded = defineEvent("library.added", z.object(library), {
   level: "info",
@@ -116,6 +144,8 @@ export const filesEvents = [
   ipcFailed,
   documentSaved,
   documentSaveFailed,
+  documentConflicted,
+  documentLoadedFromDisk,
   tokensSaved,
   projectEditApplied,
   projectEditUndone,

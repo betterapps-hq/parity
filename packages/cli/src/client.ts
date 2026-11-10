@@ -72,6 +72,19 @@ export type ConsoleEntry = z.output<typeof replies.console>["entries"][number]
 
 export type ReportResponse = z.output<typeof replies.report>
 
+/** What a search for screens, pictures or videos answers, which is the same shape. */
+export type FindResponse = z.output<typeof replies.references>
+
+/** The references on the canvas, with their pictures saved to look at (PAR-889). */
+export type PlacedReferencesResponse = z.output<typeof replies.placedReferences>
+
+/** What placing a result answers. */
+export type PlaceResponse = z.output<typeof replies.place>
+
+export type ImagesResponse = z.output<typeof replies.images>
+
+export type RemoveImageResponse = z.output<typeof replies.removeImage>
+
 let caller = cliCallerName(process.env)
 
 /** Tells callers with the same name apart. A terminal's calls are separate processes, so they share their name. */
@@ -908,6 +921,63 @@ function frameList(frames: { state: string; mode: string }[]): string {
 }
 
 /** Where a report went, what it's tied to and tagged with, and what went with it (PAR-646). */
+/**
+ * A readable account of the project's images: each file with its path and size, each linked image with its credit, and
+ * what uses each, or that nothing does.
+ */
+export function describeImages(result: ImagesResponse): string {
+  if (result.images.length === 0) {
+    return "No images in the project match."
+  }
+
+  const count = result.total === 1 ? "1 image" : `${result.total} images`
+  const shown = result.truncated ? `, the first ${result.images.length} shown` : ""
+
+  const lines = result.images.map((image, index) => {
+    const credit = image.credit
+      ? [`   credit ${image.credit.name}${image.credit.source ? ` (${image.credit.source})` : ""}`]
+      : []
+
+    const designs = [...new Set(image.usedBy.map((use) => use.designName))]
+    const code = image.usedInCode.map((use) => `${use.path} line ${use.line}`)
+    const used = [...designs, ...code]
+
+    return [
+      `${index + 1}. ${image.name} ${whereImage(image)}`,
+      ...credit,
+      `   ${used.length > 0 ? `used in ${used.join(", ")}` : "unused"}`
+    ].join("\n")
+  })
+
+  return [`${count}${shown}:`, ...lines].join("\n")
+}
+
+/** Where an image is: a file's path and size, or a link, or a path with no file. */
+function whereImage(image: ImagesResponse["images"][number]): string {
+  if (image.kind === "linked") {
+    return `${image.src} (linked)`
+  }
+
+  if (image.kind === "missing") {
+    return `${image.src} (no file)`
+  }
+
+  return `${image.path ?? image.src}${image.bytes === undefined ? "" : `, ${size(image.bytes)}`}`
+}
+
+/** What removing an image did. */
+export function describeRemovedImage(result: RemoveImageResponse): string {
+  return `Removed ${result.path}.`
+}
+
+function size(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+
+  return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 export function describeReport(result: ReportResponse): string {
   const tied = [
     ...(result.traceId ? [`trace ${result.traceId}`] : []),
@@ -923,6 +993,122 @@ export function describeReport(result: ReportResponse): string {
     `Sent with ${result.attachments.join(", ")}.`,
     "Sentry files it in Linear and links the issue from the feedback."
   ].join("\n")
+}
+
+/**
+ * A readable account of the screens a references search found, each with its app, platform, link and saved preview, or
+ * why it found nothing to show.
+ */
+export function describeReferences(result: FindResponse): string {
+  return describeFound(result, {
+    one: "screen",
+    many: "screens",
+    none: "Nothing matches. Try fewer parts, other words, or the other platform.",
+    use: "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and the source."
+  })
+}
+
+/**
+ * A readable account of the references on the canvas (PAR-889): each app with its link, the design it's for, who placed
+ * it and why, the description that found it and its saved picture.
+ */
+export function describePlacedReferences(result: PlacedReferencesResponse): string {
+  if (result.references.length === 0) {
+    return "No references to show."
+  }
+
+  const count = result.references.length === 1 ? "1 reference" : `${result.references.length} references`
+
+  const lines = result.references.map((each, index) => {
+    const platform = each.platform ? ` (${each.platform})` : ""
+    const placed = [each.design ? `for ${each.design.name}` : "", `placed by ${each.by ?? "the person"}`]
+    const note = each.note ? `: ${each.note}` : ""
+    const found = each.query ? [`found with "${each.query}"`] : []
+    let picture = each.preview ? `picture ${each.preview.path}` : "no picture"
+
+    if (each.expired) {
+      picture = "picture expired"
+    }
+
+    const details = [`${placed.filter(Boolean).join(", ")}${note}`, ...found, picture]
+
+    return [`${index + 1}. ${each.app}${platform} ${each.link}`, ...details.map((line) => `   ${line}`)].join("\n")
+  })
+
+  const without = result.withoutPictures
+  const left = without ? [`${without} more without pictures: name a design or raise limit to see them.`] : []
+
+  return [
+    `${count} on ${result.tab.name}'s canvas:`,
+    ...lines,
+    ...left,
+    "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding."
+  ].join("\n")
+}
+
+/** What placing a result did: the node it went in and who to credit, or why it wasn't placed. */
+export function describePlace(result: PlaceResponse): string {
+  if (!result.placed) {
+    return result.problem?.message ?? "Nothing was placed."
+  }
+
+  const credit = (result.credit ?? []).map(({ name }) => name).join(", then ")
+  const lines = [`Placed in ${result.node}.`]
+
+  if (credit) {
+    lines.push(`Credit ${credit} where the design shows it.`)
+  }
+
+  return lines.join("\n")
+}
+
+/**
+ * A readable account of the stock pictures or videos a search found, each with what it shows, its credit, link and
+ * saved preview.
+ */
+export function describeMedia(result: FindResponse): string {
+  return describeFound(result, {
+    one: "result",
+    many: "results",
+    none: "Nothing matches. Try other words, or fewer filters.",
+    use: 'Place a picture in an image node with place_result (parity place <connector> <id> "<node>"), then credit its author and the source where the design shows it.'
+  })
+}
+
+interface FoundWords {
+  one: string
+  many: string
+  none: string
+  use: string
+}
+
+function describeFound(result: FindResponse, words: FoundWords): string {
+  if (result.problem) {
+    return result.problem.message
+  }
+
+  if (result.done) {
+    return "No more results for this search."
+  }
+
+  if (result.found.length === 0) {
+    return words.none
+  }
+
+  const count = result.found.length === 1 ? `1 ${words.one}` : `${result.found.length} ${words.many}`
+  const source = result.found[0]?.source ?? "the source"
+
+  const lines = result.found.map((each, index) => {
+    const preview = each.preview ? `preview ${each.preview.path}` : "no preview: open the link"
+    const platform = each.platform ? ` (${each.platform})` : ""
+    const by = each.credit.length > 1 ? `\n   by ${each.credit[0]?.name}` : ""
+
+    return `${index + 1}. ${each.title}${platform} ${each.link}${by}\n   ${each.connector} ${each.id}\n   ${preview}`
+  })
+
+  const left = result.allowance ? [`${source} allows ${result.allowance.remaining} more searches for now.`] : []
+
+  return [`${count} from ${source}:`, ...lines, ...left, words.use].join("\n")
 }
 
 /** A readable account of what a project's code wrote to the console, oldest first, with where each came from. */

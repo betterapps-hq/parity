@@ -7,6 +7,11 @@ import {
   type ModesResponse,
   type ProblemsResponse,
   type PropsResponse,
+  type FindResponse,
+  type ImagesResponse,
+  type PlaceResponse,
+  type PlacedReferencesResponse,
+  type RemoveImageResponse,
   type ReportResponse,
   type StatusResponse,
   describeAccessibility,
@@ -16,6 +21,12 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeImages,
+  describeMedia,
+  describePlace,
+  describePlacedReferences,
+  describeReferences,
+  describeRemovedImage,
   describeReport,
   describeStatus,
   describeTokens
@@ -109,6 +120,33 @@ const modes: ModesResponse = {
   designs: [{ id: "home", name: "Home", state: "default", states: ["default"], main: "mobile-light", beside: [] }]
 }
 
+const imagesFound: ImagesResponse = {
+  images: [
+    {
+      kind: "file",
+      src: "/images/hero.png",
+      path: "public/images/hero.png",
+      name: "hero.png",
+      bytes: 2048,
+      alt: "A desk",
+      usedBy: [{ document: "app.par", design: "home", designName: "Home", node: "hero" }],
+      usedInCode: [{ path: "src/index.css", line: 2 }]
+    },
+    {
+      kind: "linked",
+      src: "https://images.unsplash.com/photo-1",
+      name: "Photo by Ada Park",
+      credit: { name: "Ada Park", url: "https://unsplash.com/@adapark", source: "Unsplash" },
+      usedBy: [],
+      usedInCode: []
+    }
+  ],
+  total: 3,
+  truncated: true
+}
+
+const removedImage: RemoveImageResponse = { path: "public/images/unused.webp", label: "Remove image" }
+
 const reported: ReportResponse = {
   feedbackId: "0a1b2c",
   link: "https://sentry.io/organizations/better-apps/projects/parity-desktop/events/0a1b2c/",
@@ -116,6 +154,67 @@ const reported: ReportResponse = {
   replayId: "r1",
   tags: { tab: "Project", design: "home", state: "default", node: "title" },
   attachments: ["screenshot.png", "home default mobile-light.png", "events.jsonl"]
+}
+
+const calm = {
+  id: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+  connector: "mobbin",
+  source: "Mobbin",
+  title: "Calm",
+  platform: "ios" as const,
+  link: "https://mobbin.com/screens/1b9d6bcd",
+  credit: [{ name: "Calm" }, { name: "Mobbin", url: "https://mobbin.com/screens/1b9d6bcd" }],
+  preview: { path: "/references/calm.webp", mimeType: "image/webp" as const }
+}
+
+const references: FindResponse = { found: [calm] }
+
+/** Two references on the canvas: one an agent placed for Pricing, with a note, and one whose picture has expired. */
+const onCanvas: PlacedReferencesResponse = {
+  tab: { id: "tab-1", name: "Project" },
+  references: [
+    {
+      id: "r1",
+      app: "Calm",
+      platform: "ios",
+      link: "https://mobbin.com/screens/1b9d6bcd",
+      picture: "https://images.mobbin.com/calm.png",
+      query: "pricing page",
+      note: "Yearly is picked by default",
+      by: "Claude",
+      design: { id: "pricing", name: "Pricing", file: "app.par" },
+      preview: { path: "/references/calm-r1.png", mimeType: "image/png" }
+    },
+    {
+      id: "r2",
+      app: "Ledgerly",
+      link: "https://mobbin.com/screens/2",
+      picture: "https://images.mobbin.com/ledgerly.png",
+      expired: true,
+      design: { id: "pricing", name: "Pricing", file: "app.par" }
+    }
+  ]
+}
+
+const placed: PlaceResponse = {
+  placed: true,
+  node: "home/Hero/Photo",
+  image: "https://images.unsplash.com/photo-1",
+  credit: [{ name: "Ada Park" }, { name: "Unsplash" }]
+}
+
+const photos: FindResponse = {
+  found: [
+    {
+      id: "Dwu85P9SOIk",
+      connector: "unsplash",
+      source: "Unsplash",
+      title: "white desk",
+      link: "https://unsplash.com/photos/Dwu85P9SOIk",
+      credit: [{ name: "Ada Park" }, { name: "Unsplash" }]
+    }
+  ],
+  allowance: { remaining: 49, limit: 50 }
 }
 
 const project = resolve("some/../project")
@@ -294,6 +393,72 @@ const cases: Case[] = [
     result: reported,
     structured: reported,
     text: describeReport(reported)
+  },
+  {
+    name: "references",
+    cli: ["references", "paywall", "with", "a", "free", "trial", "--platform", "ios"],
+    tool: "find_references",
+    method: "references",
+    input: { query: "paywall with a free trial", platform: "ios" },
+    params: { query: "paywall with a free trial", platform: "ios", limit: 6 },
+    result: references,
+    structured: references,
+    text: describeReferences(references)
+  },
+  {
+    name: "placed references",
+    cli: ["references", "placed", "pricing"],
+    tool: "get_references",
+    method: "placedReferences",
+    input: { design: "pricing" },
+    params: { design: "pricing", limit: 6 },
+    result: onCanvas,
+    structured: onCanvas,
+    text: describePlacedReferences(onCanvas)
+  },
+  {
+    name: "media",
+    cli: ["media", "desk", "by", "a", "window", "--type", "vectors", "--orientation", "vertical", "--page", "2"],
+    tool: "find_media",
+    method: "media",
+    input: { query: "desk by a window", type: "vectors", orientation: "vertical", page: 2 },
+    params: { query: "desk by a window", type: "vectors", orientation: "vertical", limit: 6, page: 2 },
+    result: photos,
+    structured: photos,
+    text: describeMedia(photos)
+  },
+  {
+    name: "place",
+    cli: ["place", "unsplash", "Dwu85P9SOIk", "home/Hero/Photo"],
+    tool: "place_result",
+    method: "place",
+    input: { connector: "unsplash", id: "Dwu85P9SOIk", node: "home/Hero/Photo" },
+    params: { connector: "unsplash", id: "Dwu85P9SOIk", node: "home/Hero/Photo" },
+    result: placed,
+    structured: placed,
+    text: describePlace(placed)
+  },
+  {
+    name: "images",
+    cli: ["images", "--search", "desk", "--unused"],
+    tool: "get_images",
+    method: "images",
+    input: { search: "desk", unused: true },
+    params: { search: "desk", unused: true, limit: 50 },
+    result: imagesFound,
+    structured: imagesFound,
+    text: describeImages(imagesFound)
+  },
+  {
+    name: "remove image",
+    cli: ["images", "remove", "unused.webp"],
+    tool: "remove_image",
+    method: "removeImage",
+    input: { image: "unused.webp" },
+    params: { image: "unused.webp" },
+    result: removedImage,
+    structured: removedImage,
+    text: describeRemovedImage(removedImage)
   }
 ]
 
@@ -945,7 +1110,112 @@ describe("remaining transport contracts", processTests, () => {
     const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     const tools = toolReply(protocol.stdout)?.result?.tools
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
-    // report_problem (PAR-646).
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(14 * 1024)
+    // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos (now find_media), 16.1 KB with a
+    // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834), 19 KB with find_media taking a type (PAR-837), 19.5 KB with get_references (PAR-889).
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(20 * 1024)
+  })
+
+  it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {
+    const result = { found: [{ ...calm, preview: { ...calm.preview, data: "UklGRg==" } }] }
+    fixture.response = { result }
+
+    const [cli, protocol] = await Promise.all([
+      run(["references", "paywall", "--json"]),
+      mcp({ query: "paywall" }, "find_references")
+    ])
+
+    expect(JSON.parse(cli.stdout)).toEqual(references)
+    expect(toolReply(protocol.stdout)?.result?.content).toEqual([
+      { type: "text", text: describeReferences(result) },
+      { type: "image", data: "UklGRg==", mimeType: "image/webp" }
+    ])
+  })
+
+  it("says why a references search found nothing, and exits with 1 only when it's something to fix", async () => {
+    const noKey = "This copy of Parity has no Mobbin key, so it can't search Mobbin. Carry on without Mobbin."
+    fixture.response = { result: { found: [], problem: { code: "no-key", message: noKey } } }
+    const without = await run(["references", "paywall"])
+    fixture.response = {
+      result: { found: [], problem: { code: "invalid", message: "Mobbin's platform can be web or ios." } }
+    }
+    const invalid = await run(["references", "paywall"])
+
+    expect([without.stdout.trim(), without.code]).toEqual([noKey, 0])
+    expect([invalid.stdout.trim(), invalid.code]).toEqual(["Mobbin's platform can be web or ios.", 1])
+  })
+
+  it("says a search has run out rather than that nothing matches", () => {
+    expect(describeReferences({ found: [], done: true })).toBe("No more results for this search.")
+    expect(describeReferences({ found: [] })).toBe(
+      "Nothing matches. Try fewer parts, other words, or the other platform."
+    )
+  })
+
+  it("lists each screen found with its link, id and preview, and what to do with them", () => {
+    expect(describeReferences(references).split("\n")).toEqual([
+      "1 screen from Mobbin:",
+      "1. Calm (ios) https://mobbin.com/screens/1b9d6bcd",
+      "   by Calm",
+      "   mobbin 1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+      "   preview /references/calm.webp",
+      "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and the source."
+    ])
+  })
+
+  it("shows each placed reference's picture over MCP, and leaves its base64 out of --json", async () => {
+    const [first, second] = onCanvas.references
+    const preview = { path: "/references/calm-r1.png", mimeType: "image/png" as const, data: "iVBORw==" }
+    const result = { ...onCanvas, references: [{ ...first, preview }, second] }
+    fixture.response = { result }
+
+    const [cli, protocol] = await Promise.all([run(["references", "placed", "--json"]), mcp({}, "get_references")])
+
+    expect(JSON.parse(cli.stdout)).toEqual(onCanvas)
+    expect(toolReply(protocol.stdout)?.result?.content).toEqual([
+      { type: "text", text: describePlacedReferences(result) },
+      { type: "image", data: "iVBORw==", mimeType: "image/png" }
+    ])
+  })
+
+  it("lists each placed reference with the design it's for, who placed it and why, and its picture", () => {
+    expect(describePlacedReferences(onCanvas).split("\n")).toEqual([
+      "2 references on Project's canvas:",
+      "1. Calm (ios) https://mobbin.com/screens/1b9d6bcd",
+      "   for Pricing, placed by Claude: Yearly is picked by default",
+      '   found with "pricing page"',
+      "   picture /references/calm-r1.png",
+      "2. Ledgerly https://mobbin.com/screens/2",
+      "   for Pricing, placed by the person",
+      "   picture expired",
+      "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding."
+    ])
+    expect(describePlacedReferences({ ...onCanvas, references: [] })).toBe("No references to show.")
+    expect(
+      describePlacedReferences({ ...onCanvas, withoutPictures: 3 })
+        .split("\n")
+        .at(-2)
+    ).toBe("3 more without pictures: name a design or raise limit to see them.")
+  })
+
+  it("lists each stock result found with its author, and how many searches are left", () => {
+    expect(describeMedia(photos).split("\n")).toEqual([
+      "1 result from Unsplash:",
+      "1. white desk https://unsplash.com/photos/Dwu85P9SOIk",
+      "   by Ada Park",
+      "   unsplash Dwu85P9SOIk",
+      "   no preview: open the link",
+      "Unsplash allows 49 more searches for now.",
+      'Place a picture in an image node with place_result (parity place <connector> <id> "<node>"), then credit its author and the source where the design shows it.'
+    ])
+  })
+
+  it("says where a photo was placed and who to credit, or why it wasn't", () => {
+    expect(describePlace(placed).split("\n")).toEqual([
+      "Placed in home/Hero/Photo.",
+      "Credit Ada Park, then Unsplash where the design shows it."
+    ])
+    expect(describePlace({ placed: false, problem: { code: "invalid", message: "Search again." } })).toBe(
+      "Search again."
+    )
   })
 })

@@ -15,6 +15,7 @@ import {
   dropPatches,
   designModes,
   type DesignNode,
+  type ImageNode,
   editNode,
   type EvalScope,
   drawnNode,
@@ -47,6 +48,7 @@ import {
   removeState,
   renameState,
   resolveDesign,
+  type ReferenceSpec,
   type ResolvedMode,
   resolveModes,
   type StateSpec,
@@ -55,7 +57,21 @@ import {
   walkNodes,
   withFreshIds
 } from "@parity-app/core"
-import { componentComposition, type DroppedParts, newDesign, turnInto } from "@parity-app/editor"
+import {
+  type Bounds,
+  componentComposition,
+  type DroppedParts,
+  newDesign,
+  type ReferenceAdded,
+  type ReferenceAnchor,
+  nearestBox,
+  referenceBounds,
+  referenceExpired,
+  referenceFrom,
+  referenceRow,
+  referenceSize,
+  turnInto
+} from "@parity-app/editor"
 import {
   builtOn,
   categorize,
@@ -92,6 +108,7 @@ import {
   placeOptions,
   propsOptions,
   readArgument,
+  referenceOptions,
   readFields,
   screenshotOptions,
   spaceOptions,
@@ -118,6 +135,7 @@ import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyl
 import { lintDocument, propWarnings } from "./lint.ts"
 import type {
   AccessibilityFinding,
+  AgentChangeSet,
   AgentEvent,
   AgentHooks,
   AgentSnapshot,
@@ -125,6 +143,7 @@ import type {
   DiscardedPatches,
   ExecResult,
   FrameContrast,
+  PlacedReference,
   Problem,
   Screenshot,
   TokenChange
@@ -231,6 +250,10 @@ export class AgentWorkspace {
   private readonly inserted = new Set<string>()
   /** Designs this call changed or moved, by key, whose overlaps it reports. */
   private readonly touched = new Set<string>()
+  /** References this call placed, in order. */
+  private readonly references: ReferenceAdded[] = []
+  /** The reference this call placed last beside each design, by the design's key, which the next one goes after. */
+  private readonly lastReference = new Map<string, Bounds>()
 
   private readonly snapshot: AgentSnapshot
   private readonly hooks: AgentHooks
@@ -311,6 +334,10 @@ export class AgentWorkspace {
         this.screenshot(design(reference), readFields(screenshotOptions, options, "options")),
       Accessibility: (reference: string, options?: MatrixOptions) =>
         this.accessibility(design(reference), readFields(matrixOptions, options, "options")),
+      References: (reference?: string) =>
+        this.listReferences(readArgument(designReference.optional(), reference, "design")),
+      PlaceReference: (id: string, options?: z.infer<typeof referenceOptions>) =>
+        this.placeReference(text(id, "id"), readFields(referenceOptions, options ?? {}, "options")),
       FindEmptySpace: (options: z.infer<typeof spaceOptions>) =>
         this.findEmptySpace(readFields(spaceOptions, options, "options")),
       Overlaps: (reference?: string) => this.overlaps(readArgument(designReference.optional(), reference, "design")),
@@ -349,10 +376,14 @@ export class AgentWorkspace {
 
     const designs = [...this.changed].flatMap((path) => this.designChanges(path))
 
-    const changes =
+    const changes: AgentChangeSet =
       this.modesChanged && !isDeepStrictEqual(this.modes, this.snapshot.modes)
         ? { designs, modes: { base: this.snapshot.modes, after: this.modes }, tokens: this.tokenChanges }
         : { designs, tokens: this.tokenChanges }
+
+    if (this.references.length > 0) {
+      changes.references = this.references
+    }
 
     const head = {
       changes,
@@ -900,7 +931,19 @@ export class AgentWorkspace {
 
     const stateId = options.state === undefined ? container.states[0]!.id : findState(container, options.state).id
     const base = stateId === container.states[0]!.id
-    const renames = (["name", "tag", "component"] as const).filter((name) => change[name] !== undefined)
+
+    const renames = (["name", "tag", "component", "src", "alt", "credit"] as const).filter(
+      (name) => change[name] !== undefined
+    )
+
+    const picture = (["src", "alt", "credit"] as const).find((name) => change[name] !== undefined)
+
+    if (picture && node.type !== "image") {
+      throw new CodedError(`Only an image has ${picture}; a component takes its picture as a prop`, {
+        code: "invalid_input",
+        field: picture
+      })
+    }
 
     if (!base && renames.length > 0) {
       throw new CodedError("A state can only change hidden, text, props, style and unset", {
@@ -935,6 +978,10 @@ export class AgentWorkspace {
 
           if (updated.type === "component" && change.component !== undefined) {
             updated.component = change.component
+          }
+
+          if (updated.type === "image") {
+            pictured(updated, change)
           }
 
           return updated
@@ -1562,6 +1609,87 @@ export class AgentWorkspace {
     this.found.push(at === undefined ? { category, message } : { category, message, at })
   }
 
+  /**
+   * Places a screen main found lately beside a design, as a reference to look at (PAR-840): after the last one this call
+   * placed beside it, or in a new row under any already there. It names the agent that placed it, with its note.
+   */
+  private async placeReference(id: string, options: z.infer<typeof referenceOptions>): Promise<string> {
+    const screen = await this.hooks.screen?.(id, options.connector)
+
+    if (!screen) {
+      throw new CodedError(
+        `Parity hasn't found the screen ${id} lately. Search with find_references, then place one of its screens by id.`,
+        { code: "invalid_input", field: "id" }
+      )
+    }
+
+    const near = options.near ?? this.snapshot.selection.design
+
+    if (near === undefined) {
+      throw new CodedError('Name the design the reference is for: PlaceReference(id, { near: "pricing" }).', {
+        code: "invalid_input",
+        field: "options/near"
+      })
+    }
+
+    const { path, container } = this.findDesign(near)
+    const document = this.documents.get(path)!
+    const all = [...this.documents.values()].flatMap((each) => each.references ?? [])
+    const designKey = key(path, container.id)
+    const previous = this.lastReference.get(designKey)
+
+    const boxes = this.boards().map(boardBox)
+    const beside = boxes.find((box) => box.key === designKey)
+    let anchor: ReferenceAnchor = beside ? { beside } : { around: container.position }
+
+    if (previous) {
+      anchor = { after: previous }
+    }
+
+    const [position] = referenceRow(anchor, [referenceSize(screen)], all.map(referenceBounds), boxes)
+
+    const taken = new Set(all.map((each) => each.id))
+    const origin = { by: this.hooks.caller, note: options.note, design: container.id }
+    const reference = referenceFrom(screen, generateId(taken), position!, origin)
+
+    this.documents.set(path, { ...document, references: [...(document.references ?? []), reference] })
+    this.references.push({ path, reference })
+    this.lastReference.set(designKey, referenceBounds(reference))
+
+    return reference.id
+  }
+
+  /**
+   * The references on the canvas (PAR-889), each with the design it's for: the one it was placed for while that design
+   * is still there, or else the one it sits beside, within `nearbyGap` of its board. Only one design's when `reference`
+   * names it.
+   */
+  private listReferences(reference?: string): PlacedReference[] {
+    const only = reference === undefined ? undefined : this.findDesign(reference)
+    const documents = [...this.documents].filter(([, document]) => (document.references ?? []).length > 0)
+
+    // Most projects have none, and get_app_state asks on every call, so the boards aren't worked out for nothing.
+    if (documents.length === 0) {
+      return []
+    }
+
+    const boxes = this.boards().map(boardBox)
+    const now = Date.now()
+
+    return documents.flatMap(([path, document]) =>
+      (document.references ?? []).flatMap((each) => {
+        const placedFor = each.design && boxes.find((box) => box.key === key(path, each.design!))
+        const design = placedFor || nearestBox(referenceBounds(each), boxes, nearbyGap)
+
+        if (only && design?.key !== key(only.path, only.container.id)) {
+          return []
+        }
+
+        return [placedReference(each, design, now)]
+      })
+    )
+  }
+
   private findEmptySpace(options: SpaceOptions): CanvasPoint {
     const boards = this.boards()
     const near = options.near === undefined ? undefined : this.findDesign(options.near).container.id
@@ -1706,6 +1834,20 @@ export class AgentWorkspace {
       all.find(({ container }) => container.id === reference) ??
       all.find(({ container }) => container.name === reference)
     )
+  }
+
+  /**
+   * A node by `designId/nodeId`, with the file and id of the design it's in, or nothing when the reference names none,
+   * for a caller that checks a node before changing it, as placing a picture does.
+   */
+  locate(reference: string): { node: DesignNode; design: { path: string; id: string } } | undefined {
+    try {
+      const { node, path, container } = this.findNode(reference)
+
+      return { node, design: { path, id: container.id } }
+    } catch {
+      return undefined
+    }
   }
 
   /** A node by `designId/nodeId`, or by node id alone when only one design has it. */
@@ -1873,6 +2015,63 @@ type Visit = (node: DesignNode, context: VisitContext) => unknown
 /** A function a snippet passed `Get` to call for every node. */
 // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the snippet runs in its own vm context, whose functions aren't instances of this one's `Function`
 const visitFunction = z.custom<Visit>((value) => typeof value === "function")
+
+/**
+ * How far from a design's board, in canvas pixels, a reference that doesn't say which design it's for can sit and still
+ * be read as for it: a web reference's width and the gap before it, so the first of a row placed beside a design counts.
+ */
+const nearbyGap = 1600
+
+/** A board's box on the canvas, with its key, the file it's in, its id and name. */
+function boardBox(board: Board): Bounds & Pick<Board, "key" | "id" | "name"> & { file: string } {
+  return {
+    key: board.key,
+    // A key is the file and the id, joined by `#`.
+    file: board.key.slice(0, board.key.length - board.id.length - 1),
+    id: board.id,
+    name: board.name,
+    minX: board.x,
+    minY: board.y,
+    maxX: board.x + board.width,
+    maxY: board.y + board.height
+  }
+}
+
+/** A reference as an agent reads it, for `design`, with what's unset left out. */
+function placedReference(
+  reference: ReferenceSpec,
+  design: { id: string; name: string; file: string } | undefined,
+  now: number
+): PlacedReference {
+  const placed: PlacedReference = {
+    id: reference.id,
+    app: reference.app,
+    link: reference.link,
+    picture: reference.image.url
+  }
+
+  if (reference.platform) {
+    placed.platform = reference.platform
+  }
+
+  if (referenceExpired(reference, now)) {
+    placed.expired = true
+  }
+
+  for (const field of ["query", "note", "by"] as const) {
+    const value = reference[field]
+
+    if (value) {
+      placed[field] = value
+    }
+  }
+
+  if (design) {
+    placed.design = { id: design.id, name: design.name, file: design.file }
+  }
+
+  return placed
+}
 
 function key(path: string, id: string): string {
   return `${path}#${id}`
@@ -2169,4 +2368,23 @@ function describeDropped(dropped: DroppedParts): string | undefined {
   const said = lines.flatMap(([what, names]) => (names.length > 0 ? [`${what} dropped: ${names.join(", ")}.`] : []))
 
   return said.length > 0 ? said.join(" ") : undefined
+}
+
+/** Sets an image's picture, description and credit from an Update, where `null` takes the description or credit away. */
+function pictured(image: ImageNode, change: UpdateChange): void {
+  if (change.src !== undefined) {
+    image.src = change.src
+  }
+
+  if (change.alt === null) {
+    delete image.alt
+  } else if (change.alt !== undefined) {
+    image.alt = change.alt
+  }
+
+  if (change.credit === null) {
+    delete image.credit
+  } else if (change.credit !== undefined) {
+    image.credit = change.credit
+  }
 }

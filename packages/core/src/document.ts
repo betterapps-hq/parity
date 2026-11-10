@@ -154,6 +154,47 @@ export const noteSpec = fileObject({
 
 export type NoteSpec = z.infer<typeof noteSpec>
 
+/** A reference's picture, which loads from its source until `expiresAt`, when the source's links stop working. */
+const referenceImage = fileObject({
+  url: z.string().min(1),
+  width: z.int().positive().optional(),
+  height: z.int().positive().optional(),
+  /** Milliseconds since the epoch. */
+  expiresAt: finiteNumber.optional()
+})
+
+/**
+ * A screen from a real app on the canvas, placed beside a design to look at (PAR-840). It isn't a design: it has no
+ * layers, and code and exports leave it out. It keeps what the search gave, so it can name and link its source.
+ */
+export const referenceSpec = fileObject({
+  id: z.string(),
+  /** The connector that found it, as `mobbin`. */
+  connector: z.string().min(1),
+  /** The source's own id for the screen. */
+  sourceId: z.string().min(1),
+  /** The app it's from. */
+  app: z.string(),
+  platform: z.enum(["ios", "web"]).optional(),
+  /** Its page at the source. */
+  link: z.string().min(1),
+  image: referenceImage,
+  position,
+  /** The description that found it. */
+  query: z.string().optional(),
+  /** Why it's here, in a person's or an agent's words. */
+  note: z.string().optional(),
+  /** The agent that placed it. Unset when the person did. */
+  by: z.string().optional(),
+  /**
+   * The design it was found for, by id, in the same file (PAR-889). Unset when nothing was selected, and agents then
+   * read it as for the design it sits nearest.
+   */
+  design: z.string().optional()
+})
+
+export type ReferenceSpec = z.infer<typeof referenceSpec>
+
 /** Steps of the spacing scale (`4` is `calc(var(--spacing) * 4)`), or the name of a length token. */
 const length = z.union([finiteNumber, z.string()])
 
@@ -392,6 +433,14 @@ export const imageCredit = fileObject({
 })
 
 export type ImageCredit = z.infer<typeof imageCredit>
+
+/** What a project keeps about one of its image files: what it shows, and who made it. */
+export const imageDetails = fileObject({
+  alt: z.string().optional(),
+  credit: imageCredit.optional()
+})
+
+export type ImageDetails = z.infer<typeof imageDetails>
 
 const imageNode = nodeBase.extend({
   type: z.literal("image"),
@@ -677,6 +726,8 @@ export const canvasDocument = fileObject({
   modes: modeSettings.optional(),
   /** Text placed on the canvas itself, outside any design: annotations, flow labels, explanations. */
   notes: z.array(noteSpec).optional(),
+  /** Screens from real apps placed beside designs to look at, never part of them. */
+  references: z.array(referenceSpec).optional(),
   /** Where the person corrected which exports are components. Unset while detection gets them right. */
   detection: detectionCorrections.optional(),
   /** Where the person put tables, operations and routes on the canvas. The models are read from the project. */
@@ -684,7 +735,13 @@ export const canvasDocument = fileObject({
   /** Links the person drew by hand. Links found in code or traces are read each time and never saved. */
   links: linkSpecs.optional(),
   /** The source each lens reads, where the person switched from the one Parity picked. */
-  sources: lensSources.optional()
+  sources: lensSources.optional(),
+  /**
+   * What the project knows about its image files that the files don't say, by each file's path from the root: what a
+   * stock picture shows and who made it, kept as it's added to the project, so the Media tab can credit it before any
+   * layer shows it.
+   */
+  images: z.record(z.string().min(1), imageDetails).optional()
 })
 
 /**

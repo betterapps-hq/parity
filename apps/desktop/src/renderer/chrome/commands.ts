@@ -222,7 +222,12 @@ export async function exportLayers(
       files
     })
 
-    track("export.done", { ...exported, durationMs: since(began), files: written.length })
+    track("export.done", {
+      ...exported,
+      durationMs: since(began),
+      files: written.length,
+      warnings: warnings.length
+    })
     toast.success(written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`, {
       id: progress,
       description: folder,
@@ -400,7 +405,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
       scale
     })
 
-    track("export.done", { ...exported, durationMs: since(began), files: files.length })
+    track("export.done", { ...exported, durationMs: since(began), files: files.length, warnings: warnings.length })
     toast.success(files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`, {
       id: progress,
       description: folder,
@@ -474,7 +479,7 @@ export function duplicateSelection(session = activeSession()): void {
   }
 }
 
-/** Deletes the selected layers, designs or text note. */
+/** Deletes the selected layers, designs, text note or reference. */
 export function deleteSelection(session = activeSession()): void {
   if (!session) {
     return
@@ -489,6 +494,9 @@ export function deleteSelection(session = activeSession()): void {
 
   if (current.note) {
     store.updateNote(current.note, "Delete text", () => undefined)
+    selection.set({})
+  } else if (current.reference) {
+    store.updateReference(current.reference, "Delete reference", () => undefined)
     selection.set({})
   }
 }
@@ -642,7 +650,7 @@ export function renameSelection(session = activeSession()): void {
 
 export function zoomToSelection(session = activeSession()): void {
   const current = session?.selection.get()
-  const key = current?.note ?? current?.design
+  const key = current?.note ?? current?.reference ?? current?.design
   const bounds = key ? session?.editor?.getShapePageBounds(canvasIdFor(key)) : undefined
 
   if (bounds) {

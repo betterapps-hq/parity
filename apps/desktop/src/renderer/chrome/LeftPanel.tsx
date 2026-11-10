@@ -1,13 +1,14 @@
 import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
-import { Component, ImageIcon, Layers, Palette, Smile } from "lucide-react"
-import { ComponentsPanel, IconsPanel, ImagesPanel } from "./AssetsPanel.tsx"
+import { Component, ImagePlay, Layers, Palette, Smile } from "lucide-react"
+import { MediaPanel } from "../media/MediaPanel.tsx"
+import { ComponentsPanel, IconsPanel } from "./AssetsPanel.tsx"
 import { ErrorBoundary } from "./ErrorBoundary.tsx"
 import { LayerTree } from "./LayerTree.tsx"
 import { SidePanel } from "./SidePanel.tsx"
 import { TokensPanel } from "./TokensPanel.tsx"
 
 /**
- * Left panel: every design's layers; what can go into designs (components, icons and photos), each a tab of its own;
+ * Left panel: every design's layers; what can go into designs (components, icons and media), each a tab of its own;
  * and the project's tokens.
  */
 export function LeftPanel() {
@@ -20,7 +21,7 @@ export function LeftPanel() {
         { value: "layers", label: "Layers", icon: Layers },
         { value: "components", label: "Components", icon: Component },
         { value: "icons", label: "Icons", icon: Smile },
-        { value: "images", label: "Images", icon: ImageIcon },
+        { value: "media", label: "Media", icon: ImagePlay },
         { value: "tokens", label: "Tokens", icon: Palette }
       ]}
     >
@@ -39,9 +40,9 @@ export function LeftPanel() {
           <IconsPanel />
         </ErrorBoundary>
       </TabsContent>
-      <TabsContent value="images" className="flex min-h-0 flex-col">
-        <ErrorBoundary name="left.images" label="Images">
-          <ImagesPanel />
+      <TabsContent value="media" className="flex min-h-0 flex-col">
+        <ErrorBoundary name="left.media" label="Media">
+          <MediaPanel />
         </ErrorBoundary>
       </TabsContent>
       <TabsContent value="tokens" className="flex min-h-0 flex-col">

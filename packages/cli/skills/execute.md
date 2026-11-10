@@ -67,7 +67,7 @@ DeleteDesign(design): void
 
 // Nodes
 Insert(parent, node, { index?, slot? }?): string // returns the new node's id
-Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, unset, component
+Update(path, change, { state? }?): void          // change: name, text, tag, hidden, props, args, style, unset, component; an image's src, alt, credit
 Replace(path, node): string
 Move(path, parent, { index?, slot? }?): void     // within one design
 Copy(path, parent, { index?, slot?, name? }?): string
@@ -96,6 +96,8 @@ Accessibility(design, { state?, mode? }?): Finding[]
 // The canvas
 FindEmptySpace({ width, height, direction?, near?, padding? }): { x, y }
 Overlaps(design?): Overlap[]
+References(design?): Reference[]                          // what's placed beside designs to look at
+PlaceReference(id, { near?, note?, connector? }): string  // async: a find_references screen beside a design
 Print(...values): void
 ```
 
@@ -318,7 +320,9 @@ const form = Insert("settings/Content", {
 ### Update
 
 Changes a node. `change` takes `name`, `text`, `tag`, `hidden`, `props`, `args` (an instance's values), `style`, `unset`
-and `component`. `props`, `args` and `style` merge with what's there; set a key to `null` to remove it.
+and `component`. `props`, `args` and `style` merge with what's there; set a key to `null` to remove it. An image node
+also takes `src`, `alt` and `credit` (`[{ name, url? }]`), in the base design only. To put a photo a search found in
+one, use `place_result`, which tells the source it was used.
 
 With `{ state: "loading" }` the change belongs to that state instead of the base design, and `null` takes back the
 state's change to that key. A state can change only `hidden`, `text`, `props`, `style` and `unset`. To turn off in one
@@ -534,6 +538,42 @@ for (const { names, titleOnly, estimated } of Overlaps()) {
 // Room below Settings for a board 1400 wide and 1000 tall, and its title above it.
 const room = FindEmptySpace({ width: 1400, height: 1000, near: "settings", direction: "below" })
 CreateDesign({ name: "Plans", x: room.x, y: room.y })
+```
+
+### PlaceReference
+
+`await PlaceReference(id, { near, note })` puts a screen from `find_references` on the canvas beside the design `near`
+names (the selected one when it's left out), as a reference the person can look at, with your `note` on what you took
+from it. It's never part of the design or its code. Pass the screen's `id` from a search you ran lately, and `connector`
+only when the search named one. It returns the reference's id. A call's references sit in a row beside the design, after
+any already there, and land with the call's other changes as one step the person can undo; the canvas says you placed
+them.
+
+```js
+// Two screens find_references returned, beside Dashboard, each with what it showed.
+await PlaceReference("1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed", {
+  near: "dashboard",
+  note: "Revenue and users sit first, each with the change since last week."
+})
+await PlaceReference("7c1e2f3a-4b5c-4d6e-8f90-a1b2c3d4e5f6", { near: "dashboard", note: "The sidebar folds to icons." })
+```
+
+A screen Parity hasn't found lately fails with `invalid_input` on `id`: search again, then place one of its screens.
+
+### References
+
+`References(design?)` lists the references on the canvas, whoever placed them, or only those for `design`. Each has its
+`id` on the canvas (not the source's id that `find_references` gives), `app`, `platform`, `link`, `picture` (its link,
+with `expired` once that stops working), the `query` that found it, the `note` on why it's there, `by` (the agent that
+placed it; missing when the person did), and `design`, the `{ id, name, file }` it was placed for or else sits beside;
+missing when it's for none. They're what the design is meant to follow, so read them before changing it, and look at the
+pictures with `get_references` for that design (`parity references placed <design>`).
+
+```js
+// Why each reference beside Dashboard is there, before changing it.
+for (const { app, note, by } of References("dashboard")) {
+  Print(`${app}, placed by ${by ?? "the person"}: ${note ?? "no note"}`)
+}
 ```
 
 ## Examples

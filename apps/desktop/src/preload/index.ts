@@ -2,11 +2,13 @@ import { createChannel, domPort, type Handlers, plainErrors } from "@parity-app/
 import { contextBridge, ipcRenderer } from "electron"
 import type { SignInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
+import type { ConnectorPlaced, ConnectorSearch } from "../shared/connectors.ts"
 import {
   type CanvasHost,
   type ConsoleChange,
   type LoggedEntry,
   type OpenInEditorRequest,
+  type ProblemReportRequest,
   type ProcessUsage,
   type SaveDialogOptions,
   type ServeAnswer,
@@ -16,7 +18,7 @@ import {
   type WindowParams,
   windowMethods
 } from "../shared/protocol.ts"
-import { exposeTelemetry } from "./telemetry.ts"
+import { exposeTelemetry, withTrace } from "./telemetry.ts"
 
 /**
  * The window's channel to the project service. Requests wait until main gives the page its port, and a second port
@@ -84,36 +86,57 @@ function windowHandlers(
 }
 
 /**
- * Asks main over IPC. Main's handler for each channel, in `main/index.ts`, returns what the matching `CanvasHost`
- * method promises, and main checks what it's sent; this script and main ship together.
+ * Asks main over IPC, in the page's trace (PAR-810). Main's handler for each channel, in `main/index.ts`, returns what
+ * the matching `CanvasHost` method promises, and main checks what it's sent; this script and main ship together.
  */
 function invoke<Result>(channel: string, argument?: InvokeArgument): Promise<Result> {
   // SAFETY: main's handler for `channel` answers with the `Result` its `CanvasHost` method names.
-  return ipcRenderer.invoke(channel, argument) as Promise<Result>
+  return ipcRenderer.invoke(channel, ...withTrace(argument)) as Promise<Result>
 }
 
-/** What a window sends main with a request: text, such as an email, a path or a theme, or one of these requests. */
-type InvokeArgument = string | SignInRequest | SaveDialogOptions | OpenInEditorRequest
+/** Tells main something over IPC, in the page's trace, without waiting for an answer. */
+function send(channel: string, argument?: ConsoleAnnouncement): void {
+  ipcRenderer.send(channel, ...withTrace(argument))
+}
+
+/**
+ * What a window sends main with a request: text, such as an email, a path or a theme, a setting, or one of these
+ * requests.
+ */
+type InvokeArgument =
+  | string
+  | boolean
+  | SignInRequest
+  | SaveDialogOptions
+  | OpenInEditorRequest
+  | ProblemReportRequest
+  | ConnectorSearch
+  | ConnectorPlaced
+
+/** What a window says before a console message: its level and the frame it comes from. */
+type ConsoleAnnouncement = { level: Parameters<CanvasHost["console"]["announce"]>[0] } & Parameters<
+  CanvasHost["console"]["announce"]
+>[1]
 
 const host: CanvasHost = {
   appVersion:
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
     "unknown",
-  getBuildInfo: () => ipcRenderer.invoke(ipc.buildInfo),
+  getBuildInfo: () => invoke(ipc.buildInfo),
   telemetry: {
-    get: () => ipcRenderer.invoke(ipc.telemetryState),
-    setLevel: (level) => ipcRenderer.invoke(ipc.telemetryLevel, level)
+    get: () => invoke(ipc.telemetryState),
+    setLevel: (level) => invoke(ipc.telemetryLevel, level)
   },
   report: {
-    prepare: () => ipcRenderer.invoke(ipc.reportPrepare),
-    send: (report) => ipcRenderer.invoke(ipc.reportSend, report),
-    lastCrash: () => ipcRenderer.invoke(ipc.reportLastCrash)
+    prepare: () => invoke(ipc.reportPrepare),
+    send: (report) => invoke(ipc.reportSend, report),
+    lastCrash: () => invoke(ipc.reportLastCrash)
   },
   updates: {
-    get: () => ipcRenderer.invoke(ipc.updateState),
-    check: () => ipcRenderer.invoke(ipc.updateCheck),
-    setBeta: (beta) => ipcRenderer.invoke(ipc.updateBeta, beta),
-    act: () => ipcRenderer.invoke(ipc.updateAct),
+    get: () => invoke(ipc.updateState),
+    check: () => invoke(ipc.updateCheck),
+    setBeta: (beta) => invoke(ipc.updateBeta, beta),
+    act: () => invoke(ipc.updateAct),
     subscribe: (listener) => {
       const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
       ipcRenderer.on(ipc.updateChanged, changed)
@@ -136,7 +159,7 @@ const host: CanvasHost = {
     }
   },
   account: {
-    get: () => ipcRenderer.invoke(ipc.accountState),
+    get: () => invoke(ipc.accountState),
     subscribe: (listener) => {
       // oxlint-disable-next-line anti-slop/no-unknown-parameters -- account state as main sends it, which the window checks against `accountState` as it arrives
       const changed = (_event: Electron.IpcRendererEvent, state: unknown) => listener(state)
@@ -152,6 +175,12 @@ const host: CanvasHost = {
     signOut: (email) => invoke<void>(ipc.accountSignOut, email),
     switchOrganization: (organizationId) => invoke<void>(ipc.accountSwitch, organizationId),
     use: (email) => invoke<void>(ipc.accountUse, email)
+  },
+  connectors: {
+    get: () => invoke(ipc.connectorsState),
+    search: (search) => invoke(ipc.connectorsSearch, search),
+    recent: () => invoke(ipc.connectorsRecent),
+    placed: (placed) => invoke<void>(ipc.connectorsPlaced, placed)
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
@@ -179,7 +208,7 @@ const host: CanvasHost = {
   setTheme: (theme) => invoke<void>(ipc.setTheme, theme),
   metrics: () => invoke<ProcessUsage[]>(ipc.metrics),
   console: {
-    announce: (level, context) => ipcRenderer.send(ipc.consoleAnnounce, { level, ...context }),
+    announce: (level, context) => send(ipc.consoleAnnounce, { level, ...context }),
     read: (origin) => invoke<LoggedEntry[]>(ipc.consoleRead, origin),
     clear: (origin) => invoke<void>(ipc.consoleClear, origin),
     subscribe: (listener) => {
@@ -195,8 +224,8 @@ const host: CanvasHost = {
     ipcRenderer.on(ipc.closing, () => {
       ipcRenderer.send(ipc.closePending)
       listener().then(
-        (close) => ipcRenderer.send(close ? ipc.closeReady : ipc.closeCancel),
-        () => ipcRenderer.send(ipc.closeCancel)
+        (close) => send(close ? ipc.closeReady : ipc.closeCancel),
+        () => send(ipc.closeCancel)
       )
     })
   }

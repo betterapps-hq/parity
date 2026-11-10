@@ -49,6 +49,7 @@ import {
   PanelsLeftRight,
   SquareTerminal,
   PenLine,
+  Telescope,
   Plus,
   Redo2,
   Repeat2,
@@ -326,6 +327,9 @@ function ObjectItems() {
       <NewItems />
       <Item command="insert" icon={SquarePlus}>
         Insert…
+      </Item>
+      <Item command="findReferences" icon={Telescope}>
+        Find references…
       </Item>
       <MenubarSeparator />
       <Item command="wrap" icon={Group} />

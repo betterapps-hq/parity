@@ -1,6 +1,6 @@
 import { ToggleGroup, ToggleGroupItem } from "@buildkitgg/shadcn-baseui-kit"
 import { isReviewTool } from "@parity-app/editor"
-import { SquarePlus } from "lucide-react"
+import { SquarePlus, Telescope } from "lucide-react"
 import { useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { reviewToolLook } from "../../collaboration/annotations/annotation-kinds.ts"
@@ -16,7 +16,8 @@ import { isPointerTool, type PointerTool, toolIcons, toolTints } from "./tool-de
 
 /**
  * The tools as one group you move through with the arrow keys: what the pointer does, with its menu; Frame with its
- * menu, Text, and Insert, which makes things too; then the review button. Each runs its command from the toolbar.
+ * menu, Text, and Insert, which makes things too; then the review button and Find references. Each runs its command
+ * from the toolbar.
  */
 export function Tools() {
   const { selection } = useProject()
@@ -62,6 +63,14 @@ export function Tools() {
       </IconButton>
       <BarDivider />
       <ReviewButton review={review} />
+      <IconButton
+        label={keymap.findReferences.label}
+        shortcut={keymap.findReferences.keys[0]}
+        size="icon"
+        onClick={() => void actions.findReferences.run("toolbar")}
+      >
+        <Telescope />
+      </IconButton>
     </ToggleGroup>
   )
 }

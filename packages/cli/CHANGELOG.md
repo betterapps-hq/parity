@@ -1,8 +1,143 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 09 Nov 2026 13:05:07 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 22:21:48 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.40.0
+
+Tue, 10 Nov 2026 22:21:48 GMT
+
+### Minor changes
+
+- Agents read the references placed beside a design: References() in execute, get_references with the pictures, and a
+  count per design in get_app_state. A reference records the design it was found for. (ajcraswell@gmail.com)
+
+## 0.39.1
+
+Tue, 10 Nov 2026 21:21:43 GMT
+
+### Patches
+
+- Group every main hang, and every UnknownVizError, as one Sentry issue each, so Sentry's alert files one Linear bug
+  instead of one per stack (ajcraswell@gmail.com)
+
+## 0.39.0
+
+Tue, 10 Nov 2026 21:00:09 GMT
+
+### Minor changes
+
+- Place references from Mobbin on the canvas, from Find references and by agents' PlaceReference, kept in the project's
+  file beside notes (ajcraswell@gmail.com)
+
+## 0.38.1
+
+Tue, 10 Nov 2026 14:26:38 GMT
+
+### Patches
+
+- Media card: stays open while you search where a picture is used, Escape steps back, small pictures keep their size,
+  and files of the same name are told apart (ajcraswell@gmail.com)
+
+## 0.38.0
+
+Tue, 10 Nov 2026 13:40:55 GMT
+
+### Minor changes
+
+- Redesign the Media card: facts in labelled rows, where it's used that scales to hundreds of layers, and transparency
+  on a grid (ajcraswell@gmail.com)
+
+## 0.37.0
+
+Tue, 10 Nov 2026 13:05:50 GMT
+
+### Minor changes
+
+- Find stock pictures on Pixabay in a library browser and add them to the project from the Media tab, credited
+  (ajcraswell@gmail.com)
+
+## 0.36.0
+
+Tue, 10 Nov 2026 12:19:22 GMT
+
+### Minor changes
+
+- The Media tab replaces the Images tab: the project's pictures as a wall, each with a card, to insert, drag onto the
+  canvas, add or remove. (ajcraswell@gmail.com)
+
+## 0.35.0
+
+Tue, 10 Nov 2026 11:20:50 GMT
+
+### Minor changes
+
+- Search Mobbin's screens from main with an API key, kept encrypted, through a connector the window and agents share
+  (ajcraswell@gmail.com)
+
+## 0.34.0
+
+Tue, 10 Nov 2026 10:26:05 GMT
+
+### Minor changes
+
+- Agents list a project's images with get_images and parity images, with what uses each, and remove an unused one with
+  remove_image and parity images remove (ajcraswell@gmail.com)
+
+## 0.33.1
+
+Tue, 10 Nov 2026 05:43:33 GMT
+
+### Patches
+
+- Redraw frames, bitmaps and screenshots with a project stylesheet's new CSS as soon as it's saved
+  (ajcraswell@gmail.com)
+- Count warnings in export.done, and record a design file that changed on disk while it had unsaved changes
+  (ajcraswell@gmail.com)
+
+## 0.33.0
+
+Tue, 10 Nov 2026 05:22:06 GMT
+
+### Minor changes
+
+- Attach the last 5 minutes of events to crashes and fatal errors, and say where main was stuck in a hang
+  (ajcraswell@gmail.com)
+
+## 0.32.0
+
+Tue, 10 Nov 2026 05:10:09 GMT
+
+### Minor changes
+
+- Record the project service's degraded modes, such as a project it can't watch or bitmaps it can't keep, as
+  service.degraded events (ajcraswell@gmail.com)
+- Record signing in, refreshing, signing out and failures of the kept accounts as account.* events
+  (ajcraswell@gmail.com)
+- Record window and main hangs as they start, and report a hang the app exited during on the next run
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- The CLI's sender scrubs the .env values of the app's open projects and of the project each command ran in
+  (ajcraswell@gmail.com)
+- Frames draw a root with a class or attribute on it, such as :root.dark, which matched nothing before
+  (ajcraswell@gmail.com)
+- Read the Vite version Vite+ ships when a project aliases vite to @voidzero-dev/vite-plus-core, instead of reporting
+  Vite+'s own version as an untested Vite (ajcraswell@gmail.com)
+- Detect an open project again when components.json, its stylesheets, dependencies or Vite config change, and when
+  parity open names it (ajcraswell@gmail.com)
+
+## 0.31.1
+
+Tue, 10 Nov 2026 03:58:48 GMT
+
+### Patches
+
+- Record why a new install ID couldn't be saved, as telemetry.saveFailed (ajcraswell@gmail.com)
+- parity mcp writes its telemetry when its client stops it or closes stdin, rather than losing the last 10 seconds
+  (ajcraswell@gmail.com)
 
 ## 0.31.0
 

@@ -27,23 +27,29 @@ The same tools are MCP tools and `parity` commands in a terminal. They act on a 
 the active tab of the Parity window they used last. When the person says "this" or "what I've selected" without naming a
 project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the selection.
 
-| MCP                   | CLI                          | What it does                                                                                                                                                                        |
-| --------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get_app_state`       | `parity state`               | Designs, the selection, modes (the primary one marked), components and token names, and what Parity detected (builder and config, package manager, installed versions). Start here. |
-| `get_status`          | `parity status`              | The revision, whether anything is unsaved and which files and tokens, the last save, and undo and redo; `summary` names them.                                                       |
-| `get_modes`           | `parity modes [design]`      | Viewports (the ids `Responsive` takes), modes (the ids renders take) and what each design shows; a design adds its frames.                                                          |
-| `execute`             | `parity exec`                | Runs a JavaScript snippet against the designs. Its changes land as one undo step, merged per design with edits made meanwhile.                                                      |
-| `screenshot`          | `parity screenshot <design>` | Renders a design in its states and modes, offscreen, and returns the images.                                                                                                        |
-| `find_problems`       | `parity problems <design>`   | Render errors, overflow, clipping and unknown components, per frame.                                                                                                                |
-| `check_accessibility` | `parity a11y <design>`       | axe-core against WCAG 2.2 AA, per frame, on the layers that break each rule.                                                                                                        |
-| `get_console`         | `parity console`             | What the project's own code wrote to the console, on the canvas and offscreen.                                                                                                      |
-| `get_tokens`          | `parity tokens`              | Tokens filtered by category, source or name, with values in every theme.                                                                                                            |
-| `get_components`      | `parity components`          | Components, libraries, icon sets and exports left out or failing to render.                                                                                                         |
-| `get_props`           | `parity props <Component>`   | Props from source, then what it goes inside and holds, its slots and an example to insert; `all` adds passed-through attributes.                                                    |
-| `get_tabs`            | `parity tabs`                | The open projects.                                                                                                                                                                  |
-| `open_project`        | `parity open <folder>`       | Opens a project in a new tab.                                                                                                                                                       |
-| `report_problem`      | `parity report "<problem>"`  | Reports a problem in Parity itself to its developers, with the window's screenshot and replay and the design's frames; returns the link.                                            |
-| `read_skill`          | `parity skill [file]`        | This skill.                                                                                                                                                                         |
+| MCP                   | CLI                                             | What it does                                                                                                                                                                                                            |
+| --------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_app_state`       | `parity state`                                  | Designs (with how many references each has), the selection, modes (the primary one marked), components and token names, and what Parity detected (builder and config, package manager, installed versions). Start here. |
+| `get_status`          | `parity status`                                 | The revision, whether anything is unsaved and which files and tokens, the last save, and undo and redo; `summary` names them.                                                                                           |
+| `get_modes`           | `parity modes [design]`                         | Viewports (the ids `Responsive` takes), modes (the ids renders take) and what each design shows; a design adds its frames.                                                                                              |
+| `execute`             | `parity exec`                                   | Runs a JavaScript snippet against the designs. Its changes land as one undo step, merged per design with edits made meanwhile.                                                                                          |
+| `screenshot`          | `parity screenshot <design>`                    | Renders a design in its states and modes, offscreen, and returns the images.                                                                                                                                            |
+| `find_problems`       | `parity problems <design>`                      | Render errors, overflow, clipping and unknown components, per frame.                                                                                                                                                    |
+| `check_accessibility` | `parity a11y <design>`                          | axe-core against WCAG 2.2 AA, per frame, on the layers that break each rule.                                                                                                                                            |
+| `get_console`         | `parity console`                                | What the project's own code wrote to the console, on the canvas and offscreen.                                                                                                                                          |
+| `get_tokens`          | `parity tokens`                                 | Tokens filtered by category, source or name, with values in every theme.                                                                                                                                                |
+| `get_components`      | `parity components`                             | Components, libraries, icon sets and exports left out or failing to render.                                                                                                                                             |
+| `get_props`           | `parity props <Component>`                      | Props from source, then what it goes inside and holds, its slots and an example to insert; `all` adds passed-through attributes.                                                                                        |
+| `get_images`          | `parity images`                                 | The project's images (files in `public/images`, linked photos) with what uses each, in designs and code.                                                                                                                |
+| `remove_image`        | `parity images remove <img>`                    | Removes an image file nothing uses; says where one is still used.                                                                                                                                                       |
+| `get_tabs`            | `parity tabs`                                   | The open projects.                                                                                                                                                                                                      |
+| `open_project`        | `parity open <folder>`                          | Opens a project in a new tab.                                                                                                                                                                                           |
+| `find_references`     | `parity references "<screen>"`                  | Screens from real apps, with previews to look at, when this copy of Parity can search.                                                                                                                                  |
+| `get_references`      | `parity references placed [design]`             | The screens placed beside designs as references, with who placed each and why, and their pictures to look at.                                                                                                           |
+| `find_media`          | `parity media "<subject>"`                      | Stock photos, illustrations, vectors or videos, with previews to look at.                                                                                                                                               |
+| `place_result`        | `parity place <connector> <id> "<design/node>"` | Puts a picture a search found into an image node, or a component's prop, as one undoable edit. Credit its author and the source where the design shows it.                                                              |
+| `report_problem`      | `parity report "<problem>"`                     | Reports a problem in Parity itself to its developers, with the window's screenshot and replay and the design's frames; returns the link.                                                                                |
+| `read_skill`          | `parity skill [file]`                           | This skill.                                                                                                                                                                                                             |
 
 The token, component and prop tools read what designs can use without writing a snippet in either transport.
 `parity components` also says which file each of the project's own components is written in, which of the app's exports
@@ -90,18 +96,27 @@ keeping the designs there, so ask before running that in someone's project.
 
 1. **Get your bearings.** Call `get_app_state`. Note the designs, which one is selected (the person usually means that
    one), the modes, and the components. Designs, states and nodes have ids; use them.
-2. **Look before you change.** Read the design with `Get("design-id", { depth: 3 })` in `execute`, and take a screenshot
-   of what's there. Find the components you need with `Components()` and their props with `Props()`.
-3. **Change it in one snippet.** Build or edit the design with `Insert`, `Update`, `Replace`, `Move` and the rest. A
+2. **See how real apps do it,** for a common screen such as onboarding, a paywall, settings or a checkout:
+   `find_references` with one screen per search, its type and up to three parts it shows ("paywall with a free trial").
+   Follow the patterns you see with the project's own components and tokens, never an app's layout, text or branding,
+   and say which apps you drew on. Leave the ones you drew on beside the design with `PlaceReference` in `execute`, each
+   with a note on what you took from it. If it says there's no key, carry on without it. For a real photo or
+   illustration, look at `find_media` previews and put the one you choose in an image node with `place_result`; searches
+   give no image link to paste.
+3. **Look before you change.** Read the design with `Get("design-id", { depth: 3 })` in `execute`, and take a screenshot
+   of what's there. When `get_app_state` gives the design `references`, look at them first with `get_references` for
+   that design: they're the screens the person or an agent picked for it, with notes on why. Find the components you
+   need with `Components()` and their props with `Props()`.
+4. **Change it in one snippet.** Build or edit the design with `Insert`, `Update`, `Replace`, `Move` and the rest. A
    snippet either applies whole, as one step the person can undo, or changes nothing. Name the layouts you make. If it
    fails because the person changed a design it changes, run it again by its `editId`.
-4. **Cover every state.** A screen that loads has a loading state, a list has an empty one, a form has an error one. Add
+5. **Cover every state.** A screen that loads has a loading state, a list has an empty one, a form has an error one. Add
    them with `AddState`, as changes to the base design, not as copies.
-5. **Check every frame.** Screenshot the design in all its states and the modes it shows (`state: "all"`,
+6. **Check every frame.** Screenshot the design in all its states and the modes it shows (`state: "all"`,
    `mode: "shown"`). Run `find_problems` and `check_accessibility` too, and read the warnings `execute` returns: they're
    usually a token that doesn't exist or a prop the component doesn't take. A render failure comes first and means a
    frame wasn't checked. Fix what you find, then check again.
-6. **Say what you did.** Tell the person what changed and what you couldn't verify. Ask them to try anything interactive
+7. **Say what you did.** Tell the person what changed and what you couldn't verify. Ask them to try anything interactive
    themselves with the Interact tool (I), which hands their mouse and keyboard to the real components.
 
 Your changes to designs are on the canvas but not saved: the person saves (Ctrl+S) or undoes them, as with their own

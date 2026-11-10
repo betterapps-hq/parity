@@ -59,6 +59,7 @@ const roots = z.object({ roots: z.array(z.string()) })
 const serviceParams = {
   "project.open": z.object({ root: z.string().optional() }),
   "project.close": project,
+  "project.detectAgain": project,
   "project.components": project,
   "project.correctComponents": project.extend({ corrections: detectionCorrections.optional() }),
   "library.catalog": project,
@@ -66,6 +67,9 @@ const serviceParams = {
   "library.importStyles": project.extend({ library: z.string() }),
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
   "images.import": project.extend({ name: z.string(), type: z.string(), data: z.string() }),
+  "images.scan": project,
+  "images.saveFrom": project.extend({ url: z.url({ protocol: /^https$/ }), name: z.string().min(1) }),
+  "images.remove": project.extend({ path: z.string() }),
   "project.undoEdit": project.extend({ id: z.string() }),
   "storybook.open": project.extend({ component: z.string().optional() }),
   "document.saveCopy": z.object({ path: z.string(), document: canvasDocument }),

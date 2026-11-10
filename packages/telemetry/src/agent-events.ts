@@ -115,6 +115,28 @@ function cut(text: string, limit: number): string {
   return text.length > limit ? `${text.slice(0, limit)}…` : text
 }
 
+/**
+ * The fields each method's input keeps out of telemetry: what an agent searched for, and which result it placed where,
+ * as `connectors.*` promise never to send (PAR-829). The filters, limit and connector stay, since they're the
+ * connectors' own words.
+ */
+const privateFields = new Map([
+  ["references", ["query", "exclude"]],
+  ["media", ["query", "exclude"]],
+  ["place", ["id", "node"]]
+])
+
+function withoutPrivate(
+  method: string,
+  params: Record<string, z.core.util.JSONType | undefined> | undefined
+): Record<string, z.core.util.JSONType | undefined> | undefined {
+  const hidden = privateFields.get(method)
+
+  return params && hidden
+    ? Object.fromEntries(Object.entries(params).filter(([name]) => !hidden.includes(name)))
+    : params
+}
+
 /** Text with something besides spaces in it, as given, or nothing for anything else. */
 const someText = z
   .string()
@@ -190,7 +212,7 @@ export function agentCallStart(body: string, scrubber: Pick<Scrubber, "value"> =
   const { agent, client, params } = sent
   const transport: AgentTransport = sent.transport ?? (client === undefined ? "cli" : "mcp")
   const snippet = method === "exec" ? someText.parse(params?.code) : undefined
-  const rest = snippet === undefined ? params : { ...params, code: undefined }
+  const rest = withoutPrivate(method, snippet === undefined ? params : { ...params, code: undefined })
   const json = rest ? JSON.stringify(rest) : "{}"
   const input = json === "{}" ? undefined : cut(json, inputLimit)
   const start: AgentCallStart = { method, transport }

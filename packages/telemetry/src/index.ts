@@ -1,3 +1,5 @@
+export * from "./account-events.ts"
+
 export * from "./agent-events.ts"
 
 export * from "./app-events.ts"
@@ -5,6 +7,10 @@ export * from "./app-events.ts"
 export * from "./catalog.ts"
 
 export * from "./check-events.ts"
+
+export * from "./connector-events.ts"
+
+export * from "./crash-log.ts"
 
 export * from "./diagnostics.ts"
 
@@ -15,6 +21,10 @@ export * from "./editing-events.ts"
 export * from "./envelope.ts"
 
 export * from "./events.ts"
+
+export * from "./grouping.ts"
+
+export * from "./hangs.ts"
 
 export * from "./project-events.ts"
 

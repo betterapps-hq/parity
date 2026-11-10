@@ -129,7 +129,7 @@ stderr), or, for `exec` and `screenshot`, the whole report with `error` in it:
 
 - `code` is stable: `invalid_input`, `not_running`, `not_answering`, `unknown_tab`, `tab_not_ready`, `unknown_design`,
   `unknown_node`, `ambiguous_reference`, `unknown_state`, `unknown_mode`, `unknown_viewport`, `unknown_component`,
-  `unknown_icon_set`, `unknown_edit_id`, `conflict`, `execution_failed` or `app_error`.
+  `unknown_icon_set`, `unknown_edit_id`, `unknown_image`, `image_in_use`, `conflict`, `execution_failed` or `app_error`.
 - `retryable` is true when the same request, unchanged, can succeed: the app is starting, or edits collided.
 - `path` is a JSON pointer to the input at fault, in the transport's field names (`/design`, `/input`, `/edits/0/find`).
 - `alternatives` lists up to 20 valid ids for an unknown or ambiguous one, closest first.

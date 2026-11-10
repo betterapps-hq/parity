@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Count a video's length down on its result tile while it plays",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

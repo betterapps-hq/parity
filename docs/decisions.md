@@ -1343,6 +1343,27 @@ recommended answer to each of its questions.
   service; the key never ships in the app. Unsplash allows 50 requests an hour until it approves an app for production,
   then 5,000, and raises that further on request. Only searches and download pings count; loading the images themselves
   doesn't.
+- **Pixabay finds photos in place of Unsplash** (your call, 2026-11-10, PAR-837). Unsplash's terms ask for more, it
+  allows 50 searches an hour until it approves the app, and it has no videos. Pixabay has photos, illustrations, vectors
+  and videos, and allows 100 requests a minute for a key, which it raises for an app that uses its API well. Unsplash's
+  connector stays in `connectors`, so a result or image that came from it is still named, but only `offered` ones are
+  searched; going back is one line in `packages/connectors/src/index.ts`. Parity owns the key, as with Unsplash's.
+  Pixabay's terms (pixabay.com/api/docs) ask three things:
+  - show where results are from wherever they're shown, which each result's `credit` and the browser's credit do;
+  - use its image links only to show search results, and they work for 24 hours, so a picture placed in a design is
+    saved into the project rather than linked. Its videos may be played from its own links, though it suggests keeping a
+    copy;
+  - keep each search's answer for 24 hours rather than ask again, and send only searches people make, never mass
+    downloads. Parity's service will keep them, shared by every user (PAR-131), so the app keeps no cache of its own
+    (your call, 2026-11-10).
+- **Agents' calls name no source, and don't say photos** (your call, 2026-11-10, PAR-837). A source can change, as
+  Unsplash did, and one finds more than photos. `find_photos` (`parity photos`) became `find_media` (`parity media`),
+  with a `type` filter (photos, illustrations, vectors or videos) and filter examples that name no source. Placing a
+  result says picture, and its credit names the author. Videos and screens are found but not placed.
+- **Placing a picture whose link expires saves it first** (PAR-837). `place_result` downloads it into `public/images/`
+  as a pasted image is saved, named after it with a hash of its content, and the node shows the file, so a saved design
+  never holds a link that stops working. Saving is its own undoable edit, before the placing one. Placing what Unsplash
+  linked still sets its link, as Unsplash's terms ask.
 - **Image files dropped from Explorer or Finder land as pasted layers do (PAR-24).** My calls, all in editor.md's
   "Dropping image files":
   - Over a layout they go where Paste here would put them: the slot under the pointer by `slotAt`, or at the pointer in
@@ -6783,3 +6804,326 @@ the app, with the exploration's bars removed. PAR-795 builds it;
   Changes state is ToggleRight, Data is Braces, Analytics is ChartColumn, Landmark is PanelsTopLeft and Motion is Film.
 - **The bar beside the toolbar stays in the stories** (Parity/Collaboration/Annotations/Toolbar, WhileReviewing), as you
   may use it later. The PAR-184 bars from the exploration are gone.
+
+## Hangs are recorded as they start (PAR-804)
+
+Until 2026-11-09 a window or main hang was sent only once it ended, so one that ended in a force-quit sent nothing. My
+calls:
+
+- **A window's hang is sent as it starts,** when Electron reports `unresponsive`: a Sentry message tagged `hang` and
+  `window.hang_started`. `window.hung` follows with how long it lasted and `ended`: the window answered, was closed, or
+  the app quit.
+- **A watchdog thread in main sends main's own hang,** since main can't while it's stuck. Main's half-second timer is
+  the heartbeat; after 2 seconds without one, the thread sends one Sentry message, "Main stopped answering", straight to
+  Sentry's envelope endpoint, with the release, tags and user main last gave it. It doesn't load Sentry's SDK, so it
+  sends nothing else. It sends only while main's level isn't Off.
+- **An open hang is kept in `<userData>/hangs` while it lasts,** with how long so far, and removed when it ends. The
+  next run reports what's left as `main.blocked` or `window.hung` with `ended: "exited"` and a Sentry message, so a
+  force-quit's hang arrives with its length when the app next starts. Each process keeps its own files, named by its
+  process ID, and a run reports only those whose process has exited, since two copies of the app can share the folder.
+- **The local copy gets main's hang when it ends,** as before: the watchdog writes only Sentry and the open-hang file.
+
+## Crashes carry the last minutes, and main's hangs say where (PAR-805)
+
+The plan attached the last log file to a crash, and main's hangs said how long but not where. My calls:
+
+- **A crash carries 5 minutes of the local copy, at most 2,000 events,** as `logs.jsonl`, scrubbed as reports are.
+  "Crash" is any `fatal` event or any error nothing caught, from any process, since every error passes main's
+  `beforeSend`. Main keeps the minutes in memory, so it doesn't read files on each one or miss lines not yet written. A
+  native crash found as the app starts has no `exit.reason`, which tells it apart from one in this run, and carries the
+  crashed run's last minutes from the files instead.
+- **The watchdog finds where main is stuck through the inspector,** not Sentry's native hang detection, which still
+  needs a module built for Electron's ABI. `connectToMainThread` opens no port. It pauses main once per hang, takes the
+  stack and resumes, and gives up after 2 seconds, since main stuck in native code can't pause.
+- **Frames are named `app:///` from the app's folder,** as Sentry's Electron SDK names them, with the bundles' debug IDs
+  from main, so Sentry maps them to the uploaded source maps and no one's home folder is sent.
+- **`where` is the innermost of Parity's own frames,** not the innermost frame, which is often Node's own code.
+
+## Connectors search outside services from main (PAR-829)
+
+You asked on 2026-11-09 to build the Mobbin integration with patterns that make Unsplash and later sources easier. My
+calls:
+
+- **A connector is one adapter in `@parity-app/connectors`,** which takes data and returns data, as
+  [extensions.md](proposals/extensions.md) describes connectors. Each one says what it finds (screens, flows, sections
+  or photos), the platforms and depths it takes, its limits and where to get a key, and turns a search into one result
+  shape and one set of problems: no key, a key turned down, a plan without access, a rate limit with when to retry, a
+  search it can't run, or a source that didn't answer. A failure is data in the answer, not a thrown error, so it
+  reaches the window and agents whole across IPC and the service's channel. Unsplash (PAR-131) adds one adapter, and its
+  download ping is the connector's `picked`.
+- **Mobbin is its REST API, which searches screens only.** `POST /v1/screens/search` takes a query, the platform (`ios`
+  or `web`, required), the mode (`standard` or `deep`), a limit up to 100 and ids to leave out, and that's the whole
+  API. Flows and sections are only in Mobbin's MCP server, which signs each person in with their own account; a
+  connector for that is a later choice, not part of this one. Standard is the default, since a deep search that finds
+  something spends 5 of the person's AI credits. Tried live on 2026-11-10: a standard search took about 3 seconds and a
+  deep one about 8, and the images are public WebP files of about 13 KB whose links last 30 days.
+- **Main keeps the keys and runs every search.** The window asks over IPC and sees only whether it can search. (A key
+  file and a setting for keys were built here, then dropped the same day: keys are the app owner's, below.) Agents ask
+  through the service, which asks main. Main scrubs the keys from what it sends to Sentry, and never passes them to the
+  service, whose builders run project code.
+- **A development copy reads `PARITY_MOBBIN_API_KEY`,** from the shell or from `apps/desktop/.env.local`, which
+  `pnpm dev` passes to main alone.
+- **Agents get `find_references` and `parity references`,** for screens only, with up to 6 by default and 20 at most.
+  The previews are saved under `~/.parity/references`; MCP shows them as images, and `--json` names their files. The
+  skill says to look at real apps before designing a common screen, and to follow their patterns with the project's own
+  components and tokens, never an app's layout, text or branding.
+- **Each search is recorded** as `connectors.searched`, with its connector, filters, count or problem and time, never
+  what was searched for.
+
+## Connectors declare their filters, and agents search by kind (PAR-829)
+
+You asked on 2026-11-10 for the pattern changes that adding Unsplash showed. My calls:
+
+- **A connector lists its filters as data,** each with an id, a name, its values and an optional default. Mobbin's
+  platform defaults to the web and its depth to standard. Unsplash's orientation and color have none, so leaving them
+  out means any. A search sends `filters`, and `checkRequest` refuses any filter or value the connector doesn't list.
+  This replaces `platform`, `depth`, `orientation` and `color` on the shared request. Mobbin no longer needs a platform
+  named, since the web is its default.
+- **Agents search by kind.** `find_references` finds screens and the new `find_photos` (`parity photos`) finds photos.
+  Main runs each with the first connector that finds that kind and has a key. Both answer in one shape: each result's
+  source, title, link, image and credit, with its preview saved under `~/.parity/references`. A result's `app` became
+  `title`, since a photo has no app.
+- **An answer carries `allowance`,** the searches left before the source turns them away, read from the standard
+  rate-limit headers. Unsplash sends them; Mobbin doesn't, as a live check on 2026-11-10 showed, so its answers carry
+  none.
+- **The hub takes a `SearchService`** for connectors whose keys a service holds. It's used when there's no key here, for
+  searches and placements alike, and the window sees the key's source as `service`. None is plugged in yet.
+- **`connectors.searched` records `filters`** in place of `platform` and `depth`. They're each connector's own values,
+  never typed text.
+- **Not done:** no photo use is reported to Unsplash yet, since nothing places one. How it will be is below.
+
+## Unsplash is the second connector (PAR-829)
+
+You got an Unsplash key on 2026-11-10 and asked for it on the same branch as Mobbin. My calls:
+
+- **It's an adapter like Mobbin's,** in `packages/connectors/src/unsplash.ts`: photos, 20 by default and 30 at most, by
+  orientation (landscape, portrait or squarish) and Unsplash's colors, paged by page rather than by leaving out ids.
+  Those three filters joined the shared request, and `checkRequest` refuses them for a connector that doesn't name them.
+- **Its key is the app's Access Key with Public access only,** sent as `Client-ID`. The Secret Key and the other scopes
+  are for acting on a person's own Unsplash account, which Parity doesn't do. For now main holds it, from
+  `PARITY_UNSPLASH_ACCESS_KEY` in development; a service of Parity's still holds it for shipping, as decided on
+  2026-10-28.
+- **Its terms are kept:** photos load from Unsplash's own links, `picked` reports a use to its download endpoint
+  (nothing calls it yet; see below), and every photo credits its photographer and Unsplash, linked with
+  `utm_source=parity&utm_medium=referral`. Searches keep out photos Unsplash marks unsuitable for every audience
+  (`content_filter=high`).
+- **A photo is named by its alt text first,** then its description, then its photographer, since descriptions are often
+  the photographer's own notes.
+- **Unsplash says its limit is reached with a 403,** not a 429, so a 403 with no requests left reads as `rate-limited`.
+  Tried live on 2026-11-10: a search took under half a second, the demo limit is 50 an hour, and images are JPEGs.
+- **Each connector names its own key variable,** which main reads and keeps from the service, and `pnpm dev` passes on
+  every `PARITY_*_KEY` in `.env.local`, so the next connector needs no changes there. What else would make the next one
+  easier is in [connectors.md](connectors.md#pattern-changes-made).
+
+## Keys are the app owner's, and Parity reports uses itself (PAR-829)
+
+A review of the connectors on 2026-11-10 found twelve things to fix. You decided two of them, and the rest are my calls:
+
+- **People never enter a key** (your call): connectors are a built-in feature, and the app's owner arranges the keys. So
+  the key file, setting and clearing a key, the check before keeping one, `probe` and `connectors.storeFailed` are gone.
+  A connector's `auth` is none or a key with its variable. A development copy sets keys in the environment; a shipped
+  copy will search through Parity's service. Main reads the keys once and deletes them from its own environment, and the
+  service's environment leaves out every `PARITY_*_KEY`, not only the ones named today.
+- **No agent tool reports a use** (your call): an agent could skip it. Placing is the step instead, below.
+- **A missing key isn't the agent's problem.** `no-key` says this copy can't search the source and to carry on without
+  it, and the CLI and MCP don't treat it as an error. Messages about a refused key no longer tell the person to fix it.
+- **Main checks a search before it routes or records it,** and records every filter as checked. Each connector runs up
+  to 30 searches a minute, half of Mobbin's shared allowance, so one copy's runaway loop can't spend it.
+- **Agents search one shape per kind.** Each call can name a `connector`. The contracts no longer fill in Mobbin's
+  defaults, every other field is passed on as a filter, and main picks a connector that takes the filters named, so a
+  second screens source doesn't get `invalid`. Each result names its connector. A search that asked for more and got
+  none says "No more results for this search."
+- **Recent searches are kept by main** (you asked on 2026-11-10 for them to move to the person's account once there's a
+  service). The hub adds each search the person runs that works, never an agent's, through a `SearchHistory`. For now
+  it's a file in the app's data, `recent-searches.json`, keeping each connector's latest five; an account's store will
+  take its place without a change to the window. A search whose recent search can't be kept still answers.
+- **Previews can't fail a search.** Each is fetched and saved on its own, read up to 4 MB, named with at most 40 letters
+  of its title, and taken from the source's smaller picture when it has one (Unsplash's small, 400 pixels).
+
+## Placing a result is a step of its own (PAR-829)
+
+You asked on 2026-11-10 for a hook when a connector's result is placed, for telemetry and usage, with each connector
+deciding what else to do, and for agents to get two tools: one to search and one to place. Your calls and mine:
+
+- **Agents search, then place** (your call). `find_photos` and `find_references` give previews to look at and ids, but
+  no image link, so an agent can't put a photo in a design by pasting one. `place_result` (`parity place`) names a
+  result by connector and id and an image node by path; Parity sets the node's `src` (and `alt`, from the photo's title)
+  from main's own copy, as one undoable edit, and only once that's applied tells main. You asked how an agent sees a
+  photo without its link: through the preview each search saves, which MCP shows inline.
+- **The hub's `placed` runs the same steps for every connector** (your call): it counts the placement as the source's
+  usage, and only when it's new records `connectors.placed` and calls the connector's own `placed`, which for Unsplash
+  reports the photo to its download endpoint. `picked` became `placed`. Telemetry carries the connector, kind and who
+  placed it, never which result or where.
+- **Usage counts once for each design.** A `PlacementLog` keeps them, a file in the app's data for now
+  (`connector-placements.json`, the latest 2,000), so placing the same photo in the same design again isn't reported
+  twice. A log that can't be read or written counts the placement as new, since a source's terms prefer being told twice
+  to not at all. Once Parity's service counts usage on the person's account, main passes the hub its store.
+- **Only photos go in designs.** Placing a Mobbin screen is refused: references are for looking at, as the proposal
+  says.
+- **The window places through `canvasHost.connectors.placed`,** with the result's connector and id and the design, and
+  main uses its own copy. Nothing in the window calls it yet, since there's no Place for photos.
+
+## A second review of placing and the hub (PAR-829)
+
+You asked on 2026-11-10 for another LLM-as-judge review, and to fix what it confirmed. My calls:
+
+- **Placing works in Parity's own image nodes.** `Update` couldn't change an image's picture, so placing set a prop the
+  node didn't have. `Update` now takes `src`, `alt` and `credit` on an image node, in a design's base state only, since
+  a state can't change which picture it shows. `place_result` checks its target before it edits: an image node, or a
+  component that declares the prop named. It refuses one that already shows the photo, and says why with a code.
+- **Placements are keyed without paths.** A design's key is a hash of its project, file and design, so two designs with
+  the same id in different files count apart, and the log, and later the account's store, hold no path.
+- **Each connector declares its source's rate limit,** and main runs half of it: Mobbin's 60 a minute and Unsplash's 50
+  an hour. This replaces 30 searches a minute for every connector, which would have spent Unsplash's hour in two
+  minutes.
+- **A connector can need no key,** with `auth: { type: "none" }`, and searches. Key variables are any
+  `PARITY_<NAME>_KEY`, in any letter case.
+- **A report a source didn't take is tried again** as Parity next starts. The log keeps whether each was told.
+- **The contracts take filters as plain text** by the connectors' ids, and both ways of asking for more, so main checks
+  them against whichever connector runs the search. `place_result` can name the tab.
+- **Main enforces which kinds go in designs,** from `placeableKinds`, for the window as well as agents, and refuses a
+  photo whose link expires.
+- **The hub never throws** to the window or an agent: an adapter or service that throws answers `unavailable`, and the
+  service gets the hub's timeout. The stores re-read their file before each change and write through a temporary file of
+  their own, so two copies of Parity don't lose each other's entries.
+- **`agent.called` leaves out what was searched for and which result was placed where,** as `connectors.*` already did.
+- **Old previews are deleted** after a week.
+
+## A project's images are listed and removed in one shape (PAR-834)
+
+You asked on 2026-11-10 for a way to query a project's images and remove them, for the image selector and for agents. My
+calls:
+
+- **A project's images are the files in `public/images/` and the photos layers link to.** Pasting, dropping and
+  downloading already save there. Unsplash's photos can load from Unsplash, so a linked photo is listed with its credit,
+  though it has no file. A path layers name with no file there is listed too, so a broken image shows up.
+- **The logic is `projectImages` in `@parity-app/editor`,** data in and data out. The service reads the files and the
+  code (`images.scan`); the window and agents bring their designs as they are, unsaved changes included. So the image
+  selector and agents read one shape.
+- **"Used" means a design or the project's code names it.** Code counts because `<img src="/images/hero.png">` in `src/`
+  breaks the app as surely as a design using it. A prop counts when it's `src` or names a file in `/images/`, so a
+  component's image prop counts.
+- **Removing refuses an image in use, and says where.** It doesn't remove the layers or edit the code for you.
+- **A removal is a project edit, not the system's trash.** The issue suggested the trash. A project edit is undone by
+  Parity's own Undo, as token edits are, keeps the file's bytes for the latest 50 edits, and needs nothing from the
+  system. The window's Undo for it comes with the removal design (PAR-836).
+- **Agents get `get_images` and `remove_image`** (`parity images`, `parity images remove`), with the error codes
+  `unknown_image` and `image_in_use`. `find_photos` (PAR-829) stays separate: it searches outside the project.
+
+## The Media tab replaces the Images tab (PAR-838)
+
+You approved the references design on 2026-11-10 and asked for it built. The Media tab is first, in its own pull
+request; the library browser and stock media (PAR-839), references on the canvas (PAR-840) and videos (PAR-841) follow.
+My calls:
+
+- **The tab is called Media, and its tab value is `media`.** Pixabay brings illustrations, vectors and videos. A window
+  that remembered the Images tab opens on Layers once.
+- **The wall's layout and every rule the tab follows are in `@parity-app/editor`:** `packWall`, `designsUsing`,
+  `removalOf`, `mediumOf` and `imageItem`, each tested without Electron. The app keeps the views, the scan per open
+  project and the requests.
+- **Removing what designs use removes the layers with it, after asking.** PAR-834 has agents refuse instead. In the
+  window a person sees where it's used and chooses, so the dialog offers "Remove file and 3 layers"; agents still
+  refuse. What the code names stays either way.
+- **One Undo puts both back.** The layers are a step of the designs' history and the file a project edit, two histories.
+  The file's Undo also undoes the layers' step, but only while it's still the latest, so nothing done since is lost;
+  otherwise Edit > Undo takes the layers back on their own.
+- **Pictures load from the project's builder,** at the address the canvas's guest uses, so the tab shows what the
+  designs show. Stories serve pictures drawn for them at `/images/` the same way, through Storybook's static folders.
+- **Inserting and dragging are shared with the Assets panel** (`chrome/insert-from-panel.ts`), and the credit line with
+  the image layer's panel (`PhotoCredit`), rather than copied.
+- **The exploration's Media tab stories are gone,** since the real ones replace them. Its prototype panel stays while
+  the library browser's explorations still run on it, and goes with them.
+
+## The library browser and stock pictures in the Media tab (PAR-839)
+
+The second of the four pull requests that build the references design. My calls:
+
+- **One browser for every library,** drawn from what its connector says about itself: its filters, what it finds, how it
+  pages, its tips and its mark. The rules it follows (which filters show, the request for a page, what a result is
+  called, its credit) are `browse.ts` in `@parity-app/connectors`, tested without Electron. The window keeps the dialog,
+  its store and the search hook.
+- **It opens from a store, with a pick action.** The Media tab opens it on Pixabay with "Add to project"; references on
+  the canvas (PAR-840) will open it on Mobbin with their own action, with no change to the browser.
+- **A picture added from Pixabay is saved into `public/images/`,** since Pixabay's links stop working. The service
+  fetches it (`images.saveFrom`, https only), one at a time in the order picked; any that fail are named, and the rest
+  are kept.
+- **Its credit is kept in the project's main file,** in a new `images` map by path: the alt text and the credit, whose
+  link is the picture's own page on Pixabay rather than its author's, so it names where it came from. The Media tab
+  credits it before any layer uses it, and a layer's own credit still wins. Recording it is one undoable step.
+- **Adding counts as placing.** Each picture is reported to the hub's `placed` with `media` as its design, so it counts
+  once as the source's usage, as a picture an agent places does.
+- **Videos show, with how long they run, but can't be picked** until the Media tab plays them (PAR-841). Pressing one
+  shows it larger. `placeableKinds` decides, so PAR-841 changes one list.
+- **The exploration's Pixabay and Unsplash stories are gone,** since the real browser's stories replace them. Its Mobbin
+  stories and prototype stay until references on the canvas are built (PAR-840).
+
+## References are kept in the project's file, beside notes (PAR-840)
+
+The third of the four pull requests that build the references design. You decided on 2026-11-10 that references are kept
+in the project's `.par` file beside notes, rather than for the person alone. My calls:
+
+- **A reference is its own kind in the file,** a `references` list beside `notes`, in the file of the design it was
+  found for, or the main file without one. It keeps the connector and the source's id, the app, its platform, its link,
+  its picture's link, size and expiry, where it sits, the description that found it, a note and the agent that placed
+  it. The changes to it are pure functions in `@parity-app/editor`, as notes' are.
+- **Its picture stays Mobbin's link,** not a copy, until Mobbin says Parity may keep one (Questions for Mobbin in the
+  proposal). Once the link has run out, the reference shows its app's name and Open in Mobbin.
+- **It behaves as a note does:** one at a time in the selection, moved, nudged and deleted as one undo step each. Copy
+  and Cut leave it out, since it can't be pasted into a design, and nothing that writes code or exports reads the list.
+- **A batch lands in a row beside its design** and a later one under it, as the proposal says, and moves right past any
+  other design in the way, the rule copies of designs follow, since the example's designs sit close together.
+- **Find references opens the merged browser with its own pick action,** "Place N on canvas", and the browser now hands
+  the action the description each pick was found under, so a reference says what found it.
+- **Agents place references through `execute`,** with `PlaceReference(id, { near, note })`, taking main's own copy of a
+  screen it found for them, so a reference shows what the source gave. A call's references are added with its designs as
+  one undo step; they're only ever added, so they never conflict with edits made meanwhile. Each names the caller.
+- **No new event.** Find references is recorded by `command.ran` like every command, and screens aren't counted as a
+  source's usage, since the hub counts only what goes in designs.
+- **The exploration is gone.** Its Mobbin stories and the workspace and Media tab prototype came out of Storybook; the
+  stories under Parity/Canvas/References and Parity/Library browser/Mobbin replace them.
+
+## A reference records the design it's for, and agents read them (PAR-889)
+
+You asked on 2026-11-10 for agents to find the references placed beside a design, so they know what it's meant to be. My
+calls:
+
+- **A reference records the design it was found for,** by id, in the file it shares with that design. A row of
+  references slides right past other designs in the way, so where one sits doesn't say which design it's for. One placed
+  with nothing selected, before PAR-889, or whose design has gone, is read as for the design whose board edge is
+  nearest, within 1,600 pixels: a web reference's width and the gap before it. One further from every design is for
+  none, so a loose board of screens doesn't make an agent study them for some design. Moving a reference by hand keeps
+  what it recorded. Designs are told apart by file and id, since two files can hold the same id.
+- **`References(design?)` reads them in `execute`,** alongside `PlaceReference`, and `get_references`
+  (`parity references placed`) gives the same list with each picture fetched and saved, as `find_references` previews
+  are, so MCP shows them as images. Each picture is a whole screen, since Mobbin gives no smaller one, so only the first
+  6 are fetched unless `limit` says, up to 20, as `find_references` caps its own; the answer says how many more have
+  none. Only https links are fetched, since they come from the project's file rather than a source. It's a subcommand of
+  `parity references`, as `parity images remove` is of images, so a search can't start with "placed".
+- **`get_app_state` counts each design's references,** and leaves the count out when there are none, so an agent knows
+  to look without the state growing for projects that don't use them.
+- **The skill tells agents to look at a design's references before changing it,** in "Look before you change".
+
+## The video player is Parity's own, in a package (PAR-891)
+
+The player the video layer (PAR-841) uses, approved in Storybook under Parity/Media/Video player before the layer is
+built. You decided on 2026-11-10 to build it on the UI kit rather than on media-chrome with Kibo UI's player, and to
+keep it in a package of its own so other media can join it later. My calls:
+
+- **`@parity-app/media-player` is at the edge,** beside `renderer-react`, since it's React. It has `VideoPlayer` for the
+  larger view and the Media card, `VideoPreview` for a tile while it's pointed at, and `VideoLength` for a tile's
+  length. What its keys do and how a time reads are plain functions beside them, with tests.
+- **No player library.** The kit's Slider and Button and Lucide's icons sit over a plain `<video>`. media-chrome draws
+  its controls inside their own shadow DOM, out of reach of the kit's styles, and Parity plays only MP4 and WebM files.
+  Video.js 10, which took over Vidstack and media-chrome's work, is the one to move to if streaming or casting is
+  wanted.
+- **The controls sit under the video,** as the references design had them: play or pause, the time slider, the time,
+  Mute and full screen. It opens playing without sound and goes round at the end.
+- **The volume is a vertical slider over Mute,** so the time slider keeps the row, even on a card. It opens while Mute
+  is pointed at or the keyboard brings focus into it, and closes when the pointer leaves, even after a click in it, and
+  with Escape, which goes no further. It opens inside the player, not over the page, so it shows in full screen.
+- **Keys work once anything in the player has focus,** clicking the video among them: Space or K, left and right for
+  five seconds, Home and End, up and down for the volume, M and F. A key the player takes goes no further, so the arrows
+  don't also step through the larger view's results.
+- **A preview counts its length down** while it plays, from the length it showed, to 0:00, and shows the whole length
+  again once the pointer leaves. The library browser's result tiles use `VideoPreview` and `VideoLength` now, and
+  `clockOf` left `@parity-app/connectors` for the package's own.

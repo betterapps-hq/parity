@@ -26,6 +26,7 @@ export const keymap = {
   interact: { group: "Tools", label: "Interact with previews", keys: ["I"] },
   comment: { group: "Tools", label: "Comment", keys: ["C"] },
   annotate: { group: "Tools", label: "Annotate", keys: ["Shift T"] },
+  findReferences: { group: "Tools", label: "Find references", keys: ["R"] },
 
   selectAll: { group: "Selection", label: "Select all", keys: ["Ctrl A"] },
   selectInverse: { group: "Selection", label: "Select inverse", keys: ["Ctrl Shift A"] },

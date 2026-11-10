@@ -1,6 +1,6 @@
 {
   "name": "@parity-app/desktop",
-  "version": "0.45.1",
+  "version": "0.54.0",
   "license": "MIT",
   "description": "A design editor for real components and the code behind them.",
   "author": "Better Apps",
@@ -38,6 +38,7 @@
   "devDependencies": {
     "@buildkitgg/storybook-config": "catalog:",
     "@parity-app/account": "workspace:*",
+    "@parity-app/connectors": "workspace:*",
     "@parity-app/agent": "workspace:*",
     "@parity-app/builder-vite": "workspace:*",
     "@parity-app/channel": "workspace:*",
@@ -45,6 +46,7 @@
     "@parity-app/core": "workspace:*",
     "@parity-app/editor": "workspace:*",
     "@parity-app/icons": "workspace:*",
+    "@parity-app/media-player": "workspace:*",
     "@parity-app/project": "workspace:*",
     "@parity-app/registry": "workspace:*",
     "@parity-app/renderer-react": "workspace:*",

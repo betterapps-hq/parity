@@ -71,8 +71,20 @@ describe("export events", () => {
     await exportLayers(session, card, png)
 
     expect(sink.named("export.done").map((event) => event.attributes)).toEqual([
-      { kind: "layers", formats: ["png"], scales: [2], designs: 1, durationMs: 240, files: 1 }
+      { kind: "layers", formats: ["png"], scales: [2], designs: 1, durationMs: 240, files: 1, warnings: 0 }
     ])
+  })
+
+  it("count the layers that couldn't be drawn in an export that still finished", async () => {
+    exportTaking(10, () =>
+      Promise.resolve({
+        files: ["C:/exports/Card@2x.png"],
+        warnings: ["Badge couldn't be drawn", "Avatar couldn't be drawn"]
+      })
+    )
+    await exportLayers(session, card, png)
+
+    expect(sink.named("export.done").map((event) => event.attributes.warnings)).toEqual([2])
   })
 
   it("say how long a failed export ran before it failed", async () => {

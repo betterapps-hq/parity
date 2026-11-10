@@ -9,7 +9,7 @@ import {
 } from "@parity-app/agent/contracts"
 import { type JsonValue, jsonValue } from "@parity-app/core/schema"
 import { z } from "zod"
-import type { Routing } from "./client.ts"
+import type { FindResponse, PlacedReferencesResponse, Routing } from "./client.ts"
 import { type ExecResponse, execResponse, executionFailed, structuredExec } from "./execute.ts"
 
 /**
@@ -147,6 +147,47 @@ export type ConsoleResponse = z.output<typeof consoleResult>
 
 export type TokensResponse = z.output<typeof tokensResult>
 
+/**
+ * How a search for screens, pictures or videos is routed and read. Any running copy can search: main holds the keys, whatever
+ * projects are open (PAR-829). --json and structuredContent leave the previews' base64 out; MCP shows them as images,
+ * and the CLI names their files. A copy with no key for the source isn't a failure: the agent carries on without it.
+ */
+const finding: Options<FindResponse> = {
+  routing: "tab-or-any",
+  failed: (result) => result.problem !== undefined && result.problem.code !== "no-key",
+  structured: (result) => ({
+    ...result,
+    found: result.found.map(({ preview, ...item }) => {
+      if (!preview) {
+        return item
+      }
+
+      const { data: _data, ...saved } = preview
+
+      return { ...item, preview: saved }
+    })
+  })
+}
+
+/**
+ * How the references on the canvas are read (PAR-889): --json and structuredContent leave the pictures' base64 out, as
+ * a search's previews do.
+ */
+const placed: Options<PlacedReferencesResponse> = {
+  structured: (result) => ({
+    ...result,
+    references: result.references.map(({ preview, ...reference }) => {
+      if (!preview) {
+        return reference
+      }
+
+      const { data: _data, ...saved } = preview
+
+      return { ...reference, preview: saved }
+    })
+  })
+}
+
 export const operations = {
   tabs: mapped("tabs", (tabs): TabsResponse => ({ tabs })),
   state: operation("state"),
@@ -177,7 +218,14 @@ export const operations = {
   components: operation("components"),
   props: operation("props"),
   // A report goes to a running copy even with no project open, as long as it names no tab.
-  report: withTestRun(operation("report", { routing: "tab-or-any" }))
+  report: withTestRun(operation("report", { routing: "tab-or-any" })),
+  references: operation("references", finding),
+  media: operation("media", finding),
+  placedReferences: operation("placedReferences", placed),
+  // Placing edits a design, so it goes to the copy with the tab, and a result that wasn't placed exits with 1.
+  place: operation("place", { failed: (result) => !result.placed }),
+  images: operation("images"),
+  removeImage: operation("removeImage")
 }
 
 /**

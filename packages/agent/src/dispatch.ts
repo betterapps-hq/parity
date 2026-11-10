@@ -1,5 +1,15 @@
 import { CodedError, describeRenderStatus, renderProblem, resolveModes, unknownReference } from "@parity-app/core"
-import type { ChangeConflict } from "@parity-app/core"
+import type { ChangeConflict, ImageCredit } from "@parity-app/core"
+import {
+  type CodeReference,
+  cantRemove,
+  filterImages,
+  findImage,
+  type FoundScreen,
+  type ImageFile,
+  projectImages
+} from "@parity-app/editor"
+import { z } from "zod"
 import { type TokenFilter } from "./arguments.ts"
 import { callerIdentity } from "./caller.ts"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
@@ -16,6 +26,8 @@ import type {
   FrameRequest,
   FrameResult,
   IconNames,
+  PlaceableResult,
+  PlacedIn,
   PresenceEvent,
   ReportSent,
   Screenshot,
@@ -63,6 +75,36 @@ export interface AgentHost {
    * (PAR-646).
    */
   report(report: AgentReport): Promise<ReportSent>
+  /**
+   * Searches for screens from real apps (Mobbin's) with the key main holds, and saves each preview as a file (PAR-829).
+   * A search that found nothing to show answers with why, rather than failing.
+   */
+  references(request: Params<"references">): Promise<Answer<"references">>
+  /**
+   * Fetches each picture and saves it as a file, as a search's previews are, for an agent to look at: the pictures of
+   * the references on the canvas (PAR-889). Undefined for one that couldn't be fetched or saved.
+   */
+  pictures(pictures: { title: string; id: string; url: string }[]): Promise<(SavedPicture | undefined)[]>
+  /** Searches stock pictures and videos the same way, from whichever connector is offered for them. */
+  media(request: Params<"media">): Promise<Answer<"media">>
+  /**
+   * Saves a picture from a link into the project's images folder, as an edit the window can undo, for a result whose
+   * link doesn't last or may only show results. Answers what layers set `src` to.
+   */
+  saveImage(projectId: string, image: { url: string; name: string }): Promise<{ src: string }>
+  /** Main's own copy of a result it found lately, which placing puts in a design. Undefined for one it didn't find. */
+  result(connector: string, id: string): Promise<PlaceableResult | undefined>
+  /**
+   * Main's own copy of a screen from a real app it found lately, from the connector named or the one that finds screens,
+   * which `PlaceReference` places beside a design (PAR-840). Undefined for one it didn't find.
+   */
+  screen(id: string, connector: string | undefined): Promise<FoundScreen | undefined>
+  /** Tells main a result went into a design, which main records, counts and tells the source of. */
+  placed(placed: PlacedIn): Promise<void>
+  /** The project's image files and the lines of its code that name them, read from its folder (PAR-834). */
+  scanImages(projectId: string): Promise<{ files: ImageFile[]; references: CodeReference[] }>
+  /** Removes an image file as an edit the window can undo. Refuses one the project's code names. */
+  removeImage(projectId: string, path: string): Promise<{ path: string; label: string }>
 }
 
 /** Who's calling, when the CLI or MCP knows: its name for people, and an id that tells same-named callers apart. */
@@ -88,11 +130,15 @@ export type Answer<M extends AgentMethod> = Known<AgentMethods[M]["result"]>
 
 type Params<M extends AgentMethod> = AgentMethods[M]["params"]
 
-/** One call: the host, and the caller's presence on a tab. */
+/** A picture saved as a file for an agent, with its bytes for MCP to show. */
+export type SavedPicture = NonNullable<Answer<"placedReferences">["references"][number]["preview"]>
+
+/** One call: the host, the caller's presence on a tab, and who's calling when it says. */
 interface Call {
   host: AgentHost
   /** Sends the caller's events to a tab's canvas. */
   presence: (tab: string) => AgentHooks["presence"]
+  caller?: Caller
 }
 
 /** How the app answers each method. */
@@ -109,7 +155,7 @@ const methods: MethodTable = {
       state(snapshot)
     )
   },
-  exec: (params, { host, presence }) => exec(host, presence, params.tab, params),
+  exec: (params, { host, presence, caller }) => exec(host, presence, params.tab, params, caller),
   async screenshot(params, call) {
     const options = { state: params.state, mode: params.mode, scale: params.scale }
 
@@ -203,7 +249,75 @@ const methods: MethodTable = {
 
     return readOnly(snapshot).Props(params.component, { all: params.all })
   },
-  report: (params, { host }) => report(host, params)
+  report: (params, { host }) => report(host, params),
+  references: (params, { host }) => host.references(params),
+  media: (params, { host }) => host.media(params),
+  place: (params, call) => place(call.host, call.presence, params),
+  async placedReferences(params, { host }) {
+    const snapshot = await host.snapshot(params.tab)
+    const placed = readOnly(snapshot).References(params.design)
+    // A picture whose link has stopped working isn't asked for, and only the first `limit` are: each is a whole screen.
+    const fresh = placed.filter((reference) => !reference.expired)
+    const asked = fresh.slice(0, params.limit)
+    const saved = await host.pictures(asked.map(({ app, id, picture }) => ({ title: app, id, url: picture })))
+    // Paired by position, since nothing stops two files' references sharing an id.
+    const previews = new Map(asked.map((reference, index) => [reference, saved[index]]))
+
+    const references = placed.map((reference) => {
+      const preview = previews.get(reference)
+
+      return preview ? { ...reference, preview } : reference
+    })
+
+    const answer: Answer<"placedReferences"> = { tab: tabRef(snapshot), references }
+
+    if (fresh.length > asked.length) {
+      answer.withoutPictures = fresh.length - asked.length
+    }
+
+    return answer
+  },
+  images: async (params, { host }) => {
+    const { images } = await imagesOf(host, params.tab)
+    const found = filterImages(images, params)
+    const shown = found.slice(0, params.limit)
+
+    return { images: shown, total: found.length, truncated: shown.length < found.length }
+  },
+  async removeImage(params, { host }) {
+    const { images, projectId } = await imagesOf(host, params.tab)
+    const image = findImage(images, params.image)
+
+    if (!image) {
+      const names = images.flatMap((each) => (each.path ? [each.path] : []))
+
+      throw unknownReference(
+        "unknown_image",
+        `No image in the project matches "${params.image}"`,
+        params.image,
+        names,
+        "image"
+      )
+    }
+
+    const why = cantRemove(images, params.image)
+
+    if (why || !image.path) {
+      const code = image.kind === "file" ? "image_in_use" : "invalid_input"
+
+      throw new CodedError(why ?? `${params.image} has no file to remove.`, { code, field: "image" })
+    }
+
+    return host.removeImage(projectId, image.path)
+  }
+}
+
+/** The tab's images, from its designs as they are, unsaved changes included, and its folder. */
+async function imagesOf(host: AgentHost, tab: string | undefined) {
+  const snapshot = await host.snapshot(tab)
+  const { files, references } = await host.scanImages(snapshot.projectId)
+
+  return { images: projectImages({ files, references, documents: snapshot.documents }), projectId: snapshot.projectId }
 }
 
 /** Each method's params schema. `copy` takes none, as `tabs` doesn't. */
@@ -261,7 +375,7 @@ export async function dispatch(
   // tie the two to the same method through a union.
   const run = methods[method] as (params: Params<AgentMethod>, call: Call) => Promise<Answer<AgentMethod>>
 
-  return run(request, { host, presence })
+  return run(request, { host, presence, caller })
 }
 
 /** The tab an answer is about, by id and name. */
@@ -338,13 +452,27 @@ function state(snapshot: TabSnapshot): Answer<"state"> {
   const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
   const api = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state").api()
   const semantic = snapshot.tokens.filter((token) => token.source === "semantic")
+  // By file and id, since two files can hold designs with the same id.
+  const references = new Map<string, number>()
+
+  for (const { design } of api.References()) {
+    if (design) {
+      const where = `${design.file}#${design.id}`
+      references.set(where, (references.get(where) ?? 0) + 1)
+    }
+  }
 
   return {
     tab: snapshot.tab,
     // Changes with every change to the tab's designs, modes or token edits; `status` says what's saved.
     revision: snapshot.revision,
     selection: api.Selection(),
-    designs: api.Designs(),
+    // Each design says how many references are for it, for the agent to look at before changing it (PAR-889).
+    designs: api.Designs().map((design) => {
+      const count = references.get(`${design.file}#${design.id}`)
+
+      return count ? { ...design, references: count } : design
+    }),
     // Boards on top of each other, to move apart.
     overlaps: api.Overlaps(),
     // resolveModes makes new objects on every call, so the first one is the primary mode by position (PAR-579).
@@ -374,14 +502,201 @@ function renderFor(host: AgentHost, snapshot: TabSnapshot): AgentHooks["render"]
   return (request) => host.render(snapshot, request)
 }
 
+/**
+ * Places a result a connector found in a design (PAR-829): the image from main's own copy goes in the node as one
+ * undoable edit, and only once it's applied is main told, which records it and tells the source. So a placement is
+ * reported because Parity made it, not because an agent said so. An image node takes the picture, its description and
+ * its credit; a component takes it in a prop it declares. Only what main says can be placed goes in designs: pictures,
+ * not screens from real apps or videos, which are for looking at. A picture whose link stops working is saved into the
+ * project first, and the node shows the file.
+ */
+async function place(host: AgentHost, presence: Call["presence"], request: Params<"place">): Promise<Answer<"place">> {
+  const { connector, id, node, state } = request
+  const found = await host.result(connector, id)
+
+  if (!found) {
+    return refused(`Parity hasn't found ${connector} ${id} lately. Search again, then place one of its results.`)
+  }
+
+  if (!found.placeable) {
+    return refused(`${found.credit.at(-1)?.name ?? connector}'s ${found.kind} are for looking at, not for designs.`)
+  }
+
+  const snapshot = await host.snapshot(request.tab)
+  const checked = placeTarget(snapshot, node, found, request.prop, state)
+
+  if ("refusal" in checked) {
+    return refused(checked.refusal)
+  }
+
+  const shown = await savedIfFleeting(host, snapshot.projectId, found)
+
+  if ("refusal" in shown) {
+    return refused(shown.refusal)
+  }
+
+  const target = shown === found ? checked : placeTarget(snapshot, node, shown, request.prop, state)
+
+  if ("refusal" in target) {
+    return refused(target.refusal)
+  }
+
+  let placedIn = target.design
+  let warnings: string[] = []
+
+  // Placing what the node already shows changes nothing, and is still reported, which main counts once.
+  if (target.holds !== shown.image.url) {
+    const options = state ? `, ${JSON.stringify({ state })}` : ""
+
+    const result = await execIn(host, presence, snapshot, {
+      label: `Place ${found.title}`,
+      code: `Update(${JSON.stringify(node)}, ${JSON.stringify(target.change)}${options})`
+    })
+
+    const changed = result.changes.designs[0]
+
+    if (!result.applied || !changed) {
+      // The run's own code, such as a conflict with an edit made since, says more than "invalid".
+      const code = errorDetails.safeParse(result.details).data?.code
+
+      return refused(result.error ?? `Nothing changed at ${node}.`, code)
+    }
+
+    placedIn = { path: changed.path, id: changed.id }
+    warnings = result.warnings
+  }
+
+  await host.placed({ connector, id, project: snapshot.tab.root, file: placedIn.path, design: placedIn.id })
+
+  const answer: Answer<"place"> = { placed: true, node, credit: found.credit }
+
+  if (warnings.length > 0) {
+    answer.warnings = warnings
+  }
+
+  return answer
+}
+
+/**
+ * A link that stops working would leave a broken picture in a saved design, so such a picture is saved into the
+ * project's images folder first, and the node shows the file. Saving the same picture again reuses its file.
+ */
+async function savedIfFleeting(
+  host: AgentHost,
+  projectId: string,
+  found: PlaceableResult
+): Promise<PlaceableResult | { refusal: string }> {
+  if (found.image.expiresAt === undefined) {
+    return found
+  }
+
+  try {
+    const { src } = await host.saveImage(projectId, { url: found.image.url, name: found.title })
+
+    return { ...found, image: { ...found.image, url: src } }
+  } catch (cause) {
+    const why = cause instanceof Error ? cause.message : String(cause)
+
+    return { refusal: `Parity couldn't save ${found.title} into the project: ${why}` }
+  }
+}
+
+/** What `Update` gets to place a picture: an image's own fields, or a component's props. */
+type PlaceChange = ImagePlace | { props: { [prop: string]: string } }
+
+/** An image's own fields, as placing a picture sets them. */
+interface ImagePlace {
+  src: string
+  alt: string
+  credit?: ImageCredit
+}
+
+interface PlaceTarget {
+  change: PlaceChange
+  /** The picture the node already shows, to tell placing again from placing anew. */
+  holds: unknown
+  /** The design the node is in, for a placement that needed no edit. */
+  design: { path: string; id: string }
+}
+
+/** What placing into `path` changes, or why it can't take a picture: an image, or a component's declared prop. */
+function placeTarget(
+  snapshot: TabSnapshot,
+  path: string,
+  found: PlaceableResult,
+  prop: string | undefined,
+  state: string | undefined
+): PlaceTarget | { refusal: string } {
+  const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
+  const workspace = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state")
+  const located = workspace.locate(path)
+
+  if (!located) {
+    return { refusal: `There's no node at ${path}. Read the design with Get to find the image's path.` }
+  }
+
+  const { node, design } = located
+  const [author, source] = found.credit
+
+  if (node.type === "image") {
+    if (state) {
+      return { refusal: "An image's picture belongs to the whole design, not one state. Place it without a state." }
+    }
+
+    const change: ImagePlace = { src: found.image.url, alt: found.title }
+
+    if (author?.url) {
+      change.credit = { name: author.name, url: author.url, source: source?.name }
+    }
+
+    return { change, holds: node.src, design }
+  }
+
+  if (node.type !== "component") {
+    return { refusal: `${path} is a ${node.type}, which can't show a picture. Place it in an image or a component.` }
+  }
+
+  const declared = new Set(snapshot.props[node.component]?.props.map((each) => each.name) ?? [])
+  const named = prop ?? "src"
+
+  if (!declared.has(named)) {
+    return { refusal: `${node.component} has no ${named} prop. Name the prop that takes the image with prop.` }
+  }
+
+  const props =
+    named === "src" && declared.has("alt") ? { src: found.image.url, alt: found.title } : { [named]: found.image.url }
+
+  return { change: { props }, holds: node.props?.[named], design }
+}
+
+/** The code a failed run gives, when it gives one. */
+const errorDetails = z.looseObject({ code: z.string() })
+
+function refused(message: string, code = "invalid"): Answer<"place"> {
+  return { placed: false, problem: { code, message } }
+}
+
 /** Runs a snippet in a tab, applies what it changed there, and keeps its screenshots as files. */
 async function exec(
   host: AgentHost,
   presence: Call["presence"],
   tab: string | undefined,
-  request: ExecRequest
+  request: ExecRequest,
+  caller?: Caller
 ): Promise<Answer<"exec">> {
-  const snapshot = await host.snapshot(tab)
+  // What changed is for the editor and for placing, not the agent's answer.
+  const { changes: _changes, ...answer } = await execIn(host, presence, await host.snapshot(tab), request, caller)
+
+  return answer
+}
+
+async function execIn(
+  host: AgentHost,
+  presence: Call["presence"],
+  snapshot: TabSnapshot,
+  request: ExecRequest,
+  caller?: Caller
+): Promise<Answer<"exec"> & { changes: AgentChangeSet }> {
   const tabId = snapshot.tab.id
   const label = request.label || "Agent edit"
 
@@ -404,15 +719,21 @@ async function exec(
     render: renderFor(host, snapshot),
     iconNames: (set, module) => host.iconNames(tabId, set, module),
     apply: (changes) => host.apply(tabId, label, changes),
-    supports: (queries) => host.supports(queries)
+    supports: (queries) => host.supports(queries),
+    screen: (id, connector) => host.screen(id, connector),
+    caller: caller?.name
   })
 
   const { changes, screenshots, ...rest } = result
-  const hasChanges = changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0
+
+  const hasChanges =
+    changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0 || !!changes.references?.length
+
   const paths = screenshots.length > 0 ? await host.saveScreenshots(screenshots) : []
 
   return {
     ...rest,
+    changes,
     applied: result.ok && hasChanges,
     screenshots: screenshots.map((shot, index) => ({
       path: paths[index] ?? "",

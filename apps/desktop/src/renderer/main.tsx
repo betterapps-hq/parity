@@ -12,7 +12,7 @@ import { replaySampling } from "./replay.ts"
 import { setWindowTelemetry } from "./report-error.ts"
 import { caughtEventId, reactErrorHandlers, startTelemetry } from "./telemetry.ts"
 import { startTheme } from "./theme.ts"
-import { traceWith } from "./tracing.ts"
+import { currentTraceHeaders, traceWith } from "./tracing.ts"
 import { workspace } from "./workspace.ts"
 import "tldraw/tldraw.css"
 import "./styles.css"
@@ -24,6 +24,9 @@ import "./styles.css"
 const telemetry = startTelemetry(replaySampling)
 
 traceWith(telemetry)
+
+// Requests to main carry the action or gesture they were asked in, as the service's do (PAR-810).
+window.parityTelemetry?.traceFrom(currentTraceHeaders)
 
 watchLongTasks(telemetry)
 

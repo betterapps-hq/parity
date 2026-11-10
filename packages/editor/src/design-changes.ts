@@ -4,11 +4,13 @@ import type {
   ContainerSpec,
   DesignChange,
   ModesChange,
-  NoteSpec
+  NoteSpec,
+  ReferenceSpec
 } from "@parity-app/core"
 import type { DesignRef } from "./arrange.ts"
 import { sameDesign, sameValue } from "./document-equality.ts"
 import { type DesignSnapshot, withoutModes } from "./history.ts"
+import { addReferences } from "./references.ts"
 import { type TokenEdit, withTokenEdits } from "./token-edits.ts"
 
 // The changes the editor makes to what it holds. Each gives back the snapshot it was given when it changes nothing.
@@ -189,9 +191,15 @@ export interface MergedChanges {
   conflicts: ChangeConflict[]
 }
 
+/** A reference an agent placed, and the file it goes in. */
+export interface ReferenceAdded {
+  path: string
+  reference: ReferenceSpec
+}
+
 /**
- * An agent's call merged into what's here now: each design it changed, created or deleted, its modes and its token
- * values. Designs it didn't touch stay as they are, whatever happened to them since it read the tab. A design it
+ * An agent's call merged into what's here now: each design it changed, created or deleted, its modes, its token values
+ * and the references it placed, which are only ever added, so they never conflict. Designs it didn't touch stay as they are, whatever happened to them since it read the tab. A design it
  * changed must still be as the call read it (or already as the call left it); when one isn't, or the modes aren't,
  * nothing is applied and the conflicts say which.
  */
@@ -199,7 +207,8 @@ export function mergeAgentChanges(
   snapshot: DesignSnapshot,
   designs: readonly DesignChange[],
   modes?: ModesChange,
-  tokens: readonly TokenEdit[] = []
+  tokens: readonly TokenEdit[] = [],
+  references: readonly ReferenceAdded[] = []
 ): MergedChanges {
   const conflicts: ChangeConflict[] = []
   let next = snapshot
@@ -243,6 +252,10 @@ export function mergeAgentChanges(
 
   if (conflicts.length > 0) {
     return { snapshot, conflicts }
+  }
+
+  for (const { path, reference } of references) {
+    next = addReferences(next, path, [reference])
   }
 
   return {

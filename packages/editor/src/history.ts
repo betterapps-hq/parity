@@ -433,13 +433,14 @@ export function saveFailure(history: DesignHistory): string | undefined {
 }
 
 /**
- * The documents and modes as one project file, as Save a copy writes it: every file's designs, notes, canvas objects and
- * links, with the main file's component corrections and lens sources.
+ * The documents and modes as one project file, as Save a copy writes it: every file's designs, notes, references, canvas
+ * objects and links, with the main file's component corrections and lens sources.
  */
 export function mergedDocument(history: DesignHistory): CanvasDocument {
   const { documents, modes } = history.current
   const all = [...documents.values()]
   const notes = all.flatMap((document) => document.notes ?? [])
+  const references = all.flatMap((document) => document.references ?? [])
 
   // Two files may place the same table or reuse a link id; the first keeps it, so the copy still opens.
   const objects = firstOfEach(
@@ -461,6 +462,10 @@ export function mergedDocument(history: DesignHistory): CanvasDocument {
 
   if (notes.length > 0) {
     merged.notes = notes
+  }
+
+  if (references.length > 0) {
+    merged.references = references
   }
 
   if (custom) {

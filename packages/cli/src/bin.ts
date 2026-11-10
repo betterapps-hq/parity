@@ -14,6 +14,12 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeImages,
+  describeMedia,
+  describePlace,
+  describePlacedReferences,
+  describeReferences,
+  describeRemovedImage,
   describeReport,
   describeStatus,
   describeTokens
@@ -57,6 +63,11 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             unless --limit says; --nearest #2f6fed or 13px lists the colors or
                                             lengths nearest that value first, with how far each is
   parity components [--tab t]               the components designs can use, by library
+  parity images [--search s] [--unused] [--limit 50] [--tab t]
+                                            the project's images: files in public/images, images layers link to and
+                                            paths with no file, each with what uses it, in designs and in code
+  parity images remove <image> [--tab t]    remove an image file from public/images, by path or file name; refused
+                                            while a design or the project's code uses it, saying where
   parity props <Component> [--all] [--tab t]
                                             a component's props from its source, then what it goes inside and holds,
                                             with an example to insert; --all adds the attributes it passes on
@@ -100,6 +111,28 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             feedback with a screenshot of the window, its replay, this command's trace
                                             and frames of the design named, tagged with what it's about and the test
                                             pass (PARITY_TEST_RUN unless --test-run says). Prints its link
+  parity references "<screen>" [--platform web|ios] [--deep] [--limit 6] [--exclude id]
+                                            search for screens from real apps, one screen per search, with
+                                            the key Parity holds; prints each app, link and id, and saves each
+                                            preview under ~/.parity/references. --deep reads intent and keeps strong
+                                            matches, spending the source's AI credits; --exclude (repeated) leaves out
+                                            screens already seen; --connector names the source. Exits with 1 when
+                                            the search itself is wrong or the source fails, not when Parity has no key
+  parity references placed [design] [--limit 6] [--tab t]
+                                            the screens placed on the canvas as references, each with the design
+                                            it's for, who placed it and why; with a design, only the ones for it.
+                                            The first 6 pictures unless --limit says are saved under
+                                            ~/.parity/references
+  parity media "<subject>" [--type photos|illustrations|vectors|videos] [--orientation horizontal|vertical]
+               [--color c] [--limit 6] [--page 1]
+                                            search stock pictures or videos, one subject per search, the same way;
+                                            --color keeps to one color, as blue, grayscale or transparent, and
+                                            --page 2 brings the next ones. Credit the author and the source
+  parity place <connector> <id> "<design/node>" [--prop src] [--state s] [--tab t]
+                                            put a picture a search found into an image node, as "home/photo", or a
+                                            component's --prop, as one undoable edit, saving the file when the
+                                            source's link doesn't last;
+                                            Parity tells the source it was used. Exits with 1 when it wasn't placed
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
@@ -148,6 +181,16 @@ const { positionals, values } = parseArgs({
     node: { type: "string" },
     since: { type: "string" },
     session: { type: "string" },
+    connector: { type: "string" },
+    prop: { type: "string" },
+    platform: { type: "string" },
+    deep: { type: "boolean" },
+    exclude: { type: "string", multiple: true },
+    type: { type: "string" },
+    orientation: { type: "string" },
+    color: { type: "string" },
+    page: { type: "string" },
+    unused: { type: "boolean" },
     help: { type: "boolean", short: "h" }
   }
 })
@@ -299,6 +342,16 @@ async function main(): Promise<void> {
         },
         describeTokens
       )
+    case "images":
+      if (rest[0] === "remove") {
+        return show(operations.removeImage, { tab: values.tab, image: rest[1] }, describeRemovedImage)
+      }
+
+      return show(
+        operations.images,
+        { tab: values.tab, search: values.search, unused: values.unused, limit },
+        describeImages
+      )
     case "components":
       return show(operations.components, { tab: values.tab }, describeComponents)
     case "props":
@@ -350,6 +403,56 @@ async function main(): Promise<void> {
           testRun: values["test-run"]
         },
         describeReport
+      )
+    case "references":
+      if (rest[0] === "placed") {
+        return show(
+          operations.placedReferences,
+          { tab: values.tab, design: rest.slice(1).join(" ") || undefined, limit },
+          describePlacedReferences
+        )
+      }
+
+      return show(
+        operations.references,
+        {
+          tab: values.tab,
+          query: rest.join(" ") || undefined,
+          connector: values.connector,
+          platform: values.platform,
+          depth: values.deep ? "deep" : undefined,
+          limit,
+          exclude: values.exclude
+        },
+        describeReferences
+      )
+    case "media":
+      return show(
+        operations.media,
+        {
+          tab: values.tab,
+          query: rest.join(" ") || undefined,
+          connector: values.connector,
+          type: values.type,
+          orientation: values.orientation,
+          color: values.color,
+          limit,
+          page: values.page === undefined ? undefined : Number(values.page)
+        },
+        describeMedia
+      )
+    case "place":
+      return show(
+        operations.place,
+        {
+          tab: values.tab,
+          connector: rest[0],
+          id: rest[1],
+          node: rest[2],
+          prop: values.prop,
+          state: values.state?.[0]
+        },
+        describePlace
       )
     case "console":
       return show(operations.console, { tab: values.tab, clear: values.clear, limit }, describeConsole)

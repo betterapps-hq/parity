@@ -48,6 +48,8 @@ export * from "./layers-tree.ts"
 
 export * from "./locking.ts"
 
+export * from "./media-wall.ts"
+
 export * from "./move-layers.ts"
 
 export * from "./move-resize.ts"
@@ -61,6 +63,10 @@ export * from "./paste-here.ts"
 export * from "./paste-over.ts"
 
 export * from "./placement.ts"
+
+export * from "./project-images.ts"
+
+export * from "./references.ts"
 
 export * from "./render-failures.ts"
 

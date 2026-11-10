@@ -11,6 +11,7 @@ import type {
   WindowMethods
 } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
+import { track } from "../report-error.ts"
 import { reportIds } from "../telemetry.ts"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
@@ -76,7 +77,13 @@ const handlers: Handlers = {
 
     return copy
   },
-  "agent.open": async ({ root }) => summary(await workspace.open(root)),
+  "agent.open": async ({ root }) => {
+    const tab = await workspace.open(root)
+    // A project already open is detected again when what detection reads changed since (PAR-820).
+    await workspace.detectAgain(tab.id)
+
+    return summary(tab)
+  },
   "agent.snapshot": ({ tab }) => snapshot(tab),
   "agent.status": ({ tab: reference, ...options }) => {
     const tab = findTab(reference)
@@ -112,6 +119,11 @@ const handlers: Handlers = {
 
     return undefined
   },
+  "project.detectionChanged": ({ projectId }) => {
+    workspace.detectionChanged(projectId)
+
+    return undefined
+  },
   "project.guestMoved": async ({ projectId, guestUrl }) => {
     // A tab that couldn't load it says so, and the service tries again when the builder is started again.
     if (!(await workspace.moveGuest(projectId, guestUrl))) {
@@ -125,10 +137,17 @@ const handlers: Handlers = {
 
     // Unsaved changes here win until the person says otherwise.
     if (store && !store.reloadDocument(path, document)) {
+      track("document.conflicted", { file: path })
       toast.warning(`${path} changed on disk`, {
         description: "Your unsaved changes are kept. Saving writes them over it.",
         duration: 15000,
-        action: { label: "Load from disk", onClick: () => store.reloadDocument(path, document, true) }
+        action: {
+          label: "Load from disk",
+          onClick: () => {
+            store.reloadDocument(path, document, true)
+            track("document.loadedFromDisk", { file: path })
+          }
+        }
       })
     }
 
@@ -306,5 +325,5 @@ async function apply(changes: AgentChanges): Promise<ChangeConflict[]> {
   const session = ready(findTab(changes.tab))
   const tokens = session.tokens.edits(changes.tokens ?? [])
 
-  return session.store.applyAgentChanges(changes.label, changes.designs, changes.modes, tokens)
+  return session.store.applyAgentChanges(changes.label, changes.designs, changes.modes, tokens, changes.references)
 }

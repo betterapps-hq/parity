@@ -8,6 +8,7 @@ import type {
 import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
 import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
+import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type {
   CanvasDocument,
   ChangeConflict,
@@ -23,12 +24,13 @@ import type {
   ThemeVariable,
   UpdateState
 } from "@parity-app/core"
-import type { EditStatus, ExportSize } from "@parity-app/editor"
+import type { CodeReference, EditStatus, ExportSize, ImageFile, ReferenceAdded } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
+import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
 
 /**
@@ -46,6 +48,11 @@ export interface ServiceMethods {
   /** Opens a project, or returns it if it's already open. Without a root, opens the default project. */
   "project.open": { params: { root?: string }; result: ProjectInfo }
   "project.close": { params: { projectId: string }; result: undefined }
+  /**
+   * Whether what detection reads of an open project (its stylesheets, `components.json`, dependencies, Vite config)
+   * changed since it opened, so only opening it again takes that in (PAR-820).
+   */
+  "project.detectAgain": { params: { projectId: string }; result: boolean }
   /** The project's components and their props, once inferred from source. */
   "project.components": { params: { projectId: string }; result: Record<string, ComponentInfo> }
   /**
@@ -81,6 +88,21 @@ export interface ServiceMethods {
     params: { projectId: string; name: string; type: string; data: string }
     result: { src: string; path: string; edit?: ProjectEditResult }
   }
+  /**
+   * The project's image files under `public/images/`, and the lines of its code that name them (PAR-834). The window
+   * and agents put them together with their designs through `projectImages`.
+   */
+  "images.scan": { params: { projectId: string }; result: { files: ImageFile[]; references: CodeReference[] } }
+  /**
+   * Saves a picture from a stock library's link into `public/images/`, as adding one from the library browser does
+   * (PAR-839), named after what it shows. Refuses a link that isn't https, or that doesn't give a picture Parity takes.
+   */
+  "images.saveFrom": { params: { projectId: string; url: string; name: string }; result: { src: string; path: string } }
+  /**
+   * Removes an image file from `public/images/` as an edit, so undoing it puts the file back. Refuses a file the
+   * project's code names; the caller checks its designs first.
+   */
+  "images.remove": { params: { projectId: string; path: string }; result: { path: string; edit: ProjectEditResult } }
   /**
    * Takes back an edit the service made to the project's files, unless a file has changed since. Only the project's
    * latest 50 edits can be undone.
@@ -300,6 +322,8 @@ export interface WindowMethods {
   "project.guestMoved": { params: { projectId: string; guestUrl: string }; result: undefined }
   /** Component files whose code changed on disk, which the tab's guest loads again (PAR-165). */
   "project.codeChanged": { params: { projectId: string } & CodeChange; result: undefined }
+  /** What detection reads of the project changed since it opened, so its tab opens it again (PAR-820). */
+  "project.detectionChanged": { params: { projectId: string }; result: undefined }
 }
 
 /**
@@ -334,7 +358,8 @@ export const windowMethods = Object.keys({
   "project.fileChanged": true,
   "project.componentsChanged": true,
   "project.guestMoved": true,
-  "project.codeChanged": true
+  "project.codeChanged": true,
+  "project.detectionChanged": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }
@@ -357,6 +382,8 @@ export interface AgentChanges {
   designs: DesignChange[]
   modes?: ModesChange
   tokens?: TokenChange[]
+  /** The references the call placed (PAR-840), which are only ever added. */
+  references?: ReferenceAdded[]
 }
 
 /** Installed release identity, independent of the user's update channel preference. */
@@ -436,6 +463,22 @@ export interface CanvasHost {
     switchOrganization: (organizationId: string) => Promise<void>
     /** Switches to another account signed in, by its email, at once: each keeps its own session. */
     use: (email: string) => Promise<void>
+  }
+  /**
+   * Connectors to outside services, such as Mobbin (PAR-829). Main holds their keys, which the app's owner arranges,
+   * and runs every search; the window sees whether this copy can search each one, never a key.
+   */
+  connectors: {
+    get: () => Promise<ConnectorState[]>
+    /** Never fails: a failure is a problem in the answer. A search that works joins the person's recent searches. */
+    search: (search: ConnectorSearch) => Promise<SearchAnswer>
+    /** The person's recent searches, newest first. */
+    recent: () => Promise<RecentSearch[]>
+    /**
+     * Says the person placed a result in a design. Main records it the first time it goes into that design, counts it
+     * as the source's usage, and tells the source if its terms ask. Call it whenever one is placed; it never fails.
+     */
+    placed: (placed: ConnectorPlaced) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string

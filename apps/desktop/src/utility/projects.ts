@@ -34,6 +34,7 @@ import {
   appFiles,
   changesLockfiles,
   codeSnapshot,
+  detectionInputs,
   detectProject,
   discoverProject,
   documentTarget,
@@ -58,6 +59,7 @@ import type { ProjectEditResult, ProjectInfo, ServiceMethods, WindowMethods } fr
 import { inSpan, track } from "../shared/tracing.ts"
 import type { ServedCode } from "./bitmap-store.ts"
 import type { BuilderExit, StartedBuilder } from "./builders.ts"
+import { degraded } from "./degraded.ts"
 import type { SavedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
 import { environment, type ServiceEnvironment } from "./environment.ts"
@@ -91,6 +93,8 @@ export interface ProjectListeners {
   codeChanged: (change: WindowMethods["project.codeChanged"]["params"]) => void
   /** A builder started again on a new port; resolves whether the windows now draw the guest from there. */
   guestMoved: (change: GuestMoved) => Promise<boolean>
+  /** What detection reads of a project changed since it opened, so its tabs open it again (PAR-820). */
+  detectionChanged: (change: WindowMethods["project.detectionChanged"]["params"]) => void
 }
 
 /** What the type checker and props found last time, kept outside the project (see detection-cache.ts). */
@@ -185,6 +189,17 @@ interface Project extends OpenProject {
   configWatchers?: Watching[]
   /** When it opened, by `performance.now()`, for how long it was open. */
   openedAt: number
+  /**
+   * The stamp of its stylesheets' last change, when its builder serves the guest restyled
+   * (`BuilderSession.restyledGuestUrl`), so a builder started again on the same port serves it where the windows
+   * already draw it rather than at an address they loaded before the change.
+   */
+  restyled?: number
+  /**
+   * What detection read of the project as it opened (`detectionInputs`), and the files, relative to the root, it was
+   * read from, followed as they are now: a change to one that changes the key needs the project opened again.
+   */
+  detected?: { key: string; files: Set<string> }
 }
 
 /** What an open learned on the way, for `project.opened` or `project.openFailed` (PAR-637). */
@@ -252,6 +267,11 @@ export interface OpenProjects {
   /** Opens a project, or gives the one open or opening there. `reopen` when it's one open as Parity last quit. */
   open: (root: string, how?: { reopen?: boolean }) => Promise<ProjectInfo>
   close: (projectId: string) => Promise<undefined>
+  /**
+   * Whether what detection reads of an open project changed since it opened, so opening it again detects it afresh
+   * (PAR-820), as `parity open` on an open project asks.
+   */
+  detectAgain: (projectId: string) => Promise<boolean>
   /** The roots of the projects open now. */
   roots: () => string[]
   get: (projectId: string) => OpenProject
@@ -324,6 +344,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    * its files and components, and what the type checker found last time.
    */
   async function detect(root: string, opening: Opening) {
+    // Read first, so a change made while the project opens is a change from what it opened with.
+    const inputs = await detectionInputs(root).catch(() => undefined)
     const pkg = (await readPackage(root))?.manifest
 
     if (!pkg) {
@@ -409,6 +431,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       documents,
       explain,
       fingerprint,
+      inputs,
       known,
       mainDocument,
       name,
@@ -484,6 +507,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       documents,
       explain,
       fingerprint,
+      inputs,
       known,
       mainDocument,
       name,
@@ -553,7 +577,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       components: Promise.resolve(saved?.props ?? {}),
       renderer,
       uiKit: config.uiKit || undefined,
-      openedAt: performance.now()
+      openedAt: performance.now(),
+      detected: inputs && { key: inputs.key, files: new Set(inputs.files) }
     }
 
     readProps(project, opened, config.componentFiles)
@@ -572,6 +597,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     projects.set(root, project)
+    // What detection read was taken before the watcher started, so a change made while the project opened is caught.
+    void tellDetectionChanged(project)
     logNote(`[service] ${info.name}: ${renderer.name} via ${builder.name} ${session.toolVersion} at ${info.guestUrl}`)
 
     for (const tool of [detection.packageManager, ...detection.tools]) {
@@ -591,23 +618,25 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   /**
    * Starts a project's builder in a process of its own and lists it. One that stops by itself shows as crashed, with
-   * why, and can be started again from the list, on the port it had if that's free.
+   * why, and can be started again from the list, on the port it had if that's free; `newPort` takes one no guest has
+   * had even then, as a builder that can't serve its guest restyled needs (PAR-821).
    */
   async function serveBuilder(
     root: string,
     name: string,
     builder: BuilderAdapter,
     options: BuilderStartOptions,
-    again = false
+    again = false,
+    newPort = !again
   ): Promise<BuilderProcessSession> {
     const id = builderProcessId(root)
     const began = performance.now()
 
     // A reopened project gets a new port, so the windows load its code afresh. On its last address they'd draw with the
     // project's React from before, which kept every closed canvas's frames in memory: about 130 MB each time.
-    const port = again
-      ? await restartPort(lastPorts.get(root), guestPorts, ports)
-      : await newGuestPort(guestPorts, ports)
+    const port = newPort
+      ? await newGuestPort(guestPorts, ports)
+      : await restartPort(lastPorts.get(root), guestPorts, ports)
 
     const tracking = trackProcess(
       {
@@ -649,6 +678,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
         if (project) {
           listeners.codeChanged({ projectId: project.info.id, ...change })
+        }
+
+        if (project && change.styles) {
+          void restyle(project, change.stamp).catch((cause: unknown) => {
+            console.warn(`[service] ${name}: couldn't serve its changed stylesheets: ${message(cause)}`)
+          })
         }
       }
     })
@@ -699,17 +734,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
   }
 
-  /** Starts a project's builder again with the components the project has now. */
-  async function startBuilderAgain(root: string): Promise<void> {
+  /**
+   * Starts a project's builder again with the components the project has now. `newPort` serves it where the windows
+   * have loaded nothing, so they load all of it afresh.
+   */
+  async function startBuilderAgain(root: string, newPort = false): Promise<void> {
     const project = getProject(root)
     await project.session.close()
-
-    const options = {
-      ...project.startOptions,
-      config: { ...project.startOptions.config, components: project.list.sources }
-    }
-
-    const session = await serveBuilder(root, project.info.name, project.builder, options, true)
+    const session = await serveBuilder(root, project.info.name, project.builder, servingOptions(project), true, newPort)
 
     if (projects.get(root) !== project) {
       await session.close()
@@ -718,18 +750,79 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     project.session = session
-    project.info.guestUrl = session.guestUrl
+    const restyled = project.restyled === undefined ? undefined : await session.restyledGuestUrl?.(project.restyled)
 
-    if (!project.fingerprints.has(session.guestUrl)) {
-      project.fingerprints.set(session.guestUrl, servedCode(root, options))
+    if (!restyled) {
+      project.restyled = undefined
     }
 
-    // It has its old port back unless something took it; then the open windows load the guest from the new one. That's
-    // checked against where they draw it, so a move they couldn't load is tried again when it's started again.
-    const drawn = await followGuest(root, project.drawnGuestUrl, session.guestUrl, listeners.guestMoved)
+    if (projects.get(root) === project && project.session === session) {
+      await serveGuestAt(project, restyled ?? session.guestUrl)
+    }
+  }
 
-    // Unless it was started again meanwhile, and what the windows were told is already out of date.
-    if (project.info.guestUrl === session.guestUrl) {
+  /**
+   * Serves the project's guest restyled once one of its stylesheets changed (PAR-821), and tells the windows, as when
+   * its builder moves: a guest loaded there imports the stylesheets afresh, so frames, bitmaps and tokens draw the CSS
+   * as it is now. A builder that can't serve it restyled is started again on a new port instead. The styling
+   * framework's theme is read again for tabs opened later.
+   */
+  async function restyle(project: Project, stamp: number): Promise<void> {
+    const { root } = project.info
+    const { session } = project
+
+    const [guestUrl, styles] = await Promise.all([
+      session.restyledGuestUrl?.(stamp),
+      loadStyles(root, project.stylesheets, project.info.detection)
+    ])
+
+    if (projects.get(root) !== project) {
+      return
+    }
+
+    project.info.theme = styles.theme
+
+    if (styles.info) {
+      project.info.styles = styles.info
+    }
+
+    if (project.session !== session) {
+      return
+    }
+
+    if (!guestUrl) {
+      logNote(`[service] ${project.info.name}'s stylesheets changed, so its builder starts again`)
+      await startBuilderAgain(root, true)
+
+      return
+    }
+
+    logNote(`[service] ${project.info.name}'s stylesheets changed, so its guest loads from ${guestUrl}`)
+    project.restyled = stamp
+    await serveGuestAt(project, guestUrl)
+  }
+
+  /** The options the project's builder serves its guest with now: its start options, with the components it has. */
+  function servingOptions(project: Project): BuilderStartOptions {
+    return { ...project.startOptions, config: { ...project.startOptions.config, components: project.list.sources } }
+  }
+
+  /**
+   * Serves the project's guest at `guestUrl`, kept bitmaps named by its code as that address first serves it, and tells
+   * the windows when that isn't where they draw it, checked against where they do, so a move they couldn't load is
+   * tried again the next time.
+   */
+  async function serveGuestAt(project: Project, guestUrl: string): Promise<void> {
+    project.info.guestUrl = guestUrl
+
+    if (!project.fingerprints.has(guestUrl)) {
+      project.fingerprints.set(guestUrl, servedCode(project.info.root, servingOptions(project)))
+    }
+
+    const drawn = await followGuest(project.info.root, project.drawnGuestUrl, guestUrl, listeners.guestMoved)
+
+    // Unless it moved again meanwhile, and what the windows were told is already out of date.
+    if (project.info.guestUrl === guestUrl) {
       project.drawnGuestUrl = drawn
     }
   }
@@ -781,7 +874,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       rescanning = rescanning
         .then(() => rescanComponents(project, paths))
         .catch((cause: unknown) => {
-          console.warn(`[service] couldn't read the changed components: ${message(cause)}`)
+          degraded("component_reread", "couldn't read the changed components", cause, root)
         })
     }
 
@@ -793,14 +886,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
           rescanning = rescanning
             .then(() => rereadConfig(project, configChanged))
             .catch((cause: unknown) => {
-              console.warn(`[service] couldn't read props again after the config changed: ${message(cause)}`)
+              degraded("config_reread", "couldn't read props again after the config changed", cause, root)
             })
         }, 400)
       )
     }
 
     void followConfig(project, configChanged).catch((cause: unknown) => {
-      console.warn(`[service] can't follow ${root}'s config for changes: ${message(cause)}`)
+      degraded("config_watch", `can't follow ${root}'s config for changes`, cause, root)
     })
 
     const reload = async (path: string) => {
@@ -832,7 +925,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         listeners.fileChanged({ projectId: project.info.id, path, document })
       } catch (error) {
         // Often a file caught mid-write; the next change event brings the rest.
-        console.warn(`[service] ${path} changed on disk but can't be read: ${message(error)}`)
+        degraded("design_reload", `${path} changed on disk but can't be read`, error, root)
       }
     }
 
@@ -847,6 +940,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
         if (!path) {
           return
+        }
+
+        if (project.detected?.files.has(path)) {
+          later("detection", 400, () => void tellDetectionChanged(project))
         }
 
         const change = projectFileChange(path, {
@@ -874,7 +971,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         }
       }
     } catch (error) {
-      console.warn(`[service] can't watch ${root} for changes: ${message(error)}`)
+      degraded("watch", `can't watch ${root} for changes`, error, root)
 
       return undefined
     }
@@ -924,11 +1021,43 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
             })
           ]
         } catch (error) {
-          console.warn(`[service] can't watch ${folder} for config changes: ${message(error)}`)
+          degraded("config_watch", `can't watch ${folder} for config changes`, error, root)
 
           return []
         }
       })
+  }
+
+  /** Tells the windows when what detection reads of the project changed since it opened, so they open it again. */
+  async function tellDetectionChanged(project: Project): Promise<void> {
+    if (await detectionChanged(project)) {
+      listeners.detectionChanged({ projectId: project.info.id })
+    }
+  }
+
+  /**
+   * Reads what detection reads of the project again (PAR-820), and whether it changed since the project opened:
+   * `components.json` added, a stylesheet created, a dependency added. Only opening it again takes that in. A file
+   * caught mid-write reads as no change, and the next event reads it again.
+   */
+  async function detectionChanged(project: Project): Promise<boolean> {
+    const { root } = project.info
+    const inputs = await detectionInputs(root).catch(() => undefined)
+
+    if (!inputs || projects.get(root) !== project) {
+      return false
+    }
+
+    const opened = project.detected?.key ?? inputs.key
+    project.detected = { key: opened, files: new Set(inputs.files) }
+
+    if (inputs.key === opened) {
+      return false
+    }
+
+    logNote(`[service] ${project.info.name}'s stylesheets, dependencies or Vite config changed since it opened`)
+
+    return true
   }
 
   /** Whether a change to `file` (absolute) is a change to the project's config inputs, or to which lockfiles it has. */
@@ -1023,7 +1152,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     try {
       checked = await checker.checkComponents(root, files)
     } catch (error) {
-      console.warn(`[service] the type checker couldn't read the components: ${message(error)}`)
+      degraded("type_check", "the type checker couldn't read the components", error, root)
       task.set("failed", { summary: "Couldn't read the components", error: message(error) })
 
       return false
@@ -1074,7 +1203,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     try {
       checked = await checker.checkComponents(root, toCheck)
     } catch (error) {
-      console.warn(`[service] the type checker couldn't read the changed components: ${message(error)}`)
+      degraded("type_check", "the type checker couldn't read the changed components", error, root)
 
       return
     }
@@ -1164,7 +1293,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     files?: string[]
   ): Promise<Record<string, ComponentInfo>> {
     return checker.inferComponents(root, sources, files).catch((cause: unknown) => {
-      console.warn(`[service] couldn't infer component props: ${message(cause)}`)
+      degraded("prop_inference", "couldn't infer component props", cause, root)
 
       return {}
     })
@@ -1230,6 +1359,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       }
 
       return undefined
+    },
+
+    async detectAgain(projectId) {
+      const project = projects.get(projectId)
+
+      return project ? detectionChanged(project) : false
     },
 
     roots: () => [...projects.keys()],

@@ -2013,7 +2013,7 @@ selected now.
 - **Picking one:** a design is selected and zoomed to; a layer is selected and scrolled into view; a component is
   inserted at the selection, as the insert picker does; a token opens the Tokens tab searched for it; a project opens.
 - **Panel actions are actions too:** Find repeated parts, for the selected screen, opens the inspector's Repeated parts
-  with what it found, as the section's own button does. Show Icons, Show Images and Show Tokens open those tabs.
+  with what it found, as the section's own button does. Show Icons, Show Media and Show Tokens open those tabs.
 - **Recent** holds the last six picks of any kind, latest first, and keeps them between runs. One that's gone, as a
   layer that was deleted, isn't listed; one that matches a search leads it, and isn't listed again below.
 - **The dialog is 512 pixels wide.** Keys show as keycaps; a row's design, source or value shows as plain text. Rows
@@ -2325,7 +2325,8 @@ Gaps: the system's own clipboard isn't read in the tests, and pasting an image o
 
 ## Adding images
 
-Images from outside Parity: pasted (Copy, paste and paste style, above) or dropped from the system's files.
+Images from outside Parity: pasted (Copy, paste and paste style, above), dropped from the system's files, or added in
+the Media tab, which lists the project's images.
 
 ### Dropping image files from Explorer or Finder (PAR-24)
 
@@ -2396,6 +2397,285 @@ end-to-end test. In a column, several images land one under another, since side 
 direction. Files land in a component's slot as Paste here does (PAR-419), which is in no test of dropping. Files from a
 browser rather than the system (a picture dragged from a web page carries a URL, not a file) aren't handled. Interact's
 drop into a design wasn't tried.
+
+### Listing and removing a project's images (PAR-834)
+
+A project's images are the files under `public/images/`, which pasting, dropping and downloading save there, and the
+photos image layers link to at a stock library's own address. `projectImages` in `@parity-app/editor` lists them, in the
+same shape for the window and for agents:
+
+- **Each image** has its kind (a file, a linked image, or a path layers name with no file there), its `src`, its file's
+  path and size, its alt text and credit from the first layer showing it, and what uses it.
+- **What uses an image** is every layer that names it in the designs as they are, unsaved changes included: image
+  layers, the props components and instances are given (an avatar's `src`), and the props states, variants, viewports
+  and instances' overrides patch in. A prop counts when it's called `src`, or its value names a file in `/images/`. The
+  project's own code counts too: any line naming `images/<file>`, as an `<img>`, an import or a CSS `url()` does, in
+  scripts, styles, markup and framework components outside `node_modules`, `public` and build folders.
+- **The order** is files by path, then linked images, then paths with no file.
+
+Agents list them with `get_images` (`parity images`), narrowed by text in a name, alt text or credit, or to images
+nothing uses, 50 at a time by default. `remove_image` (`parity images remove <image>`) takes a path, an address or a
+file name.
+
+**Removing** takes only a file in `public/images/` that no design and no code uses. Otherwise it says why and where
+("hero.png is still used in Home and src/index.css (line 2). Remove or replace it there first."), with the error code
+`image_in_use`, or `unknown_image` for an image the project doesn't have. A linked image or a missing file has no file
+to remove, so it says to remove or replace the layers instead. The file is removed as a project edit, so
+`project.undoEdit` puts it back. The service checks the code again before removing, and refuses a path outside
+`public/images/` or a file that isn't an image.
+
+The service's `images.scan` reads the files and the code that names them, and `images.remove` removes one. The window
+lists and removes them in the Media tab, below.
+
+Tests:
+
+- `packages/editor/src/project-images.test.ts` (8): the order and kinds, every place a design names an image, the lines
+  of code, finding an image by path, address or file name, filtering, and why one can't be removed.
+- `apps/desktop/src/utility/images.test.ts` (3): scanning real files and skipping installed and built code, removing as
+  an edit that undoing puts back, and refusing a file the code names, a path outside the folder and what isn't an image.
+- `packages/agent/src/dispatch.test.ts`: listing with what uses each image, keeping to unused ones, and removing one
+  nothing uses while refusing one a design shows or the project doesn't have.
+- `packages/cli/src/operations.test.ts`: `parity images` and `get_images`, `parity images remove` and `remove_image`,
+  through both transports.
+
+Gaps: an agent's removal isn't in the window's undo history, so undoing it from the window waits on the design. A string
+that only builds an image's path at run time (`` `/images/${name}.png` ``) isn't found in code. Images elsewhere in
+`public/`, or imported from `src/assets/`, aren't listed.
+
+### The Media tab (PAR-838)
+
+The left panel's Media tab, which replaced the Images tab, lists the project's images (`projectImages`, above) as a wall
+of the pictures themselves, two across, each as tall as its own proportions make it.
+
+- **The wall** puts each picture in whichever column is shortest, so the columns stay level and adding one never moves
+  the ones before it (`packWall`). A picture is between a wide strip (half as tall as wide) and a tall card (1.4 times),
+  so one panorama or long screenshot doesn't take the wall, and takes a photo's proportions until it has loaded. Files
+  and linked photos load from the project's builder, as the canvas's guest loads them; a linked photo is marked with a
+  link, and a path with no file is a dashed tile with its file's name. Pointing at one shows its name over its foot.
+  Where a picture is transparent, a grid of squares in the theme's grays shows through (`transparencyGrid`, PAR-871).
+- **Search and type:** Search media matches a name, path, address, alt text or credit (`filterImages`). With both photos
+  and SVGs in the project, All, Images and Vectors narrow the wall by file type (`mediumOf`).
+- **Inserting:** pressing a picture inserts it at the selection, as an icon or component is inserted, or as a new frame
+  with nothing selected; it drags onto the canvas the same way (`imageItem`, through the Assets panel's insert and drag,
+  now shared in `chrome/insert-from-panel.ts`). It's 320px wide at its own proportions, with the alt text and credit it
+  has elsewhere. A path with no file can't be inserted.
+- **Its card** opens after resting on a picture for half a second, or with the right arrow, as a component's card does
+  (redesigned in PAR-871). The picture is as large as its box allows (`fitPicture`), though a bitmap smaller than the
+  box stays at its own size so it doesn't blur, and a vector grows to fill it. The transparency grid is behind the
+  picture alone, so the plain gray round one that doesn't fill the box is outside it. Then its name (a path with no file
+  by its file's name, as its tile is), and its facts in labelled rows: Size; File (its size in bytes, "Not saved" for a
+  linked photo, or "Missing"); Path, or Link for a linked photo's site, cut to fit and whole in its tooltip; and Credit,
+  who took it on which library, with Open in that library. A row with nothing to say is left out. Insert and remove are
+  in its bar.
+- **Where it's used,** on the card, is up to three rows (`usesOnCard`): the designs with the most layers first
+  (`designsUsing`), then files of code, one row a file with its lines, named by as many folders as tell two of a name
+  apart (`codeFilesUsing`). A design's row is its Show button, which selects every layer in it that shows the picture
+  and scrolls to them; Show takes the layer count's place under the pointer or focus. One place past three is listed
+  rather than counted. Past that, a last row counts the rest, "2 more designs and 4 files of code" ("2 more files of
+  code" when some are listed), which opens every place in the card's stead: Designs then Code, each with its count and a
+  heading that stays at the top while its rows scroll, Search designs and code once there are eight or more places
+  (`findUses`), and Back. Focus moves into it and the card holds it, so it stays open with the pointer away. Escape
+  clears the search, then goes back to the card, to the row that opened every place. A logo in hundreds of layers is
+  still three rows on its card. Nothing using it says "Not used yet".
+- **Adding:** image files dropped on the tab, or chosen with **+**, are saved under `public/images/` as dropped files
+  are (`addImageFiles`), and arrive marked for a moment. The tab outlines itself while files are over it, saying what a
+  drop adds or that only the five types can be added.
+- **Removing,** from the card, the right-click menu or Delete, follows `removalOf`. A file nothing uses goes at once, as
+  a project edit whose Undo puts it back. One that designs use asks first, listing where, and "Remove file and 3 layers"
+  removes the layers that show it as one step of the designs' history, then the file; the file's Undo puts the layers
+  back too while that step is still the latest. A linked photo or a path with no file has only layers to remove. One the
+  project's code names stays: the dialog lists the lines and says to remove or replace it in the code first.
+- **Listing** asks the service (`images.scan`) as the tab opens, and again when a design names a file the last scan
+  didn't have, as one pasted onto the canvas meanwhile; the designs themselves are read as they are, unsaved changes
+  included. Before the first answer the tab shows the wall's shape; a failed scan says so and shows what it last had.
+
+Code: `packWall` and `tallnessOf` in `packages/editor/src/media-wall.ts`; `mediumOf`, `designsUsing`, `codeFilesUsing`,
+`usesOnCard`, `findUses`, `removalOf` and `imageItem` in `packages/editor/src/project-images.ts`; `imageAccept` and
+`imageKinds` in `drop-files.ts`. The tab is `apps/desktop/src/renderer/media/`: `MediaPanel.tsx` (search, type, adding,
+the remove dialog's flow), `MediaWall.tsx` (the wall and its tiles), `MediaCard.tsx` (the card and its facts),
+`MediaUses.tsx` (where it's used on the card, every place, and the remove dialog's list), `RemoveMediaDialog.tsx`,
+`ProjectPicture.tsx` (a picture at the builder's address, noting its size in `picture-sizes.ts`, and the transparency
+grid), `project-media.ts` (the scan, kept per open project) and `remove-media.ts`.
+
+Tests:
+
+- `packages/editor/src/media-wall.test.ts` (11): proportions kept between the strip and the card, a photo's before the
+  size is known, the shortest column first, what's above each, the wall's length, earlier pictures never moving, gaps
+  weighed with widths, and a picture fitted to the card's box, a small bitmap at its own size and a vector grown.
+- `packages/editor/src/project-images.test.ts`: `mediumOf`, `designsUsing` grouping and ordering, code grouped by file
+  and named apart, what a card lists and leaves out (one past the room listed), finding uses by name, `removalOf` for
+  each case, and `imageItem`.
+- `media/MediaPanel.stories.tsx` (21 stories, each with its check): no media, loading, the wall, linked and missing
+  pictures, searching, nothing matching, vectors only, a card and its facts, a linked photo's card with its credit, a
+  card for one nothing uses, one for a missing file, a logo in a hundred layers and four files of code (every place, its
+  search, staying open with the pointer away, and Escape back to the card), Show selecting every layer in a design,
+  inserting at the selection, removing an unused file, removing one in use with its layers, one the code names, dropping
+  files, the narrowest panel, adding a picture from Pixabay, and a search that finds nothing offering Pixabay. The
+  stories' pictures are drawn for them and served at `/images/`, as a builder serves `public/images/`.
+
+Gaps: videos aren't in the tab yet (PAR-841). Removing a component layer that takes the image as a prop removes the
+whole layer, as the dialog's count says. There are no thumbnails: every picture loads whole as the tab opens, so a
+project with hundreds of large images loads them all.
+
+### The library browser (PAR-839)
+
+Searching a library outside the project happens in one wide dialog over the window, whichever library it is. Its
+controls come from what the library's connector says about itself (connectors.md), so a new library needs no change to
+it.
+
+- **Before a search** it lists the last few searches, each with what narrowed it, beside searches the library suggests.
+  A click runs one. Tips, a click away from the field, say how to search that library.
+- **Searching:** the field names what the type chosen finds ("Describe a vector"), and Enter searches. Up to three
+  filters show beside it; the rest wait behind Filters, which counts the ones set. Choosing a filter searches again with
+  the same words, and a filter shows only where it applies (`shownFilters`, `choose`, `setPastView`).
+- **Results** come a page at a time, and more arrive as the view nears the end (`requestFor`, `mayHaveMore`). Pictures
+  pack into columns at their own proportions; screens sit in rows of one shape, three web pages or four phones across
+  (`layoutFor`, `sizeOf`). Each says who made it, a video how long it runs, and the count names the type (`countOf`).
+  Mobbin's Search deeper checks each screen against the description.
+- **Picking:** a click picks a result and another lets it go; the footer's button counts them ("Add 2 to project"),
+  Clear lets them all go, and Ctrl+Enter presses it. What can't be picked, as a video until PAR-841, opens larger
+  instead (`isPlaceable`).
+- **Larger:** a double click shows a result as large as the dialog allows, with Open in the library, Pick and a strip of
+  every result under it. The arrows step through them, and Esc goes back to the results before it closes the dialog.
+- **When a search fails:** nothing matching says what to change, with Clear filters, or the other platform on Mobbin
+  (`otherSide`). Too many searches counts down the wait the source asked for before Try again; a source that didn't
+  answer offers Try again; a library this copy has no key for says it isn't available, with nothing to set up.
+
+Code: `packages/connectors/src/browse.ts`; `apps/desktop/src/renderer/library/`: `library-browser.ts` (which library is
+open and what picking does), `use-library-search.ts` (the search, its pages and its state), `LibraryBrowser.tsx`,
+`FilterControls.tsx`, `ResultsGrid.tsx`, `ResultPicture.tsx`, `LargerView.tsx`, `BrowserStates.tsx` and
+`SourceMark.tsx`.
+
+Tests:
+
+- `packages/connectors/src/browse.test.ts` (22): the filters shown and chosen, the count behind Filters, the kind and
+  layout, a result's size, the request for each page and for videos, when more may come, what's found is called, what
+  narrowed a recent search, the other platform, the depth's names, a result's label, what can be picked, a video's
+  length, and a picture's credit.
+- The browser's stories, grouped by library under Parity/Library browser, each with its check except Searching and the
+  two Live ones, sharing their setup in `library/browser-stories.tsx`: `LibraryBrowser.Pixabay.stories.tsx` (16): just
+  opened, recent searches, results, a typed search, choosing a type, filters behind Filters, picking, larger, more as
+  you scroll, videos, nothing found, too many searches, no answer, no key, searching and Live;
+  `LibraryBrowser.Mobbin.stories.tsx` (5): screens, phones, nothing found, deep search and Live; and
+  `LibraryBrowser.Unsplash.stories.tsx` (1). The Live stories search Pixabay and Mobbin with the keys in
+  `apps/desktop/.env.local`.
+
+### Adding stock pictures (PAR-839)
+
+The Media tab's **Add media** menu has Find on Pixabay beside Choose files, and a search that finds nothing in the
+project offers "Find it on Pixabay" with the same words. Both open the library browser on Pixabay.
+
+- **Adding:** "Add 2 to project" saves each picture picked into `public/images/`, one at a time in the order picked,
+  with a toast while it does (`images.saveFrom`). Any that fail are named, and the rest are kept. They arrive on the
+  wall marked.
+- **Credit:** what each shows and who made it go into the project's main file, in its `images` map, as one undoable step
+  (`keepImageDetails`). The card's Credit row names the author, linked to the picture's page, on Pixabay, with Open in
+  Pixabay, before any layer uses it (`pictureCredit`, `projectImages`).
+- **Usage:** each is reported as placed, with `media` as its design (connectors.md).
+
+Code: `apps/desktop/src/renderer/media/add-stock.ts`, `MediaPanel.tsx` (the menu and the offer) and `MediaCard.tsx` (the
+credit); `keepImageDetails` in `packages/editor/src/project-images.ts`; `saveImageFrom` behind `images.saveFrom`.
+
+Tests:
+
+- `packages/editor/src/project-images.test.ts`: a file credited with what the project kept, and `keepImageDetails`.
+- `packages/connectors/src/browse.test.ts`: `pictureCredit`.
+- `media/MediaPanel.stories.tsx`: adding a picture from Pixabay, and a search that finds nothing offering Pixabay.
+
+## References
+
+### Screens from real apps beside a design (PAR-840)
+
+A reference is a screen from a real app, placed on the canvas beside a design to look at, never in it. It's kept in the
+project's `.par` file, in its `references` list beside its notes (decisions.md), with what the search gave: the
+connector and the source's id, the app, its platform, its link, its picture with its size and when its link stops
+working, where it sits, the description that found it, a note, and the agent that placed it. It isn't a design: it has
+no board, states, modes or layers, it isn't in Layers, and code and exports leave it out.
+
+- **Find references** is one command: R, the toolbar after the review button, Object in the menu bar, the right-click
+  menu around designs and on designs, and Search actions. It opens the library browser on the offered connector that
+  finds screens, Mobbin today. With a design selected it opens already searched, on the design's name: "pricing page" on
+  the web when its main preview is 600 pixels wide or more, and "… screen" on iOS otherwise (`referenceSearch`). With
+  nothing selected it opens on the recent searches.
+- **Placing:** "Place 2 on canvas", or Ctrl+Enter, puts what's picked in a row beside the design that was selected as it
+  opened, top-aligned with it, or around the middle of the view without one. A later batch starts a row under the last,
+  and the row moves right past anything else in the way, as copies of designs do (`referenceRow`). Each keeps the
+  description it was picked under, since picks carry across searches. They go in as one undoable step, into the design's
+  file or the main file, the canvas fits them in, and the last is selected.
+- **On the canvas** each is its picture at its screen's width, 1,280 pixels for the web and 390 for iOS, as tall as its
+  picture (`referenceSize`), with its app and its source under it and its note below, in captions that stay one size on
+  screen. A picture whose link has run out, or that won't load, shows the app's name and Open in Mobbin in its place,
+  which takes a click once the reference is selected (`referenceExpired`).
+- **Selecting, moving, nudging, deleting and Undo** work as they do for a note: a click selects it in the layer color, a
+  drag or the arrows move it in one undo step each, Delete removes it, and a double click opens it at its source. Copy
+  and Cut leave it out, since it can't be pasted into a design.
+- **The inspector's Design tab** shows a selected reference's source, platform, the description that found it and who
+  placed it ("You" for the person), with Open in Mobbin, More from the app (the browser on the app's name and the
+  reference's platform, `moreFromApp`), and a note.
+- **Agents** place one with `PlaceReference(id, { near, note })` in `execute`: main's own copy of a screen it found for
+  the agent lately, beside the design `near` names or the selected one, after the last one the call placed. It goes
+  through the same change, as part of the call's one undo step, and names the agent that placed it.
+
+Code: `referenceSpec` in `packages/core/src/document.ts`; `packages/editor/src/references.ts` (the changes, size, row
+and searches) and `mergeAgentChanges` in `design-changes.ts`; `apps/desktop/src/renderer/references/find-references.ts`,
+`canvas/ReferenceUtil.tsx`, `chrome/ReferencePanel.tsx`, and the references in `design-store.ts`,
+`canvas/CanvasEditor.tsx`, `canvas/nudge.ts` and `chrome/commands.ts`; `PlaceReference` in
+`packages/agent/src/workspace.ts`, with `foundScreen` in `apps/desktop/src/utility/references.ts`.
+
+Tests:
+
+- `packages/editor/src/references.test.ts`: kept in the file and read back, a new file, a note, a change and a deletion,
+  an agent's references merged, the size for each platform, an expired picture, the row beside a design, under the last
+  batch, past a design in the way and around the view, the search for a design and for more from an app, and a screen
+  turned into a reference.
+- `apps/desktop/src/renderer/references/find-references.test.ts`: placing as one step with each one's search, and
+  deleting with Undo.
+- `apps/desktop/src/renderer/canvas/nudge.test.ts`: a reference nudged, as one step to undo.
+- `apps/desktop/src/renderer/chrome/canvas-menu.test.ts`: Find references in both right-click menus.
+- `packages/agent/src/dispatch.test.ts`: `PlaceReference` beside a design in a row with the agent's name and note, and
+  nothing placed for a screen Parity hasn't found or with no design to put it beside.
+- `references/References.stories.tsx` under Parity/Canvas/References: from the toolbar and placing (with checks), on the
+  canvas, placed by an agent, and an expired picture (with a check). Dragging a reference and Delete then Undo were
+  tried by hand in the Place references story.
+
+### Agents read the references beside a design (PAR-889)
+
+A reference records the design it was found for, by id, whether Find references or `PlaceReference` placed it. Agents
+read references three ways:
+
+- **`get_app_state`** gives each design with references a `references` count.
+- **`References(design?)` in `execute`** lists each one's id on the canvas, app, platform, link, picture link (with
+  `expired` once it stops working), the description that found it, its note, the agent that placed it, and the design
+  it's for, with its file. That's the design it recorded while that design is still in its file, or else the design
+  whose board edge is nearest, within 1,600 pixels (`nearestBox`); a reference further from every design is for none.
+  Given a design, it lists only the references for it.
+- **`get_references`** (`parity references placed [design]`) answers the same list with the pictures fetched and saved
+  under `~/.parity/references`, as `find_references` saves previews, and MCP shows them as images. Each is a whole
+  screen, so only the first 6 are fetched unless `limit` says (up to 20), and the answer says how many more have none. A
+  picture whose link has run out isn't fetched, and neither is one whose link isn't https, since it comes from the file.
+
+The skill tells agents to look at a design's references before changing it.
+
+Code: the `design` field in `referenceSpec`; `nearestBox` in `packages/editor/src/references.ts`; `References`
+(`listReferences`) in `packages/agent/src/workspace.ts`, and `placedReferences` and the count in `state` in
+`dispatch.ts`; `savePictures` in `apps/desktop/src/utility/references.ts`; `get_references` in `packages/cli/src/mcp.ts`
+with `describePlacedReferences` in `client.ts`.
+
+Tests:
+
+- `packages/editor/src/references.test.ts`: a screen turned into a reference keeps the design it's for, and the nearest
+  design by edge, overlapping, with none, and past the distance given.
+- `apps/desktop/src/renderer/references/find-references.test.ts`: placing records the design they were found for.
+- `packages/agent/src/dispatch.test.ts`: `PlaceReference` records the design; `References` with the recorded design over
+  the nearest one, one design's, one placed in the same call, the same design id in two files, a deleted design's
+  falling back, and a far one for none; `get_references` with pictures, not asking for an expired one or past `limit`;
+  and the count per design and file in `get_app_state`.
+- `apps/desktop/src/utility/references.test.ts`: each reference's picture saved by its app and id, and one that can't be
+  fetched or isn't https left out.
+- `packages/cli/src/operations.test.ts`: `get_references` and `parity references placed` with the same input and answer,
+  the pictures shown over MCP and their base64 left out of `--json`, and the text for references, for none and for those
+  past `limit`.
+- `packages/cli/src/skill-examples.test.ts`: the skill's `References` example runs against a reference beside Dashboard.
 
 ## Exporting
 
@@ -3086,8 +3366,23 @@ decisions.md's "Saving is explicit" sets out.
 - **A frame shows a theme set by attribute** (PAR-22): a mode whose class names a theme the stylesheet switches on with
   an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
   body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
-  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. An attribute on the
-  root (`:root[data-theme="dark"]`) still never applies in a frame, as the frame's root is its shadow host.
+  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. A theme's attribute
+  on the root (`:root[data-theme="dark"]`) isn't set this way: it applies only where the mode or a decorator sets it, as
+  below.
+- **A frame draws the root with a class or attribute on it** (PAR-819): `:root.dark`, `html[data-theme=dark]` and
+  `:root:not(.dark)` apply in frames as in a page. The frame's root is its shadow host, which matches nothing written
+  after `:host`, only inside `:host()`, so `prepareCanvasCss` draws such a rule as two selectors: the host with it
+  (`:host(.dark)`), where a decorator may set attributes, and the frame's body with it (`[data-canvas-body].dark`),
+  where a mode's class goes. On the body, the root's own rule sits in a cascade layer the frame declares before the
+  project's (`qualifiedRootLayer`), so the body's own rules beat it, as they beat what a page's body inherits from its
+  root, while `:root.dark.contrast` still beats `:root.dark`. A font size there, in a nested `@media` too, sets the
+  frame's `rem`, whatever the body's own font size is, and its `!important` is dropped there, as an inherited value has
+  none. Left as is: a qualified root's value beats a plain root's on the body even where the page's cascade would pick
+  the plain one, as with a `:root.dark` in an earlier layer than `:root`. A `var()` in its values resolves on the body,
+  so a `body` rule that changes a variable the root's value refers to changes that value too, where a page's body would
+  inherit it as the root worked it out. A root with a `:not()` on it is drawn as the body alone, since the host never
+  has the mode's class. Tokens are read with the rule as written (`qualifiedRoots: false`), so `:root.dark` is still the
+  `dark` theme in the Tokens tab, and now the Dark frame draws those values too.
 
 Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
 (`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and
@@ -3118,6 +3413,9 @@ Tests:
   with its designs; Show every state off again leaving the file clean; another state and back from a file with its view
   written out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk
   taken as saved, unless they have unsaved changes; and no token override left once an edit is undone (PAR-465).
+- `apps/desktop/src/renderer/agent/file-changed-events.test.ts` (2): a file changed on disk with unsaved changes here
+  records `document.conflicted`, and Load from disk records `document.loadedFromDisk`; one with nothing unsaved records
+  neither (PAR-809).
 - `packages/editor/src/design-changes.test.ts` (14): changing, moving, adding and deleting designs, and notes; merging
   an agent's call: two calls changing different designs in one file both kept, the person's edit to another design kept,
   a design changed on both sides refused by name with nothing applied, tokens included ("refuses a design changed by
@@ -3155,6 +3453,10 @@ Tests:
   `packages/core/src/css.test.ts`, how frames draw the block, at the top level, nested in a rule or in the root's own
   rule, under a layer, and left as written for reading tokens; `apps/desktop/src/renderer/frame.test.ts`, in Chrome, a
   frame drawing the block for its own scheme while the window prefers dark; and `fixtures/mantine/expected.json`.
+- A root with a class or attribute on it (PAR-819): `packages/core/src/css.test.ts` (3): `:root.dark`,
+  `html[data-theme=dark] .card` and `:root:not(.dark), .x` drawn as the frame's host and body, a plain `:root` left as
+  `:host` ("draws the root with a class or attribute on it as the frame's host and body"); a qualified root's font size
+  setting the frame's `rem` where only the body has the qualifier; and the rule kept as written for reading tokens.
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).
@@ -3980,8 +4282,65 @@ console's row are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Rad
 the app on 2026-11-06 with `scripts/drive.ts`: breaking `button.tsx` drew error boxes in 48 frames, counted on 20 boards
 with no sheet over any frame, and kept every board's picture; fixing it cleared them, with every bitmap back 2.4 s
 later. Gaps: a board drawn only from a bitmap kept from an earlier session has no console error until its frames draw; a
-class used nowhere in the project before an edit has no CSS until the project opens again, since the guest's stylesheet
-isn't reloaded; the workspace's `codeChanged` is checked by reading and in the app.
+class used nowhere in the project before an edit has no CSS until a stylesheet changes or the project opens again, since
+a component's save doesn't reload the guest's stylesheet (PAR-821 reloads it for a stylesheet's save); the workspace's
+`codeChanged` is checked by reading and in the app.
+
+### Stylesheet edits redraw frames (PAR-821)
+
+Saving one of the project's global stylesheets (the one `components.json` names, the ones the entry imports, or a file
+one of them `@import`s) redraws frames, bitmaps and `parity screenshot` with the new CSS, and updates the tokens the tab
+reads from it, without reopening the project. Before, `parity tokens` showed the new values at once, since it reads the
+file, but frames drew the CSS the guest was loaded with until Parity restarted: the guest imports the stylesheets once,
+as text, and a code change only loaded components again.
+
+- **The builder says a stylesheet changed.** Vite's `stampChange` stamps the file's modules and their importers as for
+  any code change, and says `styles` when the file is a stylesheet (core's `isStylesheetFile`) whose modules include one
+  the guest imports as text (Vite's `styles.css?inline`), directly or through an `@import`. A component's own CSS module
+  isn't one; it loads again with its component. Core's `gatherChanges` sends a burst with a stylesheet in it even when
+  no component file changed.
+- **The builder says where the restyled guest is** (`BuilderSession.restyledGuestUrl(stamp)`), asked of its process.
+  Vite's is its own address with the change's stamp (`restyledGuest`, `?styles=<stamp>`): Vite writes the stamped
+  stylesheets' imports with `?t=`, so the guest loaded there imports the CSS as it is now, while the renderer and
+  unchanged components keep the modules the page has. The service serves the guest there and tells the windows as when a
+  builder moves (`project.guestMoved`). The tab swaps in the new guest and its tokens and lets go of the old one
+  (`moveGuest`); bitmaps are named by the code as the new address first served it, so none drawn with the old CSS is
+  shown. The styling framework's theme is read again for tabs opened later.
+- **A builder that can't say is started again on a new port,** one the windows have loaded nothing from, so they load
+  the whole guest afresh.
+- **A builder started again keeps the stamp,** asking the new session for the restyled address, so on the same port it
+  serves the guest where the windows already draw it, rather than at the address they loaded before the change.
+
+**What a builder adapter does for this.** It reports changes through `BuilderSession.codeChanges`, gathered with core's
+`gatherChanges`, with `styles` set when a saved file is one of the stylesheets its guest imports, told by
+`isStylesheetFile`. Then it either offers `restyledGuestUrl`, serving there, until it closes, a guest that imports its
+stylesheets as they are now at an address the windows haven't loaded, or leaves it out and accepts being started again
+on each stylesheet change, which costs a whole builder start.
+
+Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherChanges` in
+`packages/core/src/code-changes.ts`; `styles` in `CodeChange` and `restyledGuestUrl` in `BuilderSession`,
+`packages/core/src/adapters.ts`; the `restyledGuestUrl` request and the change passed on whole in
+`packages/core/src/builder-process.ts`; `stampChange` in `packages/builder-vite/src/code-changes.ts` and `restyledGuest`
+in `packages/builder-vite/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in `openProjects`,
+`apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`. Project discovery tells
+stylesheets by the same list (`stylesheetImports` and `readStylesheet` in `packages/project/src/styles.ts`,
+`importedFiles` in `preview-key.ts`).
+
+Tests: `packages/core/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
+stylesheet sent without a component file, and the next burst without one not saying so).
+`packages/builder-vite/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said to
+change the guest's stylesheets, a component's CSS module not). `packages/core/src/builder-process.test.ts` (the change
+passed on with `styles`; the restyled address asked of the process, and none from a builder without it or once it
+closes). `apps/desktop/src/utility/projects.test.ts` (2: a component's change moves nothing, a stylesheet's moves the
+guest to the restyled address with its code snapshot, and a builder started again on the same port keeps it; a builder
+without a restyled address started again on a new port). `packages/builder-vite/src/stylesheets.test.ts` (1, a real Vite
+server: a file the stylesheet `@import`s, edited, is said to change the guest's stylesheets, and the guest at the
+session's restyled address imports the stylesheet with `?t=` and gets the new CSS).
+`packages/project/src/styles.test.ts` (Less imported as a global stylesheet, a Sass CSS module not). Checked in a
+development copy of the app on 2026-11-09 with `scripts/drive.ts` on `examples/shadcn-vite`: a custom property added to
+`src/index.css` was in the frames' stylesheets 2.6 s after the save, with no reopen. Gaps: the window side is
+`moveGuest`'s, covered in `workspace.test.ts`; a Tailwind class used nowhere before a component's edit still has no CSS
+until a stylesheet changes or the project opens again, since a component's save doesn't reload the guest's CSS.
 
 ### Bitmaps kept between sessions (PAR-158)
 
@@ -4808,6 +5167,45 @@ reopen serves the project on a new port. Gaps: the offscreen renderer's side has
 `restartBuilder` sending `project.guestMoved` to the window. A project service started again forgets the ports, while
 the window keeps what it loaded from them.
 
+### Detected again when what detection reads changes (PAR-820)
+
+An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: a
+`components.json` added or changed, a stylesheet created where the conventions look, `index.html` or the entry it loads
+changed, a dependency added or removed, or a Vite config added. A TanStack Start app has no `index.html`, so
+`components.json`'s `tailwind.css` is how its stylesheet is found; before, adding one to an open project changed nothing
+until Parity restarted.
+
+- **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's stylesheets,
+  the packages' stylesheets the entry imports, `components.json`'s UI kit alias, the dependencies' names and which Vite
+  config there is. It reads them before detection, compares again once the project's watcher has started, so a change
+  made while the project opened counts, and again 400 ms after a change to one of the files they came from. A
+  stylesheet's contents, a script in package.json or a version bump change nothing it compares, so they don't reopen the
+  project. A package.json that's missing or half-written, or a `components.json` that's there but half-written, as while
+  they're rewritten, fails the read, which counts as no change; a `components.json` taken away is a change.
+- **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
+  (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is. A tab
+  told while it's still loading asks again once it's ready, since what it loaded may have been read before the change.
+- **`parity open` on an open project** asks the service whether detection changed (`project.detectAgain`) and opens it
+  again first when it did, so the answer describes the project as detected now.
+
+Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
+`styles.ts`; `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
+`apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
+`shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
+`renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
+
+Tests: `packages/project/src/detection-inputs.test.ts` (5: `components.json` naming a stylesheet changes the key; a
+conventional stylesheet or Vite config appearing changes it, and the entry `index.html` names is followed; dependencies
+change it while scripts, versions and a stylesheet's contents don't; a missing or half-written package.json fails; a
+half-written `components.json` fails while one taken away doesn't). `apps/desktop/src/utility/projects.test.ts` (2: an
+open project whose `components.json` now names its stylesheet tells the windows, a file detection doesn't read doesn't,
+a moment without package.json isn't a change, and opened again it's detected from the new file; a `components.json`
+written while the builder starts is told once the project is open). `apps/desktop/src/renderer/workspace.test.ts` (2:
+asked to detect again, a tab opens its project again only when the service says detection changed; a tab told while
+loading asks again once it's ready). Gaps: the handlers wiring `agent.open` and `project.detectionChanged` to the
+workspace is checked by reading; the UI kit's folder filling with files, a `.storybook` folder added and a Vite config's
+contents aren't compared (Vite restarts its own server when its config changes).
+
 ### A tab closed while its project opens (PAR-427)
 
 Closing a tab whose project is still opening, as tabs restored at launch can be, closes the project once the service has
@@ -4976,13 +5374,14 @@ turns it off with the pointer, checking its description stays put.
 Help > Report a problem asks what happened and sends it to the Parity team with a screenshot of the window (on by
 default, shown in the dialog, taken once the menu has closed), and lists what else goes: the last minute of the window
 as a replay, the last hour of the local log, the versions of Parity and the system, and the open projects. Send stays
-off until something is written. It's sent even with Share diagnostics off, since the person asked; nothing else is. A
-sent report says thanks and nothing more: no link, since only the team can open it. A report that can't be sent says to
-check the connection, and keeps what was written. When the last run of an installed build ended without quitting, Parity
-offers the same dialog as it starts, titled "Parity closed unexpectedly", with the crash in the list and Not now in
-place of Cancel. Opened from a part's fallback, the list starts with the error that part caught, named by the part's
-title: "The error from Layers" (PAR-757). It's listed only when the report is linked to that error, which a thrown
-string or number can't be. `parity diagnostics` writes a zip of the same files, for a bug filed by hand.
+off until something is written. It's sent even with Share diagnostics off, since the person asked; nothing else is, even
+while it's sent (PAR-813). What was written loses its secrets, as every event does. A sent report says thanks and
+nothing more: no link, since only the team can open it. A report that can't be sent says to check the connection, and
+keeps what was written. When the last run of an installed build ended without quitting, Parity offers the same dialog as
+it starts, titled "Parity closed unexpectedly", with the crash in the list and Not now in place of Cancel. Opened from a
+part's fallback, the list starts with the error that part caught, named by the part's title: "The error from Layers"
+(PAR-757). It's listed only when the report is linked to that error, which a thrown string or number can't be.
+`parity diagnostics` writes a zip of the same files, for a bug filed by hand.
 
 `@parity-app/telemetry`'s `diagnostics.test.ts` covers finding a run that didn't quit (ignoring runs only the CLI
 recorded), reading the local log's lines, and the files a report takes: the last hour of events, versions, projects and

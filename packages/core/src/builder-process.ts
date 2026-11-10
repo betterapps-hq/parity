@@ -18,6 +18,8 @@ export type BuilderProcessRequest =
   | { type: "components"; components: Record<string, ComponentSource> }
   /** Its CPU time and memory, for the performance stats. */
   | { type: "usage"; id: number }
+  /** Where it serves the guest with the stylesheets of the change stamped `stamp` (PAR-821). */
+  | { type: "restyledGuestUrl"; id: number; stamp: number }
   /** Closes the builder, then ends the process. */
   | { type: "close" }
 
@@ -28,6 +30,8 @@ export type BuilderProcessReply =
   /** Project files whose code changed on disk, as the builder found them (PAR-165). */
   | ({ type: "codeChanged" } & CodeChange)
   | ({ type: "usage"; id: number } & ProcessTimes)
+  /** The restyled guest's address, or none when the builder doesn't offer one. */
+  | { type: "restyledGuestUrl"; id: number; guestUrl?: string }
 
 /** A process's CPU time and memory, as it reads them itself. */
 export interface ProcessTimes {
@@ -117,6 +121,14 @@ export function serveBuilderProcess(
       Object.assign(components, request.components)
     } else if (request.type === "usage") {
       side.send({ type: "usage", id: request.id, ...side.usage() })
+    } else if (request.type === "restyledGuestUrl") {
+      const { id, stamp } = request
+      void session
+        .then((started) => started?.restyledGuestUrl?.(stamp))
+        .catch(() => undefined)
+        .then((guestUrl) =>
+          side.send(guestUrl ? { type: "restyledGuestUrl", id, guestUrl } : { type: "restyledGuestUrl", id })
+        )
     } else if (!closing) {
       closing = true
       void session
@@ -135,7 +147,12 @@ export interface BuilderProcessLink {
 }
 
 /** A builder session whose builder runs in a process of its own. */
-export interface BuilderProcessSession extends BuilderSession {
+export interface BuilderProcessSession extends Omit<BuilderSession, "restyledGuestUrl"> {
+  /**
+   * Where the builder serves the guest with the stylesheets of the change stamped `stamp`, asked of its process; none
+   * when it doesn't offer one (see `BuilderSession.restyledGuestUrl`) or its process has ended.
+   */
+  restyledGuestUrl?(stamp: number): Promise<string | undefined>
   /** Passes on the components the guest imports, after the type checker or a changed file changed them. */
   setComponents(components: Record<string, ComponentSource>): void
   /** Its process's CPU and memory, or nothing when it doesn't answer in time. */
@@ -197,6 +214,7 @@ export function connectBuilderProcess(
   const ended = new Promise<void>((resolve) => (markEnded = resolve))
   let killTimer: ReturnType<typeof setTimeout> | undefined
   const readings = new Map<number, (reply?: ProcessTimes) => void>()
+  const addresses = new Map<number, (guestUrl?: string) => void>()
   let nextReading = 1
   let lastReading: ProcessTimes | undefined
 
@@ -239,6 +257,22 @@ export function connectBuilderProcess(
     })
   }
 
+  const restyledGuestUrl = (stamp: number): Promise<string | undefined> => {
+    if (state !== "running") {
+      return Promise.resolve(undefined)
+    }
+
+    const id = nextReading++
+
+    return new Promise((resolve) => {
+      addresses.set(id, (guestUrl) => {
+        addresses.delete(id)
+        resolve(guestUrl)
+      })
+      link.send({ type: "restyledGuestUrl", id, stamp })
+    })
+  }
+
   link.send({ type: "start", options })
 
   return {
@@ -248,9 +282,12 @@ export function connectBuilderProcess(
       if (reply.type === "usage") {
         const { type: _, id, ...reading } = reply
         readings.get(id)?.(reading)
+      } else if (reply.type === "restyledGuestUrl") {
+        addresses.get(reply.id)?.(reply.guestUrl)
       } else if (reply.type === "codeChanged") {
         if (state === "running") {
-          onCodeChange?.({ paths: reply.paths, stamp: reply.stamp })
+          const { type: _, ...change } = reply
+          onCodeChange?.(change)
         }
       } else if (state !== "starting") {
         // A start that answers after it was told to close is closing anyway.
@@ -262,6 +299,7 @@ export function connectBuilderProcess(
           toolVersion,
           setComponents: (components) => state === "running" && link.send({ type: "components", components }),
           usage,
+          restyledGuestUrl,
           close
         })
       } else {
@@ -278,7 +316,7 @@ export function connectBuilderProcess(
       state = "ended"
       clearTimeout(killTimer)
 
-      for (const answer of readings.values()) {
+      for (const answer of [...readings.values(), ...addresses.values()]) {
         answer()
       }
 

@@ -16,6 +16,9 @@ const imageTypes: ReadonlyMap<string, string> = new Map([
   ["image/svg+xml", "svg"]
 ])
 
+/** The image types Parity saves, as a file picker's `accept` lists them. */
+export const imageAccept = [...imageTypes.keys()].join(",")
+
 /** The extension an image of a media type is saved under, or undefined for a type Parity doesn't save. */
 export function imageExtension(type: string): string | undefined {
   return imageTypes.get(type)
@@ -25,7 +28,7 @@ export function imageExtension(type: string): string | undefined {
 export const imageLimit = 20 * 1024 * 1024
 
 /** How the image types read in messages. */
-const imageKinds = "PNG, JPEG, GIF, WebP or SVG"
+export const imageKinds = "PNG, JPEG, GIF, WebP or SVG"
 
 /** Media types by extension, for files the system gives no type. */
 const byExtension: ReadonlyMap<string, string> = new Map([

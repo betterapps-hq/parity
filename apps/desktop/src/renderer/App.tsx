@@ -18,6 +18,8 @@ import { cancelUnsaved } from "./chrome/unsaved.ts"
 import { UnsavedPrompt } from "./chrome/UnsavedPrompt.tsx"
 import { startUpdates } from "./chrome/updates.tsx"
 import { startConsole } from "./console-feed.ts"
+import { closeLibraryBrowser } from "./library/library-browser.ts"
+import { LibraryBrowserHost } from "./library/LibraryBrowser.tsx"
 import { ProjectView } from "./ProjectView.tsx"
 import { HomePage } from "./start/HomePage.tsx"
 import { NewTabPage } from "./start/NewTabPage.tsx"
@@ -124,6 +126,9 @@ export function AppWindow() {
       {/* Each dialog fails on its own, and closing what it shows closes it (PAR-667). */}
       <ErrorBoundary name="quick-insert" label="Insert" kind="dialog" onClose={closeQuickInsert}>
         <QuickInsert />
+      </ErrorBoundary>
+      <ErrorBoundary name="library-browser" label="Library" kind="dialog" onClose={closeLibraryBrowser}>
+        <LibraryBrowserHost />
       </ErrorBoundary>
       <ErrorBoundary name="search" label="Search" kind="dialog" onClose={closeDialog}>
         <ActionsSearch />

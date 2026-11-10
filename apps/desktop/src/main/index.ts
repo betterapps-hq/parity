@@ -5,12 +5,14 @@ import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
+import { keysFromEnvironment, keyVariable, offered, placeableKinds, withoutKeys } from "@parity-app/connectors"
 import {
   CodedError,
   drawsNothing,
   fitInside,
   type JsonValue,
   offscreenWindows,
+  parseData,
   previewSizes,
   type RenderPriority,
   renderQueue,
@@ -38,6 +40,7 @@ import {
 import { type AccountState, accountEmail, organizationId, signInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
+import { connectorFind, connectorPlaced, connectorSearch } from "../shared/connectors.ts"
 import {
   betaSetting,
   checked,
@@ -68,17 +71,21 @@ import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
 import { openInEditor } from "./code-editor.ts"
+import { createConnectorHub } from "./connectors.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
 import { watchFrame } from "./frame-telemetry.ts"
 import { idleClose } from "./idle-close.ts"
+import { handle, listen } from "./ipc-handlers.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
 import { launchLink, passLink } from "./pass-link.ts"
+import { localPlacements } from "./placements.ts"
 import { privateMemory } from "./private-memory.ts"
 import { auditResult, canvasHeightResult, PageError, pageAnswer, pageCall, renderResult } from "./render-results.ts"
 import { createReports, offersCrashReports } from "./report.ts"
+import { localHistory } from "./search-history.ts"
 import { sessionStore } from "./session-store.ts"
 import { TelemetrySetting } from "./telemetry-setting.ts"
 import {
@@ -92,6 +99,7 @@ import {
   serviceStarted,
   startEvents,
   startTelemetry,
+  quitCancelled,
   watchWindowHangs
 } from "./telemetry.ts"
 import { savedTheme } from "./theme-file.ts"
@@ -195,6 +203,11 @@ const events = startEvents({
 
 const telemetryRun = writeTelemetryRun(events.run)
 
+// An install ID that couldn't be saved changes every start; say why, once there's somewhere to say it (PAR-811).
+if (telemetrySetting.unsaved) {
+  events.telemetry.track("installId.unsaved", telemetrySetting.unsaved)
+}
+
 // What main does for the service is a span in the trace the service's request came with (PAR-629).
 traceWith(events.telemetry)
 
@@ -281,7 +294,8 @@ function startService(): UtilityProcess {
     serviceName,
     stdio: "inherit",
     env: {
-      ...process.env,
+      // Connectors' keys stay in main: the service runs projects' builders, whose code mustn't see them.
+      ...withoutKeys(process.env),
       PARITY_ALLOWED_ORIGINS: rendererOrigin,
       // Which projects were open, so the service opens them again as it starts, before the window asks (PAR-179).
       PARITY_REOPEN_FILE: join(app.getPath("userData"), "open-projects.json"),
@@ -306,6 +320,28 @@ function startService(): UtilityProcess {
       // Agents get the entries without the id windows keep them by.
       console: ({ origin, clear }) => consoleLog.read(origin, clear).map(({ id: _id, ...entry }) => entry),
       // Another copy got a sign-in link and asks whether it's this copy's: it answers at once, then trades the code.
+      // An agent's search: main holds the keys, so it runs here (PAR-829). The service passes on what an agent sent.
+      connectorFind: (params) => {
+        const { connector, request } = parseData(connectorFind, params)
+
+        return connectorHub.find(request, "agent", connector)
+      },
+      connectorResult: ({ connector, id }) => {
+        const given = connectorHub.result(connector, id)
+
+        return given ? { ...given, placeable: placeableKinds.includes(given.kind) } : null
+      },
+      // Reporting a placement is the source's count, not something the agent waits on.
+      connectorPlaced: (params) => {
+        const { connector, id, ...where } = parseData(connectorPlaced, params)
+        const placed = connectorHub.result(connector, id)
+
+        if (placed) {
+          void connectorHub.placed(placed, { ...where, from: "agent" })
+        }
+
+        return undefined
+      },
       signInLink: ({ link }) => {
         const taken = account.owns(link)
 
@@ -319,7 +355,7 @@ function startService(): UtilityProcess {
       // The open projects' `.env` values, scrubbed here and in every window (PAR-672).
       secrets: (secrets) => {
         projectSecrets = secrets.filter(isText)
-        scrubber.use(projectSecrets)
+        scrubber.use([...projectSecrets, ...connectorSecrets])
 
         for (const window of BrowserWindow.getAllWindows()) {
           window.webContents.send(ipc.telemetrySecretsChanged, projectSecrets)
@@ -506,7 +542,7 @@ function createWindow(): void {
     }, 3000)
   })
   ipcMain.removeAllListeners(ipc.closeCancel)
-  ipcMain.on(ipc.closeCancel, (event) => {
+  listen("closeCancel", (event) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) {
       return
     }
@@ -514,9 +550,10 @@ function createWindow(): void {
     updateRestarts.delete(window.id)
     deciding = false
     quitting = false
+    quitCancelled()
   })
   ipcMain.removeAllListeners(ipc.closeReady)
-  ipcMain.on(ipc.closeReady, (event) => {
+  listen("closeReady", (event) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || ready) {
       return
     }
@@ -528,6 +565,7 @@ function createWindow(): void {
         ready = false
         deciding = false
         quitting = false
+        quitCancelled()
       }
 
       if (!updates?.install(resetClose)) {
@@ -681,7 +719,9 @@ const account = createAccount({
       ? Promise.resolve({ uri: schemeRedirect, close: () => undefined })
       : listenOnLoopback((link) => account.takeLink(link)),
   openBrowser: (url) => shell.openExternal(url),
-  store: sessionStore(join(app.getPath("userData"), "account"), safeStorage, process.platform),
+  store: sessionStore(join(app.getPath("userData"), "account"), safeStorage, process.platform, (problem) =>
+    events.telemetry.track("account.storeFailed", problem)
+  ),
   changed: (state: AccountState) => {
     for (const window of appWindows()) {
       window.webContents.send(ipc.accountChanged, state)
@@ -706,7 +746,8 @@ const account = createAccount({
     const timer = setTimeout(run, ms)
 
     return () => clearTimeout(timer)
-  }
+  },
+  telemetry: events.telemetry
 })
 
 /** A sign-in link this copy got from the system: its own sign-in's, or another copy's, which it passes on. */
@@ -743,16 +784,92 @@ app.on("open-url", (event, url) => {
   void receiveLink(url)
 })
 
+/**
+ * Connectors' keys, which the app's owner arranges: a development copy sets each with the variable its connector names,
+ * as `PARITY_MOBBIN_API_KEY`. They're read once, then taken out of main's environment, so no process main starts gets
+ * them.
+ */
+const connectorKeys = keysFromEnvironment(process.env)
+
+for (const name of Object.keys(process.env)) {
+  if (keyVariable.test(name)) {
+    delete process.env[name]
+  }
+}
+
+/**
+ * Connectors to outside services, such as Mobbin (PAR-829). Main holds their keys and runs every search, for the window
+ * over IPC and for agents through the service, and keeps the person's recent searches.
+ */
+const connectorHub = createConnectorHub({
+  // The ones offered: Pixabay finds photos, and Unsplash's connector is kept but not searched.
+  connectors: offered,
+  keys: connectorKeys,
+  history: localHistory(join(app.getPath("userData"), "recent-searches.json")),
+  placements: localPlacements(join(app.getPath("userData"), "connector-placements.json")),
+  fetch: (url, init) => net.fetch(url, init),
+  timeout: 30_000,
+  // Half of each source's rate limit, so one copy's runaway loop leaves the rest for everyone sharing the key.
+  share: 0.5,
+  secrets: (values) => {
+    connectorSecrets = values
+    scrubber.use([...projectSecrets, ...connectorSecrets])
+  },
+  searched: (search) => events.telemetry.track("connectors.searched", search),
+  placed: (placed) => events.telemetry.track("connectors.placed", placed),
+  now: () => performance.now(),
+  date: () => Date.now()
+})
+
+/** Connectors' keys, scrubbed from what main sends to Sentry. Windows never have them, so they aren't sent there. */
+let connectorSecrets: string[] = []
+
+const connectorRefusal = "Only the Parity window can use connectors."
+
+handle("connectorsState", (event) => {
+  appWindowOf(event, connectorRefusal)
+
+  return connectorHub.states()
+})
+
+handle(
+  "connectorsSearch",
+  checked(connectorSearch, (event: Electron.IpcMainInvokeEvent, { connector, request }) => {
+    appWindowOf(event, connectorRefusal)
+
+    return connectorHub.search(connector, request, "window")
+  })
+)
+
+handle("connectorsRecent", (event) => {
+  appWindowOf(event, connectorRefusal)
+
+  return connectorHub.recent()
+})
+
+handle(
+  "connectorsPlaced",
+  checked(connectorPlaced, (event: Electron.IpcMainInvokeEvent, { connector, id, ...where }) => {
+    appWindowOf(event, connectorRefusal)
+    const placed = connectorHub.result(connector, id)
+
+    // Reporting a placement is the source's count, not something the person waits on.
+    if (placed) {
+      void connectorHub.placed(placed, { ...where, from: "window" })
+    }
+  })
+)
+
 const signInRefusal = "Only the Parity window can sign in."
 
-ipcMain.handle(ipc.accountState, (event) => {
+handle("accountState", (event) => {
   appWindowOf(event, signInRefusal)
 
   return account.state()
 })
 
-ipcMain.handle(
-  ipc.accountSignIn,
+handle(
+  "accountSignIn",
   checked(signInRequest, (event: Electron.IpcMainInvokeEvent, request) => {
     appWindowOf(event, signInRefusal)
 
@@ -760,19 +877,19 @@ ipcMain.handle(
   })
 )
 
-ipcMain.handle(ipc.accountReopen, (event) => {
+handle("accountReopen", (event) => {
   appWindowOf(event, signInRefusal)
 
   return account.reopen()
 })
 
-ipcMain.handle(ipc.accountCancel, (event) => {
+handle("accountCancel", (event) => {
   appWindowOf(event, signInRefusal)
   account.cancel()
 })
 
-ipcMain.handle(
-  ipc.accountSwitch,
+handle(
+  "accountSwitch",
   checked(organizationId, (event: Electron.IpcMainInvokeEvent, id) => {
     appWindowOf(event, signInRefusal)
 
@@ -780,8 +897,8 @@ ipcMain.handle(
   })
 )
 
-ipcMain.handle(
-  ipc.accountSignOut,
+handle(
+  "accountSignOut",
   checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
     appWindowOf(event, signInRefusal)
 
@@ -789,8 +906,8 @@ ipcMain.handle(
   })
 )
 
-ipcMain.handle(
-  ipc.accountUse,
+handle(
+  "accountUse",
   checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
     appWindowOf(event, signInRefusal)
 
@@ -798,7 +915,7 @@ ipcMain.handle(
   })
 )
 
-ipcMain.handle(ipc.buildInfo, (event) => {
+handle("buildInfo", (event) => {
   updateOwner(event)
 
   return installedBuild.get()
@@ -807,19 +924,19 @@ ipcMain.handle(ipc.buildInfo, (event) => {
 /** The open projects' `.env` values the service last sent, which a window asks for as its telemetry starts (PAR-672). */
 let projectSecrets: string[] = []
 
-ipcMain.handle(ipc.telemetrySecrets, () => projectSecrets)
+handle("telemetrySecrets", () => projectSecrets)
 
 /** The setting is the person's, so only the Parity window may read or change it. */
 const telemetryRefusal = "Only the Parity window can change the Telemetry setting."
 
-ipcMain.handle(ipc.telemetryState, (event) => {
+handle("telemetryState", (event) => {
   appWindowOf(event, telemetryRefusal)
 
   return telemetrySetting.get()
 })
 
-ipcMain.handle(
-  ipc.telemetryLevel,
+handle(
+  "telemetryLevel",
   checked(telemetryLevelCheck, (event: Electron.IpcMainInvokeEvent, level) => {
     appWindowOf(event, telemetryRefusal)
     const state = telemetrySetting.setLevel(level)
@@ -841,41 +958,41 @@ const reports = createReports({
 
 const reportRefusal = "Only the Parity window can send a report."
 
-ipcMain.handle(ipc.reportPrepare, (event) => reports.prepare(appWindowOf(event, reportRefusal)))
+handle("reportPrepare", (event) => reports.prepare(appWindowOf(event, reportRefusal)))
 
-ipcMain.handle(
-  ipc.reportSend,
+handle(
+  "reportSend",
   checked(problemReport, (event: Electron.IpcMainInvokeEvent, report) =>
     reports.send(appWindowOf(event, reportRefusal), report)
   )
 )
 
-ipcMain.handle(ipc.reportLastCrash, (event) => {
+handle("reportLastCrash", (event) => {
   appWindowOf(event, reportRefusal)
 
   return reports.takeLastCrash()
 })
 
-ipcMain.handle(ipc.updateState, (event) => {
+handle("updateState", (event) => {
   updateOwner(event)
 
   return updates?.get() ?? { phase: "disabled", beta: false }
 })
 
-ipcMain.handle(ipc.updateCheck, async (event) => {
+handle("updateCheck", async (event) => {
   updateOwner(event)
   await updates?.check()
 })
 
-ipcMain.handle(
-  ipc.updateBeta,
+handle(
+  "updateBeta",
   checked(betaSetting, (event: Electron.IpcMainInvokeEvent, beta) => {
     updateOwner(event)
     updates?.setBeta(beta)
   })
 )
 
-ipcMain.handle(ipc.updateAct, async (event) => {
+handle("updateAct", async (event) => {
   const window = updateOwner(event)
   const state = updates?.get()
 
@@ -896,14 +1013,14 @@ async function showOpen(event: Electron.IpcMainInvokeEvent, options: Electron.Op
   return result.canceled ? undefined : result.filePaths[0]
 }
 
-ipcMain.handle(
-  ipc.pickFolder,
+handle(
+  "pickFolder",
   checked(folderPickerTitle, (event: Electron.IpcMainInvokeEvent, title) =>
     showOpen(event, { title: title ?? "Open project", properties: ["openDirectory", "createDirectory"] })
   )
 )
 
-ipcMain.handle(ipc.pickProjectFile, (event) =>
+handle("pickProjectFile", (event) =>
   showOpen(event, {
     title: "Open project file",
     properties: ["openFile"],
@@ -911,8 +1028,8 @@ ipcMain.handle(ipc.pickProjectFile, (event) =>
   })
 )
 
-ipcMain.handle(
-  ipc.saveDialog,
+handle(
+  "saveDialog",
   checked(saveDialogOptions, async (event: Electron.IpcMainInvokeEvent, settings) => {
     const owner = ownerOf(event)
     const result = owner ? await dialog.showSaveDialog(owner, settings) : await dialog.showSaveDialog(settings)
@@ -921,13 +1038,13 @@ ipcMain.handle(
   })
 )
 
-ipcMain.handle(
-  ipc.showItem,
+handle(
+  "showItem",
   checked(shownItem, (_event, path) => shell.showItemInFolder(path))
 )
 
-ipcMain.handle(
-  ipc.openInEditor,
+handle(
+  "openInEditor",
   checked(openInEditorRequest, (_event, request) => openInEditor(request))
 )
 
@@ -946,7 +1063,7 @@ ipcMain.on(ipc.telemetry, (event, sent: unknown) => {
 // The editor says which frame's event it's handling just before a console message is written there (PAR-147). Word
 // that isn't one is ignored, and the message is kept as the project's.
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent, parsed here
-ipcMain.on(ipc.consoleAnnounce, (event, announcement: unknown) => {
+listen("consoleAnnounce", (event, announcement: unknown) => {
   const read = consoleAnnouncement.safeParse(announcement)
 
   if (!read.success) {
@@ -957,22 +1074,22 @@ ipcMain.on(ipc.consoleAnnounce, (event, announcement: unknown) => {
   announced.announce(event.sender.id, level, context)
 })
 
-ipcMain.handle(
-  ipc.consoleRead,
+handle(
+  "consoleRead",
   checked(consoleOrigin, (_event, origin) => consoleLog.read(origin))
 )
 
-ipcMain.handle(
-  ipc.consoleClear,
+handle(
+  "consoleClear",
   checked(consoleOrigin, (_event, origin) => consoleLog.clear(origin))
 )
 
-ipcMain.handle(ipc.quit, () => app.quit())
+handle("quit", () => app.quit())
 
-ipcMain.handle(ipc.toggleDevTools, (event) => event.sender.toggleDevTools())
+handle("toggleDevTools", (event) => event.sender.toggleDevTools())
 
-ipcMain.handle(
-  ipc.setTheme,
+handle(
+  "setTheme",
   checked(themeSource, (_event, theme) => {
     if (nativeTheme.themeSource === theme) {
       return
@@ -1017,7 +1134,7 @@ function builderReadings(): Promise<BuilderReading[]> {
 // project service starts run outside the app, so they aren't counted, apart from each project's builder, which runs
 // in a process of its own the service starts. Memory is what each process uses on its own, as the system's monitor
 // counts it (see private-memory.ts), and its working set where the system won't say.
-ipcMain.handle(ipc.metrics, (event) => processUsage(event.sender))
+handle("metrics", (event) => processUsage(event.sender))
 
 /** Each process's CPU and memory, with `asker` named as this window. */
 async function processUsage(asker?: Electron.WebContents): Promise<ProcessUsage[]> {
@@ -1333,7 +1450,7 @@ function renderOffscreen(
       drawing.set(window, consoleContextOf(job.design))
     }
 
-    // A frame that fails is pictured as the window shows it, for the errors that follow.
+    // A frame that fails is pictured as the window shows it, for the errors about it (PAR-812).
     const watch = watchFrame(job, priority, span, () => {
       if (window.isDestroyed() || rendererCrashed(window)) {
         return
@@ -1341,7 +1458,7 @@ function renderOffscreen(
 
       void window.webContents
         .capturePage()
-        .then((image) => keepFailedFrame(image.toPNG()))
+        .then((image) => keepFailedFrame(image.toPNG(), span?.traceId))
         .catch(() => undefined)
     })
 
@@ -1453,6 +1570,7 @@ void app.whenReady().then(() => {
   createWindow()
   // The keychain is only ready once the app is.
   void account.restore()
+  connectorHub.start()
   void updates.check()
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

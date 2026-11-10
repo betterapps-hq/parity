@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { dirname, join, relative } from "node:path"
-import { parseData, parseJsonc } from "@parity-app/core"
+import { isStylesheetFile, parseData, parseJsonc, stylesheetExtensions } from "@parity-app/core"
 import { z } from "zod"
 
 /** An app's global stylesheets: the project's own, by path from its root, and packages', by their specifiers. */
@@ -26,7 +26,7 @@ export type ShadcnConfig = z.infer<typeof shadcnComponents>
  * Where an app keeps its global styles when neither `components.json` nor the entry says: Vite's and Create React App's
  * `src/index.css`, the usual alternatives, and Next's `globals.css`, which its layout imports with no HTML entry.
  */
-const conventionalStylesheets = [
+export const conventionalStylesheets = [
   "src/index.css",
   "src/styles.css",
   "src/app.css",
@@ -56,8 +56,7 @@ export async function stylesWith(root: string, shadcn: ShadcnConfig | undefined,
   }
 
   // Otherwise follow the app entry: index.html → module script → its stylesheet imports.
-  const html = await readText(join(root, "index.html"))
-  const entry = html && /<script[^>]*type=["']module["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]
+  const entry = await htmlEntry(root)
 
   if (entry) {
     const entryPath = join(root, entry.replace(/^\//, ""))
@@ -93,17 +92,34 @@ export async function stylesWith(root: string, shadcn: ShadcnConfig | undefined,
   return { styles: [], packageStyles: [] }
 }
 
+/** The module script `index.html` loads, as it writes it (`/src/main.tsx`), when there is one. */
+export async function htmlEntry(root: string): Promise<string | undefined> {
+  const html = await readText(join(root, "index.html"))
+
+  return (html && /<script[^>]*type=["']module["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]) || undefined
+}
+
+/** A module's imports by their specifiers, side-effect or default. */
+const moduleImports = /\bimport\s+(?:[\w$*{}\s,]+?\s+from\s+)?["']([^"'?]+)["']/g
+
+/** A CSS module, as `card.module.css` or `card.module.scss`, by core's one list of stylesheet extensions. */
+const cssModule = new RegExp(String.raw`\.module\.(?:${stylesheetExtensions.join("|")})$`)
+
 /**
  * The global stylesheets a module imports, in order: `import "./a.css"` and `import styles from "./a.css"`, plain CSS
- * or Sass. CSS modules (`.module.css`) are scoped to the component that imports them, so they aren't global styles.
+ * or any stylesheet a build tool compiles (`isStylesheetFile`). CSS modules (`.module.css`) are scoped to the
+ * component that imports them, so they aren't global styles.
  */
 export function stylesheetImports(source: string): string[] {
   return source
-    .matchAll(/\bimport\s+(?:[\w$*{}\s,]+?\s+from\s+)?["']([^"'?]+\.s?css)["']/g)
+    .matchAll(moduleImports)
     .map((match) => match[1]!)
-    .filter((specifier) => !/\.module\.s?css$/.test(specifier))
+    .filter((specifier) => isStylesheetFile(specifier) && !cssModule.test(specifier))
     .toArray()
 }
+
+/** A stylesheet's relative `@import`s, `@import "./theme.css";` or `@import url("../a.css") layer(base);`. */
+const relativeImports = /@import\s+(?:url\()?["'](\.{1,2}\/[^"']+)["']\)?[^;]*;/g
 
 /**
  * A stylesheet's text with its relative `@import`s inlined, recursively and each file once, so tokens a Tailwind entry
@@ -120,7 +136,11 @@ export async function readStylesheet(path: string, seen = new Set<string>()): Pr
   const parts: string[] = []
   let last = 0
 
-  for (const match of source.matchAll(/@import\s+(?:url\()?["'](\.{1,2}\/[^"']+\.s?css)["']\)?[^;]*;/g)) {
+  for (const match of source.matchAll(relativeImports)) {
+    if (!isStylesheetFile(match[1]!)) {
+      continue
+    }
+
     parts.push(source.slice(last, match.index), await readStylesheet(join(dirname(path), match[1]!), seen))
     last = match.index + match[0].length
   }

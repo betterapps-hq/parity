@@ -1,4 +1,11 @@
-import { designsSelection, holdZoom, selectedDesigns, zoomHeldFrom, zoomSettled } from "@parity-app/editor"
+import {
+  designsSelection,
+  holdZoom,
+  referenceSize,
+  selectedDesigns,
+  zoomHeldFrom,
+  zoomSettled
+} from "@parity-app/editor"
 import { useCallback, useEffect } from "react"
 import {
   type Atom,
@@ -22,12 +29,27 @@ import { designColor, kindColors } from "./kinds.tsx"
 import { redrawLayer } from "./layer-redraw.ts"
 import { NoteUtil } from "./NoteUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
+import { ReferenceUtil } from "./ReferenceUtil.tsx"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutPatternFills } from "./tldraw-fills.ts"
 import { type CanvasId, createCanvasId, IndicatorOverlayUtil } from "./tldraw-names.ts"
 import { withoutTldrawShortcuts } from "./tldraw-shortcuts.ts"
 
-const canvasUtils = [ContainerUtil, NoteUtil, ...withoutPatternFills]
+const canvasUtils = [ContainerUtil, NoteUtil, ReferenceUtil, ...withoutPatternFills]
+
+/** The kinds of things the store holds that tldraw draws, each as a shape following its entry. */
+type ProjectedType = "canvas-container" | "canvas-note" | "canvas-reference"
+
+/** A shape as the store wants it: where it is, and for a reference its size and link. */
+interface Projected {
+  type: ProjectedType
+  key: string
+  x: number
+  y: number
+  locked?: boolean
+  size?: { w: number; h: number }
+  link?: string
+}
 
 export function canvasIdFor(key: string): CanvasId {
   return createCanvasId(encodeURIComponent(key))
@@ -335,12 +357,10 @@ export function CanvasEditor({
       editor.setCameraOptions({ zoomSteps: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8] })
       hiddenTabs.set(editor, atom("tab hidden", false))
 
-      // Designs and notes come and go with undo and agents, so shapes follow the store rather than being made once.
+      // Designs, notes and references come and go with undo and agents, so shapes follow the store rather than being
+      // made once.
       const sync = () => {
-        const wanted = new Map<
-          CanvasId,
-          { type: "canvas-container" | "canvas-note"; key: string; x: number; y: number; locked?: boolean }
-        >()
+        const wanted = new Map<CanvasId, Projected>()
 
         for (const { key, container } of store.getEntries()) {
           // A board an agent moved stays where it was until the agent's cursor drags it over.
@@ -354,6 +374,18 @@ export function CanvasEditor({
           wanted.set(canvasIdFor(key), { type: "canvas-note", key, ...note.position })
         }
 
+        for (const { key, reference } of store.getReferences()) {
+          const { width: w, height: h } = referenceSize(reference)
+          const size = { w, h }
+          wanted.set(canvasIdFor(key), {
+            type: "canvas-reference",
+            key,
+            ...reference.position,
+            size,
+            link: reference.link
+          })
+        }
+
         editor.run(
           () => {
             const stale = editor.getCurrentPageShapes().filter((item) => !wanted.has(item.id))
@@ -362,13 +394,22 @@ export function CanvasEditor({
               editor.deleteShapes(stale.map((item) => item.id))
             }
 
-            for (const [id, { type, key, x, y, locked = false }] of wanted) {
+            for (const [id, { type, key, x, y, locked = false, size, link }] of wanted) {
               const placed = editor.getShape(id)
+              const meta = link ? { link } : {}
 
               if (!placed) {
-                editor.createShape({ id, type, x, y, isLocked: locked, props: { key } })
+                editor.createShape({ id, type, x, y, isLocked: locked, props: { key, ...size }, meta })
               } else if (Math.abs(placed.x - x) >= 1 || Math.abs(placed.y - y) >= 1 || placed.isLocked !== locked) {
                 editor.updateShape({ id, type: placed.type, x, y, isLocked: locked })
+              }
+
+              if (placed?.type === "canvas-reference" && size) {
+                const { w, h } = placed.props
+
+                if (w !== size.w || h !== size.h || placed.meta.link !== link) {
+                  editor.updateShape({ id, type: "canvas-reference", props: size, meta })
+                }
               }
             }
           },
@@ -444,7 +485,7 @@ export function CanvasEditor({
             frames: countFrames()
           }
 
-          if (next.type === "canvas-container" || next.type === "canvas-note") {
+          if (next.type === "canvas-container" || next.type === "canvas-note" || next.type === "canvas-reference") {
             translation.moved.add(next.props.key)
           }
         }
@@ -458,6 +499,13 @@ export function CanvasEditor({
         if (next.type === "canvas-note") {
           const position = { x: Math.round(next.x), y: Math.round(next.y) }
           store.updateNote(next.props.key, "Move text", (note) => ({ ...note, position }), { gesture })
+        }
+
+        if (next.type === "canvas-reference") {
+          const position = { x: Math.round(next.x), y: Math.round(next.y) }
+          store.updateReference(next.props.key, "Move reference", (reference) => ({ ...reference, position }), {
+            gesture
+          })
         }
       })
 
@@ -481,18 +529,27 @@ export function CanvasEditor({
         if (designs.length > 1) {
           const wanted = designsSelection(designs)
 
-          if (current.node || current.note || (current.designs ?? []).join() !== wanted.designs!.join()) {
+          if (
+            current.node ||
+            current.note ||
+            current.reference ||
+            (current.designs ?? []).join() !== wanted.designs!.join()
+          ) {
             selection.set(wanted)
           }
         } else if (picked?.type === "canvas-container") {
-          if (current.design !== picked.props.key || current.note) {
+          if (current.design !== picked.props.key || current.note || current.reference) {
             selection.set({ design: picked.props.key })
           }
         } else if (picked?.type === "canvas-note") {
           if (current.note !== picked.props.key) {
             selection.set({ note: picked.props.key })
           }
-        } else if (ids.length === 0 && (current.design || current.note)) {
+        } else if (picked?.type === "canvas-reference") {
+          if (current.reference !== picked.props.key) {
+            selection.set({ reference: picked.props.key })
+          }
+        } else if (ids.length === 0 && (current.design || current.note || current.reference)) {
           selection.set({})
         }
       })
@@ -503,6 +560,8 @@ export function CanvasEditor({
 
         if (current.note) {
           keys = [current.note]
+        } else if (current.reference) {
+          keys = [current.reference]
         } else if (current.design && (current.node || current.mode)) {
           keys = [current.design]
         } else {
@@ -520,7 +579,7 @@ export function CanvasEditor({
         const entry = current.design ? store.getEntry(current.design) : undefined
         let color: string = kindColors.screen
 
-        if (current.node) {
+        if (current.node || current.reference) {
           color = kindColors.layer
         } else if (current.mode) {
           color = kindColors.mode

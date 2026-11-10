@@ -45,7 +45,6 @@ import {
   CircleAlert,
   Component,
   Diamond,
-  ImageIcon,
   LayoutGrid,
   Library,
   List,
@@ -57,7 +56,6 @@ import {
   StretchHorizontal
 } from "lucide-react"
 import {
-  type DragEvent,
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
@@ -70,8 +68,6 @@ import {
 import { toast } from "sonner"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
-import { insertDrag } from "../canvas/gesture.ts"
-import { insertAtSelection, insertMime } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
@@ -85,6 +81,7 @@ import type { Attributes } from "./event-attributes.ts"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
+import { addAtSelection, dragItem } from "./insert-from-panel.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
 import { type Preferences, setPreferences, usePreferences } from "./preferences.ts"
@@ -92,16 +89,6 @@ import { type PreviewStatus, previewStatus } from "./preview-status.ts"
 import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
 import { hasStories, openInStorybook } from "./storybook.ts"
-
-/**
- * Adds an item where the selection is, or as a new screen in the middle of the view with nothing selected, or says
- * what to select when the selected design has nowhere for it.
- */
-function addAtSelection(session: ProjectSession, item: InsertItem): void {
-  if (!insertAtSelection(session, item)) {
-    toast.info("Select a layout, or a layer to add it after")
-  }
-}
 
 const noStatus: Record<string, ComponentRenderStatus> = {}
 const noSubscription = () => () => undefined
@@ -129,18 +116,6 @@ function listByHand(session: ProjectSession, target: ComponentRef, name: string)
   const { detection: _, ...rest } = main
   const detection = includeComponent(main.detection, ref)
   store.applyDocuments(`List ${name} as a component`, [{ path: store.mainPath, document: { ...rest, detection } }])
-}
-
-function dragItem(item: InsertItem) {
-  return {
-    draggable: true,
-    onDragStart: (event: DragEvent) => {
-      event.dataTransfer.setData(insertMime, JSON.stringify(item))
-      event.dataTransfer.effectAllowed = "copy"
-      insertDrag.start()
-    },
-    onDragEnd: () => insertDrag.end()
-  }
 }
 
 /** A panel's search field, with a magnifier; the Layers panel's too. It matches names, so it shows their letters. */
@@ -1203,17 +1178,6 @@ export function IconsPanel() {
         </div>
       </div>
     </>
-  )
-}
-
-/** Stock photos aren't offered yet; images come in by pasting them onto the canvas. */
-export function ImagesPanel() {
-  return (
-    <div className="type-empty flex flex-col items-center gap-3 px-6 py-10 text-center text-muted-foreground">
-      <ImageIcon className="size-6" />
-      <p className="font-medium text-foreground">Stock photos are coming soon</p>
-      <p>Until then, paste an image onto the canvas to add it. It&apos;s saved into the project.</p>
-    </div>
   )
 }
 
