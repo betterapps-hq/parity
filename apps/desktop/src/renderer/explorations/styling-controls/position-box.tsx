@@ -1,13 +1,14 @@
-import { type PointerEvent, useRef } from "react"
+import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { type BoxPoint, clamp, type SpotValue, spotKeywords, spotValues } from "./css-values.ts"
-import { drag, type DragPoint, PercentField } from "./field-parts.tsx"
+import { arrowMoves, drag, type DragPoint, PercentField } from "./field-parts.tsx"
 
 /*
- * The nine-spot box, which every control that places something in a box draws: Layout's alignment, Transform's
- * Origin, Image's Position and a fill image's position. `NineSpots` is the box itself; `PositionInBox` adds X and Y
- * beside it, for a position that can sit off the spots.
+ * The nine-spot boxes, which every control that places something in a box draws. `SpotBox` is the one Layout's
+ * alignment and a grid child's place in its cell draw what they place in, one stop for Tab. `NineSpots` is the one
+ * Transform's Origin, Image's Position and a fill image's position take any position in, and `PositionInBox` adds X
+ * and Y beside it, for a position that can sit off the spots.
  */
 
 /** One of the nine spots, as percentages from the box's top left. */
@@ -40,6 +41,144 @@ export function positionAt(point: DragPoint): BoxPoint {
   }
 
   return { x: Math.round(x), y: Math.round(y) }
+}
+
+/** Where something sits on an axis of a box, as CSS's alignment keywords say it. */
+export type Place = "start" | "center" | "end"
+
+export const places: readonly Place[] = ["start", "center", "end"]
+
+/** A spot by its places across and down. */
+export interface PlaceSpot {
+  x: Place
+  y: Place
+}
+
+const placePercents = { start: 0, center: 50, end: 100 } as const
+
+/** A spot's name, as every nine-spot box names it: Top left, Top, Center. */
+export const placeName = (spot: PlaceSpot) => spotLabel({ x: placePercents[spot.x], y: placePercents[spot.y] })
+
+/** Where a run of `length` sits on an axis of a box drawn from `from` to `to`, at a place. */
+export function along(place: Place, length: number, from: number, to: number) {
+  if (place === "start") {
+    return from
+  }
+
+  if (place === "center") {
+    return (from + to - length) / 2
+  }
+
+  return to - length
+}
+
+/**
+ * The box of nine spots that Layout's alignment and a grid child's place in its cell draw what they place in, under
+ * the spots: `drawing` draws it, given the spot hovered, to show it there faintly first, and the spots it covers show
+ * no dot. It's one stop for Tab, as Figma's is: the spot at `anchor` takes focus, arrow keys move it a spot
+ * (`onMove`), and `keys` are its other keys, by their letter. A click says whether the spot was covered and the anchor.
+ */
+export function SpotBox({
+  label,
+  hint,
+  anchor,
+  covers,
+  spotLabel: nameOf = placeName,
+  dotsOnHover = false,
+  className,
+  style,
+  drawing,
+  keys,
+  onMove,
+  onSpot
+}: {
+  label: string
+  hint: { label: string; detail: string }
+  anchor: PlaceSpot
+  covers: (spot: PlaceSpot) => boolean
+  /** Each spot's accessible name, its place's name unless said. */
+  spotLabel?: (spot: PlaceSpot) => string
+  /** The uncovered spots' dots show only while the box is hovered, as a grid's cells already mark them. */
+  dotsOnHover?: boolean
+  /** Its size. */
+  className: string
+  style?: CSSProperties
+  drawing: (hovered: PlaceSpot | undefined) => ReactNode
+  keys?: ReadonlyMap<string, () => void>
+  onMove: (spot: PlaceSpot) => void
+  onSpot: (spot: PlaceSpot, at: { covered: boolean; anchor: boolean }) => void
+}) {
+  const box = useRef<HTMLFieldSetElement>(null)
+  const [hovered, setHovered] = useState<PlaceSpot>()
+
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    const move = arrowMoves.get(event.key)
+
+    if (move) {
+      event.preventDefault()
+
+      const next = {
+        x: places[clamp(places.indexOf(anchor.x) + move[0], 0, 2)]!,
+        y: places[clamp(places.indexOf(anchor.y) + move[1], 0, 2)]!
+      }
+
+      onMove(next)
+      box.current?.querySelector<HTMLButtonElement>(`[data-spot="${next.x}-${next.y}"]`)?.focus()
+
+      return
+    }
+
+    const run = keys?.get(event.key.toLowerCase())
+
+    if (run) {
+      event.preventDefault()
+      run()
+    }
+  }
+
+  return (
+    <Hint label={hint.label} detail={hint.detail} wait>
+      <fieldset
+        ref={box}
+        aria-label={label}
+        onPointerLeave={() => setHovered(undefined)}
+        style={style}
+        className={`group/box relative m-0 grid min-w-0 shrink-0 grid-cols-3 grid-rows-3 rounded-md border bg-muted/40 p-0.5 ${className}`}
+      >
+        <svg aria-hidden viewBox="0 0 60 60" className="pointer-events-none absolute inset-0 size-full">
+          {drawing(hovered)}
+        </svg>
+        {places.flatMap((y) =>
+          places.map((x) => {
+            const spot = { x, y }
+            const covered = covers(spot)
+            const isAnchor = anchor.x === x && anchor.y === y
+
+            return (
+              <button
+                key={`${x}-${y}`}
+                type="button"
+                data-spot={`${x}-${y}`}
+                tabIndex={isAnchor ? 0 : -1}
+                aria-label={nameOf(spot)}
+                aria-pressed={covered}
+                onKeyDown={onKeyDown}
+                onPointerEnter={() => setHovered(spot)}
+                onClick={() => onSpot(spot, { covered, anchor: isAnchor })}
+                className="group/spot relative z-10 grid place-items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {!covered && (
+                  <span
+                    className={`block size-1 rounded-full bg-muted-foreground/50 group-hover/spot:opacity-0 ${dotsOnHover ? "opacity-0 group-hover/box:opacity-100" : ""}`}
+                  />
+                )}
+              </button>
+            )
+          })
+        )}
+      </fieldset>
+    </Hint>
+  )
 }
 
 export interface NineSpotsProps {

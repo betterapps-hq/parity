@@ -19,6 +19,7 @@ import {
 } from "./field-parts.tsx"
 import { Field, Segments, TitleMenu } from "./field-row.tsx"
 import { type Area, columnTracks, placeChildren, rowCount, trackOf, trackWeights } from "./layout-controls.tsx"
+import { along, type Place, placeName, type PlaceSpot, SpotBox } from "./position-box.tsx"
 
 /*
  * Grid placement (PAR-186): Size for a child of a grid, sharing the tracks and where the children sit with Layout
@@ -53,8 +54,6 @@ const lineAt = (line: number, count: number) => trackOf(line, count) + 1
 
 /** A span as the draft keeps it: one, the default, unset. */
 const spanOf = (count: number) => (count === 1 ? undefined : count)
-
-type Place = "start" | "center" | "end"
 
 /** Where it sits on an axis of its cell: at a place, or across the whole of it. */
 type Sits = Place | "fill"
@@ -920,32 +919,6 @@ function SpanField({
   )
 }
 
-const places: Place[] = ["start", "center", "end"]
-
-const spotWords = {
-  x: { start: "left", center: "center", end: "right" },
-  y: { start: "top", center: "middle", end: "bottom" }
-}
-
-const spotName = (x: Place, y: Place) => {
-  if (x === "center" && y === "center") {
-    return "Center"
-  }
-
-  const name = `${spotWords.y[y]} ${spotWords.x[x]}`.replace("middle ", "").replace(" center", "")
-
-  return name[0]!.toUpperCase() + name.slice(1)
-}
-
-/** Where a run of `length` sits along an axis of the box (from 8 to 52), at a place. */
-const along = (place: Place, length: number) => {
-  if (place === "start") {
-    return 8
-  }
-
-  return place === "center" ? 30 - length / 2 : 52 - length
-}
-
 /**
  * In its cell: a box of three spots across and three down, with the child drawn where it sits in its cell, dashed while
  * it follows the grid. Clicking a spot puts it there, which on an axis it fills makes it hug, as CSS does; clicking
@@ -953,12 +926,10 @@ const along = (place: Place, length: number) => {
  * Tab, as Layout's box is: arrow keys move it, and S stretches it.
  */
 function CellBox({ draft, set }: Pick<SectionProps, "draft" | "set">) {
-  const box = useRef<HTMLFieldSetElement>(null)
-  const [hovered, setHovered] = useState<{ x: Place; y: Place }>()
   const follows = draft.justifySelf === undefined && draft.alignSelf === undefined
   const now = { x: sitsIn(draft, "x"), y: sitsIn(draft, "y") }
   const anchor = { x: now.x === "fill" ? "center" : now.x, y: now.y === "fill" ? "center" : now.y } as const
-  const covers = (x: Place, y: Place) => (now.x === "fill" || now.x === x) && (now.y === "fill" || now.y === y)
+  const covers = (spot: PlaceSpot) => (now.x === "fill" || now.x === spot.x) && (now.y === "fill" || now.y === spot.y)
 
   const stretch = () => {
     const back = (grid: SelfAlign | undefined) => (grid === undefined || grid === "stretch" ? undefined : "stretch")
@@ -972,31 +943,13 @@ function CellBox({ draft, set }: Pick<SectionProps, "draft" | "set">) {
   }
 
   // At a spot, it hugs on an axis it filled, since filling a cell is stretching across it.
-  const choose = (x: Place, y: Place) =>
+  const choose = (spot: PlaceSpot) =>
     set({
-      justifySelf: x,
-      alignSelf: y,
+      justifySelf: spot.x,
+      alignSelf: spot.y,
       childWidth: (draft.childWidth ?? "fill") === "fill" ? "hug" : draft.childWidth,
       childHeight: (draft.childHeight ?? "fill") === "fill" ? "hug" : draft.childHeight
     })
-
-  const focusSpot = (x: Place, y: Place) =>
-    box.current?.querySelector<HTMLButtonElement>(`[data-spot="${x}-${y}"]`)?.focus()
-
-  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const move = arrowMoves.get(event.key)
-
-    if (move) {
-      event.preventDefault()
-      const x = places[clamp(places.indexOf(anchor.x) + move[0], 0, 2)]!
-      const y = places[clamp(places.indexOf(anchor.y) + move[1], 0, 2)]!
-      choose(x, y)
-      focusSpot(x, y)
-    } else if (event.key.toLowerCase() === "s") {
-      event.preventDefault()
-      stretch()
-    }
-  }
 
   const drawn = (where: { x: Sits; y: Sits }, ghost: boolean): ReactNode => {
     const width = where.x === "fill" ? 44 : 20
@@ -1005,8 +958,8 @@ function CellBox({ draft, set }: Pick<SectionProps, "draft" | "set">) {
 
     return (
       <rect
-        x={where.x === "fill" ? 8 : along(where.x, width)}
-        y={where.y === "fill" ? 8 : along(where.y, height)}
+        x={where.x === "fill" ? 8 : along(where.x, width, 8, 52)}
+        y={where.y === "fill" ? 8 : along(where.y, height, 8, 52)}
         width={width}
         height={height}
         rx="2"
@@ -1019,61 +972,43 @@ function CellBox({ draft, set }: Pick<SectionProps, "draft" | "set">) {
     )
   }
 
-  return (
-    <Hint
-      label="Where it sits in its cell"
-      detail={"Arrow keys move it. S stretches it.\nClick the chosen spot again to stretch it."}
-      wait
-    >
-      <fieldset
-        ref={box}
-        aria-label="Where it sits in its cell"
-        onPointerLeave={() => setHovered(undefined)}
-        className="group/box relative m-0 grid size-[60px] min-w-0 shrink-0 grid-cols-3 grid-rows-3 rounded-md border bg-muted/40 p-0.5"
-      >
-        <svg aria-hidden viewBox="0 0 60 60" className="pointer-events-none absolute inset-0 size-full">
-          <rect
-            x="4"
-            y="4"
-            width="52"
-            height="52"
-            rx="3"
-            fill="none"
-            stroke="currentColor"
-            strokeOpacity="0.25"
-            strokeDasharray="2 2"
-            className="text-muted-foreground"
-          />
-          {hovered && !covers(hovered.x, hovered.y) && drawn(hovered, true)}
-          {drawn(now, false)}
-        </svg>
-        {places.flatMap((y) =>
-          places.map((x) => {
-            const on = covers(x, y)
-            const isAnchor = anchor.x === x && anchor.y === y
-            const name = spotName(x, y)
+  // The cell's edge, faint, and the child in it, and faintly where the spot hovered would put it.
+  const drawing = (hovered: PlaceSpot | undefined) => (
+    <>
+      <rect
+        x="4"
+        y="4"
+        width="52"
+        height="52"
+        rx="3"
+        fill="none"
+        stroke="currentColor"
+        strokeOpacity="0.25"
+        strokeDasharray="2 2"
+        className="text-muted-foreground"
+      />
+      {hovered && !covers(hovered) && drawn(hovered, true)}
+      {drawn(now, false)}
+    </>
+  )
 
-            return (
-              <button
-                key={`${x}-${y}`}
-                type="button"
-                data-spot={`${x}-${y}`}
-                tabIndex={isAnchor ? 0 : -1}
-                aria-label={follows ? `${name}, from the grid` : name}
-                aria-pressed={on}
-                onKeyDown={onKeyDown}
-                onPointerEnter={() => setHovered({ x, y })}
-                onClick={() => (isAnchor && on && now.x !== "fill" && now.y !== "fill" ? stretch() : choose(x, y))}
-                className="group/spot relative z-10 grid place-items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {!on && (
-                  <span className="block size-1 rounded-full bg-muted-foreground/50 group-hover/spot:opacity-0" />
-                )}
-              </button>
-            )
-          })
-        )}
-      </fieldset>
-    </Hint>
+  return (
+    <SpotBox
+      label="Where it sits in its cell"
+      hint={{
+        label: "Where it sits in its cell",
+        detail: "Arrow keys move it. S stretches it.\nClick the chosen spot again to stretch it."
+      }}
+      anchor={anchor}
+      covers={covers}
+      spotLabel={(spot) => (follows ? `${placeName(spot)}, from the grid` : placeName(spot))}
+      className="size-[60px]"
+      drawing={drawing}
+      keys={new Map([["s", stretch]])}
+      onMove={choose}
+      onSpot={(spot, { covered, anchor: isAnchor }) =>
+        isAnchor && covered && now.x !== "fill" && now.y !== "fill" ? stretch() : choose(spot)
+      }
+    />
   )
 }

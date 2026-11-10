@@ -22,7 +22,7 @@ import {
   Plus,
   Rows3
 } from "lucide-react"
-import { type KeyboardEvent, type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from "react"
+import { type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -38,10 +38,11 @@ import {
   type Track,
   typedContentSizes
 } from "./data.ts"
-import { arrowMoves, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
+import { type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
 import { EachToggle, Field, IconSegments, nameMenuButton, TitleMenu } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
 import { moved, RemoveButton, useOrderKeys } from "./list-parts.tsx"
+import { along, type Place, places, type PlaceSpot, SpotBox } from "./position-box.tsx"
 import { type Side, sideNumber, sideRules } from "./sides-writes.ts"
 import { SideField } from "./sides.tsx"
 import { useSortable } from "./sortable.ts"
@@ -61,10 +62,6 @@ const contentWidth = 480
 const contentTrack = 80
 
 const fr = (value: number): Track => ({ kind: "fr", value })
-
-type Place = "start" | "center" | "end"
-
-const places: Place[] = ["start", "center", "end"]
 
 const isBaseline = (align: Draft["align"]) => align === "baseline" || align === "last baseline"
 
@@ -397,10 +394,6 @@ function useSpan(
 /* The alignment box */
 
 /** A spot in the box, by its place across (x) and down (y). */
-interface BoxSpot {
-  x: Place
-  y: Place
-}
 
 /**
  * Where the box's children sit, physically: a place across and down, or `spread` along the main axis (an Auto gap)
@@ -428,30 +421,15 @@ function arrangementOf(draft: Draft): Arrangement {
 }
 
 /** Whether a spot shows the children: on their place, or anywhere along an axis they fill or spread across. */
-const covers = (arrangement: Arrangement, spot: BoxSpot) =>
+const covers = (arrangement: Arrangement, spot: PlaceSpot) =>
   (arrangement.x === spot.x || arrangement.x === "fill" || arrangement.x === "spread") &&
   (arrangement.y === spot.y || arrangement.y === "fill" || arrangement.y === "spread")
 
 /** The spot the keyboard starts from: the children's own, or the middle of an axis they fill or spread across. */
-const anchorOf = (arrangement: Arrangement): BoxSpot => ({
+const anchorOf = (arrangement: Arrangement): PlaceSpot => ({
   x: arrangement.x === "fill" || arrangement.x === "spread" ? "center" : arrangement.x,
   y: arrangement.y === "fill" || arrangement.y === "spread" ? "center" : arrangement.y
 })
-
-const spotWords = {
-  x: { start: "left", center: "center", end: "right" },
-  y: { start: "top", center: "middle", end: "bottom" }
-}
-
-const spotName = (spot: BoxSpot) => {
-  if (spot.x === "center" && spot.y === "center") {
-    return "Center"
-  }
-
-  const name = `${spotWords.y[spot.y]} ${spotWords.x[spot.x]}`.replace("middle ", "").replace(" center", "")
-
-  return name[0]!.toUpperCase() + name.slice(1)
-}
 
 /**
  * The alignment box: three spots across and three down, with the children drawn where they'll sit, as bars that run
@@ -479,10 +457,8 @@ export function LayoutBox({
   const column = !grid && (draft.direction ?? "column") === "column"
   const arrangement = arrangementOf(draft)
   const anchor = anchorOf(arrangement)
-  const [hovered, setHovered] = useState<BoxSpot>()
-  const box = useRef<HTMLFieldSetElement>(null)
 
-  const choose = (spot: BoxSpot, again: boolean) => {
+  const choose = (spot: PlaceSpot, again: boolean) => {
     if (grid) {
       // Again on the chosen spot stretches them both ways, as unset does.
       set(again ? { itemsX: undefined, itemsY: undefined } : { itemsX: spot.x, itemsY: spot.y })
@@ -503,7 +479,7 @@ export function LayoutBox({
   }
 
   // What clicking the children at a spot does next: stretched, then spread out, then packed at that spot.
-  const nextFill = (spot: BoxSpot): NextFill => {
+  const nextFill = (spot: PlaceSpot): NextFill => {
     const main = column ? spot.y : spot.x
     const cross = column ? spot.x : spot.y
     const spreadOut = draft.gap === "auto"
@@ -523,7 +499,7 @@ export function LayoutBox({
     return { change: { align: undefined } }
   }
 
-  const fill = (spot: BoxSpot) => {
+  const fill = (spot: PlaceSpot) => {
     const { spread, change } = nextFill(spot)
 
     if (spread === undefined) {
@@ -534,7 +510,7 @@ export function LayoutBox({
   }
 
   // The children as the next click on them leaves them, for the hover preview.
-  const filledNext = (spot: BoxSpot) => {
+  const filledNext = (spot: PlaceSpot) => {
     const { spread, change } = nextFill(spot)
     let gap = draft.gap
 
@@ -543,40 +519,6 @@ export function LayoutBox({
     }
 
     return arrangementOf({ ...draft, ...change, gap })
-  }
-
-  const focusSpot = (spot: BoxSpot) =>
-    box.current?.querySelector<HTMLButtonElement>(`[data-spot="${spot.x}-${spot.y}"]`)?.focus()
-
-  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const move = arrowMoves.get(event.key)
-
-    if (move) {
-      event.preventDefault()
-
-      const next = {
-        x: places[clamp(places.indexOf(anchor.x) + move[0], 0, 2)]!,
-        y: places[clamp(places.indexOf(anchor.y) + move[1], 0, 2)]!
-      }
-
-      choose(next, false)
-      focusSpot(next)
-
-      return
-    }
-
-    const key = event.key.toLowerCase()
-
-    if (key === "s") {
-      event.preventDefault()
-      set(grid ? { itemsX: undefined, itemsY: undefined } : { align: undefined })
-    } else if (key === "x" && !grid) {
-      event.preventDefault()
-      onSpread(draft.gap !== "auto")
-    } else if (key === "b" && !grid && !column) {
-      event.preventDefault()
-      set({ align: isBaseline(draft.align) ? undefined : "baseline" })
-    }
   }
 
   const baseline = !grid && !column && isBaseline(draft.align)
@@ -590,83 +532,70 @@ export function LayoutBox({
       : "Clicking the children stretches them, then spreads them out, then packs them again."
   }
 
-  let ghost: Arrangement | undefined
+  // Its letters: S stretches them; outside a grid, X spreads them out, and in a row B lines up their text.
+  const letters: [string, () => void][] = [
+    ["s", () => set(grid ? { itemsX: undefined, itemsY: undefined } : { align: undefined })]
+  ]
 
-  if (hovered && !covers(arrangement, hovered)) {
-    ghost = previewOf(arrangement, hovered, grid, column)
-  } else if (hovered && !grid) {
-    ghost = filledNext(hovered)
+  if (!grid) {
+    letters.push(["x", () => onSpread(draft.gap !== "auto")])
   }
 
-  return (
-    <Hint
-      label={grid ? "Where each child sits in its cell" : "Where the children sit"}
-      detail={`${baseline ? "Their text is lined up on its baseline, set in More.\n" : ""}${keys}\n${clicks}`}
-      wait
-    >
-      <fieldset
-        ref={box}
-        aria-label={grid ? "Where each child sits in its cell" : "Alignment"}
-        onPointerLeave={() => setHovered(undefined)}
-        style={size === undefined ? undefined : { width: size, height: size }}
-        className="group/box relative grid size-20 shrink-0 grid-cols-3 grid-rows-3 rounded-md border bg-muted/40 p-0.5"
-      >
-        <svg aria-hidden viewBox="0 0 60 60" className="pointer-events-none absolute inset-0 size-full">
-          {grid && <GridCells />}
-          {ghost && (
-            <Children
-              grid={grid}
-              column={column}
-              baseline={baseline}
-              arrangement={ghost}
-              spread={draft.distribute}
-              ghost
-            />
-          )}
+  if (!grid && !column) {
+    letters.push(["b", () => set({ align: isBaseline(draft.align) ? undefined : "baseline" })])
+  }
+
+  // The children where they sit, and faintly where the spot hovered, or a click on them, would put them.
+  const drawing = (hovered: PlaceSpot | undefined) => {
+    let ghost: Arrangement | undefined
+
+    if (hovered && !covers(arrangement, hovered)) {
+      ghost = previewOf(arrangement, hovered, grid, column)
+    } else if (hovered && !grid) {
+      ghost = filledNext(hovered)
+    }
+
+    return (
+      <>
+        {grid && <GridCells />}
+        {ghost && (
           <Children
             grid={grid}
             column={column}
             baseline={baseline}
-            arrangement={arrangement}
+            arrangement={ghost}
             spread={draft.distribute}
+            ghost
           />
-        </svg>
-        {places.flatMap((y) =>
-          places.map((x) => {
-            const spot = { x, y }
-            const on = covers(arrangement, spot)
-            const isAnchor = anchor.x === x && anchor.y === y
-
-            return (
-              <button
-                key={`${x}-${y}`}
-                type="button"
-                data-spot={`${x}-${y}`}
-                tabIndex={isAnchor ? 0 : -1}
-                aria-label={spotName(spot)}
-                aria-pressed={on}
-                onKeyDown={onKeyDown}
-                onPointerEnter={() => setHovered(spot)}
-                onClick={() => {
-                  if (on && !grid) {
-                    fill(spot)
-                  } else {
-                    choose(spot, isAnchor && on && arrangement.x !== "fill" && arrangement.y !== "fill")
-                  }
-                }}
-                className="group/spot relative z-10 grid place-items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {!on && (
-                  <span
-                    className={`block size-1 rounded-full bg-muted-foreground/50 group-hover/spot:opacity-0 ${grid ? "opacity-0 group-hover/box:opacity-100" : ""}`}
-                  />
-                )}
-              </button>
-            )
-          })
         )}
-      </fieldset>
-    </Hint>
+        <Children grid={grid} column={column} baseline={baseline} arrangement={arrangement} spread={draft.distribute} />
+      </>
+    )
+  }
+
+  return (
+    <SpotBox
+      label={grid ? "Where each child sits in its cell" : "Alignment"}
+      hint={{
+        label: grid ? "Where each child sits in its cell" : "Where the children sit",
+        detail: `${baseline ? "Their text is lined up on its baseline, set in More.\n" : ""}${keys}\n${clicks}`
+      }}
+      anchor={anchor}
+      covers={(spot) => covers(arrangement, spot)}
+      dotsOnHover={grid}
+      className="size-20"
+      style={size === undefined ? undefined : { width: size, height: size }}
+      drawing={drawing}
+      keys={new Map(letters)}
+      onMove={(spot) => choose(spot, false)}
+      onSpot={(spot, { covered, anchor: isAnchor }) => {
+        if (covered && !grid) {
+          fill(spot)
+        } else {
+          choose(spot, isAnchor && covered && arrangement.x !== "fill" && arrangement.y !== "fill")
+        }
+      }}
+    />
   )
 }
 
@@ -677,7 +606,7 @@ interface NextFill {
 }
 
 /** The children as they'd sit with a spot chosen, for the hover preview. */
-function previewOf(current: Arrangement, spot: BoxSpot, grid: boolean, column: boolean): Arrangement {
+function previewOf(current: Arrangement, spot: PlaceSpot, grid: boolean, column: boolean): Arrangement {
   if (grid) {
     return { x: spot.x, y: spot.y }
   }
@@ -705,19 +634,6 @@ const barGap = 2
 
 /** The place an axis's children sit at, or undefined where they fill or spread across it. */
 const placeOf = (axis: Arrangement["x"]) => places.find((place) => place === axis)
-
-/** Where a run of `length` sits on an axis of the box (6 to 54), at a place. */
-function along(place: Place, length: number, from = 6, to = 54) {
-  if (place === "start") {
-    return from
-  }
-
-  if (place === "center") {
-    return (from + to - length) / 2
-  }
-
-  return to - length
-}
 
 /** Where a row's children's text lines up when they're on the baseline, down the box. */
 const baselineAt = 38
@@ -779,7 +695,7 @@ function Children({
   const starts = barLengths.map((_, index) =>
     main === undefined
       ? 6 + edgeShares * spreadGap + index * (bar + spreadGap)
-      : along(main, run) + index * (bar + barGap)
+      : along(main, run, 6, 54) + index * (bar + barGap)
   )
 
   const bars = barLengths.map((length, index) => {
@@ -788,7 +704,7 @@ function Children({
     }
 
     const size = cross === undefined ? 48 : length
-    const y = cross === undefined ? 6 : along(cross, length)
+    const y = cross === undefined ? 6 : along(cross, length, 6, 54)
 
     return { x: starts[index]!, y, size }
   })
