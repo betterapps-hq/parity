@@ -34,6 +34,7 @@ import {
   appFiles,
   changesLockfiles,
   codeSnapshot,
+  detectionInputs,
   detectProject,
   discoverProject,
   documentTarget,
@@ -92,6 +93,8 @@ export interface ProjectListeners {
   codeChanged: (change: WindowMethods["project.codeChanged"]["params"]) => void
   /** A builder started again on a new port; resolves whether the windows now draw the guest from there. */
   guestMoved: (change: GuestMoved) => Promise<boolean>
+  /** What detection reads of a project changed since it opened, so its tabs open it again (PAR-820). */
+  detectionChanged: (change: WindowMethods["project.detectionChanged"]["params"]) => void
 }
 
 /** What the type checker and props found last time, kept outside the project (see detection-cache.ts). */
@@ -186,6 +189,11 @@ interface Project extends OpenProject {
   configWatchers?: Watching[]
   /** When it opened, by `performance.now()`, for how long it was open. */
   openedAt: number
+  /**
+   * What detection read of the project as it opened (`detectionInputs`), and the files, relative to the root, it was
+   * read from, followed as they are now: a change to one that changes the key needs the project opened again.
+   */
+  detected?: { key: string; files: Set<string> }
 }
 
 /** What an open learned on the way, for `project.opened` or `project.openFailed` (PAR-637). */
@@ -253,6 +261,11 @@ export interface OpenProjects {
   /** Opens a project, or gives the one open or opening there. `reopen` when it's one open as Parity last quit. */
   open: (root: string, how?: { reopen?: boolean }) => Promise<ProjectInfo>
   close: (projectId: string) => Promise<undefined>
+  /**
+   * Whether what detection reads of an open project changed since it opened, so opening it again detects it afresh
+   * (PAR-820), as `parity open` on an open project asks.
+   */
+  detectAgain: (projectId: string) => Promise<boolean>
   /** The roots of the projects open now. */
   roots: () => string[]
   get: (projectId: string) => OpenProject
@@ -325,6 +338,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    * its files and components, and what the type checker found last time.
    */
   async function detect(root: string, opening: Opening) {
+    // Read first, so a change made while the project opens is a change from what it opened with.
+    const inputs = await detectionInputs(root).catch(() => undefined)
     const pkg = (await readPackage(root))?.manifest
 
     if (!pkg) {
@@ -410,6 +425,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       documents,
       explain,
       fingerprint,
+      inputs,
       known,
       mainDocument,
       name,
@@ -485,6 +501,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       documents,
       explain,
       fingerprint,
+      inputs,
       known,
       mainDocument,
       name,
@@ -554,7 +571,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       components: Promise.resolve(saved?.props ?? {}),
       renderer,
       uiKit: config.uiKit || undefined,
-      openedAt: performance.now()
+      openedAt: performance.now(),
+      detected: inputs && { key: inputs.key, files: new Set(inputs.files) }
     }
 
     readProps(project, opened, config.componentFiles)
@@ -573,6 +591,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     projects.set(root, project)
+    // What detection read was taken before the watcher started, so a change made while the project opened is caught.
+    void tellDetectionChanged(project)
     logNote(`[service] ${info.name}: ${renderer.name} via ${builder.name} ${session.toolVersion} at ${info.guestUrl}`)
 
     for (const tool of [detection.packageManager, ...detection.tools]) {
@@ -850,6 +870,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
           return
         }
 
+        if (project.detected?.files.has(path)) {
+          later("detection", 400, () => void tellDetectionChanged(project))
+        }
+
         const change = projectFileChange(path, {
           componentExtensions: project.renderer.componentExtensions,
           configInput: isConfigInput(project, resolve(root, path))
@@ -930,6 +954,38 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
           return []
         }
       })
+  }
+
+  /** Tells the windows when what detection reads of the project changed since it opened, so they open it again. */
+  async function tellDetectionChanged(project: Project): Promise<void> {
+    if (await detectionChanged(project)) {
+      listeners.detectionChanged({ projectId: project.info.id })
+    }
+  }
+
+  /**
+   * Reads what detection reads of the project again (PAR-820), and whether it changed since the project opened:
+   * `components.json` added, a stylesheet created, a dependency added. Only opening it again takes that in. A file
+   * caught mid-write reads as no change, and the next event reads it again.
+   */
+  async function detectionChanged(project: Project): Promise<boolean> {
+    const { root } = project.info
+    const inputs = await detectionInputs(root).catch(() => undefined)
+
+    if (!inputs || projects.get(root) !== project) {
+      return false
+    }
+
+    const opened = project.detected?.key ?? inputs.key
+    project.detected = { key: opened, files: new Set(inputs.files) }
+
+    if (inputs.key === opened) {
+      return false
+    }
+
+    logNote(`[service] ${project.info.name}'s stylesheets, dependencies or Vite config changed since it opened`)
+
+    return true
   }
 
   /** Whether a change to `file` (absolute) is a change to the project's config inputs, or to which lockfiles it has. */
@@ -1231,6 +1287,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       }
 
       return undefined
+    },
+
+    async detectAgain(projectId) {
+      const project = projects.get(projectId)
+
+      return project ? detectionChanged(project) : false
     },
 
     roots: () => [...projects.keys()],

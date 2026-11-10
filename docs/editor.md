@@ -3086,8 +3086,23 @@ decisions.md's "Saving is explicit" sets out.
 - **A frame shows a theme set by attribute** (PAR-22): a mode whose class names a theme the stylesheet switches on with
   an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
   body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
-  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. An attribute on the
-  root (`:root[data-theme="dark"]`) still never applies in a frame, as the frame's root is its shadow host.
+  `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. A theme's attribute
+  on the root (`:root[data-theme="dark"]`) isn't set this way: it applies only where the mode or a decorator sets it, as
+  below.
+- **A frame draws the root with a class or attribute on it** (PAR-819): `:root.dark`, `html[data-theme=dark]` and
+  `:root:not(.dark)` apply in frames as in a page. The frame's root is its shadow host, which matches nothing written
+  after `:host`, only inside `:host()`, so `prepareCanvasCss` draws such a rule as two selectors: the host with it
+  (`:host(.dark)`), where a decorator may set attributes, and the frame's body with it (`[data-canvas-body].dark`),
+  where a mode's class goes. On the body, the root's own rule sits in a cascade layer the frame declares before the
+  project's (`qualifiedRootLayer`), so the body's own rules beat it, as they beat what a page's body inherits from its
+  root, while `:root.dark.contrast` still beats `:root.dark`. A font size there, in a nested `@media` too, sets the
+  frame's `rem`, whatever the body's own font size is, and its `!important` is dropped there, as an inherited value has
+  none. Left as is: a qualified root's value beats a plain root's on the body even where the page's cascade would pick
+  the plain one, as with a `:root.dark` in an earlier layer than `:root`. A `var()` in its values resolves on the body,
+  so a `body` rule that changes a variable the root's value refers to changes that value too, where a page's body would
+  inherit it as the root worked it out. A root with a `:not()` on it is drawn as the body alone, since the host never
+  has the mode's class. Tokens are read with the rule as written (`qualifiedRoots: false`), so `:root.dark` is still the
+  `dark` theme in the Tokens tab, and now the Dark frame draws those values too.
 
 Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
 (`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and
@@ -3158,6 +3173,10 @@ Tests:
   `packages/core/src/css.test.ts`, how frames draw the block, at the top level, nested in a rule or in the root's own
   rule, under a layer, and left as written for reading tokens; `apps/desktop/src/renderer/frame.test.ts`, in Chrome, a
   frame drawing the block for its own scheme while the window prefers dark; and `fixtures/mantine/expected.json`.
+- A root with a class or attribute on it (PAR-819): `packages/core/src/css.test.ts` (3): `:root.dark`,
+  `html[data-theme=dark] .card` and `:root:not(.dark), .x` drawn as the frame's host and body, a plain `:root` left as
+  `:host` ("draws the root with a class or attribute on it as the frame's host and body"); a qualified root's font size
+  setting the frame's `rem` where only the body has the qualifier; and the rule kept as written for reading tokens.
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).
@@ -4774,6 +4793,45 @@ a sibling folder whose name starts with the root's) isn't saved, and closing sto
 reopen serves the project on a new port. Gaps: the offscreen renderer's side has no automated test, nor has
 `restartBuilder` sending `project.guestMoved` to the window. A project service started again forgets the ports, while
 the window keeps what it loaded from them.
+
+### Detected again when what detection reads changes (PAR-820)
+
+An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: a
+`components.json` added or changed, a stylesheet created where the conventions look, `index.html` or the entry it loads
+changed, a dependency added or removed, or a Vite config added. A TanStack Start app has no `index.html`, so
+`components.json`'s `tailwind.css` is how its stylesheet is found; before, adding one to an open project changed nothing
+until Parity restarted.
+
+- **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's stylesheets,
+  the packages' stylesheets the entry imports, `components.json`'s UI kit alias, the dependencies' names and which Vite
+  config there is. It reads them before detection, compares again once the project's watcher has started, so a change
+  made while the project opened counts, and again 400 ms after a change to one of the files they came from. A
+  stylesheet's contents, a script in package.json or a version bump change nothing it compares, so they don't reopen the
+  project. A package.json that's missing or half-written, or a `components.json` that's there but half-written, as while
+  they're rewritten, fails the read, which counts as no change; a `components.json` taken away is a change.
+- **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
+  (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is. A tab
+  told while it's still loading asks again once it's ready, since what it loaded may have been read before the change.
+- **`parity open` on an open project** asks the service whether detection changed (`project.detectAgain`) and opens it
+  again first when it did, so the answer describes the project as detected now.
+
+Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
+`styles.ts`; `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
+`apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
+`shared/service-checks.ts` and `utility/index.ts`; `detectAgain`, `detectionChanged` and `settleDetection` in
+`renderer/workspace.ts`; `agent.open` and `project.detectionChanged` in `renderer/agent/handlers.ts`.
+
+Tests: `packages/project/src/detection-inputs.test.ts` (5: `components.json` naming a stylesheet changes the key; a
+conventional stylesheet or Vite config appearing changes it, and the entry `index.html` names is followed; dependencies
+change it while scripts, versions and a stylesheet's contents don't; a missing or half-written package.json fails; a
+half-written `components.json` fails while one taken away doesn't). `apps/desktop/src/utility/projects.test.ts` (2: an
+open project whose `components.json` now names its stylesheet tells the windows, a file detection doesn't read doesn't,
+a moment without package.json isn't a change, and opened again it's detected from the new file; a `components.json`
+written while the builder starts is told once the project is open). `apps/desktop/src/renderer/workspace.test.ts` (2:
+asked to detect again, a tab opens its project again only when the service says detection changed; a tab told while
+loading asks again once it's ready). Gaps: the handlers wiring `agent.open` and `project.detectionChanged` to the
+workspace is checked by reading; the UI kit's folder filling with files, a `.storybook` folder added and a Vite config's
+contents aren't compared (Vite restarts its own server when its config changes).
 
 ### A tab closed while its project opens (PAR-427)
 

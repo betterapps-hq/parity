@@ -112,7 +112,7 @@ cpSync(join(appDir, "resources"), join(outDir, "resources"), { recursive: true }
 const builds: BuildContext[] = [
   await context({
     ...shared,
-    entryPoints: { main: join(appDir, "src/main/index.ts") },
+    entryPoints: { main: join(appDir, "src/main/index.ts"), "hang-watch": join(appDir, "src/main/hang-watch.ts") },
     format: "esm",
     outExtension: { ".js": ".mjs" },
     plugins: [externalizeDependencies, onBuilt(true)]

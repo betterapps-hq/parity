@@ -152,7 +152,8 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
   const css = prepareCanvasCss(sources.filter((source) => source !== undefined).join("\n"), {
     baseUrl: "http://localhost",
     units: false,
-    colorSchemes: false
+    colorSchemes: false,
+    qualifiedRoots: false
   }).scoped
 
   const tokens = extractTokens(css, theme)

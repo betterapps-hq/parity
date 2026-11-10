@@ -18,6 +18,12 @@ export const viewportHeightProperty = "--canvas-vh"
 export const remProperty = "--canvas-rem"
 export const rootFontSizeProperty = "--canvas-root-font-size"
 
+/**
+ * The cascade layer a qualified root's rule (`:root.dark`) is drawn on the frame's body in. A frame declares it before
+ * the project's layers, so every rule of the project's beats it, as a page's body rules beat what the body inherits.
+ */
+export const qualifiedRootLayer = "canvas-qualified-root"
+
 /** A browser's default font size, `medium`, which a page's root font size is relative to. */
 const mediumFontSize = 16
 
@@ -74,6 +80,12 @@ export interface PrepareCssOptions {
    * `colorSchemeAttribute`). Tokens are read with `false`, so the blocks stay as the project wrote them.
    */
   colorSchemes?: boolean
+  /**
+   * Whether a root with a class, attribute or `:not()` on it (`:root.dark`) is drawn as the frame's host and body with
+   * it, as it is for drawing (see `splitQualifiedRoots`). Tokens are read with `false`, so it stays one root selector
+   * that names its theme.
+   */
+  qualifiedRoots?: boolean
 }
 
 /** A colour scheme a `prefers-color-scheme` query asks for. */
@@ -281,6 +293,12 @@ interface SerializeContext {
   inRule?: boolean
   /** Inside a `prefers-color-scheme` block that isn't in a style rule, so its rules apply in frames of this scheme. */
   scheme?: ColorScheme
+  /**
+   * The declarations are a qualified root's, drawn on the frame's body (see `splitQualifiedRoots`): they lose their
+   * importance, which a value the body inherits wouldn't keep, and each font size is also what `rem` measures inside the
+   * body, whatever the body's own is, under the same conditions.
+   */
+  bodyRoot?: boolean
 }
 
 /** Serializes rules for a frame. */
@@ -299,7 +317,8 @@ function serialize(
       if (options.units === false) {
         output += text
       } else {
-        output += rewriteFrameUnits(context.root ? rewriteRootFontSize(text) : text)
+        const rooted = context.root ? rewriteRootFontSize(text) : text
+        output += rewriteFrameUnits(context.bodyRoot ? asBodyRoot(rooted) : rooted)
       }
 
       continue
@@ -313,7 +332,12 @@ function serialize(
 
       if (scheme && context.inRule) {
         // Nested in a rule, as Tailwind's `dark:` utilities are: the rule's elements in a frame of that scheme.
-        const body = serialize(node.children, options, globals, { root: context.root, inRule: true })
+        const body = serialize(node.children, options, globals, {
+          root: context.root,
+          bodyRoot: context.bodyRoot,
+          inRule: true
+        })
+
         output += `${leading}${inColorScheme(scheme)} & {${body}}`
       } else if (scheme) {
         output += leading + serialize(node.children, options, globals, { ...context, scheme })
@@ -330,7 +354,7 @@ function serialize(
       continue
     }
 
-    const selector = rewriteSelector(prelude)
+    const selector = rewriteSelector(prelude, options.qualifiedRoots !== false && !context.scheme)
     const selectors = splitSelectorList(selector)
     const roots = selectors.filter((part) => rootSelector.test(part))
     const scope = (list: string) => (context.scheme ? scopeToColorScheme(list, context.scheme) : list)
@@ -350,9 +374,31 @@ function serialize(
     const others = selectors.filter((part) => !rootSelector.test(part))
     const otherBody = others.length > 0 ? serialize(children, options, globals, { inRule: true }) : rootBody
 
-    // A rule for the root and other elements at once, as `html, body`, is split when the root's font size changes, so
-    // only the root's does.
-    if (rootBody === otherBody) {
+    const bodyRoots = roots.filter((part) => part.startsWith(bodyRootPrefix))
+    const hostRoots = roots.filter((part) => !part.startsWith(bodyRootPrefix))
+
+    if (bodyRoots.length > 0) {
+      // A qualified root's own declarations, drawn on the body, go in a layer below the project's, so the body's own
+      // rules beat them, as they beat what a page's body inherits from its root. Its nested rules are for elements
+      // inside, which inherit nothing, so they stay in the project's layer, with the specificity they were written with.
+      // Each is serialized again into a list of its own, so what the root's rule moves to the document isn't moved twice.
+      const nested = children.filter((child) => child.kind === "block" && !child.prelude.trim().startsWith("@"))
+      const own = children.filter((child) => !nested.includes(child))
+      const bodyRootBody = serialize(own, options, [], { root: true, inRule: true, bodyRoot: true })
+      const nestedBody = nested.length > 0 ? serialize(nested, options, [], { root: true, inRule: true }) : ""
+      const qualifiedBodies = bodyRoots.map((part) => `[${bodyAttribute}]${part.slice(bodyRootPrefix.length)}`)
+
+      const parts = [
+        hostRoots.length > 0 ? `${scope(hostRoots.join(", "))} {${rootBody}}` : "",
+        `@layer ${qualifiedRootLayer} { ${scope(bodyRoots.join(", "))} {${bodyRootBody}} }`,
+        nestedBody ? `${scope(qualifiedBodies.join(", "))} {${nestedBody}}` : "",
+        others.length > 0 ? `${scope(others.join(", "))} {${otherBody}}` : ""
+      ]
+
+      output += leading + parts.filter(Boolean).join(" ")
+    } else if (rootBody === otherBody) {
+      // A rule for the root and other elements at once, as `html, body`, is split when the root's font size changes,
+      // so only the root's does.
       output += `${leading}${scope(selector)} {${rootBody}}`
     } else {
       output += `${leading}${scope(roots.join(", "))} {${rootBody}} ${scope(others.join(", "))} {${otherBody}}`
@@ -363,16 +409,60 @@ function serialize(
         continue
       }
 
+      const scheme = schemeOfBlock(block, options)!
       const body = serialize(block.children, options, globals, { root: true, inRule: true })
-      output += ` ${scopeToColorScheme(selector, schemeOfBlock(block, options)!)} {${body}}`
+      const plain = selectors.filter((part) => !part.startsWith(bodyRootPrefix) && !part.startsWith(":host("))
+      const qualified = selectors.filter((part) => part.startsWith(bodyRootPrefix))
+
+      if (plain.length > 0) {
+        output += ` ${scopeToColorScheme(plain.join(", "), scheme)} {${body}}`
+      }
+
+      // A qualified root's block is for the body in that scheme with the qualifier on it. The host can't be in a scheme,
+      // which only the body says, so its side is left out.
+      if (qualified.length > 0) {
+        const inScheme = qualified.map(
+          (part) =>
+            `:where([${bodyAttribute}][${colorSchemeAttribute}="${scheme}"])${part.slice(bodyRootPrefix.length)}`
+        )
+
+        const bodyRootBody = serialize(block.children, options, [], { root: true, inRule: true, bodyRoot: true })
+        output += ` @layer ${qualifiedRootLayer} { ${inScheme.join(", ")} {${bodyRootBody}} }`
+      }
     }
   }
 
   return output
 }
 
-/** A selector for the frame's root alone, as `:root` and `html` become: `:host`, or `:host(.dark)`. */
-const rootSelector = /^:host(?:\([^()]*\))?$/
+/**
+ * A selector for the frame's root alone, as `:root` and `html` become: `:host`, `:host(.dark)`, or the body standing in
+ * for a qualified root, `:where([data-canvas-body]).dark` (see `splitQualifiedRoots`).
+ */
+const rootSelector = new RegExp(String.raw`^(?::host(?:\([^()]*\))?|:where\(\[${bodyAttribute}\]\)[\s\S]+)$`)
+
+/** The body standing in for a qualified root, whose font size is the frame's `rem` as the host's is otherwise. */
+const bodyRootPrefix = `:where([${bodyAttribute}])`
+
+/** A declaration's `!important`, which a value the body inherits from its root doesn't keep. */
+const importance = /\s*!\s*important\b/gi
+
+/** A `font-size` declaration, with its value up to the end of the declaration. */
+const fontSizeWithValue = /(^|[;\s])(font-size\s*:)([^;]*)/gi
+
+/**
+ * A qualified root's declarations as the frame's body takes them: without importance, and with each font size, by then
+ * absolute (see `rewriteRootFontSize`), also set as the length `rem` measures inside the body.
+ */
+function asBodyRoot(text: string): string {
+  return text
+    .replace(importance, "")
+    .replace(
+      fontSizeWithValue,
+      (_match, before: string, property: string, value: string) =>
+        `${before}${property}${value}; ${rootFontSizeProperty}: ${value.trim()}; ${remProperty}: var(${rootFontSizeProperty})`
+    )
+}
 
 /** The colour scheme a `prefers-color-scheme` block asks for, unless it's left alone. */
 function schemeOfBlock(node: CssNode, options: PrepareCssOptions): ColorScheme | undefined {
@@ -494,11 +584,48 @@ export function rewriteMedia(prelude: string): string {
   return `@container ${viewportContainerName} not ${conditions.length > 1 ? `(${condition})` : condition}`
 }
 
-function rewriteSelector(selector: string): string {
-  return selector
+/** The root with classes, attributes or `:not()`s on it, as `:host` after `:root` and `html` become it, then the rest. */
+const qualifiedRoot = /^:host((?:\.[\w-]+|\[[^\]]*\]|:not\([^()]*\))+)([\s\S]*)$/
+
+/**
+ * Draws a selector for the root with something on it (`:root.dark`, `html[data-theme=dark]`, `:root:not(.dark)`) as two:
+ * the frame's host with it, as `:host(.dark)`, since the host matches nothing written after `:host` but only inside
+ * `:host()`, and the frame's body with it, where a mode's class and a theme's attributes go. A decorator that sets an
+ * attribute on the host, as a decorator might set, matches the first; a mode's class matches the second. A root with a
+ * `:not()` on it is drawn as the body alone.
+ */
+function splitQualifiedRoots(selector: string): string {
+  return splitSelectorList(selector)
+    .map((part) => {
+      const qualified = qualifiedRoot.exec(part)
+
+      if (!qualified) {
+        return part
+      }
+
+      const [, qualifiers, rest] = qualified
+      // The root's own rule adds the body nothing but what's on the root, so one qualified root still beats another as
+      // in a page (`.dark.contrast` over `.dark`); its layer puts the body's own rules above it (see `serialize`).
+      // Below the root, the selector keeps the specificity it was written with.
+      const body = rest ? `[${bodyAttribute}]${qualifiers}${rest}` : `:where([${bodyAttribute}])${qualifiers}`
+
+      // The host never has the mode's class, so what's not on it would hold in every mode.
+      return qualifiers!.includes(":not(") ? body : `:host(${qualifiers})${rest}, ${body}`
+    })
+    .join(", ")
+}
+
+/**
+ * `:root` and `html` as the frame's host and `body` as its body, with qualified roots split when asked. In a
+ * colour-scheme block they aren't, as the root becomes the frame's body in that scheme and what's on it stays on it.
+ */
+function rewriteSelector(selector: string, splitRoots: boolean): string {
+  const rewritten = selector
     .replace(/:root(?![\w-])/g, ":host")
     .replace(/(^|[\s,>+~(])html(?![\w-])/g, "$1:host")
     .replace(/(^|[\s,>+~(])body(?![\w-])/g, `$1[${bodyAttribute}]`)
+
+  return splitRoots && rewritten.includes(":host") ? splitQualifiedRoots(rewritten) : rewritten
 }
 
 /** A number with a viewport unit or `rem`, not inside a word (`img-100vw`) or another number. */

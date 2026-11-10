@@ -3,6 +3,7 @@ import {
   type DrawnNodes,
   type FrameViewport,
   emptyLayoutAttribute,
+  qualifiedRootLayer,
   remProperty,
   resetCustomProperties,
   rewriteFrameUnits,
@@ -62,9 +63,13 @@ export const emptyLayoutSize = 24
  * read through a registered length (`registerRootFontSize`), since `1em` in an ordinary custom property would measure
  * each element that uses it. It's a rule of its own, after the first, so nothing that resets custom properties in the
  * first can undo it.
+ *
+ * The layers come before the project's, lowest first: these rules, then a qualified root drawn on the body (core's
+ * `qualifiedRootLayer`), so any rule of the project's for the body beats it.
  */
 function frameRootCss(): string {
-  return `@layer canvas-frame-root {
+  return `@layer canvas-frame-root, ${qualifiedRootLayer};
+@layer canvas-frame-root {
   :host {
     all: initial;
     display: flow-root;
