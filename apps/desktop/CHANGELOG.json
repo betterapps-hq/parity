@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 20:59:49 GMT",
+      "version": "0.53.0",
+      "tag": "@parity-app/desktop_v0.53.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5847317abd085156019e4228dc5201dfe9099300",
+            "comment": "Place references from Mobbin on the canvas, from Find references and by agents' PlaceReference, kept in the project's file beside notes"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 14:26:25 GMT",
       "version": "0.52.1",
       "tag": "@parity-app/desktop_v0.52.1",

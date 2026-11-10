@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 10 Nov 2026 14:26:25 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 20:59:49 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.53.0
+
+Tue, 10 Nov 2026 20:59:49 GMT
+
+### Minor changes
+
+- Place references from Mobbin on the canvas, from Find references and by agents' PlaceReference, kept in the project's
+  file beside notes (ajcraswell@gmail.com)
 
 ## 0.52.1
 
