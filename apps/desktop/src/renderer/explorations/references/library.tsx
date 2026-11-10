@@ -1,6 +1,7 @@
 import {
   type ConnectorInfo,
   type Filter,
+  type FilterValue,
   type Found,
   mobbin,
   type SearchRequest,
@@ -109,10 +110,13 @@ export function fieldLabel(library: Library): string {
   return `Describe a ${library.noun.one}`
 }
 
-/** The names of the filters' chosen values, as a recent search lists them: "iOS", or "Portrait" and "Teal". */
-export function filterNames(info: ConnectorInfo, filters: Readonly<Record<string, string>>): string[] {
+/**
+ * What a search was narrowed by, as a recent search lists it: the value of every filter that always has one, then of
+ * any other that was chosen. So every Mobbin search says its platform, and an Unsplash one says only what was picked.
+ */
+export function narrowedBy(info: ConnectorInfo, filters: Readonly<Record<string, string>>): FilterValue[] {
   return shownFilters(info).flatMap(
-    (filter) => filter.values.find((value) => value.id === filters[filter.id])?.name ?? []
+    (filter) => filter.values.find((value) => value.id === (filters[filter.id] ?? filter.default)) ?? []
   )
 }
 

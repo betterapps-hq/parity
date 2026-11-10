@@ -13,7 +13,13 @@ import {
   EmptyTitle,
   InputGroup,
   InputGroupAddon,
+  InputGroupButton,
   InputGroupInput,
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -31,7 +37,7 @@ import {
   ChevronRight,
   ExternalLink,
   History,
-  type LucideIcon,
+  Lightbulb,
   Maximize2,
   Monitor,
   ScanSearch,
@@ -48,8 +54,8 @@ import {
   creditOf,
   depthOf,
   fieldLabel,
-  filterNames,
   labelOf,
+  narrowedBy,
   type Library,
   type LibraryId,
   Picture,
@@ -310,6 +316,9 @@ function Browser({
                   aria-label={fieldLabel(library)}
                   placeholder={`${fieldLabel(library)}, like “${info.guide.examples[0]}”`}
                 />
+                <InputGroupAddon align="inline-end">
+                  <SearchTips library={library} />
+                </InputGroupAddon>
               </InputGroup>
               {shownFilters(info).map((filter) => (
                 <FilterControl
@@ -439,10 +448,14 @@ function SourceCredit({ library }: { library: Library }) {
 /** A filter with no value chosen, in a select. */
 const any = "any"
 
-const valueIcons = new Map<string, LucideIcon>([
-  ["web", Monitor],
-  ["ios", Smartphone]
-])
+/** The picture that goes with a filter value the browser knows one for: a platform's device. */
+function ValueIcon({ id }: { id: string }) {
+  if (id === "web") {
+    return <Monitor />
+  }
+
+  return id === "ios" ? <Smartphone /> : null
+}
 
 /**
  * One of the connector's filters as a control, chosen from what the filter says about itself: a filter that always has
@@ -471,15 +484,11 @@ function FilterControl({
         }}
         aria-label={filter.name}
       >
-        {filter.values.map((each) => {
-          const Icon = valueIcons.get(each.id)
-
-          return (
-            <ToggleGroupItem key={each.id} value={each.id} className="gap-1.5 px-2.5">
-              {Icon && <Icon />} {each.name}
-            </ToggleGroupItem>
-          )
-        })}
+        {filter.values.map((each) => (
+          <ToggleGroupItem key={each.id} value={each.id} className="gap-1.5 px-2.5">
+            <ValueIcon id={each.id} /> {each.name}
+          </ToggleGroupItem>
+        ))}
       </ToggleGroup>
     )
   }
@@ -806,8 +815,8 @@ function Filmstrip({
 }
 
 /**
- * Before a search: the last few to run again, beside searches the source suggests trying, with what its connector
- * says about searching it underneath. A click on any runs it.
+ * Before a search: the last few to run again, each with what it was narrowed by, beside searches the source's
+ * connector suggests trying. A click on any runs it.
  */
 function Start({
   library,
@@ -822,41 +831,63 @@ function Start({
   const latest = recent.slice(0, 5)
 
   return (
-    <div className={`mx-auto flex flex-col gap-6 px-6 py-8 ${latest.length > 0 ? "max-w-3xl" : "max-w-md"}`}>
-      <div className={`grid gap-x-8 gap-y-6 ${latest.length > 0 ? "sm:grid-cols-2" : ""}`}>
-        {latest.length > 0 && (
-          <SearchList title="Recent" id="recent-searches">
-            {latest.map(({ query, filters }) => (
-              <SearchRow key={query} query={query} onRun={() => onRun({ query, filters })}>
-                <History className="text-muted-foreground" />
-                {filterNames(library.info, filters).map((filter) => (
-                  <Badge key={filter} variant="outline" className="font-normal text-muted-foreground">
-                    {filter}
-                  </Badge>
-                ))}
-              </SearchRow>
-            ))}
-          </SearchList>
-        )}
-        <SearchList title={`Try on ${name}`} id="suggested-searches">
-          {guide.examples.map((query) => (
-            <SearchRow key={query} query={query} onRun={() => onRun({ query, filters: {} })}>
-              <Search className="text-muted-foreground" />
+    <div
+      className={`mx-auto grid gap-x-8 gap-y-6 px-6 py-8 ${latest.length > 0 ? "max-w-3xl sm:grid-cols-2" : "max-w-md"}`}
+    >
+      {latest.length > 0 && (
+        <SearchList title="Recent" id="recent-searches">
+          {latest.map(({ query, filters }) => (
+            <SearchRow key={query} query={query} onRun={() => onRun({ query, filters })}>
+              <History className="text-muted-foreground" />
+              {narrowedBy(library.info, filters).map((value) => (
+                <span key={value.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ValueIcon id={value.id} />
+                  <Swatch fill={value.swatch} />
+                  {value.name}
+                </span>
+              ))}
             </SearchRow>
           ))}
         </SearchList>
-      </div>
-      {guide.tips.length > 0 && (
-        <ul
-          aria-label={`Searching ${name}`}
-          className="flex flex-col gap-1 border-t px-2 pt-4 text-xs text-muted-foreground"
-        >
+      )}
+      <SearchList title={`Try on ${name}`} id="suggested-searches">
+        {guide.examples.map((query) => (
+          <SearchRow key={query} query={query} onRun={() => onRun({ query, filters: {} })}>
+            <Search className="text-muted-foreground" />
+          </SearchRow>
+        ))}
+      </SearchList>
+    </div>
+  )
+}
+
+/**
+ * What the source's connector says about searching it, a click away from the search field in every state, since it's
+ * most use when a search has come back thin.
+ */
+function SearchTips({ library }: { library: Library }) {
+  const { guide, name } = library.info
+
+  if (guide.tips.length === 0) {
+    return null
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger render={<InputGroupButton size="xs" />}>
+        <Lightbulb /> Tips
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80">
+        <PopoverHeader>
+          <PopoverTitle>Searching {name}</PopoverTitle>
+        </PopoverHeader>
+        <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
           {guide.tips.map((tip) => (
             <li key={tip}>{tip}</li>
           ))}
         </ul>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -880,7 +911,7 @@ function SearchRow({ query, onRun, children }: { query: string; onRun: () => voi
       <Button variant="ghost" className="w-full justify-start gap-2.5 px-2 font-normal" onClick={onRun}>
         {icon}
         <span className="truncate">{query}</span>
-        <span className="ml-auto flex shrink-0 items-center gap-1">{rest}</span>
+        <span className="ml-auto flex shrink-0 items-center gap-3">{rest}</span>
       </Button>
     </li>
   )

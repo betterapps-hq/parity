@@ -53,8 +53,9 @@ export const FromTheToolbar: Story = {
 }
 
 /**
- * Opened with nothing selected: the last few searches to run again, one for each description, beside searches Mobbin's
- * connector suggests, with its tips underneath. A click on any runs it.
+ * Opened with nothing selected: the last few searches to run again, one for each description with its platform,
+ * beside searches Mobbin's connector suggests. A click on any runs it. Tips, in the search field, has the connector's
+ * tips on searching, in every state.
  */
 export const NothingSelected: Story = {
   loaders: [opening(false)],

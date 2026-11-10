@@ -60,8 +60,8 @@ export const ImageNotInTheProject: Story = {
 // Finding
 
 /**
- * Find photos, just opened: the last few searches to run again, one for each description with the filters it last
- * had, beside searches Unsplash's connector suggests, with its tips underneath.
+ * Find photos, just opened: the last few searches to run again, one for each description with the orientation and
+ * color it last had, beside searches Unsplash's connector suggests. Tips, in the search field, has its tips.
  */
 export const JustOpened: Story = {
   loaders: [opening(false, "images")],

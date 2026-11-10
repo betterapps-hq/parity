@@ -69,8 +69,9 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 - **Mobbin's depth is the one filter the browser treats by name:** it's offered as Search deeper on the results rather
   than as a choice before searching.
 - **Guidance on searching comes from the connector's `guide`:** a few example searches and a few tips, from the source's
-  own documentation. The browser shows them before a search, uses the first example in the search field, and runs an
-  example on a click. Agents can be given the same words.
+  own documentation. The browser offers the examples to run before a search and uses the first in the search field. The
+  tips sit behind Tips, a button in the search field, in every state, since they're most use when a search has come back
+  thin. Agents can be given the same words.
 - **More results follows the connector's `more`:** leaving out what's shown for Mobbin, the next page for Unsplash.
 - **A connector's problems are the browser's states:** no key, a key turned down, a plan without access, a limit reached
   with the wait counted down, a search it can't take, and a source that can't be reached.
@@ -88,8 +89,10 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   menu and in Search actions.
 - **With a design selected it opens already searched:** the design's name as the description ("pricing page"), on the
   web when the design's main preview is wider than 600 pixels and on iOS otherwise. That first search is a quick one.
-- **With nothing selected it opens on the last few searches** to run again, one for each description with the filters it
-  last had, beside the example searches from the connector, with the connector's tips underneath.
+- **With nothing selected it opens on the last few searches** to run again, one for each description, beside the example
+  searches from the connector. Each recent search says what it was narrowed by: the value of every filter that always
+  has one, so every Mobbin search shows Web or iOS, then any other that was chosen, so an Unsplash search shows its
+  orientation or color only when one was picked.
 - **A search runs on Enter,** not as you type, since each one is a request to Mobbin. Switching between Web and iOS runs
   the same description again.
 
