@@ -66,7 +66,7 @@ const groups: { name: string; entries: Entry[] }[] = [
   {
     name: "Fields the others are built from",
     entries: [
-      { name: "Number field", Story: composeStories(numberField).SpacingLength, reviewed: true },
+      { name: "Number field", Story: composeStories(numberField).Plain, reviewed: true },
       { name: "Expression", Story: composeStories(expression).Calc, reviewed: true },
       // The picker opens from the field's swatch: its own stories open it at the start, and it takes focus as it does.
       { name: "Color field and picker", Story: composeStories(colorField).Token, reviewed: true }

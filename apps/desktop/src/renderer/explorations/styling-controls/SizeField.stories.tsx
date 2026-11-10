@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { LayerPreview, SizeSection } from "./controls.tsx"
 import type { Draft } from "./data.ts"
+import type { TokensShown } from "./field-parts.tsx"
 import { Playground, useDraft } from "./playground.tsx"
 import { sizeRowWrites } from "./writes.ts"
 
@@ -37,6 +38,39 @@ export const Fixed: Story = { render: () => <Size start={{ width: 520, height: 5
 
 /** W at the project's container-md token, 448 pixels, as its pill; Sizing lists the tokens under the words. */
 export const Token: Story = { render: () => <Size start={{ width: { token: "container-md" }, height: 320 }} /> }
+
+/**
+ * Three ways Sizing could hold the tokens, to compare: all listed under the words, as now; folded under a Tokens row
+ * that opens them, with the nearest still shown; and listed with a search above them, as Font's list searches.
+ */
+export const SizingMenuOptions: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+      {(
+        [
+          ["listed", "Listed"],
+          ["folded", "Folded"],
+          ["searched", "Searched"]
+        ] as const
+      ).map(([shown, name]) => (
+        <SizingOption key={shown} name={name} shown={shown} />
+      ))}
+    </div>
+  )
+}
+
+function SizingOption({ name, shown }: { name: string; shown: TokensShown }) {
+  const [draft, set] = useDraft({ width: 520, height: 320 })
+
+  return (
+    <div className="flex w-72 flex-col gap-2">
+      <p className="text-sm font-medium">{name}</p>
+      <div className="rounded-lg border">
+        <SizeSection draft={draft} set={set} tokensShown={shown} />
+      </div>
+    </div>
+  )
+}
 
 /** W hugs its content: a Hug chip, with what that comes to after it. */
 export const Hug: Story = { render: () => <Size start={{ width: "hug" }} /> }

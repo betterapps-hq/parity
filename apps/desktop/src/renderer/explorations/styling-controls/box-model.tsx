@@ -1,5 +1,5 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react"
+import { createContext, type CSSProperties, type ReactNode, use, useLayoutEffect, useRef, useState } from "react"
 import { KeyHints } from "../../canvas/KeyHints.tsx"
 import { spacingColors } from "../../canvas/spacing-colors.ts"
 import { gestures as held } from "../../chrome/keymap.ts"
@@ -15,6 +15,9 @@ import type { LengthToken } from "./tokens.ts"
  * its field in a popover to edit it. SpacingPreview, the canvas's stand-in, draws padding and margin as the canvas does
  * and highlights the side that's hovered.
  */
+
+/** The fill a side's value rests on, which a story swaps to compare how strong it should be. */
+export const ValueFill = createContext("bg-background/60")
 
 /** Which sides are hovered in a field or the widget, for the preview to highlight. */
 export interface SpacingHover {
@@ -116,6 +119,7 @@ export function SideValue({
   onHover?: (on: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
+  const fill = use(ValueFill)
   const { tokens } = useTokens(rules.tokens.set)
   const tokenName = value !== undefined && value !== "auto" && "token" in value ? value.token : undefined
   const token = tokens.find((other) => other.name === tokenName)
@@ -151,7 +155,7 @@ export function SideValue({
             onHover?.(false)
           }
         }}
-        className={`flex h-5 max-w-14 min-w-6 items-baseline justify-center rounded-sm px-1 text-xs leading-5 tabular-nums outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-foreground/15 ${faint ? "text-muted-foreground" : ""} ${tokenName === undefined ? "bg-background/60" : "bg-foreground/10"} ${className}`}
+        className={`flex h-5 max-w-14 min-w-6 items-baseline justify-center rounded-sm px-1 text-xs leading-5 tabular-nums outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-foreground/15 ${faint ? "text-muted-foreground" : ""} ${tokenName === undefined ? fill : "bg-foreground/10"} ${className}`}
       >
         <span className="truncate">
           {plus}

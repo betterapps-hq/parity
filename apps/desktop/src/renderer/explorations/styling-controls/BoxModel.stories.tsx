@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { BoxModel, type Measured, SpacingPreview, type SpacingHover } from "./box-model.tsx"
+import { BoxModel, type Measured, SpacingPreview, type SpacingHover, ValueFill } from "./box-model.tsx"
 import { Playground } from "./playground.tsx"
 import { type Sides, sidesWrites } from "./sides-writes.ts"
 import { mergeWrites } from "./writes.ts"
@@ -51,6 +51,47 @@ function Spacing({ padding: startPadding, margin: startMargin = none }: { paddin
         />
       </PanelSection>
     </Playground>
+  )
+}
+
+/** How strong the fill each value rests on could be, to compare: 60% as now, 40% and 25%. Hover one to see it lighten. */
+export const FillStrengths: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-start gap-6 bg-background p-6 text-foreground">
+      {(
+        [
+          ["bg-background/60", "60%"],
+          ["bg-background/40", "40%"],
+          ["bg-background/25", "25%"]
+        ] as const
+      ).map(([fill, name]) => (
+        <div key={fill} className="flex w-80 flex-col gap-2">
+          <p className="text-sm font-medium">{name}</p>
+          <ValueFill value={fill}>
+            <StrengthBox />
+          </ValueFill>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function StrengthBox() {
+  const [padding, setPadding] = useState<Sides>([px(16), px(24), px(16), px(24)])
+  const [margin, setMargin] = useState<Sides>([px(8), undefined, px(8), undefined])
+
+  return (
+    <div className="rounded-lg border">
+      <PanelSection title="Spacing">
+        <BoxModel
+          padding={padding}
+          margin={margin}
+          size={{ width: 232, height: 78 }}
+          onPadding={(next) => setPadding(next)}
+          onMargin={(next) => setMargin(next)}
+        />
+      </PanelSection>
+    </div>
   )
 }
 

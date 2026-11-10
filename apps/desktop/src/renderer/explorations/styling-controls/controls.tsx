@@ -49,6 +49,7 @@ import {
   type Reading,
   type ScrubKeys,
   tokenChip,
+  type TokensShown,
   tokenStatus,
   unitButtonClass,
   UnitMenu,
@@ -90,7 +91,7 @@ export interface SectionProps {
  * since a ratio is ignored when both sizes are set; the ratio then shows as its own row, with named ratios. Typing H
  * while locked changes W to keep the ratio.
  */
-export function SizeSection({ draft, set }: SectionProps) {
+export function SizeSection({ draft, set, tokensShown }: SectionProps & { tokensShown?: TokensShown }) {
   const measured = useMeasured("section[aria-label='Plans']")
   const width = draft.width ?? 520
   const height = draft.height ?? "hug"
@@ -129,6 +130,7 @@ export function SizeSection({ draft, set }: SectionProps) {
         <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-1 pr-1">
           <SizeField
             axis="Width"
+            tokensShown={tokensShown}
             value={width}
             measured={measured?.width}
             parent={measured?.parent}
@@ -149,6 +151,7 @@ export function SizeSection({ draft, set }: SectionProps) {
           </Hint>
           <SizeField
             axis="Height"
+            tokensShown={tokensShown}
             value={height}
             measured={measured?.height}
             parent={undefined}
@@ -263,6 +266,7 @@ export function SizeField({
   setBy,
   limits,
   onAddLimit,
+  tokensShown,
   onChange
 }: {
   axis: "Width" | "Height"
@@ -276,6 +280,8 @@ export function SizeField({
   setBy?: string
   limits?: { min: boolean; max: boolean }
   onAddLimit?: (which: "min" | "max") => void
+  /** How Sizing shows the tokens under the words. */
+  tokensShown?: TokensShown
   onChange: (size: Size) => void
 }) {
   const [unit, setUnit] = useState<"px" | "rem">("px")
@@ -477,6 +483,7 @@ export function SizeField({
           name: "Sizing",
           list: tokens,
           current: named,
+          shown: tokensShown,
           keywords: {
             heading: axis,
             rows: [

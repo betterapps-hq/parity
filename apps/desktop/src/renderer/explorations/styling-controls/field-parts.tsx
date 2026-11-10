@@ -17,6 +17,7 @@ import type { PreviewKind } from "@parity-app/tokens"
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   Circle,
   CircleAlert,
   CircleCheck,
@@ -1416,7 +1417,12 @@ export interface TokenMenuProps<T extends FieldToken> {
   onPick: (name: string | undefined) => void
   /** Words the field takes besides its tokens, as rows above them under a heading: Gap's Auto, one for each spread. */
   keywords?: MenuKeywords
+  /** How the tokens show under the words: all listed, folded under one row that opens them, or with a search. */
+  shown?: TokensShown
 }
+
+/** How a token menu that also holds words shows its tokens, which the Sizing menu's options compare. */
+export type TokensShown = "listed" | "folded" | "searched"
 
 /** Words a field takes besides its tokens, as its token menu lists them: Gap's Auto, a row for each way it spreads. */
 export interface MenuKeywords {
@@ -1449,8 +1455,11 @@ export function TokenMenu<T extends FieldToken>({
   onAllow,
   onCreate,
   onPick,
-  keywords
+  keywords,
+  shown = "listed"
 }: TokenMenuProps<T>) {
+  const [unfolded, setUnfolded] = useState(false)
+  const [query, setQuery] = useState("")
   const [naming, setNaming] = useState<string>()
   const [reason, setReason] = useState<string>()
   const { live, rowProps } = useLiveRow()
@@ -1460,6 +1469,14 @@ export function TokenMenu<T extends FieldToken>({
   const allowing = tokensOnly && onAllow !== undefined
   const pickable = tokens.filter((each) => each.deprecated === undefined)
   const listed = order ? pickable.toSorted(order) : inScaleOrder(pickable)
+  const words = query.trim().toLowerCase()
+
+  const found =
+    shown === "searched" && words !== ""
+      ? listed.filter((each) => each.name.toLowerCase().includes(words) || each.detail.toLowerCase().includes(words))
+      : listed
+
+  const folded = shown === "folded" && !unfolded && listed.length > 0
 
   return (
     <div className="flex min-w-0 flex-col">
@@ -1522,10 +1539,28 @@ export function TokenMenu<T extends FieldToken>({
       {listed.length === 0 && !keywords && (
         <p className="px-2 py-1.5 text-xs text-muted-foreground">No tokens for {label} yet</p>
       )}
-      {(listed.length > 0 || none !== undefined) && (
+      {shown === "searched" && listed.length > 0 && (
+        <Input
+          aria-label={`Search ${label}'s tokens`}
+          placeholder="Search tokens"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          className="mb-1 h-7 text-xs"
+        />
+      )}
+      {shown === "searched" && words !== "" && found.length === 0 && (
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">No tokens match “{query.trim()}”</p>
+      )}
+      {folded && (
+        <button type="button" aria-expanded={false} className={menuRow} onClick={() => setUnfolded(true)}>
+          <span className={rowName}>Tokens</span>
+          <ChevronRight aria-hidden className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      )}
+      {!folded && (found.length > 0 || none !== undefined) && (
         <TokenList
           label={label}
-          tokens={listed}
+          tokens={found}
           current={current}
           none={none}
           noneValue={noneValue}
@@ -1989,6 +2024,8 @@ export interface ValueFieldProps<T> {
     keywords?: MenuKeywords
     /** What its button calls the list where it holds words rather than tokens, as W's Sizing does. */
     name?: string
+    /** How the tokens show under the words. */
+    shown?: TokensShown
   }
   /**
    * A picker of the field's own in place of the token list, as Color's Tokens and Custom tabs are. Its `swatch` opens
@@ -2754,6 +2791,7 @@ export function ValueField<T>({
             tokens.onPick(name)
             close()
           }}
+          shown={tokens.shown}
           keywords={
             tokens.keywords && {
               ...tokens.keywords,

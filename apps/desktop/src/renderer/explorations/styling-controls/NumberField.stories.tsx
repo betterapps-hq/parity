@@ -4,6 +4,8 @@ import { userEvent, within } from "storybook/test"
 import { Num } from "./controls.tsx"
 import { Field } from "./field-row.tsx"
 import { Playground } from "./playground.tsx"
+import { type Side, sideClass, sideCss, sideRules, sideStored } from "./sides-writes.ts"
+import { SideField } from "./sides.tsx"
 import { lengthWrites, type Writes } from "./writes.ts"
 
 /**
@@ -67,6 +69,38 @@ function NumberField({
   )
 }
 
+/** Outline offset in pixels, as Tailwind writes it: a number of pixels, not a spacing step. */
+const outlineOffsetWrites = (px: number | undefined): Writes =>
+  px === undefined
+    ? { stored: undefined, css: [], tailwind: [] }
+    : {
+        stored: { value: `${px}px` },
+        css: [`outline-offset: ${px}px`],
+        tailwind: [Number.isInteger(px) ? `outline-offset-${px}` : `outline-offset-[${px}px]`]
+      }
+
+/** Gap on the side field, which offers the spacing tokens. */
+function GapField({ start }: { start: Side }) {
+  const [value, setValue] = useState<Side>(start)
+
+  const writes: Writes =
+    value === undefined
+      ? { stored: undefined, css: [], tailwind: [] }
+      : {
+          stored: sideStored("gap", value),
+          css: [`gap: ${sideCss("gap", value)}`],
+          tailwind: [sideClass("gap", "gap", value)]
+        }
+
+  return (
+    <Playground writes={writes}>
+      <Field label="Gap">
+        <SideField label="Gap" rules={sideRules.gap} value={value} onChange={(next) => setValue(next)} />
+      </Field>
+    </Playground>
+  )
+}
+
 const columnsWrites = (count: number | undefined): Writes =>
   count === undefined
     ? { stored: undefined, css: [], tailwind: [] }
@@ -76,10 +110,17 @@ const columnsWrites = (count: number | undefined): Writes =>
         tailwind: [`grid-cols-${count}`]
       }
 
-/** A spacing length, Gap at 16 pixels: Up makes it 20, a whole step. Type `+8`, `*2`, `1.5rem` or `spacing-6`. */
-export const SpacingLength: Story = {
-  render: () => <NumberField label="Gap" start={16} pixels spacing writes={(px) => lengthWrites("gap", "gap", px)} />
+/** A length a property takes in pixels alone, with no tokens: Outline offset at 2. Up makes it 3, Shift+Up 12. */
+export const Plain: Story = {
+  render: () => <NumberField label="Outline offset" start={2} pixels writes={outlineOffsetWrites} />
 }
+
+/**
+ * The same field where the property takes the project's spacing tokens, as Gap does: the chevron at its end lists
+ * them, with the one nearest 18 first and Create token after them. Up steps a whole spacing step, 4px. Type `+8`,
+ * `*2`, `1.5rem`, `spacing-6` or a token's name.
+ */
+export const WithTokens: Story = { render: () => <GapField start={{ number: 18 }} /> }
 
 /** Shown in rem, 40rem: rem chosen from the unit's menu, and the value kept in pixels either way. */
 export const InRem: Story = {
@@ -129,9 +170,9 @@ export const Unset: Story = {
 
 /** `wide` typed and Enter pressed: it isn't a length, so it stays, outlined, with the reason under it. */
 export const InvalidAsTyped: Story = {
-  render: () => <NumberField label="Gap" start={16} pixels spacing writes={(px) => lengthWrites("gap", "gap", px)} />,
+  render: () => <NumberField label="Outline offset" start={2} pixels writes={outlineOffsetWrites} />,
   play: async ({ canvasElement }) => {
-    const field = within(canvasElement).getByRole("textbox", { name: "Gap" })
+    const field = within(canvasElement).getByRole("textbox", { name: "Outline offset" })
     await userEvent.clear(field)
     await userEvent.type(field, "wide{Enter}")
   }
