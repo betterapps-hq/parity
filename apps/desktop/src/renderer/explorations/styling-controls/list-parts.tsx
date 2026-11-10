@@ -11,7 +11,7 @@ import {
   PopoverTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, Eye, EyeOff, GripVertical, Minus } from "lucide-react"
-import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, useRef } from "react"
+import { type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
 import { drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
@@ -270,6 +270,33 @@ export function moved<T>(list: readonly T[], from: number, to: number): T[] {
   next.splice(to, 0, item!)
 
   return next
+}
+
+/**
+ * Keys for a sorted list whose entries have no identity of their own, as a grid's tracks: each keeps its key as it's
+ * moved or another is removed, so its row's element moves with it, and the card put down lands where it went rather
+ * than back where it was. A list grown or shrunk some other way gains or loses keys at its end.
+ */
+export function useOrderKeys(length: number) {
+  const [keys, setKeys] = useState(() => Array.from({ length }, (_, at) => at))
+  let fitted = keys
+
+  if (keys.length > length) {
+    fitted = keys.slice(0, length)
+  } else if (keys.length < length) {
+    const first = Math.max(-1, ...keys) + 1
+    fitted = [...keys, ...Array.from({ length: length - keys.length }, (_, at) => first + at)]
+  }
+
+  if (fitted !== keys) {
+    setKeys(fitted)
+  }
+
+  return {
+    keys: fitted,
+    move: (from: number, to: number) => setKeys(moved(fitted, from, to)),
+    remove: (at: number) => setKeys(fitted.filter((_, each) => each !== at))
+  }
 }
 
 /** One of the types an entry can be, with a glyph for where types are picked by it, as a fill's are. */

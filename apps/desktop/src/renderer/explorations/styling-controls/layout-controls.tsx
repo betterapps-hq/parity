@@ -40,7 +40,7 @@ import { type Columns, type Draft, type SelfAlign, type Span, type Track } from 
 import { type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
 import { EachToggle, Field } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
-import { moved } from "./list-parts.tsx"
+import { moved, useOrderKeys } from "./list-parts.tsx"
 import { type Side, sideNumber, sideRules } from "./sides-writes.ts"
 import { SideField } from "./sides.tsx"
 import { useSortable } from "./sortable.ts"
@@ -1079,6 +1079,7 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
   const fitLeast = fit && !Array.isArray(draft.columns) ? draft.columns!.fit : 160
   const made = columns ? fitCount(fitLeast, gapPx(draft.gap, spacing)) : childRows(draft, spacing)
   const widths = trackWeights(tracks, columns ? contentWidth : 240)
+  const order = useOrderKeys(tracks.length)
 
   // Leaves Fit or Auto for the count it makes, as tracks of their own.
   const toCount = (count: number) => {
@@ -1140,8 +1141,8 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
         <div className="flex flex-col gap-1">
           {tracks.map((track, index) => (
             <TrackRow
-              // A track has no identity but its place, which is what its row names.
-              key={index}
+              // A track has no identity but its place, which its row names; its key moves with it.
+              key={order.keys[index]}
               one={one}
               index={index}
               track={track}
@@ -1150,8 +1151,14 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
               // A grid keeps one column, at least; the last row gone leaves them Auto.
               removable={!columns || tracks.length > 1}
               onChange={(next) => setTracks(tracks.map((other, at) => (at === index ? next : other)))}
-              onMove={(from, to) => setTracks(moved(tracks, from, to))}
-              onRemove={() => setTracks(tracks.filter((_, at) => at !== index))}
+              onMove={(from, to) => {
+                order.move(from, to)
+                setTracks(moved(tracks, from, to))
+              }}
+              onRemove={() => {
+                order.remove(index)
+                setTracks(tracks.filter((_, at) => at !== index))
+              }}
             />
           ))}
         </div>
