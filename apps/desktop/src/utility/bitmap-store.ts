@@ -15,6 +15,7 @@ import type { CodeSnapshot } from "@parity-app/project"
 import { z } from "zod"
 import type { PreviewImage, RenderJob } from "../shared/protocol.ts"
 import { bitmapName } from "../shared/render-job.ts"
+import { degraded } from "./degraded.ts"
 import { environment } from "./environment.ts"
 
 /**
@@ -91,7 +92,7 @@ export async function storeBitmap(served: ServedCode, job: RenderJob, webp: Uint
     const file = bitmapFile(await served.fingerprint, served, job)
     await writeWhole(file, withWebpText(webp, heightKeyword, String(height)))
   } catch (error) {
-    console.warn(`[service] couldn't keep a frame bitmap: ${message(error)}`)
+    degraded("frame_bitmap", "couldn't keep a frame bitmap", error, job.projectId)
 
     return
   }
@@ -167,7 +168,7 @@ export async function storePreview(
       await writeWhole(previewFile(projectId, record.key, "large"), pictures.large)
     }
   } catch (error) {
-    console.warn(`[service] couldn't keep a component preview: ${message(error)}`)
+    degraded("component_preview", "couldn't keep a component preview", error, projectId)
 
     return undefined
   }
@@ -334,7 +335,7 @@ async function writeIndex(projectId: string, index: Map<string, PreviewRecord>):
     const contents = JSON.stringify({ format: indexFormat, components: Object.fromEntries(index) })
     await writeWhole(join(previewFolder(projectId), indexName), Buffer.from(contents))
   } catch (error) {
-    console.warn(`[service] couldn't keep the component preview index: ${message(error)}`)
+    degraded("preview_index", "couldn't keep the component preview index", error, projectId)
   }
 }
 
@@ -356,10 +357,6 @@ function wrote(): void {
   if (++writes >= sweepEvery) {
     void sweepBitmaps()
   }
-}
-
-function message(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause)
 }
 
 /** A project's folder's name: its id hashed, so any root makes a safe name. */
