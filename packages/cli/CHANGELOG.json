@@ -2,6 +2,59 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 05:10:09 GMT",
+      "version": "0.32.0",
+      "tag": "@parity-app/cli_v0.32.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4a0021c0820abe4ce8aa0fd20b868f880679e954",
+            "comment": "The CLI's sender scrubs the .env values of the app's open projects and of the project each command ran in"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "914d27146f45cdbea2fcc8b1f9116731faf029c0",
+            "comment": "Frames draw a root with a class or attribute on it, such as :root.dark, which matched nothing before"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "70b9cac04db2562a2a4e270a10617b31beb8f5ec",
+            "comment": "Read the Vite version Vite+ ships when a project aliases vite to @voidzero-dev/vite-plus-core, instead of reporting Vite+'s own version as an untested Vite"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6eac3cc19b3692a432f73fc5fedc68e894c12aa2",
+            "comment": "Detect an open project again when components.json, its stylesheets, dependencies or Vite config change, and when parity open names it"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ede1521c739f99f26f9aeafa58b6f09a3a694659",
+            "comment": "Record the project service's degraded modes, such as a project it can't watch or bitmaps it can't keep, as service.degraded events"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c7c8bde47c8404c77417872d8fdd8547bbeff351",
+            "comment": "Record signing in, refreshing, signing out and failures of the kept accounts as account.* events"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aab46f08263e8a1b3d1bfb93af3224214111c13e",
+            "comment": "Record window and main hangs as they start, and report a hang the app exited during on the next run"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 03:58:48 GMT",
       "version": "0.31.1",
       "tag": "@parity-app/cli_v0.31.1",
