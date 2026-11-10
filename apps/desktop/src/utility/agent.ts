@@ -28,7 +28,7 @@ import { currentTrace, inSpan } from "../shared/tracing.ts"
 import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
-import { type FindOptions, searchPhotos, searchReferences } from "./references.ts"
+import { type FindOptions, searchMedia, searchReferences } from "./references.ts"
 import { renderOffscreen } from "./render.ts"
 import { scrubSecrets } from "./telemetry.ts"
 import { composePicture, cutPicture } from "./webp.ts"
@@ -59,11 +59,21 @@ const finding: FindOptions = {
  * Every copy that runs has its own entry, and the CLI sends each call to the copy that has its project open
  * (PAR-514). The main process removes the entry when this copy quits.
  */
-export async function startAgentServer(window: () => WindowChannel): Promise<void> {
+/** What agents' image calls need of the service: reading a project's image files, and removing one (PAR-834). */
+export type AgentImages = Pick<AgentHost, "scanImages" | "removeImage" | "saveImage">
+
+/** For hosts that only draw and export, which never list or remove images. */
+const noImages: AgentImages = {
+  scanImages: () => Promise.reject(new Error("Images can't be read here")),
+  removeImage: () => Promise.reject(new Error("Images can't be removed here")),
+  saveImage: () => Promise.reject(new Error("Images can't be saved here"))
+}
+
+export async function startAgentServer(window: () => WindowChannel, images: AgentImages): Promise<void> {
   const token = randomBytes(24).toString("hex")
 
   const server = createServer((request, response) => {
-    void handle(request, response, token, window)
+    void handle(request, response, token, window, images)
   })
 
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -91,7 +101,13 @@ export async function startAgentServer(window: () => WindowChannel): Promise<voi
 /** Answers an agent with `body` as JSON. */
 type Reply = <Body>(status: number, body: Body) => void
 
-async function handle(request: IncomingMessage, response: ServerResponse, token: string, window: () => WindowChannel) {
+async function handle(
+  request: IncomingMessage,
+  response: ServerResponse,
+  token: string,
+  window: () => WindowChannel,
+  images: AgentImages
+) {
   const reply: Reply = (status, body) => {
     response.writeHead(status, { "content-type": "application/json" })
     response.end(JSON.stringify(body))
@@ -126,7 +142,7 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
     // call continues the trace the CLI sent in its headers, so it's one trace from the command line on (PAR-629), and
     // its span says what was asked and how it went (PAR-641).
     const answer = async () => {
-      const result = await answerRequest(body, desktopHost(window()), (caller) => {
+      const result = await answerRequest(body, desktopHost(window(), images), (caller) => {
         // Only tags telemetry, so a main that's gone is no matter.
         mainProcess.request("agentCalled", caller).catch(() => undefined)
       })
@@ -183,8 +199,9 @@ async function passLinkToMain(request: IncomingMessage, reply: Reply) {
  * The desktop's side of an agent call: the editor window's live tabs, the offscreen renderer, the console and the
  * screenshots folder. Which method does what is `dispatch` in `@parity-app/agent`.
  */
-export function desktopHost(window: WindowChannel): AgentHost {
+export function desktopHost(window: WindowChannel, images: AgentImages = noImages): AgentHost {
   return {
+    ...images,
     tabs: () => window.request("agent.tabs", undefined),
     copy: () => window.request("agent.copy", undefined),
     open: (root) => window.request("agent.open", { root }),
@@ -218,7 +235,7 @@ export function desktopHost(window: WindowChannel): AgentHost {
     },
     // Main holds connectors' keys, so it runs the search; the previews are fetched and saved here (PAR-829).
     references: (request) => searchReferences(finding, request),
-    photos: (request) => searchPhotos(finding, request),
+    media: (request) => searchMedia(finding, request),
     result: async (connector, id) => (await mainProcess.request("connectorResult", { connector, id })) ?? undefined,
     placed: (placed) => mainProcess.request("connectorPlaced", placed),
     async saveScreenshots(screenshots) {

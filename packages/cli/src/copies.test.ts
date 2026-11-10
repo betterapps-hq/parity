@@ -238,8 +238,10 @@ describe("each operation's routing", () => {
       props: "tab",
       report: "tab-or-any",
       references: "tab-or-any",
-      photos: "tab-or-any",
-      place: "tab"
+      media: "tab-or-any",
+      place: "tab",
+      images: "tab",
+      removeImage: "tab"
     })
   })
 })

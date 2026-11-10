@@ -1354,7 +1354,16 @@ recommended answer to each of its questions.
     saved into the project rather than linked. Its videos may be played from its own links, though it suggests keeping a
     copy;
   - keep each search's answer for 24 hours rather than ask again, and send only searches people make, never mass
-    downloads. Main doesn't keep answers yet.
+    downloads. Parity's service will keep them, shared by every user (PAR-131), so the app keeps no cache of its own
+    (your call, 2026-11-10).
+- **Agents' calls name no source, and don't say photos** (your call, 2026-11-10, PAR-837). A source can change, as
+  Unsplash did, and one finds more than photos. `find_photos` (`parity photos`) became `find_media` (`parity media`),
+  with a `type` filter (photos, illustrations, vectors or videos) and filter examples that name no source. Placing a
+  result says picture, and its credit names the author. Videos and screens are found but not placed.
+- **Placing a picture whose link expires saves it first** (PAR-837). `place_result` downloads it into `public/images/`
+  as a pasted image is saved, named after it with a hash of its content, and the node shows the file, so a saved design
+  never holds a link that stops working. Saving is its own undoable edit, before the placing one. Placing what Unsplash
+  linked still sets its link, as Unsplash's terms ask.
 - **Image files dropped from Explorer or Finder land as pasted layers do (PAR-24).** My calls, all in editor.md's
   "Dropping image files":
   - Over a layout they go where Paste here would put them: the slot under the pointer by `slotAt`, or at the pointer in
@@ -6969,3 +6978,24 @@ You asked on 2026-11-10 for another LLM-as-judge review, and to fix what it conf
   their own, so two copies of Parity don't lose each other's entries.
 - **`agent.called` leaves out what was searched for and which result was placed where,** as `connectors.*` already did.
 - **Old previews are deleted** after a week.
+
+## A project's images are listed and removed in one shape (PAR-834)
+
+You asked on 2026-11-10 for a way to query a project's images and remove them, for the image selector and for agents. My
+calls:
+
+- **A project's images are the files in `public/images/` and the photos layers link to.** Pasting, dropping and
+  downloading already save there. Unsplash's photos can load from Unsplash, so a linked photo is listed with its credit,
+  though it has no file. A path layers name with no file there is listed too, so a broken image shows up.
+- **The logic is `projectImages` in `@parity-app/editor`,** data in and data out. The service reads the files and the
+  code (`images.scan`); the window and agents bring their designs as they are, unsaved changes included. So the image
+  selector and agents read one shape.
+- **"Used" means a design or the project's code names it.** Code counts because `<img src="/images/hero.png">` in `src/`
+  breaks the app as surely as a design using it. A prop counts when it's `src` or names a file in `/images/`, so a
+  component's image prop counts.
+- **Removing refuses an image in use, and says where.** It doesn't remove the layers or edit the code for you.
+- **A removal is a project edit, not the system's trash.** The issue suggested the trash. A project edit is undone by
+  Parity's own Undo, as token edits are, keeps the file's bytes for the latest 50 edits, and needs nothing from the
+  system. The window's Undo for it comes with the removal design (PAR-836).
+- **Agents get `get_images` and `remove_image`** (`parity images`, `parity images remove`), with the error codes
+  `unknown_image` and `image_in_use`. `find_photos` (PAR-829) stays separate: it searches outside the project.

@@ -7,9 +7,9 @@ import type { ConnectorFind } from "../shared/connectors.ts"
 
 type ReferencesRequest = Parameters<AgentHost["references"]>[0]
 
-type PhotosRequest = Parameters<AgentHost["photos"]>[0]
+type MediaRequest = Parameters<AgentHost["media"]>[0]
 
-/** What an agent's search answers, the same for screens and photos. */
+/** What an agent's search answers, the same for screens, pictures and videos. */
 type FindAnswer = Awaited<ReturnType<AgentHost["references"]>>
 
 type FoundItem = FindAnswer["found"][number]
@@ -19,7 +19,7 @@ const previewTypes = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "w
 
 type PreviewType = keyof typeof previewTypes
 
-/** The largest preview kept: Mobbin's and Unsplash's images are far smaller, so anything bigger is something else. */
+/** The largest preview kept: sources' previews are far smaller, so anything bigger is something else. */
 const previewLimit = 4 * 1024 * 1024
 
 /** The longest part of a preview's file name taken from what the source says, so a long title can't break the path. */
@@ -48,11 +48,15 @@ export async function searchReferences(options: FindOptions, request: References
   return find(options, connector, more({ query, kind: "screens", filters: defined(filters), limit }, exclude, page))
 }
 
-/** An agent's search for stock photos, from the connector it names or any that finds them. */
-export async function searchPhotos(options: FindOptions, request: PhotosRequest): Promise<FindAnswer> {
+/**
+ * An agent's search for stock pictures or videos, from the connector it names or any that finds them. The type filter
+ * says which kind: videos, or pictures of any type.
+ */
+export async function searchMedia(options: FindOptions, request: MediaRequest): Promise<FindAnswer> {
   const { tab: _tab, query, connector, limit, exclude, page, ...filters } = request
+  const kind = filters.type === "videos" ? "videos" : "photos"
 
-  return find(options, connector, more({ query, kind: "photos", filters: defined(filters), limit }, exclude, page))
+  return find(options, connector, more({ query, kind, filters: defined(filters), limit }, exclude, page))
 }
 
 /** A search with the way of asking for more the agent used; main refuses the one its connector doesn't take. */
@@ -111,6 +115,7 @@ async function withPreview(options: FindOptions, found: Found): Promise<FoundIte
     id: found.id,
     connector: found.connector,
     source: found.credit.at(-1)?.name ?? found.connector,
+    kind: found.kind,
     title: found.title,
     link: found.link,
     credit: found.credit

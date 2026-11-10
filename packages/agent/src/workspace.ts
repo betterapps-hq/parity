@@ -1703,7 +1703,7 @@ export class AgentWorkspace {
 
   /**
    * A node by `designId/nodeId`, with the file and id of the design it's in, or nothing when the reference names none,
-   * for a caller that checks a node before changing it, as placing a photo does.
+   * for a caller that checks a node before changing it, as placing a picture does.
    */
   locate(reference: string): { node: DesignNode; design: { path: string; id: string } } | undefined {
     try {

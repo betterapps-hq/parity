@@ -35,20 +35,22 @@ apps/desktop
   connector declares its source's `rateLimit` (Mobbin 60 a minute, Pixabay 100 a minute), and main runs half of it, so a
   loop can't spend a source's allowance. `connectors.searched` records the filters as checked, and names only connectors
   Parity has.
-- **Agents search by kind, not by source.** `find_references` (`parity references`) finds screens and `find_photos`
-  (`parity photos`) finds photos. Each can name a `connector`; without one, main picks the first connector that finds
-  the kind, takes every filter named and has a key. The contracts take filters as plain text by the connectors' ids and
-  either way of asking for more (`exclude` or `page`), and main checks them against whichever connector runs the search,
-  so a second source of the same kind with other values needs no change there. Each result names its connector. Searches
-  give previews and ids, never an image link.
+- **Agents search by kind, not by source.** `find_references` (`parity references`) finds screens and `find_media`
+  (`parity media`) finds stock pictures and videos, by `type`: photos, illustrations, vectors or videos. Neither names a
+  source in its description or examples. Each can name a `connector`; without one, main picks the first connector that
+  finds the kind, takes every filter named and has a key. The contracts take filters as plain text by the connectors'
+  ids and either way of asking for more (`exclude` or `page`), and main checks them against whichever connector runs the
+  search, so a second source of the same kind with other values needs no change there. Each result names its connector.
+  Searches give previews and ids, never an image link.
 - **Recent searches go through a `SearchHistory`.** The hub adds each search that works in the window, never an agent's,
   with every filter it ran with, and `remember` keeps each connector's latest five. `localHistory` keeps them in a file
   for now; once Parity's service keeps them on the person's account, main passes the hub one that asks it.
-- **Placing a result is Parity's own step, so Parity reports it.** An agent puts a photo in a design with `place_result`
-  (`parity place <connector> <id> "<design/node>"`). In an image node it sets `src`, `alt` and the photographer's
-  `credit`, keeping the node's id and style; in a component it sets a prop the component declares. Only kinds in
-  `placeableKinds` (photos) go in designs, and never a link that expires. Once the edit applies, the hub's `placed`
-  runs, only for a result it gave lately:
+- **Placing a result is Parity's own step, so Parity reports it.** An agent puts a picture in a design with
+  `place_result` (`parity place <connector> <id> "<design/node>"`). In an image node it sets `src`, `alt` and the
+  author's `credit`, keeping the node's id and style; in a component it sets a prop the component declares. Only kinds
+  in `placeableKinds` (photos, which covers illustrations and vectors) go in designs. A picture whose link expires, as
+  Pixabay's do, is saved into `public/images/` first, as a pasted image is, and the node shows the file; placing it
+  again reuses the file. Once the edit applies, the hub's `placed` runs, only for a result it gave lately:
   1. counts it in a `PlacementLog` as the source's usage, once for each design, under a key that hashes the project,
      file and design so it holds no path. The account's store will replace the file;
   2. only when it's new, records `connectors.placed`;
@@ -110,7 +112,8 @@ What adding Unsplash after Mobbin showed, and what changed for each:
 - **Filters are data.** Before, each new filter widened the shared request, `ConnectorInfo` and `checkRequest`. Unsplash
   added `orientation`, `color` and `page`. Now a connector lists its filters, and nothing shared changes for a new one.
 - **One agent call per kind.** Before, `find_references` was Mobbin's screens, and agents couldn't search photos. Now
-  `find_photos` finds photos, and each call reaches whichever connector finds its kind.
+  `find_media` (first called `find_photos`) finds stock pictures and videos, and each call reaches whichever connector
+  finds its kind.
 - **Say how much is left.** Mobbin allows 60 searches a minute for each workspace, and Unsplash 50 an hour until it's
   approved. Answers now carry `allowance` when the source says, so the window and agents can slow down before they're
   turned away.
@@ -155,6 +158,11 @@ What adding Pixabay in place of Unsplash showed, and what changed:
 - **Videos,** as a kind and as `Found.video`.
 - **Offered apart from known,** so a source can stop being searched and its results still be named.
 
-Still open: the window has no Place for photos yet, so only agents place them today. Main doesn't keep Pixabay's answers
-for 24 hours as its terms ask, and placing a Pixabay picture still has to save its file, as its links expire, and no
-agent call finds videos yet.
+- **Agents' calls name no source,** and say pictures rather than photos: `find_photos` became `find_media`
+  (`parity media`), with a `type` filter for photos, illustrations, vectors or videos. Videos are found but, like
+  screens, are for looking at.
+- **Placing saves a picture whose link expires** into the project, since Pixabay's links last 24 hours and may only show
+  results.
+
+Still open: the window has no Place for pictures yet, so only agents place them today. Pixabay's terms ask for each
+search's answer to be kept for 24 hours; Parity's service will do that for every user (PAR-131).

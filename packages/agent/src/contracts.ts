@@ -100,11 +100,11 @@ const tabDescription =
 
 const tab = text("tab", tabDescription).optional()
 
-/** Which source a search for screens or photos asks, by its connector's id. Without one, any that finds the kind. */
+/** Which source a search asks, by its connector's id. Without one, any that finds the kind. */
 const connector = z
-  .string("connector must be a connector's id, such as mobbin")
+  .string("connector must be a connector's id, from a result")
   .optional()
-  .describe("Source, as mobbin. Defaults to any.")
+  .describe("A connector's id, from a result. Defaults to any.")
 
 /**
  * A filter a search names by the connector's own id for it. Main checks the value against the connector that runs the
@@ -264,28 +264,39 @@ export const requests = {
     ),
     connector,
     platform: filter("platform", "ios for phone apps, or web. Defaults to web."),
-    depth: filter("depth", "deep keeps strong matches, for searches with parts; it spends Mobbin AI credits."),
+    depth: filter("depth", "deep keeps strong matches, for searches with parts; it spends the source's AI credits."),
     limit: limit("Most screens.", 6, 20),
     exclude,
     page
   }),
-  photos: fields({
+  media: fields({
     tab,
     query: text("query", 'One subject, as "desk by a window".'),
     connector,
-    orientation: filter("orientation", "landscape, portrait or squarish."),
-    color: filter("color", "One color, as teal or black_and_white."),
-    limit: limit("Most photos.", 6, 20),
+    type: filter("type", "photos (default), illustrations, vectors or videos."),
+    orientation: filter("orientation", "horizontal or vertical."),
+    color: filter("color", "One color, as blue, grayscale or transparent."),
+    limit: limit("Most results.", 6, 20),
     exclude,
     page
   }),
   place: fields({
     tab,
-    connector: text("connector", "The result's connector, as unsplash."),
+    connector: text("connector", "The result's connector, from the search."),
     id: text("id", "The result's id, from a search."),
     node: text("node", 'The image, or a component with an image prop, as design/node: "home/photo".'),
     prop: text("prop", "A component's prop that takes the image. Defaults to src.").optional(),
     state: text("state", "State id, for a component's prop in one state.").optional()
+  }),
+  images: fields({
+    tab,
+    search: text("search", "Text in a name, alt text or credit.").optional(),
+    unused: flag("unused", "Only images no design or code uses."),
+    limit: limit("Most images.", 50, 500)
+  }),
+  removeImage: fields({
+    tab,
+    image: text("image", "Path, address (/images/hero.png) or file name.")
   }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
@@ -734,22 +745,47 @@ const reportReply = z.looseObject({
   attachments: strings.describe("The files sent with it: the window's screenshot, the frames and the diagnostics.")
 })
 
+/** One of the project's images (PAR-834): a file, a linked image, or a path layers name with no file. */
+const projectImage = z.looseObject({
+  kind: z.enum(["file", "linked", "missing"]),
+  src: z.string().describe("What layers set src to."),
+  path: z.string().optional().describe("The file, from the project's root."),
+  name: z.string(),
+  bytes: z.int().optional(),
+  alt: z.string().optional(),
+  credit: z.looseObject({ name: z.string(), url: z.string(), source: z.string().optional() }).optional(),
+  usedBy: z
+    .array(z.looseObject({ document: z.string(), design: z.string(), designName: z.string(), node: z.string() }))
+    .describe("The layers that show it."),
+  usedInCode: z.array(z.looseObject({ path: z.string(), line: z.int() })).describe("The lines of code that name it.")
+})
+
+const imagesReply = z.looseObject({
+  images: z.array(projectImage),
+  total: z.int().describe("How many matched before the limit."),
+  truncated: z.boolean()
+})
+
+/** An image removed: its file, and the edit's label. */
+const removeImageReply = z.looseObject({ path: z.string(), label: z.string() })
+
 /**
- * Something a connector found (PAR-829): a screen from Mobbin or a photo from Unsplash, the same shape from every
- * source, with its preview saved as a file for the agent to look at.
+ * Something a connector found (PAR-829): a screen from a real app, or a stock picture or video, the same shape from
+ * every source, with its preview saved as a file for the agent to look at.
  */
 const foundItem = z.looseObject({
   id: z.string().describe("The source's id, which exclude takes."),
-  connector: z.string().describe("The connector that found it, which connector takes: mobbin, unsplash."),
-  source: z.string().describe("Where it's from: Mobbin, Unsplash."),
-  title: z.string().describe("The app's name, or what a photo shows."),
+  connector: z.string().describe("The connector that found it, which connector and place take."),
+  source: z.string().describe("Where it's from, to credit."),
+  kind: z.string().optional().describe("screens, photos or videos; only photos go in designs."),
+  title: z.string().describe("The app's name, or what a picture shows."),
   platform: z.enum(["ios", "web"]).optional(),
   link: z.string().describe("Its page at the source."),
   width: z.int().optional(),
   height: z.int().optional(),
   credit: z
     .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
-    .describe("Who to credit, in order: the app or photographer, then the source."),
+    .describe("Who to credit, in order: the app or its author, then the source."),
   preview: z
     .looseObject({
       path: z.string().describe("Where the preview was saved."),
@@ -789,7 +825,7 @@ const placeReply = z.looseObject({
   credit: z
     .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
     .optional()
-    .describe("Who to credit where the design shows it, in order: the photographer, then the source."),
+    .describe("Who to credit where the design shows it, in order: its author, then the source."),
   problem: z.looseObject({ code: z.string(), message: z.string() }).optional()
 })
 
@@ -815,8 +851,10 @@ export const replies = {
   props: propsReply,
   report: reportReply,
   references: foundReply,
-  photos: foundReply,
-  place: placeReply
+  media: foundReply,
+  place: placeReply,
+  images: imagesReply,
+  removeImage: removeImageReply
 }
 
 /**

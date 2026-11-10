@@ -1,4 +1,4 @@
-import { CodedError, defaultModeSettings, type DesignNode, resolveModes } from "@parity-app/core"
+import { CodedError, type ContainerSpec, defaultModeSettings, type DesignNode, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { z } from "zod"
 import type { requests } from "./contracts.ts"
@@ -87,6 +87,8 @@ interface Asked {
   reports: AgentReport[]
   references: Answer<"references">[]
   placed: { connector: string; id: string; design: string }[]
+  removed: string[]
+  savedImages: { url: string; name: string }[]
 }
 
 /** A photo main found lately, as placing takes it. */
@@ -114,7 +116,9 @@ function fixtureHost() {
     console: [],
     reports: [],
     references: [],
-    placed: []
+    placed: [],
+    removed: [],
+    savedImages: []
   }
 
   const host: AgentHost = {
@@ -175,6 +179,18 @@ function fixtureHost() {
       ]
     },
     saveScreenshots: async (shots) => shots.map((_shot, index) => `D:/shots/${++asked.saved}-${index}.png`),
+    scanImages: async () => ({
+      files: [
+        { path: "public/images/hero.png", bytes: 1200 },
+        { path: "public/images/unused.webp", bytes: 300 }
+      ],
+      references: []
+    }),
+    removeImage: async (_projectId, path) => {
+      asked.removed.push(path)
+
+      return { path, label: "Remove image" }
+    },
     report: async (report) => {
       asked.reports.push(report)
 
@@ -205,7 +221,12 @@ function fixtureHost() {
 
       return answer
     },
-    photos: async () => ({ found: [] }),
+    media: async () => ({ found: [] }),
+    saveImage: async (_projectId, image) => {
+      asked.savedImages.push(image)
+
+      return { src: "/images/white-desk-1a2b3c4d.jpg" }
+    },
     result: async (connector, id) => (connector === "unsplash" && id === "desk" ? desk : undefined),
     placed: async (placed) => {
       asked.placed.push(placed)
@@ -252,8 +273,10 @@ describe("dispatch", () => {
       ["exec", { label: "Read", code: "Print(Designs().length)" }],
       ["report", { message: "The title is cut off" }],
       ["references", { query: "paywall with a free trial" }],
-      ["photos", { query: "desk by a window" }],
-      ["place", { connector: "unsplash", id: "desk", node: "signup/title" }]
+      ["media", { query: "desk by a window" }],
+      ["place", { connector: "unsplash", id: "desk", node: "signup/title" }],
+      ["images", {}],
+      ["removeImage", { image: "unused.webp" }]
     ]
 
     const answered: string[] = []
@@ -373,6 +396,60 @@ describe("dispatch", () => {
     await expect(refused).rejects.toBeInstanceOf(CodedError)
     await expect(refused).rejects.toMatchObject({ details: { code: "invalid_input", field: "method" } })
     await expect(refused).rejects.toThrow(/Methods: tabs, copy, open, state/)
+  })
+})
+
+describe("images", () => {
+  /** The fixture host, with a design showing hero.png. */
+  function withHero() {
+    const fixture = fixtureHost()
+
+    const hero: ContainerSpec = {
+      id: "hero-screen",
+      name: "Landing",
+      position: { x: 0, y: 0 },
+      root: { type: "image", id: "hero", src: "/images/hero.png", alt: "A desk" },
+      states: [{ id: "default", name: "Default" }]
+    }
+
+    const documents = [
+      ...fixture.tab.documents,
+      { path: "landing.par", document: { version: 3 as const, containers: [hero] } }
+    ]
+
+    const host: AgentHost = { ...fixture.host, snapshot: async () => ({ ...fixture.tab, documents }) }
+
+    return { ...fixture, host }
+  }
+
+  it("lists the project's files with what uses them, and keeps to unused ones when asked", async () => {
+    const { host } = withHero()
+
+    const all = replies.images.parse(await dispatch("images", {}, host, caller))
+    const unused = replies.images.parse(await dispatch("images", { unused: true }, host, caller))
+
+    expect(all.images.map(({ name, usedBy }) => [name, usedBy.map((use) => use.designName)])).toEqual([
+      ["hero.png", ["Landing"]],
+      ["unused.webp", []]
+    ])
+    expect(unused).toMatchObject({ images: [{ name: "unused.webp" }], total: 1, truncated: false })
+  })
+
+  it("removes a file nothing uses, and refuses one a design shows or that isn't an image", async () => {
+    const { host, asked } = withHero()
+
+    await expect(dispatch("removeImage", { image: "unused.webp" }, host, caller)).resolves.toEqual({
+      path: "public/images/unused.webp",
+      label: "Remove image"
+    })
+    await expect(dispatch("removeImage", { image: "hero.png" }, host, caller)).rejects.toMatchObject({
+      message: "hero.png is still used in Landing. Remove or replace it there first.",
+      details: { code: "image_in_use" }
+    })
+    await expect(dispatch("removeImage", { image: "logo.svg" }, host, caller)).rejects.toMatchObject({
+      details: { code: "unknown_image" }
+    })
+    expect(asked.removed).toEqual(["public/images/unused.webp"])
   })
 })
 
@@ -606,6 +683,41 @@ describe("place", () => {
     expect([asked.applied, asked.placed.length]).toEqual([[], 1])
   })
 
+  it("saves a picture whose link stops working into the project first, and shows the file", async () => {
+    const { host, asked } = placingHost()
+    const fleeting = { ...desk, image: { url: "https://cdn.pixabay.com/photo/desk.jpg", expiresAt: 1 } }
+    const pixabay: AgentHost = { ...host, result: async () => fleeting }
+
+    const answer = await dispatch("place", { connector: "pixabay", id: "1", node: "signup/photo" }, pixabay, caller)
+
+    expect(answer).toMatchObject({ placed: true, node: "signup/photo" })
+    expect(asked.savedImages).toEqual([{ url: "https://cdn.pixabay.com/photo/desk.jpg", name: "white desk" }])
+    expect(asked.applied[0]?.changes.designs[0]?.after?.root).toMatchObject({
+      children: expect.arrayContaining([
+        expect.objectContaining({ id: "photo", src: "/images/white-desk-1a2b3c4d.jpg", alt: "white desk" })
+      ])
+    })
+  })
+
+  it("says why, and places nothing, when the picture can't be saved", async () => {
+    const { host, asked } = placingHost()
+    const fleeting = { ...desk, image: { url: "https://cdn.pixabay.com/photo/desk.jpg", expiresAt: 1 } }
+
+    const failing: AgentHost = {
+      ...host,
+      result: async () => fleeting,
+      saveImage: () => Promise.reject(new Error("the source answered 403"))
+    }
+
+    const answer = await dispatch("place", { connector: "pixabay", id: "1", node: "signup/photo" }, failing, caller)
+
+    expect(answer).toEqual({
+      placed: false,
+      problem: { code: "invalid", message: "Parity couldn't save white desk into the project: the source answered 403" }
+    })
+    expect([asked.applied, asked.placed]).toEqual([[], []])
+  })
+
   it("places nothing, and tells main nothing, where a picture can't go", async () => {
     const { host, asked } = placingHost()
 
@@ -658,22 +770,22 @@ describe("references", () => {
     expect(asked).toEqual([{ query: "paywall with a free trial", limit: 6 }])
   })
 
-  it("passes a photo search on with its defaults: six photos, and only the filters named", async () => {
+  it("passes a stock search on with its defaults: six results, and only the filters named", async () => {
     const fixture = fixtureHost()
     const asked: unknown[] = []
 
     const host: AgentHost = {
       ...fixture.host,
-      photos: async (request) => {
+      media: async (request) => {
         asked.push(request)
 
         return { found: [] }
       }
     }
 
-    await dispatch("photos", { query: "desk", color: "teal" }, host, caller)
+    await dispatch("media", { query: "desk", type: "vectors", color: "blue" }, host, caller)
 
-    expect(asked).toEqual([{ query: "desk", color: "teal", limit: 6 }])
+    expect(asked).toEqual([{ query: "desk", type: "vectors", color: "blue", limit: 6 }])
   })
 
   it("turns down a search with no query before asking the host, and leaves filter values to the connector", async () => {

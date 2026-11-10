@@ -40,11 +40,13 @@ project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the 
 | `get_tokens`          | `parity tokens`                                 | Tokens filtered by category, source or name, with values in every theme.                                                                                                            |
 | `get_components`      | `parity components`                             | Components, libraries, icon sets and exports left out or failing to render.                                                                                                         |
 | `get_props`           | `parity props <Component>`                      | Props from source, then what it goes inside and holds, its slots and an example to insert; `all` adds passed-through attributes.                                                    |
+| `get_images`          | `parity images`                                 | The project's images (files in `public/images`, linked photos) with what uses each, in designs and code.                                                                            |
+| `remove_image`        | `parity images remove <img>`                    | Removes an image file nothing uses; says where one is still used.                                                                                                                   |
 | `get_tabs`            | `parity tabs`                                   | The open projects.                                                                                                                                                                  |
 | `open_project`        | `parity open <folder>`                          | Opens a project in a new tab.                                                                                                                                                       |
-| `find_references`     | `parity references "<screen>"`                  | Screens from real apps on Mobbin, with previews to look at, when this copy of Parity can search Mobbin.                                                                             |
-| `find_photos`         | `parity photos "<subject>"`                     | Stock photos from Unsplash, with previews to look at.                                                                                                                               |
-| `place_result`        | `parity place <connector> <id> "<design/node>"` | Puts a photo a search found into an image node, or a component's prop, as one undoable edit. Credit the photographer and Unsplash where the design shows it.                        |
+| `find_references`     | `parity references "<screen>"`                  | Screens from real apps, with previews to look at, when this copy of Parity can search.                                                                                              |
+| `find_media`          | `parity media "<subject>"`                      | Stock photos, illustrations, vectors or videos, with previews to look at.                                                                                                           |
+| `place_result`        | `parity place <connector> <id> "<design/node>"` | Puts a picture a search found into an image node, or a component's prop, as one undoable edit. Credit its author and the source where the design shows it.                          |
 | `report_problem`      | `parity report "<problem>"`                     | Reports a problem in Parity itself to its developers, with the window's screenshot and replay and the design's frames; returns the link.                                            |
 | `read_skill`          | `parity skill [file]`                           | This skill.                                                                                                                                                                         |
 
@@ -96,9 +98,9 @@ keeping the designs there, so ask before running that in someone's project.
 2. **See how real apps do it,** for a common screen such as onboarding, a paywall, settings or a checkout:
    `find_references` with one screen per search, its type and up to three parts it shows ("paywall with a free trial").
    Follow the patterns you see with the project's own components and tokens, never an app's layout, text or branding,
-   and say which apps you drew on. If it says there's no Mobbin key, carry on without it. For a real photo, look at
-   `find_photos` previews and put the one you choose in an image node with `place_result`; searches give no image link
-   to paste.
+   and say which apps you drew on. If it says there's no key, carry on without it. For a real photo or illustration,
+   look at `find_media` previews and put the one you choose in an image node with `place_result`; searches give no image
+   link to paste.
 3. **Look before you change.** Read the design with `Get("design-id", { depth: 3 })` in `execute`, and take a screenshot
    of what's there. Find the components you need with `Components()` and their props with `Props()`.
 4. **Change it in one snippet.** Build or edit the design with `Insert`, `Update`, `Replace`, `Move` and the rest. A

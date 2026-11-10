@@ -352,7 +352,7 @@ export interface AgentHooks {
  */
 export interface PlaceableResult {
   kind: string
-  /** Whether it can go in a design: photos can; screens from real apps are for looking at. */
+  /** Whether it can go in a design: pictures can; screens from real apps and videos are for looking at. */
   placeable: boolean
   title: string
   /** Its picture, with when its link stops working for a source whose links expire. */
