@@ -4772,6 +4772,40 @@ reopen serves the project on a new port. Gaps: the offscreen renderer's side has
 `restartBuilder` sending `project.guestMoved` to the window. A project service started again forgets the ports, while
 the window keeps what it loaded from them.
 
+### Detected again when what detection reads changes (PAR-820)
+
+An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: a
+`components.json` added or changed, a stylesheet created where the conventions look, `index.html` or the entry it loads
+changed, a dependency added or removed, or a Vite config added. A TanStack Start app has no `index.html`, so
+`components.json`'s `tailwind.css` is how its stylesheet is found; before, adding one to an open project changed nothing
+until Parity restarted.
+
+- **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's stylesheets,
+  the packages' stylesheets the entry imports, `components.json`'s UI kit alias, the dependencies' names and which Vite
+  config there is. It reads them as the project opens, and again 400 ms after a change to one of the files they came
+  from, which the project's watcher already sees. A stylesheet's contents, a script in package.json or a version bump
+  change nothing it compares, so they don't reopen the project. A file caught mid-write reads as no change.
+- **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
+  (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is.
+- **`parity open` on an open project** asks the service whether detection changed (`project.detectAgain`) and opens it
+  again first when it did, so the answer describes the project as detected now.
+
+Code: `detectionInputs` in `packages/project/src/detection-inputs.ts`, with `htmlEntry` and `conventionalStylesheets` in
+`styles.ts`; `detected`, `detectionChanged` and `tellDetectionChanged` in `openProjects`,
+`apps/desktop/src/utility/projects.ts`; `project.detectAgain` and `project.detectionChanged` in `shared/protocol.ts`,
+`shared/service-checks.ts` and `utility/index.ts`; `detectAgain` in `renderer/workspace.ts`; `agent.open` and
+`project.detectionChanged` in `renderer/agent/handlers.ts`.
+
+Tests: `packages/project/src/detection-inputs.test.ts` (3: `components.json` naming a stylesheet changes the key, a
+conventional stylesheet or Vite config appearing changes it and the entry `index.html` names is followed, dependencies
+change it while scripts, versions and a stylesheet's contents don't). `apps/desktop/src/utility/projects.test.ts` (1: an
+open project whose `components.json` now names its stylesheet tells the windows, a file detection doesn't read doesn't,
+and opened again it's detected from the new file). `apps/desktop/src/renderer/workspace.test.ts` (1: asked to detect
+again, a tab opens its project again only when the service says detection changed). Gaps: the handlers wiring
+`agent.open` and `project.detectionChanged` to the workspace is checked by reading; the UI kit's folder filling with
+files, a `.storybook` folder added and a Vite config's contents aren't compared (Vite restarts its own server when its
+config changes).
+
 ### A tab closed while its project opens (PAR-427)
 
 Closing a tab whose project is still opening, as tabs restored at launch can be, closes the project once the service has

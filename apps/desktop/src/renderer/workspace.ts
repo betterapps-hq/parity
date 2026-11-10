@@ -483,6 +483,21 @@ export class Workspace {
   }
 
   /**
+   * Opens a tab's project again when what detection reads of it changed since it opened (PAR-820), as `parity open`
+   * on an open project asks: `components.json` added, a stylesheet created, a dependency added. Resolves once it's open
+   * again, or at once when nothing changed.
+   */
+  async detectAgain(id: string): Promise<void> {
+    const tab = this.getTab(id)
+
+    if (!tab?.session || this.attempts.has(id) || !(await request("project.detectAgain", { projectId: id }))) {
+      return
+    }
+
+    await this.reload(id, "Detecting the project again")
+  }
+
+  /**
    * Opens every tab's project again in a restarted project service. Each tab keeps its designs, unsaved changes,
    * selection and canvas; what the service provides (the builder and its guest, tokens, inferred props) is new.
    */

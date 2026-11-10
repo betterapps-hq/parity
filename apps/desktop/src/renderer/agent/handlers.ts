@@ -76,7 +76,13 @@ const handlers: Handlers = {
 
     return copy
   },
-  "agent.open": async ({ root }) => summary(await workspace.open(root)),
+  "agent.open": async ({ root }) => {
+    const tab = await workspace.open(root)
+    // A project already open is detected again when what detection reads changed since (PAR-820).
+    await workspace.detectAgain(tab.id)
+
+    return summary(tab)
+  },
   "agent.snapshot": ({ tab }) => snapshot(tab),
   "agent.status": ({ tab: reference, ...options }) => {
     const tab = findTab(reference)
@@ -108,6 +114,15 @@ const handlers: Handlers = {
 
     if (tab) {
       workspace.codeChanged(tab.id, paths, stamp)
+    }
+
+    return undefined
+  },
+  "project.detectionChanged": ({ projectId }) => {
+    const tab = workspace.getTabs().find((candidate) => candidate.session?.id === projectId)
+
+    if (tab) {
+      void workspace.reload(tab.id, "Detecting the project again")
     }
 
     return undefined

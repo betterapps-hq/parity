@@ -62,6 +62,9 @@ const projects = openProjects({
     codeChanged: (change) => {
       editor?.request("project.codeChanged", change).catch(() => undefined)
     },
+    detectionChanged: (change) => {
+      editor?.request("project.detectionChanged", change).catch(() => undefined)
+    },
     guestMoved: (change) =>
       editor
         ? editor.request("project.guestMoved", change).then(
@@ -106,6 +109,7 @@ const handlers: Handlers<ServiceMethods> = {
     return projects.open(projectRoot).finally(rememberOpen)
   },
   "project.close": ({ projectId }) => projects.close(projectId).finally(rememberOpen),
+  "project.detectAgain": ({ projectId }) => projects.detectAgain(projectId),
   "document.save": projects.saveDocument,
   "document.saveCopy": saveDocumentCopy,
   "images.import": (params) => importImage(projects.get(params.projectId), params),

@@ -88,6 +88,9 @@ let folders: ServiceMethods["start.check"]["result"]
 /** How the service answers a design file's write. */
 const saving = { answer: (): Promise<undefined> => Promise.resolve(undefined) }
 
+/** Whether the service says what detection reads of a project changed since it opened. */
+const detection = { changed: false }
+
 beforeEach(() => {
   tracked.length = 0
   opens = []
@@ -95,6 +98,7 @@ beforeEach(() => {
   picturesKept = []
   checked = []
   folders = { missing: [] }
+  detection.changed = false
   guest.loads.length = 0
   guest.failures.length = 0
   guest.released.length = 0
@@ -122,6 +126,10 @@ beforeEach(() => {
 
         if (method === "document.save") {
           return saving.answer()
+        }
+
+        if (method === "project.detectAgain") {
+          return Promise.resolve(detection.changed)
         }
 
         if (method === "start.check") {
@@ -452,6 +460,29 @@ describe("a tab closed while its project opens", () => {
     await reloading
     expect(closes).toEqual([info.id, info.id])
     expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("opens a project again when asked to detect it again only once what detection reads changed (PAR-820)", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+
+    detection.changed = false
+    await workspace.detectAgain(info.id)
+    expect(closes).toEqual([])
+
+    detection.changed = true
+    const detecting = workspace.detectAgain(info.id)
+    await vi.waitFor(() => expect(opens).toHaveLength(2))
+    opens[1]!(info)
+    await settle()
+    guest.loads[1]!(loaded)
+    await detecting
+    expect(closes).toEqual([info.id])
+    expect(workspace.getTab(info.id)?.status).toBe("ready")
   })
 
   it("reopens once when asked again while it reopens, so closing the tab cancels it", async () => {
