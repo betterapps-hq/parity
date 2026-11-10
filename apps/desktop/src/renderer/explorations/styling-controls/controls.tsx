@@ -30,6 +30,7 @@ import {
   isFixedSize,
   isLengthToken,
   isSizeMode,
+  isTokenSize,
   type Length,
   placementCss,
   type Radius,
@@ -41,6 +42,7 @@ import {
   usedColors
 } from "./data.ts"
 import {
+  type FieldChip,
   nearestToken,
   NotBaseline,
   ownLength,
@@ -60,6 +62,7 @@ import { HighlightOverlay } from "./highlight.tsx"
 import { RemoveButton } from "./list-parts.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
 import { sideNumber } from "./sides-writes.ts"
+import type { LengthToken } from "./tokens.ts"
 import { isBareNumber, readLength } from "./typing.ts"
 import type { StrokePosition } from "./writes.ts"
 
@@ -245,6 +248,11 @@ const typedSizes = new Map<string, SizeMode>([
  * at what it came to, ready to type over; typing a length makes it Fixed, as in Figma, and Up or Down on a word makes it
  * Fixed at what it comes to and steps from there, a whole spacing step (4px) at a time. Set by another control, as the
  * aspect lock sets H, it says Auto faintly, with what it comes to; its hint and Sizing say what sets it.
+ *
+ * It takes the project's spacing and container tokens too, as Tailwind's `w-*` and `h-*` do (`w-gutter`, `w-md`):
+ * Sizing lists them under the words, smallest first, with the token nearest a length of its own above them and
+ * Create token under them. A token shows as its pill, typed by name (`gutter`, `container-md`), and Up and Down step
+ * through the scale.
  */
 export function SizeField({
   axis,
@@ -271,12 +279,20 @@ export function SizeField({
   onChange: (size: Size) => void
 }) {
   const [unit, setUnit] = useState<"px" | "rem">("px")
+  const spacing = useTokens("spacing")
+  const containers = useTokens("container").tokens
+  const tokens = [...spacing.tokens, ...containers]
+  // Deprecated tokens are neither stepped onto nor offered as the nearest: they're on their way out.
+  const scale = tokens.filter((each) => each.deprecated === undefined).toSorted((a, b) => a.px - b.px)
   const words = sizeWords(within)
   const mode = !setBy && isSizeMode(value) ? value : undefined
   const fixed = !setBy && isFixedSize(value) ? value : undefined
-  const percent = setBy || isFixedSize(value) || isSizeMode(value) ? undefined : value.percent
-  // What Fixed starts at: the size it is now, as Figma's Fixed keeps it.
-  const now = Math.max(1, Math.round(fixed ?? measured ?? 100))
+  const named = !setBy && isTokenSize(value) ? value.token : undefined
+  const token = named === undefined ? undefined : tokens.find((each) => each.name === named)
+  const percent = !setBy && !isFixedSize(value) && !isSizeMode(value) && "percent" in value ? value.percent : undefined
+  // What it is in pixels where it says, and what Fixed starts at: the size it is now, as Figma's Fixed keeps it.
+  const length = fixed ?? token?.px
+  const now = Math.max(1, Math.round(length ?? measured ?? 100))
   const of = axis === "Width" ? "width" : "height"
   let shown: string | undefined
 
@@ -317,6 +333,14 @@ export function SizeField({
       return { value: word }
     }
 
+    const typedToken = tokens.find((each) =>
+      [each.name, each.name.replace(/^(spacing|container)-/, "")].includes(typed)
+    )
+
+    if (typedToken) {
+      return { value: { token: typedToken.name } }
+    }
+
     const bare = isBareNumber(typed)
     let input = typed
 
@@ -326,7 +350,7 @@ export function SizeField({
       input = `${typed}rem`
     }
 
-    const reading = readLength(input, { label: axis, current: fixed ?? measured, takesPercent: true })
+    const reading = readLength(input, { label: axis, current: length ?? measured, takesPercent: true })
 
     if ("reason" in reading) {
       return { reason: reading.reason.startsWith("Can't read") ? reason : reading.reason }
@@ -356,8 +380,15 @@ export function SizeField({
       return
     }
 
+    // A token steps to the next in scale order; Shift goes to the first or last.
+    if (token && scale.includes(token)) {
+      onChange({ token: stepThrough(scale, token, up, keys.shift).name })
+
+      return
+    }
+
     // A word, or Auto, becomes Fixed at what it comes to and steps from there.
-    onChange(Math.max(4, stepSpacing(fixed ?? measured ?? 0, stepCount(up, keys.shift))))
+    onChange(Math.max(4, stepSpacing(length ?? measured ?? 0, stepCount(up, keys.shift))))
   }
 
   const toUnit = (next: "px" | "%" | "rem") => {
@@ -378,24 +409,38 @@ export function SizeField({
     ? [{ key: "auto", name: "Auto", detail: `Set by ${setBy}`, current: true, onPick: () => undefined }]
     : []
 
+  let chip: FieldChip | undefined = tokenChip(named, token, {
+    // Backspace on a token's pill leaves it Fixed at what it came to, as on a word's.
+    pick: (name) => onChange(name === undefined ? now : { token: name }),
+    detach: (each) => onChange(each.px)
+  })
+
+  if (mode !== undefined) {
+    chip = {
+      name: words[mode].name,
+      keyword: { detail: measured === undefined ? undefined : String(measured), about: words[mode].detail },
+      onRemove: () => onChange(now)
+    }
+  }
+
+  let hint: { label?: string; detail?: string } | undefined
+
+  if (setBy) {
+    hint = { label: `${axis} is set by ${setBy}`, detail: `${measured}px at this ratio` }
+  } else if (named !== undefined) {
+    hint = { detail: tokenStatus(named, token, undefined) ?? token?.detail }
+  }
+
   return (
     <div className="flex min-w-0 flex-col">
       <ValueField
         label={axis}
         inner={axis[0]}
         // Dragging W or H scrubs the size a spacing step per 2 screen pixels, making a word Fixed first.
-        scrub={{ from: () => fixed ?? measured ?? 0, apply: (px) => onChange(px), by: { spacing: true, min: 1 } }}
+        scrub={{ from: () => length ?? measured ?? 0, apply: (px) => onChange(px), by: { spacing: true, min: 1 } }}
         shown={shown}
         muted={setBy !== undefined}
-        chip={
-          mode === undefined
-            ? undefined
-            : {
-                name: words[mode].name,
-                keyword: { detail: measured === undefined ? undefined : String(measured), about: words[mode].detail },
-                onRemove: () => onChange(now)
-              }
-        }
+        chip={chip}
         unit={
           fixed === undefined && percent === undefined ? undefined : (
             <UnitMenu
@@ -410,11 +455,28 @@ export function SizeField({
             />
           )
         }
-        comesTo={comesTo}
-        hint={setBy ? { label: `${axis} is set by ${setBy}`, detail: `${measured}px at this ratio` } : undefined}
+        comesTo={comesTo ?? token?.detail}
+        hint={hint}
+        own={
+          fixed === undefined
+            ? undefined
+            : ownLength({
+                px: fixed,
+                unit: "px",
+                tokens,
+                kind: "spacing",
+                namespace: "spacing-",
+                create: spacing.create,
+                tokensOnly: false,
+                allow: undefined,
+                onToken: (name) => onChange({ token: name }),
+                onAllow: () => undefined
+              })
+        }
         tokens={{
           name: "Sizing",
-          list: [],
+          list: tokens,
+          current: named,
           keywords: {
             heading: axis,
             rows: [
@@ -423,9 +485,9 @@ export function SizeField({
                 key: "fixed",
                 name: "Fixed",
                 detail: `${now}px`,
-                current: !setBy && mode === undefined,
+                current: !setBy && mode === undefined && named === undefined,
                 onPick: () => {
-                  if (setBy || mode !== undefined) {
+                  if (setBy || mode !== undefined || named !== undefined) {
                     onChange(now)
                   }
                 }
@@ -443,7 +505,11 @@ export function SizeField({
               { key: "max", name: "Add max", disabled: limits?.max, onPick: () => onAddLimit("max") }
             ]
           },
-          onPick: () => undefined
+          onPick: (name) => {
+            if (name !== undefined) {
+              onChange({ token: name })
+            }
+          }
         }}
         selectOnFocus
         read={read}
@@ -1346,13 +1412,23 @@ export function TextSection({ draft, set }: SectionProps) {
   )
 }
 
+/** A frame's width: pixels of its own, or a breakpoint's name. */
+export type FrameWidth = number | { token: string }
+
+/** A frame's width in pixels, from its breakpoint where it has one. */
+export const framePx = (width: FrameWidth, breakpoints: readonly LengthToken[]) =>
+  isFixedSize(width) ? width : (breakpoints.find((each) => each.name === width.token)?.px ?? 1280)
+
+/** How much smaller than life the frame's preview draws it. */
+const frameScale = 0.4
+
 /** The design's frame, typed: its width and height in this viewport. */
 export function FrameSection({
   frame,
   onChange
 }: {
-  frame: { width: number; height: number | undefined }
-  onChange: (frame: { width: number; height: number | undefined }) => void
+  frame: { width: FrameWidth; height: number | undefined }
+  onChange: (frame: { width: FrameWidth; height: number | undefined }) => void
 }) {
   return (
     <PanelSection
@@ -1368,27 +1444,184 @@ export function FrameSection({
       <div className="flex flex-col gap-2.5">
         <Field label="Size">
           <div className="grid grid-cols-2 gap-1">
-            <Num
-              label="Frame width"
-              inner="W"
-              pixels
-              value={frame.width}
-              min={1}
-              onChange={(width) => onChange({ ...frame, width: width ?? 1280 })}
-            />
-            <Num
-              label="Frame height"
-              inner="H"
-              pixels
-              value={frame.height}
-              placeholder="Hug"
-              min={1}
-              onChange={(height) => onChange({ ...frame, height })}
-            />
+            <FrameWidthField width={frame.width} onChange={(width) => onChange({ ...frame, width })} />
+            <FrameHeightField height={frame.height} onChange={(height) => onChange({ ...frame, height })} />
           </div>
         </Field>
       </div>
     </PanelSection>
+  )
+}
+
+/**
+ * A frame's W: pixels, or one of the project's breakpoints, the widths its design is drawn at, as a pill (`xl`) with
+ * what it comes to in its hint. Its tokens list the breakpoints, with the one nearest a width of its own first, and
+ * Create token. Typing a breakpoint's name (`xl`) takes it, and Up and Down step through them.
+ */
+function FrameWidthField({ width, onChange }: { width: FrameWidth; onChange: (width: FrameWidth) => void }) {
+  const { tokens, create } = useTokens("breakpoint")
+  const namespace = "breakpoint-"
+  const named = isFixedSize(width) ? undefined : width.token
+  const token = named === undefined ? undefined : tokens.find((each) => each.name === named)
+  const own = isFixedSize(width) ? width : undefined
+  const px = framePx(width, tokens)
+  const scale = tokens.filter((each) => each.deprecated === undefined).toSorted((a, b) => a.px - b.px)
+  const reason = "Enter a width, or a breakpoint such as xl"
+
+  const read = (text: string): Reading<FrameWidth> => {
+    const typed = text.trim().toLowerCase()
+    const typedToken = tokens.find((each) => [each.name, each.name.slice(namespace.length)].includes(typed))
+
+    if (typedToken) {
+      return { value: { token: typedToken.name } }
+    }
+
+    const reading = readLength(text, { label: "Frame width", current: px })
+
+    if ("px" in reading) {
+      return { value: Math.max(1, Math.round(reading.px)) }
+    }
+
+    return { reason: "reason" in reading && !reading.reason.startsWith("Can't read") ? reading.reason : reason }
+  }
+
+  const step = (up: boolean, { shift }: ScrubKeys) => {
+    if (token && scale.includes(token)) {
+      onChange({ token: stepThrough(scale, token, up, shift).name })
+
+      return
+    }
+
+    onChange(Math.max(1, px + stepCount(up, shift)))
+  }
+
+  return (
+    <ValueField
+      label="Frame width"
+      inner="W"
+      scrub={{ from: () => px, apply: (next) => onChange(next), by: { step: 1, shiftStep: 10, min: 1 } }}
+      shown={own === undefined ? undefined : String(own)}
+      chip={tokenChip(named, token, {
+        namespace,
+        // Backspace on the pill leaves the width it came to, ready to type over.
+        pick: (name) => onChange(name === undefined ? px : { token: name }),
+        detach: (each) => onChange(each.px)
+      })}
+      unit={own === undefined ? undefined : "px"}
+      comesTo={token?.detail}
+      hint={named === undefined ? undefined : { detail: tokenStatus(named, token, undefined) ?? token?.detail }}
+      own={
+        own === undefined
+          ? undefined
+          : ownLength({
+              px: own,
+              unit: "px",
+              tokens,
+              kind: "breakpoint",
+              namespace,
+              create,
+              tokensOnly: false,
+              allow: undefined,
+              onToken: (name) => onChange({ token: name }),
+              onAllow: () => undefined
+            })
+      }
+      tokens={{
+        list: tokens,
+        current: named,
+        onPick: (name) => {
+          if (name !== undefined) {
+            onChange({ token: name })
+          }
+        }
+      }}
+      selectOnFocus
+      read={read}
+      onCommit={onChange}
+      onStep={step}
+    />
+  )
+}
+
+/**
+ * A frame's H: pixels, or Hug, the design's own height, as a chip with what it comes to faintly, as W and H elsewhere
+ * have it. Its chevron opens Sizing: Fixed and Hug. Backspace on Hug leaves it Fixed at what it came to.
+ */
+function FrameHeightField({
+  height,
+  onChange
+}: {
+  height: number | undefined
+  onChange: (height: number | undefined) => void
+}) {
+  const drawn = useMeasured("[data-frame-preview]")
+  const hugged = drawn === undefined ? undefined : Math.round(drawn.height / frameScale)
+  const now = Math.max(1, Math.round(height ?? hugged ?? 800))
+  const hug = height === undefined
+
+  const read = (text: string): Reading<number | undefined> => {
+    const typed = text.trim().toLowerCase()
+
+    if (typedSizes.get(typed) === "hug") {
+      return { value: undefined }
+    }
+
+    if (typed === "fixed") {
+      return { value: now }
+    }
+
+    const reading = readLength(text, { label: "Frame height", current: now })
+
+    if ("px" in reading) {
+      return { value: Math.max(1, Math.round(reading.px)) }
+    }
+
+    return { reason: "Enter a height, or Hug" }
+  }
+
+  return (
+    <ValueField
+      label="Frame height"
+      inner="H"
+      scrub={{ from: () => now, apply: (next) => onChange(next), by: { step: 1, shiftStep: 10, min: 1 } }}
+      shown={height === undefined ? undefined : String(height)}
+      chip={
+        hug
+          ? {
+              name: "Hug",
+              keyword: { detail: hugged === undefined ? undefined : String(hugged), about: "Fits its design" },
+              onRemove: () => onChange(now)
+            }
+          : undefined
+      }
+      unit={hug ? undefined : "px"}
+      tokens={{
+        name: "Sizing",
+        list: [],
+        keywords: {
+          heading: "Frame height",
+          rows: [
+            {
+              key: "fixed",
+              name: "Fixed",
+              detail: `${now}px`,
+              current: !hug,
+              onPick: () => {
+                if (hug) {
+                  onChange(now)
+                }
+              }
+            },
+            { key: "hug", name: "Hug", detail: "Fits its design", current: hug, onPick: () => onChange(undefined) }
+          ]
+        },
+        onPick: () => undefined
+      }}
+      selectOnFocus
+      read={read}
+      onCommit={onChange}
+      onStep={(up, { shift }) => onChange(Math.max(1, now + stepCount(up, shift)))}
+    />
   )
 }
 
@@ -1525,7 +1758,8 @@ const flexValues = {
 const linesValues = { center: "center", end: "flex-end", between: "space-between", stretch: "stretch" } as const
 
 /** A grid child's own size: unset or Fill stretches it across its cell, which writes nothing. */
-const cellSize = (size: Size | undefined) => (size === undefined || size === "fill" ? undefined : sizeCss(size))
+const cellSize = (size: Size | undefined, tokens: readonly LengthToken[]) =>
+  size === undefined || size === "fill" ? undefined : sizeCss(size, tokens)
 
 const px = (pixels: number | undefined) => (pixels === undefined ? undefined : `${pixels}px`)
 
@@ -1553,6 +1787,7 @@ export function LayerPreview({
   onSelectChild?: (selected: boolean) => void
 }) {
   const sets = useTokenSets()
+  const sizeTokens = [...sets.spacing, ...sets.container]
   // The layout, for what's highlighted on it to be measured against.
   const [layout, setLayout] = useState<HTMLElement | null>(null)
   const grid = draft.columns !== undefined
@@ -1584,9 +1819,9 @@ export function LayerPreview({
     columnGap: Math.max(0, gap),
     rowGap: rowGap ?? Math.max(0, gap),
     padding: 20,
-    width: sizeCss(draft.width ?? 520),
+    width: sizeCss(draft.width ?? 520, sizeTokens),
     // A ratio only takes hold when one axis is left to it.
-    height: draft.aspect ? undefined : sizeCss(draft.height),
+    height: draft.aspect ? undefined : sizeCss(draft.height, sizeTokens),
     minWidth: px(draft.minWidth),
     maxWidth: px(draft.maxWidth) ?? "100%",
     minHeight: px(draft.minHeight),
@@ -1617,8 +1852,8 @@ export function LayerPreview({
               gridRow: placementCss(draft.rowStart, draft.rowSpan, draft.endLines ? draft.rowEnd : undefined),
               alignSelf: draft.alignSelf,
               justifySelf: draft.justifySelf,
-              width: cellSize(draft.childWidth),
-              height: cellSize(draft.childHeight)
+              width: cellSize(draft.childWidth, sizeTokens),
+              height: cellSize(draft.childHeight, sizeTokens)
             }
           } else if (name !== "Team") {
             cell = { ...cell, ...overlap }
@@ -1644,16 +1879,15 @@ export function LayerPreview({
 }
 
 export function FramePreview({ width, height }: { width: number; height: number | undefined }) {
-  const scale = 0.4
-
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">
         Pricing in Desktop, {width} × {height ?? "Hug"}
       </span>
       <div
+        data-frame-preview
         className="flex flex-col gap-3 overflow-hidden border bg-white p-6 shadow-sm"
-        style={{ width: width * scale, height: height === undefined ? undefined : height * scale }}
+        style={{ width: width * frameScale, height: height === undefined ? undefined : height * frameScale }}
       >
         <div className="h-3 w-24 rounded bg-neutral-800" />
         <div className="h-2 w-40 rounded bg-neutral-300" />

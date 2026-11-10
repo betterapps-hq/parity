@@ -177,6 +177,15 @@ export const containerTokens: LengthToken[] = [
   lengthToken("container", "container-lg", 512)
 ]
 
+/** Tailwind's breakpoints, the widths a design's frame is drawn at. */
+export const breakpointTokens: LengthToken[] = [
+  lengthToken("breakpoint", "breakpoint-sm", 640),
+  lengthToken("breakpoint", "breakpoint-md", 768),
+  lengthToken("breakpoint", "breakpoint-lg", 1024),
+  lengthToken("breakpoint", "breakpoint-xl", 1280),
+  lengthToken("breakpoint", "breakpoint-2xl", 1536)
+]
+
 /* Motion */
 
 export interface DurationToken extends FieldToken {
@@ -546,6 +555,7 @@ export const tokenSets = {
   borderWidth: borderWidthTokens,
   zIndex: zIndexTokens,
   container: containerTokens,
+  breakpoint: breakpointTokens,
   duration: durationTokens,
   easing: easingTokens,
   shadow: shadowTokens,

@@ -9,6 +9,7 @@ import {
   isFixedSize,
   isLengthToken,
   isSizeMode,
+  isTokenSize,
   type Length,
   type Radius,
   type Size,
@@ -281,6 +282,15 @@ function sizeWrites(axis: "w" | "h", size: Size | undefined, setBy?: string): Wr
       stored: lengthForm(size),
       css: [`${property}: ${lengthCss(size)}`],
       tailwind: [`${axis}-${lengthClass(size)}`]
+    }
+  }
+
+  if (isTokenSize(size)) {
+    // `spacing-gutter` writes `w-gutter` and `container-md` `w-md`, as Tailwind's theme names them.
+    return {
+      stored: { token: size.token },
+      css: [`${property}: var(--${size.token})`],
+      tailwind: [`${axis}-${size.token.replace(/^(spacing|container)-/, "")}`]
     }
   }
 

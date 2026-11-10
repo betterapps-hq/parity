@@ -49,7 +49,10 @@ with no Editing, the type has only typing, keys and the token button; with no To
   elsewhere Hug and Fill already write `auto`. Freed by the aspect lock, it shows as Auto with its measured size, and
   its hint and Sizing say it's set by Aspect ratio ([design-options-css.md](design-options-css.md), Properties set by
   another control). A grid child's W and H are the same field, Fill filling its cell.
-- **Tokens:** spacing, container.
+- **Tokens:** spacing, container, listed in Sizing under the words, smallest first, with the token nearest a length of
+  its own above them and Create token under them. A token shows as its pill and steps through the scale with Up and
+  Down; it writes Tailwind's name, `w-gutter` for `--spacing-gutter` and `w-md` for `--container-md`. A design's frame
+  takes the project's breakpoints for its W instead (`xl`, 1280), and Hug or pixels for its H.
 - **Writes:** `flex-1 min-w-0`, `flex-2 min-w-0` (`min-h-0` in a column), `self-stretch`, `w-fit`, `w-full`, or nothing,
   by the parent.
 - **Compared:** Figma's Fixed, Hug and Fill, with Framer's share for Fill.

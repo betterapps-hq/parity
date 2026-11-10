@@ -112,8 +112,8 @@ export const typedContentSizes = new Map<string, "min" | "max">([
   ["max-content", "max"]
 ])
 
-/** A width or height: pixels (Fixed), a percentage of the parent, or a size mode. */
-export type Size = number | { percent: number } | SizeMode
+/** A width or height: pixels (Fixed), a percentage of the parent, a size mode, or a spacing or container token. */
+export type Size = number | { percent: number } | { token: string } | SizeMode
 
 /** Whether a size is pixels of its own (Fixed), rather than a percentage or a mode. */
 export function isFixedSize(size: Size): size is number {
@@ -125,10 +125,27 @@ export function isSizeMode(size: Size): size is SizeMode {
   return sizeModes.some((mode) => mode === size)
 }
 
-/** A size as CSS writes it outside a layout: Fill is `100%` and Hug `fit-content`. */
-export function sizeCss(size: Size | undefined): string | undefined {
+/** Whether a size is a token's name, a spacing or container token, rather than a length or a mode. */
+export function isTokenSize(size: Size): size is { token: string } {
+  return !isFixedSize(size) && !isSizeMode(size) && "token" in size
+}
+
+/**
+ * A size as CSS writes it outside a layout: Fill is `100%` and Hug `fit-content`. A token is its pixels, from the
+ * tokens given, as the preview draws it, or its custom property where it isn't one of them.
+ */
+export function sizeCss(
+  size: Size | undefined,
+  tokens: readonly { name: string; px: number }[] = []
+): string | undefined {
   if (size === undefined) {
     return undefined
+  }
+
+  if (isTokenSize(size)) {
+    const token = tokens.find((each) => each.name === size.token)
+
+    return token ? `${token.px}px` : `var(--${size.token})`
   }
 
   if (isFixedSize(size)) {

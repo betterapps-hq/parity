@@ -35,6 +35,9 @@ function Size({ start }: { start: Draft }) {
 /** Fixed at 520 by 520 pixels, written as spacing steps (`w-130`). Up on W makes it 524. */
 export const Fixed: Story = { render: () => <Size start={{ width: 520, height: 520 }} /> }
 
+/** W at the project's container-md token, 448 pixels, as its pill; Sizing lists the tokens under the words. */
+export const Token: Story = { render: () => <Size start={{ width: { token: "container-md" }, height: 320 }} /> }
+
 /** W hugs its content: a Hug chip, with what that comes to after it. */
 export const Hug: Story = { render: () => <Size start={{ width: "hug" }} /> }
 
