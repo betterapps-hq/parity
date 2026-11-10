@@ -398,15 +398,28 @@ export function watchWindowHangs(
     recorded?.track("window.hang_started", { window: kind })
   })
   window.on("responsive", () => end("answered"))
-  window.on("closed", () => end("closed"))
+  window.on("closed", () => end(quitAsked ? "quit" : "closed"))
 }
 
-// Before the windows close, so a hang that lasts until the app quits says so.
-app.on("before-quit", () => {
+/** Whether the app was asked to quit and hasn't been told it was cancelled, so a stuck window that closes says `quit`. */
+let quitAsked = false
+
+app.on("before-quit", () => (quitAsked = true))
+
+// What's still stuck as the app quits for good ends with it.
+app.prependListener("will-quit", () => {
   for (const { end } of stuckWindows.values()) {
     end("quit")
   }
 })
+
+/**
+ * The editor cancelled quitting, as when someone keeps unsaved changes: its hangs stay open, and a window that closes
+ * later says `closed`.
+ */
+export function quitCancelled(): void {
+  quitAsked = false
+}
 
 /** Where the stuck windows are kept while they last, for the next run if the app exits first: none until it starts. */
 let stuckWindowsFile: string | undefined
