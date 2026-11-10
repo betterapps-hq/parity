@@ -9,7 +9,7 @@ import {
 } from "@parity-app/agent/contracts"
 import { type JsonValue, jsonValue } from "@parity-app/core/schema"
 import { z } from "zod"
-import type { Routing } from "./client.ts"
+import type { FindResponse, Routing } from "./client.ts"
 import { type ExecResponse, execResponse, executionFailed, structuredExec } from "./execute.ts"
 
 /**
@@ -147,6 +147,28 @@ export type ConsoleResponse = z.output<typeof consoleResult>
 
 export type TokensResponse = z.output<typeof tokensResult>
 
+/**
+ * How a search for screens or photos is routed and read. Any running copy can search: main holds the keys, whatever
+ * projects are open (PAR-829). --json and structuredContent leave the previews' base64 out; MCP shows them as images,
+ * and the CLI names their files.
+ */
+const finding: Options<FindResponse> = {
+  routing: "tab-or-any",
+  failed: (result) => result.problem !== undefined,
+  structured: (result) => ({
+    ...result,
+    found: result.found.map(({ preview, ...item }) => {
+      if (!preview) {
+        return item
+      }
+
+      const { data: _data, ...saved } = preview
+
+      return { ...item, preview: saved }
+    })
+  })
+}
+
 export const operations = {
   tabs: mapped("tabs", (tabs): TabsResponse => ({ tabs })),
   state: operation("state"),
@@ -178,24 +200,8 @@ export const operations = {
   props: operation("props"),
   // A report goes to a running copy even with no project open, as long as it names no tab.
   report: withTestRun(operation("report", { routing: "tab-or-any" })),
-  // Any running copy can search: main holds the key, whatever projects are open (PAR-829). --json and
-  // structuredContent leave the previews' base64 out; MCP shows them as images, and the CLI names their files.
-  references: operation("references", {
-    routing: "tab-or-any",
-    failed: (result) => result.problem !== undefined,
-    structured: (result) => ({
-      ...result,
-      found: result.found.map(({ preview, ...reference }) => {
-        if (!preview) {
-          return reference
-        }
-
-        const { data: _data, ...saved } = preview
-
-        return { ...reference, preview: saved }
-      })
-    })
-  })
+  references: operation("references", finding),
+  photos: operation("photos", finding)
 }
 
 /**

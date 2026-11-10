@@ -10,7 +10,7 @@ import {
   type SearchAnswer,
   type SearchRequest
 } from "./connector.ts"
-import { prepare, readJson, refusal, requestJson } from "./request.ts"
+import { prepare, readJson, refusal, sendSearch } from "./request.ts"
 
 /*
  * Mobbin's REST API (docs.mobbin.com/api), on its Team and Enterprise plans. It has one endpoint: screens searched in
@@ -57,9 +57,27 @@ export const mobbin: Connector = {
     name: "Mobbin",
     site: "https://mobbin.com",
     finds: ["screens"],
-    platforms: ["web", "ios"],
-    // Standard first: deep search spends 5 of the person's AI credits each time it finds something.
-    depths: ["standard", "deep"],
+    filters: [
+      {
+        id: "platform",
+        name: "Platform",
+        values: [
+          { id: "web", name: "Web" },
+          { id: "ios", name: "iOS" }
+        ],
+        default: "web"
+      },
+      {
+        id: "depth",
+        name: "Depth",
+        values: [
+          { id: "standard", name: "Standard" },
+          { id: "deep", name: "Deep" }
+        ],
+        // Standard by default: deep search spends 5 of the person's AI credits each time it finds something.
+        default: "standard"
+      }
+    ],
     limit: { default: 20, max: 100 },
     more: "exclude",
     apiKey: {
@@ -68,7 +86,7 @@ export const mobbin: Connector = {
       variable: "PARITY_MOBBIN_API_KEY"
     }
   },
-  probe: { query: "login screen", kind: "screens", platform: "web", limit: 1, depth: "standard" },
+  probe: { query: "login screen", kind: "screens", limit: 1 },
   search: searchMobbin
 }
 
@@ -79,15 +97,16 @@ async function searchMobbin(request: SearchRequest, access: Access): Promise<Sea
     return prepared
   }
 
-  const { query, platform, limit, depth, exclude = [] } = prepared.request
+  const { query, limit, filters, exclude = [] } = prepared.request
   const excluded = exclude.filter((id) => screenId.safeParse(id).success)
-  const body: MobbinSearch = { query, platform, mode: depth, limit }
+  // Both have defaults, so checkRequest has filled them in.
+  const body: MobbinSearch = { query, platform: filters.platform, mode: filters.depth ?? "standard", limit }
 
   if (excluded.length > 0) {
     body.exclude_screen_ids = excluded
   }
 
-  const answered = await requestJson(access, {
+  return sendSearch(access, {
     source: "Mobbin",
     url: endpoint,
     init: {
@@ -100,10 +119,9 @@ async function searchMobbin(request: SearchRequest, access: Access): Promise<Sea
       body: JSON.stringify(body)
     },
     schema: answer,
+    found: (data) => data.screens.map(foundScreen),
     refused
   })
-
-  return "problem" in answered ? answered : { found: answered.data.screens.map(foundScreen) }
 }
 
 function foundScreen(each: z.infer<typeof screen>): Found {

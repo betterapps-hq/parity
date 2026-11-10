@@ -1,18 +1,21 @@
 import type { z } from "zod"
 import {
   type Access,
+  type Allowance,
   type CheckedRequest,
   checkRequest,
   type ConnectorInfo,
+  type Found,
   type Problem,
   type ProblemAnswer,
+  type SearchAnswer,
   type SearchRequest
 } from "./connector.ts"
 
 /*
  * What every adapter does around its own mapping: check the search and the key before sending anything, send it, and
  * turn a failed, slow or unreadable answer into a problem in the source's name. An adapter writes only its URL, its
- * request, its answer's schema and what its failures mean.
+ * request, its answer's schema, how a result maps to `Found`, and what its failures mean.
  */
 
 /** A problem answer. */
@@ -44,7 +47,7 @@ export function prepare(
   return { request: checked.request, key: access.key }
 }
 
-export interface JsonRequest<T> {
+export interface SearchSend<T> {
   /** The source's name, for the problems this writes. */
   source: string
   url: string
@@ -52,15 +55,18 @@ export interface JsonRequest<T> {
   init: RequestInit
   /** What a successful answer must be. */
   schema: z.ZodType<T>
+  /** The results in a successful answer, in Parity's shape. */
+  found(data: T): Found[]
   /** What a failure the source answered with means, from its status, headers and body. */
   refused(response: Response, body: string): ProblemAnswer
 }
 
 /**
- * Sends a request and reads its JSON answer. A fetch that fails or is stopped, a failure the source answers with, and
- * an answer the schema doesn't read are each a problem, so the adapter never catches anything itself.
+ * Sends a search and reads its JSON answer into results, with how many more searches the source allows when it says. A
+ * fetch that fails or is stopped, a failure the source answers with, and an answer the schema doesn't read are each a
+ * problem, so the adapter never catches anything itself.
  */
-export async function requestJson<T>(access: Access, request: JsonRequest<T>): Promise<ProblemAnswer | { data: T }> {
+export async function sendSearch<T>(access: Access, request: SearchSend<T>): Promise<SearchAnswer> {
   const init: RequestInit = { ...request.init }
 
   if (access.signal) {
@@ -92,7 +98,34 @@ export async function requestJson<T>(access: Access, request: JsonRequest<T>): P
     return refusal("unavailable", `${request.source} answered with something Parity couldn't read. Try again.`)
   }
 
-  return { data: parsed.data }
+  const answer: SearchAnswer = { found: request.found(parsed.data) }
+  const allowance = allowanceOf(response.headers)
+
+  if (allowance) {
+    answer.allowance = allowance
+  }
+
+  return answer
+}
+
+/**
+ * How many more searches a source allows, from the `X-RateLimit-Remaining` and `X-RateLimit-Limit` headers most APIs
+ * send, Unsplash's among them. Nothing when it doesn't send them, as Mobbin doesn't.
+ */
+export function allowanceOf(headers: Headers): Allowance | undefined {
+  const remaining = count(headers.get("x-ratelimit-remaining"))
+
+  if (remaining === undefined) {
+    return undefined
+  }
+
+  const limit = count(headers.get("x-ratelimit-limit"))
+
+  return limit ? { remaining, limit } : { remaining }
+}
+
+function count(header: string | null): number | undefined {
+  return header !== null && /^\d+$/.test(header.trim()) ? Number(header.trim()) : undefined
 }
 
 /** Sends a request whose answer doesn't matter, as a report of a use. A failure is let go. */

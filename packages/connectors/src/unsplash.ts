@@ -8,7 +8,7 @@ import {
   type SearchAnswer,
   type SearchRequest
 } from "./connector.ts"
-import { notify, prepare, refusal, requestJson } from "./request.ts"
+import { notify, prepare, refusal, sendSearch } from "./request.ts"
 
 /*
  * Unsplash's API (unsplash.com/documentation), with an app's Access Key and its public scope only. Its terms ask three
@@ -45,23 +45,36 @@ export const unsplash: Connector = {
     name: "Unsplash",
     site: "https://unsplash.com",
     finds: ["photos"],
-    depths: ["standard"],
+    filters: [
+      {
+        id: "orientation",
+        name: "Orientation",
+        values: [
+          { id: "landscape", name: "Landscape" },
+          { id: "portrait", name: "Portrait" },
+          { id: "squarish", name: "Square" }
+        ]
+      },
+      {
+        id: "color",
+        name: "Color",
+        values: [
+          { id: "black_and_white", name: "Black and white" },
+          { id: "black", name: "Black" },
+          { id: "white", name: "White" },
+          { id: "yellow", name: "Yellow" },
+          { id: "orange", name: "Orange" },
+          { id: "red", name: "Red" },
+          { id: "purple", name: "Purple" },
+          { id: "magenta", name: "Magenta" },
+          { id: "green", name: "Green" },
+          { id: "teal", name: "Teal" },
+          { id: "blue", name: "Blue" }
+        ]
+      }
+    ],
     limit: { default: 20, max: 30 },
     more: "page",
-    orientations: ["landscape", "portrait", "squarish"],
-    colors: [
-      "black_and_white",
-      "black",
-      "white",
-      "yellow",
-      "orange",
-      "red",
-      "purple",
-      "magenta",
-      "green",
-      "teal",
-      "blue"
-    ],
     apiKey: {
       name: "Access Key",
       page: "https://unsplash.com/oauth/applications",
@@ -80,7 +93,7 @@ async function searchUnsplash(request: SearchRequest, access: Access): Promise<S
     return prepared
   }
 
-  const { query, limit, page, orientation, color } = prepared.request
+  const { query, limit, page, filters } = prepared.request
   // High keeps out photos Unsplash marks as unsuitable for every audience, since designs are shown to others.
   const params = new URLSearchParams({ query, per_page: String(limit), content_filter: "high" })
 
@@ -88,23 +101,19 @@ async function searchUnsplash(request: SearchRequest, access: Access): Promise<S
     params.set("page", String(page))
   }
 
-  if (orientation) {
-    params.set("orientation", orientation)
+  // checkRequest has kept them to the values above, which are Unsplash's own.
+  for (const [id, value] of Object.entries(filters)) {
+    params.set(id, value)
   }
 
-  if (color) {
-    params.set("color", color)
-  }
-
-  const answered = await requestJson(access, {
+  return sendSearch(access, {
     source: "Unsplash",
     url: `${api}/search/photos?${params}`,
     init: { headers: headers(prepared.key) },
     schema: answer,
+    found: (data) => data.results.map(foundPhoto),
     refused
   })
-
-  return "problem" in answered ? answered : { found: answered.data.results.map(foundPhoto) }
 }
 
 /** Reports a photo someone used to Unsplash's download endpoint, as its terms ask. A failure is let go. */

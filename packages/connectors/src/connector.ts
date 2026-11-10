@@ -18,61 +18,31 @@ export const platform = z.enum(["ios", "web"])
 
 export type Platform = z.infer<typeof platform>
 
-/**
- * How hard the source looks. Standard answers quickly; deep has the source read the search's intent and keep the strong
- * matches, so it can return fewer than asked for, and may count against an allowance (Mobbin's AI credits).
- */
-export const searchDepth = z.enum(["standard", "deep"])
-
-export type SearchDepth = z.infer<typeof searchDepth>
-
-/** Which way a photo is shaped. */
-export const orientation = z.enum(["landscape", "portrait", "squarish"])
-
-export type Orientation = z.infer<typeof orientation>
-
-/** The colors a photo search can keep to, as Unsplash names them. */
-export const photoColor = z.enum([
-  "black_and_white",
-  "black",
-  "white",
-  "yellow",
-  "orange",
-  "red",
-  "purple",
-  "magenta",
-  "green",
-  "teal",
-  "blue"
-])
-
-export type PhotoColor = z.infer<typeof photoColor>
-
 /** How a connector gives more results for the same search: by leaving out ids already shown, or by page. */
 export type MoreResults = "exclude" | "page"
 
 /** The longest search any connector takes, which is Mobbin's. */
 export const queryLimit = 500
 
+/** A filter's id, as a search names it: `platform`, `color`. */
+const filterId = z.string().regex(/^[a-z][a-zA-Z]*$/, "expected a filter's id, such as platform")
+
 /** A search, as the window and agents send it. Each connector checks it against what it says it takes. */
 export const searchRequest = z.strictObject({
   /** What to find, in plain words: one screen, flow, section or photo per search. */
   query: z.string().trim().min(1, "Type what to find").max(queryLimit, `Searches can be up to ${queryLimit} letters`),
   kind: findKind,
-  /** Needed when the connector names platforms. */
-  platform: platform.optional(),
   /** How many to return, up to the connector's limit. Its own default without one. */
   limit: z.int().min(1).optional(),
-  /** The connector's own default without one. */
-  depth: searchDepth.optional(),
+  /**
+   * A value for each of the connector's filters, by the filter's id, as `{ platform: "ios" }`. A filter left out takes
+   * the connector's default, or means any value when it has none.
+   */
+  filters: z.record(filterId, z.string().min(1)).optional(),
   /** Results already shown, left out, so the same search brings new ones, for a connector that pages by `exclude`. */
   exclude: z.array(z.string().min(1)).max(100).optional(),
   /** The page of results, from 1, for a connector that pages by `page`. */
-  page: z.int().min(1).optional(),
-  /** Photos of this shape only, for a connector that names orientations. */
-  orientation: orientation.optional(),
-  /** Photos in this color only, for a connector that names colors. */
-  color: photoColor.optional()
+  page: z.int().min(1).optional()
 })
 
 export type SearchRequest = z.infer<typeof searchRequest>
@@ -125,7 +95,7 @@ export const problemCode = z.enum([
   "no-access",
   /** Too many searches for now; `retryAfter` says how long to wait. */
   "rate-limited",
-  /** The search isn't one the connector takes: a kind, platform or limit it doesn't have, or a malformed field. */
+  /** The search isn't one the connector takes: a kind, filter or limit it doesn't have, or a malformed field. */
   "invalid",
   /** The source didn't answer, or answered with something Parity couldn't read. Trying again may work. */
   "unavailable"
@@ -146,10 +116,25 @@ export const problem = z.strictObject({
 export type Problem = z.infer<typeof problem>
 
 /**
+ * How many more searches the source allows before it turns them away, when it says, so the window and agents can slow
+ * down first. Unsplash says on every answer; Mobbin only says once it's too late, with a 429.
+ */
+export const allowance = z.strictObject({
+  remaining: z.int().nonnegative(),
+  /** How many it allows in all, in the source's window: an hour for Unsplash. */
+  limit: z.int().positive().optional()
+})
+
+export type Allowance = z.infer<typeof allowance>
+
+/**
  * A search's answer: what it found, or why it found nothing to show. A failure is data rather than a thrown error, so
  * it reaches the window and agents whole across IPC and the service's channel.
  */
-export const searchAnswer = z.union([z.strictObject({ found: z.array(found) }), z.strictObject({ problem })])
+export const searchAnswer = z.union([
+  z.strictObject({ found: z.array(found), allowance: allowance.optional() }),
+  z.strictObject({ problem })
+])
 
 export type SearchAnswer = z.infer<typeof searchAnswer>
 
@@ -180,20 +165,36 @@ export interface ConnectorInfo {
   site: string
   /** What it finds, the first being what it searches for when none is named. */
   finds: readonly [FindKind, ...FindKind[]]
-  /** The platforms it searches, when it asks for one. */
-  platforms?: readonly [Platform, ...Platform[]]
-  /** The depths it takes, the first being its default. */
-  depths: readonly [SearchDepth, ...SearchDepth[]]
+  /** The filters it takes, in the order the window shows them. A search can only name these. */
+  filters: readonly Filter[]
   /** How many results it returns by default, and at most. */
   limit: { default: number; max: number }
   /** How it gives more results for the same search. */
   more: MoreResults
-  /** The orientations it filters by, when it does. */
-  orientations?: readonly Orientation[]
-  /** The colors it filters by, when it does. */
-  colors?: readonly PhotoColor[]
   /** The key it needs, for a connector that needs one. */
   apiKey?: ApiKey
+}
+
+/**
+ * One way a connector narrows a search, as data, so the window can draw its control and `checkRequest` can check it
+ * without code for each filter: Mobbin's platform and depth, Unsplash's orientation and color.
+ */
+export interface Filter {
+  /** What a search names it by: `platform`. */
+  id: string
+  /** Its name, for people: "Platform". */
+  name: string
+  /** The values it takes, in the order the window lists them. */
+  values: readonly [FilterValue, ...FilterValue[]]
+  /** The value a search left without one gets. Without a default, leaving it out means any value. */
+  default?: string
+}
+
+export interface FilterValue {
+  /** What a search sends and the source takes: `ios`. */
+  id: string
+  /** Its name, for people: "iOS". */
+  name: string
 }
 
 /** A connector's key: what the source calls it, where people get one, and the variable a development copy sets. */
@@ -215,7 +216,7 @@ export interface Connector {
   search(request: SearchRequest, access: Access): Promise<SearchAnswer>
   /**
    * The cheapest search that tells whether a key works, which setting a key runs before keeping it. It returns one
-   * result at most, at the standard depth.
+   * result at most, with the filters' defaults.
    */
   probe: SearchRequest
   /**
@@ -225,8 +226,8 @@ export interface Connector {
   picked?(found: Found, access: Access): Promise<void>
 }
 
-/** A search checked against its connector, with its limit and depth filled in. */
-export type CheckedRequest = SearchRequest & Required<Pick<SearchRequest, "limit" | "depth">>
+/** A search checked against its connector, with its limit and each filter's default filled in. */
+export type CheckedRequest = SearchRequest & { limit: number; filters: Record<string, string> }
 
 /**
  * Checks a search against what a connector says it takes, before it's sent: a problem naming the field at fault, or
@@ -239,24 +240,8 @@ export function checkRequest(info: ConnectorInfo, request: SearchRequest): Probl
     return invalid("kind", `${info.name} finds ${listed(info.finds)} only.`)
   }
 
-  if (info.platforms && !request.platform) {
-    return invalid("platform", `Say which platform to search on ${info.name}: ${listed(info.platforms, "or")}.`)
-  }
-
-  if (info.platforms && request.platform && !info.platforms.includes(request.platform)) {
-    return invalid("platform", `${info.name} searches ${listed(info.platforms, "and")} only.`)
-  }
-
-  if (!info.platforms && request.platform) {
-    return invalid("platform", `${info.name} doesn't search by platform.`)
-  }
-
   if (request.limit !== undefined && request.limit > info.limit.max) {
     return invalid("limit", `${info.name} returns up to ${info.limit.max} results a search.`)
-  }
-
-  if (request.depth && !info.depths.includes(request.depth)) {
-    return invalid("depth", `${info.name} searches at ${listed(info.depths, "or")} depth only.`)
   }
 
   if (request.exclude?.length && info.more !== "exclude") {
@@ -267,17 +252,38 @@ export function checkRequest(info: ConnectorInfo, request: SearchRequest): Probl
     return invalid("page", `${info.name} gives more results by leaving out what's shown. Pass exclude instead.`)
   }
 
-  if (request.orientation && !info.orientations?.includes(request.orientation)) {
-    return invalid("orientation", `${info.name} doesn't filter by orientation.`)
+  const filters: Record<string, string> = {}
+
+  for (const [id, value] of Object.entries(request.filters ?? {})) {
+    const filter = info.filters.find((each) => each.id === id)
+
+    if (!filter) {
+      const named = info.filters.map((each) => each.id)
+      const takes = named.length > 0 ? `It filters by ${listed(named)}.` : "It takes no filters."
+
+      return invalid(`filters.${id}`, `${info.name} doesn't filter by ${id}. ${takes}`)
+    }
+
+    if (!filter.values.some((each) => each.id === value)) {
+      return invalid(
+        `filters.${id}`,
+        `${info.name}'s ${id} can be ${listed(
+          filter.values.map((each) => each.id),
+          "or"
+        )}.`
+      )
+    }
+
+    filters[id] = value
   }
 
-  if (request.color && !info.colors?.includes(request.color)) {
-    return invalid("color", `${info.name} doesn't filter by color.`)
+  for (const filter of info.filters) {
+    if (filters[filter.id] === undefined && filter.default !== undefined) {
+      filters[filter.id] = filter.default
+    }
   }
 
-  return {
-    request: { ...request, limit: request.limit ?? info.limit.default, depth: request.depth ?? info.depths[0] }
-  }
+  return { request: { ...request, limit: request.limit ?? info.limit.default, filters } }
 }
 
 /** Words as a list in a sentence: "screens", "screens and flows", "screens, flows and sections". */

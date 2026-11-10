@@ -72,7 +72,8 @@ export type ConsoleEntry = z.output<typeof replies.console>["entries"][number]
 
 export type ReportResponse = z.output<typeof replies.report>
 
-export type ReferencesResponse = z.output<typeof replies.references>
+/** What a search for screens or photos answers, which is the same shape. */
+export type FindResponse = z.output<typeof replies.references>
 
 let caller = cliCallerName(process.env)
 
@@ -914,31 +915,58 @@ export function describeReport(result: ReportResponse): string {
 }
 
 /**
- * A readable account of the screens a references search found on Mobbin, each with its app, platform, link and saved
- * preview, or why it found nothing to show.
+ * A readable account of the screens a references search found, each with its app, platform, link and saved preview, or
+ * why it found nothing to show.
  */
-export function describeReferences(result: ReferencesResponse): string {
+export function describeReferences(result: FindResponse): string {
+  return describeFound(result, {
+    one: "screen",
+    many: "screens",
+    none: "Nothing matches. Try fewer parts, other words, or the other platform.",
+    use: "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and the source."
+  })
+}
+
+/** A readable account of the photos a search found, each with what it shows, its credit, link and saved preview. */
+export function describePhotos(result: FindResponse): string {
+  return describeFound(result, {
+    one: "photo",
+    many: "photos",
+    none: "Nothing matches. Try other words, or fewer filters.",
+    use: "Use a photo by its image URL, and credit the photographer and the source where the design shows it."
+  })
+}
+
+interface FoundWords {
+  one: string
+  many: string
+  none: string
+  use: string
+}
+
+function describeFound(result: FindResponse, words: FoundWords): string {
   if (result.problem) {
     return result.problem.message
   }
 
   if (result.found.length === 0) {
-    return "Nothing on Mobbin matches. Try fewer parts, other words, or the other platform."
+    return words.none
   }
 
-  const count = result.found.length === 1 ? "1 screen" : `${result.found.length} screens`
+  const count = result.found.length === 1 ? `1 ${words.one}` : `${result.found.length} ${words.many}`
+  const source = result.found[0]?.source ?? "the source"
 
   const lines = result.found.map((each, index) => {
     const preview = each.preview ? `preview ${each.preview.path}` : "no preview: open the link"
+    const platform = each.platform ? ` (${each.platform})` : ""
+    const by = each.credit.length > 1 ? `\n   by ${each.credit[0]?.name}` : ""
 
-    return `${index + 1}. ${each.app} (${each.platform}) ${each.link}\n   id ${each.id}\n   ${preview}`
+    return `${index + 1}. ${each.title}${platform} ${each.link}${by}\n   id ${each.id}\n   image ${each.image}\n   ${preview}`
   })
 
-  return [
-    `${count} from Mobbin:`,
-    ...lines,
-    "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and Mobbin."
-  ].join("\n")
+  const left = result.allowance ? [`${source} allows ${result.allowance.remaining} more searches for now.`] : []
+
+  return [`${count} from ${source}:`, ...lines, ...left, words.use].join("\n")
 }
 
 /** A readable account of what a project's code wrote to the console, oldest first, with where each came from. */

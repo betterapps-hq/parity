@@ -7,7 +7,7 @@ import {
   type ModesResponse,
   type ProblemsResponse,
   type PropsResponse,
-  type ReferencesResponse,
+  type FindResponse,
   type ReportResponse,
   type StatusResponse,
   describeAccessibility,
@@ -17,6 +17,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describePhotos,
   describeReferences,
   describeReport,
   describeStatus,
@@ -122,14 +123,30 @@ const reported: ReportResponse = {
 
 const calm = {
   id: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
-  app: "Calm",
+  source: "Mobbin",
+  title: "Calm",
   platform: "ios" as const,
   link: "https://mobbin.com/screens/1b9d6bcd",
   image: "https://images.mobbin.com/calm.webp",
+  credit: [{ name: "Calm" }, { name: "Mobbin", url: "https://mobbin.com/screens/1b9d6bcd" }],
   preview: { path: "/references/calm.webp", mimeType: "image/webp" as const }
 }
 
-const references: ReferencesResponse = { found: [calm] }
+const references: FindResponse = { found: [calm] }
+
+const photos: FindResponse = {
+  found: [
+    {
+      id: "Dwu85P9SOIk",
+      source: "Unsplash",
+      title: "white desk",
+      link: "https://unsplash.com/photos/Dwu85P9SOIk",
+      image: "https://images.unsplash.com/photo-1",
+      credit: [{ name: "Ada Park" }, { name: "Unsplash" }]
+    }
+  ],
+  allowance: { remaining: 49, limit: 50 }
+}
 
 const project = resolve("some/../project")
 
@@ -318,6 +335,17 @@ const cases: Case[] = [
     result: references,
     structured: references,
     text: describeReferences(references)
+  },
+  {
+    name: "photos",
+    cli: ["photos", "desk", "by", "a", "window", "--orientation", "portrait", "--page", "2"],
+    tool: "find_photos",
+    method: "photos",
+    input: { query: "desk by a window", orientation: "portrait", page: 2 },
+    params: { query: "desk by a window", orientation: "portrait", limit: 6, page: 2 },
+    result: photos,
+    structured: photos,
+    text: describePhotos(photos)
   }
 ]
 
@@ -961,8 +989,8 @@ describe("remaining transport contracts", processTests, () => {
     const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     const tools = toolReply(protocol.stdout)?.result?.tools
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
-    // report_problem (PAR-646); 14.6 KB with find_references (PAR-829).
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(15 * 1024)
+    // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos.
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(16 * 1024)
   })
 
   it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {
@@ -995,9 +1023,24 @@ describe("remaining transport contracts", processTests, () => {
     expect(describeReferences(references).split("\n")).toEqual([
       "1 screen from Mobbin:",
       "1. Calm (ios) https://mobbin.com/screens/1b9d6bcd",
+      "   by Calm",
       "   id 1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+      "   image https://images.mobbin.com/calm.webp",
       "   preview /references/calm.webp",
-      "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and Mobbin."
+      "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and the source."
+    ])
+  })
+
+  it("lists each photo found with its photographer, and how many searches are left", () => {
+    expect(describePhotos(photos).split("\n")).toEqual([
+      "1 photo from Unsplash:",
+      "1. white desk https://unsplash.com/photos/Dwu85P9SOIk",
+      "   by Ada Park",
+      "   id Dwu85P9SOIk",
+      "   image https://images.unsplash.com/photo-1",
+      "   no preview: open the link",
+      "Unsplash allows 49 more searches for now.",
+      "Use a photo by its image URL, and credit the photographer and the source where the design shows it."
     ])
   })
 })

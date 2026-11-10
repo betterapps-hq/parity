@@ -12,10 +12,12 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describePhotos,
   describeReferences,
   describeReport,
   describeStatus,
   describeTokens,
+  type FindResponse,
   setCaller
 } from "./client.ts"
 import { operationError, renamePath } from "./errors.ts"
@@ -84,6 +86,11 @@ function operationTool<Result>(
       }
     }
   }
+}
+
+/** Each found item's saved preview, as an image the client shows. */
+function previews(result: FindResponse): Content[] {
+  return result.found.flatMap((each) => (each.preview?.data ? [image(each.preview.data, each.preview.mimeType)] : []))
 }
 
 /** Results that are data to begin with, as compact JSON text for clients that don't read structuredContent. */
@@ -208,10 +215,13 @@ const tools: Tool[] = [
     "find_references",
     "Search Mobbin for real apps' screens before designing a common one (onboarding, paywall, checkout), and look at the previews. Follow their patterns with the project's own components and tokens, never an app's layout, text or branding, and name the apps you drew on.",
     operations.references,
-    (result) => [
-      text(describeReferences(result)),
-      ...result.found.flatMap((each) => (each.preview?.data ? [image(each.preview.data, each.preview.mimeType)] : []))
-    ]
+    (result) => [text(describeReferences(result)), ...previews(result)]
+  ),
+  operationTool(
+    "find_photos",
+    "Search Unsplash for stock photos when a design needs a real one (a hero, an avatar, a product shot), and look at the previews. Use the image URL, and credit the photographer and Unsplash where the design shows it.",
+    operations.photos,
+    (result) => [text(describePhotos(result)), ...previews(result)]
   ),
   operationTool(
     "report_problem",

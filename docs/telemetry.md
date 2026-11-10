@@ -731,16 +731,15 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `connectors.searched`
 
-| Attribute   | Type                  | Meaning                                                                                    |
-| ----------- | --------------------- | ------------------------------------------------------------------------------------------ |
-| `connector` | `string`              | The connector searched, such as `mobbin`                                                   |
-| `from`      | `"window" \| "agent"` | Who asked: the person in the window, or an agent through the service                       |
-| `kind`      | `string`              | What it searched for: `screens`, `flows`, `sections` or `photos`                           |
-| `platform`  | `string`, optional    | The platform searched, `ios` or `web`, for a connector that takes one                      |
-| `depth`     | `string`, optional    | How hard it asked the source to look, `standard` or `deep`, when it said                   |
-| `found`     | `integer`, optional   | How many results came back, when the search worked                                         |
-| `problem`   | `string`, optional    | Why it found nothing to show, such as `rate-limited` or `key-refused`, when it didn't work |
-| `ms`        | `number`              | How long the search took, in milliseconds                                                  |
+| Attribute   | Type                  | Meaning                                                                                         |
+| ----------- | --------------------- | ----------------------------------------------------------------------------------------------- |
+| `connector` | `string`              | The connector searched, such as `mobbin`                                                        |
+| `from`      | `"window" \| "agent"` | Who asked: the person in the window, or an agent through the service                            |
+| `kind`      | `string`              | What it searched for: `screens`, `flows`, `sections` or `photos`                                |
+| `filters`   | `object`, optional    | The filters it named, as `{ platform: ios }`: each connector's own values, never what was typed |
+| `found`     | `integer`, optional   | How many results came back, when the search worked                                              |
+| `problem`   | `string`, optional    | Why it found nothing to show, such as `rate-limited` or `key-refused`, when it didn't work      |
+| `ms`        | `number`              | How long the search took, in milliseconds                                                       |
 
 ### `connectors.storeFailed`
 

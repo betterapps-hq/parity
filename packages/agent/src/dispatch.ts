@@ -64,10 +64,12 @@ export interface AgentHost {
    */
   report(report: AgentReport): Promise<ReportSent>
   /**
-   * Searches Mobbin for screens with the key main holds, and saves each preview as a file (PAR-829). A search that
-   * found nothing to show answers with why, rather than failing.
+   * Searches for screens from real apps (Mobbin's) with the key main holds, and saves each preview as a file (PAR-829).
+   * A search that found nothing to show answers with why, rather than failing.
    */
   references(request: Params<"references">): Promise<Answer<"references">>
+  /** Searches for stock photos (Unsplash's) the same way. */
+  photos(request: Params<"photos">): Promise<Answer<"photos">>
 }
 
 /** Who's calling, when the CLI or MCP knows: its name for people, and an id that tells same-named callers apart. */
@@ -205,7 +207,8 @@ const methods: MethodTable = {
     return readOnly(snapshot).Props(params.component, { all: params.all })
   },
   report: (params, { host }) => report(host, params),
-  references: (params, { host }) => host.references(params)
+  references: (params, { host }) => host.references(params),
+  photos: (params, { host }) => host.photos(params)
 }
 
 /** Each method's params schema. `copy` takes none, as `tabs` doesn't. */

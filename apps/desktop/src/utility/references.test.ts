@@ -1,10 +1,9 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { Fetch, Found, SearchAnswer } from "@parity-app/connectors"
+import type { Fetch, Found, SearchAnswer, SearchRequest } from "@parity-app/connectors"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import type { ConnectorSearch } from "../shared/connectors.ts"
-import { searchReferences } from "./references.ts"
+import { searchPhotos, searchReferences } from "./references.ts"
 
 let folder = ""
 
@@ -29,7 +28,7 @@ const webp = Buffer.from("RIFF0000WEBPVP8 ")
 
 /** Main's side, answering with `answer`, and a fetch that serves pictures by URL. */
 function options(answer: SearchAnswer, pictures: Record<string, { type: string; bytes: Buffer }> = {}) {
-  const searched: ConnectorSearch[] = []
+  const searched: SearchRequest[] = []
 
   const fetch: Fetch = async (url) => {
     const picture = pictures[url]
@@ -44,7 +43,7 @@ function options(answer: SearchAnswer, pictures: Record<string, { type: string; 
   return {
     searched,
     options: {
-      search: async (search: ConnectorSearch) => {
+      find: async (search: SearchRequest) => {
         searched.push(search)
 
         return answer
@@ -65,7 +64,7 @@ const request: Parameters<typeof searchReferences>[1] = {
 }
 
 describe("searchReferences", () => {
-  it("asks main for Mobbin's screens, and saves each preview for the agent", async () => {
+  it("asks main for screens with their filters, and saves each preview for the agent", async () => {
     const { options: given, searched } = options(
       { found: [calm] },
       { [calm.image.url]: { type: "image/webp", bytes: webp } }
@@ -75,19 +74,24 @@ describe("searchReferences", () => {
 
     expect(searched).toEqual([
       {
-        connector: "mobbin",
-        request: { query: request.query, kind: "screens", platform: "ios", depth: "standard", limit: 6, exclude: [] }
+        query: request.query,
+        kind: "screens",
+        filters: { platform: "ios", depth: "standard" },
+        limit: 6,
+        exclude: []
       }
     ])
     expect(answer.found).toEqual([
       {
         id: calm.id,
-        app: "Calm",
+        source: "Mobbin",
+        title: "Calm",
         platform: "ios",
         link: calm.link,
         image: calm.image.url,
         width: 390,
         height: 844,
+        credit: calm.credit,
         preview: {
           path: expect.stringMatching(/calm-1b9d6bcd-[0-9a-f]{8}\.webp$/),
           mimeType: "image/webp",
@@ -113,6 +117,29 @@ describe("searchReferences", () => {
       [calm.id, undefined],
       ["2", undefined]
     ])
+  })
+
+  it("asks main for photos with only the filters named, and passes on how many searches are left", async () => {
+    const { platform: _platform, ...screen } = calm
+
+    const desk: Found = {
+      ...screen,
+      connector: "unsplash",
+      id: "Dwu85P9SOIk",
+      kind: "photos",
+      title: "white desk",
+      image: { url: "https://images.unsplash.com/photo-1" }
+    }
+
+    const { options: given, searched } = options({ found: [desk], allowance: { remaining: 49, limit: 50 } })
+
+    const answer = await searchPhotos(given, { query: "desk", orientation: "portrait", limit: 6, page: 2 })
+
+    expect(searched).toEqual([
+      { query: "desk", kind: "photos", filters: { orientation: "portrait" }, limit: 6, page: 2 }
+    ])
+    expect(answer.allowance).toEqual({ remaining: 49, limit: 50 })
+    expect(answer.found.map(({ title, platform }) => [title, platform])).toEqual([["white desk", undefined]])
   })
 
   it("passes on why a search found nothing", async () => {

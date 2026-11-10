@@ -62,13 +62,25 @@ describe("unsplash", () => {
   it("sends a page, an orientation and a color", async () => {
     const { fetch, sent } = answering(200, { results: [] })
 
-    await unsplash.search({ ...desks, page: 3, limit: 30, orientation: "portrait", color: "teal" }, { fetch, key: "k" })
+    await unsplash.search(
+      { ...desks, page: 3, limit: 30, filters: { orientation: "portrait", color: "teal" } },
+      { fetch, key: "k" }
+    )
 
     expect(Object.fromEntries(new URL(sent[0]!.url).searchParams)).toMatchObject({
       page: "3",
       per_page: "30",
       orientation: "portrait",
       color: "teal"
+    })
+  })
+
+  it("says how many searches Unsplash allows before it turns them away", async () => {
+    const { fetch } = answering(200, { results: [] }, { "x-ratelimit-limit": "50", "x-ratelimit-remaining": "49" })
+
+    expect(await unsplash.search(desks, { fetch, key: "k" })).toEqual({
+      found: [],
+      allowance: { remaining: 49, limit: 50 }
     })
   })
 
@@ -85,9 +97,9 @@ describe("unsplash", () => {
 
     const asked: SearchRequest[] = [
       { ...desks, kind: "screens" },
-      { ...desks, platform: "ios" },
+      { ...desks, filters: { platform: "ios" } },
       { ...desks, exclude: ["a"] },
-      { ...desks, depth: "deep" },
+      { ...desks, filters: { color: "beige" } },
       { ...desks, limit: 31 }
     ]
 
@@ -95,9 +107,9 @@ describe("unsplash", () => {
 
     expect(answers.map((each) => "problem" in each && each.problem.field)).toEqual([
       "kind",
-      "platform",
+      "filters.platform",
       "exclude",
-      "depth",
+      "filters.color",
       "limit"
     ])
     expect(sent).toHaveLength(0)

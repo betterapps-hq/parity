@@ -12,8 +12,10 @@ export const connectorsSearched = defineEvent(
     connector: z.string().describe("The connector searched, such as `mobbin`"),
     from: z.enum(["window", "agent"]).describe("Who asked: the person in the window, or an agent through the service"),
     kind: z.string().describe("What it searched for: `screens`, `flows`, `sections` or `photos`"),
-    platform: z.string().optional().describe("The platform searched, `ios` or `web`, for a connector that takes one"),
-    depth: z.string().optional().describe("How hard it asked the source to look, `standard` or `deep`, when it said"),
+    filters: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe("The filters it named, as `{ platform: ios }`: each connector's own values, never what was typed"),
     found: z.number().int().nonnegative().optional().describe("How many results came back, when the search worked"),
     problem: z
       .string()

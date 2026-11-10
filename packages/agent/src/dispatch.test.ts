@@ -168,10 +168,12 @@ function fixtureHost() {
         found: [
           {
             id: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
-            app: "Calm",
+            source: "Mobbin",
+            title: "Calm",
             platform: request.platform,
             link: "https://mobbin.com/screens/1b9d6bcd",
             image: "https://images.mobbin.com/a.webp",
+            credit: [{ name: "Calm" }, { name: "Mobbin" }],
             preview: { path: "D:/references/calm.webp", mimeType: "image/webp" as const, data: "UklG" }
           }
         ].slice(0, request.limit)
@@ -180,7 +182,8 @@ function fixtureHost() {
       asked.references.push(answer)
 
       return answer
-    }
+    },
+    photos: async () => ({ found: [] })
   }
 
   return { host, asked, tab }
@@ -222,7 +225,8 @@ describe("dispatch", () => {
       ["screenshot", { design: "signup", scale: 1 }],
       ["exec", { label: "Read", code: "Print(Designs().length)" }],
       ["report", { message: "The title is cut off" }],
-      ["references", { query: "paywall with a free trial" }]
+      ["references", { query: "paywall with a free trial" }],
+      ["photos", { query: "desk by a window" }]
     ]
 
     const answered: string[] = []
@@ -515,6 +519,25 @@ describe("references", () => {
     expect(asked).toEqual([
       { query: "paywall with a free trial", platform: "web", depth: "standard", limit: 6, exclude: [] }
     ])
+  })
+
+  it("passes a photo search on with its defaults: six photos, the first page, and only the filters named", async () => {
+    const fixture = fixtureHost()
+    const asked: unknown[] = []
+
+    const host: AgentHost = {
+      ...fixture.host,
+      photos: async (request) => {
+        asked.push(request)
+
+        return { found: [] }
+      }
+    }
+
+    await dispatch("photos", { query: "desk", color: "teal" }, host, caller)
+
+    expect(asked).toEqual([{ query: "desk", color: "teal", limit: 6, page: 1 }])
+    await expect(dispatch("photos", { query: "desk", color: "beige" }, host, caller)).rejects.toThrow(/color must be/)
   })
 
   it("turns down a search with no query or a platform Mobbin doesn't have, before asking the host", async () => {

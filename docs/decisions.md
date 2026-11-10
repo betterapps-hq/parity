@@ -6841,6 +6841,28 @@ calls:
 - **Each search is recorded** as `connectors.searched`, with its connector, filters, count or problem and time, never
   what was searched for.
 
+## Connectors declare their filters, and agents search by kind (PAR-829)
+
+You asked on 2026-11-10 for the pattern changes that adding Unsplash showed. My calls:
+
+- **A connector lists its filters as data,** each with an id, a name, its values and an optional default. Mobbin's
+  platform defaults to the web and its depth to standard. Unsplash's orientation and color have none, so leaving them
+  out means any. A search sends `filters`, and `checkRequest` refuses any filter or value the connector doesn't list.
+  This replaces `platform`, `depth`, `orientation` and `color` on the shared request. Mobbin no longer needs a platform
+  named, since the web is its default.
+- **Agents search by kind.** `find_references` finds screens and the new `find_photos` (`parity photos`) finds photos.
+  Main runs each with the first connector that finds that kind and has a key. Both answer in one shape: each result's
+  source, title, link, image and credit, with its preview saved under `~/.parity/references`. A result's `app` became
+  `title`, since a photo has no app.
+- **An answer carries `allowance`,** the searches left before the source turns them away, read from the standard
+  rate-limit headers. Unsplash sends them; Mobbin doesn't, as a live check on 2026-11-10 showed, so its answers carry
+  none.
+- **The hub takes a `SearchService`** for connectors whose keys a service holds. It's used when there's no key here, for
+  searches and picks alike, and the window sees the key's source as `service`. None is plugged in yet.
+- **`connectors.searched` records `filters`** in place of `platform` and `depth`. They're each connector's own values,
+  never typed text.
+- **Not done:** an agent that uses a photo doesn't report it to Unsplash yet. The window does, through `picked`.
+
 ## Unsplash is the second connector (PAR-829)
 
 You got an Unsplash key on 2026-11-10 and asked for it on the same branch as Mobbin. My calls:

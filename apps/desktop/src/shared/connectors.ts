@@ -9,9 +9,10 @@ import { z } from "zod"
 
 /**
  * Where a connector's key comes from: none set, saved encrypted in the app's data, kept only until Parity quits (where
- * the system can't encrypt it), or an environment variable, as in a development copy, which wins over a saved one.
+ * the system can't encrypt it), an environment variable, as in a development copy, which wins over a saved one, or a
+ * service that searches with its own key, used when there's none here.
  */
-export type KeySource = "none" | "saved" | "session" | "environment"
+export type KeySource = "none" | "saved" | "session" | "environment" | "service"
 
 /** A connector, for the window: what it says about itself, and where its key comes from. */
 export interface ConnectorState extends ConnectorInfo {

@@ -246,6 +246,25 @@ export const requests = {
       .default([])
       .describe("Ids already seen, for more.")
   }),
+  photos: fields({
+    tab,
+    query: text("query", 'One subject, as "desk by a window".'),
+    orientation: z
+      .enum(["landscape", "portrait", "squarish"], "orientation must be landscape, portrait or squarish")
+      .optional(),
+    color: z
+      .enum(
+        ["black_and_white", "black", "white", "yellow", "orange", "red", "purple", "magenta", "green", "teal", "blue"],
+        "color must be one of Unsplash's colors"
+      )
+      .optional(),
+    limit: limit("Most photos.", 6, 20),
+    page: z
+      .int("page must be a whole number")
+      .min(1, "page must be 1 or more")
+      .default(1)
+      .describe("Next page, for more.")
+  }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
     executeKind({ tab: execute.tab, label: execute.label, editId: execute.editId, edits: execute.edits })
@@ -693,15 +712,22 @@ const reportReply = z.looseObject({
   attachments: strings.describe("The files sent with it: the window's screenshot, the frames and the diagnostics.")
 })
 
-/** A screen found on Mobbin (PAR-829), with its preview saved as a file for the agent to look at. */
-const reference = z.looseObject({
-  id: z.string().describe("Mobbin's id, which exclude takes."),
-  app: z.string(),
-  platform: z.enum(["ios", "web"]),
-  link: z.string().describe("The screen on Mobbin."),
-  image: z.string().describe("The full image, which loads for 30 days."),
+/**
+ * Something a connector found (PAR-829): a screen from Mobbin or a photo from Unsplash, the same shape from every
+ * source, with its preview saved as a file for the agent to look at.
+ */
+const foundItem = z.looseObject({
+  id: z.string().describe("The source's id, which exclude takes."),
+  source: z.string().describe("Where it's from: Mobbin, Unsplash."),
+  title: z.string().describe("The app's name, or what a photo shows."),
+  platform: z.enum(["ios", "web"]).optional(),
+  link: z.string().describe("Its page at the source."),
+  image: z.string().describe("The full image. Mobbin's load for 30 days."),
   width: z.int().optional(),
   height: z.int().optional(),
+  credit: z
+    .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
+    .describe("Who to credit, in order: the app or photographer, then the source."),
   preview: z
     .looseObject({
       path: z.string().describe("Where the preview was saved."),
@@ -712,9 +738,13 @@ const reference = z.looseObject({
     .describe("Missing when the preview couldn't be fetched.")
 })
 
-/** What a references search found, or why it found nothing to show. */
-const referencesReply = z.looseObject({
-  found: z.array(reference),
+/** What a search found, or why it found nothing to show. */
+const foundReply = z.looseObject({
+  found: z.array(foundItem),
+  allowance: z
+    .looseObject({ remaining: z.int(), limit: z.int().optional() })
+    .optional()
+    .describe("Searches the source allows before turning them away, when it says."),
   problem: z
     .looseObject({
       code: z.string().describe("no-key, key-refused, no-access, rate-limited, invalid or unavailable."),
@@ -745,7 +775,8 @@ export const replies = {
   components: componentsReply,
   props: propsReply,
   report: reportReply,
-  references: referencesReply
+  references: foundReply,
+  photos: foundReply
 }
 
 /**

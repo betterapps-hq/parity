@@ -14,6 +14,7 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describePhotos,
   describeReferences,
   describeReport,
   describeStatus,
@@ -106,6 +107,10 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             preview under ~/.parity/references. --deep reads intent and keeps strong
                                             matches, spending the person's Mobbin AI credits; --exclude (repeated)
                                             leaves out screens already seen. Exits with 1 when it can't search
+  parity photos "<subject>" [--orientation landscape|portrait|squarish] [--color c] [--limit 6] [--page 1]
+                                            search Unsplash for stock photos, one subject per search, the same way;
+                                            --color keeps to one of Unsplash's colors, as teal or black_and_white,
+                                            and --page 2 brings the next ones. Credit the photographer and Unsplash
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
@@ -156,6 +161,9 @@ const { positionals, values } = parseArgs({
     platform: { type: "string" },
     deep: { type: "boolean" },
     exclude: { type: "string", multiple: true },
+    orientation: { type: "string" },
+    color: { type: "string" },
+    page: { type: "string" },
     help: { type: "boolean", short: "h" }
   }
 })
@@ -363,6 +371,18 @@ async function main(): Promise<void> {
           exclude: values.exclude
         },
         describeReferences
+      )
+    case "photos":
+      return show(
+        operations.photos,
+        {
+          query: rest.join(" ") || undefined,
+          orientation: values.orientation,
+          color: values.color,
+          limit,
+          page: values.page === undefined ? undefined : Number(values.page)
+        },
+        describePhotos
       )
     case "console":
       return show(operations.console, { tab: values.tab, clear: values.clear, limit }, describeConsole)

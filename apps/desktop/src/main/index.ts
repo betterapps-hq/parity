@@ -5,7 +5,7 @@ import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
-import { connectors, found, keysFromEnvironment, withoutKeys } from "@parity-app/connectors"
+import { connectors, found, keysFromEnvironment, searchRequest, withoutKeys } from "@parity-app/connectors"
 import {
   CodedError,
   drawsNothing,
@@ -320,11 +320,7 @@ function startService(): UtilityProcess {
       console: ({ origin, clear }) => consoleLog.read(origin, clear).map(({ id: _id, ...entry }) => entry),
       // Another copy got a sign-in link and asks whether it's this copy's: it answers at once, then trades the code.
       // An agent's search: main holds the keys, so it runs here (PAR-829). The service passes on what an agent sent.
-      connectorSearch: (params) => {
-        const { connector, request } = parseData(connectorSearch, params)
-
-        return connectorHub.search(connector, request, "agent")
-      },
+      connectorFind: (params) => connectorHub.find(parseData(searchRequest, params), "agent"),
       signInLink: ({ link }) => {
         const taken = account.owns(link)
 

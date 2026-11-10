@@ -34,7 +34,7 @@ function sentJson(request: { init: RequestInit } | undefined) {
   return JSON.parse(z.string().parse(request?.init.body))
 }
 
-const paywalls: SearchRequest = { query: "paywall with a free trial", kind: "screens", platform: "ios" }
+const paywalls: SearchRequest = { query: "paywall with a free trial", kind: "screens", filters: { platform: "ios" } }
 
 describe("mobbin", () => {
   it("searches screens with the key, the platform and its defaults, and gives each result one shape", async () => {
@@ -76,7 +76,7 @@ describe("mobbin", () => {
     const { fetch, sent } = answering(200, { screens: [] })
 
     await mobbin.search(
-      { ...paywalls, depth: "deep", limit: 5, exclude: [screen.id, "not-a-uuid"] },
+      { ...paywalls, filters: { platform: "ios", depth: "deep" }, limit: 5, exclude: [screen.id, "not-a-uuid"] },
       { fetch, key: "k" }
     )
 
@@ -99,21 +99,31 @@ describe("mobbin", () => {
     })
   })
 
+  it("searches the web at the standard depth when the search doesn't say", async () => {
+    const { fetch, sent } = answering(200, { screens: [] })
+
+    await mobbin.search({ query: "pricing", kind: "screens" }, { fetch, key: "k" })
+
+    expect(sentJson(sent[0])).toMatchObject({ platform: "web", mode: "standard" })
+  })
+
   it("turns down what its API can't search without asking Mobbin", async () => {
     const { fetch, sent } = answering(200, { screens: [] })
 
-    const asked = [
-      { ...paywalls, kind: "flows" as const },
-      { query: "pricing", kind: "screens" as const },
+    const asked: SearchRequest[] = [
+      { ...paywalls, kind: "flows" },
+      { ...paywalls, filters: { platform: "android" } },
+      { ...paywalls, filters: { color: "teal" } },
       { ...paywalls, limit: 101 }
     ]
 
     const answers = await Promise.all(asked.map((request) => mobbin.search(request, { fetch, key: "k" })))
 
-    expect(answers.map((each) => ("problem" in each ? [each.problem.code, each.problem.field] : each))).toEqual([
-      ["invalid", "kind"],
-      ["invalid", "platform"],
-      ["invalid", "limit"]
+    expect(answers.map((each) => ("problem" in each ? [each.problem.field, each.problem.message] : each))).toEqual([
+      ["kind", "Mobbin finds screens only."],
+      ["filters.platform", "Mobbin's platform can be web or ios."],
+      ["filters.color", "Mobbin doesn't filter by color. It filters by platform and depth."],
+      ["limit", "Mobbin returns up to 100 results a search."]
     ])
     expect(sent).toHaveLength(0)
   })
