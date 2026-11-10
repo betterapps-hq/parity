@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "The Media tab replaces the Images tab: the project's pictures as a wall, each with a card, to insert, drag onto the canvas, add or remove.",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
