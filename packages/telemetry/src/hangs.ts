@@ -74,7 +74,9 @@ export const openHangsSchema = z.object({
   hangs: z.array(
     z.object({
       kind: z.enum(["main", "renderer", "render"]),
-      stuckMs: z.number().nonnegative()
+      stuckMs: z.number().nonnegative(),
+      /** Where main was stuck, once the watchdog has found it (PAR-805). */
+      where: z.string().optional()
     })
   )
 })
@@ -139,12 +141,18 @@ export function leftoverHangs(read: unknown): LeftoverHang[] {
     return []
   }
 
-  return parsed.data.hangs.map(({ kind, stuckMs }) => {
+  return parsed.data.hangs.map(({ kind, stuckMs, where }) => {
     const rounded = Math.round(stuckMs)
 
-    return kind === "main"
-      ? { name: "main.blocked", attributes: { stuckMs: rounded, ended: "exited" } }
-      : { name: "window.hung", attributes: { window: kind, stuckMs: rounded, ended: "exited" } }
+    if (kind !== "main") {
+      return { name: "window.hung", attributes: { window: kind, stuckMs: rounded, ended: "exited" } }
+    }
+
+    return {
+      name: "main.blocked",
+      attributes:
+        where === undefined ? { stuckMs: rounded, ended: "exited" } : { stuckMs: rounded, ended: "exited", where }
+    }
   })
 }
 
@@ -170,6 +178,100 @@ export interface WatchdogEvent {
   environment?: string
   dist?: string
   user?: { id?: string }
+  exception?: { values: [WatchdogException] }
+  debug_meta?: { images: DebugImage[] }
+}
+
+/** Main's stack as the watchdog found it, which Sentry shows and symbolicates like a thrown error's (PAR-805). */
+export interface WatchdogException {
+  type: "ApplicationNotResponding"
+  value: string
+  stacktrace: { frames: StackFrame[] }
+  mechanism: { type: "hang_watchdog"; handled: true }
+}
+
+/** A frame of a Sentry stack trace. */
+export interface StackFrame {
+  filename: string
+  function: string
+  lineno: number
+  colno: number
+  in_app: boolean
+}
+
+/** A bundle's debug ID, which Sentry finds its uploaded source map by. */
+export interface DebugImage {
+  type: "sourcemap"
+  code_file: string
+  debug_id: string
+}
+
+/** A frame as the inspector's `Debugger.paused` gives it: lines and columns count from 0. */
+export interface PausedFrame {
+  functionName: string
+  url: string
+  location: { lineNumber: number; columnNumber: number }
+}
+
+/**
+ * A file's URL as Sentry's Electron SDK names main's files: inside the app it's `app:///` and the path from the app's
+ * folder, so the person's own folders stay out of it and frames match their uploaded source maps.
+ */
+export function appUrl(url: string, appRoot: string): string {
+  let decoded = url
+
+  try {
+    decoded = decodeURI(url)
+  } catch {
+    // Left as it is.
+  }
+
+  const base = appRoot.replaceAll("\\", "/").replaceAll(/[|\\{}()[\]^$+*?.]/g, String.raw`\$&`)
+
+  return decoded.replaceAll("\\", "/").replace(new RegExp(`(file://)?/*${base}/*`, "i"), "app:///")
+}
+
+/** Main's stack, innermost frame first as the inspector gives it, as Sentry's frames, outermost first. */
+export function stackFrames(frames: readonly PausedFrame[], appRoot: string): StackFrame[] {
+  return frames
+    .map((frame) => {
+      const filename = appUrl(frame.url, appRoot)
+
+      return {
+        filename,
+        function: frame.functionName || "<anonymous>",
+        lineno: frame.location.lineNumber + 1,
+        colno: frame.location.columnNumber + 1,
+        in_app: filename.startsWith("app:///") && !filename.includes("/node_modules/")
+      }
+    })
+    .toReversed()
+}
+
+/** Where main was stuck, as one line: the innermost of Parity's own frames, else the innermost frame. */
+export function stuckWhere(frames: readonly StackFrame[]): string | undefined {
+  const frame = frames.findLast((each) => each.in_app) ?? frames.at(-1)
+
+  return frame && `${frame.function} (${frame.filename}:${frame.lineno}:${frame.colno})`
+}
+
+/**
+ * The debug IDs of main's bundles, by file, from the table each bundle's injected snippet keeps: its keys are stacks
+ * whose first frame is the bundle's file.
+ */
+export function debugImages(table: Readonly<Record<string, string>>, appRoot: string): DebugImage[] {
+  const images: DebugImage[] = []
+
+  for (const [stack, debugId] of Object.entries(table)) {
+    const line = stack.split("\n").find((each) => /^\s*at /.test(each))
+    const file = line?.match(/\(?((?:file:\/\/|[A-Za-z]:|\/)[^()]*?):\d+:\d+\)?\s*$/)?.[1]
+
+    if (file) {
+      images.push({ type: "sourcemap", code_file: appUrl(file, appRoot), debug_id: debugId })
+    }
+  }
+
+  return images
 }
 
 /** The Sentry message the watchdog sends as main's hang passes the threshold, tagged as main's own hangs are. */
@@ -177,13 +279,16 @@ export function mainHangEvent({
   stuckMs,
   scope,
   eventId,
-  now
+  now,
+  stack
 }: {
   stuckMs: number
   scope: SentryScopeCopy
   eventId: string
   /** Seconds since 1970, as Sentry's timestamps are. */
   now: number
+  /** Main's stack, if the watchdog could take it, with the bundles' debug IDs. */
+  stack?: { frames: StackFrame[]; images: DebugImage[] } | undefined
 }): WatchdogEvent {
   const event: WatchdogEvent = {
     event_id: eventId,
@@ -209,6 +314,21 @@ export function mainHangEvent({
 
   if (scope.user?.id !== undefined) {
     event.user = { id: scope.user.id }
+  }
+
+  if (stack && stack.frames.length > 0) {
+    const where = stuckWhere(stack.frames)
+    event.exception = {
+      values: [
+        {
+          type: "ApplicationNotResponding",
+          value: where ? `Main stopped answering in ${where}` : "Main stopped answering",
+          stacktrace: { frames: stack.frames },
+          mechanism: { type: "hang_watchdog", handled: true }
+        }
+      ]
+    }
+    event.debug_meta = { images: stack.images }
   }
 
   return event

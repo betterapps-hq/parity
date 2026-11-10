@@ -28,6 +28,16 @@ while it's stuck, so a watchdog thread sends "Main stopped answering" to Sentry 
 heartbeat. A hang still open when the app exits, as in a force-quit, is kept in `<userData>/hangs` and reported by the
 next run as `window.hung` or `main.blocked` with `ended: "exited"`.
 
+The watchdog also says where main was stuck (PAR-805). It pauses main through the inspector, from inside the process
+with no port opened, and takes its stack. Its Sentry event carries the stack, which Sentry maps to the source by the
+bundles' debug IDs, and `main.blocked` and the open-hang file carry `where`, the innermost of Parity's own frames. Main
+can't pause while it's stuck in native code, so a hang there has no stack.
+
+A crash or fatal error carries the local copy's last 5 minutes as `logs.jsonl`, at most 2,000 events, scrubbed
+(PAR-805). That's any `fatal` event, such as a native crash, an abnormal exit or an uncaught error in main, and any
+error nothing caught. Main keeps those minutes in memory as events arrive. A native crash found as the app starts
+carries the crashed run's last minutes, read from the files.
+
 ## Who's driving
 
 Every error, span, log and replay is tagged so a test pass can be found and filtered in Sentry:
@@ -902,10 +912,11 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `main.blocked`
 
-| Attribute | Type                     | Meaning                                                                                                                                      |
-| --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stuckMs` | `integer`                | How long main's event loop was blocked                                                                                                       |
-| `ended`   | `"answered" \| "exited"` | How the hang ended: main's loop `answered` again, or the app `exited` while it was blocked, such as a force-quit, which the next run reports |
+| Attribute | Type                     | Meaning                                                                                                                                                          |
+| --------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stuckMs` | `integer`                | How long main's event loop was blocked                                                                                                                           |
+| `ended`   | `"answered" \| "exited"` | How the hang ended: main's loop `answered` again, or the app `exited` while it was blocked, such as a force-quit, which the next run reports                     |
+| `where`   | `string`, optional       | Where main was stuck: the innermost of Parity's own functions on its stack, with its file, line and column, when the watchdog could pause main to look (PAR-805) |
 
 ### `mcp.session`
 
