@@ -15,7 +15,7 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { Num } from "./controls.tsx"
-import { shadowCss } from "./css-values.ts"
+import { shadowCss, stepThrough } from "./css-values.ts"
 import { usedColors } from "./data.ts"
 import {
   MessageLine,
@@ -680,14 +680,7 @@ function ShadowTokenField({
     }
 
     // A token steps to the next of its kind in scale order; Shift goes to the first or last.
-    const last = tokens.length - 1
-    let next = Math.min(last, Math.max(0, tokens.indexOf(token) + (up ? 1 : -1)))
-
-    if (shift) {
-      next = up ? last : 0
-    }
-
-    pick(tokens[next]!.name)
+    pick(stepThrough(tokens, token, up, shift).name)
   }
 
   return (

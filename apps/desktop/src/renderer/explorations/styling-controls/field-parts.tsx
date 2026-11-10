@@ -44,7 +44,7 @@ import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { numberValue, textValue } from "../../chrome/prop-values.ts"
 import { moving, onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
-import { clamp, formatNumber, stepSpacing } from "./css-values.ts"
+import { clamp, formatNumber, stepSpacing, stepThrough } from "./css-values.ts"
 import { useRowScrub } from "./field-row.tsx"
 import { type FieldToken, type OpacityToken, type TokenSetName, type TokenSets, tokenSets } from "./tokens.ts"
 
@@ -2759,14 +2759,7 @@ export function PercentField({
       return false
     }
 
-    const last = tokens.list.length - 1
-    let next = clamp(tokens.list.indexOf(held) + (up ? 1 : -1), 0, last)
-
-    if (shift) {
-      next = up ? last : 0
-    }
-
-    tokens.onPick(tokens.list[next]!.name)
+    tokens.onPick(stepThrough(tokens.list, held, up, shift).name)
 
     return true
   }

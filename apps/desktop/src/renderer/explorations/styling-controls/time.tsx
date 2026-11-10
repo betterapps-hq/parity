@@ -1,5 +1,5 @@
 import { DurationArt } from "../../chrome/token-previews.tsx"
-import { stepCount } from "./css-values.ts"
+import { stepCount, stepThrough } from "./css-values.ts"
 import { nearestToken, type Reading, readUnitNumber, useLiveRow, useTokens, ValueField } from "./field-parts.tsx"
 import { splitUnit, type Time, timeMs, timeUnits } from "./motion-data.ts"
 import { durationToken } from "./tokens.ts"
@@ -97,8 +97,8 @@ export function TimeField({
   const step = (up: boolean, shift: boolean) => {
     if (token) {
       const scale = [...tokens].sort((one, other) => one.ms - other.ms)
-      const index = scale.indexOf(token)
-      onChange({ token: scale[Math.min(scale.length - 1, Math.max(0, index + (up ? 1 : -1)))]!.name })
+      // As every token steps: to the next in scale order, Shift to the first or last.
+      onChange({ token: stepThrough(scale, token, up, shift).name })
 
       return
     }

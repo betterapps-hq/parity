@@ -15,7 +15,8 @@ import {
   lengthForm,
   sameValue,
   stepCount,
-  stepSpacing
+  stepSpacing,
+  stepThrough
 } from "./css-values.ts"
 import type { LengthToken } from "./tokens.ts"
 import { readLength } from "./typing.ts"
@@ -286,14 +287,7 @@ export function stepSide(
     const index = scale.findIndex((token) => token.name === side.token)
 
     if (index !== -1) {
-      const last = scale.length - 1
-      let next = Math.min(last, Math.max(0, index + (up ? 1 : -1)))
-
-      if (shift) {
-        next = up ? last : 0
-      }
-
-      return { token: scale[next]!.name }
+      return { token: stepThrough(scale, scale[index]!, up, shift).name }
     }
   }
 

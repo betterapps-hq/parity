@@ -247,6 +247,18 @@ export function spotKeywords({ x, y }: BoxPoint): string | undefined {
 /** Up and Down's count of steps: one, or ten with Shift. */
 export const stepCount = (up: boolean, shift: boolean) => (up ? 1 : -1) * (shift ? 10 : 1)
 
+/** The entry Up or Down steps to from `at` in a scale: the next or the one before, or with Shift the last or first. */
+export function stepThrough<T>(scale: readonly T[], at: T, up: boolean, shift: boolean): T {
+  const last = scale.length - 1
+  let index = clamp(scale.indexOf(at) + (up ? 1 : -1), 0, last)
+
+  if (shift) {
+    index = up ? last : 0
+  }
+
+  return scale[index] ?? at
+}
+
 /** Whether two values a style holds are the same, part for part. */
 export const sameValue = <T>(a: T, b: T) => JSON.stringify(a) === JSON.stringify(b)
 

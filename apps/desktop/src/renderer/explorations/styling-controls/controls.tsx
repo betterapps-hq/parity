@@ -22,7 +22,7 @@ import { ChoiceInput, PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
-import { formatNumber, remPx, sameValue, stepCount, stepSpacing } from "./css-values.ts"
+import { formatNumber, remPx, sameValue, stepCount, stepSpacing, stepThrough } from "./css-values.ts"
 import {
   type Columns,
   contentSizeWords,
@@ -1046,14 +1046,7 @@ function LengthField({
   const step = (up: boolean, { shift }: ScrubKeys) => {
     if (token && scale.includes(token)) {
       // A token steps to the next of its kind in scale order; Shift goes to the first or last.
-      const last = scale.length - 1
-      let next = Math.min(last, Math.max(0, scale.indexOf(token) + (up ? 1 : -1)))
-
-      if (shift) {
-        next = up ? last : 0
-      }
-
-      onChange(scale[next]!.name)
+      onChange(stepThrough(scale, token, up, shift).name)
 
       return
     }

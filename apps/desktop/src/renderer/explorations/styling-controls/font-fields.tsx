@@ -3,7 +3,7 @@ import { ALargeSmall, ChevronDown, Italic, MoveHorizontal, MoveVertical, Triangl
 import { type KeyboardEvent, type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { clamp, formatNumber, lengthForm, stepCount } from "./css-values.ts"
+import { clamp, formatNumber, lengthForm, stepCount, stepThrough } from "./css-values.ts"
 import {
   fieldBox,
   type Message,
@@ -38,18 +38,6 @@ import {
  * a ValueField with the anatomy every field shares: the value, its unit, what it comes to, the status slot, and the
  * token chip or button.
  */
-
-/** A token's neighbour in its list's order, Shift going to the first or last, as Up and Down step every token. */
-function stepThrough<T extends { name: string }>(list: readonly T[], at: T, up: boolean, { shift }: ScrubKeys): T {
-  const last = list.length - 1
-  let index = clamp(list.indexOf(at) + (up ? 1 : -1), 0, last)
-
-  if (shift) {
-    index = up ? last : 0
-  }
-
-  return list[index] ?? at
-}
 
 /** What a font value draws as: its first family's name, its stack, its token, and whether the frame can load it. */
 export function resolveFont(value: FontValue | undefined, tokens: readonly FontToken[] = fontTokens) {
@@ -748,7 +736,7 @@ export function LineHeightField({
 
   const step = (up: boolean, keys: ScrubKeys) => {
     if (token) {
-      onChange({ token: stepThrough(tokens, token, up, keys).name })
+      onChange({ token: stepThrough(tokens, token, up, keys.shift).name })
 
       return
     }
@@ -995,7 +983,7 @@ export function FontSizeField({
       onCommit={onChange}
       onStep={(up, keys) => {
         if (token) {
-          onChange({ token: stepThrough(tokens, token, up, keys).name })
+          onChange({ token: stepThrough(tokens, token, up, keys.shift).name })
 
           return
         }
@@ -1188,7 +1176,7 @@ export function LetterSpacingField({
       onCommit={onChange}
       onStep={(up, keys) => {
         if (token) {
-          onChange({ token: stepThrough(tokens, token, up, keys).name })
+          onChange({ token: stepThrough(tokens, token, up, keys.shift).name })
 
           return
         }
