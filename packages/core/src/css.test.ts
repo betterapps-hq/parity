@@ -118,6 +118,29 @@ describe("prepareCanvasCss", () => {
     expect(scoped).toContain("[data-canvas-body] > main {")
   })
 
+  it("draws the root with a class or attribute on it as the frame's host and body with it, and with :not() as the body", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+
+    expect(scoped(":root.dark { --c: #000; }")).toBe(":host(.dark), [data-canvas-body].dark { --c: #000; }")
+    expect(scoped("html[data-theme=dark] .card { color: white; }")).toBe(
+      ":host([data-theme=dark]) .card, [data-canvas-body][data-theme=dark] .card { color: white; }"
+    )
+    expect(scoped(":root:not(.dark), .x { --c: #fff; }")).toBe("[data-canvas-body]:not(.dark), .x { --c: #fff; }")
+    expect(scoped(":root { --c: #fff; }")).toBe(":host { --c: #fff; }")
+  })
+
+  it("keeps a qualified root as one selector when asked to, for reading its theme as a token's", () => {
+    expect(prepareCanvasCss(":root.dark { --c: #000; }", { ...options, qualifiedRoots: false }).scoped).toBe(
+      ":host.dark { --c: #000; }"
+    )
+  })
+
+  it("changes only the root's own font size in a qualified root's rule", () => {
+    expect(prepareCanvasCss(":root.big { font-size: 125%; }", options).scoped).toBe(
+      ":host(.big) { font-size: calc(125 / 100 * 16px); } [data-canvas-body].big { font-size: 125%; }"
+    )
+  })
+
   it("keeps class names that contain document words", () => {
     const { scoped } = prepareCanvasCss(".bodyText, .html-preview { color: red; }", options)
     expect(scoped).toContain(".bodyText, .html-preview {")

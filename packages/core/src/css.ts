@@ -74,6 +74,12 @@ export interface PrepareCssOptions {
    * `colorSchemeAttribute`). Tokens are read with `false`, so the blocks stay as the project wrote them.
    */
   colorSchemes?: boolean
+  /**
+   * Whether a root with a class, attribute or `:not()` on it (`:root.dark`) is drawn as the frame's host and body with
+   * it, as it is for drawing (see `splitQualifiedRoots`). Tokens are read with `false`, so it stays one root selector
+   * that names its theme.
+   */
+  qualifiedRoots?: boolean
 }
 
 /** A colour scheme a `prefers-color-scheme` query asks for. */
@@ -330,7 +336,7 @@ function serialize(
       continue
     }
 
-    const selector = rewriteSelector(prelude)
+    const selector = rewriteSelector(prelude, options.qualifiedRoots !== false && !context.scheme)
     const selectors = splitSelectorList(selector)
     const roots = selectors.filter((part) => rootSelector.test(part))
     const scope = (list: string) => (context.scheme ? scopeToColorScheme(list, context.scheme) : list)
@@ -494,11 +500,45 @@ export function rewriteMedia(prelude: string): string {
   return `@container ${viewportContainerName} not ${conditions.length > 1 ? `(${condition})` : condition}`
 }
 
-function rewriteSelector(selector: string): string {
-  return selector
+/** The root with classes, attributes or `:not()`s on it, as `:host` after `:root` and `html` become it, then the rest. */
+const qualifiedRoot = /^:host((?:\.[\w-]+|\[[^\]]*\]|:not\([^()]*\))+)([\s\S]*)$/
+
+/**
+ * Draws a selector for the root with something on it (`:root.dark`, `html[data-theme=dark]`, `:root:not(.dark)`) as two:
+ * the frame's host with it, as `:host(.dark)`, since the host matches nothing written after `:host` but only inside
+ * `:host()`, and the frame's body with it, where a mode's class and a theme's attributes go. A decorator that sets an
+ * attribute on the host, as Mantine's does, matches the first; a mode's class matches the second. A root with a `:not()`
+ * on it is drawn as the body alone.
+ */
+function splitQualifiedRoots(selector: string): string {
+  return splitSelectorList(selector)
+    .map((part) => {
+      const qualified = qualifiedRoot.exec(part)
+
+      if (!qualified) {
+        return part
+      }
+
+      const [, qualifiers, rest] = qualified
+      const body = `[${bodyAttribute}]${qualifiers}${rest}`
+
+      // The host never has the mode's class, so what's not on it would hold in every mode.
+      return qualifiers!.includes(":not(") ? body : `:host(${qualifiers})${rest}, ${body}`
+    })
+    .join(", ")
+}
+
+/**
+ * `:root` and `html` as the frame's host and `body` as its body, with qualified roots split when asked. In a
+ * colour-scheme block they aren't, as the root becomes the frame's body in that scheme and what's on it stays on it.
+ */
+function rewriteSelector(selector: string, splitRoots: boolean): string {
+  const rewritten = selector
     .replace(/:root(?![\w-])/g, ":host")
     .replace(/(^|[\s,>+~(])html(?![\w-])/g, "$1:host")
     .replace(/(^|[\s,>+~(])body(?![\w-])/g, `$1[${bodyAttribute}]`)
+
+  return splitRoots && rewritten.includes(":host") ? splitQualifiedRoots(rewritten) : rewritten
 }
 
 /** A number with a viewport unit or `rem`, not inside a word (`img-100vw`) or another number. */
