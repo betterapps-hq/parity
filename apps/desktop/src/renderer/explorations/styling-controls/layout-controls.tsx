@@ -133,12 +133,12 @@ function MenuItemText({ name, detail }: { name: string; detail: string }) {
 }
 
 /**
- * Layout: the alignment box, with what runs beside it: Type, as Figma's four (Vertical, Horizontal, Wrap and Grid);
- * Gap; and once it wraps, the gap between the lines and where the lines sit. The box is as tall as Type and Gap
- * together, so it lines up with both. A grid swaps the box's meaning to where children sit in their cells, and adds its
- * columns and rows under them. More holds what's set rarely: Reverse direction, wrapping a vertical layout into
- * columns, and lining up text on its baseline. Switching Type keeps the grid's tracks, so going back to Grid finds them
- * as they were.
+ * Layout: the alignment box, with what runs beside it: Type, as Figma's four (Vertical, Horizontal, Wrap and Grid),
+ * with Reverse direction beside them; Gap; and once it wraps, the gap between the lines and where the lines sit. The
+ * box is as tall as Type and Gap together, so it lines up with both. A grid swaps the box's meaning to where children
+ * sit in their cells, and adds its columns and rows under them. More holds what's set rarely: wrapping a vertical
+ * layout into columns, and lining up text on its baseline. Switching Type keeps the grid's tracks, so going back to
+ * Grid finds them as they were.
  */
 export function LayoutSection({ draft, set }: SectionProps) {
   const spacing = useTokenSets().spacing
@@ -210,12 +210,6 @@ export function LayoutSection({ draft, set }: SectionProps) {
     </DropdownMenuCheckboxItem>
   ) : (
     <>
-      <DropdownMenuCheckboxItem
-        checked={draft.reverse ?? false}
-        onCheckedChange={(reverse) => set({ reverse: reverse || undefined })}
-      >
-        Reverse direction
-      </DropdownMenuCheckboxItem>
       {direction === "column" && (
         <DropdownMenuCheckboxItem
           checked={wraps}
@@ -227,7 +221,6 @@ export function LayoutSection({ draft, set }: SectionProps) {
       {/* Baseline lines up text across a row, so a vertical layout offers it only to turn it off. */}
       {(row || baseline) && (
         <>
-          <DropdownMenuSeparator />
           <DropdownMenuCheckboxItem
             checked={baseline}
             onCheckedChange={(on) => set({ align: on ? "baseline" : undefined })}
@@ -287,17 +280,18 @@ export function LayoutSection({ draft, set }: SectionProps) {
                     </Hint>
                   ))}
                 </ToggleGroup>
-                {!grid && draft.reverse && (
+                {/* A grid places its children by cell, so it has no direction to reverse. */}
+                {!grid && (
                   <Hint
                     label="Reverse direction"
-                    detail="Lays the children out last to first. The reading order no longer matches what's seen."
+                    detail="Lays the children out last to first, so the reading order no longer matches what's seen"
                   >
                     <Toggle
                       variant="outline"
                       size="sm"
                       className="h-7 px-2"
                       aria-label="Reverse direction"
-                      pressed
+                      pressed={draft.reverse ?? false}
                       onPressedChange={(reverse) => set({ reverse: reverse || undefined })}
                     >
                       {row ? <ArrowRightLeft /> : <ArrowDownUp />}

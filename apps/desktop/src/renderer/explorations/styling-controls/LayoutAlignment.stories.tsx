@@ -7,15 +7,15 @@ import { Playground, useDraft } from "./playground.tsx"
 import { layoutWrites } from "./writes.ts"
 
 /**
- * Layout's direction, alignment and gap (PAR-186). Type is Figma's four: Vertical, Horizontal, Wrap and Grid. The
- * alignment box draws the children where they'll sit, as bars that run the way the layout does, and shows them faintly
- * at a spot as it's hovered; clicking the chosen spot again stretches them. It's one stop for Tab: arrow keys move
- * them, S stretches them, X spreads them out and B lines up their text. It stays physical when reversed, so its top
- * left is the top left whichever way the layout runs, and what's written flips. Type and Gap sit beside it, and the
+ * Layout's direction, alignment and gap (PAR-186). Type is Figma's four: Vertical, Horizontal, Wrap and Grid, with
+ * Reverse direction beside them. The alignment box draws the children where they'll sit, as bars that run the way the
+ * layout does, and shows them faintly at a spot as it's hovered; clicking the chosen spot again stretches them. It's
+ * one stop for Tab: arrow keys move them, S stretches them, X spreads them out and B lines up their text. It stays
+ * physical when reversed, so its top left is the top left whichever way the layout runs, and what's written flips. Type and Gap sit beside it, and the
  * box is as tall as both. Gap is the field padding uses, with the spacing tokens in its menu, and its Auto spreads the
  * children, as space between, around or evenly. Once it wraps, a second gap is between the lines, and Lines says where
- * the lines sit. More holds what's set rarely: Reverse direction, wrapping a vertical layout into columns, and lining
- * up text baselines, which the box then draws.
+ * the lines sit. More holds what's set rarely: wrapping a vertical layout into columns, and lining up text baselines,
+ * which the box then draws.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Layout direction and alignment",
@@ -79,7 +79,7 @@ export const Baseline: Story = { render: () => <Layout start={{ direction: "row"
 export const LastBaseline: Story = { render: () => <Layout start={{ direction: "row", align: "last baseline" }} /> }
 
 /**
- * Reversed, from More: the Reverse toggle shows beside Type, and its hint says the reading order no longer matches
+ * Reversed: the Reverse direction toggle beside Type is on, and its hint says the reading order no longer matches
  * what's seen. The box's top-left spot still means the top left, so it writes `justify-end`.
  */
 export const Reversed: Story = { render: () => <Layout start={{ direction: "row", reverse: true }} /> }
