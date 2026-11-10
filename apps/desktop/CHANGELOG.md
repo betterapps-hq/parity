@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 10 Nov 2026 11:20:34 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 12:19:07 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.50.0
+
+Tue, 10 Nov 2026 12:19:07 GMT
+
+### Minor changes
+
+- The Media tab replaces the Images tab: the project's pictures as a wall, each with a card, to insert, drag onto the
+  canvas, add or remove. (ajcraswell@gmail.com)
 
 ## 0.49.0
 
