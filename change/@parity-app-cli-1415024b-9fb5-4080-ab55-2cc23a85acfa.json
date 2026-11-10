@@ -1,6 +1,6 @@
 {
   "type": "minor",
-  "comment": "Record window and main hangs as they start, and report a hang the app exited during on the next run",
+  "comment": "Attach the last 5 minutes of events to crashes and fatal errors, and say where main was stuck in a hang",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

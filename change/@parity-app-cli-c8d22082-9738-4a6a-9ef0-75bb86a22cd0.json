@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Detect an open project again when components.json, its stylesheets, dependencies or Vite config change, and when parity open names it",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

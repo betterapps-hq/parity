@@ -6791,3 +6791,19 @@ calls:
   force-quit's hang arrives with its length when the app next starts. Each process keeps its own files, named by its
   process ID, and a run reports only those whose process has exited, since two copies of the app can share the folder.
 - **The local copy gets main's hang when it ends,** as before: the watchdog writes only Sentry and the open-hang file.
+
+## Crashes carry the last minutes, and main's hangs say where (PAR-805)
+
+The plan attached the last log file to a crash, and main's hangs said how long but not where. My calls:
+
+- **A crash carries 5 minutes of the local copy, at most 2,000 events,** as `logs.jsonl`, scrubbed as reports are.
+  "Crash" is any `fatal` event or any error nothing caught, from any process, since every error passes main's
+  `beforeSend`. Main keeps the minutes in memory, so it doesn't read files on each one or miss lines not yet written. A
+  native crash found as the app starts has no `exit.reason`, which tells it apart from one in this run, and carries the
+  crashed run's last minutes from the files instead.
+- **The watchdog finds where main is stuck through the inspector,** not Sentry's native hang detection, which still
+  needs a module built for Electron's ABI. `connectToMainThread` opens no port. It pauses main once per hang, takes the
+  stack and resumes, and gives up after 2 seconds, since main stuck in native code can't pause.
+- **Frames are named `app:///` from the app's folder,** as Sentry's Electron SDK names them, with the bundles' debug IDs
+  from main, so Sentry maps them to the uploaded source maps and no one's home folder is sent.
+- **`where` is the innermost of Parity's own frames,** not the innermost frame, which is often Node's own code.
