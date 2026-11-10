@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Read the Vite version Vite+ ships when a project aliases vite to @voidzero-dev/vite-plus-core, instead of reporting Vite+'s own version as an untested Vite",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
