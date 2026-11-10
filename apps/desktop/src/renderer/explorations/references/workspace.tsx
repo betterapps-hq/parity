@@ -92,8 +92,8 @@ function Window({ start }: { start: Start }) {
     return { query: startingQuery(target.container.name, platform), platform }
   }
 
-  const [browser, setBrowser] = useState<{ start: BrowserStart; target?: string } | undefined>(() =>
-    start.browser ? { start: { ...opening(), ...start.browser }, target: target?.container.name } : undefined
+  const [browser, setBrowser] = useState<BrowserStart | undefined>(() =>
+    start.browser ? { ...opening(), ...start.browser } : undefined
   )
 
   // Selecting a design, here or in Layers, lets go of the selected reference.
@@ -107,8 +107,7 @@ function Window({ start }: { start: Start }) {
     }
   }
 
-  const find = (from?: BrowserStart) =>
-    setBrowser({ start: from ?? { ...opening(), fresh: !!target }, target: target?.container.name })
+  const find = (from?: BrowserStart) => setBrowser(from ?? { ...opening(), fresh: !!target })
 
   const place = (picked: Picked[]) => {
     const boxes = placed.flatMap((each) => boxOf(each) ?? [])
@@ -128,8 +127,7 @@ function Window({ start }: { start: Start }) {
     selection.set({})
     setBrowser(undefined)
     setFitKey((key) => key + 1)
-    const where = browser?.target ? `beside ${browser.target}` : "on the canvas"
-    toast(added.length === 1 ? `Placed a reference ${where}` : `Placed ${added.length} references ${where}`, {
+    toast(added.length === 1 ? "Placed a reference on the canvas" : `Placed ${added.length} references on the canvas`, {
       description: "References stay out of your designs, your code and exports."
     })
   }
@@ -209,8 +207,7 @@ function Window({ start }: { start: Start }) {
       </SidePanel>
       <ReferenceBrowser
         open={!!browser}
-        target={browser?.target}
-        start={browser?.start}
+        start={browser}
         recent={recent}
         onClose={() => setBrowser(undefined)}
         onSearched={({ query, platform }) => {

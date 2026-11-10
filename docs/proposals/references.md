@@ -51,7 +51,7 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 ### Finding references
 
 - **Find references is on the toolbar,** after the review tools, with R as its key. It's also in a design's right-click
-  menu as "Find references for Pricing", and in Search actions.
+  menu and in Search actions.
 - **With a design selected it opens already searched:** the design's name as the description ("pricing page"), on the
   web when the design's main preview is wider than 600 pixels and on iOS otherwise. That first search is a quick one.
 - **With nothing selected it opens on the last few searches** to run again, and three lines on describing a screen, from
@@ -69,7 +69,7 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   and keeps the close matches, so it takes a few seconds and can return fewer screens. My call: quick is the default
   although the API's is `deep`, because deep is the search Mobbin charges for.
 - **A click picks a screen, and picks carry across searches,** so you can gather a web page and a phone paywall in one
-  go. The button says how many and where they'll go: "Place 3 beside Pricing". Ctrl+Enter places them too.
+  go. The button says how many: "Place 3 on canvas". Ctrl+Enter places them too.
 - **A double-click, or a screen's corner button, shows it larger,** with Open in Mobbin and Pick. The arrow keys move
   through the results, and Esc goes back to them.
 - **More results** asks again without the screens already shown. When a pull comes back short there are no more, and the

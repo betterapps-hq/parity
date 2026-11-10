@@ -32,6 +32,7 @@ import {
   X
 } from "lucide-react"
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
+import { chipColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { IconButton } from "../../chrome/IconButton.tsx"
 import { type Mode, mostPerSearch, type Platform, type Sample, sampleOf, searchScreens } from "./data.ts"
@@ -86,8 +87,6 @@ const wait: Record<Mode, number> = { standard: 450, deep: 2200 }
 
 interface BrowserProps {
   open: boolean
-  /** The design the references are for, which they're placed beside. */
-  target?: string
   start?: BrowserStart
   recent: readonly Pick<Searched, "query" | "platform">[]
   onClose: () => void
@@ -101,7 +100,7 @@ export function ReferenceBrowser(props: BrowserProps) {
   return props.open ? <Browser {...props} /> : null
 }
 
-function Browser({ target, start = {}, recent, onClose, onSearched, onPlace, onOpenInMobbin }: BrowserProps) {
+function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMobbin }: BrowserProps) {
   const first: Searched | undefined = start.query
     ? { query: start.query, platform: start.platform ?? "web", mode: start.mode ?? "standard" }
     : undefined
@@ -330,7 +329,7 @@ function Browser({ target, start = {}, recent, onClose, onSearched, onPlace, onO
             </Button>
           )}
           <Button size="sm" disabled={picked.length === 0} onClick={() => onPlace(picked)}>
-            {placeLabel(picked.length, target)}
+            {placeLabel(picked.length)}
           </Button>
         </footer>
       </DialogContent>
@@ -338,10 +337,8 @@ function Browser({ target, start = {}, recent, onClose, onSearched, onPlace, onO
   )
 }
 
-function placeLabel(count: number, target: string | undefined): string {
-  const where = target ? `beside ${target}` : "on the canvas"
-
-  return count === 0 ? `Place ${where}` : `Place ${count} ${where}`
+function placeLabel(count: number): string {
+  return count === 0 ? "Place on canvas" : `Place ${count} on canvas`
 }
 
 /** One pull, or several in a row for a story that starts with more loaded. */
@@ -547,7 +544,10 @@ function Card({
         <ScreenPicture screen={sample} className="rounded-lg border" />
       </button>
       {picked && (
-        <span className="pointer-events-none absolute top-2 left-2 grid size-5 place-items-center rounded-full bg-(--canvas-layer-chip) text-white shadow-sm ring-2 ring-white">
+        <span
+          className="pointer-events-none absolute top-2 left-2 grid size-5 place-items-center rounded-full shadow-sm outline-2 outline-current"
+          style={chipColors.layer}
+        >
           <Check className="size-3" strokeWidth={3} />
         </span>
       )}

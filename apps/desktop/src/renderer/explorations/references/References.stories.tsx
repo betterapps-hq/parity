@@ -120,7 +120,7 @@ export const MoreResults: Story = {
 
 // Picking
 
-/** Three picked, across the results. The button says how many and where they'll go. */
+/** Three picked, across the results. The button says how many. */
 export const Picked: Story = {
   loaders: [opening(true)],
   render: workspace({
@@ -144,7 +144,7 @@ export const PlaceReferences: Story = {
   play: async () => {
     await userEvent.click(await body().findByRole("button", { name: "Ledgerly" }))
     await userEvent.click(body().getByRole("button", { name: "Quill" }))
-    await userEvent.click(body().getByRole("button", { name: "Place 2 beside Pricing" }))
+    await userEvent.click(body().getByRole("button", { name: "Place 2 on canvas" }))
     const canvas = body().getByRole("application", { name: "Canvas" })
     await waitFor(() => expect(within(canvas).getAllByRole("img", { name: /^Reference: / })).toHaveLength(2))
   }
