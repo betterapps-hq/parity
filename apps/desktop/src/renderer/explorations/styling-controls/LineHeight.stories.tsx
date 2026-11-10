@@ -19,7 +19,7 @@ import { mergeWrites } from "./writes.ts"
  * story's text has the size its name gives (`text-sm` unless it says otherwise), set in Text's own Size field.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Line height and letter spacing",
+  title: "Parity/Explorations/Design panel controls/Controls/Line height and letter spacing",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

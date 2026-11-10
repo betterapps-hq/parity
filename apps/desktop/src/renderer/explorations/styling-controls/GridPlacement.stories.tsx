@@ -22,7 +22,7 @@ import { placementWrites } from "./writes.ts"
  * of a span. Click Pro plan in the preview to see it selected.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Grid placement",
+  title: "Parity/Explorations/Design panel controls/Controls/Grid placement",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

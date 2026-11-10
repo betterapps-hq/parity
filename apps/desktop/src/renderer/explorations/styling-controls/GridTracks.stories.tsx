@@ -17,7 +17,7 @@ import { layoutWrites } from "./writes.ts"
  * once, as Figma's does. The alignment box says where children sit in their cells, with Type and the gaps beside it.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Grid tracks",
+  title: "Parity/Explorations/Design panel controls/Controls/Grid tracks",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

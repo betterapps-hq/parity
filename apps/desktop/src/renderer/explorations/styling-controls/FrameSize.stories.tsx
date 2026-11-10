@@ -12,7 +12,7 @@ import { Playground } from "./playground.tsx"
  * CSS.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Frame size",
+  title: "Parity/Explorations/Design panel controls/Controls/Frame size",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

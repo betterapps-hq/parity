@@ -18,7 +18,7 @@ import type { StoredObject, Writes } from "./writes.ts"
  * Weight offers.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Weight and style",
+  title: "Parity/Explorations/Design panel controls/Unique/Weight and style",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

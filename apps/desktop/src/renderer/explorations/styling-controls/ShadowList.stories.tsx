@@ -19,7 +19,7 @@ import { mixedWrites } from "./writes.ts"
  * or as one arbitrary value when it doesn't fit them.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Shadow list",
+  title: "Parity/Explorations/Design panel controls/Lists/Shadow list",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

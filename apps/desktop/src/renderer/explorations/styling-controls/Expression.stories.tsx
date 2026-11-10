@@ -18,7 +18,7 @@ import { TextSample } from "./text-preview.tsx"
  * focus back on the field.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Expression",
+  title: "Parity/Explorations/Design panel controls/Fields/Expression",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

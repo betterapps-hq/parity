@@ -15,7 +15,7 @@ import { sizeRowWrites } from "./writes.ts"
  * freeing H (Auto, set by Aspect ratio), with the ratio in its own row.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Size and aspect ratio",
+  title: "Parity/Explorations/Design panel controls/Controls/Size and aspect ratio",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -10,7 +10,7 @@ import { tagWrites } from "./writes.ts"
  * not the style.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Text tag",
+  title: "Parity/Explorations/Design panel controls/Unique/Text tag",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -20,7 +20,7 @@ import { layoutWrites } from "./writes.ts"
  * up text baselines, which the box then draws.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Layout direction and alignment",
+  title: "Parity/Explorations/Design panel controls/Controls/Layout direction and alignment",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -12,7 +12,7 @@ import { blurWrites, mergeWrites, mixedWrites } from "./writes.ts"
  * show what a background blur does through a translucent fill.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Layer and background blur",
+  title: "Parity/Explorations/Design panel controls/Controls/Layer and background blur",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

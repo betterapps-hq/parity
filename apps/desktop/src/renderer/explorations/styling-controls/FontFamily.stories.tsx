@@ -17,7 +17,7 @@ import { type FontValue, fontWrites } from "./text-writes.ts"
  * installed on this computer, standing in for Google Fonts, which the app adds to the project when one is chosen.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Font family",
+  title: "Parity/Explorations/Design panel controls/Unique/Font family",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

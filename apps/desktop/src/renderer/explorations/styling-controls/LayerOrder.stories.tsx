@@ -15,7 +15,7 @@ import { mixedWrites } from "./writes.ts"
  * layout in a Block layout, it adds `relative`. A count never needs brackets: `z-37`, `-z-5`.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Layer order",
+  title: "Parity/Explorations/Design panel controls/Unique/Layer order",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

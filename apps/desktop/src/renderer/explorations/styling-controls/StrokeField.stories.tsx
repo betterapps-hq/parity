@@ -11,7 +11,7 @@ import { strokeWrites } from "./writes.ts"
  * inside, centered on or outside the edge, with an offset of minus the width, minus half of it, or 0 (call 2).
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Stroke",
+  title: "Parity/Explorations/Design panel controls/Controls/Stroke",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -14,7 +14,7 @@ import { TransformPreview, TransformSection } from "./transform.tsx"
  * outline of where the layout puts it, since nothing around it moves.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Transform",
+  title: "Parity/Explorations/Design panel controls/Controls/Transform",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

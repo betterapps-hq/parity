@@ -17,7 +17,7 @@ import { lengthWrites, type Writes } from "./writes.ts"
  * reason under it; Escape puts the value back; leaving does too, and says why.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Number field",
+  title: "Parity/Explorations/Design panel controls/Fields/Number field",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

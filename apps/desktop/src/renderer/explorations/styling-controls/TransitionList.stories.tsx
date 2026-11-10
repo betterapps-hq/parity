@@ -19,7 +19,7 @@ import { newEntryId, previewTransition, TransitionsSection } from "./transitions
  * the list says, offering Save as token.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Transition list",
+  title: "Parity/Explorations/Design panel controls/Lists/Transition list",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

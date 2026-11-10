@@ -17,7 +17,7 @@ import { Playground } from "./playground.tsx"
  * Classes grows with its classes, with a handle to drag it taller.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Raw CSS value",
+  title: "Parity/Explorations/Design panel controls/Fields/Raw CSS value",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

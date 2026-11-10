@@ -18,7 +18,7 @@ import { mixedWrites, type Writes } from "./writes.ts"
  * duration, so its class runs long and it offers Save as token first.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Easing and spring",
+  title: "Parity/Explorations/Design panel controls/Unique/Easing and spring",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

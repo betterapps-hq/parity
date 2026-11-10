@@ -16,7 +16,7 @@ import { inState, mixedWrites, radiusWrites } from "./writes.ts"
  * corner opens Corner shape, marked † as Chromium only. Up and Down step a token through the scale.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Radius",
+  title: "Parity/Explorations/Design panel controls/Fields/Token length",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

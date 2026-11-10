@@ -15,7 +15,7 @@ import { TransformPreview } from "./transform.tsx"
  * Tab and Enter choose a spot from the keyboard.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Position in a box",
+  title: "Parity/Explorations/Design panel controls/Unique/Position in a box",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

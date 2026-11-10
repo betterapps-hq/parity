@@ -14,7 +14,7 @@ import { mergeWrites } from "./writes.ts"
  * preview, padding in modes' green and margin in pink, as the box draws them.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Spacing/Fields",
+  title: "Parity/Explorations/Design panel controls/Controls/Spacing fields",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

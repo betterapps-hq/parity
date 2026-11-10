@@ -17,7 +17,7 @@ import { type Opacity, opacityWrites } from "./text-writes.ts"
  * own alpha isn't here: it's the % beside its swatch.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Opacity and blend mode",
+  title: "Parity/Explorations/Design panel controls/Controls/Opacity and blend mode",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

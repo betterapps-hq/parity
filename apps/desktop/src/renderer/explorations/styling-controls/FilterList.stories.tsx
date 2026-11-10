@@ -14,7 +14,7 @@ import { Playground, PreviewStage } from "./playground.tsx"
  * another order is one Custom entry, edited as text, with Put in order where that doesn't change what's drawn.
  */
 const meta = {
-  title: "Parity/Explorations/Design panel controls/Filter list",
+  title: "Parity/Explorations/Design panel controls/Lists/Filter list",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 
