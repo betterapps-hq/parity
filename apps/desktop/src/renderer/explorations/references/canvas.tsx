@@ -5,7 +5,6 @@ import { Layers, Maximize, Minus, Plus, Telescope } from "lucide-react"
 import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type ReactNode,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -143,8 +142,6 @@ interface CanvasProps {
   onDelete: (key: string) => void
   onOpen: (found: Found) => void
   onFind: () => void
-  /** A note for the reviewer, over the canvas at screen size. */
-  children?: ReactNode
 }
 
 export function CanvasSketch({
@@ -161,8 +158,7 @@ export function CanvasSketch({
   onMove,
   onDelete,
   onOpen,
-  onFind,
-  children
+  onFind
 }: CanvasProps) {
   const session = useProject()
   const tool = useTool(session.selection)
@@ -437,11 +433,6 @@ export function CanvasSketch({
           <Telescope />
         </IconButton>
       </div>
-      {children && (
-        <div className="pointer-events-none absolute top-3 left-3 max-w-xs rounded-lg border bg-background/95 p-3 shadow-lg">
-          {children}
-        </div>
-      )}
     </div>
   )
 }

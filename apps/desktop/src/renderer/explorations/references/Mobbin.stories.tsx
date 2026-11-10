@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import type { Placed } from "./canvas.tsx"
 import { found, opening, workspace } from "./story-kit.tsx"
-import { Explainer, live } from "./workspace.tsx"
+import { live } from "./workspace.tsx"
 
 /**
  * References from Mobbin (docs/proposals/references.md): screens from real apps, placed beside a design to look at,
@@ -216,13 +216,7 @@ export const OnTheCanvas: Story = {
   loaders: [opening(false)],
   render: workspace({
     placed,
-    selected: "ledgerly-pricing-tiers",
-    note: (
-      <Explainer title="For looking at, not building with">
-        References aren&apos;t designs: they never go into one, into the project&apos;s files or into code, and exports
-        leave them out.
-      </Explainer>
-    )
+    selected: "ledgerly-pricing-tiers"
   })
 }
 

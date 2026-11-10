@@ -11,7 +11,7 @@ import {
   SlidersHorizontal,
   Smile
 } from "lucide-react"
-import { type ReactNode, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { useProject } from "../../canvas/context.ts"
 import { designColor } from "../../canvas/kinds.tsx"
@@ -73,8 +73,6 @@ export interface Start {
   /** The project's images, in place of the three it starts with. */
   images?: ProjectImage[]
   view?: View
-  /** A note for the reviewer, over the canvas. */
-  note?: ReactNode
 }
 
 /** Space between a design and its references, and between rows of them, in canvas pixels. */
@@ -208,9 +206,7 @@ function Window({ start }: { start: Start }) {
     setPlaced((current) => [...current, ...added])
     setSelected(added[0]?.key)
     selection.set({})
-    toast(added.length === 1 ? "Placed a reference on the canvas" : `Placed ${added.length} references on the canvas`, {
-      description: "References stay out of your designs, your code and exports."
-    })
+    toast(added.length === 1 ? "Placed a reference on the canvas" : `Placed ${added.length} references on the canvas`)
   }
 
   const addPhotos = (picked: Picked[]) => {
@@ -306,9 +302,7 @@ function Window({ start }: { start: Start }) {
         }}
         onOpen={openAtSource}
         onFind={() => findReferences()}
-      >
-        {start.note}
-      </CanvasSketch>
+      />
       <SidePanel
         side="right"
         label="Inspector"
@@ -376,15 +370,5 @@ function Window({ start }: { start: Start }) {
         onOpenAtSource={openAtSource}
       />
     </>
-  )
-}
-
-/** A short explanation pinned over the canvas, in the explorations' dimmed type, for a reviewer. */
-export function Explainer({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-foreground">{title}</span>
-      <span className="text-[13px] leading-snug text-muted-foreground">{children}</span>
-    </div>
   )
 }

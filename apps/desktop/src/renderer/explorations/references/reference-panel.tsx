@@ -64,9 +64,6 @@ export function ReferencePanel({ placed, onNote, onOpen, onMore }: ReferencePane
           className="min-h-16 text-xs md:text-xs"
         />
       </PanelSection>
-      <p className="px-4 py-4 text-xs text-muted-foreground">
-        A reference is for looking at. It stays out of your designs, your code and exports.
-      </p>
     </>
   )
 }
