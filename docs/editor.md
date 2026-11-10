@@ -3944,8 +3944,47 @@ console's row are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Rad
 the app on 2026-11-06 with `scripts/drive.ts`: breaking `button.tsx` drew error boxes in 48 frames, counted on 20 boards
 with no sheet over any frame, and kept every board's picture; fixing it cleared them, with every bitmap back 2.4 s
 later. Gaps: a board drawn only from a bitmap kept from an earlier session has no console error until its frames draw; a
-class used nowhere in the project before an edit has no CSS until the project opens again, since the guest's stylesheet
-isn't reloaded; the workspace's `codeChanged` is checked by reading and in the app.
+class used nowhere in the project before an edit has no CSS until a stylesheet changes or the project opens again, since
+a component's save doesn't reload the guest's stylesheet (PAR-821 reloads it for a stylesheet's save); the workspace's
+`codeChanged` is checked by reading and in the app.
+
+### Stylesheet edits redraw frames (PAR-821)
+
+Saving one of the project's global stylesheets (the one `components.json` names, the ones the entry imports, or a file
+one of them `@import`s) redraws frames, bitmaps and `parity screenshot` with the new CSS, and updates the tokens the tab
+reads from it, without reopening the project. Before, `parity tokens` showed the new values at once, since it reads the
+file, but frames drew the CSS the guest was loaded with until Parity restarted: the guest imports the stylesheets once,
+as text, and a code change only loaded components again.
+
+- **The builder says a stylesheet changed.** `stampChange` stamps the file's modules and their importers as for any code
+  change, and says `styles` when the file is a stylesheet whose modules include one the guest imports as text
+  (`styles.css?inline`), directly or through an `@import`. A component's own CSS module isn't one; it loads again with
+  its component. `gatherChanges` sends a burst with a stylesheet in it even when no component file changed.
+- **The service serves the guest from a new address** on the same builder, the builder's own with the change's stamp
+  (`restyledGuest`, `?styles=<stamp>`), and tells the windows as when a builder moves (`project.guestMoved`). Vite
+  writes the stamped stylesheets' imports with `?t=`, so the guest loaded there imports the CSS as it is now, while the
+  renderer and unchanged components keep the modules the page has. The tab swaps in the new guest and its tokens and
+  lets go of the old one (`moveGuest`); bitmaps are named by the code as the new address first served it, so none drawn
+  with the old CSS is shown. The styling framework's theme is read again for tabs opened later.
+- **A builder started again keeps the stamp,** so on the same port it serves the guest where the windows already draw
+  it, rather than at the address they loaded before the change.
+
+Code: `stampChange`, `StampedChange` and `gatherChanges` in `packages/builder-vite/src/code-changes.ts`; `styles` in
+`CodeChange`, `packages/core/src/adapters.ts`, passed on whole by `packages/core/src/builder-process.ts`;
+`restyledGuest` in `apps/desktop/src/utility/guest-ports.ts`; `restyle` and `restyled` in `openProjects`,
+`apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`.
+
+Tests: `packages/builder-vite/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s,
+said to change the guest's stylesheets, a component's CSS module not; a burst with a stylesheet sent without a component
+file, and the next burst without one not saying so). `packages/core/src/builder-process.test.ts` (the change passed on
+with `styles`). `apps/desktop/src/utility/guest-ports.test.ts` (1: the stamped address).
+`apps/desktop/src/utility/projects.test.ts` (1: a component's change moves nothing, a stylesheet's moves the guest to
+the stamped address with its code snapshot, and a builder started again on the same port keeps it).
+`packages/builder-vite/src/stylesheets.test.ts` (1, a real Vite server: a file the stylesheet `@import`s, edited, is
+said to change the guest's stylesheets, and the guest served at the stamped address imports the stylesheet with `?t=`
+and gets the new CSS). Gaps: the window side is `moveGuest`'s, covered in `workspace.test.ts`; a Tailwind class used
+nowhere before a component's edit still has no CSS until a stylesheet changes or the project opens again, since a
+component's save doesn't reload the guest's CSS.
 
 ### Bitmaps kept between sessions (PAR-158)
 

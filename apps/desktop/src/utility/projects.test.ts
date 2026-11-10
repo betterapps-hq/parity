@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import {
   type BuilderAdapter,
   type BuilderProcessSession,
+  type CodeChange,
   type ComponentSource,
   parseCanvasDocument
 } from "@parity-app/core"
@@ -53,6 +54,7 @@ function fakeBuilder() {
   const started: number[] = []
   const closed: string[] = []
   const crashes: Parameters<ProjectAdapters["startBuilder"]>[1]["onCrash"][] = []
+  const codeChanges: Parameters<ProjectAdapters["startBuilder"]>[1]["onCodeChange"][] = []
   const failures: Failures = {}
 
   const builder: BuilderAdapter = {
@@ -65,10 +67,11 @@ function fakeBuilder() {
     start: () => Promise.reject(new Error("started in its own process"))
   }
 
-  const startBuilder: ProjectAdapters["startBuilder"] = (options, { onCrash }) => {
+  const startBuilder: ProjectAdapters["startBuilder"] = (options, { onCrash, onCodeChange }) => {
     const port = options.port!
     started.push(port)
     crashes.push(onCrash)
+    codeChanges.push(onCodeChange)
 
     const session: BuilderProcessSession = {
       guestUrl: `http://localhost:${port}/@parity/guest.js`,
@@ -94,7 +97,10 @@ function fakeBuilder() {
     failures[at] = error
   }
 
-  return { builder, startBuilder, started, closed, crash, fail }
+  /** Says files changed, as the builder started last does when they're saved. */
+  const changeCode = (change: CodeChange) => codeChanges.at(-1)?.(change)
+
+  return { builder, startBuilder, started, closed, crash, fail, changeCode }
 }
 
 /** A watcher whose changes the test reports, as `fs.watch` reports them: names relative to the folder. */
@@ -143,6 +149,7 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
   }
 
   const fileChanged: WindowMethods["project.fileChanged"]["params"][] = []
+  const moves: WindowMethods["project.guestMoved"]["params"][] = []
   let port = 5100
 
   const projects = openProjects({
@@ -158,13 +165,17 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
       fileChanged: (change) => fileChanged.push(change),
       componentsChanged: () => undefined,
       codeChanged: () => undefined,
-      guestMoved: () => Promise.resolve(true)
+      guestMoved: (move) => {
+        moves.push(move)
+
+        return Promise.resolve(true)
+      }
     },
     environment,
     unsupported
   })
 
-  return { projects, builder, watcher, detections, checker, fileChanged }
+  return { projects, builder, watcher, detections, checker, fileChanged, moves }
 }
 
 beforeEach(async () => {
@@ -330,6 +341,30 @@ describe("what opening a project records", () => {
       { builder: "Fake builder", durationMs: expect.any(Number), outcome: "ok" }
     ])
     expect(attributes("builder.ready").map(({ restart }) => restart)).toEqual([false, true])
+  })
+})
+
+describe("an open project's stylesheets", () => {
+  it("serve its guest from a new address when one changes, which the windows load and bitmaps are named by", async () => {
+    const { projects, builder, moves } = setUp()
+    const { guestUrl } = await projects.open(root)
+
+    // A component's code changing loads only its components again, from the guest the windows have.
+    builder.changeCode({ paths: ["src/Button.tsx"], stamp: 7 })
+    await new Promise((done) => setTimeout(done, 50))
+    expect(moves).toEqual([])
+
+    builder.changeCode({ paths: [], stamp: 8, styles: true })
+    const restyled = `${guestUrl}?styles=8`
+    await vi.waitFor(() => expect(moves).toEqual([{ projectId: root, guestUrl: restyled }]))
+    expect((await projects.open(root)).guestUrl).toBe(restyled)
+    expect(projects.codeServedAt(root, restyled)).toBeDefined()
+
+    // Started again on the same port, the builder serves the guest where the windows already draw it.
+    await restartProcess({ id: `builder:${root}` })
+    expect(builder.started).toEqual([5100, 5100])
+    expect((await projects.open(root)).guestUrl).toBe(restyled)
+    expect(moves).toHaveLength(1)
   })
 })
 

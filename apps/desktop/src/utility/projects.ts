@@ -62,7 +62,14 @@ import type { SavedDetection } from "./detection-cache.ts"
 import { applyProjectEdit } from "./edits.ts"
 import { environment, type ServiceEnvironment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
-import { followGuest, type GuestMoved, newGuestPort, type PortFinder, restartPort } from "./guest-ports.ts"
+import {
+  followGuest,
+  type GuestMoved,
+  newGuestPort,
+  type PortFinder,
+  restartPort,
+  restyledGuest
+} from "./guest-ports.ts"
 import { stopProject } from "./process-manager.ts"
 import { forgetProcess, trackProcess } from "./processes.ts"
 import type { TypeChecker } from "./props.ts"
@@ -185,6 +192,12 @@ interface Project extends OpenProject {
   configWatchers?: Watching[]
   /** When it opened, by `performance.now()`, for how long it was open. */
   openedAt: number
+  /**
+   * The stamp of its stylesheets' last change, which its guest's address carries (`restyledGuest`), so a builder
+   * started again on the same port serves it where the windows already draw it rather than at an address they loaded
+   * before the change.
+   */
+  restyled?: number
 }
 
 /** What an open learned on the way, for `project.opened` or `project.openFailed` (PAR-637). */
@@ -650,6 +663,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         if (project) {
           listeners.codeChanged({ projectId: project.info.id, ...change })
         }
+
+        if (project && change.styles) {
+          void restyle(project, change.stamp).catch((cause: unknown) => {
+            console.warn(`[service] ${name}: couldn't serve its changed stylesheets: ${message(cause)}`)
+          })
+        }
       }
     })
 
@@ -718,18 +737,60 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     project.session = session
-    project.info.guestUrl = session.guestUrl
 
-    if (!project.fingerprints.has(session.guestUrl)) {
-      project.fingerprints.set(session.guestUrl, servedCode(root, options))
+    const guestUrl =
+      project.restyled === undefined ? session.guestUrl : restyledGuest(session.guestUrl, project.restyled)
+
+    project.info.guestUrl = guestUrl
+
+    if (!project.fingerprints.has(guestUrl)) {
+      project.fingerprints.set(guestUrl, servedCode(root, options))
     }
 
     // It has its old port back unless something took it; then the open windows load the guest from the new one. That's
     // checked against where they draw it, so a move they couldn't load is tried again when it's started again.
-    const drawn = await followGuest(root, project.drawnGuestUrl, session.guestUrl, listeners.guestMoved)
+    const drawn = await followGuest(root, project.drawnGuestUrl, guestUrl, listeners.guestMoved)
 
     // Unless it was started again meanwhile, and what the windows were told is already out of date.
-    if (project.info.guestUrl === session.guestUrl) {
+    if (project.info.guestUrl === guestUrl) {
+      project.drawnGuestUrl = drawn
+    }
+  }
+
+  /**
+   * Serves the project's guest from a new address on the same builder once one of its stylesheets changed (PAR-821),
+   * and tells the windows, as when its builder moves: a guest loaded there imports the stylesheets afresh, so frames,
+   * bitmaps and tokens draw the CSS as it is now. Its styling framework's theme is read again for tabs opened later.
+   */
+  async function restyle(project: Project, stamp: number): Promise<void> {
+    const { root } = project.info
+    const guestUrl = restyledGuest(project.session.guestUrl, stamp)
+    const styles = await loadStyles(root, project.stylesheets, project.info.detection)
+
+    if (projects.get(root) !== project) {
+      return
+    }
+
+    logNote(`[service] ${project.info.name}'s stylesheets changed, so its guest loads from ${guestUrl}`)
+    project.info.theme = styles.theme
+
+    if (styles.info) {
+      project.info.styles = styles.info
+    }
+
+    project.restyled = stamp
+    project.info.guestUrl = guestUrl
+
+    const options = {
+      ...project.startOptions,
+      config: { ...project.startOptions.config, components: project.list.sources }
+    }
+
+    project.fingerprints.set(guestUrl, servedCode(root, options))
+    const drawn = await followGuest(root, project.drawnGuestUrl, guestUrl, listeners.guestMoved)
+
+    // Unless it moved again meanwhile, and what the windows were told is already out of date.
+    if (project.info.guestUrl === guestUrl) {
       project.drawnGuestUrl = drawn
     }
   }

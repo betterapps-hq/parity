@@ -172,6 +172,11 @@ export interface CodeChange {
   paths: string[]
   /** What they're stamped with, which goes up with each change. */
   stamp: number
+  /**
+   * One of the stylesheets the guest's compiled CSS is made from changed too, so the guest's CSS is new: loaded from a
+   * new address, it imports them afresh (PAR-821).
+   */
+  styles?: boolean
 }
 
 /** A module as a build loaded it: its exports by name, whatever the customer's package exports. */

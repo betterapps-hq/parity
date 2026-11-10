@@ -250,7 +250,8 @@ export function connectBuilderProcess(
         readings.get(id)?.(reading)
       } else if (reply.type === "codeChanged") {
         if (state === "running") {
-          onCodeChange?.({ paths: reply.paths, stamp: reply.stamp })
+          const { type: _, ...change } = reply
+          onCodeChange?.(change)
         }
       } else if (state !== "starting") {
         // A start that answers after it was told to close is closing anyway.

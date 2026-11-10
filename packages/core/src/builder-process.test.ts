@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test"
-import type { BuilderAdapter, BuilderStartOptions, RendererAdapter } from "./adapters.ts"
+import type { BuilderAdapter, BuilderStartOptions, CodeChange, RendererAdapter } from "./adapters.ts"
 import {
   type BuilderProcessClientOptions,
   type BuilderProcessReply,
@@ -139,7 +139,7 @@ describe("a builder in its own process", () => {
   })
 
   it("passes on the files whose code changed while the builder runs, and stops once it's closing", async () => {
-    let tell: (change: { paths: string[]; stamp: number }) => void = () => undefined
+    let tell: (change: CodeChange) => void = () => undefined
     const { builder } = fakeBuilder()
     const start = builder.start.bind(builder)
     builder.start = async (options) => ({
@@ -150,11 +150,13 @@ describe("a builder in its own process", () => {
         return () => undefined
       }
     })
-    const onCodeChange = vi.fn<(change: { paths: string[]; stamp: number }) => void>()
+    const onCodeChange = vi.fn<(change: CodeChange) => void>()
     const { client } = connect(builder, { onCodeChange })
     const session = await client.session
-    tell({ paths: ["src/button.tsx"], stamp: 7 })
-    await vi.waitFor(() => expect(onCodeChange).toHaveBeenCalledWith({ paths: ["src/button.tsx"], stamp: 7 }))
+    tell({ paths: ["src/button.tsx"], stamp: 7, styles: true })
+    await vi.waitFor(() =>
+      expect(onCodeChange).toHaveBeenCalledWith({ paths: ["src/button.tsx"], stamp: 7, styles: true })
+    )
     void session.close()
     tell({ paths: ["src/button.tsx"], stamp: 8 })
     await new Promise((resolve) => setTimeout(resolve, 10))
