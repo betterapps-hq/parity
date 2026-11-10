@@ -64,4 +64,18 @@ describe("TelemetrySetting", () => {
     expect(() => setting.setLevel("off")).toThrow("read-only")
     expect(setting.get().setting).toBe("all")
   })
+
+  it("keeps why a new install ID couldn't be saved, for main to record (PAR-811)", () => {
+    const setting = new TelemetrySetting({
+      env: {},
+      read: () => undefined,
+      save: () => {
+        throw Object.assign(new Error("EACCES: permission denied, open 'telemetry.json'"), { code: "EACCES" })
+      },
+      newId: () => first
+    })
+
+    expect(setting.unsaved).toEqual({ code: "EACCES", message: "EACCES: permission denied, open 'telemetry.json'" })
+    expect(setup(undefined).setting.unsaved).toBeUndefined()
+  })
 })
