@@ -28,9 +28,10 @@ import { type Area, columnTracks, placeChildren, trackWeights } from "./layout-c
 import { readLength } from "./typing.ts"
 
 /*
- * Grid placement, another take (PAR-186): the same draft as Size's grid rows (layout-controls.tsx), laid out around
- * what was learned building the other controls. The map is where it's placed: its lines numbered along its edges, the
- * child moved by dragging it, sized by dragging its edges, and drawn by dragging across cells. Under it, where it sits
+ * Grid placement (PAR-186): Size for a child of a grid, sharing the tracks and where the children sit with Layout
+ * (layout-controls.tsx). The map is where it's placed: its lines numbered along its edges, the child moved by dragging
+ * it, sized by dragging its edges, and drawn by dragging across cells. Auto and Manual say whether the grid places it
+ * or the cells chosen do. W and H show Fill and Hug as chips, with Sizing always at their end. Under it, where it sits
  * in its cell is a box of spots, as Layout's is, beside Start and Span for each axis, lined up as a table; a field
  * hovered or focused lights up its line or tracks in the map. Fill and the spots agree, as they do in CSS: a grid child
  * that fills its cell is one that stretches.

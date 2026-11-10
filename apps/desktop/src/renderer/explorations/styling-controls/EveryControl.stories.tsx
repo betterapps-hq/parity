@@ -12,7 +12,6 @@ import * as filters from "./FilterList.stories.tsx"
 import * as fontFamily from "./FontFamily.stories.tsx"
 import * as frameSize from "./FrameSize.stories.tsx"
 import * as gridPlacement from "./GridPlacement.stories.tsx"
-import * as gridPlacementAnotherTake from "./GridPlacementAnotherTake.stories.tsx"
 import * as gridTracks from "./GridTracks.stories.tsx"
 import * as keywords from "./KeywordSets.stories.tsx"
 import * as layerOrder from "./LayerOrder.stories.tsx"
@@ -59,8 +58,6 @@ interface Entry {
   Story: ComponentType & { id: string }
   /** Andrew has been through it and it's settled. */
   reviewed?: boolean
-  /** Another take on the control before it, to compare: numbered as it is, with a b. */
-  another?: boolean
 }
 
 const k = composeStories(keywords)
@@ -81,12 +78,7 @@ const groups: { name: string; entries: Entry[] }[] = [
       { name: "Frame size", Story: composeStories(frameSize).Desktop, reviewed: true },
       { name: "Layout direction and alignment", Story: composeStories(layout).HorizontalCentered, reviewed: true },
       { name: "Grid tracks", Story: composeStories(gridTracks).SizedTracks, reviewed: true },
-      { name: "Grid placement", Story: composeStories(gridPlacement).SpanAndStart },
-      {
-        name: "Grid placement, another take",
-        Story: composeStories(gridPlacementAnotherTake).SpanAndStart,
-        another: true
-      }
+      { name: "Grid placement", Story: composeStories(gridPlacement).SpanAndStart }
     ]
   },
   {
@@ -159,22 +151,11 @@ const groups: { name: string; entries: Entry[] }[] = [
   { name: "Code", entries: [{ name: "Raw CSS value", Story: composeStories(rawCss).Rows, reviewed: true }] }
 ]
 
-// The controls a group's entries count as, leaving out another take on one, which shares its number.
-const counted = (entries: Entry[]) => entries.filter((entry) => !entry.another).length
-
 // Numbered through in the panel's order, so a control keeps its number however the page is sorted.
 const numbered = groups.map((group, index) => {
-  const start = 1 + groups.slice(0, index).reduce((count, before) => count + counted(before.entries), 0)
+  const start = 1 + groups.slice(0, index).reduce((count, before) => count + before.entries.length, 0)
 
-  return {
-    ...group,
-    start,
-    entries: group.entries.map((entry, at) => {
-      const number = start + counted(group.entries.slice(0, at + 1)) - 1
-
-      return { ...entry, number: entry.another ? `${number}b` : String(number) }
-    })
-  }
+  return { ...group, start, entries: group.entries.map((entry, at) => ({ ...entry, number: start + at })) }
 })
 
 type Numbered = (typeof numbered)[number]

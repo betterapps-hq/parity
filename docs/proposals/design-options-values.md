@@ -429,18 +429,16 @@ Image's Position, Transform's Origin, a fill image's position.
 
 ## Grid placement
 
-- **At rest:** columns and rows spanned, or All, with start lines beside them; end lines and an area under More.
-- **Editing:** dragging a child's edge across the tracks on the canvas sets its span and start line, as Figma's grid
-  does.
+- **At rest:** a map of the grid numbers its lines along its edges, the child's own in the layer's color, with Auto and
+  Manual beside it. Under the map, where it sits in its cell is a box of spots beside Start and Span for columns and
+  rows, laid out as a table; Span takes All as a chip. End lines and an area are under More.
+- **Editing:** dragging the child moves it, dragging an edge moves that line, dragging across cells draws it, and a
+  click on a cell moves it there, keeping its span. A field hovered or focused lights up its line or tracks in the map.
+  A spot on an axis the child fills makes it hug, and Fill stretches it again, so the box, the map and W and H agree; W
+  and H show Fill and Hug as chips, with a Sizing menu at their end. On the canvas, dragging a child's edge across the
+  tracks sets its span and start line, as Figma's grid does.
 - **Writes:** `col-span-2`, `col-start-2`, `row-span-full`, `[grid-area:hero]`.
 - **Compared:** Figma has spans; Webflow adds lines and areas.
-- **Another take (Storybook, PAR-186):** the map numbers its lines along its edges, the child's own in the layer's
-  color; dragging the child moves it, dragging an edge moves that line, and a click on a cell moves it there, keeping
-  its span. Auto and Manual, beside the map, switch between the grid's next free cell and pinning it where it is. Where
-  it sits in its cell is a box of spots beside Start and Span, laid out as a table, and a field hovered or focused
-  lights up its line or tracks in the map. W and H show Fill and Hug as chips, with a Sizing menu always at their end
-  and only units in their unit menu. A spot on an axis the child fills makes it hug, and Fill stretches it again, so the
-  box, the map and W and H agree. Span takes All as a chip.
 
 ## Insets
 
