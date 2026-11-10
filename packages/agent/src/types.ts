@@ -385,6 +385,7 @@ export interface PlacedIn {
  * design it's for.
  */
 export interface PlacedReference {
+  /** Its id on the canvas. */
   id: string
   app: string
   platform?: "ios" | "web"
@@ -397,8 +398,10 @@ export interface PlacedReference {
   note?: string
   /** The agent that placed it. Unset when the person did. */
   by?: string
-  /** The design it was placed for, or else the one it sits nearest. Unset when the canvas has no designs. */
-  design?: { id: string; name: string }
+  /**
+   * The design it was placed for, or else the one it sits beside, with the file it's in. Unset when no design is near.
+   */
+  design?: { id: string; name: string; file: string }
 }
 
 /**

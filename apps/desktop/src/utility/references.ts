@@ -173,10 +173,14 @@ async function withPreview(options: FindOptions, found: Found): Promise<FoundIte
 
 /**
  * The pictures of the references on the canvas, fetched and saved as a search's previews are, for an agent to look at
- * (PAR-889). One that can't be fetched or saved is undefined.
+ * (PAR-889). One that can't be fetched or saved, or whose link isn't https, is undefined.
  */
 export async function savePictures(options: FindOptions, pictures: Picture[]): Promise<(SavedPicture | undefined)[]> {
-  const saved = await Promise.all(pictures.map((picture) => savePicture(options, picture)))
+  // The links come from the project's file, not from a source, so only the web's are fetched.
+  const saved = await Promise.all(
+    pictures.map(async (picture) => (picture.url.startsWith("https://") ? savePicture(options, picture) : undefined))
+  )
+
   await pruneOld(options.folder, Date.now() - previewAge)
 
   return saved

@@ -7079,11 +7079,16 @@ calls:
 
 - **A reference records the design it was found for,** by id, in the file it shares with that design. A row of
   references slides right past other designs in the way, so where one sits doesn't say which design it's for. One placed
-  with nothing selected, or whose design has gone, is read as for the design whose board edge is nearest. Moving a
-  reference by hand keeps what it recorded.
+  with nothing selected, before PAR-889, or whose design has gone, is read as for the design whose board edge is
+  nearest, within 1,600 pixels: a web reference's width and the gap before it. One further from every design is for
+  none, so a loose board of screens doesn't make an agent study them for some design. Moving a reference by hand keeps
+  what it recorded. Designs are told apart by file and id, since two files can hold the same id.
 - **`References(design?)` reads them in `execute`,** alongside `PlaceReference`, and `get_references`
   (`parity references placed`) gives the same list with each picture fetched and saved, as `find_references` previews
-  are, so MCP shows them as images. It's a subcommand of `parity references`, as `parity images remove` is of images.
+  are, so MCP shows them as images. Each picture is a whole screen, since Mobbin gives no smaller one, so only the first
+  6 are fetched unless `limit` says, up to 20, as `find_references` caps its own; the answer says how many more have
+  none. Only https links are fetched, since they come from the project's file rather than a source. It's a subcommand of
+  `parity references`, as `parity images remove` is of images, so a search can't start with "placed".
 - **`get_app_state` counts each design's references,** and leaves the count out when there are none, so an agent knows
   to look without the state growing for projects that don't use them.
 - **The skill tells agents to look at a design's references before changing it,** in "Look before you change".

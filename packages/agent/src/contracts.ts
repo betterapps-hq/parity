@@ -290,7 +290,8 @@ export const requests = {
   }),
   placedReferences: fields({
     tab,
-    design: text("design", "Design id or name, for only its references.").optional()
+    design: text("design", "Design id or name, for only its references.").optional(),
+    limit: limit("Most pictures; each is a whole screen.", 6, 20)
   }),
   images: fields({
     tab,
@@ -777,10 +778,6 @@ const imagesReply = z.looseObject({
 /** An image removed: its file, and the edit's label. */
 const removeImageReply = z.looseObject({ path: z.string(), label: z.string() })
 
-/**
- * Something a connector found (PAR-829): a screen from a real app, or a stock picture or video, the same shape from
- * every source, with its preview saved as a file for the agent to look at.
- */
 /** A picture saved for an agent to look at, as a file, with its bytes for MCP to show. */
 const preview = z.looseObject({
   path: z.string().describe("Where the preview was saved."),
@@ -788,6 +785,10 @@ const preview = z.looseObject({
   data: z.string().optional().describe("The preview as base64, which MCP shows and --json leaves out.")
 })
 
+/**
+ * Something a connector found (PAR-829): a screen from a real app, or a stock picture or video, the same shape from
+ * every source, with its preview saved as a file for the agent to look at.
+ */
 const foundItem = z.looseObject({
   id: z.string().describe("The source's id, which exclude takes."),
   connector: z.string().describe("The connector that found it, which connector and place take."),
@@ -842,7 +843,7 @@ const placeReply = z.looseObject({
  * picture saved for the agent to look at.
  */
 const placedReference = z.looseObject({
-  id: z.string(),
+  id: z.string().describe("Its id on the canvas, not the source's."),
   app: z.string(),
   platform: z.enum(["ios", "web"]).optional(),
   link: z.string().describe("Its page at the source."),
@@ -851,11 +852,18 @@ const placedReference = z.looseObject({
   query: z.string().optional().describe("The description that found it."),
   note: z.string().optional().describe("Why it's there."),
   by: z.string().optional().describe("The agent that placed it. Missing when the person did."),
-  design: ref.optional().describe("The design it's for. Missing when the canvas has no designs."),
+  design: z
+    .looseObject({ id: z.string(), name: z.string(), file: z.string() })
+    .optional()
+    .describe("The design it's for. Missing when it was placed for none and no design is near."),
   preview: preview.optional().describe("Missing when the picture couldn't be fetched.")
 })
 
-const placedReferencesReply = z.looseObject({ tab: ref, references: z.array(placedReference) })
+const placedReferencesReply = z.looseObject({
+  tab: ref,
+  references: z.array(placedReference),
+  withoutPictures: z.int().optional().describe("How many past limit have no picture. Name a design or raise limit.")
+})
 
 /**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,

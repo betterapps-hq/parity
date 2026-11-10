@@ -762,8 +762,45 @@ describe("References", () => {
         link: calm.link,
         picture: calm.image.url,
         platform: "web",
-        design: { id: "settings", name: "Settings" }
+        design: { id: "settings", name: "Settings", file: "app.par" }
       }
+    ])
+  })
+
+  it("tells apart designs with the same id in two files, falls back for a deleted one, and leaves a far one out", async () => {
+    const { host, tab } = referencesHost()
+    const signup = tab.documents[0]!.document.containers[0]!
+    const below = { x: 0, y: 5000 }
+
+    tab.documents.push({
+      path: "b.par",
+      document: {
+        version: 3,
+        containers: [{ ...structuredClone(signup), name: "Sign up again", position: below }],
+        references: [
+          onCanvas("other", 1560, { design: "signup", position: { x: 1560, y: 5000 } }),
+          onCanvas("orphan", 1560, { design: "deleted", position: { x: 1560, y: 6000 } }),
+          onCanvas("loose", 0, { position: { x: 40_000, y: 40_000 } })
+        ]
+      }
+    })
+
+    const code = "Print(References().map((each) => [each.id, each.design && `${each.design.file}#${each.design.id}`]))"
+    const answer = replies.exec.parse(await dispatch("exec", { label: "Read references", code }, host))
+    const state = replies.state.parse(await dispatch("state", {}, host))
+
+    expect(JSON.parse(answer.output?.[0] ?? "")).toEqual([
+      ["dragged", "app.par#signup"],
+      ["unplaced", "app.par#settings"],
+      ["expired", "app.par#signup"],
+      ["other", "b.par#signup"],
+      ["orphan", "b.par#signup"],
+      ["loose", null]
+    ])
+    expect(state.designs.map(({ file, id, references }) => [file, id, references])).toEqual([
+      ["app.par", "signup", 2],
+      ["app.par", "settings", 1],
+      ["b.par", "signup", 2]
     ])
   })
 
@@ -776,7 +813,7 @@ describe("References", () => {
     expect(answer).toMatchObject({ ok: true, output: ["1"] })
   })
 
-  it("answers get_references with each picture saved to look at, not asking for one that has expired", async () => {
+  it("answers get_references with each picture saved to look at, not asking for an expired one or past limit", async () => {
     const { host: fixture } = referencesHost()
     const asked: string[] = []
 
@@ -791,11 +828,19 @@ describe("References", () => {
 
     const answer = replies.placedReferences.parse(await dispatch("placedReferences", { design: "signup" }, host))
 
-    expect(asked).toEqual(["dragged"])
+    const all = replies.placedReferences.parse(await dispatch("placedReferences", { limit: 1 }, host))
+
+    expect(asked).toEqual(["dragged", "dragged"])
     expect(answer.references.map(({ id, preview, expired }) => ({ id, preview: preview?.path, expired }))).toEqual([
       { id: "dragged", preview: "D:/references/calm.png", expired: undefined },
       { id: "expired", preview: undefined, expired: true }
     ])
+    expect(all.references.map(({ id, preview }) => [id, preview?.path])).toEqual([
+      ["dragged", "D:/references/calm.png"],
+      ["unplaced", undefined],
+      ["expired", undefined]
+    ])
+    expect(all.withoutPictures).toBe(1)
   })
 
   it("counts each design's references in get_app_state", async () => {

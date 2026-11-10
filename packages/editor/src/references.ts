@@ -145,10 +145,10 @@ export function referenceRow(
 }
 
 /**
- * The box nearest a reference, by the gap between their edges, as the design a reference without one recorded is for.
- * The first wins a tie.
+ * The box nearest a reference, by the gap between their edges, as the design a reference without one recorded is for:
+ * none when every box is more than `within` away. The first wins a tie.
  */
-export function nearestBox<T extends Bounds>(reference: Bounds, boxes: readonly T[]): T | undefined {
+export function nearestBox<T extends Bounds>(reference: Bounds, boxes: readonly T[], within = Infinity): T | undefined {
   let nearest: T | undefined
   let shortest = Infinity
 
@@ -163,7 +163,7 @@ export function nearestBox<T extends Bounds>(reference: Bounds, boxes: readonly 
     }
   }
 
-  return nearest
+  return shortest <= within ? nearest : undefined
 }
 
 /** A screen a search found, as a connector gives it, with what a reference keeps of it. */

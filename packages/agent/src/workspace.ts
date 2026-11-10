@@ -249,7 +249,7 @@ export class AgentWorkspace {
   private readonly touched = new Set<string>()
   /** References this call placed, in order. */
   private readonly references: ReferenceAdded[] = []
-  /** The reference this call placed last beside each design, by the design's id, which the next one goes after. */
+  /** The reference this call placed last beside each design, by the design's key, which the next one goes after. */
   private readonly lastReference = new Map<string, Bounds>()
 
   private readonly snapshot: AgentSnapshot
@@ -1611,10 +1611,11 @@ export class AgentWorkspace {
     const { path, container } = this.findDesign(near)
     const document = this.documents.get(path)!
     const all = [...this.documents.values()].flatMap((each) => each.references ?? [])
-    const previous = this.lastReference.get(container.id)
+    const designKey = key(path, container.id)
+    const previous = this.lastReference.get(designKey)
 
     const boxes = this.boards().map(boardBox)
-    const beside = boxes.find((box) => box.id === container.id)
+    const beside = boxes.find((box) => box.key === designKey)
     let anchor: ReferenceAnchor = beside ? { beside } : { around: container.position }
 
     if (previous) {
@@ -1629,24 +1630,32 @@ export class AgentWorkspace {
 
     this.documents.set(path, { ...document, references: [...(document.references ?? []), reference] })
     this.references.push({ path, reference })
-    this.lastReference.set(container.id, referenceBounds(reference))
+    this.lastReference.set(designKey, referenceBounds(reference))
 
     return reference.id
   }
 
   /**
    * The references on the canvas (PAR-889), each with the design it's for: the one it was placed for while that design
-   * is still there, or else the one it sits nearest. Only one design's when `reference` names it.
+   * is still there, or else the one it sits beside, within `nearbyGap` of its board. Only one design's when `reference`
+   * names it.
    */
   private listReferences(reference?: string): PlacedReference[] {
-    const boxes = this.boards().map(boardBox)
     const only = reference === undefined ? undefined : this.findDesign(reference)
+    const documents = [...this.documents].filter(([, document]) => (document.references ?? []).length > 0)
+
+    // Most projects have none, and get_app_state asks on every call, so the boards aren't worked out for nothing.
+    if (documents.length === 0) {
+      return []
+    }
+
+    const boxes = this.boards().map(boardBox)
     const now = Date.now()
 
-    return [...this.documents].flatMap(([path, document]) =>
+    return documents.flatMap(([path, document]) =>
       (document.references ?? []).flatMap((each) => {
         const placedFor = each.design && boxes.find((box) => box.key === key(path, each.design!))
-        const design = placedFor || nearestBox(referenceBounds(each), boxes)
+        const design = placedFor || nearestBox(referenceBounds(each), boxes, nearbyGap)
 
         if (only && design?.key !== key(only.path, only.container.id)) {
           return []
@@ -1983,10 +1992,18 @@ type Visit = (node: DesignNode, context: VisitContext) => unknown
 // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the snippet runs in its own vm context, whose functions aren't instances of this one's `Function`
 const visitFunction = z.custom<Visit>((value) => typeof value === "function")
 
-/** A board's box on the canvas, with its key, id and name. */
-function boardBox(board: Board): Bounds & Pick<Board, "key" | "id" | "name"> {
+/**
+ * How far from a design's board, in canvas pixels, a reference that doesn't say which design it's for can sit and still
+ * be read as for it: a web reference's width and the gap before it, so the first of a row placed beside a design counts.
+ */
+const nearbyGap = 1600
+
+/** A board's box on the canvas, with its key, the file it's in, its id and name. */
+function boardBox(board: Board): Bounds & Pick<Board, "key" | "id" | "name"> & { file: string } {
   return {
     key: board.key,
+    // A key is the file and the id, joined by `#`.
+    file: board.key.slice(0, board.key.length - board.id.length - 1),
     id: board.id,
     name: board.name,
     minX: board.x,
@@ -1999,7 +2016,7 @@ function boardBox(board: Board): Bounds & Pick<Board, "key" | "id" | "name"> {
 /** A reference as an agent reads it, for `design`, with what's unset left out. */
 function placedReference(
   reference: ReferenceSpec,
-  design: Pick<Board, "id" | "name"> | undefined,
+  design: { id: string; name: string; file: string } | undefined,
   now: number
 ): PlacedReference {
   const placed: PlacedReference = {
@@ -2026,7 +2043,7 @@ function placedReference(
   }
 
   if (design) {
-    placed.design = { id: design.id, name: design.name }
+    placed.design = { id: design.id, name: design.name, file: design.file }
   }
 
   return placed

@@ -182,7 +182,7 @@ const onCanvas: PlacedReferencesResponse = {
       query: "pricing page",
       note: "Yearly is picked by default",
       by: "Claude",
-      design: { id: "pricing", name: "Pricing" },
+      design: { id: "pricing", name: "Pricing", file: "app.par" },
       preview: { path: "/references/calm-r1.png", mimeType: "image/png" }
     },
     {
@@ -191,7 +191,7 @@ const onCanvas: PlacedReferencesResponse = {
       link: "https://mobbin.com/screens/2",
       picture: "https://images.mobbin.com/ledgerly.png",
       expired: true,
-      design: { id: "pricing", name: "Pricing" }
+      design: { id: "pricing", name: "Pricing", file: "app.par" }
     }
   ]
 }
@@ -411,7 +411,7 @@ const cases: Case[] = [
     tool: "get_references",
     method: "placedReferences",
     input: { design: "pricing" },
-    params: { design: "pricing" },
+    params: { design: "pricing", limit: 6 },
     result: onCanvas,
     structured: onCanvas,
     text: describePlacedReferences(onCanvas)
@@ -1178,12 +1178,15 @@ describe("remaining transport contracts", processTests, () => {
       "   picture /references/calm-r1.png",
       "2. Ledgerly https://mobbin.com/screens/2",
       "   for Pricing, placed by the person",
-      "   picture expired: open the link",
+      "   picture expired",
       "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding."
     ])
-    expect(describePlacedReferences({ ...onCanvas, references: [] })).toBe(
-      "No references are on the canvas. Search with find_references, then place screens with PlaceReference."
-    )
+    expect(describePlacedReferences({ ...onCanvas, references: [] })).toBe("No references to show.")
+    expect(
+      describePlacedReferences({ ...onCanvas, withoutPictures: 3 })
+        .split("\n")
+        .at(-2)
+    ).toBe("3 more without pictures: name a design or raise limit to see them.")
   })
 
   it("lists each stock result found with its author, and how many searches are left", () => {

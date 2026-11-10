@@ -252,18 +252,26 @@ const methods: MethodTable = {
   async placedReferences(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
     const placed = readOnly(snapshot).References(params.design)
-    // A picture whose link has stopped working isn't asked for.
+    // A picture whose link has stopped working isn't asked for, and only the first `limit` are: each is a whole screen.
     const fresh = placed.filter((reference) => !reference.expired)
-    const saved = await host.pictures(fresh.map(({ app, id, picture }) => ({ title: app, id, url: picture })))
-    const previews = new Map(fresh.map((reference, index) => [reference.id, saved[index]]))
+    const asked = fresh.slice(0, params.limit)
+    const saved = await host.pictures(asked.map(({ app, id, picture }) => ({ title: app, id, url: picture })))
+    // Paired by position, since nothing stops two files' references sharing an id.
+    const previews = new Map(asked.map((reference, index) => [reference, saved[index]]))
 
     const references = placed.map((reference) => {
-      const preview = previews.get(reference.id)
+      const preview = previews.get(reference)
 
       return preview ? { ...reference, preview } : reference
     })
 
-    return { tab: tabRef(snapshot), references }
+    const answer: Answer<"placedReferences"> = { tab: tabRef(snapshot), references }
+
+    if (fresh.length > asked.length) {
+      answer.withoutPictures = fresh.length - asked.length
+    }
+
+    return answer
   },
   images: async (params, { host }) => {
     const { images } = await imagesOf(host, params.tab)
@@ -440,11 +448,13 @@ function state(snapshot: TabSnapshot): Answer<"state"> {
   const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
   const api = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state").api()
   const semantic = snapshot.tokens.filter((token) => token.source === "semantic")
+  // By file and id, since two files can hold designs with the same id.
   const references = new Map<string, number>()
 
   for (const { design } of api.References()) {
     if (design) {
-      references.set(design.id, (references.get(design.id) ?? 0) + 1)
+      const where = `${design.file}#${design.id}`
+      references.set(where, (references.get(where) ?? 0) + 1)
     }
   }
 
@@ -455,7 +465,7 @@ function state(snapshot: TabSnapshot): Answer<"state"> {
     selection: api.Selection(),
     // Each design says how many references are for it, for the agent to look at before changing it (PAR-889).
     designs: api.Designs().map((design) => {
-      const count = references.get(design.id)
+      const count = references.get(`${design.file}#${design.id}`)
 
       return count ? { ...design, references: count } : design
     }),

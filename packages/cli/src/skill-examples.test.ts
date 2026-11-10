@@ -1,5 +1,11 @@
 import { type AgentHooks, type AgentSnapshot, execute } from "@parity-app/agent"
-import { type ComponentSource, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity-app/core"
+import {
+  type ComponentSource,
+  type ContainerSpec,
+  defaultModeSettings,
+  type DesignNode,
+  type ReferenceSpec
+} from "@parity-app/core"
 import { effectiveFixture } from "@parity-app/core/fixtures"
 import { describe, expect, it } from "vite-plus/test"
 import { readSkill, skillFiles } from "./skills.ts"
@@ -140,7 +146,7 @@ function project(tab: string): AgentSnapshot {
     ],
     theme: [],
     modes: defaultModeSettings,
-    documents: [{ path: "app.par", document: { version: 3, containers: structuredClone(designs) } }],
+    documents: [{ path: "app.par", document: { version: 3, containers: structuredClone(designs), references } }],
     libraryDesigns: [],
     tokenOverrides: [],
     mainDocument: "app.par",
@@ -149,6 +155,23 @@ function project(tab: string): AgentSnapshot {
     bounds: {}
   }
 }
+
+/** A screen placed beside Dashboard as a reference, with a note, for `References` to read. */
+const references: ReferenceSpec[] = [
+  {
+    id: "stats-reference",
+    connector: "mobbin",
+    sourceId: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+    app: "Ledgerly",
+    platform: "web",
+    link: "https://mobbin.com/screens/1b9d6bcd",
+    image: { url: "https://images.example/ledgerly.png", width: 768, height: 480 },
+    position: { x: 1500, y: 2000 },
+    note: "Revenue and users sit first, each with the change since last week.",
+    by: "Claude",
+    design: "dashboard"
+  }
+]
 
 const hooks: AgentHooks = {
   presence: () => undefined,

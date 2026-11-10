@@ -215,12 +215,13 @@ describe("searchReferences", () => {
 })
 
 describe("savePictures", () => {
-  it("saves each reference's picture for the agent, by its app and id, and skips one that can't be fetched", async () => {
+  it("saves each reference's picture for the agent, by its app and id, skipping one that can't be fetched or isn't https", async () => {
     const { options: given } = options({ found: [] }, { [calm.image.url]: { type: "image/webp", bytes: webp } })
 
     const saved = await savePictures(given, [
       { title: "Calm", id: "r1", url: calm.image.url },
-      { title: "Ledgerly", id: "r2", url: "https://images.mobbin.com/gone.png" }
+      { title: "Ledgerly", id: "r2", url: "https://images.mobbin.com/gone.png" },
+      { title: "Router", id: "r3", url: "http://192.168.1.1/admin.png" }
     ])
 
     expect(saved).toEqual([
@@ -229,6 +230,7 @@ describe("savePictures", () => {
         mimeType: "image/webp",
         data: webp.toString("base64")
       },
+      undefined,
       undefined
     ])
     expect(readFileSync(saved[0]!.path)).toEqual(webp)

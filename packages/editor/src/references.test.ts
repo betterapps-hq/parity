@@ -198,4 +198,11 @@ describe("the design a reference is for, when none was recorded", () => {
     expect(nearestBox(reference, [pricing, checkout])?.name).toBe("Checkout")
     expect(nearestBox(reference, [])).toBeUndefined()
   })
+
+  it("is nothing when every design is further than the distance given", () => {
+    const reference = { minX: 1440, minY: 0, maxX: 2720, maxY: 800 }
+
+    expect(nearestBox(reference, [pricing], 160)?.name).toBe("Pricing")
+    expect(nearestBox(reference, [pricing], 159)).toBeUndefined()
+  })
 })

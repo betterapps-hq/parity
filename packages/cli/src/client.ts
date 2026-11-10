@@ -1000,7 +1000,7 @@ export function describeReferences(result: FindResponse): string {
  */
 export function describePlacedReferences(result: PlacedReferencesResponse): string {
   if (result.references.length === 0) {
-    return "No references are on the canvas. Search with find_references, then place screens with PlaceReference."
+    return "No references to show."
   }
 
   const count = result.references.length === 1 ? "1 reference" : `${result.references.length} references`
@@ -1010,10 +1010,10 @@ export function describePlacedReferences(result: PlacedReferencesResponse): stri
     const placed = [each.design ? `for ${each.design.name}` : "", `placed by ${each.by ?? "the person"}`]
     const note = each.note ? `: ${each.note}` : ""
     const found = each.query ? [`found with "${each.query}"`] : []
-    let picture = each.preview ? `picture ${each.preview.path}` : "no picture: open the link"
+    let picture = each.preview ? `picture ${each.preview.path}` : "no picture"
 
     if (each.expired) {
-      picture = "picture expired: open the link"
+      picture = "picture expired"
     }
 
     const details = [`${placed.filter(Boolean).join(", ")}${note}`, ...found, picture]
@@ -1021,9 +1021,13 @@ export function describePlacedReferences(result: PlacedReferencesResponse): stri
     return [`${index + 1}. ${each.app}${platform} ${each.link}`, ...details.map((line) => `   ${line}`)].join("\n")
   })
 
+  const without = result.withoutPictures
+  const left = without ? [`${without} more without pictures: name a design or raise limit to see them.`] : []
+
   return [
     `${count} on ${result.tab.name}'s canvas:`,
     ...lines,
+    ...left,
     "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding."
   ].join("\n")
 }
