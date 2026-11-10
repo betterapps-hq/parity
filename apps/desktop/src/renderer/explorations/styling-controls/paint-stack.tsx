@@ -504,6 +504,8 @@ export function GradientEditor({
   // A token is written as its own class, so only the fill's own stops can be too long for from, via and to.
   const long = paint.token === undefined && !simpleGradient(resolved)
   const center = resolved.center ?? [50, 50]
+  // A gradient needs two stops, so − shows only on a third, rather than sitting there disabled.
+  const removable = resolved.stops.length > 2
 
   return (
     <div className="flex flex-col gap-2 p-2">
@@ -663,7 +665,7 @@ export function GradientEditor({
           <div
             key={stop.id}
             onFocusCapture={() => setSelected(stop.id)}
-            className={`grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-start gap-x-1 rounded-md ${selected === stop.id ? "bg-accent/50" : ""}`}
+            className={`grid ${removable ? "grid-cols-[3.5rem_minmax(0,1fr)_auto]" : "grid-cols-[3.5rem_minmax(0,1fr)]"} items-start gap-x-1 rounded-md ${selected === stop.id ? "bg-accent/50" : ""}`}
           >
             <PercentField
               label={`Stop ${index + 1} position`}
@@ -692,18 +694,19 @@ export function GradientEditor({
                 }
               />
             </div>
-            <Hint label={resolved.stops.length > 2 ? "Remove stop" : "A gradient needs two stops"}>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="col-start-3 row-start-1 size-7"
-                aria-label={`Remove stop ${index + 1}`}
-                disabled={resolved.stops.length <= 2}
-                onClick={() => setStops(resolved.stops.filter((other) => other.id !== stop.id))}
-              >
-                <Minus />
-              </Button>
-            </Hint>
+            {removable && (
+              <Hint label="Remove stop">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="col-start-3 row-start-1 size-7"
+                  aria-label={`Remove stop ${index + 1}`}
+                  onClick={() => setStops(resolved.stops.filter((other) => other.id !== stop.id))}
+                >
+                  <Minus />
+                </Button>
+              </Hint>
+            )}
           </div>
         ))}
       </div>

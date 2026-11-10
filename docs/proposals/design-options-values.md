@@ -158,16 +158,18 @@ Fill's list of solids, gradients and images.
   color popover. Linear, Radial and Angular name their kind in a menu at the top, which switches between the three
   keeping the stops, and have a bar of stops (click to add, drag off to remove, each a color and a position) and handles
   on the canvas. Under the bar, Stops lists each stop as a row, as Figma's gradient editor does: a position field in %,
-  the color field (a token chip or a value, with its alpha), and −, with + to add a stop. Clicking a row selects that
-  stop on the bar and on the canvas. Keys and scrubbing are as in every field. CSS's gradient line spans the box at its
-  angle, so dragging the line's ends sets the angle and moves the first and last stops. Radial's handles set the
-  ellipse's two radii and center (`radial-gradient(ellipse 40% 60% at 30% 20%, …)`), as Figma's do; Angular's set a
-  center and start angle, and its hint names `conic-gradient`. An Angle field, which Figma lacks, sits beside the line,
-  with Flip and Rotate 90° as in Figma. Delete removes the selected stop, and Left and Right move it 1%, Shift 10%. Two
-  stops at one position make a hard edge; a midpoint dragged between two stops writes a color hint (`red, 30%, blue`),
-  which Figma lacks. Repeat writes `repeating-*-gradient`. Interpolation is `in oklab`, as Tailwind v4's, with
-  `in oklch` and sRGB in its menu. Image takes the project's images (`public/images/`) or one dropped or pasted, copied
-  there, with Fill, Fit, Crop and Tile (`background-size` and `background-repeat`) and a nine-spot position.
+  the color field (a token chip or a value, with its alpha), and − once there are more than the two a gradient needs,
+  with
+  - to add a stop. Clicking a row selects that stop on the bar and on the canvas. Keys and scrubbing are as in every
+    field. CSS's gradient line spans the box at its angle, so dragging the line's ends sets the angle and moves the
+    first and last stops. Radial's handles set the ellipse's two radii and center
+    (`radial-gradient(ellipse 40% 60% at 30% 20%, …)`), as Figma's do; Angular's set a center and start angle, and its
+    hint names `conic-gradient`. An Angle field, which Figma lacks, sits beside the line, with Flip and Rotate 90° as in
+    Figma. Delete removes the selected stop, and Left and Right move it 1%, Shift 10%. Two stops at one position make a
+    hard edge; a midpoint dragged between two stops writes a color hint (`red, 30%, blue`), which Figma lacks. Repeat
+    writes `repeating-*-gradient`. Interpolation is `in oklab`, as Tailwind v4's, with `in oklch` and sRGB in its menu.
+    Image takes the project's images (`public/images/`) or one dropped or pasted, copied there, with Fill, Fit, Crop and
+    Tile (`background-size` and `background-repeat`) and a nine-spot position.
 - **Tokens:** color and gradient. A gradient token is one fill's paint; editing its stops offers Detach.
 - **Writes:** the bottom solid as `background-color`; the rest as `background-image` layers, a solid above the bottom as
   `linear-gradient(c, c)`. A simple gradient is utilities (`bg-linear-to-r from-blue-500 to-teal-400`), a longer one is
