@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 03:58:48 GMT",
+      "version": "0.31.1",
+      "tag": "@parity-app/cli_v0.31.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f96199fdd7b2fd57dc1a9dda6d868bad3cf8fc03",
+            "comment": "Record why a new install ID couldn't be saved, as telemetry.saveFailed"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4a16fd40771293f4ce2c1d4be7a2f2a4c85302e9",
+            "comment": "parity mcp writes its telemetry when its client stops it or closes stdin, rather than losing the last 10 seconds"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 13:05:07 GMT",
       "version": "0.31.0",
       "tag": "@parity-app/cli_v0.31.0",
