@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 10 Nov 2026 05:43:16 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 07:08:11 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.47.2
+
+Tue, 10 Nov 2026 07:08:11 GMT
+
+### Patches
+
+- Link each published version's Sentry release to the commits since the previous version (ajcraswell@gmail.com)
 
 ## 0.47.1
 
