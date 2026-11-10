@@ -24,23 +24,21 @@ import {
   AlignStartHorizontal,
   AlignStartVertical,
   ArrowDown,
-  ArrowLeft,
   ArrowDownUp,
   ArrowRight,
   ArrowRightLeft,
-  ArrowUp,
-  Copy,
+  Columns3,
   CornerDownLeft,
   Ellipsis,
+  GripVertical,
   LayoutGrid,
+  Minus,
   Plus,
-  Repeat,
+  Rows3,
   StretchHorizontal,
-  StretchVertical,
-  X
+  StretchVertical
 } from "lucide-react"
 import {
-  Fragment,
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
@@ -53,15 +51,16 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { withVariables } from "../parts.tsx"
 import { Num, type SectionProps, SizeField, useMeasured } from "./controls.tsx"
 import { clamp, formatNumber, remPx } from "./css-values.ts"
-import { type Columns, type Draft, type SelfAlign, type Span, type Track, trackLabel } from "./data.ts"
+import { type Columns, type Draft, type SelfAlign, type Span, type Track } from "./data.ts"
 import { drag, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
-import { Field } from "./field-row.tsx"
+import { EachToggle, Field } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
+import { moved } from "./list-parts.tsx"
 import { type Side, sideNumber, sideRules } from "./sides-writes.ts"
 import { SideField } from "./sides.tsx"
+import { useSortable } from "./sortable.ts"
 import type { LengthToken } from "./tokens.ts"
 
 /*
@@ -365,8 +364,8 @@ export function LayoutSection({ draft, set }: SectionProps) {
         </div>
         {grid && (
           <>
-            <ColumnsField draft={draft} set={set} />
-            <RowsField draft={draft} set={set} />
+            <TracksField one="column" draft={draft} set={set} />
+            <TracksField one="row" draft={draft} set={set} />
           </>
         )}
       </div>
@@ -1052,125 +1051,530 @@ export function trackWeights(tracks: Track[], room = contentWidth): number[] {
   })
 }
 
+const hug: Track = { kind: "auto" }
+
+/** Whether every track is the same size, so they're one count and one size: `grid-cols-3`. */
+const sameTracks = (tracks: readonly Track[]) =>
+  tracks.every((track) => JSON.stringify(track) === JSON.stringify(tracks[0]))
+
+/** How many rows Plans' children fill, as the browser adds them while Rows is Auto. */
+function childRows(draft: Draft, spacing: readonly LengthToken[]) {
+  const children = placeChildren(draft, Math.max(1, columnTracks(draft, spacing).length))
+
+  return Math.max(1, ...children.map((child) => child.area.row + child.area.rows))
+}
+
+/** The most tracks a count takes, past which a grid is better built another way. */
+const mostTracks = 24
+
 /**
- * Columns: a strip drawn to the tracks' sizes, each a button that opens its size, with Add a column after it; the
- * grid picker and Repeat to fit at the name's end. Repeat to fit makes as many columns as fit, each at least a width.
+ * A grid's columns or rows. While every track is the same size, they're a count and a size side by side, as
+ * `grid-cols-3` writes them: the count takes Fit for columns (as many as fit, each at least a width, CSS's auto-fit)
+ * and Auto for rows (as many as children need), each a chip. Each column (or Each row), the toggle at the name's end,
+ * as padding's Each side is, lists the tracks, one row each: a grip to reorder it, its number and its size, and − to
+ * remove it, with Add at the name's end. Hovering or focusing a track's row highlights it on the canvas. The grid
+ * picker at the end of Columns sets both counts at once, as Figma's does.
  */
-function ColumnsField({ draft, set }: Pick<SectionProps, "draft" | "set">) {
+function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<SectionProps, "draft" | "set">) {
   const spacing = useTokenSets().spacing
-  const columns = draft.columns!
-  const fit = !Array.isArray(columns)
-  const tracks = Array.isArray(columns) ? columns : []
-  const rows = draft.rows ?? []
+  const columns = one === "column"
+  const fit = columns && draft.columns !== undefined && !Array.isArray(draft.columns)
+  let tracks: Track[] = draft.rows ?? []
 
-  const fitToggle = (
-    <Hint
-      label="Repeat to fit"
-      detail="As many columns as fit the width, each at least a minimum, so the grid reflows on smaller screens"
-    >
-      <Toggle
-        size="sm"
-        className="size-5 min-w-5 shrink-0 p-0 text-muted-foreground"
-        aria-label="Repeat to fit"
-        pressed={fit}
-        onPressedChange={(on) => set({ columns: on ? { fit: 160 } : [fr(1), fr(1), fr(1)] })}
-      >
-        <Repeat className="size-3" />
-      </Toggle>
-    </Hint>
-  )
+  if (columns) {
+    tracks = Array.isArray(draft.columns) ? draft.columns : []
+  }
 
-  const count = fit ? `${fitCount(columns.fit, gapPx(draft.gap, spacing))} fit` : String(tracks.length)
+  // Rows unset are Auto: the browser adds them as children need them.
+  const auto = !columns && tracks.length === 0
+  const uniform = sameTracks(tracks)
+  const [each, setEach] = useState(!uniform)
+  const listed = each && !fit && !auto
+  const title = columns ? "Column" : "Row"
+  const setTracks = (next: Track[]) => set(columns ? { columns: next } : { rows: next, autoRows: undefined })
+  const fitLeast = fit && !Array.isArray(draft.columns) ? draft.columns!.fit : 160
+  const made = columns ? fitCount(fitLeast, gapPx(draft.gap, spacing)) : childRows(draft, spacing)
+  const widths = trackWeights(tracks, columns ? contentWidth : 240)
 
-  return (
-    <Field
-      label={`Columns ${count}`}
-      hint={fit ? "As many as fit, each at least this wide" : "Click a column to size it"}
-      action={
-        <>
-          {!fit && (
-            <GridPicker
-              columns={tracks.length}
-              rows={rows.length}
-              onPick={(across, down) =>
-                set({
-                  columns: resize(tracks, across),
-                  rows: down === 0 ? [] : resize(rows, down)
-                })
-              }
-            />
-          )}
-          {fitToggle}
-        </>
-      }
-    >
-      {fit ? (
-        <div className="flex flex-col gap-1">
-          <TrackStrip one="column" tracks={columnTracks(draft, spacing)} fitted />
-          <Num
-            label="Least column width"
-            inner="Min"
-            pixels
-            value={columns.fit}
-            min={1}
-            onChange={(least) => set({ columns: { fit: least ?? 160 } })}
-          />
-        </div>
-      ) : (
-        <TrackStrip
-          one="column"
-          tracks={tracks}
-          onChange={(next) => set({ columns: next.length === 0 ? [fr(1)] : next })}
+  // Leaves Fit or Auto for the count it makes, as tracks of their own.
+  const toCount = (count: number) => {
+    if (fit) {
+      set({ columns: Array.from({ length: count }, () => fr(1)) })
+    } else if (auto) {
+      set({ rows: Array.from({ length: count }, () => draft.autoRows ?? hug), autoRows: undefined })
+    } else {
+      setTracks(resize(tracks, count))
+    }
+  }
+
+  // Fit keeps a fixed width as its least; Auto keeps the rows' size for the rows it makes.
+  const toWord = () => {
+    if (columns) {
+      const least = uniform && tracks[0]?.kind === "px" ? tracks[0].value : 160
+      set({ columns: { fit: least } })
+    } else {
+      set({ rows: [], autoRows: uniform && tracks[0] && tracks[0].kind !== "auto" ? tracks[0] : undefined })
+    }
+  }
+
+  const toggleEach = () => {
+    if (!listed && (fit || auto)) {
+      toCount(made)
+    }
+
+    setEach(!listed)
+  }
+
+  const action = (
+    <>
+      {columns && !fit && (
+        <GridPicker
+          columns={tracks.length}
+          rows={draft.rows?.length ?? 0}
+          onPick={(across, down) => set({ columns: resize(tracks, across), rows: resize(draft.rows ?? [], down) })}
         />
       )}
-    </Field>
+      <EachToggle label={`Each ${one}`} parts={columns ? "columns" : "rows"} pressed={listed} onClick={toggleEach} />
+      {listed && (
+        <Hint label={`Add a ${one}`}>
+          <button
+            type="button"
+            aria-label={`Add a ${one}`}
+            onClick={() => setTracks(resize(tracks, tracks.length + 1))}
+            className={headerButton}
+          >
+            <Plus className="size-3" />
+          </button>
+        </Hint>
+      )}
+    </>
   )
-}
 
-/** Rows: unset, they're added as children need them (Auto); once one's set, a strip as Columns has. */
-function RowsField({ draft, set }: Pick<SectionProps, "draft" | "set">) {
-  const rows = draft.rows ?? []
+  if (listed) {
+    return (
+      <Field label={columns ? "Columns" : "Rows"} action={action}>
+        <div className="flex flex-col gap-1">
+          {tracks.map((track, index) => (
+            <TrackRow
+              // A track has no identity but its place, which is what its row names.
+              key={index}
+              one={one}
+              index={index}
+              track={track}
+              width={widths[index]!}
+              movable={tracks.length > 1}
+              // A grid keeps one column, at least; the last row gone leaves them Auto.
+              removable={!columns || tracks.length > 1}
+              onChange={(next) => setTracks(tracks.map((other, at) => (at === index ? next : other)))}
+              onMove={(from, to) => setTracks(moved(tracks, from, to))}
+              onRemove={() => setTracks(tracks.filter((_, at) => at !== index))}
+            />
+          ))}
+        </div>
+      </Field>
+    )
+  }
+
+  let size: ReactNode
+
+  if (fit) {
+    size = (
+      <Num
+        label="Least column width"
+        inner="≥"
+        pixels
+        value={fitLeast}
+        min={1}
+        onChange={(least) => set({ columns: { fit: least ?? 160 } })}
+      />
+    )
+  } else if (auto) {
+    size = (
+      <TrackSizeField
+        label="Row size"
+        inner={<Rows3 className="size-3" />}
+        track={draft.autoRows ?? hug}
+        width={contentTrack}
+        onChange={(next) => set({ autoRows: next.kind === "auto" ? undefined : next })}
+      />
+    )
+  } else {
+    size = (
+      <TrackSizeField
+        label={`${title} size`}
+        inner={columns ? <Columns3 className="size-3" /> : <Rows3 className="size-3" />}
+        track={uniform ? tracks[0] : undefined}
+        width={widths[0] ?? contentTrack}
+        onChange={(next) => setTracks(tracks.map(() => next))}
+      />
+    )
+  }
 
   return (
-    <Field
-      label={rows.length === 0 ? "Rows Auto" : `Rows ${rows.length}`}
-      hint={
-        rows.length === 0
-          ? "Rows are added as children need them, each as tall as its content"
-          : "Click a row to size it"
-      }
-    >
-      {rows.length === 0 ? (
-        <div className="flex items-center gap-1">
-          <span className="flex h-7 min-w-0 flex-1 items-center rounded-md border border-dashed px-2 text-xs text-muted-foreground">
-            As many as children need
-          </span>
-          <AddTrack one="row" onAdd={() => set({ rows: [{ kind: "auto" }] })} />
+    <Field label={columns ? "Columns" : "Rows"} action={action}>
+      {/* Each field in its own cell, so what one says goes under it, not into the other's place. */}
+      <div className="grid grid-cols-2 items-start gap-1.5">
+        <div className="min-w-0">
+          <TrackCount
+            one={one}
+            count={fit || auto ? made : tracks.length}
+            word={fit || auto}
+            onCount={toCount}
+            onWord={toWord}
+          />
         </div>
-      ) : (
-        <TrackStrip one="row" tracks={rows} onChange={(next) => set({ rows: next })} />
-      )}
+        <div className="min-w-0">{size}</div>
+      </div>
     </Field>
   )
 }
 
-/** A list of `count` tracks: the ones there are, with Fill tracks added or the last ones taken off. */
+/** A small button at the end of a field's name row, as the grid picker and Each are. */
+const headerButton =
+  "grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-muted data-popup-open:text-foreground"
+
+/**
+ * How many columns or rows: a whole number, a step at a time, or Fit for columns and Auto for rows, each a chip that
+ * says how many it makes now. Its menu offers the word; Backspace on the chip takes it off, for the count it made.
+ */
+function TrackCount({
+  one,
+  count,
+  word,
+  onCount,
+  onWord
+}: {
+  one: "column" | "row"
+  /** The tracks there are, or that Fit or Auto makes now. */
+  count: number
+  /** It's Fit, or Auto. */
+  word: boolean
+  onCount: (count: number) => void
+  onWord: () => void
+}) {
+  const columns = one === "column"
+  const name = columns ? "Fit" : "Auto"
+
+  const words = columns
+    ? { typed: ["fit", "auto-fit"], detail: "As many as fit, so the grid reflows on smaller screens" }
+    : { typed: ["auto"], detail: "As many as children need" }
+
+  const read = (text: string): Reading<number | "word"> => {
+    const typed = text.trim().toLowerCase()
+
+    // Left empty, as Backspace on the chip leaves it, it keeps the count it has.
+    if (typed === "") {
+      return { value: count }
+    }
+
+    if (words.typed.includes(typed)) {
+      return { value: "word" }
+    }
+
+    const number = Number(typed)
+
+    if (Number.isInteger(number) && number >= 1 && number <= mostTracks) {
+      return { value: number }
+    }
+
+    return { reason: `Enter a whole number from 1 to ${mostTracks}, or ${name}` }
+  }
+
+  return (
+    <ValueField
+      label={`${columns ? "Column" : "Row"} count`}
+      inner={columns ? <Columns3 className="size-3" /> : <Rows3 className="size-3" />}
+      scrub={{
+        from: () => count,
+        apply: (next) => onCount(next),
+        by: { move: (start, dx) => clamp(start + Math.trunc(dx / 8), 1, mostTracks) }
+      }}
+      shown={word ? name : String(count)}
+      chip={
+        word
+          ? {
+              name,
+              keyword: { detail: String(count), about: words.detail },
+              onRemove: () => onCount(count)
+            }
+          : undefined
+      }
+      tokens={{
+        list: [],
+        keywords: {
+          heading: columns ? "Columns" : "Rows",
+          rows: [{ key: "word", name, detail: words.detail, current: word, onPick: onWord }]
+        },
+        onPick: () => undefined
+      }}
+      read={read}
+      onCommit={(next) => (next === "word" ? onWord() : onCount(next))}
+      onStep={(up) => onCount(clamp(count + (up ? 1 : -1), 1, mostTracks))}
+    />
+  )
+}
+
+/** A track's size in words, where it has them: Fill, its share and least width faintly after, Hug, or content's. */
+function trackWords(track: Track): { name: string; detail?: string; about: string } | undefined {
+  if (track.kind === "fr") {
+    return {
+      name: "Fill",
+      detail: track.value === 1 ? undefined : `×${formatNumber(track.value)}`,
+      about: "A share of the space left"
+    }
+  }
+
+  if (track.kind === "range") {
+    const share = track.max === 1 ? "" : `×${formatNumber(track.max)} `
+
+    return {
+      name: "Fill",
+      detail: `${share}min ${formatNumber(track.min)}`,
+      about: `At least ${formatNumber(track.min)}px, then a share of the space left`
+    }
+  }
+
+  if (track.kind === "auto") {
+    return { name: "Hug", about: "As big as its content" }
+  }
+
+  if (track.kind === "min") {
+    return { name: "Min content", about: "As small as its content goes" }
+  }
+
+  if (track.kind === "max") {
+    return { name: "Max content", about: "Its content at full size, without wrapping" }
+  }
+
+  return undefined
+}
+
+/** The ways a track can be sized, as its size's menu lists them, each made from the track it has and its width now. */
+const trackSizes = [
+  {
+    key: "fr",
+    name: "Fill",
+    detail: "A share of the space left",
+    make: (track: Track): Track => fr(track.kind === "range" ? track.max : 1)
+  },
+  { key: "auto", name: "Hug", detail: "As big as its content", make: (): Track => hug },
+  { key: "px", name: "Fixed", detail: "A length that stays", make: (_: Track, width: number): Track => px(width) },
+  {
+    key: "range",
+    name: "Fill, with a minimum",
+    detail: "Never smaller than a length",
+    make: (track: Track, width: number): Track => ({
+      kind: "range",
+      min: Math.round(width),
+      max: track.kind === "fr" ? track.value : 1
+    })
+  },
+  { key: "min", name: "Min content", detail: "As small as its content goes", make: (): Track => ({ kind: "min" }) },
+  {
+    key: "max",
+    name: "Max content",
+    detail: "Its content at full size, without wrapping",
+    make: (): Track => ({ kind: "max" })
+  }
+] as const
+
+const px = (value: number): Track => ({ kind: "px", value: Math.round(value) })
+
+/**
+ * A track's size, on the shared ValueField: a length in px or %, or a word as a chip (Fill, Hug, Min or Max content),
+ * Fill with its share (×2) and least width faintly after it. Its menu lists the ways to size it; typing takes CSS or
+ * the panel's words (`200`, `50%`, `2fr`, `Fill ×2`, `Hug`, `120-Fill`); arrow keys and dragging the label change the
+ * number, the share, or a range's least width. Unset, it says Mixed, and what's set goes to every track.
+ */
+function TrackSizeField({
+  label,
+  inner,
+  track,
+  width,
+  onChange
+}: {
+  label: string
+  inner: ReactNode
+  /** The track's size, or nothing where the tracks it covers differ. */
+  track: Track | undefined
+  /** Its width now, in pixels, which Fixed and a minimum start from. */
+  width: number
+  onChange: (track: Track) => void
+}) {
+  const words = track && trackWords(track)
+  let number: number | undefined
+  let unit: string | undefined
+
+  if (track?.kind === "px" || track?.kind === "percent") {
+    number = track.value
+    unit = track.kind === "px" ? "px" : "%"
+  }
+
+  const from = () => {
+    if (!track) {
+      return 0
+    }
+
+    if (track.kind === "fr") {
+      return track.value
+    }
+
+    if (track.kind === "range") {
+      return track.min
+    }
+
+    return number ?? Math.round(width)
+  }
+
+  const scrubbed = (value: number) => {
+    if (track?.kind === "fr") {
+      onChange(fr(Math.max(1, value)))
+    } else if (track?.kind === "range") {
+      onChange({ ...track, min: Math.max(0, value) })
+    } else if (track?.kind === "percent") {
+      onChange({ kind: "percent", value: clamp(value, 0, 100) })
+    } else {
+      onChange(px(Math.max(0, value)))
+    }
+  }
+
+  return (
+    <ValueField
+      label={label}
+      inner={inner}
+      scrub={{
+        from,
+        apply: scrubbed,
+        // A share steps by one every 16 pixels; a length by a pixel each.
+        by: track?.kind === "fr" ? { move: (start, dx) => start + Math.trunc(dx / 16) } : { step: 1, shiftStep: 10 }
+      }}
+      shown={number === undefined ? words?.name : formatNumber(number)}
+      mixed={track === undefined}
+      chip={
+        words && {
+          name: words.name,
+          keyword: { detail: words.detail, about: words.about },
+          // Backspace clears it for typing another size; leaving it empty puts it back, as a track always has one.
+          onRemove: () => undefined
+        }
+      }
+      unit={unit}
+      tokens={{
+        list: [],
+        keywords: {
+          heading: "Size",
+          rows: trackSizes.map((each) => ({
+            key: each.key,
+            name: each.name,
+            detail: each.detail,
+            current: track !== undefined && (track.kind === "percent" ? "px" : track.kind) === each.key,
+            onPick: () => onChange(each.make(track ?? fr(1), width))
+          }))
+        },
+        onPick: () => undefined
+      }}
+      // Left empty, as Backspace on the chip leaves it, it keeps the size it has.
+      read={(text) => (text.trim() === "" && track ? { value: track } : readTrack(text))}
+      onCommit={onChange}
+      onStep={(up, keys) => onChange(stepTrack(track ?? fr(1), up, keys.shift))}
+    />
+  )
+}
+
+/**
+ * One track in Each column's list: a grip that reorders it (dragged, or Up and Down; Delete removes it), its size with
+ * its number as the label, and −. Hovering or focusing the row highlights its track on the canvas.
+ */
+function TrackRow({
+  one,
+  index,
+  track,
+  width,
+  movable,
+  removable,
+  onChange,
+  onMove,
+  onRemove
+}: {
+  one: "column" | "row"
+  index: number
+  track: Track
+  width: number
+  movable: boolean
+  removable: boolean
+  onChange: (track: Track) => void
+  onMove: (from: number, to: number) => void
+  onRemove: () => void
+}) {
+  const name = `${one === "column" ? "Column" : "Row"} ${index + 1}`
+  const sort = useSortable({ group: `${one}s`, label: name, onMove: movable ? onMove : undefined })
+  const { setHighlight } = useHighlight()
+  const light = (on: boolean) => setHighlight(on ? { kind: one, index } : undefined)
+
+  return (
+    <div
+      {...sort.item}
+      className="group/row flex items-center gap-1"
+      onPointerEnter={() => light(true)}
+      onPointerLeave={() => light(false)}
+      onFocus={() => light(true)}
+      onBlur={() => light(false)}
+    >
+      {movable ? (
+        <button
+          type="button"
+          aria-label={`Move ${name}`}
+          aria-keyshortcuts="ArrowUp ArrowDown Delete"
+          onPointerDown={sort.handle.onPointerDown}
+          onKeyDown={(event) => {
+            sort.handle.onKeyDown(event)
+
+            if (removable && (event.key === "Delete" || event.key === "Backspace")) {
+              event.preventDefault()
+              onRemove()
+            }
+          }}
+          className="grid h-7 w-3 shrink-0 cursor-grab touch-none place-items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <GripVertical className="size-3" />
+        </button>
+      ) : (
+        <span aria-hidden className="w-3 shrink-0" />
+      )}
+      <div className="min-w-0 flex-1">
+        <TrackSizeField
+          label={`${name} size`}
+          inner={<span className="w-3 text-center tabular-nums">{index + 1}</span>}
+          track={track}
+          width={width}
+          onChange={onChange}
+        />
+      </div>
+      <Hint label={`Remove ${name.toLowerCase()}`}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="size-7"
+          aria-label={`Remove ${name}`}
+          disabled={!removable}
+          onClick={onRemove}
+        >
+          <Minus />
+        </Button>
+      </Hint>
+    </div>
+  )
+}
+
+/** A list of `count` tracks: the ones there are, with copies of the last added (or Fill), or the last taken off. */
 function resize(tracks: Track[], count: number): Track[] {
   if (count <= tracks.length) {
     return tracks.slice(0, count)
   }
 
-  return [...tracks, ...Array.from({ length: count - tracks.length }, () => fr(1))]
-}
+  const last = tracks.at(-1) ?? fr(1)
 
-function AddTrack({ one, onAdd }: { one: "column" | "row"; onAdd: () => void }) {
-  return (
-    <Hint label={`Add a ${one}`}>
-      <Button variant="ghost" size="icon-sm" className="size-7 shrink-0" aria-label={`Add a ${one}`} onClick={onAdd}>
-        <Plus />
-      </Button>
-    </Hint>
-  )
+  return [...tracks, ...Array.from({ length: count - tracks.length }, () => last)]
 }
 
 /**
@@ -1257,32 +1661,11 @@ function GridPicker({
   )
 }
 
-/** A track as CSS-like text, as its size field shows it to edit: `1fr`, `200px`, `50%`, `auto`, `minmax(120px, 1fr)`. */
-function trackText(track: Track): string {
-  if (track.kind === "fr") {
-    return `${formatNumber(track.value)}fr`
-  }
-
-  if (track.kind === "px") {
-    return `${formatNumber(track.value)}px`
-  }
-
-  if (track.kind === "percent") {
-    return `${formatNumber(track.value)}%`
-  }
-
-  if (track.kind === "range") {
-    return `minmax(${track.min}px, ${formatNumber(track.max)}fr)`
-  }
-
-  return { auto: "auto", min: "min-content", max: "max-content" }[track.kind]
-}
-
 const number = String.raw`(\d*\.?\d+)`
 
 /**
- * A track typed as CSS writes it, or in the panel's words: `2fr` or Fill, `200`, `200px` or `12.5rem`, `50%`, `auto`
- * or Hug, `min-content` or Min, `max-content` or Max, and a range as `minmax(120px, 1fr)` or `120-1fr`.
+ * A track typed as CSS writes it, or in the panel's words: `2fr`, Fill or `Fill ×2`, `200`, `200px` or `12.5rem`,
+ * `50%`, `auto` or Hug, `min-content` or Min, `max-content` or Max, and a range as `minmax(120px, 1fr)` or `120-1fr`.
  */
 function readTrack(text: string): Reading<Track> {
   const typed = text.trim().toLowerCase()
@@ -1304,7 +1687,7 @@ function readTrack(text: string): Reading<Track> {
   }
 
   const match = (pattern: string) => new RegExp(`^${pattern}$`).exec(typed)
-  const share = match(`${number}\\s*fr`)
+  const share = match(`${number}\\s*fr`) ?? match(`fill\\s*[x×]?\\s*${number}`)
 
   if (share) {
     return { value: fr(Math.max(0.25, Number(share[1]))) }
@@ -1360,387 +1743,6 @@ function stepTrack(track: Track, up: boolean, shift: boolean): Track {
   }
 
   return track
-}
-
-/** A track at a new width in the strip, keeping its kind: pixels, a percentage, or a range's least width. */
-function sized(track: Track, from: number, to: number): Track {
-  if (track.kind === "px") {
-    return { kind: "px", value: Math.round(to) }
-  }
-
-  if (track.kind === "percent") {
-    return { kind: "percent", value: Math.round((to / contentWidth) * 1000) / 10 }
-  }
-
-  if (track.kind === "range") {
-    return { ...track, min: Math.max(0, Math.round(track.min + to - from)) }
-  }
-
-  if (track.kind === "fr") {
-    return track
-  }
-
-  // A track sized by its content has no width to change, so dragging it gives it one, as Fixed.
-  return { kind: "px", value: Math.round(to) }
-}
-
-/**
- * The tracks after the line between `index` and the next is dragged by `by` pixels at Plans' width. Two Fill tracks
- * trade their shares, in quarters, so they stay Fill; a Fill track beside a sized one stays as it is and takes up the
- * difference; sized tracks keep their kinds at their new widths.
- */
-function resized(tracks: Track[], weights: number[], index: number, by: number): Track[] {
-  const [one, next] = [tracks[index]!, tracks[index + 1]!]
-  const [oneWidth, nextWidth] = [weights[index]!, weights[index + 1]!]
-  const both = oneWidth + nextWidth
-  const oneTo = clamp(oneWidth + by, 24, both - 24)
-  const copy = [...tracks]
-
-  if (one.kind === "fr" && next.kind === "fr") {
-    const shares = one.value + next.value
-    const oneShare = clamp(Math.round(((shares * oneTo) / both) * 4) / 4, 0.25, shares - 0.25)
-    copy[index] = fr(oneShare)
-    copy[index + 1] = fr(Math.round((shares - oneShare) * 4) / 4)
-
-    return copy
-  }
-
-  copy[index] = sized(one, oneWidth, oneTo)
-  copy[index + 1] = sized(next, nextWidth, both - oneTo)
-
-  return copy
-}
-
-/**
- * How far a press of an arrow key on the line between two tracks moves it, at Plans' width: a quarter share between
- * two Fill tracks, so each press changes them, or 8 pixels (40 with Shift) beside a sized one.
- */
-function lineStep(tracks: Track[], weights: number[], index: number, shift: boolean) {
-  const [one, next] = [tracks[index]!, tracks[index + 1]!]
-
-  if (one.kind === "fr" && next.kind === "fr") {
-    const perShare = (weights[index]! + weights[index + 1]!) / (one.value + next.value)
-
-    return perShare * (shift ? 1 : 0.25)
-  }
-
-  return shift ? 40 : 8
-}
-
-/**
- * The tracks as a strip, each as wide as it'd be at Plans' width, so a 200-pixel column and Fill ×2 look it. Each is
- * a button that opens its size, typed as CSS writes it or picked by kind, with adding, duplicating, moving and removing
- * tracks beside it; hovering or focusing one highlights it on the canvas. Dragging the line between two tracks resizes
- * them, keeping their kinds, so two Fill tracks trade shares rather than turning into pixels; arrow keys on the line do
- * it a step at a time. Alt with an arrow moves the focused track. Add a column is after the strip. Fitted, it only
- * shows the columns Repeat to fit makes.
- */
-function TrackStrip({
-  one,
-  tracks,
-  fitted = false,
-  onChange
-}: {
-  one: "column" | "row"
-  tracks: Track[]
-  fitted?: boolean
-  onChange?: (tracks: Track[]) => void
-}) {
-  const weights = trackWeights(tracks)
-  const strip = useRef<HTMLDivElement>(null)
-  const { setHighlight } = useHighlight()
-
-  const focusTrack = (index: number) =>
-    requestAnimationFrame(() => strip.current?.querySelectorAll<HTMLElement>("[data-track]")[index]?.focus())
-
-  const names = one === "column" ? { earlier: "left", later: "right" } : { earlier: "up", later: "down" }
-
-  if (fitted || !onChange) {
-    return (
-      <div className="flex h-7 min-w-0 overflow-hidden rounded-md border bg-muted/40" aria-hidden>
-        {tracks.map((_, index) => (
-          <span
-            key={index}
-            className="grid min-w-0 place-items-center border-l px-1 font-mono text-2xs text-muted-foreground first:border-l-0"
-            style={{ flex: `${weights[index]} 1 0` }}
-          >
-            <span className="truncate">Fill</span>
-          </span>
-        ))}
-      </div>
-    )
-  }
-
-  const move = (index: number, by: number) => {
-    const to = index + by
-
-    if (to < 0 || to >= tracks.length) {
-      return
-    }
-
-    const copy = [...tracks]
-
-    ;[copy[index], copy[to]] = [copy[to]!, copy[index]!]
-    onChange(copy)
-    focusTrack(to)
-  }
-
-  const pressLine = (index: number) => (event: PointerEvent<HTMLInputElement>) => {
-    const width = strip.current?.getBoundingClientRect().width ?? contentWidth
-    const scale = weights.reduce((sum, weight) => sum + weight, 0) / width
-    const [startTracks, startWeights] = [tracks, weights]
-    event.preventDefault()
-    drag(event, { move: (point) => onChange(resized(startTracks, startWeights, index, point.dx * scale)) })
-  }
-
-  return (
-    <div className="flex items-center gap-1">
-      <div ref={strip} className="flex h-7 min-w-0 flex-1 rounded-md border bg-muted/40">
-        {tracks.map((track, index) => (
-          <Fragment key={index}>
-            <TrackSegment
-              name={`${one} ${index + 1}`}
-              track={track}
-              weight={weights[index]!}
-              moveNames={names}
-              canMove={{ earlier: index > 0, later: index < tracks.length - 1 }}
-              onHighlight={(on) => setHighlight(on ? { kind: one, index } : undefined)}
-              onChange={(next) => onChange(tracks.map((other, at) => (at === index ? next : other)))}
-              onAdd={(after) => {
-                const copy = [...tracks]
-                copy.splice(after ? index + 1 : index, 0, fr(1))
-                onChange(copy)
-              }}
-              onDuplicate={() => {
-                const copy = [...tracks]
-                copy.splice(index + 1, 0, track)
-                onChange(copy)
-                focusTrack(index + 1)
-              }}
-              onMove={(by) => move(index, by)}
-              onRemove={() => onChange(tracks.filter((_, at) => at !== index))}
-            />
-            {index < tracks.length - 1 && (
-              // The line between two tracks, a range input as the canvas's spacing handles are: its keys and the
-              // pointer are its own, so it never moves by itself.
-              <span className="group/line relative z-10 -mx-1 w-2 shrink-0">
-                <span
-                  aria-hidden
-                  className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 rounded-full bg-border group-hover/line:inset-y-0.5 group-hover/line:w-0.5 group-hover/line:bg-(--line) group-has-focus-visible/line:w-0.5 group-has-focus-visible/line:bg-(--line)"
-                  style={withVariables({ "--line": kindColors.layer })}
-                />
-                <Hint
-                  label={`Drag to resize ${one}s ${index + 1} and ${index + 2}`}
-                  detail="Fill tracks trade shares and stay Fill"
-                  wait
-                >
-                  <input
-                    type="range"
-                    min={24}
-                    max={Math.round(weights[index]! + weights[index + 1]! - 24)}
-                    value={Math.round(weights[index]!)}
-                    onChange={() => undefined}
-                    aria-label={`Resize ${one}s ${index + 1} and ${index + 2}`}
-                    aria-valuetext={`${trackLabel(tracks[index]!)} and ${trackLabel(tracks[index + 1]!)}`}
-                    onPointerDown={pressLine(index)}
-                    onKeyDown={(event) => {
-                      const by = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1, ArrowDown: 1 }[event.key]
-
-                      if (by === undefined) {
-                        return
-                      }
-
-                      event.preventDefault()
-                      onChange(resized(tracks, weights, index, by * lineStep(tracks, weights, index, event.shiftKey)))
-                    }}
-                    className="absolute inset-0 m-0 size-full cursor-col-resize touch-none appearance-none rounded-sm bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-slider-runnable-track]:appearance-none [&::-webkit-slider-thumb]:size-0 [&::-webkit-slider-thumb]:appearance-none"
-                  />
-                </Hint>
-              </span>
-            )}
-          </Fragment>
-        ))}
-      </div>
-      <AddTrack one={one} onAdd={() => onChange([...tracks, fr(1)])} />
-    </div>
-  )
-}
-
-const trackKinds = [
-  { value: "fr", label: "Fill", detail: "A share of the space left" },
-  { value: "px", label: "Fixed", detail: "A fixed length, typed in px, rem or %" },
-  { value: "auto", label: "Hug", detail: "As big as its content, sharing any space left" },
-  { value: "min", label: "Min", detail: "As narrow as its content goes, min-content" },
-  { value: "max", label: "Max", detail: "As wide as its content without wrapping, max-content" },
-  { value: "range", label: "Range", detail: "At least a length, then a share of the space left, minmax()" }
-] as const
-
-/**
- * One track in the strip: its size in words, opening to its size typed as CSS writes it (focused, so typing `2fr` and
- * Enter is done), its kind, and adding, duplicating, moving and removing tracks by it. It highlights its track on the
- * canvas while it's hovered, focused or open.
- */
-function TrackSegment({
-  name,
-  track,
-  weight,
-  moveNames,
-  canMove,
-  onHighlight,
-  onChange,
-  onAdd,
-  onDuplicate,
-  onMove,
-  onRemove
-}: {
-  name: string
-  track: Track
-  weight: number
-  moveNames: { earlier: string; later: string }
-  canMove: { earlier: boolean; later: boolean }
-  onHighlight: (on: boolean) => void
-  onChange: (track: Track) => void
-  onAdd: (after: boolean) => void
-  onDuplicate: () => void
-  onMove: (by: number) => void
-  onRemove: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const title = `${name[0]!.toUpperCase()}${name.slice(1)}`
-  const kind = name.split(" ")[0]!
-
-  const close = (run: () => void) => () => {
-    run()
-    setOpen(false)
-  }
-
-  const actions = [
-    { label: `Add a ${kind} before`, Icon: Plus, run: () => onAdd(false), enabled: true },
-    { label: `Add a ${kind} after`, Icon: Plus, run: () => onAdd(true), enabled: true },
-    {
-      label: `Move ${moveNames.earlier}`,
-      Icon: moveNames.earlier === "left" ? ArrowLeft : ArrowUp,
-      run: () => onMove(-1),
-      enabled: canMove.earlier
-    },
-    {
-      label: `Move ${moveNames.later}`,
-      Icon: moveNames.later === "right" ? ArrowRight : ArrowDown,
-      run: () => onMove(1),
-      enabled: canMove.later
-    },
-    { label: "Duplicate", Icon: Copy, run: onDuplicate, enabled: true },
-    { label: `Remove ${name}`, Icon: X, run: onRemove, enabled: true }
-  ]
-
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        onHighlight(next)
-      }}
-    >
-      <PopoverTrigger
-        data-track
-        aria-label={`${title}, ${trackLabel(track)}`}
-        onPointerEnter={() => onHighlight(true)}
-        onPointerLeave={() => !open && onHighlight(false)}
-        onFocus={() => onHighlight(true)}
-        onBlur={() => !open && onHighlight(false)}
-        onKeyDown={(event) => {
-          if (!event.altKey) {
-            return
-          }
-
-          const by = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key]
-
-          if (by === undefined) {
-            return
-          }
-
-          event.preventDefault()
-          onMove(by)
-        }}
-        className="grid min-w-0 place-items-center px-1 font-mono text-2xs tabular-nums outline-none first:rounded-l-md last:rounded-r-md hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset data-popup-open:bg-accent"
-        style={{ flex: `${weight} 1 0` }}
-      >
-        <span className="truncate">{trackLabel(track)}</span>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 gap-2 p-2" align="start">
-        <p className="text-sm font-medium">{title}</p>
-        <ValueField
-          label={`${title} size`}
-          shown={trackText(track)}
-          selectOnFocus
-          hint={{ detail: "Type it as CSS writes it: 1fr, 200px, 50%, auto, min-content or minmax(120px, 1fr)" }}
-          read={readTrack}
-          onCommit={onChange}
-          onStep={(up, keys) => onChange(stepTrack(track, up, keys.shift))}
-        />
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          spacing={0}
-          className="w-full"
-          aria-label={`${title} kind`}
-          value={[track.kind === "percent" ? "px" : track.kind]}
-          onValueChange={([next]) => {
-            if (next === "fr") {
-              onChange(fr(1))
-            } else if (next === "px") {
-              onChange({ kind: "px", value: Math.round(weight) })
-            } else if (next === "range") {
-              onChange({ kind: "range", min: 192, max: 1 })
-            } else if (next === "auto" || next === "min" || next === "max") {
-              onChange({ kind: next })
-            }
-          }}
-        >
-          {trackKinds.map((each) => (
-            <Hint key={each.value} label={each.detail}>
-              <ToggleGroupItem value={each.value} className="h-7 flex-1 px-1 text-xs">
-                {each.label}
-              </ToggleGroupItem>
-            </Hint>
-          ))}
-        </ToggleGroup>
-        {track.kind === "range" && (
-          <div className="grid grid-cols-2 gap-1">
-            <Num
-              label="At least"
-              inner="Min"
-              pixels
-              value={track.min}
-              onChange={(min) => onChange({ ...track, min: min ?? 0 })}
-            />
-            <Num
-              label="Share of the space left"
-              inner="Max"
-              suffix="fr"
-              value={track.max}
-              min={1}
-              onChange={(max) => onChange({ ...track, max: max ?? 1 })}
-            />
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-x-1 border-t pt-1">
-          {actions.map(({ label, Icon, run, enabled }) => (
-            <Button
-              key={label}
-              variant="ghost"
-              size="sm"
-              disabled={!enabled}
-              className="h-7 justify-start px-1.5 text-xs"
-              onClick={close(run)}
-            >
-              <Icon /> {label.startsWith("Remove") ? "Remove" : label.replace(` a ${kind}`, "")}
-            </Button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
 }
 
 /* A grid child's place */

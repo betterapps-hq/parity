@@ -7,13 +7,14 @@ import { Playground, useDraft } from "./playground.tsx"
 import { layoutWrites } from "./writes.ts"
 
 /**
- * A grid's tracks (PAR-186), in Layout once Type is Grid. Columns are a strip, each column as wide as it'd be at Plans'
- * width, and each opens to its size: Fill (a share of what's left, `minmax(0, 1fr)` so long content can't widen it), a
- * fixed length, Hug, Min or Max content, or a range from a length up to a share, with Add before, Add after and
- * Remove. The grid picker at the name's end sets columns and rows at once, as Figma's does. Repeat to fit lays out as
- * many columns as fit, each at least the width given (CSS's auto-fit). Rows are added as children need them until one
- * is set. The alignment box says where children sit in their cells, with a gap for columns and one for rows beside
- * it. Switching Type to a flex layout and back keeps the tracks.
+ * A grid's tracks (PAR-186), in Layout once Type is Grid. While every track is the same size, Columns and Rows are each
+ * a count and a size side by side, as `grid-cols-3` writes them. The count takes Fit for columns (as many as fit, each
+ * at least a width, CSS's auto-fit) and Auto for rows (as many as children need), each a chip saying how many it
+ * makes. The size is Fill (a share of what's left, `minmax(0, 1fr)` so long content can't widen it), Hug, a length,
+ * Fill with a minimum, or Min or Max content, from its menu or typed. Each column (or Each row), at the name's end as
+ * padding's Each side is, lists the tracks one a row: a grip to reorder, the track's number and size, and − to remove,
+ * with Add at the name's end; hovering a row highlights its track on the canvas. The grid picker sets both counts at
+ * once, as Figma's does. The alignment box says where children sit in their cells, with Type and the gaps beside it.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Grid tracks",
@@ -41,10 +42,10 @@ function Tracks({ start }: { start: Draft }) {
   )
 }
 
-/** Three equal columns, written `grid-cols-3`. Change the count, or open a track to size it. */
+/** Three equal columns, written `grid-cols-3`: a count and a size. */
 export const EqualColumns: Story = { render: () => <Tracks start={{ columns: [fill(), fill(), fill()], rows: [] }} /> }
 
-/** Sized tracks: 200 pixels, Fill, and Fill ×2; one row that hugs. */
+/** Sized tracks, listed one a row: 200 pixels, Fill, and Fill ×2; one row that hugs. */
 export const SizedTracks: Story = {
   render: () => <Tracks start={{ columns: [{ kind: "px", value: 200 }, fill(), fill(2)], rows: [{ kind: "auto" }] }} />
 }
@@ -69,5 +70,22 @@ export const CenteredInCells: Story = {
   )
 }
 
-/** Repeat to fit: as many columns as fit, each at least 160 pixels wide. */
+/** Fit: as many columns as fit, each at least 160 pixels wide. */
 export const RepeatToFit: Story = { render: () => <Tracks start={{ columns: { fit: 160 }, rows: [] }} /> }
+
+/** Rows made as children need them, each filling an equal share: `auto-rows-fr`. */
+export const AutoRowsFill: Story = {
+  render: () => <Tracks start={{ columns: [fill(), fill(), fill()], rows: [], autoRows: fill() }} />
+}
+
+/** Many tracks of different sizes, each on its own row, so every size stays readable. */
+export const ManyTracks: Story = {
+  render: () => (
+    <Tracks
+      start={{
+        columns: [{ kind: "px", value: 200 }, fill(), fill(2), fill(), { kind: "auto" }, fill(), fill(), fill()],
+        rows: [{ kind: "auto" }, fill(), fill(), fill(), fill(), fill(), fill()]
+      }}
+    />
+  )
+}

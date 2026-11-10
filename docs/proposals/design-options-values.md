@@ -411,16 +411,21 @@ Image's Position, Transform's Origin, a fill image's position.
 
 ## Grid tracks
 
-- **At rest:** counts while every track is the same size. Otherwise one line of track chips in order, wrapping, in words
-  where a size mode fits (Fill, Fill ×2, Hug for `auto`, 200, `minmax(…)`), with a `repeat()` collapsed to one chip ("12
-  × Fill", `Auto-fit × 16rem–Fill`), each opening its size. Labels on the canvas show the same sizes.
-- **Editing:** each track in fr, px, %, auto, `min-content`, `max-content`, `minmax()` or `fit-content()`, with Repeat
-  (a count, auto-fill or auto-fit); on the canvas, a size label on each track and dragging between them. A grid inside a
-  grid also offers Subgrid, which takes its parent's tracks (`grid-cols-subgrid`, `grid-rows-subgrid`), so cards in a
-  row line up their titles and footers.
+- **At rest:** while every track is the same size, a count and a size side by side ("3", Fill). Each column (or Each
+  row), the toggle at the name's end, lists the tracks one a row: a grip to reorder, the track's number and size, and −.
+  Sizes are words where a size mode fits, as chips (Fill, Fill ×2, Hug, Min content, Max content, and Fill with its
+  least width after it, `min 120`), or a length (200 px, 50%). Labels on the canvas show the same sizes.
+- **Editing:** a size's menu lists Fill, Hug, Fixed, Fill with a minimum (`minmax()`), Min content and Max content;
+  typing takes CSS or those words (`200`, `50%`, `2fr`, `Fill ×2`, `120-Fill`). The count takes Fit for columns, as many
+  as fit, each at least a width (`repeat(auto-fit, …)`), and Auto for rows, as many as children need, each a chip saying
+  how many it makes; with Auto, the size is the size of those rows (`grid-auto-rows`). Hovering a track's row highlights
+  it on the canvas. On the canvas, a size label on each track and dragging between them. A grid inside a grid also
+  offers Subgrid, which takes its parent's tracks (`grid-cols-subgrid`, `grid-rows-subgrid`), so cards in a row line up
+  their titles and footers.
 - **Tokens:** spacing, container.
-- **Writes:** `grid-cols-3`, or `grid-cols-[200px_minmax(0,1fr)]`, a Fill track as `minmax(0,1fr)`.
-- **Compared:** Figma has fixed, fr and hug tracks; Webflow adds `minmax()` and auto-fit.
+- **Writes:** `grid-cols-3`, or `grid-cols-[200px_minmax(0,1fr)]`, a Fill track as `minmax(0,1fr)`; `auto-rows-fr`.
+- **Compared:** Figma has fixed, fr and hug tracks; Penpot lists each track to size; Webflow adds `minmax()` and
+  auto-fit.
 
 ## Grid placement
 

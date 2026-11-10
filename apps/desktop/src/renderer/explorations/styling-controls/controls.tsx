@@ -1694,6 +1694,7 @@ export function LayerPreview({
     alignContent: !grid && draft.wrap && draft.lines ? linesValues[draft.lines] : undefined,
     gridTemplateColumns: columnsCss(draft.columns),
     gridTemplateRows: draft.rows?.length ? draft.rows.map(trackCss).join(" ") : undefined,
+    gridAutoRows: grid && !draft.rows?.length && draft.autoRows ? trackCss(draft.autoRows) : undefined,
     gridAutoFlow: grid && draft.dense ? "dense" : undefined,
     columnGap: Math.max(0, gap),
     rowGap: rowGap ?? Math.max(0, gap),

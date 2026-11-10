@@ -165,7 +165,7 @@ Shows for layouts. A flex box or a grid, as today, with direction, alignment and
 | Baseline         | Line up text baselines under More, and By the last line once it's on; the box then draws the children standing on one line                                                                                                                             | `align-items: baseline` or `last baseline` (`items-baseline`, `items-baseline-last`) | Text baseline alignment                                   |
 | Gap              | Beside the box: padding's field, with the spacing tokens in its menu, or columns and rows when wrapping or in a grid; takes negatives and Auto (below)                                                                                                 | `gap`, `row-gap`, `column-gap`                                                       | Gap; row gap when wrapping                                |
 | Lines            | Menu under Gap when wrapping: Start, Center, End, Space between, Stretch                                                                                                                                                                               | `align-content`                                                                      | Auto or space between, when wrapping                      |
-| Columns and rows | Counts, or a line of track chips (below)                                                                                                                                                                                                               | `grid-template-columns`, `grid-template-rows`                                        | Grid tracks: fixed, fr or hug; no `minmax()` or auto-fill |
+| Columns and rows | A count and a size, or Each column's list of tracks (below)                                                                                                                                                                                            | `grid-template-columns`, `grid-template-rows`                                        | Grid tracks: fixed, fr or hug; no `minmax()` or auto-fill |
 
 There's no None: hiding a layer is Appearance's Visibility, so `display` has one owner. Inline (`inline-flex`,
 `inline-grid`, `inline-block`, as buttons and badges are written) shows beside the types only when the parent is a Block
@@ -181,14 +181,14 @@ it spreads (Space between, around or evenly) above the spacing tokens. Set, it's
 takes off, back to the gap before. Clicking the children in the alignment box cycles stretched, spread out with an Auto
 gap, and packed again at the spot clicked.
 
-Columns and rows are counts, as today, with Figma's grid picker (drag across a small grid to pick 3 × 2), while every
-track is the same size (`grid-cols-3`). Edit tracks in a count's menu, or sizing a track on the canvas, shows the tracks
-as chips (Grid tracks in [design-options-values.md](design-options-values.md)), which go back to counts when the tracks
-match again. A grid inside a grid offers Subgrid in a count's menu. A Fill track is written as `minmax(0, 1fr)`, as
-`grid-cols-N` and today's render.ts do, so long content can't widen its column; plain `1fr` is offered as "Fill, grow
-with content". Repeat's auto-fit (`repeat(auto-fit, minmax(16rem, 1fr))`) fits as many columns as there's room for,
-which Figma can't say. In a reversed layout, the alignment box stays as it looks, and the editor writes `flex-end` where
-needed.
+Columns and rows are each a count and a size side by side while every track is the same size (`grid-cols-3`), with
+Figma's grid picker (drag across a small grid to pick 3 × 2). Each column (or Each row), at the name's end as padding's
+Each side is, lists the tracks one a row, to size, reorder and remove each (Grid tracks in
+[design-options-values.md](design-options-values.md)). A grid inside a grid offers Subgrid in a count's menu. A Fill
+track is written as `minmax(0, 1fr)`, as `grid-cols-N` and today's render.ts do, so long content can't widen its column;
+plain `1fr` is offered as "Fill, grow with content". Repeat's auto-fit (`repeat(auto-fit, minmax(16rem, 1fr))`) fits as
+many columns as there's room for, which Figma can't say. In a reversed layout, the alignment box stays as it looks, and
+the editor writes `flex-end` where needed.
 
 **More:** Block, shown as a fifth Type toggle once set, Wrap into columns for a vertical layout, Line up text baselines,
 Freeform (below), Areas (named and painted over the grid on the canvas), Flow (rows or columns, and Dense), the size of

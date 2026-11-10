@@ -349,6 +349,21 @@ export function sizeRowWrites(draft: Draft): Writes {
 /** Grid tracks in Tailwind's arbitrary value: `200px_minmax(0,1fr)`. */
 const tracksClass = (tracks: Track[]) => arbitrary(tracks.map(trackCss).join(" "))
 
+/** The rows made as children need them, at a size: Tailwind's own class where it has one (`auto-rows-fr`). */
+function autoRowsClass(track: Track): string {
+  const named = { auto: "auto", min: "min", max: "max" } as const
+
+  if (track.kind === "fr" && track.value === 1) {
+    return "auto-rows-fr"
+  }
+
+  if (track.kind === "auto" || track.kind === "min" || track.kind === "max") {
+    return `auto-rows-${named[track.kind]}`
+  }
+
+  return `auto-rows-[${tracksClass([track])}]`
+}
+
 /** The layout: flex or grid, its direction, wrapping, alignment and tracks. */
 export function layoutWrites(draft: Draft): Writes {
   const css: string[] = []
@@ -376,6 +391,10 @@ export function layoutWrites(draft: Draft): Writes {
       stored.rows = draft.rows
       css.push(`grid-template-rows: ${draft.rows.map(trackCss).join(" ")}`)
       tailwind.push(equal ? `grid-rows-${draft.rows.length}` : `grid-rows-[${tracksClass(draft.rows)}]`)
+    } else if (draft.autoRows) {
+      stored.autoRows = draft.autoRows
+      css.push(`grid-auto-rows: ${trackCss(draft.autoRows)}`)
+      tailwind.push(autoRowsClass(draft.autoRows))
     }
 
     if (draft.dense) {

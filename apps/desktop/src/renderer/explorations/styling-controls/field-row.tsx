@@ -328,15 +328,17 @@ export function SideGlyph({ side }: { side: number }) {
 }
 
 /**
- * What a group's parts are, which its toggle draws: a rounded square's four corners, or its four sides, each drawn
- * apart from the rest.
+ * What a group's parts are, which its toggle draws: a rounded square's four corners, its four sides, or a grid's
+ * columns or rows, each drawn apart from the rest.
  */
-type Parts = "corners" | "sides"
+type Parts = "corners" | "sides" | "columns" | "rows"
 
 const partsIcons: Record<Parts, string> = {
   corners:
     "M1.5 4.5 V3.5 A2 2 0 0 1 3.5 1.5 H4.5 M7.5 1.5 H8.5 A2 2 0 0 1 10.5 3.5 V4.5 M10.5 7.5 V8.5 A2 2 0 0 1 8.5 10.5 H7.5 M4.5 10.5 H3.5 A2 2 0 0 1 1.5 8.5 V7.5",
-  sides: sidePaths.join(" ")
+  sides: sidePaths.join(" "),
+  columns: "M2 1.5 V10.5 M6 1.5 V10.5 M10 1.5 V10.5",
+  rows: "M1.5 2 H10.5 M1.5 6 H10.5 M1.5 10 H10.5"
 }
 
 /**

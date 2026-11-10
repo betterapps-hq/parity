@@ -189,6 +189,8 @@ export interface Draft {
   maxHeight?: number
   columns?: Columns
   rows?: Track[]
+  /** The size of the rows made as children need them (`grid-auto-rows`), while Rows is Auto; unset, they hug. */
+  autoRows?: Track
   /** The selected grid child's own size; unset, it fills its cell. */
   childWidth?: Size
   childHeight?: Size

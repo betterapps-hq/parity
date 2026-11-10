@@ -1440,7 +1440,7 @@ export function TokenMenu<T extends FieldToken>({
   return (
     <div className="flex min-w-0 flex-col">
       {keywords && (
-        <div className="mb-1 flex flex-col border-b pb-1">
+        <div className={`flex flex-col ${listed.length > 0 || none !== undefined ? "mb-1 border-b pb-1" : ""}`}>
           <p className="px-2 pt-1 pb-0.5 type-description text-muted-foreground">{keywords.heading}</p>
           {keywords.rows.map((row) => (
             <button
@@ -1480,7 +1480,9 @@ export function TokenMenu<T extends FieldToken>({
           </button>
         </div>
       )}
-      {listed.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">No tokens for {label} yet</p>}
+      {listed.length === 0 && !keywords && (
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">No tokens for {label} yet</p>
+      )}
       {(listed.length > 0 || none !== undefined) && (
         <TokenList
           label={label}
