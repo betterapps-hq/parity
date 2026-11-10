@@ -192,8 +192,14 @@ export interface Mark {
 export interface Guide {
   /** Searches that show how to describe something, which the window offers to run. The first is its example. */
   examples: readonly [string, ...string[]]
-  /** What to know before searching, a sentence each. */
-  tips: readonly string[]
+  /** What to know before searching, each short enough to take in at a glance. */
+  tips: readonly Tip[]
+}
+
+/** One thing to know about searching a source: a few words that say it, and a line that shows it or says why. */
+export interface Tip {
+  lead: string
+  detail?: string
 }
 
 /**

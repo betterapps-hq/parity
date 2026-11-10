@@ -876,7 +876,7 @@ function Start({
 
 /**
  * What the source's connector says about searching it, a click away from the search field in every state, since it's
- * most use when a search has come back thin.
+ * most use when a search has come back thin. Each tip leads with a few words in bold, so the list can be skimmed.
  */
 function SearchTips({ library }: { library: Library }) {
   const { guide, name } = library.info
@@ -894,9 +894,15 @@ function SearchTips({ library }: { library: Library }) {
         <PopoverHeader>
           <PopoverTitle>Searching {name}</PopoverTitle>
         </PopoverHeader>
-        <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
+        <ul className="flex flex-col gap-3">
           {guide.tips.map((tip) => (
-            <li key={tip}>{tip}</li>
+            <li key={tip.lead} className="flex gap-2.5 text-sm">
+              <Lightbulb aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="font-medium">{tip.lead}</span>
+                {tip.detail && <span className="text-muted-foreground">{tip.detail}</span>}
+              </div>
+            </li>
           ))}
         </ul>
       </PopoverContent>

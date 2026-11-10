@@ -53,8 +53,8 @@ export const unsplash: Connector = {
         "portrait in window light"
       ],
       tips: [
-        "Say what's in the photo, in a few words.",
-        "Orientation and color narrow a search without changing its words."
+        { lead: "Say what's in the photo", detail: "A few words do it: “mountain lake at sunrise”." },
+        { lead: "Narrow by orientation or color", detail: "They filter the results without changing your words." }
       ]
     },
     finds: ["photos"],

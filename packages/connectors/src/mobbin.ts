@@ -70,9 +70,12 @@ export const mobbin: Connector = {
         "billing settings"
       ],
       tips: [
-        "Say what kind of screen it is, then what's on it.",
-        "Name an app to see only that app's screens.",
-        "Search for one screen at a time. Words like “clean” or “modern” don't help."
+        {
+          lead: "Say the kind of screen, then what's on it",
+          detail: "“paywall with plan cards and a free trial button”"
+        },
+        { lead: "Name an app to see only its screens", detail: "“Spotify now playing”" },
+        { lead: "Search for one screen at a time", detail: "Words like “clean” or “modern” don't help." }
       ]
     },
     finds: ["screens"],
