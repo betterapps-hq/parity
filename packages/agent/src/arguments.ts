@@ -224,6 +224,13 @@ export const spaceOptions = z.strictObject({
   near: z.string().optional()
 })
 
+/** `PlaceReference`'s options: the design it's for, why it's here, and the connector that found it. */
+export const referenceOptions = z.strictObject({
+  near: z.string().optional(),
+  note: z.string().max(500).optional(),
+  connector: z.string().optional()
+})
+
 export const extractNodes = z.union([z.string(), z.array(z.string()).min(1)])
 
 export const extractOptions = z.strictObject({

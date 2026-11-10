@@ -5,6 +5,7 @@ import {
   cantRemove,
   filterImages,
   findImage,
+  type FoundScreen,
   type ImageFile,
   projectImages
 } from "@parity-app/editor"
@@ -88,6 +89,11 @@ export interface AgentHost {
   saveImage(projectId: string, image: { url: string; name: string }): Promise<{ src: string }>
   /** Main's own copy of a result it found lately, which placing puts in a design. Undefined for one it didn't find. */
   result(connector: string, id: string): Promise<PlaceableResult | undefined>
+  /**
+   * Main's own copy of a screen from a real app it found lately, from the connector named or the one that finds screens,
+   * which `PlaceReference` places beside a design (PAR-840). Undefined for one it didn't find.
+   */
+  screen(id: string, connector: string | undefined): Promise<FoundScreen | undefined>
   /** Tells main a result went into a design, which main records, counts and tells the source of. */
   placed(placed: PlacedIn): Promise<void>
   /** The project's image files and the lines of its code that name them, read from its folder (PAR-834). */
@@ -119,11 +125,12 @@ export type Answer<M extends AgentMethod> = Known<AgentMethods[M]["result"]>
 
 type Params<M extends AgentMethod> = AgentMethods[M]["params"]
 
-/** One call: the host, and the caller's presence on a tab. */
+/** One call: the host, the caller's presence on a tab, and who's calling when it says. */
 interface Call {
   host: AgentHost
   /** Sends the caller's events to a tab's canvas. */
   presence: (tab: string) => AgentHooks["presence"]
+  caller?: Caller
 }
 
 /** How the app answers each method. */
@@ -140,7 +147,7 @@ const methods: MethodTable = {
       state(snapshot)
     )
   },
-  exec: (params, { host, presence }) => exec(host, presence, params.tab, params),
+  exec: (params, { host, presence, caller }) => exec(host, presence, params.tab, params, caller),
   async screenshot(params, call) {
     const options = { state: params.state, mode: params.mode, scale: params.scale }
 
@@ -332,7 +339,7 @@ export async function dispatch(
   // tie the two to the same method through a union.
   const run = methods[method] as (params: Params<AgentMethod>, call: Call) => Promise<Answer<AgentMethod>>
 
-  return run(request, { host, presence })
+  return run(request, { host, presence, caller })
 }
 
 /** The tab an answer is about, by id and name. */
@@ -624,10 +631,11 @@ async function exec(
   host: AgentHost,
   presence: Call["presence"],
   tab: string | undefined,
-  request: ExecRequest
+  request: ExecRequest,
+  caller?: Caller
 ): Promise<Answer<"exec">> {
   // What changed is for the editor and for placing, not the agent's answer.
-  const { changes: _changes, ...answer } = await execIn(host, presence, await host.snapshot(tab), request)
+  const { changes: _changes, ...answer } = await execIn(host, presence, await host.snapshot(tab), request, caller)
 
   return answer
 }
@@ -636,7 +644,8 @@ async function execIn(
   host: AgentHost,
   presence: Call["presence"],
   snapshot: TabSnapshot,
-  request: ExecRequest
+  request: ExecRequest,
+  caller?: Caller
 ): Promise<Answer<"exec"> & { changes: AgentChangeSet }> {
   const tabId = snapshot.tab.id
   const label = request.label || "Agent edit"
@@ -660,11 +669,16 @@ async function execIn(
     render: renderFor(host, snapshot),
     iconNames: (set, module) => host.iconNames(tabId, set, module),
     apply: (changes) => host.apply(tabId, label, changes),
-    supports: (queries) => host.supports(queries)
+    supports: (queries) => host.supports(queries),
+    screen: (id, connector) => host.screen(id, connector),
+    caller: caller?.name
   })
 
   const { changes, screenshots, ...rest } = result
-  const hasChanges = changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0
+
+  const hasChanges =
+    changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0 || !!changes.references?.length
+
   const paths = screenshots.length > 0 ? await host.saveScreenshots(screenshots) : []
 
   return {

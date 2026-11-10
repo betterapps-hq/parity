@@ -1,4 +1,5 @@
 import { CodedError, type ContainerSpec, defaultModeSettings, type DesignNode, resolveModes } from "@parity-app/core"
+import type { FoundScreen } from "@parity-app/editor"
 import { describe, expect, it } from "vite-plus/test"
 import type { z } from "zod"
 import type { requests } from "./contracts.ts"
@@ -101,6 +102,16 @@ const desk: PlaceableResult = {
     { name: "Ada Park", url: "https://unsplash.com/@adapark" },
     { name: "Unsplash", url: "https://unsplash.com" }
   ]
+}
+
+/** A screen from a real app main found lately, as `PlaceReference` takes it. */
+const calm: FoundScreen = {
+  connector: "mobbin",
+  id: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+  title: "Calm",
+  platform: "web",
+  link: "https://mobbin.com/screens/1b9d6bcd",
+  image: { url: "https://images.mobbin.com/calm.png", width: 768, height: 480, expiresAt: 4_000_000_000_000 }
 }
 
 /** The tests' host: the fixture tab, frames drawn as data, and everything asked of it kept to look at. */
@@ -228,6 +239,7 @@ function fixtureHost() {
       return { src: "/images/white-desk-1a2b3c4d.jpg" }
     },
     result: async (connector, id) => (connector === "unsplash" && id === "desk" ? desk : undefined),
+    screen: async (id, connector) => (id === calm.id && (connector ?? "mobbin") === "mobbin" ? calm : undefined),
     placed: async (placed) => {
       asked.placed.push(placed)
     }
@@ -618,6 +630,56 @@ function placingHost() {
 
   return fixture
 }
+
+describe("PlaceReference", () => {
+  it("puts a screen beside the design as a reference, naming the agent, with its note, in a row", async () => {
+    const { host, asked } = fixtureHost()
+    const place = `await PlaceReference(${JSON.stringify(calm.id)}, { near: "signup", note: "The form is one column" })`
+
+    const answer = await dispatch(
+      "exec",
+      { label: "Look at sign up screens", code: `${place}; ${place}` },
+      host,
+      caller
+    )
+
+    expect(answer).toMatchObject({ ok: true, applied: true })
+    const placed = asked.applied[0]?.changes.references ?? []
+
+    expect(placed.map(({ path, reference }) => [path, reference.position])).toEqual([
+      ["app.par", { x: 1560, y: 0 }],
+      ["app.par", { x: 2888, y: 0 }]
+    ])
+    expect(placed[0]?.reference).toMatchObject({
+      connector: "mobbin",
+      sourceId: calm.id,
+      app: "Calm",
+      link: calm.link,
+      note: "The form is one column",
+      by: "Claude Code"
+    })
+  })
+
+  it("places nothing for a screen Parity hasn't found, or without a design to put it beside", async () => {
+    const { host, asked } = fixtureHost()
+
+    const unknown = await dispatch(
+      "exec",
+      { label: "Place", code: 'await PlaceReference("made-up", { near: "signup" })' },
+      host
+    )
+
+    const nowhere = await dispatch(
+      "exec",
+      { label: "Place", code: `await PlaceReference(${JSON.stringify(calm.id)})` },
+      host
+    )
+
+    expect(unknown).toMatchObject({ ok: false, error: expect.stringContaining("find_references") })
+    expect(nowhere).toMatchObject({ ok: false, error: expect.stringContaining("near") })
+    expect(asked.applied).toEqual([])
+  })
+})
 
 describe("place", () => {
   it("puts main's copy of a photo in an image as one edit, with its description and credit, then tells main", async () => {

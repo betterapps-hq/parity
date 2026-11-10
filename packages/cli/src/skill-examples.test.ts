@@ -157,7 +157,16 @@ const hooks: AgentHooks = {
 
     return capture ? { ...rendered, png: "iVBOR" } : rendered
   },
-  iconNames: async () => ({ names: ["Bell", "Heart", "Settings"], aliases: { Settings: ["Cog"] } })
+  iconNames: async () => ({ names: ["Bell", "Heart", "Settings"], aliases: { Settings: ["Cog"] } }),
+  // Any screen the examples name, as main would give one it found lately.
+  screen: async (id) => ({
+    connector: "mobbin",
+    id,
+    title: "Ledgerly",
+    platform: "web",
+    link: `https://mobbin.com/screens/${id}`,
+    image: { url: `https://images.example/${id}.png`, width: 768, height: 480 }
+  })
 }
 
 const files = await skillFiles()

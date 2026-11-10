@@ -41,9 +41,9 @@ export async function execute(request: ExecRequest, snapshot: AgentSnapshot, hoo
     await run(snapshot.tab, code, workspace.api())
     await workspace.checkTokenKinds()
     const result = workspace.result()
-    const { designs, modes, tokens } = result.changes
+    const { designs, modes, tokens, references = [] } = result.changes
 
-    if (hooks.apply && (designs.length > 0 || modes || tokens.length > 0)) {
+    if (hooks.apply && (designs.length > 0 || modes || tokens.length > 0 || references.length > 0)) {
       const conflicts = await hooks.apply(result.changes)
 
       if (conflicts.length > 0) {

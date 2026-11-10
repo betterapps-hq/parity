@@ -4,7 +4,8 @@ import {
   defaultModeSettings,
   findNode,
   type NodeStyle,
-  type NoteSpec
+  type NoteSpec,
+  type ReferenceSpec
 } from "@parity-app/core"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { DesignStore } from "../design-store.ts"
@@ -46,12 +47,28 @@ const order = (container: ContainerSpec, parent = "root") =>
 
 const note: NoteSpec = { id: "note-1", text: "Remember", position: { x: 0, y: 0 } }
 
+const reference: ReferenceSpec = {
+  id: "ref-1",
+  connector: "mobbin",
+  sourceId: "screen-1",
+  app: "Ledgerly",
+  platform: "web",
+  link: "https://mobbin.com/screens/1",
+  image: { url: "https://images.example/1.png" },
+  position: { x: 2000, y: 0 }
+}
+
 function session() {
   const store = new DesignStore(
     [
       {
         path: "app.par",
-        document: { version: 3, containers: [card(), { ...card(), id: "other", name: "Other" }], notes: [note] }
+        document: {
+          version: 3,
+          containers: [card(), { ...card(), id: "other", name: "Other" }],
+          notes: [note],
+          references: [reference]
+        }
       }
     ],
     defaultModeSettings,
@@ -186,5 +203,16 @@ describe("nudging what's selected", () => {
     selection.set({ note: "app.par#note-1" })
     nudgeSelection(nudging, "up", true)
     expect(store.getNotes()[0]!.note.position).toEqual({ x: 0, y: -10 })
+  })
+
+  it("moves a reference, as one step to undo", () => {
+    const nudging = session()
+    const { store, selection } = nudging
+    selection.set({ reference: "app.par#ref-1" })
+    nudgeSelection(nudging, "left", false)
+    nudgeSelection(nudging, "down", true)
+    expect(store.getReferences()[0]!.reference.position).toEqual({ x: 1999, y: 10 })
+    store.undo()
+    expect(store.getReferences()[0]!.reference.position).toEqual({ x: 2000, y: 0 })
   })
 })

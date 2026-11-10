@@ -66,6 +66,8 @@ export * from "./placement.ts"
 
 export * from "./project-images.ts"
 
+export * from "./references.ts"
+
 export * from "./render-failures.ts"
 
 export * from "./review.ts"

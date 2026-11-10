@@ -2582,6 +2582,62 @@ Tests:
 - `packages/connectors/src/browse.test.ts`: `pictureCredit`.
 - `media/MediaPanel.stories.tsx`: adding a picture from Pixabay, and a search that finds nothing offering Pixabay.
 
+## References
+
+### Screens from real apps beside a design (PAR-840)
+
+A reference is a screen from a real app, placed on the canvas beside a design to look at, never in it. It's kept in the
+project's `.par` file, in its `references` list beside its notes (decisions.md), with what the search gave: the
+connector and the source's id, the app, its platform, its link, its picture with its size and when its link stops
+working, where it sits, the description that found it, a note, and the agent that placed it. It isn't a design: it has
+no board, states, modes or layers, it isn't in Layers, and code and exports leave it out.
+
+- **Find references** is one command: R, the toolbar after the review button, Object in the menu bar, the right-click
+  menu around designs and on designs, and Search actions. It opens the library browser on the offered connector that
+  finds screens, Mobbin today. With a design selected it opens already searched, on the design's name: "pricing page" on
+  the web when its main preview is 600 pixels wide or more, and "… screen" on iOS otherwise (`referenceSearch`). With
+  nothing selected it opens on the recent searches.
+- **Placing:** "Place 2 on canvas", or Ctrl+Enter, puts what's picked in a row beside the design that was selected as it
+  opened, top-aligned with it, or around the middle of the view without one. A later batch starts a row under the last,
+  and the row moves right past anything else in the way, as copies of designs do (`referenceRow`). Each keeps the
+  description it was picked under, since picks carry across searches. They go in as one undoable step, into the design's
+  file or the main file, the canvas fits them in, and the last is selected.
+- **On the canvas** each is its picture at its screen's width, 1,280 pixels for the web and 390 for iOS, as tall as its
+  picture (`referenceSize`), with its app and its source under it and its note below, in captions that stay one size on
+  screen. A picture whose link has run out, or that won't load, shows the app's name and Open in Mobbin in its place,
+  which takes a click once the reference is selected (`referenceExpired`).
+- **Selecting, moving, nudging, deleting and Undo** work as they do for a note: a click selects it in the layer color, a
+  drag or the arrows move it in one undo step each, Delete removes it, and a double click opens it at its source. Copy
+  and Cut leave it out, since it can't be pasted into a design.
+- **The inspector's Design tab** shows a selected reference's source, platform, the description that found it and who
+  placed it ("You" for the person), with Open in Mobbin, More from the app (the browser on the app's name and the
+  reference's platform, `moreFromApp`), and a note.
+- **Agents** place one with `PlaceReference(id, { near, note })` in `execute`: main's own copy of a screen it found for
+  the agent lately, beside the design `near` names or the selected one, after the last one the call placed. It goes
+  through the same change, as part of the call's one undo step, and names the agent that placed it.
+
+Code: `referenceSpec` in `packages/core/src/document.ts`; `packages/editor/src/references.ts` (the changes, size, row
+and searches) and `mergeAgentChanges` in `design-changes.ts`; `apps/desktop/src/renderer/references/find-references.ts`,
+`canvas/ReferenceUtil.tsx`, `chrome/ReferencePanel.tsx`, and the references in `design-store.ts`,
+`canvas/CanvasEditor.tsx`, `canvas/nudge.ts` and `chrome/commands.ts`; `PlaceReference` in
+`packages/agent/src/workspace.ts`, with `foundScreen` in `apps/desktop/src/utility/references.ts`.
+
+Tests:
+
+- `packages/editor/src/references.test.ts` (14): kept in the file and read back, a new file, a note, a change and a
+  deletion, an agent's references merged, the size for each platform, an expired picture, the row beside a design, under
+  the last batch, past a design in the way and around the view, the search for a design and for more from an app, and a
+  screen turned into a reference.
+- `apps/desktop/src/renderer/references/find-references.test.ts` (2): placing as one step with each one's search, and
+  deleting with Undo.
+- `apps/desktop/src/renderer/canvas/nudge.test.ts`: a reference nudged, as one step to undo.
+- `apps/desktop/src/renderer/chrome/canvas-menu.test.ts`: Find references in both right-click menus.
+- `packages/agent/src/dispatch.test.ts`: `PlaceReference` beside a design in a row with the agent's name and note, and
+  nothing placed for a screen Parity hasn't found or with no design to put it beside.
+- `references/References.stories.tsx` under Parity/Canvas/References: from the toolbar and placing (with checks), on the
+  canvas, placed by an agent, and an expired picture (with a check). Dragging a reference and Delete then Undo were
+  tried by hand in the Place references story.
+
 ## Exporting
 
 ### Layers and designs as PNG or JPG (PAR-185)

@@ -128,8 +128,12 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
         handled()
       }
       // Nudging is the keymap's: tldraw would move the selected design with the arrows the keymap doesn't bind.
-      else if (event.key.startsWith("Arrow") && (session.selection.get().design || session.selection.get().note)) {
-        handled()
+      else if (event.key.startsWith("Arrow")) {
+        const { design, note, reference } = session.selection.get()
+
+        if (design || note || reference) {
+          handled()
+        }
       }
     }
 

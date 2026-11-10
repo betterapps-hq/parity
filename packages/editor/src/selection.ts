@@ -1,6 +1,6 @@
 /**
  * What's selected in a tab, as data: a design on its own, or with layers or one of its modes, several designs, or a
- * free text note. The app keeps the selection in a store and reads it through these; the rules for what an edit to it
+ * free text note, or a reference. The app keeps the selection in a store and reads it through these; the rules for what an edit to it
  * lands on are in `edit-frame.ts`.
  */
 
@@ -21,6 +21,8 @@ export interface Selection {
   state?: string
   /** A free text note on the canvas. */
   note?: string
+  /** A screen from a real app, placed on the canvas to look at. */
+  reference?: string
 }
 
 /** Whether two selections select the same things, picked the same way. */
@@ -31,6 +33,7 @@ export function sameSelection(a: Selection, b: Selection): boolean {
     a.mode === b.mode &&
     a.state === b.state &&
     a.note === b.note &&
+    a.reference === b.reference &&
     sameList(a.nodes, b.nodes) &&
     sameList(a.designs, b.designs)
   )
@@ -42,7 +45,7 @@ function sameList(a: string[] | undefined, b: string[] | undefined): boolean {
 
 /**
  * What a selection edits, as a key that's the same however it was picked: the design, the layers or designs in it in
- * any order, the frame and state they were picked in, or the note. A run of edits to the selection, such as arrow
+ * any order, the frame and state they were picked in, the note or the reference. A run of edits to the selection, such as arrow
  * presses or a number field's Up and Down, lasts while this stays the same.
  */
 export function selectionKey(selection: Selection): string {
@@ -52,7 +55,8 @@ export function selectionKey(selection: Selection): string {
     (selection.designs ?? []).toSorted(),
     selection.mode,
     selection.state,
-    selection.note
+    selection.note,
+    selection.reference
   ])
 }
 

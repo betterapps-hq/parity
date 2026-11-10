@@ -7046,3 +7046,28 @@ The second of the four pull requests that build the references design. My calls:
   shows it larger. `placeableKinds` decides, so PAR-841 changes one list.
 - **The exploration's Pixabay and Unsplash stories are gone,** since the real browser's stories replace them. Its Mobbin
   stories and prototype stay until references on the canvas are built (PAR-840).
+
+## References are kept in the project's file, beside notes (PAR-840)
+
+The third of the four pull requests that build the references design. You decided on 2026-11-10 that references are kept
+in the project's `.par` file beside notes, rather than for the person alone. My calls:
+
+- **A reference is its own kind in the file,** a `references` list beside `notes`, in the file of the design it was
+  found for, or the main file without one. It keeps the connector and the source's id, the app, its platform, its link,
+  its picture's link, size and expiry, where it sits, the description that found it, a note and the agent that placed
+  it. The changes to it are pure functions in `@parity-app/editor`, as notes' are.
+- **Its picture stays Mobbin's link,** not a copy, until Mobbin says Parity may keep one (Questions for Mobbin in the
+  proposal). Once the link has run out, the reference shows its app's name and Open in Mobbin.
+- **It behaves as a note does:** one at a time in the selection, moved, nudged and deleted as one undo step each. Copy
+  and Cut leave it out, since it can't be pasted into a design, and nothing that writes code or exports reads the list.
+- **A batch lands in a row beside its design** and a later one under it, as the proposal says, and moves right past any
+  other design in the way, the rule copies of designs follow, since the example's designs sit close together.
+- **Find references opens the merged browser with its own pick action,** "Place N on canvas", and the browser now hands
+  the action the description each pick was found under, so a reference says what found it.
+- **Agents place references through `execute`,** with `PlaceReference(id, { near, note })`, taking main's own copy of a
+  screen it found for them, so a reference shows what the source gave. A call's references are added with its designs as
+  one undo step; they're only ever added, so they never conflict with edits made meanwhile. Each names the caller.
+- **No new event.** Find references is recorded by `command.ran` like every command, and screens aren't counted as a
+  source's usage, since the hub counts only what goes in designs.
+- **The exploration is gone.** Its Mobbin stories and the workspace and Media tab prototype came out of Storybook; the
+  stories under Parity/Canvas/References and Parity/Library browser/Mobbin replace them.

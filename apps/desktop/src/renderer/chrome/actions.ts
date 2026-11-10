@@ -1,5 +1,6 @@
 import type { ContainerKind } from "@parity-app/core"
 import { reviewToolFor, selectedDesigns, selectedNodes } from "@parity-app/editor"
+import { findReferences, referenceLibrary } from "../references/find-references.ts"
 import type { Tool } from "../selection.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { type LayerCommand, layerCommands } from "./canvas-menu.ts"
@@ -86,7 +87,10 @@ const current = () => activeSession()?.selection.get()
 const hasSession = () => !!activeSession()
 const hasEditor = () => !!activeSession()?.editor
 const hasDesign = () => !!current()?.design
-const hasSomething = () => !!current()?.design || !!current()?.note
+
+/** A design or a note is selected: what copying takes. A reference can't be pasted into a design, so it isn't copied. */
+const hasCopyable = () => !!current()?.design || !!current()?.note
+const hasSomething = () => hasCopyable() || !!current()?.reference
 
 const layers = () => {
   const selection = current()
@@ -146,6 +150,16 @@ const keymapActions: Record<Command, Action> = {
   interact: tool("interact"),
   comment: review("comment"),
   annotate: review("annotate"),
+  findReferences: {
+    run: () => {
+      const session = activeSession()
+
+      if (session) {
+        findReferences(session)
+      }
+    },
+    available: () => hasSession() && !!referenceLibrary
+  },
 
   selectAll: { run: () => selectEverything(), available: hasSession },
   selectInverse: { run: () => selectInverse(), available: hasSession },
@@ -161,8 +175,8 @@ const keymapActions: Record<Command, Action> = {
   undo: { run: () => undo(), available: () => !!activeSession()?.store.getHistory().canUndo },
   redo: { run: () => redo(), available: () => !!activeSession()?.store.getHistory().canRedo },
   repeat: { run: repeatLastAction, available: () => !!lastAction() && lastAction()?.available?.() !== false },
-  cut: { run: () => cut(), available: hasSomething },
-  copy: { run: () => copy(), available: () => (hasLayer() ? can("copy") : hasSomething()) },
+  cut: { run: () => cut(), available: hasCopyable },
+  copy: { run: () => copy(), available: () => (hasLayer() ? can("copy") : hasCopyable()) },
   paste: { run: () => paste(), available: hasSession },
   pasteOver: { run: () => pasteOver(), available: () => hasLayer() || designs() > 0 },
   pasteReplace: { run: () => pasteReplace(), available: hasLayer },
