@@ -53,6 +53,7 @@ await build({
   ...node,
   entryPoints: {
     main: join(appDir, "src/main/index.ts"),
+    "hang-watch": join(appDir, "src/main/hang-watch.ts"),
     utility: join(appDir, "src/utility/index.ts"),
     "props-worker": join(appDir, "src/utility/props-worker.ts"),
     "builder-process": join(appDir, "src/utility/builder-process.ts")

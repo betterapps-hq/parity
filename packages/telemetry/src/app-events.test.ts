@@ -106,9 +106,10 @@ describe("serviceExit", () => {
 
 describe("hang events", () => {
   it("take how long the window or main was stuck as a whole number of milliseconds", () => {
-    expect(windowHung.schema.safeParse({ window: "render", stuckMs: 3200 }).success).toBe(true)
-    expect(mainBlocked.schema.safeParse({ stuckMs: 2400 }).success).toBe(true)
-    expect(mainBlocked.schema.safeParse({ stuckMs: "2400" }).success).toBe(false)
+    expect(windowHung.schema.safeParse({ window: "render", stuckMs: 3200, ended: "closed" }).success).toBe(true)
+    expect(mainBlocked.schema.safeParse({ stuckMs: 2400, ended: "answered" }).success).toBe(true)
+    expect(mainBlocked.schema.safeParse({ stuckMs: 2400, ended: "closed" }).success).toBe(false)
+    expect(mainBlocked.schema.safeParse({ stuckMs: "2400", ended: "answered" }).success).toBe(false)
   })
 
   it("count main as blocked only once its timer runs over the hang threshold late", () => {

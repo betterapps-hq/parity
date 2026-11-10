@@ -16,6 +16,8 @@ export * from "./envelope.ts"
 
 export * from "./events.ts"
 
+export * from "./hangs.ts"
+
 export * from "./project-events.ts"
 
 export * from "./registry.ts"

@@ -124,21 +124,51 @@ export const serviceExited = defineEvent(
   }
 )
 
+const hungWindow = z
+  .enum(["renderer", "render"])
+  .describe("Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames")
+
+export const windowHangStarted = defineEvent("window.hang_started", z.object({ window: hungWindow }), {
+  level: "warn",
+  sentBy: ["main"],
+  when: "A window stops answering, which Electron reports once it has been stuck for a few seconds (PAR-804)."
+})
+
 export const windowHung = defineEvent(
   "window.hung",
   z.object({
-    window: z
-      .enum(["renderer", "render"])
-      .describe("Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames"),
-    stuckMs: ms("How long the window didn't answer")
+    window: hungWindow,
+    stuckMs: ms("How long the window didn't answer"),
+    ended: z
+      .enum(["answered", "closed", "quit", "exited"])
+      .describe(
+        "How the hang ended: the window `answered` again, was `closed`, the app was `quit`, or the app `exited` " +
+          "without quitting, such as a force-quit, which the next run reports"
+      )
   }),
-  { level: "warn", sentBy: ["main"], when: "A window that stopped answering answers again." }
+  {
+    level: "warn",
+    sentBy: ["main"],
+    when: "A window that stopped answering answers again, is closed, or the app quits or exits while it's stuck."
+  }
 )
 
 export const mainBlocked = defineEvent(
   "main.blocked",
-  z.object({ stuckMs: ms("How late main's timer ran, which is how long its event loop was blocked") }),
-  { level: "warn", sentBy: ["main"], when: "Main's event loop runs again after being blocked for over 2 seconds." }
+  z.object({
+    stuckMs: ms("How long main's event loop was blocked"),
+    ended: z
+      .enum(["answered", "exited"])
+      .describe(
+        "How the hang ended: main's loop `answered` again, or the app `exited` while it was blocked, such as a " +
+          "force-quit, which the next run reports"
+      )
+  }),
+  {
+    level: "warn",
+    sentBy: ["main"],
+    when: "Main's event loop runs again after being blocked for over 2 seconds, or the app exits while it's blocked."
+  }
 )
 
 export const rendererLongTask = defineEvent(
@@ -161,6 +191,7 @@ export const appEvents = [
   processMemory,
   serviceLag,
   serviceExited,
+  windowHangStarted,
   windowHung,
   mainBlocked,
   rendererLongTask
