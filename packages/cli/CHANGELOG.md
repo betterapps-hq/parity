@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 10 Nov 2026 05:43:33 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 10:26:05 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.34.0
+
+Tue, 10 Nov 2026 10:26:05 GMT
+
+### Minor changes
+
+- Agents list a project's images with get_images and parity images, with what uses each, and remove an unused one with
+  remove_image and parity images remove (ajcraswell@gmail.com)
 
 ## 0.33.1
 

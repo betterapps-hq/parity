@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 10:26:05 GMT",
+      "version": "0.34.0",
+      "tag": "@parity-app/cli_v0.34.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "99c771ab306e37d407f8ce11d468f6a784909107",
+            "comment": "Agents list a project's images with get_images and parity images, with what uses each, and remove an unused one with remove_image and parity images remove"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 05:43:33 GMT",
       "version": "0.33.1",
       "tag": "@parity-app/cli_v0.33.1",
