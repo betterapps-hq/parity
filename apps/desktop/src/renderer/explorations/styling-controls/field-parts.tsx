@@ -2553,7 +2553,8 @@ export function ValueField<T>({
             options={found}
             highlight={lit}
             empty={nothingFound}
-            className="absolute top-full right-0 left-0 z-30 mt-1"
+            // As wide as what it lists, so a narrow field's names read whole, and never narrower than the field.
+            className="absolute top-full left-0 z-30 mt-1 w-max max-w-72 min-w-full"
             onHighlight={highlightAt}
             onPick={(index) => take(found[index]!.value)}
           />
