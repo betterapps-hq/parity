@@ -220,12 +220,27 @@ function Browser({
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- only as it opens
   }, [])
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
+  const searchTyped = () => {
     const query = input.trim()
 
     if (query) {
       run({ query, filters: chosen })
+    }
+  }
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    searchTyped()
+  }
+
+  /**
+   * Enter searches. The form can't be left to do it: a select keeps a hidden text field in the form, and a browser
+   * only submits on Enter when the form has one text field, so Unsplash's two selects would stop it.
+   */
+  const onFieldKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Enter" && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault()
+      searchTyped()
     }
   }
 
@@ -323,6 +338,7 @@ function Browser({
                   ref={field}
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={onFieldKeyDown}
                   maxLength={500}
                   aria-label={fieldLabel(library)}
                   placeholder={`${fieldLabel(library)}, like “${info.guide.examples[0]}”`}

@@ -76,6 +76,25 @@ export const FindPhotos: Story = {
   render: workspace({ browser: { library: "unsplash", query: "nature" } })
 }
 
+/** Another description typed over the first, and Enter: the results change to match. */
+export const SearchAgain: Story = {
+  loaders: [opening(false, "images")],
+  render: workspace({ browser: { library: "unsplash", query: "nature" } }),
+  play: async () => {
+    const field = await body().findByRole("textbox", { name: "Describe a photo" })
+
+    if (!(field instanceof HTMLInputElement)) {
+      throw new Error("The browser's search isn't a text field")
+    }
+
+    await userEvent.clear(field)
+    await typeInto(field, "desk")
+    await userEvent.keyboard("{Enter}")
+    await expect(await body().findByRole("button", { name: /^A tidy desk from above/ })).toBeInTheDocument()
+    await expect(body().queryByRole("button", { name: /^Rolling green hills/ })).toBeNull()
+  }
+}
+
 /**
  * Orientation and color chosen: the same words, narrowed. The colors are Unsplash's fixed list of eleven, with the
  * swatches its connector gives them. Setting either back to Any searches again.
