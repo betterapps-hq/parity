@@ -349,6 +349,23 @@ function BlurTokens({
   const own = value !== undefined && !isLengthToken(value)
   const [tab, setTab] = useState<(typeof blurTabs)[number]>(own ? "custom" : "tokens")
 
+  const list = (
+    <TokenList
+      label={label}
+      tokens={tokens}
+      current={value !== undefined && isLengthToken(value) ? value : undefined}
+      none="None"
+      noneValue="0px"
+      own={own}
+      onPick={onPick}
+    />
+  )
+
+  // Locked to tokens, it's only the tokens: no tabs, and no Custom to type a length of its own in.
+  if (tokensOnly) {
+    return <div className="p-1">{list}</div>
+  }
+
   return (
     <Tabs
       value={tab}
@@ -369,18 +386,10 @@ function BlurTokens({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="tokens" className="p-1">
-        <TokenList
-          label={label}
-          tokens={tokens}
-          current={value !== undefined && isLengthToken(value) ? value : undefined}
-          none="None"
-          noneValue="0px"
-          own={own}
-          onPick={onPick}
-        />
+        {list}
       </TabsContent>
       <TabsContent value="custom" className="p-2">
-        <BlurChoice label={label} value={value} tokensOnly={tokensOnly} onChange={onChange} />
+        <BlurChoice label={label} value={value} onChange={onChange} />
       </TabsContent>
     </Tabs>
   )

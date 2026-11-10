@@ -224,7 +224,7 @@ export function SideField({
   } else if (own?.allow !== undefined) {
     status = `Allowed here: ${own.allow}`
   } else if (offSystem) {
-    status = `Not a step. Nearest: ${nearestStep}${unit}`
+    status = `Nearest step: ${nearestStep}${unit}`
   } else if (percent !== undefined && percentOf) {
     status = `${formatNumber(percent)}% of ${percentOf}`
   } else if (mixed && value === undefined) {
@@ -315,6 +315,32 @@ export function SideField({
         onPick: (name) => onChange(name === undefined ? undefined : { token: name }, "side")
       }}
       refusal={refused ? notAStep(`${nearestStep}${unit}`, useNearest) : undefined}
+      // Locked, a side still takes a step on the scale as typed, as Tokens only allows, besides its tokens.
+      locked={
+        tokensOnly
+          ? {
+              tokens,
+              nearestTo: (text) => {
+                const typed = Number.parseFloat(text)
+
+                return Number.isFinite(typed) ? nearestToken(tokens, (each) => each.px, typed) : undefined
+              },
+              takes: (text) => {
+                const reading = read(text)
+
+                if ("reason" in reading) {
+                  return false
+                }
+
+                const entries = "side" in reading.value ? [reading.value.side] : reading.value.shorthand
+
+                return entries.every(
+                  (entry) => entry === undefined || entry === "auto" || !("number" in entry) || onStep(entry.number)
+                )
+              }
+            }
+          : undefined
+      }
       narrow={narrow}
       bare={bare}
       altSteps={spreads}

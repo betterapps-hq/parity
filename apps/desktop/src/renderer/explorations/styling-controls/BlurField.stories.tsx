@@ -55,8 +55,12 @@ export const PlainValue: Story = { render: () => <Blurs start={{ backdropBlur: {
 /** No effects yet: Effects is a title with +, which offers Layer blur and Background blur. */
 export const Empty: Story = { render: () => <Blurs start={{}} /> }
 
-/** In a project set to Tokens only, 6px is refused, with the nearest token under it. */
-export const RefusedByTokensOnly: Story = { render: () => <Blurs start={{ backdropBlur: { px: 6 } }} tokensOnly /> }
+/**
+ * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
+ * blur takes any length. Typing searches the blur tokens, with the nearest to a length typed first, and 6px, already
+ * there, is refused with the nearest token under it.
+ */
+export const LockedToTokens: Story = { render: () => <Blurs start={{ backdropBlur: { px: 6 } }} tokensOnly /> }
 
 /** Layers with different background blurs: Mixed, until something's typed or chosen for them all. */
 export const Mixed: Story = { render: () => <Blurs start={{}} mixed /> }

@@ -91,8 +91,12 @@ export const AllowedHere: Story = {
   )
 }
 
-/** In a project set to Tokens only, 13.5 is refused, with the nearest step under it. */
-export const RefusedByTokensOnly: Story = {
+/**
+ * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, any
+ * length goes. A side takes a spacing token or a step on the scale (16), and typing anything else searches the tokens.
+ * 13.5, already there, is refused with the nearest step under it.
+ */
+export const LockedToTokens: Story = {
   render: () => <Padding start={[px(13.5), px(16), px(13.5), px(16)]} tokensOnly />
 }
 

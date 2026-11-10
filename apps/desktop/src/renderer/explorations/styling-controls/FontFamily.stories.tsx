@@ -68,8 +68,11 @@ export const TypedStack: Story = { render: () => <Font start={{ stack: '"Palatin
 /** Söhne, which the project doesn't have: drawn in sans-serif with its name struck through. Its mark replaces or adds it. */
 export const MissingFont: Story = { render: () => <Font start={{ stack: "Söhne, sans-serif" }} /> }
 
-/** In a project set to Tokens only, Segoe UI is refused, with the nearest token under it, and the list shows only tokens. */
-export const RefusedByTokensOnly: Story = {
+/**
+ * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, any
+ * font goes. Its list shows only the tokens, and Segoe UI, already there, is refused with the nearest token under it.
+ */
+export const LockedToTokens: Story = {
   render: () => <Font start={{ stack: '"Segoe UI", sans-serif' }} tokensOnly />
 }
 

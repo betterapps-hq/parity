@@ -44,7 +44,6 @@ import {
 import {
   nearestToken,
   NotBaseline,
-  notAToken,
   type Reading,
   type ScrubKeys,
   unitButtonClass,
@@ -1068,12 +1067,7 @@ function LengthField({
       return { reason: `${label} can't be ${trimmed}` }
     }
 
-    const near = nearestTo(reading.px)
-
-    if (tokensOnly && near) {
-      return notAToken(near, () => onChange(near.name))
-    }
-
+    // Locked to tokens, the field's `locked` turns a value of its own away before it gets here, offering the nearest.
     return { value: { px: Math.round(reading.px * 100) / 100 } }
   }
 
@@ -1141,7 +1135,7 @@ function LengthField({
   } else if (own?.allow !== undefined) {
     status = `Allowed here: ${own.allow}`
   } else if (own && nearest) {
-    status = `Not a token. Nearest: ${nearest.name} (${nearest.detail})`
+    status = `Nearest token: ${nearest.name}, ${nearest.detail}`
   } else if (percent !== undefined) {
     status = `${formatNumber(percent)}% of the layer's width across and height down`
   } else if (mixed && value === undefined) {
@@ -1204,6 +1198,18 @@ function LengthField({
       // None draws as no radius or no blur, so the scale starts from it.
       tokens={{ list: tokens, current: name, none: "None", noneValue: "0px", onPick: onChange }}
       refused={refused && nearest ? { nearest, onUse: () => onChange(nearest.name) } : undefined}
+      locked={
+        tokensOnly
+          ? {
+              tokens: scale,
+              nearestTo: (text) => {
+                const reading = readLength(text, { label, current: own?.px ?? token?.px, takesPercent })
+
+                return "px" in reading ? nearestTo(reading.px) : undefined
+              }
+            }
+          : undefined
+      }
       narrow={narrow}
       hint={{ detail: status }}
       read={read}

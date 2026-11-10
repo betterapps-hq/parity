@@ -156,7 +156,8 @@ export function useTyped<T>({
   read,
   onCommit,
   onStep,
-  line
+  line,
+  quiet = false
 }: {
   label: string
   /** The value as the field shows it at rest, which Escape puts back. */
@@ -168,6 +169,8 @@ export function useTyped<T>({
   onStep?: (up: boolean, shift: boolean, alt: boolean) => void
   /** A line under the row that several fields share, in place of the field's own. */
   line?: { message: Message | undefined; onMessage: (message: Message | undefined) => void }
+  /** Leaving with text it can't read puts the value back saying nothing, as a search does: a field locked to tokens. */
+  quiet?: boolean
 }) {
   const [typed, setTyped] = useState<string>()
   const [focused, setFocused] = useState(false)
@@ -213,6 +216,8 @@ export function useTyped<T>({
     if ("value" in outcome) {
       onCommit(outcome.value)
       setMessage(outcome.message)
+    } else if (leaving && quiet) {
+      setMessage(undefined)
     } else if (leaving) {
       setMessage({
         tone: "note",
@@ -302,7 +307,10 @@ function ReasonBox({ reason, onReason }: { reason: string; onReason: (reason: st
   )
 }
 
-/** What a field says under its row, with its answer button when it asks something. It spans a grid's row. */
+/**
+ * What a field says under its row, with its answer button when it asks something. It spans a grid's row, and the
+ * button runs on after the words as part of the sentence, so a short message is one line across the whole row.
+ */
 export function MessageLine({ message }: { message: Message | undefined }) {
   if (!message) {
     return null
@@ -313,16 +321,17 @@ export function MessageLine({ message }: { message: Message | undefined }) {
   return (
     <p
       role={error ? "alert" : "status"}
-      className={`col-span-full mt-1 flex flex-wrap items-center gap-x-1.5 type-message ${error ? "text-destructive" : "text-muted-foreground"}`}
+      className={`col-span-full mt-1 type-message ${error ? "text-destructive" : "text-muted-foreground"}`}
     >
       {message.text}
+      {message.action && " "}
       {message.action && (
         <button
           type="button"
           // Pressing it leaves the typing where it is, so the field doesn't put its value back and move the answer away.
           onMouseDown={(event) => event.preventDefault()}
           onClick={message.action.run}
-          className="inline-flex items-center gap-1 rounded px-1 font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex items-center gap-1 rounded align-middle font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
         >
           {message.action.label}
         </button>
@@ -332,19 +341,34 @@ export function MessageLine({ message }: { message: Message | undefined }) {
 }
 
 /**
- * What Tokens only says of a value of its own: "Not a token. Nearest:" and the nearest token as the answer, as a
- * reading's reason for what's typed, or a message for a value already there.
+ * What Tokens only says under a value of its own, which is kept: "Not a token." and Use with the nearest token, a
+ * color's swatch before its name, or what another kind comes to after it (Use radius-xl 14px), since their marks are
+ * too small to read at a message's size.
  */
 export function notAToken(nearest: FieldToken, onUse: () => void) {
-  return { reason: "Not a token. Nearest:", action: { label: `${nearest.name} (${nearest.detail})`, run: onUse } }
+  const color = nearest.kind === "color"
+
+  return {
+    reason: "Not a token.",
+    action: {
+      label: (
+        <>
+          {color && <TokenMark kind="color" value={nearest.value} width={14} height={10} />}
+          Use {nearest.name}
+          {!color && <span className="font-normal text-muted-foreground">{nearest.detail}</span>}
+        </>
+      ),
+      run: onUse
+    }
+  }
 }
 
 /**
- * What Tokens only says of a value off a field's steps, where the steps are on the system, as a side's whole pixels
- * are: "Not a step. Nearest:" and the nearest step (`14px`) as the answer. A field's `refusal` takes it.
+ * What Tokens only says under a value off a field's steps, where the steps are on the system, as a side's whole pixels
+ * are: "Not a step." and Use with the nearest step (`14px`). A field's `refusal` takes it.
  */
 export function notAStep(nearest: string, onUse: () => void) {
-  return { reason: "Not a step. Nearest:", action: { label: nearest, run: onUse } }
+  return { reason: "Not a step.", action: { label: `Use ${nearest}`, run: onUse } }
 }
 
 /* Scrubbing and dragging */
@@ -1752,8 +1776,8 @@ export interface ValueFieldProps<T> {
   onCommit: (value: T) => void
   onStep?: (up: boolean, keys: ScrubKeys) => void
   /**
-   * A value already there that Tokens only refuses: outlined in the error color, with "Not a token. Nearest:" and the
-   * nearest token under the row, until it's allowed here.
+   * A value Tokens only refuses, typed or already there, which is kept: outlined in the error color, with "Not a token."
+   * and Use with the nearest token under the row, until it's allowed here.
    */
   refused?: { nearest: FieldToken; onUse: () => void }
   /** A button after the field, as Angle's dial is. */
@@ -1778,7 +1802,7 @@ export interface ValueFieldProps<T> {
   /** Classes for the row, as a grid places it beside another field whose messages share the line under both. */
   rowClassName?: string
   /**
-   * What Tokens only says of a value already there in words of the field's own, where `refused`'s "Not a token" doesn't
+   * What Tokens only says of a value it refuses in words of the field's own, where `refused`'s "tokens only" doesn't
    * fit, as a side's `notAStep`: outlined in the error color, with it under the row, until it's allowed here.
    */
   refusal?: { reason: string; action?: MessageAction }
@@ -1805,6 +1829,19 @@ export interface ValueFieldProps<T> {
    * nothing's found, Enter reads what's typed as `read` does, so Font keeps a typed stack.
    */
   search?: FieldSearch<T>
+  /**
+   * Locked to tokens, as a project can ask (`tokensOnly`); unlocked, a field takes a value of its own as readily as a
+   * token. Locked, typing searches `tokens` rather than taking a value, a value typed (`13px`, `ABDABD`) lists the token
+   * nearest it first, and leaving without picking one keeps what was there, saying nothing. `takes` lets through
+   * anything else it takes as typed, as a side takes a step on the scale. A value already there that isn't a token
+   * stays, refused (`refused`).
+   */
+  locked?: {
+    tokens: readonly FieldToken[]
+    /** The token nearest what's typed, where it reads as a value of the field's own. */
+    nearestTo: (text: string) => FieldToken | undefined
+    takes?: (text: string) => boolean
+  }
   /**
    * `=` opens an expression, as design-options-values.md's Expression has it in any field: typing `=` hands what's
    * typed after it to `onEquals`, which opens the expression's editor. Where the field holds one, `onOpen` opens it as
@@ -1833,6 +1870,117 @@ export interface FieldSearch<T> {
   empty?: (text: string) => string | undefined
   /** The option highlighted with Up and Down or the pointer, to preview it; nothing once the list closes. */
   onHighlight?: (value: T | undefined) => void
+}
+
+/** A token as a search list draws it: its mark and name, and what it comes to at the end. */
+function TokenOption({ token }: { token: FieldToken }) {
+  return (
+    <>
+      <span className="flex min-w-0 items-center gap-2">
+        <TokenMark kind={token.kind} value={token.value} name={token.name} width={20} height={14} />
+        <span className="truncate">{token.name}</span>
+      </span>
+      <span className="shrink-0 text-muted-foreground">{token.detail}</span>
+    </>
+  )
+}
+
+/**
+ * How a field locked to tokens reads what's typed and what typing searches (ValueField's `locked`): a token's name,
+ * None or what `takes` lets through is read as the field reads it, and anything else is refused with the nearest token
+ * as its answer; the search lists the tokens whose name or value has what's typed, after the token nearest it where it
+ * reads as a value. Each option stores what the field reads the token's name as.
+ */
+function lockedTyping<T>(
+  locked: ValueFieldProps<T>["locked"],
+  {
+    label,
+    read,
+    onCommit,
+    namespace = "",
+    none
+  }: {
+    label: string
+    read: (text: string) => Reading<T>
+    onCommit: (value: T) => void
+    namespace?: string
+    none?: string
+  }
+): { read: (text: string) => Reading<T>; search: FieldSearch<T> } | undefined {
+  if (!locked) {
+    return undefined
+  }
+
+  const lower = (text: string) => text.trim().toLowerCase()
+
+  const takenAsIs = (text: string) =>
+    lower(text) === "" ||
+    lower(text) === none?.toLowerCase() ||
+    locked.tokens.some((token) =>
+      [lower(token.name), lower(token.name.slice(namespace.length))].includes(lower(text))
+    ) ||
+    locked.takes?.(text.trim()) === true
+
+  const valueOf = (token: FieldToken) => {
+    const reading = read(token.name)
+
+    return "value" in reading ? reading : undefined
+  }
+
+  return {
+    read: (text) => {
+      if (takenAsIs(text)) {
+        return read(text)
+      }
+
+      const near = locked.nearestTo(text.trim())
+      const taken = near && valueOf(near)
+
+      return near && taken ? notAToken(near, () => onCommit(taken.value)) : { reason: "Not a token" }
+    },
+    search: {
+      label: `${label} tokens`,
+      options: (text) => {
+        const words = lower(text)
+
+        // What it takes as typed (a side's step) isn't searched for, so Enter takes it rather than a token.
+        if (words !== "" && locked.takes?.(text.trim()) === true) {
+          return []
+        }
+
+        const near = words === "" ? undefined : locked.nearestTo(text.trim())
+        const rows: (SearchOption & { value: T })[] = []
+
+        const add = (token: FieldToken, group: string | undefined) => {
+          const taken = valueOf(token)
+
+          if (taken) {
+            rows.push({
+              key: `${group ?? ""}/${token.name}`,
+              group,
+              content: <TokenOption token={token} />,
+              value: taken.value
+            })
+          }
+        }
+
+        if (near) {
+          add(near, `Nearest to ${text.trim()}`)
+        }
+
+        for (const token of locked.tokens) {
+          const matches = words === "" || lower(token.name).includes(words) || lower(token.detail).includes(words)
+
+          if (token.deprecated === undefined && matches && token.name !== near?.name) {
+            add(token, near ? "Tokens" : undefined)
+          }
+        }
+
+        return rows
+      },
+      empty: (text) => (locked.takes?.(text.trim()) === true ? undefined : `No tokens match “${text.trim()}”`)
+    }
+  }
 }
 
 /**
@@ -1882,7 +2030,8 @@ export function ValueField<T>({
   line,
   bare = false,
   inputStyle,
-  search,
+  search: ownSearch,
+  locked,
   expression
 }: ValueFieldProps<T>) {
   const [listOpen, setListOpen] = useState(false)
@@ -1900,14 +2049,25 @@ export function ValueField<T>({
     backTo = chip.name
   }
 
+  const locking = lockedTyping(locked, {
+    label,
+    read,
+    onCommit,
+    namespace: own?.namespace ?? chip?.namespace,
+    none: tokens?.none
+  })
+
+  const search = ownSearch ?? locking?.search
+
   const typed = useTyped({
     label,
     shown: shown ?? "",
     backTo,
-    read,
+    read: locking?.read ?? read,
     onCommit,
     onStep: onStep && ((up, shift, alt) => onStep(up, { shift, alt })),
-    line
+    line,
+    quiet: locked !== undefined
   })
 
   const typing = typed.typed !== undefined

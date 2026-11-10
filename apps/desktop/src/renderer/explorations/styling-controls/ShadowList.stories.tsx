@@ -193,8 +193,12 @@ export const ColorOffTheSystem: Story = {
   )
 }
 
-/** In a project set to Tokens only, that color is refused, with the nearest token under it. */
-export const RefusedByTokensOnly: Story = {
+/**
+ * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
+ * shadow's color can be any. Its color picker is only the tokens, and the blue already there is refused with the nearest
+ * token under it.
+ */
+export const LockedToTokens: Story = {
   render: () => (
     <Shadows
       start={[{ id: "own", kind: "drop", layer: { x: 0, y: 8, blur: 24, spread: -4, color: "#2f6fed", alpha: 40 } }]}

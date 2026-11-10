@@ -10,7 +10,6 @@ import {
   MessageLine,
   MissingMark,
   nearestToken,
-  notAToken,
   type Reading,
   readNumber,
   type ScrubKeys,
@@ -196,12 +195,7 @@ export function FontFamilyField({
       }
     }
 
-    const near = tokensOnly ? nearestFontToken(typed, tokens) : undefined
-
-    if (near) {
-      return notAToken(near, () => change({ token: near.name }))
-    }
-
+    // Locked to tokens, the field's `locked` turns a value of its own away before it gets here, offering the nearest.
     return { value: { stack: typed } }
   }
 
@@ -289,6 +283,16 @@ export function FontFamilyField({
           empty: (text) => (text.includes(",") ? undefined : "No fonts match"),
           onHighlight: onPreview
         }}
+        // Locked, its search lists only the tokens (`options`), and a token's font typed by name is the token.
+        locked={
+          tokensOnly
+            ? {
+                tokens,
+                nearestTo: (text) => nearestFontToken(text, tokens),
+                takes: (text) => tokens.some((token) => token.detail.toLowerCase() === text.toLowerCase())
+              }
+            : undefined
+        }
         hint={{
           label: resolved ? `Font: ${resolved.name}` : `Font: ${inherited.font.name}, inherited from ${inherited.from}`,
           detail: resolved ? resolved.stack : `Set on ${inherited.from}. ${inherited.font.stack}`

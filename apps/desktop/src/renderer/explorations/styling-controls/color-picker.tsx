@@ -40,7 +40,6 @@ import {
   drag,
   type Message,
   MessageLine,
-  notAToken,
   PercentField,
   type Reading,
   ThemeMark,
@@ -566,7 +565,7 @@ export function ColorInput({
   const current = colors.find((token) => token.name === value)
   const plain = parsesAsColor(value)
   const [tab, setTab] = useState<"tokens" | "custom">(tabAtStart ?? (plain ? "custom" : "tokens"))
-  // Custom works from the layer's color, or the token's, and Tokens only keeps what's picked here until it's used.
+  // Custom works from the layer's color, or the token's.
   const [custom, setCustom] = useState(() => (plain ? value : (current?.hex ?? "#3b82f6")))
   // The editor starts again from a color picked from In this design.
   const [round, setRound] = useState(0)
@@ -583,10 +582,7 @@ export function ColorInput({
 
   const pick = (next: string, nextAlpha: number | undefined) => {
     setCustom(next)
-
-    if (!tokensOnly) {
-      onChange(next, nextAlpha)
-    }
+    onChange(next, nextAlpha)
   }
 
   // Tokens only refuses a plain color unless it's allowed here as an exception.
@@ -615,12 +611,7 @@ export function ColorInput({
       return { reason: "Enter a color, such as 2F6FED, or a token's name" }
     }
 
-    const near = nearestColorToken(candidate, colors)
-
-    if (tokensOnly && near) {
-      return notAToken(near.token, () => onChange(near.token.name, alpha))
-    }
-
+    // Locked to tokens, the field's `locked` turns a value of its own away before it gets here, offering the nearest.
     const opaque = { ...color, a: 1 }
 
     return {
@@ -647,7 +638,44 @@ export function ColorInput({
     )
   }
 
-  const picker = (
+  const tokenMenu = (
+    <TokenMenu
+      label={label}
+      tokens={colors}
+      current={value}
+      own={plain ? `${value.startsWith("#") ? "#" : ""}${shortForm(value)}` : undefined}
+      nearest={nearestToValue?.token}
+      same={nearestToValue !== undefined && nearestToValue.distance < sameColorDistance}
+      replaced={current && replacedBy ? { name: current.name, by: replacedBy } : undefined}
+      tokensOnly={tokensOnly}
+      allowed={allowed}
+      onAllow={
+        onAllow &&
+        ((reason) => {
+          onAllow(reason)
+          setOpen(false)
+        })
+      }
+      onCreate={
+        create && plain
+          ? (name) => {
+              create(colorToken(name, formatHex({ ...parseColor(value)!, a: 1 })))
+              choose(name)
+            }
+          : undefined
+      }
+      onPick={(name) => {
+        if (name) {
+          choose(name)
+        }
+      }}
+    />
+  )
+
+  // Locked to tokens, the picker is only the tokens: no tabs, and no Custom to make a color of its own in.
+  const picker = tokensOnly ? (
+    <div className="p-1">{tokenMenu}</div>
+  ) : (
     <Tabs
       value={tab}
       onValueChange={(next) => {
@@ -667,64 +695,32 @@ export function ColorInput({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="tokens" className="p-1">
-        <TokenMenu
-          label={label}
-          tokens={colors}
-          current={value}
-          own={plain ? `${value.startsWith("#") ? "#" : ""}${shortForm(value)}` : undefined}
-          nearest={nearestToValue?.token}
-          same={nearestToValue !== undefined && nearestToValue.distance < sameColorDistance}
-          replaced={current && replacedBy ? { name: current.name, by: replacedBy } : undefined}
-          tokensOnly={tokensOnly}
-          allowed={allowed}
-          onAllow={
-            onAllow &&
-            ((reason) => {
-              onAllow(reason)
-              setOpen(false)
-            })
-          }
-          onCreate={
-            create && plain
-              ? (name) => {
-                  create(colorToken(name, formatHex({ ...parseColor(value)!, a: 1 })))
-                  choose(name)
-                }
-              : undefined
-          }
-          onPick={(name) => {
-            if (name) {
-              choose(name)
-            }
-          }}
-        />
+        {tokenMenu}
       </TabsContent>
       <TabsContent value="custom" className="flex flex-col gap-3 p-2">
         <ColorEditor key={round} value={custom} alpha={alpha} model={model} onChange={pick} />
+        {/*
+         * Any color goes here, as a token does; the nearest token is offered beside it, one click away. The two swatches
+         * show how near it is, so nothing says it in words.
+         */}
         {nearest && (
-          <div className="flex flex-col gap-2 rounded-md border p-2">
-            <div className="flex items-center gap-2">
-              <span className="flex -space-x-1">
-                <ColorSwatch color={custom} className="size-5 rounded-full ring-2 ring-popover" />
-                <ColorSwatch color={nearest.token.hex} className="size-5 rounded-sm ring-2 ring-popover" />
-              </span>
-              <span className="min-w-0 flex-1 truncate text-xs">
-                Nearest token <span className="font-mono">{nearest.token.name}</span>
-              </span>
-              <span className="text-2xs text-muted-foreground">{closeness(nearest.distance)}</span>
-            </div>
-            {tokensOnly && (
-              <p className="type-description text-muted-foreground">
-                This project takes tokens only, so a color is set by its nearest token.
-              </p>
-            )}
+          <div className="flex items-center gap-2 rounded-md border p-2">
+            <span className="flex shrink-0 -space-x-1">
+              <ColorSwatch color={custom} className="size-5 rounded-full ring-2 ring-popover" />
+              <ColorSwatch color={nearest.token.hex} className="size-5 rounded-sm ring-2 ring-popover" />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate font-mono text-xs">{nearest.token.name}</span>
+              <span className="text-2xs text-muted-foreground">Nearest token</span>
+            </span>
             <Button
               size="sm"
-              variant={tokensOnly ? "default" : "outline"}
-              className="h-7 text-xs"
+              variant="outline"
+              aria-label={`Use ${nearest.token.name}`}
+              className="h-6 px-2 text-xs"
               onClick={() => choose(nearest.token.name)}
             >
-              Use {nearest.token.name}
+              Use
             </Button>
           </div>
         )}
@@ -792,6 +788,18 @@ export function ColorInput({
             ? { nearest: nearestToValue.token, onUse: () => onChange(nearestToValue.token.name, alpha) }
             : undefined
         }
+        locked={
+          tokensOnly
+            ? {
+                tokens: colors,
+                nearestTo: (text) => {
+                  const candidate = /^[\da-f]+$/i.test(text) ? `#${text}` : text
+
+                  return CSS.supports("color", candidate) ? nearestColorToken(candidate, colors)?.token : undefined
+                }
+              }
+            : undefined
+        }
         inputMode="text"
         inputClassName="font-mono placeholder:font-sans"
         // An OKLCH color shows short at rest; typing works on the whole of it.
@@ -818,19 +826,6 @@ export function ColorInput({
       />
     </div>
   )
-}
-
-/** How close a suggested token is, in words. */
-function closeness(distance: number): string {
-  if (distance < sameColorDistance) {
-    return "Same color"
-  }
-
-  if (distance < sameColorDistance * 4) {
-    return "Close"
-  }
-
-  return "Nearest"
 }
 
 /** The Tokens panel's color token, its value edited with the same picker and written on Save. */

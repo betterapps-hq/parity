@@ -105,10 +105,12 @@ export const AllowedHere: Story = {
 }
 
 /**
- * In a project set to Tokens only, the blue is refused: outlined in the error color, with the nearest token under it.
- * Allow here, from the mark, keeps it as an exception.
+ * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
+ * color field takes any color. The picker is only the tokens, with no Custom tab, and typing searches them, with the
+ * nearest to a color typed first. The blue already there is refused, with the nearest token under it; Allow here, in
+ * the token list, keeps it as an exception.
  */
-export const RefusedByTokensOnly: Story = { render: () => <ColorField value="#2f6fed" tokensOnly /> }
+export const LockedToTokens: Story = { render: () => <ColorField value="#2f6fed" tokensOnly /> }
 
 /** Unset: None, muted, and nothing written. Click the dashed swatch to pick, or type. */
 export const Unset: Story = { render: () => <ColorField /> }

@@ -63,7 +63,11 @@ export const Empty: Story = { render: () => <Stroke start={{}} /> }
 /** A color of its own, #2f6fed, with no mark: Tokens offers blue-600, the nearest, first. */
 export const PlainColor: Story = { render: () => <Stroke start={{ border: "#2f6fed", borderWidth: 1 }} /> }
 
-/** In a project set to Tokens only, the blue is refused, with the nearest token under it. */
-export const RefusedByTokensOnly: Story = {
+/**
+ * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
+ * stroke takes any color. Its picker is only the tokens, typing searches them, and the blue already there is refused
+ * with the nearest token under it.
+ */
+export const LockedToTokens: Story = {
   render: () => <Stroke start={{ border: "#2f6fed", borderWidth: 1 }} tokensOnly />
 }

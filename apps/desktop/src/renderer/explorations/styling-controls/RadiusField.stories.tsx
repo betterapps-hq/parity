@@ -76,8 +76,12 @@ export const AllowedHere: Story = {
   render: () => <Radius start={{ radius: { px: 12, allow: "Matches the photo frame" } }} />
 }
 
-/** In a project set to Tokens only, 12px is refused, with the nearest token under it. */
-export const RefusedByTokensOnly: Story = { render: () => <Radius start={{ radius: { px: 12 } }} tokensOnly /> }
+/**
+ * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
+ * radius takes any length. Typing searches the radius tokens, with the nearest to a length typed first, and 12px,
+ * already there, is refused with the nearest token under it.
+ */
+export const LockedToTokens: Story = { render: () => <Radius start={{ radius: { px: 12 } }} tokensOnly /> }
 
 /** Unset: 0, muted. The token button shows on hover. */
 export const Unset: Story = { render: () => <Radius start={{}} /> }

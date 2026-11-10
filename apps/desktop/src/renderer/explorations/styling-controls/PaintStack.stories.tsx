@@ -102,8 +102,12 @@ export const Solid: Story = { render: () => <Paints start={[solid("fill", "card"
 /** A solid of its own, #2f6fed at 80%, with no mark: Tokens offers the nearest first, then Create token. */
 export const SolidOffTheSystem: Story = { render: () => <Paints start={[solid("fill", "#2f6fed", 80)]} /> }
 
-/** In a project set to Tokens only, the blue is refused, with the nearest token under it. */
-export const RefusedByTokensOnly: Story = {
+/**
+ * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
+ * fill takes any color. The solid's picker is only the tokens, typing searches them, and the blue already there is
+ * refused with the nearest token under it.
+ */
+export const LockedToTokens: Story = {
   render: () => <Paints start={[solid("fill", "#2f6fed")]} tokensOnly />
 }
 

@@ -58,6 +58,14 @@ export const BackgroundBlur: Story = {
 }
 
 /**
+ * Locked to tokens (`tokensOnly`), as a company can ask so its apps match its design language. Unlocked, the default, a
+ * blur takes any length. Its blur opens on only the tokens, with no Custom tab to type a length of its own in.
+ */
+export const LockedToTokens: Story = {
+  render: () => <Filters start={[{ id: "blur", kind: "backdropBlur", value: { px: 6 } }]} tokensOnly />
+}
+
+/**
  * Adjustments, open: +25 brightness and −10 saturation write `brightness-125 saturate-90`. Double-click a slider to put
  * it back to no change, which writes nothing.
  */
