@@ -18,6 +18,12 @@ export const viewportHeightProperty = "--canvas-vh"
 export const remProperty = "--canvas-rem"
 export const rootFontSizeProperty = "--canvas-root-font-size"
 
+/**
+ * The cascade layer a qualified root's rule (`:root.dark`) is drawn on the frame's body in. A frame declares it before
+ * the project's layers, so every rule of the project's beats it, as a page's body rules beat what the body inherits.
+ */
+export const qualifiedRootLayer = "canvas-qualified-root"
+
 /** A browser's default font size, `medium`, which a page's root font size is relative to. */
 const mediumFontSize = 16
 
@@ -359,11 +365,19 @@ function serialize(
     const bodyRoots = roots.filter((part) => part.startsWith(bodyRootPrefix))
     const hostRoots = roots.filter((part) => !part.startsWith(bodyRootPrefix))
 
-    // A qualified root's font size, drawn on the body, makes the body's own size what `rem` measures inside it.
-    if (bodyRoots.length > 0 && /(?:^|[;\s])font-size\s*:/i.test(rootBody)) {
+    if (bodyRoots.length > 0) {
+      // A qualified root drawn on the body goes in a layer below the project's own, so the body's own rules beat its
+      // values, as they beat what a page's body inherits from its root. Its font size is what `rem` measures inside
+      // the body, whatever the body's own is.
+      const rootFontSize = [...rootBody.matchAll(fontSizeValue)].at(-1)?.[1]?.trim()
+
+      const rem = rootFontSize
+        ? `${rootFontSizeProperty}: ${rootFontSize}; ${remProperty}: var(${rootFontSizeProperty}); `
+        : ""
+
       const parts = [
         hostRoots.length > 0 ? `${scope(hostRoots.join(", "))} {${rootBody}}` : "",
-        `${scope(bodyRoots.join(", "))} {${rootBody}${remFromFontSize}}`,
+        `@layer ${qualifiedRootLayer} { ${scope(bodyRoots.join(", "))} {${rootBody}${rem}} }`,
         others.length > 0 ? `${scope(others.join(", "))} {${otherBody}}` : ""
       ]
 
@@ -391,15 +405,18 @@ function serialize(
 
 /**
  * A selector for the frame's root alone, as `:root` and `html` become: `:host`, `:host(.dark)`, or the body standing in
- * for a qualified root, `:where([data-canvas-body].dark)` (see `splitQualifiedRoots`).
+ * for a qualified root, `:where([data-canvas-body]).dark` (see `splitQualifiedRoots`).
  */
-const rootSelector = new RegExp(String.raw`^(?::host(?:\([^()]*\))?|:where\(\[${bodyAttribute}\][\s\S]*\))$`)
+const rootSelector = new RegExp(String.raw`^(?::host(?:\([^()]*\))?|:where\(\[${bodyAttribute}\]\)[\s\S]+)$`)
 
 /** The body standing in for a qualified root, whose font size is the frame's `rem` as the host's is otherwise. */
-const bodyRootPrefix = `:where([${bodyAttribute}]`
+const bodyRootPrefix = `:where([${bodyAttribute}])`
 
-/** Declarations that make an element's font size the frame's `rem` for what's inside it, as the host's is. */
-const remFromFontSize = ` ${rootFontSizeProperty}: 1em; ${remProperty}: var(${rootFontSizeProperty}); `
+/**
+ * A `font-size` declaration's value, up to the end of the declaration. A root's is absolute by then (see
+ * `rewriteRootFontSize`), so the registered length takes it as the root's size, not the body's own.
+ */
+const fontSizeValue = /(?:^|[;\s])font-size\s*:([^;]*)/gi
 
 /** The colour scheme a `prefers-color-scheme` block asks for, unless it's left alone. */
 function schemeOfBlock(node: CssNode, options: PrepareCssOptions): ColorScheme | undefined {
@@ -541,9 +558,10 @@ function splitQualifiedRoots(selector: string): string {
       }
 
       const [, qualifiers, rest] = qualified
-      // The root's own values reach the body as inherited ones would, adding nothing to its specificity, so the body's
-      // own rules still win over them. Below the root, the selector keeps the specificity it was written with.
-      const body = rest ? `[${bodyAttribute}]${qualifiers}${rest}` : `:where([${bodyAttribute}]${qualifiers})`
+      // The root's own rule adds the body nothing but what's on the root, so one qualified root still beats another as
+      // in a page (`.dark.contrast` over `.dark`); its layer puts the body's own rules above it (see `serialize`).
+      // Below the root, the selector keeps the specificity it was written with.
+      const body = rest ? `[${bodyAttribute}]${qualifiers}${rest}` : `:where([${bodyAttribute}])${qualifiers}`
 
       // The host never has the mode's class, so what's not on it would hold in every mode.
       return qualifiers!.includes(":not(") ? body : `:host(${qualifiers})${rest}, ${body}`
