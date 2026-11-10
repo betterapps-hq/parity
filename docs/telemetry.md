@@ -50,7 +50,8 @@ which the CLI shares:
 
 - **In the process that records it,** an event or span becomes a breadcrumb, so an error there carries the events before
   it (Sentry keeps the last 100). An `error.*` event, or one at the `error` or `fatal` level, becomes a Sentry error,
-  linked to its trace.
+  linked to its trace. Sentry's SDK adds its own breadcrumbs beside them, such as console calls, but in the windows only
+  Parity's: a call with the project's code in its stack, loaded from its builder, is left out (PAR-814).
 - **Then it goes to main:** a window's over IPC from its preload, a render window's from a preload that gives the page
   only that, the service's over its channel to main, and the props worker's through the service, which adds them to its
   own breadcrumbs and errors.
@@ -320,6 +321,23 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
   that pastes nothing is `clipboard.failed` with why.
 - **`text.edited` comes from the text editor on the canvas** as it closes.
 
+## Signing in
+
+Main records the `account.*` events from `main/account.ts` and `main/session-store.ts` (PAR-807). They describe an
+account by its provider alone and count the accounts. None carries a token, an email or WorkOS's message, which can name
+the account: WorkOS's answer goes as its status and code.
+
+- **Signing in** is `account.signedIn`, or `account.signInProblem` with why it ended without a session, the browser not
+  opening included.
+- **Each refresh** is `account.refreshed`, or `account.refreshFailed` with why: WorkOS didn't answer, turned it down, or
+  another copy of Parity refreshed with the same token first. Switching organizations is a refresh, with `organization`.
+- **A session that ends** without the person signing out is `account.sessionEnded`, and signing out, here or in another
+  copy, is `account.signedOut`.
+- **The file that keeps accounts** going unreadable is `account.storeFailed`, with the step that failed and the error's
+  name, never its message, which can quote what was decrypted. Reading it clears the file, signing every account out.
+- **A window that can't find out who's signed in** records `account.stateFailed`, with where main's answer didn't match
+  but not the answer itself.
+
 ## Levels and sampling
 
 Each event has a level, lowest first: `debug`, `info`, `warn`, `error` and `fatal`. `error` and `fatal` events also
@@ -376,6 +394,14 @@ Some failures are recorded for you, so code doesn't record them again:
 
 | Event                     | Level | Kept | Sent by                                 | When                                                                                                              |
 | ------------------------- | ----- | ---- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `account.refreshFailed`   | warn  | all  | main                                    | A refresh fails. Parity tries again unless WorkOS turned it down.                                                 |
+| `account.refreshed`       | info  | all  | main                                    | An account's session is refreshed.                                                                                |
+| `account.sessionEnded`    | warn  | all  | main                                    | An account's session ends without the person signing out.                                                         |
+| `account.signInProblem`   | warn  | all  | main                                    | A sign-in ends without a session, or its browser doesn't open.                                                    |
+| `account.signedIn`        | info  | all  | main                                    | Someone signs in to an account.                                                                                   |
+| `account.signedOut`       | info  | all  | main                                    | An account is signed out of, or removed after its session ended.                                                  |
+| `account.stateFailed`     | warn  | all  | renderer                                | A window can't find out who's signed in.                                                                          |
+| `account.storeFailed`     | warn  | all  | main                                    | The file that keeps accounts between launches can't be read or written.                                           |
 | `agent.called`            | info  | all  | service                                 | The agent server answers a call from the CLI or MCP, from reading it to the answer.                               |
 | `agent.serverFailed`      | error | all  | service                                 | The agent server can't start, so agents can't reach this copy.                                                    |
 | `app.first_project`       | info  | all  | main                                    | The first project opened since the app started has its tab ready to draw.                                         |
@@ -452,6 +478,74 @@ Some failures are recorded for you, so code doesn't record them again:
 | `update.failed`           | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                          |
 | `update.installed`        | info  | all  | main                                    | The app quits to install a downloaded update.                                                                     |
 | `window.hung`             | warn  | all  | main                                    | A window that stopped answering answers again.                                                                    |
+
+### `account.refreshFailed`
+
+| Attribute      | Type                                         | Meaning                                                                                                         |
+| -------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `reason`       | `"unavailable" \| "refused" \| "superseded"` | Why: WorkOS didn't answer, WorkOS turned it down, or another copy of Parity refreshed with the same token first |
+| `organization` | `boolean`                                    | Whether it moved the account to another organization                                                            |
+| `failures`     | `integer`                                    | The refreshes in a row that failed, this one included                                                           |
+| `status`       | `integer`, optional                          | The HTTP status WorkOS answered with, when it answered                                                          |
+| `code`         | `string`, optional                           | WorkOS's or the browser's error code, when it gave one                                                          |
+
+### `account.refreshed`
+
+| Attribute      | Type      | Meaning                                              |
+| -------------- | --------- | ---------------------------------------------------- |
+| `organization` | `boolean` | Whether it moved the account to another organization |
+| `retries`      | `integer` | The tries that failed before this one                |
+
+### `account.sessionEnded`
+
+| Attribute | Type                       | Meaning                                                       |
+| --------- | -------------------------- | ------------------------------------------------------------- |
+| `reason`  | `"refused" \| "elsewhere"` | Why: WorkOS turned down its refresh, or another copy ended it |
+| `current` | `boolean`                  | Whether it was the account the person was in                  |
+
+### `account.signInProblem`
+
+| Attribute  | Type                                                                                            | Meaning                                                                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `provider` | `"GoogleOAuth" \| "GitHubOAuth" \| "MicrosoftOAuth" \| "authkit"`                               | How they signed in                                                                                                                               |
+| `problem`  | `"canceled" \| "failed" \| "refused" \| "single-sign-on" \| "choose-organization" \| "browser"` | Why: canceled in the browser, failed, turned down by WorkOS, sent to single sign-on, asked to choose an organization, or the browser didn't open |
+| `status`   | `integer`, optional                                                                             | The HTTP status WorkOS answered with, when it answered                                                                                           |
+| `code`     | `string`, optional                                                                              | WorkOS's or the browser's error code, when it gave one                                                                                           |
+
+### `account.signedIn`
+
+| Attribute  | Type                                                              | Meaning                                                                       |
+| ---------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `provider` | `"GoogleOAuth" \| "GitHubOAuth" \| "MicrosoftOAuth" \| "authkit"` | How they signed in                                                            |
+| `again`    | `boolean`                                                         | Whether it signed in to an account already listed, as after its session ended |
+| `kept`     | `boolean`                                                         | Whether it's kept between launches, false where the system has no keyring     |
+| `accounts` | `integer`                                                         | The accounts signed in or listed afterwards                                   |
+
+### `account.signedOut`
+
+| Attribute  | Type                      | Meaning                                                                      |
+| ---------- | ------------------------- | ---------------------------------------------------------------------------- |
+| `reason`   | `"person" \| "elsewhere"` | Who signed out: the person here, or another copy of Parity                   |
+| `current`  | `boolean`                 | Whether it was the account the person was in                                 |
+| `ended`    | `boolean`                 | Whether its session had already ended, so this only removed it from the list |
+| `accounts` | `integer`                 | The accounts signed in or listed afterwards                                  |
+
+### `account.stateFailed`
+
+| Attribute | Type               | Meaning                                                           |
+| --------- | ------------------ | ----------------------------------------------------------------- |
+| `stage`   | `"ask" \| "check"` | Whether asking main failed, or its answer didn't match the schema |
+| `message` | `string`           | What went wrong, without the answer itself                        |
+| `pointer` | `string`, optional | Where the answer didn't match, as a JSON pointer                  |
+
+### `account.storeFailed`
+
+| Attribute | Type                                                                 | Meaning                                                                                                                                              |
+| --------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `action`  | `"read" \| "write"`                                                  | Whether Parity was reading the kept accounts or writing them                                                                                         |
+| `stage`   | `"file" \| "decrypt" \| "json" \| "schema" \| "reencrypt"`, optional | Where reading failed: decrypting, parsing, checking, or writing it again with the keychain's new key. The file is cleared, signing every account out |
+| `error`   | `string`                                                             | The error's name, never its message, which can hold what was decrypted                                                                               |
+| `code`    | `string`, optional                                                   | The system error code, as `EPERM`, when there is one                                                                                                 |
 
 ### `agent.called`
 

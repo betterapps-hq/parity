@@ -9,7 +9,7 @@ import {
   signedOut
 } from "../../shared/account.ts"
 import { actions } from "../chrome/actions.ts"
-import { reportError } from "../report-error.ts"
+import { errorMessage, reportError, track } from "../report-error.ts"
 import { workspace } from "../workspace.ts"
 import { currentOrganization } from "./OrganizationBadge.tsx"
 
@@ -77,6 +77,13 @@ export function receiveAccount(raw: unknown): void {
 
   if (!parsed.success) {
     console.error("Parity couldn't read who's signed in", parsed.error)
+    // The issue's path and message, never the answer, which holds emails.
+    const [issue] = parsed.error.issues
+    track("account.stateFailed", {
+      stage: "check",
+      message: issue?.message ?? "Invalid",
+      pointer: `/${(issue?.path ?? []).map(String).join("/")}`
+    })
 
     return
   }
@@ -160,7 +167,10 @@ export function startAccount(): void {
         receiveAccount(raw)
       }
     })
-    .catch((cause: unknown) => console.error("Parity couldn't ask who's signed in", cause))
+    .catch((cause: unknown) => {
+      console.error("Parity couldn't ask who's signed in", cause)
+      track("account.stateFailed", { stage: "ask", message: errorMessage(cause) })
+    })
 }
 
 export function useAccount(): AccountView {
@@ -220,25 +230,22 @@ export const accountActions = {
     const { state } = view
     const leaving = state.accounts.find((each) => each.email === email)
     const here = state.account?.email === email
-    void window.canvasHost.account.signOut(email).then(
-      () => {
-        const now = view.state.account
+    void window.canvasHost.account.signOut(email).then(() => {
+      const now = view.state.account
 
-        if (leaving?.ended) {
-          toast(`Removed ${email}`, { id: "signed-out" })
-        } else if (!now) {
-          toast("You're signed out", { id: "signed-out", description: "Projects on this computer stay open." })
-        } else if (here) {
-          toast(`Signed out of ${email}`, {
-            id: "signed-out",
-            description: `You're in ${workspaceOf(now)} as ${now.email} now.`
-          })
-        } else {
-          toast(`Signed out of ${email}`, { id: "signed-out" })
-        }
-      },
-      (cause: unknown) => console.error("Signing out failed", cause)
-    )
+      if (leaving?.ended) {
+        toast(`Removed ${email}`, { id: "signed-out" })
+      } else if (!now) {
+        toast("You're signed out", { id: "signed-out", description: "Projects on this computer stay open." })
+      } else if (here) {
+        toast(`Signed out of ${email}`, {
+          id: "signed-out",
+          description: `You're in ${workspaceOf(now)} as ${now.email} now.`
+        })
+      } else {
+        toast(`Signed out of ${email}`, { id: "signed-out" })
+      }
+    }, failed("Parity couldn't sign you out"))
   },
   /** Switches to another account signed in, at once: each keeps its own session. */
   use: (email: string) =>
