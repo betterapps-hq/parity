@@ -20,7 +20,10 @@ export interface ConnectorState extends ConnectorInfo {
 }
 
 /** A connector's id, as requests name it. */
-export const connectorId = z.string().regex(/^[a-z][a-z0-9-]*$/, "expected a connector's id, such as mobbin")
+export const connectorId = z
+  .string()
+  .max(40)
+  .regex(/^[a-z][a-z0-9-]*$/, "expected a connector's id, such as mobbin")
 
 /** A search the window or an agent asks main to run. */
 export const connectorSearch = z.strictObject({ connector: connectorId, request: searchRequest })
@@ -29,12 +32,14 @@ export type ConnectorSearch = z.infer<typeof connectorSearch>
 
 /**
  * A result someone placed in a design, named by its connector and id: main uses its own copy of the result, so what
- * gets reported is what it found.
+ * gets reported is what it found. Where it went is the project's folder, the design's file in it and the design's id,
+ * which main hashes into a key holding no path.
  */
 export const connectorPlaced = z.strictObject({
   connector: connectorId,
   id: z.string().min(1),
-  /** The design it went into: its project's folder and the design's id. */
+  project: z.string().min(1),
+  file: z.string().min(1),
   design: z.string().min(1)
 })
 

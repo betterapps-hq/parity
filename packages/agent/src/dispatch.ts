@@ -1,5 +1,6 @@
 import { CodedError, describeRenderStatus, renderProblem, resolveModes, unknownReference } from "@parity-app/core"
-import type { ChangeConflict } from "@parity-app/core"
+import type { ChangeConflict, ImageCredit } from "@parity-app/core"
+import { z } from "zod"
 import { type TokenFilter } from "./arguments.ts"
 import { callerIdentity } from "./caller.ts"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
@@ -17,6 +18,7 @@ import type {
   FrameResult,
   IconNames,
   PlaceableResult,
+  PlacedIn,
   PresenceEvent,
   ReportSent,
   Screenshot,
@@ -74,7 +76,7 @@ export interface AgentHost {
   /** Main's own copy of a result it found lately, which placing puts in a design. Undefined for one it didn't find. */
   result(connector: string, id: string): Promise<PlaceableResult | undefined>
   /** Tells main a result went into a design, which main records, counts and tells the source of. */
-  placed(placed: { connector: string; id: string; design: string }): Promise<void>
+  placed(placed: PlacedIn): Promise<void>
 }
 
 /** Who's calling, when the CLI or MCP knows: its name for people, and an id that tells same-named callers apart. */
@@ -386,46 +388,145 @@ function renderFor(host: AgentHost, snapshot: TabSnapshot): AgentHooks["render"]
 }
 
 /**
- * Places a result a connector found in a design (PAR-829): the image from main's own copy goes in the node's prop as
- * one undoable edit, and only once it's applied is main told, which records it and tells the source. So a placement
- * is reported because Parity made it, not because an agent said so. Only photos go in designs; screens from real apps
- * are for looking at.
+ * Places a result a connector found in a design (PAR-829): the image from main's own copy goes in the node as one
+ * undoable edit, and only once it's applied is main told, which records it and tells the source. So a placement is
+ * reported because Parity made it, not because an agent said so. An image node takes the picture, its description and
+ * its credit; a component takes it in a prop it declares. Only what main says can be placed goes in designs: photos,
+ * not screens from real apps, which are for looking at.
  */
 async function place(host: AgentHost, presence: Call["presence"], request: Params<"place">): Promise<Answer<"place">> {
-  const { connector, id, node, prop = "src", state } = request
+  const { connector, id, node, state } = request
   const found = await host.result(connector, id)
 
   if (!found) {
     return refused(`Parity hasn't found ${connector} ${id} lately. Search again, then place one of its results.`)
   }
 
-  if (found.kind !== "photos") {
+  if (!found.placeable) {
     return refused(`${found.credit.at(-1)?.name ?? connector}'s ${found.kind} are for looking at, not for designs.`)
   }
 
-  const snapshot = await host.snapshot(request.tab)
-  const props = prop === "src" ? { src: found.image.url, alt: found.title } : { [prop]: found.image.url }
-  const options = state ? `, ${JSON.stringify({ state })}` : ""
-
-  // The snippet is Parity's own, so a failure has nothing for the agent to retry by editId.
-  const { editId: _editId, ...result } = await execIn(host, presence, snapshot, {
-    label: `Place ${found.title}`,
-    code: `Update(${JSON.stringify(node)}, ${JSON.stringify({ props })}${options})`
-  })
-
-  const design = result.changes.designs[0]?.id
-
-  if (!result.applied || !design) {
-    return refused(result.error ?? `Nothing changed at ${node}, so nothing was placed.`)
+  // A link that stops working would leave a broken picture in a saved design.
+  if (found.image.expiresAt !== undefined) {
+    return refused(`${found.title}'s link stops working after a while, so it can't go in a design.`)
   }
 
-  await host.placed({ connector, id, design: `${snapshot.tab.root}::${design}` })
+  const snapshot = await host.snapshot(request.tab)
+  const target = placeTarget(snapshot, node, found, request.prop, state)
 
-  return { placed: true, node, image: found.image.url, credit: found.credit }
+  if ("refusal" in target) {
+    return refused(target.refusal)
+  }
+
+  let placedIn = target.design
+  let warnings: string[] = []
+
+  // Placing what the node already shows changes nothing, and is still reported, which main counts once.
+  if (target.holds !== found.image.url) {
+    const options = state ? `, ${JSON.stringify({ state })}` : ""
+
+    const result = await execIn(host, presence, snapshot, {
+      label: `Place ${found.title}`,
+      code: `Update(${JSON.stringify(node)}, ${JSON.stringify(target.change)}${options})`
+    })
+
+    const changed = result.changes.designs[0]
+
+    if (!result.applied || !changed) {
+      // The run's own code, such as a conflict with an edit made since, says more than "invalid".
+      const code = errorDetails.safeParse(result.details).data?.code
+
+      return refused(result.error ?? `Nothing changed at ${node}.`, code)
+    }
+
+    placedIn = { path: changed.path, id: changed.id }
+    warnings = result.warnings
+  }
+
+  await host.placed({ connector, id, project: snapshot.tab.root, file: placedIn.path, design: placedIn.id })
+
+  const answer: Answer<"place"> = { placed: true, node, credit: found.credit }
+
+  if (warnings.length > 0) {
+    answer.warnings = warnings
+  }
+
+  return answer
 }
 
-function refused(message: string): Answer<"place"> {
-  return { placed: false, problem: { code: "invalid", message } }
+/** What `Update` gets to place a photo: an image's own fields, or a component's props. */
+type PlaceChange = ImagePlace | { props: { [prop: string]: string } }
+
+/** An image's own fields, as placing a photo sets them. */
+interface ImagePlace {
+  src: string
+  alt: string
+  credit?: ImageCredit
+}
+
+interface PlaceTarget {
+  change: PlaceChange
+  /** The picture the node already shows, to tell placing again from placing anew. */
+  holds: unknown
+  /** The design the node is in, for a placement that needed no edit. */
+  design: { path: string; id: string }
+}
+
+/** What placing into `path` changes, or why it can't take a picture: an image, or a component's declared prop. */
+function placeTarget(
+  snapshot: TabSnapshot,
+  path: string,
+  found: PlaceableResult,
+  prop: string | undefined,
+  state: string | undefined
+): PlaceTarget | { refusal: string } {
+  const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
+  const workspace = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state")
+  const located = workspace.locate(path)
+
+  if (!located) {
+    return { refusal: `There's no node at ${path}. Read the design with Get to find the image's path.` }
+  }
+
+  const { node, design } = located
+  const [photographer, source] = found.credit
+
+  if (node.type === "image") {
+    if (state) {
+      return { refusal: "An image's picture belongs to the whole design, not one state. Place it without a state." }
+    }
+
+    const change: ImagePlace = { src: found.image.url, alt: found.title }
+
+    if (photographer?.url) {
+      change.credit = { name: photographer.name, url: photographer.url, source: source?.name }
+    }
+
+    return { change, holds: node.src, design }
+  }
+
+  if (node.type !== "component") {
+    return { refusal: `${path} is a ${node.type}, which can't show a picture. Place it in an image or a component.` }
+  }
+
+  const declared = new Set(snapshot.props[node.component]?.props.map((each) => each.name) ?? [])
+  const named = prop ?? "src"
+
+  if (!declared.has(named)) {
+    return { refusal: `${node.component} has no ${named} prop. Name the prop that takes the image with prop.` }
+  }
+
+  const props =
+    named === "src" && declared.has("alt") ? { src: found.image.url, alt: found.title } : { [named]: found.image.url }
+
+  return { change: { props }, holds: node.props?.[named], design }
+}
+
+/** The code a failed run gives, when it gives one. */
+const errorDetails = z.looseObject({ code: z.string() })
+
+function refused(message: string, code = "invalid"): Answer<"place"> {
+  return { placed: false, problem: { code, message } }
 }
 
 /** Runs a snippet in a tab, applies what it changed there, and keeps its screenshots as files. */

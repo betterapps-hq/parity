@@ -101,6 +101,8 @@ export const mobbin: Connector = {
       }
     ],
     limit: { default: 20, max: 100 },
+    // For everyone sharing the key's workspace.
+    rateLimit: { requests: 60, per: "minute" },
     more: "exclude",
     // Made in Mobbin's team settings, under API keys.
     auth: { type: "key", variable: "PARITY_MOBBIN_API_KEY" }

@@ -5,7 +5,7 @@ import { availableParallelism, homedir } from "node:os"
 import { join } from "node:path"
 import { agentRegistry, readEntries, removeEntry } from "@parity-app/agent/registry"
 import { type Channel, createChannel, nodePort } from "@parity-app/channel"
-import { connectors, keysFromEnvironment, keyVariable, withoutKeys } from "@parity-app/connectors"
+import { connectors, keysFromEnvironment, keyVariable, placeableKinds, withoutKeys } from "@parity-app/connectors"
 import {
   CodedError,
   drawsNothing,
@@ -326,14 +326,18 @@ function startService(): UtilityProcess {
 
         return connectorHub.find(request, "agent", connector)
       },
-      connectorResult: ({ connector, id }) => connectorHub.result(connector, id) ?? null,
+      connectorResult: ({ connector, id }) => {
+        const given = connectorHub.result(connector, id)
+
+        return given ? { ...given, placeable: placeableKinds.includes(given.kind) } : null
+      },
       // Reporting a placement is the source's count, not something the agent waits on.
       connectorPlaced: (params) => {
-        const { connector, id, design } = parseData(connectorPlaced, params)
+        const { connector, id, ...where } = parseData(connectorPlaced, params)
         const placed = connectorHub.result(connector, id)
 
         if (placed) {
-          void connectorHub.placed(placed, { design, from: "agent" })
+          void connectorHub.placed(placed, { ...where, from: "agent" })
         }
 
         return undefined
@@ -804,8 +808,8 @@ const connectorHub = createConnectorHub({
   placements: localPlacements(join(app.getPath("userData"), "connector-placements.json")),
   fetch: (url, init) => net.fetch(url, init),
   timeout: 30_000,
-  // Mobbin allows 60 a minute for everyone sharing the key; this keeps one copy's runaway loop to half that.
-  budget: 30,
+  // Half of each source's rate limit, so one copy's runaway loop leaves the rest for everyone sharing the key.
+  share: 0.5,
   secrets: (values) => {
     connectorSecrets = values
     scrubber.use([...projectSecrets, ...connectorSecrets])
@@ -844,13 +848,13 @@ handle("connectorsRecent", (event) => {
 
 handle(
   "connectorsPlaced",
-  checked(connectorPlaced, (event: Electron.IpcMainInvokeEvent, { connector, id, design }) => {
+  checked(connectorPlaced, (event: Electron.IpcMainInvokeEvent, { connector, id, ...where }) => {
     appWindowOf(event, connectorRefusal)
     const placed = connectorHub.result(connector, id)
 
     // Reporting a placement is the source's count, not something the person waits on.
     if (placed) {
-      void connectorHub.placed(placed, { design, from: "window" })
+      void connectorHub.placed(placed, { ...where, from: "window" })
     }
   })
 )

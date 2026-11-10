@@ -6856,7 +6856,7 @@ You asked on 2026-11-10 for the pattern changes that adding Unsplash showed. My 
   rate-limit headers. Unsplash sends them; Mobbin doesn't, as a live check on 2026-11-10 showed, so its answers carry
   none.
 - **The hub takes a `SearchService`** for connectors whose keys a service holds. It's used when there's no key here, for
-  searches and picks alike, and the window sees the key's source as `service`. None is plugged in yet.
+  searches and placements alike, and the window sees the key's source as `service`. None is plugged in yet.
 - **`connectors.searched` records `filters`** in place of `platform` and `depth`. They're each connector's own values,
   never typed text.
 - **Not done:** no photo use is reported to Unsplash yet, since nothing places one. How it will be is below.
@@ -6882,7 +6882,7 @@ You got an Unsplash key on 2026-11-10 and asked for it on the same branch as Mob
   Tried live on 2026-11-10: a search took under half a second, the demo limit is 50 an hour, and images are JPEGs.
 - **Each connector names its own key variable,** which main reads and keeps from the service, and `pnpm dev` passes on
   every `PARITY_*_KEY` in `.env.local`, so the next connector needs no changes there. What else would make the next one
-  easier is in [connectors.md](connectors.md#pattern-changes-to-make).
+  easier is in [connectors.md](connectors.md#pattern-changes-made).
 
 ## Keys are the app owner's, and Parity reports uses itself (PAR-829)
 
@@ -6919,10 +6919,10 @@ deciding what else to do, and for agents to get two tools: one to search and one
   result by connector and id and an image node by path; Parity sets the node's `src` (and `alt`, from the photo's title)
   from main's own copy, as one undoable edit, and only once that's applied tells main. You asked how an agent sees a
   photo without its link: through the preview each search saves, which MCP shows inline.
-- **The hub's `placed` runs the same steps for every connector** (your call): it records `connectors.placed`, counts the
-  placement as the source's usage, then calls the connector's own `placed`, which for Unsplash reports the photo to its
-  download endpoint. `picked` became `placed`. Telemetry carries the connector, kind and who placed it, never which
-  result or where.
+- **The hub's `placed` runs the same steps for every connector** (your call): it counts the placement as the source's
+  usage, and only when it's new records `connectors.placed` and calls the connector's own `placed`, which for Unsplash
+  reports the photo to its download endpoint. `picked` became `placed`. Telemetry carries the connector, kind and who
+  placed it, never which result or where.
 - **Usage counts once for each design.** A `PlacementLog` keeps them, a file in the app's data for now
   (`connector-placements.json`, the latest 2,000), so placing the same photo in the same design again isn't reported
   twice. A log that can't be read or written counts the placement as new, since a source's terms prefer being told twice
@@ -6931,3 +6931,29 @@ deciding what else to do, and for agents to get two tools: one to search and one
   says.
 - **The window places through `canvasHost.connectors.placed`,** with the result's connector and id and the design, and
   main uses its own copy. Nothing in the window calls it yet, since there's no Place for photos.
+
+## A second review of placing and the hub (PAR-829)
+
+You asked on 2026-11-10 for another LLM-as-judge review, and to fix what it confirmed. My calls:
+
+- **Placing works in Parity's own image nodes.** `Update` couldn't change an image's picture, so placing set a prop the
+  node didn't have. `Update` now takes `src`, `alt` and `credit` on an image node, in a design's base state only, since
+  a state can't change which picture it shows. `place_result` checks its target before it edits: an image node, or a
+  component that declares the prop named. It refuses one that already shows the photo, and says why with a code.
+- **Placements are keyed without paths.** A design's key is a hash of its project, file and design, so two designs with
+  the same id in different files count apart, and the log, and later the account's store, hold no path.
+- **Each connector declares its source's rate limit,** and main runs half of it: Mobbin's 60 a minute and Unsplash's 50
+  an hour. This replaces 30 searches a minute for every connector, which would have spent Unsplash's hour in two
+  minutes.
+- **A connector can need no key,** with `auth: { type: "none" }`, and searches. Key variables are any
+  `PARITY_<NAME>_KEY`, in any letter case.
+- **A report a source didn't take is tried again** as Parity next starts. The log keeps whether each was told.
+- **The contracts take filters as plain text** by the connectors' ids, and both ways of asking for more, so main checks
+  them against whichever connector runs the search. `place_result` can name the tab.
+- **Main enforces which kinds go in designs,** from `placeableKinds`, for the window as well as agents, and refuses a
+  photo whose link expires.
+- **The hub never throws** to the window or an agent: an adapter or service that throws answers `unavailable`, and the
+  service gets the hub's timeout. The stores re-read their file before each change and write through a temporary file of
+  their own, so two copies of Parity don't lose each other's entries.
+- **`agent.called` leaves out what was searched for and which result was placed where,** as `connectors.*` already did.
+- **Old previews are deleted** after a week.

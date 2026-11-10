@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Fetch, Found, SearchAnswer } from "@parity-app/connectors"
@@ -79,8 +79,7 @@ describe("searchReferences", () => {
           query: request.query,
           kind: "screens",
           filters: { platform: "ios", depth: "standard" },
-          limit: 6,
-          exclude: []
+          limit: 6
         }
       }
     ])
@@ -158,6 +157,19 @@ describe("searchReferences", () => {
     expect(answer.found.map(({ title, platform, preview }) => [title, platform, preview?.mimeType])).toEqual([
       ["white desk", undefined, "image/jpeg"]
     ])
+  })
+
+  it("deletes previews saved more than a week ago, and keeps newer ones", async () => {
+    const old = join(folder, "old.webp")
+    const recent = join(folder, "recent.webp")
+    writeFileSync(old, webp)
+    writeFileSync(recent, webp)
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000)
+    utimesSync(old, eightDaysAgo, eightDaysAgo)
+
+    await searchReferences(options({ found: [] }).options, request)
+
+    expect([existsSync(old), existsSync(recent)]).toEqual([false, true])
   })
 
   it("says a search has run out when more was asked for and none came", async () => {

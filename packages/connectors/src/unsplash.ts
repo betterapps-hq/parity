@@ -91,6 +91,8 @@ export const unsplash: Connector = {
       }
     ],
     limit: { default: 20, max: 30 },
+    // Until Unsplash approves the app for production, which raises it to 5,000 an hour.
+    rateLimit: { requests: 50, per: "hour" },
     more: "page",
     // The Access Key of Parity's app on Unsplash.
     auth: { type: "key", variable: "PARITY_UNSPLASH_ACCESS_KEY" }
@@ -129,11 +131,13 @@ async function searchUnsplash(request: SearchRequest, access: Access): Promise<S
   })
 }
 
-/** Reports a photo placed in a design to Unsplash's download endpoint, as its terms ask. A failure is let go. */
-async function tellUnsplash(found: Found, access: Access): Promise<void> {
-  if (access.key) {
-    await notify(access, `${api}/photos/${encodeURIComponent(found.id)}/download`, { headers: headers(access.key) })
+/** Reports a photo placed in a design to Unsplash's download endpoint, as its terms ask, and says whether it took it. */
+async function tellUnsplash(found: Found, access: Access): Promise<boolean> {
+  if (!access.key) {
+    return false
   }
+
+  return notify(access, `${api}/photos/${encodeURIComponent(found.id)}/download`, { headers: headers(access.key) })
 }
 
 function headers(key: string): HeadersInit {

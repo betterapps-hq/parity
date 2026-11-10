@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir, readdir, rm, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { AgentHost } from "@parity-app/agent"
 import type { Fetch, Found, SearchAnswer, SearchRequest } from "@parity-app/connectors"
@@ -25,6 +25,12 @@ const previewLimit = 4 * 1024 * 1024
 /** The longest part of a preview's file name taken from what the source says, so a long title can't break the path. */
 const nameLimit = 40
 
+/**
+ * How long a saved preview is kept, in milliseconds: long enough to look at again while working, and well inside the
+ * 30 days Mobbin's links last. A preview is a copy to look at, not something to keep.
+ */
+const previewAge = 7 * 24 * 60 * 60 * 1000
+
 export interface FindOptions {
   /** Asks main to find what the request names, since main holds the keys and knows which connector has one. */
   find(request: ConnectorFind): Promise<SearchAnswer>
@@ -37,21 +43,29 @@ export interface FindOptions {
 
 /** An agent's search for screens from real apps (PAR-829), from the connector it names or any that finds them. */
 export async function searchReferences(options: FindOptions, request: ReferencesRequest): Promise<FindAnswer> {
-  const { tab: _tab, query, connector, limit, exclude, ...filters } = request
+  const { tab: _tab, query, connector, limit, exclude, page, ...filters } = request
 
-  return find(options, connector, { query, kind: "screens", filters: defined(filters), limit, exclude })
+  return find(options, connector, more({ query, kind: "screens", filters: defined(filters), limit }, exclude, page))
 }
 
 /** An agent's search for stock photos, from the connector it names or any that finds them. */
 export async function searchPhotos(options: FindOptions, request: PhotosRequest): Promise<FindAnswer> {
-  const { tab: _tab, query, connector, limit, page, ...filters } = request
-  const search: SearchRequest = { query, kind: "photos", filters: defined(filters), limit }
+  const { tab: _tab, query, connector, limit, exclude, page, ...filters } = request
+
+  return find(options, connector, more({ query, kind: "photos", filters: defined(filters), limit }, exclude, page))
+}
+
+/** A search with the way of asking for more the agent used; main refuses the one its connector doesn't take. */
+function more(search: SearchRequest, exclude: string[] | undefined, page: number | undefined): SearchRequest {
+  if (exclude && exclude.length > 0) {
+    search.exclude = exclude
+  }
 
   if (page !== undefined) {
     search.page = page
   }
 
-  return find(options, connector, search)
+  return search
 }
 
 /**
@@ -77,6 +91,7 @@ async function find(options: FindOptions, connector: string | undefined, request
   }
 
   const found = await Promise.all(answer.found.map((each) => withPreview(options, each)))
+  await pruneOld(options.folder, Date.now() - previewAge)
   const result: FindAnswer = { found }
 
   if (answer.allowance) {
@@ -181,6 +196,20 @@ async function readUpTo(response: Response, limit: number): Promise<Buffer | und
   }
 
   return Buffer.concat(chunks)
+}
+
+/** Deletes previews saved before `before`, in milliseconds since the epoch. One that can't be deleted is left. */
+async function pruneOld(folder: string, before: number): Promise<void> {
+  const names = await readdir(folder).catch(() => [])
+
+  for (const name of names) {
+    const path = join(folder, name)
+    const saved = await stat(path).catch(() => undefined)
+
+    if (saved?.isFile() && saved.mtimeMs < before) {
+      await rm(path, { force: true }).catch(() => undefined)
+    }
+  }
 }
 
 /** Letters, digits and dashes only, in lower case and kept short, for a file name. */

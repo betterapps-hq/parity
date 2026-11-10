@@ -113,10 +113,10 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             search Unsplash for stock photos, one subject per search, the same way;
                                             --color keeps to one of Unsplash's colors, as teal or black_and_white,
                                             and --page 2 brings the next ones. Credit the photographer and Unsplash
-  parity place <connector> <id> "<node>" [--prop src] [--state s]
-                                            put a photo a search found into an image node, as one undoable edit, from
-                                            the source's own link; Parity tells the source it was used. Exits with 1
-                                            when it wasn't placed
+  parity place <connector> <id> "<design/node>" [--prop src] [--state s] [--tab t]
+                                            put a photo a search found into an image node, as "home/photo", or a
+                                            component's --prop, as one undoable edit from the source's own link;
+                                            Parity tells the source it was used. Exits with 1 when it wasn't placed
   parity open <folder>                      open a project in a new tab
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
@@ -372,6 +372,7 @@ async function main(): Promise<void> {
       return show(
         operations.references,
         {
+          tab: values.tab,
           query: rest.join(" ") || undefined,
           connector: values.connector,
           platform: values.platform,
@@ -385,6 +386,7 @@ async function main(): Promise<void> {
       return show(
         operations.photos,
         {
+          tab: values.tab,
           query: rest.join(" ") || undefined,
           connector: values.connector,
           orientation: values.orientation,

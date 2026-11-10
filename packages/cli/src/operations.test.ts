@@ -340,7 +340,7 @@ const cases: Case[] = [
     tool: "find_references",
     method: "references",
     input: { query: "paywall with a free trial", platform: "ios" },
-    params: { query: "paywall with a free trial", platform: "ios", limit: 6, exclude: [] },
+    params: { query: "paywall with a free trial", platform: "ios", limit: 6 },
     result: references,
     structured: references,
     text: describeReferences(references)

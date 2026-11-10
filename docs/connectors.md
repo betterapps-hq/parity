@@ -25,28 +25,34 @@ apps/desktop
 ```
 
 - **Keys are the app owner's.** People never enter one. A connector's `auth` says whether it needs a key and which
-  variable a development copy sets it with. Main reads them once and takes them out of its environment. A shipped copy
-  will search through Parity's service, which holds them.
+  variable a development copy sets it with (`PARITY_<NAME>_KEY`). Main reads them once and takes every such variable, in
+  any letter case, out of its environment. A shipped copy will search through Parity's service, which holds them.
 - **The window asks main over IPC:** `canvasHost.connectors` gets the list (each connector's details and whether this
-  copy can search it, never a key), searches, lists the person's recent searches, and reports a result someone used.
-- **Main checks every search before it routes it,** against what the connector takes, fills in its defaults, and keeps
-  each connector to 30 searches a minute, so a loop can't spend a source's allowance. `connectors.searched` records the
-  filters as checked.
+  copy can search it, never a key), searches, lists the person's recent searches, and says a result was placed
+  (`placed`), though no Place in the window calls that yet.
+- **Main checks every search before it routes it,** against what the connector takes, and fills in its defaults. Each
+  connector declares its source's `rateLimit` (Mobbin 60 a minute, Unsplash 50 an hour), and main runs half of it, so a
+  loop can't spend a source's allowance. `connectors.searched` records the filters as checked, and names only connectors
+  Parity has.
 - **Agents search by kind, not by source.** `find_references` (`parity references`) finds screens and `find_photos`
   (`parity photos`) finds photos. Each can name a `connector`; without one, main picks the first connector that finds
-  the kind, takes every filter named and has a key. Every field besides the search's own is passed on as a filter, so a
-  new connector's filter reaches it without a change to `utility/references.ts`. Each result names its connector.
+  the kind, takes every filter named and has a key. The contracts take filters as plain text by the connectors' ids and
+  either way of asking for more (`exclude` or `page`), and main checks them against whichever connector runs the search,
+  so a second source of the same kind with other values needs no change there. Each result names its connector. Searches
+  give previews and ids, never an image link.
 - **Recent searches go through a `SearchHistory`.** The hub adds each search that works in the window, never an agent's,
   with every filter it ran with, and `remember` keeps each connector's latest five. `localHistory` keeps them in a file
   for now; once Parity's service keeps them on the person's account, main passes the hub one that asks it.
-- **Placing a result is Parity's own step, so Parity reports it.** Searches give previews and ids, never an image link
-  to paste. An agent puts a photo in a design with `place_result` (`parity place`), which sets an image node from main's
-  own copy of the result as one undoable edit; the window's Place calls `canvasHost.connectors.placed`. Either way the
-  hub's `placed` runs once the result is in the design, and only for a result it gave lately:
-  1. records `connectors.placed`, for every connector;
-  2. counts it in a `PlacementLog` as the source's usage, once for each design, which the account's store will replace;
-  3. calls the connector's own `placed`, if it has one: Unsplash's reports the photo to its download endpoint. Screens
-     from Mobbin are for looking at, so placing one in a design is refused.
+- **Placing a result is Parity's own step, so Parity reports it.** An agent puts a photo in a design with `place_result`
+  (`parity place <connector> <id> "<design/node>"`). In an image node it sets `src`, `alt` and the photographer's
+  `credit`, keeping the node's id and style; in a component it sets a prop the component declares. Only kinds in
+  `placeableKinds` (photos) go in designs, and never a link that expires. Once the edit applies, the hub's `placed`
+  runs, only for a result it gave lately:
+  1. counts it in a `PlacementLog` as the source's usage, once for each design, under a key that hashes the project,
+     file and design so it holds no path. The account's store will replace the file;
+  2. only when it's new, records `connectors.placed`;
+  3. calls the connector's own `placed`, if it has one, which says whether the source took it. Unsplash's reports the
+     photo to its download endpoint. One that didn't take it is tried again as Parity next starts.
 - **Filters are data.** Each connector lists its filters in `info.filters`, with their values and defaults: Mobbin's
   platform and depth, Unsplash's orientation and color. A search sends `filters: { platform: "ios" }`, `checkRequest`
   refuses a filter or value the connector doesn't list and fills in defaults, and the window can draw the controls from
@@ -54,30 +60,36 @@ apps/desktop
 - **An answer says how many searches are left** when the source says, as `allowance`. `sendSearch` reads the
   `X-RateLimit-Remaining` and `X-RateLimit-Limit` headers, which Unsplash sends and Mobbin doesn't.
 - **A service can run searches for main.** The hub takes a `SearchService` that searches some connectors with keys of
-  its own. A connector with no key here goes to it, for searches and picks, and a key here still wins. Nothing
-  implements one yet: it's where Parity's own service plugs in to hold the keys for shipped builds.
+  its own, with the hub's timeout. A connector with no key here goes to it, for searches and placements, and a key here
+  still wins. Nothing implements one yet: it's where Parity's own service plugs in to hold the keys.
 - **A search never throws.** Its answer is what it found or a problem: `no-key`, `key-refused`, `no-access`,
-  `rate-limited` (with `retryAfter` when the source says), `invalid` (with the field) or `unavailable`. Only `invalid`
-  is the asker's to fix. `no-key` tells an agent to carry on without the source, and isn't an error to the CLI or MCP.
+  `rate-limited` (with `retryAfter` when the source says), `invalid` (with the field) or `unavailable`, which is also
+  what an adapter or service that throws gives. Only `invalid` is the asker's to fix. `no-key` tells an agent to carry
+  on without the source, and isn't an error to the CLI or MCP.
 - **Previews are a convenience.** An agent's search saves a smaller picture when the source has one (`Found.preview`,
-  Unsplash's small size), stops reading one past 4 MB, keeps file names short, and lists a result whose preview failed
-  with its link.
+  Unsplash's small size), stops reading one past 4 MB, keeps file names short, deletes previews older than a week, and
+  lists a result whose preview failed with its link.
 
 ## Adding a connector
 
 1. **Write the adapter** in `packages/connectors/src/<id>.ts`: its `info` (what it finds, which filters it takes, its
-   limits, how it pages, and its `auth`: none, or a key and its variable), `search`, and `placed` when the source's
-   terms ask for something when one of its results goes into a design. Its filters go in `info.filters`, each with the
-   source's own values, so the adapter can send them as they come. `search` starts with `prepare`, which refuses a
-   filter the connector doesn't take and says when there's no key, then sends with `sendSearch`, which turns a failed,
-   slow or unreadable answer into a problem and reads how many searches are left. What's left is the adapter's own: its
-   URL and request, its answer's schema, mapping a result to `Found`, and what each of the source's failures means, in
-   words a person or agent can act on, never advice about the key, which only the app's owner can change. Test them with
-   a stand-in `fetch`.
-2. **Add it to `connectors`** in `packages/connectors/src/index.ts`. Main, `pnpm dev`, the window's list, recent
-   searches and agents' search for its kind pick it up from there. A filter agents should know by name goes on its
-   kind's contract in `packages/agent`, as an optional field named by the filter's id. A kind no agent call finds yet
-   needs one: a contract, a `search…` in `utility/references.ts`, and its CLI command and MCP tool.
+   limits, its source's `rateLimit`, how it pages, and its `auth`: none, or a key and its `PARITY_<NAME>_KEY` variable),
+   `search`, and `placed` when the source's terms ask for something when one of its results goes into a design. Its
+   filters go in `info.filters`, each with the source's own values, so the adapter can send them as they come. `search`
+   starts with `prepare`, which refuses a filter the connector doesn't take and, for a connector that needs one, says
+   when there's no key, then sends with `sendSearch`, which turns a failed, slow or unreadable answer into a problem and
+   reads how many searches are left. What's left is the adapter's own: its URL and request, its answer's schema, mapping
+   a result to `Found`, and what each of the source's failures means, in words a person or agent can act on, never
+   advice about the key, which only the app's owner can change. Test them with a stand-in `fetch`.
+2. **Add it to `connectors`** in `packages/connectors/src/index.ts`. Main, `pnpm dev`, Storybook's live stories, the
+   window's list, recent searches, placing and agents' search for its kind pick it up from there. Then check the words
+   that name today's sources, which don't come from the connector:
+   - a filter agents should know by name: an optional field on its kind's contract in `packages/agent/src/contracts.ts`,
+     named by the filter's id, and its flag in `packages/cli/src/bin.ts` (the parse options, the command and the help);
+   - the MCP tools' descriptions in `packages/cli/src/mcp.ts`, the result text in `packages/cli/src/client.ts`, and the
+     tool table and steps in `packages/cli/skills/SKILL.md`, which name Mobbin and Unsplash;
+   - a kind no agent call finds yet: a contract, a `search…` in `utility/references.ts`, its CLI command and MCP tool,
+     and `placeableKinds` if results of that kind can go in designs.
 3. **Name its variable in `apps/desktop/.env.example`,** with where the app's owner gets a key.
 4. **Try it live** with a key in `apps/desktop/.env.local`, from a script that reads the file and never prints the key.
 5. **Record the source's terms** in decisions.md: credit, caching, what it must be told, and its limits.
@@ -107,11 +119,22 @@ What a review of the pattern found next, and what changed:
 - **One search shape per kind.** The agent contracts had Mobbin's and Unsplash's filters with their defaults, so a
   second screens source got `invalid`. Now the contracts leave defaults to the connector, and main routes by filter.
 - **Check before routing.** Main checked a search only in the adapter, after choosing a connector and recording it.
-- **Budget, and placements only of results given,** so nothing in the window or an agent's loop can spend a source's
+- **A budget, and placements only of results given,** so nothing in the window or an agent's loop can spend a source's
   allowance or report uses Parity didn't have.
 - **Recent searches** go through one interface, so the account's store can replace the file.
+- **Placing is a step of its own.** `picked` became `placed`, called by the hub after it counts a placement, and agents
+  place with `place_result` instead of pasting an image link, so a use is reported because Parity made it.
 
-- **Placing is a step of its own.** `picked` became `placed`, called by the hub after it records and counts a placement,
-  and agents place with `place_result` instead of pasting an image link, so a use is reported because Parity made it.
+What a second review found, and what changed:
+
+- **Placing fills Parity's own image node.** `Update` couldn't change an image's picture, so `place_result` changed
+  nothing there. Now `Update` takes `src`, `alt` and `credit` for an image, and placing checks its target first: an
+  image, or a component's declared prop.
+- **Usage is keyed without paths,** by a hash of the project, file and design, so two designs with the same id in
+  different files count apart and an account's store learns nothing about the computer.
+- **A connector that needs no key searches,** where `prepare` refused it.
+- **Each source's own rate limit,** instead of one budget a minute for all.
+- **Reports are retried.** A source that didn't take one hears of it again as Parity starts.
+- **The rule for what goes in designs is shared,** in `placeableKinds`, and main enforces it for the window too.
 
 Still open: the window has no Place for photos yet, so only agents place them today.

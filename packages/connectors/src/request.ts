@@ -38,6 +38,11 @@ export function prepare(
     return checked
   }
 
+  // A connector that needs no key searches without one, and gets an empty key it doesn't send.
+  if (info.auth.type === "none") {
+    return { request: checked.request, key: "" }
+  }
+
   if (!access.key) {
     return refusal(
       "no-key",
@@ -129,8 +134,11 @@ function count(header: string | null): number | undefined {
   return header !== null && /^\d+$/.test(header.trim()) ? Number(header.trim()) : undefined
 }
 
-/** Sends a request whose answer doesn't matter, as a report of a use. A failure is let go. */
-export async function notify(access: Access, url: string, init: RequestInit): Promise<void> {
+/**
+ * Sends a request whose answer is only whether it was taken, as a report of a use: true when the source answered with
+ * success. A failure is let go, so the caller can try again later.
+ */
+export async function notify(access: Access, url: string, init: RequestInit): Promise<boolean> {
   const sent: RequestInit = { ...init }
 
   if (access.signal) {
@@ -138,9 +146,12 @@ export async function notify(access: Access, url: string, init: RequestInit): Pr
   }
 
   try {
-    await access.fetch(url, sent)
+    const response = await access.fetch(url, sent)
+    await response.body?.cancel()
+
+    return response.ok
   } catch {
-    // The source's count, not something the person waits on.
+    return false
   }
 }
 

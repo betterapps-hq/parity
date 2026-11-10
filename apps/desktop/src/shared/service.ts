@@ -50,7 +50,7 @@ export interface MainMethods {
    * Main's own copy of a result it gave lately, which an agent's `place_result` puts in a design: null for one it didn't
    * give, or gave too long ago.
    */
-  connectorResult: { params: { connector: string; id: string }; result: Found | null }
+  connectorResult: { params: { connector: string; id: string }; result: (Found & { placeable: boolean }) | null }
   /** An agent placed a result in a design, which main records and tells the source of. */
   connectorPlaced: { params: ConnectorPlaced; result: undefined }
   /**

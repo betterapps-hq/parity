@@ -19,7 +19,7 @@ describe("connectors", () => {
 
   it("takes every connector's key out of an environment, and leaves the rest", () => {
     expect(
-      withoutKeys({ PARITY_MOBBIN_API_KEY: "m", PARITY_UNSPLASH_ACCESS_KEY: "u", PARITY_NEXT_KEY: "n", PATH: "/bin" })
+      withoutKeys({ PARITY_MOBBIN_API_KEY: "m", parity_unsplash_access_key: "u", PARITY_NEXT_KEY: "n", PATH: "/bin" })
     ).toEqual({
       PATH: "/bin"
     })

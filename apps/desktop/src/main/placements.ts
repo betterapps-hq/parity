@@ -1,19 +1,21 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
-import { dirname } from "node:path"
-import { findKind } from "@parity-app/connectors"
+import { found } from "@parity-app/connectors"
 import { z } from "zod"
+import { readItems, writeJson } from "./json-file.ts"
 
-/** A result placed in a design: which one, where, by whom and when. */
+/** A result placed in a design: which one, where, by whom, when, and whether its source has been told. */
 export const placement = z.strictObject({
-  connector: z.string().min(1),
-  /** The source's id for the result. */
-  id: z.string().min(1),
-  kind: findKind,
-  /** The design it went into: its project's folder and the design's id, so the same design is counted once. */
+  /** The result as the hub gave it, to tell its source again if the first try didn't reach it. */
+  found,
+  /**
+   * The design it went into, as a key that holds no path: a hash of its project, file and id, so the same design is
+   * counted once and an account's store never learns where projects are.
+   */
   design: z.string().min(1),
   from: z.enum(["window", "agent"]),
   /** When, in milliseconds since the epoch. */
-  at: z.number()
+  at: z.number(),
+  /** Whether the source took the report, for a source that asks for one. */
+  told: z.boolean()
 })
 
 export type Placement = z.infer<typeof placement>
@@ -26,55 +28,55 @@ export type Placement = z.infer<typeof placement>
 export interface PlacementLog {
   /** Counts a placement, and says whether it's new: false when this result was already placed in this design. */
   add(placed: Placement): Promise<boolean>
+  /** Marks a placement's source as told. */
+  told(placed: Placement): Promise<void>
+  /** Placements whose source hasn't taken the report yet, to try again. */
+  untold(): Promise<Placement[]>
 }
 
 /** How many placements the file keeps, newest first: enough to tell a placement again from a new one. */
 const keptLimit = 2000
 
-const placementsFile = z.object({ placements: z.array(z.unknown()) })
-
-const same = (a: Placement, b: Placement) => a.design === b.design && a.connector === b.connector && a.id === b.id
+const same = (a: Placement, b: Placement) =>
+  a.design === b.design && a.found.connector === b.found.connector && a.found.id === b.found.id
 
 /**
- * Placements in a file in the app's data. A file that can't be read starts again, so a placement may count twice
- * rather than not at all, which is the side a source's terms prefer.
+ * Placements in a file in the app's data. Each change reads the file again first, so two copies of Parity sharing it
+ * keep each other's. A file that can't be read starts again, so a placement may count twice rather than not at all,
+ * which is the side a source's terms prefer.
  */
 export function localPlacements(file: string): PlacementLog {
-  let kept: Promise<Placement[]> | undefined
-  // One change at a time, so two placements together both count.
+  // One change at a time in this copy, so two placements together both count.
   let writing: Promise<unknown> = Promise.resolve()
 
-  const read = async (): Promise<Placement[]> => {
-    try {
-      const parsed = placementsFile.safeParse(JSON.parse(await readFile(file, "utf8")))
+  const change = <T>(update: (placements: Placement[]) => { placements?: Placement[]; answer: T }): Promise<T> => {
+    const changed = writing.then(async () => {
+      const { placements, answer } = update(await readItems(file, "placements", placement))
 
-      return parsed.success ? parsed.data.placements.flatMap((each) => placement.safeParse(each).data ?? []) : []
-    } catch {
-      return []
-    }
+      if (placements) {
+        await writeJson(file, { placements: placements.slice(0, keptLimit) })
+      }
+
+      return answer
+    })
+
+    writing = changed.catch(() => undefined)
+
+    return changed
   }
 
   return {
-    add(placed) {
-      const added = writing.then(async () => {
-        const placements = await (kept ??= read())
-
-        if (placements.some((each) => same(each, placed))) {
-          return false
-        }
-
-        const counted = [placed, ...placements].slice(0, keptLimit)
-        kept = Promise.resolve(counted)
-        await mkdir(dirname(file), { recursive: true })
-        await writeFile(`${file}.tmp`, JSON.stringify({ placements: counted }))
-        await rename(`${file}.tmp`, file)
-
-        return true
-      })
-
-      writing = added.catch(() => undefined)
-
-      return added
-    }
+    add: (placed) =>
+      change((placements) =>
+        placements.some((each) => same(each, placed))
+          ? { answer: false }
+          : { placements: [placed, ...placements], answer: true }
+      ),
+    told: (placed) =>
+      change((placements) => ({
+        placements: placements.map((each) => (same(each, placed) ? { ...each, told: true } : each)),
+        answer: undefined
+      })),
+    untold: async () => (await readItems(file, "placements", placement)).filter((each) => !each.told)
   }
 }

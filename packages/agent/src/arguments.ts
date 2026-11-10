@@ -7,6 +7,7 @@ import {
   CodedError,
   containerKinds,
   finiteNumber,
+  imageCredit,
   nodeStyle,
   patchUnset,
   plainObject,
@@ -92,7 +93,11 @@ export const updateChange = z.strictObject(
     tag: z.enum(textTags).nullish(),
     component: z.string().optional(),
     /** An instance's args, as props. */
-    args: plainObject.optional()
+    args: plainObject.optional(),
+    /** An image's picture, its description and who made it, in the base design only. */
+    src: z.string().min(1).optional(),
+    alt: z.string().nullish(),
+    credit: imageCredit.nullish()
   },
   {
     error: (issue) =>

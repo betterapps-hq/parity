@@ -1,7 +1,5 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises"
-import { dirname } from "node:path"
 import { type RecentSearch, recentSearch, remember } from "@parity-app/connectors"
-import { z } from "zod"
+import { readItems, writeJson } from "./json-file.ts"
 
 /**
  * Where the person's recent searches are kept (PAR-829). The hub adds each search the person runs in the window, and
@@ -15,39 +13,24 @@ export interface SearchHistory {
   add(search: RecentSearch): Promise<RecentSearch[]>
 }
 
-const historyFile = z.object({ searches: z.array(z.unknown()) })
-
 /**
  * Recent searches in a file in the app's data, beside its other preferences, never in a project, so they aren't shared
- * or committed. A file that can't be read starts the list again, and a search that doesn't read is left out, since a
- * recent search is a convenience, not something to keep at any cost. Each write replaces the file whole.
+ * or committed. Each change reads the file again first, so two copies of Parity sharing it keep each other's. A file
+ * that can't be read starts the list again, and a search that doesn't read is left out, since a recent search is a
+ * convenience, not something to keep at any cost.
  */
 export function localHistory(file: string): SearchHistory {
-  let kept: Promise<RecentSearch[]> | undefined
-  // One change at a time, so two searches ending together both stay.
+  // One change at a time in this copy, so two searches ending together both stay.
   let writing: Promise<unknown> = Promise.resolve()
 
-  const read = async (): Promise<RecentSearch[]> => {
-    try {
-      const parsed = historyFile.safeParse(JSON.parse(await readFile(file, "utf8")))
-
-      return parsed.success ? parsed.data.searches.flatMap((each) => recentSearch.safeParse(each).data ?? []) : []
-    } catch {
-      return []
-    }
-  }
-
-  const list = () => (kept ??= read())
+  const list = () => readItems(file, "searches", recentSearch)
 
   return {
     list,
     add(search) {
       const added = writing.then(async () => {
         const searches = remember(await list(), search)
-        kept = Promise.resolve(searches)
-        await mkdir(dirname(file), { recursive: true })
-        await writeFile(`${file}.tmp`, JSON.stringify({ searches }))
-        await rename(`${file}.tmp`, file)
+        await writeJson(file, { searches })
 
         return searches
       })

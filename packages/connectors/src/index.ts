@@ -26,8 +26,11 @@ export function keysFromEnvironment(env: Readonly<Record<string, string | undefi
   )
 }
 
-/** What a key's variable looks like, as each connector names it: `PARITY_MOBBIN_API_KEY`. */
-export const keyVariable = /^PARITY_\w+_KEY$/
+/**
+ * What a key's variable looks like, as each connector names it: `PARITY_MOBBIN_API_KEY`. In any letter case, since
+ * Windows reads a variable whatever its case, so one set as `parity_mobbin_api_key` is still a key to keep away.
+ */
+export const keyVariable = /^PARITY_\w+_KEY$/i
 
 /**
  * The environment without any connector's key, for a process that mustn't have them. It leaves out every variable

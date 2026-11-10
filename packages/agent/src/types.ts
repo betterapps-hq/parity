@@ -352,9 +352,24 @@ export interface AgentHooks {
  */
 export interface PlaceableResult {
   kind: string
+  /** Whether it can go in a design: photos can; screens from real apps are for looking at. */
+  placeable: boolean
   title: string
-  image: { url: string }
+  /** Its picture, with when its link stops working for a source whose links expire. */
+  image: { url: string; expiresAt?: number }
   credit: { name: string; url?: string }[]
+}
+
+/**
+ * Where a result was placed: the project's folder, the design's file in it and the design's id. Main turns them into a
+ * key that holds no path, so the same design is counted once and nothing about the computer leaves it.
+ */
+export interface PlacedIn {
+  connector: string
+  id: string
+  project: string
+  file: string
+  design: string
 }
 
 /** What a call changed: each design it touched with how it found it, the modes when it set them, and token values. */

@@ -10,11 +10,11 @@ import {
 import { type Placement, type PlacementLog } from "./placements.ts"
 import type { SearchHistory } from "./search-history.ts"
 
-function result(connector: string, id = "1"): Found {
+function result(connector: string, id = "1", kind: FindKind = "screens"): Found {
   return {
     connector,
     id,
-    kind: "screens",
+    kind,
     title: "App",
     image: { url: "https://fake.example/1.png" },
     link: "https://fake.example/1",
@@ -27,6 +27,7 @@ function fakeConnector(id = "fake", finds: FindKind = "screens", filter?: string
   const keys: (string | undefined)[] = []
   const sent: SearchRequest[] = []
   const picked: Found[] = []
+  let refusing = false
 
   const connector: Connector = {
     info: {
@@ -38,23 +39,30 @@ function fakeConnector(id = "fake", finds: FindKind = "screens", filter?: string
       finds: [finds],
       filters: filter ? [{ id: filter, name: filter, values: [{ id: "a", name: "A" }], default: "a" }] : [],
       limit: { default: 10, max: 10 },
+      rateLimit: { requests: 60, per: "minute" },
       more: "exclude",
       auth: { type: "key", variable: `PARITY_${id.toUpperCase()}_KEY` }
     },
     async placed(found) {
       picked.push(found)
+
+      return !refusing
     },
     async search(request, access) {
       keys.push(access.key)
       sent.push(request)
 
       return access.key === "good"
-        ? { found: [result(id)] }
+        ? { found: [result(id, "1", finds)] }
         : { problem: { code: "no-key", message: "This copy of Parity has no Fake key." } }
     }
   }
 
-  return { connector, keys, sent, picked }
+  const refuse = (refused: boolean) => {
+    refusing = refused
+  }
+
+  return { connector, keys, sent, picked, refuse }
 }
 
 function memoryHistory(): SearchHistory & { kept: RecentSearch[] } {
@@ -75,20 +83,33 @@ const fetch: Fetch = () => Promise.reject(new Error("no network in tests"))
 
 function memoryPlacements(): PlacementLog & { kept: Placement[] } {
   const kept: Placement[] = []
+  const same = (a: Placement, b: Placement) => a.design === b.design && a.found.id === b.found.id
 
   return {
     kept,
     async add(placed) {
-      if (kept.some((each) => each.design === placed.design && each.id === placed.id)) {
+      if (kept.some((each) => same(each, placed))) {
         return false
       }
 
-      kept.push(placed)
+      kept.push({ ...placed })
 
       return true
-    }
+    },
+    async told(placed) {
+      for (const each of kept.filter((one) => same(one, placed))) {
+        each.told = true
+      }
+    },
+    untold: async () => kept.filter((each) => !each.told)
   }
 }
+
+/** A photo the fake connector finds, which can be placed. */
+const photo = (id = "1") => result("fake", id, "photos")
+
+/** The project and file a placement goes into, which the hub hashes into its key. */
+const shop = { project: "D:/shop", file: "screens.par" }
 
 function hub(
   connector: Connector | Connector[],
@@ -109,7 +130,7 @@ function hub(
     placements,
     fetch,
     timeout: 1000,
-    budget: 30,
+    share: 0.5,
     secrets: (values) => secrets.push(values),
     searched: (search) => searches.push(search),
     placed: (placed) => placedEvents.push(placed),
@@ -122,6 +143,8 @@ function hub(
 }
 
 const search: SearchRequest = { query: "login", kind: "screens" }
+
+const photos: SearchRequest = { query: "desk", kind: "photos" }
 
 describe("createConnectorHub", () => {
   it("says which connectors this copy can search, and searches with the owner's key", async () => {
@@ -197,9 +220,10 @@ describe("createConnectorHub", () => {
     expect(await connectors.search("fake", search, "window")).toHaveProperty("found")
   })
 
-  it("runs each connector's budget of searches a minute, then says how long to wait", async () => {
+  it("runs a share of each connector's rate limit, then says how long to wait", async () => {
     const { connector, sent } = fakeConnector()
-    const { hub: connectors } = hub(connector, { fake: "good" }, { budget: 2 })
+    const limited: Connector = { ...connector, info: { ...connector.info, rateLimit: { requests: 4, per: "minute" } } }
+    const { hub: connectors } = hub(limited, { fake: "good" })
 
     await connectors.search("fake", search, "agent")
     await connectors.search("fake", search, "agent")
@@ -237,43 +261,79 @@ describe("createConnectorHub", () => {
     })
   })
 
-  it("records a result placed in a design once, counts it, then tells the source, from its own copy", async () => {
-    const { connector, picked } = fakeConnector()
+  it("counts a photo placed in a design once, records it, then tells the source, from its own copy", async () => {
+    const { connector, picked } = fakeConnector("fake", "photos")
     const { hub: connectors, placements, placedEvents } = hub(connector, { fake: "good" })
-    const home = { design: "D:/shop::home", from: "agent" as const }
+    const home = { ...shop, design: "home", from: "agent" as const }
 
-    await connectors.placed(result("fake", "never-found"), home)
-    await connectors.search("fake", search, "window")
-    await connectors.placed({ ...result("fake"), title: "Changed by the window" }, home)
-    await connectors.placed(result("fake"), home)
-    await connectors.placed(result("fake"), { design: "D:/shop::pricing", from: "window" })
+    await connectors.placed(photo("never-found"), home)
+    await connectors.search("fake", photos, "window")
+    await connectors.placed({ ...photo(), title: "Changed by the window" }, home)
+    await connectors.placed(photo(), home)
+    await connectors.placed(photo(), { ...shop, file: "marketing.par", design: "home", from: "window" })
 
-    expect(connectors.result("fake", "1")).toEqual(result("fake"))
+    expect(connectors.result("fake", "1")).toEqual(photo())
     expect(connectors.result("fake", "never-found")).toBeUndefined()
-    expect(picked).toEqual([result("fake"), result("fake")])
-    expect(placements.kept.map(({ design, from }) => [design, from])).toEqual([
-      ["D:/shop::home", "agent"],
-      ["D:/shop::pricing", "window"]
+    expect(picked).toEqual([photo(), photo()])
+    expect(
+      placements.kept.map(({ design, from, told }) => [design.length, design.includes("shop"), from, told])
+    ).toEqual([
+      [32, false, "agent", true],
+      [32, false, "window", true]
     ])
+    expect(new Set(placements.kept.map(({ design }) => design)).size).toBe(2)
     expect(placedEvents).toEqual([
-      { connector: "fake", kind: "screens", from: "agent" },
-      { connector: "fake", kind: "screens", from: "window" }
+      { connector: "fake", kind: "photos", from: "agent" },
+      { connector: "fake", kind: "photos", from: "window" }
     ])
+  })
+
+  it("counts nothing for a kind that can't go in designs", async () => {
+    const { connector, picked } = fakeConnector()
+    const { hub: connectors, placements } = hub(connector, { fake: "good" })
+
+    await connectors.search("fake", search, "window")
+    await connectors.placed(result("fake"), { ...shop, design: "home", from: "window" })
+
+    expect([picked, placements.kept]).toEqual([[], []])
+  })
+
+  it("tells a source again, as Parity starts, of a placement it didn't take", async () => {
+    const { connector, picked, refuse } = fakeConnector("fake", "photos")
+    const { hub: connectors, placements } = hub(connector, { fake: "good" })
+
+    await connectors.search("fake", photos, "agent")
+    refuse(true)
+    await connectors.placed(photo(), { ...shop, design: "home", from: "agent" })
+    expect(placements.kept.map(({ told }) => told)).toEqual([false])
+
+    refuse(false)
+    connectors.start()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(picked).toEqual([photo(), photo()])
+    expect(placements.kept.map(({ told }) => told)).toEqual([true])
   })
 
   it("still tells the source when a placement can't be counted", async () => {
-    const { connector, picked } = fakeConnector()
-    const placements: PlacementLog = { add: () => Promise.reject(new Error("disk full")) }
+    const { connector, picked } = fakeConnector("fake", "photos")
+
+    const placements: PlacementLog = {
+      add: () => Promise.reject(new Error("disk full")),
+      told: () => Promise.reject(new Error("disk full")),
+      untold: async () => []
+    }
+
     const { hub: connectors } = hub(connector, { fake: "good" }, { placements })
 
-    await connectors.search("fake", search, "agent")
-    await connectors.placed(result("fake"), { design: "D:/shop::home", from: "agent" })
+    await connectors.search("fake", photos, "agent")
+    await connectors.placed(photo(), { ...shop, design: "home", from: "agent" })
 
-    expect(picked).toEqual([result("fake")])
+    expect(picked).toEqual([photo()])
   })
 
   it("sends a search and a placement to the service for a connector with no key here", async () => {
-    const { connector, keys, picked } = fakeConnector()
+    const { connector, keys, picked } = fakeConnector("fake", "photos")
     const asked: string[] = []
 
     const service: SearchService = {
@@ -281,19 +341,29 @@ describe("createConnectorHub", () => {
       async search(id) {
         asked.push(`search ${id}`)
 
-        return { found: [result(id)] }
+        return { found: [photo()] }
       },
       async placed(found) {
         asked.push(`placed ${found.id}`)
+
+        return true
       }
     }
 
     const { hub: connectors } = hub(connector, {}, { service })
 
     expect(connectors.states()[0]?.key).toBe("service")
-    await connectors.search("fake", search, "window")
-    await connectors.placed(result("fake"), { design: "D:/shop::home", from: "window" })
+    await connectors.search("fake", photos, "window")
+    await connectors.placed(photo(), { ...shop, design: "home", from: "window" })
 
     expect([asked, keys, picked]).toEqual([["search fake", "placed 1"], [], []])
+  })
+
+  it("answers a source that throws, or a service that does, as one that isn't answering", async () => {
+    const { connector } = fakeConnector()
+    const broken: Connector = { ...connector, search: () => Promise.reject(new Error("boom")) }
+    const { hub: connectors } = hub(broken, { fake: "good" })
+
+    expect(await connectors.search("fake", search, "agent")).toHaveProperty("problem.code", "unavailable")
   })
 })

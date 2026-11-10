@@ -8,10 +8,19 @@ import { z } from "zod"
  * keeps state, touches Electron or reads the environment. Keys are the app owner's to arrange, never the person's.
  */
 
-/** What a connector finds: a screen of an app, a multi-step flow, a section of a website, or a photo. */
-export const findKind = z.enum(["screens", "flows", "sections", "photos"])
+/**
+ * What a connector finds: a screen of an app, a multi-step flow, a section of a website, a picture (a photo, or an
+ * illustration or vector from a stock library), or a video.
+ */
+export const findKind = z.enum(["screens", "flows", "sections", "photos", "videos"])
 
 export type FindKind = z.infer<typeof findKind>
+
+/**
+ * What can be placed in a design: photos. Screens, flows and sections from real apps are for looking at, so they stay
+ * out of designs and code, whichever connector found them.
+ */
+export const placeableKinds: readonly FindKind[] = ["photos"]
 
 /** The platform a screen or flow is from. */
 export const platform = z.enum(["ios", "web"])
@@ -59,6 +68,19 @@ export const foundImage = z.strictObject({
 
 export type FoundImage = z.infer<typeof foundImage>
 
+/** A video result's footage, which plays from the source, beside its poster in `image`. */
+export const foundVideo = z.strictObject({
+  url: z.url(),
+  width: z.int().positive().optional(),
+  height: z.int().positive().optional(),
+  /** How long it runs, in seconds. */
+  duration: z.number().nonnegative(),
+  /** A smaller copy of it, to play in a list of results, when the source has one. */
+  preview: z.url().optional()
+})
+
+export type FoundVideo = z.infer<typeof foundVideo>
+
 /** Who to credit, in order: the app or photographer first, then the source. */
 export const credit = z.strictObject({ name: z.string().min(1), url: z.url().optional() })
 
@@ -77,6 +99,8 @@ export const found = z.strictObject({
   image: foundImage,
   /** A smaller picture of it, for a list of results, when the source has one, as Unsplash does. */
   preview: foundImage.optional(),
+  /** The footage, for a video: `image` is then its poster. */
+  video: foundVideo.optional(),
   /** Its page at the source. */
   link: z.url(),
   credit: z.array(credit)
@@ -175,6 +199,11 @@ export interface ConnectorInfo {
   filters: readonly Filter[]
   /** How many results it returns by default, and at most. */
   limit: { default: number; max: number }
+  /**
+   * How many requests the source allows, and over how long: Mobbin 60 a minute for everyone sharing the key, Unsplash
+   * 50 an hour until it approves the app. Main keeps each copy to a share of it, so one copy's loop can't spend it all.
+   */
+  rateLimit: { requests: number; per: "minute" | "hour" }
   /** How it gives more results for the same search. */
   more: MoreResults
   /** How it reaches the source: with nothing, or with a key the app's owner arranges. */
@@ -217,6 +246,18 @@ export interface Filter {
   values: readonly [FilterValue, ...FilterValue[]]
   /** The value a search left without one gets. Without a default, leaving it out means any value. */
   default?: string
+  /**
+   * The values of another filter this one applies to, for a filter that doesn't always: Pixabay's orientation and
+   * color apply to its pictures and not its videos. A search can't name it with another value there, and it takes no
+   * default then. Without it, the filter always applies.
+   */
+  when?: FilterScope
+}
+
+/** Which values of another filter a filter applies to: `{ filter: "type", is: ["videos"] }`. */
+export interface FilterScope {
+  filter: string
+  is: readonly [string, ...string[]]
 }
 
 /**
@@ -258,9 +299,10 @@ export interface Connector {
   /**
    * What the source asks for when one of its results is placed in a design, for a source whose terms ask for
    * something, as Unsplash's ask to be told of each photo used. Parity calls it once a result is in a design, whoever
-   * put it there, after recording the placement itself. Never throws.
+   * put it there, after recording the placement itself. Says whether the source took it, so one it didn't is tried
+   * again later. Never throws.
    */
-  placed?(found: Found, access: Access): Promise<void>
+  placed?(found: Found, access: Access): Promise<boolean>
 }
 
 /** A search checked against its connector, with its limit and each filter's default filled in. */
@@ -320,7 +362,31 @@ export function checkRequest(info: ConnectorInfo, request: SearchRequest): Probl
     }
   }
 
+  for (const filter of info.filters) {
+    const scope = filter.when
+
+    if (!scope || filters[filter.id] === undefined || applies(scope, filters)) {
+      continue
+    }
+
+    if (request.filters?.[filter.id] !== undefined) {
+      return invalid(
+        `filters.${filter.id}`,
+        `${info.name}'s ${filter.id} applies when ${scope.filter} is ${listed(scope.is, "or")} only.`
+      )
+    }
+
+    delete filters[filter.id]
+  }
+
   return { request: { ...request, limit: request.limit ?? info.limit.default, filters } }
+}
+
+/** Whether a filter limited to some values of another applies to a search with these filters. */
+export function applies(scope: FilterScope, filters: Readonly<Record<string, string>>): boolean {
+  const value = filters[scope.filter]
+
+  return value !== undefined && scope.is.includes(value)
 }
 
 /** Words as a list in a sentence: "screens", "screens and flows", "screens, flows and sections". */

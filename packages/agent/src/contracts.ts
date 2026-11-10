@@ -106,6 +106,24 @@ const connector = z
   .optional()
   .describe("Source, as mobbin. Defaults to any.")
 
+/**
+ * A filter a search names by the connector's own id for it. Main checks the value against the connector that runs the
+ * search, so a second source of the same kind with other values takes them without a change here.
+ */
+function filter(name: string, description: string) {
+  return text(name, description).optional()
+}
+
+/** Results already shown, for a source that gives more by leaving them out. Main says which way the source pages. */
+const exclude = z
+  .array(nonblank("exclude must be a list of ids"), "exclude must be a list of ids")
+  .max(100, "exclude takes up to 100 ids")
+  .optional()
+  .describe("Ids already seen, for more.")
+
+/** The page of results, for a source that gives more by page. */
+const page = z.int("page must be a whole number").min(1, "page must be 1 or more").optional().describe("Next page.")
+
 const design = text("design", "Design id or name.")
 const scaleMessage = "scale must be a finite number from 0.25 to 3"
 const scale = z.number(scaleMessage).min(0.25, scaleMessage).max(3, scaleMessage).default(1).describe("Pixel density.")
@@ -245,48 +263,29 @@ export const requests = {
       'One screen: its type, then up to three parts, as "paywall with a free trial". No platform, style words or negations. Name an app for only its screens.'
     ),
     connector,
-    platform: z
-      .enum(["ios", "web"], "platform must be ios or web")
-      .optional()
-      .describe("ios for phone apps. Defaults to web."),
-    depth: z
-      .enum(["standard", "deep"], "depth must be standard or deep")
-      .optional()
-      .describe("deep keeps strong matches, for searches with parts; it spends Mobbin AI credits."),
+    platform: filter("platform", "ios for phone apps, or web. Defaults to web."),
+    depth: filter("depth", "deep keeps strong matches, for searches with parts; it spends Mobbin AI credits."),
     limit: limit("Most screens.", 6, 20),
-    exclude: z
-      .array(nonblank("exclude must be a list of screen ids"), "exclude must be a list of screen ids")
-      .max(100, "exclude takes up to 100 ids")
-      .default([])
-      .describe("Ids already seen, for more.")
+    exclude,
+    page
   }),
   photos: fields({
     tab,
     query: text("query", 'One subject, as "desk by a window".'),
     connector,
-    orientation: z
-      .enum(["landscape", "portrait", "squarish"], "orientation must be landscape, portrait or squarish")
-      .optional(),
-    color: z
-      .enum(
-        ["black_and_white", "black", "white", "yellow", "orange", "red", "purple", "magenta", "green", "teal", "blue"],
-        "color must be one of Unsplash's colors"
-      )
-      .optional(),
+    orientation: filter("orientation", "landscape, portrait or squarish."),
+    color: filter("color", "One color, as teal or black_and_white."),
     limit: limit("Most photos.", 6, 20),
-    page: z
-      .int("page must be a whole number")
-      .min(1, "page must be 1 or more")
-      .optional()
-      .describe("Next page, for more.")
+    exclude,
+    page
   }),
   place: fields({
     tab,
     connector: text("connector", "The result's connector, as unsplash."),
     id: text("id", "The result's id, from a search."),
-    node: text("node", 'The image node it goes in, by path, as "home/Hero/Photo".'),
-    prop: text("prop", "The prop that takes the image. Defaults to src.").optional(),
-    state: text("state", "State id, for a change that belongs to one state.").optional()
+    node: text("node", 'The image, or a component with an image prop, as design/node: "home/photo".'),
+    prop: text("prop", "A component's prop that takes the image. Defaults to src.").optional(),
+    state: text("state", "State id, for a component's prop in one state.").optional()
   }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
@@ -786,7 +785,7 @@ const foundReply = z.looseObject({
 const placeReply = z.looseObject({
   placed: z.boolean(),
   node: z.string().optional(),
-  image: z.string().optional().describe("The image now in the node, from the source's own link."),
+  warnings: z.array(z.string()).optional(),
   credit: z
     .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
     .optional()

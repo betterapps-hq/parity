@@ -157,7 +157,7 @@ function connectorKeys(): NodeJS.ProcessEnv {
 
   const set = Object.entries(parseEnv(readFileSync(file, "utf8")))
 
-  return Object.fromEntries(set.filter(([name, value]) => /^PARITY_\w+_KEY$/.test(name) && value?.trim()))
+  return Object.fromEntries(set.filter(([name, value]) => /^PARITY_\w+_KEY$/i.test(name) && value?.trim()))
 }
 
 function startElectron(): void {
