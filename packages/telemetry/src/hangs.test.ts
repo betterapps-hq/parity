@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { hangWatch, leftoverHangs, mainHangEvent, sentryEnvelope } from "./hangs.ts"
+import { hangWatch, leftoverHangs, mainHangEvent, openHangsFile, openHangsOwner, sentryEnvelope } from "./hangs.ts"
 
 describe("hangWatch", () => {
   it("starts a hang once the heartbeat is over the threshold late, then reports it as ongoing", () => {
@@ -39,6 +39,18 @@ describe("hangWatch", () => {
     expect(watch.check(60_500)).toBeUndefined()
     expect(watch.check(62_000)).toBeUndefined()
     expect(watch.check(62_500)).toEqual({ state: "started", stuckMs: 2500 })
+  })
+})
+
+describe("openHangsFile", () => {
+  it("names each process's file, which gives back the process", () => {
+    expect(openHangsFile("windows", 4120)).toBe("windows-4120.json")
+    expect(openHangsOwner(openHangsFile("main", 77))).toBe(77)
+  })
+
+  it("owns nothing for a file that isn't an open-hang file", () => {
+    expect(openHangsOwner("main.json")).toBeUndefined()
+    expect(openHangsOwner("notes-12.json")).toBeUndefined()
   })
 })
 

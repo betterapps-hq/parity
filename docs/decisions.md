@@ -6788,5 +6788,6 @@ calls:
   sends nothing else. It sends only while main's level isn't Off.
 - **An open hang is kept in `<userData>/hangs` while it lasts,** with how long so far, and removed when it ends. The
   next run reports what's left as `main.blocked` or `window.hung` with `ended: "exited"` and a Sentry message, so a
-  force-quit's hang arrives with its length when the app next starts.
+  force-quit's hang arrives with its length when the app next starts. Each process keeps its own files, named by its
+  process ID, and a run reports only those whose process has exited, since two copies of the app can share the folder.
 - **The local copy gets main's hang when it ends,** as before: the watchdog writes only Sentry and the open-hang file.

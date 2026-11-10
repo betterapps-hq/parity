@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { Worker } from "node:worker_threads"
 import {
@@ -13,6 +13,8 @@ import {
   type LeftoverHang,
   leftoverHangs,
   type OpenHangs,
+  openHangsFile,
+  openHangsOwner,
   registeredEvents,
   serviceExit,
   isSpanEnvelope,
@@ -441,12 +443,13 @@ let watchdog: Worker | undefined
 const beatEveryMs = 500
 
 /**
- * Reports the hangs a previous run left open, since the app exited before they ended, then starts the watchdog thread
- * that records main's hangs while they last (PAR-804). Both keep their open hangs in `folder`.
+ * Reports the hangs earlier runs left open, since they exited before the hangs ended, then starts the watchdog thread
+ * that records main's hangs while they last (PAR-804). Both keep their open hangs in `folder`, in files named by this
+ * process, so another copy of the app sharing the folder keeps its own and isn't reported while it runs.
  */
 function startHangWatch(folder: string): void {
-  const mainFile = join(folder, "main.json")
-  const windowsFile = join(folder, "windows.json")
+  const mainFile = join(folder, openHangsFile("main", process.pid))
+  const windowsFile = join(folder, openHangsFile("windows", process.pid))
 
   try {
     mkdirSync(folder, { recursive: true })
@@ -456,7 +459,7 @@ function startHangWatch(folder: string): void {
     return
   }
 
-  for (const file of [mainFile, windowsFile]) {
+  for (const file of exitedRunsHangs(folder)) {
     for (const leftover of leftoverHangsIn(file)) {
       const { stuckMs } = leftover.attributes
 
@@ -491,6 +494,36 @@ function startHangWatch(folder: string): void {
     syncWatchdog()
   } catch (error) {
     console.warn("[telemetry] couldn't start the hang watchdog:", error)
+  }
+}
+
+/** The open-hang files in `folder` whose process has exited. */
+function exitedRunsHangs(folder: string): string[] {
+  let names: string[]
+
+  try {
+    names = readdirSync(folder)
+  } catch {
+    return []
+  }
+
+  return names
+    .filter((name) => {
+      const owner = openHangsOwner(name)
+
+      return owner !== undefined && owner !== process.pid && !running(owner)
+    })
+    .map((name) => join(folder, name))
+}
+
+/** Whether a process is running: signal 0 checks without sending anything, and one we may not signal still runs. */
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch (error) {
+    return error instanceof Error && "code" in error && error.code === "EPERM"
   }
 }
 

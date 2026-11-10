@@ -78,6 +78,24 @@ export const openHangsSchema = z.object({
 
 export type OpenHangs = z.infer<typeof openHangsSchema>
 
+/** Who keeps an open-hang file: main's watchdog, or main for its windows. */
+export type OpenHangsWriter = "main" | "windows"
+
+/**
+ * The name of the file a writer keeps its open hangs in, per process, since two copies of the app can share a data
+ * folder and each has its own hangs.
+ */
+export function openHangsFile(writer: OpenHangsWriter, pid: number): string {
+  return `${writer}-${pid}.json`
+}
+
+/** The process that keeps an open-hang file, by its name, or none for a file that isn't one. */
+export function openHangsOwner(name: string): number | undefined {
+  const match = /^(?:main|windows)-(\d+)\.json$/.exec(name)
+
+  return match ? Number(match[1]) : undefined
+}
+
 /** An event the next run records for a hang the app exited during. */
 export type LeftoverHang =
   | { name: "main.blocked"; attributes: z.input<typeof mainBlocked.schema> }
