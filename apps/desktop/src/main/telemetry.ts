@@ -4,7 +4,12 @@ import { join } from "node:path"
 import { Worker } from "node:worker_threads"
 import { CodedError } from "@parity-app/core"
 import {
+  crashLog,
   createDriverTracker,
+  isCrash,
+  isEarlierCrash,
+  lastRunCrash,
+  recentLog,
   driverTags,
   createTelemetry,
   type Envelope,
@@ -39,8 +44,8 @@ import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
 import type { TelemetryRun } from "../shared/telemetry-run.ts"
 import { type FailedFramePicture, failedFrameFor } from "./frame-telemetry.ts"
-import type { HangWatchMessage, HangWatchStart } from "./hang-watch.ts"
-import { createLogFileSink, createLogFiles } from "./log-files.ts"
+import type { HangWatchMessage, HangWatchReport, HangWatchStart } from "./hang-watch.ts"
+import { createLogFileSink, createLogFiles, readLogEvents } from "./log-files.ts"
 import { createReportOnlyGate } from "./report-only.ts"
 
 /**
@@ -67,6 +72,33 @@ export function keepFailedFrame(png: Uint8Array, traceId: string | undefined): v
   if (traceId) {
     lastFailedFrame.traceId = traceId
   }
+}
+
+/** The last minutes of events from every process, which a crash or fatal error carries (PAR-805). */
+const recent = recentLog()
+
+/** This run's session, once events have started, which an earlier run's crash is told apart from. */
+let sessionId: string | undefined
+
+/**
+ * The local copy's last minutes as `logs.jsonl`, scrubbed, for a crash or fatal error (PAR-805): this run's, or for a
+ * native crash found as the app starts, the crashed run's last minutes, read from the files. None for other events.
+ */
+function crashLogFile(
+  event: Parameters<typeof isCrash>[0]
+): { filename: string; data: string; contentType: string } | undefined {
+  if (!isCrash(event)) {
+    return undefined
+  }
+
+  let text = recent.text(Date.now())
+
+  if (isEarlierCrash(event)) {
+    const crashed = lastRunCrash(readLogEvents(join(app.getPath("userData"), "logs")), sessionId ?? "")
+    text = crashed ? crashLog(crashed.events, Date.parse(crashed.time)) : ""
+  }
+
+  return text ? { filename: "logs.jsonl", data: scrubber.value(text), contentType: "application/x-ndjson" } : undefined
 }
 
 export interface TelemetryStart {
@@ -189,6 +221,13 @@ export function startTelemetry(
           hint.attachments = [...(hint.attachments ?? []), frame]
         }
 
+        // A crash or fatal error carries the local copy's last minutes (PAR-805).
+        const log = crashLogFile(event)
+
+        if (log) {
+          hint.attachments = [...(hint.attachments ?? []), log]
+        }
+
         return scrubber.value(withDriver({ ...event, tags: { process: "main", ...event.tags } }))
       }),
     beforeSendTransaction: (event) =>
@@ -272,9 +311,11 @@ export function startEvents({
   // The file is written as the app quits, with what's waiting.
   app.on("will-quit", () => logFile.flush())
   const upload = createSentrySink(sentryTarget, { upload: true, scope: false })
+  sessionId = run.sessionId
   forward = {
     event: (envelope) => {
       logFile.event(envelope)
+      recent.add(envelope)
       upload.event(envelope)
     },
     span: (envelope) => {
@@ -517,7 +558,7 @@ function startHangWatch(folder: string): void {
         message: `${what} for ${(stuckMs / 1000).toFixed(1)}s when the app exited`,
         level: "warning",
         tags: { hang: leftover.name === "main.blocked" ? "main" : "window" },
-        extra: { stuckMs },
+        extra: { ...leftover.attributes },
         ...run
       })
 
@@ -534,9 +575,18 @@ function startHangWatch(folder: string): void {
   stuckWindowsFile = windowsFile
 
   try {
-    const start: HangWatchStart = { file: mainFile, every: beatEveryMs, threshold: hangThresholdMs, dsn }
+    const start: HangWatchStart = {
+      file: mainFile,
+      every: beatEveryMs,
+      threshold: hangThresholdMs,
+      dsn,
+      appRoot: app.getAppPath(),
+      debugIds: debugIds()
+    }
+
     watchdog = new Worker(new URL("./hang-watch.mjs", import.meta.url), { workerData: start })
     watchdog.on("error", (error) => console.warn("[telemetry] the hang watchdog stopped:", error))
+    watchdog.on("message", (report: HangWatchReport) => (stuckAt = report.where))
     watchdog.unref()
     syncWatchdog()
   } catch (error) {
@@ -664,11 +714,34 @@ function watchMainLoop(): void {
       return
     }
 
-    Sentry.captureMessage(`Main was blocked for ${(stuckMs / 1000).toFixed(1)}s`, {
-      level: "warning",
-      tags: { hang: "main" },
-      extra: { stuckMs }
-    })
-    recorded?.track("main.blocked", { stuckMs, ended: "answered" })
+    // Where the watchdog found main stuck arrives as main runs again, beside this timer, so it's read a moment later.
+    setTimeout(() => {
+      const where = stuckAt
+      stuckAt = undefined
+      Sentry.captureMessage(`Main was blocked for ${(stuckMs / 1000).toFixed(1)}s`, {
+        level: "warning",
+        tags: { hang: "main" },
+        extra: where === undefined ? { stuckMs } : { stuckMs, where }
+      })
+      recorded?.track(
+        "main.blocked",
+        where === undefined ? { stuckMs, ended: "answered" } : { stuckMs, ended: "answered", where }
+      )
+    }, 100)
   }, beatEveryMs).unref()
+}
+
+/** Where the watchdog last found main stuck, until the hang it was in is recorded (PAR-805). */
+let stuckAt: string | undefined
+
+declare global {
+  /** The table Sentry's build step injects into each bundle: its debug ID, by a stack whose first frame is the bundle. */
+  var _sentryDebugIds: Record<string, string> | undefined
+}
+
+/** The debug IDs Sentry's build step injected into main's bundles, by the stacks they're kept by. */
+function debugIds(): Record<string, string> {
+  const read = z.record(z.string(), z.string()).safeParse(globalThis._sentryDebugIds)
+
+  return read.success ? read.data : {}
 }

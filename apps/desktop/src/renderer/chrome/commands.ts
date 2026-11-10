@@ -222,7 +222,12 @@ export async function exportLayers(
       files
     })
 
-    track("export.done", { ...exported, durationMs: since(began), files: written.length })
+    track("export.done", {
+      ...exported,
+      durationMs: since(began),
+      files: written.length,
+      warnings: warnings.length
+    })
     toast.success(written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`, {
       id: progress,
       description: folder,
@@ -400,7 +405,7 @@ export async function exportImages(scope: "selection" | "all", session = activeS
       scale
     })
 
-    track("export.done", { ...exported, durationMs: since(began), files: files.length })
+    track("export.done", { ...exported, durationMs: since(began), files: files.length, warnings: warnings.length })
     toast.success(files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`, {
       id: progress,
       description: folder,

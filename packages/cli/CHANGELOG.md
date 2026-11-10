@@ -1,8 +1,41 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 10 Nov 2026 03:58:48 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 05:22:06 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.33.0
+
+Tue, 10 Nov 2026 05:22:06 GMT
+
+### Minor changes
+
+- Attach the last 5 minutes of events to crashes and fatal errors, and say where main was stuck in a hang
+  (ajcraswell@gmail.com)
+
+## 0.32.0
+
+Tue, 10 Nov 2026 05:10:09 GMT
+
+### Minor changes
+
+- Record the project service's degraded modes, such as a project it can't watch or bitmaps it can't keep, as
+  service.degraded events (ajcraswell@gmail.com)
+- Record signing in, refreshing, signing out and failures of the kept accounts as account.* events
+  (ajcraswell@gmail.com)
+- Record window and main hangs as they start, and report a hang the app exited during on the next run
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- The CLI's sender scrubs the .env values of the app's open projects and of the project each command ran in
+  (ajcraswell@gmail.com)
+- Frames draw a root with a class or attribute on it, such as :root.dark, which matched nothing before
+  (ajcraswell@gmail.com)
+- Read the Vite version Vite+ ships when a project aliases vite to @voidzero-dev/vite-plus-core, instead of reporting
+  Vite+'s own version as an untested Vite (ajcraswell@gmail.com)
+- Detect an open project again when components.json, its stylesheets, dependencies or Vite config change, and when
+  parity open names it (ajcraswell@gmail.com)
 
 ## 0.31.1
 

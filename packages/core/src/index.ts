@@ -6,6 +6,8 @@ export * from "./board.ts"
 
 export * from "./builder-process.ts"
 
+export * from "./code-changes.ts"
+
 export * from "./css.ts"
 
 export * from "./decompose.ts"

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Record signing in, refreshing, signing out and failures of the kept accounts as account.* events",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

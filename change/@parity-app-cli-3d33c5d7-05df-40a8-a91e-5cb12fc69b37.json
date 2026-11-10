@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "Frames draw a root with a class or attribute on it, such as :root.dark, which matched nothing before",
+  "comment": "Count warnings in export.done, and record a design file that changed on disk while it had unsaved changes",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

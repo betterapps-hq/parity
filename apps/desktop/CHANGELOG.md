@@ -1,8 +1,46 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 09 Nov 2026 13:35:47 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 05:21:48 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.47.0
+
+Tue, 10 Nov 2026 05:21:48 GMT
+
+### Minor changes
+
+- Attach the last 5 minutes of events to crashes and fatal errors, and say where main was stuck in a hang
+  (ajcraswell@gmail.com)
+
+## 0.46.0
+
+Tue, 10 Nov 2026 05:09:47 GMT
+
+### Minor changes
+
+- Record the project service's degraded modes, such as a project it can't watch or bitmaps it can't keep, as
+  service.degraded events (ajcraswell@gmail.com)
+- Record window and main hangs as they start, and report a hang the app exited during on the next run
+  (ajcraswell@gmail.com)
+- Record signing in, refreshing, signing out and failures of the kept accounts as account.* events
+  (ajcraswell@gmail.com)
+- Main's IPC handlers run in request.handled spans in the window's trace, with the error code when they fail
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Frames draw a root with a class or attribute on it, such as :root.dark, which matched nothing before
+  (ajcraswell@gmail.com)
+- Read the Vite version Vite+ ships when a project aliases vite to @voidzero-dev/vite-plus-core, instead of reporting
+  Vite+'s own version as an untested Vite (ajcraswell@gmail.com)
+- A failed frame's picture goes only with errors about that frame, not every error for 10 minutes (ajcraswell@gmail.com)
+- A report sent with Share diagnostics off sends only the report, and what was written loses its secrets
+  (ajcraswell@gmail.com)
+- What a project's own code logs to the console no longer goes to Sentry as breadcrumbs (ajcraswell@gmail.com)
+- Detect an open project again when components.json, its stylesheets, dependencies or Vite config change, and when
+  parity open names it (ajcraswell@gmail.com)
+- Record why a new install ID couldn't be saved, as telemetry.saveFailed (ajcraswell@gmail.com)
 
 ## 0.45.1
 

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { posix } from "node:path"
 import { importSpecifiers } from "@parity-app/code"
+import { isStylesheetFile } from "@parity-app/core"
 import type { CodeSnapshot } from "./code-fingerprint.ts"
 
 /** Extensions an import may leave out, in the order bundlers try them. */
@@ -55,7 +56,7 @@ export function importedFiles(
   files: ReadonlyMap<string, unknown>,
   alias: (specifier: string) => string | undefined
 ): string[] {
-  const specifiers = importSpecifiers(source, path.endsWith(".css"))
+  const specifiers = importSpecifiers(source, isStylesheetFile(path))
 
   return [...new Set(specifiers.flatMap((specifier) => resolveModule(path, specifier, files, alias) ?? []))]
 }

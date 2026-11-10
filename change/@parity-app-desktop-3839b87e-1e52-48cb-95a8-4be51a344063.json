@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "What a project's own code logs to the console no longer goes to Sentry as breadcrumbs",
+  "comment": "Redraw frames, bitmaps and screenshots with a project stylesheet's new CSS as soon as it's saved",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

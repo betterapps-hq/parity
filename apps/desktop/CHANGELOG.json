@@ -2,6 +2,98 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 05:21:48 GMT",
+      "version": "0.47.0",
+      "tag": "@parity-app/desktop_v0.47.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7fb70764c0197af629af92641ffbc304adad151c",
+            "comment": "Attach the last 5 minutes of events to crashes and fatal errors, and say where main was stuck in a hang"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 05:09:47 GMT",
+      "version": "0.46.0",
+      "tag": "@parity-app/desktop_v0.46.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "914d27146f45cdbea2fcc8b1f9116731faf029c0",
+            "comment": "Frames draw a root with a class or attribute on it, such as :root.dark, which matched nothing before"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "70b9cac04db2562a2a4e270a10617b31beb8f5ec",
+            "comment": "Read the Vite version Vite+ ships when a project aliases vite to @voidzero-dev/vite-plus-core, instead of reporting Vite+'s own version as an untested Vite"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f5ed48493d6d8acd2d1ef13d9106f44d9c0f22ec",
+            "comment": "A failed frame's picture goes only with errors about that frame, not every error for 10 minutes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "905f799164db723117482f88fd969d83340360a1",
+            "comment": "A report sent with Share diagnostics off sends only the report, and what was written loses its secrets"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2d45488ee410c36306e0713a9c1cedf164614414",
+            "comment": "What a project's own code logs to the console no longer goes to Sentry as breadcrumbs"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6eac3cc19b3692a432f73fc5fedc68e894c12aa2",
+            "comment": "Detect an open project again when components.json, its stylesheets, dependencies or Vite config change, and when parity open names it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f96199fdd7b2fd57dc1a9dda6d868bad3cf8fc03",
+            "comment": "Record why a new install ID couldn't be saved, as telemetry.saveFailed"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ede1521c739f99f26f9aeafa58b6f09a3a694659",
+            "comment": "Record the project service's degraded modes, such as a project it can't watch or bitmaps it can't keep, as service.degraded events"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aab46f08263e8a1b3d1bfb93af3224214111c13e",
+            "comment": "Record window and main hangs as they start, and report a hang the app exited during on the next run"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c7c8bde47c8404c77417872d8fdd8547bbeff351",
+            "comment": "Record signing in, refreshing, signing out and failures of the kept accounts as account.* events"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ab8f1880e39dbb529d2747d4572e4758b8b42155",
+            "comment": "Main's IPC handlers run in request.handled spans in the window's trace, with the error code when they fail"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 09 Nov 2026 13:35:47 GMT",
       "version": "0.45.1",
       "tag": "@parity-app/desktop_v0.45.1",

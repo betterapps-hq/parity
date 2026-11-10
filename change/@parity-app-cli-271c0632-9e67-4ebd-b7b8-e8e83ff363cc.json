@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "The CLI's sender scrubs the .env values of the app's open projects and of the project each command ran in",
+  "comment": "Redraw frames, bitmaps and screenshots with a project stylesheet's new CSS as soon as it's saved",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

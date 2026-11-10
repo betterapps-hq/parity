@@ -173,10 +173,8 @@ are the gaps left. Each comes from the code or from Sentry, with the Linear issu
 
 ### Signals that never arrive
 
-| Gap                                     | Evidence                                                                                                                                                                                                                                       | Issue   |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| A crash comes without the log before it | The plan attached the last log file to a crash. Main's `beforeSend` attaches only `failed-frame.png` (`main/telemetry.ts:176`), and the log goes only with a report. Main's hangs say how long, not where (`:393`)                             | PAR-805 |
-| Partial failures count as successes     | An export with layers that couldn't be drawn shows a warning and still records `export.done`, with no count (`renderer/chrome/commands.ts:225`). A save that finds the file changed on disk records nothing (`renderer/agent/handlers.ts:128`) | PAR-809 |
+| Gap | Evidence | Issue |
+| --- | -------- | ----- |
 
 ### Privacy risks
 
