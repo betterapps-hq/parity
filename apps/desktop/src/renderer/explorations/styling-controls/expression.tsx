@@ -789,6 +789,21 @@ export function ExpressionField({
     onOpen = () => open(value!)
   }
 
+  // An expression starts with ƒ, so it reads as one before its text does, and the mark opens it, as clicking the text
+  // does. A narrow field's whole value is already ƒ.
+  if (isExpression && !narrow && kind === "length") {
+    inner = (
+      <button
+        type="button"
+        aria-label={`Edit ${label}'s expression`}
+        onClick={() => onOpen?.()}
+        className="-ml-1 grid size-5 shrink-0 place-items-center rounded-sm font-serif text-sm text-muted-foreground italic outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        ƒ
+      </button>
+    )
+  }
+
   const error = message?.tone === "error"
 
   const editedComesTo =

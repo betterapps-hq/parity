@@ -459,8 +459,8 @@ Image's Position, Transform's Origin, a fill image's position.
 
 ## Expression
 
-- **At rest:** `clamp · 24` (the function and what it comes to); `ƒ` only where the field is under 96px. The full text
-  is in the hint.
+- **At rest:** `clamp · 24` (the function and what it comes to), after an `ƒ` mark at the field's start that opens the
+  expression, as clicking its text does; only `ƒ` where the field is under 96px. The full text is in the hint.
 - **Editing:** `=` in any field opens an expression, with completion for `var()`, `calc()`, `min()`, `max()`, `clamp()`
   and `color-mix()`, as Webflow's fields do; maths that mixes units becomes `calc()`. Focusing widens the field to the
   row and shows the text, as Webflow's `=` editor opens wide, with each `var()` drawn as an inline token chip. Clicking
