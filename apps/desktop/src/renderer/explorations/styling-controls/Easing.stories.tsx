@@ -12,9 +12,9 @@ import { mixedWrites, type Writes } from "./writes.ts"
 /**
  * Easing and spring (PAR-652), as a transition's Easing takes it: a small curve and its name at rest. It's typed as a
  * preset's name (Ease out), a token's (snappy), `cubic-bezier(…)` or `steps(…)`; Up and Down go through Tailwind's
- * easings, then the project's. The curve opens its editor: Curve, with the presets, the project's tokens, the curve's
- * two handles (dragged, or moved with the arrow keys) and Steps; and Spring, set by time and bounce or by stiffness,
- * damping and mass, as Framer's springs are. A spring writes `linear()` over its settle time, which is the transition's
+ * easings, then the project's. The curve opens its editor, a tab for each way to set it, each starting with the same
+ * graph: Curve, with the curve's two handles (dragged, or moved with the arrow keys), the presets and the project's
+ * tokens; Steps; and Spring, set by time and bounce or by stiffness, damping and mass, as Framer's springs are. A spring writes `linear()` over its settle time, which is the transition's
  * duration, so its class runs long and it offers Save as token first.
  */
 const meta = {
@@ -41,7 +41,7 @@ function EasingStory({
 }: {
   start?: Easing
   open?: boolean
-  tab?: "curve" | "spring"
+  tab?: "curve" | "steps" | "spring"
   mixed?: boolean
 }) {
   const [easing, setEasing] = useState(start)
@@ -96,7 +96,7 @@ export const CustomCurve: Story = {
 /** The editor open on Ease out: drag either handle, or focus one and use the arrow keys; Shift moves 0.1. */
 export const CurveEditor: Story = { render: () => <EasingStory start={{ keyword: "ease-out" }} open /> }
 
-/** Steps 4, from the editor's Steps: the count, and whether each jump comes at the start or the end. */
+/** Steps 4, in the editor's Steps tab: the count, and whether each jump comes at the start or the end. */
 export const Steps: Story = { render: () => <EasingStory start={{ value: "steps(4)" }} open /> }
 
 /**

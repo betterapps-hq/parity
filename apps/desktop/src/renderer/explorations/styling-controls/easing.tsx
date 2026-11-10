@@ -17,12 +17,12 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
-import { type KeyboardEvent, type PointerEvent, useId, useRef, useState } from "react"
+import { type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject, useId, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { EasingDot, motionDot, useReducedMotion } from "../../chrome/token-previews.tsx"
+import { EasingArt, easingRange, easingScale, useReducedMotion } from "../../chrome/token-previews.tsx"
 import { optionNamed } from "../parts.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
 import {
@@ -55,59 +55,70 @@ import { type EasingToken, easingToken, type FieldToken, hexOf } from "./tokens.
 
 /*
  * Easing and spring (PAR-652): a small curve and its name at rest; typed as a preset's name, a token's,
- * `cubic-bezier(…)` or `steps(…)`; and in its popover the curve with two handles, the presets and the project's
- * tokens, Steps, and Spring, set by time and bounce or by stiffness, damping and mass, as Framer's springs are. A spring
- * is written as `linear()`, whose class runs to hundreds of characters, so it offers Save as token first.
+ * `cubic-bezier(…)` or `steps(…)`; and in its popover a tab for each way to set it, each starting with the same graph:
+ * Curve, with two handles, the presets and the project's tokens; Steps; and Spring, set by time and bounce or by
+ * stiffness, damping and mass, as Framer's springs are. Every curve here is the Tokens panel's easing mark (EasingArt).
+ * A spring is written as `linear()`, whose class runs to hundreds of characters, so it offers Save as token first.
  */
 
 const namespace = "ease-"
 
-/** An easing's path in a box of `width` by `height`, with room above and below for overshoot. */
-function plotPath(plot: EasingPlot, width: number, height: number, low: number, high: number): string {
-  const x = (value: number) => value * width
-  const y = (value: number) => ((high - value) / (high - low)) * height
+/** The editor's graph: one size for a curve, steps or a spring. */
+const graphSize = 200
 
-  if (plot.kind === "bezier") {
-    const [x1, y1, x2, y2] = plot.curve
+/**
+ * The room up its side an editor's graph keeps for a curve's handles. They stay inside it, so the scale holds still
+ * while they're dragged; a spring that overshoots further widens it.
+ */
+const graphRoom = { low: -0.25, high: 1.25 }
 
-    return `M0,${y(0)} C${x(x1)},${y(y1)} ${x(x2)},${y(y2)} ${x(1)},${y(1)}`
-  }
+/**
+ * The graph each of the editor's tabs starts with: the easing's mark (EasingArt), as every easing preview draws it, at
+ * the editor's size in a box, with a curve's handles put in as `children`. It plays while the editor's open, as a
+ * token's detail does.
+ */
+function EasingGraph({
+  plot,
+  faint = false,
+  duration,
+  svgRef,
+  children
+}: {
+  plot: EasingPlot
+  faint?: boolean
+  /** How long one ride takes, where the easing has a time of its own (a spring's). */
+  duration?: number
+  svgRef?: RefObject<SVGSVGElement | null>
+  children?: ReactNode
+}) {
+  const reduced = useReducedMotion()
 
-  if (plot.kind === "steps") {
-    const parts = [`M0,${y(0)}`]
-
-    for (let index = 0; index < plot.count; index++) {
-      const level = (index + (plot.jump === "start" ? 1 : 0)) / plot.count
-      const start = index / plot.count
-      parts.push(`L${x(start)},${y(level)}`, `L${x((index + 1) / plot.count)},${y(level)}`)
-    }
-
-    parts.push(`L${x(1)},${y(1)}`)
-
-    return parts.join(" ")
-  }
-
-  return plot.values
-    .map((value, index) => `${index === 0 ? "M" : "L"}${x(index / (plot.values.length - 1))},${y(value)}`)
-    .join(" ")
+  return (
+    <div className="grid place-items-center rounded-md border bg-muted/40 p-2 text-foreground">
+      <EasingArt
+        value={plotCss(plot)}
+        width={graphSize}
+        height={graphSize}
+        room={graphRoom}
+        faint={faint}
+        playing={!reduced}
+        duration={duration}
+        svgRef={svgRef}
+      >
+        {children}
+      </EasingArt>
+    </div>
+  )
 }
 
-/** How far a plot reaches below 0 and above 1, so it's drawn whole. */
-function reach(plot: EasingPlot) {
-  if (plot.kind === "bezier") {
-    return { low: Math.min(0, plot.curve[1], plot.curve[3]), high: Math.max(1, plot.curve[1], plot.curve[3]) }
-  }
-
-  if (plot.kind === "samples") {
-    return { low: Math.min(0, ...plot.values), high: Math.max(1, ...plot.values) }
-  }
-
-  return { low: 0, high: 1 }
+/** What a graph comes to, under it: the CSS it writes, or how long a spring takes. */
+function GraphCaption({ children }: { children: ReactNode }) {
+  return <p className="type-description text-muted-foreground">{children}</p>
 }
 
 /**
- * The small curve an easing shows at rest and in its editor. The Tokens panel's own preview draws a token's curve in
- * the token list and the chip; this one draws steps too, which a value of its own can be.
+ * The easing's mark (EasingArt) from a plot, at a field's size: the curve a field, a preset or a transition shows, which
+ * plays while it's live (hovered or focused).
  */
 export function CurveThumb({
   plot,
@@ -119,39 +130,12 @@ export function CurveThumb({
   plot: EasingPlot
   faint?: boolean
   size?: number
-  /** Rides the Tokens panel's dot (EasingDot) along the curve, as a live token row does. */
   playing?: boolean
   /** How long one ride takes, where it's a real one (a transition's duration). */
   duration?: number
 }) {
-  const { low, high } = reach(plot)
-  // The drawing is scaled into `size` with a pixel of room each side, so the dot is placed by the same scale.
-  const scale = size / (size + 2)
-  const at = (value: number) => (((high - value) / (high - low)) * size + 1) * scale
-
   return (
-    <span className="relative block shrink-0" style={{ width: size, height: size }}>
-      <svg aria-hidden width={size} height={size} viewBox={`-1 -1 ${size + 2} ${size + 2}`} className="block">
-        <rect x={0} y={0} width={size} height={size} rx={2} className="fill-muted-foreground/10" />
-        <path
-          d={plotPath(plot, size, size, low, high)}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.25}
-          className={faint ? "text-muted-foreground/60" : "text-foreground"}
-        />
-      </svg>
-      <EasingDot
-        value={plotCss(plot)}
-        width={size * scale}
-        left={scale}
-        bottom={at(0)}
-        rise={at(0) - at(1)}
-        size={motionDot(size, size)}
-        playing={playing}
-        duration={duration}
-      />
-    </span>
+    <EasingArt value={plotCss(plot)} width={size} height={size} faint={faint} playing={playing} duration={duration} />
   )
 }
 
@@ -213,7 +197,7 @@ export function EasingField({
   value: Easing | undefined
   mixed?: boolean
   defaultOpen?: boolean
-  defaultTab?: "curve" | "spring"
+  defaultTab?: EditorTab
   onChange: (value: Easing | undefined) => void
 }) {
   const { tokens, create } = useTokens("easing")
@@ -423,8 +407,13 @@ const springModeItems = [
   { value: "physics", label: "Physics" }
 ]
 
-/** The popover's tabs. */
-const editorTabs = ["curve", "spring"] as const
+/** The popover's tabs: each a way to set an easing, with its own graph and what sets it. */
+const editorTabs = ["curve", "steps", "spring"] as const
+
+type EditorTab = (typeof editorTabs)[number]
+
+/** The steps a Steps tab shows before any are set. */
+const defaultSteps: Extract<EasingPlot, { kind: "steps" }> = { kind: "steps", count: 4, jump: "end" }
 
 /** Where each step's jump comes: at its start or its end. */
 const jumps = ["start", "end"] as const
@@ -439,11 +428,18 @@ function EasingEditor({
 }: {
   value: Easing | undefined
   tokens: readonly EasingToken[]
-  defaultTab: "curve" | "spring"
+  defaultTab: EditorTab
   onChange: (value: Easing) => void
   onSave: (name: string) => void
 }) {
-  const [tab, setTab] = useState<"curve" | "spring">(value !== undefined && "spring" in value ? "spring" : defaultTab)
+  const [tab, setTab] = useState<EditorTab>(() => {
+    if (value !== undefined && "spring" in value) {
+      return "spring"
+    }
+
+    return easingPlot(value, tokens).kind === "steps" ? "steps" : defaultTab
+  })
+
   const plot = easingPlot(value, tokens)
   const spring = value !== undefined && "spring" in value ? value.spring : undefined
   const isSelected = (option: Easing) => JSON.stringify(option) === JSON.stringify(value)
@@ -464,11 +460,21 @@ function EasingEditor({
         <TabsTrigger value="curve" className="text-xs">
           Curve
         </TabsTrigger>
+        <TabsTrigger value="steps" className="text-xs">
+          Steps
+        </TabsTrigger>
         <TabsTrigger value="spring" className="text-xs">
           Spring
         </TabsTrigger>
       </TabsList>
       <TabsContent value="curve" className="flex flex-col gap-2 p-2">
+        {/* Each tab starts with its graph, drawn the same, and what sets it comes under it. One the easing isn't yet
+            shows its default, faint, as Spring does. */}
+        <CurveEditor
+          curve={plot.kind === "bezier" ? plot.curve : defaultCurve}
+          faint={value === undefined || plot.kind !== "bezier"}
+          onChange={(curve) => onChange({ value: bezierCss(curve) })}
+        />
         <div className="grid grid-cols-2 gap-1">
           {easingPresets.map((preset) => (
             <Button
@@ -508,19 +514,9 @@ function EasingEditor({
             </div>
           </div>
         )}
-        {plot.kind === "steps" ? (
-          <StepsEditor plot={plot} onChange={onChange} />
-        ) : (
-          <CurveEditor
-            curve={plot.kind === "bezier" ? plot.curve : defaultCurve}
-            onChange={(curve) => onChange({ value: bezierCss(curve) })}
-          />
-        )}
-        {plot.kind !== "steps" && (
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onChange({ value: "steps(4)" })}>
-            Steps
-          </Button>
-        )}
+      </TabsContent>
+      <TabsContent value="steps" className="flex flex-col gap-2 p-2">
+        <StepsEditor plot={plot.kind === "steps" ? plot : undefined} onChange={onChange} />
       </TabsContent>
       <TabsContent value="spring" className="flex flex-col gap-2 p-2">
         <SpringEditor spring={spring} onChange={(next) => onChange({ spring: next })} />
@@ -541,16 +537,20 @@ function EasingEditor({
 const hundredths = (value: number) => Number(formatNumber(value, 2))
 
 /** The curve, with its two handles dragged or moved with the arrow keys (0.01, Shift 0.1). */
-function CurveEditor({ curve, onChange }: { curve: Bezier; onChange: (curve: Bezier) => void }) {
+function CurveEditor({
+  curve,
+  faint = false,
+  onChange
+}: {
+  curve: Bezier
+  faint?: boolean
+  onChange: (curve: Bezier) => void
+}) {
   const box = useRef<SVGSVGElement>(null)
-  const reduced = useReducedMotion()
-  const size = 200
-  const pad = 20
-  const low = -0.25
-  const high = 1.25
-  const inner = size - pad * 2
-  const x = (value: number) => pad + value * inner
-  const y = (value: number) => pad + ((high - value) / (high - low)) * inner
+  const plot: EasingPlot = { kind: "bezier", curve }
+  // The handles go on the scale the graph draws the curve on, so they land on it.
+  const { low, high } = easingRange(plotCss(plot), graphRoom.low, graphRoom.high)
+  const { x, y, pad, across } = easingScale(graphSize, graphSize, low, high)
 
   const move = (handle: 0 | 1, toX: number, toY: number) => {
     const next: Bezier = [...curve]
@@ -568,10 +568,10 @@ function CurveEditor({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
     drag(event, {
       move: ({ clientX, clientY }) => {
         const rect = box.current!.getBoundingClientRect()
-        const scale = size / rect.width
+        const scale = graphSize / rect.width
         const px = (clientX - rect.left) * scale
         const py = (clientY - rect.top) * scale
-        move(handle, (px - pad) / inner, high - ((py - pad) / inner) * (high - low))
+        move(handle, (px - pad) / across, high - ((py - pad) / across) * (high - low))
       }
     })
   }
@@ -602,58 +602,40 @@ function CurveEditor({ curve, onChange }: { curve: Bezier; onChange: (curve: Bez
   ] as const
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      {/* While the editor's open, the dot rides the curve, as a token's detail plays its easing. */}
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg ref={box} width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="touch-none">
-          <rect x={x(0)} y={y(1)} width={inner} height={y(0) - y(1)} className="fill-muted/40 stroke-border" />
-          <line x1={x(0)} y1={y(0)} x2={x(1)} y2={y(1)} className="stroke-border" strokeDasharray="3 3" />
-          <path
-            d={`M${x(0)},${y(0)} C${x(curve[0])},${y(curve[1])} ${x(curve[2])},${y(curve[3])} ${x(1)},${y(1)}`}
-            fill="none"
-            className="stroke-foreground"
-            strokeWidth={2}
-          />
-          {handles.map((handle, index) => (
-            <g key={handle.name}>
-              <line
-                x1={x(handle.from[0])}
-                y1={y(handle.from[1])}
-                x2={x(handle.at[0])}
-                y2={y(handle.at[1])}
-                stroke={kindColors.layer}
-                strokeWidth={1.5}
-              />
-              <circle
-                role="slider"
-                tabIndex={0}
-                aria-label={handle.name}
-                aria-valuenow={handle.at[1]}
-                aria-valuetext={`x ${handle.at[0]}, y ${handle.at[1]}`}
-                cx={x(handle.at[0])}
-                cy={y(handle.at[1])}
-                r={6}
-                fill="white"
-                stroke={kindColors.layer}
-                strokeWidth={2}
-                onPointerDown={press(index === 0 ? 0 : 1)}
-                onKeyDown={key(index === 0 ? 0 : 1)}
-                className="cursor-grab outline-none focus-visible:stroke-[3]"
-              />
-            </g>
-          ))}
-        </svg>
-        <EasingDot
-          value={bezierCss(curve)}
-          width={inner}
-          left={pad}
-          bottom={y(0)}
-          rise={y(0) - y(1)}
-          size={motionDot(size, size)}
-          playing={!reduced}
-        />
-      </div>
-      <code className="font-mono text-2xs text-muted-foreground">{bezierCss(curve)}</code>
+    <div className="flex flex-col gap-2">
+      <EasingGraph plot={plot} faint={faint} svgRef={box}>
+        {handles.map((handle, index) => (
+          <g key={handle.name}>
+            <line
+              x1={x(handle.from[0])}
+              y1={y(handle.from[1])}
+              x2={x(handle.at[0])}
+              y2={y(handle.at[1])}
+              stroke={kindColors.layer}
+              strokeWidth={1.5}
+            />
+            <circle
+              role="slider"
+              tabIndex={0}
+              aria-label={handle.name}
+              aria-valuenow={handle.at[1]}
+              aria-valuetext={`x ${handle.at[0]}, y ${handle.at[1]}`}
+              cx={x(handle.at[0])}
+              cy={y(handle.at[1])}
+              r={6}
+              fill="white"
+              stroke={kindColors.layer}
+              strokeWidth={2}
+              onPointerDown={press(index === 0 ? 0 : 1)}
+              onKeyDown={key(index === 0 ? 0 : 1)}
+              className="cursor-grab outline-none focus-visible:stroke-[3]"
+            />
+          </g>
+        ))}
+      </EasingGraph>
+      <GraphCaption>
+        <code className="font-mono">{bezierCss(curve)}</code>
+      </GraphCaption>
     </div>
   )
 }
@@ -663,46 +645,47 @@ function StepsEditor({
   plot,
   onChange
 }: {
-  plot: Extract<EasingPlot, { kind: "steps" }>
+  plot: Extract<EasingPlot, { kind: "steps" }> | undefined
   onChange: (value: Easing) => void
 }) {
+  const shown = plot ?? defaultSteps
   const id = useId()
-  const reduced = useReducedMotion()
 
   const write = (count: number, jump: "start" | "end") =>
     onChange({ value: jump === "end" ? `steps(${count})` : `steps(${count}, jump-start)` })
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="grid place-items-center rounded-md border bg-muted/40 p-2">
-        <CurveThumb plot={plot} size={96} playing={!reduced} />
-      </div>
-      <div className="flex items-center gap-2">
-        <label htmlFor={id} className="w-12 text-xs text-muted-foreground">
+      <EasingGraph plot={shown} faint={plot === undefined} />
+      <GraphCaption>
+        <code className="font-mono">{plotCss(shown)}</code>
+      </GraphCaption>
+      <div className="grid grid-cols-[60px_72px_minmax(0,1fr)] items-center gap-2">
+        <label htmlFor={id} className="text-xs text-muted-foreground">
           Steps
         </label>
         <Input
           id={id}
           type="number"
           min={1}
-          value={plot.count}
+          value={shown.count}
           onChange={(event) => {
             const count = Math.max(1, Math.round(Number(event.target.value) || 1))
-            write(count, plot.jump)
+            write(count, shown.jump)
           }}
-          className="h-7 w-16 text-xs"
+          className="h-7 text-xs"
         />
         <ToggleGroup
           variant="outline"
           size="sm"
           spacing={0}
           aria-label="Jump at"
-          value={[plot.jump]}
+          value={[shown.jump]}
           onValueChange={([jump]) => {
             const picked = optionNamed(jumps, jump)
 
             if (picked) {
-              write(plot.count, picked)
+              write(shown.count, picked)
             }
           }}
         >
@@ -723,23 +706,16 @@ function SpringEditor({ spring, onChange }: { spring: Spring | undefined; onChan
   const mode = spring !== undefined && "stiffness" in spring ? "physics" : "time"
   const shown = spring ?? defaultSprings.time
   const id = useId()
-  // The curve plays while the editor's open, as a token's detail does, at the spring's own time.
-  const reduced = useReducedMotion()
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="grid place-items-center rounded-md border bg-muted/40 p-2">
-        <CurveThumb
-          plot={easingPlot({ spring: shown }, [])}
-          size={120}
-          faint={spring === undefined}
-          playing={!reduced}
-          duration={springSettle(shown)}
-        />
-      </div>
-      <p className="type-description text-muted-foreground">
-        Settles in {springSettle(shown)}ms, which is the duration.
-      </p>
+      {/* It rides at the spring's own time, which is the transition's duration. */}
+      <EasingGraph
+        plot={easingPlot({ spring: shown }, [])}
+        faint={spring === undefined}
+        duration={springSettle(shown)}
+      />
+      <GraphCaption>Settles in {springSettle(shown)}ms, which is the duration.</GraphCaption>
       {/* How it's set is a choice among its rows, as its numbers are, rather than tabs inside the popover's tabs. */}
       <div className="grid grid-cols-[60px_minmax(0,1fr)] items-center gap-2">
         <span id={id} className="text-xs text-muted-foreground">

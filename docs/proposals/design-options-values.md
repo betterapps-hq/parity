@@ -273,10 +273,12 @@ Fill's list of solids, gradients and images.
 
 - **At rest:** a small curve and its name: the token's name, a preset (Ease out, Linear, Steps 4), Spring (400ms, bounce
   0.2), or Custom.
-- **Editing:** a popover with the curve and its two handles, presets, Steps, and Spring, whose Set by menu picks time
-  and bounce or stiffness, damping and mass, as Framer's springs are set. While it's open, a dot rides the curve, as a
-  token's detail plays it. A spring says Tailwind has no utility for springs, so it's written as an arbitrary value, and
-  offers Save as token, as the shadow list's note does.
+- **Editing:** a popover with a tab for each way to set an easing: Curve, Steps and Spring. Each starts with the same
+  graph, the easing's mark every preview draws, at the editor's size, with a dot riding the curve while it's open, as a
+  token's detail plays it; a tab the easing isn't set by shows its default, faint. Under it, Curve has the curve's two
+  handles, Tailwind's easings and the project's; Steps the count and where each jump comes; Spring a Set by menu that
+  picks time and bounce or stiffness, damping and mass, as Framer's springs are set. A spring says Tailwind has no
+  utility for springs, so it's written as an arbitrary value, and offers Save as token, as the shadow list's note does.
 - **States:** a spring decides how long the motion takes, so with a spring the Duration field shows its settle time, set
   by Easing.
 - **Tokens:** easing, as a curve.

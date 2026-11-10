@@ -245,7 +245,7 @@ export function useHoverPlay(kind: PreviewKind, forced = false) {
  */
 function usePlayback(
   ref: RefObject<HTMLElement | null>,
-  motion: { frames: Keyframe[]; timing: KeyframeAnimationOptions } | undefined,
+  motion: { frames: Keyframe[]; timing: KeyframeAnimationOptions; restartsWith?: string } | undefined,
   playing: boolean
 ): void {
   const key = motion ? JSON.stringify(motion) : ""
@@ -297,8 +297,25 @@ const easingKeywords = new Map([
 
 const bezierAt = (t: number, a: number, b: number) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t ** 2 * b + t ** 3
 
-/** Points along an easing, time across and progress up, from `cubic-bezier()`, `linear()` or a keyword. */
+/** Points along an easing, time across and progress up, from `cubic-bezier()`, `linear()`, `steps()` or a keyword. */
 export function easingPoints(value: string, steps = 48): [number, number][] {
+  const stepped = /steps\(\s*(\d+)\s*(?:,\s*([\w-]+)\s*)?\)/.exec(value)
+
+  if (stepped) {
+    // Each step holds its level across its share of the time; a jump at the start lifts every level by one.
+    const count = Math.max(1, Number(stepped[1]))
+    const early = stepped[2] === "jump-start" || stepped[2] === "start" ? 1 : 0
+
+    return [
+      [0, 0],
+      ...Array.from({ length: count }, (_, index): [number, number][] => [
+        [index / count, (index + early) / count],
+        [(index + 1) / count, (index + early) / count]
+      ]).flat(),
+      [1, 1]
+    ]
+  }
+
   const bezier = /cubic-bezier\(([^)]+)\)/.exec(value)?.[1]?.split(",").map(Number) ?? easingKeywords.get(value.trim())
 
   if (bezier) {
@@ -362,14 +379,32 @@ export function animationParts(value: string): AnimationParts {
   return { name: parts[0] ?? "", duration, easing, infinite: parts.includes("infinite") }
 }
 
-/** The curve of an easing as an SVG path in a box, progress up. Overshoot past 0 and 1 stays inside the padding. */
-export function easingPath(value: string, width: number, height: number, pad = 0.18): string {
-  const top = height * pad
-  const span = height - top * 2
+/**
+ * How far up an easing's mark reaches: at least `low` to `high` (0 to 1, or the room an editor keeps for a curve's
+ * handles), and further where the curve overshoots, so it's drawn whole.
+ */
+export function easingRange(value: string, low = 0, high = 1) {
+  const ys = easingPoints(value).map(([, y]) => y)
 
-  return easingPoints(value)
-    .map(([x, y], index) => `${index === 0 ? "M" : "L"}${(x * width).toFixed(2)},${(top + (1 - y) * span).toFixed(2)}`)
-    .join(" ")
+  return { low: Math.min(low, ...ys), high: Math.max(high, ...ys) }
+}
+
+/**
+ * Where an easing's mark puts time (across, 0 to 1) and progress (up, `low` to `high`), inside a tenth of its size all
+ * round, so the dot and a curve's handles have room. Every easing mark is drawn on this scale, so handles placed with
+ * it (the editor's) land on the curve.
+ */
+export function easingScale(width: number, height: number, low: number, high: number) {
+  const pad = Math.max(1, Math.round(Math.min(width, height) / 10))
+  const across = width - pad * 2
+  const up = height - pad * 2
+
+  return {
+    pad,
+    across,
+    x: (value: number) => pad + value * across,
+    y: (value: number) => pad + ((high - value) / (high - low)) * up
+  }
 }
 
 /**
@@ -383,7 +418,7 @@ export const motionDot = (width: number, height: number) => Math.min(8, height -
  * elements, one steady and one eased, which is what the curve plots. It's placed over a curve drawn `width` across,
  * whose 0 is `bottom` from the top and whose 1 is `rise` above that, `left` in from the edge.
  */
-export function EasingDot({
+function EasingDot({
   value,
   width,
   bottom,
@@ -408,7 +443,10 @@ export function EasingDot({
     across,
     {
       frames: looped({ transform: "translateX(0)" }, { transform: `translateX(${width}px)` }, duration, "linear"),
-      timing: { duration: duration + rest, iterations: Number.POSITIVE_INFINITY }
+      timing: { duration: duration + rest, iterations: Number.POSITIVE_INFINITY },
+      // The steady move starts again with the eased one when the easing changes, as an editor changes it, so the two
+      // stay in step and the dot stays on the curve.
+      restartsWith: value
     },
     playing
   )
@@ -436,7 +474,12 @@ export function EasingDot({
   )
 }
 
-/** An easing: its curve, with a dot that rides it while playing (EasingDot). */
+/**
+ * An easing's mark, the one every easing preview draws, from a field's 16px curve to the Tokens panel's rows, tiles and
+ * detail and the easing editor's graph: the box from 0 to 1, the straight line a linear easing takes (where there's room
+ * for it), the curve in the mark's color, and the dot that rides it while playing (EasingDot). The line is heavier on a
+ * mark over 40px tall. An editor puts a curve's handles in as `children`, placed with {@link easingScale}.
+ */
 export function EasingArt({
   value,
   width,
@@ -444,7 +487,10 @@ export function EasingArt({
   playing,
   duration = 900,
   ghosts = [],
-  stroke = 1.5
+  faint = false,
+  room = { low: 0, high: 1 },
+  svgRef,
+  children
 }: {
   value: string
   width: number
@@ -453,40 +499,55 @@ export function EasingArt({
   duration?: number
   /** Other easings, drawn faintly behind for comparison. */
   ghosts?: string[]
-  stroke?: number
+  /** Unset, so a default's shown: the curve is faint. */
+  faint?: boolean
+  /** How far up the mark reaches at least, as `easingRange` takes it. */
+  room?: { low: number; high: number }
+  svgRef?: RefObject<SVGSVGElement | null>
+  children?: ReactNode
 }) {
-  const pad = 0.18
-  const top = height * pad
-  const span = height - top * 2
+  const { low, high } = easingRange(value, room.low, room.high)
+  const { x, y, across } = easingScale(width, height, low, high)
+
+  const path = (easing: string) =>
+    easingPoints(easing)
+      .map(([at, progress], index) => `${index === 0 ? "M" : "L"}${x(at).toFixed(2)},${y(progress).toFixed(2)}`)
+      .join(" ")
 
   return (
-    <span className="relative block" style={{ width, height }}>
-      <svg width={width} height={height} className="absolute inset-0 overflow-visible" aria-hidden>
-        <line x1={0} y1={height - top} x2={width} y2={height - top} stroke="currentColor" strokeOpacity={0.15} />
-        <line x1={0} y1={top} x2={width} y2={top} stroke="currentColor" strokeOpacity={0.15} strokeDasharray="2 2" />
+    <span className="relative block shrink-0" style={{ width, height }}>
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        className="absolute inset-0 touch-none overflow-visible"
+        // Handles put in are sliders, so the drawing is hidden only when it's just a picture.
+        aria-hidden={children === undefined || undefined}
+      >
+        <rect x={x(0)} y={y(1)} width={across} height={y(0) - y(1)} className="fill-muted/40 stroke-border" />
+        {Math.min(width, height) >= 40 && (
+          <line x1={x(0)} y1={y(0)} x2={x(1)} y2={y(1)} className="stroke-border" strokeDasharray="3 3" />
+        )}
         {ghosts.map((ghost) => (
-          <path
-            key={ghost}
-            d={easingPath(ghost, width, height, pad)}
-            fill="none"
-            stroke="currentColor"
-            strokeOpacity={0.18}
-            strokeWidth={1}
-          />
+          <path key={ghost} d={path(ghost)} fill="none" stroke="currentColor" strokeOpacity={0.18} strokeWidth={1} />
         ))}
         <path
-          d={easingPath(value, width, height, pad)}
+          d={path(value)}
           fill="none"
           stroke="currentColor"
-          strokeWidth={stroke}
+          strokeWidth={height > 40 ? 2 : 1.25}
           strokeLinecap="round"
+          strokeLinejoin="round"
+          className={faint ? "text-muted-foreground/60" : undefined}
         />
+        {children}
       </svg>
       <EasingDot
         value={value}
-        width={width}
-        bottom={height - top}
-        rise={span}
+        width={across}
+        left={x(0)}
+        bottom={y(0)}
+        rise={y(0) - y(1)}
         size={motionDot(width, height)}
         playing={playing}
         duration={duration}
@@ -978,7 +1039,7 @@ export function TokenArt({
     case "easing":
       return (
         <span className="grid size-full place-items-center text-muted-foreground">
-          <EasingArt value={value} width={width - 8} height={height - 2} playing={playing} stroke={large ? 2 : 1.25} />
+          <EasingArt value={value} width={width - 8} height={height - 2} playing={playing} />
         </span>
       )
     case "animation":
