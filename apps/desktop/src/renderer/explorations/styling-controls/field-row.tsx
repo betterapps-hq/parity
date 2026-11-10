@@ -84,6 +84,13 @@ interface FieldProps {
 /** The row a property's name sits in: the toggle's height whether it has one or not, so rows side by side line up. */
 const nameRow = "flex h-5 min-w-0 items-center justify-between gap-1 whitespace-nowrap"
 
+/** A small button at the end of a field's name: Reset, Add a column, and what the toggles and menus there build on. */
+export const nameButton =
+  "grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-3"
+
+/** A button at the end of a field's name that opens a menu or a popover, shaded while it's open. */
+export const nameMenuButton = `${nameButton} data-popup-open:bg-muted data-popup-open:text-foreground`
+
 /**
  * One property: its name above the control, with the reset arrow, or the row's action, at the end of the name's row.
  * A name in the agent color says a state changed the value, and one in the override color, with the value, that it
@@ -172,7 +179,7 @@ export function Field({
               <button
                 type="button"
                 onClick={onReset}
-                className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                className={nameButton}
                 style={overrides === undefined ? undefined : { color: tone }}
                 aria-label={`Reset ${label} to ${resetTo}`}
               >
@@ -186,7 +193,7 @@ export function Field({
                 type="button"
                 data-lock
                 onClick={() => lock.onOpenChange(!lock.open)}
-                className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                className={nameButton}
                 aria-label={
                   lock.open ? `Lock ${label} to ${lock.preset}` : `Unlock ${label} to override ${lock.preset}`
                 }
@@ -362,6 +369,30 @@ export function EachToggle({
   ref?: Ref<HTMLButtonElement>
 }) {
   return (
+    <NameToggle label={label} pressed={pressed} onClick={onClick} ref={ref}>
+      <svg aria-hidden viewBox="0 0 12 12">
+        <path d={partsIcons[parts]} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    </NameToggle>
+  )
+}
+
+/** A toggle at the end of a field's name, pressed while what it turns on is: Each side, or Insets' Fill and Scale with. */
+export function NameToggle({
+  label,
+  pressed,
+  onClick,
+  ref,
+  children
+}: {
+  /** Its name, in its hint and for screen readers. */
+  label: string
+  pressed: boolean
+  onClick: () => void
+  ref?: Ref<HTMLButtonElement>
+  children: ReactNode
+}) {
+  return (
     <Hint label={label}>
       <button
         ref={ref}
@@ -369,11 +400,9 @@ export function EachToggle({
         aria-label={label}
         aria-pressed={pressed}
         onClick={onClick}
-        className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:text-foreground dark:hover:bg-input/40 dark:aria-pressed:bg-input/60"
+        className={`${nameButton} aria-pressed:bg-muted aria-pressed:text-foreground dark:hover:bg-input/40 dark:aria-pressed:bg-input/60`}
       >
-        <svg aria-hidden viewBox="0 0 12 12" className="size-3">
-          <path d={partsIcons[parts]} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-        </svg>
+        {children}
       </button>
     </Hint>
   )

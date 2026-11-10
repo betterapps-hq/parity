@@ -7,7 +7,7 @@ import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { SideValue } from "./box-model.tsx"
 import { formatNumber, tint } from "./css-values.ts"
 import { MessageLine, useTokens } from "./field-parts.tsx"
-import { Field, TitleMenu } from "./field-row.tsx"
+import { Field, NameToggle, TitleMenu } from "./field-row.tsx"
 import {
   distances,
   inFlow,
@@ -189,33 +189,6 @@ export function PositionSection({
         )}
       </div>
     </PanelSection>
-  )
-}
-
-/** A toggle in the insets' header, drawn as the other headers' toggles are. */
-function HeaderToggle({
-  label,
-  pressed,
-  onClick,
-  children
-}: {
-  label: string
-  pressed: boolean
-  onClick: () => void
-  children: ReactNode
-}) {
-  return (
-    <Hint label={label}>
-      <button
-        type="button"
-        aria-label={label}
-        aria-pressed={pressed}
-        onClick={onClick}
-        className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:text-foreground dark:hover:bg-input/40 dark:aria-pressed:bg-input/60 [&_svg]:size-3"
-      >
-        {children}
-      </button>
-    </Hint>
   )
 }
 
@@ -442,12 +415,12 @@ function InsetBox({
       action={
         !offsets && (
           <>
-            <HeaderToggle label={`Fill ${of}`} pressed={filled} onClick={fill}>
+            <NameToggle label={`Fill ${of}`} pressed={filled} onClick={fill}>
               <Maximize />
-            </HeaderToggle>
-            <HeaderToggle label={`Scale with ${of}`} pressed={scaled} onClick={scale}>
+            </NameToggle>
+            <NameToggle label={`Scale with ${of}`} pressed={scaled} onClick={scale}>
               <MoveDiagonal2 />
-            </HeaderToggle>
+            </NameToggle>
           </>
         )
       }

@@ -41,7 +41,7 @@ import {
   typedContentSizes
 } from "./data.ts"
 import { arrowMoves, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
-import { EachToggle, Field, TitleMenu } from "./field-row.tsx"
+import { EachToggle, Field, nameMenuButton, TitleMenu } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
 import { moved, RemoveButton, useOrderKeys } from "./list-parts.tsx"
 import { type Side, sideNumber, sideRules } from "./sides-writes.ts"
@@ -1103,7 +1103,7 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
             type="button"
             aria-label={`Add a ${one}`}
             onClick={() => setTracks(resize(tracks, tracks.length + 1))}
-            className={headerButton}
+            className={nameMenuButton}
           >
             <Plus className="size-3" />
           </button>
@@ -1198,9 +1198,6 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
 }
 
 /** A small button at the end of a field's name row, as the grid picker and Each are. */
-const headerButton =
-  "grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-muted data-popup-open:text-foreground"
-
 /**
  * How many columns or rows: a whole number, a step at a time, or Fit for columns and Auto for rows, each a chip that
  * says how many it makes now. Its menu offers the word; Backspace on the chip takes it off, for the count it made.
@@ -1553,7 +1550,7 @@ function GridPicker({
       <Hint label="Pick columns and rows">
         <PopoverTrigger
           aria-label={`Pick columns and rows: ${columns} by ${rows === 0 ? "Auto" : rows}`}
-          className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-muted data-popup-open:text-foreground"
+          className={nameMenuButton}
         >
           <LayoutGrid className="size-3" />
         </PopoverTrigger>
