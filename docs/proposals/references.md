@@ -6,8 +6,8 @@ Pixabay's photos to the project from the Media tab (PAR-839,
 [its stories](../../apps/desktop/src/renderer/library/LibraryBrowser.Pixabay.stories.tsx)), and references on the
 canvas, placed from Find references and by agents (PAR-840,
 [their stories](../../apps/desktop/src/renderer/references/References.stories.tsx)), kept in the project's `.par` file
-beside notes rather than in the designs file as "What's kept" first said. Videos (PAR-841) follow. The exploration is
-gone, since the real stories replace it.
+beside notes rather than in the designs file as "What's kept" first said, and read by agents with `get_references`
+(PAR-889). Videos (PAR-841) follow. The exploration is gone, since the real stories replace it.
 
 ## In one line
 

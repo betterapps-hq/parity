@@ -104,7 +104,7 @@ export function placeReferences(
     const id = generateId(taken)
     taken.add(id)
 
-    return referenceFrom(found, id, points[index]!, { query: foundWith.get(found.id) })
+    return referenceFrom(found, id, points[index]!, { query: foundWith.get(found.id), design: entry?.container.id })
   })
 
   const label = positioned.length === 1 ? `Place ${positioned[0]!.app}` : `Place ${positioned.length} references`

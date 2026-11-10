@@ -1,5 +1,6 @@
 import type { Found } from "@parity-app/connectors"
-import { defaultModeSettings } from "@parity-app/core"
+import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import { newDesign } from "@parity-app/editor"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { deleteSelection } from "../chrome/commands.ts"
 import { DesignStore } from "../design-store.ts"
@@ -22,9 +23,9 @@ function screen(id: string, platform: "web" | "ios" = "web"): Found {
   }
 }
 
-function session(): ProjectSession {
+function session(containers: ContainerSpec[] = []): ProjectSession {
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers: [] } }],
+    [{ path: "app.par", document: { version: 3, containers } }],
     defaultModeSettings,
     "app.par",
     {
@@ -52,6 +53,15 @@ describe("placing references", () => {
     ])
     expect(store.getHistory().undoLabel).toBe("Place 2 references")
     expect(selection.get()).toEqual({ reference: store.getReferences()[1]!.key })
+  })
+
+  it("records the design they were found for, in its file", () => {
+    const design = { ...newDesign("screen", [], { x: 0, y: 0 }), id: "pricing", name: "Pricing" }
+    const placing = session([design])
+
+    placeReferences(placing, [screen("ledgerly")], "app.par#pricing")
+
+    expect(placing.store.getReferences().map(({ reference }) => reference.design)).toEqual(["pricing"])
   })
 
   it("deletes the selected one, and Undo brings it back", () => {

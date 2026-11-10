@@ -240,6 +240,7 @@ describe("each operation's routing", () => {
       references: "tab-or-any",
       media: "tab-or-any",
       place: "tab",
+      placedReferences: "tab",
       images: "tab",
       removeImage: "tab"
     })

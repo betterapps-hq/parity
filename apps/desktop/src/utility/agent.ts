@@ -28,7 +28,7 @@ import { currentTrace, inSpan } from "../shared/tracing.ts"
 import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
-import { type FindOptions, foundScreen, searchMedia, searchReferences } from "./references.ts"
+import { type FindOptions, foundScreen, savePictures, searchMedia, searchReferences } from "./references.ts"
 import { renderOffscreen } from "./render.ts"
 import { scrubSecrets } from "./telemetry.ts"
 import { composePicture, cutPicture } from "./webp.ts"
@@ -236,6 +236,7 @@ export function desktopHost(window: WindowChannel, images: AgentImages = noImage
     // Main holds connectors' keys, so it runs the search; the previews are fetched and saved here (PAR-829).
     references: (request) => searchReferences(finding, request),
     media: (request) => searchMedia(finding, request),
+    pictures: (pictures) => savePictures(finding, pictures),
     result: async (connector, id) => (await mainProcess.request("connectorResult", { connector, id })) ?? undefined,
     screen: (id, connector) =>
       foundScreen(id, connector, (from, each) => mainProcess.request("connectorResult", { connector: from, id: each })),

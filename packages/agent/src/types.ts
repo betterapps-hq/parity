@@ -381,6 +381,30 @@ export interface PlacedIn {
 }
 
 /**
+ * A reference on the canvas as an agent reads it (PAR-889): where it's from, why it's there, who placed it and the
+ * design it's for.
+ */
+export interface PlacedReference {
+  /** Its id on the canvas. */
+  id: string
+  app: string
+  platform?: "ios" | "web"
+  /** Its page at the source. */
+  link: string
+  /** Its picture's link, which may have stopped working; `expired` says when it has. */
+  picture: string
+  expired?: true
+  query?: string
+  note?: string
+  /** The agent that placed it. Unset when the person did. */
+  by?: string
+  /**
+   * The design it was placed for, or else the one it sits beside, with the file it's in. Unset when no design is near.
+   */
+  design?: { id: string; name: string; file: string }
+}
+
+/**
  * What a call changed: each design it touched with how it found it, the modes when it set them, token values, and the
  * references it placed.
  */

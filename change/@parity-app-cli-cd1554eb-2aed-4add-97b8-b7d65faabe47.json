@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Agents read the references placed beside a design: References() in execute, get_references with the pictures, and a count per design in get_app_state. A reference records the design it was found for.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
