@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 10 Nov 2026 13:05:34 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 13:40:41 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.52.0
+
+Tue, 10 Nov 2026 13:40:41 GMT
+
+### Minor changes
+
+- Redesign the Media card: facts in labelled rows, where it's used that scales to hundreds of layers, and transparency
+  on a grid (ajcraswell@gmail.com)
 
 ## 0.51.0
 

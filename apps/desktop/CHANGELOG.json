@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 10 Nov 2026 13:40:41 GMT",
+      "version": "0.52.0",
+      "tag": "@parity-app/desktop_v0.52.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f5c7699beb4a9e18ca58094f819961bc5f9dda87",
+            "comment": "Redesign the Media card: facts in labelled rows, where it's used that scales to hundreds of layers, and transparency on a grid"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 13:05:34 GMT",
       "version": "0.51.0",
       "tag": "@parity-app/desktop_v0.51.0",
