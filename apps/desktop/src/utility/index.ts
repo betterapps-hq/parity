@@ -9,7 +9,14 @@ import { z } from "zod"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { storedJobs } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
-import { checkAccessibility, exportDesigns, exportLayers, layersPicture, startAgentServer } from "./agent.ts"
+import {
+  type AgentImages,
+  checkAccessibility,
+  exportDesigns,
+  exportLayers,
+  layersPicture,
+  startAgentServer
+} from "./agent.ts"
 import { clearBitmaps, storeBitmap, storedBitmap, sweepBitmaps } from "./bitmap-store.ts"
 import { builderReadings, startBuilder } from "./builders.ts"
 import { cacheUse, reportCacheUse } from "./cache-use.ts"
@@ -19,7 +26,7 @@ import { undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
-import { importImage } from "./images.ts"
+import { importImage, removeImage, scanImages } from "./images.ts"
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
 import { keepOnlyPictures, readPictures, storePicture } from "./pictures.ts"
@@ -113,6 +120,8 @@ const handlers: Handlers<ServiceMethods> = {
   "document.save": projects.saveDocument,
   "document.saveCopy": saveDocumentCopy,
   "images.import": (params) => importImage(projects.get(params.projectId), params),
+  "images.scan": ({ projectId }) => scanImages(projects.get(projectId)),
+  "images.remove": ({ projectId, path }) => removeImage(projects.get(projectId), path),
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(projects.get(projectId), id),
   "storybook.open": (params) => openStorybook(projects.get(params.projectId), params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
@@ -234,7 +243,16 @@ void sweepBitmaps()
 
 reportCacheUse()
 
-void startAgentServer(editorWindow).catch((cause: unknown) => {
+const agentImages: AgentImages = {
+  scanImages: (projectId) => scanImages(projects.get(projectId)),
+  async removeImage(projectId, path) {
+    const removed = await removeImage(projects.get(projectId), path)
+
+    return { path: removed.path, label: removed.edit.label }
+  }
+}
+
+void startAgentServer(editorWindow, agentImages).catch((cause: unknown) => {
   console.error("[service] agent server failed to start", cause)
   const code = errorCode(cause)
   const failed: Attributes<"agent.serverFailed"> = { message: cause instanceof Error ? cause.message : String(cause) }

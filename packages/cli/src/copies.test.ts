@@ -236,7 +236,9 @@ describe("each operation's routing", () => {
       tokens: "tab",
       components: "tab",
       props: "tab",
-      report: "tab-or-any"
+      report: "tab-or-any",
+      images: "tab",
+      removeImage: "tab"
     })
   })
 })

@@ -23,7 +23,7 @@ import type {
   ThemeVariable,
   UpdateState
 } from "@parity-app/core"
-import type { EditStatus, ExportSize } from "@parity-app/editor"
+import type { CodeReference, EditStatus, ExportSize, ImageFile } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
@@ -86,6 +86,16 @@ export interface ServiceMethods {
     params: { projectId: string; name: string; type: string; data: string }
     result: { src: string; path: string; edit?: ProjectEditResult }
   }
+  /**
+   * The project's image files under `public/images/`, and the lines of its code that name them (PAR-834). The window
+   * and agents put them together with their designs through `projectImages`.
+   */
+  "images.scan": { params: { projectId: string }; result: { files: ImageFile[]; references: CodeReference[] } }
+  /**
+   * Removes an image file from `public/images/` as an edit, so undoing it puts the file back. Refuses a file the
+   * project's code names; the caller checks its designs first.
+   */
+  "images.remove": { params: { projectId: string; path: string }; result: { path: string; edit: ProjectEditResult } }
   /**
    * Takes back an edit the service made to the project's files, unless a file has changed since. Only the project's
    * latest 50 edits can be undone.

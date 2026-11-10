@@ -12,6 +12,8 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeImages,
+  describeRemovedImage,
   describeReport,
   describeStatus,
   describeTokens,
@@ -193,6 +195,18 @@ const tools: Tool[] = [
     "List project components with the file each is written in, libraries, icon sets and exports that were left out or failed to render.",
     operations.components,
     (result) => [text(describeComponents(result))]
+  ),
+  operationTool(
+    "get_images",
+    "List the project's images (files in public/images, linked photos, paths with no file) and what uses each. search matches a name, alt text or credit.",
+    operations.images,
+    (result) => [text(describeImages(result))]
+  ),
+  operationTool(
+    "remove_image",
+    "Remove an image file from public/images. Refused while a design or code uses it, saying where.",
+    operations.removeImage,
+    (result) => [text(describeRemovedImage(result))]
   ),
   operationTool(
     "get_props",

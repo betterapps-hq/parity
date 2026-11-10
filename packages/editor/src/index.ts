@@ -62,6 +62,8 @@ export * from "./paste-over.ts"
 
 export * from "./placement.ts"
 
+export * from "./project-images.ts"
+
 export * from "./render-failures.ts"
 
 export * from "./review.ts"
