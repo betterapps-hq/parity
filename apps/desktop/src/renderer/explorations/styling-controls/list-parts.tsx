@@ -22,6 +22,7 @@ import {
 import { Hint } from "../../chrome/Hint.tsx"
 import { clamp, formatNumber } from "./css-values.ts"
 import { drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
+import { Field } from "./field-row.tsx"
 
 /*
  * What the list fields share (design-options-fields.md, Lists): the entry's row, in the spec's order (the drag handle
@@ -72,6 +73,9 @@ export interface ListRowProps {
     content: ReactNode
     /** Open at first, for a story. */
     defaultOpen?: boolean
+    /** Whether it's open, where what's in it closes it, as picking a blur's token does. */
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
     className?: string
   }
   /**
@@ -124,7 +128,7 @@ export function ListRow({
 
   if (details) {
     entry = (
-      <Popover defaultOpen={details.defaultOpen}>
+      <Popover defaultOpen={details.defaultOpen} open={details.open} onOpenChange={details.onOpenChange}>
         <Hint label={`Edit ${name.toLowerCase()}`} wait>
           <PopoverTrigger
             aria-label={`Edit ${name}`}
@@ -343,9 +347,9 @@ export function TypeMenu<K extends string>({ label, value, options, onChange }: 
 }
 
 /**
- * A slider centered on no change, as Figma's and every photo editor's adjustments are, with its number beside it on
- * the shared field: typed with the app's maths, held to the slider's ends, Up and Down 1, Shift 10.
- * Double-clicking the slider puts it back to no change.
+ * A slider centered on no change, as Figma's and every photo editor's adjustments are: its name above, as every row's
+ * is, then the slider across the row with its number at the end on the shared field, typed with the app's maths, held
+ * to the slider's ends, Up and Down 1, Shift 10. Double-clicking the slider puts it back to no change.
  */
 export function CenteredSlider({
   label,
@@ -396,40 +400,39 @@ export function CenteredSlider({
   }
 
   return (
-    <div className="grid grid-cols-[72px_1fr_3.25rem] items-center gap-x-2">
-      <Hint label={label} detail={value === zero ? "No change, which writes nothing" : `Writes ${hint}`} wait>
-        <span className="truncate text-xs text-muted-foreground">{label}</span>
-      </Hint>
-      <input
-        type="range"
-        aria-label={label}
-        min={min}
-        max={max}
-        step={1}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        onDoubleClick={() => onChange(zero)}
-        onKeyDown={(event) => {
-          if (!event.shiftKey || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
-            return
-          }
+    <Field label={label} hint={value === zero ? "No change, which writes nothing" : `Writes ${hint}`}>
+      <div className="grid grid-cols-[1fr_3.25rem] items-center gap-x-2">
+        <input
+          type="range"
+          aria-label={label}
+          min={min}
+          max={max}
+          step={1}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+          onDoubleClick={() => onChange(zero)}
+          onKeyDown={(event) => {
+            if (!event.shiftKey || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+              return
+            }
 
-          event.preventDefault()
-          const up = event.key === "ArrowRight" || event.key === "ArrowUp"
-          onChange(clamp(value + (up ? 10 : -10), min, max))
-        }}
-        style={track}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background"
-      />
-      <ValueField
-        label={`${label} value`}
-        shown={formatNumber(value)}
-        unit={unit || undefined}
-        read={read}
-        onCommit={onChange}
-        onStep={(up, { shift }) => onChange(clamp(value + (up ? 1 : -1) * (shift ? 10 : 1), min, max))}
-      />
-    </div>
+            event.preventDefault()
+            const up = event.key === "ArrowRight" || event.key === "ArrowUp"
+            onChange(clamp(value + (up ? 10 : -10), min, max))
+          }}
+          style={track}
+          className="h-1.5 w-full cursor-pointer appearance-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-slider-thumb]:size-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary [&::-webkit-slider-thumb]:bg-background"
+        />
+        <ValueField
+          label={`${label} value`}
+          shown={formatNumber(value)}
+          unit={unit || undefined}
+          read={read}
+          onCommit={onChange}
+          onStep={(up, { shift }) => onChange(clamp(value + (up ? 1 : -1) * (shift ? 10 : 1), min, max))}
+        />
+      </div>
+    </Field>
   )
 }
 

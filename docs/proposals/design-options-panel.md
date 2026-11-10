@@ -445,11 +445,16 @@ with (Ring included), as in Figma; with nothing set, it's a title with +. A shad
 overridden (`shadow-lg shadow-black/20`), and any other part offers Detach. Blur and drop shadow tokens are their own
 entries' values.
 
+An entry's details put each row's name above its control, so the control takes the whole row, as the simpler fields do.
+A shadow's Blur and Spread sit side by side, a token's layers are a table of their X, Y, blur and spread, and Detach is
+a button after the token's field. Follow shape is a switch at the end of its row. A blur's row opens straight onto its
+tokens, so one click picks one, with Custom beside Tokens as the color picker has it.
+
 | Effect                 | Control                                                                                                                | Writes                                                                         | Figma                  |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------- |
 | Drop shadow            | X, Y, blur, spread, color, its X and Y also set by dragging in an offset pad; Follow shape (below)                     | `box-shadow`; `text-shadow` on text; `filter: drop-shadow()` with Follow shape | Drop shadow            |
 | Inner shadow           | The same, inside                                                                                                       | `box-shadow: inset …`                                                          | Inner shadow           |
-| Ring                   | Width and color, and Inset; a ring is a spread with no offset or blur                                                  | `box-shadow: 0 0 0 W c` (`ring-W ring-c`), inset as `inset-ring-W`             | None: a stroke         |
+| Ring                   | Width, Position (Outside or Inside) and color; a ring is a spread with no offset or blur                               | `box-shadow: 0 0 0 W c` (`ring-W ring-c`), inset as `inset-ring-W`             | None: a stroke         |
 | Layer blur             | Blur, with blur tokens                                                                                                 | `filter: blur()`                                                               | Layer blur             |
 | Background blur        | Blur, with blur and backdrop blur tokens; says when what it can see is cut short (below)                               | `backdrop-filter: blur()`                                                      | Background blur        |
 | Adjustments            | One entry of sliders: brightness, contrast and saturation centered on no change, then hue, grayscale, sepia and invert | `filter` functions, in Tailwind's order (Filter list)                          | Image adjustments only |
@@ -457,8 +462,8 @@ entries' values.
 
 Follow shape draws a drop shadow around what's drawn rather than the box, with no spread, and offers drop shadow tokens;
 it's on by default for icons and images with transparency. On a text layer with no fill or stroke, Drop shadow writes
-`text-shadow` (no spread), as Dev Mode does, and offers text shadow tokens; with a fill or stroke, a toggle picks Shadow
-of: Text or Box.
+`text-shadow` (no spread), as Dev Mode does, and offers text shadow tokens; with a fill or stroke, Shadow of picks Text
+or Box.
 
 Background blur says when what it can see is cut short: an ancestor with opacity below 100%, a filter, a mask, a clip
 path, a blend mode or its own backdrop filter becomes the backdrop root, and nothing behind that is blurred. It also

@@ -3,15 +3,21 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { unclosedInValue } from "@parity-app/tokens"
 import { Braces, ListOrdered, Plus, SlidersHorizontal } from "lucide-react"
+import { useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
+import { optionNamed } from "../parts.tsx"
 import { BlurChoice } from "./controls.tsx"
-import { isLengthToken } from "./data.ts"
-import { MessageLine, type Reading, TokenChip, TokenMark, useTokens, ValueField } from "./field-parts.tsx"
+import { isLengthToken, type Length } from "./data.ts"
+import { MessageLine, type Reading, TokenChip, TokenList, TokenMark, useTokens, ValueField } from "./field-parts.tsx"
 import { CenteredSlider, ListRow } from "./list-parts.tsx"
 import {
   type AdjustmentKey,
@@ -184,6 +190,8 @@ function FilterRow({
   onRemove: () => void
 }) {
   const { tokens: blurs } = useTokens("blur")
+  // A blur's popover is its tokens, and picking one closes it, as a menu does.
+  const [blurOpen, setBlurOpen] = useState(startOpen)
 
   const row = {
     group: "filters",
@@ -211,15 +219,20 @@ function FilterRow({
         title={label}
         details={{
           content: (
-            <BlurChoice
+            <BlurTokens
               label={label}
               value={entry.value}
               tokensOnly={tokensOnly}
+              onPick={(value) => {
+                onChange({ ...entry, value })
+                setBlurOpen(false)
+              }}
               onChange={(value) => onChange({ ...entry, value })}
             />
           ),
-          defaultOpen: startOpen,
-          className: "w-64 p-2"
+          open: blurOpen,
+          onOpenChange: setBlurOpen,
+          className: "w-60 p-0"
         }}
       >
         {entry.value !== undefined && isLengthToken(entry.value) ? (
@@ -282,7 +295,8 @@ function FilterRow({
               onChange={(change) => onChange({ ...entry, shadow: { ...shadow, ...change } })}
             />
           ),
-          defaultOpen: startOpen
+          defaultOpen: startOpen,
+          className: "w-72 p-3"
         }}
         title="Drop shadow"
       >
@@ -308,6 +322,68 @@ function FilterRow({
     <ListRow {...row} name="Custom filter">
       <CustomEntry entry={entry} onChange={onChange} onReplace={onReplace} />
     </ListRow>
+  )
+}
+
+const blurTabs = ["tokens", "custom"] as const
+
+/**
+ * A blur's popover, laid out as the color picker's is: Tokens first, None and the blur scale, each drawn with its
+ * preview, so the row opens straight onto them and one click picks one; Custom holds the blur field, for a value of
+ * the layer's own, typed or scrubbed. It opens on Custom where the blur is already one of its own.
+ */
+function BlurTokens({
+  label,
+  value,
+  tokensOnly,
+  onPick,
+  onChange
+}: {
+  label: string
+  value: Length | undefined
+  tokensOnly: boolean
+  /** A token or None picked from the list, which closes the popover. */
+  onPick: (value: Length | undefined) => void
+  onChange: (value: Length | undefined) => void
+}) {
+  const { tokens } = useTokens("blur")
+  const own = value !== undefined && !isLengthToken(value)
+  const [tab, setTab] = useState<(typeof blurTabs)[number]>(own ? "custom" : "tokens")
+
+  return (
+    <Tabs
+      value={tab}
+      onValueChange={(next) => {
+        const picked = optionNamed(blurTabs, next)
+
+        if (picked) {
+          setTab(picked)
+        }
+      }}
+    >
+      <TabsList className="m-2 mb-0 w-[calc(100%-1rem)]">
+        <TabsTrigger value="tokens" className="text-xs">
+          Tokens
+        </TabsTrigger>
+        <TabsTrigger value="custom" className="text-xs">
+          Custom
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="tokens" className="p-1">
+        <TokenList
+          label={label}
+          tokens={tokens}
+          current={value !== undefined && isLengthToken(value) ? value : undefined}
+          none="None"
+          noneValue="0px"
+          own={own}
+          onPick={onPick}
+        />
+      </TabsContent>
+      <TabsContent value="custom" className="p-2">
+        <BlurChoice label={label} value={value} tokensOnly={tokensOnly} onChange={onChange} />
+      </TabsContent>
+    </Tabs>
   )
 }
 

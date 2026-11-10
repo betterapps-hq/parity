@@ -6,14 +6,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-  Switch,
-  Toggle,
-  ToggleGroup,
-  ToggleGroupItem
+  DropdownMenuTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { PreviewKind } from "@parity-app/tokens"
-import { ChevronDown, ChevronRight, Ellipsis, Plus, RotateCcw, Unlink } from "lucide-react"
+import { ChevronDown, ChevronRight, Ellipsis, Plus, Unlink } from "lucide-react"
 import { useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
@@ -24,7 +20,6 @@ import { usedColors } from "./data.ts"
 import {
   MessageLine,
   MissingMark,
-  overrideColor,
   type Reading,
   type ScrubKeys,
   TokenChip,
@@ -32,7 +27,7 @@ import {
   useTokens,
   ValueField
 } from "./field-parts.tsx"
-import { Field } from "./field-row.tsx"
+import { Field, FieldGrid, type Segment, Segments, SwitchRow } from "./field-row.tsx"
 import { EntryType, ListRow, moved, OffsetPad, TypeMenu, type TypeOption } from "./list-parts.tsx"
 import {
   boxLayersOf,
@@ -55,7 +50,7 @@ import { allShadowTokens, type ShadowToken, shadowToken } from "./tokens.ts"
  * Effects' shadow list (design-options-values.md, Shadow list): drop shadows, inner shadows and rings, in two groups,
  * Inside then Outside, top first as Tailwind paints them, each dragged within its group. A drop shadow that follows
  * the shape is the filter's, listed after them. Each entry's card opens its editor: X, Y, blur, spread and color with
- * the offset pad, or a ring's width, color and Inset. A shadow token is a chip whose layers fold under a disclosure;
+ * the offset pad, or a ring's width, position and color. A shadow token is a chip whose layers fold under a disclosure;
  * only its color can be overridden, as Tailwind can (`shadow-lg shadow-black/20`), and the rest offers Detach.
  */
 
@@ -448,7 +443,8 @@ function ShadowRow({
             <ShadowEditor entry={entry} tokensOnly={tokensOnly} text={text} saved={saved} onChange={onChange} />
           </>
         ),
-        defaultOpen: startOpen
+        defaultOpen: startOpen,
+        className: "w-72 p-3"
       }}
     >
       {entry.token === undefined || entry.kind === "ring" ? (
@@ -461,9 +457,10 @@ function ShadowRow({
 }
 
 /**
- * One shadow's editor: a token with its layers under a disclosure and its color overridable, or the offset pad with X,
- * Y, blur and spread, and the color; Follow shape for a drop shadow, Shadow of on a text layer with a fill, and a
- * ring's width, color and Inset.
+ * One shadow's editor, each row's name above its control so the control takes the row: a token, its color overridable
+ * and its layers under a disclosure, or the offset pad with X and Y beside it, Blur and Spread side by side, and the
+ * color; Shadow of on a text layer with a fill, and Follow shape's switch for a drop shadow. A ring has its width and
+ * position (Outside or Inside) side by side, then its color.
  */
 export function ShadowEditor({
   entry,
@@ -489,14 +486,22 @@ export function ShadowEditor({
 
   if (entry.kind === "ring") {
     return (
-      <div className="flex flex-col gap-2">
-        <Field label="Width">
+      <FieldGrid>
+        <Field label="Width" half>
           <Num
             label="Ring width"
             pixels
             value={entry.width ?? 1}
             min={0}
             onChange={(width) => onChange({ width: Math.round(width ?? 1) })}
+          />
+        </Field>
+        <Field label="Position" half>
+          <Segments
+            label="Ring position"
+            value={entry.inset ? "inside" : "outside"}
+            options={ringPositions}
+            onChange={(position) => onChange({ inset: position === "inside" || undefined })}
           />
         </Field>
         <Field label="Color">
@@ -509,28 +514,14 @@ export function ShadowEditor({
             onChange={(color, alpha) => setLayer({ color: color ?? layer.color, alpha })}
           />
         </Field>
-        <Field label="Inside">
-          <Hint label="Inset" detail="Draws the ring inside the edge: inset-ring">
-            <Toggle
-              variant="outline"
-              size="sm"
-              className="h-7 self-start px-2 text-xs"
-              aria-label="Inset"
-              pressed={entry.inset ?? false}
-              onPressedChange={(inset) => onChange({ inset: inset || undefined })}
-            >
-              Inset
-            </Toggle>
-          </Hint>
-        </Field>
-      </div>
+      </FieldGrid>
     )
   }
 
   const token = entry.token
 
   return (
-    <div className="flex flex-col gap-2">
+    <FieldGrid>
       <Field label="Token">
         <ShadowTokenField entry={entry} tokens={tokens} saved={saved} onChange={onChange} />
       </Field>
@@ -538,48 +529,43 @@ export function ShadowEditor({
         <TokenParts entry={entry} tokensOnly={tokensOnly} saved={saved} spread={spread} onChange={onChange} />
       ) : (
         <>
-          <div className="flex items-start gap-2">
-            <OffsetPad x={layer.x} y={layer.y} onChange={(x, y) => setLayer({ x, y })} />
-            <div className="grid flex-1 grid-cols-2 gap-1">
-              <Num
-                label="X offset"
-                inner="X"
-                pixels
-                narrow
-                min={-999}
-                value={layer.x}
-                onChange={(x) => setLayer({ x: x ?? 0 })}
-              />
-              <Num
-                label="Y offset"
-                inner="Y"
-                pixels
-                narrow
-                min={-999}
-                value={layer.y}
-                onChange={(y) => setLayer({ y: y ?? 0 })}
-              />
-              <Num
-                label="Blur"
-                inner="B"
-                pixels
-                narrow
-                value={layer.blur}
-                onChange={(blur) => setLayer({ blur: blur ?? 0 })}
-              />
-              {spread && (
+          <Field label="Offset">
+            <div className="flex items-center gap-2">
+              <OffsetPad x={layer.x} y={layer.y} onChange={(x, y) => setLayer({ x, y })} />
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <Num
-                  label="Spread"
-                  inner="S"
+                  label="X offset"
+                  inner="X"
                   pixels
-                  narrow
                   min={-999}
-                  value={layer.spread}
-                  onChange={(next) => setLayer({ spread: next ?? 0 })}
+                  value={layer.x}
+                  onChange={(x) => setLayer({ x: x ?? 0 })}
                 />
-              )}
+                <Num
+                  label="Y offset"
+                  inner="Y"
+                  pixels
+                  min={-999}
+                  value={layer.y}
+                  onChange={(y) => setLayer({ y: y ?? 0 })}
+                />
+              </div>
             </div>
-          </div>
+          </Field>
+          <Field label="Blur" half={spread}>
+            <Num label="Blur" pixels value={layer.blur} onChange={(blur) => setLayer({ blur: blur ?? 0 })} />
+          </Field>
+          {spread && (
+            <Field label="Spread" half>
+              <Num
+                label="Spread"
+                pixels
+                min={-999}
+                value={layer.spread}
+                onChange={(next) => setLayer({ spread: next ?? 0 })}
+              />
+            </Field>
+          )}
           <Field label="Color">
             <ColorInput
               label="Shadow color"
@@ -592,62 +578,45 @@ export function ShadowEditor({
           </Field>
         </>
       )}
-      {entry.kind === "drop" && !onText && !inFilter && (
-        <Field label="Follow shape">
-          <Hint
-            label="Follow shape"
-            detail="Shadows what's drawn rather than the box, with no spread: filter: drop-shadow(), the filter's last entry"
-          >
-            <Switch
-              aria-label="Follow shape"
-              checked={entry.follow ?? false}
-              onCheckedChange={(follow) => {
-                const next = follow ? "drop-shadow-md" : "shadow-sm"
-                onChange({
-                  follow: follow || undefined,
-                  token: token === undefined ? undefined : next,
-                  colorOverride: undefined
-                })
-              }}
-            />
-          </Hint>
-        </Field>
-      )}
       {entry.kind === "drop" && text?.hasFill && (
         <Field label="Shadow of">
-          <ToggleGroup
-            variant="outline"
-            size="sm"
-            spacing={0}
-            aria-label="Shadow of"
-            value={[text.shadowOf]}
-            onValueChange={([shadowOf]) => {
-              if (shadowOf === "text" || shadowOf === "box") {
-                text.onShadowOf(shadowOf)
-              }
-            }}
-          >
-            <Hint label="Text" detail="Shadows the letters: text-shadow">
-              <ToggleGroupItem value="text" className="h-7 px-2 text-xs">
-                Text
-              </ToggleGroupItem>
-            </Hint>
-            <Hint label="Box" detail="Shadows the fill's box: box-shadow">
-              <ToggleGroupItem value="box" className="h-7 px-2 text-xs">
-                Box
-              </ToggleGroupItem>
-            </Hint>
-          </ToggleGroup>
+          <Segments label="Shadow of" value={text.shadowOf} options={shadowOfs} onChange={text.onShadowOf} />
         </Field>
       )}
-    </div>
+      {entry.kind === "drop" && !onText && !inFilter && (
+        <SwitchRow
+          label="Follow shape"
+          detail="Shadows what's drawn rather than the box, with no spread: filter: drop-shadow(), the filter's last entry"
+          checked={entry.follow ?? false}
+          onCheckedChange={(follow) => {
+            const next = follow ? "drop-shadow-md" : "shadow-sm"
+            onChange({
+              follow: follow || undefined,
+              token: token === undefined ? undefined : next,
+              colorOverride: undefined
+            })
+          }}
+        />
+      )}
+    </FieldGrid>
   )
 }
+
+const ringPositions = [
+  { value: "outside", label: "Outside", detail: "Around the edge: ring" },
+  { value: "inside", label: "Inside", detail: "Within the edge: inset-ring" }
+] as const satisfies readonly Segment<string>[]
+
+const shadowOfs = [
+  { value: "text", label: "Text", detail: "Shadows the letters: text-shadow" },
+  { value: "box", label: "Box", detail: "Shadows the fill's box: box-shadow" }
+] as const satisfies readonly Segment<string>[]
 
 /**
  * A shadow's token, on the shared field: the token as a chip, or Custom for the entry's own numbers. Its list draws
  * each token with its preview; typing a token's name (`md`, `shadow-md`) takes it, Up and Down step through the scale,
- * and Custom, the chip's ×, or Backspace on it detaches the token, keeping its first layer as the entry's own.
+ * and Custom, the chip's ×, Backspace on it, or Detach after the field detaches the token, keeping its first layer as
+ * the entry's own.
  */
 function ShadowTokenField({
   entry,
@@ -728,6 +697,23 @@ function ShadowTokenField({
       read={read}
       onCommit={pick}
       onStep={step}
+      trailing={
+        name === undefined ? undefined : (
+          <Hint
+            label={`Detach from ${name}`}
+            detail="Its first layer's values become this shadow's own, and you can edit them"
+          >
+            <button
+              type="button"
+              aria-label={`Detach from ${name}`}
+              onClick={() => pick(undefined)}
+              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-input/40"
+            >
+              <Unlink className="size-3.5" />
+            </button>
+          </Hint>
+        )
+      }
     />
   )
 }
@@ -739,9 +725,10 @@ function detach(entry: ShadowEntry, saved: ShadowToken[], onChange: (change: Par
 }
 
 /**
- * A composite token's parts (design-options-values.md, Composite token), folded under a disclosure in the token's
- * color. Its color can be overridden on the layer, shown in the override color with a reset arrow and a dot on the
- * chip; the offsets, blur and spread can't be in Tailwind, so changing them offers Detach.
+ * A composite token's parts (design-options-values.md, Composite token). Its color is a row of its own, which can be
+ * overridden on the layer, shown in the override color with a reset arrow and a dot on the chip. Its layers fold under
+ * a disclosure in the token's color, as a table of their offsets, blur and spread; those can't be changed in Tailwind,
+ * so Detach, after the token's field, makes them the entry's own.
  */
 function TokenParts({
   entry,
@@ -762,65 +749,71 @@ function TokenParts({
   const color: ListColor = entry.colorOverride ?? { color: own.color, alpha: own.alpha }
   const overridden = entry.colorOverride !== undefined
 
+  const layers = token?.layers ?? [entry.layer]
+  const columns = spread ? ["X", "Y", "Blur", "Spread"] : ["X", "Y", "Blur"]
+  const cell = "px-1 py-0.5 text-right font-normal"
+
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="flex flex-col gap-1">
-      <CollapsibleTrigger className="flex items-center gap-1 self-start rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-        {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-        {`${token?.layers.length ?? 1} ${token?.layers.length === 1 ? "layer" : "layers"} in ${entry.token}`}
-      </CollapsibleTrigger>
-      <CollapsibleContent className="flex flex-col gap-1 border-l-2 pl-2" style={{ borderColor: "var(--primary)" }}>
-        {(token?.layers ?? [entry.layer]).map((part, index) => (
-          <div key={index} className="flex items-center justify-between gap-2 text-xs tabular-nums">
-            <span>{`Layer ${index + 1}`}</span>
-            <span className="text-muted-foreground">{layerNumbers(part, spread)}</span>
-          </div>
-        ))}
-        <div className="grid grid-cols-[88px_1fr] items-center gap-2">
-          <span
-            className="flex items-center gap-0.5 text-xs"
-            style={overridden ? { color: overrideColor } : { color: "var(--muted-foreground)" }}
-          >
-            Color
-            {overridden && (
-              <Hint label={`Reset to ${entry.token}'s color`}>
-                <button
-                  type="button"
-                  aria-label={`Reset color to ${entry.token}'s`}
-                  onClick={() => onChange({ colorOverride: undefined })}
-                  className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <RotateCcw className="size-3" />
-                </button>
-              </Hint>
-            )}
-          </span>
-          <ColorInput
-            label="Shadow color"
-            value={color.color}
-            alpha={color.alpha}
-            tokensOnly={tokensOnly}
-            used={usedColors}
-            onChange={(next, alpha) =>
-              onChange({ colorOverride: next === undefined ? undefined : { color: next, alpha } })
-            }
-          />
-        </div>
-        <MessageLine
-          message={{
-            tone: "note",
-            text: "Only a shadow token's color can be changed. To edit the rest, detach it."
-          }}
+    <>
+      <Field
+        label="Color"
+        overrides={overridden ? entry.token : undefined}
+        onReset={() => onChange({ colorOverride: undefined })}
+      >
+        <ColorInput
+          label="Shadow color"
+          value={color.color}
+          alpha={color.alpha}
+          tokensOnly={tokensOnly}
+          used={usedColors}
+          onChange={(next, alpha) =>
+            onChange({ colorOverride: next === undefined ? undefined : { color: next, alpha } })
+          }
         />
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1 self-start text-xs"
-          onClick={() => detach(entry, saved, onChange)}
-        >
-          <Unlink className="size-3.5" /> Detach
-        </Button>
-      </CollapsibleContent>
-    </Collapsible>
+      </Field>
+      <Collapsible open={open} onOpenChange={setOpen} className="col-span-2 flex min-w-0 flex-col gap-1">
+        <CollapsibleTrigger className="flex h-5 items-center gap-1 self-start rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+          {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+          {`${layers.length} ${layers.length === 1 ? "layer" : "layers"} in ${entry.token}`}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="flex flex-col gap-1.5 border-l-2 pl-2" style={{ borderColor: "var(--primary)" }}>
+          <table className="w-full border-collapse text-xs tabular-nums">
+            <thead className="text-muted-foreground">
+              <tr>
+                <th scope="col" className="py-0.5 text-left font-normal">
+                  <span className="sr-only">Layer</span>
+                </th>
+                {columns.map((column) => (
+                  <th key={column} scope="col" className={cell}>
+                    {column}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {layers.map((part, index) => (
+                <tr key={index}>
+                  <th scope="row" className="py-0.5 text-left font-normal">{`Layer ${index + 1}`}</th>
+                  {layerNumbers(part, spread)
+                    .split(" ")
+                    .map((number, at) => (
+                      <td key={columns[at]} className={cell}>
+                        {number}
+                      </td>
+                    ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <MessageLine
+            message={{
+              tone: "note",
+              text: "Only a shadow token's color can be changed. To edit the rest, detach it."
+            }}
+          />
+        </CollapsibleContent>
+      </Collapsible>
+    </>
   )
 }
 

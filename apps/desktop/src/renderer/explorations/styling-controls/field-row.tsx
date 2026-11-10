@@ -1,3 +1,4 @@
+import { Switch } from "@buildkitgg/shadcn-baseui-kit"
 import { Lock, LockOpen, RotateCcw } from "lucide-react"
 import {
   createContext,
@@ -212,6 +213,76 @@ export function Field({
  */
 export function FieldGrid({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`grid grid-cols-2 gap-x-2 gap-y-2.5 ${className}`}>{children}</div>
+}
+
+/** One of a few options a row's segments offer, with what it writes in its hint. */
+export interface Segment<V extends string> {
+  value: V
+  label: string
+  detail?: string
+}
+
+/**
+ * Two or three options as segments across the row, drawn as the keyword toggles are: the one chosen raised, each named
+ * in its hint with what it writes. One click changes it, where a menu would take two.
+ */
+export function Segments<V extends string>({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string
+  value: V
+  options: readonly Segment<V>[]
+  onChange: (value: V) => void
+}) {
+  return (
+    <fieldset aria-label={label} className="m-0 flex h-7 min-w-0 items-center gap-px rounded-md border p-0.5">
+      {options.map((option) => {
+        const pressed = option.value === value
+
+        return (
+          <Hint key={option.value} label={option.label} detail={option.detail}>
+            <button
+              type="button"
+              aria-pressed={pressed}
+              onClick={() => onChange(option.value)}
+              className={`h-full min-w-0 flex-1 truncate rounded-sm px-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring ${pressed ? "bg-accent text-foreground shadow-xs" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`}
+            >
+              {option.label}
+            </button>
+          </Hint>
+        )
+      })}
+    </fieldset>
+  )
+}
+
+/**
+ * A setting that's on or off: its name as a row's name is drawn, and its switch at the end of the row, where a field's
+ * reset arrow goes. Clicking the name flips it too.
+ */
+export function SwitchRow({
+  label,
+  detail,
+  checked,
+  onCheckedChange
+}: {
+  label: string
+  /** What it does, in the switch's hint. */
+  detail?: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="col-span-2 flex h-5 min-w-0 cursor-pointer items-center justify-between gap-2">
+      <span className="truncate text-xs text-muted-foreground">{label}</span>
+      <Hint label={label} detail={detail}>
+        <Switch size="sm" aria-label={label} checked={checked} onCheckedChange={onCheckedChange} />
+      </Hint>
+    </label>
+  )
 }
 
 /* The glyphs and toggle a row's fields and name use */
