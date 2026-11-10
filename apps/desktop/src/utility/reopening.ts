@@ -1,6 +1,7 @@
 import { readFile, rename, writeFile } from "node:fs/promises"
 import { jsonText } from "@parity-app/core"
 import { z } from "zod"
+import { degraded } from "./degraded.ts"
 
 /**
  * The projects open when the service last ran, kept in a file in Parity's app data (`PARITY_REOPEN_FILE`), so a service
@@ -103,6 +104,6 @@ async function write(file: string, text: string): Promise<void> {
     await writeFile(partial, text)
     await rename(partial, file)
   } catch (error) {
-    console.warn(`[service] couldn't keep the open projects: ${error instanceof Error ? error.message : String(error)}`)
+    degraded("reopening", "couldn't keep the open projects", error)
   }
 }
