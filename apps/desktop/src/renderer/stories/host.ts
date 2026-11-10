@@ -1,4 +1,5 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
+import { connectors, type SearchAnswer, searchAnswer } from "@parity-app/connectors"
 import {
   type ComponentInfo,
   type ContainerSpec,
@@ -10,6 +11,7 @@ import discovered from "virtual:parity/example-project"
 import { z } from "zod"
 import desktop from "../../../package.json"
 import { type AccountState, type SignedInAccount, type SignInAttempt, signedOut } from "../../shared/account.ts"
+import type { ConnectorSearch } from "../../shared/connectors.ts"
 import type {
   CanvasHost,
   ProjectEditResult,
@@ -207,6 +209,61 @@ const storyTelemetry: CanvasHost["telemetry"] = {
   }
 }
 
+/** The answer where there's no server running the connectors, as in a built Storybook. */
+const noServer: SearchAnswer = {
+  problem: {
+    code: "no-key",
+    message: "This Storybook has no keys. Run it from the repository, with the keys in apps/desktop/.env.local."
+  }
+}
+
+/**
+ * Asks the connectors Storybook's dev server runs (`.storybook/connectors.ts`). Nothing comes back where it isn't
+ * running, or where it didn't answer with JSON.
+ */
+async function askConnectors(path: "keys" | "search", search?: ConnectorSearch): Promise<Response | undefined> {
+  try {
+    const response = await fetch(`/__connectors/${path}`, {
+      method: search ? "POST" : "GET",
+      headers: { "content-type": "application/json" },
+      body: search ? JSON.stringify(search) : undefined
+    })
+
+    const sent = response.headers.get("content-type") ?? ""
+
+    return response.ok && sent.startsWith("application/json") ? response : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The connectors in stories (PAR-827): Storybook's dev server searches Mobbin and Unsplash with the keys in
+ * `.env.local`, as main does for the window, so a key never reaches the page. Nothing here keeps a key or tells a
+ * source a result was used, since a story places nothing for real.
+ */
+const storyConnectors: CanvasHost["connectors"] = {
+  get: async () => {
+    const answered = await askConnectors("keys")
+    const keyed = z.array(z.string()).safeParse(await answered?.json())
+
+    return connectors.map(({ info }) => ({
+      ...info,
+      key: keyed.success && keyed.data.includes(info.id) ? "environment" : "none"
+    }))
+  },
+  subscribe: () => () => undefined,
+  search: async (search) => {
+    const answered = await askConnectors("search", search)
+    const answer = searchAnswer.safeParse(await answered?.json())
+
+    return answer.success ? answer.data : noServer
+  },
+  setKey: () => Promise.resolve({ problem: { code: "invalid", message: "Stories keep no keys." } }),
+  clearKey: () => Promise.resolve(),
+  picked: () => Promise.resolve()
+}
+
 /** Puts the service and the system dialogs back as they were before any story changed them. */
 export function resetHost(): void {
   telemetryNow = defaultTelemetry
@@ -260,15 +317,7 @@ export function installHost(): void {
       })
     }),
     account: storyAccount,
-    // Stories have no connectors until the References tab's stories need them (PAR-827).
-    connectors: {
-      get: () => Promise.resolve([]),
-      subscribe: () => () => undefined,
-      search: () => Promise.resolve({ problem: { code: "no-key", message: "Stories have no connectors." } }),
-      setKey: () => Promise.resolve({ problem: { code: "no-key", message: "Stories have no connectors." } }),
-      clearKey: () => Promise.resolve(),
-      picked: () => Promise.resolve()
-    },
+    connectors: storyConnectors,
     serve: () => undefined,
     onReconnect: () => undefined,
     ...cancelled,

@@ -1,3 +1,4 @@
+import type { Found, SearchAnswer, SearchRequest } from "@parity-app/connectors"
 import {
   Anchor,
   Apple,
@@ -22,21 +23,23 @@ import {
   Wind
 } from "lucide-react"
 import type { Look } from "../start/data.ts"
+import { desktop, phone } from "../start/render-kit.tsx"
 
 /*
- * A stand-in for Mobbin's REST API, which has one endpoint: `POST /v1/screens/search`. It takes a description in plain
- * words, a platform, a mode, a limit and screens to leave out, and returns screens. The samples are made-up apps, drawn
- * by `screens.tsx` where Mobbin returns screenshots.
+ * Sample libraries standing in for Mobbin and Unsplash, answering in the connectors' own words (`SearchRequest` in,
+ * `SearchAnswer` out), so the browser is the same code against samples as against the real connectors. The apps,
+ * photographers and pictures are made up, drawn by `screens.tsx` and `photos.tsx`, so the exploration ships no one
+ * else's work.
  */
 
-/** The API's `platform`, its only filter, and required. */
-export type Platform = "web" | "ios"
+/** Where a browser's searches go: the samples here, or the real connectors through the host. */
+export interface Source {
+  search(connector: string, request: SearchRequest): Promise<SearchAnswer>
+  /** The answer without the wait, for a story that opens on results. Only the samples have one. */
+  instant?(connector: string, request: SearchRequest): SearchAnswer
+}
 
-/**
- * The API's `mode`. `standard` answers quickly. `deep` checks each candidate against the description and keeps the
- * close matches, so it takes longer and can return fewer screens than the limit.
- */
-export type Mode = "standard" | "deep"
+type Platform = "web" | "ios"
 
 /** What a sample screen shows, which picks its drawing. */
 export type Layout =
@@ -60,13 +63,11 @@ export type Layout =
   | "phone-billing"
   | "phone-listings"
 
-/** A screen as the API returns one (`id`, `app_name`, `platform`, `mobbin_url`), with what its drawing needs. */
-export interface Sample {
+/** A sample screen: what Mobbin would return for it, and what its drawing needs. */
+export interface SampleScreen {
   id: string
   app: string
   platform: Platform
-  /** Where the screen is on Mobbin. */
-  link: string
   look: Look
   layout: Layout
 }
@@ -79,46 +80,21 @@ interface LayoutFacts {
   shows: string
 }
 
+const pricingPage = "pricing plans subscription marketing"
+const paywall = "paywall pricing subscription upgrade premium"
+
 const facts: Record<Layout, LayoutFacts> = {
-  "pricing-tiers": {
-    platform: "web",
-    kind: "pricing plans subscription marketing",
-    shows: "yearly monthly toggle switch plan cards tiers"
-  },
-  "pricing-compare": {
-    platform: "web",
-    kind: "pricing plans subscription marketing",
-    shows: "comparison compare table features"
-  },
-  "pricing-usage": {
-    platform: "web",
-    kind: "pricing plans subscription marketing",
-    shows: "slider usage calculator"
-  },
-  "pricing-two": {
-    platform: "web",
-    kind: "pricing plans subscription marketing",
-    shows: "yearly monthly toggle switch questions faq free plan"
-  },
-  "paywall-plans": {
-    platform: "ios",
-    kind: "paywall pricing subscription upgrade premium",
-    shows: "free trial yearly monthly plan options"
-  },
-  "paywall-timeline": {
-    platform: "ios",
-    kind: "paywall pricing subscription upgrade premium",
-    shows: "free trial timeline reminder steps"
-  },
-  "paywall-compare": {
-    platform: "ios",
-    kind: "paywall pricing subscription upgrade premium",
-    shows: "comparison compare table features lifetime"
-  },
+  "pricing-tiers": { platform: "web", kind: pricingPage, shows: "yearly monthly toggle switch plan cards tiers" },
+  "pricing-compare": { platform: "web", kind: pricingPage, shows: "comparison compare table features" },
+  "pricing-usage": { platform: "web", kind: pricingPage, shows: "slider usage calculator" },
+  "pricing-two": { platform: "web", kind: pricingPage, shows: "yearly monthly toggle switch questions faq free plan" },
+  "paywall-plans": { platform: "ios", kind: paywall, shows: "free trial yearly monthly plan options" },
+  "paywall-timeline": { platform: "ios", kind: paywall, shows: "free trial timeline reminder steps" },
+  "paywall-compare": { platform: "ios", kind: paywall, shows: "comparison compare table features lifetime" },
   "phone-pricing": {
     platform: "ios",
     kind: "pricing plans paywall subscription",
-    shows: "yearly monthly toggle plan cards"
+    shows: "yearly monthly toggle cards"
   },
   landing: { platform: "web", kind: "landing home marketing website hero", shows: "terminal headline" },
   "sign-in": { platform: "web", kind: "sign login log signin authentication", shows: "google github password email" },
@@ -159,8 +135,8 @@ const apps = {
 
 type App = keyof typeof apps
 
-/** The library, in the order Mobbin would rank equal matches. */
-const library: [Layout, App][] = [
+/** The screens, in the order Mobbin would rank equal matches. */
+const screenList: [Layout, App][] = [
   ["pricing-tiers", "Ledgerly"],
   ["pricing-compare", "Northwind"],
   ["pricing-two", "Quill"],
@@ -209,40 +185,250 @@ const library: [Layout, App][] = [
   ["phone-listings", "Pocketlist"]
 ]
 
-export const samples: readonly Sample[] = library.map(([layout, app]) => {
-  const id = `${app.toLowerCase()}-${layout}`
+const screens: readonly SampleScreen[] = screenList.map(([layout, app]) => ({
+  id: `${app.toLowerCase()}-${layout}`,
+  app,
+  platform: facts[layout].platform,
+  look: apps[app],
+  layout
+}))
 
-  return {
-    id,
-    app,
-    platform: facts[layout].platform,
-    link: `https://mobbin.com/screens/${id}`,
-    look: apps[app],
-    layout
-  }
-})
-
-export function sampleOf(id: string): Sample | undefined {
-  return samples.find((each) => each.id === id)
+export function sampleScreen(id: string): SampleScreen | undefined {
+  return screens.find((each) => each.id === id)
 }
 
-/** Words that say nothing about a screen. */
-const filler = new Set([
-  "a",
-  "an",
-  "the",
-  "with",
-  "and",
-  "for",
-  "of",
-  "in",
-  "on",
-  "to",
-  "page",
-  "screen",
-  "app",
-  "that"
-])
+/** What a sample photo is of, which picks its drawing. */
+export type Scene = "hills" | "coast" | "city" | "desk" | "portrait" | "leaves" | "abstract"
+
+/** A sample photo: what Unsplash would return for it, and what its drawing needs. */
+export interface SamplePhoto {
+  id: string
+  description: string
+  /** The photographer. */
+  by: string
+  scene: Scene
+  hue: number
+  width: number
+  height: number
+  /** The one of Unsplash's colors it would be found under. */
+  color: string
+  /** Words a search matches, beside its description. */
+  tags: string
+}
+
+const wide = { width: 4800, height: 3200 }
+const tall = { width: 3200, height: 4800 }
+const square = { width: 4000, height: 4000 }
+
+const photos: readonly SamplePhoto[] = [
+  {
+    id: "lake-at-sunrise",
+    description: "A mountain lake at sunrise",
+    by: "Mara Lindqvist",
+    scene: "hills",
+    hue: 25,
+    ...wide,
+    color: "orange",
+    tags: "mountains nature landscape morning outdoors calm"
+  },
+  {
+    id: "team-at-a-laptop",
+    description: "A desk with a laptop and coffee",
+    by: "Dev Anand",
+    scene: "desk",
+    hue: 60,
+    ...wide,
+    color: "yellow",
+    tags: "office work team laptop desk workspace startup"
+  },
+  {
+    id: "skyline-at-dusk",
+    description: "A city skyline at dusk",
+    by: "Tobias Renner",
+    scene: "city",
+    hue: 280,
+    ...wide,
+    color: "purple",
+    tags: "city buildings urban evening architecture"
+  },
+  {
+    id: "portrait-in-window-light",
+    description: "A portrait in window light",
+    by: "Aiko Tanaka",
+    scene: "portrait",
+    hue: 30,
+    ...tall,
+    color: "orange",
+    tags: "person people portrait woman face team"
+  },
+  {
+    id: "monstera-leaves",
+    description: "Monstera leaves against a wall",
+    by: "Lucía Ferrer",
+    scene: "leaves",
+    hue: 150,
+    ...tall,
+    color: "green",
+    tags: "plant leaves nature green botanical"
+  },
+  {
+    id: "soft-gradient",
+    description: "A soft blue and violet gradient",
+    by: "Noor Haddad",
+    scene: "abstract",
+    hue: 255,
+    ...wide,
+    color: "blue",
+    tags: "abstract gradient background texture color"
+  },
+  {
+    id: "green-hills",
+    description: "Rolling green hills under a clear sky",
+    by: "Mara Lindqvist",
+    scene: "hills",
+    hue: 140,
+    ...wide,
+    color: "green",
+    tags: "mountains nature landscape hills outdoors"
+  },
+  {
+    id: "rocky-coast",
+    description: "Waves on a rocky coast",
+    by: "Tobias Renner",
+    scene: "coast",
+    hue: 205,
+    ...wide,
+    color: "teal",
+    tags: "sea ocean coast beach water nature"
+  },
+  {
+    id: "desk-from-above",
+    description: "A tidy desk from above",
+    by: "Aiko Tanaka",
+    scene: "desk",
+    hue: 200,
+    ...square,
+    color: "blue",
+    tags: "office work desk workspace flat lay laptop"
+  },
+  {
+    id: "tower-blocks",
+    description: "Tower blocks in morning haze",
+    by: "Dev Anand",
+    scene: "city",
+    hue: 205,
+    ...tall,
+    color: "teal",
+    tags: "city buildings urban architecture morning"
+  },
+  {
+    id: "portrait-on-teal",
+    description: "A portrait against a teal wall",
+    by: "Lucía Ferrer",
+    scene: "portrait",
+    hue: 185,
+    ...tall,
+    color: "teal",
+    tags: "person people portrait man face team"
+  },
+  {
+    id: "warm-gradient",
+    description: "A warm orange and pink gradient",
+    by: "Noor Haddad",
+    scene: "abstract",
+    hue: 20,
+    ...square,
+    color: "orange",
+    tags: "abstract gradient background texture color"
+  },
+  {
+    id: "alpine-dusk",
+    description: "Mountains at dusk",
+    by: "Mara Lindqvist",
+    scene: "hills",
+    hue: 290,
+    ...wide,
+    color: "purple",
+    tags: "mountains nature landscape evening outdoors"
+  },
+  {
+    id: "fern-fronds",
+    description: "Fern fronds up close",
+    by: "Lucía Ferrer",
+    scene: "leaves",
+    hue: 125,
+    ...square,
+    color: "green",
+    tags: "plant leaves nature green botanical forest"
+  },
+  {
+    id: "sunset-shore",
+    description: "A shore at sunset",
+    by: "Tobias Renner",
+    scene: "coast",
+    hue: 35,
+    ...wide,
+    color: "orange",
+    tags: "sea ocean coast beach water sunset nature"
+  },
+  {
+    id: "desk-at-night",
+    description: "A desk lit by a screen at night",
+    by: "Dev Anand",
+    scene: "desk",
+    hue: 265,
+    ...wide,
+    color: "black",
+    tags: "office work desk workspace laptop night dark"
+  },
+  {
+    id: "city-in-grey",
+    description: "A street between tall buildings",
+    by: "Aiko Tanaka",
+    scene: "city",
+    hue: 0,
+    ...tall,
+    color: "black_and_white",
+    tags: "city buildings urban street architecture"
+  },
+  {
+    id: "portrait-in-grey",
+    description: "A portrait in black and white",
+    by: "Aiko Tanaka",
+    scene: "portrait",
+    hue: 0,
+    ...square,
+    color: "black_and_white",
+    tags: "person people portrait face team"
+  },
+  {
+    id: "misty-ridge",
+    description: "A ridge in the mist",
+    by: "Mara Lindqvist",
+    scene: "hills",
+    hue: 215,
+    ...tall,
+    color: "blue",
+    tags: "mountains nature landscape fog outdoors"
+  },
+  {
+    id: "green-gradient",
+    description: "A green and teal gradient",
+    by: "Noor Haddad",
+    scene: "abstract",
+    hue: 165,
+    ...wide,
+    color: "teal",
+    tags: "abstract gradient background texture color"
+  }
+]
+
+export function samplePhoto(id: string): SamplePhoto | undefined {
+  return photos.find((each) => each.id === id)
+}
+
+/** Words that say nothing about a screen or a photo. */
+const filler = new Set(["a", "an", "the", "with", "and", "for", "of", "in", "on", "to", "at", "page", "screen", "app"])
 
 function wordsOf(text: string): string[] {
   return text
@@ -256,47 +442,128 @@ function says(text: string, word: string): boolean {
   return wordsOf(text).some((each) => each === word || (word.length > 2 && each.startsWith(word)))
 }
 
-/** The API's request, without `image_quality`, which a drawing has no use for. */
-export interface SearchRequest {
-  query: string
-  platform: Platform
-  mode: Mode
-  limit: number
-  /** `exclude_screen_ids`: screens already shown, so asking again brings others. Up to 100. */
-  exclude?: readonly string[]
+/** A sample picture's link. Nothing loads it: `pictures.tsx` draws samples by their id. */
+const drawn = (id: string) => `https://example.com/samples/${id}.png`
+
+function foundScreen(screen: SampleScreen): Found {
+  const link = `https://mobbin.com/screens/${screen.id}`
+
+  return {
+    connector: "mobbin",
+    id: screen.id,
+    kind: "screens",
+    title: screen.app,
+    platform: screen.platform,
+    image: { url: drawn(screen.id), ...(screen.platform === "ios" ? phone : desktop) },
+    link,
+    credit: [{ name: screen.app }, { name: "Mobbin", url: link }]
+  }
+}
+
+function foundPhoto(photo: SamplePhoto): Found {
+  return {
+    connector: "unsplash",
+    id: photo.id,
+    kind: "photos",
+    title: photo.description,
+    image: { url: drawn(photo.id), width: photo.width, height: photo.height },
+    link: `https://unsplash.com/photos/${photo.id}`,
+    credit: [
+      { name: photo.by, url: "https://unsplash.com" },
+      { name: "Unsplash", url: "https://unsplash.com" }
+    ]
+  }
+}
+
+/** A sample as a search would return it, for a story that starts with one picked or placed. */
+export function sampleFound(id: string): Found | undefined {
+  const screen = sampleScreen(id)
+
+  if (screen) {
+    return foundScreen(screen)
+  }
+
+  const photo = samplePhoto(id)
+
+  return photo && foundPhoto(photo)
 }
 
 /**
- * Searches the samples the way the API searches Mobbin. Naming an app keeps the results to that app. `standard`
- * returns every screen some word of the description fits, the closest first. `deep` keeps only the screens every word
- * fits, so it can return fewer than the limit.
+ * Searches the sample screens the way Mobbin's API does. Naming an app keeps the results to that app. A standard search
+ * returns every screen some word of the description fits, the closest first. A deep one keeps only the screens every
+ * word fits, so it can return fewer than the limit. More come by leaving out the ones already shown.
  */
-export function searchScreens({ query, platform, mode, limit, exclude = [] }: SearchRequest): Sample[] {
-  const named = samples.find((each) => says(query, each.app.toLowerCase()))?.app
+function searchScreens({ query, limit = 20, filters = {}, exclude = [] }: SearchRequest): Found[] {
+  const named = screens.find((each) => says(query, each.app.toLowerCase()))?.app
   const words = wordsOf(query).filter((word) => word !== named?.toLowerCase())
+  const platform = filters.platform ?? "web"
+  const deep = filters.depth === "deep"
 
-  const scored = samples.flatMap((sample) => {
-    if (sample.platform !== platform || exclude.includes(sample.id) || (named && sample.app !== named)) {
+  const scored = screens.flatMap((screen) => {
+    if (screen.platform !== platform || exclude.includes(screen.id) || (named && screen.app !== named)) {
       return []
     }
 
-    const { kind, shows } = facts[sample.layout]
+    const { kind, shows } = facts[screen.layout]
     const fits = words.filter((word) => says(kind, word) || says(shows, word)).length
-    const close = mode === "deep" ? fits === words.length : fits > 0 || words.length === 0
+    const close = deep ? fits === words.length : fits > 0 || words.length === 0
 
-    return close ? [{ sample, fits }] : []
+    return close ? [{ screen, fits }] : []
   })
 
   return scored
     .toSorted((first, second) => second.fits - first.fits)
     .slice(0, limit)
-    .map(({ sample }) => sample)
+    .map(({ screen }) => foundScreen(screen))
 }
 
-/** The most screens one description can bring, as the API takes at most 100 ids to leave out. */
-export const mostPerSearch = 100
+function orientationOf(photo: SamplePhoto): string {
+  if (photo.width > photo.height) {
+    return "landscape"
+  }
 
-/** A description to start from for a design: its name, as a page on the web or a screen on a phone. */
-export function startingQuery(designName: string, platform: Platform): string {
-  return `${designName.toLowerCase()} ${platform === "web" ? "page" : "screen"}`
+  return photo.height > photo.width ? "portrait" : "squarish"
+}
+
+/** Searches the sample photos the way Unsplash's API does: by words, orientation and color, a page at a time. */
+function searchPhotos({ query, limit = 20, filters = {}, page = 1 }: SearchRequest): Found[] {
+  const words = wordsOf(query)
+
+  const scored = photos.flatMap((photo) => {
+    const fits = words.filter((word) => says(photo.description, word) || says(photo.tags, word)).length
+    const kept = !filters.orientation || orientationOf(photo) === filters.orientation
+    const colored = !filters.color || photo.color === filters.color
+
+    return fits > 0 && kept && colored ? [{ photo, fits }] : []
+  })
+
+  return scored
+    .toSorted((first, second) => second.fits - first.fits)
+    .slice((page - 1) * limit, page * limit)
+    .map(({ photo }) => foundPhoto(photo))
+}
+
+/** How long the samples take to answer, as the real searches do. */
+const wait = { quick: 450, deep: 2200 }
+
+/**
+ * The sample libraries as a source. `searchesLeft` is how many searches Unsplash says remain this hour, which it sends
+ * with every answer.
+ */
+export function samples({ searchesLeft = 42 }: { searchesLeft?: number } = {}): Source {
+  const instant = (connector: string, request: SearchRequest): SearchAnswer =>
+    connector === "unsplash"
+      ? { found: searchPhotos(request), allowance: { remaining: searchesLeft, limit: 50 } }
+      : { found: searchScreens(request) }
+
+  return {
+    instant,
+    search: (connector, request) =>
+      new Promise((resolve) => {
+        setTimeout(
+          () => resolve(instant(connector, request)),
+          request.filters?.depth === "deep" ? wait.deep : wait.quick
+        )
+      })
+  }
 }

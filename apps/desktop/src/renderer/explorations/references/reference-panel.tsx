@@ -4,7 +4,7 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { panelEnd, PanelSection } from "../../chrome/PanelSection.tsx"
 import { headingIcon, headingName, SelectionHeading } from "../../chrome/SelectionHeading.tsx"
 import type { Placed } from "./canvas.tsx"
-import type { Sample } from "./data.ts"
+import { creditOf } from "./library.tsx"
 
 /*
  * The inspector's Design tab for a selected reference, as a selected note has its own: where the screen is from, how
@@ -13,14 +13,16 @@ import type { Sample } from "./data.ts"
 
 interface ReferencePanelProps {
   placed: Placed
-  sample: Sample
   onNote: (note: string) => void
   onOpen: () => void
   /** Searches for the app's other screens, which the search does when a description names an app. */
   onMore: () => void
 }
 
-export function ReferencePanel({ placed, sample, onNote, onOpen, onMore }: ReferencePanelProps) {
+export function ReferencePanel({ placed, onNote, onOpen, onMore }: ReferencePanelProps) {
+  const { found } = placed
+  const app = creditOf(found)
+
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
@@ -29,7 +31,7 @@ export function ReferencePanel({ placed, sample, onNote, onOpen, onMore }: Refer
           color={kindColors.layer}
           kind="Reference"
           detail="Reference, from Mobbin"
-          name={<span className={`truncate px-1.5 ${headingName}`}>{sample.app}</span>}
+          name={<span className={`truncate px-1.5 ${headingName}`}>{app}</span>}
         />
       </div>
       <PanelSection title="Source">
@@ -37,7 +39,7 @@ export function ReferencePanel({ placed, sample, onNote, onOpen, onMore }: Refer
           <dt className="text-muted-foreground">From</dt>
           <dd>Mobbin</dd>
           <dt className="text-muted-foreground">Platform</dt>
-          <dd>{sample.platform === "ios" ? "iOS" : "Web"}</dd>
+          <dd>{found.platform === "ios" ? "iOS" : "Web"}</dd>
           <dt className="text-muted-foreground">Found with</dt>
           <dd>“{placed.query}”</dd>
           <dt className="text-muted-foreground">Placed by</dt>
@@ -48,7 +50,7 @@ export function ReferencePanel({ placed, sample, onNote, onOpen, onMore }: Refer
             <ExternalLink /> Open in Mobbin
           </Button>
           <Button variant="outline" size="sm" onClick={onMore}>
-            <Search /> More from {sample.app}
+            <Search /> More from {app}
           </Button>
         </div>
       </PanelSection>

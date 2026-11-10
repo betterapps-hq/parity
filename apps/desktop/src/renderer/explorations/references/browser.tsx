@@ -14,17 +14,24 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   Spinner,
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
+import type { Allowance, Filter, Found, Problem, SearchAnswer } from "@parity-app/connectors"
 import {
   Check,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   History,
+  type LucideIcon,
   Maximize2,
   Monitor,
   ScanSearch,
@@ -36,39 +43,44 @@ import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useRef, 
 import { chipColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { IconButton } from "../../chrome/IconButton.tsx"
-import { type Mode, mostPerSearch, type Platform, type Sample, sampleOf, searchScreens } from "./data.ts"
-import { ScreenPicture } from "./screens.tsx"
+import type { Source } from "./data.ts"
+import {
+  creditOf,
+  depthOf,
+  labelOf,
+  filtersInWords,
+  type Library,
+  type LibraryId,
+  Picture,
+  requestFor,
+  type Searched,
+  shownFilters,
+  sizeOf
+} from "./library.tsx"
 
 /*
- * Find references: a wide browser over the canvas, where screenshots are big enough to read. It has the two things
- * Mobbin's search takes from a person, a description and a platform, and nothing the search can't do. A search answers
- * quickly in standard mode; Search deeper runs the same description in deep mode. Screens picked here, across as many
- * searches as it takes, are placed on the canvas together.
+ * The browser for searching a library outside the project: Mobbin's screens to place beside a design, or Unsplash's
+ * photos to add to one. It's wide, over the canvas, so pictures are big enough to judge. It asks for a description
+ * and whatever the library's connector says it can filter by, and nothing a search can't do. What's picked here,
+ * across as many searches as it takes, is placed together.
  */
 
-/** A search as it was run. */
-export interface Searched {
-  query: string
-  platform: Platform
-  mode: Mode
-}
-
-/** A screen picked to place, with the description that found it. */
+/** A result picked to place, with the description that found it. */
 export interface Picked {
-  sample: Sample
+  found: Found
   query: string
 }
 
 /** Where a story opens the browser. */
 export interface BrowserStart {
   query?: string
-  platform?: Platform
-  mode?: Mode
-  /** A state Mobbin's answer can put a search in, held for a story. */
-  status?: "searching" | "limited" | "failed"
-  /** The ids of screens already picked. */
-  picked?: string[]
-  /** The id of the screen shown larger. */
+  filters?: Record<string, string>
+  deep?: boolean
+  /** An answer held for a story: still waiting, or one of the problems a connector can answer with. */
+  status?: "searching" | "limited" | "failed" | "no-key"
+  /** Results already picked. */
+  picked?: Found[]
+  /** The id of the result shown larger. */
   viewing?: string
   /** How many times More results was pressed. */
   more?: number
@@ -76,152 +88,162 @@ export interface BrowserStart {
   fresh?: boolean
 }
 
-type Status = "idle" | "searching" | "ready" | "limited" | "failed"
+type Status = "idle" | "searching" | "ready" | "problem"
 
-/** How many screens a search asks for: three rows of web pages, or two of phones. */
-const pageSize: Record<Platform, number> = { web: 9, ios: 12 }
-
-const platformNames: Record<Platform, string> = { web: "Web", ios: "iOS" }
-
-/** How long the stand-in takes to answer, as Mobbin's modes do. */
-const wait: Record<Mode, number> = { standard: 450, deep: 2200 }
+const held: Record<Exclude<BrowserStart["status"], "searching" | undefined>, Problem> = {
+  limited: { code: "rate-limited", message: "Too many searches for now.", retryAfter: 20 },
+  failed: { code: "unavailable", message: "The source didn't answer." },
+  "no-key": { code: "no-key", message: "Add a key for it in Settings, under Connectors." }
+}
 
 interface BrowserProps {
-  open: boolean
+  /** The library to search, while the browser is open. */
+  library?: Library
+  source: Source
   start?: BrowserStart
-  recent: readonly Pick<Searched, "query" | "platform">[]
+  recent: readonly (Searched & { library: LibraryId })[]
   onClose: () => void
   onSearched: (search: Searched) => void
   onPlace: (picked: Picked[]) => void
-  onOpenInMobbin: (sample: Sample) => void
+  onOpenAtSource: (found: Found) => void
 }
 
-export function ReferenceBrowser(props: BrowserProps) {
+export function LibraryBrowser({ library, ...props }: BrowserProps) {
   // Mounted while open, so each opening starts from where it was asked to.
-  return props.open ? <Browser {...props} /> : null
+  return library ? <Browser key={library.id} library={library} {...props} /> : null
 }
 
-function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMobbin }: BrowserProps) {
+function Browser({
+  library,
+  source,
+  start = {},
+  recent,
+  onClose,
+  onSearched,
+  onPlace,
+  onOpenAtSource
+}: BrowserProps & { library: Library }) {
+  const { info } = library
+
   const first: Searched | undefined = start.query
-    ? { query: start.query, platform: start.platform ?? "web", mode: start.mode ?? "standard" }
+    ? { query: start.query, filters: start.filters ?? {}, deep: start.deep }
     : undefined
 
+  const ready = first && !start.status && !start.fresh ? opened(library, source, first, start.more ?? 0) : undefined
+
   const [input, setInput] = useState(start.query ?? "")
-  const [platform, setPlatform] = useState<Platform>(start.platform ?? "web")
+  const [chosen, setChosen] = useState<Readonly<Record<string, string>>>(start.filters ?? {})
   const [search, setSearch] = useState(first)
-  const waiting = !!start.status || !!start.fresh
-  const opensOn = start.fresh ? "searching" : "ready"
-  const [status, setStatus] = useState<Status>(start.status ?? (first ? opensOn : "idle"))
-
-  const [results, setResults] = useState<Sample[]>(() =>
-    first && !waiting ? pull(first, [], 1 + (start.more ?? 0)) : []
-  )
-
-  const [more, setMore] = useState<"can" | "loading" | "none">("can")
+  const [status, setStatus] = useState<Status>(firstStatus(start, !!first, !!ready))
+  const [problem, setProblem] = useState(start.status && start.status !== "searching" ? held[start.status] : undefined)
+  const [results, setResults] = useState<Found[]>(ready?.found ?? [])
+  const [allowance, setAllowance] = useState(ready?.allowance)
+  const [more, setMore] = useState<"can" | "loading" | "none">(ready && !ready.full ? "none" : "can")
 
   const [picked, setPicked] = useState<Picked[]>(() =>
-    (start.picked ?? []).flatMap((id) => {
-      const sample = sampleOf(id)
-
-      return sample ? [{ sample, query: start.query ?? "" }] : []
-    })
+    (start.picked ?? []).map((found) => ({ found, query: start.query ?? "" }))
   )
 
   const [viewing, setViewing] = useState(start.viewing)
-  const [retryIn, setRetryIn] = useState(20)
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const latest = useRef(0)
   const field = useRef<HTMLInputElement>(null)
 
-  // A browser opened to search right away does, once.
-  useEffect(() => {
-    if (first && start.fresh && !start.status) {
-      onSearched(first)
-      timer.current = setTimeout(() => {
-        setResults(pull(first, [], 1))
-        setStatus("ready")
-      }, wait[first.mode])
+  /** Asks for a search's first results, or more of them after `after`, and takes the answer if it's still wanted. */
+  const ask = (next: Searched, after: Found[]) => {
+    latest.current += 1
+    const asked = latest.current
+    const request = requestFor(library, next, after)
+
+    const take = (answer: SearchAnswer) => {
+      if (latest.current !== asked) {
+        return
+      }
+
+      if ("problem" in answer) {
+        setProblem(answer.problem)
+        setStatus("problem")
+
+        return
+      }
+
+      setResults([...after, ...answer.found])
+      setAllowance(answer.allowance)
+      setStatus("ready")
+      setMore(answer.found.length < (request.limit ?? 0) ? "none" : "can")
     }
 
-    return () => clearTimeout(timer.current)
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- only as it opens
-  }, [])
-
-  // Counts down the wait Mobbin asks for when it turns a search away.
-  useEffect(() => {
-    if (status !== "limited" || retryIn === 0) {
-      return undefined
-    }
-
-    const tick = setTimeout(() => setRetryIn((seconds) => seconds - 1), 1000)
-
-    return () => clearTimeout(tick)
-  }, [status, retryIn])
+    void source.search(info.id, request).then(take)
+  }
 
   const run = (next: Searched) => {
-    clearTimeout(timer.current)
     setSearch(next)
     setInput(next.query)
-    setPlatform(next.platform)
+    setChosen(next.filters)
     setStatus("searching")
+    setProblem(undefined)
     setViewing(undefined)
     setMore("can")
     onSearched(next)
-    timer.current = setTimeout(() => {
-      setResults(pull(next, [], 1))
-      setStatus("ready")
-    }, wait[next.mode])
+    ask(next, [])
   }
+
+  // A browser opened without results to show searches right away, once, and stops listening when it closes.
+  useEffect(() => {
+    if (first && !ready && !start.status) {
+      onSearched(first)
+      ask(first, [])
+    }
+
+    return () => {
+      latest.current = -1
+    }
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- only as it opens
+  }, [])
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
     const query = input.trim()
 
     if (query) {
-      run({ query, platform, mode: "standard" })
+      run({ query, filters: chosen })
     }
   }
 
-  const changePlatform = (next: Platform) => {
-    setPlatform(next)
+  const choose = (filter: Filter, value: string | undefined) => {
+    const filters = Object.fromEntries(Object.entries(chosen).filter(([id]) => id !== filter.id))
+
+    if (value !== undefined) {
+      filters[filter.id] = value
+    }
+
+    setChosen(filters)
 
     if (search) {
-      run({ ...search, platform: next, mode: "standard" })
+      run({ query: search.query, filters })
     }
   }
 
   const loadMore = () => {
-    if (!search) {
-      return
+    if (search) {
+      setMore("loading")
+      ask(search, results)
     }
-
-    setMore("loading")
-    timer.current = setTimeout(() => {
-      const next = pull(
-        search,
-        results.map((each) => each.id),
-        1
-      )
-
-      setResults((current) => [...current, ...next])
-      setMore(next.length < pageSize[search.platform] ? "none" : "can")
-    }, wait.standard)
   }
 
-  const toggle = (sample: Sample) =>
+  const toggle = (found: Found) =>
     setPicked((current) =>
-      current.some((each) => each.sample.id === sample.id)
-        ? current.filter((each) => each.sample.id !== sample.id)
-        : [...current, { sample, query: search?.query ?? "" }]
+      current.some((each) => each.found.id === found.id)
+        ? current.filter((each) => each.found.id !== found.id)
+        : [...current, { found, query: search?.query ?? "" }]
     )
 
-  const isPicked = (sample: Sample) => picked.some((each) => each.sample.id === sample.id)
+  const isPicked = (found: Found) => picked.some((each) => each.found.id === found.id)
   const shown = viewing ? results.find((each) => each.id === viewing) : undefined
 
   const step = (by: number) => {
     const index = results.findIndex((each) => each.id === viewing)
-    const next = results[(index + by + results.length) % results.length]
 
-    setViewing(next?.id)
+    setViewing(results[(index + by + results.length) % results.length]?.id)
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -239,7 +261,7 @@ function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMob
     <Dialog
       open
       onOpenChange={(next) => {
-        // Esc steps back from a screen shown larger before it closes the browser.
+        // Esc closes a result shown larger before it closes the browser.
         if (!next && shown) {
           setViewing(undefined)
         } else if (!next) {
@@ -253,13 +275,14 @@ function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMob
         onKeyDown={onKeyDown}
         className="flex h-[min(820px,calc(100vh-3rem))] w-[min(1120px,calc(100vw-3rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
       >
-        <DialogTitle className="sr-only">Find references</DialogTitle>
+        <DialogTitle className="sr-only">{library.title}</DialogTitle>
         <DialogDescription className="sr-only">
-          Search Mobbin for screens from real apps, and place the ones you pick on the canvas.
+          Search {info.name} for {library.noun.many}, and pick the ones to bring into the project.
         </DialogDescription>
         {shown ? (
           <Larger
-            sample={shown}
+            library={library}
+            found={shown}
             results={results}
             picked={isPicked(shown)}
             isPicked={isPicked}
@@ -267,7 +290,7 @@ function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMob
             onStep={step}
             onView={setViewing}
             onToggle={() => toggle(shown)}
-            onOpenInMobbin={() => onOpenInMobbin(shown)}
+            onOpenAtSource={() => onOpenAtSource(shown)}
           />
         ) : (
           <>
@@ -281,40 +304,31 @@ function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMob
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   maxLength={500}
-                  aria-label="Describe a screen"
-                  placeholder="Describe a screen, like “checkout with a promo code field”"
+                  aria-label={library.field.label}
+                  placeholder={library.field.placeholder}
                 />
               </InputGroup>
-              <ToggleGroup
-                variant="outline"
-                spacing={0}
-                value={[platform]}
-                onValueChange={([value]) => {
-                  if (value === "web" || value === "ios") {
-                    changePlatform(value)
-                  }
-                }}
-                aria-label="Platform"
-              >
-                <ToggleGroupItem value="web" className="gap-1.5 px-2.5">
-                  <Monitor /> Web
-                </ToggleGroupItem>
-                <ToggleGroupItem value="ios" className="gap-1.5 px-2.5">
-                  <Smartphone /> iOS
-                </ToggleGroupItem>
-              </ToggleGroup>
+              {shownFilters(info).map((filter) => (
+                <FilterControl
+                  key={filter.id}
+                  filter={filter}
+                  value={chosen[filter.id]}
+                  onChange={(value) => choose(filter, value)}
+                />
+              ))}
               <DialogClose render={<Button variant="ghost" size="icon" aria-label="Close" />}>
                 <X />
               </DialogClose>
             </form>
             <div className="min-h-0 flex-1 overflow-y-auto">
               <Body
+                library={library}
                 status={status}
                 search={search}
+                problem={problem}
                 results={results}
                 more={more}
-                retryIn={retryIn}
-                recent={recent}
+                recent={recent.filter((each) => each.library === library.id)}
                 isPicked={isPicked}
                 onRun={run}
                 onToggle={toggle}
@@ -325,84 +339,215 @@ function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMob
           </>
         )}
         <footer className="flex shrink-0 items-center gap-2 border-t px-4 py-2.5">
-          <MobbinCredit />
-          {picked.length === 0 ? (
-            <span className="ml-auto text-xs text-muted-foreground">Pick screens to place them</span>
-          ) : (
-            <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => setPicked([])}>
-              Clear
-            </Button>
+          <SourceCredit library={library} />
+          {allowance && allowance.remaining <= 10 && (
+            <span className="pl-2 text-xs text-muted-foreground">{searchesLeft(allowance)}</span>
           )}
-          <Button size="sm" disabled={picked.length === 0} onClick={() => onPlace(picked)}>
-            {placeLabel(picked.length)}
-          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            {picked.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setPicked([])}>
+                Clear
+              </Button>
+            )}
+            <Button size="sm" disabled={picked.length === 0} onClick={() => onPlace(picked)}>
+              {library.place(picked.length)}
+            </Button>
+          </div>
         </footer>
       </DialogContent>
     </Dialog>
   )
 }
 
-/**
- * Where the screens are from: Mobbin's mark and name, as a link to Mobbin. The mark is the one Mobbin publishes for
- * apps that connect to it (github.com/mobbin/skills).
- */
-function MobbinCredit() {
+function firstStatus(start: BrowserStart, searched: boolean, answered: boolean): Status {
+  if (start.status) {
+    return start.status === "searching" ? "searching" : "problem"
+  }
+
+  if (!searched) {
+    return "idle"
+  }
+
+  return answered ? "ready" : "searching"
+}
+
+/** The results a story opens on, from a source that answers at once: the first pull, and any more it asked for. */
+function opened(library: Library, source: Source, search: Searched, more: number) {
+  if (!source.instant) {
+    return undefined
+  }
+
+  const found: Found[] = []
+  let allowance: Allowance | undefined
+  let full = true
+
+  for (let pull = 0; pull <= more; pull++) {
+    const request = requestFor(library, search, found)
+    const answer = source.instant(library.info.id, request)
+
+    if ("problem" in answer) {
+      break
+    }
+
+    found.push(...answer.found)
+    allowance = answer.allowance
+    full = answer.found.length === request.limit
+  }
+
+  return { found, allowance, full }
+}
+
+function searchesLeft({ remaining, limit }: Allowance): string {
+  const searches = remaining === 1 ? "search" : "searches"
+
+  return limit ? `${remaining} of ${limit} ${searches} left` : `${remaining} ${searches} left`
+}
+
+/** The sources' marks, as each publishes it, drawn in the text's color. */
+const marks: Record<LibraryId, { box: string; path: string }> = {
+  mobbin: {
+    box: "18 29.5 44 21",
+    path: "M44.7009 50.1296H33.2479V44.848L28.3096 50.1293L18 50.1246V39.3516L26.9614 29.8706H39.3491V34.9105L44.1747 29.8706H54.907V38.1601H62V50.1296H49.3749V45.1307L44.7009 50.1296Z"
+  },
+  unsplash: { box: "0 0 24 24", path: "M7.5 6.75V0h9v6.75h-9zm9 3.75H24V24H0V10.5h7.5v6.75h9V10.5z" }
+}
+
+/** Where the results are from: the source's mark and name, as a link to it. */
+function SourceCredit({ library }: { library: Library }) {
+  const mark = marks[library.id]
+
   return (
     <a
-      href="https://mobbin.com"
+      href={library.info.site}
       target="_blank"
       rel="noreferrer"
-      className="flex items-center gap-1.5 rounded-sm text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+      className="flex items-center gap-2 rounded-sm text-sm font-medium text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
     >
-      <svg viewBox="0 0 80 80" aria-hidden className="size-4 rounded-[4px] ring-1 ring-foreground/20">
-        <rect width="80" height="80" fill="black" />
-        <path
-          fill="white"
-          d="M44.7009 50.1296H33.2479V44.848L28.3096 50.1293L18 50.1246V39.3516L26.9614 29.8706H39.3491V34.9105L44.1747 29.8706H54.907V38.1601H62V50.1296H49.3749V45.1307L44.7009 50.1296Z"
-        />
+      <svg viewBox={mark.box} aria-hidden className="h-3.5 w-auto shrink-0 fill-current">
+        <path d={mark.path} />
       </svg>
-      Mobbin
+      {library.info.name}
     </a>
   )
 }
 
-function placeLabel(count: number): string {
-  return count === 0 ? "Place on canvas" : `Place ${count} on canvas`
-}
+/** A filter with no value chosen, in a select. */
+const any = "any"
 
-/** One pull, or several in a row for a story that starts with more loaded. */
-function pull(search: Searched, seen: string[], pulls: number): Sample[] {
-  const found: Sample[] = []
+const valueIcons = new Map<string, LucideIcon>([
+  ["web", Monitor],
+  ["ios", Smartphone]
+])
 
-  for (let index = 0; index < pulls; index++) {
-    const exclude = [...seen, ...found.map((each) => each.id)].slice(0, mostPerSearch)
+/** Unsplash's colors as swatches, by the value's id. */
+const swatches = new Map([
+  ["black_and_white", "linear-gradient(135deg, black 50%, white 50%)"],
+  ["black", "black"],
+  ["white", "white"],
+  ["yellow", "oklch(0.86 0.17 95)"],
+  ["orange", "oklch(0.72 0.18 55)"],
+  ["red", "oklch(0.6 0.22 25)"],
+  ["purple", "oklch(0.52 0.2 300)"],
+  ["magenta", "oklch(0.62 0.25 345)"],
+  ["green", "oklch(0.62 0.17 145)"],
+  ["teal", "oklch(0.65 0.11 195)"],
+  ["blue", "oklch(0.56 0.18 255)"]
+])
 
-    found.push(...searchScreens({ ...search, limit: pageSize[search.platform], exclude }))
+/**
+ * One of the connector's filters as a control, chosen from what the filter says about itself: a filter that always has
+ * a value, between a few, is a switch, as Mobbin's platform is; one that can be left open is a select starting on any,
+ * as Unsplash's orientation and color are.
+ */
+function FilterControl({
+  filter,
+  value,
+  onChange
+}: {
+  filter: Filter
+  value: string | undefined
+  onChange: (value: string | undefined) => void
+}) {
+  if (filter.default && filter.values.length <= 3) {
+    return (
+      <ToggleGroup
+        variant="outline"
+        spacing={0}
+        value={[value ?? filter.default]}
+        onValueChange={([next]) => {
+          if (next) {
+            onChange(next)
+          }
+        }}
+        aria-label={filter.name}
+      >
+        {filter.values.map((each) => {
+          const Icon = valueIcons.get(each.id)
+
+          return (
+            <ToggleGroupItem key={each.id} value={each.id} className="gap-1.5 px-2.5">
+              {Icon && <Icon />} {each.name}
+            </ToggleGroupItem>
+          )
+        })}
+      </ToggleGroup>
+    )
   }
 
-  return found
+  const nameOf = (id: string) =>
+    filter.values.find((each) => each.id === id)?.name ?? `Any ${filter.name.toLowerCase()}`
+
+  return (
+    <Select<string> value={value ?? any} onValueChange={(next) => onChange(!next || next === any ? undefined : next)}>
+      <SelectTrigger aria-label={filter.name} className="h-9 w-40">
+        <SelectValue>
+          {(id: string) => (
+            <span className="flex items-center gap-2">
+              <Swatch id={id} /> {nameOf(id)}
+            </span>
+          )}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={any}>{nameOf(any)}</SelectItem>
+        {filter.values.map((each) => (
+          <SelectItem key={each.id} value={each.id}>
+            <Swatch id={each.id} /> {each.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+function Swatch({ id }: { id: string }) {
+  const fill = swatches.get(id)
+
+  return fill ? <span aria-hidden className="size-3 shrink-0 rounded-full border" style={{ background: fill }} /> : null
 }
 
 interface BodyProps {
+  library: Library
   status: Status
   search?: Searched
-  results: Sample[]
+  problem?: Problem
+  results: Found[]
   more: "can" | "loading" | "none"
-  retryIn: number
   recent: BrowserProps["recent"]
-  isPicked: (sample: Sample) => boolean
+  isPicked: (found: Found) => boolean
   onRun: (search: Searched) => void
-  onToggle: (sample: Sample) => void
+  onToggle: (found: Found) => void
   onView: (id: string) => void
   onMore: () => void
 }
 
 function Body({
+  library,
   status,
   search,
+  problem,
   results,
   more,
-  retryIn,
   recent,
   isPicked,
   onRun,
@@ -411,117 +556,50 @@ function Body({
   onMore
 }: BodyProps) {
   if (status === "idle" || !search) {
-    return <Start recent={recent} onRun={onRun} />
+    return <Start library={library} recent={recent} onRun={onRun} />
   }
 
   if (status === "searching") {
-    return <Searching search={search} />
+    return <Searching library={library} search={search} />
   }
 
-  if (status === "limited") {
-    return (
-      <Notice
-        title="Too many searches right now"
-        action={
-          <Button size="sm" variant="outline" disabled={retryIn > 0} onClick={() => onRun(search)}>
-            Try again
-          </Button>
-        }
-      >
-        {retryIn > 0
-          ? `Everyone on Parity shares these searches. Try again in ${retryIn} seconds.`
-          : "Everyone on Parity shares these searches. You can try again now."}
-      </Notice>
-    )
-  }
-
-  if (status === "failed") {
-    return (
-      <Notice
-        title="Couldn't reach Mobbin"
-        action={
-          <Button size="sm" variant="outline" onClick={() => onRun(search)}>
-            Try again
-          </Button>
-        }
-      >
-        Check your connection, then try again.
-      </Notice>
-    )
-  }
-
-  if (results.length === 0 && search.mode === "deep") {
-    return (
-      <Notice
-        title="No close matches"
-        action={
-          <Button size="sm" variant="outline" onClick={() => onRun({ ...search, mode: "standard" })}>
-            Back to quick results
-          </Button>
-        }
-      >
-        A deep search keeps only screens that fit everything you described. Leave a detail out, or go back to the quick
-        results.
-      </Notice>
-    )
+  if (status === "problem" && problem) {
+    return <ProblemNotice library={library} problem={problem} onRetry={() => onRun(search)} />
   }
 
   if (results.length === 0) {
-    const other = search.platform === "web" ? "ios" : "web"
-
-    return (
-      <Notice
-        title={`No screens match “${search.query}”`}
-        action={
-          <Button size="sm" variant="outline" onClick={() => onRun({ ...search, platform: other })}>
-            Search {platformNames[other]}
-          </Button>
-        }
-      >
-        Say what kind of screen it is, then what&apos;s on it. An app can be on Mobbin for {platformNames[other]} only.
-      </Notice>
-    )
+    return <NothingFound library={library} search={search} onRun={onRun} />
   }
 
-  const full = results.length % pageSize[search.platform] === 0 && results.length < mostPerSearch
+  const { noun } = library
 
   return (
     <div className="flex flex-col gap-4 p-4">
       <div className="flex min-h-8 items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground" aria-live="polite">
-          {search.mode === "deep"
+          {search.deep
             ? `${countOf(results.length, "close match", "close matches")} from a deep search`
-            : countOf(results.length, "screen", "screens")}
+            : countOf(results.length, noun.one, noun.many)}
         </p>
-        {search.mode === "standard" ? (
-          <Hint label="Checks each screen against your description and keeps the close matches. It takes a few seconds.">
-            <Button size="sm" variant="outline" onClick={() => onRun({ ...search, mode: "deep" })}>
-              <ScanSearch /> Search deeper
-            </Button>
-          </Hint>
-        ) : (
-          <Button size="sm" variant="ghost" onClick={() => onRun({ ...search, mode: "standard" })}>
-            Back to quick results
-          </Button>
-        )}
+        {depthOf(library.info) && <Deepen search={search} onRun={onRun} />}
       </div>
-      <ul aria-label="Results" className={`grid gap-x-4 gap-y-5 ${columns[search.platform]}`}>
-        {results.map((sample) => (
-          <li key={sample.id}>
+      <ul aria-label="Results" className={layouts[library.layout](search)}>
+        {results.map((found) => (
+          <li key={found.id} className={library.layout === "columns" ? "mb-4 break-inside-avoid" : undefined}>
             <Card
-              sample={sample}
-              picked={isPicked(sample)}
-              onToggle={() => onToggle(sample)}
-              onView={() => onView(sample.id)}
+              found={found}
+              picked={isPicked(found)}
+              onToggle={() => onToggle(found)}
+              onView={() => onView(found.id)}
             />
           </li>
         ))}
       </ul>
       <div className="flex justify-center py-2">
-        {more === "none" || !full ? (
-          results.length > pageSize[search.platform] && (
+        {more === "none" ? (
+          results.length > library.pageSize(search.filters) && (
             <p className="text-xs text-muted-foreground">
-              That&apos;s every match. Describe it another way to see other screens.
+              That&apos;s every match. Describe it another way to see others.
             </p>
           )
         ) : (
@@ -534,43 +612,70 @@ function Body({
   )
 }
 
-const columns: Record<Platform, string> = {
-  web: "grid-cols-[repeat(auto-fill,minmax(300px,1fr))]",
-  ios: "grid-cols-[repeat(auto-fill,minmax(150px,1fr))]"
+/** How results are laid out: screens of one shape in rows, phones narrower than pages; photos packed into columns. */
+const layouts: Record<Library["layout"], (search: Searched) => string> = {
+  rows: (search) =>
+    `grid gap-x-4 gap-y-5 ${
+      search.filters.platform === "ios"
+        ? "grid-cols-[repeat(auto-fill,minmax(150px,1fr))]"
+        : "grid-cols-[repeat(auto-fill,minmax(300px,1fr))]"
+    }`,
+  columns: () => "columns-[240px] gap-4"
 }
 
 function countOf(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`
 }
 
+/** A quick search's way to the connector's deep one, and the way back. */
+function Deepen({ search, onRun }: { search: Searched; onRun: (search: Searched) => void }) {
+  if (search.deep) {
+    return (
+      <Button size="sm" variant="ghost" onClick={() => onRun({ ...search, deep: false })}>
+        Back to quick results
+      </Button>
+    )
+  }
+
+  return (
+    <Hint label="Checks each screen against your description and keeps the close matches. It takes a few seconds.">
+      <Button size="sm" variant="outline" onClick={() => onRun({ ...search, deep: true })}>
+        <ScanSearch /> Search deeper
+      </Button>
+    </Hint>
+  )
+}
+
 /**
- * One result: its picture and its app's name. A click picks it or lets it go, and a double-click or its corner button
- * shows it larger.
+ * One result: its picture, and the app it's from or who took it. A click picks it or lets it go, and a double-click or
+ * its corner button shows it larger.
  */
 function Card({
-  sample,
+  found,
   picked,
   onToggle,
   onView
 }: {
-  sample: Sample
+  found: Found
   picked: boolean
   onToggle: () => void
   onView: () => void
 }) {
+  const name = creditOf(found)
+
   return (
     <div className="group relative flex flex-col gap-1.5">
       <button
         type="button"
         aria-pressed={picked}
-        aria-label={sample.app}
+        aria-label={labelOf(found)}
         onClick={onToggle}
         onDoubleClick={onView}
         className={`rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${
           picked ? "ring-3 ring-(--canvas-layer) ring-offset-2 ring-offset-popover" : ""
         }`}
       >
-        <ScreenPicture screen={sample} className="rounded-lg border" />
+        <Picture found={found} className="rounded-lg border" />
       </button>
       {picked && (
         <span
@@ -581,21 +686,22 @@ function Card({
         </span>
       )}
       <div className="absolute top-1.5 right-1.5 rounded-md bg-popover/95 opacity-0 shadow-sm transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-        <IconButton label={`View ${sample.app} larger`} onClick={onView}>
+        <IconButton label={`View ${name} larger`} onClick={onView}>
           <Maximize2 />
         </IconButton>
       </div>
-      <span className="truncate px-0.5 text-xs">{sample.app}</span>
+      <span className="truncate px-0.5 text-xs">{name}</span>
     </div>
   )
 }
 
 /**
- * A result shown as large as the browser allows, in place of the search and its results. Its own bar names the app
- * and its platform and closes it, and a strip of every result runs under it, so what's before and after is in view.
+ * A result shown as large as the browser allows, in place of the search and its results. Its own bar names it and
+ * closes it, and a strip of every result runs under it, so what's before and after is in view.
  */
 function Larger({
-  sample,
+  library,
+  found,
   results,
   picked,
   isPicked,
@@ -603,30 +709,36 @@ function Larger({
   onStep,
   onView,
   onToggle,
-  onOpenInMobbin
+  onOpenAtSource
 }: {
-  sample: Sample
-  results: Sample[]
+  library: Library
+  found: Found
+  results: Found[]
   picked: boolean
-  isPicked: (sample: Sample) => boolean
+  isPicked: (found: Found) => boolean
   onClose: () => void
   onStep: (by: number) => void
   onView: (id: string) => void
   onToggle: () => void
-  onOpenInMobbin: () => void
+  onOpenAtSource: () => void
 }) {
-  const PlatformIcon = sample.platform === "ios" ? Smartphone : Monitor
+  const name = creditOf(found)
+  const { width, height } = sizeOf(found)
 
   return (
-    <section aria-label={sample.app} className="flex min-h-0 flex-1 flex-col">
+    <section aria-label={name} className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b p-3">
-        <h3 className="pl-1 text-sm font-medium">{sample.app}</h3>
-        <Badge variant="secondary">
-          <PlatformIcon /> {platformNames[sample.platform]}
-        </Badge>
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onOpenInMobbin}>
-            <ExternalLink /> Open in Mobbin
+        <h3 className="shrink-0 pl-1 text-sm font-medium">{name}</h3>
+        {found.platform ? (
+          <Badge variant="secondary">
+            {found.platform === "ios" ? <Smartphone /> : <Monitor />} {found.platform === "ios" ? "iOS" : "Web"}
+          </Badge>
+        ) : (
+          <span className="truncate text-sm text-muted-foreground">{found.title}</span>
+        )}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onOpenAtSource}>
+            <ExternalLink /> Open in {library.info.name}
           </Button>
           <Button variant={picked ? "secondary" : "outline"} size="sm" aria-pressed={picked} onClick={onToggle}>
             {picked && <Check />} {picked ? "Picked" : "Pick"}
@@ -637,22 +749,23 @@ function Larger({
         </div>
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center gap-3 bg-muted/40 p-4 dark:bg-muted/20">
-        <IconButton label="Previous screen" shortcut="←" size="icon" onClick={() => onStep(-1)}>
+        <IconButton label="Previous" shortcut="←" size="icon" onClick={() => onStep(-1)}>
           <ChevronLeft />
         </IconButton>
         <div className="flex h-full min-w-0 flex-1 items-center justify-center">
-          <ScreenPicture
-            key={sample.id}
-            screen={sample}
+          <Picture
+            key={found.id}
+            found={found}
             className="rounded-lg border shadow-md"
-            style={sample.platform === "ios" ? { height: "100%" } : { width: "100%", maxWidth: 820 }}
+            // Wide pictures fill the width; square and tall ones the height.
+            style={width / height > 1.3 ? { width: "100%", maxWidth: 820 } : { height: "100%" }}
           />
         </div>
-        <IconButton label="Next screen" shortcut="→" size="icon" onClick={() => onStep(1)}>
+        <IconButton label="Next" shortcut="→" size="icon" onClick={() => onStep(1)}>
           <ChevronRight />
         </IconButton>
       </div>
-      <Filmstrip results={results} current={sample.id} isPicked={isPicked} onView={onView} />
+      <Filmstrip results={results} current={found.id} isPicked={isPicked} onView={onView} />
     </section>
   )
 }
@@ -664,14 +777,14 @@ function Filmstrip({
   isPicked,
   onView
 }: {
-  results: Sample[]
+  results: Found[]
   current: string
-  isPicked: (sample: Sample) => boolean
+  isPicked: (found: Found) => boolean
   onView: (id: string) => void
 }) {
   const strip = useRef<HTMLUListElement>(null)
 
-  // Keeps the current screen in the middle of the strip as the arrows move through.
+  // Keeps the current one in the middle of the strip as the arrows move through.
   useEffect(() => {
     strip.current?.querySelector("[aria-current]")?.scrollIntoView({ inline: "center", block: "nearest" })
   }, [current])
@@ -682,16 +795,12 @@ function Filmstrip({
         <li key={each.id} className="relative shrink-0">
           <button
             type="button"
-            aria-label={each.app}
+            aria-label={labelOf(each)}
             aria-current={each.id === current ? "true" : undefined}
             onClick={() => onView(each.id)}
             className="block rounded-md opacity-60 outline-none hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50 aria-[current]:opacity-100 aria-[current]:ring-2 aria-[current]:ring-foreground aria-[current]:ring-offset-2 aria-[current]:ring-offset-popover"
           >
-            <ScreenPicture
-              screen={each}
-              className="rounded-md border"
-              style={{ height: each.platform === "ios" ? 72 : 56 }}
-            />
+            <Picture found={each} className="rounded-md border" style={{ height: 64 }} />
           </button>
           {isPicked(each) && (
             <span
@@ -707,14 +816,16 @@ function Filmstrip({
   )
 }
 
-const tips = [
-  "Say what kind of screen it is, then what's on it: “paywall with plan cards and a free trial button”.",
-  "Name an app to see only that app: “Ledgerly pricing page”.",
-  "Search for one screen at a time. Words like “clean” or “modern” don't help."
-]
-
-/** Before a search: the last few to run again, and how Mobbin's search likes a screen described. */
-function Start({ recent, onRun }: { recent: BrowserProps["recent"]; onRun: (search: Searched) => void }) {
+/** Before a search: the last few to run again, and how the source's search likes things described. */
+function Start({
+  library,
+  recent,
+  onRun
+}: {
+  library: Library
+  recent: BrowserProps["recent"]
+  onRun: (search: Searched) => void
+}) {
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-8 px-6 py-10">
       {recent.length > 0 && (
@@ -723,28 +834,28 @@ function Start({ recent, onRun }: { recent: BrowserProps["recent"]; onRun: (sear
             Recent
           </h3>
           <ul>
-            {recent.map(({ query, platform }) => (
-              <li key={`${platform} ${query}`}>
+            {recent.slice(0, 5).map(({ query, filters }) => (
+              <li key={`${query} ${JSON.stringify(filters)}`}>
                 <Button
                   variant="ghost"
                   className="w-full justify-start gap-2.5 px-2 font-normal"
-                  onClick={() => onRun({ query, platform, mode: "standard" })}
+                  onClick={() => onRun({ query, filters })}
                 >
                   <History className="text-muted-foreground" />
                   <span className="truncate">{query}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">{platformNames[platform]}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">{filtersInWords(library.info, filters)}</span>
                 </Button>
               </li>
             ))}
           </ul>
         </section>
       )}
-      <section aria-labelledby="describing-a-screen" className="flex flex-col gap-2 px-2">
-        <h3 id="describing-a-screen" className="text-xs font-medium text-muted-foreground">
-          Describing a screen
+      <section aria-labelledby="describing-it" className="flex flex-col gap-2 px-2">
+        <h3 id="describing-it" className="text-xs font-medium text-muted-foreground">
+          Searching {library.info.name}
         </h3>
         <ul className="flex list-disc flex-col gap-1.5 pl-4 text-sm text-muted-foreground">
-          {tips.map((tip) => (
+          {library.tips.map((tip) => (
             <li key={tip}>{tip}</li>
           ))}
         </ul>
@@ -753,22 +864,145 @@ function Start({ recent, onRun }: { recent: BrowserProps["recent"]; onRun: (sear
   )
 }
 
-function Searching({ search }: { search: Searched }) {
-  const proportions = search.platform === "ios" ? "aspect-[390/844]" : "aspect-[16/10]"
+function Searching({ library, search }: { library: Library; search: Searched }) {
+  const proportions = search.filters.platform === "ios" ? "aspect-[390/844]" : "aspect-[16/10]"
 
   return (
     <div className="flex flex-col gap-4 p-4">
       <output className="flex min-h-8 items-center gap-2 text-sm text-muted-foreground">
         <Spinner aria-hidden />
-        {search.mode === "deep" ? "Checking each screen against your description" : "Searching Mobbin"}
+        {search.deep ? "Checking each screen against your description" : `Searching ${library.info.name}`}
       </output>
-      <div aria-hidden className={`grid gap-x-4 gap-y-5 ${columns[search.platform]}`}>
+      <div aria-hidden className={layouts.rows(search)}>
         {Array.from({ length: 6 }, (_, index) => (
           <Skeleton key={index} className={`rounded-lg ${proportions}`} />
         ))}
       </div>
     </div>
   )
+}
+
+/** Nothing matched: what to change, and the one change the browser can make for you. */
+function NothingFound({
+  library,
+  search,
+  onRun
+}: {
+  library: Library
+  search: Searched
+  onRun: (search: Searched) => void
+}) {
+  if (search.deep) {
+    return (
+      <Notice
+        title="No close matches"
+        action={
+          <Button size="sm" variant="outline" onClick={() => onRun({ ...search, deep: false })}>
+            Back to quick results
+          </Button>
+        }
+      >
+        A deep search keeps only what fits everything you described. Leave a detail out, or go back to the quick
+        results.
+      </Notice>
+    )
+  }
+
+  const title = `No ${library.noun.many} match “${search.query}”`
+  const narrowed = Object.keys(search.filters).length > 0
+  const switched = shownFilters(library.info).find((filter) => filter.default && filter.values.length === 2)
+  const now = switched && (search.filters[switched.id] ?? switched.default)
+  const other = switched?.values.find((value) => value.id !== now)
+
+  if (switched && other) {
+    return (
+      <Notice
+        title={title}
+        action={
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onRun({ ...search, filters: { ...search.filters, [switched.id]: other.id } })}
+          >
+            Search {other.name}
+          </Button>
+        }
+      >
+        Describe it another way, or look on {other.name}: an app can be on {library.info.name} for one and not the
+        other.
+      </Notice>
+    )
+  }
+
+  return (
+    <Notice
+      title={title}
+      action={
+        narrowed && (
+          <Button size="sm" variant="outline" onClick={() => onRun({ ...search, filters: {} })}>
+            Clear filters
+          </Button>
+        )
+      }
+    >
+      {narrowed ? "Describe it another way, or search without the filters." : "Describe it another way."}
+    </Notice>
+  )
+}
+
+/** What each problem is called, apart from the two that can be tried again. */
+function problemTitle(code: Problem["code"], name: string): string {
+  if (code === "no-key") {
+    return `${name} isn't set up yet`
+  }
+
+  if (code === "key-refused") {
+    return `${name} turned down its key`
+  }
+
+  return code === "no-access" ? `This ${name} plan can't search from Parity` : `${name} couldn't run that search`
+}
+
+/** A search the connector couldn't answer: which of its problems it was, and what to do. */
+function ProblemNotice({ library, problem, onRetry }: { library: Library; problem: Problem; onRetry: () => void }) {
+  const { name } = library.info
+  const [waited, setWaited] = useState(0)
+  const left = Math.max(0, Math.ceil((problem.retryAfter ?? 0) - waited))
+
+  // Counts down the wait the source asked for.
+  useEffect(() => {
+    if (left === 0) {
+      return undefined
+    }
+
+    const tick = setTimeout(() => setWaited((seconds) => seconds + 1), 1000)
+
+    return () => clearTimeout(tick)
+  }, [left])
+
+  const retry = (
+    <Button size="sm" variant="outline" disabled={left > 0} onClick={onRetry}>
+      Try again
+    </Button>
+  )
+
+  if (problem.code === "rate-limited") {
+    return (
+      <Notice title="Too many searches right now" action={retry}>
+        {name} limits how often Parity can search. {left > 0 ? `Try again in ${left} seconds.` : "Try again shortly."}
+      </Notice>
+    )
+  }
+
+  if (problem.code === "unavailable") {
+    return (
+      <Notice title={`Couldn't reach ${name}`} action={retry}>
+        Check your connection, then try again.
+      </Notice>
+    )
+  }
+
+  return <Notice title={problemTitle(problem.code, name)}>{problem.message}</Notice>
 }
 
 function Notice({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {

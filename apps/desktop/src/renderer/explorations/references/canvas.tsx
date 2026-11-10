@@ -1,5 +1,6 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- the design and the references stand in for the canvas's items, which take the pointer; the keyboard reaches them through the canvas's keys, as in the app */
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import type { Found } from "@parity-app/connectors"
 import { Layers, Maximize, Minus, Plus, Telescope } from "lucide-react"
 import {
   type KeyboardEvent,
@@ -20,20 +21,19 @@ import { useTool } from "../../selection.ts"
 import type { Look } from "../start/data.ts"
 import { desktop, phone } from "../start/render-kit.tsx"
 import { DesignRender } from "../start/renders.tsx"
-import { type Sample, sampleOf } from "./data.ts"
-import { ScreenPicture, sizeOf } from "./screens.tsx"
+import { creditOf, Picture, sizeOf } from "./library.tsx"
 
 /*
- * A sketch of the canvas, standing in for the board: the Pricing design with its desktop and phone previews, and the
- * references placed beside it. It pans with the wheel, the hand tool, Space or the middle button, and zooms with Ctrl
+ * A sketch of the canvas, standing in for the board: the Pricing design with its desktop and phone previews, the
+ * references placed beside it, and a screen holding the photos added to the project. It pans with the wheel, the hand tool, Space or the middle button, and zooms with Ctrl
  * and the wheel, a pinch, or the Zoom controls, as the app's canvas does.
  */
 
 /** A reference on the canvas, at a point in canvas pixels, at its screen's own size. */
 export interface Placed {
   key: string
-  /** The screen's id on Mobbin. */
-  id: string
+  /** The screen, as the search returned it. */
+  found: Found
   x: number
   y: number
   /** The description that found it. */
@@ -73,10 +73,49 @@ export const designBox: Box = { x: 0, y: 0, width: previews.phone.x + phone.widt
 /** The design's own look, as the person's project draws it. */
 const ownLook: Look = { hue: 250, brand: "Acme", icon: Layers }
 
-export function boxOf(placed: Placed): Box | undefined {
-  const sample = sampleOf(placed.id)
+/** A reference's size on the canvas: a laptop's width for the web or a phone's, as tall as its picture makes it. */
+function referenceSize(found: Found) {
+  const picture = sizeOf(found)
+  const width = found.platform === "ios" ? phone.width : desktop.width
 
-  return sample && { x: placed.x, y: placed.y, ...sizeOf(sample) }
+  return { width, height: (width / picture.width) * picture.height }
+}
+
+export function boxOf(placed: Placed): Box {
+  return { x: placed.x, y: placed.y, ...referenceSize(placed.found) }
+}
+
+/** How the screen of added photos is laid out: each this tall, in rows that wrap, inside the screen's padding. */
+const photoScreen = { x: 0, y: phone.height + 260, width: desktop.width, padding: 64, gap: 24, row: 300 }
+
+/** The box the screen of added photos takes, with nothing when there are none. */
+export function photosBox(photos: readonly Found[]): Box | undefined {
+  if (photos.length === 0) {
+    return undefined
+  }
+
+  const inside = photoScreen.width - photoScreen.padding * 2
+  let rows = 1
+  let along = 0
+
+  for (const photo of photos) {
+    const { width, height } = sizeOf(photo)
+    const wide = (photoScreen.row / height) * width
+
+    if (along > 0 && along + wide > inside) {
+      rows += 1
+      along = 0
+    }
+
+    along += wide + photoScreen.gap
+  }
+
+  return {
+    x: photoScreen.x,
+    y: photoScreen.y,
+    width: photoScreen.width,
+    height: photoScreen.padding * 2 + rows * photoScreen.row + (rows - 1) * photoScreen.gap
+  }
 }
 
 const zoomLimits = { least: 0.05, most: 2 }
@@ -90,6 +129,8 @@ interface CanvasProps {
   designColor: string
   designSelected: boolean
   placed: Placed[]
+  /** The photos added to the project, on a screen of their own. */
+  photos: readonly Found[]
   /** The selected reference's key. */
   selected?: string
   /** Where to look at first; the canvas fits everything when it's left out. */
@@ -100,7 +141,7 @@ interface CanvasProps {
   onSelect: (key: string | undefined) => void
   onMove: (key: string, x: number, y: number) => void
   onDelete: (key: string) => void
-  onOpen: (sample: Sample) => void
+  onOpen: (found: Found) => void
   onFind: () => void
   /** A note for the reviewer, over the canvas at screen size. */
   children?: ReactNode
@@ -111,6 +152,7 @@ export function CanvasSketch({
   designColor,
   designSelected,
   placed,
+  photos,
   selected,
   view: firstView,
   fitKey,
@@ -139,7 +181,8 @@ export function CanvasSketch({
       return
     }
 
-    const boxes = [designBox, ...placed.flatMap((each) => boxOf(each) ?? [])]
+    const added = photosBox(photos)
+    const boxes = [designBox, ...placed.map(boxOf), ...(added ? [added] : [])]
     const left = Math.min(...boxes.map((box) => box.x))
     const top = Math.min(...boxes.map((box) => box.y))
     const right = Math.max(...boxes.map((box) => box.x + box.width))
@@ -343,6 +386,7 @@ export function CanvasSketch({
             }
           }}
         />
+        <PhotoScreen photos={photos} zoom={view.zoom} />
         {placed.map((item) => (
           <PlacedReference
             key={item.key}
@@ -452,6 +496,45 @@ function DesignBoard({
   )
 }
 
+/** The screen the photos added to the project land on, as dropped image files make one: a padded row that wraps. */
+function PhotoScreen({ photos, zoom }: { photos: readonly Found[]; zoom: number }) {
+  const box = photosBox(photos)
+
+  if (!box) {
+    return null
+  }
+
+  return (
+    <div role="group" aria-label="Photos" className="absolute" style={{ left: box.x, top: box.y, width: box.width }}>
+      <div
+        className="absolute left-0 flex items-center font-medium whitespace-nowrap text-muted-foreground"
+        style={{ bottom: box.height + onScreen(8, zoom), gap: onScreen(6, zoom), fontSize: onScreen(12, zoom) }}
+      >
+        <DesignIcon
+          kind="screen"
+          style={{ color: kindColors.screen, width: onScreen(14, zoom), height: onScreen(14, zoom) }}
+        />
+        Photos
+      </div>
+      <div
+        className="flex flex-wrap content-start bg-background"
+        style={{
+          height: box.height,
+          padding: photoScreen.padding,
+          gap: photoScreen.gap,
+          outline: `${onScreen(1, zoom)}px solid var(--border)`
+        }}
+      >
+        {photos.map((photo) => (
+          <div key={photo.id} role="img" aria-label={`Photo by ${creditOf(photo)}`}>
+            <Picture found={photo} style={{ height: photoScreen.row }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /**
  * A reference on the canvas: its picture at its own size, with its app and where it's from under it in the canvas's
  * quiet caption, then its note. No board, states or modes: it's there to look at.
@@ -471,15 +554,11 @@ function PlacedReference({
   onPointerDown: (event: ReactPointerEvent) => void
   onPointerMove: (event: ReactPointerEvent) => void
   onPointerUp: () => void
-  onOpen: (sample: Sample) => void
+  onOpen: (found: Found) => void
 }) {
-  const sample = sampleOf(item.id)
-
-  if (!sample) {
-    return null
-  }
-
-  const size = sizeOf(sample)
+  const { found } = item
+  const name = creditOf(found)
+  const source = found.credit.at(-1)?.name ?? found.connector
 
   const outline = selected
     ? `${onScreen(2, zoom)}px solid ${kindColors.layer}`
@@ -488,22 +567,22 @@ function PlacedReference({
   return (
     <div
       role="img"
-      aria-label={`Reference: ${sample.app}, from Mobbin`}
+      aria-label={`Reference: ${name}, from ${source}`}
       className="absolute cursor-default touch-none select-none"
-      style={{ left: item.x, top: item.y, width: size.width }}
+      style={{ left: item.x, top: item.y, width: referenceSize(found).width }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onDoubleClick={() => onOpen(sample)}
+      onDoubleClick={() => onOpen(found)}
     >
-      <ScreenPicture screen={sample} style={{ outline }} />
+      <Picture found={found} style={{ outline }} />
       <div
         className="flex flex-col text-muted-foreground"
         style={{ marginTop: onScreen(6, zoom), gap: onScreen(2, zoom), fontSize: onScreen(11, zoom), lineHeight: 1.35 }}
       >
         <div className="flex items-baseline justify-between" style={{ gap: onScreen(8, zoom) }}>
-          <span className="truncate font-medium text-foreground">{sample.app}</span>
-          <span className="shrink-0">Mobbin</span>
+          <span className="truncate font-medium text-foreground">{name}</span>
+          <span className="shrink-0">{source}</span>
         </div>
         {item.note && <span className="line-clamp-2">{item.note}</span>}
       </div>

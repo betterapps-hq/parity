@@ -1,4 +1,5 @@
 import { defineMain } from "@buildkitgg/storybook-config/main"
+import { storyConnectors } from "./connectors.ts"
 import { exampleProject } from "./example-project.ts"
 
 /**
@@ -8,11 +9,12 @@ import { exampleProject } from "./example-project.ts"
 export default defineMain({
   stories: ["../src/renderer/**/*.stories.@(ts|tsx)"],
   // The app's Vite config serves the renderer from its own root on a fixed port; Storybook serves from here. Stories
-  // open the example project, served here in place of its builder.
+  // open the example project, served here in place of its builder, and search through the connectors the dev server
+  // runs for them.
   viteFinal: (vite) => ({
     ...vite,
     root: undefined,
     server: { ...vite.server, port: undefined, strictPort: false },
-    plugins: [exampleProject(), ...(vite.plugins ?? [])]
+    plugins: [exampleProject(), storyConnectors(), ...(vite.plugins ?? [])]
   })
 })

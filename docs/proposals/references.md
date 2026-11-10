@@ -1,4 +1,4 @@
-# Proposal: design references from Mobbin
+# Proposal: design references and stock photos, in one browser
 
 Status: draft, second pass, 2026-11-09 (PAR-827). Nothing is built. The design is the exploration under
 Parity/Explorations/References
@@ -6,10 +6,12 @@ Parity/Explorations/References
 
 ## In one line
 
-Find references opens a browser over the canvas. You describe a screen, choose Web or iOS, pick from real apps' screens
-on Mobbin, and they land beside your design to look at, never in it. Agents search the same way before they design. It
-runs on Mobbin's REST API with Parity's own key, so nobody needs a Mobbin account. Mobbin's terms allow its API inside a
-product, and I'd still get its yes in writing before this reaches anyone outside the team.
+Searching a library outside the project happens in one wide browser over the canvas, whichever library it is. Find
+references searches Mobbin's screens from real apps and places what you pick beside your design to look at, never in it.
+Find photos searches Unsplash and adds what you pick to the project. Each library is a connector, and the browser draws
+its filters from what the connector says it takes. Agents search the same connectors. Both run on Parity's own keys, so
+nobody needs an account with either. Mobbin's terms allow its API inside a product, and I'd still get its yes in writing
+before this reaches anyone outside the team.
 
 ## What changed from the first pass
 
@@ -46,6 +48,26 @@ naming a language keeps them to that language.
 **What it doesn't have:** flows, website sections, categories, patterns or tags to filter by, Android, saved
 collections, paging, or a way to fetch one screen by its id. The design offers none of them.
 
+## One browser for outside libraries
+
+- **The left panel holds what's in the project; the browser searches what's outside it.** Layers, components, icons,
+  images and tokens are the project's own, small and known, and they stay in the panel. Judging strangers' pictures
+  needs room and is a short task, find, pick, done, so it gets the wide browser. Stock photos were planned for the
+  Images tab; they move to the browser, and the tab becomes the project's images.
+- **Each library is a connector** (`packages/connectors`, PAR-829), and the browser is one component for all of them. It
+  reads the connector's own description rather than knowing each source.
+- **Filters come from the connector's `filters`.** A filter that always has a value, between a few, is a switch, as
+  Mobbin's platform is. One that can be left open is a select starting on "Any", as Unsplash's orientation and color
+  are. A new filter on a connector shows up without a change to the browser. The one exception is Mobbin's depth, which
+  the browser offers as Search deeper on the results rather than as a choice before searching.
+- **More results follows the connector's `more`:** leaving out what's shown for Mobbin, the next page for Unsplash.
+- **A connector's problems are the browser's states:** no key, a key turned down, a plan without access, a limit reached
+  with the wait counted down, a search it can't take, and a source that can't be reached.
+- **Searches left show when the connector says.** Unsplash sends how many remain with every answer, 50 an hour until it
+  approves an app. Under ten, the browser says so beside the credit.
+- **What differs for each library is small:** its name and the words around the search field, whether results sit in
+  rows or pack into columns, and what the button does with what's picked.
+
 ## Where it shows
 
 ### Finding references
@@ -76,12 +98,13 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   through them.
 - **More results** asks again without the screens already shown. When a pull comes back short there are no more, and the
   browser says to describe it another way.
-- **When a search can't answer** it says which of four things happened: nothing matches, with a button to try the other
-  platform; a deep search found no close matches, with the way back to the quick ones; Mobbin's limit, with the wait; or
-  Mobbin can't be reached.
-- **Mobbin's mark and name sit at the foot of the browser,** as a link to mobbin.com, so the source is always named.
-  Mobbin's terms don't ask for a credit. I've kept one because the screens are theirs to show, each reference on the
-  canvas already says "Mobbin", and it's the first thing they'd ask for when we ask to ship this.
+- **When a search can't answer** it says which thing happened: nothing matches, with a button to try the other platform;
+  a deep search found no close matches, with the way back to the quick ones; Mobbin's limit, with the wait; Mobbin can't
+  be reached; or the connector isn't set up, in the connector's own words.
+- **Mobbin's mark and name sit at the foot of the browser,** as a link to mobbin.com, so the source is always named. The
+  mark is drawn in the text's color, so it reads in both themes. Mobbin's terms don't ask for a credit. I've kept one
+  because the screens are theirs to show, each reference on the canvas already says "Mobbin", and it's the first thing
+  they'd ask for when we ask to ship this.
 
 ### On the canvas
 
@@ -95,11 +118,32 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   layer can't take its picture.
 - **Exports leave references out,** so a design's PNG is the design alone.
 
+### Photos from Unsplash
+
+- **Find photos is in the Images tab,** as a button under its search. Searching the project's images for something it
+  doesn't have offers to look for the same words on Unsplash.
+- **It's the same browser.** Photos come in every shape, so they pack into columns, each with its photographer's name
+  under it. Orientation and color sit beside the search field, each on "Any" until chosen, and changing one searches
+  again. Unsplash's mark and name sit at the foot.
+- **The button adds what's picked to the project:** "Add 3 photos". They go where dropped image files go (PAR-24): into
+  the selected layout, or onto a new screen when nothing's selected. Each one shows in the Images tab from then on.
+- **Each photo used is reported to Unsplash,** and keeps its photographer's name and its Unsplash link, as Unsplash's
+  terms ask (decisions.md, "Unsplash is the first stock source"). The connector's `picked` does the report.
+
+### The Images tab
+
+- **It lists the project's own images:** every file in its images folder, whether pasted, dropped or added from
+  Unsplash. Today the tab is a placeholder, and an image you've added can't be seen or used again.
+- **Each has its file's name, and how it got there:** "Photo by" and the photographer for one from Unsplash, with a link
+  to it there; "Pasted" or "Dropped in" otherwise.
+- **Its search looks through the project's images,** by file name and, for a photo, what it shows.
+- **It tracks files, not searches.** What you searched for isn't kept beyond the browser's Recent list.
+
 ### For agents
 
 - **A `find_references` tool** beside `screenshot`, taking what the API takes: a description, a platform, the mode and a
   limit of 10 unless told otherwise. It returns each screen's app, platform, link and id as text, with the pictures as
-  images the agent can look at.
+  images the agent can look at. `find_photos` does the same for Unsplash. Both are built (PAR-829).
 - **`PlaceReference(id, { near, note })` in `execute`** puts one beside a design with a note on what the agent took from
   it. The story Placed by an agent shows what's left behind: the screens it looked at, each saying why.
 - **The skill carries Mobbin's own rules for a good search:** one screen per search, at most three details, the platform
@@ -107,6 +151,17 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
   check the app's name before saying whose screen it is.
 - **And Parity's rule for what to do with them:** say which patterns you're following, and build them from the project's
   own components and tokens. Never copy another app's layout, text or branding.
+
+## In Storybook
+
+- **Most stories search made-up samples** that answer in the connectors' own types, so the browser is the same code
+  against samples as against the real thing, and the stories look the same everywhere.
+- **Live Mobbin and Live Unsplash search the real libraries.** Storybook's dev server runs the connectors with the keys
+  in `apps/desktop/.env.local` (`.storybook/connectors.ts`), as main does for the window, so a key never reaches the
+  page. The stories' host asks it at `/__connectors`.
+- **A built Storybook has no server,** so there the live stories show the "isn't set up" state. The pull request's
+  preview is one of those.
+- **Stories never report a photo as used,** since they place nothing for real.
 
 ## Accounts and cost
 
@@ -173,7 +228,7 @@ In this order, since the first decides whether the rest matter:
 3. **What API usage costs,** per search, and whether deep costs more.
 4. **A higher limit** than 60 requests a minute for the workspace.
 5. **How Mobbin wants to be credited,** and whether we may show its mark, in the browser and on the canvas.
-6. **Whether flows and sections are coming to the REST API.**
+6. **Whether flows, sections and Android are coming to the REST API.** It searches iOS and the web today.
 
 ## Still to decide
 
@@ -181,6 +236,13 @@ In this order, since the first decides whether the rest matter:
   so everyone on the project sees them and they're in the repository. A person-only board would keep them out.
 - **Whether Find references earns a place on the toolbar,** which I've given it, or lives only in the right-click menu,
   Search actions and R.
+- **A list of placed references.** Nothing lists them, so they're found only by seeing them on the canvas. A References
+  group at the foot of Layers would do it without a new tab.
+- **Whether an added photo is a file in the project or a link to Unsplash.** Unsplash's terms ask that photos load from
+  its own links. The mock says a photo goes into the project's images without settling which.
+- **A sharper picture for the larger view and the canvas.** The Mobbin connector asks for the API's `optimized`
+  pictures, 768 pixels wide for a web screen in the searches I ran. The API's `high` would suit a reference at its own
+  size.
 - **Refero as a second source.** Its screens come with written details, such as page type, patterns and fonts, which
   would give this browser real filters. It's also the only library whose terms describe a plan for putting it in a
   product.

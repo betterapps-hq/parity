@@ -20,7 +20,7 @@ import {
   Overview,
   SignIn
 } from "../start/renders-web.tsx"
-import type { Layout, Sample } from "./data.ts"
+import type { Layout, SampleScreen } from "./data.ts"
 
 function Nav({ look }: { look: Look }) {
   return (
@@ -530,23 +530,18 @@ const layouts: Record<Layout, ComponentType<{ look: Look }>> = {
   "phone-listings": MobileListings
 }
 
-/** A screen's size at 100%, as the canvas places it: a laptop's width for the web, or a phone. */
-export function sizeOf(screen: Pick<Sample, "platform">) {
-  return screen.platform === "ios" ? phone : desktop
-}
-
 /** A sample screen's picture, scaled to its box's width. */
 export function ScreenPicture({
   screen,
   className,
   style
 }: {
-  screen: Sample
+  screen: SampleScreen
   className?: string
   style?: CSSProperties
 }) {
   const View = layouts[screen.layout]
-  const size = sizeOf(screen)
+  const size = screen.platform === "ios" ? phone : desktop
 
   return (
     <Scaled width={size.width} height={size.height} className={className} style={style}>
