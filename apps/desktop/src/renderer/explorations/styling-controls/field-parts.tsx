@@ -1400,6 +1400,8 @@ export interface TokenMenuProps<T extends FieldToken> {
 export interface MenuKeywords {
   heading: string
   rows: { key: string; name: string; detail: string; current: boolean; onPick: () => void }[]
+  /** Commands under the words, as W's Add min and Add max. */
+  actions?: { key: string; name: string; disabled?: boolean; onPick: () => void }[]
 }
 
 /**
@@ -1457,6 +1459,21 @@ export function TokenMenu<T extends FieldToken>({
               {row.current && <Check aria-hidden className="ml-auto size-3.5 shrink-0" />}
             </button>
           ))}
+          {keywords.actions && (
+            <div className="mt-1 flex flex-col border-t pt-1">
+              {keywords.actions.map((action) => (
+                <button
+                  key={action.key}
+                  type="button"
+                  disabled={action.disabled}
+                  onClick={action.onPick}
+                  className={`${menuRow} disabled:pointer-events-none disabled:opacity-50`}
+                >
+                  <span className={rowName}>{action.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
       {replaced && (
@@ -2585,6 +2602,13 @@ export function ValueField<T>({
                 ...row,
                 onPick: () => {
                   row.onPick()
+                  close()
+                }
+              })),
+              actions: tokens.keywords.actions?.map((action) => ({
+                ...action,
+                onPick: () => {
+                  action.onPick()
                   close()
                 }
               }))

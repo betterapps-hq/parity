@@ -35,18 +35,20 @@ with no Editing, the type has only typing, keys and the token button; with no To
 
 ## Size
 
-- **At rest:** Fixed shows its length; Hug, Fill or Fill ×2 show in words, with the measured size faint after.
+- **At rest:** Fixed shows its length; Hug, Fill or Fill ×2 show as chips, with the measured size faint in the chip.
 - **Forms:** also a size mode, stored as `{ size: "hug" }` or `{ size: "fill", share?: 2 }`, since Hug and Fill write
   different CSS for each kind of parent ([design-options-panel.md](design-options-panel.md), Size) and aren't CSS
   keywords. Full is `{ keyword: "full" }`.
-- **Editing:** the unit's menu (the field's slot 3) holds Fixed, Hug, Fill and Auto; the units (px, %, rem, More units,
-  with Min content and Max content under it); Add min and Add max. Hug covers `fit-content`, so it isn't listed twice.
-  Fill's share is chosen in its menu (Fill, Fill ×2, Fill ×3, Custom) or typed as `2fr`; a bare number stays a length.
-  Typing a length in a Hug or Fill field makes it Fixed, as in Figma, and Up or Down on Hug, Fill or Auto makes it Fixed
-  at its measured size and steps from there. Auto is listed only when the value is `auto` from code or freed by the
-  aspect lock, labeled by what it does in this parent ("Auto (fills)", "Auto (hugs)"), since elsewhere Hug and Fill
-  already write `auto`. Freed by the aspect lock, it shows as set by Aspect ratio
-  ([design-options-css.md](design-options-css.md), Properties set by another control).
+- **Editing:** the words are apart from the units. The chevron at the field's end always opens Sizing: Fixed, Hug, Fill,
+  Min content and Max content, with Auto, then Add min and Add max. The unit's menu (the field's slot 3), after a
+  number, holds only units: px, %, rem and More units. Hug covers `fit-content`, so it isn't listed twice. Fill's share
+  is chosen in its menu (Fill, Fill ×2, Fill ×3, Custom) or typed as `2fr`; a bare number stays a length. Typing a
+  length in a Hug or Fill field makes it Fixed, as in Figma; Backspace on a chip, or Up or Down on Hug, Fill or Auto,
+  makes it Fixed at its measured size, and Up or Down steps from there. Auto is listed only when the value is `auto`
+  from code or freed by the aspect lock, labeled by what it does in this parent ("Auto (fills)", "Auto (hugs)"), since
+  elsewhere Hug and Fill already write `auto`. Freed by the aspect lock, it shows as Auto with its measured size, and
+  its hint and Sizing say it's set by Aspect ratio ([design-options-css.md](design-options-css.md), Properties set by
+  another control). A grid child's W and H are the same field, Fill filling its cell.
 - **Tokens:** spacing, container.
 - **Writes:** `flex-1 min-w-0`, `flex-2 min-w-0` (`min-h-0` in a column), `self-stretch`, `w-fit`, `w-full`, or nothing,
   by the parent.

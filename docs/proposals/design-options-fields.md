@@ -15,11 +15,12 @@ Every field has the same slots, left to right:
    isn't Baseline (principle 7), and a dot after it when another viewport or state differs (calls 7 and 8).
 2. **The value** in its form (Forms, below).
 3. **Its unit,** hidden while focused, as today; typing a unit switches to it. Where the field takes more than one unit
-   or keyword, the unit is a button that opens the field's unit and mode menu, as Webflow's unit does, separate from the
-   token button. For Width and Height the menu lists Fixed, Hug and Fill first, with Auto only when the value is `auto`
-   from code or the aspect lock has freed that axis (Size in [design-options-values.md](design-options-values.md)), then
-   px, %, rem and More units, with Min content and Max content under More units, then Add min and Add max. A field with
-   one unit (ms, °) shows it as plain text.
+   or keyword, the unit is a button that opens the field's unit menu, as Webflow's unit does, separate from the token
+   button. Width and Height keep their words apart from their units: Fixed, Hug, Fill, and Min and Max content are in
+   Sizing, which the chevron at the field's end always opens, with Auto only when the value is `auto` from code or the
+   aspect lock has freed that axis (Size in [design-options-values.md](design-options-values.md)), then Add min and Add
+   max; their unit's menu holds only units, px, %, rem and More units. A field with one unit (ms, °) shows it as plain
+   text.
 4. **What it comes to,** in faint text, when the value is a token, keyword, relative unit or expression: measured on
    this layer, in the mode and state shown, as Width already shows for Hug and Fill (`card · 24`, `1.5em · 21px`). Where
    the field has room (about 96px or more), it shows after the value. In narrower fields (sides, corners, a shadow's

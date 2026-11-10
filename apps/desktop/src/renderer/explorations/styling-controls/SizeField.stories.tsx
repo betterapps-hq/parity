@@ -7,10 +7,11 @@ import { sizeRowWrites } from "./writes.ts"
 
 /**
  * Size and aspect ratio (PAR-186, PAR-652's Size type), on its own. W and H take a length (typed with the app's maths
- * and units, `spacing-4` included), a percentage of the parent, or a mode from the unit button's menu: Hug and Fill,
- * with Min content and Max content under More units, each with what it comes to after it, faintly. Dragging a label
- * scrubs; Up and Down step a whole spacing step. The lock keeps the ratio the layer has, freeing H (Auto, set by
- * Aspect ratio), with the ratio in its own row. Min and max limits are added from the field's menu.
+ * and units, `spacing-4` included), a percentage of the parent, or a word: Hug, Fill, Min content or Max content, each
+ * a chip with what it comes to faintly. The chevron at each field's end opens Sizing, which lists the words after
+ * Fixed, then Add min and Add max; the unit, after a number, is only ever a unit. Grid placement's W and H are this
+ * field too. Dragging a label scrubs; Up and Down step a whole spacing step. The lock keeps the ratio the layer has,
+ * freeing H (Auto, set by Aspect ratio), with the ratio in its own row.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Size and aspect ratio",
@@ -34,7 +35,7 @@ function Size({ start }: { start: Draft }) {
 /** Fixed at 520 by 520 pixels, written as spacing steps (`w-130`). Up on W makes it 524. */
 export const Fixed: Story = { render: () => <Size start={{ width: 520, height: 520 }} /> }
 
-/** W hugs its content, with what that comes to after Hug. */
+/** W hugs its content: a Hug chip, with what that comes to after it. */
 export const Hug: Story = { render: () => <Size start={{ width: "hug" }} /> }
 
 /** W fills its parent, `w-full`. */
@@ -43,10 +44,10 @@ export const Fill: Story = { render: () => <Size start={{ width: "fill" }} /> }
 /** Half the parent, typed `50%`, written as Tailwind's fraction (`w-1/2`, call 10). */
 export const Percent: Story = { render: () => <Size start={{ width: { percent: 50 } }} /> }
 
-/** Min content, from More units: as narrow as its longest word. */
+/** Min content, from Sizing: as narrow as its longest word. */
 export const MinContent: Story = { render: () => <Size start={{ width: "min" }} /> }
 
-/** Locked at 16:9: H is Auto, set by Aspect ratio, and the ratio is its own row, named Video. */
+/** Locked at 16:9: H is Auto, set by Aspect ratio, as its hint and Sizing say, and the ratio is its own row. */
 export const AspectLocked: Story = { render: () => <Size start={{ width: 480, aspect: "16 / 9" }} /> }
 
 /** Fill, kept between 320 and 640 pixels by a min and a max, each its own row with − to take it off. */

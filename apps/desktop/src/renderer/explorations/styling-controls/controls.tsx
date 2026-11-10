@@ -5,10 +5,6 @@ import {
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Popover,
   PopoverContent,
@@ -37,6 +33,7 @@ import {
   type Radius,
   type Size,
   sizeCss,
+  type SizeMode,
   trackCss,
   placementCss,
   usedColors
@@ -78,9 +75,9 @@ export interface SectionProps {
 }
 
 /**
- * W and H on one line with the aspect lock between them, as Figma UI3 has it, each a size field whose unit opens its
- * menu: Fixed, Hug or Fill, then px, % or rem, Min and Max content under More units, and Add min or Add max, which each
- * add a row under the size. Locking keeps the ratio the layer has now and frees the height (Auto, set by Aspect ratio),
+ * W and H on one line with the aspect lock between them, as Figma UI3 has it, each a size field: a word as a chip, and
+ * the Sizing menu at its end, Fixed, Hug, Fill, Min and Max content, then Add min or Add max, which each add a row
+ * under the size. Locking keeps the ratio the layer has now and frees the height (Auto, set by Aspect ratio),
  * since a ratio is ignored when both sizes are set; the ratio then shows as its own row, with named ratios. Typing H
  * while locked changes W to keep the ratio.
  */
@@ -228,22 +225,44 @@ export function useMeasured(selector: string): { width: number; height: number; 
   return size
 }
 
-const sizeModeNames = { hug: "Hug", fill: "Fill", min: "Min content", max: "Max content" } as const
+/** The sizes in words, each with what it does, in W's and H's Sizing menu and their chips' hints. */
+const sizeWords = (within: string): Record<SizeMode, { name: string; detail: string }> => ({
+  hug: { name: "Hug", detail: "Fits its content" },
+  fill: { name: "Fill", detail: `Fills its ${within}` },
+  min: { name: "Min content", detail: "As small as its content goes" },
+  max: { name: "Max content", detail: "Its content at full size, without wrapping" }
+})
+
+/** What each word typed reads as. */
+const typedSizes = new Map<string, SizeMode>([
+  ["hug", "hug"],
+  ["fit", "hug"],
+  ["fit-content", "hug"],
+  ["fill", "fill"],
+  ["min", "min"],
+  ["min-content", "min"],
+  ["max", "max"],
+  ["max-content", "max"]
+])
 
 /** Up and Down's count of steps: one, or ten with Shift. */
 const stepCount = (up: boolean, { shift }: ScrubKeys) => (up ? 1 : -1) * (shift ? 10 : 1)
 
 /**
- * A width or height with its mode, as PAR-652's Size type has it. A length shows its number and unit; a mode shows in
- * words, with what it comes to after it, faintly (Hug 248). The unit is a button that opens the field's menu. Typing a
- * length makes it Fixed, as in Figma, and Up or Down on a mode makes it Fixed at its measured size and steps from there,
- * a whole spacing step (4px) at a time.
+ * W or H, as PAR-652's Size type has it, for a layer and for a grid child alike: a number in its unit, or a word as a
+ * chip, Hug, Fill, or Min or Max content, with what it comes to faintly in the chip, as Gap's Auto is. The chevron at
+ * the end is always there and opens Sizing: Fixed, the words, and Add min and Add max where the field takes limits. The
+ * unit, after a number, is only ever a unit: px, % of its parent or cell, or rem. Backspace on a chip leaves it Fixed
+ * at what it came to, ready to type over; typing a length makes it Fixed, as in Figma, and Up or Down on a word makes it
+ * Fixed at what it comes to and steps from there, a whole spacing step (4px) at a time. Set by another control, as the
+ * aspect lock sets H, it says Auto faintly, with what it comes to; its hint and Sizing say what sets it.
  */
 export function SizeField({
   axis,
   value,
   measured,
   parent,
+  within = "parent",
   setBy,
   limits,
   onAddLimit,
@@ -254,6 +273,8 @@ export function SizeField({
   measured: number | undefined
   /** The parent's size on this axis, for a percentage; unset where it hugs, so a percentage means nothing. */
   parent: number | undefined
+  /** What Fill fills and a percentage is of: the layer's parent, or a grid child's cell. */
+  within?: "parent" | "cell"
   /** Another control that sets this axis, as the aspect lock sets the height: it shows as Auto, set by it. */
   setBy?: string
   limits?: { min: boolean; max: boolean }
@@ -261,80 +282,62 @@ export function SizeField({
   onChange: (size: Size) => void
 }) {
   const [unit, setUnit] = useState<"px" | "rem">("px")
-  const fixed = isFixedSize(value) ? value : undefined
-  const percent = isFixedSize(value) || isSizeMode(value) ? undefined : value.percent
-  let shown = ""
+  const words = sizeWords(within)
+  const mode = !setBy && isSizeMode(value) ? value : undefined
+  const fixed = !setBy && isFixedSize(value) ? value : undefined
+  const percent = setBy || isFixedSize(value) || isSizeMode(value) ? undefined : value.percent
+  // What Fixed starts at: the size it is now, as Figma's Fixed keeps it.
+  const now = Math.max(1, Math.round(fixed ?? measured ?? 100))
+  const of = axis === "Width" ? "width" : "height"
+  let shown: string | undefined
 
   if (setBy) {
     shown = "Auto"
+  } else if (mode !== undefined) {
+    shown = words[mode].name
   } else if (fixed !== undefined) {
     shown = unit === "rem" ? formatNumber(fixed / remPx) : String(fixed)
   } else if (percent !== undefined) {
-    shown = String(percent)
-  } else if (isSizeMode(value)) {
-    shown = sizeModeNames[value]
+    shown = formatNumber(percent)
   }
 
-  let mode = "fixed"
+  // What Auto or a percentage comes to, faintly after it, as a chip has it; what sets Auto is in its hint and Sizing.
+  const comesTo = (setBy || percent !== undefined) && measured !== undefined ? String(measured) : undefined
 
-  if (setBy) {
-    mode = "auto"
-  } else if (isSizeMode(value)) {
-    mode = value
-  }
-
-  let unitLabel: string | undefined
-
-  if (!setBy && fixed !== undefined) {
-    unitLabel = unit
-  } else if (!setBy && percent !== undefined) {
-    unitLabel = "%"
-  }
-
-  // What it comes to, faintly after the value: set by another control, or measured for a mode or a percentage.
-  let comesTo: string | undefined
-
-  if (setBy) {
-    comesTo = `set by ${setBy}`
-  } else if (fixed === undefined && measured !== undefined) {
-    comesTo = String(measured)
-  }
-
-  const reason = `Enter a length, Hug or Fill`
+  const reason = "Enter a length, Hug or Fill"
 
   /**
-   * What's typed: Hug or Fill by name; a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`),
-   * where a bare number is in the unit shown; or a percentage, CSS's (call 10). Nothing typed keeps the size.
+   * What's typed: Fixed, or a word by name; a length with the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`),
+   * where a bare number is in the unit shown; or a percentage, CSS's (call 10). Nothing typed, as Backspace on the
+   * chip leaves it, keeps the size.
    */
   const read = (text: string): Reading<Size | undefined> => {
-    const word = text.trim().toLowerCase()
+    const typed = text.trim().toLowerCase()
 
-    if (word === "") {
+    if (typed === "") {
       return { value: undefined }
     }
 
-    if (word === "hug" || word === "fit") {
-      return { value: "hug" }
+    if (typed === "fixed") {
+      return { value: now }
     }
 
-    if (word === "fill") {
-      return { value: "fill" }
+    const word = typedSizes.get(typed)
+
+    if (word !== undefined) {
+      return { value: word }
     }
 
-    const bare = /^-?(\d*\.?\d+)$/.test(word)
-    let input = word
+    const bare = /^-?(\d*\.?\d+)$/.test(typed)
+    let input = typed
 
     if (bare && percent !== undefined) {
-      input = `${word}%`
+      input = `${typed}%`
     } else if (bare && unit === "rem") {
-      input = `${word}rem`
+      input = `${typed}rem`
     }
 
-    const reading = readLength(input, {
-      label: axis,
-      current: fixed !== undefined && !setBy ? fixed : measured,
-      takesPercent: true
-    })
+    const reading = readLength(input, { label: axis, current: fixed ?? measured, takesPercent: true })
 
     if ("reason" in reading) {
       return { reason: reading.reason.startsWith("Can't read") ? reason : reading.reason }
@@ -348,9 +351,9 @@ export function SizeField({
       return { value: { percent: Math.max(0, Math.round(reading.percent * 10) / 10) } }
     }
 
-    if (/rem\s*$/.test(word)) {
+    if (/rem\s*$/.test(typed)) {
       setUnit("rem")
-    } else if (/px\s*$/.test(word)) {
+    } else if (/px\s*$/.test(typed)) {
       setUnit("px")
     }
 
@@ -364,120 +367,95 @@ export function SizeField({
       return
     }
 
-    // A mode, or Auto, becomes Fixed at its measured size and steps from there.
-    const from = fixed !== undefined && !setBy ? fixed : (measured ?? 0)
-    onChange(Math.max(4, stepSpacing(from, stepCount(up, keys))))
+    // A word, or Auto, becomes Fixed at what it comes to and steps from there.
+    onChange(Math.max(4, stepSpacing(fixed ?? measured ?? 0, stepCount(up, keys))))
   }
 
-  const atMeasured = measured ?? fixed ?? 100
+  const toUnit = (next: "px" | "%" | "rem") => {
+    if (next === "%") {
+      onChange({ percent: parent ? Math.round((now / parent) * 1000) / 10 : 100 })
 
-  const menu = (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={`${axis} unit and mode${unitLabel ? `: ${unitLabel}` : ""}`}
-        className={unitButtonClass}
-      >
-        {unitLabel ?? <ChevronDown className="size-3.5" />}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuRadioGroup
-          value={mode}
-          onValueChange={(next) => {
-            if (next === "fixed") {
-              onChange(atMeasured)
-            } else if (next === "hug" || next === "fill") {
-              onChange(next)
-            }
-          }}
-        >
-          <DropdownMenuRadioItem value="fixed" className="text-xs">
-            Fixed
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="hug" className="text-xs">
-            Hug
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="fill" className="text-xs">
-            Fill
-          </DropdownMenuRadioItem>
-          {setBy && (
-            <DropdownMenuRadioItem value="auto" className="text-xs">
-              Auto <span className="text-muted-foreground">set by {setBy}</span>
-            </DropdownMenuRadioItem>
-          )}
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuRadioGroup
-          value={(fixed !== undefined && !setBy && unit) || (percent !== undefined && "%") || ""}
-          onValueChange={(next: string) => {
-            if (next === "%") {
-              onChange({ percent: parent ? Math.round((atMeasured / parent) * 1000) / 10 : 100 })
+      return
+    }
 
-              return
-            }
+    setUnit(next)
 
-            if (next === "px" || next === "rem") {
-              setUnit(next)
-            }
+    if (percent !== undefined) {
+      onChange(Math.max(1, Math.round(measured ?? now)))
+    }
+  }
 
-            if (fixed === undefined || setBy) {
-              onChange(atMeasured)
-            }
-          }}
-        >
-          <DropdownMenuRadioItem value="px" className="text-xs">
-            px
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="%" className="text-xs">
-            %
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="rem" className="text-xs">
-            rem
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="text-xs">More units</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-36">
-            <DropdownMenuRadioGroup value={value === "min" || value === "max" ? value : ""}>
-              <DropdownMenuRadioItem value="min" className="text-xs" onClick={() => onChange("min")}>
-                Min content
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="max" className="text-xs" onClick={() => onChange("max")}>
-                Max content
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        {onAddLimit && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-xs" disabled={limits?.min} onClick={() => onAddLimit("min")}>
-              Add min
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs" disabled={limits?.max} onClick={() => onAddLimit("max")}>
-              Add max
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
+  const auto = setBy
+    ? [{ key: "auto", name: "Auto", detail: `Set by ${setBy}`, current: true, onPick: () => undefined }]
+    : []
 
   return (
     <div className="flex min-w-0 flex-col">
       <ValueField
         label={axis}
         inner={axis[0]}
-        // Dragging W or H scrubs the size a spacing step per 2 screen pixels, making a mode Fixed first.
-        scrub={{
-          from: () => (fixed !== undefined && !setBy ? fixed : (measured ?? 0)),
-          apply: (px) => onChange(px),
-          by: { spacing: true, min: 1 }
-        }}
+        // Dragging W or H scrubs the size a spacing step per 2 screen pixels, making a word Fixed first.
+        scrub={{ from: () => fixed ?? measured ?? 0, apply: (px) => onChange(px), by: { spacing: true, min: 1 } }}
         shown={shown}
         muted={setBy !== undefined}
-        unit={menu}
+        chip={
+          mode === undefined
+            ? undefined
+            : {
+                name: words[mode].name,
+                keyword: { detail: measured === undefined ? undefined : String(measured), about: words[mode].detail },
+                onRemove: () => onChange(now)
+              }
+        }
+        unit={
+          fixed === undefined && percent === undefined ? undefined : (
+            <UnitMenu
+              label={axis}
+              unit={percent === undefined ? unit : "%"}
+              units={[
+                { unit: "px", label: "Pixels" },
+                { unit: "%", label: `Of its ${within}'s ${of}` },
+                { unit: "rem", label: "Root em, 16px" }
+              ]}
+              onUnit={toUnit}
+            />
+          )
+        }
         comesTo={comesTo}
         hint={setBy ? { label: `${axis} is set by ${setBy}`, detail: `${measured}px at this ratio` } : undefined}
+        tokens={{
+          name: "Sizing",
+          list: [],
+          keywords: {
+            heading: axis,
+            rows: [
+              ...auto,
+              {
+                key: "fixed",
+                name: "Fixed",
+                detail: `${now}px`,
+                current: !setBy && mode === undefined,
+                onPick: () => {
+                  if (setBy || mode !== undefined) {
+                    onChange(now)
+                  }
+                }
+              },
+              ...(["hug", "fill", "min", "max"] as const).map((each) => ({
+                key: each,
+                name: words[each].name,
+                detail: words[each].detail,
+                current: mode === each,
+                onPick: () => onChange(each)
+              }))
+            ],
+            actions: onAddLimit && [
+              { key: "min", name: "Add min", disabled: limits?.min, onPick: () => onAddLimit("min") },
+              { key: "max", name: "Add max", disabled: limits?.max, onPick: () => onAddLimit("max") }
+            ]
+          },
+          onPick: () => undefined
+        }}
         selectOnFocus
         read={read}
         onCommit={(next) => {
