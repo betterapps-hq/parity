@@ -232,6 +232,99 @@ export function KeywordToggles({
   )
 }
 
+/** A menu whose options are previewed on the canvas while hovered or highlighted, until it closes. */
+export function PreviewMenu({ onPreview, children }: { onPreview?: (value: undefined) => void; children: ReactNode }) {
+  return (
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (!open) {
+          onPreview?.(undefined)
+        }
+      }}
+    >
+      {children}
+    </DropdownMenu>
+  )
+}
+
+/**
+ * A keyword menu's trigger, drawn as a field: the option, drawn where words alone don't show it, with a mark where it
+ * isn't Baseline, or what unset comes to, muted. `compact` leaves only the chevron, beside a custom value's field.
+ */
+export function KeywordTrigger({
+  label,
+  shown,
+  chosen,
+  detail,
+  drawn,
+  browsers,
+  compact = false,
+  className = "flex-1"
+}: {
+  label: string
+  shown: string
+  /** An option is set, so it isn't muted. */
+  chosen: boolean
+  detail: string
+  drawn?: ReactNode
+  browsers?: string
+  compact?: boolean
+  /** Its width in the row. */
+  className?: string
+}) {
+  return (
+    <Hint label={`${label}: ${shown}`} detail={detail} wait>
+      <DropdownMenuTrigger
+        aria-label={`${label}: ${compact ? "Custom" : shown}`}
+        className={`${fieldBox(false, `${compact ? "w-7 justify-center" : `${className} justify-between`} pr-1 outline-none`)} data-popup-open:ring-2 data-popup-open:ring-ring`}
+      >
+        {!compact && (
+          <span className={`flex min-w-0 items-center gap-1.5 ${chosen ? "" : "text-muted-foreground"}`}>
+            {drawn}
+            <span className="truncate">{shown}</span>
+            {browsers && <NotBaseline what={shown} browsers={browsers} />}
+          </span>
+        )}
+        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+      </DropdownMenuTrigger>
+    </Hint>
+  )
+}
+
+/**
+ * An option in a keyword menu: drawn where words alone don't show it, its name, a mark where it isn't Baseline, and
+ * the CSS it writes, faint at the end. It's previewed on the canvas while hovered or highlighted.
+ */
+export function KeywordItem({
+  value,
+  label,
+  keyword,
+  drawn,
+  browsers,
+  onPreview
+}: {
+  value: string
+  label: string
+  keyword: string
+  drawn?: ReactNode
+  browsers?: string
+  onPreview?: (value: string) => void
+}) {
+  return (
+    <DropdownMenuRadioItem
+      value={value}
+      className="text-xs"
+      onPointerEnter={() => onPreview?.(value)}
+      onFocus={() => onPreview?.(value)}
+    >
+      {drawn}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {browsers && <NotBaseline what={label} browsers={browsers} />}
+      <span className="shrink-0 font-mono text-2xs whitespace-nowrap text-muted-foreground">{keyword}</span>
+    </DropdownMenuRadioItem>
+  )
+}
+
 /**
  * A menu for a keyword set, as Wrap, Cursor and Stroke's Style are: its trigger shows the option, or what the layer has
  * while unset, muted. Each option shows its CSS keyword and is previewed on the canvas while hovered or highlighted.
@@ -279,20 +372,15 @@ export function KeywordMenu({
   const radioValue = chosen?.value ?? ""
 
   const item = (choice: KeywordChoice) => (
-    <DropdownMenuRadioItem
+    <KeywordItem
       key={choice.value}
       value={choice.value}
-      className="text-xs"
-      onPointerEnter={() => onPreview?.(choice.value)}
-      onFocus={() => onPreview?.(choice.value)}
-    >
-      {draw?.(choice)}
-      <span className="min-w-0 flex-1 truncate">{choice.label}</span>
-      {choice.browsers && <NotBaseline what={choice.label} browsers={choice.browsers} />}
-      <span className="shrink-0 font-mono text-2xs whitespace-nowrap text-muted-foreground">
-        {choice.comesTo ?? (choice.token ? `--${property}-${choice.value}` : choice.css.split(": ")[1])}
-      </span>
-    </DropdownMenuRadioItem>
+      label={choice.label}
+      keyword={choice.comesTo ?? (choice.token ? `--${property}-${choice.value}` : (choice.css.split(": ")[1] ?? ""))}
+      drawn={draw?.(choice)}
+      browsers={choice.browsers}
+      onPreview={onPreview}
+    />
   )
 
   const pick = (next: string) => {
@@ -314,28 +402,16 @@ export function KeywordMenu({
           }}
         />
       )}
-      <DropdownMenu
-        onOpenChange={(open) => {
-          if (!open) {
-            onPreview?.(undefined)
-          }
-        }}
-      >
-        <Hint label={`${label}: ${shown}`} detail={chosen ? chosen.css : `Unset: ${placeholder}`} wait>
-          <DropdownMenuTrigger
-            aria-label={`${label}: ${showCustom ? "Custom" : shown}`}
-            className={`${fieldBox(false, `${showCustom ? "w-7 justify-center" : "flex-1 justify-between"} pr-1 outline-none`)} data-popup-open:ring-2 data-popup-open:ring-ring`}
-          >
-            {!showCustom && (
-              <span className={`flex min-w-0 items-center gap-1.5 ${chosen ? "" : "text-muted-foreground"}`}>
-                {chosen && draw?.(chosen)}
-                <span className="truncate">{shown}</span>
-                {chosen?.browsers && <NotBaseline what={chosen.label} browsers={chosen.browsers} />}
-              </span>
-            )}
-            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
-          </DropdownMenuTrigger>
-        </Hint>
+      <PreviewMenu onPreview={onPreview}>
+        <KeywordTrigger
+          label={label}
+          shown={shown}
+          chosen={chosen !== undefined}
+          detail={chosen ? chosen.css : `Unset: ${placeholder}`}
+          drawn={chosen && draw?.(chosen)}
+          browsers={chosen?.browsers}
+          compact={showCustom}
+        />
         <DropdownMenuContent align="end" className="w-64">
           {tokens.length > 0 && (
             <>
@@ -380,7 +456,7 @@ export function KeywordMenu({
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
-      </DropdownMenu>
+      </PreviewMenu>
     </div>
   )
 }

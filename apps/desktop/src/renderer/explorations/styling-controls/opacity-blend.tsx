@@ -1,16 +1,9 @@
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
-import { ChevronDown, Contrast } from "lucide-react"
+import { DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuSeparator } from "@buildkitgg/shadcn-baseui-kit"
+import { Contrast } from "lucide-react"
 import { Fragment } from "react"
-import { Hint } from "../../chrome/Hint.tsx"
 import { formatNumber } from "./css-values.ts"
-import { fieldBox, nearestToken, NotBaseline, PercentField, useTokens } from "./field-parts.tsx"
+import { nearestToken, PercentField, useTokens } from "./field-parts.tsx"
+import { KeywordItem, KeywordTrigger, PreviewMenu } from "./keyword-sets.tsx"
 import { type BlendMode, blendModes } from "./text-data.ts"
 import type { Opacity } from "./text-writes.ts"
 import { opacityToken } from "./tokens.ts"
@@ -101,31 +94,15 @@ export function BlendMenu({
   }
 
   return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (!open) {
-          onPreview(undefined)
-        }
-      }}
-    >
-      <Hint
-        label={`Blend mode: ${label}`}
+    <PreviewMenu onPreview={onPreview}>
+      <KeywordTrigger
+        label="Blend mode"
+        shown={label}
+        chosen={value !== undefined}
         detail={value === undefined ? "Unset: blends as its parent does (pass through)" : `mix-blend-mode: ${value}`}
-        wait
-      >
-        <DropdownMenuTrigger
-          aria-label={`Blend mode: ${label}`}
-          className={`${fieldBox(false, "w-24 shrink-0 justify-between pr-1 outline-none")} data-popup-open:ring-2 data-popup-open:ring-ring`}
-        >
-          <span className={`truncate ${value === undefined ? "text-muted-foreground" : ""}`}>{label}</span>
-          <span className="flex shrink-0 items-center gap-0.5">
-            {value !== undefined && "browsers" in chosen && (
-              <NotBaseline what={chosen.label} browsers={chosen.browsers} />
-            )}
-            <ChevronDown className="size-3.5 text-muted-foreground" />
-          </span>
-        </DropdownMenuTrigger>
-      </Hint>
+        browsers={value !== undefined && "browsers" in chosen ? chosen.browsers : undefined}
+        className="w-24 shrink-0"
+      />
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuRadioGroup
           value={value ?? "normal"}
@@ -140,21 +117,18 @@ export function BlendMenu({
           {blendModes.map((mode, index) => (
             <Fragment key={mode.value}>
               {index > 0 && blendModes[index - 1]!.group !== mode.group && <DropdownMenuSeparator />}
-              <DropdownMenuRadioItem
+              <KeywordItem
                 value={mode.value}
-                className="text-xs"
-                onPointerEnter={() => onPreview(mode.value)}
-                onFocus={() => onPreview(mode.value)}
-              >
-                <span className="flex-1">{mode.label}</span>
-                {"browsers" in mode && <NotBaseline what={mode.label} browsers={mode.browsers} />}
-                <span className="font-mono text-2xs text-muted-foreground">{mode.value}</span>
-              </DropdownMenuRadioItem>
+                label={mode.label}
+                keyword={mode.value}
+                browsers={"browsers" in mode ? mode.browsers : undefined}
+                onPreview={(next) => onPreview(blendModes.find((each) => each.value === next)?.value)}
+              />
             </Fragment>
           ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
-    </DropdownMenu>
+    </PreviewMenu>
   )
 }
 
