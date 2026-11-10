@@ -68,6 +68,7 @@ const serviceParams = {
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
   "images.import": project.extend({ name: z.string(), type: z.string(), data: z.string() }),
   "images.scan": project,
+  "images.saveFrom": project.extend({ url: z.url({ protocol: /^https$/ }), name: z.string().min(1) }),
   "images.remove": project.extend({ path: z.string() }),
   "project.undoEdit": project.extend({ id: z.string() }),
   "storybook.open": project.extend({ component: z.string().optional() }),

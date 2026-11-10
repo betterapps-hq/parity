@@ -9,6 +9,7 @@ says how one is built and what adding the next one takes. What was decided, and 
 ```text
 @parity-app/connectors        data in, data out: no Electron, no state, fetch passed in
 ├── connector.ts              the contract: requests, filters, auth, results, problems, checkRequest
+├── browse.ts                 the window's library browser: shown filters, requests, pages, names, credit
 ├── recent.ts                 a recent search, and how one joins the list: remember
 ├── request.ts                what every adapter shares: prepare, sendSearch, notify, refusal
 ├── mobbin.ts                 Mobbin's REST API: screens, by platform and depth, paged by exclude
@@ -30,7 +31,8 @@ apps/desktop
   any letter case, out of its environment. A shipped copy will search through Parity's service, which holds them.
 - **The window asks main over IPC:** `canvasHost.connectors` gets the list (each connector's details and whether this
   copy can search it, never a key), searches, lists the person's recent searches, and says a result was placed
-  (`placed`), though no Place in the window calls that yet.
+  (`placed`). The library browser searches this way (editor.md), and adding a stock picture to the project reports each
+  one placed, with `media` as its design, since the Media tab holds it rather than a design.
 - **Main checks every search before it routes it,** against what the connector takes, and fills in its defaults. Each
   connector declares its source's `rateLimit` (Mobbin 60 a minute, Pixabay 100 a minute), and main runs half of it, so a
   loop can't spend a source's allowance. `connectors.searched` records the filters as checked, and names only connectors

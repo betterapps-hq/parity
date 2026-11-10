@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Find stock pictures on Pixabay in a library browser and add them to the project from the Media tab, credited",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

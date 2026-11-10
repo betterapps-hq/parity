@@ -3,6 +3,8 @@ import { mobbin } from "./mobbin.ts"
 import { pixabay } from "./pixabay.ts"
 import { unsplash } from "./unsplash.ts"
 
+export * from "./browse.ts"
+
 export * from "./connector.ts"
 
 export * from "./recent.ts"
@@ -30,6 +32,11 @@ export const offered: readonly Connector[] = [mobbin, pixabay]
 /** A connector by its id, offered or not, for naming where a result or a project's image came from. */
 export function connectorById(id: string): Connector | undefined {
   return connectors.find(({ info }) => info.id === id)
+}
+
+/** A connector by its name, as an image's credit names the library it came from. */
+export function connectorNamed(name: string): Connector | undefined {
+  return connectors.find(({ info }) => info.name === name)
 }
 
 /** Each connector's key from the environment, by its id, as a development copy sets them. Blank counts as unset. */

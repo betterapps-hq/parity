@@ -121,6 +121,7 @@ const handlers: Handlers<ServiceMethods> = {
   "document.saveCopy": saveDocumentCopy,
   "images.import": (params) => importImage(projects.get(params.projectId), params),
   "images.scan": ({ projectId }) => scanImages(projects.get(projectId)),
+  "images.saveFrom": ({ projectId, url, name }) => saveImageFrom(projects.get(projectId), { url, name }, fetch),
   "images.remove": ({ projectId, path }) => removeImage(projects.get(projectId), path),
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(projects.get(projectId), id),
   "storybook.open": (params) => openStorybook(projects.get(params.projectId), params),

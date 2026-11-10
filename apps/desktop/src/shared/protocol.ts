@@ -94,6 +94,11 @@ export interface ServiceMethods {
    */
   "images.scan": { params: { projectId: string }; result: { files: ImageFile[]; references: CodeReference[] } }
   /**
+   * Saves a picture from a stock library's link into `public/images/`, as adding one from the library browser does
+   * (PAR-839), named after what it shows. Refuses a link that isn't https, or that doesn't give a picture Parity takes.
+   */
+  "images.saveFrom": { params: { projectId: string; url: string; name: string }; result: { src: string; path: string } }
+  /**
    * Removes an image file from `public/images/` as an edit, so undoing it puts the file back. Refuses a file the
    * project's code names; the caller checks its designs first.
    */
