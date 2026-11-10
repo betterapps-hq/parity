@@ -3,7 +3,7 @@
  * stand-in design already uses. Its tokens are in tokens.ts.
  */
 import { numberValue, textValue } from "../../chrome/prop-values.ts"
-import type { Side } from "./sides-writes.ts"
+import type { Side, Sides } from "./sides-writes.ts"
 
 /** Colors the stand-in design already uses: the shapes behind Plans, and a plain blue a layer was given. */
 export const usedColors = ["#f54900", "#009689", "#ffb900", "#2f6fed"]
@@ -175,7 +175,7 @@ export interface Draft {
   borderAlpha?: number
   borderAllowed?: string
   /** One width, or each side from the top, clockwise. */
-  borderWidth?: number | [number, number, number, number]
+  borderWidth?: Sides
   /** Whether the stroke counts in layout, as a border (on for a new stroke, call 2), or is drawn as an outline. */
   strokeInLayout?: boolean
   /** Where an outline is drawn against the edge: inside, centered on it, or outside. */

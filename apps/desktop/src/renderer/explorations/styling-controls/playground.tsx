@@ -1,12 +1,12 @@
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { type CSSProperties, type ReactNode, useState } from "react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { numberValue } from "../../chrome/prop-values.ts"
 import { type Comparison, Comparisons, type Point } from "./comparisons.tsx"
 import { mixColor } from "./css-values.ts"
 import { type Draft, isLengthToken, usedColors } from "./data.ts"
 import { ProjectTokens, useTokenSets } from "./field-parts.tsx"
 import { HighlightProvider } from "./highlight.tsx"
+import { sideNumber, type Sides } from "./sides-writes.ts"
 import { hexOf, lengthPx, type TokenSets } from "./tokens.ts"
 import type { StrokePosition, Writes } from "./writes.ts"
 
@@ -145,16 +145,17 @@ export function Card({ style, children = "Plans" }: { style?: CSSProperties; chi
 }
 
 /** A style's colors, radii, stroke and blurs as a preview draws them, with the project's tokens resolved. */
+const noStroke: Sides = [undefined, undefined, undefined, undefined]
+
 export function drawnStyle(
   draft: Draft,
   sets: TokenSets,
   { inLayout = true, position = "inside" }: { inLayout?: boolean; position?: StrokePosition } = {}
 ): CSSProperties {
   const radii = Array.isArray(draft.radius) ? draft.radius : [draft.radius, draft.radius, draft.radius, draft.radius]
-  const every = draft.borderWidth ?? 0
-  const widths = Array.isArray(every) ? every : [every, every, every, every]
+  const widths = (draft.borderWidth ?? noStroke).map((side) => sideNumber(side, sets.borderWidth) ?? 0)
   const strokeColor = mixColor(hexOf(draft.border, sets.color), draft.borderAlpha) ?? "transparent"
-  const width = numberValue.safeParse(draft.borderWidth).data ?? 1
+  const width = widths[0] || 1
 
   const stroke: CSSProperties = inLayout
     ? { borderColor: strokeColor, borderStyle: "solid", borderWidth: widths.map((px) => `${px}px`).join(" ") }

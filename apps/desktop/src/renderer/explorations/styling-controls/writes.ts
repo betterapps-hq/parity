@@ -16,8 +16,8 @@ import {
   type Track,
   trackCss
 } from "./data.ts"
-import { sideClass, sideCss, sideStored, type SideValue } from "./sides-writes.ts"
-import { radiusTokens } from "./tokens.ts"
+import { sideClass, sideCss, sideNumber, type Sides, sideStored, sidesWrites, type SideValue } from "./sides-writes.ts"
+import { borderWidthTokens, radiusTokens } from "./tokens.ts"
 
 /**
  * A stored value as JSON holds it: text, a number, a list, or an object of them, as PAR-652's value forms are. An
@@ -173,8 +173,8 @@ export function radiusWrites(radius: Draft["radius"], cornerStyle?: string): Wri
 /** Where a stroke is drawn: in layout as a border, or as an outline inside, centered on or outside the edge (call 2). */
 export type StrokePosition = "inside" | "center" | "outside"
 
-const sideNames = ["top", "right", "bottom", "left"] as const
-const sideClasses = ["t", "r", "b", "l"] as const
+/** A stroke 1px on every side, the project's usual. */
+export const oneEverySide: Sides = [{ number: 1 }, { number: 1 }, { number: 1 }, { number: 1 }]
 
 /** A stroke: its width per side, its color, and where it's drawn. */
 export function strokeWrites(draft: Draft, inLayout: boolean, position: StrokePosition): Writes {
@@ -183,26 +183,16 @@ export function strokeWrites(draft: Draft, inLayout: boolean, position: StrokePo
   }
 
   const color = colorWrites("border", draft.border, draft.borderAlpha, draft.borderAllowed)
-  const widths = Array.isArray(draft.borderWidth) ? draft.borderWidth : undefined
-  const width = Array.isArray(draft.borderWidth) ? undefined : draft.borderWidth
-
-  const widthClass = (px: number, side?: string) => {
-    const prefix = side ? `border-${side}` : "border"
-
-    return px === 1 ? prefix : `${prefix}-${px}`
-  }
-
-  const stored: StoredObject = {
-    width: widths ? widths.map((px) => ({ step: px })) : { step: width ?? 1 },
-    color: color.stored
-  }
+  const sides = draft.borderWidth ?? oneEverySide
+  const widths = sidesWrites("border", sides)
+  const stored: StoredObject = { width: widths.stored, color: color.stored }
 
   if (!inLayout) {
     stored.position = { keyword: position }
   }
 
   if (!inLayout) {
-    const px = width ?? 1
+    const px = sideNumber(sides[0], borderWidthTokens) ?? 1
     const offset = { inside: -px, center: -px / 2, outside: 0 }[position]
     const colorValue = color.css[0]?.replace("border-color: ", "") ?? "currentColor"
 
@@ -217,24 +207,7 @@ export function strokeWrites(draft: Draft, inLayout: boolean, position: StrokePo
     }
   }
 
-  const css: string[] = []
-  const tailwind: string[] = []
-
-  if (widths) {
-    widths.forEach((px, index) => {
-      if (px === 0) {
-        return
-      }
-
-      css.push(`border-${sideNames[index]}-width: ${px}px`)
-      tailwind.push(widthClass(px, sideClasses[index]))
-    })
-  } else {
-    css.push(`border-width: ${width ?? 1}px`)
-    tailwind.push(widthClass(width ?? 1))
-  }
-
-  return { stored, css: [...css, ...color.css], tailwind: [...tailwind, ...color.tailwind] }
+  return { stored, css: [...widths.css, ...color.css], tailwind: [...widths.tailwind, ...color.tailwind] }
 }
 
 /** A width or height: a length, a percentage, or a mode (Hug, Fill, Min content, Max content). */

@@ -57,14 +57,15 @@ import {
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
-import { CornerGlyph, EachToggle, Field, SectionButton, SideGlyph } from "./field-row.tsx"
+import { CornerGlyph, EachToggle, Field, SectionButton } from "./field-row.tsx"
 import { HighlightOverlay } from "./highlight.tsx"
 import { RemoveButton } from "./list-parts.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
-import { sideNumber } from "./sides-writes.ts"
+import { sideNumber, sideRules, type Sides } from "./sides-writes.ts"
+import { FourSidesField } from "./sides.tsx"
 import type { LengthToken } from "./tokens.ts"
 import { isBareNumber, readLength } from "./typing.ts"
-import type { StrokePosition } from "./writes.ts"
+import { oneEverySide, type StrokePosition } from "./writes.ts"
 
 /*
  * The styling controls for PAR-186, each tried on its own in its story (Parity/Explorations/Design panel controls),
@@ -1103,26 +1104,23 @@ function LengthField({
   )
 }
 
-const sides = ["Top", "Right", "Bottom", "Left"] as const
-
-/** A stroke width for each side, from the top, clockwise, as a style holds them. */
-type SideWidths = [number, number, number, number]
-
 /**
  * Stroke, a title with + until it's set, as PAR-652's panel starts Fill, Stroke and Effects. + adds the project's usual
  * stroke, `border-border` at 1px, and − takes it off.
  */
+/** One width on every side, as an outline draws it. */
+const everySide = (px: number): Sides => [{ number: px }, { number: px }, { number: px }, { number: px }]
+
 export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
+  const borderWidths = useTokens("borderWidth").tokens
   // A new stroke is in layout (call 2): a border. Out of layout, it's an outline at its position.
   const inLayout = draft.strokeInLayout ?? true
   const position: StrokePosition = inLayout ? "inside" : (draft.strokePosition ?? "inside")
 
-  const every = draft.borderWidth ?? 1
-  const widths: SideWidths = Array.isArray(every) ? every : [every, every, every, every]
-
-  const alike = widths.every((width) => width === widths[0])
-  // Each side opens pressed when the sides differ, and stays as it's left: one side alone still shows every side.
-  const [each, setEach] = useState(!alike)
+  const widths = draft.borderWidth ?? oneEverySide
+  const widest = Math.max(...widths.map((side) => sideNumber(side, borderWidths) ?? 0)) || 1
+  // An outline strokes every side at one width: the sides as they are where they match, a token kept, or the widest.
+  const outlined = widths.every((side) => sameValue(side, widths[0])) ? widths : everySide(widest)
   const stroked = draft.border !== undefined || draft.borderWidth !== undefined
 
   const action = (
@@ -1130,7 +1128,6 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
       adds={!stroked}
       what="stroke"
       onClick={() => {
-        setEach(false)
         set(
           stroked
             ? {
@@ -1141,7 +1138,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
                 strokeInLayout: undefined,
                 strokePosition: undefined
               }
-            : { border: "border", borderWidth: 1 }
+            : { border: "border", borderWidth: oneEverySide }
         )
       }}
     />
@@ -1170,62 +1167,24 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
             onChange={(border, borderAlpha) => set({ border, borderAlpha, borderAllowed: undefined })}
           />
         </Field>
-        <Field
+        <FourSidesField
           label="Width"
-          action={
-            <EachToggle
-              label="Each side"
-              parts="sides"
-              pressed={each}
-              onClick={() => {
-                // Sides that match become one width again; sides that don't stay, and the field says Mixed.
-                if (each && alike && Array.isArray(draft.borderWidth)) {
-                  set({ borderWidth: widths[0] })
-                }
+          rules={sideRules.border}
+          together="one"
+          sides={widths}
+          tokensOnly={tokensOnly}
+          onChange={(next) => {
+            const change: Partial<Draft> = { borderWidth: next }
 
-                setEach(!each)
-              }}
-            />
-          }
-        >
-          {each ? (
-            <div className="grid min-w-0 grid-cols-2 gap-x-2 gap-y-1">
-              {sides.map((side, index) => (
-                <Num
-                  key={side}
-                  label={`${side} stroke width`}
-                  inner={<SideGlyph side={index} />}
-                  pixels
-                  narrow
-                  value={widths[index]}
-                  min={0}
-                  onChange={(value) => {
-                    const next: SideWidths = [...widths]
-                    next[index] = value ?? 0
-                    const change: Partial<Draft> = { borderWidth: next }
+            // Only a border strokes some sides and not others, so sides that differ put the stroke in layout.
+            if (!next.every((side) => sameValue(side, next[0]))) {
+              change.strokeInLayout = undefined
+              change.strokePosition = undefined
+            }
 
-                    // Only a border strokes some sides and not others, so sides that differ put the stroke in layout.
-                    if (!next.every((width) => width === next[0])) {
-                      change.strokeInLayout = undefined
-                      change.strokePosition = undefined
-                    }
-
-                    set(change)
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <Num
-              label="Stroke width"
-              pixels
-              value={alike ? widths[0] : undefined}
-              mixed={!alike}
-              min={0}
-              onChange={(value) => set({ borderWidth: value ?? 1 })}
-            />
-          )}
-        </Field>
+            set(change)
+          }}
+        />
         <Field
           label="Position"
           hint="In layout, the stroke is a border, which takes up room. Out of it, it's an outline, drawn inside, centered on or outside the edge, and takes none."
@@ -1242,8 +1201,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
 
                   // Center and Outside are outlines, which stroke every side at one width.
                   if (next !== "inside") {
-                    setEach(false)
-                    set({ strokeInLayout: false, strokePosition: next, borderWidth: Math.max(...widths) || 1 })
+                    set({ strokeInLayout: false, strokePosition: next, borderWidth: outlined })
                   } else {
                     set({ strokePosition: inLayout ? undefined : "inside" })
                   }
@@ -1264,11 +1222,10 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
                 aria-label="Include in layout"
                 pressed={inLayout}
                 onPressedChange={(on) => {
-                  setEach(false)
                   set(
                     on
                       ? { strokeInLayout: undefined, strokePosition: undefined }
-                      : { strokeInLayout: false, strokePosition: "inside", borderWidth: Math.max(...widths) || 1 }
+                      : { strokeInLayout: false, strokePosition: "inside", borderWidth: outlined }
                   )
                 }}
               >
