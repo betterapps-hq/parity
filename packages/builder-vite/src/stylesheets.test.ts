@@ -83,7 +83,9 @@ describe("a stylesheet edited while the builder runs", () => {
     await vi.waitFor(() => expect(changes.at(-1)).toMatchObject({ paths: [], styles: true }), { timeout: 10_000 })
 
     const stamp = changes.at(-1)!.stamp
-    const again = stylesheetImport(await served(`${session.guestUrl}?styles=${stamp}`))
+    const restyled = session.restyledGuestUrl?.(stamp)
+    expect(restyled).toBe(`${session.guestUrl}?styles=${stamp}`)
+    const again = stylesheetImport(await served(restyled!))
     expect(again).not.toBe(first)
     expect(again).toContain(`t=${stamp}`)
     expect(await served(again)).toContain("blue")

@@ -54,18 +54,6 @@ export async function followGuest(
   return moved && (await tell(moved)) ? now : drawn
 }
 
-/**
- * Where a project's guest is served once one of its stylesheets changed (PAR-821): the builder's own address, with the
- * change's stamp as a query. That's a module the windows haven't loaded, whose stylesheet imports the builder writes
- * with the stamp, so it brings the CSS as it is now; the builder serves its guest whatever the query.
- */
-export function restyledGuest(guestUrl: string, stamp: number): string {
-  const url = new URL(guestUrl)
-  url.searchParams.set("styles", String(stamp))
-
-  return url.href
-}
-
 /** What to tell the windows once a builder started again: where its guest is now, unless it's where it was. */
 export function guestMove(projectId: string, before: string, after: string): GuestMoved | undefined {
   return before === after ? undefined : { projectId, guestUrl: after }

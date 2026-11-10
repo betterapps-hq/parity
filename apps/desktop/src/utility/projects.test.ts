@@ -54,6 +54,8 @@ interface Failures {
 interface BuilderHooks {
   /** Runs as the builder starts, once detection has read the project. */
   starting?: () => void
+  /** The builder can't serve its guest restyled (`restyledGuestUrl`), so a stylesheet's change starts it again. */
+  noRestyle?: boolean
 }
 
 /** A builder that serves at the port it's given, and what it was asked. */
@@ -92,6 +94,10 @@ function fakeBuilder() {
       },
       setComponents: () => undefined,
       usage: () => Promise.resolve(undefined)
+    }
+
+    if (!hooks.noRestyle) {
+      session.restyledGuestUrl = (stamp) => Promise.resolve(`${session.guestUrl}?styles=${stamp}`)
     }
 
     return { pid: 1, session: failures.start ? Promise.reject(failures.start) : Promise.resolve(session) }
@@ -376,6 +382,20 @@ describe("an open project's stylesheets", () => {
     expect(builder.started).toEqual([5100, 5100])
     expect((await projects.open(root)).guestUrl).toBe(restyled)
     expect(moves).toHaveLength(1)
+  })
+
+  it("start a builder that can't serve its guest restyled again on a new port when one changes", async () => {
+    const { projects, builder, moves } = setUp()
+    builder.hooks.noRestyle = true
+    await projects.open(root)
+
+    builder.changeCode({ paths: [], stamp: 8, styles: true })
+    const moved = "http://localhost:5101/@parity/guest.js"
+    await vi.waitFor(() => expect(moves).toEqual([{ projectId: root, guestUrl: moved }]))
+    expect(builder.started).toEqual([5100, 5101])
+    expect(builder.closed).toEqual(["http://localhost:5100/@parity/guest.js"])
+    expect((await projects.open(root)).guestUrl).toBe(moved)
+    expect(projects.codeServedAt(root, moved)).toBeDefined()
   })
 })
 

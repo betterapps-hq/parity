@@ -95,6 +95,7 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | `vite.config.cjs`/`.cts` | ✅     | Found by the project's own Vite (`loadConfigFromFile`), like `.js`, `.mjs`, `.ts` and `.mts`.                                                             |
 | Next.js                  | ⏳     | Likely the second builder; server components need thought.                                                                                                |
 | webpack, Rspack          | ⏳     |                                                                                                                                                           |
+| Rsbuild                  | ⏳     | Would share an Rspack-based adapter with Rspack, which it builds on.                                                                                      |
 
 ### Styling (styles adapter)
 

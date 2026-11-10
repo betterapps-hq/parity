@@ -163,6 +163,24 @@ describe("a builder in its own process", () => {
     expect(onCodeChange).toHaveBeenCalledTimes(1)
   })
 
+  it("asks the builder's process where it serves the guest restyled, and has no answer from one that can't", async () => {
+    const { builder } = fakeBuilder()
+    const start = builder.start.bind(builder)
+    builder.start = async (options) => {
+      const session = await start(options)
+
+      return { ...session, restyledGuestUrl: (stamp) => `${session.guestUrl}?styles=${stamp}` }
+    }
+
+    const restyling = await connect(builder).client.session
+    expect(await restyling.restyledGuestUrl?.(9)).toBe("http://127.0.0.1:5400/guest?styles=9")
+    void restyling.close()
+    expect(await restyling.restyledGuestUrl?.(10)).toBeUndefined()
+
+    const plain = await connect(fakeBuilder().builder).client.session
+    expect(await plain.restyledGuestUrl?.(9)).toBeUndefined()
+  })
+
   it("closes the builder, then the process, and resolves once the process has ended", async () => {
     const { builder, close } = fakeBuilder()
     const { client, exit } = connect(builder)

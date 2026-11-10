@@ -3956,35 +3956,53 @@ reads from it, without reopening the project. Before, `parity tokens` showed the
 file, but frames drew the CSS the guest was loaded with until Parity restarted: the guest imports the stylesheets once,
 as text, and a code change only loaded components again.
 
-- **The builder says a stylesheet changed.** `stampChange` stamps the file's modules and their importers as for any code
-  change, and says `styles` when the file is a stylesheet whose modules include one the guest imports as text
-  (`styles.css?inline`), directly or through an `@import`. A component's own CSS module isn't one; it loads again with
-  its component. `gatherChanges` sends a burst with a stylesheet in it even when no component file changed.
-- **The service serves the guest from a new address** on the same builder, the builder's own with the change's stamp
-  (`restyledGuest`, `?styles=<stamp>`), and tells the windows as when a builder moves (`project.guestMoved`). Vite
-  writes the stamped stylesheets' imports with `?t=`, so the guest loaded there imports the CSS as it is now, while the
-  renderer and unchanged components keep the modules the page has. The tab swaps in the new guest and its tokens and
-  lets go of the old one (`moveGuest`); bitmaps are named by the code as the new address first served it, so none drawn
-  with the old CSS is shown. The styling framework's theme is read again for tabs opened later.
-- **A builder started again keeps the stamp,** so on the same port it serves the guest where the windows already draw
-  it, rather than at the address they loaded before the change.
+- **The builder says a stylesheet changed.** Vite's `stampChange` stamps the file's modules and their importers as for
+  any code change, and says `styles` when the file is a stylesheet (core's `isStylesheetFile`) whose modules include one
+  the guest imports as text (Vite's `styles.css?inline`), directly or through an `@import`. A component's own CSS module
+  isn't one; it loads again with its component. Core's `gatherChanges` sends a burst with a stylesheet in it even when
+  no component file changed.
+- **The builder says where the restyled guest is** (`BuilderSession.restyledGuestUrl(stamp)`), asked of its process.
+  Vite's is its own address with the change's stamp (`restyledGuest`, `?styles=<stamp>`): Vite writes the stamped
+  stylesheets' imports with `?t=`, so the guest loaded there imports the CSS as it is now, while the renderer and
+  unchanged components keep the modules the page has. The service serves the guest there and tells the windows as when a
+  builder moves (`project.guestMoved`). The tab swaps in the new guest and its tokens and lets go of the old one
+  (`moveGuest`); bitmaps are named by the code as the new address first served it, so none drawn with the old CSS is
+  shown. The styling framework's theme is read again for tabs opened later.
+- **A builder that can't say is started again on a new port,** one the windows have loaded nothing from, so they load
+  the whole guest afresh.
+- **A builder started again keeps the stamp,** asking the new session for the restyled address, so on the same port it
+  serves the guest where the windows already draw it, rather than at the address they loaded before the change.
 
-Code: `stampChange`, `StampedChange` and `gatherChanges` in `packages/builder-vite/src/code-changes.ts`; `styles` in
-`CodeChange`, `packages/core/src/adapters.ts`, passed on whole by `packages/core/src/builder-process.ts`;
-`restyledGuest` in `apps/desktop/src/utility/guest-ports.ts`; `restyle` and `restyled` in `openProjects`,
-`apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`.
+**What a builder adapter does for this.** It reports changes through `BuilderSession.codeChanges`, gathered with core's
+`gatherChanges`, with `styles` set when a saved file is one of the stylesheets its guest imports, told by
+`isStylesheetFile`. Then it either offers `restyledGuestUrl`, serving there, until it closes, a guest that imports its
+stylesheets as they are now at an address the windows haven't loaded, or leaves it out and accepts being started again
+on each stylesheet change, which costs a whole builder start.
 
-Tests: `packages/builder-vite/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s,
-said to change the guest's stylesheets, a component's CSS module not; a burst with a stylesheet sent without a component
-file, and the next burst without one not saying so). `packages/core/src/builder-process.test.ts` (the change passed on
-with `styles`). `apps/desktop/src/utility/guest-ports.test.ts` (1: the stamped address).
-`apps/desktop/src/utility/projects.test.ts` (1: a component's change moves nothing, a stylesheet's moves the guest to
-the stamped address with its code snapshot, and a builder started again on the same port keeps it).
-`packages/builder-vite/src/stylesheets.test.ts` (1, a real Vite server: a file the stylesheet `@import`s, edited, is
-said to change the guest's stylesheets, and the guest served at the stamped address imports the stylesheet with `?t=`
-and gets the new CSS). Gaps: the window side is `moveGuest`'s, covered in `workspace.test.ts`; a Tailwind class used
-nowhere before a component's edit still has no CSS until a stylesheet changes or the project opens again, since a
-component's save doesn't reload the guest's CSS.
+Code: `isStylesheetFile`, `stylesheetExtensions`, `StampedChange` and `gatherChanges` in
+`packages/core/src/code-changes.ts`; `styles` in `CodeChange` and `restyledGuestUrl` in `BuilderSession`,
+`packages/core/src/adapters.ts`; the `restyledGuestUrl` request and the change passed on whole in
+`packages/core/src/builder-process.ts`; `stampChange` in `packages/builder-vite/src/code-changes.ts` and `restyledGuest`
+in `packages/builder-vite/src/index.ts`; `restyle`, `serveGuestAt`, `servingOptions` and `restyled` in `openProjects`,
+`apps/desktop/src/utility/projects.ts`; `moveGuest` in `apps/desktop/src/renderer/workspace.ts`. Project discovery tells
+stylesheets by the same list (`stylesheetImports` and `readStylesheet` in `packages/project/src/styles.ts`,
+`importedFiles` in `preview-key.ts`).
+
+Tests: `packages/core/src/code-changes.test.ts` (stylesheets told by extension with a query left off; a burst with a
+stylesheet sent without a component file, and the next burst without one not saying so).
+`packages/builder-vite/src/code-changes.test.ts` (a stylesheet the guest imports as text, and one it `@import`s, said to
+change the guest's stylesheets, a component's CSS module not). `packages/core/src/builder-process.test.ts` (the change
+passed on with `styles`; the restyled address asked of the process, and none from a builder without it or once it
+closes). `apps/desktop/src/utility/projects.test.ts` (2: a component's change moves nothing, a stylesheet's moves the
+guest to the restyled address with its code snapshot, and a builder started again on the same port keeps it; a builder
+without a restyled address started again on a new port). `packages/builder-vite/src/stylesheets.test.ts` (1, a real Vite
+server: a file the stylesheet `@import`s, edited, is said to change the guest's stylesheets, and the guest at the
+session's restyled address imports the stylesheet with `?t=` and gets the new CSS).
+`packages/project/src/styles.test.ts` (Less imported as a global stylesheet, a Sass CSS module not). Checked in a
+development copy of the app on 2026-11-09 with `scripts/drive.ts` on `examples/shadcn-vite`: a custom property added to
+`src/index.css` was in the frames' stylesheets 2.6 s after the save, with no reopen. Gaps: the window side is
+`moveGuest`'s, covered in `workspace.test.ts`; a Tailwind class used nowhere before a component's edit still has no CSS
+until a stylesheet changes or the project opens again, since a component's save doesn't reload the guest's CSS.
 
 ### Bitmaps kept between sessions (PAR-158)
 

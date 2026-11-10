@@ -12,6 +12,7 @@ import {
   type CodeChange,
   commandOption,
   type ExportsTarget,
+  gatherChanges,
   iconStyleModules,
   type LibraryInfo,
   libraryImports,
@@ -23,7 +24,7 @@ import {
 import { isComposite, isText } from "@parity-app/core/values/evaluate"
 import { describedCategories, describedTokenCss } from "@parity-app/tokens"
 import type * as Vite from "vite"
-import { gatherChanges, stampChange } from "./code-changes.ts"
+import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { warmGuestGraph } from "./warmup.ts"
 
@@ -161,9 +162,12 @@ export const viteBuilder: BuilderAdapter = {
         changes.add(stampChange(client.moduleGraph, vite.normalizePath(file), changes.stamp(), root, components))
       })
 
+      const guestUrl = new URL(`/@id/__x00__${guestId}`, origin).href
+
       return {
-        guestUrl: new URL(`/@id/__x00__${guestId}`, origin).href,
+        guestUrl,
         toolVersion: vite.version,
+        restyledGuestUrl: (stamp) => restyledGuest(guestUrl, stamp),
         codeChanges(listener) {
           codeListeners.add(listener)
 
@@ -180,6 +184,18 @@ export const viteBuilder: BuilderAdapter = {
       throw error
     }
   }
+}
+
+/**
+ * Where the guest is served with its stylesheets as they are after a change (PAR-821): its address with the change's
+ * stamp as a query. That's a module the windows haven't loaded, and Vite writes its imports of the stylesheets the
+ * change stamped with `?t=`, so it brings the CSS as it is now; the guest plugin serves the guest whatever the query.
+ */
+export function restyledGuest(guestUrl: string, stamp: number): string {
+  const url = new URL(guestUrl)
+  url.searchParams.set("styles", String(stamp))
+
+  return url.href
 }
 
 /** A port nothing on 127.0.0.1 is using: the one the system gives a listener asking for any, closed again. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { followGuest, type GuestMoved, guestMove, newGuestPort, restartPort, restyledGuest } from "./guest-ports.ts"
+import { followGuest, type GuestMoved, guestMove, newGuestPort, restartPort } from "./guest-ports.ts"
 
 /** Hands out the given ports in turn, and calls free the ones not in `taken`. */
 function finder(handed: number[], taken: number[] = []) {
@@ -41,14 +41,6 @@ describe("guestMove", () => {
       projectId: "D:/shop",
       guestUrl: "http://127.0.0.1:5402/guest.js"
     })
-  })
-})
-
-describe("restyledGuest", () => {
-  it("serves the guest at the builder's address with the stylesheets' stamp, one per change", () => {
-    const guest = "http://127.0.0.1:5400/@id/__x00__virtual:canvas/guest"
-    expect(restyledGuest(guest, 7)).toBe(`${guest}?styles=7`)
-    expect(restyledGuest(restyledGuest(guest, 7), 8)).toBe(`${guest}?styles=8`)
   })
 })
 
