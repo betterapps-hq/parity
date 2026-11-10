@@ -1,9 +1,10 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import {
   type Encryption,
+  type StoreProblem,
   type StoredAccount,
   type StoredAccounts,
   sessionStore,
@@ -86,12 +87,32 @@ describe("sessionStore", () => {
   })
 
   it("forgets a file it can't read, as after the keychain changed or from a build that kept one account", async () => {
+    const problems: StoreProblem[] = []
+    const store = sessionStore(file, keychain(), "win32", (problem) => problems.push(problem))
     writeFileSync(file, "not what the keychain wrote")
-    expect(await sessionStore(file, keychain(), "win32").read()).toBeUndefined()
+    expect(await store.read()).toBeUndefined()
     expect(existsSync(file)).toBe(false)
     writeFileSync(file, Buffer.from(Buffer.from(JSON.stringify(ada)).toString("base64")))
-    expect(await sessionStore(file, keychain(), "win32").read()).toBeUndefined()
+    expect(await store.read()).toBeUndefined()
     expect(existsSync(file)).toBe(false)
+    writeFileSync(file, Buffer.from(Buffer.from("{ not json").toString("base64")))
+    expect(await store.read()).toBeUndefined()
+    // Each says where reading failed and the error's name, never what was decrypted.
+    expect(problems).toEqual([
+      { action: "read", stage: "decrypt", error: "Error" },
+      { action: "read", stage: "schema", error: "ZodError" },
+      { action: "read", stage: "json", error: "SyntaxError" }
+    ])
+  })
+
+  it("says nothing when there's no file, and keeps one it can't open, saying why", async () => {
+    const problems: StoreProblem[] = []
+    expect(await sessionStore(file, keychain(), "win32", (problem) => problems.push(problem)).read()).toBeUndefined()
+    expect(problems).toEqual([])
+    mkdirSync(file)
+    expect(await sessionStore(file, keychain(), "win32", (problem) => problems.push(problem)).read()).toBeUndefined()
+    expect(problems).toEqual([{ action: "read", stage: "file", error: "Error", code: "EISDIR" }])
+    expect(existsSync(file)).toBe(true)
   })
 })
 

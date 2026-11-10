@@ -1,6 +1,7 @@
 import type { Fetch } from "@parity-app/account"
 import type { JsonValue } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
+import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { describe, expect, it } from "vite-plus/test"
 import type { AccountState, SignInProvider } from "../shared/account.ts"
 import { type AccountOptions, createAccount } from "./account.ts"
@@ -73,7 +74,9 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
   const opened: string[] = []
   const states: AccountState[] = []
   const timers: { run: () => void; at: number }[] = []
+  const sink = createTestSink()
   let closed = 0
+  let browserOpens = true
 
   const fetch: Fetch = async (_url, init) => {
     requests.push(JSON.parse(isText(init.body) ? init.body : "{}"))
@@ -90,6 +93,10 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
     redirect: async () => ({ uri: "http://127.0.0.1:4100/auth/callback", close: () => closed++ }),
     openBrowser: async (url) => {
       opened.push(url)
+
+      if (!browserOpens) {
+        throw new Error("No browser")
+      }
     },
     store,
     changed: (state) => states.push(state),
@@ -100,7 +107,13 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
       timers.push(timer)
 
       return () => timers.splice(timers.indexOf(timer), 1)
-    }
+    },
+    telemetry: createTelemetry({
+      events: registeredEvents,
+      context: { process: "main", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
   } satisfies AccountOptions)
 
   return {
@@ -109,6 +122,10 @@ function setUp(options: { store?: ReturnType<typeof memoryStore> } = {}) {
     states,
     opened,
     requests,
+    tracked: sink.events,
+    /** The events recorded with `name`, by their attributes. */
+    named: (name: string) => sink.named(name).map((each) => each.attributes),
+    browserFails: () => (browserOpens = false),
     closed: () => closed,
     answer: (status: number, body: JsonValue) => answers.push({ status, body }),
     /** Moves the clock to the next timer and runs it. */
@@ -426,6 +443,137 @@ describe("signing out", () => {
     expect(test.account.state()).toEqual({ account: null, accounts: [], attempt: null, ended: null })
     expect(test.store.kept).toBeUndefined()
     expect(test.pending()).toEqual([])
+  })
+})
+
+describe("telemetry", () => {
+  async function signedIn(test = setUp(), provider: SignInProvider = "GitHubOAuth", email = "ada@example.com") {
+    await test.account.signIn({ provider })
+    test.answer(200, session(`refresh_${email}`, test.now(), {}, email))
+    await test.account.takeLink(test.callback({ code: "1" }))
+
+    return test
+  }
+
+  it("records signing in, never with a token or an email", async () => {
+    const test = await signedIn()
+    await signedIn(test, "GoogleOAuth", "ada@contoso.com")
+    await signedIn(test, "GoogleOAuth", "ada@contoso.com")
+    expect(test.named("account.signedIn")).toEqual([
+      { provider: "GitHubOAuth", again: false, kept: true, accounts: 1 },
+      { provider: "GoogleOAuth", again: false, kept: true, accounts: 2 },
+      { provider: "GoogleOAuth", again: true, kept: true, accounts: 2 }
+    ])
+    expect(JSON.stringify(test.tracked)).not.toMatch(/refresh_|@/)
+  })
+
+  it("records each sign-in that ends without a session, with WorkOS's status and code but not its message", async () => {
+    const test = setUp()
+    await test.account.signIn({ provider: "GoogleOAuth" })
+    await test.account.takeLink(test.callback({ error: "access_denied" }))
+    await test.account.signIn({ provider: "GoogleOAuth" })
+    await test.account.takeLink(test.callback({ error: "server_error" }))
+    await test.account.signIn({ provider: "MicrosoftOAuth" })
+    test.answer(403, { code: "user_not_allowed", message: "ada@hey.com isn't allowed.", email: "ada@hey.com" })
+    await test.account.takeLink(test.callback({ code: "1" }))
+    test.browserFails()
+    await test.account.signIn({ provider: "authkit", email: "ada@example.com" })
+    expect(test.named("account.signInProblem")).toEqual([
+      { provider: "GoogleOAuth", problem: "canceled" },
+      { provider: "GoogleOAuth", problem: "failed", code: "server_error" },
+      { provider: "MicrosoftOAuth", problem: "refused", status: 403, code: "user_not_allowed" },
+      { provider: "authkit", problem: "browser" }
+    ])
+    expect(JSON.stringify(test.tracked)).not.toMatch(/@/)
+  })
+
+  it("records refreshes, and each that fails with why", async () => {
+    const test = await signedIn()
+    test.answer(503, {})
+    await test.tick()
+    test.answer(200, session("refresh_2", test.now()))
+    await test.tick()
+    expect(test.named("account.refreshFailed")).toEqual([
+      { reason: "unavailable", organization: false, failures: 1, status: 503 }
+    ])
+    expect(test.named("account.refreshed")).toEqual([{ organization: false, retries: 1 }])
+  })
+
+  it("records a refresh another copy won, and a session WorkOS ends", async () => {
+    const test = await signedIn()
+    // Another copy refreshes while this one asks WorkOS: its read after the refusal finds a newer token.
+    let reads = 0
+    test.store.read = async () => {
+      const { kept } = test.store
+
+      if (++reads === 2) {
+        keptFor(test.store)!.refreshToken = "refresh_newer"
+      }
+
+      return kept
+    }
+
+    test.answer(400, { error: "invalid_grant" })
+    await test.tick()
+    test.answer(400, { error: "invalid_grant" })
+    await test.tick()
+    expect(test.named("account.refreshFailed")).toEqual([
+      { reason: "superseded", organization: false, failures: 1, status: 400, code: "invalid_grant" },
+      { reason: "refused", organization: false, failures: 2, status: 400, code: "invalid_grant" }
+    ])
+    expect(test.named("account.sessionEnded")).toEqual([{ reason: "refused", current: true }])
+  })
+
+  it("records a session ended or signed out in another copy", async () => {
+    const test = await signedIn()
+    delete keptFor(test.store)!.refreshToken
+    await test.tick()
+    expect(test.named("account.sessionEnded")).toEqual([{ reason: "elsewhere", current: true }])
+
+    const other = await signedIn()
+    other.store.clear()
+    await other.tick()
+    expect(other.named("account.signedOut")).toEqual([
+      { reason: "elsewhere", current: true, ended: false, accounts: 0 }
+    ])
+  })
+
+  it("records signing out, and removing an account whose session ended", async () => {
+    const test = await signedIn()
+    await signedIn(test, "GoogleOAuth", "ada@contoso.com")
+    await test.account.signOut("ada@example.com")
+    test.answer(400, { error: "invalid_grant" })
+    await test.tick()
+    await test.account.signOut("ada@contoso.com")
+    expect(test.named("account.signedOut")).toEqual([
+      { reason: "person", current: false, ended: false, accounts: 1 },
+      { reason: "person", current: false, ended: true, accounts: 0 }
+    ])
+  })
+
+  it("records switching organizations, and a switch WorkOS turns down", async () => {
+    const test = await signedIn()
+    test.answer(200, session("refresh_2", test.now(), { org_id: "org_2" }))
+    await test.account.switchOrganization("org_2")
+    test.answer(403, { code: "organization_membership_not_found" })
+    await expect(test.account.switchOrganization("org_3")).rejects.toThrow("WorkOS didn't switch")
+    expect(test.named("account.refreshed")).toEqual([{ organization: true, retries: 0 }])
+    expect(test.named("account.refreshFailed")).toEqual([
+      { reason: "refused", organization: true, failures: 1, status: 403, code: "organization_membership_not_found" }
+    ])
+  })
+
+  it("records accounts it couldn't keep, by the error's name and code", async () => {
+    const store = memoryStore()
+    store.update = async () => {
+      throw Object.assign(new Error("EPERM: C:\\Users\\ada\\account"), { code: "EPERM" })
+    }
+
+    const test = await signedIn(setUp({ store }))
+    expect(test.named("account.storeFailed")).toEqual([{ action: "write", error: "Error", code: "EPERM" }])
+    expect(test.named("account.signedIn")).toEqual([
+      { provider: "GitHubOAuth", again: false, kept: false, accounts: 1 }
+    ])
   })
 })
 
