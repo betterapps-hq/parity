@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 10 Nov 2026 21:21:43 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 10 Nov 2026 22:21:48 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.40.0
+
+Tue, 10 Nov 2026 22:21:48 GMT
+
+### Minor changes
+
+- Agents read the references placed beside a design: References() in execute, get_references with the pictures, and a
+  count per design in get_app_state. A reference records the design it was found for. (ajcraswell@gmail.com)
 
 ## 0.39.1
 
