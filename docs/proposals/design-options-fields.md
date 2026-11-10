@@ -204,12 +204,13 @@ filters keep Tailwind's order (Filter list).
 An entry is picked up by its handle at once, or by the entry itself once the pointer has moved 4px, so a click still
 opens its details. It lifts off the list as a card, raised and a little larger, and follows the pointer up and down.
 Each entry it covers half of slides aside to make room, and the layer draws the order it's over, so the result shows
-before it's let go; the code doesn't change until then. When it's let go it settles into the gap on a spring and stays a
-card there for a moment, which shows where it landed, before it fades into the list. Past either end of its group it
-gives a little and stops, and near the edge of a scrolling panel it scrolls. Escape puts it and the layer back. Up and
-Down on its handle move it a place, the entries sliding the same way and the entry marked where it lands, and a screen
-reader hears where it went. Reduced motion keeps the mark and drops the easing. Every list that's put in order by hand
-moves this way (`sortable.ts`).
+before it's let go; the code doesn't change until then. When it's let go it drops into the gap, back to its own size and
+its shadow gone before it gets there, so it's never too big for the gap, and stops dead. Then it clicks in: pressed a
+touch with its edge brightening, then fading into the list, all within half a second. Past either end of its group it
+gives a little and stops, and near the edge of a scrolling panel it scrolls. Escape clicks it back where it was and puts
+the layer back. Up and Down on its handle move it a place, the entry hopping over its neighbour and clicking in the same
+way, and a screen reader hears where it went. Reduced motion drops the movement and outlines the entry where it lands
+for a moment. Every list that's put in order by hand moves this way (`sortable.ts`).
 
 A token for a whole entry is the entry's chip, with its parts under a disclosure (Composite token, in the same page). A
 list set in a state colors its label and marks the entries that differ from the base. A list that differs between the

@@ -2,14 +2,13 @@
  * Picking up a list's entry and putting it down somewhere else, for every list that's put in order by hand
  * (design-options-fields.md, Lists). Pressed by its handle, or dragged by its body, the entry lifts off the list as a
  * card that follows the pointer up and down; the entries it passes slide aside to make room, and the list can preview
- * the order it's over; let go, it settles into the gap on a spring and stays a card for a moment, so it's clear where it
- * landed, before it fades into the list. Escape puts it back where it was. Up and Down on its handle move it a place,
- * marked the same way. sort-layout.ts works out where it lands; this draws it, straight on the page so carrying it
- * costs no render, and the list is put in its new order once, when it's let go.
+ * the order it's over; let go, it drops into the gap at its own size and clicks in, then fades into the list. Escape
+ * clicks it back where it was. Up and Down on its handle move it a place, clicking in the same way. sort-layout.ts works
+ * out where it lands; this draws it, straight on the page so carrying it costs no render, and the list is put in its new
+ * order once, when it's let go.
  */
 import { type KeyboardEvent, type PointerEvent, type RefObject, useLayoutEffect, useRef } from "react"
 import { flushSync } from "react-dom"
-import { springLinear } from "./motion-data.ts"
 import { carriedShift, type SortBox, type SortLayout, sortLayout } from "./sort-layout.ts"
 
 type Move = (from: number, to: number) => void
@@ -21,59 +20,88 @@ export type Carried = { from: number; to: number } | undefined
 const ease = "cubic-bezier(0.2, 0, 0, 1)"
 
 /**
- * How long, in ms, the card takes to lift and set down, the others to slide aside, the card to settle into its place,
- * how long it stays a card there, and how long it takes to fade into the list.
+ * Into place: off at once, and still moving when it reaches the gap, so it stops dead there, which is the click, rather
+ * than easing the last pixel in.
  */
-const timings = { lift: 150, slide: 200, settle: 360, hold: 250, fade: 600 }
+const snap = "cubic-bezier(0.2, 0.2, 0.6, 0.8)"
+
+/** Gathering speed toward the gap, as something dropped does: its size and shadow are spent just as it arrives. */
+const falling = "cubic-bezier(0.4, 0, 1, 1)"
+
+/** Letting go of a press: quick, then still. */
+const springing = "cubic-bezier(0, 0, 0.2, 1)"
 
 /**
- * Settling, a spring with a little give, from the same springs a transition's easing is drawn with, so the card comes
- * to rest rather than stopping dead.
+ * How long, in ms, the card takes to lift, the others to slide aside, the card to click in once it's arrived (pressed a
+ * touch and let go), and its surface to fade into the list. Its trip into the gap takes 110 to 220, by how far it goes.
  */
-const settling = springLinear({ duration: timings.settle, bounce: 0.3 })
+const timings = { lift: 150, slide: 200, seat: 110, fade: 160 }
 
 /** How far a press on the card's body moves before it's carrying rather than clicking, in px. */
 const threshold = 4
 
-/** The card's edge: the popover's surface 4px past the entry, by a spread shadow, so lifting moves nothing else. */
-const edge = "0 0 0 4px var(--popover), 0 0 0 5px color-mix(in oklab, var(--foreground) 12%, transparent)"
+/** The card's surface: the popover's, 4px past the entry by a spread shadow, so lifting moves nothing else. */
+const surface = "0 0 0 4px var(--popover)"
+
+/** The card's edge round its surface, brighter by `percent` as it clicks in. */
+const edge = (percent: number) => `0 0 0 5px color-mix(in oklab, var(--foreground) ${percent}%, transparent)`
+
+/** No shadow at all, in a place of the list of four, so each eases away rather than vanishing. */
+const none = "0 0 0 0 transparent"
 
 /** The card as it's carried: raised on the popover's surface, a little larger, edged and shadowed. */
 const raised = {
   backgroundColor: "var(--popover)",
-  boxShadow: `${edge}, 0 16px 32px -12px oklch(0 0 0 / 50%), 0 4px 10px -4px oklch(0 0 0 / 30%)`,
+  boxShadow: `${surface}, ${edge(12)}, 0 16px 32px -12px oklch(0 0 0 / 50%), 0 4px 10px -4px oklch(0 0 0 / 30%)`,
   scale: "1.02"
 }
 
-/** The card just put down: still a card, flat in its new place, which marks where it landed. */
-const landed = {
+/** The card moved by a key, hopping over the others on its way. */
+const hopping = {
   backgroundColor: "var(--popover)",
-  boxShadow: `${edge}, 0 0 0 0 transparent, 0 0 0 0 transparent`,
+  boxShadow: `${surface}, ${edge(12)}, 0 8px 16px -8px oklch(0 0 0 / 40%), 0 2px 6px -3px oklch(0 0 0 / 25%)`,
+  scale: "1.012"
+}
+
+/** The card as it arrives: exactly its own size, its shadow gone, its edge flashing as it clicks in. */
+const arrived = {
+  backgroundColor: "var(--popover)",
+  boxShadow: `${surface}, ${edge(32)}, ${none}, ${none}`,
   scale: "1"
 }
 
-/** The card gone into the list: the same four shadows at nothing, so each eases away rather than vanishing. */
-const lowered = {
-  backgroundColor: "transparent",
-  boxShadow: "0 0 0 0 transparent, 0 0 0 0 transparent, 0 0 0 0 transparent, 0 0 0 0 transparent",
-  scale: "1"
-}
+/** The card clicked in: a card still, flat in its place for the moment it takes to fade. */
+const seated = { backgroundColor: "var(--popover)", boxShadow: `${surface}, ${edge(12)}, ${none}, ${none}`, scale: "1" }
 
-/** An entry's movement over `travel` ms on `curve`, and its look over `lift` ms. */
-const motion = (travel: number, lift: number, curve = ease) =>
+/** The card gone into the list. */
+const lowered = { backgroundColor: "transparent", boxShadow: `${none}, ${none}, ${none}, ${none}`, scale: "1" }
+
+/** An entry's movement over `travel` ms, and its look over `lift` ms. */
+const motion = (travel: number, lift: number) =>
   [
-    `translate ${travel}ms ${curve}`,
+    `translate ${travel}ms ${ease}`,
     ...["scale", "box-shadow", "background-color"].map((look) => `${look} ${lift}ms ${ease}`)
   ].join(", ")
 
-/**
- * The timings, or none where the system asks for reduced motion: the card still follows the pointer, and still marks
- * where it landed, for a moment, without fading.
- */
-function timingsIn(page: Document): typeof timings {
-  const still = page.defaultView?.matchMedia("(prefers-reduced-motion: reduce)").matches ?? false
+/** Whether the system asks for reduced motion: then the card still follows the pointer, and nothing else moves. */
+const still = (page: Document) => page.defaultView?.matchMedia("(prefers-reduced-motion: reduce)").matches ?? false
 
-  return still ? { lift: 0, slide: 0, settle: 0, hold: 800, fade: 0 } : timings
+/** The timings, or none for reduced motion. */
+const timingsIn = (page: Document): typeof timings => (still(page) ? { lift: 0, slide: 0, seat: 0, fade: 0 } : timings)
+
+/** How long the card takes to reach its gap from `distance` px away, quicker the nearer it is, or none for reduced motion. */
+const tripIn = (page: Document, distance: number) =>
+  still(page) ? 0 : Math.round(Math.min(220, 110 + Math.abs(distance) * 1.4))
+
+/** The click a card's landing plays, which a new landing or carry stops. */
+const seatId = "sort-seat"
+
+const stopSeat = (element: HTMLElement) => {
+  for (const animation of element.getAnimations()) {
+    if (animation.id === seatId) {
+      animation.cancel()
+    }
+  }
 }
 
 /** Back to how the list draws it. */
@@ -109,39 +137,75 @@ function stopPending() {
 function finishPending() {
   const elements = pending?.elements ?? []
   stopPending()
-  elements.forEach(release)
+
+  for (const element of elements) {
+    stopSeat(element)
+    release(element)
+  }
 }
 
-/** Puts `elements` back as the list draws them after `after` ms, running `steps` on the way. */
-function later(elements: HTMLElement[], after: number, steps: [number, () => void][] = []) {
+/** Puts `elements` back as the list draws them after `after` ms. */
+function later(elements: HTMLElement[], after: number) {
   stopPending()
 
-  const timers = [
-    ...steps.map(([at, step]) => window.setTimeout(step, at)),
-    window.setTimeout(() => {
-      elements.forEach(release)
-      pending = undefined
-    }, after + 50)
-  ]
-
-  pending = { elements, timers }
+  pending = {
+    elements,
+    timers: [
+      window.setTimeout(() => {
+        elements.forEach(release)
+        pending = undefined
+      }, after + 50)
+    ]
+  }
 }
 
-/** Marks where `item` landed: a card for a moment once it's settled, then fading into the list. */
-function land(item: HTMLElement, elements: HTMLElement[], travel: number) {
-  const { hold, fade } = timingsIn(item.ownerDocument)
-  item.dataset.sort = "landed"
-  Object.assign(item.style, landed)
+/**
+ * Seats `item` in its gap, which it reaches in `trip` ms: shrinking back to its own size and losing its shadow on the
+ * way, so it arrives exactly the gap's size, then clicking in, pressed a touch with its edge flashing, and fading into
+ * the list. Moved by a key, it `hops` on the way. With reduced motion, its edge shows where it went for a moment.
+ * `mark` says what it's doing, for the list's checks.
+ */
+function land(
+  item: HTMLElement,
+  elements: HTMLElement[],
+  trip: number,
+  { hops = false, mark = "landed" }: { hops?: boolean; mark?: string } = {}
+) {
+  // It sets off from however it's drawn now: lifted, or partway through a click a key press cut short.
+  const drawn = getComputedStyle(item)
+  const from = { backgroundColor: drawn.backgroundColor, boxShadow: drawn.boxShadow, scale: drawn.scale }
+  stopSeat(item)
+  item.style.position = "relative"
+  item.style.zIndex = "20"
+  item.dataset.sort = mark
 
-  later(elements, travel + hold + fade, [
-    [
-      travel + hold,
-      () => {
-        item.style.transition = `box-shadow ${fade}ms ease, background-color ${fade}ms ease`
-        Object.assign(item.style, lowered)
-      }
-    ]
-  ])
+  if (still(item.ownerDocument)) {
+    Object.assign(item.style, seated)
+    later(elements, 400)
+
+    return
+  }
+
+  // What the click ends on, so nothing changes when it's done.
+  Object.assign(item.style, lowered)
+  const { seat, fade } = timings
+  const length = trip + seat + fade
+  const at = (ms: number) => Math.min(1, ms / length)
+
+  const frames: Keyframe[] = [
+    { offset: 0, ...from, easing: falling },
+    ...(hops ? [{ offset: at(trip * 0.35), ...hopping, easing: falling }] : []),
+    // Its own size a little before it arrives, so it's never too big for the gap.
+    { offset: at(trip * 0.8), scale: "1", easing: "linear" },
+    { offset: at(trip), ...arrived, easing: springing },
+    { offset: at(trip + seat * 0.35), scale: "0.993", easing: springing },
+    { offset: at(trip + seat), ...seated, easing: "ease-out" },
+    { offset: 1, ...lowered }
+  ]
+
+  const click = item.animate(frames, { duration: length })
+  click.id = seatId
+  later(elements, length)
 }
 
 /** The entries of `group` beside `item`, in the list's order, and where `item` is among them. */
@@ -162,17 +226,25 @@ function groupOf(
   return { list, items, from: items.indexOf(item) }
 }
 
+/** Slides `elements` from where they're drawn to where the list puts them, over `trip` ms, into place. */
+function slideHome(elements: HTMLElement[], trip: number) {
+  for (const element of elements) {
+    element.style.transition = `translate ${trip}ms ${snap}`
+    element.style.translate = ""
+  }
+}
+
 /**
  * Puts the list in its new order with `change`, at once, and slides each entry from where it was drawn to its new
- * place, so nothing jumps whether it was carried there, made room, or was moved by a key. Only the sliding restarts:
- * a look already easing (a card lifting or landing) carries on.
+ * place over `trip` ms, so nothing jumps whether it was carried there, made room, or was moved by a key. Only their
+ * places ease: how the moved card looks is its landing's to draw.
  */
-function slideInto(elements: HTMLElement[], change: () => void, travel: number, lift: number) {
+function slideInto(elements: HTMLElement[], change: () => void, trip: number) {
   const drawn = elements.map((element) => element.getBoundingClientRect().top)
   flushSync(change)
 
   for (const element of elements) {
-    element.style.transition = motion(0, lift)
+    element.style.transition = "none"
     element.style.translate = ""
   }
 
@@ -186,11 +258,7 @@ function slideInto(elements: HTMLElement[], change: () => void, travel: number, 
 
   // Reading a size has the page take those places in before they ease away.
   void elements[0]?.offsetHeight
-
-  for (const element of elements) {
-    element.style.transition = motion(travel, lift, settling)
-    element.style.translate = ""
-  }
+  slideHome(elements, trip)
 }
 
 /** Says what moved, for a screen reader, in one region shared by every list. */
@@ -328,34 +396,28 @@ function putDown(cancelled: boolean) {
   carry.stop()
   const { item, items, from } = carry
   const page = item.ownerDocument
-  const { lift, settle } = timingsIn(page)
   const to = cancelled ? from : carry.layout.to
   const { onMove, onCarry } = carry.listeners()
 
   // The list stops previewing in the same render that puts it in order, so the preview never shows a step between.
   if (to !== from && onMove) {
+    const trip = tripIn(page, carry.shift - carry.layout.landing)
+
     slideInto(
       items,
       () => {
         onMove(from, to)
         onCarry?.(undefined)
       },
-      settle,
-      lift
+      trip
     )
-    land(item, items, settle)
+    land(item, items, trip)
     announce(page, `Moved ${carry.label} to place ${to + 1} of ${items.length}`)
   } else {
     onCarry?.(undefined)
-
-    for (const element of items) {
-      element.style.transition = motion(settle, lift, settling)
-      element.style.translate = ""
-    }
-
-    item.dataset.sort = "settling"
-    Object.assign(item.style, lowered)
-    later(items, settle)
+    const trip = tripIn(page, carry.shift)
+    slideHome(items, trip)
+    land(item, items, trip, { mark: "settling" })
   }
 
   if (carry.byBody) {
@@ -637,16 +699,15 @@ export function useSortable<E extends HTMLElement = HTMLDivElement>({
           return
         }
 
-        // Measured where they're drawn, so a second press while they still slide carries on from there, and an entry
-        // still marked as landed stays marked.
+        // Measured where they're drawn, so a second press while they still slide carries on from there, and a click
+        // still playing carries on into the next.
         stopPending()
-        const { lift, settle } = timingsIn(item.ownerDocument)
-        item.style.position = "relative"
-        item.style.zIndex = "20"
-        item.style.transition = motion(0, lift)
-        slideInto(found.items, () => onMove(found.from, to), settle, lift)
-        land(item, found.items, settle)
-        announce(item.ownerDocument, `Moved ${label} to place ${to + 1} of ${found.items.length}`)
+        const page = item.ownerDocument
+        const past = found.items[to]!.getBoundingClientRect().top - item.getBoundingClientRect().top
+        const trip = tripIn(page, past)
+        slideInto(found.items, () => onMove(found.from, to), trip)
+        land(item, found.items, trip, { hops: true })
+        announce(page, `Moved ${label} to place ${to + 1} of ${found.items.length}`)
       }
     }
   }
