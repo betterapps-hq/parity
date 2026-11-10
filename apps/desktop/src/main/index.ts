@@ -1338,7 +1338,7 @@ function renderOffscreen(
       drawing.set(window, consoleContextOf(job.design))
     }
 
-    // A frame that fails is pictured as the window shows it, for the errors that follow.
+    // A frame that fails is pictured as the window shows it, for the errors about it (PAR-812).
     const watch = watchFrame(job, priority, span, () => {
       if (window.isDestroyed() || rendererCrashed(window)) {
         return
@@ -1346,7 +1346,7 @@ function renderOffscreen(
 
       void window.webContents
         .capturePage()
-        .then((image) => keepFailedFrame(image.toPNG()))
+        .then((image) => keepFailedFrame(image.toPNG(), span?.traceId))
         .catch(() => undefined)
     })
 
