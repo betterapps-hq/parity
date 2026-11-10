@@ -2547,10 +2547,13 @@ Tests:
   layout, a result's size, the request for each page and for videos, when more may come, what's found is called, what
   narrowed a recent search, the other platform, the depth's names, a result's label, what can be picked, a video's
   length, and a picture's credit.
-- `library/LibraryBrowser.stories.tsx` (23 stories, each with its check except Searching and the two Live ones): just
+- The browser's stories, grouped by library under Parity/Library browser, each with its check except Searching and the
+  two Live ones, sharing their setup in `library/browser-stories.tsx`: `LibraryBrowser.Pixabay.stories.tsx` (16): just
   opened, recent searches, results, a typed search, choosing a type, filters behind Filters, picking, larger, more as
-  you scroll, videos, nothing found, too many searches, no answer, no key, Mobbin's screens, phones, nothing found and
-  deep search, and Unsplash. The Live stories search Pixabay and Mobbin with the keys in `apps/desktop/.env.local`.
+  you scroll, videos, nothing found, too many searches, no answer, no key, searching and Live;
+  `LibraryBrowser.Mobbin.stories.tsx` (5): screens, phones, nothing found, deep search and Live; and
+  `LibraryBrowser.Unsplash.stories.tsx` (1). The Live stories search Pixabay and Mobbin with the keys in
+  `apps/desktop/.env.local`.
 
 ### Adding stock pictures (PAR-839)
 
