@@ -219,16 +219,20 @@ export const VectorsOnly: Story = {
   }
 }
 
-/** A picture's card: larger, with its path, size and the designs that use it. */
+/** A picture's card: larger, its facts in labelled rows, and the designs that use it, the most layers first. */
 export const Card: Story = {
   loaders: [openUsedMedia],
   play: async ({ canvasElement }) => {
     const card = await openCard(canvasElement, "dusk-hills.jpg")
     await within(card).findByText("public/images/dusk-hills.jpg")
     await within(card).findByText("900 × 600")
+    await within(card).findByText("182 kB")
     const uses = within(card).getByRole("list", { name: "Where it's used" })
-    await expect(within(uses).getAllByRole("listitem")).toHaveLength(2)
-    await expect(within(uses).getAllByRole("listitem")[0]).toHaveTextContent("Pricing 2 layers")
+    await expect(
+      within(uses)
+        .getAllByRole("button")
+        .map((row) => row.getAttribute("aria-label"))
+    ).toEqual(["Show 2 layers in Pricing", "Show 1 layer in Dashboard"])
   }
 }
 
@@ -237,14 +241,19 @@ export const LinkedCard: Story = {
   loaders: [openUsedMedia],
   play: async ({ canvasElement }) => {
     const card = await openCard(canvasElement, "Coast at noon")
-    await within(card).findByText("Linked, not saved in the project")
+    await within(card).findByText("Linked, not saved")
+    await within(card).findByText(location.host)
     await expect(within(card).getByRole("link", { name: "Ana Lee" })).toHaveAttribute("href", "https://pixabay.com")
+    await expect(within(card).getByRole("link", { name: "Open in Pixabay" })).toHaveAttribute(
+      "href",
+      "https://pixabay.com"
+    )
   }
 }
 
 /**
- * A logo in a hundred layers across five designs: its card lists the designs, the one with the most layers first, and
- * the rest wait behind a button.
+ * A logo in a hundred layers across five designs and four files of code: its card lists the three designs with the
+ * most layers and counts the rest on a row that opens every place, searched there by name.
  */
 export const UsedEverywhere: Story = {
   loaders: [
@@ -255,26 +264,57 @@ export const UsedEverywhere: Story = {
       showIn("Projects", { src: "/images/logo.svg" }, 20)
       showIn("Settings", { src: "/images/logo.svg" }, 6)
       showIn("Sign in", { src: "/images/logo.svg" }, 4)
+      media.references = ["src/Header.tsx", "src/Footer.tsx", "src/pages/SignIn.tsx", "index.html"].flatMap((path) => [
+        { image: "public/images/logo.svg", path, line: 3 },
+        { image: "public/images/logo.svg", path, line: 12 }
+      ])
     }
   ],
   play: async ({ canvasElement }) => {
     const card = await openCard(canvasElement, "logo.svg")
     const uses = within(card).getByRole("list", { name: "Where it's used" })
     await expect(within(uses).getAllByRole("listitem")).toHaveLength(3)
-    await expect(within(uses).getAllByRole("listitem")[0]).toHaveTextContent("Dashboard 40 layers")
-    await userEvent.click(within(card).getByRole("button", { name: "Show 2 more" }))
-    await expect(within(uses).getAllByRole("listitem")).toHaveLength(5)
+    await within(uses).findByRole("button", { name: "Show 40 layers in Dashboard" })
+    await within(card).findByText("100 layers")
+    await userEvent.click(within(card).getByRole("button", { name: "2 more designs and 4 files of code" }))
+    const every = within(await within(document.body).findByRole("region", { name: "Where logo.svg is used" }))
+    await expect(every.getByRole("textbox", { name: "Find a design or file" })).toHaveFocus()
+    await expect(within(every.getByRole("region", { name: "Code" })).getAllByText("lines 3, 12")).toHaveLength(4)
+    await userEvent.keyboard("sign")
+    await expect(within(every.getByRole("region", { name: "Designs" })).getAllByRole("listitem")).toHaveLength(1)
+    await expect(within(every.getByRole("region", { name: "Code" })).getAllByRole("listitem")).toHaveLength(1)
+    await userEvent.click(every.getByRole("button", { name: "Back" }))
+    await within(card).findByText("100 layers")
   }
 }
 
-/** Show on a card selects the design's layer that uses the picture. */
-export const ShowALayer: Story = {
+/** A picture nothing uses says so where its uses would be. */
+export const CardNotUsed: Story = {
   loaders: [openUsedMedia],
   play: async ({ canvasElement }) => {
-    const card = await openCard(canvasElement, "desk-from-above.jpg")
-    await userEvent.click(within(card).getByRole("button", { name: "Show in Projects" }))
-    await waitFor(() => expect(example().selection.get().design).toBe(design("Projects")))
-    await expect(example().selection.get().node).toBeDefined()
+    const card = await openCard(canvasElement, "plant.jpg")
+    await within(card).findByText("Not used yet")
+  }
+}
+
+/** A path a layer names with no file there: its card says the file is missing, and where it was looked for. */
+export const CardMissing: Story = {
+  loaders: [openUsedMedia],
+  play: async ({ canvasElement }) => {
+    const card = await openCard(canvasElement, "/images/old-hero.png")
+    await within(card).findByText("Missing")
+    await within(card).findByText("/images/old-hero.png")
+  }
+}
+
+/** A design's row on a card selects every layer in it that shows the picture. */
+export const ShowLayers: Story = {
+  loaders: [openUsedMedia],
+  play: async ({ canvasElement }) => {
+    const card = await openCard(canvasElement, "dusk-hills.jpg")
+    await userEvent.click(within(card).getByRole("button", { name: "Show 2 layers in Pricing" }))
+    await waitFor(() => expect(example().selection.get().design).toBe(design("Pricing")))
+    await expect(example().selection.get().nodes).toHaveLength(2)
   }
 }
 
@@ -372,7 +412,7 @@ export const AddFromPixabay: Story = {
       "href",
       "https://pixabay.com/photos/dusk-hills-0/"
     )
-    await within(card).findByRole("button", { name: "Open in Pixabay" })
+    await within(card).findByRole("link", { name: "Open in Pixabay" })
   }
 }
 

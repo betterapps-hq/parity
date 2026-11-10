@@ -2,15 +2,18 @@ import type { CanvasDocument, ContainerSpec } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
   cantRemove,
+  codeFilesUsing,
   codeReferences,
   designsUsing,
   filterImages,
   findImage,
+  findUses,
   imageItem,
   keepImageDetails,
   mediumOf,
   projectImages,
-  removalOf
+  removalOf,
+  usesOnCard
 } from "./project-images.ts"
 
 const credit = { name: "Ada Park", url: "https://unsplash.com/@adapark", source: "Unsplash" }
@@ -234,6 +237,54 @@ describe("imageItem", () => {
       width: 64,
       height: 64
     })
+  })
+})
+
+describe("where an image is used, on its card", () => {
+  const use = (design: string, node: string) => ({ document: "app.par", design, designName: design, node })
+  const line = (path: string, at: number) => ({ path, line: at })
+
+  it("groups lines of code by file, in the order the files were found, each file's lines in order", () => {
+    const usedInCode = [line("src/Header.tsx", 40), line("index.html", 3), line("src/Header.tsx", 12)]
+
+    expect(codeFilesUsing({ usedInCode })).toEqual([
+      { path: "src/Header.tsx", lines: [12, 40] },
+      { path: "index.html", lines: [3] }
+    ])
+  })
+
+  it("lists designs first and files of code in the room left", () => {
+    const image = {
+      usedBy: [use("home", "logo"), use("pricing", "logo")],
+      usedInCode: [line("a.tsx", 1), line("b.tsx", 2)]
+    }
+
+    expect(usesOnCard(image, 3)).toMatchObject({
+      designs: [{ design: "home" }, { design: "pricing" }],
+      files: [{ path: "a.tsx" }],
+      moreDesigns: 0,
+      moreFiles: 1
+    })
+  })
+
+  it("counts the designs and files a full card leaves out", () => {
+    const usedBy = ["a", "b", "c", "d", "e"].map((design) => use(design, "logo"))
+    const card = usesOnCard({ usedBy, usedInCode: [line("a.tsx", 1)] }, 3)
+
+    expect(card.designs).toHaveLength(3)
+    expect(card).toMatchObject({ files: [], moreDesigns: 2, moreFiles: 1 })
+  })
+
+  it("finds designs by name and files by path, ignoring case", () => {
+    const image = {
+      usedBy: [{ ...use("home", "logo"), designName: "Home mobile" }, use("pricing", "logo")],
+      usedInCode: [line("src/Mobile.tsx", 1), line("src/Header.tsx", 2)]
+    }
+
+    const found = findUses(image, " MOBILE ")
+
+    expect(found.designs.map(({ name }) => name)).toEqual(["Home mobile"])
+    expect(found.files.map(({ path }) => path)).toEqual(["src/Mobile.tsx"])
   })
 })
 

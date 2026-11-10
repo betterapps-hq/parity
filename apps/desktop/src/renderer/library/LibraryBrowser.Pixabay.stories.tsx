@@ -1,66 +1,26 @@
-import { type Found, isPlaceable, mobbin, pixabay, type Searched, unsplash } from "@parity-app/connectors"
+import { pixabay } from "@parity-app/connectors"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
-import { never, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { never } from "../stories/fixtures.tsx"
 import { answeringSearches, rememberingSearches } from "../stories/host.ts"
-import { storyResults } from "../stories/library-results.ts"
-import { openLibraryBrowser } from "./library-browser.ts"
+import { browserStage, body, opening, results, taken } from "./browser-stories.tsx"
 import { LibraryBrowserHost } from "./LibraryBrowser.tsx"
 
 /**
- * The library browser: one wide dialog over the window for searching a library outside the project, drawn from what
- * its connector says about itself. The stories answer searches with pictures drawn for them, except the Live ones,
- * which search the real library with the keys in `apps/desktop/.env.local`.
+ * The library browser on Pixabay, as the Media tab opens it: one wide dialog over the window, drawn from what
+ * Pixabay's connector says about itself. The stories answer searches with pictures drawn for them, except Live, which
+ * searches Pixabay with the key in `apps/desktop/.env.local`.
  */
 const meta = {
-  title: "Parity/Library browser",
+  title: "Parity/Library browser/Pixabay",
   component: LibraryBrowserHost,
   parameters: { layout: "fullscreen" },
-  decorators: [
-    (Story) => (
-      <ProjectStage>
-        <Story />
-      </ProjectStage>
-    )
-  ]
+  decorators: [browserStage]
 } satisfies Meta<typeof LibraryBrowserHost>
 
 export default meta
 
 type Story = StoryObj<typeof meta>
-
-/** What the stories' browser took when its button was pressed. */
-let taken: readonly Found[] = []
-
-/** Opens the browser on a library, as the Media tab opens it on Pixabay, with the stories' answers unless `live`. */
-function opening(library: typeof pixabay, search?: Searched, live = false) {
-  return async () => {
-    await openProjects("example")
-    taken = []
-
-    if (!live) {
-      answeringSearches(storyResults)
-    }
-
-    openLibraryBrowser({
-      library: library.info,
-      search,
-      pick: {
-        label: (count) => (count === 0 ? "Add to project" : `Add ${count} to project`),
-        accepts: isPlaceable,
-        take: (picked) => {
-          taken = picked
-        }
-      }
-    })
-  }
-}
-
-/** The whole page, since the browser opens over the window rather than inside the story's own element. */
-const body = () => within(document.body)
-
-/** The results, once they've arrived. */
-const results = () => body().findByRole("list", { name: "Results" })
 
 /** Pixabay, just opened: searches it suggests, and nothing searched yet. */
 export const JustOpened: Story = {
@@ -138,7 +98,7 @@ export const Picked: Story = {
     await userEvent.click(within(list).getAllByRole("button", { name: "Hills at dusk, by Lena Ray" })[0]!)
     await userEvent.click(within(list).getAllByRole("button", { name: "Potted palm, by Mia Torres" })[0]!)
     await userEvent.click(body().getByRole("button", { name: "Add 2 to project" }))
-    await waitFor(() => expect(taken.map(({ title }) => title)).toEqual(["Hills at dusk", "Potted palm"]))
+    await waitFor(() => expect(taken().map(({ title }) => title)).toEqual(["Hills at dusk", "Potted palm"]))
   }
 }
 
@@ -239,55 +199,5 @@ export const Searching: Story = {
   ]
 }
 
-/** Mobbin's screens sit in rows of one shape, three web pages across. */
-export const MobbinScreens: Story = {
-  loaders: [opening(mobbin, { query: "sign in", filters: {} })],
-  play: async () => {
-    await within(await results()).findAllByRole("button", { name: "Ledgerly" })
-    await body().findByText("9 screens")
-  }
-}
-
-/** Mobbin on iOS: phones are tall, so more fit across. */
-export const MobbinPhones: Story = {
-  loaders: [opening(mobbin, { query: "sign in", filters: { platform: "ios" } })],
-  play: async () => {
-    await body().findByText("12 screens")
-  }
-}
-
-/** Nothing on Mobbin: it offers the other platform, since an app can be on one and not the other. */
-export const MobbinNothingFound: Story = {
-  loaders: [opening(mobbin, { query: "nothing like it", filters: {} })],
-  play: async () => {
-    await userEvent.click(await body().findByRole("button", { name: "Search iOS" }))
-    await body().findByText("No screens match “nothing like it”")
-  }
-}
-
-/** Mobbin's deep search, a step past the quick results, checking each screen against the description. */
-export const MobbinSearchDeeper: Story = {
-  loaders: [opening(mobbin, { query: "sign in", filters: {} })],
-  play: async () => {
-    await results()
-    await userEvent.click(body().getByRole("button", { name: "Search deeper" }))
-    await body().findByText("9 close matches from a deep search")
-  }
-}
-
-/**
- * Unsplash, which Parity keeps but doesn't offer: the same browser, from what its connector says, with no change in
- * the window.
- */
-export const UnsplashPhotos: Story = {
-  loaders: [opening(unsplash, { query: "nature", filters: {} })],
-  play: async () => {
-    await body().findByRole("combobox", { name: "Orientation" })
-  }
-}
-
 /** Pixabay itself, searched with the key in `apps/desktop/.env.local`. Without one, it says Pixabay isn't available. */
-export const PixabayLive: Story = { loaders: [opening(pixabay, { query: "mountain lake", filters: {} }, true)] }
-
-/** Mobbin itself, searched with the key in `apps/desktop/.env.local`. */
-export const MobbinLive: Story = { loaders: [opening(mobbin, { query: "pricing page", filters: {} }, true)] }
+export const Live: Story = { loaders: [opening(pixabay, { query: "mountain lake", filters: {} }, true)] }

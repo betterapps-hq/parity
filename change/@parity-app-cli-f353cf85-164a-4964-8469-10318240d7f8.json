@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Redesign the Media card: facts in labelled rows, where it's used that scales to hundreds of layers, and transparency on a grid",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

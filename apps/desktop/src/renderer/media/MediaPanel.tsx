@@ -13,6 +13,7 @@ import {
   imageAccept,
   type ImageMedium,
   imageKinds,
+  layersSelection,
   mediumOf,
   type ProjectImage,
   removalOf
@@ -30,7 +31,7 @@ import { SourceMark } from "../library/SourceMark.tsx"
 import type { ProjectSession } from "../workspace.ts"
 import { findStock, stockLibrary } from "./add-stock.ts"
 import { useFileDrag } from "./file-drag.ts"
-import type { MediaLayer } from "./MediaCard.tsx"
+import type { MediaLayers } from "./MediaUses.tsx"
 import { MediaWall } from "./MediaWall.tsx"
 import { usePictureSizes } from "./picture-sizes.ts"
 import { mediaFilesOf, useProjectMedia } from "./project-media.ts"
@@ -76,8 +77,9 @@ export function MediaPanel() {
     }
   }
 
-  const show = (layer: MediaLayer) => {
-    session.selection.set({ design: containerKey(layer.document, layer.design), node: layer.node })
+  /** Selects every layer of a design that shows one, and brings them into view. */
+  const show = ({ document, design, nodes }: MediaLayers) => {
+    session.selection.set(layersSelection(containerKey(document, design), nodes))
     revealSelection(session)
   }
 
