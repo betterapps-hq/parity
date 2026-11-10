@@ -1,12 +1,10 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import { connectorNamed } from "@parity-app/connectors"
-import { type ImageMedium, inUse, mediumOf, type PictureSize, type ProjectImage } from "@parity-app/editor"
+import { fitPicture, type ImageMedium, inUse, mediumOf, type PictureSize, type ProjectImage } from "@parity-app/editor"
 import { ExternalLink, ImageIcon, type LucideIcon, PenTool, Plus, Trash2 } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
 import { IconButton } from "../chrome/IconButton.tsx"
 import { Name } from "../chrome/Name.tsx"
-import { SourceMark } from "../library/SourceMark.tsx"
 import { CardUses, EveryUse, type MediaLayers } from "./MediaUses.tsx"
 import { PictureMissing, ProjectPicture, transparencyGrid } from "./ProjectPicture.tsx"
 
@@ -35,10 +33,11 @@ interface MediaCardProps {
  * more than the card lists.
  */
 export function MediaCard({ image, url, size, onInsert, onRemove, onShow }: MediaCardProps) {
-  const [everyUse, setEveryUse] = useState(false)
+  const [view, setView] = useState<"card" | "every-use" | "back">("card")
 
-  if (everyUse) {
-    return <EveryUse image={image} onBack={() => setEveryUse(false)} onShow={onShow} />
+  // Every place stays open only while something uses it, as a rescan can take the last use away.
+  if (view === "every-use" && inUse(image)) {
+    return <EveryUse image={image} onBack={() => setView("back")} onShow={onShow} />
   }
 
   const Icon = mediumIcons[mediumOf(image)]
@@ -50,11 +49,11 @@ export function MediaCard({ image, url, size, onInsert, onRemove, onShow }: Medi
       </div>
       <div className="flex min-w-0 items-center gap-1.5 px-3 pt-3 pb-2">
         <Icon aria-hidden className="size-3.5 shrink-0" style={{ color: kindColors.layer }} />
-        <Name className="min-w-0 text-sm font-medium">{image.name}</Name>
+        <Name className="min-w-0 text-sm font-medium">{nameOf(image)}</Name>
       </div>
       <Facts image={image} size={size} />
       {inUse(image) ? (
-        <CardUses image={image} onShow={onShow} onAll={() => setEveryUse(true)} />
+        <CardUses image={image} onShow={onShow} onAll={() => setView("every-use")} returned={view === "back"} />
       ) : (
         <p className="border-t px-3 py-2.5 text-xs text-muted-foreground">Not used yet</p>
       )}
@@ -75,6 +74,11 @@ export function MediaCard({ image, url, size, onInsert, onRemove, onShow }: Medi
       </div>
     </div>
   )
+}
+
+/** What the card is called: a path with no file by its file's name, as its tile is, since its Path row has the rest. */
+function nameOf(image: ProjectImage): string {
+  return image.kind === "missing" ? image.src.slice(image.src.lastIndexOf("/") + 1) : image.name
 }
 
 /**
@@ -100,7 +104,7 @@ function FileFacts({ image }: { image: ProjectImage }) {
   if (image.kind === "linked") {
     return (
       <>
-        <Fact label="File">Linked, not saved</Fact>
+        <Fact label="File">Not saved</Fact>
         <Fact label="Link">
           <Where text={hostOf(image.src)} full={image.src} />
         </Fact>
@@ -111,9 +115,7 @@ function FileFacts({ image }: { image: ProjectImage }) {
   if (image.kind === "missing") {
     return (
       <>
-        <Fact label="File">
-          <span className="text-(--process-starting)">Missing</span>
-        </Fact>
+        <Fact label="File">Missing</Fact>
         <Fact label="Path">
           <Where text={image.src} full={image.src} />
         </Fact>
@@ -156,16 +158,10 @@ function hostOf(src: string): string {
   return URL.canParse(src) ? new URL(src).host : src
 }
 
-/**
- * Who made it, linked to them, on the library it's from, with a way to its page there, and the library's mark when
- * Parity knows that library.
- */
+/** Who made it, linked to them, on the library it's from, with a way to its page there. */
 function Credit({ credit }: { credit: NonNullable<ProjectImage["credit"]> }) {
-  const library = credit.source ? connectorNamed(credit.source)?.info : undefined
-
   return (
     <span className="flex min-w-0 items-center gap-1">
-      {library && <SourceMark mark={library.mark} className="size-3.5 shrink-0 text-muted-foreground" />}
       <a href={credit.url} target="_blank" rel="noreferrer" className="truncate hover:underline">
         {credit.name}
       </a>
@@ -215,7 +211,8 @@ function CardStage({ image, url, size }: { image: ProjectImage; url: string; siz
     )
   }
 
-  const fitted = fittedIn(stage, size)
+  // A vector grows to the box without blurring; pixels stop at their own size.
+  const fitted = fitPicture(stage, size, mediumOf(image) === "vector")
 
   return (
     <div className="flex justify-center overflow-hidden rounded-md bg-muted ring-1 ring-border ring-inset">
@@ -226,15 +223,4 @@ function CardStage({ image, url, size }: { image: ProjectImage; url: string; siz
       )}
     </div>
   )
-}
-
-/** A picture's size scaled to fit a box, keeping its proportions, or none while its size isn't known. */
-function fittedIn(box: PictureSize, size: PictureSize | undefined): PictureSize | undefined {
-  if (!size || size.width <= 0 || size.height <= 0) {
-    return undefined
-  }
-
-  const scale = Math.min(box.width / size.width, box.height / size.height)
-
-  return { width: Math.round(size.width * scale), height: Math.round(size.height * scale) }
 }

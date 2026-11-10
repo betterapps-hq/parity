@@ -6,7 +6,7 @@ import { insertContext } from "../canvas/insert.ts"
 import { panelLimits, setLayout } from "../chrome/layout.ts"
 import { LeftPanel } from "../chrome/LeftPanel.tsx"
 import { LibraryBrowserHost } from "../library/LibraryBrowser.tsx"
-import { design, example, never, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { design, example, never, openProjects, ProjectStage, typeInto } from "../stories/fixtures.tsx"
 import { answering, answeringSearches, media, requests } from "../stories/host.ts"
 import { storyResults } from "../stories/library-results.ts"
 import { MediaPanel } from "./MediaPanel.tsx"
@@ -241,7 +241,7 @@ export const LinkedCard: Story = {
   loaders: [openUsedMedia],
   play: async ({ canvasElement }) => {
     const card = await openCard(canvasElement, "Coast at noon")
-    await within(card).findByText("Linked, not saved")
+    await within(card).findByText("Not saved")
     await within(card).findByText(location.host)
     await expect(within(card).getByRole("link", { name: "Ana Lee" })).toHaveAttribute("href", "https://pixabay.com")
     await expect(within(card).getByRole("link", { name: "Open in Pixabay" })).toHaveAttribute(
@@ -275,16 +275,34 @@ export const UsedEverywhere: Story = {
     const uses = within(card).getByRole("list", { name: "Where it's used" })
     await expect(within(uses).getAllByRole("listitem")).toHaveLength(3)
     await within(uses).findByRole("button", { name: "Show 40 layers in Dashboard" })
-    await within(card).findByText("100 layers")
-    await userEvent.click(within(card).getByRole("button", { name: "2 more designs and 4 files of code" }))
-    const every = within(await within(document.body).findByRole("region", { name: "Where logo.svg is used" }))
-    await expect(every.getByRole("textbox", { name: "Find a design or file" })).toHaveFocus()
+    const more = within(card).getByRole("button", { name: "2 more designs and 4 files of code" })
+    await userEvent.click(more)
+    const region = await within(document.body).findByRole("region", { name: "Where logo.svg is used" })
+    const every = within(region)
+    const field = every.getByRole("textbox", { name: "Search designs and code" })
+    await expect(field).toHaveFocus()
+
+    if (!(field instanceof HTMLInputElement)) {
+      throw new Error("The search isn't a text field")
+    }
+
     await expect(within(every.getByRole("region", { name: "Code" })).getAllByText("lines 3, 12")).toHaveLength(4)
-    await userEvent.keyboard("sign")
+    await typeInto(field, "sign")
     await expect(within(every.getByRole("region", { name: "Designs" })).getAllByRole("listitem")).toHaveLength(1)
     await expect(within(every.getByRole("region", { name: "Code" })).getAllByRole("listitem")).toHaveLength(1)
-    await userEvent.click(every.getByRole("button", { name: "Back" }))
-    await within(card).findByText("100 layers")
+    // With focus inside, the card stays open when the pointer leaves it.
+    await fireEvent.pointerLeave(region.closest("[role='dialog']")!)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await expect(region).toBeInTheDocument()
+    // Escape clears the search, then goes back to the card, to the row that opened every place.
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() =>
+      expect(within(every.getByRole("region", { name: "Designs" })).getAllByRole("listitem")).toHaveLength(5)
+    )
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() =>
+      expect(within(document.body).getByRole("button", { name: "2 more designs and 4 files of code" })).toHaveFocus()
+    )
   }
 }
 
@@ -366,7 +384,9 @@ export const NamedInCode: Story = {
     ;(await tile(canvasElement, "logo.svg")).focus()
     await userEvent.keyboard("{Delete}")
     const dialog = await within(document.body).findByRole("dialog", { name: "logo.svg is still in use" })
-    await within(dialog).findByText("src/components/app-sidebar.tsx, line 12")
+    const line = (await within(dialog).findByText("app-sidebar.tsx")).closest("li")
+    await expect(line).toHaveTextContent("line 12")
+    await expect(line).toHaveAttribute("title", "src/components/app-sidebar.tsx")
     await within(dialog).findByText("Remove or replace it in the code first.")
   }
 }

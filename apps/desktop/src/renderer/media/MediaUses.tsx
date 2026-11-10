@@ -9,11 +9,11 @@ import {
   usesOnCard
 } from "@parity-app/editor"
 import { ArrowLeft, ChevronRight, Code, Search } from "lucide-react"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { DesignIcon } from "../canvas/kinds.tsx"
 import { IconButton } from "../chrome/IconButton.tsx"
 import { Name } from "../chrome/Name.tsx"
-import { GroupLabel } from "../chrome/PanelSection.tsx"
+import { GroupLabel, PanelSectionTitle } from "../chrome/PanelSection.tsx"
 
 /*
  * Where one of the project's media is used (PAR-871): on its card, the designs with the most layers and the files of
@@ -38,23 +38,36 @@ function count(amount: number, one: string, many: string): string {
 /** How many rows of where it's used a card lists before the rest wait in every place. */
 const cardRows = 3
 
+interface CardUsesProps {
+  image: ProjectImage
+  onShow: OnShow
+  onAll: () => void
+  /** Back from every place, so focus returns to the row that opened it. */
+  returned?: boolean
+}
+
 /**
- * Where it's used, on its card: up to three rows, designs before files of code. Past them, the total layers beside the
- * heading and a row counting the rest, which opens every place.
+ * Where it's used, on its card: up to three rows, designs before files of code, and past them a row counting the rest,
+ * which opens every place.
  */
-export function CardUses({ image, onShow, onAll }: { image: ProjectImage; onShow: OnShow; onAll: () => void }) {
+export function CardUses({ image, onShow, onAll, returned = false }: CardUsesProps) {
   const { designs, files, moreDesigns, moreFiles } = usesOnCard(image, cardRows)
   const more = moreDesigns > 0 || moreFiles > 0
+  const heading = useId()
+  const moreRow = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (returned) {
+      moreRow.current?.focus()
+    }
+  }, [returned])
 
   return (
-    <section aria-labelledby="media-card-uses" className="border-t py-2 pr-1.5 pl-3 text-xs">
+    <section aria-labelledby={heading} className="border-t py-2 pr-1.5 pl-3 text-xs">
       <div className="flex h-6 items-center pr-1.5">
         <GroupLabel as="h3" className="flex-1">
-          <span id="media-card-uses">Used in</span>
+          <span id={heading}>Used in</span>
         </GroupLabel>
-        {more && (
-          <span className="text-muted-foreground tabular-nums">{count(image.usedBy.length, "layer", "layers")}</span>
-        )}
       </div>
       <ul aria-label="Where it's used" className="flex flex-col">
         {designs.map((design) => (
@@ -66,11 +79,12 @@ export function CardUses({ image, onShow, onAll }: { image: ProjectImage; onShow
       </ul>
       {more && (
         <button
+          ref={moreRow}
           type="button"
           onClick={onAll}
           className="-ml-1.5 flex h-7 w-[calc(100%+0.375rem)] items-center gap-2 rounded-md px-1.5 text-left text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
         >
-          <span className="flex-1 truncate">{moreOf(moreDesigns, moreFiles)}</span>
+          <span className="flex-1 truncate">{moreOf(moreDesigns, moreFiles, files.length > 0)}</span>
           <ChevronRight aria-hidden className="size-3.5 shrink-0" />
         </button>
       )}
@@ -78,8 +92,11 @@ export function CardUses({ image, onShow, onAll }: { image: ProjectImage; onShow
   )
 }
 
-/** What waits in every place: "45 more designs and 5 files of code". */
-function moreOf(designs: number, files: number): string {
+/**
+ * What waits in every place: "45 more designs and 5 files of code", or "2 more files of code" when the card already
+ * lists some.
+ */
+function moreOf(designs: number, files: number, filesListed: boolean): string {
   const parts: string[] = []
 
   if (designs > 0) {
@@ -87,7 +104,13 @@ function moreOf(designs: number, files: number): string {
   }
 
   if (files > 0) {
-    parts.push(count(files, "file of code", "files of code"))
+    parts.push(
+      count(
+        files,
+        filesListed ? "more file of code" : "file of code",
+        filesListed ? "more files of code" : "files of code"
+      )
+    )
   }
 
   return parts.join(" and ")
@@ -99,13 +122,15 @@ const searchFrom = 8
 /**
  * Every place it's used, in the card's stead: the designs, the most layers first, then the files of code, each a group
  * with its count whose heading stays at the top while its rows scroll, searched by name once there are many. Focus
- * moves into it as it opens, so the card stays open while the pointer is away.
+ * moves into it as it opens, and the card holds it. Escape clears the search, then goes back to the card.
  */
 export function EveryUse({ image, onBack, onShow }: { image: ProjectImage; onBack: () => void; onShow: OnShow }) {
-  const [query, setQuery] = useState("")
+  const [typed, setTyped] = useState("")
   const view = useRef<HTMLElement>(null)
-  const { designs, files } = findUses(image, query)
   const searchable = designsUsing(image).length + codeFilesUsing(image).length >= searchFrom
+  // A search left from when there were more places stops narrowing once the field has gone.
+  const query = searchable ? typed : ""
+  const { designs, files } = findUses(image, query)
 
   // The search when there is one, or Back.
   useEffect(() => {
@@ -114,16 +139,38 @@ export function EveryUse({ image, onBack, onShow }: { image: ProjectImage; onBac
     first?.focus()
   }, [])
 
+  // Escape steps back a level at a time, rather than closing the card with what's been typed. It's heard here, before
+  // the card's own Escape, which would close it.
+  useEffect(() => {
+    const here = view.current
+
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      if (query) {
+        setTyped("")
+      } else {
+        onBack()
+      }
+    }
+
+    here?.addEventListener("keydown", escape)
+
+    return () => here?.removeEventListener("keydown", escape)
+  }, [query, onBack])
+
   return (
-    <section ref={view} aria-label={`Where ${image.name} is used`} className="flex h-[26rem] flex-col text-xs">
+    <section ref={view} aria-label={`Where ${image.name} is used`} className="flex max-h-[26rem] flex-col text-xs">
       <div className="flex shrink-0 items-center gap-1 border-b px-1.5 py-1.5">
-        <IconButton label="Back" className="size-7" onClick={onBack}>
+        <IconButton label="Back" shortcut="Esc" className="size-7" onClick={onBack}>
           <ArrowLeft />
         </IconButton>
-        <Name className="min-w-0 flex-1 text-sm font-medium">{image.name}</Name>
-        <span className="pr-1.5 text-muted-foreground tabular-nums">
-          {count(image.usedBy.length, "layer", "layers")}
-        </span>
+        <Name className="min-w-0 flex-1 pr-1.5 text-sm font-medium">{image.name}</Name>
       </div>
       {searchable && (
         <div className="shrink-0 px-3 pt-3">
@@ -132,16 +179,16 @@ export function EveryUse({ image, onBack, onShow }: { image: ProjectImage; onBac
               <Search />
             </InputGroupAddon>
             <InputGroupInput
-              aria-label="Find a design or file"
-              placeholder="Find a design or file"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              aria-label="Search designs and code"
+              placeholder="Search designs and code"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
               className="text-xs"
             />
           </InputGroup>
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2 [scrollbar-gutter:stable]">
         {designs.length > 0 && (
           <UseGroup title="Designs" amount={designs.length}>
             {designs.map((design) => (
@@ -168,10 +215,9 @@ export function EveryUse({ image, onBack, onShow }: { image: ProjectImage; onBac
 function UseGroup({ title, amount, children }: { title: string; amount: number; children: ReactNode }) {
   return (
     <section aria-label={title} className="pb-2">
-      <h3 className="sticky top-0 z-10 flex h-8 items-center gap-1.5 bg-popover px-3 text-xs font-medium text-muted-foreground">
-        {title}
-        <span className="rounded bg-muted px-1.5 py-px font-normal tabular-nums">{amount}</span>
-      </h3>
+      <div className="sticky top-0 z-10 flex h-8 items-center bg-popover px-3">
+        <PanelSectionTitle title={title} count={amount} tone="quiet" spacing="" />
+      </div>
       <ul className="flex flex-col pr-1.5 pl-3">{children}</ul>
     </section>
   )
@@ -230,13 +276,12 @@ function DesignRow({ design, onShow }: { design: DesignUse; onShow: OnShow }) {
 
 /** A file of code that names it: the file's name, and its lines. Its whole path is its tooltip. */
 function FileRow({ file }: { file: CodeFileUse }) {
-  const name = file.path.slice(file.path.lastIndexOf("/") + 1)
   const lines = file.lines.length === 1 ? `line ${file.lines[0]}` : `lines ${file.lines.join(", ")}`
 
   return (
     <li className="flex h-7 items-center gap-2 pr-1.5" title={file.path}>
       <Code aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-mono text-2xs">{name}</span>
+      <span className="min-w-0 flex-1 truncate font-mono text-2xs">{file.name}</span>
       <span className="max-w-[45%] shrink-0 truncate text-muted-foreground tabular-nums">{lines}</span>
     </li>
   )

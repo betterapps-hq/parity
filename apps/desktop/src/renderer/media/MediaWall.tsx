@@ -135,8 +135,6 @@ function Tile({ image, url, size, fresh, past, onInsert, onRemove, onShow }: Til
       type="button"
       aria-label={image.name}
       aria-expanded={card.open}
-      // Where a picture is see-through, the grid shows through it.
-      style={image.kind === "missing" ? undefined : transparencyGrid}
       aria-controls={card.open ? card.id : undefined}
       draggable={!!drag}
       onDragStart={(event) => {
@@ -161,7 +159,8 @@ function Tile({ image, url, size, fresh, past, onInsert, onRemove, onShow }: Til
       {image.kind === "missing" ? (
         <PictureMissing label={image.src.slice(image.src.lastIndexOf("/") + 1)} />
       ) : (
-        <ProjectPicture url={url} className="size-full" />
+        // Where a picture is see-through, the grid shows through it, and only there.
+        <ProjectPicture url={url} className="size-full" style={transparencyGrid} />
       )}
       {image.kind === "linked" && (
         <span className="pointer-events-none absolute top-1 left-1 grid size-4.5 place-items-center rounded-sm bg-black/70 text-white">
@@ -197,6 +196,8 @@ function Tile({ image, url, size, fresh, past, onInsert, onRemove, onShow }: Til
           finalFocus={card.returnFocus}
           onPointerEnter={card.stay}
           onPointerLeave={card.leave}
+          // Focus inside, as in every place's search, keeps it open with the pointer away.
+          onFocusCapture={card.hold}
         >
           <MediaCard
             image={image}

@@ -248,23 +248,40 @@ describe("where an image is used, on its card", () => {
     const usedInCode = [line("src/Header.tsx", 40), line("index.html", 3), line("src/Header.tsx", 12)]
 
     expect(codeFilesUsing({ usedInCode })).toEqual([
-      { path: "src/Header.tsx", lines: [12, 40] },
-      { path: "index.html", lines: [3] }
+      { path: "src/Header.tsx", name: "Header.tsx", lines: [12, 40] },
+      { path: "index.html", name: "index.html", lines: [3] }
+    ])
+  })
+
+  it("names files by as many folders as tell two of the same name apart", () => {
+    const usedInCode = [line("src/pages/index.tsx", 1), line("src/components/index.tsx", 2), line("index.tsx", 3)]
+
+    expect(codeFilesUsing({ usedInCode }).map(({ name }) => name)).toEqual([
+      "pages/index.tsx",
+      "components/index.tsx",
+      "index.tsx"
     ])
   })
 
   it("lists designs first and files of code in the room left", () => {
     const image = {
       usedBy: [use("home", "logo"), use("pricing", "logo")],
-      usedInCode: [line("a.tsx", 1), line("b.tsx", 2)]
+      usedInCode: [line("a.tsx", 1), line("b.tsx", 2), line("c.tsx", 3)]
     }
 
     expect(usesOnCard(image, 3)).toMatchObject({
       designs: [{ design: "home" }, { design: "pricing" }],
       files: [{ path: "a.tsx" }],
       moreDesigns: 0,
-      moreFiles: 1
+      moreFiles: 2
     })
+  })
+
+  it("lists one place past the room rather than counting it", () => {
+    const usedBy = ["a", "b", "c", "d"].map((design) => use(design, "logo"))
+
+    expect(usesOnCard({ usedBy, usedInCode: [] }, 3)).toMatchObject({ moreDesigns: 0, moreFiles: 0 })
+    expect(usesOnCard({ usedBy, usedInCode: [] }, 3).designs).toHaveLength(4)
   })
 
   it("counts the designs and files a full card leaves out", () => {

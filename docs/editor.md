@@ -2460,19 +2460,23 @@ of the pictures themselves, two across, each as tall as its own proportions make
   now shared in `chrome/insert-from-panel.ts`). It's 320px wide at its own proportions, with the alt text and credit it
   has elsewhere. A path with no file can't be inserted.
 - **Its card** opens after resting on a picture for half a second, or with the right arrow, as a component's card does
-  (redesigned in PAR-871): the picture as large as its box allows, over the transparency grid, which is behind the
-  picture alone, so the plain gray round one that doesn't fill the box is outside it. Then its name, and its facts in
-  labelled rows: Size; File (its size in bytes, "Linked, not saved" or "Missing"); Path, or Link for a linked photo's
-  site, cut to fit and whole in its tooltip; and Credit, who took it on which library, with Open in that library. A row
-  with nothing to say is left out. Insert and remove are in its bar.
+  (redesigned in PAR-871). The picture is as large as its box allows (`fitPicture`), though a bitmap smaller than the
+  box stays at its own size so it doesn't blur, and a vector grows to fill it. The transparency grid is behind the
+  picture alone, so the plain gray round one that doesn't fill the box is outside it. Then its name (a path with no file
+  by its file's name, as its tile is), and its facts in labelled rows: Size; File (its size in bytes, "Not saved" for a
+  linked photo, or "Missing"); Path, or Link for a linked photo's site, cut to fit and whole in its tooltip; and Credit,
+  who took it on which library, with Open in that library. A row with nothing to say is left out. Insert and remove are
+  in its bar.
 - **Where it's used,** on the card, is up to three rows (`usesOnCard`): the designs with the most layers first
-  (`designsUsing`), then files of code, one row a file with its lines (`codeFilesUsing`). A design's row is its Show
-  button, which selects every layer in it that shows the picture and scrolls to them; Show takes the layer count's place
-  under the pointer or focus. Past three rows, the heading gives the total layers and a last row counts the rest, "2
-  more designs and 4 files of code", which opens every place in the card's stead: Designs then Code, each with its count
-  and a heading that stays at the top while its rows scroll, a search by name once there are eight or more (`findUses`),
-  and Back. Focus moves into it, so the card stays open with the pointer away. A logo in hundreds of layers is still
-  three rows on its card. Nothing using it says "Not used yet".
+  (`designsUsing`), then files of code, one row a file with its lines, named by as many folders as tell two of a name
+  apart (`codeFilesUsing`). A design's row is its Show button, which selects every layer in it that shows the picture
+  and scrolls to them; Show takes the layer count's place under the pointer or focus. One place past three is listed
+  rather than counted. Past that, a last row counts the rest, "2 more designs and 4 files of code" ("2 more files of
+  code" when some are listed), which opens every place in the card's stead: Designs then Code, each with its count and a
+  heading that stays at the top while its rows scroll, Search designs and code once there are eight or more places
+  (`findUses`), and Back. Focus moves into it and the card holds it, so it stays open with the pointer away. Escape
+  clears the search, then goes back to the card, to the row that opened every place. A logo in hundreds of layers is
+  still three rows on its card. Nothing using it says "Not used yet".
 - **Adding:** image files dropped on the tab, or chosen with **+**, are saved under `public/images/` as dropped files
   are (`addImageFiles`), and arrive marked for a moment. The tab outlines itself while files are over it, saying what a
   drop adds or that only the five types can be added.
@@ -2495,18 +2499,19 @@ grid), `project-media.ts` (the scan, kept per open project) and `remove-media.ts
 
 Tests:
 
-- `packages/editor/src/media-wall.test.ts` (8): proportions kept between the strip and the card, a photo's before the
-  size is known, the shortest column first, what's above each, the wall's length, earlier pictures never moving, and
-  gaps weighed with widths.
-- `packages/editor/src/project-images.test.ts`: `mediumOf`, `designsUsing` grouping and ordering, code grouped by file,
-  what a card lists and leaves out, finding uses by name, `removalOf` for each case, and `imageItem`.
+- `packages/editor/src/media-wall.test.ts` (11): proportions kept between the strip and the card, a photo's before the
+  size is known, the shortest column first, what's above each, the wall's length, earlier pictures never moving, gaps
+  weighed with widths, and a picture fitted to the card's box, a small bitmap at its own size and a vector grown.
+- `packages/editor/src/project-images.test.ts`: `mediumOf`, `designsUsing` grouping and ordering, code grouped by file
+  and named apart, what a card lists and leaves out (one past the room listed), finding uses by name, `removalOf` for
+  each case, and `imageItem`.
 - `media/MediaPanel.stories.tsx` (21 stories, each with its check): no media, loading, the wall, linked and missing
   pictures, searching, nothing matching, vectors only, a card and its facts, a linked photo's card with its credit, a
   card for one nothing uses, one for a missing file, a logo in a hundred layers and four files of code (every place, its
-  search and Back), Show selecting every layer in a design, inserting at the selection, removing an unused file,
-  removing one in use with its layers, one the code names, dropping files, the narrowest panel, adding a picture from
-  Pixabay, and a search that finds nothing offering Pixabay. The stories' pictures are drawn for them and served at
-  `/images/`, as a builder serves `public/images/`.
+  search, staying open with the pointer away, and Escape back to the card), Show selecting every layer in a design,
+  inserting at the selection, removing an unused file, removing one in use with its layers, one the code names, dropping
+  files, the narrowest panel, adding a picture from Pixabay, and a search that finds nothing offering Pixabay. The
+  stories' pictures are drawn for them and served at `/images/`, as a builder serves `public/images/`.
 
 Gaps: videos aren't in the tab yet (PAR-841). Removing a component layer that takes the image as a prop removes the
 whole layer, as the dialog's count says. There are no thumbnails: every picture loads whole as the tab opens, so a
@@ -2564,8 +2569,8 @@ project offers "Find it on Pixabay" with the same words. Both open the library b
   with a toast while it does (`images.saveFrom`). Any that fail are named, and the rest are kept. They arrive on the
   wall marked.
 - **Credit:** what each shows and who made it go into the project's main file, in its `images` map, as one undoable step
-  (`keepImageDetails`). The card's Credit row names the author, linked to the picture's page, with Pixabay's mark and
-  Open in Pixabay, before any layer uses it (`pictureCredit`, `projectImages`).
+  (`keepImageDetails`). The card's Credit row names the author, linked to the picture's page, on Pixabay, with Open in
+  Pixabay, before any layer uses it (`pictureCredit`, `projectImages`).
 - **Usage:** each is reported as placed, with `media` as its design (connectors.md).
 
 Code: `apps/desktop/src/renderer/media/add-stock.ts`, `MediaPanel.tsx` (the menu and the offer) and `MediaCard.tsx` (the
