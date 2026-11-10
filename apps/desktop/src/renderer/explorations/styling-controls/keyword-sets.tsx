@@ -12,10 +12,11 @@ import {
   DropdownMenuTrigger,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Crop, Ellipsis } from "lucide-react"
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Crop } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { fieldBox, NotBaseline, NotBaselineMark, type Reading, TokenMark, ValueField } from "./field-parts.tsx"
+import { TitleMenu } from "./field-row.tsx"
 import type { KeywordOption, KeywordValue } from "./text-writes.ts"
 import { cursorTokens } from "./tokens.ts"
 
@@ -116,34 +117,24 @@ function SetMenu({
   onUnset: () => void
 }) {
   return (
-    <DropdownMenu>
-      <Hint label={`More ${label.toLowerCase()} options`}>
-        <DropdownMenuTrigger
-          aria-label={`More ${label.toLowerCase()} options`}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-        >
-          <Ellipsis className="size-3.5" />
-        </DropdownMenuTrigger>
-      </Hint>
-      <DropdownMenuContent align="end" className="w-56">
-        {inherits && (
-          <DropdownMenuItem className="text-xs" onClick={onInherit}>
-            Inherit
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem className="text-xs" onClick={onCustom}>
-          Custom value
+    <TitleMenu label={`More ${label.toLowerCase()} options`} hinted className="size-7 shrink-0">
+      {inherits && (
+        <DropdownMenuItem className="text-xs" onClick={onInherit}>
+          Inherit
         </DropdownMenuItem>
-        {set && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-xs" onClick={onUnset}>
-              Unset, back to {inheritedLabel}
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      )}
+      <DropdownMenuItem className="text-xs" onClick={onCustom}>
+        Custom value
+      </DropdownMenuItem>
+      {set && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-xs" onClick={onUnset}>
+            Unset, back to {inheritedLabel}
+          </DropdownMenuItem>
+        </>
+      )}
+    </TitleMenu>
   )
 }
 

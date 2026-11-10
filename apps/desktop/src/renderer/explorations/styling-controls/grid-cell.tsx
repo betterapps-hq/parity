@@ -1,11 +1,5 @@
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
-import { Columns3, Ellipsis, Rows3 } from "lucide-react"
+import { DropdownMenuCheckboxItem, DropdownMenuItem } from "@buildkitgg/shadcn-baseui-kit"
+import { Columns3, Rows3 } from "lucide-react"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -23,7 +17,7 @@ import {
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
-import { Field } from "./field-row.tsx"
+import { Field, TitleMenu } from "./field-row.tsx"
 import { type Area, columnTracks, placeChildren, rowCount, trackOf, trackWeights } from "./layout-controls.tsx"
 
 /*
@@ -241,44 +235,36 @@ export function GridCellSection({ draft, set }: SectionProps) {
     <PanelSection
       title="Size"
       action={
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="More size options"
-            className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+        <TitleMenu label="More size options" menuClassName="w-52">
+          <DropdownMenuCheckboxItem
+            className="text-xs"
+            checked={endLines}
+            onCheckedChange={(on) =>
+              set(
+                on
+                  ? {
+                      endLines: true,
+                      colStart: area.col + 1,
+                      colEnd: area.col + area.cols + 1,
+                      rowStart: area.row + 1,
+                      rowEnd: area.row + area.rows + 1
+                    }
+                  : {
+                      endLines: undefined,
+                      colEnd: undefined,
+                      rowEnd: undefined,
+                      colSpan: spanOf(area.cols),
+                      rowSpan: spanOf(area.rows)
+                    }
+              )
+            }
           >
-            <Ellipsis className="size-3.5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuCheckboxItem
-              className="text-xs"
-              checked={endLines}
-              onCheckedChange={(on) =>
-                set(
-                  on
-                    ? {
-                        endLines: true,
-                        colStart: area.col + 1,
-                        colEnd: area.col + area.cols + 1,
-                        rowStart: area.row + 1,
-                        rowEnd: area.row + area.rows + 1
-                      }
-                    : {
-                        endLines: undefined,
-                        colEnd: undefined,
-                        rowEnd: undefined,
-                        colSpan: spanOf(area.cols),
-                        rowSpan: spanOf(area.rows)
-                      }
-                )
-              }
-            >
-              End lines
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuItem disabled className="justify-between text-xs">
-              Area <span className="text-muted-foreground">None in this grid</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            End lines
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuItem disabled className="justify-between text-xs">
+            Area <span className="text-muted-foreground">None in this grid</span>
+          </DropdownMenuItem>
+        </TitleMenu>
       }
     >
       <div className="flex flex-col gap-3">

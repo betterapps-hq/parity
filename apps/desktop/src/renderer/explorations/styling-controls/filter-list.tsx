@@ -1,14 +1,4 @@
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+import { Button, DropdownMenuItem, Tabs, TabsContent, TabsList, TabsTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { unclosedInValue } from "@parity-app/tokens"
 import { Braces, ListOrdered, Plus, SlidersHorizontal } from "lucide-react"
 import { useState } from "react"
@@ -18,6 +8,7 @@ import { optionNamed } from "../parts.tsx"
 import { BlurChoice } from "./controls.tsx"
 import { isLengthToken, type Length } from "./data.ts"
 import { MessageLine, type Reading, TokenChip, TokenList, TokenMark, useTokens, ValueField } from "./field-parts.tsx"
+import { TitleMenu } from "./field-row.tsx"
 import { CenteredSlider, ListRow } from "./list-parts.tsx"
 import {
   type AdjustmentKey,
@@ -126,28 +117,18 @@ export function FilterList({
     <PanelSection
       title="Effects"
       action={
-        <DropdownMenu>
-          <Hint label="Add an effect">
-            <DropdownMenuTrigger
-              aria-label="Add an effect"
-              className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+        <TitleMenu label="Add an effect" icon={<Plus className="size-4" />} hinted menuClassName="w-52">
+          {addables.map((kind) => (
+            <DropdownMenuItem
+              key={kind}
+              className="text-xs"
+              disabled={taken.has(kind)}
+              onClick={() => onChange([...entries, newEntry(kind)])}
             >
-              <Plus className="size-4" />
-            </DropdownMenuTrigger>
-          </Hint>
-          <DropdownMenuContent align="end" className="w-52">
-            {addables.map((kind) => (
-              <DropdownMenuItem
-                key={kind}
-                className="text-xs"
-                disabled={taken.has(kind)}
-                onClick={() => onChange([...entries, newEntry(kind)])}
-              >
-                {addNames[kind]}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {addNames[kind]}
+            </DropdownMenuItem>
+          ))}
+        </TitleMenu>
       }
     >
       {entries.length > 0 && (

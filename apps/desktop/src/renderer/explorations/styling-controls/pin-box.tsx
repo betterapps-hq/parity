@@ -1,22 +1,5 @@
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  ToggleGroup,
-  ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
-import {
-  AppWindow,
-  ArrowUpToLine,
-  Crosshair,
-  Ellipsis,
-  Layers,
-  Maximize,
-  Move,
-  MoveDiagonal2,
-  Rows3
-} from "lucide-react"
+import { DropdownMenuCheckboxItem, ToggleGroup, ToggleGroupItem } from "@buildkitgg/shadcn-baseui-kit"
+import { AppWindow, ArrowUpToLine, Crosshair, Layers, Maximize, Move, MoveDiagonal2, Rows3 } from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -24,7 +7,7 @@ import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { SideValue } from "./box-model.tsx"
 import { formatNumber, tint } from "./css-values.ts"
 import { MessageLine, useTokens } from "./field-parts.tsx"
-import { Field } from "./field-row.tsx"
+import { Field, TitleMenu } from "./field-row.tsx"
 import {
   distances,
   inFlow,
@@ -144,31 +127,23 @@ export function PositionSection({
     <PanelSection
       title="Position"
       action={
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="More position options"
-            className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+        <TitleMenu label="More position options" menuClassName="w-52">
+          <DropdownMenuCheckboxItem
+            className="text-xs"
+            checked={placement === "relative"}
+            onCheckedChange={(on) => choose(on ? "relative" : "static")}
           >
-            <Ellipsis className="size-3.5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuCheckboxItem
-              className="text-xs"
-              checked={placement === "relative"}
-              onCheckedChange={(on) => choose(on ? "relative" : "static")}
-            >
-              Relative
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              className="text-xs"
-              checked={layerOrderShown}
-              disabled={["absolute", "fixed", "sticky"].includes(placement) || layerOrder !== undefined}
-              onCheckedChange={() => onLayerOrder({ number: 1 })}
-            >
-              Layer order
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            Relative
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            className="text-xs"
+            checked={layerOrderShown}
+            disabled={["absolute", "fixed", "sticky"].includes(placement) || layerOrder !== undefined}
+            onCheckedChange={() => onLayerOrder({ number: 1 })}
+          >
+            Layer order
+          </DropdownMenuCheckboxItem>
+        </TitleMenu>
       }
     >
       <div className="flex flex-col gap-3">

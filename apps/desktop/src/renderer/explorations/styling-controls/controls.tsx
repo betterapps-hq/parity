@@ -51,7 +51,7 @@ import {
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
-import { CornerGlyph, EachToggle, Field, SideGlyph } from "./field-row.tsx"
+import { CornerGlyph, EachToggle, Field, SideGlyph, TitleMenu } from "./field-row.tsx"
 import { HighlightOverlay } from "./highlight.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
 import { sideNumber } from "./sides-writes.ts"
@@ -781,31 +781,21 @@ export function EffectsSection({ draft, set, tokensOnly, mixed }: SectionProps) 
     <PanelSection
       title="Effects"
       action={
-        <DropdownMenu>
-          <Hint label="Add an effect">
-            <DropdownMenuTrigger
-              aria-label="Add an effect"
-              className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
+        <TitleMenu label="Add an effect" icon={<Plus className="size-4" />} hinted menuClassName="w-44">
+          {effects.map((effect) => (
+            <DropdownMenuItem
+              key={effect.key}
+              className="text-xs"
+              disabled={shown.includes(effect)}
+              onClick={() => {
+                setAdded((current) => ({ ...current, [effect.key]: true }))
+                set({ [effect.key]: effect.added })
+              }}
             >
-              <Plus className="size-4" />
-            </DropdownMenuTrigger>
-          </Hint>
-          <DropdownMenuContent align="end" className="w-44">
-            {effects.map((effect) => (
-              <DropdownMenuItem
-                key={effect.key}
-                className="text-xs"
-                disabled={shown.includes(effect)}
-                onClick={() => {
-                  setAdded((current) => ({ ...current, [effect.key]: true }))
-                  set({ [effect.key]: effect.added })
-                }}
-              >
-                {effect.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {effect.label}
+            </DropdownMenuItem>
+          ))}
+        </TitleMenu>
       }
     >
       {shown.length > 0 && (

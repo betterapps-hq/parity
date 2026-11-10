@@ -3,13 +3,10 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { PreviewKind } from "@parity-app/tokens"
-import { ChevronDown, ChevronRight, Ellipsis, Plus, Unlink } from "lucide-react"
+import { ChevronDown, ChevronRight, Plus, Unlink } from "lucide-react"
 import { useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
@@ -27,7 +24,7 @@ import {
   useTokens,
   ValueField
 } from "./field-parts.tsx"
-import { Field, FieldGrid, type Segment, Segments, SwitchRow } from "./field-row.tsx"
+import { Field, FieldGrid, type Segment, Segments, SwitchRow, TitleMenu } from "./field-row.tsx"
 import { EntryType, ListRow, moved, OffsetPad, TypeMenu, type TypeOption } from "./list-parts.tsx"
 import {
   boxLayersOf,
@@ -214,25 +211,17 @@ export function ShadowList({
       title="Effects"
       action={
         <div className="flex items-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="More effects"
-              className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-            >
-              <Ellipsis className="size-3.5" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem className="text-xs" onClick={() => add("inner")}>
-                Add inner shadow
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs" onClick={() => add("ring")}>
-                Add ring
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-xs" onClick={() => add("follow")}>
-                Add drop shadow that follows the shape
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <TitleMenu label="More effects">
+            <DropdownMenuItem className="text-xs" onClick={() => add("inner")}>
+              Add inner shadow
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-xs" onClick={() => add("ring")}>
+              Add ring
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-xs" onClick={() => add("follow")}>
+              Add drop shadow that follows the shape
+            </DropdownMenuItem>
+          </TitleMenu>
           <Hint label={mixed ? "Replace every layer's shadows with one" : "Add drop shadow"}>
             <Button
               variant="ghost"

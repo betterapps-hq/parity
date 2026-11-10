@@ -1,9 +1,6 @@
 import {
   Button,
-  DropdownMenu,
   DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -22,7 +19,6 @@ import {
   ArrowRightLeft,
   Columns3,
   CornerDownLeft,
-  Ellipsis,
   GripVertical,
   LayoutGrid,
   Minus,
@@ -46,7 +42,7 @@ import {
   typedContentSizes
 } from "./data.ts"
 import { arrowMoves, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
-import { EachToggle, Field } from "./field-row.tsx"
+import { EachToggle, Field, TitleMenu } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
 import { moved, useOrderKeys } from "./list-parts.tsx"
 import { type Side, sideNumber, sideRules } from "./sides-writes.ts"
@@ -74,23 +70,6 @@ type Place = "start" | "center" | "end"
 const places: Place[] = ["start", "center", "end"]
 
 const isBaseline = (align: Draft["align"]) => align === "baseline" || align === "last baseline"
-
-/** The menu button at a section's title, as every section's More is drawn. */
-function MoreMenu({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={label}
-        className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-      >
-        <Ellipsis className="size-3.5" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        {children}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
 
 /* Layout */
 
@@ -248,7 +227,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
   )
 
   return (
-    <PanelSection title="Layout" action={<MoreMenu label="More layout options">{more}</MoreMenu>}>
+    <PanelSection title="Layout" action={<TitleMenu label="More layout options">{more}</TitleMenu>}>
       <div className="flex flex-col gap-2.5">
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3">
           <Field half label={grid ? "In cells" : "Alignment"}>

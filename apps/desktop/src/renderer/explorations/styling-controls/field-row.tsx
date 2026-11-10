@@ -1,5 +1,5 @@
-import { Switch } from "@buildkitgg/shadcn-baseui-kit"
-import { Lock, LockOpen, RotateCcw } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, Switch } from "@buildkitgg/shadcn-baseui-kit"
+import { Ellipsis, Lock, LockOpen, RotateCcw } from "lucide-react"
 import {
   createContext,
   type PointerEvent as ReactPointerEvent,
@@ -375,5 +375,44 @@ export function EachToggle({
         </svg>
       </button>
     </Hint>
+  )
+}
+
+/**
+ * A menu at the end of a section's title or a row's name: More, as an ellipsis, or what `icon` draws, as Effects' Add.
+ * `hinted` names it on hover too, where the icon alone doesn't say what it opens; `className` resizes its button, as a
+ * row's taller one is, and `menuClassName` sizes the menu.
+ */
+export function TitleMenu({
+  label,
+  icon = <Ellipsis className="size-3.5" />,
+  hinted = false,
+  className = "size-6",
+  menuClassName = "w-56",
+  children
+}: {
+  label: string
+  icon?: ReactNode
+  hinted?: boolean
+  className?: string
+  menuClassName?: string
+  children: ReactNode
+}) {
+  const trigger = (
+    <DropdownMenuTrigger
+      aria-label={label}
+      className={`grid place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent ${className}`}
+    >
+      {icon}
+    </DropdownMenuTrigger>
+  )
+
+  return (
+    <DropdownMenu>
+      {hinted ? <Hint label={label}>{trigger}</Hint> : trigger}
+      <DropdownMenuContent align="end" className={menuClassName}>
+        {children}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
