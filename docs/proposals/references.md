@@ -61,9 +61,10 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 - **Filters come from the connector's `filters`.** Every filter today is one choice from a fixed list, so there's one
   data type, and the browser picks between two controls from the list's shape. A filter that always has a value, between
   a few, is a switch, as Mobbin's platform is. One that can be left open is a select starting on "Any", as Unsplash's
-  orientation and color are. A value can carry a `swatch`, which the select shows beside its name. A new filter on a
-  connector shows up without a change to the browser. A filter that isn't a choice, such as a number or free text, would
-  need the connector to say its type, which it doesn't yet.
+  orientation and color are. A value can carry a `swatch` or name an `icon`, which shows beside its name wherever the
+  value appears: in the control, and on a recent search. A new filter on a connector shows up without a change to the
+  browser. A filter that isn't a choice, such as a number or free text, would need the connector to say its type, which
+  it doesn't yet.
 - **Unsplash's colors are a fixed list.** Its API takes eleven named colors and nothing else, so there's no picking your
   own.
 - **Mobbin's depth is the one filter the browser treats by name:** it's offered as Search deeper on the results rather

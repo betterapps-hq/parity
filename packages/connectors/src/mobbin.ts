@@ -81,8 +81,8 @@ export const mobbin: Connector = {
         id: "platform",
         name: "Platform",
         values: [
-          { id: "web", name: "Web" },
-          { id: "ios", name: "iOS" }
+          { id: "web", name: "Web", icon: "desktop" },
+          { id: "ios", name: "iOS", icon: "phone" }
         ],
         default: "web"
       },

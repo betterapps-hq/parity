@@ -63,9 +63,9 @@ export const unsplash: Connector = {
         id: "orientation",
         name: "Orientation",
         values: [
-          { id: "landscape", name: "Landscape" },
-          { id: "portrait", name: "Portrait" },
-          { id: "squarish", name: "Square" }
+          { id: "landscape", name: "Landscape", icon: "landscape" },
+          { id: "portrait", name: "Portrait", icon: "portrait" },
+          { id: "squarish", name: "Square", icon: "square" }
         ]
       },
       {

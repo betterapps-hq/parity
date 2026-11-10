@@ -30,7 +30,7 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
-import type { Allowance, Filter, Found, Problem, SearchAnswer } from "@parity-app/connectors"
+import type { Allowance, Filter, FilterValue, Found, Problem, SearchAnswer } from "@parity-app/connectors"
 import {
   Check,
   ChevronLeft,
@@ -40,9 +40,12 @@ import {
   Lightbulb,
   Maximize2,
   Monitor,
+  RectangleHorizontal,
+  RectangleVertical,
   ScanSearch,
   Search,
   Smartphone,
+  Square,
   X
 } from "lucide-react"
 import { type FormEvent, type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
@@ -448,13 +451,29 @@ function SourceCredit({ library }: { library: Library }) {
 /** A filter with no value chosen, in a select. */
 const any = "any"
 
-/** The picture that goes with a filter value the browser knows one for: a platform's device. */
-function ValueIcon({ id }: { id: string }) {
-  if (id === "web") {
-    return <Monitor />
+/**
+ * What a filter's value shows beside its name, wherever the value appears: the icon its connector names, or the color
+ * its connector gives it. The browser has the pictures; the connector says which goes with what.
+ */
+function ValueMark({ value }: { value: FilterValue | undefined }) {
+  if (value?.swatch) {
+    return <span aria-hidden className="size-3 shrink-0 rounded-full border" style={{ background: value.swatch }} />
   }
 
-  return id === "ios" ? <Smartphone /> : null
+  switch (value?.icon) {
+    case "desktop":
+      return <Monitor />
+    case "phone":
+      return <Smartphone />
+    case "landscape":
+      return <RectangleHorizontal />
+    case "portrait":
+      return <RectangleVertical />
+    case "square":
+      return <Square />
+    default:
+      return null
+  }
 }
 
 /**
@@ -486,7 +505,7 @@ function FilterControl({
       >
         {filter.values.map((each) => (
           <ToggleGroupItem key={each.id} value={each.id} className="gap-1.5 px-2.5">
-            <ValueIcon id={each.id} /> {each.name}
+            <ValueMark value={each} /> {each.name}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
@@ -502,7 +521,7 @@ function FilterControl({
         <SelectValue>
           {(id: string) => (
             <span className="flex items-center gap-2">
-              <Swatch fill={filter.values.find((each) => each.id === id)?.swatch} /> {nameOf(id)}
+              <ValueMark value={filter.values.find((each) => each.id === id)} /> {nameOf(id)}
             </span>
           )}
         </SelectValue>
@@ -511,17 +530,12 @@ function FilterControl({
         <SelectItem value={any}>{nameOf(any)}</SelectItem>
         {filter.values.map((each) => (
           <SelectItem key={each.id} value={each.id}>
-            <Swatch fill={each.swatch} /> {each.name}
+            <ValueMark value={each} /> {each.name}
           </SelectItem>
         ))}
       </SelectContent>
     </Select>
   )
-}
-
-/** A filter value's color, when its connector gives it one. */
-function Swatch({ fill }: { fill: string | undefined }) {
-  return fill ? <span aria-hidden className="size-3 shrink-0 rounded-full border" style={{ background: fill }} /> : null
 }
 
 interface BodyProps {
@@ -841,8 +855,7 @@ function Start({
               <History className="text-muted-foreground" />
               {narrowedBy(library.info, filters).map((value) => (
                 <span key={value.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <ValueIcon id={value.id} />
-                  <Swatch fill={value.swatch} />
+                  <ValueMark value={value} />
                   {value.name}
                 </span>
               ))}

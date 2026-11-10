@@ -211,11 +211,19 @@ export interface Filter {
   default?: string
 }
 
+/**
+ * A picture the window has for a filter's value, named by what it shows, so a connector says which and the window
+ * draws it: a kind of device, or a shape of picture.
+ */
+export type ValueIcon = "desktop" | "phone" | "landscape" | "portrait" | "square"
+
 export interface FilterValue {
   /** What a search sends and the source takes: `ios`. */
   id: string
   /** Its name, for people: "iOS". */
   name: string
+  /** A picture to show beside its name, for a value the window has one for. */
+  icon?: ValueIcon
   /** A color to show beside its name, for a value that is one, as CSS: `black`, or a gradient for two. */
   swatch?: string
 }
