@@ -217,6 +217,7 @@ export function batchRun(
     version: cliVersion(),
     published,
     ...releaseSource(build),
+    folder: process.cwd(),
     tags,
     user: telemetryUser(installId, variables, driver)
   }

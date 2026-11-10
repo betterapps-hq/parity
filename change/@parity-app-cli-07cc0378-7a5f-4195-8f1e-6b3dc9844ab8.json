@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The CLI's sender scrubs the .env values of the app's open projects and of the project each command ran in",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

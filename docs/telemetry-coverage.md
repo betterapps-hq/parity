@@ -116,8 +116,9 @@ while it's off.
 before anything leaves. It runs on events as they're recorded and in every Sentry hook (`beforeSend`,
 `beforeSendTransaction`, `beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`). It catches keys and tokens with a
 known shape, `Bearer` tokens, passwords in URLs, the values of fields named like `password` or `apiKey`, long random
-strings, and the open projects' `.env` values. The CLI doesn't know the `.env` values. Sentry's server-side scrubbing is
-a second net. [telemetry.md](telemetry.md#secrets-are-scrubbed) has the details.
+strings, and the open projects' `.env` values. The CLI's sender reads them itself, with those of the project each
+command ran in. Sentry's server-side scrubbing is a second net. [telemetry.md](telemetry.md#secrets-are-scrubbed) has
+the details.
 
 **The replay masks almost nothing.** `maskAllText` is on, but only so every text node passes through the scrubber, which
 returns it unchanged unless it's a secret. `maskAllInputs` and `blockAllMedia` are off, and the canvas integration
@@ -182,6 +183,5 @@ are the gaps left. Each comes from the code or from Sentry, with the Linear issu
 
 These go beyond "names and values as written", which the decisions above cover.
 
-| Risk                                | Evidence                                                                                                                                                                           | Issue   |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| The CLI doesn't scrub `.env` values | Only the service reads them ([telemetry.md](telemetry.md#secrets-are-scrubbed)), so a secret in an uncaught error's message or stack leaves the CLI unless its shape gives it away | PAR-815 |
+| Risk | Evidence | Issue |
+| ---- | -------- | ----- |
