@@ -325,7 +325,7 @@ function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMob
           </>
         )}
         <footer className="flex shrink-0 items-center gap-2 border-t px-4 py-2.5">
-          <span className="text-xs text-muted-foreground">Screens from Mobbin</span>
+          <MobbinCredit />
           {picked.length === 0 ? (
             <span className="ml-auto text-xs text-muted-foreground">Pick screens to place them</span>
           ) : (
@@ -339,6 +339,30 @@ function Browser({ start = {}, recent, onClose, onSearched, onPlace, onOpenInMob
         </footer>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * Where the screens are from: Mobbin's mark and name, as a link to Mobbin. The mark is the one Mobbin publishes for
+ * apps that connect to it (github.com/mobbin/skills).
+ */
+function MobbinCredit() {
+  return (
+    <a
+      href="https://mobbin.com"
+      target="_blank"
+      rel="noreferrer"
+      className="flex items-center gap-1.5 rounded-sm text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+    >
+      <svg viewBox="0 0 80 80" aria-hidden className="size-4 rounded-[4px] ring-1 ring-foreground/20">
+        <rect width="80" height="80" fill="black" />
+        <path
+          fill="white"
+          d="M44.7009 50.1296H33.2479V44.848L28.3096 50.1293L18 50.1246V39.3516L26.9614 29.8706H39.3491V34.9105L44.1747 29.8706H54.907V38.1601H62V50.1296H49.3749V45.1307L44.7009 50.1296Z"
+        />
+      </svg>
+      Mobbin
+    </a>
   )
 }
 

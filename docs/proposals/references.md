@@ -8,8 +8,8 @@ Parity/Explorations/References
 
 Find references opens a browser over the canvas. You describe a screen, choose Web or iOS, pick from real apps' screens
 on Mobbin, and they land beside your design to look at, never in it. Agents search the same way before they design. It
-runs on Mobbin's REST API with Parity's own key, so nobody needs a Mobbin account, and that needs Mobbin's agreement
-before it reaches anyone outside the team.
+runs on Mobbin's REST API with Parity's own key, so nobody needs a Mobbin account. Mobbin's terms allow its API inside a
+product, and I'd still get its yes in writing before this reaches anyone outside the team.
 
 ## What changed from the first pass
 
@@ -79,7 +79,9 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 - **When a search can't answer** it says which of four things happened: nothing matches, with a button to try the other
   platform; a deep search found no close matches, with the way back to the quick ones; Mobbin's limit, with the wait; or
   Mobbin can't be reached.
-- **"Screens from Mobbin"** stays at the foot of the browser, so the source is always named.
+- **Mobbin's mark and name sit at the foot of the browser,** as a link to mobbin.com, so the source is always named.
+  Mobbin's terms don't ask for a credit. I've kept one because the screens are theirs to show, each reference on the
+  canvas already says "Mobbin", and it's the first thing they'd ask for when we ask to ship this.
 
 ### On the canvas
 
@@ -115,10 +117,16 @@ collections, paging, or a way to fetch one screen by its id. The design offers n
 - **It needs a Parity sign-in,** so the service can tell people apart. The key's 60 requests a minute are shared by
   everyone, so the service gives each person a share and answers repeated searches from memory for a few minutes, if
   Mobbin's terms allow that.
-- **What a search costs us isn't published.** Mobbin's docs say API usage doesn't draw on a plan's AI credits and that
-  API pricing "will be handled separately". Until there's a price, deep searches may need a daily allowance per person.
-- **This needs Mobbin's written agreement.** A workspace's key is for its members, and the published terms don't cover
-  showing results to people who aren't. What to ask for is in [Questions for Mobbin](#questions-for-mobbin).
+- **What a search costs us isn't settled.** Mobbin's docs say API usage doesn't draw on a plan's AI credits and that API
+  pricing "will be handled separately". Its terms say API calls use AI credits, more for an "advanced" call than a
+  "standard" one. Either way deep costs more, so deep searches may need a daily allowance per person.
+- **The terms allow putting the API in a product, within limits.** They permit "integration into your own proprietary
+  products or services", and forbid reselling, sublicensing or leasing access to the API, building something that
+  competes with Mobbin, and making a standalone library from its content ([Terms](https://mobbin.com/terms), section 3).
+  Find references is the first and none of the last three, as I read it.
+- **I'd still get Mobbin's yes in writing before it ships.** One key answering every Parity user's searches is close
+  enough to leasing access that it shouldn't rest on my reading, and the 60 requests a minute need raising anyway. What
+  to ask for is in [Questions for Mobbin](#questions-for-mobbin).
 
 ### The fallback: each person's own Mobbin account
 
@@ -159,11 +167,12 @@ Only your team sees results during the spike, which a Team plan covers.
 
 In this order, since the first decides whether the rest matter:
 
-1. **Showing results to people who aren't Mobbin members,** through Parity's key, inside Parity.
+1. **Confirming that one key serving every Parity user is "integration into your own product"** under the terms, and not
+   leasing access.
 2. **Keeping a placed reference's picture** past its link's expiry, or a way to fetch a screen by its id.
 3. **What API usage costs,** per search, and whether deep costs more.
 4. **A higher limit** than 60 requests a minute for the workspace.
-5. **How Mobbin wants to be credited** in the browser and on the canvas.
+5. **How Mobbin wants to be credited,** and whether we may show its mark, in the browser and on the canvas.
 6. **Whether flows and sections are coming to the REST API.**
 
 ## Still to decide
