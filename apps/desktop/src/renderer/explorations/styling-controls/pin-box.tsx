@@ -1,5 +1,4 @@
 import {
-  Button,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -7,12 +6,22 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
-import { AppWindow, ArrowUpToLine, Crosshair, Ellipsis, Layers, Maximize, Move, Rows3 } from "lucide-react"
+import {
+  AppWindow,
+  ArrowUpToLine,
+  Crosshair,
+  Ellipsis,
+  Layers,
+  Maximize,
+  Move,
+  MoveDiagonal2,
+  Rows3
+} from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { ChoiceInput } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { SideValue } from "./box-model.tsx"
 import { formatNumber } from "./css-values.ts"
 import { MessageLine, useTokens } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
@@ -26,17 +35,21 @@ import {
   type Position,
   placed
 } from "./position-writes.ts"
-import { type Side, type Sides, sideNames, sideNumber, sideRules } from "./sides-writes.ts"
-import { SideField, useSidesLine } from "./sides.tsx"
+import { type Side, type SideRules, type Sides, sideNames, sideNumber, sideRules } from "./sides-writes.ts"
+import { setSides, SideField, spreadTo } from "./sides.tsx"
 
 /*
- * Position (PAR-652): Placement's toggles, the pin box for a layer that isn't In layout, its presets (Figma's
- * constraints, written in CSS), and Layer order. PositionPreview is the canvas's stand-in: Pricing with Plans placed
- * in it, each pinned side measured to Pricing's edge, drawn in the layer's color as the canvas draws a selection.
+ * Position (PAR-652): Placement's toggles beside Layer order, then the inset box for a layer that isn't In layout,
+ * which lays the insets out as the box model lays out spacing: what the layer is placed against, named in its corner,
+ * the layer in its middle, and each side's inset where the side is. PositionPreview is the canvas's stand-in: Pricing
+ * with Plans placed in it, each pinned side measured to Pricing's edge, drawn in the layer's color as the canvas draws
+ * a selection.
  */
 
 /** The layer's color, which the canvas draws a selected layer's outline and measurements in. */
 const layerColor = kindColors.layer
+
+const tint = (strength: number) => `color-mix(in oklch, ${layerColor} ${strength}%, transparent)`
 
 const placements = [
   { value: "static", label: "In layout", detail: "Placed by its layout, as its children are", Icon: Rows3 },
@@ -56,42 +69,30 @@ const placements = [
   { value: "relative", label: "Relative", detail: "In layout, then moved by its insets", Icon: Move }
 ] as const satisfies readonly { value: Placement; label: string; detail: string; Icon: unknown }[]
 
-type AxisPreset = "start" | "end" | "both" | "center" | "scale"
+/**
+ * What each placement places the layer against, which the inset box names in its corner, and what its insets'
+ * percentages are of. Relative's insets move it from where In layout would put it.
+ */
+const against = {
+  absolute: { name: "Parent", of: "the parent" },
+  fixed: { name: "Window", of: "the window" },
+  sticky: { name: "Scroll area", of: "the scroll area" },
+  relative: { name: "In layout", of: "the parent" }
+} as const satisfies Record<Exclude<Placement, "static">, { name: string; of: string }>
 
-/** Which of Figma's constraints an axis is, from its pinned sides. */
-function presetOf(start: Side, end: Side, center: number | undefined): AxisPreset | undefined {
-  if (center !== undefined) {
-    return "center"
-  }
-
-  const pinned = (side: Side) => side !== undefined && side !== "auto"
-  const percent = (side: Side) => side !== undefined && side !== "auto" && "percent" in side
-
-  if (pinned(start) && pinned(end)) {
-    return percent(start) && percent(end) ? "scale" : "both"
-  }
-
-  if (pinned(start)) {
-    return "start"
-  }
-
-  if (pinned(end)) {
-    return "end"
-  }
-
-  return undefined
-}
-
-/** An inset as the pin box holds it, where `auto` is unpinned. */
+/** An inset as the box holds it, where `auto` is unpinned. */
 const unpinnedAuto = (side: Side) => (side === "auto" ? undefined : side)
 
-/** A share of Pricing as Scale pins it, to a tenth of a percent. */
+/** A share of what it's placed against, as Scale pins it, to a tenth of a percent. */
 const tenth = (number: number) => Number(formatNumber(number, 1))
+
+/** An offset from the center is a length: it has no percentage, and no Auto. */
+const offsetRules: SideRules = { ...sideRules.inset, percent: false, auto: false }
 
 /**
  * Position, for a layer that isn't a design's root: Placement's toggles (In layout, Absolute, Fixed, Sticky, and
- * Relative once set from More), then the pin box when it isn't In layout, with Figma's constraints as presets for
- * Absolute and Fixed, and Layer order, shown by default when Absolute, Fixed or Sticky.
+ * Relative once set from More) beside Layer order, shown by default when Absolute, Fixed or Sticky, then the inset box
+ * when it isn't In layout.
  */
 export function PositionSection({
   position,
@@ -115,9 +116,6 @@ export function PositionSection({
   stickyStopped?: string
   onClipInstead?: () => void
 }) {
-  const spacing = useTokens("spacing").tokens
-  const rect = placed(position, spacing)
-  const measured = distances(rect)
   const placement = position.placement
   const shownPlacements = placements.filter((option) => option.value !== "relative" || placement === "relative")
 
@@ -175,151 +173,221 @@ export function PositionSection({
         </DropdownMenu>
       }
     >
-      <div className="flex flex-col gap-1">
-        <Field label="Placement">
-          <ToggleGroup
-            variant="outline"
-            size="sm"
-            spacing={0}
-            aria-label="Placement"
-            value={[placement]}
-            onValueChange={([next]) => {
-              const chosen = placements.find((option) => option.value === next)
+      <div className="flex flex-col gap-3">
+        {/* Side by side, as both say how the layer sits among the others. */}
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2">
+          <Field label="Placement" half>
+            <ToggleGroup
+              variant="outline"
+              size="sm"
+              spacing={0}
+              aria-label="Placement"
+              value={[placement]}
+              onValueChange={([next]) => {
+                const chosen = placements.find((option) => option.value === next)
 
-              if (chosen) {
-                choose(chosen.value)
-              }
-            }}
-          >
-            {shownPlacements.map((option) => (
-              <Hint key={option.value} label={option.label} detail={option.detail}>
-                <ToggleGroupItem value={option.value} aria-label={option.label} className="h-7 px-2">
-                  <option.Icon />
-                </ToggleGroupItem>
-              </Hint>
-            ))}
-          </ToggleGroup>
-        </Field>
-        {placement !== "static" && <PinBox position={position} measured={measured} stopped={stickyStopped} set={set} />}
-        {stickyStopped && (
-          // Under the fields, past the labels' column.
-          <div className="pl-24">
-            <MessageLine
-              message={{
-                tone: "note",
-                text: stickyStopped,
-                action: onClipInstead && { label: "Clip without scrolling", run: onClipInstead }
+                if (chosen) {
+                  choose(chosen.value)
+                }
               }}
-            />
-          </div>
+            >
+              {shownPlacements.map((option) => (
+                <Hint key={option.value} label={option.label} detail={option.detail}>
+                  <ToggleGroupItem value={option.value} aria-label={option.label} className="h-7 px-2">
+                    <option.Icon />
+                  </ToggleGroupItem>
+                </Hint>
+              ))}
+            </ToggleGroup>
+          </Field>
+          {layerOrderShown && <LayerOrderField value={layerOrder} context={context} half onChange={onLayerOrder} />}
+        </div>
+        {placement !== "static" && (
+          <InsetBox position={position} placement={placement} stopped={stickyStopped} set={set} />
         )}
-        {(placement === "absolute" || placement === "fixed") && <Presets position={position} rect={rect} set={set} />}
-        {layerOrderShown && <LayerOrderField value={layerOrder} context={context} onChange={onLayerOrder} />}
+        {stickyStopped && (
+          <MessageLine
+            message={{
+              tone: "note",
+              text: stickyStopped,
+              action: onClipInstead && { label: "Clip without scrolling", run: onClipInstead }
+            }}
+          />
+        )}
       </div>
     </PanelSection>
   )
 }
 
+/** A toggle in the insets' header, drawn as the other headers' toggles are. */
+function HeaderToggle({
+  label,
+  pressed,
+  onClick,
+  children
+}: {
+  label: string
+  pressed: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <Hint label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={pressed}
+        onClick={onClick}
+        className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:text-foreground dark:hover:bg-input/40 dark:aria-pressed:bg-input/60 [&_svg]:size-3"
+      >
+        {children}
+      </button>
+    </Hint>
+  )
+}
+
+/** Where each side's band sits in the box's grid, from the top, clockwise: across the top, beside the layer, under. */
+const bandCells = [
+  "col-span-3 row-start-1",
+  "col-start-3 row-start-2",
+  "col-span-3 row-start-3",
+  "col-start-1 row-start-2"
+]
+
 /**
- * The pin box: a field on each side of a small box, each side pinned or not. Clicking a side's pin pins it at its
- * measured distance, and clicking again unpins it to Auto, as Framer's pin box does; typing in an unpinned side pins
- * it, and typing `auto` unpins it. Centered, the axis shows its offset from the center. What the fields say goes under
- * the whole box, where it has the section's width.
+ * The inset box, laid out as the box model is: what the layer is placed against, named in its corner, the layer in its
+ * middle, and each side's inset on a line from the edge to the layer, where the side is. A pinned side's line is solid,
+ * in the layer's color, as the canvas measures it; an unpinned side's is dashed, and says Auto. Clicking a side pins it
+ * at its distance, and again unpins it, as Framer's pin box does. Its value opens its field in a popover, with room for
+ * a token's chip; typing in an unpinned side pins it, and Alt and Alt+Shift reach the opposite side and all four. The
+ * layer's center lines center it on that axis, Absolute or Fixed, keeping its offset from the center, which the start
+ * side holds. Fill and Scale, in the header, pin every side at 0, or at its share of what it's placed against.
  */
-function PinBox({
+function InsetBox({
   position,
-  measured,
+  placement,
   stopped,
   set
 }: {
   position: Position
-  measured: [number, number, number, number]
+  placement: Exclude<Placement, "static">
   stopped?: string
   set: (position: Position) => void
 }) {
-  const { lineFor, said } = useSidesLine()
-  const sticky = position.placement === "sticky" || position.placement === "relative"
+  const spacing = useTokens("spacing").tokens
+  const rect = placed(position, spacing)
+  const measured = distances(rect)
+  // Sticky and Relative insets are offsets, from where it sticks or where it was, so they start at 0 and don't center.
+  const offsets = placement === "sticky" || placement === "relative"
+  const { name: againstName, of } = against[placement]
+  const centerOf = (index: number) => (index % 2 === 1 ? position.centerX : position.centerY)
+  const pinned = (index: number) => centerOf(index) === undefined && position.insets[index] !== undefined
 
-  const pinned = (index: number) => {
-    if (index % 2 === 1 && position.centerX !== undefined) {
-      return false
-    }
+  // The sides an edit reached take its value; pinning a side of a centered axis ends the centering.
+  const setInsets = (reached: readonly number[], value: Side) => {
+    const next: Position = { ...position, insets: setSides(position.insets, reached, unpinnedAuto(value)) }
 
-    if (index % 2 === 0 && position.centerY !== undefined) {
-      return false
-    }
+    if (value !== undefined && value !== "auto") {
+      if (reached.some((index) => index % 2 === 1)) {
+        delete next.centerX
+      }
 
-    return position.insets[index] !== undefined
-  }
-
-  const setSide = (index: number, value: Side) => {
-    const insets: Sides = [...position.insets]
-    insets[index] = value === "auto" ? undefined : value
-    const next = { ...position, insets }
-
-    // Pinning a side of a centered axis ends the centering.
-    if (index % 2 === 1 && value !== undefined && value !== "auto") {
-      delete next.centerX
-    }
-
-    if (index % 2 === 0 && value !== undefined && value !== "auto") {
-      delete next.centerY
+      if (reached.some((index) => index % 2 === 0)) {
+        delete next.centerY
+      }
     }
 
     set(next)
   }
 
-  const toggle = (index: number) => {
-    if (pinned(index)) {
-      setSide(index, undefined)
+  const toggle = (index: number) =>
+    setInsets([index], pinned(index) ? undefined : { number: offsets ? 0 : measured[index]! })
+
+  // Centered, it keeps its offset from the center, as Figma's Center does; uncentered, it stays put, pinned at the start.
+  const center = (horizontal: boolean) => {
+    const key = horizontal ? "centerX" : "centerY"
+    const [startIndex, endIndex] = horizontal ? [3, 1] : [0, 2]
+    const insets: Sides = [...position.insets]
+    const next: Position = { ...position, insets }
+
+    if (position[key] === undefined) {
+      const of = horizontal ? parent.width : parent.height
+      const size = horizontal ? layerSize.width : layerSize.height
+      insets[startIndex] = undefined
+      insets[endIndex] = undefined
+      next[key] = Math.round((horizontal ? rect.x : rect.y) - (of - size) / 2)
     } else {
-      setSide(index, { number: sticky ? 0 : measured[index] })
+      delete next[key]
+      insets[startIndex] = { number: measured[startIndex]! }
     }
+
+    set(next)
   }
 
-  const field = (index: number): ReactNode => {
+  const isNumber = (side: Side, number: number) =>
+    side !== undefined && side !== "auto" && "number" in side && side.number === number
+
+  const isShare = (side: Side) => side !== undefined && side !== "auto" && "percent" in side
+  const filled = position.insets.every((side) => isNumber(side, 0))
+  const scaled = position.insets.every(isShare)
+
+  // Filled, pressing it again leaves the layer its own size, at the top left.
+  const fill = () =>
+    set({
+      ...position,
+      insets: filled
+        ? [{ number: 0 }, undefined, undefined, { number: 0 }]
+        : [{ number: 0 }, { number: 0 }, { number: 0 }, { number: 0 }],
+      centerX: undefined,
+      centerY: undefined
+    })
+
+  // Each side at its share of what it's placed against, where it is now, so it grows with it; again, back to pixels.
+  const scale = () => {
+    const of = [parent.height, parent.width, parent.height, parent.width]
+
+    const at = (index: number): Side =>
+      scaled ? { number: measured[index]! } : { percent: tenth((measured[index]! / of[index]!) * 100) }
+
+    set({ ...position, insets: [at(0), at(1), at(2), at(3)], centerX: undefined, centerY: undefined })
+  }
+
+  const value = (index: number): ReactNode => {
     const name = sideNames[index]!
-    const centered = index % 2 === 1 ? position.centerX : position.centerY
+    const centered = centerOf(index)
 
-    // Centered, the start side's field is the offset from the center, and the end side's says Centered.
+    // Centered, the end side says so, and the start side holds the offset from the center, where CSS writes it.
+    if (centered !== undefined && (index === 1 || index === 2)) {
+      return <span className="block h-5 px-1 text-xs leading-5 text-muted-foreground">Center</span>
+    }
+
     if (centered !== undefined) {
-      if (index === 1 || index === 2) {
-        return <span className="grid h-7 place-items-center text-xs text-muted-foreground">Centered</span>
-      }
-
       const axis = index === 3 ? "centerX" : "centerY"
-      const label = `${index === 3 ? "Horizontal" : "Vertical"} offset from center`
 
       return (
-        <SideField
-          label={label}
-          rules={sideRules.inset}
-          value={{ number: centered }}
-          narrow
-          line={lineFor(label)}
-          onChange={(value) => {
-            if (value !== undefined && value !== "auto" && "number" in value) {
-              set({ ...position, [axis]: value.number })
-            }
-          }}
+        <SideValue
+          label={`${index === 3 ? "Horizontal" : "Vertical"} offset from center`}
+          value={centered === 0 ? undefined : { number: centered }}
+          rules={offsetRules}
+          unset={{ number: "Center", name: "Centered" }}
+          signed
+          onChange={(next) => set({ ...position, [axis]: sideNumber(unpinnedAuto(next), spacing) ?? 0 })}
         />
       )
     }
 
-    // What Auto comes to is in the field's hint, as a narrow field's is: beside the chevron, there's room for Auto alone.
-    const placeholder = "Auto"
-
     return (
-      <SideField
+      <SideValue
         label={`${name} inset`}
-        rules={sideRules.inset}
         value={position.insets[index]}
-        narrow
-        placeholder={placeholder}
-        measured={sticky ? undefined : measured[index]}
-        percentOf={`Pricing's ${index % 2 === 0 ? "height" : "width"}`}
-        line={lineFor(`${name} inset`)}
-        onChange={(value) => setSide(index, value)}
+        rules={sideRules.inset}
+        placeholder="Auto"
+        unset={{ number: "Auto", name: "Auto" }}
+        measured={offsets ? undefined : measured[index]}
+        percentOf={`${of}'s ${index % 2 === 0 ? "height" : "width"}`}
+        spreads
+        side={index === 2 ? "bottom" : "top"}
+        onChange={(next, spread) => setInsets(spreadTo([index], spread), next)}
         onShorthand={([top, right, bottom, left]) =>
           set({
             ...position,
@@ -332,178 +400,105 @@ function PinBox({
     )
   }
 
-  const pin = (index: number, style: CSSProperties, vertical: boolean) => {
+  // A side's band: the line from the edge to the layer, which pins and unpins the side, with its value on it.
+  const band = (index: number) => {
     const on = pinned(index)
-    const name = sideNames[index]!.toLowerCase()
+    const across = index % 2 === 1
+    const side = sideNames[index]!.toLowerCase()
+
+    const line = (
+      <span
+        aria-hidden
+        className={`min-h-0 min-w-0 flex-1 ${across ? "h-0 border-t" : "w-0 border-l"} ${on ? "" : "border-dashed border-muted-foreground/40 group-hover/band:border-muted-foreground"}`}
+        style={on ? { borderColor: layerColor, borderWidth: across ? "2px 0 0" : "0 0 0 2px" } : undefined}
+      />
+    )
 
     return (
-      <Hint label={on ? `Unpin the ${name}` : `Pin the ${name}`}>
+      <div key={index} className={`group/band relative ${bandCells[index]}`}>
+        <Hint label={on ? `Unpin the ${side}` : `Pin the ${side}`}>
+          <button
+            type="button"
+            aria-label={`Pin the ${side}`}
+            aria-pressed={on}
+            onClick={() => toggle(index)}
+            className="absolute inset-0 outline-none hover:bg-foreground/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          />
+        </Hint>
+        <div
+          className={`pointer-events-none absolute inset-0 flex items-center ${across ? "px-px" : "flex-col py-px"}`}
+        >
+          {line}
+          <span className={`pointer-events-auto ${across ? "mx-0.5" : "my-0.5"}`}>{value(index)}</span>
+          {line}
+        </div>
+      </div>
+    )
+  }
+
+  /*
+   * A center line in the layer, apart from the sides' lines: down its middle centers it across, and across its middle
+   * centers it down. Where they cross is the short one's, so all of it can be clicked.
+   */
+  const centerLine = (horizontal: boolean) => {
+    const on = (horizontal ? position.centerX : position.centerY) !== undefined
+    const label = horizontal ? "Center horizontally" : "Center vertically"
+
+    return (
+      <Hint label={on ? `Stop centering ${horizontal ? "horizontally" : "vertically"}` : label}>
         <button
           type="button"
-          aria-label={on ? `Unpin the ${name}` : `Pin the ${name}`}
+          aria-label={label}
           aria-pressed={on}
-          onClick={() => toggle(index)}
-          className="group/pin absolute grid place-items-center rounded-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-          style={style}
+          onClick={() => center(horizontal)}
+          className={`group/center absolute grid place-items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${horizontal ? "inset-y-0 left-1/2 z-10 w-3 -translate-x-1/2" : "inset-x-[15%] top-1/2 h-4 -translate-y-1/2"}`}
         >
           <span
-            className={`block ${vertical ? "h-full w-0 border-l-2" : "h-0 w-full border-t-2"} ${on ? "" : "border-dashed border-muted-foreground/40 group-hover/pin:border-muted-foreground"}`}
-            style={on ? { borderColor: layerColor } : undefined}
+            className={`block ${horizontal ? "h-3.5 w-0 border-l" : "h-0 w-12 border-t"} ${on ? "" : "border-dashed border-muted-foreground/40 group-hover/center:border-muted-foreground"}`}
+            style={on ? { borderColor: layerColor, borderWidth: horizontal ? "0 0 0 2px" : "2px 0 0" } : undefined}
           />
         </button>
       </Hint>
     )
   }
 
-  const hint = [stopped, "Click a side to pin it at its distance, and again to unpin it"].filter(Boolean).join("\n")
-
   return (
-    // The pin box takes the section's whole width, so the box and its fields have room, with its label above.
-    <div className={`flex flex-col gap-1 py-0.5 ${stopped ? "opacity-50" : ""}`}>
-      <Hint label="Insets" detail={hint} wait>
-        <span className="w-fit text-xs text-muted-foreground">Insets</span>
-      </Hint>
-      <div className="grid grid-cols-[84px_1fr_84px] items-center gap-1.5">
-        <span />
-        <div className="mx-auto w-[84px]">{field(0)}</div>
-        <span />
-        <div>{field(3)}</div>
-        <div className="relative h-24 rounded-md border bg-muted/40">
-          {/* Plans, inside Pricing; a centered axis draws its center line. */}
-          <div className="absolute inset-x-[30%] inset-y-[32%] rounded-sm border bg-background" />
-          {position.centerX !== undefined && (
-            <div aria-hidden className="absolute inset-y-1 left-1/2 border-l" style={{ borderColor: layerColor }} />
-          )}
-          {position.centerY !== undefined && (
-            <div aria-hidden className="absolute inset-x-1 top-1/2 border-t" style={{ borderColor: layerColor }} />
-          )}
-          {pin(0, { top: 2, left: "42%", width: "16%", height: "28%" }, true)}
-          {pin(2, { bottom: 2, left: "42%", width: "16%", height: "28%" }, true)}
-          {pin(3, { left: 2, top: "38%", height: "24%", width: "28%" }, false)}
-          {pin(1, { right: 2, top: "38%", height: "24%", width: "28%" }, false)}
-        </div>
-        <div>{field(1)}</div>
-        <span />
-        <div className="mx-auto w-[84px]">{field(2)}</div>
-        <span />
-      </div>
-      {said.map((message) => (
-        <MessageLine key={message.text} message={message} />
-      ))}
-    </div>
-  )
-}
-
-/** Figma's constraints for each axis, written in CSS, and Fill parent (`inset-0`). */
-function Presets({
-  position,
-  rect,
-  set
-}: {
-  position: Position
-  rect: { x: number; y: number; width: number; height: number }
-  set: (position: Position) => void
-}) {
-  const [top, right, bottom, left] = position.insets
-  const across = presetOf(left, right, position.centerX)
-  const down = presetOf(top, bottom, position.centerY)
-
-  // Not pinned unpins the axis, so it stays where the flow puts it.
-  const apply = (horizontal: boolean, preset: AxisPreset | undefined) => {
-    const insets: Sides = [...position.insets]
-    const [startIndex, endIndex] = horizontal ? [3, 1] : [0, 2]
-    const of = horizontal ? parent.width : parent.height
-    const start = horizontal ? rect.x : rect.y
-    const size = horizontal ? rect.width : rect.height
-    const end = of - start - size
-    const next: Position = { ...position, insets }
-
-    if (horizontal) {
-      delete next.centerX
-    } else {
-      delete next.centerY
-    }
-
-    insets[startIndex] = undefined
-    insets[endIndex] = undefined
-
-    if (preset === "start" || preset === "both") {
-      insets[startIndex] = { number: Math.round(start) }
-    }
-
-    if (preset === "end" || preset === "both") {
-      insets[endIndex] = { number: Math.round(end) }
-    }
-
-    if (preset === "scale") {
-      insets[startIndex] = { percent: tenth((start / of) * 100) }
-      insets[endIndex] = { percent: tenth((end / of) * 100) }
-    }
-
-    if (preset === "center") {
-      const offset = Math.round(start - (of - (horizontal ? layerSize.width : layerSize.height)) / 2)
-
-      if (horizontal) {
-        next.centerX = offset
-      } else {
-        next.centerY = offset
+    <Field
+      label="Insets"
+      hint={[stopped, "Click a side to pin it at its distance, and again to unpin it"].filter(Boolean).join("\n")}
+      action={
+        !offsets && (
+          <>
+            <HeaderToggle label={`Fill ${of}`} pressed={filled} onClick={fill}>
+              <Maximize />
+            </HeaderToggle>
+            <HeaderToggle label={`Scale with ${of}`} pressed={scaled} onClick={scale}>
+              <MoveDiagonal2 />
+            </HeaderToggle>
+          </>
+        )
       }
-    }
-
-    set(next)
-  }
-
-  const options = (horizontal: boolean) => [
-    { value: "start" as const, label: horizontal ? "Left" : "Top" },
-    { value: "end" as const, label: horizontal ? "Right" : "Bottom" },
-    { value: "both" as const, label: horizontal ? "Left and right" : "Top and bottom" },
-    { value: "center" as const, label: "Center" },
-    { value: "scale" as const, label: "Scale" }
-  ]
-
-  const filled = position.insets.every(
-    (side) => side !== undefined && side !== "auto" && "number" in side && side.number === 0
-  )
-
-  return (
-    <>
-      <Field label="Horizontal" hint="Figma's horizontal constraint: what Plans keeps as Pricing's width changes">
-        <ChoiceInput
-          value={across}
-          options={options(true)}
-          placeholder="Not pinned"
-          onChange={(preset) => apply(true, preset)}
-        />
-      </Field>
-      <Field label="Vertical" hint="Figma's vertical constraint: what Plans keeps as Pricing's height changes">
-        <ChoiceInput
-          value={down}
-          options={options(false)}
-          placeholder="Not pinned"
-          onChange={(preset) => apply(false, preset)}
-        />
-      </Field>
-      <div className="grid grid-cols-[88px_1fr] gap-2">
-        <span />
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 justify-start gap-1.5 text-xs"
-          aria-pressed={filled}
-          onClick={() =>
-            set({
-              ...position,
-              insets: [{ number: 0 }, { number: 0 }, { number: 0 }, { number: 0 }],
-              centerX: undefined,
-              centerY: undefined
-            })
-          }
+    >
+      <fieldset
+        aria-label="Insets"
+        className={`relative m-0 grid min-w-0 p-0 grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)] grid-rows-[2.5rem_2rem_2.5rem] overflow-hidden rounded-md border border-dashed border-muted-foreground/40 bg-muted/30 ${stopped ? "opacity-50" : ""}`}
+      >
+        {band(0)}
+        {band(3)}
+        <div
+          className="relative col-start-2 row-start-2 rounded-sm border bg-background"
+          style={{ borderColor: tint(70) }}
         >
-          <Maximize className="size-3.5" />
-          Fill parent
-        </Button>
-      </div>
-    </>
+          {!offsets && centerLine(true)}
+          {!offsets && centerLine(false)}
+        </div>
+        {band(1)}
+        {band(2)}
+        <span className="pointer-events-none absolute top-1 left-1.5 text-2xs text-muted-foreground select-none">
+          {againstName}
+        </span>
+      </fieldset>
+    </Field>
   )
 }
 
@@ -515,16 +510,19 @@ export function LayerOrderField({
   value,
   context,
   mixed,
+  half,
   onChange
 }: {
   value: Side
   /** The stacking context it orders within, and what makes it one. */
   context: string
   mixed?: boolean
+  /** Beside another field, as Position's is beside Placement. */
+  half?: boolean
   onChange: (value: Side) => void
 }) {
   return (
-    <Field label="Layer order" hint={`Orders this layer within ${context}. Higher is in front.`}>
+    <Field label="Layer order" hint={`Orders this layer within ${context}. Higher is in front.`} half={half}>
       <SideField
         label="Layer order"
         inner={<Layers className="size-3.5" />}

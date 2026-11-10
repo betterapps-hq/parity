@@ -6,7 +6,7 @@ import { gestures as held } from "../../chrome/keymap.ts"
 import { formatNumber } from "./css-values.ts"
 import { useTokens } from "./field-parts.tsx"
 import { type Side, type SideRules, type Sides, sideInline, sideNames, sideRules } from "./sides-writes.ts"
-import { setSides, SideField, spreadTo } from "./sides.tsx"
+import { setSides, SideField, type Spread, spreadTo } from "./sides.tsx"
 import type { LengthToken } from "./tokens.ts"
 
 /*
@@ -61,12 +61,138 @@ function measurement(side: Side, token: LengthToken | undefined): { number: stri
   return token ? { number: formatNumber(token.px), unit: "px" } : { number: side.token }
 }
 
+/** What a side shows: its number, and its unit after it, muted. */
+interface Shown {
+  number: string
+  unit?: string
+}
+
+/** What a side shows unset, and says unset to a screen reader: padding's 0px, Unset; an inset's Auto. */
+interface Unset extends Shown {
+  name: string
+}
+
 /**
- * One side in the box: its measurement with its unit, where the side is, a token's shaded as a token is, as Webflow
- * shades a variable's. It opens the side's field in a popover, on hover after a moment or on a press or Enter: the
- * field every side has, its token's name and value, its unit and the app's maths, with the keys that reach the other
- * sides. Hovering it, or editing it, highlights the side on the canvas.
+ * One side's value, compact, where the side is drawn: its measurement with its unit, a token's shaded as a token is, as
+ * Webflow shades a variable's. It opens the side's field in a popover, on hover after a moment or on a press or Enter:
+ * the field every side has, its token's name and value, its unit and the app's maths, with the keys that reach the
+ * other sides where it's one of four. The box model's sides are these, and so are the inset box's.
  */
+export function SideValue({
+  label,
+  value,
+  rules,
+  mixed = false,
+  measured,
+  percentOf,
+  placeholder,
+  unset = { number: "0", unit: "px", name: "Unset" },
+  signed = false,
+  spreads = false,
+  side = "top",
+  className = "",
+  onChange,
+  onShorthand,
+  onHover
+}: {
+  /** The side's name, which its popover is titled with: Top padding. */
+  label: string
+  value: Side
+  rules: SideRules
+  mixed?: boolean
+  /** What Auto, a percentage or unset comes to, for its field. */
+  measured?: number
+  percentOf?: string
+  placeholder?: string
+  unset?: Unset
+  /** An offset, which shows its sign: +40px. */
+  signed?: boolean
+  /** One of four sides, so Alt and Alt+Shift reach the opposite side and all four, which its popover says. */
+  spreads?: boolean
+  /** Where its popover opens. */
+  side?: "top" | "bottom"
+  className?: string
+  onChange: (value: Side, spread: Spread) => void
+  onShorthand?: (sides: Sides) => void
+  /** Hovered, or its popover open, for the canvas to highlight the side. */
+  onHover?: (on: boolean) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const { tokens } = useTokens(rules.tokens.set)
+  const tokenName = value !== undefined && value !== "auto" && "token" in value ? value.token : undefined
+  const token = tokens.find((other) => other.name === tokenName)
+  const shown: Shown = mixed ? { number: "Mixed" } : (measurement(value, token) ?? unset)
+  const faint = mixed || value === undefined
+  const plus = signed && value !== undefined && value !== "auto" && "number" in value && value.number > 0 ? "+" : ""
+  let named = `${plus}${shown.number}${shown.unit ?? ""}`
+
+  if (tokenName !== undefined) {
+    named = `${tokenName}, ${token?.detail ?? "missing"}`
+  } else if (value === undefined && !mixed) {
+    named = unset.name
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        onHover?.(next)
+      }}
+    >
+      <PopoverTrigger
+        openOnHover
+        delay={350}
+        closeDelay={150}
+        aria-label={`${label}: ${named}`}
+        onPointerEnter={() => onHover?.(true)}
+        onPointerLeave={() => {
+          if (!open) {
+            onHover?.(false)
+          }
+        }}
+        className={`flex h-5 max-w-14 min-w-6 items-baseline justify-center rounded-sm px-1 text-xs leading-5 tabular-nums outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-foreground/15 ${faint ? "text-muted-foreground" : ""} ${tokenName === undefined ? "" : "bg-foreground/10"} ${className}`}
+      >
+        <span className="truncate">
+          {plus}
+          {shown.number}
+        </span>
+        {shown.unit && <span className="text-muted-foreground">{shown.unit}</span>}
+      </PopoverTrigger>
+      <PopoverContent className="w-52 gap-2 p-2" side={side}>
+        <div className="flex items-baseline justify-between gap-2 text-xs">
+          <span className="font-medium">{label}</span>
+          {/* A token's value, which its chip in the field doesn't say. */}
+          {token && <span className="text-muted-foreground tabular-nums">{token.detail}</span>}
+        </div>
+        <SideField
+          label={label}
+          rules={rules}
+          value={value}
+          mixed={mixed}
+          spreads={spreads}
+          measured={measured}
+          percentOf={percentOf}
+          placeholder={placeholder}
+          onChange={onChange}
+          onShorthand={onShorthand}
+        />
+        {spreads && (
+          <span className="text-xs text-muted-foreground">
+            <KeyHints
+              rows={[
+                { keys: held.oppositePadding.keys, does: "Both sides" },
+                { keys: held.everyPadding.keys, does: "All sides" }
+              ]}
+            />
+          </span>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** One side in the box model, which reaches the opposite side or all four with Alt or Alt+Shift. */
 function BoxSide({
   box,
   index,
@@ -86,76 +212,22 @@ function BoxSide({
   onChange: (sides: Sides, cleared: number[]) => void
   onHover?: (hover: SpacingHover | undefined) => void
 }) {
-  const [open, setOpen] = useState(false)
-  const { tokens } = useTokens(rules.tokens.set)
-  const label = `${sideNames[index]} ${box}`
-  const value = sides[index]
-  const tokenName = value !== undefined && value !== "auto" && "token" in value ? value.token : undefined
-  const token = tokens.find((other) => other.name === tokenName)
-  const shown = mixed ? { number: "Mixed" } : (measurement(value, token) ?? { number: "0", unit: "px" })
-  const faint = mixed || value === undefined
-  const highlight = (on: boolean) => onHover?.(on ? { box, sides: [index] } : undefined)
-  let named = `${shown.number}${shown.unit ?? ""}`
-
-  if (tokenName !== undefined) {
-    named = `${tokenName}, ${token?.detail ?? "missing"}`
-  } else if (value === undefined && !mixed) {
-    named = "Unset"
-  }
-
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        highlight(next)
+    <SideValue
+      label={`${sideNames[index]} ${box}`}
+      value={sides[index]}
+      rules={rules}
+      mixed={mixed}
+      measured={measured}
+      spreads
+      side={index === 2 ? "bottom" : "top"}
+      onChange={(next, spread) => {
+        const reached = spreadTo([index], spread)
+        onChange(setSides(sides, reached, next), reached)
       }}
-    >
-      <PopoverTrigger
-        openOnHover
-        delay={350}
-        closeDelay={150}
-        aria-label={`${label}: ${named}`}
-        onPointerEnter={() => highlight(true)}
-        onPointerLeave={() => {
-          if (!open) {
-            highlight(false)
-          }
-        }}
-        className={`flex h-5 max-w-14 min-w-6 items-baseline justify-center rounded-sm px-1 text-xs leading-5 tabular-nums outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-foreground/15 ${faint ? "text-muted-foreground" : ""} ${tokenName === undefined ? "" : "bg-foreground/10"}`}
-      >
-        <span className="truncate">{shown.number}</span>
-        {shown.unit && <span className="text-muted-foreground">{shown.unit}</span>}
-      </PopoverTrigger>
-      <PopoverContent className="w-52 gap-2 p-2" side={index === 2 ? "bottom" : "top"}>
-        <div className="flex items-baseline justify-between gap-2 text-xs">
-          <span className="font-medium">{label}</span>
-          {/* A token's value, which its chip in the field doesn't say. */}
-          {token && <span className="text-muted-foreground tabular-nums">{token.detail}</span>}
-        </div>
-        <SideField
-          label={label}
-          rules={rules}
-          value={value}
-          mixed={mixed}
-          spreads
-          measured={measured}
-          onChange={(next: Side, spread) => {
-            const reached = spreadTo([index], spread)
-            onChange(setSides(sides, reached, next), reached)
-          }}
-          onShorthand={(next) => onChange(next, [0, 1, 2, 3])}
-        />
-        <span className="text-xs text-muted-foreground">
-          <KeyHints
-            rows={[
-              { keys: held.oppositePadding.keys, does: "Both sides" },
-              { keys: held.everyPadding.keys, does: "All sides" }
-            ]}
-          />
-        </span>
-      </PopoverContent>
-    </Popover>
+      onShorthand={(next) => onChange(next, [0, 1, 2, 3])}
+      onHover={(on) => onHover?.(on ? { box, sides: [index] } : undefined)}
+    />
   )
 }
 

@@ -1,5 +1,5 @@
 /*
- * Position's Placement, its insets from the pin box, and Layer order: what they store and write. A pinned side is an
+ * Position's Placement, its insets from the inset box, and Layer order: what they store and write. A pinned side is an
  * inset; an unpinned one is `auto` and writes nothing. Center writes `left: d; right: -d` with auto margins, as the
  * panel spec's presets table says; Fill parent is `inset-0`. Each side writes as sides-writes.ts writes any side, in
  * css-values.ts's forms; where Plans is drawn takes the project's spacing tokens, so a token inset lands where it says.

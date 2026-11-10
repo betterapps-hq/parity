@@ -437,10 +437,12 @@ Image's Position, Transform's Origin, a fill image's position.
 
 ## Insets
 
-- **At rest:** an unpinned side is `auto` and shows its measured distance, muted (Auto · 24); typing pins it.
+- **At rest:** each side's value sits on its line in the inset box, a token's shaded. An unpinned side is `auto` and
+  says Auto; its field shows its measured distance, muted (Auto 176px), and typing pins it.
 - **Forms:** % is of the containing block, Top and Bottom of its height.
-- **Editing:** clicking a side of the pin box pins it at its measured distance, and clicking again unpins it to `auto`,
-  as Framer's pin box does. Dragging an Absolute layer updates the pinned sides.
+- **Editing:** clicking a side's line pins it at its measured distance, and clicking again unpins it to `auto`, as
+  Framer's pin box does. Its value opens its field in a popover, as the box model's sides do; Alt and Alt+Shift reach
+  the opposite side and all four. Dragging an Absolute layer updates the pinned sides.
 - **Tokens:** spacing.
 - **Writes:** `top-4`, `inset-x-0`, `top-1/2`, `-top-2`, `inset-0`.
 - **Compared:** Figma's constraints show no distances.

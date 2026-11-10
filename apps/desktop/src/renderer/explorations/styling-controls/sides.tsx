@@ -29,7 +29,7 @@ import { lengthToken } from "./tokens.ts"
 
 /*
  * The Four sides field (PAR-652's Four sides type) and the one-side field it's made of, shared by Padding, Margin,
- * Stroke's width, the box-model widget, the pin box's insets and Layer order. Each side is the shared ValueField.
+ * Stroke's width, the box-model widget, the inset box and Layer order. Each side is the shared ValueField.
  */
 
 /** Which sides an edit reaches: the one typed in, the opposite one too (Alt), or all four (Alt+Shift), as Figma's. */
@@ -221,7 +221,10 @@ export function SideField({
 
   if (token) {
     comesTo = token.detail
-  } else if (((value === undefined && narrow) || value === "auto" || percent !== undefined) && measured !== undefined) {
+  } else if (
+    ((value === undefined && (narrow || rules.unset === "Auto")) || value === "auto" || percent !== undefined) &&
+    measured !== undefined
+  ) {
     comesTo = `${formatNumber(measured)}${unit}`
   }
 
@@ -376,22 +379,6 @@ export function SideField({
       }
     />
   )
-}
-
-/**
- * One line under a group of sides too narrow to say things under themselves, as the box-model widget's and the pin
- * box's: `lineFor` is each field's `line`, by its label, and `said` what they say now, for MessageLines under the group.
- */
-export function useSidesLine() {
-  const [messages, setMessages] = useState<Record<string, Message | undefined>>({})
-
-  return {
-    lineFor: (label: string) => ({
-      message: messages[label],
-      onMessage: (message: Message | undefined) => setMessages((current) => ({ ...current, [label]: message }))
-    }),
-    said: Object.values(messages).filter((message): message is Message => message !== undefined)
-  }
 }
 
 const same = (a: Side, b: Side) => JSON.stringify(a) === JSON.stringify(b)

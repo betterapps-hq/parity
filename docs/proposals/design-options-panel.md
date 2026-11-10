@@ -56,8 +56,8 @@ The layout a layer sits in adds rows:
 | A flex layout          | Fill and Hug on both axes, Align self (with baseline), and under More grow, shrink, basis and order |
 | A grid                 | Span, start lines, Align self and Justify self, and under More end lines and the area               |
 | A Block layout         | Width Fill and Hug, Margin auto; no Align self, Gap or Span                                         |
-| Absolute or fixed      | The pin box's insets; none of the rows above                                                        |
-| Sticky or relative     | The flex or grid rows above, and the pin box                                                        |
+| Absolute or fixed      | The inset box; none of the rows above                                                               |
+| Sticky or relative     | The flex or grid rows above, and the inset box                                                      |
 | None (a design's root) | None of these: Fill is the whole frame                                                              |
 
 A layout that wraps or is a grid shows a row gap and Lines on itself, not on its children. A text layer's and a layout's
@@ -68,30 +68,36 @@ rather than CSS.
 
 Shows for every layer but a design's root.
 
-| Row         | Control                                                                                                            | Writes                                                               | Figma                                                                                |
-| ----------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Align       | Align buttons: left, center, right, top, middle, bottom, and Distribute for three or more layers (today: commands) | Align self or the layout's justify; on an Absolute layer, its insets | Figma's align buttons                                                                |
-| Placement   | Toggles: In layout, Absolute, Fixed, Sticky; Relative under More (today: the first two)                            | `position`                                                           | Absolute position in auto layout; fixed and sticky only in prototype scroll settings |
-| Insets      | The pin box, with presets (below), shown when Placement isn't In layout (today: four fields, Absolute only)        | `top`, `right`, `bottom`, `left`, `inset`                            | Constraints                                                                          |
-| Layer order | Number field, with z-index tokens; shown by default when Absolute, Fixed or Sticky, otherwise under More           | `z-index`                                                            | None: order in Layers only                                                           |
-| Rotation    | Angle field with a knob, and the canvas's rotate handle; clockwise, as CSS is                                      | `rotate`                                                             | Rotation, counter-clockwise                                                          |
+| Row         | Control                                                                                                                            | Writes                                                               | Figma                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Align       | Align buttons: left, center, right, top, middle, bottom, and Distribute for three or more layers (today: commands)                 | Align self or the layout's justify; on an Absolute layer, its insets | Figma's align buttons                                                                |
+| Placement   | Toggles: In layout, Absolute, Fixed, Sticky; Relative under More; Layer order beside them (today: the first two)                   | `position`                                                           | Absolute position in auto layout; fixed and sticky only in prototype scroll settings |
+| Insets      | The inset box (below), with Fill and Scale in its header, shown when Placement isn't In layout (today: four fields, Absolute only) | `top`, `right`, `bottom`, `left`, `inset`                            | Constraints                                                                          |
+| Layer order | Number field, with z-index tokens; shown by default when Absolute, Fixed or Sticky, otherwise under More                           | `z-index`                                                            | None: order in Layers only                                                           |
+| Rotation    | Angle field with a knob, and the canvas's rotate handle; clockwise, as CSS is                                                      | `rotate`                                                             | Rotation, counter-clockwise                                                          |
 
 The Align buttons are today's Align and Distribute commands (editor.md, "Arranging layers and designs"), moved to the
-top of Position. On an Absolute or Fixed layer, Center aligns with the pin box's Center. The pin box is a field on each
-side of a small box, each side pinned or not. The presets are Figma's constraints, each written in CSS:
+top of Position. On an Absolute or Fixed layer, Center aligns with the inset box's center lines.
 
-| Preset         | Writes                                                                                         |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| Left, Top      | `left`, `top`                                                                                  |
-| Right, Bottom  | `right`, `bottom`                                                                              |
-| Left and right | `left` and `right`, width unset, so it stretches                                               |
-| Center         | `left: 0` and `right: 0` with `margin-inline: auto`, and `w-fit` when the width is Hug (below) |
-| Scale          | `left` and `right` as percentages of the parent                                                |
-| Fill parent    | `inset: 0`, Webflow's Full                                                                     |
+The inset box lays the insets out as the box model lays out spacing: what the layer is placed against, named in its
+corner (Parent, Window, Scroll area, or In layout for Relative), the layer in its middle, and each side's inset on a
+line from the edge to the layer. A pinned side's line is solid, in the layer's color, as the canvas measures it; an
+unpinned side's is dashed, and says Auto. Clicking a side's line pins it at its distance, and clicking again unpins it;
+its value opens its field in a popover, as the box model's sides do, with room for a token's chip. Figma's constraints
+are each a way of pinning it, written in CSS:
+
+| Constraint     | In the inset box                         | Writes                                                                                         |
+| -------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Left, Top      | Pin the left or top                      | `left`, `top`                                                                                  |
+| Right, Bottom  | Pin the right or bottom                  | `right`, `bottom`                                                                              |
+| Left and right | Pin both                                 | `left` and `right`, width unset, so it stretches                                               |
+| Center         | The layer's center line                  | `left: 0` and `right: 0` with `margin-inline: auto`, and `w-fit` when the width is Hug (below) |
+| Scale          | Scale, in the header, or a side set to % | each side as a percentage of the parent, where it is                                           |
+| Fill parent    | Fill, in the header                      | `inset: 0`, Webflow's Full                                                                     |
 
 Center needs a definite width, or `w-fit` for Hug, since an auto width between two insets stretches; Margin shows the
 auto margins, and `translate` stays Transform's. Figma's Center keeps an offset d from the parent's center, written as
-`left: d; right: -d` with `margin-inline: auto`, and the preset's field shows it.
+`left: d; right: -d` with `margin-inline: auto`; the start side shows it (+40px), and the end side says Center.
 
 Sticky shows the inset it sticks at and outlines the layout it scrolls inside, and says when a layout around it scrolls
 or hides its overflow (`overflow: hidden`, `auto` or `scroll`), which stops it sticking, or when it's as tall as a
