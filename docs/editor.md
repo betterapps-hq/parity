@@ -2013,7 +2013,7 @@ selected now.
 - **Picking one:** a design is selected and zoomed to; a layer is selected and scrolled into view; a component is
   inserted at the selection, as the insert picker does; a token opens the Tokens tab searched for it; a project opens.
 - **Panel actions are actions too:** Find repeated parts, for the selected screen, opens the inspector's Repeated parts
-  with what it found, as the section's own button does. Show Icons, Show Images and Show Tokens open those tabs.
+  with what it found, as the section's own button does. Show Icons, Show Media and Show Tokens open those tabs.
 - **Recent** holds the last six picks of any kind, latest first, and keeps them between runs. One that's gone, as a
   layer that was deleted, isn't listed; one that matches a search leads it, and isn't listed again below.
 - **The dialog is 512 pixels wide.** Keys show as keycaps; a row's design, source or value shows as plain text. Rows
@@ -2325,7 +2325,8 @@ Gaps: the system's own clipboard isn't read in the tests, and pasting an image o
 
 ## Adding images
 
-Images from outside Parity: pasted (Copy, paste and paste style, above) or dropped from the system's files.
+Images from outside Parity: pasted (Copy, paste and paste style, above), dropped from the system's files, or added in
+the Media tab, which lists the project's images.
 
 ### Dropping image files from Explorer or Finder (PAR-24)
 
@@ -2424,7 +2425,7 @@ to remove, so it says to remove or replace the layers instead. The file is remov
 `public/images/` or a file that isn't an image.
 
 The service's `images.scan` reads the files and the code that names them, and `images.remove` removes one. The window
-doesn't list or remove images yet: that waits on the design (PAR-836).
+lists and removes them in the Media tab, below.
 
 Tests:
 
@@ -2440,6 +2441,64 @@ Tests:
 Gaps: an agent's removal isn't in the window's undo history, so undoing it from the window waits on the design. A string
 that only builds an image's path at run time (`` `/images/${name}.png` ``) isn't found in code. Images elsewhere in
 `public/`, or imported from `src/assets/`, aren't listed.
+
+### The Media tab (PAR-838)
+
+The left panel's Media tab, which replaced the Images tab, lists the project's images (`projectImages`, above) as a wall
+of the pictures themselves, two across, each as tall as its own proportions make it.
+
+- **The wall** puts each picture in whichever column is shortest, so the columns stay level and adding one never moves
+  the ones before it (`packWall`). A picture is between a wide strip (half as tall as wide) and a tall card (1.4 times),
+  so one panorama or long screenshot doesn't take the wall, and takes a photo's proportions until it has loaded. Files
+  and linked photos load from the project's builder, as the canvas's guest loads them; a linked photo is marked with a
+  link, and a path with no file is a dashed tile with its file's name. Pointing at one shows its name over its foot.
+- **Search and type:** Search media matches a name, path, address, alt text or credit (`filterImages`). With both photos
+  and SVGs in the project, All, Images and Vectors narrow the wall by file type (`mediumOf`).
+- **Inserting:** pressing a picture inserts it at the selection, as an icon or component is inserted, or as a new frame
+  with nothing selected; it drags onto the canvas the same way (`imageItem`, through the Assets panel's insert and drag,
+  now shared in `chrome/insert-from-panel.ts`). It's 320px wide at its own proportions, with the alt text and credit it
+  has elsewhere. A path with no file can't be inserted.
+- **Its card** opens after resting on a picture for half a second, or with the right arrow, as a component's card does:
+  the picture larger, its name and path, its size in pixels and bytes, "Not used yet" when nothing uses it, who took it,
+  where it's used, and Insert and remove. Where it's used lists the designs, the one with the most layers first, each
+  with how many layers and Show, which selects the first of them and scrolls to it; then the lines of code naming it.
+  The first three show, and the rest wait behind "Show 2 more" (`designsUsing`), so a logo in a hundred layers is a
+  handful of rows.
+- **Adding:** image files dropped on the tab, or chosen with **+**, are saved under `public/images/` as dropped files
+  are (`addImageFiles`), and arrive marked for a moment. The tab outlines itself while files are over it, saying what a
+  drop adds or that only the five types can be added.
+- **Removing,** from the card, the right-click menu or Delete, follows `removalOf`. A file nothing uses goes at once, as
+  a project edit whose Undo puts it back. One that designs use asks first, listing where, and "Remove file and 3 layers"
+  removes the layers that show it as one step of the designs' history, then the file; the file's Undo puts the layers
+  back too while that step is still the latest. A linked photo or a path with no file has only layers to remove. One the
+  project's code names stays: the dialog lists the lines and says to remove or replace it in the code first.
+- **Listing** asks the service (`images.scan`) as the tab opens, and again when a design names a file the last scan
+  didn't have, as one pasted onto the canvas meanwhile; the designs themselves are read as they are, unsaved changes
+  included. Before the first answer the tab shows the wall's shape; a failed scan says so and shows what it last had.
+
+Code: `packWall` and `tallnessOf` in `packages/editor/src/media-wall.ts`; `mediumOf`, `designsUsing`, `removalOf` and
+`imageItem` in `packages/editor/src/project-images.ts`; `imageAccept` and `imageKinds` in `drop-files.ts`. The tab is
+`apps/desktop/src/renderer/media/`: `MediaPanel.tsx` (search, type, adding, the remove dialog's flow), `MediaWall.tsx`
+(the wall and its tiles), `MediaCard.tsx` (the card and where it's used), `RemoveMediaDialog.tsx`, `ProjectPicture.tsx`
+(a picture at the builder's address, noting its size in `picture-sizes.ts`), `project-media.ts` (the scan, kept per open
+project) and `remove-media.ts`.
+
+Tests:
+
+- `packages/editor/src/media-wall.test.ts` (8): proportions kept between the strip and the card, a photo's before the
+  size is known, the shortest column first, what's above each, the wall's length, earlier pictures never moving, and
+  gaps weighed with widths.
+- `packages/editor/src/project-images.test.ts`: `mediumOf`, `designsUsing` grouping and ordering, `removalOf` for each
+  case, and `imageItem`.
+- `media/MediaPanel.stories.tsx` (17 stories, each with its check): no media, loading, the wall, linked and missing
+  pictures, searching, nothing matching, vectors only, a card, a linked photo's card, a logo used in a hundred layers,
+  Show, inserting at the selection, removing an unused file, removing one in use with its layers, one the code names,
+  dropping files, and the narrowest panel. The stories' pictures are drawn for them and served at `/images/`, as a
+  builder serves `public/images/`.
+
+Gaps: stock media (Find on Pixabay) and videos aren't in the tab yet (PAR-839, PAR-841). Removing a component layer that
+takes the image as a prop removes the whole layer, as the dialog's count says. There are no thumbnails: every picture
+loads whole as the tab opens, so a project with hundreds of large images loads them all.
 
 ## Exporting
 

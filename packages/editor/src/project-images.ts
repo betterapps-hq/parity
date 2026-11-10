@@ -1,5 +1,7 @@
 import { type CanvasDocument, type ImageCredit, type InstanceNode, type StateSpec, walkNodes } from "@parity-app/core"
 import { z } from "zod"
+import type { InsertItem } from "./insert.ts"
+import type { PictureSize } from "./media-wall.ts"
 
 /*
  * A project's images (PAR-834): the files under `public/images/`, which pasting, dropping and downloading save there,
@@ -165,6 +167,81 @@ export function cantRemove(images: readonly ProjectImage[], named: string): stri
   ]
 
   return `${image.name} is still used in ${listed(places)}. Remove or replace it there first.`
+}
+
+/** What an image is made of, which a list of them can narrow to: pixels, or shapes that scale. */
+export type ImageMedium = "image" | "vector"
+
+/** Whether an image is pixels or shapes, by its file's extension. */
+export function mediumOf(image: Pick<ProjectImage, "src">): ImageMedium {
+  return /\.svg(?:[?#]|$)/i.test(image.src) ? "vector" : "image"
+}
+
+/** A design that uses an image, with each of its layers that does. */
+export interface DesignUse {
+  document: string
+  design: string
+  name: string
+  layers: string[]
+}
+
+/**
+ * The designs that use an image, the one with the most layers first. A logo can be in a hundred layers, and they're
+ * in a handful of designs, so the designs are what a person is shown.
+ */
+export function designsUsing(image: Pick<ProjectImage, "usedBy">): DesignUse[] {
+  const designs = new Map<string, DesignUse>()
+
+  for (const use of image.usedBy) {
+    const key = `${use.document}#${use.design}`
+    const known = designs.get(key)
+
+    if (known) {
+      known.layers.push(use.node)
+    } else {
+      designs.set(key, { document: use.document, design: use.design, name: use.designName, layers: [use.node] })
+    }
+  }
+
+  return [...designs.values()].toSorted((a, b) => b.layers.length - a.layers.length)
+}
+
+/**
+ * What removing an image in the window takes. A file nothing uses goes at once (`file`). One designs use goes with the
+ * layers that show it (`file-and-layers`). One the project's code names stays until the code changes (`code`), since
+ * Parity doesn't edit a person's code for them. A linked photo and a path with no file have nothing to delete, so
+ * removing one removes its layers (`layers`).
+ */
+export type Removal = "file" | "file-and-layers" | "layers" | "code"
+
+export function removalOf(image: ProjectImage): Removal {
+  if (image.usedInCode.length > 0) {
+    return "code"
+  }
+
+  if (image.kind !== "file") {
+    return "layers"
+  }
+
+  return image.usedBy.length > 0 ? "file-and-layers" : "file"
+}
+
+/**
+ * One of the project's images as something to insert, as the Media tab places one: a layer that shows it by its `src`,
+ * at its picture's own proportions, with the alt text and credit it already has elsewhere.
+ */
+export function imageItem(image: Pick<ProjectImage, "src" | "alt" | "credit">, size: PictureSize): InsertItem {
+  const item: InsertItem = { kind: "image", src: image.src, width: size.width, height: size.height }
+
+  if (image.alt) {
+    item.alt = image.alt
+  }
+
+  if (image.credit) {
+    item.credit = image.credit
+  }
+
+  return item
 }
 
 /** An image by its file's path, its `src`, or its file name. */

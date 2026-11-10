@@ -1,6 +1,16 @@
 import type { CanvasDocument, ContainerSpec } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { cantRemove, codeReferences, filterImages, findImage, projectImages } from "./project-images.ts"
+import {
+  cantRemove,
+  codeReferences,
+  designsUsing,
+  filterImages,
+  findImage,
+  imageItem,
+  mediumOf,
+  projectImages,
+  removalOf
+} from "./project-images.ts"
 
 const credit = { name: "Ada Park", url: "https://unsplash.com/@adapark", source: "Unsplash" }
 
@@ -118,5 +128,92 @@ describe("cantRemove", () => {
     expect(cantRemove(images, "src/main.tsx")).toBe(
       "src/main.tsx isn't one of the project's images. Those are the files in public/images/ and the photos layers link to."
     )
+  })
+})
+
+describe("mediumOf", () => {
+  it("tells a vector from an image by its file's extension, whatever follows it", () => {
+    expect(mediumOf({ src: "/images/logo.svg" })).toBe("vector")
+    expect(mediumOf({ src: "/images/logo.SVG?v=2" })).toBe("vector")
+    expect(mediumOf({ src: "/images/hero.png" })).toBe("image")
+    expect(mediumOf({ src: "https://images.example.com/svg-of-a-cat.jpg" })).toBe("image")
+  })
+})
+
+describe("designsUsing", () => {
+  const use = (design: string, node: string, document = "app.par") => ({ document, design, designName: design, node })
+
+  it("groups an image's layers by design, the design with the most first", () => {
+    const usedBy = [use("home", "logo"), use("pricing", "logo"), use("pricing", "footer-logo"), use("pricing", "badge")]
+
+    expect(designsUsing({ usedBy })).toEqual([
+      { document: "app.par", design: "pricing", name: "pricing", layers: ["logo", "footer-logo", "badge"] },
+      { document: "app.par", design: "home", name: "home", layers: ["logo"] }
+    ])
+  })
+
+  it("keeps designs of the same id in different files apart", () => {
+    const usedBy = [use("home", "logo"), use("home", "logo", "admin.par")]
+
+    expect(designsUsing({ usedBy }).map((design) => design.document)).toEqual(["app.par", "admin.par"])
+  })
+
+  it("has none for an image nothing uses", () => {
+    expect(designsUsing({ usedBy: [] })).toEqual([])
+  })
+})
+
+describe("removalOf", () => {
+  const images = projectImages({
+    files: [
+      { path: "public/images/unused.webp", bytes: 300 },
+      { path: "public/images/hero.png", bytes: 1200 },
+      { path: "public/images/logo.svg", bytes: 90 }
+    ],
+    references: [{ image: "public/images/logo.svg", path: "src/App.tsx", line: 3 }],
+    documents
+  })
+
+  const removal = (named: string) => removalOf(findImage(images, named)!)
+
+  it("removes a file nothing uses at once", () => {
+    expect(removal("unused.webp")).toBe("file")
+  })
+
+  it("removes a file designs use with the layers that show it", () => {
+    expect(removal("hero.png")).toBe("file-and-layers")
+  })
+
+  it("leaves a file the project's code names", () => {
+    expect(removal("logo.svg")).toBe("code")
+  })
+
+  it("removes the layers of a linked photo and of a path with no file, which have nothing to delete", () => {
+    expect(removal("https://images.unsplash.com/photo-1")).toBe("layers")
+    expect(removal("/images/gone.png")).toBe("layers")
+  })
+})
+
+describe("imageItem", () => {
+  it("inserts an image by its src at its picture's size, keeping its alt text and credit", () => {
+    const item = imageItem({ src: "/images/hero.png", alt: "A desk by a window", credit }, { width: 1200, height: 800 })
+
+    expect(item).toEqual({
+      kind: "image",
+      src: "/images/hero.png",
+      alt: "A desk by a window",
+      credit,
+      width: 1200,
+      height: 800
+    })
+  })
+
+  it("leaves out what the image doesn't have", () => {
+    expect(imageItem({ src: "/images/logo.svg" }, { width: 64, height: 64 })).toEqual({
+      kind: "image",
+      src: "/images/logo.svg",
+      width: 64,
+      height: 64
+    })
   })
 })

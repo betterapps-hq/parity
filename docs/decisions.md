@@ -6999,3 +6999,27 @@ calls:
   system. The window's Undo for it comes with the removal design (PAR-836).
 - **Agents get `get_images` and `remove_image`** (`parity images`, `parity images remove`), with the error codes
   `unknown_image` and `image_in_use`. `find_photos` (PAR-829) stays separate: it searches outside the project.
+
+## The Media tab replaces the Images tab (PAR-838)
+
+You approved the references design on 2026-11-10 and asked for it built. The Media tab is first, in its own pull
+request; the library browser and stock media (PAR-839), references on the canvas (PAR-840) and videos (PAR-841) follow.
+My calls:
+
+- **The tab is called Media, and its tab value is `media`.** Pixabay brings illustrations, vectors and videos. A window
+  that remembered the Images tab opens on Layers once.
+- **The wall's layout and every rule the tab follows are in `@parity-app/editor`:** `packWall`, `designsUsing`,
+  `removalOf`, `mediumOf` and `imageItem`, each tested without Electron. The app keeps the views, the scan per open
+  project and the requests.
+- **Removing what designs use removes the layers with it, after asking.** PAR-834 has agents refuse instead. In the
+  window a person sees where it's used and chooses, so the dialog offers "Remove file and 3 layers"; agents still
+  refuse. What the code names stays either way.
+- **One Undo puts both back.** The layers are a step of the designs' history and the file a project edit, two histories.
+  The file's Undo also undoes the layers' step, but only while it's still the latest, so nothing done since is lost;
+  otherwise Edit > Undo takes the layers back on their own.
+- **Pictures load from the project's builder,** at the address the canvas's guest uses, so the tab shows what the
+  designs show. Stories serve pictures drawn for them at `/images/` the same way, through Storybook's static folders.
+- **Inserting and dragging are shared with the Assets panel** (`chrome/insert-from-panel.ts`), and the credit line with
+  the image layer's panel (`PhotoCredit`), rather than copied.
+- **The exploration's Media tab stories are gone,** since the real ones replace them. Its prototype panel stays while
+  the library browser's explorations still run on it, and goes with them.

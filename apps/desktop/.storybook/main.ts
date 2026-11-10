@@ -8,6 +8,8 @@ import { exampleProject } from "./example-project.ts"
  */
 export default defineMain({
   stories: ["../src/renderer/**/*.stories.@(ts|tsx)"],
+  // The example's pictures in stories, at the address its builder would serve them from.
+  staticDirs: [{ from: "../src/renderer/stories/media", to: "/images" }],
   // The app's Vite config serves the renderer from its own root on a fixed port; Storybook serves from here. Stories
   // open the example project, served here in place of its builder, and search through the connectors the dev server
   // runs for them.

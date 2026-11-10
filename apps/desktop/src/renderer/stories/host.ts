@@ -14,6 +14,7 @@ import {
   type DesignNode,
   parseData
 } from "@parity-app/core"
+import { type CodeReference, type ImageFile, imageExtension } from "@parity-app/editor"
 import discovered from "virtual:parity/example-project"
 import { z } from "zod"
 import desktop from "../../../package.json"
@@ -291,11 +292,25 @@ const storyConnectors: CanvasHost["connectors"] = {
   placed: () => Promise.resolve()
 }
 
+/**
+ * The example's image files and the lines of code that name them, as `images.scan` finds them: none, until a story
+ * gives some. Adding and removing images changes them, as it would the project's folder. The files a story lists are
+ * served from `stories/media/` at `/images/`, as a project's builder serves `public/images/`.
+ */
+export const media: StoryMedia = { files: [], references: [] }
+
+interface StoryMedia {
+  files: ImageFile[]
+  references: CodeReference[]
+}
+
 /** Puts the service and the system dialogs back as they were before any story changed them. */
 export function resetHost(): void {
   telemetryNow = defaultTelemetry
   Object.assign(service, defaultService)
   running.processes = []
+  media.files = []
+  media.references = []
   clearOverrides()
   Object.assign(window.canvasHost, cancelled)
   accountNow = signedOut
@@ -644,6 +659,8 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       }
 
       edits.delete(edit.id)
+      putBack.get(edit.id)?.()
+      putBack.delete(edit.id)
 
       return {
         ...edit,
@@ -652,8 +669,38 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       }
     }
 
-    case "images.import":
-      return { src: `/images/${String(request.params.name)}`, path: `public/images/${String(request.params.name)}` }
+    case "images.import": {
+      const { name, type, data } = request.params
+      const path = `public/images/${name}.${imageExtension(type) ?? "png"}`
+
+      media.files = [
+        ...media.files.filter((file) => file.path !== path),
+        { path, bytes: Math.round(data.length * 0.75) }
+      ]
+
+      return { src: path.slice("public".length), path }
+    }
+
+    case "images.scan":
+      return { files: [...media.files], references: [...media.references] }
+    case "images.remove": {
+      const { path } = request.params
+      const removed = media.files.find((file) => file.path === path)
+
+      if (!removed) {
+        throw new Error(`${path} isn't in the project's folder`)
+      }
+
+      media.files = media.files.filter((file) => file !== removed)
+
+      const edit = edited(`Remove ${path.slice(path.lastIndexOf("/") + 1)}`, ["Binary file removed"], path)
+      putBack.set(edit.id, () => {
+        media.files = [...media.files, removed]
+      })
+
+      return { path, edit }
+    }
+
     case "storybook.open":
       return { url: "http://localhost:6006/?path=/docs/components-button--docs" }
     case "layers.export":
@@ -704,10 +751,11 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
 /** The edits the stand-in service made to the example's stylesheet, by id, to undo. */
 const edits = new Map<string, ProjectEditResult>()
 
-/** An edit to the example's stylesheet, as the service describes one it made, with its diff's hunks. */
-function edited(label: string, hunk: string[]): ProjectEditResult {
-  const path = "src/index.css"
+/** What undoing an edit puts back besides the file's text, by the edit's id: a removed image's file. */
+const putBack = new Map<string, () => void>()
 
+/** An edit to one of the example's files, its stylesheet unless said, as the service describes one it made. */
+function edited(label: string, hunk: string[], path = "src/index.css"): ProjectEditResult {
   const edit = {
     id: `edit-${edits.size + 1}`,
     label,
