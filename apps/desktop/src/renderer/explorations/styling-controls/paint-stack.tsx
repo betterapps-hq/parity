@@ -11,9 +11,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Switch,
-  ToggleGroup,
-  ToggleGroupItem
+  Switch
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ArrowLeftRight, ChevronDown, Minus, Plus, RotateCw } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"
@@ -28,6 +26,7 @@ import { clamp, gradientCss } from "./css-values.ts"
 import { usedColors } from "./data.ts"
 import { drag, MessageLine, PercentField, TokenChip, TokenList, useTokens } from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
+import { addImageFile, DropCover, ImageEditor, useImageDrop } from "./image-fill.tsx"
 import { EntryType, ListRow, type ListRowProps, moved, TypeMenu, type TypeOption } from "./list-parts.tsx"
 import {
   drawListColor,
@@ -35,20 +34,17 @@ import {
   type GradientPaint,
   gradientDirections,
   imagePreview,
-  type ImageFit,
   type ImagePaint,
   type Interpolation,
   type ListColor,
   newId,
   type Paint,
   type PaintEntry,
-  projectImages,
   type Stop
 } from "./lists-data.ts"
 import { imageSizeCss, layerCss, paintLayers, resolveGradient, simpleGradient } from "./lists-writes.ts"
 import { angleDegrees, angleOf } from "./motion-data.ts"
 import { Card } from "./playground.tsx"
-import { PositionInBox } from "./position-box.tsx"
 import type { Carried } from "./sortable.ts"
 import { type ColorToken, type GradientToken, gradientToken, gradientTokens } from "./tokens.ts"
 
@@ -57,9 +53,10 @@ import { type ColorToken, type GradientToken, gradientToken, gradientTokens } fr
  * them. + opens a menu of the types, each drawn as the fill it adds, and the fill it adds opens its editor. Each entry is
  * a list row: a gradient's strip or an image's thumbnail with its type and summary or token chip, which opens its
  * editor, a gradient's alpha, the eye and −. A solid is the color field, whose swatch opens the color picker. A
- * gradient's editor names its kind in a menu (Linear, Radial or Angular), then has the bar of stops, the Stops list, the
- * angle with Flip and Rotate 90°, Repeat and the interpolation; an image's has the project's images, the fit and its
- * position in the box. A fill's type is picked as it's added, so neither the picker nor an editor offers the others.
+ * gradient's editor names its kind in a menu (Linear, Radial or Angular), then has the bar of stops, its settings named
+ * above each (the angle with Rotate 90°, the center, the blend, Repeat), and apart from them the Stops list with Flip.
+ * An image's is in image-fill.tsx, and an image dropped on the section adds an image fill. A fill's type is picked as
+ * it's added, so neither the picker nor an editor offers the others.
  */
 
 const kindNames = { solid: "Solid", linear: "Linear", radial: "Radial", angular: "Angular", image: "Image" } as const
@@ -218,74 +215,89 @@ export function PaintStack({
   const update = (id: string, paint: Partial<PaintEntry>) =>
     onChange(entries.map((entry) => (entry.id === id ? { ...entry, ...paint } : entry)))
 
-  const add = (kind: PaintKind) => {
-    const entry: PaintEntry = { id: newId("fill"), paint: newPaint(kind) }
+  const put = (paint: Paint) => {
+    const entry: PaintEntry = { id: newId("fill"), paint }
     setAdded(entry.id)
     onChange(mixed ? [entry] : [entry, ...entries])
   }
 
+  const add = (kind: PaintKind) => put(newPaint(kind))
+
+  // An image dropped on the section is added to the project and becomes a fill on top, as Figma's does.
+  const drop = useImageDrop((file) => {
+    put({ kind: "image", src: addImageFile(file), fit: "fill", position: [50, 50] })
+  })
+
   return (
-    <PanelSection
-      title="Fill"
-      action={
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Hint label={mixed ? "Replace every layer's fills with one" : "Add fill"}>
-                <Button variant="ghost" size="icon-sm" className="size-6" aria-label="Add fill">
-                  <Plus />
-                </Button>
-              </Hint>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-56">
-            {paintKinds.map((kind) => (
-              <DropdownMenuItem key={kind} className="gap-3 text-xs" onClick={() => add(kind)}>
-                <PaintSample paint={samples[kind]} colors={colors} />
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="font-medium">{kindNames[kind]}</span>
-                  <span className="truncate text-muted-foreground">{kindDetails[kind]}</span>
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      }
-    >
-      {mixed && (
-        <Hint label="The selected layers have different fills" detail="+ replaces them all with one">
-          <p className="px-1 text-xs text-muted-foreground">Several fills</p>
-        </Hint>
-      )}
-      {!mixed && entries.length > 0 && (
-        <div className="flex flex-col gap-1">
-          {entries.map((entry, index) => (
-            <PaintRow
-              key={entry.id}
-              entry={entry}
-              index={index}
-              tokensOnly={tokensOnly}
-              saved={saved}
-              onSave={onSave}
-              startOpen={entry.id === openId || entry.id === added}
-              onChange={(change) => update(entry.id, change)}
-              // One fill has nothing to move past, so it has no handle.
-              onMove={
-                entries.length > 1
-                  ? (from, to) => {
-                      if (to >= 0 && to < entries.length) {
-                        onChange(moved(entries, from, to))
-                      }
-                    }
-                  : undefined
+    <div className="relative" {...drop.handlers}>
+      <PanelSection
+        title="Fill"
+        action={
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Hint label={mixed ? "Replace every layer's fills with one" : "Add fill"}>
+                  <Button variant="ghost" size="icon-sm" className="size-6" aria-label="Add fill">
+                    <Plus />
+                  </Button>
+                </Hint>
               }
-              onCarry={(carried) => onPreview?.(carried && moved(entries, carried.from, carried.to))}
-              onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
             />
-          ))}
-        </div>
+            <DropdownMenuContent align="end" className="w-56">
+              {paintKinds.map((kind) => (
+                <DropdownMenuItem key={kind} className="gap-3 text-xs" onClick={() => add(kind)}>
+                  <PaintSample paint={samples[kind]} colors={colors} />
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="font-medium">{kindNames[kind]}</span>
+                    <span className="truncate text-muted-foreground">{kindDetails[kind]}</span>
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      >
+        {mixed && (
+          <Hint label="The selected layers have different fills" detail="+ replaces them all with one">
+            <p className="px-1 text-xs text-muted-foreground">Several fills</p>
+          </Hint>
+        )}
+        {!mixed && entries.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {entries.map((entry, index) => (
+              <PaintRow
+                key={entry.id}
+                entry={entry}
+                index={index}
+                tokensOnly={tokensOnly}
+                saved={saved}
+                onSave={onSave}
+                startOpen={entry.id === openId || entry.id === added}
+                onChange={(change) => update(entry.id, change)}
+                // One fill has nothing to move past, so it has no handle.
+                onMove={
+                  entries.length > 1
+                    ? (from, to) => {
+                        if (to >= 0 && to < entries.length) {
+                          onChange(moved(entries, from, to))
+                        }
+                      }
+                    : undefined
+                }
+                onCarry={(carried) => onPreview?.(carried && moved(entries, carried.from, carried.to))}
+                onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
+              />
+            ))}
+          </div>
+        )}
+      </PanelSection>
+      {drop.over && (
+        <DropCover
+          label={mixed ? "Drop to replace every layer's fills" : "Drop to add an image fill"}
+          className="inset-0"
+        />
       )}
-    </PanelSection>
+    </div>
   )
 }
 
@@ -352,8 +364,9 @@ function PaintRow({
         }
         details={{
           content: <ImageEditor paint={paint} onChange={setPaint} />,
+          // Room for three images a row, and the search over them.
           defaultOpen: startOpen,
-          className: "w-64 p-2"
+          className: "w-72 p-2"
         }}
         title="Image"
       >
@@ -888,88 +901,6 @@ function StopsBar({
           </button>
         ))}
       </div>
-    </div>
-  )
-}
-
-const fits: readonly ImageFit[] = ["fill", "fit", "crop", "tile"]
-const fitNames: Record<ImageFit, string> = { fill: "Fill", fit: "Fit", crop: "Crop", tile: "Tile" }
-
-const fitHints: Record<ImageFit, string> = {
-  fill: "Covers the box, cropping what doesn't fit: background-size: cover",
-  fit: "Shows the whole image inside the box: background-size: contain",
-  crop: "At a scale of its own: background-size as a percentage",
-  tile: "Repeats at its own size: background-repeat: repeat"
-}
-
-/** An image fill's editor: the project's images, the fit, Crop's scale, and where the image sits in the box. */
-function ImageEditor({ paint, onChange }: { paint: ImagePaint; onChange: (paint: ImagePaint) => void }) {
-  const [x, y] = paint.position
-
-  return (
-    <div className="flex flex-col gap-2">
-      <fieldset className="grid grid-cols-3 gap-1" aria-label="The project's images">
-        {projectImages.map((image) => {
-          const src = `/images/${image.name}`
-          const chosen = paint.src === src
-
-          return (
-            <Hint key={image.name} label={image.name} detail="In public/images/">
-              <button
-                type="button"
-                aria-label={image.name}
-                aria-pressed={chosen}
-                onClick={() => onChange({ ...paint, src })}
-                className="h-12 rounded-md border bg-cover bg-center outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                // The chosen image is ringed in the layer's color, as the canvas's selection is.
-                style={{
-                  backgroundImage: `url("${image.preview}")`,
-                  boxShadow: chosen ? `0 0 0 2px ${kindColors.layer}` : undefined
-                }}
-              />
-            </Hint>
-          )
-        })}
-      </fieldset>
-      <ToggleGroup
-        variant="outline"
-        size="sm"
-        spacing={0}
-        aria-label="Fit"
-        value={[paint.fit]}
-        onValueChange={([fit]) => {
-          const picked = fits.find((option) => option === fit)
-
-          if (picked) {
-            onChange({ ...paint, fit: picked })
-          }
-        }}
-      >
-        {fits.map((fit) => (
-          <Hint key={fit} label={fitNames[fit]} detail={fitHints[fit]}>
-            <ToggleGroupItem value={fit} className="h-7 flex-1 px-2 text-xs">
-              {fitNames[fit]}
-            </ToggleGroupItem>
-          </Hint>
-        ))}
-      </ToggleGroup>
-      {paint.fit === "crop" && (
-        <PercentField
-          label="Scale"
-          inner="Scale"
-          min={1}
-          max={1000}
-          placeholder="150"
-          value={paint.scale}
-          onChange={(scale) => onChange({ ...paint, scale })}
-        />
-      )}
-      <PositionInBox
-        label="Image position"
-        value={{ x, y }}
-        // Unset is the center, where an image sits unless it's placed.
-        onChange={(position) => onChange({ ...paint, position: position ? [position.x, position.y] : [50, 50] })}
-      />
     </div>
   )
 }

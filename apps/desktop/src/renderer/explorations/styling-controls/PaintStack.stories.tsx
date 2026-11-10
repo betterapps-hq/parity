@@ -13,10 +13,12 @@ import { mixedWrites } from "./writes.ts"
  * its preview, its type and its value or token, which open its editor, then its alpha, the eye and −; with two fills or
  * more, drag the handle to reorder. A solid is the color field, whose swatch opens the color picker. + is a menu of the
  * five types, each drawn as the fill it adds, in the project's palette (`bg-blue-600`, or white to blue-600); the fill
- * goes on top with its editor open. A gradient's editor names its kind in a menu, then has the bar of stops (click to add, drag to move,
- * drag off to remove, drag the diamond for a color hint), the angle with its dial, Flip and Rotate 90°, Repeat, how
- * colors blend, and the Stops list; an image's has the project's images, the fit and its position in the box. The
- * bottom solid is written as `background-color`, the rest as `background-image` layers.
+ * goes on top with its editor open. A gradient's editor names its kind in a menu, then has the bar of stops (click to
+ * add, drag to move, drag off to remove, drag the diamond for a color hint), its settings named above each (the angle
+ * with its dial and Rotate 90°, the center, how colors blend, Repeat), and apart from them the Stops list, with Flip.
+ * An image's searches the project's images and Unsplash's, takes one dropped, pasted or uploaded, then has the fit and
+ * its position in the box. An image dropped on the section adds an image fill. The bottom solid is written as
+ * `background-color`, the rest as `background-image` layers.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Paint stack",
@@ -210,7 +212,11 @@ export const FromAGradientToken: Story = {
   render: () => <Paints start={[gradient("top", { ...blueToTeal, token: "gradient-brand" })]} openId="top" />
 }
 
-/** An image over the card color, filling the box from its center: `bg-[url(/images/hero.jpg)] bg-cover bg-center`. */
+/**
+ * An image over the card color, filling the box from its center: `bg-[url(/images/hero.jpg)] bg-cover bg-center`. Its
+ * editor searches the project's images and Unsplash's (drawn stand-ins until it's connected), with Upload first; drop or
+ * paste an image anywhere on it, or on the Fill section to add a fill, and it's copied into the project and used.
+ */
 export const ImageFill: Story = {
   render: () => (
     <Paints

@@ -168,9 +168,14 @@ Fill's list of solids, gradients and images.
   stops. Radial's handles set the ellipse's two radii and center (`radial-gradient(ellipse 40% 60% at 30% 20%, …)`), as
   Figma's do; Angular's set a center and start angle, and its hint names `conic-gradient`. Delete removes the selected
   stop, and Left and Right move it 1%, Shift 10%. Two stops at one position make a hard edge; a midpoint dragged between
-  two stops writes a color hint (`red, 30%, blue`), which Figma lacks. Image takes the project's images
-  (`public/images/`) or one dropped or pasted, copied there, with Fill, Fit, Crop and Tile (`background-size` and
-  `background-repeat`) and a nine-spot position.
+  two stops writes a color hint (`red, 30%, blue`), which Figma lacks.
+- **Image:** no tabs, unlike the pickers that split Upload, Link and Unsplash apart. One search covers the project's
+  images (`public/images/`) and a stock provider's (Unsplash), each a section of one grid, three to a row, with Upload
+  first among the project's, and the fill's image ringed and ticked. An image dropped or pasted anywhere on the editor,
+  uploaded, or picked from Unsplash is copied into `public/images/`, named for a class (`My Photo.PNG` is
+  `my-photo.png`), and used; one dropped on the Fill section is added as an image fill on top, its editor open. Under a
+  divider, how it's drawn: Fit as a menu (Fill, Fit, Crop and Tile, each saying what it does, writing `background-size`
+  and `background-repeat`), Crop's scale, and the position, with its nine spots.
 - **Tokens:** color and gradient. A gradient token is one fill's paint; editing its stops offers Detach.
 - **Writes:** the bottom solid as `background-color`; the rest as `background-image` layers, a solid above the bottom as
   `linear-gradient(c, c)`. A simple gradient is utilities (`bg-linear-to-r from-blue-500 to-teal-400`), a longer one is

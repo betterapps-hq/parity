@@ -101,8 +101,14 @@ export interface PaintEntry {
 const svg = (body: string) =>
   `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100">${body}</svg>`)}`
 
+/** An image in the project's `public/images/`: its file's name, and what it draws. */
+export interface ProjectImage {
+  name: string
+  preview: string
+}
+
 /** The project's images, in `public/images/`, drawn here as stand-ins. */
-export const projectImages: { name: string; preview: string }[] = [
+const startingImages: ProjectImage[] = [
   {
     name: "hero.jpg",
     preview: svg(
@@ -123,8 +129,144 @@ export const projectImages: { name: string; preview: string }[] = [
   }
 ]
 
+/*
+ * The images the project has as the exploration runs: its own, then those added to it, dropped, pasted, uploaded or
+ * picked from Unsplash, as each would be copied into `public/images/`. Kept here so every editor and preview sees them.
+ */
+let images: readonly ProjectImage[] = startingImages
+const watchers = new Set<() => void>()
+
+/** The project's images now; the same list until one's added, so React can watch it. */
+export const projectImages = (): readonly ProjectImage[] => images
+
+/** Calls `watch` each time an image is added, until the function it returns is called. */
+export function watchProjectImages(watch: () => void): () => void {
+  watchers.add(watch)
+
+  return () => watchers.delete(watch)
+}
+
+/**
+ * Adds an image to the project under its file's name made fit for a class (`My Photo.PNG` is `my-photo.png`), numbered
+ * when that's taken, and gives the path a fill uses for it. One already there with the same picture is used again.
+ */
+export function addProjectImage(fileName: string, preview: string): string {
+  const same = images.find((image) => image.preview === preview)
+
+  if (same) {
+    return `/images/${same.name}`
+  }
+
+  const clean =
+    fileName
+      .toLowerCase()
+      .replace(/[^a-z0-9.]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "image"
+
+  const dot = clean.lastIndexOf(".")
+  const [stem, extension] = dot > 0 ? [clean.slice(0, dot), clean.slice(dot)] : [clean, ""]
+  const taken = new Set(images.map((image) => image.name))
+  let name = clean
+
+  for (let count = 2; taken.has(name); count += 1) {
+    name = `${stem}-${count}${extension}`
+  }
+
+  images = [...images, { name, preview }]
+  watchers.forEach((watch) => watch())
+
+  return `/images/${name}`
+}
+
 export const imagePreview = (src: string): string | undefined =>
-  projectImages.find((image) => `/images/${image.name}` === src)?.preview
+  images.find((image) => `/images/${image.name}` === src)?.preview
+
+/** A photo a stock provider's search returns: its title and the words it's found by. */
+export interface StockPhoto {
+  id: string
+  title: string
+  tags: string[]
+  preview: string
+}
+
+/**
+ * Stand-ins for what Unsplash's search returns once it's connected, drawn here, so the results can be laid out and
+ * picked. Picking one copies it into the project, as the real one will.
+ */
+export const stockPhotos: StockPhoto[] = [
+  {
+    id: "mountain-lake",
+    title: "Mountain lake at dusk",
+    tags: ["mountain", "lake", "dusk", "nature", "water"],
+    preview: svg(
+      `<defs><linearGradient id="d" x2="0" y2="1"><stop offset="0" stop-color="#312e81"/><stop offset="1" stop-color="#fda4af"/></linearGradient></defs><rect width="160" height="100" fill="url(#d)"/><path d="M0 62 38 28l22 18 30-30 40 46H0z" fill="#3730a3"/><rect y="62" width="160" height="38" fill="#1e3a8a"/><path d="M0 62 38 90l22-14 30 24H0z" fill="#312e81" opacity=".6"/>`
+    )
+  },
+  {
+    id: "ocean-waves",
+    title: "Ocean waves",
+    tags: ["ocean", "sea", "waves", "water", "beach", "blue"],
+    preview: svg(
+      `<rect width="160" height="100" fill="#bae6fd"/><rect y="40" width="160" height="60" fill="#0369a1"/><path d="M0 52q20-8 40 0t40 0 40 0 40 0M0 70q20-8 40 0t40 0 40 0 40 0M0 88q20-8 40 0t40 0 40 0 40 0" fill="none" stroke="#e0f2fe" stroke-width="3"/>`
+    )
+  },
+  {
+    id: "forest-path",
+    title: "Forest path",
+    tags: ["forest", "trees", "green", "nature", "path"],
+    preview: svg(
+      `<rect width="160" height="100" fill="#14532d"/><path d="M20 80 34 20l14 60zM60 84 76 10l16 74zM108 82l14-58 14 58z" fill="#16a34a"/><path d="M70 100 80 60l10 40z" fill="#ca8a04"/>`
+    )
+  },
+  {
+    id: "city-night",
+    title: "City at night",
+    tags: ["city", "night", "skyline", "buildings", "dark"],
+    preview: svg(
+      `<rect width="160" height="100" fill="#0f172a"/><circle cx="128" cy="22" r="9" fill="#f8fafc"/><path d="M8 100V50h24v50zm30 0V30h22v70zm28 0V58h18v42zm24 0V40h26v60zm32 0V62h28v38z" fill="#1e293b"/><g fill="#fde047">${Array.from({ length: 18 }, (_, index) => `<rect x="${14 + (index % 6) * 22}" y="${66 + Math.floor(index / 6) * 10}" width="4" height="4"/>`).join("")}</g>`
+    )
+  },
+  {
+    id: "desert-dunes",
+    title: "Desert dunes",
+    tags: ["desert", "dunes", "sand", "sun", "warm"],
+    preview: svg(
+      `<rect width="160" height="100" fill="#fed7aa"/><circle cx="40" cy="30" r="12" fill="#fff7ed"/><path d="M0 70q40-30 80 0t80-6v36H0z" fill="#ea580c"/><path d="M0 86q50-24 100 0t60 0v14H0z" fill="#c2410c"/>`
+    )
+  },
+  {
+    id: "snowy-peaks",
+    title: "Snowy peaks",
+    tags: ["mountain", "snow", "winter", "peaks", "cold"],
+    preview: svg(
+      `<rect width="160" height="100" fill="#e0f2fe"/><path d="M0 100 50 30l30 40 30-50 50 80z" fill="#64748b"/><path d="M50 30 62 47l-8-2-10 6zM110 20l14 22-10-4-12 6z" fill="#f8fafc"/>`
+    )
+  },
+  {
+    id: "abstract-color",
+    title: "Abstract color",
+    tags: ["abstract", "gradient", "colorful", "background", "purple"],
+    preview: svg(
+      `<rect width="160" height="100" fill="#1e1b4b"/><circle cx="50" cy="40" r="34" fill="#8b5cf6" opacity=".85"/><circle cx="104" cy="58" r="30" fill="#ec4899" opacity=".8"/><circle cx="128" cy="24" r="18" fill="#f59e0b" opacity=".8"/>`
+    )
+  },
+  {
+    id: "flower-field",
+    title: "Flower field",
+    tags: ["flowers", "spring", "field", "nature", "pink"],
+    preview: svg(
+      `<rect width="160" height="100" fill="#bfdbfe"/><rect y="56" width="160" height="44" fill="#65a30d"/><g>${Array.from({ length: 16 }, (_, index) => `<circle cx="${8 + (index % 8) * 20}" cy="${66 + Math.floor(index / 8) * 18}" r="4" fill="${index % 3 === 0 ? "#facc15" : "#f472b6"}"/>`).join("")}</g>`
+    )
+  },
+  {
+    id: "desk-laptop",
+    title: "Desk with a laptop",
+    tags: ["work", "office", "desk", "laptop", "workspace"],
+    preview: svg(
+      `<rect width="160" height="100" fill="#e7e5e4"/><rect y="70" width="160" height="30" fill="#a8a29e"/><rect x="44" y="34" width="56" height="36" rx="3" fill="#334155"/><rect x="36" y="70" width="72" height="5" rx="2" fill="#475569"/><rect x="118" y="56" width="14" height="14" rx="2" fill="#f97316"/><path d="M20 70V52M20 56l-8-8M20 58l8-10" stroke="#16a34a" stroke-width="3"/>`
+    )
+  }
+]
 
 /* Shadow list */
 
