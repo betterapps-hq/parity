@@ -2,7 +2,8 @@
 
 Where Parity's own telemetry goes, how Sentry is set up for it, and what was done by hand. The plan for what's sent is
 [proposals/product-telemetry.md](proposals/product-telemetry.md), and the calls are in
-[decisions.md](decisions.md#sentry-is-set-up-in-better-apps-by-hand-par-617).
+[decisions.md](decisions.md#sentry-is-set-up-in-better-apps-by-hand-par-617). What it all collects, and who sees it, is
+in [proposals/telemetry-coverage.md](proposals/telemetry-coverage.md).
 
 ## The organisation
 
