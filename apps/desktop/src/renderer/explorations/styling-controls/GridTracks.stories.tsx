@@ -27,7 +27,7 @@ type Story = StoryObj<typeof meta>
 const fill = (value = 1): Track => ({ kind: "fr", value })
 
 function Tracks({ start }: { start: Draft }) {
-  const [draft, set] = useDraft({ background: "card", radius: "radius-xl", gap: 12, ...start })
+  const [draft, set] = useDraft({ background: "card", radius: "radius-xl", gap: { number: 12 }, ...start })
 
   return (
     <Playground
@@ -57,7 +57,15 @@ export const RangeTrack: Story = {
 /** Children centered in their cells, both ways, with more room between the rows than the columns. */
 export const CenteredInCells: Story = {
   render: () => (
-    <Tracks start={{ columns: [fill(), fill(), fill()], rows: [], itemsX: "center", itemsY: "center", rowGap: 24 }} />
+    <Tracks
+      start={{
+        columns: [fill(), fill(), fill()],
+        rows: [],
+        itemsX: "center",
+        itemsY: "center",
+        rowGap: { number: 24 }
+      }}
+    />
   )
 }
 

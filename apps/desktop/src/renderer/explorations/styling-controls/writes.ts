@@ -15,6 +15,7 @@ import {
   type Track,
   trackCss
 } from "./data.ts"
+import { sideClass, sideCss, sideStored, type SideValue } from "./sides-writes.ts"
 import { radiusTokens } from "./tokens.ts"
 
 /**
@@ -458,18 +459,19 @@ export function layoutWrites(draft: Draft): Writes {
 }
 
 /**
- * A layout's gap: one length, or a column and a row gap once they differ (wrapping, or in a grid). A negative gap is
- * a negative margin on each child but the last (`-space-x-2`), since CSS's gap can't be negative.
+ * A layout's gap: one length or spacing token, written as padding's are (`gap-4`, `gap-gutter`, `gap-[13px]`), or a
+ * column and a row gap once they differ (wrapping, or in a grid). A negative gap is a negative margin on each child but
+ * the last (`-space-x-2`), since CSS's gap can't be negative.
  */
 function gapWrites(draft: Draft, twoWays: boolean, stored: StoredObject, css: string[], tailwind: string[]) {
   const gap = draft.gap === "auto" ? undefined : draft.gap
-  const rowGap = twoWays ? draft.rowGap : undefined
+  const rowGap = twoWays && draft.rowGap !== "auto" ? draft.rowGap : undefined
 
-  if (gap !== undefined && gap < 0) {
+  if (gap !== undefined && "number" in gap && gap.number < 0) {
     const across = (draft.direction ?? "column") === "row"
-    stored.gap = lengthForm(gap)
-    css.push(`& > :not(:last-child) { margin-${across ? "inline" : "block"}-end: ${lengthCss(gap)} }`)
-    tailwind.push(`-space-${across ? "x" : "y"}-${lengthClass(-gap)}`)
+    stored.gap = lengthForm(gap.number)
+    css.push(`& > :not(:last-child) { margin-${across ? "inline" : "block"}-end: ${lengthCss(gap.number)} }`)
+    tailwind.push(`-space-${across ? "x" : "y"}-${lengthClass(-gap.number)}`)
 
     if (draft.reverse) {
       tailwind.push(`space-${across ? "x" : "y"}-reverse`)
@@ -478,27 +480,25 @@ function gapWrites(draft: Draft, twoWays: boolean, stored: StoredObject, css: st
     return
   }
 
-  if (gap === undefined && rowGap === undefined) {
-    return
+  const write = (side: SideValue, key: string, property: string, prefix: string) => {
+    stored[key] = sideStored("gap", side)
+    css.push(`${property}: ${sideCss("gap", side)}`)
+    tailwind.push(sideClass("gap", prefix, side))
   }
 
-  if (rowGap === undefined || rowGap === gap) {
-    stored.gap = lengthForm(gap!)
-    css.push(`gap: ${lengthCss(gap!)}`)
-    tailwind.push(`gap-${lengthClass(gap!)}`)
+  if (rowGap === undefined || JSON.stringify(rowGap) === JSON.stringify(gap)) {
+    if (gap !== undefined) {
+      write(gap, "gap", "gap", "gap")
+    }
 
     return
   }
 
   if (gap !== undefined) {
-    stored.columnGap = lengthForm(gap)
-    css.push(`column-gap: ${lengthCss(gap)}`)
-    tailwind.push(`gap-x-${lengthClass(gap)}`)
+    write(gap, "columnGap", "column-gap", "gap-x")
   }
 
-  stored.rowGap = lengthForm(rowGap)
-  css.push(`row-gap: ${lengthCss(rowGap)}`)
-  tailwind.push(`gap-y-${lengthClass(rowGap)}`)
+  write(rowGap, "rowGap", "row-gap", "gap-y")
 }
 
 /** A grid child's place: span and start lines, or start and end lines, and where it sits in its cell. */

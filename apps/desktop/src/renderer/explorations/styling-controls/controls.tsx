@@ -55,6 +55,7 @@ import {
 import { CornerGlyph, EachToggle, Field, SideGlyph } from "./field-row.tsx"
 import { HighlightOverlay } from "./highlight.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
+import { sideNumber } from "./sides-writes.ts"
 import { lengthToken } from "./tokens.ts"
 import { readLength } from "./typing.ts"
 import type { StrokePosition } from "./writes.ts"
@@ -1674,7 +1675,8 @@ export function LayerPreview({
   const direction = `${draft.direction ?? "column"}${draft.reverse ? "-reverse" : ""}` as const
   // The box is physical, so a reversed layout writes the other end: its top is flex-end.
   const justify = draft.reverse ? flipped[draft.justify ?? "start"] : (draft.justify ?? "start")
-  const gap = draft.gap === "auto" ? 0 : (draft.gap ?? 0)
+  const gap = draft.gap === "auto" ? 0 : (sideNumber(draft.gap, sets.spacing) ?? 0)
+  const rowGap = draft.rowGap === "auto" ? undefined : sideNumber(draft.rowGap, sets.spacing)
 
   // A negative gap overlaps the children, as the negative margin it's written as does.
   const overlap =
@@ -1694,7 +1696,7 @@ export function LayerPreview({
     gridTemplateRows: draft.rows?.length ? draft.rows.map(trackCss).join(" ") : undefined,
     gridAutoFlow: grid && draft.dense ? "dense" : undefined,
     columnGap: Math.max(0, gap),
-    rowGap: draft.rowGap ?? Math.max(0, gap),
+    rowGap: rowGap ?? Math.max(0, gap),
     padding: 20,
     width: sizeCss(draft.width ?? 520),
     // A ratio only takes hold when one axis is left to it.

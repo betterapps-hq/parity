@@ -112,6 +112,10 @@ export interface SideFieldProps {
   onChange: (value: Side, spread: Spread) => void
   /** Shorthand typed into this side, filling every side in CSS's order. */
   onShorthand?: (sides: Sides) => void
+  /** The unit slot's own control, where the kind has one: Gap's menu, which offers Auto, and how Auto spreads. */
+  unitSlot?: ReactNode
+  /** What the hint says when the value has nothing else to: what Auto does, or that a negative gap overlaps. */
+  note?: string
 }
 
 /**
@@ -139,7 +143,9 @@ export function SideField({
   line,
   rowClassName,
   onChange,
-  onShorthand
+  onShorthand,
+  unitSlot,
+  note
 }: SideFieldProps) {
   const { tokens, create } = useTokens(rules.tokens.set)
   // `auto` is the one form that isn't an object.
@@ -283,7 +289,8 @@ export function SideField({
               onReplace: (replacement) => onChange({ token: replacement }, "side")
             }
       }
-      unit={shownUnit}
+      unit={unitSlot ?? shownUnit}
+      keepsUnit={value === "auto" && unitSlot !== undefined}
       unitName={rules.percent ? unitNow : undefined}
       comesTo={comesTo}
       own={
@@ -346,7 +353,7 @@ export function SideField({
       altSteps={spreads}
       line={line}
       rowClassName={rowClassName}
-      hint={{ detail: status }}
+      hint={{ detail: status ?? note }}
       // Auto in words is selected on focus, so what's typed replaces it.
       selectOnFocus={value === "auto"}
       read={read}

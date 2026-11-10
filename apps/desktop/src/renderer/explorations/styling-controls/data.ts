@@ -3,6 +3,7 @@
  * stand-in design already uses. Its tokens are in tokens.ts.
  */
 import { numberValue, textValue } from "../../chrome/prop-values.ts"
+import type { Side } from "./sides-writes.ts"
 
 /** Colors the stand-in design already uses: the shapes behind Plans, and a plain blue a layer was given. */
 export const usedColors = ["#f54900", "#009689", "#ffb900", "#2f6fed"]
@@ -162,12 +163,13 @@ export interface Draft {
   /** Where they sit across it; baseline lines up their text's first line, last baseline its last. */
   align?: "start" | "center" | "end" | "stretch" | "baseline" | "last baseline"
   /**
-   * The space between children in pixels, or Auto, which spreads them out as `distribute` says. Negative overlaps them
-   * (an avatar stack), written as a negative margin, since CSS's gap can't be negative.
+   * The space between children, in a side's forms as padding takes them: a length or a spacing token, or Auto, which
+   * spreads them out as `distribute` says. Negative overlaps them (an avatar stack), written as a negative margin, since
+   * CSS's gap can't be negative.
    */
-  gap?: number | "auto"
+  gap?: Side
   /** The space between wrapped lines, or between a grid's rows; unset, it's the gap. */
-  rowGap?: number
+  rowGap?: Side
   /** How an Auto gap spreads the children: space between them (unset), around them, or evenly. */
   distribute?: "around" | "evenly"
   /** Where wrapped lines sit when there's room left over: `align-content`; unset packs them at the start. */

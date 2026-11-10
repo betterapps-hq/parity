@@ -11,6 +11,10 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Toggle,
   ToggleGroup,
   ToggleGroupItem
@@ -28,7 +32,6 @@ import {
   ArrowRight,
   ArrowRightLeft,
   ArrowUp,
-  Baseline,
   Copy,
   CornerDownLeft,
   Ellipsis,
@@ -39,18 +42,30 @@ import {
   StretchVertical,
   X
 } from "lucide-react"
-import { Fragment, type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
+import {
+  Fragment,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  type RefObject,
+  useLayoutEffect,
+  useRef,
+  useState
+} from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
+import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { withVariables } from "../parts.tsx"
 import { Num, type SectionProps, SizeField, useMeasured } from "./controls.tsx"
-import { clamp, formatNumber, remPx, stepSpacing } from "./css-values.ts"
+import { clamp, formatNumber, remPx } from "./css-values.ts"
 import { type Columns, type Draft, type SelfAlign, type Span, type Track, trackLabel } from "./data.ts"
-import { drag, type Reading, type ScrubKeys, unitButtonClass, UnitMenu, ValueField } from "./field-parts.tsx"
+import { drag, type Reading, unitButtonClass, UnitMenu, useTokenSets, ValueField } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
-import { readLength } from "./typing.ts"
+import { type Side, sideNumber, sideRules } from "./sides-writes.ts"
+import { SideField } from "./sides.tsx"
+import type { LengthToken } from "./tokens.ts"
 
 /*
  * Layout, grid tracks and a grid child's place (PAR-186), redesigned after Figma's, Webflow's, Framer's and Penpot's
@@ -92,22 +107,62 @@ function MoreMenu({ label, children }: { label: string; children: ReactNode }) {
 
 /* Layout */
 
+/** The layout's type, as Type offers it: Figma's four, a wrapping row being one of them. */
+type LayoutMode = "column" | "row" | "wrap" | "grid"
+
+const layoutTypes = [
+  { value: "column", label: "Vertical", detail: "Children stack top to bottom", icon: <ArrowDown /> },
+  { value: "row", label: "Horizontal", detail: "Children sit side by side, left to right", icon: <ArrowRight /> },
+  {
+    value: "wrap",
+    label: "Wrap",
+    detail: "Children sit side by side, and run onto new lines when they run out of room",
+    icon: <CornerDownLeft />
+  },
+  { value: "grid", label: "Grid", detail: "Children fill the cells of columns and rows", icon: <LayoutGrid /> }
+] as const
+
+/** A More menu item's name, with what it does under it. */
+function MenuItemText({ name, detail }: { name: string; detail: string }) {
+  return (
+    <span className="flex flex-col">
+      {name}
+      <span className="text-2xs text-muted-foreground">{detail}</span>
+    </span>
+  )
+}
+
 /**
- * Layout: Type, with Wrap beside it; the alignment box with Gap beside it, and Baseline under Gap in a row; Lines once
- * it wraps. A grid swaps the box's meaning to where children sit in their cells, and adds its columns and rows above.
- * Switching Type keeps the grid's tracks, so going back to Grid finds them as they were.
+ * Layout: the alignment box, with what runs beside it: Type, as Figma's four (Vertical, Horizontal, Wrap and Grid);
+ * Gap; and once it wraps, the gap between the lines and where the lines sit. The box is as tall as Type and Gap
+ * together, so it lines up with both. A grid swaps the box's meaning to where children sit in their cells, and adds its
+ * columns and rows under them. More holds what's set rarely: Reverse direction, wrapping a vertical layout into
+ * columns, and lining up text on its baseline. Switching Type keeps the grid's tracks, so going back to Grid finds them
+ * as they were.
  */
 export function LayoutSection({ draft, set }: SectionProps) {
+  const spacing = useTokenSets().spacing
   const grid = draft.columns !== undefined
-  const mode = grid ? "grid" : (draft.direction ?? "column")
+  const direction = draft.direction ?? "column"
+  const row = !grid && direction === "row"
+  const wraps = !grid && (draft.wrap ?? false)
+  const baseline = isBaseline(draft.align)
+  let mode: LayoutMode = grid ? "grid" : direction
+
+  if (row && wraps) {
+    mode = "wrap"
+  }
+
   // The grid's tracks while the layout is a flex box, so switching back to Grid doesn't lose them.
   const [kept, setKept] = useState<{ columns: Columns; rows: Track[] }>()
-  const row = mode === "row"
   // The gap before it went Auto, which turning Auto off brings back.
-  const [gapBeforeAuto, setGapBeforeAuto] = useState<number>()
+  const [gapBeforeAuto, setGapBeforeAuto] = useState<Side>()
   const fixedGap = undefinedIfAuto(draft.gap)
+  const gapNumber = sideNumber(fixedGap, spacing)
+  // A negative gap is a margin on each child, which wrapped lines would break, so wrapping takes it to 0.
+  const wrappedGap = gapNumber !== undefined && gapNumber < 0 ? { number: 0 } : draft.gap
 
-  const setGap = (gap: Draft["gap"], distribute?: Draft["distribute"]) => {
+  const setGap = (gap: Side, distribute?: Draft["distribute"]) => {
     if (gap === "auto" && fixedGap !== undefined) {
       setGapBeforeAuto(fixedGap)
     }
@@ -116,198 +171,212 @@ export function LayoutSection({ draft, set }: SectionProps) {
   }
 
   const spread = (on: boolean) => (on ? setGap("auto") : set({ gap: gapBeforeAuto, distribute: undefined }))
+  const beside = useRef<HTMLDivElement>(null)
+  const typeRow = useRef<HTMLDivElement>(null)
+  const gapRows = useRef<HTMLDivElement>(null)
+  const boxSize = useSpan(beside, typeRow, gapRows)
 
-  return (
-    <PanelSection
-      title="Layout"
-      action={
-        <MoreMenu label="More layout options">
-          {grid ? (
+  const toMode = (next: LayoutMode) => {
+    if (next === "grid") {
+      set({ columns: kept?.columns ?? [fr(1), fr(1), fr(1)], rows: kept?.rows ?? [], gap: fixedGap })
+
+      return
+    }
+
+    if (grid) {
+      setKept({ columns: draft.columns!, rows: draft.rows ?? [] })
+    }
+
+    const wrap = next === "wrap"
+
+    set({
+      direction: next === "column" ? "column" : "row",
+      wrap: wrap || undefined,
+      gap: wrap ? wrappedGap : draft.gap,
+      columns: undefined,
+      rows: undefined
+    })
+  }
+
+  const more = grid ? (
+    <DropdownMenuCheckboxItem
+      checked={draft.dense ?? false}
+      onCheckedChange={(dense) => set({ dense: dense || undefined })}
+    >
+      <MenuItemText
+        name="Fill gaps"
+        detail="Later children fill earlier empty cells, so the order seen can differ from the reading order"
+      />
+    </DropdownMenuCheckboxItem>
+  ) : (
+    <>
+      <DropdownMenuCheckboxItem
+        checked={draft.reverse ?? false}
+        onCheckedChange={(reverse) => set({ reverse: reverse || undefined })}
+      >
+        Reverse direction
+      </DropdownMenuCheckboxItem>
+      {direction === "column" && (
+        <DropdownMenuCheckboxItem
+          checked={wraps}
+          onCheckedChange={(wrap) => set({ wrap: wrap || undefined, gap: wrap ? wrappedGap : draft.gap })}
+        >
+          <MenuItemText name="Wrap into columns" detail="Children run into a new column when they run out of room" />
+        </DropdownMenuCheckboxItem>
+      )}
+      {/* Baseline lines up text across a row, so a vertical layout offers it only to turn it off. */}
+      {(row || baseline) && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem
+            checked={baseline}
+            onCheckedChange={(on) => set({ align: on ? "baseline" : undefined })}
+          >
+            <MenuItemText
+              name="Line up text baselines"
+              detail={
+                row
+                  ? "Lines up the text in each child, whatever its size"
+                  : "Does nothing in a vertical layout, where the children don't share a line"
+              }
+            />
+          </DropdownMenuCheckboxItem>
+          {baseline && row && (
             <DropdownMenuCheckboxItem
-              checked={draft.dense ?? false}
-              onCheckedChange={(dense) => set({ dense: dense || undefined })}
+              checked={draft.align === "last baseline"}
+              onCheckedChange={(last) => set({ align: last ? "last baseline" : "baseline" })}
             >
-              <span className="flex flex-col">
-                Fill gaps
-                <span className="text-2xs text-muted-foreground">
-                  Later children fill earlier empty cells, so the order seen can differ from the reading order
-                </span>
-              </span>
-            </DropdownMenuCheckboxItem>
-          ) : (
-            <DropdownMenuCheckboxItem
-              checked={draft.reverse ?? false}
-              onCheckedChange={(reverse) => set({ reverse: reverse || undefined })}
-            >
-              Reverse direction
+              <MenuItemText name="By the last line" detail="Lines up each child's last line of text, not its first" />
             </DropdownMenuCheckboxItem>
           )}
-        </MoreMenu>
-      }
-    >
-      <div className="flex flex-col gap-2.5">
-        <Field label="Type">
-          <div className="flex items-center gap-1.5">
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              spacing={0}
-              aria-label="Type"
-              value={[mode]}
-              onValueChange={([value]) => {
-                if (value === "grid") {
-                  set({
-                    columns: kept?.columns ?? [fr(1), fr(1), fr(1)],
-                    rows: kept?.rows ?? [],
-                    gap: undefinedIfAuto(draft.gap)
-                  })
-                } else if (value === "row" || value === "column") {
-                  if (grid) {
-                    setKept({ columns: draft.columns!, rows: draft.rows ?? [] })
-                  }
+        </>
+      )}
+    </>
+  )
 
-                  set({ direction: value, columns: undefined, rows: undefined })
-                }
-              }}
-            >
-              <Hint label="Vertical" detail="Children stack top to bottom">
-                <ToggleGroupItem value="column" aria-label="Vertical" className="h-7 px-2">
-                  <ArrowDown />
-                </ToggleGroupItem>
-              </Hint>
-              <Hint label="Horizontal" detail="Children sit side by side, left to right">
-                <ToggleGroupItem value="row" aria-label="Horizontal" className="h-7 px-2">
-                  <ArrowRight />
-                </ToggleGroupItem>
-              </Hint>
-              <Hint label="Grid" detail="Children fill the cells of columns and rows">
-                <ToggleGroupItem value="grid" aria-label="Grid" className="h-7 px-2">
-                  <LayoutGrid />
-                </ToggleGroupItem>
-              </Hint>
-            </ToggleGroup>
-            {!grid && (
-              <Hint
-                label="Wrap"
-                detail={
-                  row
-                    ? "Children run onto new lines when they run out of room"
-                    : "Children run into new columns when they run out of room"
-                }
-              >
-                <Toggle
+  return (
+    <PanelSection title="Layout" action={<MoreMenu label="More layout options">{more}</MoreMenu>}>
+      <div className="flex flex-col gap-2.5">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3">
+          <Field half label={grid ? "In cells" : "Alignment"}>
+            <LayoutBox draft={draft} set={set} onSpread={spread} size={boxSize} />
+          </Field>
+          {/* Beside where the children sit: how they run, what spaces them, and once they wrap, where the lines go. */}
+          <div ref={beside} className="flex min-w-0 flex-col gap-2.5">
+            <Field half label="Type">
+              <div ref={typeRow} className="flex items-center gap-1.5">
+                <ToggleGroup
                   variant="outline"
                   size="sm"
-                  className="h-7 px-2"
-                  aria-label="Wrap"
-                  pressed={draft.wrap ?? false}
-                  onPressedChange={(wrap) =>
-                    set({
-                      wrap: wrap || undefined,
-                      gap: wrap && fixedGap !== undefined && fixedGap < 0 ? 0 : draft.gap
-                    })
-                  }
+                  spacing={0}
+                  aria-label="Type"
+                  value={[mode]}
+                  onValueChange={([value]) => {
+                    const next = layoutTypes.find((type) => type.value === value)?.value
+
+                    if (next) {
+                      toMode(next)
+                    }
+                  }}
                 >
-                  <CornerDownLeft />
-                </Toggle>
-              </Hint>
-            )}
-            {!grid && draft.reverse && (
-              <Hint
-                label="Reverse direction"
-                detail="Lays the children out last to first. The reading order no longer matches what's seen."
-              >
-                <Toggle
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2"
-                  aria-label="Reverse direction"
-                  pressed
-                  onPressedChange={(reverse) => set({ reverse: reverse || undefined })}
+                  {layoutTypes.map((type) => (
+                    <Hint key={type.value} label={type.label} detail={type.detail}>
+                      <ToggleGroupItem value={type.value} aria-label={type.label} className="h-7 px-2">
+                        {type.icon}
+                      </ToggleGroupItem>
+                    </Hint>
+                  ))}
+                </ToggleGroup>
+                {!grid && draft.reverse && (
+                  <Hint
+                    label="Reverse direction"
+                    detail="Lays the children out last to first. The reading order no longer matches what's seen."
+                  >
+                    <Toggle
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2"
+                      aria-label="Reverse direction"
+                      pressed
+                      onPressedChange={(reverse) => set({ reverse: reverse || undefined })}
+                    >
+                      {row ? <ArrowRightLeft /> : <ArrowDownUp />}
+                    </Toggle>
+                  </Hint>
+                )}
+              </div>
+            </Field>
+            <Field half label="Gap">
+              <GapHighlight rows={gapRows}>
+                <GapField
+                  label={gapName(grid, row, wraps)}
+                  across={grid || row}
+                  value={draft.gap}
+                  // Auto spreads a flex layout's children; a grid's tracks share the room themselves.
+                  takesAuto={!grid}
+                  // A negative gap is a margin on each child, which wrapped lines would break.
+                  takesNegative={!grid && !wraps}
+                  distribute={draft.distribute}
+                  onChange={setGap}
+                  onFixed={() => spread(false)}
+                />
+                {(grid || wraps) && (
+                  <GapField
+                    label={grid || row ? "Gap between rows" : "Gap between columns"}
+                    across={!(grid || row)}
+                    value={draft.rowGap}
+                    placeholder={formatNumber(Math.max(0, gapNumber ?? 0))}
+                    onChange={(rowGap) => set({ rowGap: undefinedIfAuto(rowGap) })}
+                  />
+                )}
+              </GapHighlight>
+            </Field>
+            {wraps && (
+              <Field half label="Lines" hint="Where the wrapped lines sit when there's room left over">
+                <Select
+                  items={lineItems}
+                  value={draft.lines ?? "start"}
+                  onValueChange={(next) => {
+                    const chosen = lineItems.find((item) => item.value === next)?.value
+
+                    if (chosen) {
+                      set({ lines: chosen === "start" ? undefined : chosen })
+                    }
+                  }}
                 >
-                  {row ? <ArrowRightLeft /> : <ArrowDownUp />}
-                </Toggle>
-              </Hint>
+                  <SelectTrigger size="sm" aria-label="Lines" className="h-7 w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <PanelSelectContent>
+                    {lineItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </PanelSelectContent>
+                </Select>
+              </Field>
             )}
           </div>
-        </Field>
+        </div>
         {grid && (
           <>
             <ColumnsField draft={draft} set={set} />
             <RowsField draft={draft} set={set} />
           </>
         )}
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3">
-          <Field half label={grid ? "In cells" : "Alignment"}>
-            <LayoutBox draft={draft} set={set} onSpread={spread} />
-          </Field>
-          <div className="flex min-w-0 flex-col gap-2.5">
-            <Field half label="Gap">
-              <GapHighlight>
-                <GapField
-                  label={gapName(grid, row, draft.wrap ?? false)}
-                  across={grid || row}
-                  value={draft.gap}
-                  // Auto spreads a flex layout's children; a grid's tracks share the room themselves.
-                  takesAuto={!grid}
-                  // A negative gap is a margin on each child, which wrapped lines would break.
-                  takesNegative={!grid && !draft.wrap}
-                  distribute={draft.distribute}
-                  onChange={setGap}
-                  onFixed={() => spread(false)}
-                />
-                {(grid || draft.wrap) && (
-                  <GapField
-                    label={grid || row ? "Gap between rows" : "Gap between columns"}
-                    across={!(grid || row)}
-                    value={draft.rowGap}
-                    placeholder={fixedGap === undefined ? "0" : formatNumber(fixedGap)}
-                    onChange={(rowGap) => set({ rowGap: undefinedIfAuto(rowGap) })}
-                  />
-                )}
-              </GapHighlight>
-            </Field>
-            {!grid && (row || isBaseline(draft.align)) && <BaselineRow draft={draft} set={set} />}
-          </div>
-        </div>
-        {!grid && draft.wrap && (
-          <Field label="Lines" hint="Where the wrapped lines sit when there's room left over, as align-content says">
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              spacing={0}
-              aria-label="Lines"
-              value={[draft.lines ?? "start"]}
-              onValueChange={([lines]) => {
-                const chosen = lineOptions.find(([value]) => value === lines)?.[0]
-
-                if (chosen) {
-                  set({ lines: chosen === "start" ? undefined : chosen })
-                }
-              }}
-            >
-              {lineOptions.map(([value, name, detail]) => (
-                <Hint key={value} label={detail}>
-                  <ToggleGroupItem value={value} className="h-7 flex-1 px-2 text-xs">
-                    {name}
-                  </ToggleGroupItem>
-                </Hint>
-              ))}
-            </ToggleGroup>
-          </Field>
-        )}
       </div>
     </PanelSection>
   )
 }
 
-/** Where wrapped lines sit, as Lines offers it: each value with its name and what it does. */
-const lineOptions = [
-  ["start", "Start", "Packed at the start"],
-  ["center", "Center", "Packed in the middle"],
-  ["end", "End", "Packed at the end"],
-  ["between", "Between", "Spread out, the first and last at the edges"],
-  ["stretch", "Stretch", "Each line grows to share the room"]
+/** Where wrapped lines sit, as Lines offers it, in `align-content`'s order. */
+const lineItems = [
+  { value: "start", label: "Start" },
+  { value: "center", label: "Center" },
+  { value: "end", label: "End" },
+  { value: "between", label: "Space between" },
+  { value: "stretch", label: "Stretch" }
 ] as const
 
 /** The first gap's name: just Gap, until there's a second, between rows or columns. */
@@ -320,12 +389,13 @@ function gapName(grid: boolean, row: boolean, wraps: boolean) {
 }
 
 /** Gap's fields, which highlight the gaps on the canvas while they're hovered or focused, as Penpot's do. */
-function GapHighlight({ children }: { children: ReactNode }) {
+function GapHighlight({ rows, children }: { rows?: RefObject<HTMLDivElement | null>; children: ReactNode }) {
   const { setHighlight } = useHighlight()
 
   return (
     // The fields inside take the focus; this only listens, so the gaps stay lit while either is in use.
     <div
+      ref={rows}
       className="flex flex-col gap-1"
       onPointerEnter={() => setHighlight({ kind: "gap" })}
       onPointerLeave={() => setHighlight(undefined)}
@@ -337,58 +407,41 @@ function GapHighlight({ children }: { children: ReactNode }) {
   )
 }
 
-const undefinedIfAuto = (gap: Draft["gap"]) => (gap === "auto" ? undefined : gap)
+const undefinedIfAuto = (gap: Side) => (gap === "auto" ? undefined : gap)
 
-/** Baseline, under Gap in a horizontal layout: lines up the children's text, on its first line or its last. */
-function BaselineRow({ draft, set }: Pick<SectionProps, "draft" | "set">) {
-  const row = (draft.direction ?? "column") === "row"
-  const baseline = isBaseline(draft.align)
+/**
+ * How far it is from the top of one row to the bottom of the first field in another, kept as the column they're in
+ * resizes: the alignment box's size, so it runs from Type's top to Gap's bottom, square.
+ */
+function useSpan(
+  column: RefObject<HTMLElement | null>,
+  top: RefObject<HTMLElement | null>,
+  bottom: RefObject<HTMLElement | null>
+) {
+  const [span, setSpan] = useState<number>()
 
-  return (
-    // Set in a vertical layout, Baseline does nothing, so it stays, dimmed, saying why.
-    <div className={`flex items-center gap-1 ${row ? "" : "opacity-50"}`}>
-      <Hint
-        label="Align text on its baseline (B)"
-        detail={
-          row
-            ? "Lines up the text in each child, however large it is"
-            : "Does nothing in a vertical layout. Baseline lines up text across a row."
-        }
-      >
-        <Toggle
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1 px-2 text-xs"
-          aria-label="Align text on its baseline"
-          pressed={baseline}
-          onPressedChange={(on) => set({ align: on ? "baseline" : undefined })}
-        >
-          <Baseline /> Baseline
-        </Toggle>
-      </Hint>
-      {baseline && (
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          spacing={0}
-          aria-label="Which baseline"
-          value={[draft.align!]}
-          onValueChange={([line]) => {
-            if (line === "baseline" || line === "last baseline") {
-              set({ align: line })
-            }
-          }}
-        >
-          <ToggleGroupItem value="baseline" aria-label="First line" className="h-7 px-2 text-xs">
-            First
-          </ToggleGroupItem>
-          <ToggleGroupItem value="last baseline" aria-label="Last line" className="h-7 px-2 text-xs">
-            Last
-          </ToggleGroupItem>
-        </ToggleGroup>
-      )}
-    </div>
-  )
+  useLayoutEffect(() => {
+    const within = column.current
+
+    if (!within) {
+      return
+    }
+
+    const measure = () => {
+      const from = top.current?.getBoundingClientRect().top
+      const to = bottom.current?.firstElementChild?.getBoundingClientRect().bottom
+
+      setSpan(from === undefined || to === undefined ? undefined : Math.round(to - from))
+    }
+
+    const observer = new ResizeObserver(measure)
+    observer.observe(within)
+    measure()
+
+    return () => observer.disconnect()
+  }, [column, top, bottom])
+
+  return span
 }
 
 /* The alignment box */
@@ -470,10 +523,13 @@ const spotName = (spot: BoxSpot) => {
 export function LayoutBox({
   draft,
   set,
-  onSpread
+  onSpread,
+  size
 }: Pick<SectionProps, "draft" | "set"> & {
   /** Spreads the children out with an Auto gap, or puts the gap back. */
   onSpread: (on: boolean) => void
+  /** Its width and height, to line up with the rows beside it; 80px until they're measured. */
+  size?: number
 }) {
   const grid = draft.columns !== undefined
   const column = !grid && (draft.direction ?? "column") === "column"
@@ -536,6 +592,7 @@ export function LayoutBox({
     }
   }
 
+  const baseline = !grid && !column && isBaseline(draft.align)
   let keys = "Arrow keys move them. S stretches them."
 
   if (!grid) {
@@ -545,21 +602,28 @@ export function LayoutBox({
   return (
     <Hint
       label={grid ? "Where each child sits in its cell" : "Where the children sit"}
-      detail={`${keys}\nClick the chosen spot again to stretch them.`}
+      detail={`${baseline ? "Their text is lined up on its baseline, set in More.\n" : ""}${keys}\nClick the chosen spot again to stretch them.`}
       wait
     >
       <fieldset
         ref={box}
         aria-label={grid ? "Where each child sits in its cell" : "Alignment"}
         onPointerLeave={() => setHovered(undefined)}
+        style={size === undefined ? undefined : { width: size, height: size }}
         className="group/box relative grid size-20 shrink-0 grid-cols-3 grid-rows-3 rounded-md border bg-muted/40 p-0.5"
       >
         <svg aria-hidden viewBox="0 0 60 60" className="pointer-events-none absolute inset-0 size-full">
           {grid && <GridCells />}
           {hovered && !covers(arrangement, hovered) && (
-            <Children grid={grid} column={column} arrangement={previewOf(arrangement, hovered, grid, column)} ghost />
+            <Children
+              grid={grid}
+              column={column}
+              baseline={baseline}
+              arrangement={previewOf(arrangement, hovered, grid, column)}
+              ghost
+            />
           )}
-          <Children grid={grid} column={column} arrangement={arrangement} />
+          <Children grid={grid} column={column} baseline={baseline} arrangement={arrangement} />
         </svg>
         {places.flatMap((y) =>
           places.map((x) => {
@@ -637,19 +701,25 @@ function along(place: Place, length: number, from = 6, to = 54) {
   return to - length
 }
 
+/** Where a row's children's text lines up when they're on the baseline, down the box. */
+const baselineAt = 38
+
 /**
  * The children, drawn in the box: three bars across a row's main axis (or down a column's), or in a grid, a child in
- * each of four cells. `ghost` draws them faintly, for hovering.
+ * each of four cells. On the baseline, a row's bars are their own heights, standing on one dashed line, as text of
+ * different sizes does. `ghost` draws them faintly, for hovering.
  */
 function Children({
   grid,
   column,
   arrangement,
+  baseline = false,
   ghost = false
 }: {
   grid: boolean
   column: boolean
   arrangement: Arrangement
+  baseline?: boolean
   ghost?: boolean
 }) {
   const color = ghost ? "currentColor" : kindColors.layer
@@ -686,6 +756,10 @@ function Children({
       : barLengths.map((_, index) => along(main, run) + index * (bar + barGap))
 
   const bars = barLengths.map((length, index) => {
+    if (baseline) {
+      return { x: starts[index]!, y: baselineAt - length, size: length }
+    }
+
     const size = cross === undefined ? 48 : length
     const y = cross === undefined ? 6 : along(cross, length)
 
@@ -699,6 +773,17 @@ function Children({
       className="text-muted-foreground"
       transform={column ? "matrix(0 1 1 0 0 0)" : undefined}
     >
+      {baseline && !ghost && (
+        <line
+          x1="4"
+          y1={baselineAt}
+          x2="56"
+          y2={baselineAt}
+          stroke="currentColor"
+          strokeOpacity="0.6"
+          strokeDasharray="2 2"
+        />
+      )}
       {bars.map((each, index) => (
         <rect key={index} x={each.x} y={each.y} width={bar} height={each.size} rx="1" />
       ))}
@@ -733,9 +818,10 @@ const spreads = [
 ] as const
 
 /**
- * A gap: a length, a spacing step at a time, in px or rem, or Auto, which spreads the children out to fill the room,
- * as Figma's Auto does; the unit's menu then says how, in CSS's words: Space between, around or evenly. Typing `auto`
- * sets it, and typing a length goes back. A negative gap overlaps the children, where it's taken.
+ * A gap, on the field padding uses (SideField): a length a spacing step at a time, or one of the spacing tokens, as a
+ * chip, with the nearest token offered for a length of its own. Where it's taken, Auto spreads the children out to
+ * fill the room, as Figma's Auto does, and the unit's menu then says how, in CSS's words: Space between, around or
+ * evenly. Typing `auto` sets it, and typing a length goes back. A negative gap overlaps the children, where it's taken.
  */
 function GapField({
   label,
@@ -750,72 +836,27 @@ function GapField({
 }: {
   label: string
   across: boolean
-  value: number | "auto" | undefined
+  value: Side
   placeholder?: string
   takesAuto?: boolean
   takesNegative?: boolean
   distribute?: Draft["distribute"]
-  onChange: (gap: number | "auto" | undefined, distribute?: Draft["distribute"]) => void
+  onChange: (gap: Side, distribute?: Draft["distribute"]) => void
   /** Leaves Auto for the gap it had before. */
   onFixed?: () => void
 }) {
-  const [unit, setUnit] = useState<"px" | "rem">("px")
-  const auto = value === "auto"
-  const number = value === "auto" ? undefined : value
-  const min = takesNegative ? -999 : 0
-  let shown = number === undefined ? undefined : formatNumber(number)
-
-  if (unit === "rem" && number !== undefined) {
-    shown = formatNumber(number / remPx)
-  }
-
-  if (auto) {
-    shown = "Auto"
-  }
-
+  const rules = { ...sideRules.gap, auto: takesAuto, negatives: takesNegative }
   const spread = distribute ?? "between"
-  const negativeNote = takesNegative ? "Negative overlaps the children" : undefined
+  const spreadLabel = spreads.find((each) => each.value === spread)!.label
+  let note = takesNegative ? "Negative overlaps the children" : undefined
+  let unitSlot: ReactNode
 
-  const read = (text: string): Reading<number | "auto" | undefined> => {
-    const trimmed = text.trim().toLowerCase()
-
-    if (trimmed === "") {
-      return { value: undefined }
-    }
-
-    if (takesAuto && (trimmed === "auto" || trimmed === "a")) {
-      return { value: "auto" }
-    }
-
-    const bare = /^\s*-?(\d*\.?\d+)\s*$/.test(trimmed)
-    const reading = readLength(unit === "rem" && bare ? `${trimmed}rem` : trimmed, { label, current: number })
-
-    if ("clear" in reading) {
-      return { value: undefined }
-    }
-
-    if ("px" in reading) {
-      if (reading.px < 0 && !takesNegative) {
-        return { reason: `${label} can't be negative${takesAuto ? " while it wraps" : ""}` }
-      }
-
-      return { value: reading.px }
-    }
-
-    return { reason: "reason" in reading ? reading.reason : `Enter a length${takesAuto ? " or Auto" : ""}` }
-  }
-
-  const from = () => number ?? 0
-  let unitPart: ReactNode
-
-  if (auto) {
-    unitPart = (
+  if (value === "auto") {
+    note = `Auto: ${spreadLabel.toLowerCase()}, so the children fill the room`
+    unitSlot = (
       <DropdownMenu>
         <Hint label="How Auto spreads the children">
-          <DropdownMenuTrigger
-            aria-label={`${label}: ${spreads.find((each) => each.value === spread)!.label}`}
-            className={unitButtonClass}
-          >
+          <DropdownMenuTrigger aria-label={`${label}: ${spreadLabel}`} className={unitButtonClass}>
             {spread}
           </DropdownMenuTrigger>
         </Hint>
@@ -829,10 +870,7 @@ function GapField({
           >
             {spreads.map((each) => (
               <DropdownMenuRadioItem key={each.value} value={each.value} closeOnClick className="text-xs">
-                <span className="flex flex-col">
-                  {each.label}
-                  <span className="text-2xs text-muted-foreground">{each.detail}</span>
-                </span>
+                <MenuItemText name={each.label} detail={each.detail} />
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
@@ -843,39 +881,28 @@ function GapField({
         </DropdownMenuContent>
       </DropdownMenu>
     )
-  } else {
-    unitPart = (
+  } else if (takesAuto) {
+    unitSlot = (
       <UnitMenu
         label={label}
-        unit={unit}
-        units={[
-          { unit: "px", label: "Pixels" },
-          { unit: "rem", label: "Root em, 16px" }
-        ]}
-        extra={takesAuto ? { label: "Auto: spread them out", run: () => onChange("auto") } : undefined}
-        onUnit={setUnit}
+        unit="px"
+        units={[{ unit: "px", label: "Pixels" }]}
+        extra={{ label: "Auto: spread them out", run: () => onChange("auto") }}
+        onUnit={() => undefined}
       />
     )
   }
 
   return (
-    <ValueField
+    <SideField
       label={label}
       inner={<GapGlyph across={across} />}
-      scrub={{ from, apply: (next) => onChange(next), by: { spacing: true, min } }}
-      shown={shown}
+      rules={rules}
+      value={value}
       placeholder={placeholder}
-      unit={unitPart}
-      hint={{
-        detail: auto
-          ? `Auto: ${spreads.find((each) => each.value === spread)!.label.toLowerCase()}, so the children fill the room`
-          : negativeNote
-      }}
-      read={read}
-      onCommit={(next) => onChange(next, next === "auto" ? distribute : undefined)}
-      onStep={(up, keys: ScrubKeys) =>
-        onChange(clamp(stepSpacing(from(), (up ? 1 : -1) * (keys.shift ? 10 : 1)), min, Infinity))
-      }
+      unitSlot={unitSlot}
+      note={note}
+      onChange={(next) => onChange(next, next === "auto" ? distribute : undefined)}
     />
   )
 }
@@ -888,7 +915,7 @@ export function fitCount(least: number, gap: number) {
 }
 
 /** The tracks a grid's columns come to: its own, or as many Fill tracks as fit. */
-export function columnTracks(draft: Draft): Track[] {
+export function columnTracks(draft: Draft, spacing: readonly LengthToken[]): Track[] {
   const columns = draft.columns
 
   if (columns === undefined) {
@@ -899,10 +926,11 @@ export function columnTracks(draft: Draft): Track[] {
     return columns
   }
 
-  return Array.from({ length: fitCount(columns.fit, gapPx(draft.gap)) }, () => fr(1))
+  return Array.from({ length: fitCount(columns.fit, gapPx(draft.gap, spacing)) }, () => fr(1))
 }
 
-const gapPx = (gap: Draft["gap"]) => Math.max(0, undefinedIfAuto(gap) ?? 0)
+const gapPx = (gap: Side, spacing: readonly LengthToken[]) =>
+  Math.max(0, sideNumber(undefinedIfAuto(gap), spacing) ?? 0)
 
 /**
  * Each track's share of the strip, as the canvas would size it at Plans' width: fixed tracks their pixels, content
@@ -966,6 +994,7 @@ export function trackWeights(tracks: Track[], room = contentWidth): number[] {
  * grid picker and Repeat to fit at the name's end. Repeat to fit makes as many columns as fit, each at least a width.
  */
 function ColumnsField({ draft, set }: Pick<SectionProps, "draft" | "set">) {
+  const spacing = useTokenSets().spacing
   const columns = draft.columns!
   const fit = !Array.isArray(columns)
   const tracks = Array.isArray(columns) ? columns : []
@@ -988,7 +1017,7 @@ function ColumnsField({ draft, set }: Pick<SectionProps, "draft" | "set">) {
     </Hint>
   )
 
-  const count = fit ? `${fitCount(columns.fit, gapPx(draft.gap))} fit` : String(tracks.length)
+  const count = fit ? `${fitCount(columns.fit, gapPx(draft.gap, spacing))} fit` : String(tracks.length)
 
   return (
     <Field
@@ -1014,7 +1043,7 @@ function ColumnsField({ draft, set }: Pick<SectionProps, "draft" | "set">) {
     >
       {fit ? (
         <div className="flex flex-col gap-1">
-          <TrackStrip one="column" tracks={columnTracks(draft)} fitted />
+          <TrackStrip one="column" tracks={columnTracks(draft, spacing)} fitted />
           <Num
             label="Least column width"
             inner="Min"
@@ -1792,6 +1821,7 @@ function proAxes(draft: Draft, columns: number) {
  * area are under More.
  */
 export function ChildSizeSection({ draft, set }: SectionProps) {
+  const spacing = useTokenSets().spacing
   const measured = useMeasured("[data-layer='Pro plan']")
   const endLines = draft.endLines ?? false
 
@@ -1809,7 +1839,7 @@ export function ChildSizeSection({ draft, set }: SectionProps) {
           <DropdownMenuCheckboxItem
             checked={endLines}
             onCheckedChange={(on) => {
-              const columns = columnTracks(draft).length
+              const columns = columnTracks(draft, spacing).length
               const area = placeChildren(draft, columns).find((child) => child.name === "Pro plan")!.area
               set(
                 on
@@ -1908,7 +1938,8 @@ export function ChildSizeSection({ draft, set }: SectionProps) {
  * Delete places it automatically again. A row under the last lets it go below.
  */
 function CellMap({ draft, set }: Pick<SectionProps, "draft" | "set">) {
-  const tracks = columnTracks(draft)
+  const spacing = useTokenSets().spacing
+  const tracks = columnTracks(draft, spacing)
   const columns = tracks.length
   const children = placeChildren(draft, columns)
   const pro = children.find((child) => child.name === "Pro plan")!

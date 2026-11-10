@@ -158,15 +158,14 @@ matches what's seen, and offers Reading order (`reading-flow`) from the CSS row 
 
 Shows for layouts. A flex box or a grid, as today, with direction, alignment and gap. Padding is in Spacing, next.
 
-| Row              | Control                                                                                                                                     | Writes                                                                               | Figma                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Type             | Icon toggles: Vertical, Horizontal, Grid; Block under More (today: the three); Inline beside them when the parent is a Block layout (below) | `display`, `flex-direction`                                                          | Auto layout: vertical, horizontal, grid; freeform          |
-| Wrap             | A toggle beside Type (today)                                                                                                                | `flex-wrap`                                                                          | Wrap; no reverse                                           |
-| Alignment        | Nine-spot box and a distribution menu: Packed, Space between, around, evenly (today)                                                        | `align-items`, `justify-content`; in a grid, `justify-items` and `align-items`       | Alignment box; Auto gap is space between, evenly or around |
-| Baseline         | A toggle under the box: align text on its first or last baseline                                                                            | `align-items: baseline` or `last baseline` (`items-baseline`, `items-baseline-last`) | Text baseline alignment                                    |
-| Lines            | Menu, shown when wrapping or in a grid: Start, Center, End, Space between, Stretch                                                          | `align-content`                                                                      | Auto or space between, when wrapping                       |
-| Gap              | One field, or columns and rows when wrapping or in a grid (today); takes negatives and Auto (below)                                         | `gap`, `row-gap`, `column-gap`                                                       | Gap; row gap when wrapping                                 |
-| Columns and rows | Counts, or a line of track chips (below)                                                                                                    | `grid-template-columns`, `grid-template-rows`                                        | Grid tracks: fixed, fr or hug; no `minmax()` or auto-fill  |
+| Row              | Control                                                                                                                                                                                    | Writes                                                                               | Figma                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| Type             | Beside the box, above Gap; icon toggles: Vertical, Horizontal, Wrap, Grid; Block under More (today: three and a Wrap toggle); Inline beside them when the parent is a Block layout (below) | `display`, `flex-direction`, `flex-wrap`                                             | Auto layout: vertical, horizontal, wrap, grid; freeform   |
+| Alignment        | Nine-spot box, as tall as Type and Gap beside it; Auto gap spreads the children as space between, around or evenly                                                                         | `align-items`, `justify-content`; in a grid, `justify-items` and `align-items`       | Alignment box; Auto gap is space between                  |
+| Baseline         | Line up text baselines under More, and By the last line once it's on; the box then draws the children standing on one line                                                                 | `align-items: baseline` or `last baseline` (`items-baseline`, `items-baseline-last`) | Text baseline alignment                                   |
+| Gap              | Beside the box: padding's field, with the spacing tokens in its menu, or columns and rows when wrapping or in a grid; takes negatives and Auto (below)                                     | `gap`, `row-gap`, `column-gap`                                                       | Gap; row gap when wrapping                                |
+| Lines            | Menu under Gap when wrapping: Start, Center, End, Space between, Stretch                                                                                                                   | `align-content`                                                                      | Auto or space between, when wrapping                      |
+| Columns and rows | Counts, or a line of track chips (below)                                                                                                                                                   | `grid-template-columns`, `grid-template-rows`                                        | Grid tracks: fixed, fr or hug; no `minmax()` or auto-fill |
 
 There's no None: hiding a layer is Appearance's Visibility, so `display` has one owner. Inline (`inline-flex`,
 `inline-grid`, `inline-block`, as buttons and badges are written) shows beside the types only when the parent is a Block
@@ -177,8 +176,8 @@ order (`reading-flow`) from the CSS row.
 Gap takes a negative value for overlapping items (an avatar stack), as Figma's does. CSS `gap` can't be negative, so
 it's written as a negative margin on each child but the last (`-space-x-2`), paired with Stacking's First on top. In a
 Reverse direction layout it adds `space-x-reverse` (or `space-y-reverse`). It isn't offered while Wrap is on, since a
-margin on each item but the last breaks wrapped lines. Gap's menu offers Auto, as Figma's does, which sets Space between
-in Alignment and shows Auto in the field.
+margin on each item but the last breaks wrapped lines. Gap's unit menu offers Auto, as Figma's does, which sets Space
+between in Alignment and shows Auto in the field, with how it spreads as the field's menu.
 
 Columns and rows are counts, as today, with Figma's grid picker (drag across a small grid to pick 3 × 2), while every
 track is the same size (`grid-cols-3`). Edit tracks in a count's menu, or sizing a track on the canvas, shows the tracks
@@ -189,13 +188,13 @@ with content". Repeat's auto-fit (`repeat(auto-fit, minmax(16rem, 1fr))`) fits a
 which Figma can't say. In a reversed layout, the alignment box stays as it looks, and the editor writes `flex-end` where
 needed.
 
-**More:** Block, shown as a fourth Type toggle once set, Reverse direction (`flex-direction: *-reverse`), shown as a
-toggle beside Wrap once set, Freeform (below), Areas (named and painted over the grid on the canvas), Flow (rows or
-columns, and Dense), the size of tracks made by overflow (`grid-auto-rows`, `grid-auto-columns`), Dividers between
-items, Text columns (count and width; the rule between them is Dividers' In the gap, `column-rule`), Stacking (Last on
-top, as CSS paints; First on top, Figma's canvas stacking, writes descending `z-index` on the children) and Size
-container (lets modes ask this layer's width rather than the screen's; its breakpoints are the container tokens, as
-Tailwind v4's `@md:` reads `--container-md`).
+**More:** Block, shown as a fifth Type toggle once set, Reverse direction (`flex-direction: *-reverse`), shown as a
+toggle beside Type once set, Wrap into columns for a vertical layout, Line up text baselines, Freeform (below), Areas
+(named and painted over the grid on the canvas), Flow (rows or columns, and Dense), the size of tracks made by overflow
+(`grid-auto-rows`, `grid-auto-columns`), Dividers between items, Text columns (count and width; the rule between them is
+Dividers' In the gap, `column-rule`), Stacking (Last on top, as CSS paints; First on top, Figma's canvas stacking,
+writes descending `z-index` on the children) and Size container (lets modes ask this layer's width rather than the
+screen's; its breakpoints are the container tokens, as Tailwind v4's `@md:` reads `--container-md`).
 
 Freeform is Figma's frame without auto layout: every child is Absolute, placed where it's dropped (`relative` on the
 layout, insets on each child). Its width and height are Fixed or Fill, never Hug, since absolute children don't size

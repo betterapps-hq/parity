@@ -1782,6 +1782,8 @@ export interface ValueFieldProps<T> {
   refused?: { nearest: FieldToken; onUse: () => void }
   /** A button after the field, as Angle's dial is. */
   trailing?: ReactNode
+  /** The unit slot shows beside a word too, where it's a control of its own: Gap's menu of how Auto spreads. */
+  keepsUnit?: boolean
   /**
    * Under about 96px, as sides and corners are: what the value comes to is in the hint
    * and under the row while focused.
@@ -2016,6 +2018,7 @@ export function ValueField<T>({
   onStep,
   refused,
   trailing,
+  keepsUnit = false,
   narrow = false,
   hint,
   disabled = false,
@@ -2165,7 +2168,7 @@ export function ValueField<T>({
   // hint names.
   const typedOwnUnit = typing && /[a-z%°×]\s*$/i.test(typed.typed ?? "")
   const showsWord = !typing && /[a-z]/i.test(shown ?? fieldPlaceholder ?? "")
-  const showUnit = unit !== undefined && !typedOwnUnit && !showChip && !showsWord && !(narrow && mark)
+  const showUnit = unit !== undefined && !typedOwnUnit && !showChip && (keepsUnit || !showsWord) && !(narrow && mark)
   let unitPart: ReactNode
 
   if (showUnit && unitWord !== undefined) {

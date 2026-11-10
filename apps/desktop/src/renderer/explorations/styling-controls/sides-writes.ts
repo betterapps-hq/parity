@@ -27,9 +27,12 @@ export const sideNames = ["Top", "Right", "Bottom", "Left"] as const
 
 export type SidesKind = "padding" | "margin" | "border" | "inset" | "layer"
 
+/** A kind of one length a SideField holds: a side of four, or a layout's gap, which takes the same forms as padding. */
+export type SideKind = SidesKind | "gap"
+
 /** What a kind of side takes and how it steps. */
 export interface SideRules {
-  kind: SidesKind
+  kind: SideKind
   /** The property in a sentence: padding, margin, stroke width. */
   noun: string
   /** Which of the project's token sets it offers (`useTokens`), and the kind of token Create token makes in it. */
@@ -49,7 +52,7 @@ export interface SideRules {
 
 const spacing = { set: "spacing", kind: "spacing" } as const
 
-export const sideRules: Record<SidesKind, SideRules> = {
+export const sideRules: Record<SideKind, SideRules> = {
   padding: {
     kind: "padding",
     noun: "padding",
@@ -96,6 +99,19 @@ export const sideRules: Record<SidesKind, SideRules> = {
     auto: true,
     percent: true,
     unset: "Auto",
+    unit: "px"
+  },
+  // A layout takes Auto, and a negative gap where it doesn't wrap, which LayoutSection sets as it goes.
+  gap: {
+    kind: "gap",
+    noun: "gap",
+    tokens: spacing,
+    namespace: "spacing-",
+    stepBy: "spacing",
+    negatives: false,
+    auto: false,
+    percent: false,
+    unset: "None",
     unit: "px"
   },
   layer: {
@@ -343,7 +359,7 @@ const properties: Record<SidesKind, Record<Slot, string>> = {
 const pixels = (number: number) => `${formatNumber(number)}px`
 
 /** One side's class: `pt-4`, `-mt-2`, `pt-3.25`, `pt-[13.3px]`, `p-gutter`, `mx-auto`, `top-1/2`, `border-b`. */
-export function sideClass(kind: SidesKind, prefix: string, side: SideValue): string {
+export function sideClass(kind: SideKind, prefix: string, side: SideValue): string {
   if (side === "auto") {
     return `${prefix}-auto`
   }
@@ -388,7 +404,7 @@ export function sideClass(kind: SidesKind, prefix: string, side: SideValue): str
 }
 
 /** One side as CSS writes it: a step is `calc(var(--spacing) * 4)`, as Tailwind compiles it. */
-export function sideCss(kind: SidesKind, side: SideValue): string {
+export function sideCss(kind: SideKind, side: SideValue): string {
   if (side === "auto") {
     return "auto"
   }
@@ -430,7 +446,7 @@ export function sideInline(side: Side, tokens: readonly LengthToken[]): string |
 }
 
 /** One side in PAR-652's stored forms: `{ step }`, `{ value }`, `{ token }` or `{ keyword }`. */
-export function sideStored(kind: SidesKind, side: SideValue): StoredObject {
+export function sideStored(kind: SideKind, side: SideValue): StoredObject {
   if (side === "auto") {
     return { keyword: "auto" }
   }
@@ -444,7 +460,7 @@ export function sideStored(kind: SidesKind, side: SideValue): StoredObject {
   }
 
   // Spacing kinds count their steps in quarters of a whole one; a stroke width and a count are their own steps.
-  if (kind === "padding" || kind === "margin" || kind === "inset") {
+  if (kind === "padding" || kind === "margin" || kind === "inset" || kind === "gap") {
     return withAllow(lengthForm(side.number), side.allow)
   }
 

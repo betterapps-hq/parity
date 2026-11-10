@@ -30,7 +30,7 @@ function Placement({ start }: { start: Draft }) {
   const [draft, set] = useDraft({
     background: "card",
     radius: "radius-xl",
-    gap: 12,
+    gap: { number: 12 },
     columns: [fill, fill, fill],
     rows: [],
     ...start
