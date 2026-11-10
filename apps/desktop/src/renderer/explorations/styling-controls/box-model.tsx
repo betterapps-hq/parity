@@ -138,6 +138,8 @@ export function SideValue({
         onHover?.(next)
       }}
     >
+      {/* A value rests on a faint fill of the panel's own color, so it reads over the margin's and padding's tints and
+          looks like something to click; hovered, it lightens, as a token's pill always is. */}
       <PopoverTrigger
         openOnHover
         delay={350}
@@ -149,7 +151,7 @@ export function SideValue({
             onHover?.(false)
           }
         }}
-        className={`flex h-5 max-w-14 min-w-6 items-baseline justify-center rounded-sm px-1 text-xs leading-5 tabular-nums outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-foreground/15 ${faint ? "text-muted-foreground" : ""} ${tokenName === undefined ? "" : "bg-foreground/10"} ${className}`}
+        className={`flex h-5 max-w-14 min-w-6 items-baseline justify-center rounded-sm px-1 text-xs leading-5 tabular-nums outline-none hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-foreground/15 ${faint ? "text-muted-foreground" : ""} ${tokenName === undefined ? "bg-background/60" : "bg-foreground/10"} ${className}`}
       >
         <span className="truncate">
           {plus}
