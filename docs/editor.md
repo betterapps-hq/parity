@@ -6095,6 +6095,30 @@ its id, ignoring case and spaces; a shared name listing both ids; a former name 
 `packages/agent/src/run.test.ts` ("asks for a state's id in every call that takes one": the same message and
 alternatives from each call, a shared name, and the id working).
 
+### States that change what's inside an instance (PAR-883)
+
+An agent's state can change a layer inside an instance, as the editor's can. `AddState` and `UpdateState` take a
+`changes` key that's a path through instances, `instance/inner`, with nested instances between
+(`person/avatar/initials`). `Update` takes the same path after the design's: `profile/person/meta`. Each step is an id
+or a name, the instance's in the design and the layer's in its component. The change is written as the editor writes
+one:
+
+- In a state, it's that state's patch for the path, so the base and the other states stay as they were.
+- In the base state, `Update` changes that copy alone, as the instance's override.
+- A text, prop or visibility the component binds to a param gives the instance around it a value for the param instead.
+- `null` in `changes` takes the state's change to that layer back, with the param values its bound fields took.
+
+Inside an instance only `hidden`, `text`, `props`, `style` and `unset` change. A path through a layer that isn't an
+instance fails with `unknown_node`, saying it isn't one, as does a layer its component doesn't have.
+
+Implementation: `layerPath`, `applyChanges`, `update` and `updateInner` in `packages/agent/src/workspace.ts`, which
+write through core's `editInner` and `resetInner` (`packages/core/src/instances.ts`).
+
+Tests: `packages/agent/src/workspace.test.ts` ("states changing what's inside an instance": a new state changing layers
+inside an instance and a nested one, by id and by name, with the base unchanged; a bound title given as the instance's
+param in that state; `null` taking a state's change back; `Update` in a state and on the base copy; a path that leads
+nowhere and one through a layer that isn't an instance).
+
 ### Measure draws one frame (PAR-461)
 
 `Measure` takes one state id and one mode id. A list, `"all"` or `"shown"`, which `Screenshot`, `Problems` and
