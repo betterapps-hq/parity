@@ -54,8 +54,9 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             check accessibility with axe-core, in every state and the modes shown
                                             unless narrowed; exits with 1 when it finds issues
   parity problems <design> [--state s|all] [--mode m|shown|all] [--tab t]
-                                            render errors, overflow, clipping and unknown components, in every state
-                                            and the modes shown unless narrowed; exits with 1 when it finds any
+                                            render errors, overflow, clipping, unknown components and content drawn
+                                            outside the frame, in every state and the modes shown unless narrowed;
+                                            exits with 1 when it finds any
   parity console [--clear] [--limit 50] [--tab t]
                                             what the project's code wrote to the console, on the canvas and in
                                             offscreen renders, the newest 50 unless --limit says; --clear empties it

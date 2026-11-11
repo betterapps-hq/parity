@@ -615,7 +615,9 @@ const frameBox = z.looseObject({ x: number, y: number, width: number, height: nu
 const problem = z.looseObject({
   state: z.string(),
   mode: z.string(),
-  kind: z.enum(["render-error", "unknown-component", "content-wider", "frame-overflow", "clipped"]).optional(),
+  kind: z
+    .enum(["render-error", "unknown-component", "content-wider", "frame-overflow", "clipped", "outside-frame"])
+    .optional(),
   problem: z.string(),
   node: z.string().optional(),
   name: z.string().optional(),

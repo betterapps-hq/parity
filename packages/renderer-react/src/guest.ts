@@ -46,6 +46,7 @@ import {
   styleOf,
   stylePlacement
 } from "./drawn-nodes.ts"
+import { framePortalAttribute, framePortals } from "./portals.ts"
 import { FrameWindowContext, frameWindow } from "./viewport.ts"
 
 /** The props of a project's or a library's component, which can take anything. */
@@ -924,6 +925,8 @@ export function createGuest(init: GuestInit): Guest {
       })
 
       const own = options.viewport && frameWindow(target, options.viewport)
+      // What the frame's components portal to the page's body is drawn in the frame's own body (PAR-881).
+      const stopPortals = shadowOf(target) ? framePortals(target, frame.body) : undefined
       const drawn = watchDrawnNodes(root, target)
       const styles = frameStyles(root, target, placements, (work) => (own ? own.run(() => flushSync(work)) : work()))
 
@@ -961,6 +964,7 @@ export function createGuest(init: GuestInit): Guest {
             drawn.dispose()
             styles.dispose()
             root.unmount()
+            stopPortals?.()
             frame.undo()
           },
           drawnNodes: drawn.read
@@ -1002,6 +1006,7 @@ export function createGuest(init: GuestInit): Guest {
           drawn.dispose()
           styles.dispose()
           root.unmount()
+          stopPortals?.()
           own.dispose()
           frame.undo()
         },
@@ -1075,6 +1080,13 @@ function watchDrawnNodes(root: Root, target: HTMLElement) {
   }
 }
 
+/** Whether a node is in content the frame took from the page's body, which isn't part of a layer's box. */
+function portaledIn(node: Node): boolean {
+  const element = node instanceof Element ? node : node.parentElement
+
+  return Boolean(element?.closest(`[${framePortalAttribute}]`))
+}
+
 /**
  * The frame's design nodes as React's tree has them. A component node is the fiber of its boundary, and an element
  * node the element the guest drew for it. Undefined when the tree isn't the shape React 19 gives it.
@@ -1086,7 +1098,11 @@ function readDrawnNodes(root: Root, target: HTMLElement, frame: ShadowRoot | HTM
     return undefined
   }
 
-  const drawn = indexDrawnNodes(fiber, { nodeOf: nodeOfFiber, inside: (element) => frame.contains(element) })
+  const drawn = indexDrawnNodes(fiber, {
+    nodeOf: nodeOfFiber,
+    inside: (node) => frame.contains(node) && !portaledIn(node)
+  })
+
   // An element the guest drew always carries its node's id. If the index puts it in another node, it's misreading
   // React's tree, and the attribute is the better guide.
   const marked = frame.querySelector("[data-canvas-node]")

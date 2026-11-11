@@ -42,7 +42,7 @@ writes only that file, and a CLI given the same file reaches only that copy.
 | `parity modes [design]`      | Viewports, modes and what each design shows; a design adds its frames' sizes.              |
 | `parity exec [file]`         | Runs a JavaScript snippet against the designs, from a file or stdin, as one undoable step. |
 | `parity screenshot <design>` | Renders a design in its states and modes, offscreen, as images.                            |
-| `parity problems <design>`   | Render errors, overflow, clipping and unknown components, per frame.                       |
+| `parity problems <design>`   | Render errors, overflow, clipping, unknown components and content outside the frame.       |
 | `parity a11y <design>`       | Checks accessibility with axe-core, per frame.                                             |
 | `parity console`             | What the project's own code wrote to the console.                                          |
 | `parity logs`                | Parity's own events from its local log, by level, process, trace, test run or time.        |

@@ -102,9 +102,10 @@ to pass on to its DOM.
   as for element layers: the boundary that marks a component layer sits inside what the parent clones, so the props go
   past it to the component, and the layer is still found and still keeps its errors to itself.
 - **Edge cases.** A component that draws nothing has no box: it can be selected from Layers but not on the canvas.
-  Content portaled out of the frame, as a dialog's often is, isn't part of the layer's box; content portaled to a place
-  inside the frame is. A slot a component draws more than once, as a list's `renderItem`, is one layer whose box covers
-  every copy. A component that fails draws its error box in its place, and that box is the layer's.
+  Content portaled to the page's body, as a dialog's or a menu's is, is drawn in the frame's body (see Popups draw
+  inside their frame) but isn't part of the layer's box; content portaled to a place inside the frame, as MUI's is, is.
+  A slot a component draws more than once, as a list's `renderItem`, is one layer whose box covers every copy. A
+  component that fails draws its error box in its place, and that box is the layer's.
 - **Hovering stays cheap.** The walk runs once after the frame changes, when React commits it or DOM is added to or
   taken from it, and every lookup until then reuses it, so moving the pointer only measures boxes. Measured in the app
   on 2026-10-29: finding the layers under a point took about 0.15 ms on Sign in (45 layers) and 0.75 to 0.9 ms on the
@@ -5859,11 +5860,12 @@ were checked when their `.lib.par` was read.
 
 Agents' `Measure` gives each node's box with the node it's drawn inside (`parent`), the ancestor that clips it when one
 cuts it off (`clip`, with its box), and the state and mode it drew. `Problems`, `find_problems` and `parity problems`
-give each layout problem as a finding: its `kind` (`frame-overflow` or `clipped`), the node and its name, its box, the
-`container` it overflows (the node that clips it, or the frame) with that box, and the pixels past each edge in
-`overflow`. The sentence with it says the same, such as "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame
-by 10px on the right", and the CLI puts the layer's name before its id. Overflow of a parent that doesn't clip, inside
-the frame, isn't reported; see [decisions.md](decisions.md), "Problems reports where a node overflows".
+give each layout problem as a finding: its `kind` (`frame-overflow` or `clipped`; `outside-frame`, for content drawn
+outside the frame, is described under Popups draw inside their frame), the node and its name, its box, the `container`
+it overflows (the node that clips it, or the frame) with that box, and the pixels past each edge in `overflow`. The
+sentence with it says the same, such as "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame by 10px on the
+right", and the CLI puts the layer's name before its id. Overflow of a parent that doesn't clip, inside the frame, isn't
+reported; see [decisions.md](decisions.md), "Problems reports where a node overflows".
 
 Code: `layoutFindings` and `describeLayoutFinding` in `packages/agent/src/overflow.ts`, used by `frameProblems` in
 `packages/agent/src/frames.ts`; `clipper` and `nodeParent` in `apps/desktop/src/renderer/render.ts` measure each node;
@@ -5919,6 +5921,42 @@ no height; a fixed frame's job keeps its height beside its window). `packages/ag
 Chrome: the offscreen page's `canvasRender`, in an 800px window, mounts a growing 1280px frame in the job's 1234px
 window, where `100vh` measures 1234 and the frame grows past it; a frame fixed at 600 is 600 tall while `100vh` is
 still 1234. Gap: the end-to-end suite draws frames offscreen but doesn't read a window height in them.
+
+### Popups draw inside their frame (PAR-881)
+
+A select's list, a menu, a popover or a dialog from Base UI or Radix portals to `document.body`. Frames are shadow roots
+in Parity's one page, so that put the popup outside its frame: it drew without the project's styles, out on the canvas,
+and missed the frame's screenshots, and `problems` said nothing.
+
+- **The frame takes what React portals to the page's body for it.** The guest answers the body's `appendChild`,
+  `insertBefore` and `removeChild`: an element React adds there is put in the frame's body, after what the frame drew,
+  as it would be on the project's page, and marked `data-canvas-portal`. Which frame it's for comes from React's tree,
+  the root its fiber is under, so each of several frames drawing at once gets its own popups. React renders into it and
+  takes it out as usual. The frame's host is the containing block for what's fixed, so a dialog covers its frame, and a
+  positioned popup sits by its trigger at any zoom.
+- **The rest of the page is left alone.** Content added to the body without React, or by a root that isn't a frame's,
+  such as Parity's own menus, stays where it was put.
+- **`problems` says what's left outside the frame.** After an offscreen frame draws, anything with something to see
+  that's still in the page's body is reported as an `outside-frame` problem, described by its tag, first class and text:
+  `<div class="toast"> "Saved" is drawn outside the frame, without the project's styles, and isn't in its screenshots`.
+  That's a library that added it to the body itself, which the guest can't follow.
+- **A component preview still draws its portals in the flow** (PAR-517): it takes the popups from the frame's body as it
+  takes what's in the page's.
+- **Popups don't count in a layer's box,** as before, so selecting the trigger doesn't outline the menu with it.
+
+Code: `framePortals` in `packages/renderer-react/src/portals.ts`, started by `mount` in `guest.ts`, which also leaves
+taken content out of layer boxes (`portaledIn`); `contentOutside` and `inlinePortals` in
+`apps/desktop/src/renderer/inline-portals.ts`, called by `canvasRender` in `render.ts`; the `outside` field in
+`shared/protocol.ts` and `main/render-results.ts`; `frameProblems` in `packages/agent/src/frames.ts`.
+
+Tests: `apps/desktop/src/renderer/frame.test.ts` (3), in Chrome with React's production build: two frames each drawing a
+popup portaled to the body, after mounting as Radix's and Base UI's are, find it in their own frame's body with the
+project's style; a popup leaves its frame when it closes and when its frame unmounts; and a portal from a root that
+isn't a frame's stays in the page's body. `apps/desktop/src/renderer/render.test.ts` (1 more, of its 6): content a guest
+adds to the body without React is reported as outside the frame for an agent's job, not a preview's.
+`packages/agent/src/frames.test.ts` (1: the `outside-frame` problem's sentence). Tried in the app on 2026-11-11 with
+nova's DropdownMenu opened by default: drawn under its trigger with the kit's border, radius and shadow, live on the
+canvas at 59% and in `parity screenshot`, with no problems found. Gap: the end-to-end suite opens no popup in a design.
 
 ### Caller identity (PAR-450)
 

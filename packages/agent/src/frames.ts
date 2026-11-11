@@ -34,7 +34,7 @@ export function nodeNames(container: ContainerSpec, designName: DesignName = () 
 
 /**
  * What's wrong in one drawn frame of a design: a render error, components the project doesn't have, nodes that
- * overflow or are clipped, and content wider than the frame that no node accounts for.
+ * overflow or are clipped, content wider than the frame that no node accounts for, and content drawn outside the frame.
  */
 export function frameProblems(
   container: ContainerSpec,
@@ -78,6 +78,14 @@ export function frameProblems(
   // Content wider than the frame that no node accounts for, such as a component's own element.
   if (frame.overflowsX && !layout.some((finding) => finding.kind === "frame-overflow" && finding.overflow.right)) {
     add({ kind: "content-wider", problem: `content is wider than the ${size.width}px frame` })
+  }
+
+  // What a component portaled out of the frame where the frame couldn't take it in, as it can't without React (PAR-881).
+  for (const content of frame.outside ?? []) {
+    add({
+      kind: "outside-frame",
+      problem: `${content} is drawn outside the frame, without the project's styles, and isn't in its screenshots`
+    })
   }
 
   return found
