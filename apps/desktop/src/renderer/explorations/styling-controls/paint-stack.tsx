@@ -1,33 +1,55 @@
+/* oxlint-disable jsx-a11y/prefer-tag-over-role -- a gradient's stops and midpoints are sliders along its bar, drawn as handles, which no input element is */
 import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Select,
   SelectItem,
   SelectTrigger,
   SelectValue,
   Switch
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ArrowLeftRight, ChevronDown, Plus } from "lucide-react"
+import { ArrowLeftRight, Plus } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent, Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
-import { checker } from "../../chrome/token-previews.tsx"
 import { AngleField } from "./angle.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { clamp, gradientCss, stepCount } from "./css-values.ts"
 import { usedColors } from "./data.ts"
-import { drag, MessageLine, PercentField, TokenChip, TokenList, useTokens } from "./field-parts.tsx"
+import {
+  arrowMoves,
+  drag,
+  MessageLine,
+  MissingMark,
+  PercentField,
+  type Reading,
+  stepToken,
+  TokenChip,
+  tokenNamed,
+  useTokens,
+  ValueField
+} from "./field-parts.tsx"
 import { Field, FieldGrid, SectionButton } from "./field-row.tsx"
 import { addImageFile, DropCover, ImageEditor, useImageDrop } from "./image-fill.tsx"
-import { EntryType, ListRow, type ListRowProps, moved, RemoveButton, TypeMenu, type TypeOption } from "./list-parts.tsx"
+import {
+  CreateTokenNote,
+  DescribedOption,
+  EntryType,
+  entryList,
+  ListRow,
+  type ListRowProps,
+  MixedList,
+  moved,
+  overChecker,
+  RemoveButton,
+  TypeMenu,
+  type TypeOption
+} from "./list-parts.tsx"
 import {
   drawListColor,
   type GradientKind,
@@ -47,20 +69,24 @@ import { imageSizeCss, layerCss, paintLayers, resolveGradient, simpleGradient } 
 import { angleDegrees, angleOf } from "./motion-data.ts"
 import { Card } from "./playground.tsx"
 import type { Carried } from "./sortable.ts"
-import { type ColorToken, type GradientToken, gradientToken, gradientTokens } from "./tokens.ts"
+import { type ColorToken, gradientToken } from "./tokens.ts"
 
 /*
  * Fill's paint stack (design-options-values.md, Paint stack): solids, gradients and images, top first, as CSS paints
  * them. + opens a menu of the types, each drawn as the fill it adds, and the fill it adds opens its editor. Each entry is
  * a list row: a gradient's strip or an image's thumbnail with its type and summary or token chip, which opens its
  * editor, a gradient's alpha, the eye and −. A solid is the color field, whose swatch opens the color picker. A
- * gradient's editor names its kind in a menu (Linear, Radial or Angular), then has the bar of stops, its settings named
+ * gradient's editor names its kind in a menu (Linear, Radial or Angular), then has its token, on the shared field as a
+ * shadow's is, the bar of stops, its settings named
  * above each (the angle, the center, the blend, Repeat), and apart from them the Stops list with Flip.
  * An image's is in image-fill.tsx, and an image dropped on the section adds an image fill. A fill's type is picked as
  * it's added, so neither the picker nor an editor offers the others.
  */
 
 const kindNames = { solid: "Solid", linear: "Linear", radial: "Radial", angular: "Angular", image: "Image" } as const
+
+/** What a gradient token's name starts with, which its chip leaves off. */
+const gradientNamespace = "gradient-"
 
 /** How a gradient blends its colors, `in oklab` unless another is chosen. */
 const blends: { value: Interpolation; label: string }[] = [
@@ -171,13 +197,6 @@ function longReason(paint: GradientPaint): string {
 const drawnGradient = (paint: GradientPaint, colors: readonly ColorToken[]) =>
   gradientCss(paint, (stop) => drawListColor(stop, colors))
 
-/** A gradient over chrome's checkerboard, so a translucent stop shows as one, as a swatch does. */
-const overChecker = (image: string): CSSProperties => ({
-  ...checker,
-  backgroundImage: `${image}, ${checker.backgroundImage}`,
-  backgroundSize: `auto, ${checker.backgroundSize}`
-})
-
 /** The gradient a bar of stops draws: the stops left to right, whatever the gradient's kind. */
 const barGradient = (paint: GradientPaint, colors: readonly ColorToken[]) =>
   drawnGradient({ ...paint, kind: "linear", angle: 90, repeat: false }, colors)
@@ -187,8 +206,6 @@ export function PaintStack({
   onChange,
   mixed = false,
   tokensOnly = false,
-  saved,
-  onSave,
   onPreview,
   openId
 }: {
@@ -197,9 +214,6 @@ export function PaintStack({
   /** The selected layers' fills differ: "Several fills", with + replacing them all. */
   mixed?: boolean
   tokensOnly?: boolean
-  /** Gradient tokens saved from this story, beside the project's. */
-  saved: GradientToken[]
-  onSave: (token: GradientToken) => void
   /** The fills in the order a fill's being carried over, for the layer to draw before it's let go; nothing after. */
   onPreview?: (entries: PaintEntry[] | undefined) => void
   /** The entry whose editor is open at first, for a story. */
@@ -208,9 +222,7 @@ export function PaintStack({
   const { tokens: colors } = useTokens("color")
   // The fill + just added, whose editor opens as it's drawn, so it's set up straight away.
   const [added, setAdded] = useState<string>()
-
-  const update = (id: string, paint: Partial<PaintEntry>) =>
-    onChange(entries.map((entry) => (entry.id === id ? { ...entry, ...paint } : entry)))
+  const list = entryList(entries, onChange)
 
   const put = (paint: Paint) => {
     const entry: PaintEntry = { id: newId("fill"), paint }
@@ -237,22 +249,18 @@ export function PaintStack({
             <DropdownMenuContent align="end" className="w-56">
               {paintKinds.map((kind) => (
                 <DropdownMenuItem key={kind} className="gap-3 text-xs" onClick={() => add(kind)}>
-                  <PaintSample paint={samples[kind]} colors={colors} />
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="font-medium">{kindNames[kind]}</span>
-                    <span className="truncate text-muted-foreground">{kindDetails[kind]}</span>
-                  </span>
+                  <DescribedOption
+                    glyph={<PaintSample paint={samples[kind]} colors={colors} />}
+                    label={kindNames[kind]}
+                    detail={kindDetails[kind]}
+                  />
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
         }
       >
-        {mixed && (
-          <Hint label="The selected layers have different fills" detail="+ replaces them all with one">
-            <p className="px-1 text-xs text-muted-foreground">Several fills</p>
-          </Hint>
-        )}
+        {mixed && <MixedList what="fills" />}
         {!mixed && entries.length > 0 && (
           <div className="flex flex-col gap-1">
             {entries.map((entry, index) => (
@@ -261,22 +269,12 @@ export function PaintStack({
                 entry={entry}
                 index={index}
                 tokensOnly={tokensOnly}
-                saved={saved}
-                onSave={onSave}
                 startOpen={entry.id === openId || entry.id === added}
-                onChange={(change) => update(entry.id, change)}
+                onChange={(change) => list.update(entry.id, change)}
                 // One fill has nothing to move past, so it has no handle.
-                onMove={
-                  entries.length > 1
-                    ? (from, to) => {
-                        if (to >= 0 && to < entries.length) {
-                          onChange(moved(entries, from, to))
-                        }
-                      }
-                    : undefined
-                }
+                onMove={list.onMove}
                 onCarry={(carried) => onPreview?.(carried && moved(entries, carried.from, carried.to))}
-                onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
+                onRemove={() => list.remove(entry.id)}
               />
             ))}
           </div>
@@ -296,8 +294,6 @@ function PaintRow({
   entry,
   index,
   tokensOnly,
-  saved,
-  onSave,
   startOpen,
   onChange,
   onMove,
@@ -307,8 +303,6 @@ function PaintRow({
   entry: PaintEntry
   index: number
   tokensOnly: boolean
-  saved: GradientToken[]
-  onSave: (token: GradientToken) => void
   startOpen: boolean
   onChange: (change: Partial<PaintEntry>) => void
   onMove?: (from: number, to: number) => void
@@ -330,17 +324,7 @@ function PaintRow({
   }
 
   if (isGradient(paint)) {
-    return (
-      <GradientRow
-        row={row}
-        paint={paint}
-        tokensOnly={tokensOnly}
-        saved={saved}
-        onSave={onSave}
-        startOpen={startOpen}
-        onChange={setPaint}
-      />
-    )
+    return <GradientRow row={row} paint={paint} tokensOnly={tokensOnly} startOpen={startOpen} onChange={setPaint} />
   }
 
   if (paint.kind === "image") {
@@ -394,21 +378,18 @@ function GradientRow({
   row,
   paint,
   tokensOnly,
-  saved,
-  onSave,
   startOpen,
   onChange
 }: {
   row: Omit<ListRowProps, "children">
   paint: GradientPaint
   tokensOnly: boolean
-  saved: GradientToken[]
-  onSave: (token: GradientToken) => void
   startOpen: boolean
   onChange: (paint: GradientPaint) => void
 }) {
   const { tokens: colors } = useTokens("color")
-  const resolved = resolveGradient(paint, saved)
+  const { tokens: gradients } = useTokens("gradient")
+  const resolved = resolveGradient(paint, gradients)
   const angled = resolved.kind === "linear" || resolved.kind === "angular"
   let summary = resolved.repeat ? "Repeating" : ""
 
@@ -418,23 +399,14 @@ function GradientRow({
 
   const alphas = new Set(resolved.stops.map((stop) => stop.alpha))
   const mixed = alphas.size > 1
-  const token = [...gradientTokens, ...saved].find((other) => other.name === paint.token)
+  const token = gradients.find((other) => other.name === paint.token)
 
   return (
     <ListRow
       {...row}
       preview={<span className="block h-4 w-6 rounded-sm" style={overChecker(drawnGradient(resolved, colors))} />}
       details={{
-        content: (
-          <GradientEditor
-            name={row.name}
-            paint={paint}
-            tokensOnly={tokensOnly}
-            saved={saved}
-            onSave={onSave}
-            onChange={onChange}
-          />
-        ),
+        content: <GradientEditor name={row.name} paint={paint} tokensOnly={tokensOnly} onChange={onChange} />,
         defaultOpen: startOpen,
         className: "w-72 gap-0 p-0"
       }}
@@ -462,7 +434,7 @@ function GradientRow({
         <span className="truncate">{summary}</span>
       ) : (
         <span className="flex min-w-0 text-foreground">
-          <TokenChip name={paint.token} token={token} namespace="gradient-" preview={null} struck={!token} />
+          <TokenChip name={paint.token} token={token} namespace={gradientNamespace} preview={null} struck={!token} />
         </span>
       )}
     </ListRow>
@@ -470,28 +442,25 @@ function GradientRow({
 }
 
 /**
- * A gradient's editor: its kind in a menu, as an entry's type is in Effects, the bar of stops, the angle or center,
- * Repeat and how colors blend, then the Stops list. A gradient token's stops show here too; editing one detaches it,
- * writing its stops as the fill's own.
+ * A gradient's editor: its kind in a menu, as an entry's type is in Effects, its token, the bar of stops, the angle or
+ * center, Repeat and how colors blend, then the Stops list. A gradient token's stops show here too; editing one
+ * detaches it, writing its stops as the fill's own.
  */
 export function GradientEditor({
   name,
   paint,
   tokensOnly = false,
-  saved = [],
-  onSave,
   onChange
 }: {
   /** The fill's name, for its kind menu's accessible name: "Fill 1". */
   name: string
   paint: GradientPaint
   tokensOnly?: boolean
-  saved?: GradientToken[]
-  onSave?: (token: GradientToken) => void
   onChange: (paint: GradientPaint) => void
 }) {
   const { tokens: colors } = useTokens("color")
-  const resolved = resolveGradient(paint, saved)
+  const { tokens: gradients, create } = useTokens("gradient")
+  const resolved = resolveGradient(paint, gradients)
   const [selected, setSelected] = useState(resolved.stops[0]?.id)
 
   // Each kind drawn with this gradient's own stops, so the menu shows what switching to it would look like.
@@ -503,7 +472,6 @@ export function GradientEditor({
   }))
 
   const [detached, setDetached] = useState<string>()
-  const [tokensOpen, setTokensOpen] = useState(false)
 
   // Editing a token's part detaches it, and says so.
   const edit = (change: Partial<GradientPaint>) => {
@@ -513,6 +481,22 @@ export function GradientEditor({
 
     onChange({ ...resolved, ...change, token: undefined })
   }
+
+  // A token picked brings its stops, so what's written has them wherever the token's looked up; Custom keeps the
+  // token's stops as the fill's own: it detaches it.
+  const pickToken = (picked: string | undefined) => {
+    const token = gradients.find((other) => other.name === picked)
+    setDetached(picked === undefined ? paint.token : undefined)
+    onChange(token ? { ...token.paint, token: token.name } : { ...resolved, token: undefined })
+  }
+
+  // The fill's own stops become a token, by the name given, which the fill then takes.
+  const createToken =
+    create &&
+    ((full: string) => {
+      create(gradientToken(full, resolved))
+      onChange({ ...resolved, token: full })
+    })
 
   const setStops = (stops: Stop[]) => edit({ stops })
   const sorted = [...resolved.stops].sort((a, b) => a.position - b.position)
@@ -529,29 +513,12 @@ export function GradientEditor({
           {/* Another kind keeps the stops, and detaches a token, as editing does. */}
           <TypeMenu label={name} value={resolved.kind} options={kinds} onChange={(kind) => edit({ kind })} />
         </EntryType>
-        <Popover open={tokensOpen} onOpenChange={setTokensOpen}>
-          <PopoverTrigger
-            aria-label="Gradient tokens"
-            className="ml-auto flex h-7 items-center gap-1 rounded-md px-1.5 text-xs text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent"
-          >
-            Tokens <ChevronDown className="size-3" />
-          </PopoverTrigger>
-          <PopoverContent aria-label="Gradient tokens" className="w-56 gap-0 p-1" align="end">
-            <TokenList
-              label="Gradient"
-              tokens={[...gradientTokens, ...saved]}
-              current={paint.token}
-              none="Custom"
-              onPick={(name) => {
-                // Custom keeps the token's stops as the fill's own: it detaches it.
-                setDetached(name === undefined ? paint.token : undefined)
-                onChange({ ...resolved, token: name })
-                setTokensOpen(false)
-              }}
-            />
-          </PopoverContent>
-        </Popover>
       </div>
+      <FieldGrid>
+        <Field label="Token">
+          <GradientTokenField paint={paint} onPick={pickToken} onCreate={createToken} />
+        </Field>
+      </FieldGrid>
       {paint.token !== undefined && (
         <MessageLine message={{ tone: "note", text: `Uses ${paint.token}. Editing a stop detaches it.` }} />
       )}
@@ -653,14 +620,7 @@ export function GradientEditor({
               className="size-6"
               aria-label="Add stop"
               onClick={() => {
-                const gaps = sorted.slice(1).map((stop, index) => ({
-                  at: (stop.position + sorted[index]!.position) / 2,
-                  size: stop.position - sorted[index]!.position,
-                  from: sorted[index]!
-                }))
-
-                const widest = gaps.reduce((best, gap) => (gap.size > best.size ? gap : best), gaps[0]!)
-                const added = { ...widest.from, id: newId("stop"), position: Math.round(widest.at), hint: undefined }
+                const added = stopInWidestGap(resolved.stops)
                 setSelected(added.id)
                 setStops([...resolved.stops, added])
               }}
@@ -715,32 +675,116 @@ export function GradientEditor({
           </div>
         ))}
       </div>
-      {long && onSave && (
-        <div className="flex flex-col gap-1">
+      {long &&
+        (createToken ? (
+          <CreateTokenNote
+            says={longReason(resolved)}
+            namespace={gradientNamespace}
+            placeholder="brand"
+            isTaken={(full) => tokenNamed(gradients, full) !== undefined}
+            onSave={createToken}
+          />
+        ) : (
           <MessageLine message={{ tone: "note", text: longReason(resolved) }} />
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 self-start text-xs"
-            onClick={() => {
-              const name = `gradient-saved-${saved.length + 1}`
-              // The fill's own stops become the token's paint.
-              onSave(gradientToken(name, resolved))
-              onChange({ ...resolved, token: name })
-            }}
-          >
-            Save as token
-          </Button>
-        </div>
-      )}
+        ))}
     </div>
   )
 }
 
+/** A new stop in the middle of the widest gap between two stops, in the color of the stop before it. */
+function stopInWidestGap(stops: readonly Stop[]): Stop {
+  const sorted = [...stops].sort((a, b) => a.position - b.position)
+
+  const gaps = sorted.slice(1).map((stop, index) => ({
+    at: (stop.position + sorted[index]!.position) / 2,
+    size: stop.position - sorted[index]!.position,
+    from: sorted[index]!
+  }))
+
+  const widest = gaps.reduce((best, gap) => (gap.size > best.size ? gap : best), gaps[0]!)
+
+  return { ...widest.from, id: newId("stop"), position: Math.round(widest.at), hint: undefined }
+}
+
 /**
- * The bar of stops: click the bar to add one, drag a stop along it to move it or off it to remove it, and drag the
- * diamond between two stops to set where they blend halfway (a color hint). A stop moves 1% with Left and Right, 10%
- * with Shift, and Delete removes it.
+ * A gradient's token, on the shared field, as a shadow's is: the token as a chip, or Custom for the fill's own stops.
+ * Its list draws each token with its preview, then Create token for the fill's own stops; typing a token's name
+ * (`brand`, `gradient-brand`) takes it, Up and Down step through the tokens, and Custom, the chip's ×, Backspace on it
+ * or Detach in its list keeps the token's stops as the fill's own.
+ */
+function GradientTokenField({
+  paint,
+  onPick,
+  onCreate
+}: {
+  paint: GradientPaint
+  onPick: (name: string | undefined) => void
+  /** Makes a token of the fill's own stops, by the whole name given; without it, the list has no Create token. */
+  onCreate?: (name: string) => void
+}) {
+  const { tokens } = useTokens("gradient")
+  const name = paint.token
+  const token = tokens.find((other) => other.name === name)
+
+  const read = (text: string): Reading<string | undefined> => {
+    if (text.trim() === "") {
+      return { value: name }
+    }
+
+    const named = tokenNamed(tokens, text, gradientNamespace)
+
+    if (named) {
+      return { value: named.name }
+    }
+
+    const example = tokens[0] ? `, such as ${tokens[0].name.slice(gradientNamespace.length)}` : ""
+
+    return { reason: `Enter a token's name${example}` }
+  }
+
+  return (
+    <ValueField
+      label="Gradient token"
+      shown={undefined}
+      placeholder="Custom"
+      chip={
+        name === undefined
+          ? undefined
+          : {
+              name,
+              token,
+              namespace: gradientNamespace,
+              onRemove: () => onPick(undefined),
+              onDetach: () => onPick(undefined)
+            }
+      }
+      status={{ missing: name !== undefined && !token ? <MissingMark name={name} /> : undefined }}
+      own={name === undefined ? { text: "these stops", namespace: gradientNamespace, onCreate } : undefined}
+      tokens={{ list: tokens, current: name, none: "Custom", onPick }}
+      inputMode="text"
+      read={read}
+      onCommit={onPick}
+      onStep={(up, { shift }) => {
+        if (token) {
+          onPick(stepToken(tokens, token, up, shift).name)
+        }
+      }}
+    />
+  )
+}
+
+/** Which way an arrow key moves a handle along the bar: Right and Up along it, Left and Down back. */
+function alongBar(key: string): number | undefined {
+  const move = arrowMoves.get(key)
+
+  return move && move[0] - move[1]
+}
+
+/**
+ * The bar of stops: click the bar to add one (from the keyboard, in the widest gap), drag a stop along it to move it or
+ * off it to remove it, and drag the diamond between two stops to set where they blend halfway (a color hint). Stops and
+ * diamonds are sliders: the arrow keys move them 1%, 10% with Shift; Home and End take a stop to either end, Delete
+ * removes it, and Home or a double-click centers a diamond.
  */
 function StopsBar({
   paint,
@@ -760,7 +804,7 @@ function StopsBar({
   const setStop = (id: string, change: Partial<Stop>) =>
     onChange(paint.stops.map((stop) => (stop.id === id ? { ...stop, ...change } : stop)))
 
-  const dragStop = (event: PointerEvent<HTMLButtonElement>, stop: Stop) => {
+  const dragStop = (event: PointerEvent<HTMLElement>, stop: Stop) => {
     onSelect(stop.id)
     let off = false
     let stops = paint.stops
@@ -785,7 +829,7 @@ function StopsBar({
     })
   }
 
-  const dragHint = (event: PointerEvent<HTMLButtonElement>, from: Stop, to: Stop) =>
+  const dragHint = (event: PointerEvent<HTMLElement>, from: Stop, to: Stop) =>
     drag(event, {
       within: event.currentTarget.parentElement,
       move: (point) => setStop(from.id, { hint: clamp(Math.round(point.x * 100), from.position + 1, to.position - 1) })
@@ -796,12 +840,18 @@ function StopsBar({
       <Hint label="Click to add a stop">
         <button
           type="button"
-          aria-label="Add a stop where clicked"
+          aria-label="Add a stop"
           onClick={(event) => {
             const box = event.currentTarget.getBoundingClientRect()
             const position = clamp(Math.round(((event.clientX - box.left) / box.width) * 100), 0, 100)
             const before = [...sorted].reverse().find((stop) => stop.position <= position) ?? sorted[0]!
-            const added = { ...before, id: newId("stop"), position, hint: undefined }
+
+            // From the keyboard there's no pointer to place it by, so it goes in the widest gap, as Add stop's does.
+            const added =
+              event.detail === 0
+                ? stopInWidestGap(paint.stops)
+                : { ...before, id: newId("stop"), position, hint: undefined }
+
             onSelect(added.id)
             onChange([...paint.stops, added])
           }}
@@ -823,20 +873,35 @@ function StopsBar({
             <Hint
               key={`hint-${stop.id}`}
               label="Midpoint"
-              detail="Drag to move where these stops blend halfway; double-click to center it"
+              detail="Drag to move where these stops blend halfway; double-click or Home to center it"
             >
-              <button
-                type="button"
-                aria-label={`Midpoint between stop ${index + 1} and ${index + 2}: ${Math.round(at)}%`}
+              <span
+                role="slider"
+                tabIndex={0}
+                aria-label={`Midpoint between stop ${index + 1} and ${index + 2}`}
+                aria-valuemin={stop.position + 1}
+                aria-valuemax={after.position - 1}
+                aria-valuenow={Math.round(at)}
+                aria-valuetext={`${Math.round(at)}%${stop.hint === undefined ? ", centered" : ""}`}
+                aria-keyshortcuts="Home"
                 onPointerDown={(event) => dragHint(event, stop, after)}
                 onDoubleClick={() => setStop(stop.id, { hint: undefined })}
                 onKeyDown={(event) => {
-                  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                  if (event.key === "Home") {
+                    event.preventDefault()
+                    setStop(stop.id, { hint: undefined })
+
+                    return
+                  }
+
+                  const direction = alongBar(event.key)
+
+                  if (direction === undefined) {
                     return
                   }
 
                   event.preventDefault()
-                  const step = stepCount(event.key === "ArrowRight", event.shiftKey)
+                  const step = stepCount(direction > 0, event.shiftKey)
                   setStop(stop.id, { hint: clamp(Math.round(at) + step, stop.position + 1, after.position - 1) })
                 }}
                 className={`absolute top-1 size-2 -translate-x-1/2 touch-none rotate-45 border outline-none focus-visible:ring-2 focus-visible:ring-ring ${stop.hint === undefined ? "border-muted-foreground/60 bg-background" : "border-foreground bg-foreground"}`}
@@ -846,18 +911,32 @@ function StopsBar({
           )
         })}
         {sorted.map((stop, index) => (
-          <button
+          // Focusing a stop selects it, as clicking does, so its row in Stops is the one marked.
+          <span
             key={stop.id}
-            type="button"
-            aria-label={`Stop ${index + 1}: ${stop.position}%`}
-            aria-pressed={selected === stop.id}
+            role="slider"
+            tabIndex={0}
+            aria-label={`Stop ${index + 1}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={stop.position}
+            aria-valuetext={`${stop.position}%`}
+            aria-keyshortcuts="Home End Delete"
             onPointerDown={(event) => dragStop(event, stop)}
             onFocus={() => onSelect(stop.id)}
             onKeyDown={(event) => {
-              if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+              const direction = alongBar(event.key)
+              let position: number | undefined
+
+              if (direction !== undefined) {
+                position = clamp(stop.position + stepCount(direction > 0, event.shiftKey), 0, 100)
+              } else if (event.key === "Home" || event.key === "End") {
+                position = event.key === "Home" ? 0 : 100
+              }
+
+              if (position !== undefined) {
                 event.preventDefault()
-                const step = stepCount(event.key === "ArrowRight", event.shiftKey)
-                setStop(stop.id, { position: clamp(stop.position + step, 0, 100) })
+                setStop(stop.id, { position })
               }
 
               if ((event.key === "Delete" || event.key === "Backspace") && paint.stops.length > 2) {
@@ -870,7 +949,7 @@ function StopsBar({
             style={{ left: `${stop.position}%`, borderColor: selected === stop.id ? kindColors.layer : undefined }}
           >
             <Swatch value={drawListColor(stop, colors)} className="size-2.5" />
-          </button>
+          </span>
         ))}
       </div>
     </div>
@@ -878,10 +957,11 @@ function StopsBar({
 }
 
 /** The card drawn with the fills, so translucent fills show the stage's shapes behind. */
-export function PaintPreview({ entries, saved = [] }: { entries: PaintEntry[]; saved?: GradientToken[] }) {
+export function PaintPreview({ entries }: { entries: PaintEntry[] }) {
   const { tokens: colors } = useTokens("color")
+  const { tokens: gradients } = useTokens("gradient")
   const draw = (value: ListColor) => drawListColor(value, colors)
-  const { base, images } = paintLayers(entries, saved)
+  const { base, images } = paintLayers(entries, gradients)
   const withImage = images.some((entry) => entry.paint.kind === "image")
 
   const each = (pick: (paint: ImagePaint) => string, other: string) =>

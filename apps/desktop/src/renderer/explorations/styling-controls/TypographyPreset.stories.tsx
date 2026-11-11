@@ -48,7 +48,13 @@ function PresetStory({ start, open, unlocked }: { start: PresetLayer; open?: boo
         </TextSample>
       }
     >
-      <PresetTextSection layer={layer} onChange={setLayer} initiallyOpen={open} initiallyUnlocked={unlocked} />
+      <PresetTextSection
+        layer={layer}
+        inheritsFrom="Pricing"
+        onChange={setLayer}
+        initiallyOpen={open}
+        initiallyUnlocked={unlocked}
+      />
     </Playground>
   )
 }
@@ -82,7 +88,7 @@ export const ChangesWithViewport: Story = {
   render: () => <PresetStory start={{ preset: "display", own: {} }} open />
 }
 
-/** No preset, with Heading's type set by hand: "Matches a preset." and Use heading applies it. */
+/** No preset, with Heading's type set by hand: "Not a preset. One matches." and Use heading applies it. */
 export const MatchesAPreset: Story = {
   render: () => (
     <PresetStory
@@ -99,7 +105,7 @@ export const MatchesAPreset: Story = {
   )
 }
 
-/** No preset, at 21px: "Near a preset." and Use heading, with what it changes in its hint. */
+/** No preset, at 21px: "Not a preset. One is near." and Use heading, with what it changes in its hint. */
 export const NearAPreset: Story = {
   render: () => (
     <PresetStory

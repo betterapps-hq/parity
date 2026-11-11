@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { userEvent, within } from "storybook/test"
+import { useTokenSets } from "./field-parts.tsx"
 import type { ShadowEntry, ShadowLayer } from "./lists-data.ts"
 import { shadowWrites } from "./lists-writes.ts"
 import { Playground, PreviewStage } from "./playground.tsx"
 import { ShadowList, ShadowPreview } from "./shadow-list.tsx"
-import type { ShadowToken } from "./tokens.ts"
+import { type TokenSets, tokenSets } from "./tokens.ts"
 import { mixedWrites } from "./writes.ts"
 
 /**
@@ -27,6 +28,18 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
+/**
+ * Hands the story's project tokens up from inside its Playground, so what it writes knows a shadow token made with
+ * Create token.
+ */
+function ShareTokens({ onSets }: { onSets: (sets: TokenSets) => void }) {
+  const sets = useTokenSets()
+
+  useEffect(() => onSets(sets), [sets, onSets])
+
+  return null
+}
+
 function Shadows({
   start,
   mixed = false,
@@ -43,7 +56,7 @@ function Shadows({
 }) {
   const [entries, setEntries] = useState(start)
   const [isMixed, setMixed] = useState(mixed)
-  const [saved, setSaved] = useState<ShadowToken[]>([])
+  const [sets, setSets] = useState(tokenSets)
   const [shadowOf, setShadowOf] = useState<"text" | "box">("text")
   // The order a shadow's being carried over, drawn before it's let go; what's written stays as it is till then.
   const [carried, setCarried] = useState<ShadowEntry[]>()
@@ -51,27 +64,32 @@ function Shadows({
 
   return (
     <Playground
-      writes={isMixed ? mixedWrites : shadowWrites(entries, { shadowOfText: onText, saved })}
+      writes={
+        isMixed
+          ? mixedWrites
+          : shadowWrites(entries, {
+              shadowOfText: onText,
+              tokens: [...sets.shadow, ...sets.insetShadow, ...sets.dropShadow, ...sets.textShadow]
+            })
+      }
       preview={
         <PreviewStage>
           <ShadowPreview
             entries={isMixed ? [] : (carried ?? entries)}
             onText={onText}
             filled={text === undefined || text.hasFill}
-            saved={saved}
           />
         </PreviewStage>
       }
     >
+      <ShareTokens onSets={setSets} />
       <ShadowList
         entries={entries}
         mixed={isMixed}
         tokensOnly={tokensOnly}
         text={text && { hasFill: text.hasFill, shadowOf, onShadowOf: setShadowOf }}
-        saved={saved}
         openId={openId}
         onPreview={setCarried}
-        onSave={(token) => setSaved((list) => [...list, token])}
         onChange={(next) => {
           setMixed(false)
           setEntries(next)
@@ -137,7 +155,7 @@ export const InsetRing: Story = {
 
 /**
  * Two drop shadows: Tailwind's shadow slot holds one, so they're written as one arbitrary value, and the list offers
- * Save as token, which names them as one token.
+ * Create token, which makes them one token by the name given.
  */
 export const TwoDropShadows: Story = {
   render: () => (

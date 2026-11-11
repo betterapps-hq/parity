@@ -23,6 +23,7 @@ type Story = StoryObj<typeof meta>
 
 function Frame({ width, height }: { width: FrameWidth; height?: number }) {
   const [frame, setFrame] = useState({ width, height })
+  const [hugged, setHugged] = useState<number>()
   const breakpoints = useTokens("breakpoint").tokens
 
   const stored = {
@@ -34,9 +35,9 @@ function Frame({ width, height }: { width: FrameWidth; height?: number }) {
   return (
     <Playground
       writes={{ stored, css: [], tailwind: [] }}
-      preview={<FramePreview width={framePx(frame.width, breakpoints)} height={frame.height} />}
+      preview={<FramePreview width={framePx(frame.width, breakpoints)} height={frame.height} onHug={setHugged} />}
     >
-      <FrameSection frame={frame} onChange={setFrame} />
+      <FrameSection frame={frame} hugged={hugged} onChange={setFrame} />
     </Playground>
   )
 }

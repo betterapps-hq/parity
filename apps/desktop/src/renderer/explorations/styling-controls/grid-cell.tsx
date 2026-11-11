@@ -4,8 +4,8 @@ import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { type SectionProps, SizeField, useMeasured } from "./controls.tsx"
-import { clamp, tint } from "./css-values.ts"
+import { type Measured, type SectionProps, SizeField } from "./controls.tsx"
+import { clamp, stepCount, tint } from "./css-values.ts"
 import type { Draft, SelfAlign, Size, Span } from "./data.ts"
 import {
   arrowMoves,
@@ -13,6 +13,7 @@ import {
   type Message,
   MessageLine,
   type Reading,
+  type ScrubKeys,
   type SharedLine,
   useTokenSets,
   ValueField
@@ -52,6 +53,16 @@ const inArea = (area: Area, cell: Cell) =>
 /** A line as the map draws it, from 1: a negative one counts back from after the last track, `count + 1`. */
 const lineAt = (line: number, count: number) => trackOf(line, count) + 1
 
+/**
+ * The line `by` lines on from `line`, from -99 to 99: line 0 doesn't exist, so it goes from 1 straight to -1.
+ */
+function lineAfter(line: number, by: number): number {
+  // Lines counted without the gap at 0: 1 is 0, -1 is -1.
+  const index = clamp((line > 0 ? line - 1 : line) + by, -99, 98)
+
+  return index >= 0 ? index + 1 : index
+}
+
 /** A span as the draft keeps it: one, the default, unset. */
 const spanOf = (count: number) => (count === 1 ? undefined : count)
 
@@ -89,9 +100,15 @@ const unsetPlace = { colStart: undefined, rowStart: undefined, colEnd: undefined
  * or drag by an edge; then where it sits in its cell, as a box of spots, beside Start and Span for each axis. Auto and
  * Manual, beside Cells, leave it to the grid's next free cell or pin it where it is.
  */
-export function GridCellSection({ draft, set }: SectionProps) {
+export function GridCellSection({
+  draft,
+  set,
+  measured
+}: SectionProps & {
+  /** The child's drawn size and its cell's width, from the canvas. */
+  measured?: Measured
+}) {
   const spacing = useTokenSets().spacing
-  const measured = useMeasured("[data-layer='Pro plan']")
   const columns = columnTracks(draft, spacing).length
   const children = placeChildren(draft, columns)
   const area = children.find((child) => child.name === "Pro plan")!.area
@@ -794,13 +811,8 @@ function LineField({
     return { reason: "Enter a line number, such as 2, or -1 for after the last" }
   }
 
-  // Line 0 doesn't exist, so stepping goes from 1 straight to -1.
-  const step = (up: boolean) => {
-    const by = up ? 1 : -1
-    const next = (value ?? landsAt) + by
-
-    onChange(next === 0 ? by : next)
-  }
+  // Up and Down step a line, Shift ten, and dragging the row's name a line per screen pixel, as a count does.
+  const step = (up: boolean, { shift }: ScrubKeys) => onChange(lineAfter(value ?? landsAt, stepCount(up, shift)))
 
   let comesTo: string | undefined
 
@@ -813,6 +825,11 @@ function LineField({
   return (
     <ValueField
       label={label}
+      scrub={{
+        from: () => value ?? landsAt,
+        apply: (next) => onChange(next),
+        by: { move: (start, dx, { shift }) => lineAfter(start, Math.trunc(dx) * (shift ? 10 : 1)) }
+      }}
       shown={value === undefined ? undefined : String(value)}
       placeholder={placeholder}
       comesTo={comesTo}
@@ -915,7 +932,13 @@ function SpanField({
       line={line}
       read={read}
       onCommit={onChange}
-      onStep={(up) => onChange(toSpan(Math.max(1, spanned + (up ? 1 : -1))))}
+      // Up and Down step a track, Shift ten, and dragging the row's name a track per screen pixel, as a count does.
+      scrub={{
+        from: () => spanned,
+        apply: (next) => onChange(toSpan(next)),
+        by: { step: 1, shiftStep: 10, min: 1, max: 99 }
+      }}
+      onStep={(up, { shift }) => onChange(toSpan(Math.min(99, Math.max(1, spanned + stepCount(up, shift)))))}
     />
   )
 }

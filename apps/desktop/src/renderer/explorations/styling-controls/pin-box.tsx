@@ -8,16 +8,7 @@ import { SideValue } from "./box-model.tsx"
 import { formatNumber, tint } from "./css-values.ts"
 import { MessageLine, useTokens } from "./field-parts.tsx"
 import { Field, IconSegments, NameToggle, TitleMenu } from "./field-row.tsx"
-import {
-  distances,
-  inFlow,
-  insetPixels,
-  layerSize,
-  parent,
-  type Placement,
-  type Position,
-  placed
-} from "./position-writes.ts"
+import { distances, insetPixels, type Placement, type Position, placed, type Stage } from "./position-writes.ts"
 import { type Side, type SideRules, type Sides, sideNames, sideNumber, sideRules } from "./sides-writes.ts"
 import { setSides, SideField, spreadTo } from "./sides.tsx"
 
@@ -34,7 +25,7 @@ const layerColor = kindColors.layer
 
 const placements = [
   { value: "static", label: "In layout", detail: "Placed by its layout, as its children are", Icon: Rows3 },
-  { value: "absolute", label: "Absolute", detail: "Placed against Pricing, out of the layout", Icon: Crosshair },
+  { value: "absolute", label: "Absolute", detail: "Placed against its parent, out of the layout", Icon: Crosshair },
   {
     value: "fixed",
     label: "Fixed",
@@ -81,7 +72,8 @@ export function PositionSection({
   layerOrder,
   onLayerOrder,
   showLayerOrder: layerOrderAdded = false,
-  context = "Pricing",
+  context,
+  stage,
   stickyStopped,
   onClipInstead
 }: {
@@ -92,7 +84,8 @@ export function PositionSection({
   /** Layer order added from More on a layer In layout or Relative. */
   showLayerOrder?: boolean
   /** The stacking context Layer order orders within, and what makes it one. */
-  context?: string
+  context: string
+  stage: Stage
   /** Why a Sticky layer won't stick: a layout around it that hides its overflow. */
   stickyStopped?: string
   onClipInstead?: () => void
@@ -119,7 +112,7 @@ export function PositionSection({
     }
     // Taken out of the layout, it stays where it was, pinned to the left and top, as Figma's absolute position does.
     else {
-      set({ placement: next, insets: [{ number: inFlow.y }, undefined, undefined, { number: inFlow.x }] })
+      set({ placement: next, insets: [{ number: stage.inFlow.y }, undefined, undefined, { number: stage.inFlow.x }] })
     }
   }
 
@@ -160,7 +153,7 @@ export function PositionSection({
           {layerOrderShown && <LayerOrderField value={layerOrder} context={context} half onChange={onLayerOrder} />}
         </div>
         {placement !== "static" && (
-          <InsetBox position={position} placement={placement} stopped={stickyStopped} set={set} />
+          <InsetBox position={position} placement={placement} stage={stage} stopped={stickyStopped} set={set} />
         )}
         {stickyStopped && (
           <MessageLine
@@ -196,17 +189,20 @@ const bandCells = [
 function InsetBox({
   position,
   placement,
+  stage,
   stopped,
   set
 }: {
   position: Position
   placement: Exclude<Placement, "static">
+  stage: Stage
   stopped?: string
   set: (position: Position) => void
 }) {
   const spacing = useTokens("spacing").tokens
-  const rect = placed(position, spacing)
-  const measured = distances(rect)
+  const { parent } = stage
+  const rect = placed(position, spacing, stage)
+  const measured = distances(rect, parent)
   // Sticky and Relative insets are offsets, from where it sticks or where it was, so they start at 0 and don't center.
   const offsets = placement === "sticky" || placement === "relative"
   const { name: againstName, of } = against[placement]
@@ -242,7 +238,7 @@ function InsetBox({
 
     if (position[key] === undefined) {
       const of = horizontal ? parent.width : parent.height
-      const size = horizontal ? layerSize.width : layerSize.height
+      const size = horizontal ? stage.size.width : stage.size.height
       insets[startIndex] = undefined
       insets[endIndex] = undefined
       next[key] = Math.round((horizontal ? rect.x : rect.y) - (of - size) / 2)
@@ -466,6 +462,13 @@ export function LayerOrderField({
   )
 }
 
+/** Pricing, the parent the preview places Plans in, and Plans' own size and place in the flow. */
+export const previewStage: Stage = {
+  parent: { width: 320, height: 200 },
+  size: { width: 120, height: 64 },
+  inFlow: { x: 24, y: 24 }
+}
+
 /**
  * Pricing with Plans placed in it, as the canvas draws it: each pinned side measured to Pricing's edge in the
  * accent color. Fixed draws the window instead of Pricing; Sticky marks the line it sticks at.
@@ -473,8 +476,9 @@ export function LayerOrderField({
 export function PositionPreview({ position, layerOrder }: { position: Position; layerOrder?: Side }) {
   const spacing = useTokens("spacing").tokens
   const layerTokens = useTokens("zIndex").tokens
-  const rect = placed(position, spacing)
-  const [top, right, bottom, left] = distances(rect)
+  const { parent, size: layerSize, inFlow } = previewStage
+  const rect = placed(position, spacing, previewStage)
+  const [top, right, bottom, left] = distances(rect, parent)
 
   const pinnedAt = (index: number) => {
     if (index % 2 === 1 && position.centerX !== undefined) {

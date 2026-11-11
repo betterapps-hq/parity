@@ -52,19 +52,19 @@ import type { FieldToken, TokenSetName } from "./tokens.ts"
  * matches one, or nearly does, says so under the row, with Use. Rows the preset doesn't set stay ordinary rows.
  */
 
-/** Where the stand-in layer inherits its font from, as Font's placeholder says. */
-const parentName = "Pricing"
-
 /** Each row's half of the section's grid: Font across, then Size beside Weight and Line height beside Letter spacing. */
 const halfRows = new Set<TypeField>(["size", "weight", "lineHeight", "letterSpacing"])
 
 export function PresetTextSection({
   layer,
+  inheritsFrom,
   onChange,
   initiallyOpen = false,
   initiallyUnlocked = []
 }: {
   layer: PresetLayer
+  /** The layer its font is inherited from, as Font's placeholder says. */
+  inheritsFrom: string
   onChange: (layer: PresetLayer) => void
   /** Starts with the summary open, its rows shown. */
   initiallyOpen?: boolean
@@ -132,6 +132,7 @@ export function PresetTextSection({
       key={field}
       field={field}
       layer={layer}
+      inheritsFrom={inheritsFrom}
       preset={covered.includes(field) ? preset : undefined}
       unlocked={unlocked.has(field)}
       onUnlock={(on) => unlock(field, on)}
@@ -335,7 +336,7 @@ function ClosestPreset({ match, onUse }: { match: PresetMatch | undefined; onUse
     <MessageLine
       message={{
         tone: "note",
-        text: differs.length === 0 ? "Matches a preset." : "Near a preset.",
+        text: differs.length === 0 ? "Not a preset. One matches." : "Not a preset. One is near.",
         // As a token's Use reads: its name, then what it comes to.
         action: {
           label: (
@@ -390,6 +391,7 @@ function Summary({
 function TypeRow({
   field,
   layer,
+  inheritsFrom,
   preset,
   unlocked,
   onUnlock,
@@ -397,6 +399,7 @@ function TypeRow({
 }: {
   field: TypeField
   layer: PresetLayer
+  inheritsFrom: string
   preset: TypePreset | undefined
   unlocked: boolean
   onUnlock: (on: boolean) => void
@@ -407,7 +410,11 @@ function TypeRow({
   const { source } = shownValue(layer, field)
   const half = halfRows.has(field)
   const viewports = viewportsOf(preset, field)
-  const control = <TypeControl field={field} layer={layer} onChange={(next) => onChange(next)} />
+
+  const control = (
+    <TypeControl field={field} layer={layer} inheritsFrom={inheritsFrom} onChange={(next) => onChange(next)} />
+  )
+
   let body: ReactNode
 
   if (!preset) {
@@ -515,10 +522,12 @@ const noPreview = () => undefined
 function TypeControl({
   field,
   layer,
+  inheritsFrom,
   onChange
 }: {
   field: TypeField
   layer: PresetLayer
+  inheritsFrom: string
   onChange: (layer: PresetLayer) => void
 }) {
   const type = typeOf(layer)
@@ -530,7 +539,7 @@ function TypeControl({
     return (
       <FontFamilyField
         value={shownValue(layer, "font").value}
-        inherited={{ font: projectFonts[0]!, from: parentName }}
+        inherited={{ font: projectFonts[0]!, from: inheritsFrom }}
         onChange={(next) => set("font", next)}
         onPreview={noPreview}
       />

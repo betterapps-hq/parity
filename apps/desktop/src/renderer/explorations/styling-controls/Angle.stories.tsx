@@ -3,6 +3,7 @@ import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { AngleField } from "./angle.tsx"
 import { Field } from "./field-row.tsx"
+import { gradientDirections } from "./lists-data.ts"
 import { type Angle, angleDegrees } from "./motion-data.ts"
 import { angleWrites } from "./motion-writes.ts"
 import { Playground } from "./playground.tsx"
@@ -27,7 +28,18 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-function Rotation({ start, mixed = false, wraps = false }: { start?: Angle; mixed?: boolean; wraps?: boolean }) {
+function Rotation({
+  start,
+  mixed = false,
+  wraps = false,
+  directions = false
+}: {
+  start?: Angle
+  mixed?: boolean
+  wraps?: boolean
+  /** Reads a linear gradient's directions, `to right` and the rest, as their angles. */
+  directions?: boolean
+}) {
   const [angle, setAngle] = useState(start)
   const writes = mixed && angle === undefined ? mixedWrites : angleWrites(angle)
   // Rotation keeps its turns; a field that wraps is one for a direction, as a gradient's Angle.
@@ -41,6 +53,7 @@ function Rotation({ start, mixed = false, wraps = false }: { start?: Angle; mixe
           value={angle}
           mixed={mixed && angle === undefined}
           wraps={wraps}
+          keywords={directions ? gradientDirections : undefined}
           onChange={setAngle}
         />
       </Field>
@@ -78,6 +91,17 @@ export const WrapsWithinATurn: Story = {
   play: async ({ canvasElement }) => {
     within(canvasElement).getByRole("slider", { name: "Angle knob" }).focus()
     await userEvent.keyboard("{Shift>}{ArrowRight}{ArrowRight}{/Shift}")
+  }
+}
+
+/**
+ * A linear gradient's Angle, which also reads its directions: they're in the chevron's Options, each with the angle it
+ * comes to, `to right` at 90° marked as the one set.
+ */
+export const GradientDirections: Story = {
+  render: () => <Rotation start={{ step: 90 }} wraps directions />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Angle options" }))
   }
 }
 

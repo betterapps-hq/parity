@@ -9,7 +9,7 @@ import { BlurChoice } from "./controls.tsx"
 import { isLengthToken, type Length } from "./data.ts"
 import { MessageLine, type Reading, TokenChip, TokenList, TokenMark, useTokens, ValueField } from "./field-parts.tsx"
 import { TitleMenu } from "./field-row.tsx"
-import { CenteredSlider, ListRow } from "./list-parts.tsx"
+import { CenteredSlider, entryList, ListRow } from "./list-parts.tsx"
 import {
   type AdjustmentKey,
   adjustmentFunctions,
@@ -104,8 +104,9 @@ export function FilterList({
   openId?: string
 }) {
   const taken = new Set(entries.map(addableOf))
+  // An entry's change is the whole entry, since a kind's fields differ.
   const set = (id: string, entry: FilterEntry) => onChange(entries.map((other) => (other.id === id ? entry : other)))
-  const remove = (id: string) => onChange(entries.filter((other) => other.id !== id))
+  const { remove } = entryList(entries, onChange)
 
   // A group with no rows doesn't show.
   const groups = [

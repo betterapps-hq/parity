@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { HoverCard } from "./easing.tsx"
 import { useTokens } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
@@ -21,8 +21,8 @@ import { mixedWrites, type Writes } from "./writes.ts"
 /**
  * A time (PAR-652's Time), as a transition's Duration and Delay take it: milliseconds. `0.2s` typed becomes 200ms; one
  * read from code keeps `s` until it's edited. Any whole millisecond is a step (`duration-200`), with no mark; once the
- * project has duration tokens, Tokens offers the nearest first. Up and Down step 10ms, Shift 100ms; a token steps to
- * the next. Duration tokens show as a track whose dot crosses it in that time in the token list. With a spring, Duration shows the
+ * project has duration tokens, Tokens offers the nearest first. Up and Down step 10ms, Shift 100ms and Alt 1ms, and
+ * dragging the mark or the row's name scrubs it as much per screen pixel; a token steps to the next. Duration tokens show as a track whose dot crosses it in that time in the token list. With a spring, Duration shows the
  * spring's settle time, set by Easing.
  */
 const meta = {
@@ -112,8 +112,16 @@ function Timing({
 /** Unset: Tailwind's default, 150ms, shown faintly, and nothing written. */
 export const Unset: Story = { render: () => <Timing /> }
 
-/** 200ms, a step: `duration-200`, unmarked in a project with no duration tokens. */
-export const Step: Story = { render: () => <Timing start={{ step: 200 }} /> }
+/** 200ms, a step: `duration-200`, unmarked in a project with no duration tokens. Alt+Up makes it 201ms. */
+export const Step: Story = {
+  render: () => <Timing start={{ step: 200 }} />,
+  play: async ({ canvasElement }) => {
+    const field = within(canvasElement).getByRole("textbox", { name: "Duration" })
+    await userEvent.click(field)
+    await userEvent.keyboard("{Alt>}{ArrowUp}{/Alt}")
+    await waitFor(() => expect(field).toHaveValue("201"))
+  }
+}
 
 /** `0.2s` typed and Enter pressed: it becomes 200ms. */
 export const TypedInSeconds: Story = {

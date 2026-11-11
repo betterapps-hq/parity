@@ -21,15 +21,18 @@ import {
   useState
 } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
+import { checker } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepCount } from "./css-values.ts"
-import { arrowMoves, drag, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
+import { arrowMoves, drag, NewTokenForm, type Reading, readNumber, useLiveRow, ValueField } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { type Carried, useSortable } from "./sortable.ts"
 
 /*
  * What the list fields share (design-options-fields.md, Lists): the entry's row, in the spec's order (the drag handle
  * where there's another row to move past, the entry with its preview, name and summary, which opens its details, the
- * eye and −), the type menu its details start with, the centered slider of Adjustments and the offset pad. Fields,
+ * eye and −), changing, removing and moving entries by id, what a mixed list says, the type menu its details start
+ * with, the note and Create token for a list written as one arbitrary value, the centered slider of Adjustments and the
+ * offset pad. Fields,
  * chips, angles, positions and the nine spots are the core's (field-parts.tsx, angle.tsx, position-box.tsx).
  */
 
@@ -278,6 +281,81 @@ export function moved<T>(list: readonly T[], from: number, to: number): T[] {
 }
 
 /**
+ * What a list section does to its entries by id: changes one, takes one off, and moves one, which a list of one has
+ * nothing to move past, so it gets no handle. A place past either end leaves the list as it is (`moved`).
+ */
+export function entryList<T extends { id: string }>(entries: readonly T[], onChange: (entries: T[]) => void) {
+  return {
+    update: (id: string, change: Partial<T>) =>
+      onChange(entries.map((entry) => (entry.id === id ? { ...entry, ...change } : entry))),
+    remove: (id: string) => onChange(entries.filter((entry) => entry.id !== id)),
+    onMove: entries.length > 1 ? (from: number, to: number) => onChange(moved(entries, from, to)) : undefined
+  }
+}
+
+/** What a list shows while the selected layers' lists differ: "Several fills", with + replacing them all. */
+export function MixedList({ what }: { what: string }) {
+  return (
+    <Hint label={`The selected layers have different ${what}`} detail="+ replaces them all with one">
+      <p className="px-1 text-xs text-muted-foreground">Several {what}</p>
+    </Hint>
+  )
+}
+
+/** An image over chrome's checkerboard, so a translucent gradient or color shows as one, as a swatch does. */
+export const overChecker = (image: string): CSSProperties => ({
+  ...checker,
+  backgroundImage: `${image}, ${checker.backgroundImage}`,
+  backgroundSize: `auto, ${checker.backgroundSize}`
+})
+
+/**
+ * Why a value is written as one arbitrary value, said under its row, and Create token, which names it as a token in a
+ * small popover with the form the token list's Create token has: the namespace before the name, its checks, and one
+ * clash message.
+ */
+export function CreateTokenNote({
+  says,
+  namespace,
+  placeholder,
+  isTaken,
+  onSave
+}: {
+  says: string
+  /** What the token's name starts with, put before the name typed: `ease-`. */
+  namespace?: string
+  placeholder: string
+  /** Whether a token has this whole name already. */
+  isTaken: (full: string) => boolean
+  /** Makes the token, by its whole name. */
+  onSave: (full: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <p className="flex flex-wrap items-center gap-x-1 type-description text-muted-foreground">
+      {says}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger className="text-foreground underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring">
+          Create token
+        </PopoverTrigger>
+        <PopoverContent aria-label="Create token" className="w-56 gap-0 p-1" align="start">
+          <NewTokenForm
+            namespace={namespace}
+            placeholder={placeholder}
+            isTaken={isTaken}
+            onCreate={(full) => {
+              onSave(full)
+              setOpen(false)
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+    </p>
+  )
+}
+
+/**
  * Keys for a sorted list whose entries have no identity of their own, as a grid's tracks: each keeps its key as it's
  * moved or another is removed, so its row's element moves with it, and the card put down lands where it went rather
  * than back where it was. A list grown or shrunk some other way gains or loses keys at its end.
@@ -354,20 +432,32 @@ export function TypeMenu<K extends string>({ label, value, options, onChange }: 
         >
           {options.map((option) => (
             <DropdownMenuRadioItem key={option.value} value={option.value} className="gap-3 text-xs">
-              {option.glyph}
-              {option.detail === undefined ? (
-                option.label
-              ) : (
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="font-medium">{option.label}</span>
-                  <span className="truncate text-muted-foreground">{option.detail}</span>
-                </span>
-              )}
+              <DescribedOption glyph={option.glyph} label={option.label} detail={option.detail} />
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+/**
+ * A type as a menu item draws it: its glyph, then its name, with what it draws under it where it says, as + and a
+ * gradient's kind menu list them. Inside a menu item with `gap-3 text-xs`.
+ */
+export function DescribedOption({ glyph, label, detail }: { glyph?: ReactNode; label: string; detail?: string }) {
+  return (
+    <>
+      {glyph}
+      {detail === undefined ? (
+        label
+      ) : (
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-medium">{label}</span>
+          <span className="truncate text-muted-foreground">{detail}</span>
+        </span>
+      )}
+    </>
   )
 }
 
@@ -452,6 +542,12 @@ export function CenteredSlider({
           label={`${label} value`}
           shown={formatNumber(value)}
           unit={unit || undefined}
+          // The row's name drags it, one a screen pixel and ten with Shift, as every number scrubs.
+          scrub={{
+            from: () => value,
+            apply: (next) => onChange(Math.round(next)),
+            by: { step: 1, shiftStep: 10, min, max }
+          }}
           read={read}
           onCommit={onChange}
           onStep={(up, { shift }) => onChange(clamp(value + stepCount(up, shift), min, max))}
@@ -480,7 +576,10 @@ export function OffsetPad({ x, y, onChange }: { x: number; y: number; onChange: 
     <div
       role="slider"
       aria-label="Offset"
+      // Both axes are in the words; the number is X, within what the pad reaches.
       aria-valuetext={`X ${x}, Y ${y}`}
+      aria-valuemin={-Math.round(reach)}
+      aria-valuemax={Math.round(reach)}
       aria-valuenow={x}
       tabIndex={0}
       onPointerDown={press}

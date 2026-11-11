@@ -2,7 +2,7 @@ import { DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuSeparator } fr
 import { Contrast } from "lucide-react"
 import { Fragment } from "react"
 import { formatNumber } from "./css-values.ts"
-import { nearestToken, PercentField, useTokens } from "./field-parts.tsx"
+import { ownValue, PercentField, useTokens } from "./field-parts.tsx"
 import { KeywordItem, KeywordTrigger, PreviewMenu } from "./keyword-sets.tsx"
 import { type BlendMode, blendModes } from "./text-data.ts"
 import type { Opacity } from "./text-writes.ts"
@@ -29,7 +29,6 @@ export function OpacityField({
 }) {
   const { tokens, create } = useTokens("opacity")
   const own = value !== undefined && "percent" in value ? value : undefined
-  const nearest = own === undefined ? undefined : nearestToken(tokens, (each) => each.percent, own.percent)
   const token = value !== undefined && "token" in value ? value.token : undefined
 
   return (
@@ -50,19 +49,17 @@ export function OpacityField({
         own={
           own === undefined
             ? undefined
-            : {
+            : ownValue({
+                value: own.percent,
                 text: `${formatNumber(own.percent)}%`,
-                nearest,
-                same: nearest?.percent === own.percent,
-                onCreate:
-                  create &&
-                  ((name) => {
-                    create(opacityToken(name, own.percent))
-                    onChange({ token: name })
-                  }),
-                allowed: own.allow,
+                tokens,
+                measure: (each) => each.percent,
+                make: (name) => opacityToken(name, own.percent),
+                create,
+                allow: own.allow,
+                onToken: (name) => onChange({ token: name }),
                 onAllow: (allow) => onChange({ percent: own.percent, allow })
-              }
+              })
         }
         onChange={(percent) => onChange(percent === undefined ? undefined : { percent })}
       />

@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { gridPlacementComparisons, gridPlacementPoints } from "./comparisons.tsx"
-import { LayerPreview } from "./controls.tsx"
+import { LayerPreview, type Measured } from "./controls.tsx"
 import type { Draft, Track } from "./data.ts"
 import { GridCellSection } from "./grid-cell.tsx"
 import { Playground, useDraft } from "./playground.tsx"
@@ -43,21 +43,37 @@ function Placement({ start }: { start: Draft }) {
   })
 
   const [selected, setSelected] = useState(true)
+  const [measured, setMeasured] = useState<Measured>()
 
   return (
     <Playground
       comparisons={gridPlacementComparisons}
       points={gridPlacementPoints}
       writes={placementWrites(draft)}
-      preview={<LayerPreview draft={draft} childSelected={selected} onSelectChild={setSelected} />}
+      preview={
+        <LayerPreview draft={draft} childSelected={selected} onSelectChild={setSelected} onMeasureChild={setMeasured} />
+      }
     >
-      <GridCellSection draft={draft} set={set} />
+      <GridCellSection draft={draft} set={set} measured={measured} />
     </Playground>
   )
 }
 
-/** Pro plan spans two columns from line 2: `col-span-2 col-start-2`. Lines 2 and 4, its own, are in its color. */
-export const SpanAndStart: Story = { render: () => <Placement start={{ colSpan: 2, colStart: 2 }} /> }
+/**
+ * Pro plan spans two columns from line 2: `col-span-2 col-start-2`. Lines 2 and 4, its own, are in its color. Shift+Up
+ * on Span adds ten, as every count steps.
+ */
+export const SpanAndStart: Story = {
+  render: () => <Placement start={{ colSpan: 2, colStart: 2 }} />,
+  play: async ({ canvasElement }) => {
+    const span = within(canvasElement).getByRole("textbox", { name: "Columns spanned" })
+    await userEvent.click(span)
+    await userEvent.keyboard("{Shift>}{ArrowUp}{/Shift}")
+    await waitFor(() => expect(span).toHaveValue("12"))
+    await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}")
+    await waitFor(() => expect(span).toHaveValue("2"))
+  }
+}
 
 /** Across every column: Span is All, a chip, `col-span-full`, `1 / -1` in CSS. Start says 1, faintly. */
 export const AcrossAll: Story = { render: () => <Placement start={{ colSpan: "all" }} /> }

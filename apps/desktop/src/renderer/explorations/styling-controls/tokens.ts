@@ -216,7 +216,7 @@ export interface EasingToken extends FieldToken {
 }
 
 /**
- * An easing token from its curve, or a spring's settings, as the stand-ins and Save as token make them. A spring's
+ * An easing token from its curve, or a spring's settings, as the stand-ins and Create token make them. A spring's
  * value is the `linear()` it's written as, so its preview draws the spring's curve.
  */
 export function easingToken(name: string, curve?: Bezier, spring?: Spring): EasingToken {
@@ -266,7 +266,7 @@ const part = (x: number, y: number, blur: number, spread: number, alpha: number)
   alpha
 })
 
-/** A shadow token of a kind (shadow, inset, drop, text) from its layers, as the stand-ins and Save as token make them. */
+/** A shadow token of a kind (shadow, inset, drop, text) from its layers, as the stand-ins and Create token make them. */
 export const shadowToken = (kind: PreviewKind, name: string, layers: ShadowLayer[]): ShadowToken => {
   const spread = kind !== "text-shadow" && kind !== "drop-shadow"
 
@@ -330,7 +330,7 @@ export interface GradientToken extends FieldToken {
   paint: Omit<GradientPaint, "token">
 }
 
-/** A gradient token from its paint, as the stand-ins and Save as token make them. */
+/** A gradient token from its paint, as the stand-ins and Create token make them. */
 export const gradientToken = (name: string, paint: Omit<GradientPaint, "token">): GradientToken => ({
   name,
   kind: "gradient",

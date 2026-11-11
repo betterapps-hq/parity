@@ -45,7 +45,8 @@ function turnsText(degrees: number) {
  * where it's seen, with no popover in the way. Past 360° the knob counts the whole turns in its middle.
  *
  * A field can wrap within a turn, where only the direction matters, as a gradient's Angle does: 370° comes to 10°.
- * Rotation doesn't, since a transition to 450° turns further than one to 90°.
+ * Rotation doesn't, since a transition to 450° turns further than one to 90°. Words it reads as angles, a gradient's
+ * `to right`, are in its chevron's Options.
  */
 export function AngleField({
   label,
@@ -119,6 +120,23 @@ export function AngleField({
       mixed={mixed}
       unit="°"
       comesTo={kept}
+      // The words it reads, as a gradient's directions, are its chevron's Options, each with the angle it comes to.
+      tokens={
+        keywords && {
+          list: [],
+          keywords: {
+            heading: "Directions",
+            rows: Object.entries(keywords).map(([word, at]) => ({
+              key: word,
+              name: word,
+              detail: `${at}°`,
+              current: value !== undefined && degrees === at,
+              onPick: () => onChange(angle(at))
+            }))
+          },
+          onPick: () => undefined
+        }
+      }
       read={read}
       onCommit={onChange}
       onStep={(up, { shift }) => onChange(angle(degrees + (up ? 1 : -1) * (shift ? 15 : 1)))}
@@ -126,6 +144,7 @@ export function AngleField({
         <AngleKnob
           label={label}
           degrees={degrees}
+          range={wraps ? { min: 0, max: 360 } : undefined}
           set={value !== undefined}
           onChange={(next) => onChange(angle(next))}
         />
@@ -173,11 +192,17 @@ function around(box: DOMRect, { clientX, clientY }: { clientX: number; clientY: 
 export function AngleKnob({
   label,
   degrees,
+  range,
   set = true,
   onChange
 }: {
   label: string
   degrees: number
+  /**
+   * The least and most it comes to, for a slider's range: a turn where it wraps. Unset, the knob keeps counting turns,
+   * so its range is a turn either way of 0°, stretched to take the angle in.
+   */
+  range?: { min: number; max: number }
   /** The angle is set here; unset, the pointer's drawn faintly at what unset comes to. */
   set?: boolean
   onChange: (degrees: number) => void
@@ -275,6 +300,8 @@ export function AngleKnob({
         role="slider"
         tabIndex={0}
         aria-label={`${label} knob`}
+        aria-valuemin={range?.min ?? Math.min(-360, degrees)}
+        aria-valuemax={range?.max ?? Math.max(360, degrees)}
         aria-valuenow={degrees}
         aria-valuetext={lapped ? `${degrees}°, ${turnsText(degrees)}` : `${degrees}°`}
         width={size}

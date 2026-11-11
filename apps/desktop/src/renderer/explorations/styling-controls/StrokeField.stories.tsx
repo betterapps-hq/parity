@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { expect, within } from "storybook/test"
 import { StrokeSection } from "./controls.tsx"
 import type { Draft } from "./data.ts"
+import { useTokens } from "./field-parts.tsx"
 import { CardPreview, Playground, useDraft } from "./playground.tsx"
 import { type Sides } from "./sides-writes.ts"
 import { strokeWrites } from "./writes.ts"
@@ -10,7 +12,9 @@ import { strokeWrites } from "./writes.ts"
  * `border-border` at 1px, and − takes it off. Its color is a color field; its width is one field, or each side's once
  * Each side is pressed, taking a whole pixel or a border-width token, with the nearest token offered for a width of
  * its own (Stroke width has the field's own stories). Include in layout is on for a new stroke and writes a border; off, Position draws it as an outline
- * inside, centered on or outside the edge, with an offset of minus the width, minus half of it, or 0 (call 2).
+ * inside, centered on or outside the edge, with an offset of minus the width, minus half of it, or 0 (call 2). An
+ * outline has one width, so taking a stroke out of layout makes its sides the widest of them, and sides that differ
+ * put it back in layout.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Controls/Stroke",
@@ -28,10 +32,11 @@ function Stroke({ start, tokensOnly }: { start: Draft; tokensOnly?: boolean }) {
   const [draft, set] = useDraft({ background: "card", radius: "radius-xl", ...start })
   const inLayout = draft.strokeInLayout ?? true
   const position = inLayout ? "inside" : (draft.strokePosition ?? "inside")
+  const borderWidths = useTokens("borderWidth").tokens
 
   return (
     <Playground
-      writes={strokeWrites(draft, inLayout, position)}
+      writes={strokeWrites(draft, inLayout, position, borderWidths)}
       preview={<CardPreview draft={draft} inLayout={inLayout} position={position} />}
     >
       <StrokeSection draft={draft} set={set} tokensOnly={tokensOnly} />
@@ -88,4 +93,25 @@ export const PlainColor: Story = { render: () => <Stroke start={{ border: "#2f6f
  */
 export const LockedToTokens: Story = {
   render: () => <Stroke start={{ border: "#2f6fed", borderWidth: every(1) }} tokensOnly />
+}
+
+/**
+ * Out of layout with sides that differ, as a layer can come with: an outline has one width, so it's written at the
+ * widest, 3px, `outline-3`, not the top's 1px.
+ */
+export const OutlineFromUnevenSides: Story = {
+  render: () => (
+    <Stroke
+      start={{
+        border: "primary",
+        borderWidth: [px(1), px(3), undefined, px(2)],
+        strokeInLayout: false,
+        strokePosition: "outside"
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    await expect(canvas.getAllByText(/\boutline-3\b/).length).toBeGreaterThan(0)
+  }
 }

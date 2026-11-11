@@ -33,7 +33,7 @@ import { type KeyboardEvent, type PointerEvent, type ReactNode, useState } from 
 import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { checker, swatch } from "../../chrome/token-previews.tsx"
+import { swatch } from "../../chrome/token-previews.tsx"
 import { optionNamed } from "../parts.tsx"
 import { clamp, mixColor, stepCount } from "./css-values.ts"
 import {
@@ -44,12 +44,16 @@ import {
   PercentField,
   type Reading,
   type SharedLine,
+  type ScrubKeys,
+  stepToken,
   ThemeMark,
   TokenMenu,
+  tokenNamed,
   useTokens,
   useTyped,
   ValueField
 } from "./field-parts.tsx"
+import { overChecker as drawnOverChecker } from "./list-parts.tsx"
 import { type ColorToken, colorToken } from "./tokens.ts"
 
 /*
@@ -59,6 +63,13 @@ import { type ColorToken, colorToken } from "./tokens.ts"
  * model menu, the eyedropper, the design's colors and the nearest token. The Tokens panel's picker edits a token's own
  * value.
  */
+
+/** A palette color's hue and shade, `blue` and 500 in `blue-500`; nothing for a semantic color, which has no shades. */
+function shadeOf(name: string): { hue: string; shade: number } | undefined {
+  const match = /^([a-z]+)-(50|[1-9]00|950)$/.exec(name)
+
+  return match ? { hue: match[1]!, shade: Number(match[2]) } : undefined
+}
 
 /** Whether a style's color is a plain value (`#2563eb`, `oklch(…)`) rather than a token's name. */
 const parsesAsColor = (value: string | undefined): value is string =>
@@ -414,6 +425,8 @@ function Strip2d({
       role="slider"
       aria-label={label}
       aria-valuetext={valueText}
+      aria-valuemin={0}
+      aria-valuemax={100}
       aria-valuenow={Math.round(x * 100)}
       tabIndex={0}
       onKeyDown={(event) => {
@@ -458,9 +471,7 @@ function Strip({
   overChecker?: boolean
   onChange: (value: number) => void
 }) {
-  const style = overChecker
-    ? { ...checker, backgroundImage: `${background}, ${checker.backgroundImage}`, backgroundSize: "auto, 8px 8px" }
-    : { background }
+  const style = overChecker ? drawnOverChecker(background) : { background }
 
   return (
     <div
@@ -472,14 +483,15 @@ function Strip({
       aria-valuetext={`${Math.round(value)}${unit}`}
       tabIndex={0}
       onKeyDown={(event) => {
-        const direction = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }[event.key]
+        const move = arrowMoves.get(event.key)
 
-        if (direction === undefined) {
+        if (!move) {
           return
         }
 
+        // Right and Up raise it, Left and Down lower it.
         event.preventDefault()
-        onChange(clamp(value + direction * keyStep(event), 0, max))
+        onChange(clamp(value + (move[0] - move[1]) * keyStep(event), 0, max))
       }}
       onPointerDown={(event: PointerEvent<HTMLDivElement>) =>
         drag(event, { move: (point) => onChange(point.x * max), press: true })
@@ -590,7 +602,7 @@ export function ColorInput({
       return { value: { value: current ? value : undefined, alpha } }
     }
 
-    const token = colors.find((other) => other.name === trimmed.toLowerCase())
+    const token = tokenNamed(colors, trimmed)
 
     if (token) {
       return { value: { value: token.name, alpha } }
@@ -628,6 +640,30 @@ export function ColorInput({
         style={{ background: "linear-gradient(135deg, #2563eb 50%, #f54900 50%)" }}
       />
     )
+  }
+
+  // Up and Down step a palette color to the next shade of its hue (blue-500 to blue-600), Shift to its lightest or
+  // darkest, keeping its alpha. A semantic color has no shades, so they open its list instead. A color of its own is on
+  // no scale, so they leave it: the token nearest it is first in that list.
+  const step = (up: boolean, { shift }: ScrubKeys) => {
+    if (!current) {
+      return
+    }
+
+    const hue = shadeOf(current.name)?.hue
+
+    if (hue === undefined) {
+      setTab("tokens")
+      setOpen(true)
+
+      return
+    }
+
+    const shades = colors
+      .filter((other) => shadeOf(other.name)?.hue === hue)
+      .toSorted((a, b) => shadeOf(a.name)!.shade - shadeOf(b.name)!.shade)
+
+    onChange(stepToken(shades, current, up, shift).name, alpha)
   }
 
   const tokenMenu = (
@@ -797,6 +833,7 @@ export function ColorInput({
         // An OKLCH color shows short at rest; typing works on the whole of it.
         editText={plain && value.startsWith("oklch") ? value : undefined}
         read={read}
+        onStep={step}
         onCommit={(next) => {
           if (next.value !== value || next.alpha !== alpha) {
             onChange(next.value, next.alpha)

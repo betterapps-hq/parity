@@ -2,7 +2,7 @@
  * Position's Placement, its insets from the inset box, and Layer order: what they store and write. A pinned side is an
  * inset; an unpinned one is `auto` and writes nothing. Center writes `left: d; right: -d` with auto margins, as the
  * panel spec's presets table says; Fill parent is `inset-0`. Each side writes as sides-writes.ts writes any side, in
- * css-values.ts's forms; where Plans is drawn takes the project's spacing tokens, so a token inset lands where it says.
+ * css-values.ts's forms; where the layer is drawn takes the project's spacing tokens, so a token inset lands where it says.
  */
 import { type Side, type Sides, sideClass, sideCss, sideNumber, sideStored, sidesWrites } from "./sides-writes.ts"
 import type { LengthToken } from "./tokens.ts"
@@ -23,10 +23,13 @@ export interface Position {
   hugs?: { width: boolean; height: boolean }
 }
 
-/** Pricing, the parent the preview places Plans in, and Plans' own size and place in the flow. */
-export const parent = { width: 320, height: 200 }
-export const layerSize = { width: 120, height: 64 }
-export const inFlow = { x: 24, y: 24 }
+/** Where the layer is, from the canvas: its parent's size, its own size, and where its layout puts it. */
+export interface Stage {
+  parent: { width: number; height: number }
+  size: { width: number; height: number }
+  /** Its offset from the parent's top left when In layout. */
+  inFlow: { x: number; y: number }
+}
 
 /** An inset in pixels: its own, its spacing token's, or a percentage of the parent's width or height. */
 export function insetPixels(side: Side, of: number, tokens: readonly LengthToken[]): number | undefined {
@@ -77,27 +80,18 @@ function axis(
 }
 
 /**
- * Where Plans is drawn in Pricing: by its insets when Absolute or Fixed, stretching between two pinned sides; moved
+ * Where the layer is drawn in its parent: by its insets when Absolute or Fixed, stretching between two pinned sides; moved
  * from its place in the flow by them when Relative; in the flow otherwise, Sticky included until it's scrolled. A
  * token inset is as long as the project's token says (`tokens`, its spacing tokens).
  */
-export function placed(position: Position, tokens: readonly LengthToken[]): Rect {
+export function placed(position: Position, tokens: readonly LengthToken[], stage: Stage): Rect {
   const [top, right, bottom, left] = position.insets
+  const { parent, size, inFlow } = stage
 
   if (position.placement === "absolute" || position.placement === "fixed") {
-    const across = axis(
-      [left, right],
-      position.centerX,
-      { of: parent.width, size: layerSize.width, flow: inFlow.x },
-      tokens
-    )
+    const across = axis([left, right], position.centerX, { of: parent.width, size: size.width, flow: inFlow.x }, tokens)
 
-    const down = axis(
-      [top, bottom],
-      position.centerY,
-      { of: parent.height, size: layerSize.height, flow: inFlow.y },
-      tokens
-    )
+    const down = axis([top, bottom], position.centerY, { of: parent.height, size: size.height, flow: inFlow.y }, tokens)
 
     return { x: across.at, y: down.at, width: across.size, height: down.size }
   }
@@ -107,14 +101,14 @@ export function placed(position: Position, tokens: readonly LengthToken[]): Rect
     const dx = inset(left, parent.width) ?? -(inset(right, parent.width) ?? 0)
     const dy = inset(top, parent.height) ?? -(inset(bottom, parent.height) ?? 0)
 
-    return { x: inFlow.x + dx, y: inFlow.y + dy, ...layerSize }
+    return { x: inFlow.x + dx, y: inFlow.y + dy, ...size }
   }
 
-  return { ...inFlow, ...layerSize }
+  return { ...inFlow, ...size }
 }
 
-/** How far each side of Plans is from Pricing's, from the top, clockwise. */
-export function distances(rect: Rect): [number, number, number, number] {
+/** How far each side of the layer is from its parent's, from the top, clockwise. */
+export function distances(rect: Rect, parent: Stage["parent"]): [number, number, number, number] {
   return [
     Math.round(rect.y),
     Math.round(parent.width - rect.x - rect.width),

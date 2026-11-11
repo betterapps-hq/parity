@@ -1,5 +1,4 @@
 import {
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -15,13 +14,13 @@ import {
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ChevronDown, LayoutTemplate, Link2, Monitor, Squircle } from "lucide-react"
-import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { ChoiceInput, PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
-import { formatNumber, remPx, sameValue, stepCount, stepSpacing, stepThrough } from "./css-values.ts"
+import { formatNumber, remPx, sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import {
   type Columns,
   contentSizeWords,
@@ -42,14 +41,17 @@ import {
 } from "./data.ts"
 import {
   type FieldChip,
+  moveThroughRows,
   nearestToken,
   NotBaseline,
   ownLength,
   type Reading,
   type ScrubKeys,
   tokenChip,
+  tokenNamed,
   type TokensShown,
   tokenStatus,
+  stepToken,
   unitButtonClass,
   UnitMenu,
   usePercentUnit,
@@ -57,7 +59,7 @@ import {
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
-import { CornerGlyph, EachToggle, Field, SectionButton } from "./field-row.tsx"
+import { CornerGlyph, EachToggle, Field, nameMenuButton, SectionButton } from "./field-row.tsx"
 import { HighlightOverlay } from "./highlight.tsx"
 import { RemoveButton } from "./list-parts.tsx"
 import { drawnStyle, PreviewStage } from "./playground.tsx"
@@ -91,9 +93,18 @@ export interface SectionProps {
  * since a ratio is ignored when both sizes are set; the ratio then shows as its own row, with named ratios. Typing H
  * while locked changes W to keep the ratio.
  */
-export function SizeSection({ draft, set, tokensShown }: SectionProps & { tokensShown?: TokensShown }) {
-  const measured = useMeasured("section[aria-label='Plans']")
-  const width = draft.width ?? 520
+export function SizeSection({
+  draft,
+  set,
+  measured,
+  tokensShown
+}: SectionProps & {
+  /** The layer's drawn size and its parent's width, from the canvas. */
+  measured?: Measured
+  tokensShown?: TokensShown
+}) {
+  // An unset width shows what the layer comes to, and writes nothing until it's changed.
+  const width = draft.width ?? measured?.width ?? 100
   const height = draft.height ?? "hug"
   const ratio = draft.aspect === undefined ? undefined : ratioOf(draft.aspect)
 
@@ -105,7 +116,7 @@ export function SizeSection({ draft, set, tokensShown }: SectionProps & { tokens
       return
     }
 
-    const shown = measured?.width ?? 520
+    const shown = measured?.width ?? (isFixedSize(width) ? width : 100)
     const tall = measured?.height ?? shown
     // Within a percent of a named ratio is that ratio: whole pixels can't make 16:9 exactly.
     const near = namedRatios.find((option) => Math.abs(ratioOf(option.value)! / (shown / tall) - 1) < 0.01)
@@ -198,20 +209,24 @@ export function SizeSection({ draft, set, tokensShown }: SectionProps & { tokens
   )
 }
 
-/** A layer's drawn size and its parent's width, kept up to date as it changes. */
-export function useMeasured(selector: string): { width: number; height: number; parent: number } | undefined {
-  const [size, setSize] = useState<{ width: number; height: number; parent: number }>()
-  useEffect(() => {
-    const element = document.querySelector<HTMLElement>(selector)
+/** A layer's drawn size and its parent's width, as the canvas measures them. */
+export interface Measured {
+  width: number
+  height: number
+  parent: number
+}
 
-    if (!element) {
+/** Reports an element's drawn size and its parent's width each time either changes, as the canvas measures a layer. */
+function useMeasure(element: HTMLElement | null, onMeasure: ((measured: Measured) => void) | undefined) {
+  useEffect(() => {
+    if (!element || !onMeasure) {
       return
     }
 
     const measure = () => {
       const box = element.getBoundingClientRect()
       const parent = element.parentElement?.getBoundingClientRect().width ?? box.width
-      setSize({ width: Math.round(box.width), height: Math.round(box.height), parent: Math.round(parent) })
+      onMeasure({ width: Math.round(box.width), height: Math.round(box.height), parent: Math.round(parent) })
     }
 
     const observer = new ResizeObserver(measure)
@@ -222,9 +237,7 @@ export function useMeasured(selector: string): { width: number; height: number; 
     }
 
     return () => observer.disconnect()
-  }, [selector])
-
-  return size
+  }, [element, onMeasure])
 }
 
 /** The sizes in words, each with what it does, in W's and H's Sizing menu and their chips' hints. */
@@ -288,8 +301,6 @@ export function SizeField({
   const spacing = useTokens("spacing")
   const containers = useTokens("container").tokens
   const tokens = [...spacing.tokens, ...containers]
-  // Deprecated tokens are neither stepped onto nor offered as the nearest: they're on their way out.
-  const scale = tokens.filter((each) => each.deprecated === undefined).toSorted((a, b) => a.px - b.px)
   const words = sizeWords(within)
   const mode = !setBy && isSizeMode(value) ? value : undefined
   const fixed = !setBy && isFixedSize(value) ? value : undefined
@@ -339,9 +350,7 @@ export function SizeField({
       return { value: word }
     }
 
-    const typedToken = tokens.find((each) =>
-      [each.name, each.name.replace(/^(spacing|container)-/, "")].includes(typed)
-    )
+    const typedToken = tokenNamed(tokens, typed, "spacing-") ?? tokenNamed(containers, typed, "container-")
 
     if (typedToken) {
       return { value: { token: typedToken.name } }
@@ -387,8 +396,8 @@ export function SizeField({
     }
 
     // A token steps to the next in scale order; Shift goes to the first or last.
-    if (token && scale.includes(token)) {
-      onChange({ token: stepThrough(scale, token, up, keys.shift).name })
+    if (token) {
+      onChange({ token: stepToken(tokens, token, up, keys.shift).name })
 
       return
     }
@@ -716,40 +725,49 @@ function CornerStyle({
   onChange: (value: string | undefined) => void
 }) {
   const current = value ?? "round"
+  const [open, setOpen] = useState(false)
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <Hint
         label="Corner shape"
         detail="Only Chromium draws it. Other browsers draw round corners, so the radius still holds."
       >
         <PopoverTrigger
           aria-label={`Corner shape: ${cornerStyles.find((option) => option.value === current)?.label}`}
-          className={`grid size-5 shrink-0 place-items-center rounded outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-muted dark:hover:bg-input/40 ${value && value !== "round" ? "bg-muted text-foreground dark:bg-input/60" : "text-muted-foreground"}`}
+          // Shaded while a shape other than Round is set, as a pressed toggle in a name row is.
+          data-set={current === "round" ? undefined : ""}
+          className={`${nameMenuButton} dark:hover:bg-input/40 data-set:bg-muted data-set:text-foreground dark:data-set:bg-input/60`}
         >
-          <Squircle className="size-3" />
+          <Squircle />
         </PopoverTrigger>
       </Hint>
-      <PopoverContent aria-label="Corner shape" className="w-52 gap-2 p-2" align="end">
-        <p className="flex items-center gap-1 text-sm font-medium">
+      <PopoverContent aria-label="Corner shape" className="w-52 gap-1 p-1" align="end">
+        <p className="flex items-center gap-1 px-2 pt-1 text-sm font-medium">
           Corner shape
           <NotBaseline what="Corner shape" />
         </p>
-        <div className="grid grid-cols-3 gap-1">
+        {/* One list of choices, as a token list is: the current one marked, Up and Down moving through them. */}
+        {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- the arrow keys of the buttons inside, handled once for them all */}
+        <div className="flex flex-col" onKeyDown={moveThroughRows}>
           {cornerStyles.map((option) => (
-            <Button
+            <button
               key={option.value}
-              variant={current === option.value ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={current === option.value}
-              className="h-7 px-1 text-xs"
-              onClick={() => onChange(option.value === "round" ? undefined : option.value)}
+              type="button"
+              aria-current={current === option.value || undefined}
+              className={`flex w-full items-center rounded-sm px-2 py-1 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent ${current === option.value ? "bg-accent" : ""}`}
+              onClick={() => {
+                onChange(option.value === "round" ? undefined : option.value)
+                setOpen(false)
+              }}
             >
               {option.label}
-            </Button>
+            </button>
           ))}
         </div>
-        <p className="type-description text-muted-foreground">Other browsers draw round corners, at the same radius.</p>
+        <p className="px-2 pb-1 type-description text-muted-foreground">
+          Other browsers draw round corners, at the same radius.
+        </p>
       </PopoverContent>
     </Popover>
   )
@@ -942,7 +960,7 @@ function LengthField({
 
   const unitNow = percentUnit.unit
 
-  // Deprecated tokens are neither offered as the nearest nor stepped onto: they're on their way out.
+  // Deprecated tokens aren't offered under Tokens only: they're on their way out.
   const scale = tokens.filter((other) => other.deprecated === undefined)
   const nearestTo = (px: number) => nearestToken(tokens, (other) => other.px, px)
   const nearest = own ? nearestTo(own.px) : undefined
@@ -955,7 +973,7 @@ function LengthField({
       return { value: undefined }
     }
 
-    const named = tokens.find((other) => other.name === trimmed || other.name === namespace + trimmed)
+    const named = tokenNamed(tokens, trimmed, namespace)
 
     if (named) {
       return { value: named.name }
@@ -1006,9 +1024,9 @@ function LengthField({
   }
 
   const step = (up: boolean, { shift }: ScrubKeys) => {
-    if (token && scale.includes(token)) {
+    if (token) {
       // A token steps to the next of its kind in scale order; Shift goes to the first or last.
-      onChange(stepThrough(scale, token, up, shift).name)
+      onChange(stepToken(tokens, token, up, shift).name)
 
       return
     }
@@ -1021,8 +1039,7 @@ function LengthField({
       return
     }
 
-    const from = own?.px ?? token?.px ?? 0
-    onChange({ px: Math.max(0, from + by) })
+    onChange({ px: Math.max(0, (own?.px ?? 0) + by) })
   }
 
   // The unit's menu keeps the number and changes its unit, as Webflow's does: 12px becomes 12%.
@@ -1315,9 +1332,12 @@ const frameScale = 0.4
 /** The design's frame, typed: its width and height in this viewport. */
 export function FrameSection({
   frame,
+  hugged,
   onChange
 }: {
   frame: { width: FrameWidth; height: number | undefined }
+  /** The design's own height, what Hug comes to, from the canvas. */
+  hugged?: number
   onChange: (frame: { width: FrameWidth; height: number | undefined }) => void
 }) {
   return (
@@ -1335,7 +1355,11 @@ export function FrameSection({
         <Field label="Size">
           <div className="grid grid-cols-2 gap-1">
             <FrameWidthField width={frame.width} onChange={(width) => onChange({ ...frame, width })} />
-            <FrameHeightField height={frame.height} onChange={(height) => onChange({ ...frame, height })} />
+            <FrameHeightField
+              height={frame.height}
+              hugged={hugged}
+              onChange={(height) => onChange({ ...frame, height })}
+            />
           </div>
         </Field>
       </div>
@@ -1355,12 +1379,10 @@ function FrameWidthField({ width, onChange }: { width: FrameWidth; onChange: (wi
   const token = named === undefined ? undefined : tokens.find((each) => each.name === named)
   const own = isFixedSize(width) ? width : undefined
   const px = framePx(width, tokens)
-  const scale = tokens.filter((each) => each.deprecated === undefined).toSorted((a, b) => a.px - b.px)
   const reason = "Enter a width, or a breakpoint such as xl"
 
   const read = (text: string): Reading<FrameWidth> => {
-    const typed = text.trim().toLowerCase()
-    const typedToken = tokens.find((each) => [each.name, each.name.slice(namespace.length)].includes(typed))
+    const typedToken = tokenNamed(tokens, text, namespace)
 
     if (typedToken) {
       return { value: { token: typedToken.name } }
@@ -1376,8 +1398,8 @@ function FrameWidthField({ width, onChange }: { width: FrameWidth; onChange: (wi
   }
 
   const step = (up: boolean, { shift }: ScrubKeys) => {
-    if (token && scale.includes(token)) {
-      onChange({ token: stepThrough(scale, token, up, shift).name })
+    if (token) {
+      onChange({ token: stepToken(tokens, token, up, shift).name })
 
       return
     }
@@ -1439,13 +1461,13 @@ function FrameWidthField({ width, onChange }: { width: FrameWidth; onChange: (wi
  */
 function FrameHeightField({
   height,
+  hugged,
   onChange
 }: {
   height: number | undefined
+  hugged: number | undefined
   onChange: (height: number | undefined) => void
 }) {
-  const drawn = useMeasured("[data-frame-preview]")
-  const hugged = drawn === undefined ? undefined : Math.round(drawn.height / frameScale)
   const now = Math.max(1, Math.round(height ?? hugged ?? 800))
   const hug = height === undefined
 
@@ -1669,17 +1691,26 @@ function columnsCss(columns: Columns | undefined): string | undefined {
 export function LayerPreview({
   draft,
   childSelected = false,
-  onSelectChild
+  onSelectChild,
+  onMeasure,
+  onMeasureChild
 }: {
   draft: Draft
   /** Whether Pro plan is selected, as a grid child; clicking it selects it where `onSelectChild` is given. */
   childSelected?: boolean
   onSelectChild?: (selected: boolean) => void
+  /** Called with Plans' drawn size and its parent's width each time they change, as the canvas measures a layer. */
+  onMeasure?: (measured: Measured) => void
+  /** Called with Pro plan's drawn size and its parent's width each time they change. */
+  onMeasureChild?: (measured: Measured) => void
 }) {
   const sets = useTokenSets()
   const sizeTokens = [...sets.spacing, ...sets.container]
   // The layout, for what's highlighted on it to be measured against.
   const [layout, setLayout] = useState<HTMLElement | null>(null)
+  const [child, setChild] = useState<HTMLElement | null>(null)
+  useMeasure(layout, onMeasure)
+  useMeasure(child, onMeasureChild)
   const grid = draft.columns !== undefined
   const Tag = tagOptions.find((option) => option.value === draft.tag)?.value ?? "p"
   const direction = `${draft.direction ?? "column"}${draft.reverse ? "-reverse" : ""}` as const
@@ -1688,9 +1719,9 @@ export function LayerPreview({
   const gap = draft.gap === "auto" ? 0 : (sideNumber(draft.gap, sets.spacing) ?? 0)
   const rowGap = draft.rowGap === "auto" ? undefined : sideNumber(draft.rowGap, sets.spacing)
 
-  // A negative gap overlaps the children, as the negative margin it's written as does.
-  const overlap =
-    !grid && gap < 0 ? { [(draft.direction ?? "column") === "row" ? "marginInlineEnd" : "marginBlockEnd"]: gap } : {}
+  // A negative gap overlaps the children, as the negative margin it's written as does: on their start side, reversed.
+  const marginSide = `${(draft.direction ?? "column") === "row" ? "marginInline" : "marginBlock"}${draft.reverse ? "Start" : "End"}`
+  const overlap = !grid && !draft.wrap && gap < 0 ? { [marginSide]: gap } : {}
 
   const spread = draft.gap === "auto" ? `space-${draft.distribute ?? "between"}` : flexValues[justify]
 
@@ -1752,8 +1783,8 @@ export function LayerPreview({
           return (
             <button
               key={name}
+              ref={pro ? setChild : undefined}
               type="button"
-              data-layer={name}
               aria-pressed={selected}
               onClick={() => onSelectChild?.(pro ? !childSelected : false)}
               className={`rounded-lg border border-black/10 bg-white/80 p-3 text-left text-sm ${selected ? "outline-2" : ""}`}
@@ -1768,14 +1799,27 @@ export function LayerPreview({
   )
 }
 
-export function FramePreview({ width, height }: { width: number; height: number | undefined }) {
+export function FramePreview({
+  width,
+  height,
+  onHug
+}: {
+  width: number
+  height: number | undefined
+  /** Called with the design's own height, life size, each time it changes. */
+  onHug?: (height: number) => void
+}) {
+  const [frame, setFrame] = useState<HTMLElement | null>(null)
+  const report = useCallback((measured: Measured) => onHug?.(Math.round(measured.height / frameScale)), [onHug])
+  useMeasure(frame, onHug && report)
+
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">
         Pricing in Desktop, {width} × {height ?? "Hug"}
       </span>
       <div
-        data-frame-preview
+        ref={setFrame}
         className="flex flex-col gap-3 overflow-hidden border bg-white p-6 shadow-sm"
         style={{ width: width * frameScale, height: height === undefined ? undefined : height * frameScale }}
       >

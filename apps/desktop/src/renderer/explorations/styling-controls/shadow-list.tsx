@@ -1,31 +1,36 @@
-import {
-  Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  DropdownMenuItem
-} from "@buildkitgg/shadcn-baseui-kit"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, DropdownMenuItem } from "@buildkitgg/shadcn-baseui-kit"
 import type { PreviewKind } from "@parity-app/tokens"
-import { ChevronDown, ChevronRight, Unlink } from "lucide-react"
+import { ChevronDown, ChevronRight } from "lucide-react"
 import { useState } from "react"
-import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
 import { Num } from "./controls.tsx"
-import { shadowCss, stepThrough } from "./css-values.ts"
+import { shadowCss } from "./css-values.ts"
 import { usedColors } from "./data.ts"
 import {
   MessageLine,
   MissingMark,
   type Reading,
   type ScrubKeys,
+  stepToken,
   TokenChip,
   TokenMark,
+  tokenNamed,
   useTokens,
   ValueField
 } from "./field-parts.tsx"
 import { Field, FieldGrid, SectionButton, type Segment, Segments, SwitchRow, TitleMenu } from "./field-row.tsx"
-import { EntryType, ListRow, moved, OffsetPad, TypeMenu, type TypeOption } from "./list-parts.tsx"
+import {
+  CreateTokenNote,
+  EntryType,
+  entryList,
+  ListRow,
+  MixedList,
+  moved,
+  OffsetPad,
+  TypeMenu,
+  type TypeOption
+} from "./list-parts.tsx"
 import {
   boxLayersOf,
   colorWords,
@@ -36,13 +41,12 @@ import {
   newId,
   type ShadowEntry,
   type ShadowKind,
-  type ShadowLayer,
-  tokensFor
+  type ShadowLayer
 } from "./lists-data.ts"
 import { shadowDrawing, shadowsFitSlots, shadowTarget } from "./lists-writes.ts"
 import { Card } from "./playground.tsx"
 import type { Carried } from "./sortable.ts"
-import { allShadowTokens, dropShadowTokens, type ShadowToken, shadowToken, shadowTokens } from "./tokens.ts"
+import { type ShadowToken, shadowToken } from "./tokens.ts"
 
 /*
  * Effects' shadow list (design-options-values.md, Shadow list): drop shadows, inner shadows and rings, in two groups,
@@ -57,6 +61,23 @@ const shadowKinds: readonly ShadowKind[] = ["drop", "inner", "ring"]
 
 /** The namespace a shadow token's name has, which its chip leaves off: `shadow-` in `shadow-md`. */
 const shadowNamespace = (name: string) => /^(inset-shadow|drop-shadow|text-shadow|shadow)-/.exec(name)?.[0]
+
+/**
+ * The project's shadow tokens of every kind, with any made with Create token, and how to add a box shadow one; and the
+ * ones an entry offers, by the kind its card draws (a ring offers none).
+ */
+function useShadowTokens() {
+  const shadow = useTokens("shadow")
+  const inset = useTokens("insetShadow")
+  const drop = useTokens("dropShadow")
+  const text = useTokens("textShadow")
+  const all: ShadowToken[] = [...shadow.tokens, ...inset.tokens, ...drop.tokens, ...text.tokens]
+
+  const offered = (entry: ShadowEntry, onText: boolean) =>
+    entry.kind === "ring" ? [] : all.filter((token) => token.kind === cardKind(entry, onText))
+
+  return { all, offered, create: shadow.create }
+}
 
 /** Which group an entry is listed and dragged in. */
 function groupOf(entry: ShadowEntry): "inside" | "outside" | "follow" {
@@ -112,8 +133,6 @@ export function ShadowList({
   mixed = false,
   tokensOnly = false,
   text,
-  saved,
-  onSave,
   onPreview,
   openId
 }: {
@@ -123,13 +142,13 @@ export function ShadowList({
   tokensOnly?: boolean
   /** On a text layer, a drop shadow shadows the text (`text-shadow`) unless Shadow of is Box. */
   text?: ShadowText
-  saved: ShadowToken[]
-  onSave: (token: ShadowToken) => void
   /** The shadows in the order one's being carried over, for the layer to draw before it's let go; nothing after. */
   onPreview?: (entries: ShadowEntry[] | undefined) => void
   openId?: string
 }) {
+  const { all, create } = useShadowTokens()
   const ordered = inGroups(entries)
+  const list = entryList(ordered, onChange)
   const onText = text !== undefined && text.shadowOf === "text"
 
   // A shadow moves only past others of its group, its place counted within the group.
@@ -176,9 +195,6 @@ export function ShadowList({
 
   const fits = shadowsFitSlots(ordered, onText)
 
-  const set = (id: string, change: Partial<ShadowEntry>) =>
-    onChange(ordered.map((entry) => (entry.id === id ? { ...entry, ...change } : entry)))
-
   // A group with no shadows doesn't show.
   const groups = (["inside", "outside", "follow"] as const).flatMap((group) => {
     const rows = ordered.filter((entry) => groupOf(entry) === group)
@@ -190,14 +206,14 @@ export function ShadowList({
   // Handles show where a group has two shadows or more; the others keep their room so the rows line up.
   const handles = groups.some(({ rows }) => rows.length > 1)
 
-  const saveAsToken = () => {
+  // The shadows on the box become one token, by the name given, which takes their place.
+  const saveAsToken = (name: string) => {
     const box = ordered.filter((entry) => !entry.off && shadowTarget(entry, onText) === "box")
-    const name = `shadow-saved-${saved.length + 1}`
-    onSave(
+    create?.(
       shadowToken(
         "shadow",
         name,
-        box.flatMap((entry) => boxLayersOf(entry, saved))
+        box.flatMap((entry) => boxLayersOf(entry, all))
       )
     )
     onChange([
@@ -205,6 +221,8 @@ export function ShadowList({
       ...ordered.filter((entry) => !box.includes(entry))
     ])
   }
+
+  const unfit = "These shadows don't fit Tailwind's shadow utilities, so they're written as one arbitrary value."
 
   return (
     <PanelSection
@@ -230,11 +248,7 @@ export function ShadowList({
         </div>
       }
     >
-      {mixed && (
-        <Hint label="The selected layers have different shadows" detail="+ replaces them all with one">
-          <p className="px-1 text-xs text-muted-foreground">Several shadows</p>
-        </Hint>
-      )}
+      {mixed && <MixedList what="shadows" />}
       {!mixed && entries.length > 0 && (
         <div className="flex flex-col gap-1">
           {/* The groups' titles and rows are siblings, so a shadow that changes group (Follow shape) keeps its row and
@@ -251,36 +265,29 @@ export function ShadowList({
                 group={group}
                 tokensOnly={tokensOnly}
                 text={text}
-                saved={saved}
                 startOpen={entry.id === openId}
-                onChange={(change) => set(entry.id, change)}
+                onChange={(change) => list.update(entry.id, change)}
                 // A shadow moves only past another in its group, so one alone has no handle.
-                onMove={
-                  rows.length > 1
-                    ? (from, to) => {
-                        if (to >= 0 && to < rows.length) {
-                          onChange(reordered(group, rows, from, to))
-                        }
-                      }
-                    : undefined
-                }
+                onMove={rows.length > 1 ? (from, to) => onChange(reordered(group, rows, from, to)) : undefined}
                 onCarry={(carried) => onPreview?.(carried && reordered(group, rows, carried.from, carried.to))}
                 gutter={handles}
-                onRemove={() => onChange(ordered.filter((other) => other.id !== entry.id))}
+                onRemove={() => list.remove(entry.id)}
               />
             ))
           ])}
           {!fits && (
-            <div className={`flex flex-col items-start gap-1 ${handles ? "px-4" : ""}`}>
-              <MessageLine
-                message={{
-                  tone: "note",
-                  text: "These shadows don't fit Tailwind's shadow utilities, so they're written as one arbitrary value."
-                }}
-              />
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={saveAsToken}>
-                Save as token
-              </Button>
+            <div className={handles ? "px-4" : ""}>
+              {create ? (
+                <CreateTokenNote
+                  says={unfit}
+                  namespace="shadow-"
+                  placeholder="card"
+                  isTaken={(full) => tokenNamed(all, full) !== undefined}
+                  onSave={saveAsToken}
+                />
+              ) : (
+                <MessageLine message={{ tone: "note", text: unfit }} />
+              )}
             </div>
           )}
         </div>
@@ -310,27 +317,20 @@ function cardKind(entry: ShadowEntry, onText: boolean): PreviewKind {
  * An entry's card: its shadow drawn by the Tokens panel's preview for its kind, on the design's sheet, as a shadow
  * token's is in its list, with the entry's own color.
  */
-export function ShadowCard({
-  entry,
-  onText = false,
-  saved = []
-}: {
-  entry: ShadowEntry
-  onText?: boolean
-  saved?: ShadowToken[]
-}) {
+export function ShadowCard({ entry, onText = false }: { entry: ShadowEntry; onText?: boolean }) {
   const { tokens: colors } = useTokens("color")
+  const { all } = useShadowTokens()
   const draw = (value: ListColor) => drawListColor(value, colors)
   const kind = cardKind(entry, onText)
-  let value = shadowCss(boxLayersOf(entry, saved), draw)
+  let value = shadowCss(boxLayersOf(entry, all), draw)
 
   // A drop shadow's preview takes one `drop-shadow()`'s arguments, and a text shadow's has no spread either.
   if (kind === "drop-shadow") {
-    value = shadowCss(layersOf(entry, saved).slice(0, 1), draw, { spread: false })
+    value = shadowCss(layersOf(entry, all).slice(0, 1), draw, { spread: false })
   }
 
   if (kind === "text-shadow") {
-    value = shadowCss(layersOf(entry, saved), draw, { spread: false })
+    value = shadowCss(layersOf(entry, all), draw, { spread: false })
   }
 
   return <TokenMark kind={kind} value={value} />
@@ -340,9 +340,9 @@ export function ShadowCard({
  * A shadow token in a row: its chip alone, with a dot where its color is changed here. Its numbers are in its hint and
  * the entry's details, so the row stays readable.
  */
-function ShadowTokenSummary({ entry, saved }: { entry: ShadowEntry; saved: ShadowToken[] }) {
+function ShadowTokenSummary({ entry }: { entry: ShadowEntry }) {
   const name = entry.token ?? ""
-  const token = [...allShadowTokens, ...saved].find((option) => option.name === name)
+  const token = useShadowTokens().all.find((option) => option.name === name)
 
   return (
     <span className="flex min-w-0 text-foreground">
@@ -365,7 +365,6 @@ function ShadowRow({
   group,
   tokensOnly,
   text,
-  saved,
   startOpen,
   onChange,
   onMove,
@@ -378,7 +377,6 @@ function ShadowRow({
   group: string
   tokensOnly: boolean
   text: ShadowText | undefined
-  saved: ShadowToken[]
   startOpen: boolean
   onChange: (change: Partial<ShadowEntry>) => void
   onMove?: (from: number, to: number) => void
@@ -410,7 +408,7 @@ function ShadowRow({
       gutter={gutter}
       onToggle={() => onChange({ off: !entry.off })}
       onRemove={onRemove}
-      preview={<ShadowCard entry={entry} onText={onText} saved={saved} />}
+      preview={<ShadowCard entry={entry} onText={onText} />}
       title={types.find((type) => type.value === entry.kind)?.label}
       details={{
         content: (
@@ -434,7 +432,7 @@ function ShadowRow({
                 }}
               />
             </EntryType>
-            <ShadowEditor entry={entry} tokensOnly={tokensOnly} text={text} saved={saved} onChange={onChange} />
+            <ShadowEditor entry={entry} tokensOnly={tokensOnly} text={text} onChange={onChange} />
           </>
         ),
         defaultOpen: startOpen,
@@ -444,7 +442,7 @@ function ShadowRow({
       {entry.token === undefined || entry.kind === "ring" ? (
         <span className="truncate">{summary}</span>
       ) : (
-        <ShadowTokenSummary entry={entry} saved={saved} />
+        <ShadowTokenSummary entry={entry} />
       )}
     </ListRow>
   )
@@ -460,20 +458,19 @@ export function ShadowEditor({
   entry,
   tokensOnly = false,
   text,
-  saved = [],
   inFilter = false,
   onChange
 }: {
   entry: ShadowEntry
   tokensOnly?: boolean
   text?: ShadowText
-  saved?: ShadowToken[]
   /** In the filter list, where a drop shadow always follows the shape, so Follow shape isn't offered. */
   inFilter?: boolean
   onChange: (change: Partial<ShadowEntry>) => void
 }) {
   const onText = text !== undefined && text.shadowOf === "text"
-  const tokens = [...tokensFor(entry, onText), ...(entry.kind === "drop" && !entry.follow && !onText ? saved : [])]
+  const { all, offered } = useShadowTokens()
+  const tokens = offered(entry, onText)
   const layer = entry.layer
   const setLayer = (change: Partial<ShadowLayer>) => onChange({ layer: { ...layer, ...change } })
   const spread = entry.kind === "inner" || (entry.kind === "drop" && !entry.follow && !onText)
@@ -517,10 +514,10 @@ export function ShadowEditor({
   return (
     <FieldGrid>
       <Field label="Token">
-        <ShadowTokenField entry={entry} tokens={tokens} saved={saved} onChange={onChange} />
+        <ShadowTokenField entry={entry} tokens={tokens} onChange={onChange} />
       </Field>
       {token !== undefined ? (
-        <TokenParts entry={entry} tokensOnly={tokensOnly} saved={saved} spread={spread} onChange={onChange} />
+        <TokenParts entry={entry} tokensOnly={tokensOnly} spread={spread} onChange={onChange} />
       ) : (
         <>
           <Field label="Offset">
@@ -585,8 +582,7 @@ export function ShadowEditor({
           onCheckedChange={(follow) => {
             // A token keeps its size across, shadow-lg to drop-shadow-lg and back, where the other scale has it.
             const size = token?.replace(/^(drop-)?shadow-/, "")
-            const scale = follow ? dropShadowTokens : shadowTokens
-            const same = scale.find((option) => option.name === `${follow ? "drop-shadow" : "shadow"}-${size}`)
+            const same = all.find((option) => option.name === `${follow ? "drop-shadow" : "shadow"}-${size}`)
             const next = same?.name ?? (follow ? "drop-shadow-md" : "shadow-sm")
             onChange({
               follow: follow || undefined,
@@ -613,57 +609,52 @@ const shadowOfs = [
 /**
  * A shadow's token, on the shared field: the token as a chip, or Custom for the entry's own numbers. Its list draws
  * each token with its preview; typing a token's name (`md`, `shadow-md`) takes it, Up and Down step through the scale,
- * and Custom, the chip's ×, Backspace on it, or Detach after the field detaches the token, keeping its first layer as
- * the entry's own.
+ * and Custom, the chip's ×, Backspace on it, or Detach in its list detaches the token, keeping its first layer as the
+ * entry's own.
  */
 function ShadowTokenField({
   entry,
   tokens,
-  saved,
   onChange
 }: {
   entry: ShadowEntry
   tokens: ShadowToken[]
-  saved: ShadowToken[]
   onChange: (change: Partial<ShadowEntry>) => void
 }) {
+  const { all } = useShadowTokens()
   const name = entry.token
   const token = tokens.find((option) => option.name === name)
-  const shortName = (option: ShadowToken) => option.name.slice(shadowNamespace(option.name)?.length ?? 0)
+  // The tokens an entry offers are all of one kind, so they share a namespace: `shadow-`, `inset-shadow-`.
+  const namespace = shadowNamespace(tokens[0]?.name ?? "") ?? ""
 
   const pick = (next: string | undefined) => {
     if (next === undefined) {
-      detach(entry, saved, onChange)
+      detach(entry, all, onChange)
     } else if (next !== name) {
       onChange({ token: next, colorOverride: undefined })
     }
   }
 
   const read = (text: string): Reading<string | undefined> => {
-    const trimmed = text.trim()
-
-    if (trimmed === "") {
+    if (text.trim() === "") {
       return { value: name }
     }
 
-    const named = tokens.find((option) => option.name === trimmed || shortName(option) === trimmed)
+    const named = tokenNamed(tokens, text, namespace)
 
     if (named) {
       return { value: named.name }
     }
 
-    const example = tokens[0] ? `, such as ${shortName(tokens[0])}` : ""
+    const example = tokens[0] ? `, such as ${tokens[0].name.slice(namespace.length)}` : ""
 
     return { reason: `Enter a token's name${example}` }
   }
 
   const step = (up: boolean, { shift }: ScrubKeys) => {
-    if (!token) {
-      return
+    if (token) {
+      pick(stepToken(tokens, token, up, shift).name)
     }
-
-    // A token steps to the next of its kind in scale order; Shift goes to the first or last.
-    pick(stepThrough(tokens, token, up, shift).name)
   }
 
   return (
@@ -679,7 +670,9 @@ function ShadowTokenField({
               token,
               namespace: shadowNamespace(name),
               overridden: entry.colorOverride !== undefined,
-              onRemove: () => pick(undefined)
+              onRemove: () => pick(undefined),
+              // Its first layer's values become the shadow's own, to edit.
+              onDetach: () => pick(undefined)
             }
       }
       status={{ missing: name !== undefined && !token ? <MissingMark name={name} /> : undefined }}
@@ -688,30 +681,13 @@ function ShadowTokenField({
       read={read}
       onCommit={pick}
       onStep={step}
-      trailing={
-        name === undefined ? undefined : (
-          <Hint
-            label={`Detach from ${name}`}
-            detail="Its first layer's values become this shadow's own, and you can edit them"
-          >
-            <button
-              type="button"
-              aria-label={`Detach from ${name}`}
-              onClick={() => pick(undefined)}
-              className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-input/40"
-            >
-              <Unlink className="size-3.5" />
-            </button>
-          </Hint>
-        )
-      }
     />
   )
 }
 
 /** A token's own layers written as the entry's values, so every part can be edited. */
-function detach(entry: ShadowEntry, saved: ShadowToken[], onChange: (change: Partial<ShadowEntry>) => void) {
-  const [first] = layersOf(entry, saved)
+function detach(entry: ShadowEntry, tokens: ShadowToken[], onChange: (change: Partial<ShadowEntry>) => void) {
+  const [first] = layersOf(entry, tokens)
   onChange({ token: undefined, colorOverride: undefined, layer: first ?? entry.layer })
 }
 
@@ -719,23 +695,21 @@ function detach(entry: ShadowEntry, saved: ShadowToken[], onChange: (change: Par
  * A composite token's parts (design-options-values.md, Composite token). Its color is a row of its own, which can be
  * overridden on the layer, shown in the override color with a reset arrow and a dot on the chip. Its layers fold under
  * a disclosure in the token's color, as a table of their offsets, blur and spread; those can't be changed in Tailwind,
- * so Detach, after the token's field, makes them the entry's own.
+ * so Detach, in the token field's list, makes them the entry's own.
  */
 function TokenParts({
   entry,
   tokensOnly,
-  saved,
   spread,
   onChange
 }: {
   entry: ShadowEntry
   tokensOnly: boolean
-  saved: ShadowToken[]
   spread: boolean
   onChange: (change: Partial<ShadowEntry>) => void
 }) {
   const [open, setOpen] = useState(true)
-  const token = [...allShadowTokens, ...saved].find((option) => option.name === entry.token)
+  const token = useShadowTokens().all.find((option) => option.name === entry.token)
   const own = token?.layers[0] ?? entry.layer
   const color: ListColor = entry.colorOverride ?? { color: own.color, alpha: own.alpha }
   const overridden = entry.colorOverride !== undefined
@@ -812,24 +786,23 @@ function TokenParts({
 export function ShadowPreview({
   entries,
   onText = false,
-  filled = true,
-  saved = []
+  filled = true
 }: {
   entries: ShadowEntry[]
   onText?: boolean
   /** Whether the layer has a fill; a text layer without one shows only its letters. */
   filled?: boolean
-  saved?: ShadowToken[]
 }) {
   const { tokens: colors } = useTokens("color")
+  const { all } = useShadowTokens()
   const draw = (value: ListColor) => drawListColor(value, colors)
-  const drawing = shadowDrawing(entries, draw, saved)
+  const drawing = shadowDrawing(entries, draw, all)
 
   const boxShadow = onText
     ? shadowDrawing(
         entries.filter((entry) => entry.kind !== "drop"),
         draw,
-        saved
+        all
       ).boxShadow
     : drawing.boxShadow
 

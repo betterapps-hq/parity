@@ -1,10 +1,10 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { CurveThumb, EasingField, SaveAsToken } from "./easing.tsx"
+import { CurveThumb, EasingField } from "./easing.tsx"
 import { type FieldSearch, type Reading, type SearchOption, useTokens, ValueField } from "./field-parts.tsx"
 import { Field, SectionButton } from "./field-row.tsx"
-import { ListRow, moved } from "./list-parts.tsx"
+import { CreateTokenNote, entryList, ListRow } from "./list-parts.tsx"
 import {
   defaultDuration,
   drawnEasing,
@@ -26,7 +26,7 @@ import type { TokenSets } from "./tokens.ts"
  * Motion's Transitions (PAR-652's Transition list): each entry is a list row, as every list's are: the handle, the
  * curve that opens the entry's details (what changes, Duration, Easing and Delay), what changes, its timing, the eye
  * and −. An unset duration or easing shows Tailwind's default faintly, and + adds Colors at those defaults. Entries
- * with different timings can't be written as Tailwind's utilities, so a note under the list says so and offers Save as
+ * with different timings can't be written as Tailwind's utilities, so a note under the list says so and offers Create
  * token.
  */
 
@@ -48,8 +48,7 @@ export function TransitionsSection({
   const form = transitionForm(entries)
   const on = entries.filter((entry) => !entry.off)
 
-  const update = (id: string, change: Partial<TransitionEntry>) =>
-    onChange(entries.map((entry) => (entry.id === id ? { ...entry, ...change } : entry)))
+  const { update, remove, onMove } = entryList(entries, onChange)
 
   // Entries of more than one timing make the list one arbitrary value.
   const mixed = form === "arbitrary"
@@ -87,24 +86,15 @@ export function TransitionsSection({
               key={entry.id}
               entry={entry}
               onChange={(change) => update(entry.id, change)}
-              // One transition has nothing to move past, so it has no handle.
-              onMove={
-                entries.length > 1
-                  ? (from, to) => {
-                      if (to >= 0 && to < entries.length) {
-                        onChange(moved(entries, from, to))
-                      }
-                    }
-                  : undefined
-              }
-              onRemove={() => onChange(entries.filter((other) => other.id !== entry.id))}
+              onMove={onMove}
+              onRemove={() => remove(entry.id)}
             />
           ))}
           {/* It's the whole list that's written this way, so it's said under the list, as Effects says it, and stays
               put while an entry's carried. */}
           {mixed && savedAs === undefined && (
             <div className={entries.length > 1 ? "pl-4" : ""}>
-              <SaveAsToken
+              <CreateTokenNote
                 says="Mixed timings are written as one arbitrary value."
                 placeholder="card-hover"
                 isTaken={() => false}
@@ -268,7 +258,8 @@ const changesSearch: FieldSearch<TransitionProperty> = {
 
 /**
  * What changes, as one field: focused, it lists Tailwind's sets with their utilities; typing narrows them, or names a
- * property of its own (`width`), offered after any set it matches. Enter takes the highlighted one.
+ * property of its own (`width`), offered after any set it matches. Enter takes the highlighted one. The chevron at its
+ * end lists the sets too, as Options.
  */
 function PropertyField({
   property,
@@ -301,6 +292,21 @@ function PropertyField({
       inputMode="text"
       selectOnFocus
       search={changesSearch}
+      // The sets are its chevron's Options too, as Font's fonts are both searched and listed.
+      tokens={{
+        list: [],
+        keywords: {
+          heading: "Sets",
+          rows: sets.map((set) => ({
+            key: set,
+            name: transitionSets[set].label,
+            detail: transitionSets[set].utility,
+            current: property === set,
+            onPick: () => onChange(set)
+          }))
+        },
+        onPick: () => undefined
+      }}
       read={read}
       onCommit={onChange}
     />

@@ -1,11 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import type { GradientPaint, PaintEntry, Stop } from "./lists-data.ts"
 import { paintWrites } from "./lists-writes.ts"
 import { PaintPreview, PaintStack } from "./paint-stack.tsx"
 import { Playground, PreviewStage } from "./playground.tsx"
-import type { GradientToken } from "./tokens.ts"
 import { mixedWrites } from "./writes.ts"
 
 /**
@@ -13,8 +12,9 @@ import { mixedWrites } from "./writes.ts"
  * its preview, its type and its value or token, which open its editor, then its alpha, the eye and −; with two fills or
  * more, drag the handle to reorder. A solid is the color field, whose swatch opens the color picker. + is a menu of the
  * five types, each drawn as the fill it adds, in the project's palette (`bg-blue-600`, or white to blue-600); the fill
- * goes on top with its editor open. A gradient's editor names its kind in a menu, then has the bar of stops (click to
- * add, drag to move, drag off to remove, drag the diamond for a color hint), its settings named above each (the angle
+ * goes on top with its editor open. A gradient's editor names its kind in a menu, then its token, on the shared field,
+ * then the bar of stops (click to add, drag to move, drag off to remove, drag the diamond for a color hint; from the
+ * keyboard the stops and diamonds are sliders), its settings named above each (the angle
  * with its dial, the center, how colors blend, Repeat), and apart from them the Stops list, with Flip.
  * An image's searches the project's images and Unsplash's, takes one dropped, pasted or uploaded, then has the fit and
  * its position in the box. An image dropped on the section adds an image fill. The bottom solid is written as
@@ -42,16 +42,15 @@ function Paints({
 }) {
   const [entries, setEntries] = useState(start)
   const [isMixed, setMixed] = useState(mixed)
-  const [saved, setSaved] = useState<GradientToken[]>([])
   // The order a fill's being carried over, drawn before it's let go; what's written stays as it is till then.
   const [carried, setCarried] = useState<PaintEntry[]>()
 
   return (
     <Playground
-      writes={isMixed ? mixedWrites : paintWrites(entries, saved)}
+      writes={isMixed ? mixedWrites : paintWrites(entries)}
       preview={
         <PreviewStage>
-          <PaintPreview entries={isMixed ? [] : (carried ?? entries)} saved={saved} />
+          <PaintPreview entries={isMixed ? [] : (carried ?? entries)} />
         </PreviewStage>
       }
     >
@@ -59,10 +58,8 @@ function Paints({
         entries={entries}
         mixed={isMixed}
         tokensOnly={tokensOnly}
-        saved={saved}
         openId={openId}
         onPreview={setCarried}
-        onSave={(token) => setSaved((list) => [...list, token])}
         onChange={(next) => {
           setMixed(false)
           setEntries(next)
@@ -137,7 +134,8 @@ export const ThreeStops: Story = {
 
 /**
  * Four stops and a color hint between the first two: too long for Tailwind's from, via and to, so it's written inside
- * the utility (`bg-linear-[…]`), and Save as token offers to name it.
+ * the utility (`bg-linear-[…]`), and Create token, under it and in the token's list, makes it a token by the name
+ * given.
  */
 export const LongGradient: Story = {
   render: () => (
@@ -211,7 +209,11 @@ export const Repeating: Story = {
   )
 }
 
-/** A gradient token, `gradient-brand`, as a chip: `bg-(image:--gradient-brand)`. Editing a stop detaches it. */
+/**
+ * A gradient token, `gradient-brand`, as a chip in the editor's Token field, as any token field holds one: its list
+ * offers the others, Custom and Detach, Up and Down step through them, and editing a stop detaches it:
+ * `bg-(image:--gradient-brand)`.
+ */
 export const FromAGradientToken: Story = {
   render: () => <Paints start={[gradient("top", { ...blueToTeal, token: "gradient-brand" })]} openId="top" />
 }
@@ -274,5 +276,30 @@ export const InvalidAsTyped: Story = {
     const field = await within(canvasElement.ownerDocument.body).findByRole("textbox", { name: "Angle" })
     await userEvent.clear(field)
     await userEvent.type(field, "sideways{Enter}")
+  }
+}
+
+/**
+ * The bar of stops from the keyboard: Enter on the bar adds a stop in the widest gap, at 50%, rather than where a
+ * pointer would; the stops are sliders that the arrow keys move; and Home centers a midpoint moved off the middle.
+ */
+export const StopsFromTheKeyboard: Story = {
+  render: () => <Paints start={[gradient("top", blueToTeal)]} openId="top" />,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const bar = await page.findByRole("button", { name: "Add a stop" })
+    bar.focus()
+    await userEvent.keyboard("{Enter}")
+    const added = await page.findByRole("slider", { name: "Stop 2" })
+    await expect(added).toHaveAttribute("aria-valuenow", "50")
+    added.focus()
+    await userEvent.keyboard("{ArrowRight}")
+    await expect(added).toHaveAttribute("aria-valuenow", "51")
+    const midpoint = page.getByRole("slider", { name: "Midpoint between stop 1 and 2" })
+    midpoint.focus()
+    await userEvent.keyboard("{ArrowLeft}")
+    await expect(midpoint).toHaveAttribute("aria-valuetext", "25%")
+    await userEvent.keyboard("{Home}")
+    await expect(midpoint).toHaveAttribute("aria-valuetext", "26%, centered")
   }
 }

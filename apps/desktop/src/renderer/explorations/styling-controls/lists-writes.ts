@@ -22,9 +22,7 @@ import {
   type ShadowEntry
 } from "./lists-data.ts"
 import { blurTokens, type GradientToken, gradientTokens, lengthPx, type ShadowToken } from "./tokens.ts"
-import { type StoredObject, withAllow, type Writes } from "./writes.ts"
-
-const nothing: Writes = { stored: undefined, css: [], tailwind: [] }
+import { noWrites, type StoredObject, withAllow, type Writes } from "./writes.ts"
 
 /** A list entry's color as CSS writes it: a token's variable, mixed toward transparent for its alpha, or a plain color. */
 const listColorCss = ({ color, alpha }: ListColor): string => colorCss(color, alpha)
@@ -55,13 +53,19 @@ export function colorStored(value: ListColor, allowed?: string): StoredObject {
 
 /* Paint stack */
 
-/** A gradient token's paint, or the paint as it is. */
-export function resolveGradient(paint: GradientPaint, saved: GradientToken[] = []): GradientPaint {
+/**
+ * A gradient token's paint, among the project's `tokens` (the stand-ins unless it's given its own), or the paint as it
+ * is, which keeps the stops it had when the token was taken.
+ */
+export function resolveGradient(
+  paint: GradientPaint,
+  tokens: readonly GradientToken[] = gradientTokens
+): GradientPaint {
   if (paint.token === undefined) {
     return paint
   }
 
-  const token = [...gradientTokens, ...saved].find((other) => other.name === paint.token)
+  const token = tokens.find((other) => other.name === paint.token)
 
   return token ? { ...token.paint, token: paint.token } : paint
 }
@@ -232,7 +236,7 @@ function paintStored(entry: PaintEntry): StoredObject {
 }
 
 /** The fills drawn, top first: the bottom solid as the color, the rest as image layers. */
-export function paintLayers(entries: PaintEntry[], saved: GradientToken[] = []) {
+export function paintLayers(entries: PaintEntry[], tokens?: readonly GradientToken[]) {
   // A solid whose color was taken off draws nothing until another is typed or picked.
   const shown = entries.flatMap((entry) => {
     if (entry.off || (entry.paint.kind === "solid" && entry.paint.color === "")) {
@@ -241,7 +245,7 @@ export function paintLayers(entries: PaintEntry[], saved: GradientToken[] = []) 
 
     return [
       entry.paint.kind === "linear" || entry.paint.kind === "radial" || entry.paint.kind === "angular"
-        ? { ...entry, paint: resolveGradient(entry.paint, saved) }
+        ? { ...entry, paint: resolveGradient(entry.paint, tokens) }
         : entry
     ]
   })
@@ -252,12 +256,12 @@ export function paintLayers(entries: PaintEntry[], saved: GradientToken[] = []) 
   return { base, images: base ? shown.slice(0, -1) : shown }
 }
 
-export function paintWrites(entries: PaintEntry[], saved: GradientToken[] = []): Writes {
+export function paintWrites(entries: PaintEntry[], tokens?: readonly GradientToken[]): Writes {
   if (entries.length === 0) {
-    return nothing
+    return noWrites
   }
 
-  const { base, images } = paintLayers(entries, saved)
+  const { base, images } = paintLayers(entries, tokens)
   const css: string[] = []
   const tailwind: string[] = []
 
@@ -406,16 +410,23 @@ function shadowStored(entry: ShadowEntry): StoredObject {
 }
 
 /** A drop shadow's layers as `drop-shadow()` functions, which take no spread. */
-function dropShadowFunctions(entry: ShadowEntry, color: (value: ListColor) => string, saved: ShadowToken[] = []) {
-  return layersOf(entry, saved).map((part) => `drop-shadow(${shadowCss([part], color, { spread: false })})`)
+function dropShadowFunctions(entry: ShadowEntry, color: (value: ListColor) => string, tokens: ShadowToken[] = []) {
+  return layersOf(entry, tokens).map((part) => `drop-shadow(${shadowCss([part], color, { spread: false })})`)
 }
 
 export function shadowWrites(
   entries: ShadowEntry[],
-  { shadowOfText = false, saved = [] }: { shadowOfText?: boolean; saved?: ShadowToken[] } = {}
+  {
+    shadowOfText = false,
+    tokens = []
+  }: {
+    shadowOfText?: boolean
+    /** The project's shadow tokens, where it has more than the stand-ins, as one made with Create token. */
+    tokens?: ShadowToken[]
+  } = {}
 ): Writes {
   if (entries.length === 0) {
-    return nothing
+    return noWrites
   }
 
   const shown = entries.filter((entry) => !entry.off)
@@ -428,7 +439,7 @@ export function shadowWrites(
   if (box.length > 0) {
     css.push(
       `box-shadow: ${shadowCss(
-        box.flatMap((entry) => boxLayersOf(entry, saved)),
+        box.flatMap((entry) => boxLayersOf(entry, tokens)),
         listColorCss
       )}`
     )
@@ -439,7 +450,7 @@ export function shadowWrites(
       const parts = box.map((entry) =>
         entry.token !== undefined && !entry.colorOverride
           ? `var(--${entry.token})`
-          : shadowCss(boxLayersOf(entry, saved), listColorCss)
+          : shadowCss(boxLayersOf(entry, tokens), listColorCss)
       )
 
       tailwind.push(`shadow-[${arbitrary(parts.join(", "))}]`)
@@ -447,7 +458,7 @@ export function shadowWrites(
   }
 
   for (const entry of text) {
-    css.push(`text-shadow: ${shadowCss(layersOf(entry, saved), listColorCss, { spread: false })}`)
+    css.push(`text-shadow: ${shadowCss(layersOf(entry, tokens), listColorCss, { spread: false })}`)
     tailwind.push(
       entry.token === undefined ? `text-shadow-[${ownLayerClass(entry, false)}]` : entry.token,
       ...(entry.token !== undefined && entry.colorOverride ? [`text-shadow-${colorClass(entry.colorOverride)}`] : [])
@@ -455,7 +466,7 @@ export function shadowWrites(
   }
 
   for (const entry of follow) {
-    css.push(`filter: ${dropShadowFunctions(entry, listColorCss, saved).join(" ")}`)
+    css.push(`filter: ${dropShadowFunctions(entry, listColorCss, tokens).join(" ")}`)
     tailwind.push(...dropShadowClasses(entry))
   }
 
@@ -491,22 +502,22 @@ export function dropShadowClasses(entry: ShadowEntry): string[] {
 }
 
 /** The CSS a shadow list draws with, colors as `draw` gives them, for a preview or an entry's card. */
-export function shadowDrawing(entries: ShadowEntry[], draw: (value: ListColor) => string, saved: ShadowToken[] = []) {
+export function shadowDrawing(entries: ShadowEntry[], draw: (value: ListColor) => string, tokens: ShadowToken[] = []) {
   const shown = entries.filter((entry) => !entry.off)
 
   return {
     boxShadow: shadowCss(
-      shown.filter((entry) => entry.kind !== "drop" || !entry.follow).flatMap((entry) => boxLayersOf(entry, saved)),
+      shown.filter((entry) => entry.kind !== "drop" || !entry.follow).flatMap((entry) => boxLayersOf(entry, tokens)),
       draw
     ),
     textShadow: shadowCss(
-      shown.filter((entry) => entry.kind === "drop" && !entry.follow).flatMap((entry) => layersOf(entry, saved)),
+      shown.filter((entry) => entry.kind === "drop" && !entry.follow).flatMap((entry) => layersOf(entry, tokens)),
       draw,
       { spread: false }
     ),
     dropShadow: shown
       .filter((entry) => entry.kind === "drop" && entry.follow)
-      .flatMap((entry) => dropShadowFunctions(entry, draw, saved))
+      .flatMap((entry) => dropShadowFunctions(entry, draw, tokens))
       .join(" ")
   }
 }
@@ -641,7 +652,7 @@ function propertyWrites(entries: FilterEntry[], behind: boolean) {
 
 export function filterWrites(entries: FilterEntry[]): Writes {
   if (entries.length === 0) {
-    return nothing
+    return noWrites
   }
 
   const shown = entries.filter((entry) => !entry.off)

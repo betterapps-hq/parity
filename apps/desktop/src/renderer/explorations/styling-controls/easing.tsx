@@ -1,7 +1,6 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role -- a curve's handles are sliders on two axes, which no input element is */
 import {
   Button,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -13,9 +12,7 @@ import {
   Tabs,
   TabsContent,
   TabsList,
-  TabsTrigger,
-  ToggleGroup,
-  ToggleGroupItem
+  TabsTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject, useId, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
@@ -26,15 +23,22 @@ import { EasingArt, easingRange, easingScale, useReducedMotion } from "../../chr
 import { optionNamed } from "../parts.tsx"
 import { clamp, formatNumber, sameValue, stepCount } from "./css-values.ts"
 import {
+  arrowMoves,
   drag,
   MissingMark,
+  moveThroughRows,
   type Reading,
   readUnitNumber,
+  type ScrubKeys,
+  stepToken,
+  tokenNamed,
   useLiveRow,
   useTokens,
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
+import { Field, FieldGrid, type Segment, Segments } from "./field-row.tsx"
+import { CreateTokenNote } from "./list-parts.tsx"
 import {
   type Bezier,
   bezierCss,
@@ -58,7 +62,8 @@ import { type EasingToken, easingToken, type FieldToken, hexOf } from "./tokens.
  * `cubic-bezier(…)` or `steps(…)`; and in its popover a tab for each way to set it, each starting with the same graph:
  * Curve, with two handles, the presets and the project's tokens; Steps; and Spring, set by time and bounce or by
  * stiffness, damping and mass, as Framer's springs are. Every curve here is the Tokens panel's easing mark (EasingArt).
- * A spring is written as `linear()`, whose class runs to hundreds of characters, so it offers Save as token first.
+ * A spring is written as `linear()`, whose class runs to hundreds of characters, so it offers Create token first, in
+ * the token list as any value of its own does and in the note under the field.
  */
 
 const namespace = "ease-"
@@ -172,7 +177,7 @@ function readEasing(text: string, tokens: readonly EasingToken[]): Easing | unde
     return { keyword: preset.keyword }
   }
 
-  const token = tokens.find((option) => option.name === words || option.name === namespace + words)
+  const token = tokenNamed(tokens, words, namespace)
 
   if (token) {
     return { token: token.name }
@@ -226,19 +231,18 @@ export function EasingField({
     comesTo = preset.detail
   }
 
-  // Up and Down go through Tailwind's easings, then the project's, in order.
-  const order: Easing[] = [
-    ...easingPresets.map((preset) => ({ keyword: preset.keyword })),
-    ...tokens.map((other) => ({ token: other.name }))
-  ]
+  // Up and Down go through Tailwind's easings, then the project's, in order, Shift to the first or last; a curve of its
+  // own or none steps from Ease in out.
+  const listed = [...presetTokens, ...tokens]
 
-  const step = (up: boolean) => {
-    const index = order.findIndex((option) => sameValue(option, value))
+  const step = (up: boolean, { shift }: ScrubKeys) => {
+    const held =
+      listed.find((option) => option.name === current) ??
+      presetTokens.find((option) => option.name === easingClass({ keyword: "ease-in-out" }))
 
-    const from =
-      index === -1 ? order.findIndex((option) => "keyword" in option && option.keyword === "ease-in-out") : index
-
-    onChange(order[clamp(from + (up ? 1 : -1), 0, order.length - 1)])
+    if (held) {
+      onChange(picked(stepToken(listed, held, up, shift).name))
+    }
   }
 
   const read = (text: string): Reading<Easing | undefined> => {
@@ -255,16 +259,18 @@ export function EasingField({
     return { value: easing }
   }
 
-  const isTaken = (taken: string) => tokens.some((other) => other.name === taken || other.name === namespace + taken)
+  const isTaken = (full: string) => tokenNamed(tokens, full) !== undefined
+  // A curve or spring of its own, which Create token makes a token of.
+  const own = value !== undefined && ("spring" in value || "value" in value) ? value : undefined
 
-  const saveToken = (made: string) => {
-    if (!create || value === undefined || !("spring" in value || "value" in value)) {
+  // Makes a token of the easing of its own, by the whole name given (`ease-springy`), and takes it.
+  const saveToken = (full: string) => {
+    if (!create || own === undefined) {
       return
     }
 
-    const full = made.startsWith(namespace) ? made : namespace + made
     const curve = plot.kind === "bezier" ? plot.curve : undefined
-    create(easingToken(full, curve, "spring" in value ? value.spring : undefined))
+    create(easingToken(full, curve, "spring" in own ? own.spring : undefined))
     onChange({ token: full })
   }
 
@@ -282,7 +288,14 @@ export function EasingField({
         </PopoverTrigger>
       </Hint>
       <PopoverContent aria-label={label} className="w-72 gap-0 p-0" align="start">
-        <EasingEditor value={value} tokens={tokens} defaultTab={defaultTab} onChange={onChange} onSave={saveToken} />
+        <EasingEditor
+          value={value}
+          tokens={tokens}
+          defaultTab={defaultTab}
+          onChange={onChange}
+          isTaken={isTaken}
+          onSave={saveToken}
+        />
       </PopoverContent>
     </Popover>
   )
@@ -302,8 +315,13 @@ export function EasingField({
         }
         comesTo={comesTo}
         status={{ missing: name !== undefined && !token ? <MissingMark name={name} /> : undefined }}
+        own={
+          own === undefined
+            ? undefined
+            : { text: easingName(own), namespace, onCreate: create === undefined ? undefined : saveToken }
+        }
         tokens={{
-          list: [...presetTokens, ...tokens],
+          list: listed,
           current,
           onPick: (next) => {
             if (next) {
@@ -314,11 +332,17 @@ export function EasingField({
         inputMode="text"
         read={read}
         onCommit={onChange}
-        onStep={(up) => step(up)}
+        onStep={step}
       />
       {/* The editor says it too, so it isn't left under the open popover. */}
       {!open && value !== undefined && easingIsLong(value) && (
-        <SaveAsToken says={writtenLong(value)} placeholder="springy" isTaken={isTaken} onSave={saveToken} />
+        <CreateTokenNote
+          says={writtenLong(value)}
+          namespace={namespace}
+          placeholder="springy"
+          isTaken={isTaken}
+          onSave={saveToken}
+        />
       )}
     </div>
   )
@@ -326,73 +350,14 @@ export function EasingField({
 
 /**
  * Why a long easing is written as an arbitrary value, said as the shadow list and a repeating gradient say theirs, before
- * Save as token.
+ * Create token.
  */
 const writtenLong = (easing: Easing) =>
   "spring" in easing
     ? "Tailwind has no utility for springs, so this is written as an arbitrary value."
     : "Tailwind has no utility for this curve, so it's written as an arbitrary value."
 
-/** Says a class runs long and offers to save it as a token, named in a small popover. */
-export function SaveAsToken({
-  says,
-  placeholder,
-  isTaken,
-  onSave
-}: {
-  says: string
-  placeholder: string
-  isTaken: (name: string) => boolean
-  onSave: (name: string) => void
-}) {
-  const [name, setName] = useState("")
-  const [open, setOpen] = useState(false)
-  const id = useId()
-  const taken = name.trim() !== "" && isTaken(name.trim())
-
-  const save = () => {
-    if (name.trim() === "" || taken) {
-      return
-    }
-
-    onSave(name.trim())
-    setOpen(false)
-    setName("")
-  }
-
-  return (
-    <p className="flex flex-wrap items-center gap-x-1 type-description text-muted-foreground">
-      {says}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger className="text-foreground underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring">
-          Save as token
-        </PopoverTrigger>
-        <PopoverContent aria-label="Save as token" className="w-56 gap-2 p-2" align="start">
-          <label htmlFor={id} className="text-xs">
-            Token name
-          </label>
-          <Input
-            id={id}
-            value={name}
-            placeholder={placeholder}
-            aria-invalid={taken || undefined}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                save()
-              }
-            }}
-            className="h-7 text-xs"
-          />
-          {taken && <p className="type-message text-destructive">A token has that name already.</p>}
-          <Button size="sm" className="h-7 text-xs" disabled={name.trim() === "" || taken} onClick={save}>
-            Save
-          </Button>
-        </PopoverContent>
-      </Popover>
-    </p>
-  )
-}
+/** The note and Create token under a value written long, by the name the transition list knows it by. */
 
 const defaultSprings = {
   time: { duration: 400, bounce: 0.2 },
@@ -416,7 +381,10 @@ type EditorTab = (typeof editorTabs)[number]
 const defaultSteps: Extract<EasingPlot, { kind: "steps" }> = { kind: "steps", count: 4, jump: "end" }
 
 /** Where each step's jump comes: at its start or its end. */
-const jumps = ["start", "end"] as const
+const jumps = [
+  { value: "start", label: "Start", detail: "Each step jumps as it starts: steps(n, jump-start)" },
+  { value: "end", label: "End", detail: "Each step jumps as it ends: steps(n)" }
+] as const satisfies readonly Segment<"start" | "end">[]
 
 /** The popover: Curve, with the presets, the project's tokens and Steps; and Spring. */
 function EasingEditor({
@@ -424,13 +392,16 @@ function EasingEditor({
   tokens,
   defaultTab,
   onChange,
+  isTaken,
   onSave
 }: {
   value: Easing | undefined
   tokens: readonly EasingToken[]
   defaultTab: EditorTab
   onChange: (value: Easing) => void
-  onSave: (name: string) => void
+  isTaken: (full: string) => boolean
+  /** Makes a token of the easing, by the whole name given. */
+  onSave: (full: string) => void
 }) {
   const [tab, setTab] = useState<EditorTab>(() => {
     if (value !== undefined && "spring" in value) {
@@ -475,45 +446,50 @@ function EasingEditor({
           faint={value === undefined || plot.kind !== "bezier"}
           onChange={(curve) => onChange({ value: bezierCss(curve) })}
         />
-        <div className="grid grid-cols-2 gap-1">
-          {easingPresets.map((preset) => (
-            <Button
-              key={preset.keyword}
-              variant={isSelected({ keyword: preset.keyword }) ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={isSelected({ keyword: preset.keyword })}
-              className="h-7 justify-start gap-1.5 px-1.5 text-xs"
-              onClick={() => onChange({ keyword: preset.keyword })}
-              {...rowProps(preset.keyword)}
-            >
-              <CurveThumb plot={{ kind: "bezier", curve: preset.curve }} playing={live(preset.keyword)} />
-              {preset.label}
-            </Button>
-          ))}
-        </div>
-        {tokens.length > 0 && (
-          <div className="flex flex-col gap-1">
-            <GroupLabel as="p" className="px-1">
-              {"The project's easings"}
-            </GroupLabel>
-            <div className="grid grid-cols-2 gap-1">
-              {tokens.map((token) => (
-                <Button
-                  key={token.name}
-                  variant={isSelected({ token: token.name }) ? "secondary" : "ghost"}
-                  size="sm"
-                  aria-pressed={isSelected({ token: token.name })}
-                  className="h-7 justify-start gap-1.5 px-1.5 text-xs"
-                  onClick={() => onChange({ token: token.name })}
-                  {...rowProps(token.name)}
-                >
-                  <CurveThumb plot={easingPlot({ token: token.name }, tokens)} playing={live(token.name)} />
-                  {token.name.replace(/^ease-/, "")}
-                </Button>
-              ))}
-            </div>
+        {/* One list to pick from, as a token menu is: the current one marked, Up and Down moving through every row,
+            Home and End to the first and last. */}
+        {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- the arrow keys of the buttons inside, handled once for them all */}
+        <div className="flex flex-col gap-2" onKeyDown={moveThroughRows}>
+          <div className="grid grid-cols-2 gap-1">
+            {easingPresets.map((preset) => (
+              <Button
+                key={preset.keyword}
+                variant={isSelected({ keyword: preset.keyword }) ? "secondary" : "ghost"}
+                size="sm"
+                aria-current={isSelected({ keyword: preset.keyword }) || undefined}
+                className="h-7 justify-start gap-1.5 px-1.5 text-xs"
+                onClick={() => onChange({ keyword: preset.keyword })}
+                {...rowProps(preset.keyword)}
+              >
+                <CurveThumb plot={{ kind: "bezier", curve: preset.curve }} playing={live(preset.keyword)} />
+                {preset.label}
+              </Button>
+            ))}
           </div>
-        )}
+          {tokens.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <GroupLabel as="p" className="px-1">
+                {"The project's easings"}
+              </GroupLabel>
+              <div className="grid grid-cols-2 gap-1">
+                {tokens.map((token) => (
+                  <Button
+                    key={token.name}
+                    variant={isSelected({ token: token.name }) ? "secondary" : "ghost"}
+                    size="sm"
+                    aria-current={isSelected({ token: token.name }) || undefined}
+                    className="h-7 justify-start gap-1.5 px-1.5 text-xs"
+                    onClick={() => onChange({ token: token.name })}
+                    {...rowProps(token.name)}
+                  >
+                    <CurveThumb plot={easingPlot({ token: token.name }, tokens)} playing={live(token.name)} />
+                    {token.name.replace(/^ease-/, "")}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </TabsContent>
       <TabsContent value="steps" className="flex flex-col gap-2 p-2">
         <StepsEditor plot={plot.kind === "steps" ? plot : undefined} onChange={onChange} />
@@ -521,10 +497,11 @@ function EasingEditor({
       <TabsContent value="spring" className="flex flex-col gap-2 p-2">
         <SpringEditor spring={spring} onChange={(next) => onChange({ spring: next })} />
         {spring && (
-          <SaveAsToken
+          <CreateTokenNote
             says={writtenLong({ spring })}
+            namespace={namespace}
             placeholder="springy"
-            isTaken={(name) => tokens.some((other) => other.name === name || other.name === namespace + name)}
+            isTaken={isTaken}
             onSave={onSave}
           />
         )}
@@ -577,23 +554,16 @@ function CurveEditor({
   }
 
   const key = (handle: 0 | 1) => (event: KeyboardEvent<SVGCircleElement>) => {
-    const step = event.shiftKey ? 0.1 : 0.01
-    const hx = curve[handle * 2]!
-    const hy = curve[handle * 2 + 1]!
+    const arrow = arrowMoves.get(event.key)
 
-    if (event.key === "ArrowLeft") {
-      move(handle, hx - step, hy)
-    } else if (event.key === "ArrowRight") {
-      move(handle, hx + step, hy)
-    } else if (event.key === "ArrowUp") {
-      move(handle, hx, hy + step)
-    } else if (event.key === "ArrowDown") {
-      move(handle, hx, hy - step)
-    } else {
+    if (!arrow) {
       return
     }
 
     event.preventDefault()
+    const step = event.shiftKey ? 0.1 : 0.01
+    // Up raises the curve, though it's down the screen that y counts.
+    move(handle, curve[handle * 2]! + arrow[0] * step, curve[handle * 2 + 1]! - arrow[1] * step)
   }
 
   const handles = [
@@ -618,6 +588,9 @@ function CurveEditor({
               role="slider"
               tabIndex={0}
               aria-label={handle.name}
+              // Both axes are in the words; the number is y, within the room the graph keeps.
+              aria-valuemin={low}
+              aria-valuemax={high}
               aria-valuenow={handle.at[1]}
               aria-valuetext={`x ${handle.at[0]}, y ${handle.at[1]}`}
               cx={x(handle.at[0])}
@@ -649,10 +622,24 @@ function StepsEditor({
   onChange: (value: Easing) => void
 }) {
   const shown = plot ?? defaultSteps
-  const id = useId()
 
   const write = (count: number, jump: "start" | "end") =>
     onChange({ value: jump === "end" ? `steps(${count})` : `steps(${count}, jump-start)` })
+
+  const takes = "Steps takes a whole number from 1"
+
+  // A count, read with the app's maths, on Enter or leaving; Escape puts it back.
+  const read = (text: string): Reading<number> => {
+    const reading = readUnitNumber(text, { units: {}, current: shown.count, label: "Steps", takes })
+
+    if ("reason" in reading) {
+      return reading
+    }
+
+    return Number.isInteger(reading.value) && reading.value >= 1 ? { value: reading.value } : { reason: takes }
+  }
+
+  const count = (next: number) => write(Math.max(1, Math.round(next)), shown.jump)
 
   return (
     <div className="flex flex-col gap-2">
@@ -660,43 +647,21 @@ function StepsEditor({
       <GraphCaption>
         <code className="font-mono">{plotCss(shown)}</code>
       </GraphCaption>
-      <div className="grid grid-cols-[60px_72px_minmax(0,1fr)] items-center gap-2">
-        <label htmlFor={id} className="text-xs text-muted-foreground">
-          Steps
-        </label>
-        <Input
-          id={id}
-          type="number"
-          min={1}
-          value={shown.count}
-          onChange={(event) => {
-            const count = Math.max(1, Math.round(Number(event.target.value) || 1))
-            write(count, shown.jump)
-          }}
-          className="h-7 text-xs"
-        />
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          spacing={0}
-          aria-label="Jump at"
-          value={[shown.jump]}
-          onValueChange={([jump]) => {
-            const picked = optionNamed(jumps, jump)
-
-            if (picked) {
-              write(shown.count, picked)
-            }
-          }}
-        >
-          <ToggleGroupItem value="start" className="h-7 px-2 text-xs">
-            Start
-          </ToggleGroupItem>
-          <ToggleGroupItem value="end" className="h-7 px-2 text-xs">
-            End
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
+      <FieldGrid>
+        <Field label="Steps" half>
+          <ValueField
+            label="Steps"
+            shown={String(shown.count)}
+            scrub={{ from: () => shown.count, apply: count, by: { step: 1, shiftStep: 10, min: 1 } }}
+            read={read}
+            onCommit={count}
+            onStep={(up, { shift }) => count(shown.count + stepCount(up, shift))}
+          />
+        </Field>
+        <Field label="Jump at" half>
+          <Segments label="Jump at" value={shown.jump} options={jumps} onChange={(jump) => write(shown.count, jump)} />
+        </Field>
+      </FieldGrid>
     </div>
   )
 }

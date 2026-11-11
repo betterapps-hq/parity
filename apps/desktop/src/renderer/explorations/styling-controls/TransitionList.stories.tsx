@@ -13,10 +13,10 @@ import { newEntryId, previewTransition, TransitionsSection } from "./transitions
  * Colors, Opacity, Transform, Shadow, or a property), then its timing, with the eye, which turns it off without
  * deleting it, and −, as every list's rows do; with two entries or more, it's picked up by its handle or its body and
  * carried to another place, or moved with Up and Down on its handle. The entry opens its details: Changes, one field
- * that lists the sets and takes a property typed; Duration and Delay, each drawn as a track for its time; and Easing,
+ * that lists the sets, focused or from its chevron, and takes a property typed; Duration and Delay, each drawn as a track for its time; and Easing,
  * drawn as its curve. Tailwind takes one transition per element, so one entry is utilities, entries with one
  * timing merge into one property list, and entries with different timings are one arbitrary value, which a note under
- * the list says, offering Save as token.
+ * the list says, offering Create token.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Lists/Transition list",
@@ -94,7 +94,7 @@ export const SameTiming: Story = {
 
 /**
  * Colors over 200ms and Transform over 300ms with the project's snappy easing: one arbitrary value, which a note
- * under the list says, offering Save as token.
+ * under the list says, offering Create token.
  */
 export const DifferentTimings: Story = {
   render: () => (

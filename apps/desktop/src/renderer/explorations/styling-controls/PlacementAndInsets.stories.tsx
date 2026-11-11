@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { PositionPreview, PositionSection } from "./pin-box.tsx"
+import { PositionPreview, PositionSection, previewStage } from "./pin-box.tsx"
 import { Playground } from "./playground.tsx"
 import { layerOrderWrites, type Position, positionWrites } from "./position-writes.ts"
 import type { Side } from "./sides-writes.ts"
@@ -68,6 +68,7 @@ function Placement({
         layerOrder={layerOrder}
         onLayerOrder={setLayerOrder}
         context="Pricing, a stacking context because it isolates"
+        stage={previewStage}
         stickyStopped={
           stopped && !clipped
             ? "Plans won't stick: Main, around it, hides its overflow, which makes it the scroller."

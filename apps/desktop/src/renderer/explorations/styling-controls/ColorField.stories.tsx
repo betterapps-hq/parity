@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import { ColorInput } from "./color-picker.tsx"
 import { usedColors } from "./data.ts"
 import { Field } from "./field-row.tsx"
@@ -124,6 +124,24 @@ export const SetInAState: Story = { render: () => <ColorField value="primary" al
 /** Set for the Dark theme too: a moon at the field's end, with the dark value in its hint, before the chevron. */
 export const SetForATheme: Story = {
   render: () => <ColorField value="card" theme={{ name: "Dark", value: "secondary" }} />
+}
+
+/**
+ * A palette color, `blue-500`, stepped with Up to the next shade of its hue, blue-600, and with Shift+Down back to its
+ * lightest, blue-500, keeping its alpha. Up and Down on a semantic color open its list; on a color of its own they do
+ * nothing, since it's on no scale.
+ */
+export const SteppedThroughShades: Story = {
+  render: () => <ColorField value="blue-500" alpha={80} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const stored = canvas.getByLabelText("Stored")
+    canvas.getByRole("textbox", { name: "Fill" }).focus()
+    await userEvent.keyboard("{ArrowUp}")
+    await expect(stored).toHaveTextContent("blue-600")
+    await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}")
+    await expect(stored).toHaveTextContent("blue-500")
+  }
 }
 
 /** A deprecated token, `brand-blue`: its pill is amber, and Tokens offers blue-600 in its place first. */

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import { EasingField, HoverCard } from "./easing.tsx"
 import { useTokens } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
@@ -15,7 +15,7 @@ import { mixedWrites, type Writes } from "./writes.ts"
  * easings, then the project's. The curve opens its editor, a tab for each way to set it, each starting with the same
  * graph: Curve, with the curve's two handles (dragged, or moved with the arrow keys), the presets and the project's
  * tokens; Steps; and Spring, set by time and bounce or by stiffness, damping and mass, as Framer's springs are. A spring writes `linear()` over its settle time, which is the transition's
- * duration, so its class runs long and it offers Save as token first.
+ * duration, so its class runs long and it offers Create token first, in its token list and in the note under it.
  */
 const meta = {
   title: "Parity/Explorations/Design panel controls/Unique/Easing and spring",
@@ -82,14 +82,51 @@ export const CustomCurve: Story = {
   render: () => <EasingStory start={{ value: "cubic-bezier(0.34, 1.56, 0.64, 1)" }} />
 }
 
-/** The editor open on Ease out: drag either handle, or focus one and use the arrow keys; Shift moves 0.1. */
-export const CurveEditor: Story = { render: () => <EasingStory start={{ keyword: "ease-out" }} open /> }
+/**
+ * The editor open on Ease out: drag either handle, or focus one and use the arrow keys; Shift moves 0.1. The presets
+ * and the project's easings are one list to pick from, Ease out marked as the current one: Up and Down move through
+ * it, and Home and End go to its first and last.
+ */
+export const CurveEditor: Story = {
+  render: () => <EasingStory start={{ keyword: "ease-out" }} open />,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const current = await page.findByRole("button", { name: "Ease out", current: true })
+    current.focus()
+    await userEvent.keyboard("{ArrowDown}")
+    await expect(page.getByRole("button", { name: "Ease in out" })).toHaveFocus()
+  }
+}
 
-/** Steps 4, in the editor's Steps tab: the count, and whether each jump comes at the start or the end. */
+/**
+ * Steps 4, in the editor's Steps tab: the count, on the shared field, typed, stepped or scrubbed by its name, and
+ * whether each jump comes at the start or the end.
+ */
 export const Steps: Story = { render: () => <EasingStory start={{ value: "steps(4)" }} open /> }
 
 /**
- * A spring set by time and bounce, 400ms and 0.2: Spring 400ms, written as `linear()` over 400ms, with Save as token
+ * The count typed as 6 and Enter pressed, then Shift+Up, ten more: `steps(16)`; then Jump at Start:
+ * `steps(16, jump-start)`.
+ */
+export const StepsTypedAndStepped: Story = {
+  render: () => <EasingStory start={{ value: "steps(4)" }} open />,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body)
+    const stored = within(canvasElement).getByLabelText("Stored")
+    const count = await page.findByRole("textbox", { name: "Steps" })
+    await userEvent.clear(count)
+    await userEvent.type(count, "6{Enter}")
+    await expect(stored).toHaveTextContent("steps(6)")
+    count.focus()
+    await userEvent.keyboard("{Shift>}{ArrowUp}{/Shift}")
+    await expect(stored).toHaveTextContent("steps(16)")
+    await userEvent.click(page.getByRole("button", { name: "Start" }))
+    await expect(stored).toHaveTextContent("steps(16, jump-start)")
+  }
+}
+
+/**
+ * A spring set by time and bounce, 400ms and 0.2: Spring 400ms, written as `linear()` over 400ms, with Create token
  * offered under it.
  */
 export const SpringByTimeAndBounce: Story = {

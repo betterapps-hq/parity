@@ -22,7 +22,7 @@ function Tag({ start }: { start: Draft }) {
   const [draft, set] = useDraft({ background: "card", radius: "radius-xl", gap: { number: 12 }, ...start })
 
   return (
-    <Playground writes={tagWrites(draft.tag)} preview={<LayerPreview draft={draft} />}>
+    <Playground writes={tagWrites(draft.tag, "Simple pricing for every team")} preview={<LayerPreview draft={draft} />}>
       <TextSection draft={draft} set={set} />
     </Playground>
   )

@@ -1,11 +1,14 @@
 import { DurationArt } from "../../chrome/token-previews.tsx"
-import { stepCount, stepThrough } from "./css-values.ts"
+import { stepCount } from "./css-values.ts"
 import {
   asToken,
-  nearestToken,
+  ownValue,
   type Reading,
   readUnitNumber,
+  type ScrubKeys,
+  stepToken,
   tokenChip,
+  tokenNamed,
   useLiveRow,
   useTokens,
   ValueField
@@ -21,8 +24,8 @@ const namespace = "duration-"
 /**
  * A time (PAR-652's Time): milliseconds, as a transition's Duration and Delay take them. `0.2s` typed becomes 200ms; one
  * read from code keeps `s` until it's edited. Any whole millisecond is a step (`duration-200`), unmarked while the
- * project has no duration tokens and marked once it has some. Up and Down step 10ms, Shift 100ms; a token steps to the
- * next. With a spring, the spring decides how long it takes, so Duration shows its settle time, set by Easing. Its
+ * project has no duration tokens and marked once it has some. Up and Down step 10ms, Shift 100ms and Alt 1ms, as
+ * dragging its mark does per screen pixel; a token steps to the next. With a spring, the spring decides how long it takes, so Duration shows its settle time, set by Easing. Its
  * tokens are the project's (`useTokens`), drawn as a track whose dot crosses it in that time.
  */
 export function TimeField({
@@ -49,7 +52,6 @@ export function TimeField({
   const name = value !== undefined && "token" in value ? value.token : undefined
   const token = name === undefined ? undefined : tokens.find((other) => other.name === name)
   const own = value !== undefined && !("token" in value) ? value : undefined
-  const nearest = own !== undefined && ms !== undefined ? nearestToken(tokens, (other) => other.ms, ms) : undefined
 
   const set = (next: number) => {
     const whole = Math.round(next * 100) / 100
@@ -79,7 +81,7 @@ export function TimeField({
       return { value: { time: undefined } }
     }
 
-    const named = tokens.find((other) => other.name === trimmed || other.name === namespace + trimmed)
+    const named = tokenNamed(tokens, trimmed, namespace)
 
     if (named) {
       return { value: { time: { token: named.name } } }
@@ -103,16 +105,17 @@ export function TimeField({
     return { value: { ms: reading.value } }
   }
 
-  const step = (up: boolean, shift: boolean) => {
+  const step = (up: boolean, { shift, alt }: ScrubKeys) => {
     if (token) {
-      const scale = [...tokens].sort((one, other) => one.ms - other.ms)
       // As every token steps: to the next in scale order, Shift to the first or last.
-      onChange({ token: stepThrough(scale, token, up, shift).name })
+      onChange({ token: stepToken(tokens, token, up, shift).name })
 
       return
     }
 
-    set((ms ?? defaultMs) + stepCount(up, shift) * 10)
+    // Alt steps the smallest step, a millisecond.
+    const by = alt && !shift ? stepCount(up, false) : stepCount(up, shift) * 10
+    set((ms ?? defaultMs) + by)
   }
 
   // Its time drawn as Easing draws its curve, with the Tokens panel's mark: a track whose dot crosses it in that time
@@ -134,6 +137,12 @@ export function TimeField({
       <ValueField
         label={label}
         inner={preview}
+        // Dragging the mark, or the row's name, scrubs it 10ms per screen pixel, 100ms with Shift and 1ms with Alt.
+        scrub={{
+          from: () => ms ?? defaultMs,
+          apply: (next) => set(next),
+          by: { step: 10, shiftStep: 100, altStep: 1, min: which === "duration" ? 0 : undefined }
+        }}
         shown={own === undefined || setBy || ms === undefined ? undefined : String(ms)}
         placeholder={String(setBy ? setBy.ms : defaultMs)}
         mixed={mixed}
@@ -147,23 +156,21 @@ export function TimeField({
         own={
           own === undefined || setBy || ms === undefined
             ? undefined
-            : {
+            : ownValue({
+                value: ms,
                 text: `${ms}ms`,
-                nearest,
-                same: nearest?.ms === ms,
+                tokens,
+                measure: (each) => each.ms,
+                make: (made) => durationToken(made, ms),
                 namespace,
-                onCreate:
-                  create &&
-                  ((made) => {
-                    create(durationToken(made, ms))
-                    onChange({ token: made })
-                  }),
-                allowed: own.allow,
+                create,
+                allow: own.allow,
+                onToken: (made) => onChange({ token: made }),
                 onAllow: (reason) => {
                   const plain = "step" in own ? { step: own.step } : { value: own.value }
                   onChange(reason === undefined ? plain : { ...plain, allow: reason })
                 }
-              }
+              })
         }
         tokens={
           tokens.length > 0
@@ -178,7 +185,7 @@ export function TimeField({
             onChange(typed.time)
           }
         }}
-        onStep={(up, { shift }) => step(up, shift)}
+        onStep={step}
       />
     </div>
   )

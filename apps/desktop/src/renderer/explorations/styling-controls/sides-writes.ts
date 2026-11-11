@@ -15,9 +15,9 @@ import {
   lengthForm,
   sameValue,
   stepCount,
-  stepSpacing,
-  stepThrough
+  stepSpacing
 } from "./css-values.ts"
+import { stepToken } from "./token-scale.ts"
 import type { LengthToken } from "./tokens.ts"
 import { readLength, readNumber } from "./typing.ts"
 import { type StoredObject, type StoredValue, withAllow, type Writes } from "./writes.ts"
@@ -302,11 +302,10 @@ export function stepSide(
   tokens: readonly LengthToken[]
 ): Side {
   if (side !== undefined && side !== "auto" && "token" in side) {
-    const scale = tokens.filter((token) => !token.deprecated).toSorted((a, b) => a.px - b.px)
-    const index = scale.findIndex((token) => token.name === side.token)
+    const token = tokens.find((each) => each.name === side.token)
 
-    if (index !== -1) {
-      return { token: stepThrough(scale, scale[index]!, up, shift).name }
+    if (token) {
+      return { token: stepToken(tokens, token, up, shift).name }
     }
   }
 

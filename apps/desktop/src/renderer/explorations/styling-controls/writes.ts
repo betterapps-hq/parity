@@ -17,7 +17,7 @@ import {
   trackCss
 } from "./data.ts"
 import { sideClass, sideCss, sideNumber, type Sides, sideStored, sidesWrites, type SideValue } from "./sides-writes.ts"
-import { borderWidthTokens, radiusTokens } from "./tokens.ts"
+import { borderWidthTokens, type LengthToken } from "./tokens.ts"
 
 /**
  * A stored value as JSON holds it: text, a number, a list, or an object of them, as PAR-652's value forms are. An
@@ -122,16 +122,14 @@ export function radiusWrites(radius: Draft["radius"], cornerStyle?: string): Wri
     }
 
     if (isLengthToken(value)) {
-      const token = radiusTokens.find((other) => other.name === value)
-
-      return { css: `var(--${value})`, tailwind: `${prefix}-${value.replace("radius-", "")}`, full: token?.px === 9999 }
+      return { css: `var(--${value})`, tailwind: `${prefix}-${value.replace("radius-", "")}` }
     }
 
     if ("percent" in value) {
-      return { css: `${value.percent}%`, tailwind: `${prefix}-[${value.percent}%]`, full: false }
+      return { css: `${value.percent}%`, tailwind: `${prefix}-[${value.percent}%]` }
     }
 
-    return { css: `${value.px}px`, tailwind: `${prefix}-[${value.px}px]`, full: false }
+    return { css: `${value.px}px`, tailwind: `${prefix}-[${value.px}px]` }
   }
 
   const css: string[] = []
@@ -176,8 +174,17 @@ export type StrokePosition = "inside" | "center" | "outside"
 /** A stroke 1px on every side, the project's usual. */
 export const oneEverySide: Sides = [{ number: 1 }, { number: 1 }, { number: 1 }, { number: 1 }]
 
-/** A stroke: its width per side, its color, and where it's drawn. */
-export function strokeWrites(draft: Draft, inLayout: boolean, position: StrokePosition): Writes {
+/**
+ * A stroke: its width per side, its color, and where it's drawn. An outline has one width, so out of layout, sides
+ * that differ are written at the widest, as taking a stroke out of layout makes them; a token side is as wide as the
+ * project's border-width token says (`tokens`).
+ */
+export function strokeWrites(
+  draft: Draft,
+  inLayout: boolean,
+  position: StrokePosition,
+  tokens: readonly LengthToken[] = borderWidthTokens
+): Writes {
   if (draft.border === undefined && draft.borderWidth === undefined) {
     return { stored: undefined, css: [], tailwind: [] }
   }
@@ -192,7 +199,7 @@ export function strokeWrites(draft: Draft, inLayout: boolean, position: StrokePo
   }
 
   if (!inLayout) {
-    const px = sideNumber(sides[0], borderWidthTokens) ?? 1
+    const px = Math.max(...sides.map((side) => sideNumber(side, tokens) ?? 0)) || 1
     const offset = { inside: -px, center: -px / 2, outside: 0 }[position]
     const colorValue = color.css[0]?.replace("border-color: ", "") ?? "currentColor"
 
@@ -265,7 +272,7 @@ function sizeWrites(axis: "w" | "h", size: Size | undefined, setBy?: string): Wr
 
 /** Width and height, their limits and the aspect ratio, outside a layout (Fill is `100%`, Hug `fit-content`). */
 export function sizeRowWrites(draft: Draft): Writes {
-  const width = sizeWrites("w", draft.width ?? 520)
+  const width = sizeWrites("w", draft.width)
   const height = sizeWrites("h", draft.height, draft.aspect ? "Aspect ratio" : undefined)
   const css = [...width.css, ...height.css]
   const tailwind = [...width.tailwind, ...height.tailwind]
@@ -441,10 +448,20 @@ function gapWrites(draft: Draft, twoWays: boolean, stored: StoredObject, css: st
   const gap = draft.gap === "auto" ? undefined : draft.gap
   const rowGap = twoWays && draft.rowGap !== "auto" ? draft.rowGap : undefined
 
+  /*
+   * A negative gap overlaps the children with a negative margin on each but the last, which Tailwind's `-space-*`
+   * writes; reversed, the margin is on their start side, as `space-*-reverse` moves it. Only a flex layout that doesn't
+   * wrap takes one: a grid, or wrapped lines, would write nothing that works, so neither writes it.
+   */
   if (gap !== undefined && "number" in gap && gap.number < 0) {
+    if (draft.columns !== undefined || draft.wrap) {
+      return
+    }
+
     const across = (draft.direction ?? "column") === "row"
+    const side = draft.reverse ? "start" : "end"
     stored.gap = lengthForm(gap.number)
-    css.push(`& > :not(:last-child) { margin-${across ? "inline" : "block"}-end: ${lengthCss(gap.number)} }`)
+    css.push(`& > :not(:last-child) { margin-${across ? "inline" : "block"}-${side}: ${lengthCss(gap.number)} }`)
     tailwind.push(`-space-${across ? "x" : "y"}-${lengthClass(-gap.number)}`)
 
     if (draft.reverse) {
@@ -544,15 +561,15 @@ export function placementWrites(draft: Draft): Writes {
   return { stored: Object.keys(stored).length > 0 ? stored : undefined, css, tailwind }
 }
 
-/** A text layer's tag: the element it's written as, which is markup, not style. */
-export function tagWrites(tag: string | undefined): Writes {
+/** A text layer's tag, around its text: the element it's written as, which is markup, not style. */
+export function tagWrites(tag: string | undefined, text: string): Writes {
   const element = tag ?? "p"
 
   return {
     stored: tag === undefined ? undefined : { keyword: tag },
     css: [],
     tailwind: [],
-    markup: `<${element}>Simple pricing for every team</${element}>`
+    markup: `<${element}>${text}</${element}>`
   }
 }
 
@@ -567,6 +584,9 @@ export function inState(writes: Writes, state: "hover"): Writes {
     tailwind: writes.tailwind.map((name) => `${state}:${name}`)
   }
 }
+
+/** What an unset control writes: nothing stored, and no CSS or Tailwind. */
+export const noWrites: Writes = { stored: undefined, css: [], tailwind: [] }
 
 /** Layers whose values differ: each keeps its own, and nothing is written until one is set for them all. */
 export const mixedWrites: Writes = { stored: "Mixed: each layer keeps its own", css: [], tailwind: [] }

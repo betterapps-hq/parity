@@ -22,7 +22,7 @@ import {
   Plus,
   Rows3
 } from "lucide-react"
-import { type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from "react"
+import { type KeyboardEvent, type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -38,7 +38,7 @@ import {
   type Track,
   typedContentSizes
 } from "./data.ts"
-import { type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
+import { arrowMoves, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
 import { EachToggle, Field, IconSegments, nameMenuButton, TitleMenu } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
 import { moved, RemoveButton, useOrderKeys } from "./list-parts.tsx"
@@ -119,8 +119,10 @@ export function LayoutSection({ draft, set }: SectionProps) {
   const [gapBeforeAuto, setGapBeforeAuto] = useState<Side>()
   const fixedGap = undefinedIfAuto(draft.gap)
   const gapNumber = sideNumber(fixedGap, spacing)
-  // A negative gap is a margin on each child, which wrapped lines would break, so wrapping takes it to 0.
-  const wrappedGap = gapNumber !== undefined && gapNumber < 0 ? { number: 0 } : draft.gap
+  // A negative gap is a margin on each child, which wrapped lines would break and a grid has no way to write, so
+  // wrapping or a grid takes it to 0.
+  const negative = gapNumber !== undefined && gapNumber < 0
+  const wrappedGap = negative ? { number: 0 } : draft.gap
 
   const setGap = (gap: Side, distribute?: Draft["distribute"]) => {
     if (gap === "auto" && fixedGap !== undefined) {
@@ -151,7 +153,11 @@ export function LayoutSection({ draft, set }: SectionProps) {
 
   const toMode = (next: LayoutMode) => {
     if (next === "grid") {
-      set({ columns: kept?.columns ?? [fr(1), fr(1), fr(1)], rows: kept?.rows ?? [], gap: fixedGap })
+      set({
+        columns: kept?.columns ?? [fr(1), fr(1), fr(1)],
+        rows: kept?.rows ?? [],
+        gap: negative ? { number: 0 } : fixedGap
+      })
 
       return
     }
@@ -1145,7 +1151,8 @@ function TrackCount({
       scrub={{
         from: () => count,
         apply: (next) => onCount(next),
-        by: { move: (start, dx) => clamp(start + Math.trunc(dx / 8), 1, mostTracks) }
+        // A count per screen pixel, ten with Shift, as every count scrubs.
+        by: { step: 1, shiftStep: 10, min: 1, max: mostTracks }
       }}
       shown={word ? name : String(count)}
       chip={
@@ -1167,7 +1174,7 @@ function TrackCount({
       }}
       read={read}
       onCommit={(next) => (next === "word" ? onWord() : onCount(next))}
-      onStep={(up) => onCount(clamp(count + (up ? 1 : -1), 1, mostTracks))}
+      onStep={(up, { shift }) => onCount(clamp(count + stepCount(up, shift), 1, mostTracks))}
     />
   )
 }
@@ -1422,7 +1429,8 @@ function resize(tracks: Track[], count: number): Track[] {
 
 /**
  * The grid picker, as Figma's: a small grid to point across, which shows the columns and rows it'd make, and a click
- * sets them as equal tracks. Rows at zero leave them Auto.
+ * sets them as equal tracks. Rows at zero leave them Auto. From the keyboard it's one Tab stop, the cell for the grid
+ * as it is: the arrows move the focus between cells, and Enter or Space picks one.
  */
 function GridPicker({
   columns,
@@ -1437,6 +1445,21 @@ function GridPicker({
   const [at, setAt] = useState<{ x: number; y: number }>()
   const most = { x: 8, y: 6 }
   const shown = at ?? { x: columns, y: rows }
+  // The Tab stop: the cell for the tracks there are, within the picker.
+  const stop = { x: clamp(columns, 1, most.x) - 1, y: clamp(rows, 1, most.y) - 1 }
+
+  const move = (event: KeyboardEvent<HTMLFieldSetElement>) => {
+    const by = arrowMoves.get(event.key)
+
+    if (!by || !(event.target instanceof HTMLButtonElement)) {
+      return
+    }
+
+    event.preventDefault()
+    const [x, y] = (event.target.dataset.cell ?? "0,0").split(",").map(Number)
+    const next = `${clamp(x! + by[0], 0, most.x - 1)},${clamp(y! + by[1], 0, most.y - 1)}`
+    event.currentTarget.querySelector<HTMLButtonElement>(`[data-cell="${next}"]`)?.focus()
+  }
 
   return (
     <Popover open={open} onOpenChange={(next) => (setOpen(next), setAt(undefined))}>
@@ -1452,12 +1475,14 @@ function GridPicker({
         <p className="text-sm font-medium">
           {shown.x} × {shown.y === 0 ? "Auto" : shown.y}
         </p>
-        <div
-          role="grid"
+        {/* A group of labelled cells rather than a grid: one Tab stop, with the arrows moving between them. */}
+        {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the arrow keys of the buttons inside, handled once for them all */}
+        <fieldset
           aria-label="Columns and rows"
-          className="grid gap-0.5"
+          className="m-0 grid min-w-0 gap-0.5 border-0 p-0"
           style={{ gridTemplateColumns: `repeat(${most.x}, 1rem)` }}
           onPointerLeave={() => setAt(undefined)}
+          onKeyDown={move}
         >
           {Array.from({ length: most.y }, (_, y) =>
             Array.from({ length: most.x }, (_, x) => {
@@ -1468,6 +1493,8 @@ function GridPicker({
                   key={`${x}-${y}`}
                   type="button"
                   aria-label={`${x + 1} columns, ${y + 1} rows`}
+                  data-cell={`${x},${y}`}
+                  tabIndex={x === stop.x && y === stop.y ? 0 : -1}
                   onPointerEnter={() => setAt({ x: x + 1, y: y + 1 })}
                   onFocus={() => setAt({ x: x + 1, y: y + 1 })}
                   onClick={() => {
@@ -1487,7 +1514,7 @@ function GridPicker({
               )
             })
           )}
-        </div>
+        </fieldset>
         <Button
           variant="ghost"
           size="sm"

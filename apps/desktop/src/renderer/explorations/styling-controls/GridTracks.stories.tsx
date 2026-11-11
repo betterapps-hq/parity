@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { gridTrackComparisons, gridTrackPoints } from "./comparisons.tsx"
 import { LayerPreview } from "./controls.tsx"
 import type { Draft, Track } from "./data.ts"
@@ -43,8 +44,18 @@ function Tracks({ start }: { start: Draft }) {
   )
 }
 
-/** Three equal columns, written `grid-cols-3`: a count and a size. */
-export const EqualColumns: Story = { render: () => <Tracks start={{ columns: [fill(), fill(), fill()], rows: [] }} /> }
+/** Three equal columns, written `grid-cols-3`: a count and a size. Shift+Up on the count adds ten, as every count steps. */
+export const EqualColumns: Story = {
+  render: () => <Tracks start={{ columns: [fill(), fill(), fill()], rows: [] }} />,
+  play: async ({ canvasElement }) => {
+    const count = within(canvasElement).getByRole("textbox", { name: "Column count" })
+    await userEvent.click(count)
+    await userEvent.keyboard("{Shift>}{ArrowUp}{/Shift}")
+    await waitFor(() => expect(count).toHaveValue("13"))
+    await userEvent.keyboard("{Shift>}{ArrowDown}{/Shift}")
+    await waitFor(() => expect(count).toHaveValue("3"))
+  }
+}
 
 /** Sized tracks, listed one a row: 200 pixels, Fill, and Fill ×2; one row that hugs. */
 export const SizedTracks: Story = {

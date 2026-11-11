@@ -29,14 +29,12 @@ import {
   transitionSets
 } from "./motion-data.ts"
 import { durationTokens } from "./tokens.ts"
-import type { StoredObject, Writes } from "./writes.ts"
-
-const nothing: Writes = { stored: undefined, css: [], tailwind: [] }
+import { noWrites, type StoredObject, type Writes } from "./writes.ts"
 
 /** Position's Rotation: `rotate-45`, `-rotate-12`, or `rotate-[22.5deg]` for a value of its own. */
 export function angleWrites(angle: Angle | undefined): Writes {
   if (angle === undefined) {
-    return nothing
+    return noWrites
   }
 
   if ("step" in angle) {
@@ -51,7 +49,7 @@ export function angleWrites(angle: Angle | undefined): Writes {
 /** A transition's duration or delay: `duration-200`, a token, or `duration-[0.2s]` as read from code. */
 export function timeWrites(which: "duration" | "delay", time: Time | undefined): Writes {
   if (time === undefined) {
-    return nothing
+    return noWrites
   }
 
   const property = `transition-${which}`
@@ -97,13 +95,13 @@ export function easingClass(easing: Easing): string {
   return `ease-[${arbitrary(easingCss(easing))}]`
 }
 
-/** Whether an easing's class runs long enough to offer Save as token first, as a spring's `linear()` does. */
+/** Whether an easing's class runs long enough to offer Create token first, as a spring's `linear()` does. */
 export const easingIsLong = (easing: Easing | undefined) => easing !== undefined && easingClass(easing).length > 60
 
 /** A transition's easing. */
 export function easingWrites(easing: Easing | undefined): Writes {
   if (easing === undefined) {
-    return nothing
+    return noWrites
   }
 
   return {
@@ -335,7 +333,7 @@ export function transformWrites(transform: TransformValue): Writes {
 /** A position in a box: a spot by name (`origin-top-left`, `object-bottom`), or one off them (`object-[25%_75%]`). */
 export function positionWrites(which: "origin" | "object", position: BoxPoint | undefined): Writes {
   if (position === undefined) {
-    return nothing
+    return noWrites
   }
 
   const property = which === "origin" ? "transform-origin" : "object-position"

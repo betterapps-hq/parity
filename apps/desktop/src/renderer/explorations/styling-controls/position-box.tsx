@@ -199,7 +199,7 @@ export interface NineSpotsProps {
 
 /**
  * The nine-spot box: three spots across and three down, the lit ones in the layer's color, each named in its hint.
- * Clicking a spot chooses it; where the box takes any position (`onDrag`), dragging anywhere in it sets one, and a
+ * Clicking a spot chooses it, as Enter or Space does once the arrows have moved the focus to it; where the box takes any position (`onDrag`), dragging anywhere in it sets one, and a
  * position off the spots shows as a dot between their centers.
  */
 export function NineSpots({ label, lit, set = true, off, spotName = spotLabel, onSpot, onDrag }: NineSpotsProps) {
@@ -211,7 +211,8 @@ export function NineSpots({ label, lit, set = true, off, spotName = spotLabel, o
     }
   }
 
-  // One Tab stop, as a radio group has: the lit spot, or the center where none is; the arrows choose the next spot.
+  // One Tab stop, as Segments has: the lit spot, or the center where none is. The arrows move the focus to the next
+  // spot, and Enter or Space chooses it.
   const anchor = spotValues.flatMap((y) => spotValues.map((x) => ({ x, y }))).find((spot) => lit(spot)) ?? {
     x: 50,
     y: 50
@@ -227,7 +228,6 @@ export function NineSpots({ label, lit, set = true, off, spotName = spotLabel, o
     event.preventDefault()
     const at = (value: SpotValue, by: number) => spotValues[clamp(spotValues.indexOf(value) + by, 0, 2)] ?? value
     const next = { x: at(from.x, move[0]), y: at(from.y, move[1]) }
-    onSpot(next)
     box.current?.querySelector<HTMLButtonElement>(`[data-spot="${next.x},${next.y}"]`)?.focus()
   }
 

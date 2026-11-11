@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { LayerPreview, SizeSection } from "./controls.tsx"
+import { LayerPreview, type Measured, SizeSection } from "./controls.tsx"
 import type { Draft } from "./data.ts"
 import type { TokensShown } from "./field-parts.tsx"
 import { Playground, useDraft } from "./playground.tsx"
@@ -26,10 +27,12 @@ type Story = StoryObj<typeof meta>
 
 function Size({ start }: { start: Draft }) {
   const [draft, set] = useDraft({ background: "card", radius: "radius-xl", gap: { number: 12 }, ...start })
+  // What the canvas measures the layer at, for Hug, Fill and the lock.
+  const [measured, setMeasured] = useState<Measured>()
 
   return (
-    <Playground writes={sizeRowWrites(draft)} preview={<LayerPreview draft={draft} />}>
-      <SizeSection draft={draft} set={set} />
+    <Playground writes={sizeRowWrites(draft)} preview={<LayerPreview draft={draft} onMeasure={setMeasured} />}>
+      <SizeSection draft={draft} set={set} measured={measured} />
     </Playground>
   )
 }
