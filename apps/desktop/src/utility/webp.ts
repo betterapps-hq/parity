@@ -1,3 +1,4 @@
+import type { ComposedSheet } from "@parity-app/agent"
 import type { SharpConstructor } from "sharp"
 import { degraded } from "./degraded.ts"
 
@@ -105,6 +106,31 @@ export async function composePicture(
 
   return sharp({ create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite(cuts.map((input, index) => ({ input, left: pieces[index]!.left, top: pieces[index]!.top })))
+    .png()
+    .toBuffer()
+}
+
+/**
+ * A contact sheet as a PNG (PAR-895): its overlay drawn, with each frame's picture scaled into its box over it. Fails
+ * when sharp can't load or can't read a picture.
+ */
+export async function composeSheet(sheet: ComposedSheet): Promise<Buffer> {
+  const sharp = await loadSharp()
+
+  const frames = await Promise.all(
+    sheet.frames.map(async (frame) => ({
+      input: await sharp(Buffer.from(frame.png, "base64"))
+        .resize(frame.width, frame.height, { fit: "fill" })
+        .png()
+        .toBuffer(),
+      left: frame.x,
+      top: frame.y
+    }))
+  )
+
+  return sharp(Buffer.from(sheet.overlay), { density: 72 })
+    .resize(sheet.width, sheet.height, { fit: "fill" })
+    .composite(frames)
     .png()
     .toBuffer()
 }

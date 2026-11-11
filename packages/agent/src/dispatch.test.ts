@@ -15,6 +15,7 @@ import { type AgentHost, type Answer, answerRequest, dispatch, exportPictures } 
 import type {
   AgentChangeSet,
   AgentReport,
+  ComposedSheet,
   FrameRequest,
   FrameResult,
   PlaceableResult,
@@ -91,6 +92,9 @@ interface Asked {
   frames: FrameRequest[]
   applied: { tab: string; label: string; changes: AgentChangeSet }[]
   saved: number
+  /** The names of the pictures saved, in order. */
+  names: string[]
+  sheets: ComposedSheet[]
   console: boolean[]
   reports: AgentReport[]
   references: Answer<"references">[]
@@ -131,6 +135,8 @@ function fixtureHost() {
     frames: [],
     applied: [],
     saved: 0,
+    names: [],
+    sheets: [],
     console: [],
     reports: [],
     references: [],
@@ -196,7 +202,17 @@ function fixtureHost() {
         { level: "error", text: "Boom", source: "app.tsx", line: 3, where: "canvas", count: 1, first: 1, last: 2 }
       ]
     },
-    saveScreenshots: async (shots) => shots.map((_shot, index) => `D:/shots/${++asked.saved}-${index}.png`),
+    saveScreenshots: async (shots) => {
+      asked.saved++
+      asked.names.push(...shots.map((shot) => shot.name))
+
+      return shots.map((_shot, index) => `D:/shots/${asked.saved}-${index}.png`)
+    },
+    composeSheet: async (sheet) => {
+      asked.sheets.push(sheet)
+
+      return "U0hFRVQ="
+    },
     scanImages: async () => ({
       files: [
         { path: "public/images/hero.png", bytes: 1200 },
@@ -386,6 +402,30 @@ describe("dispatch", () => {
     expect(shots.map((shot) => shot.path)).toEqual(shots.map((_shot, index) => `D:/shots/1-${index}.png`))
     expect(asked.saved).toBe(1)
     expect(answer).not.toHaveProperty("editId")
+  })
+
+  it("puts a design's frames together as one labeled sheet, kept as one file", async () => {
+    const { answer, asked } = await ask("screenshot", { design: "signup", state: "all", mode: "all", sheet: true })
+    const [sheet] = asked.sheets
+
+    expect(answer.screenshots).toEqual([])
+    expect(asked.names).toEqual(["signup-sheet"])
+    expect(asked.frames.length).toBeGreaterThan(1)
+    expect(sheet?.frames).toHaveLength(asked.frames.length)
+    expect(sheet?.overlay).toContain(">Sign up</text>")
+    expect(sheet?.overlay).toContain(">Default</text>")
+
+    expect(answer.sheets).toEqual([
+      expect.objectContaining({
+        design: "signup",
+        path: "D:/shots/1-0.png",
+        png: "U0hFRVQ=",
+        width: sheet?.width,
+        height: sheet?.height
+      })
+    ])
+
+    expect(answer.sheets?.[0]?.frames.map((frame) => frame.mode)).toEqual(asked.frames.map((frame) => frame.mode.id))
   })
 
   it("counts the frames a check draws, and checks every state in the modes shown by default", async () => {

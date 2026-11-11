@@ -110,9 +110,11 @@ All desktop commands use the same operation contracts as their MCP counterparts:
 | `skill`                  | `read_skill`          |
 
 Screenshot scale defaults to 1 and must be a finite number from 0.25 to 3. Screenshot state and mode default to the
-current state and primary mode. Audits default to every state and shown modes. State and mode accept a nonblank string
-or a nonempty list of nonblank strings; one-item lists normalize to strings. `clear` for console and `all` for props
-default to false. Requests with invalid input fail before contacting the app.
+current state and primary mode. `sheet` (`--sheet`) defaults to false; with it, a screenshot returns `sheets`, one
+labeled PNG per design with states in rows and modes in columns, in place of `screenshots`. Audits default to every
+state and shown modes. State and mode accept a nonblank string or a nonempty list of nonblank strings; one-item lists
+normalize to strings. `clear` for console and `all` for props default to false. Requests with invalid input fail before
+contacting the app.
 
 Screenshots that fail and audits that find issues exit with 1 in the CLI and set MCP `isError`, retaining the full
 report. CLI JSON omits screenshot image data; MCP emits image blocks. CLI `open` resolves relative folders; MCP requires

@@ -434,6 +434,17 @@ export interface Screenshot {
   nodes?: MeasuredNode[]
 }
 
+/**
+ * A contact sheet to put together (PAR-895): its size, the background, labels and borders as SVG, and each frame's
+ * picture with the box it goes in, in the sheet's pixels. A frame's picture is scaled to its box.
+ */
+export interface ComposedSheet {
+  width: number
+  height: number
+  overlay: string
+  frames: { png: string; x: number; y: number; width: number; height: number }[]
+}
+
 export interface ExecResult {
   ok: boolean
   /** Lines from `Print`. */

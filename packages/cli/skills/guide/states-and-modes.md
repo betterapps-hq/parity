@@ -67,5 +67,6 @@ unless the design sets a size for that viewport.
 
 ## Checking them all
 
-After a change, screenshot every frame the design shows: `Screenshot(design, { state: "all", mode: "shown" })`. Check
-dark mode for colours that only worked on white, mobile for rows that don't fit, and each state for a layout that jumps.
+After a change, screenshot every frame the design shows as one sheet: `screenshot` with `state: "all"`, `mode: "shown"`
+and `sheet: true` (`parity screenshot <design> --state all --mode shown --sheet`). Check dark mode for colours that only
+worked on white, mobile for rows that don't fit, and each state for a layout that jumps.

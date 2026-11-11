@@ -9,6 +9,11 @@ would show. Run them after every change you make, and before you tell the person
 the edge, a skeleton that doesn't match what it stands for, colours that disappear in dark mode. `scale: 2` helps with
 small details.
 
+To see many frames at once, pass `sheet: true` to `screenshot` (`parity screenshot <design> --sheet`). You get one image
+per design instead of one per frame: states in rows, modes in columns, each labeled. The CLI saves it as one file, so
+it's one read. A sheet is kept within 2,000 pixels, so big frames are shrunk; its `scale` says by how much. Screenshot a
+single state and mode to read small text.
+
 ## Layout problems
 
 `find_problems`, or `Problems` in a snippet, lists what's wrong in each frame without looking at it:
