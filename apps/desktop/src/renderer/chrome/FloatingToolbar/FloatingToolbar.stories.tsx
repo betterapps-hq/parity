@@ -8,9 +8,10 @@ import { Window } from "../chrome-fixtures.tsx"
 import { FloatingToolbar } from "./FloatingToolbar.tsx"
 
 /**
- * The toolbar floating at the bottom of the canvas (PAR-780, PAR-795): what the pointer does, Frame, Text and Insert,
- * the review button, and Search actions, warping into a review tool's bar while one is picked. It needs the canvas, so
- * each story shows the whole window with designs framed.
+ * The toolbar floating at the bottom of the canvas (PAR-780, PAR-795, PAR-893): what the pointer does; Frame, Text and
+ * the review button, which add things; then Insert, Find references and Search actions, which open a dialog or a
+ * search. It warps into a review tool's bar while one is picked. It needs the canvas, so each story shows the whole
+ * window with designs framed.
  */
 const meta = {
   title: "Parity/Chrome/Toolbar",
@@ -52,6 +53,28 @@ const toolbar = (name: string) => body().findByRole("toolbar", { name })
 export const SelectTool: Story = {
   loaders: [withTool("select")],
   play: () => frameDesigns("Pricing", "Dashboard")
+}
+
+/**
+ * The tools that add things are one group the arrow keys move through, and the commands that open a dialog or a search
+ * follow it, after the line, in their own Tab stops.
+ */
+export const Groups: Story = {
+  loaders: [withTool("select")],
+  play: async () => {
+    await frameDesigns("Pricing", "Dashboard")
+    const bar = within(await toolbar("Toolbar"))
+    const tools = within(bar.getByRole("group", { name: "Tools" }))
+
+    for (const name of ["Frame", "Text", "Comment"]) {
+      await expect(tools.getByRole("button", { name })).toBeInTheDocument()
+    }
+
+    for (const name of ["Insert", "Find references"]) {
+      await expect(tools.queryByRole("button", { name })).not.toBeInTheDocument()
+      await expect(bar.getByRole("button", { name })).toBeInTheDocument()
+    }
+  }
 }
 
 /** The hand tool picked, for panning the canvas by dragging. It shares Move and select's button, which shows it. */

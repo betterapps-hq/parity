@@ -1908,17 +1908,23 @@ place does. The end-to-end tests run only in CI.
 
 What the floating controls on the canvas hold, and how a review tool takes over the toolbar.
 
-### The toolbar, review tools and Zoom (PAR-780, PAR-795)
+### The toolbar, review tools and Zoom (PAR-780, PAR-795, PAR-893)
 
-- **The toolbar floats at the bottom of the canvas,** in the middle: what the pointer does, Frame (F), Text (T) and
-  Insert, then the review button, then Search actions. Move and select (V), Hand (H) and Interact (I) share one button,
-  which shows the one picked last; the arrow beside it switches, and says Space and a drag pans with any tool. Frame's
-  icon is in the layer blue and Text's in text's green, as everywhere they show (PAR-792), and Insert's stays plain. A
-  picked tool is white on the selection blue. Frame's arrow holds its sizes, then New screen in screen blue and New
-  component in component purple.
-- **The review button** shows the review tool picked last, Comment at first, in its color when it isn't picked. Its
-  arrow lists Comment, with C, then, under Annotate with Shift+T, each kind of annotation: Behaviour, Content,
-  Accessibility and Development. C picks Comment, and Shift+T annotates in the kind picked last, Behaviour at first.
+- **The toolbar floats at the bottom of the canvas,** in the middle, in three groups: what the pointer does; the colored
+  tools that add things, Frame (F), Text (T) and the review button; then the commands that open a dialog or a search,
+  Insert, Find references and Search actions, which stay plain. Move and select (V), Hand (H) and Interact (I) share one
+  button, which shows the one picked last; the arrow beside it switches, and says Space and a drag pans with any tool.
+  Frame's icon is in the layer blue and Text's in text's green, as everywhere they show (PAR-792). A picked tool is
+  white on the selection blue. Frame's arrow holds its sizes, then New screen in screen blue and New component in
+  component purple. The arrow keys move through the tools; the commands are Tab stops of their own.
+- **The floating bars** sit on a surface a step off white on the light theme, and their groups are split by lines etched
+  into them: a groove with a highlight on its right, through the bar's padding to its border. A picked tool's button, or
+  a stamp's chip, boings (picking a review tool warps the bar instead), and a pressed control dips and springs back;
+  with reduced motion they keep still.
+- **The review button** shows the review tool picked last, Comment at first, in its color when it isn't picked: Comment
+  is pink, and each kind of annotation has its own hue. Its arrow lists Comment, with C, then, under Annotate with
+  Shift+T, each kind of annotation: Behaviour, Content, Accessibility and Development. C picks Comment, and Shift+T
+  annotates in the kind picked last, Behaviour at first.
 - **A review tool warps the toolbar into its bar.** A kind of annotation's bar has its options as stamps, the picked one
   showing its name, then Suggest and Done; Comment's says Commenting and what a click does, then Done. The canvas goes
   to Move and select, so a click selects rather than adding text.
@@ -1927,8 +1933,8 @@ What the floating controls on the canvas hold, and how a review tool takes over 
   nothing. Picking a tool by its key or button puts the review tool down and picks that tool. Picking another review
   tool while one is picked keeps the tool to go back to.
 - **The warp.** The bar's width springs to the side that's showing. The leaving side's parts fly out, and the entering
-  side's land in a ripple outward from the review button, with a flash and a ring in the kind's color, or the layer blue
-  for Comment and going home. With reduced motion the sides cross-fade. Focus moves to the side showing, to its picked
+  side's land in a ripple outward from the review button, with a flash and a ring in the review tool's color, or the
+  layer blue going home. With reduced motion the sides cross-fade. Focus moves to the side showing, to its picked
   control or its first; the hidden side can't be reached by pointer, keyboard or screen reader. The toolbar is named for
   its side ("Toolbar", "Comments", "Behaviour annotations"). A focused button's ring shows whole at either end of the
   bar.
@@ -1946,7 +1952,10 @@ warp in `Warp.tsx` (the bar and its two sides), `useWarp.ts` (widths, focus) and
 `collaboration/annotations/` has the review tools' bars: `annotation-kinds.ts` names and colors each review tool,
 `annotation-options.ts` lists each kind's options, and `ReviewToolBar.tsx` shows `KindBar.tsx` or `CommentBar.tsx`, with
 `DoneButton.tsx`. `ReviewBar.tsx`, a bar for a review tool beside the toolbar rather than in it, is kept for later.
-`renderer/springs.ts` has the spring the warp and the stamps move on.
+`renderer/springs.ts` has the springs the warp and the floating bars' controls move on; `usePickPop`, `pressable` and
+`pressMotion` in `chrome/toolbar-parts.tsx` give every bar's controls the same pick and press, `CommandButton` in
+`chrome/IconButton.tsx` is a bar's button for a command, and `styles.css` has the bars' surface, their lines' colors and
+Comment's pink.
 
 Tests:
 
@@ -1956,16 +1965,18 @@ Tests:
 - `apps/desktop/src/renderer/springs.test.ts` (5): a spring starts at 0 and settles on 1, overshoots only when it's
   loose, settles later the less it's damped, and makes a `linear()` easing and keyframes.
 - `chrome/record-actions.test.ts`: Zoom's buttons run through the action list.
-- Stories, Parity / Chrome / Toolbar: SelectTool, HandTool, TextTool, InteractTool, ToolTooltip, Annotating and
-  Commenting; AnnotateAndBack picks Behaviour from the review menu, with the canvas on Move and select, and Esc goes
-  back to Text; ReviewKeys checks C, Shift+T, and F putting the review tool down. Parity / Chrome / Zoom controls:
-  ZoomedToFit, and ActualSize, which clicks the level to 100%. Parity / Collaboration / Annotations / Toolbar: each
-  kind's bar and Comment's, PickedStamp, and WhileReviewing for the bars kept for later.
+- Stories, Parity / Chrome / Toolbar: SelectTool; Groups, which checks Frame, Text and Comment are the tools' group and
+  Insert and Find references sit outside it; HandTool, TextTool, InteractTool, ToolTooltip, Annotating and Commenting;
+  AnnotateAndBack picks Behaviour from the review menu, with the canvas on Move and select, and Esc goes back to Text;
+  ReviewKeys checks C, Shift+T, and F putting the review tool down. Parity / Chrome / Zoom controls: ZoomedToFit, and
+  ActualSize, which clicks the level to 100%. Parity / Collaboration / Annotations / Toolbar: each kind's bar and
+  Comment's, PickedStamp, and WhileReviewing for the bars kept for later.
 - End to end (PAR-202), `apps/desktop/e2e/frames.e2e.ts` opens Frame's menu by its name.
 
 Gaps: a click with a review tool only selects, until annotations (PAR-184) and comments can be placed, and Suggest does
-nothing yet. No test plays the warp's motion, which was judged by eye in Storybook as it was designed. The stories open
-the review menu with Enter: user-event's simulated press doesn't open a menu inside the canvas's right-click area,
+nothing yet. No test plays the warp's motion, or a control's pick and press, which were judged by eye in Storybook as
+they were designed; nor the etched lines and Comment's pink, which were compared in light and dark there. The stories
+open the review menu with Enter: user-event's simulated press doesn't open a menu inside the canvas's right-click area,
 though a real click does.
 
 ## Keyboard

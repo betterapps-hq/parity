@@ -25,8 +25,8 @@ export interface ReviewToolLook {
   /** What a click does while it's picked. */
   hint: string
   icon: LucideIcon
-  /** Its color, for a kind of annotation. Comment has none, and takes the text's. */
-  color?: string
+  /** Its color: a kind of annotation's hue, or Comment's pink (see styles.css). */
+  color: string
   /** The command whose key picks it. */
   command: "comment" | "annotate"
 }
@@ -40,6 +40,7 @@ export function reviewToolLook(tool: ReviewTool): ReviewToolLook {
       doing: "Commenting",
       hint: "Click anywhere to start a thread",
       icon: MessageCircle,
+      color: "var(--review-comment)",
       command: "comment"
     }
   }
