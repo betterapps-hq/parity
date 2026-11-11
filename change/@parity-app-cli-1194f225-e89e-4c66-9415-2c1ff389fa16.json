@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Pick a layer's style sections from what it can do, move the approved styling controls into the inspector, and have each field's label name its control",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

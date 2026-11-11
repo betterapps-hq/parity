@@ -1,7 +1,7 @@
-import { insertNode } from "@parity-app/core"
+import { type ImageNode, insertNode, type VideoNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answering } from "../stories/host.ts"
 import { DesignTab } from "./DesignPanel.tsx"
@@ -66,31 +66,58 @@ export const LayoutLayer: Story = { loaders: [pick("Pricing", "Hero")] }
 /** A grid, Pricing's plans: its header says Grid layout, with the grid icon the Layout section uses. */
 export const GridLayer: Story = { loaders: [pick("Pricing", "Plans")] }
 
+/** Adds a picture or a clip to Pricing's hero and selects it. */
+const media = (layer: Pick<ImageNode, "type" | "src"> | Pick<VideoNode, "type" | "src" | "controls">) =>
+  inspecting("design", () => {
+    const key = design("Pricing")
+    example().store.updateContainer(key, `Add ${layer.type}`, (container) => ({
+      ...container,
+      root: insertNode(
+        container.root,
+        node("Pricing", "Hero"),
+        {
+          id: "hero-media",
+          name: "Team photo",
+          alt: "Four people around a laptop, planning a launch",
+          fit: "contain",
+          credit: { name: "Brooke Cagle", url: "https://unsplash.com/@brookecagle", source: "Unsplash" },
+          style: { width: "fill", height: 60, radius: "radius-xl" },
+          ...layer
+        },
+        { index: 3 }
+      )
+    }))
+
+    return layersSelection(key, ["hero-media"])
+  })
+
+/** Finds a media layer's fields by their labels, as a screen reader names them. */
+async function mediaFields(canvasElement: HTMLElement) {
+  const panel = within(canvasElement)
+  await expect(await panel.findByRole("textbox", { name: "File" }, slowly)).toBeVisible()
+  await expect(panel.getByRole("textbox", { name: "Alt text" })).toHaveValue(
+    "Four people around a laptop, planning a launch"
+  )
+  await expect(panel.getByRole("combobox", { name: "Fit" })).toHaveTextContent("Contain, shown whole")
+  await expect(panel.getByRole("switch", { name: "Visible" })).toBeChecked()
+
+  return panel
+}
+
 /** An image layer: its file, alt text for screen readers, how it fills its box, and who took it. */
 export const ImageLayer: Story = {
-  loaders: [
-    inspecting("design", () => {
-      const key = design("Pricing")
-      example().store.updateContainer(key, "Add image", (container) => ({
-        ...container,
-        root: insertNode(
-          container.root,
-          node("Pricing", "Hero"),
-          {
-            id: "hero-photo",
-            type: "image",
-            name: "Team photo",
-            src: "/images/team-at-work.jpg",
-            alt: "Four people around a laptop, planning a launch",
-            fit: "contain",
-            credit: { name: "Brooke Cagle", url: "https://unsplash.com/@brookecagle", source: "Unsplash" },
-            style: { width: "fill", height: 60, radius: "radius-xl" }
-          },
-          { index: 3 }
-        )
-      }))
+  loaders: [media({ type: "image", src: "/images/team-at-work.jpg" })],
+  play: async ({ canvasElement }) => {
+    const panel = await mediaFields(canvasElement)
+    await expect(panel.getByRole("textbox", { name: "File" })).toHaveValue("/images/team-at-work.jpg")
+  }
+}
 
-      return layersSelection(key, ["hero-photo"])
-    })
-  ]
+/** A video layer: an image's fields, and whether it shows the browser's controls. */
+export const VideoLayer: Story = {
+  loaders: [media({ type: "video", src: "/videos/team-at-work.mp4", controls: true })],
+  play: async ({ canvasElement }) => {
+    const panel = await mediaFields(canvasElement)
+    await expect(panel.getByRole("switch", { name: "Controls" })).toBeChecked()
+  }
 }

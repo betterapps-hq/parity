@@ -51,9 +51,9 @@ export const TurningAPropOffInAState: Story = {
     await expect(disabled).toBeChecked()
     await userEvent.click(disabled)
     await expect(panel.getByRole("switch", { name: "disabled" })).not.toBeChecked()
-    await userEvent.click(await panel.findByRole("button", { name: "Reset disabled to the base design" }, slowly))
+    await userEvent.click(await panel.findByRole("button", { name: "Reset disabled to Default" }, slowly))
     await expect(await panel.findByRole("switch", { name: "disabled" }, slowly)).toBeChecked()
-    await expect(panel.queryByRole("button", { name: "Reset disabled to the base design" })).toBeNull()
+    await expect(panel.queryByRole("button", { name: "Reset disabled to Default" })).toBeNull()
   }
 }
 

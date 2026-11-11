@@ -192,7 +192,8 @@ describe("several layers", () => {
 describe("number props (PAR-203)", () => {
   // App sidebar's Seats bar, a nova/Progress whose value is 70.
   const seats = "LiOql"
-  const valueField = () => app.page.locator('input[aria-label="value"]')
+  // Named by its row's label, the prop's name.
+  const valueField = () => app.page.getByRole("textbox", { name: "value", exact: true })
 
   const storedValue = async () => {
     const node = await app.node("App sidebar", seats)

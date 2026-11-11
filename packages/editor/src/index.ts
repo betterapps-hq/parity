@@ -44,6 +44,8 @@ export * from "./kind-names.ts"
 
 export * from "./kinds.ts"
 
+export * from "./layer-capabilities.ts"
+
 export * from "./layers-tree.ts"
 
 export * from "./locking.ts"

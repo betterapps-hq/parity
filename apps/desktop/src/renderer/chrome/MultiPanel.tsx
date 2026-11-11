@@ -134,7 +134,6 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   const { selection } = editor
   const { mixed } = selection
   const base = isBaseState(entry.container, selection.state.id)
-  const primary = selection.layers.at(-1)!.node
 
   return (
     <>
@@ -162,7 +161,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
           and <code className="font-mono">Mixed+8</code> adds 8 to each layer&apos;s own value.
         </p>
       )}
-      <StyleSections editor={editor} node={primary} />
+      <StyleSections editor={editor} container={entry.container} />
       <ExportSection
         targets={selection.layers.map((layer) => ({
           design: entry.key,

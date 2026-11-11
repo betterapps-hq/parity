@@ -4,14 +4,11 @@ import { agentPalettes } from "../agent/agent-colors.ts"
 import { AgentPointer } from "../agent/AgentPointer.tsx"
 import { initials, type Person, type Project, type ScreenKind } from "./explore-data.ts"
 
+export { optionNamed } from "../inspector/controls/typing.ts"
+
 /** CSS custom properties by name, which a style's own type doesn't list. */
 export interface CssVariables {
   [name: `--${string}`]: string
-}
-
-/** The option a control's value names, or undefined when it names none of them. */
-export function optionNamed<Option extends string>(options: readonly Option[], value: string | undefined) {
-  return options.find((option) => option === value)
 }
 
 /** A style with CSS custom properties set in it. */

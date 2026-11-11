@@ -299,7 +299,7 @@ function RootSections({ entry }: { entry: ContainerEntry }) {
           onReset={(name) => reset({ kind: "props", key: name })}
         />
       )}
-      {editor && <StyleSections editor={editor} node={node} />}
+      {editor && <StyleSections editor={editor} container={entry.container} />}
     </>
   )
 }

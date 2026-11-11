@@ -11,10 +11,11 @@ const errors: string[] = []
 
 /**
  * What the page loads: a Width row holding 8 steps (32px) of a 4px spacing scale, and a Mixed row standing for two
- * selected layers of 8 and 75 steps. What the fields ask for is logged; commits change the values, as the store would.
- * The project's store gives the fields their gestures, logged as they begin and end, with the gesture of each commit.
- * What the fields edit can change under them, as the selection does in the inspector. Below them are token pickers for a
- * fill set to primary, an unset text color and radii that differ across the selection.
+ * selected layers of 8 and 75 steps, each number field named by its row's label. What the fields ask for is logged;
+ * commits change the values, as the store would. The project's store gives the fields their gestures, logged as they
+ * begin and end, with the gesture of each commit. What the fields edit can change under them, as the selection does in
+ * the inspector. Below them are token pickers for a fill set to primary, an unset text color and radii that differ
+ * across the selection.
  */
 const entry = `
 import { createElement as h, useState } from "react"
@@ -54,7 +55,7 @@ function Harness() {
   window.prop = prop
   return h(ProjectContext.Provider, { value: { store } }, h(FieldTarget.Provider, { value: target }, h(TooltipProvider, null,
     h(Field, { label: "Width" }, h(NumberField, {
-      value, rules, title: "Width", blank: () => 0,
+      value, rules, blank: () => 0,
       onPreview: (update) => window.log.push(["preview", update(value)]),
       onCancel: () => window.log.push(["cancel"]),
       onCommit: (update, gesture) => {
@@ -65,11 +66,11 @@ function Harness() {
       }
     })),
     h(Field, { label: "Both", mixed: true }, h(NumberField, {
-      value: undefined, rules, title: "Both", blank: () => 0,
+      value: undefined, rules, blank: () => 0,
       onCommit: (update) => setLayers(layers.map((layer) => update(layer)))
     })),
     h(Field, { label: "value" }, h(NumberValueInput, {
-      value: prop, title: "value",
+      value: prop,
       preview: {
         onPreview: (next) => {
           window.log.push(["prop preview", next])
@@ -161,7 +162,14 @@ const gestures = async () =>
   // @ts-expect-error The page's gestures.
   entries.parse(await page.evaluate(() => window.gestures))
 
-const focused = () => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null)
+// The focused field's name: its own, or its row's label.
+const focused = () =>
+  page.evaluate(() => {
+    const active = document.activeElement
+    const label = document.getElementById(active?.getAttribute("aria-labelledby") ?? "")
+
+    return active?.getAttribute("aria-label") ?? label?.textContent ?? null
+  })
 
 async function typeInto(name: string, text: string) {
   const input = page.getByRole("textbox", { name })

@@ -139,7 +139,6 @@ export function PropsSection({
             input = (
               <ValueInput
                 value={readPropValue(value)}
-                title={name}
                 preview={preview(name)}
                 onCommit={(value, gesture) => onChange(name, value, gesture)}
               />
@@ -234,7 +233,6 @@ function PropInput({
       return (
         <SwitchInput
           value={booleanValue.safeParse(value).data ?? prop.default === true}
-          label={prop.name}
           onChange={(next) => onChange(next === (prop.default ?? false) ? undefined : next)}
         />
       )
@@ -242,7 +240,6 @@ function PropInput({
       return (
         <NumberValueInput
           value={value}
-          title={prop.name}
           placeholder={fallback ?? ""}
           // Maths that works from the value there starts from the default when the prop isn't set.
           blank={() => numberValue.safeParse(prop.default).data}
@@ -265,15 +262,7 @@ function PropInput({
 
       // A value that isn't text (a number, `null`) is edited as one, as before slots were nodes.
       if (nodePropInput(held, inSlot) === "value") {
-        return (
-          <ValueInput
-            value={value}
-            kind={valueKind(value, prop.kind)}
-            title={prop.name}
-            preview={preview}
-            onCommit={onChange}
-          />
-        )
+        return <ValueInput value={value} kind={valueKind(value, prop.kind)} preview={preview} onCommit={onChange} />
       }
 
       return (
@@ -285,15 +274,7 @@ function PropInput({
       )
     default:
       // An object prop takes JSON; one whose type isn't known takes whatever's typed, as JSON when it reads as JSON.
-      return (
-        <ValueInput
-          value={value}
-          kind={valueKind(value, prop.kind)}
-          title={prop.name}
-          preview={preview}
-          onCommit={onChange}
-        />
-      )
+      return <ValueInput value={value} kind={valueKind(value, prop.kind)} preview={preview} onCommit={onChange} />
   }
 }
 

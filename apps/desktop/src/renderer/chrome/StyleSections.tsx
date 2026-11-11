@@ -14,7 +14,7 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  type DesignNode,
+  type ContainerSpec,
   type FieldRules,
   type Length,
   type NodeStyle,
@@ -22,6 +22,8 @@ import {
   type Size
 } from "@parity-app/core"
 import {
+  type Capabilities,
+  type CapabilityDesign,
   fieldEdit,
   layoutTypeEdit,
   type ParentLayout,
@@ -32,7 +34,12 @@ import {
   sidesOf,
   sizeEdit,
   sizeField,
+  selectionCapabilities,
+  type TakesStyle,
+  type StyleControl,
+  styleParts,
   type StyleRow,
+  type StyleSection,
   type StyleValues,
   type TextSizing,
   textSizing,
@@ -58,7 +65,7 @@ import {
   Underline,
   WrapText
 } from "lucide-react"
-import { useState } from "react"
+import { type ComponentType, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
 import {
   ChoiceInput,
@@ -137,26 +144,65 @@ const opacityRules: FieldRules = { kind: "percent", min: 0, max: 100, label: "Op
 
 interface SectionProps {
   editor: StyleEditor
-  node: DesignNode
   parent?: ParentLayout
+  /** What the selected layers can do together. */
+  can: Capabilities
+  /** Whether one of the controls only some layers get shows, as `@parity-app/editor`'s `styleTable` says. */
+  shows: (control: StyleControl) => boolean
 }
 
 /**
- * Every style section that applies to a node, in Figma's order. Components get the same control as layouts: what's
- * set on them lands on their root element, over the component's own styles.
+ * Each section the app draws, by the table's name for it. The table's other sections (Layer order, Grid placement,
+ * Fill, Effects, Motion, Raw CSS) aren't built yet, and draw nothing.
  */
-export function StyleSections({ editor, node }: { editor: StyleEditor; node: DesignNode }) {
-  const props: SectionProps = { editor, node, parent: editor.selection.parent }
+const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> = {
+  // Until Frame size is built, a frame's root's Size is the frame's own size (see `useStyleEditor`).
+  frameSize: SizeSection,
+  placement: PositionSection,
+  size: SizeSection,
+  layout: LayoutSection,
+  spacing: SpacingSection,
+  appearance: AppearanceSection,
+  text: TextSection,
+  stroke: StrokeSection
+}
+
+/** The layer panel leaves out the design, since it never shows a design's root: no layer's id is empty. */
+const noRoot: CapabilityDesign = { root: { id: "" } }
+
+/**
+ * Every style section the selected layers get, in the order `@parity-app/editor`'s `styleTable` gives, from what
+ * they can do (`selectionCapabilities`). Components get the same controls as layouts: what's set on them lands on
+ * their root element, over the component's own styles.
+ */
+export function StyleSections({
+  editor,
+  container,
+  takesStyle
+}: {
+  editor: StyleEditor
+  /** The design the layers are in, which says whether one is its root or a frame's. */
+  container?: ContainerSpec
+  /** Whether a code component takes the layer's style; unknown counts as taking it. */
+  takesStyle?: TakesStyle
+}) {
+  const can = selectionCapabilities(container ?? noRoot, editor.selection.layers, takesStyle)
+  const { sections, controls } = styleParts(can)
+
+  const props: SectionProps = {
+    editor,
+    parent: editor.selection.parent,
+    can,
+    shows: (control) => controls.has(control)
+  }
 
   return (
     <>
-      {node.type === "layout" && <LayoutSection {...props} />}
-      <SpacingSection {...props} />
-      <SizeSection {...props} />
-      <PositionSection {...props} />
-      <AppearanceSection {...props} />
-      <StrokeSection {...props} />
-      <TextSection {...props} />
+      {sections.map((section) => {
+        const View = sectionViews[section]
+
+        return View && <View key={section} {...props} />
+      })}
     </>
   )
 }
@@ -383,12 +429,12 @@ function AlignmentGrid({
 const labels = { start: "Start", center: "Center", end: "End" } as const
 
 /** Padding (inside the node) and margin (outside it), on every side or each on its own. */
-function SpacingSection({ editor }: SectionProps) {
+function SpacingSection({ editor, shows }: SectionProps) {
   return (
     <PanelSection title="Spacing">
       <div className="flex flex-col gap-1">
         <SidesField editor={editor} name="padding" label="Padding" />
-        <SidesField editor={editor} name="margin" label="Margin" />
+        {shows("margin") && <SidesField editor={editor} name="margin" label="Margin" />}
       </div>
     </PanelSection>
   )
@@ -456,7 +502,7 @@ function SidesField({ editor, name, label }: { editor: StyleEditor; name: "paddi
   )
 }
 
-function SizeSection({ editor, node, parent }: SectionProps) {
+function SizeSection({ editor, parent, shows }: SectionProps) {
   const { set } = editor
   const { style } = editor.selection
 
@@ -473,7 +519,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
           editor={editor}
           axis={axis}
           value={shownSize(style, axis, parent)}
-          canFill={parent !== undefined || node.type === "layout"}
+          canFill={shows("sizeFill")}
           onChange={(value) => set(axis, sizeEdit(axis, value, parent), `Change ${axis}`)}
           // A typed length makes a layer's size fixed; clearing it puts a fixed size back to auto and leaves fill or hug.
           edits={fieldEdits(editor, axis, `Change ${axis}`, read, (value, layer) => write(asLength(value), layer))}
@@ -556,7 +602,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
             </Field>
           </>
         )}
-        {parent && !parent.grid && (
+        {shows("alignSelf") && (
           <Field label="Align self" {...rowOf(editor, "self")}>
             <ChoiceInput
               value={style.self}
@@ -566,7 +612,7 @@ function SizeSection({ editor, node, parent }: SectionProps) {
             />
           </Field>
         )}
-        {parent?.grid && (
+        {shows("span") && (
           <Field label="Span" {...rowOf(editor, "span")}>
             <div className="grid grid-cols-2 gap-1">
               <CompactNumber
@@ -671,15 +717,10 @@ function SizeInput({
   )
 }
 
-function PositionSection({ editor, parent }: SectionProps) {
+function PositionSection({ editor }: SectionProps) {
   const { set } = editor
   const { style } = editor.selection
   const absolute = style.position === "absolute"
-
-  if (!parent && !absolute) {
-    return null
-  }
-
   const sides = ["top", "right", "bottom", "left"] as const
 
   return (
@@ -879,14 +920,14 @@ function StrokeSection({ editor }: SectionProps) {
   )
 }
 
-function TextSection({ editor, node }: SectionProps) {
+function TextSection({ editor, can, shows }: SectionProps) {
   const { set, tokens } = editor
   const { style } = editor.selection
 
   return (
     <PanelSection
-      title={node.type === "text" ? "Text" : "Text inside"}
-      description={node.type === "text" ? undefined : "Text in here inherits these unless it sets its own."}
+      title={can.text ? "Text" : "Text inside"}
+      description={can.text ? undefined : "Text in here inherits these unless it sets its own."}
     >
       <div className="flex flex-col gap-1">
         <Field label="Color" {...rowOf(editor, "textColor")}>
@@ -968,7 +1009,7 @@ function TextSection({ editor, node }: SectionProps) {
             ))}
           </ToggleGroup>
         </Field>
-        {node.type === "text" && <TextResizing editor={editor} />}
+        {shows("resizing") && <TextResizing editor={editor} />}
         <Field label="Decoration" {...rowOf(editor, "decoration")}>
           <div className="flex gap-1">
             <Hint label="Italic">
@@ -1021,7 +1062,7 @@ function TextSection({ editor, node }: SectionProps) {
             onChange={(transform) => set("case", { transform }, "Change case")}
           />
         </Field>
-        {node.type === "text" && (
+        {shows("maxLines") && (
           <Field label="Max lines" {...rowOf(editor, "lines")}>
             <NumberInput
               value={style.lines}

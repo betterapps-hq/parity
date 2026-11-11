@@ -28,14 +28,14 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * Nothing selected: it asks for a screen or component on the canvas or in Layers, in the glossary's words, and says how
+ * Nothing selected: it asks for a screen, component or frame on the canvas or in Layers, in the glossary's words, and says how
  * to reach their layers. It says the same whatever is on the canvas, since every project opens on a screen (PAR-560).
  */
 export const NothingSelected: Story = {
   loaders: [inspecting("design")],
   play: async ({ canvasElement }) => {
     await expect(
-      await within(canvasElement).findByText("Select a screen or component on the canvas or in Layers.")
+      await within(canvasElement).findByText("Select a screen, component or frame on the canvas or in Layers.")
     ).toBeVisible()
   }
 }
