@@ -15,6 +15,7 @@ import {
   locateNode,
   type NodeStyle,
   type Padding,
+  type Paint,
   resetInner,
   resetOverride,
   type Size,
@@ -104,6 +105,24 @@ export const styleRows = {
   case: ["transform"],
   lines: ["lines"]
 } as const satisfies Record<string, readonly (keyof NodeStyle)[]>
+
+/**
+ * The Fill row's edit for a stack of paints, top first: nothing when it's empty, and one color token as the plain name
+ * a single `background` has always held, so a file with one color reads as it did before stacks (PAR-931).
+ */
+export function fillEdit(paints: readonly Paint[]): Pick<StyleValues, "background"> {
+  const [only] = paints
+
+  if (!only) {
+    return { background: undefined }
+  }
+
+  if (paints.length === 1 && only.kind === "solid" && only.alpha === undefined && !only.hidden) {
+    return { background: only.color }
+  }
+
+  return { background: [...paints] }
+}
 
 export type StyleRow = keyof typeof styleRows
 

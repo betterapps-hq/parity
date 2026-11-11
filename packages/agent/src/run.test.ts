@@ -579,6 +579,36 @@ Print(JSON.stringify(Overlaps()))`
     expect(result.warnings.join("\n")).toContain(`background "hotpink" isn't a token`)
   })
 
+  it("fills a layer with a stack of paints, reads it back, and checks each paint's tokens (PAR-931)", async () => {
+    const stack = [
+      {
+        kind: "linear",
+        angle: 90,
+        stops: [
+          { color: "primary", position: 0 },
+          { color: "nope", position: 100 }
+        ]
+      },
+      { kind: "image", src: "/images/hero.jpg", fit: "fill" },
+      { kind: "solid", color: "background", alpha: 80 }
+    ]
+
+    const result = await execute(
+      {
+        label: "Hero fill",
+        code: `Update("page", {style: {background: ${JSON.stringify(stack)}}})
+Print(JSON.stringify(Get("page").style.background))`
+      },
+      snapshot(),
+      hooks()
+    )
+
+    expect(JSON.parse(result.output[0]!)).toEqual(stack)
+    expect(findNode(result.changes.designs[0]!.after!.root, "page")?.style?.background).toEqual(stack)
+    expect(result.warnings.join("\n")).toContain(`background "nope" isn't a token`)
+    expect(result.warnings.join("\n")).not.toContain(`background "primary"`)
+  })
+
   it("lists radius-full with the radius tokens and takes it without a warning (PAR-458)", async () => {
     const result = await execute(
       {

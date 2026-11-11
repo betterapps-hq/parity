@@ -20,6 +20,7 @@ import type {
 } from "./document.ts"
 import { isNamedLength } from "./document.ts"
 import type { ResolvedMode } from "./modes.ts"
+import { fillCss } from "./paint.ts"
 
 /**
  * A design resolved for one state in one viewport: what a renderer adapter mounts. Framework-neutral: elements are
@@ -929,9 +930,7 @@ function sidesCss(value: Padding): string {
 function surfaceCss(style: NodeStyle): InlineStyle {
   const css: InlineStyle = {}
 
-  if (style.background) {
-    css.background = token(style.background)
-  }
+  Object.assign(css, fillCss(style.background))
 
   if (style.border !== undefined || style.borderWidth !== undefined) {
     css.borderWidth = `${style.borderWidth ?? 1}px`

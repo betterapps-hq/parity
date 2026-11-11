@@ -4,6 +4,7 @@ import {
   type ComponentInfo,
   type ComponentLibrary,
   type DesignNode,
+  fillTokens,
   type NodeStyle,
   type PropValues,
   radiusKeywords
@@ -58,10 +59,8 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
       }
 
       for (const style of [node.style, ...Object.values(node.responsive ?? {}).map((patch) => patch.style)]) {
-        for (const name of tokenStyleKeys) {
-          const value = style?.[name]
-
-          if (value && !known(name, value)) {
+        for (const [name, value] of styleTokens(style)) {
+          if (!known(name, value)) {
             warn("not_a_token", `${name} "${value}" isn't a token. ${nearestHint(name, value) ?? anyToken}`, where)
           }
         }
@@ -97,10 +96,8 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
 
     for (const state of container.states) {
       for (const [nodeId, patch] of Object.entries(state.overrides ?? {})) {
-        for (const name of tokenStyleKeys) {
-          const value = patch.style?.[name]
-
-          if (value && !known(name, value)) {
+        for (const [name, value] of styleTokens(patch.style)) {
+          if (!known(name, value)) {
             const hint = nearestHint(name, value)
             const message = `${name} "${value}" isn't a token${hint ? `. ${hint}` : ""}`
             warn("not_a_token", message, `${container.id} state ${state.id}/${nodeId}`)
@@ -160,6 +157,32 @@ export function propWarnings(
 const lengthName = z.string()
 
 /** Lengths given as token names rather than spacing steps, by the style key they're under. */
+/**
+ * The token names a style sets under the keys that take one, as `[key, name]`: a fill's paints each name theirs under
+ * `background`.
+ */
+function styleTokens(style: NodeStyle | undefined): [TokenStyleKey, string][] {
+  const found: [TokenStyleKey, string][] = []
+
+  for (const name of tokenStyleKeys) {
+    if (name === "background") {
+      const { colors, gradients } = fillTokens(style?.background)
+      found.push(
+        ...[...colors, ...gradients].flatMap((value): [TokenStyleKey, string][] => (value ? [[name, value]] : []))
+      )
+      continue
+    }
+
+    const value = style?.[name]
+
+    if (value) {
+      found.push([name, value])
+    }
+  }
+
+  return found
+}
+
 function lengthTokens(style: NodeStyle | undefined): [string, string][] {
   const found: [string, string][] = []
 
@@ -207,8 +230,10 @@ const tokenStyleKeys = [
   "tracking"
 ] as const
 
+type TokenStyleKey = (typeof tokenStyleKeys)[number]
+
 /** The category of tokens a color or length under each key is compared with, to find the nearest. */
-const nearestCategories: Partial<Record<(typeof tokenStyleKeys)[number], string>> = {
+const nearestCategories: Partial<Record<TokenStyleKey, string>> = {
   background: "color",
   foreground: "color",
   border: "color",
@@ -223,7 +248,7 @@ const anyToken = "Use a name from GetTokens()."
  * For a value that isn't a token but a color under a color's key or a length under a length's, the call that lists
  * the tokens nearest it, as `GetTokens({ nearest: "#2f6fed", category: "color" })`.
  */
-function nearestHint(name: (typeof tokenStyleKeys)[number], value: string): string | undefined {
+function nearestHint(name: TokenStyleKey, value: string): string | undefined {
   const category = nearestCategories[name]
   const read = readNearValue(value)
 

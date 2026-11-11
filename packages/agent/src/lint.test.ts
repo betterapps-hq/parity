@@ -39,6 +39,43 @@ describe("lintDocument", () => {
     expect(lintDocument(design(root), context)).toEqual([])
   })
 
+  it("checks every color and gradient token in a stack of paints, in the design and its states", () => {
+    const root = {
+      type: "layout" as const,
+      id: "page",
+      style: {
+        background: [
+          { kind: "gradient" as const, token: "gradient-sunset" },
+          {
+            kind: "linear" as const,
+            stops: [
+              { color: "primary", position: 0 },
+              { color: "#ff00aa", position: 100 }
+            ]
+          },
+          { kind: "image" as const, src: "/images/hero.jpg", fit: "fill" as const },
+          { kind: "solid" as const, color: "primary" }
+        ]
+      },
+      children: []
+    }
+
+    const states = [
+      { id: "default", name: "Default" },
+      {
+        id: "dark",
+        name: "Dark",
+        overrides: { page: { style: { background: [{ kind: "solid" as const, color: "ink" }] } } }
+      }
+    ]
+
+    expect(lintDocument(design(root, states), context).map((warning) => warning.message)).toEqual([
+      `background "#ff00aa" isn't a token. Use a name from GetTokens({ nearest: "#ff00aa", category: "color" }), which lists the nearest first.`,
+      `background "gradient-sunset" isn't a token. Use a name from GetTokens().`,
+      `background "ink" isn't a token`
+    ])
+  })
+
   it("names components, component designs, tokens and length tokens the project doesn't have, where they are", () => {
     const root = {
       type: "layout" as const,

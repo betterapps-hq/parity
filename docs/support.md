@@ -259,6 +259,7 @@ In each column, ● means the feature needs it, and ◐ means the feature is bet
 | Modes: themes                   |            |       |      |             | ●             | A theme class such as `.dark`, or an attribute its option sets |
 | Modes: breakpoints              |            |       |      | ◐           | ●             | Width-only media queries                                       |
 | Spacing and type controls       |            |       |      | ●           | ●             | `--spacing` and the type scale                                 |
+| Fill: gradients and images      |            |       |      |             | ●             | Gradient tokens as CSS variables; images in `public`           |
 | Library components              |            | ●     |      |             |               | A `.lib.par` or a catalog entry                                |
 | Icons                           |            | ●     |      |             |               | `lucide-react`                                                 |
 | Pasted images                   |            |       |      |             |               | The project's `public` folder                                  |

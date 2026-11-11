@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { modeSettings } from "./modes.ts"
+import { nodeFill } from "./paint.ts"
 import { fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"
 import { slotNameProblem } from "./slot-names.ts"
 
@@ -263,7 +264,8 @@ export const nodeStyle = fileObject({
   left: length.optional(),
 
   // Appearance.
-  background: z.string().optional(),
+  /** One color token, or a stack of paints, top first: colors, gradients and images (PAR-931). */
+  background: nodeFill.optional(),
   foreground: z.string().optional(),
   /** Border color. */
   border: z.string().optional(),
