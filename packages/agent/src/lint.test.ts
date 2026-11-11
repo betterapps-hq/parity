@@ -44,7 +44,7 @@ describe("lintDocument", () => {
       type: "layout" as const,
       id: "page",
       name: "Page",
-      style: { background: "pink", width: "wide" },
+      style: { background: "pink", width: "wide", zIndex: "front" },
       responsive: { mobile: { style: { foreground: "teal" } } },
       children: [
         { type: "component" as const, id: "card", component: "Card" },
@@ -61,6 +61,11 @@ describe("lintDocument", () => {
       {
         category: "not_a_token",
         message: `background "pink" isn't a token. Use a name from GetTokens().`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `zIndex "front" isn't a token. Use a whole number instead.`,
         at: "home/page"
       },
       {

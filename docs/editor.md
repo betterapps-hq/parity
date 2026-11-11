@@ -3167,10 +3167,10 @@ them. It's the agreed table in [proposals/design-panel-sections.md](proposals/de
   Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
   Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is called Text when a layer is text, and Text inside otherwise.
-- Layer order, Grid placement, Fill, Effects, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in
-  Size, and fill and shadow in Appearance, until they are. A frame's Frame size is today's Size, whose width and height
-  are the frame's. Align self in a flex parent isn't in the agreed table, which has it only in Grid placement; it stays
-  as it was.
+- Grid placement, Fill, Effects, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size, and fill
+  and shadow in Appearance, until they are. A frame's Frame size is today's Size, whose width and height are the
+  frame's. Align self in a flex parent isn't in the agreed table, which has it only in Grid placement; it stays as it
+  was.
 - `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
   `className` still shows its sections, under the note that says they don't change it.
 
@@ -3184,6 +3184,38 @@ text, an image, a video, a code component that takes `className` and an instance
 code component that takes no `className`, and one whose props aren't known; a layer inside an instance never its
 design's root; and mixed selections, where text keeps its controls, Layout needs every layer to be a layout, a flex and
 a grid parent together give neither's controls, and one layer that takes no style leaves them all out.
+
+### Layer order (PAR-925)
+
+Layer order sets a layer's `z-index`, in its own section under Position, on every layer but a design's root. It's
+PAR-186's approved field: a whole number or one of the project's z-index tokens, and Auto, muted, when unset. Up and
+Down step by one, Shift by ten, a token steps through the scale in order, and dragging the icon scrubs it. A fraction is
+refused, with the reason under the field. With several layers whose orders differ, it shows Mixed until one is set for
+them all. A state can change it, and the field marks that and resets it.
+
+Its hint names what it orders the layer within: the nearest layer around it that's a stacking context, because it has a
+layer order or is see-through, or else the design's root. Layers in different ones, or inside an instance, get "its
+stacking context".
+
+The document holds it as `zIndex`, a whole number or a token's name. The render writes it as `z-index`, a token as
+`var(--z-overlay)`, with no position: every layer is a flex or grid item, where `z-index` applies without one. Agents
+set and read it with `Update` and `Get`, and a name that isn't a token gets a `not_a_token` warning.
+
+Not yet: Tailwind classes (`z-10`, `-z-5`, `z-(--z-overlay)`), since Parity writes no classes for a design, and Up and
+Down presses each being an undo step of their own until the fields' runs reach the Design tab.
+
+Code: `nodeStyle.zIndex` in `packages/core/src/document.ts`; `boxCss` in `packages/core/src/render.ts`; the `layerOrder`
+row and `StackingContext` in `packages/editor/src/style-editing.ts`; the agent's check in `packages/agent/src/lint.ts`;
+`LayerOrderSection` and its values (`layer-order.ts`) in `apps/desktop/src/renderer/inspector/sections/`, on
+`LayerOrderField` from `inspector/controls/pin-box.tsx`.
+
+Tests: `packages/core/src/document.test.ts` (a whole number or a token's name, and 1.5 refused);
+`packages/core/src/render.test.ts` (a number, a negative number and a token written as `z-index`);
+`packages/editor/src/style-editing.test.ts` (edited, differing and reset as its row; the stacking context from a layer
+order, from opacity and from the root, and none for layers in different ones); `packages/agent/src/run.test.ts` (set
+with `Update`, read with `Get`, a fraction refused); `packages/agent/src/lint.test.ts` (a name that isn't a token);
+`apps/desktop/src/renderer/inspector/sections/layer-order.test.ts` (the project's z-index tokens in order, what the
+field shows and stores, the hint's names).
 
 ## Component props
 
