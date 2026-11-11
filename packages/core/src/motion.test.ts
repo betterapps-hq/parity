@@ -32,12 +32,12 @@ describe("transitionCss", () => {
     expect(springLinear({ duration: 400, bounce: 0.3 })).toMatch(/^linear\(0, .*, 1\)$/)
   })
 
-  it("leaves out transitions turned off, and writes nothing without any on", () => {
-    expect(transitionCss([{ property: "opacity", off: true }])).toBeUndefined()
+  it("leaves out hidden transitions, and writes nothing without any on", () => {
+    expect(transitionCss([{ property: "opacity", hidden: true }])).toBeUndefined()
     expect(transitionCss([])).toBeUndefined()
     expect(
       transitionCss([
-        { property: "opacity", off: true },
+        { property: "opacity", hidden: true },
         { property: "width", duration: 100 }
       ])
     ).toBe("width 100ms var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1))")
@@ -50,7 +50,7 @@ describe("transitions in the document", () => {
       { property: "colors", duration: 200, easing: "ease-out", delay: 75 },
       { property: "width", duration: "duration-fast", easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
       { property: "transform", easing: { spring: { duration: 500, bounce: 0.3 } } },
-      { property: "opacity", easing: { spring: { stiffness: 300, damping: 20, mass: 1 } }, off: true }
+      { property: "opacity", easing: { spring: { stiffness: 300, damping: 20, mass: 1 } }, hidden: true }
     ]
 
     expect(nodeStyle.parse({ transitions })).toEqual({ transitions })

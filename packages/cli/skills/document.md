@@ -159,7 +159,7 @@ plays them, so put them on the base and let the state change the look:
 | `duration` | Milliseconds, or a duration token; Tailwind's 150ms when unset                                                 |
 | `delay`    | Milliseconds, or a duration token                                                                              |
 | `easing`   | `linear`, `ease-in`, `ease-out`, `ease-in-out`, an easing token, `cubic-bezier(…)` or `steps(…)`               |
-| `off`      | `true` keeps the entry without playing it                                                                      |
+| `hidden`   | `true` keeps the entry without playing it                                                                      |
 
 `easing` can also be a spring, `{ "spring": { "duration": 400, "bounce": 0.3 } }` or
 `{ "spring": { "stiffness": 300, "damping": 20, "mass": 1 } }`, whose settle time is the transition's duration.

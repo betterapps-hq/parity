@@ -3211,11 +3211,11 @@ in `packages/core/src/motion.ts`, which `render.ts` draws with; the `transitions
 `inspector/motion-values.ts` turning the document's forms into the list's.
 
 Tests: `packages/core/src/motion.test.ts` (7): Tailwind's defaults and each set's properties, tokens' variables, a curve
-of its own and a delay, a spring's settle time and `linear()`, entries turned off, every form through the schema, what
-the schema refuses, and a state's own transitions drawn on its frame. `packages/editor/src/style-editing.test.ts`: a
-state's own transitions, marked changed and different, and reset. `packages/agent/src/lint.test.ts`: tokens a transition
-names that the project lacks, in the base and in a state. `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get`
-and clearing with `null`. `apps/desktop/src/renderer/inspector/motion-values.test.ts` (3): every form through the list's
+of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema, what the
+schema refuses, and a state's own transitions drawn on its frame. `packages/editor/src/style-editing.test.ts`: a state's
+own transitions, marked changed and different, and reset. `packages/agent/src/lint.test.ts`: tokens a transition names
+that the project lacks, in the base and in a state. `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and
+clearing with `null`. `apps/desktop/src/renderer/inspector/motion-values.test.ts` (3): every form through the list's
 entries and back, seconds stored as milliseconds, and the project's tokens the fields offer.
 
 ## Component props

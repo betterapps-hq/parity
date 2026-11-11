@@ -95,13 +95,13 @@ export function easingCss(easing: Easing): string {
 }
 
 /**
- * A layer's transitions as one CSS `transition` value, leaving out the ones turned off; undefined when none is on.
+ * A layer's transitions as one CSS `transition` value, leaving out hidden ones; undefined when none is on.
  * Unset times and easings are Tailwind's defaults, which a project can change, and a spring's settle time is how long
  * its transition takes.
  */
 export function transitionCss(transitions: readonly Transition[] | undefined): string | undefined {
   const parts = (transitions ?? [])
-    .filter((transition) => !transition.off)
+    .filter((transition) => !transition.hidden)
     .flatMap((transition) => {
       const spring =
         transition.easing !== undefined && isSpring(transition.easing) ? transition.easing.spring : undefined

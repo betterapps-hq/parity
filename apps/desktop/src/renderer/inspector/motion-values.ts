@@ -44,7 +44,7 @@ export function entriesOf(transitions: readonly Transition[] | undefined): Omit<
       entry.delay = timeOf(transition.delay)
     }
 
-    if (transition.off) {
+    if (transition.hidden) {
       entry.off = true
     }
 
@@ -101,7 +101,7 @@ export function transitionsOf(entries: readonly TransitionEntry[]): Transition[]
     }
 
     if (entry.off) {
-      transition.off = true
+      transition.hidden = true
     }
 
     return transition

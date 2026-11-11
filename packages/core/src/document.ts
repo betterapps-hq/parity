@@ -252,8 +252,8 @@ export const transition = fileObject({
   /** Tailwind's default curve when unset. */
   easing: easing.optional(),
   delay: time.optional(),
-  /** Turned off with the eye: kept, not drawn or written. */
-  off: z.boolean().optional()
+  /** Hidden with the eye: kept, not drawn or written, as a hidden layer is. */
+  hidden: z.boolean().optional()
 })
 
 /** How one property, or one of Tailwind's sets of them, changes when the layer's style does. */

@@ -7283,7 +7283,8 @@ My calls:
   or a curve or steps of its own (`cubic-bezier(…)`, `steps(…)`). A spring is kept as its settings,
   `{ spring: { duration, bounce } }` or `{ spring: { stiffness, damping, mass } }`, since the `linear()` it's drawn with
   can't be read back into them. Its settle time is the transition's duration, whatever `duration` says.
-- **An entry turned off stays,** with `off: true`, and isn't drawn.
+- **An entry hidden with the eye stays,** with `hidden: true`, and isn't drawn. It's named as Fill's paints and a
+  layer's `hidden` are.
 - **The canvas draws it inline, with Tailwind's values to fall back on.** A frame may not define `--ease-out` or
   `--default-transition-duration`, since Tailwind writes theme variables only when they're used. So the canvas writes
   `var(--ease-out, cubic-bezier(0, 0, 0.2, 1))`, and the curve still plays when the variable is missing.

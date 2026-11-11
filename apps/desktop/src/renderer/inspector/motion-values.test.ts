@@ -11,7 +11,7 @@ describe("Motion's transitions", () => {
     const transitions: Transition[] = [
       { property: "colors", duration: 200, easing: "ease-out", delay: 75 },
       { property: "width", duration: "duration-fast", easing: "ease-snappy", delay: 12.5 },
-      { property: "opacity", easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", off: true },
+      { property: "opacity", easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", hidden: true },
       { property: "transform", easing: { spring: { duration: 500, bounce: 0.3 } } }
     ]
 
