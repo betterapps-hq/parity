@@ -118,11 +118,11 @@ to pass on to its DOM.
   attribute to components as a prop, where it does no harm, so that fallback and the scripts that count drawn layers
   keep working.
 - **When a component doesn't take `style`.** What a design sets on a component (size, spacing, place, fill) goes to its
-  root through its `style` prop. When the props the type checker reads have no `style`, the inspector says so above the
-  styles, "MemberRow doesn't take a `style`, so the size and styles below don't change it. Wrap it in a layout and size
-  that instead.", with a Wrap in layout button (Ctrl G). Inside an instance the note shows without the button, since
-  that belongs in the component design. Props typed `any`, `object` or with an index signature could take anything, so
-  the note doesn't show for them.
+  root through its `style` prop. When the props the type checker reads have no `style`, the inspector shows no style
+  sections and says why: "MemberRow doesn't take a `style`, so it can't be sized or styled here. Wrap it in a layout and
+  size that instead.", with a Wrap in layout button (Ctrl G). Inside an instance the note shows without the button,
+  since that belongs in the component design. Props typed `any`, `object` or with an index signature could take
+  anything, so the note doesn't show for them.
 - **When a component puts its `style` inside (PAR-201).** A component can take `style` and put it on an element inside
   another it draws, as a field passes its props to its input. The first time a layer draws such a component with a
   style, the guest finds where the style went in React's tree, before the frame is painted, and from then on draws a

@@ -33,7 +33,7 @@ describe("a component that ignores its props", () => {
     const px = (value: number) => String(Math.round(value * 10) / 10)
     await expect.poll(() => app.labels()).toEqual(["Ada Lovelace", `${px(ada.width)} × ${px(ada.height)}`])
     // The type checker reads whether a component takes `style`, which can take a while after the project opens.
-    const note = app.page.getByText(/MemberRow doesn.t take a style, so the size and styles below don.t change it/)
+    const note = app.page.getByText(/MemberRow doesn.t take a style, so it can.t be sized or styled here/)
     await expect.poll(() => note.isVisible(), { timeout: 45_000 }).toBe(true)
   })
 
