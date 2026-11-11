@@ -4,6 +4,10 @@ import {
   type ComponentInfo,
   type ComponentLibrary,
   type DesignNode,
+  isEasingFunction,
+  isEasingKeyword,
+  isSpring,
+  isTimeToken,
   type NodeStyle,
   type PropValues,
   radiusKeywords
@@ -66,6 +70,12 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
           }
         }
 
+        for (const [name, value] of transitionTokens(style)) {
+          if (!tokens.has(value)) {
+            warn("not_a_token", `${name} "${value}" isn't a token. ${anyToken}`, where)
+          }
+        }
+
         for (const [name, value] of lengthTokens(style)) {
           if (!tokens.has(value)) {
             warn(
@@ -104,6 +114,12 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
             const hint = nearestHint(name, value)
             const message = `${name} "${value}" isn't a token${hint ? `. ${hint}` : ""}`
             warn("not_a_token", message, `${container.id} state ${state.id}/${nodeId}`)
+          }
+        }
+
+        for (const [name, value] of transitionTokens(patch.style)) {
+          if (!tokens.has(value)) {
+            warn("not_a_token", `${name} "${value}" isn't a token`, `${container.id} state ${state.id}/${nodeId}`)
           }
         }
       }
@@ -150,6 +166,32 @@ export function propWarnings(
         message: `${component} ${name} is one of ${prop.options?.map((option) => JSON.stringify(option)).join(", ")}, not ${JSON.stringify(value)}`,
         at: where
       })
+    }
+  }
+
+  return found
+}
+
+/**
+ * The token names a style's transitions use, by where they are (`transitions[0].duration`): a duration or delay given
+ * as a name, and an easing that's neither Tailwind's own, a curve of its own nor a spring.
+ */
+function transitionTokens(style: NodeStyle | undefined): [string, string][] {
+  const found: [string, string][] = []
+
+  for (const [index, transition] of (style?.transitions ?? []).entries()) {
+    for (const key of ["duration", "delay"] as const) {
+      const time = transition[key]
+
+      if (time !== undefined && isTimeToken(time)) {
+        found.push([`transitions[${index}].${key}`, time])
+      }
+    }
+
+    const easing = transition.easing
+
+    if (easing !== undefined && !isSpring(easing) && !isEasingKeyword(easing) && !isEasingFunction(easing)) {
+      found.push([`transitions[${index}].easing`, easing])
     }
   }
 

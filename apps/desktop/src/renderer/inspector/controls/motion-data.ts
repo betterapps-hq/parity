@@ -4,6 +4,7 @@
  * typed or read from code, and a spring, kept as its settings since the `linear()` it writes can't be read back into
  * them. Functions that look a token up take the project's tokens, so a token made with Create token is found too.
  */
+import { springLinear, springSamples, springSettle } from "@parity-app/core"
 import { type BoxPoint, formatNumber } from "./css-values.ts"
 import type { DurationToken, EasingToken } from "./tokens.ts"
 
@@ -242,97 +243,8 @@ export function easingName(easing: Easing | undefined): string {
 
 export const bezierCss = (curve: Bezier) => `cubic-bezier(${curve.map((number) => round(number)).join(", ")})`
 
-/* A spring, solved: how far it's moved at a time, how long it takes to settle, and the `linear()` that draws it. */
-
-/** It's settled once it stays within a thousandth of where it's going. */
-const settledWithin = 0.001
-
-/** How far along a spring is at `t` seconds, 0 to 1 with overshoot, for its damping ratio and natural frequency. */
-function springAt(t: number, zeta: number, omega: number): number {
-  if (Math.abs(zeta - 1) < 1e-6) {
-    return 1 - Math.exp(-omega * t) * (1 + omega * t)
-  }
-
-  if (zeta < 1) {
-    const damped = omega * Math.sqrt(1 - zeta * zeta)
-
-    return 1 - Math.exp(-zeta * omega * t) * (Math.cos(damped * t) + ((zeta * omega) / damped) * Math.sin(damped * t))
-  }
-
-  const spread = omega * Math.sqrt(zeta * zeta - 1)
-  const ratio = (zeta * omega) / spread
-
-  return (
-    1 -
-    0.5 * ((1 + ratio) * Math.exp((-zeta * omega + spread) * t) + (1 - ratio) * Math.exp((-zeta * omega - spread) * t))
-  )
-}
-
-const settleTimes = new Map<number, number>()
-
-/** Seconds a spring takes to settle, at a natural frequency of 1, worked out once per damping ratio. */
-function settleAtUnitFrequency(zeta: number): number {
-  const known = settleTimes.get(zeta)
-
-  if (known !== undefined) {
-    return known
-  }
-
-  // The slowest part of its motion decays at this rate, so it has settled well before ten of these.
-  const decay = zeta < 1 ? zeta : zeta - Math.sqrt(zeta * zeta - 1)
-  const until = 10 / decay
-  const step = until / 20000
-  let last = 0
-
-  for (let t = 0; t < until; t += step) {
-    if (Math.abs(springAt(t, zeta, 1) - 1) > settledWithin) {
-      last = t
-    }
-  }
-
-  settleTimes.set(zeta, last)
-
-  return last
-}
-
-/** The damping ratio and natural frequency, in radians a second, of a spring however it's set. */
-function solve(spring: Spring) {
-  if ("duration" in spring) {
-    // Bounce 0 is critically damped, and each step toward 1 lets it overshoot further.
-    const zeta = Math.max(0.05, 1 - spring.bounce)
-
-    return { zeta, omega: settleAtUnitFrequency(zeta) / (spring.duration / 1000) }
-  }
-
-  const omega = Math.sqrt(spring.stiffness / spring.mass)
-
-  return { zeta: spring.damping / (2 * Math.sqrt(spring.stiffness * spring.mass)), omega }
-}
-
-/** How long a spring takes to settle, in whole milliseconds: what a transition's duration is when it has one. */
-export function springSettle(spring: Spring): number {
-  if ("duration" in spring) {
-    return spring.duration
-  }
-
-  const { zeta, omega } = solve(spring)
-
-  return Math.round((settleAtUnitFrequency(zeta) / omega) * 1000)
-}
-
-/** Where the spring is at even steps through its settle time, from 0 to exactly 1. */
-export function springSamples(spring: Spring): number[] {
-  const { zeta, omega } = solve(spring)
-  const seconds = springSettle(spring) / 1000
-  const count = Math.min(60, Math.max(16, Math.round((seconds * 1000) / 16)))
-
-  return Array.from({ length: count + 1 }, (_, index) =>
-    index === count ? 1 : round(springAt((index / count) * seconds, zeta, omega), 3)
-  )
-}
-
-/** The spring as CSS draws it: `linear()` through its samples, over its settle time. */
-export const springLinear = (spring: Spring): string => `linear(${springSamples(spring).join(", ")})`
+/* A spring is solved in `@parity-app/core`, which draws it on the canvas too. */
+export { springLinear, springSamples, springSettle }
 
 /* Transitions. */
 

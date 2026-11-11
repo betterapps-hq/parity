@@ -20,6 +20,7 @@ import type {
 } from "./document.ts"
 import { isNamedLength } from "./document.ts"
 import type { ResolvedMode } from "./modes.ts"
+import { transitionCss } from "./motion.ts"
 
 /**
  * A design resolved for one state in one viewport: what a renderer adapter mounts. Framework-neutral: elements are
@@ -955,8 +956,8 @@ function surfaceCss(style: NodeStyle): InlineStyle {
 }
 
 /**
- * What applies to any node, including a component's root: its size and place in the parent's layout, opacity, and
- * type, which the text inside inherits.
+ * What applies to any node, including a component's root: its size and place in the parent's layout, opacity, type,
+ * which the text inside inherits, and its transitions.
  */
 function boxCss(style: NodeStyle, parent: Direction | undefined): InlineStyle {
   const css: InlineStyle = {}
@@ -1049,6 +1050,12 @@ function boxCss(style: NodeStyle, parent: Direction | undefined): InlineStyle {
 
   if (style.italic) {
     css.fontStyle = "italic"
+  }
+
+  const transition = transitionCss(style.transitions)
+
+  if (transition) {
+    css.transition = transition
   }
 
   return css

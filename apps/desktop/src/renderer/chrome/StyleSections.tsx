@@ -67,6 +67,7 @@ import {
 } from "lucide-react"
 import { type ComponentType, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
+import { MotionSection } from "../inspector/sections/MotionSection.tsx"
 import {
   ChoiceInput,
   Field,
@@ -164,7 +165,8 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
   spacing: SpacingSection,
   appearance: AppearanceSection,
   text: TextSection,
-  stroke: StrokeSection
+  stroke: StrokeSection,
+  motion: MotionSection
 }
 
 /** The layer panel leaves out the design, since it never shows a design's root: no layer's id is empty. */

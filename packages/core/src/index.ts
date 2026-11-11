@@ -46,6 +46,8 @@ export * from "./mode-report.ts"
 
 export * from "./modes.ts"
 
+export * from "./motion.ts"
+
 export * from "./preview-order.ts"
 
 export * from "./project.ts"

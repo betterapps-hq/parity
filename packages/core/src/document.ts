@@ -219,6 +219,46 @@ export type Padding = z.infer<typeof padding>
 
 const alignment = z.enum(["start", "center", "end", "stretch"])
 
+/** Tailwind's transition sets, each a list of properties: `transition-colors` changes color, background and the rest. */
+export const transitionSets = ["all", "colors", "opacity", "transform", "shadow"] as const
+
+/** Tailwind's own easings, whose curves its theme defines as `--ease-in` and the like (`linear` is CSS's). */
+export const easingKeywords = ["linear", "ease-in", "ease-out", "ease-in-out"] as const
+
+/** A time: whole or part milliseconds (`duration-200`), or a duration token's name. */
+const time = z.union([finiteNumber, z.string()])
+
+/** A spring, by the time it takes and how much it bounces (0 to 1), or by its physics, as Framer's are set. */
+const spring = z.union([
+  fileObject({ duration: finiteNumber, bounce: finiteNumber }),
+  fileObject({ stiffness: finiteNumber, damping: finiteNumber, mass: finiteNumber })
+])
+
+export type Spring = z.infer<typeof spring>
+
+/**
+ * An easing: one of Tailwind's (`ease-out`), an easing token's name (`ease-snappy`), a curve or steps of its own
+ * (`cubic-bezier(0.2, 0.8, 0.2, 1)`, `steps(4)`), or a spring.
+ */
+const easing = z.union([z.string(), fileObject({ spring })])
+
+export type Easing = z.infer<typeof easing>
+
+export const transition = fileObject({
+  /** One of Tailwind's sets (`colors`), or a CSS property of its own (`width`). */
+  property: z.string().regex(/^-?-?[a-z][a-z0-9-]*$/i, "expected a transition set or a CSS property, such as width"),
+  /** Tailwind's 150ms when unset. A spring's settle time is its duration. */
+  duration: time.optional(),
+  /** Tailwind's default curve when unset. */
+  easing: easing.optional(),
+  delay: time.optional(),
+  /** Turned off with the eye: kept, not drawn or written. */
+  off: z.boolean().optional()
+})
+
+/** How one property, or one of Tailwind's sets of them, changes when the layer's style does. */
+export type Transition = z.infer<typeof transition>
+
 export const nodeStyle = fileObject({
   // Layout (layouts only).
   /** Auto layout (flex, the default) or a grid. */
@@ -287,7 +327,11 @@ export const nodeStyle = fileObject({
   decoration: z.enum(["underline", "line-through"]).optional(),
   italic: z.boolean().optional(),
   /** Lines of text before it's cut off with an ellipsis. */
-  lines: finiteNumber.optional()
+  lines: finiteNumber.optional(),
+
+  // Motion.
+  /** How the layer moves from one look to the next, as a state change shows it. */
+  transitions: z.array(transition).optional()
 })
 
 /**

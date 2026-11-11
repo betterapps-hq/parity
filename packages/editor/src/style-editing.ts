@@ -102,7 +102,8 @@ export const styleRows = {
   resizing: textSizingKeys,
   decoration: ["italic", "decoration"],
   case: ["transform"],
-  lines: ["lines"]
+  lines: ["lines"],
+  transitions: ["transitions"]
 } as const satisfies Record<string, readonly (keyof NodeStyle)[]>
 
 export type StyleRow = keyof typeof styleRows

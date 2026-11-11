@@ -1732,21 +1732,26 @@ export function nearestToken<T extends FieldToken>(tokens: readonly T[], measure
 
 interface ProjectTokensValue {
   sets: TokenSets
-  create: <K extends TokenSetName>(set: K, token: TokenSets[K][number]) => void
+  /** Adds a token made with Create token; unset where the tokens are the project's own, which it doesn't make here. */
+  create?: <K extends TokenSetName>(set: K, token: TokenSets[K][number]) => void
 }
 
 const TokensContext = createContext<ProjectTokensValue | undefined>(undefined)
 
 /**
  * The project's tokens for what's inside: tokens.ts's stand-ins, and those made with Create token, held in state so
- * every field and preview inside sees a new one, and nothing outside does. Playground holds one for each story.
+ * every field and preview inside sees a new one, and nothing outside does. Playground holds one for each story. Given
+ * `sets`, the fields offer those as they are, and none offers Create token: the Design tab passes the project's own.
  */
 export function ProjectTokens({
   tokens,
+  sets: given,
   children
 }: {
   /** Sets the project starts with in place of the stand-ins, as `{ duration: [] }` for a project with no durations. */
   tokens?: Partial<TokenSets>
+  /** Every set, as the project has them now, in place of the stand-ins and Create token. */
+  sets?: TokenSets
   children: ReactNode
 }) {
   const [sets, setSets] = useState<TokenSets>(() => ({ ...tokenSets, ...tokens }))
@@ -1754,7 +1759,7 @@ export function ProjectTokens({
   const create = <K extends TokenSetName>(set: K, token: TokenSets[K][number]) =>
     setSets((current) => ({ ...current, [set]: [...current[set], token] }))
 
-  return <TokensContext value={{ sets, create }}>{children}</TokensContext>
+  return <TokensContext value={given ? { sets: given } : { sets, create }}>{children}</TokensContext>
 }
 
 /** One set of the project's tokens, and how to add to it (Create token) where the project can. */
@@ -1774,7 +1779,9 @@ export function useTokens<K extends TokenSetName>(set: K): ProjectTokenSet<K> {
     return { tokens: tokenSets[set] }
   }
 
-  return { tokens: context.sets[set], create: (token) => context.create(set, token) }
+  const { create } = context
+
+  return { tokens: context.sets[set], create: create && ((token) => create(set, token)) }
 }
 
 /** Every set of the project's tokens, for a preview that draws what the fields hold. */
