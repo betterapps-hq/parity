@@ -3,7 +3,9 @@ import {
   type FrameGeometry,
   type GuestComponentSource,
   modeGlobals,
-  type ResolvedMode
+  type RenderNode,
+  type ResolvedMode,
+  withoutEmptyLayoutMarks
 } from "@parity-app/core"
 import { isComposite } from "@parity-app/core/values/evaluate"
 import type { TokenChange } from "@parity-app/tokens"
@@ -45,17 +47,25 @@ export interface JobFrame {
   inlinePortals?: boolean
   /** The design it draws, for the console messages it writes (PAR-147). */
   design?: RenderJob["design"]
+  /**
+   * It stands in for a frame on the canvas, as a bitmap does, so its empty layouts keep the size and dashes the canvas
+   * gives them to be seen and dropped into (see core's `emptyLayoutAttribute`). Any other frame, an agent's screenshot,
+   * an export or a component preview, draws them as the code does, taking no room they wouldn't take there (PAR-888).
+   */
+  canvas?: boolean
 }
 
 /** The job that draws `frame` with `guest`. */
 export function renderJob(guest: JobGuest, frame: JobFrame): RenderJob {
   const { audit, colorTokens, tokens } = frame
+  // SAFETY: every caller passes a tree core resolved for a frame; it's `unknown` only because it crosses processes.
+  const tree = frame.canvas ? frame.tree : withoutEmptyLayoutMarks(frame.tree as RenderNode[])
 
   const job: RenderJob = {
     projectId: guest.projectId,
     guestUrl: guest.guestUrl,
     theme: guest.theme,
-    tree: frame.tree,
+    tree,
     mode: renderJobMode(frame.mode, frame.frame),
     scale: frame.scale
   }

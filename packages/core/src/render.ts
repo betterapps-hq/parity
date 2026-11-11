@@ -69,6 +69,35 @@ export const emptyLayoutAttribute = "data-canvas-empty-layout"
 
 type Axis = "width" | "height"
 
+/**
+ * A resolved tree without `emptyLayoutAttribute`, so its empty layouts draw as the project's code draws them: a frame
+ * that isn't edited, such as a screenshot or an export, gives them no size or outline of their own (PAR-888). The tree
+ * given is left as it is.
+ */
+export function withoutEmptyLayoutMarks(tree: readonly RenderNode[]): RenderNode[] {
+  return tree.map((node): RenderNode => {
+    if (node.kind === "component") {
+      const slots = Object.entries(node.slots).map(([slot, children]) => [slot, withoutEmptyLayoutMarks(children)])
+
+      return { ...node, slots: Object.fromEntries(slots) }
+    }
+
+    if (node.kind !== "element") {
+      return node
+    }
+
+    const { attributes, ...rest } = node
+    const unmarked: RenderNode = { ...rest, children: withoutEmptyLayoutMarks(node.children) }
+    const kept = Object.entries(attributes ?? {}).filter(([name]) => name !== emptyLayoutAttribute)
+
+    if (kept.length > 0) {
+      unmarked.attributes = Object.fromEntries(kept)
+    }
+
+    return unmarked
+  })
+}
+
 /** The axes a style gives no fixed length or least length. */
 function unsizedAxes(style: NodeStyle): Axis[] {
   return (["width", "height"] as const).filter((axis) => {

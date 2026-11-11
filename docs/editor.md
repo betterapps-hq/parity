@@ -1330,20 +1330,28 @@ would size, outlined in dashes, so it can be seen, selected with a click and dro
 - **It's empty when nothing is drawn in it** in the state and viewport shown, so a layout whose children the state hides
   counts too. The size and the dashes go once something is put in it; while a drag shows a copy of a layer in it, they
   stay.
+- **Nothing drawn offscreen for anything but the canvas gets them** (PAR-888). Agents' screenshots and `Measure`,
+  `problems`, exports, copying as a PNG and component previews draw an empty layout as the code does, so it takes no
+  room it wouldn't take in the app and pushes nothing around. A frame's bitmap stands in for it on the canvas, so it
+  keeps them, and a frame looks and measures the same asleep as awake.
 
 Code: core's `emptyLayoutAttribute` in `packages/core/src/render.ts` marks an empty layout's element with the axes its
 content would size (`data-canvas-empty-layout="width height"`), and the frame's root sheet in
 `apps/desktop/src/renderer/frame.ts` gives it its least size (`emptyLayoutSize`) and dashes. The least size is
-`!important`, to beat the `min-width: 0` every layout is drawn with. The sheet finds empty layouts by that attribute,
-not by `:empty`: with `:empty` in it, a sheet every frame shares, closing a project with the pointer in the window kept
-its frames in memory, about 1,800 DOM nodes each time on the example. `reopening.e2e.ts` caught it when the tests before
-it left the pointer on the canvas.
+`!important`, to beat the `min-width: 0` every layout is drawn with. A render job (`renderJob` in
+`apps/desktop/src/shared/render-job.ts`) takes the attribute out of its tree with core's `withoutEmptyLayoutMarks`
+unless it's marked `canvas`, which only the canvas's bitmaps (`frame-bitmaps.ts`) are. The sheet finds empty layouts by
+that attribute, not by `:empty`: with `:empty` in it, a sheet every frame shares, closing a project with the pointer in
+the window kept its frames in memory, about 1,800 DOM nodes each time on the example. `reopening.e2e.ts` caught it when
+the tests before it left the pointer on the canvas.
 
 Tests: `packages/core/src/render.test.ts`: which axes are marked for a layout that hugs, a fixed width, a least height,
 growing in a row, and filling with a fixed height; a layout with layers unmarked; and one whose only layer the state
-hides marked. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (2), with an empty row added after New project:
-it's 24px wide and at least 24px high and is selected by a click, and a stat card dropped 6px inside its left edge at
-50% goes into it. Both failed before PAR-193: the row was 0px wide.
+hides marked; `withoutEmptyLayoutMarks` taking the mark out of elements and slots, keeping other attributes and leaving
+the tree given alone. `apps/desktop/src/shared/render-job.test.ts`: a job leaves the mark out unless it's for the
+canvas. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (2), with an empty row added after New project: it's 24px
+wide and at least 24px high and is selected by a click, and a stat card dropped 6px inside its left edge at 50% goes
+into it. Both failed before PAR-193: the row was 0px wide.
 
 Gaps: the size label and the inspector show the 24px the canvas gives it, not the 0 the app would draw.
 `reopening.e2e.ts` sees a leak like the one above only when the pointer is in the window, which depends on the tests run

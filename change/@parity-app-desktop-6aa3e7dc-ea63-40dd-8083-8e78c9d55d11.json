@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Draw empty layouts as the code does in screenshots, exports and measurements; only the canvas gives them a size and dashes",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

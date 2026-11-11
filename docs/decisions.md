@@ -581,7 +581,9 @@ still need your call.
   layout or on an instance of it, keeps that, so an empty spacer stays as thin as it was made, while filling and
   growing, which can leave it at nothing, get the 24px; and core marks an empty layout's element with which axes those
   are (`data-canvas-empty-layout`), since CSS can't tell an empty layout from a component's empty divider, and `:empty`
-  in the sheet every frame shares kept closed projects' frames in memory. The size label shows the 24px.
+  in the sheet every frame shares kept closed projects' frames in memory. The size label shows the 24px. Only the canvas
+  and the bitmaps standing in for its frames draw it (PAR-888): agents' screenshots and measurements, exports, copied
+  PNGs and component previews draw an empty layout as the code does, so they match the app.
 - **Resize handles sit outside a layer along an axis where it's under 24 screen pixels** (PAR-193), so a press on a
   small layer drags it. My call: per axis, so a wide, short button keeps its side strips on its ends, as every wide
   layer does, and only its corners, top and bottom move out. Where handles go is `handleBoxes` in `@parity-app/editor`.

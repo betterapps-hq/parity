@@ -10,8 +10,10 @@ import {
   mergePatches,
   placedDesigns,
   projectComponentLibrary,
+  type RenderNode,
   reachableLibrary,
-  resolveDesign
+  resolveDesign,
+  withoutEmptyLayoutMarks
 } from "./render.ts"
 
 const root: DesignNode = {
@@ -188,6 +190,58 @@ describe("resolveDesign", () => {
       attributes: { "data-canvas-empty-layout": "width height" },
       children: []
     })
+  })
+
+  it("leaves the empty-layout mark out of a tree drawn as the code draws it, in slots too, keeping other attributes", () => {
+    const mark = { "data-canvas-empty-layout": "width height" }
+
+    const tree: RenderNode[] = [
+      {
+        kind: "element",
+        nodeId: "page",
+        tag: "div",
+        style: {},
+        children: [
+          { kind: "element", nodeId: "gap", tag: "div", style: { height: "8px" }, attributes: mark, children: [] },
+          {
+            kind: "component",
+            nodeId: "card",
+            component: "Card",
+            props: {},
+            slots: {
+              children: [{ kind: "element", nodeId: "body", tag: "div", style: {}, attributes: mark, children: [] }]
+            }
+          },
+          { kind: "element", nodeId: "logo", tag: "img", style: {}, attributes: { src: "/logo.svg" }, children: [] }
+        ]
+      }
+    ]
+
+    const before = structuredClone(tree)
+
+    expect(JSON.stringify(withoutEmptyLayoutMarks(tree))).not.toContain("data-canvas-empty-layout")
+    expect(withoutEmptyLayoutMarks(tree)).toEqual([
+      {
+        kind: "element",
+        nodeId: "page",
+        tag: "div",
+        style: {},
+        children: [
+          { kind: "element", nodeId: "gap", tag: "div", style: { height: "8px" }, children: [] },
+          {
+            kind: "component",
+            nodeId: "card",
+            component: "Card",
+            props: {},
+            slots: { children: [{ kind: "element", nodeId: "body", tag: "div", style: {}, children: [] }] }
+          },
+          { kind: "element", nodeId: "logo", tag: "img", style: {}, attributes: { src: "/logo.svg" }, children: [] }
+        ]
+      }
+    ])
+
+    // The canvas still draws the tree it was given.
+    expect(tree).toEqual(before)
   })
 
   it("applies responsive patches per viewport and lets states win", () => {
