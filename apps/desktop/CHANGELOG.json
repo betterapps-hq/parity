@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 11 Nov 2026 09:32:21 GMT",
+      "version": "0.59.0",
+      "tag": "@parity-app/desktop_v0.59.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dddc241bdbf46f86f730488d61e38d7e303a5a88",
+            "comment": "Read, write and match colors for the color picker, and explore the styling controls (PAR-186)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dddc241bdbf46f86f730488d61e38d7e303a5a88",
+            "comment": "Agents can ask for the tokens nearest a raw color or length: GetTokens({ nearest }), parity tokens --nearest and MCP get_tokens list them nearest first, with how far each is"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 11 Nov 2026 09:09:16 GMT",
       "version": "0.58.0",
       "tag": "@parity-app/desktop_v0.58.0",
