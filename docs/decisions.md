@@ -238,7 +238,9 @@ still need your call.
   registers no keys, so Ctrl+R is free for Rename; Ctrl+Shift+I opens developer tools through the keymap. Its keys never
   worked on Windows anyway, where the menu isn't shown.
 - **The canvas area is its own stacking context,** so its floating toolbars and overlays stay below menus and dialogs
-  instead of covering their close buttons.
+  instead of covering their close buttons. It sits above the panels beside it (PAR-893), so a floating bar wider than a
+  narrow canvas lies over them rather than being cut off under one; its overlays clip to it, and the panels' resize
+  edges stay above it.
 - **The theme defaults to dark** (what the app looked like before), with light and system in Settings. It covers the
   app's chrome and canvas only; designs keep whatever theme their mode picks. The main process remembers it too, so the
   window opens in the right theme without a flash.
@@ -7150,3 +7152,75 @@ The last of the four pull requests that build the references design. My calls:
   video node for a picture, saying which to use. `Update` takes `src`, `alt` and `credit` on a video as on an image.
 - **The player is `@parity-app/media-player`'s** (PAR-891): `VideoPlayer` in the larger view and on a Media card,
   `VideoPreview` and `VideoLength` on a tile.
+
+## The floating bars' lines are etched, and the toolbar has two (PAR-893)
+
+You found the toolbar's hairlines awkward on 2026-11-10: three of them split five tools, and two of the groups held one
+tool each. You compared ways of grouping, ordering and coloring in a Storybook exploration, removed once this was built,
+and picked these:
+
+- **Every line between a floating bar's groups is etched:** a dark groove cut into the bar, with a highlight on its
+  right. The toolbar's lines and the annotation bars' line before Suggest both change, since they share `BarDivider`.
+- **The lines run the bar's full height,** through its 4px padding to its border, so they read as cuts rather than lines
+  drawn on it, with 8px beside each.
+- **Both sides are borders,** since a browser rounds a border's width to whole screen pixels. Drawn as a 1px background
+  and shadow, two lines on one bar painted one and two pixels wide at 150% scaling.
+- **The bars are off-white in light mode,** so the highlight shows against them, and hover and a picked stamp are a step
+  darker inside them to keep their contrast.
+- **The toolbar keeps two lines,** one after the pointer's button and one before the commands. The line between Insert
+  and the review button goes.
+- **The colored tools that add things sit in the middle,** Frame, Text and the review button, and the commands that open
+  a dialog or a search sit on the right: Insert, Find references and Search actions. Insert and Find references leave
+  the tools' group, since they run a command rather than pick a tool, so the arrow keys move through tools alone.
+- **Comment is pink,** `oklch(0.72 0.2 355)` on the dark theme and `oklch(0.6 0.22 355)` on the light, so every tool in
+  the middle has a color. It's tuned on its own rather than at the annotations' lightness, and takes a darker step on
+  the light theme, as Frame and Text do. Sticky yellow was the other one considered.
+- **The kinds of annotation keep PAR-184's colors.** Moving them all to hues the canvas doesn't use was tried and set
+  aside: you found today's much better.
+- **Picking and pressing move the same on every floating bar.** A picked tool's button or stamp's chip boings, and a
+  pressed control dips and springs back on the pop spring, both from `toolbar-parts.tsx`.
+- **Grouping by spacing alone, one line before Search only, and lines inset from the bar's edges were set aside.**
+
+## A screenshot can come back as one contact sheet per design (PAR-895)
+
+In the Better Booking run, 137 of an agent's 411 calls read screenshot files, one per frame, because `parity screenshot`
+saves each frame and prints its path. MCP's `screenshot` already returned the images in its result. You chose on
+2026-11-11 to make the sheet opt-in:
+
+- **`sheet: true` (`--sheet`) puts each design's frames on one labeled PNG:** the design's name above, states in rows
+  and modes in columns, in the order they were drawn, named as the canvas names them. The CLI saves it as one file and
+  MCP returns it as one image block, in `sheets`, in place of `screenshots`. Each sheet lists every frame's box on it.
+- **Separate frames stay the default,** so callers that read `screenshots` get what they did before. The skill's "check
+  every frame" step asks for a sheet, then a single frame for a closer look.
+- **A sheet is kept within 2,000 pixels on its longest side.** Claude scales images down to about 1,568 pixels before it
+  sees them, and some clients refuse images over 2,000 pixels once a conversation holds many, so a bigger sheet only
+  costs bytes. Frames shrink to fit and labels keep their size; the sheet's `scale` says how many sheet pixels a CSS
+  pixel became.
+- **The layout is data, in `@parity-app/agent`; the pixels are the host's.** `sheetLayout` in
+  `packages/agent/src/sheet.ts` places the frames and draws the background, labels and borders as SVG. `composeSheet` in
+  the desktop's `webp.ts` draws that SVG with sharp and puts the frames over it, as `composePicture` does for copying.
+  No dependency was added.
+- **`Screenshot` in a snippet doesn't take `sheet`.** A snippet's screenshots come back with its other results, and the
+  `screenshot` tool covers the check.
+
+## Popups draw inside their frame, taken from the page's body (PAR-881)
+
+The Better Booking run found selects, menus and dialogs drawing unstyled outside their frames, with nothing in
+`problems` to say so. My calls in fixing it:
+
+- **The frame takes the element rather than giving each portal a container.** Base UI and Radix take a container per
+  component and have no provider for all of them (see A component preview draws what opens), and a kit's own wrapper
+  holds the portal, so a design can't pass one. The guest answers `document.body`'s `appendChild`, `insertBefore` and
+  `removeChild` instead, and puts an element React adds there in the frame's body. React keeps a portal's node wherever
+  it is. This reads React's internals, a fiber's `return` and its root's `containerInfo`, as the layer walk does.
+- **The frame is found from React's tree, not from which frame drew last.** The canvas draws many frames in one commit,
+  and Parity's own menus portal to the same body, so only the root an element's fiber is under says whose it is.
+- **Into the frame's body, after what's drawn, not a separate popup root.** That's where it is on the project's page, so
+  the project's rules for the body's children and a dialog's fixed backdrop work as there. The frame's host contains
+  what's fixed, so the backdrop covers the frame, not Parity's window.
+- **What the guest can't take is a problem, not a silent miss.** Content added to the body without React stays there,
+  and an offscreen frame reports it as `outside-frame`. It isn't moved after drawing as a preview's is, since a design
+  shows it where the project places it.
+- **Popups still don't count in a layer's box,** so the earlier call on portaled content stands for selection.
+- **Base UI's focus trap already looks through shadow roots,** so a modal in a frame marks the rest of Parity's page as
+  it did before, no more and no less.

@@ -42,7 +42,7 @@ writes only that file, and a CLI given the same file reaches only that copy.
 | `parity modes [design]`      | Viewports, modes and what each design shows; a design adds its frames' sizes.              |
 | `parity exec [file]`         | Runs a JavaScript snippet against the designs, from a file or stdin, as one undoable step. |
 | `parity screenshot <design>` | Renders a design in its states and modes, offscreen, as images.                            |
-| `parity problems <design>`   | Render errors, overflow, clipping and unknown components, per frame.                       |
+| `parity problems <design>`   | Render errors, overflow, clipping, unknown components and content outside the frame.       |
 | `parity a11y <design>`       | Checks accessibility with axe-core, per frame.                                             |
 | `parity console`             | What the project's own code wrote to the console.                                          |
 | `parity logs`                | Parity's own events from its local log, by level, process, trace, test run or time.        |
@@ -110,9 +110,11 @@ All desktop commands use the same operation contracts as their MCP counterparts:
 | `skill`                  | `read_skill`          |
 
 Screenshot scale defaults to 1 and must be a finite number from 0.25 to 3. Screenshot state and mode default to the
-current state and primary mode. Audits default to every state and shown modes. State and mode accept a nonblank string
-or a nonempty list of nonblank strings; one-item lists normalize to strings. `clear` for console and `all` for props
-default to false. Requests with invalid input fail before contacting the app.
+current state and primary mode. `sheet` (`--sheet`) defaults to false; with it, a screenshot returns `sheets`, one
+labeled PNG per design with states in rows and modes in columns, in place of `screenshots`. Audits default to every
+state and shown modes. State and mode accept a nonblank string or a nonempty list of nonblank strings; one-item lists
+normalize to strings. `clear` for console and `all` for props default to false. Requests with invalid input fail before
+contacting the app.
 
 Screenshots that fail and audits that find issues exit with 1 in the CLI and set MCP `isError`, retaining the full
 report. CLI JSON omits screenshot image data; MCP emits image blocks. CLI `open` resolves relative folders; MCP requires

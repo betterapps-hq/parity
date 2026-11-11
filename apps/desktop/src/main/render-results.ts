@@ -27,6 +27,7 @@ const frame = z.object({
   nodes: z.array(measuredNode),
   overflowsX: z.boolean(),
   unknownComponents: z.array(z.string()),
+  outside: z.array(z.string()).optional(),
   error: z.string().optional(),
   errorStack: z.string().optional()
 })

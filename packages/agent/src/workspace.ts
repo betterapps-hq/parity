@@ -9,6 +9,7 @@ import {
   closest,
   CodedError,
   type ContainerKind,
+  type ComponentLibrary,
   type ContainerSpec,
   deleteNode,
   type DesignChange,
@@ -17,6 +18,7 @@ import {
   type DesignNode,
   type ImageNode,
   type VideoNode,
+  editInner,
   editNode,
   type EvalScope,
   drawnNode,
@@ -30,7 +32,9 @@ import {
   shownModes,
   generateId,
   insertNode,
+  isInnerPath,
   locateEffective,
+  locateInner,
   locateNode,
   mapNode,
   type ModeSettings,
@@ -48,6 +52,7 @@ import {
   radiusKeywords,
   removeState,
   renameState,
+  resetInner,
   resolveDesign,
   type ReferenceSpec,
   type ResolvedMode,
@@ -660,10 +665,7 @@ export class AgentWorkspace {
         continue
       }
 
-      const [first = "", ...inner] = reference.slice(slash + 1).split("/")
-      const node = resolveInDesign(found.container, first)
-
-      return { ...found, layer: [node.id, ...inner].join("/") }
+      return { ...found, layer: layerPath(found.container, reference.slice(slash + 1), this.library()) }
     }
 
     const found = this.findNode(reference)
@@ -923,7 +925,16 @@ export class AgentWorkspace {
   }
 
   private update(path: string, input: UpdateChange, options: z.infer<typeof updateOptions> = {}): void {
-    const { path: file, container, node } = this.findNode(path)
+    const found = this.findLayer(path)
+
+    if (isInnerPath(found.layer)) {
+      this.updateInner(found, input, options)
+
+      return
+    }
+
+    const { path: file, container } = found
+    const node = findNode(container.root, found.layer)!
     const { args, ...change } = input
 
     if (args) {
@@ -991,6 +1002,44 @@ export class AgentWorkspace {
     }
 
     this.setContainer(file, next, node.id, base ? undefined : stateId)
+  }
+
+  /**
+   * Changes a layer inside an instance, as the editor does: in a state, the state's patch for its path; in the base
+   * state, that copy's override. A text, prop or visibility the component binds sets the instance's param instead.
+   */
+  private updateInner(
+    found: Located & { layer: string },
+    input: UpdateChange,
+    options: NonNullable<z.infer<typeof updateOptions>>
+  ): void {
+    const { path: file, container, layer } = found
+    const { args, ...change } = input
+
+    if (args) {
+      change.props = { ...change.props, ...args }
+    }
+
+    const renamed = (["name", "tag", "component"] as const).find((name) => change[name] !== undefined)
+
+    if (renamed) {
+      throw new CodedError(
+        "Inside an instance, only hidden, text, props, style and unset change; edit the component to change the rest",
+        { code: "invalid_input", field: renamed }
+      )
+    }
+
+    const library = this.library()
+    const stateId = options.state === undefined ? container.states[0]!.id : findState(container, options.state).id
+    const inner = locateInner(container, layer, library)!
+
+    if (inner.node.type === "component" && change.props) {
+      this.checkProps(inner.node.component, change.props, `${container.id}/${layer}`)
+    }
+
+    const next = editInner(container, stateId, layer, toChange(change), library)
+    const base = stateId === container.states[0]!.id
+    this.setContainer(file, next, layer.split("/")[0], base ? undefined : stateId)
   }
 
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the snippet API's edge: the node as a snippet passed it, which `prepareNode` checks
@@ -1141,26 +1190,38 @@ export class AgentWorkspace {
     this.setContainer(path, removeState(container, stateId))
   }
 
-  /** State changes keyed by node id or name; `null` clears a node's override. */
+  /**
+   * State changes keyed by node id or name, or by a path inside an instance (`instance/inner`); `null` takes back the
+   * state's change to a node.
+   */
   private applyChanges(
     container: ContainerSpec,
     stateId: string,
     changes: Record<string, PatchInput | null> | undefined
   ): ContainerSpec {
     let next = container
+    const library = this.library()
 
     for (const [reference, value] of Object.entries(changes ?? {})) {
-      const node = resolveInDesign(next, reference)
+      const path = layerPath(next, reference, library)
+
+      if (isInnerPath(path)) {
+        next =
+          value === null
+            ? resetInner(next, stateId, path, library)
+            : editInner(next, stateId, path, toChange(value), library)
+        continue
+      }
 
       if (value === null) {
         const state = findState(next, stateId)
         const overrides = { ...state.overrides }
-        delete overrides[node.id]
+        delete overrides[path]
         next = withStateOverrides(next, stateId, overrides)
         continue
       }
 
-      next = editNode(next, stateId, node.id, toChange(value))
+      next = editNode(next, stateId, path, toChange(value))
     }
 
     return next
@@ -2076,6 +2137,34 @@ function placedReference(
 
 function key(path: string, id: string): string {
   return `${path}#${id}`
+}
+
+/**
+ * A layer's path, the way the canvas names it, from a reference: one of the design's own layers by id or name, or one
+ * inside an instance by the instance, then the layer in its component, each by id or name (`Person/title`).
+ */
+function layerPath(container: ContainerSpec, reference: string, library: ComponentLibrary): string {
+  const [first = "", ...inner] = reference.split("/")
+  let node = resolveInDesign(container, first)
+  const ids = [node.id]
+
+  for (const segment of inner) {
+    const component = node.type === "instance" ? library.get(node.design) : undefined
+
+    if (!component) {
+      throw new CodedError(
+        node.type === "instance"
+          ? `${ids.join("/")} in ${container.id} is an instance of ${node.design}, which isn't in the project`
+          : `${ids.join("/")} in ${container.id} isn't an instance, so nothing is inside it`,
+        { code: "unknown_node", field: "path" }
+      )
+    }
+
+    node = resolveInDesign(component, segment)
+    ids.push(node.id)
+  }
+
+  return ids.join("/")
 }
 
 function resolveInDesign(container: ContainerSpec, reference: string): DesignNode {

@@ -415,6 +415,26 @@ body,
   --canvas-text-text: light-dark(var(--canvas-text-chip), var(--canvas-text));
 }
 
+/*
+ * The bars floating on the canvas (PAR-893). Their lines are etched: a groove with a highlight on its right. The light
+ * theme's bar is a step off white, or the highlight couldn't show, and hover, a picked stamp and Done's fill go a step
+ * darker on it to keep the contrast they have on white. The dark theme keeps the popover and its own steps.
+ */
+:root {
+  --floating-bar: light-dark(oklch(0.985 0 0), var(--popover));
+  --floating-bar-step: oklch(0.955 0 0);
+  --floating-bar-muted: light-dark(var(--floating-bar-step), var(--muted));
+  --floating-bar-secondary: light-dark(var(--floating-bar-step), var(--secondary));
+  --floating-bar-groove: light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.7));
+  --floating-bar-highlight: light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.11));
+
+  /*
+   * Comment's pink, at least 40° in hue from every kind of annotation's. It's tuned on its own rather than at their
+   * lightness, and takes a darker step on the light theme, as Frame and Text do.
+   */
+  --review-comment: light-dark(oklch(0.6 0.22 355), oklch(0.72 0.2 355));
+}
+
 body {
   overflow: hidden;
   user-select: none;

@@ -43,12 +43,27 @@ export function execResponse(reply: ExecReply, fields: readonly string[] = execu
 /** A screenshot without its image data. */
 type ShotInfo = Omit<Screenshot, "png">
 
-/** The result as structured data: every screenshot's details, without their images. */
-export type StructuredExec = Omit<ExecResponse, "screenshots"> & { screenshots: ShotInfo[] }
+/** A contact sheet without its image data. */
+type SheetInfo = Omit<NonNullable<ExecResponse["sheets"]>[number], "png">
+
+/** The result as structured data: every screenshot's and sheet's details, without their images. */
+export type StructuredExec = Omit<ExecResponse, "screenshots" | "sheets"> & {
+  screenshots: ShotInfo[]
+  sheets?: SheetInfo[]
+}
 
 /** The result as structured data: everything but image data, which MCP sends as image blocks. */
-export function structuredExec(result: ExecResponse): StructuredExec {
-  return { ...result, screenshots: result.screenshots.map(({ png: _png, ...shot }) => shot) }
+export function structuredExec({ sheets, ...result }: ExecResponse): StructuredExec {
+  const structured: StructuredExec = {
+    ...result,
+    screenshots: result.screenshots.map(({ png: _png, ...shot }) => shot)
+  }
+
+  if (sheets) {
+    structured.sheets = sheets.map(({ png: _png, ...sheet }) => sheet)
+  }
+
+  return structured
 }
 
 /** Checks the request once, before either transport sends it to the desktop. Snippet and patch text stay as written. */

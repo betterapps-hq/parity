@@ -71,11 +71,18 @@ export function reducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
 
+/** Plays `frame` along the pop spring on an element, if motion's welcome. */
+export function pop(element: Element, frame: (progress: number) => Keyframe): void {
+  if (!reducedMotion()) {
+    element.animate(along(springs.pop, frame), { duration: springs.pop.duration })
+  }
+}
+
 /** A ref that plays `frame` along the pop spring on an element as it's added, if motion's welcome. */
 export function springIn(frame: (progress: number) => Keyframe) {
-  return (element: HTMLElement | null) => {
-    if (element && !reducedMotion()) {
-      element.animate(along(springs.pop, frame), { duration: springs.pop.duration })
+  return (element: Element | null) => {
+    if (element) {
+      pop(element, frame)
     }
   }
 }

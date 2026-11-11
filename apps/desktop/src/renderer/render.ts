@@ -25,7 +25,7 @@ import {
   setDrawnNodes
 } from "./frame.ts"
 import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
-import { inlinePortalSheet, inlinePortals } from "./inline-portals.ts"
+import { contentOutside, inlinePortalSheet, inlinePortals } from "./inline-portals.ts"
 import { startTelemetry } from "./telemetry.ts"
 
 startTelemetry()
@@ -207,6 +207,13 @@ window.canvasRender = async (job) => {
       unknownComponents: [
         ...new Set(renderedComponents(tree).filter((name) => !known.has(name) && !loaded.guest.hasComponent(name)))
       ]
+    }
+
+    // What the frame drew out in the page, where it couldn't take it in. A preview has drawn it inside itself.
+    const outside = job.inlinePortals ? [] : contentOutside(host)
+
+    if (outside.length > 0) {
+      frame.outside = outside
     }
 
     if (errors.length > 0) {

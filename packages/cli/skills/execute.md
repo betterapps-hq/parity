@@ -330,6 +330,10 @@ state what the base sets, list it in `unset`:
 `Update(button, { unset: { props: ["disabled"], style: ["gap"] } }, { state: "ready" })`. In the base design, `unset`
 removes the keys as `null` does.
 
+A path can reach inside an instance, `profile/person/meta`, each step an id or a name. In a state the change is that
+state's; in the base it changes that copy alone. Inside an instance only `hidden`, `text`, `props`, `style` and `unset`
+change.
+
 ### Replace, Move, Copy and Delete
 
 `Replace` swaps a node for a new one in the same place and returns its id. `Move` reorders or reparents a node within
@@ -365,7 +369,9 @@ viewport option's id from the modes (such as `desktop`, `tablet` and `mobile`), 
 
 A state is a situation the whole design is in, like a story: loading, empty, error, signed out. It stores only what
 differs from the base. `changes` maps node ids or names to patches (`hidden`, `text`, `props`, `style`); `null` clears a
-node's patch. The first state is the base.
+node's patch. The first state is the base. A key can reach inside an instance: `instance/inner`, with nested instances
+between (`person/avatar/initials`), each step an id or a name. A text or prop the component binds to a param sets the
+instance's param in that state.
 
 ```js
 AddState("team-members", {
@@ -458,11 +464,13 @@ token values not yet saved show, the person's edits and this call's own `SetToke
 with the node it's drawn inside (`parent`); a node an ancestor cuts off has `clipped` and that ancestor's box in `clip`.
 A node whose element the project's code writes, such as a component's, has `source`: the file, line and column, as
 `src/components/ui/button.tsx:44:5`, to open or edit. Parity's own layers have none. `Problems` checks frames for render
-errors, overflow, clipping and unknown components. Each layout problem has its `kind`: `frame-overflow` for a node that
-sticks out of the frame, by its position or its width, or `clipped` for one an ancestor that hides overflow cuts off. It
-names the `node`, its `box`, the `container` it overflows (the clipping node, or the frame, which has no `node`) with
-that box, and the pixels past each edge in `overflow`. A node past a parent that doesn't clip, inside the frame, shows,
-so it isn't a problem; children going no further than a reported parent are left out.
+errors, overflow, clipping, unknown components and content drawn outside the frame (`outside-frame`: something a library
+added to the page's body itself, which has none of the project's styles and isn't in screenshots; React portals, as Base
+UI's and Radix's popups use, are drawn inside the frame). Each layout problem has its `kind`: `frame-overflow` for a
+node that sticks out of the frame, by its position or its width, or `clipped` for one an ancestor that hides overflow
+cuts off. It names the `node`, its `box`, the `container` it overflows (the clipping node, or the frame, which has no
+`node`) with that box, and the pixels past each edge in `overflow`. A node past a parent that doesn't clip, inside the
+frame, shows, so it isn't a problem; children going no further than a reported parent are left out.
 
 ```js
 const id = CreateDesign({ name: "Checkout" })

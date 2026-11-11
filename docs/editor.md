@@ -102,9 +102,10 @@ to pass on to its DOM.
   as for element layers: the boundary that marks a component layer sits inside what the parent clones, so the props go
   past it to the component, and the layer is still found and still keeps its errors to itself.
 - **Edge cases.** A component that draws nothing has no box: it can be selected from Layers but not on the canvas.
-  Content portaled out of the frame, as a dialog's often is, isn't part of the layer's box; content portaled to a place
-  inside the frame is. A slot a component draws more than once, as a list's `renderItem`, is one layer whose box covers
-  every copy. A component that fails draws its error box in its place, and that box is the layer's.
+  Content portaled to the page's body, as a dialog's or a menu's is, is drawn in the frame's body (see Popups draw
+  inside their frame) but isn't part of the layer's box; content portaled to a place inside the frame, as MUI's is, is.
+  A slot a component draws more than once, as a list's `renderItem`, is one layer whose box covers every copy. A
+  component that fails draws its error box in its place, and that box is the layer's.
 - **Hovering stays cheap.** The walk runs once after the frame changes, when React commits it or DOM is added to or
   taken from it, and every lookup until then reuses it, so moving the pointer only measures boxes. Measured in the app
   on 2026-10-29: finding the layers under a point took about 0.15 ms on Sign in (45 layers) and 0.75 to 0.9 ms on the
@@ -1908,17 +1909,23 @@ place does. The end-to-end tests run only in CI.
 
 What the floating controls on the canvas hold, and how a review tool takes over the toolbar.
 
-### The toolbar, review tools and Zoom (PAR-780, PAR-795)
+### The toolbar, review tools and Zoom (PAR-780, PAR-795, PAR-893)
 
-- **The toolbar floats at the bottom of the canvas,** in the middle: what the pointer does, Frame (F), Text (T) and
-  Insert, then the review button, then Search actions. Move and select (V), Hand (H) and Interact (I) share one button,
-  which shows the one picked last; the arrow beside it switches, and says Space and a drag pans with any tool. Frame's
-  icon is in the layer blue and Text's in text's green, as everywhere they show (PAR-792), and Insert's stays plain. A
-  picked tool is white on the selection blue. Frame's arrow holds its sizes, then New screen in screen blue and New
-  component in component purple.
-- **The review button** shows the review tool picked last, Comment at first, in its color when it isn't picked. Its
-  arrow lists Comment, with C, then, under Annotate with Shift+T, each kind of annotation: Behaviour, Content,
-  Accessibility and Development. C picks Comment, and Shift+T annotates in the kind picked last, Behaviour at first.
+- **The toolbar floats at the bottom of the canvas,** in the middle, in three groups: what the pointer does; the colored
+  tools that add things, Frame (F), Text (T) and the review button; then the commands that open a dialog or a search,
+  Insert, Find references and Search actions, which stay plain. Move and select (V), Hand (H) and Interact (I) share one
+  button, which shows the one picked last; the arrow beside it switches, and says Space and a drag pans with any tool.
+  Frame's icon is in the layer blue and Text's in text's green, as everywhere they show (PAR-792). A picked tool is
+  white on the selection blue. Frame's arrow holds its sizes, then New screen in screen blue and New component in
+  component purple. The arrow keys move through the tools; the commands are Tab stops of their own.
+- **The floating bars** sit on a surface a step off white on the light theme, and their groups are split by lines etched
+  into them: a groove with a highlight on its right, through the bar's padding to its border. A picked tool's button, or
+  a stamp's chip, boings (picking a review tool warps the bar instead), and a pressed control dips and springs back;
+  with reduced motion they keep still.
+- **The review button** shows the review tool picked last, Comment at first, in its color when it isn't picked: Comment
+  is pink, and each kind of annotation has its own hue. Its arrow lists Comment, with C, then, under Annotate with
+  Shift+T, each kind of annotation: Behaviour, Content, Accessibility and Development. C picks Comment, and Shift+T
+  annotates in the kind picked last, Behaviour at first.
 - **A review tool warps the toolbar into its bar.** A kind of annotation's bar has its options as stamps, the picked one
   showing its name, then Suggest and Done; Comment's says Commenting and what a click does, then Done. The canvas goes
   to Move and select, so a click selects rather than adding text.
@@ -1927,8 +1934,8 @@ What the floating controls on the canvas hold, and how a review tool takes over 
   nothing. Picking a tool by its key or button puts the review tool down and picks that tool. Picking another review
   tool while one is picked keeps the tool to go back to.
 - **The warp.** The bar's width springs to the side that's showing. The leaving side's parts fly out, and the entering
-  side's land in a ripple outward from the review button, with a flash and a ring in the kind's color, or the layer blue
-  for Comment and going home. With reduced motion the sides cross-fade. Focus moves to the side showing, to its picked
+  side's land in a ripple outward from the review button, with a flash and a ring in the review tool's color, or the
+  layer blue going home. With reduced motion the sides cross-fade. Focus moves to the side showing, to its picked
   control or its first; the hidden side can't be reached by pointer, keyboard or screen reader. The toolbar is named for
   its side ("Toolbar", "Comments", "Behaviour annotations"). A focused button's ring shows whole at either end of the
   bar.
@@ -1946,7 +1953,10 @@ warp in `Warp.tsx` (the bar and its two sides), `useWarp.ts` (widths, focus) and
 `collaboration/annotations/` has the review tools' bars: `annotation-kinds.ts` names and colors each review tool,
 `annotation-options.ts` lists each kind's options, and `ReviewToolBar.tsx` shows `KindBar.tsx` or `CommentBar.tsx`, with
 `DoneButton.tsx`. `ReviewBar.tsx`, a bar for a review tool beside the toolbar rather than in it, is kept for later.
-`renderer/springs.ts` has the spring the warp and the stamps move on.
+`renderer/springs.ts` has the springs the warp and the floating bars' controls move on; `usePickPop`, `pressable` and
+`pressMotion` in `chrome/toolbar-parts.tsx` give every bar's controls the same pick and press, `CommandButton` in
+`chrome/IconButton.tsx` is a bar's button for a command, and `styles.css` has the bars' surface, their lines' colors and
+Comment's pink.
 
 Tests:
 
@@ -1956,16 +1966,18 @@ Tests:
 - `apps/desktop/src/renderer/springs.test.ts` (5): a spring starts at 0 and settles on 1, overshoots only when it's
   loose, settles later the less it's damped, and makes a `linear()` easing and keyframes.
 - `chrome/record-actions.test.ts`: Zoom's buttons run through the action list.
-- Stories, Parity / Chrome / Toolbar: SelectTool, HandTool, TextTool, InteractTool, ToolTooltip, Annotating and
-  Commenting; AnnotateAndBack picks Behaviour from the review menu, with the canvas on Move and select, and Esc goes
-  back to Text; ReviewKeys checks C, Shift+T, and F putting the review tool down. Parity / Chrome / Zoom controls:
-  ZoomedToFit, and ActualSize, which clicks the level to 100%. Parity / Collaboration / Annotations / Toolbar: each
-  kind's bar and Comment's, PickedStamp, and WhileReviewing for the bars kept for later.
+- Stories, Parity / Chrome / Toolbar: SelectTool; Groups, which checks Frame, Text and Comment are the tools' group and
+  Insert and Find references sit outside it; HandTool, TextTool, InteractTool, ToolTooltip, Annotating and Commenting;
+  AnnotateAndBack picks Behaviour from the review menu, with the canvas on Move and select, and Esc goes back to Text;
+  ReviewKeys checks C, Shift+T, and F putting the review tool down. Parity / Chrome / Zoom controls: ZoomedToFit, and
+  ActualSize, which clicks the level to 100%. Parity / Collaboration / Annotations / Toolbar: each kind's bar and
+  Comment's, PickedStamp, and WhileReviewing for the bars kept for later.
 - End to end (PAR-202), `apps/desktop/e2e/frames.e2e.ts` opens Frame's menu by its name.
 
 Gaps: a click with a review tool only selects, until annotations (PAR-184) and comments can be placed, and Suggest does
-nothing yet. No test plays the warp's motion, which was judged by eye in Storybook as it was designed. The stories open
-the review menu with Enter: user-event's simulated press doesn't open a menu inside the canvas's right-click area,
+nothing yet. No test plays the warp's motion, or a control's pick and press, which were judged by eye in Storybook as
+they were designed; nor the etched lines and Comment's pink, which were compared in light and dark there. The stories
+open the review menu with Enter: user-event's simulated press doesn't open a menu inside the canvas's right-click area,
 though a real click does.
 
 ## Keyboard
@@ -5884,11 +5896,12 @@ were checked when their `.lib.par` was read.
 
 Agents' `Measure` gives each node's box with the node it's drawn inside (`parent`), the ancestor that clips it when one
 cuts it off (`clip`, with its box), and the state and mode it drew. `Problems`, `find_problems` and `parity problems`
-give each layout problem as a finding: its `kind` (`frame-overflow` or `clipped`), the node and its name, its box, the
-`container` it overflows (the node that clips it, or the frame) with that box, and the pixels past each edge in
-`overflow`. The sentence with it says the same, such as "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame
-by 10px on the right", and the CLI puts the layer's name before its id. Overflow of a parent that doesn't clip, inside
-the frame, isn't reported; see [decisions.md](decisions.md), "Problems reports where a node overflows".
+give each layout problem as a finding: its `kind` (`frame-overflow` or `clipped`; `outside-frame`, for content drawn
+outside the frame, is described under Popups draw inside their frame), the node and its name, its box, the `container`
+it overflows (the node that clips it, or the frame) with that box, and the pixels past each edge in `overflow`. The
+sentence with it says the same, such as "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame by 10px on the
+right", and the CLI puts the layer's name before its id. Overflow of a parent that doesn't clip, inside the frame, isn't
+reported; see [decisions.md](decisions.md), "Problems reports where a node overflows".
 
 Code: `layoutFindings` and `describeLayoutFinding` in `packages/agent/src/overflow.ts`, used by `frameProblems` in
 `packages/agent/src/frames.ts`; `clipper` and `nodeParent` in `apps/desktop/src/renderer/render.ts` measure each node;
@@ -5944,6 +5957,42 @@ no height; a fixed frame's job keeps its height beside its window). `packages/ag
 Chrome: the offscreen page's `canvasRender`, in an 800px window, mounts a growing 1280px frame in the job's 1234px
 window, where `100vh` measures 1234 and the frame grows past it; a frame fixed at 600 is 600 tall while `100vh` is
 still 1234. Gap: the end-to-end suite draws frames offscreen but doesn't read a window height in them.
+
+### Popups draw inside their frame (PAR-881)
+
+A select's list, a menu, a popover or a dialog from Base UI or Radix portals to `document.body`. Frames are shadow roots
+in Parity's one page, so that put the popup outside its frame: it drew without the project's styles, out on the canvas,
+and missed the frame's screenshots, and `problems` said nothing.
+
+- **The frame takes what React portals to the page's body for it.** The guest answers the body's `appendChild`,
+  `insertBefore` and `removeChild`: an element React adds there is put in the frame's body, after what the frame drew,
+  as it would be on the project's page, and marked `data-canvas-portal`. Which frame it's for comes from React's tree,
+  the root its fiber is under, so each of several frames drawing at once gets its own popups. React renders into it and
+  takes it out as usual. The frame's host is the containing block for what's fixed, so a dialog covers its frame, and a
+  positioned popup sits by its trigger at any zoom.
+- **The rest of the page is left alone.** Content added to the body without React, or by a root that isn't a frame's,
+  such as Parity's own menus, stays where it was put.
+- **`problems` says what's left outside the frame.** After an offscreen frame draws, anything with something to see
+  that's still in the page's body is reported as an `outside-frame` problem, described by its tag, first class and text:
+  `<div class="toast"> "Saved" is drawn outside the frame, without the project's styles, and isn't in its screenshots`.
+  That's a library that added it to the body itself, which the guest can't follow.
+- **A component preview still draws its portals in the flow** (PAR-517): it takes the popups from the frame's body as it
+  takes what's in the page's.
+- **Popups don't count in a layer's box,** as before, so selecting the trigger doesn't outline the menu with it.
+
+Code: `framePortals` in `packages/renderer-react/src/portals.ts`, started by `mount` in `guest.ts`, which also leaves
+taken content out of layer boxes (`portaledIn`); `contentOutside` and `inlinePortals` in
+`apps/desktop/src/renderer/inline-portals.ts`, called by `canvasRender` in `render.ts`; the `outside` field in
+`shared/protocol.ts` and `main/render-results.ts`; `frameProblems` in `packages/agent/src/frames.ts`.
+
+Tests: `apps/desktop/src/renderer/frame.test.ts` (3), in Chrome with React's production build: two frames each drawing a
+popup portaled to the body, after mounting as Radix's and Base UI's are, find it in their own frame's body with the
+project's style; a popup leaves its frame when it closes and when its frame unmounts; and a portal from a root that
+isn't a frame's stays in the page's body. `apps/desktop/src/renderer/render.test.ts` (1 more, of its 6): content a guest
+adds to the body without React is reported as outside the frame for an agent's job, not a preview's.
+`packages/agent/src/frames.test.ts` (1: the `outside-frame` problem's sentence). Tried in the app on 2026-11-11 with
+nova's DropdownMenu opened by default: drawn under its trigger with the kit's border, radius and shadow, live on the
+canvas at 59% and in `parity screenshot`, with no problems found. Gap: the end-to-end suite opens no popup in a design.
 
 ### Caller identity (PAR-450)
 
@@ -6018,6 +6067,18 @@ transport contract test covers two names sharing more than 80 prefix characters.
 through the otherwise transparent overlay, so the full hover title is reachable without blocking the rest of the canvas.
 The cursor component was checked in Storybook with a long name; its text and title remain intact and its visible width
 is bounded with ellipsis.
+
+### Contact sheets (PAR-895)
+
+`screenshot` with `sheet: true` (`parity screenshot <design> --sheet`) returns each design's frames as one labeled PNG,
+states in rows and modes in columns, in `sheets` in place of `screenshots`, kept within 2,000 pixels. `sheetLayout` in
+`packages/agent/src/sheet.ts` lays it out and draws its labels as SVG; the desktop's `composeSheet` in
+`apps/desktop/src/utility/webp.ts` draws it with sharp. `packages/agent/src/sheet.test.ts` (7) covers rows and columns,
+frames kept apart, labels, shrinking to the limit, a missing cell, a column widened for its label, and cutting long
+labels. `packages/agent/src/dispatch.test.ts` checks that a sheet call saves one file per design with every frame on it,
+`apps/desktop/src/utility/webp.test.ts` that frames are scaled into their boxes over the overlay, and
+`packages/cli/src/operations.test.ts` that both transports send `sheet` and MCP returns the sheet as an image while
+`--json` leaves its data out. A sheet of three states by two modes was drawn with real fonts and checked by eye.
 
 ### What a component goes inside (PAR-454)
 
@@ -6119,6 +6180,30 @@ Tests: `packages/core/src/errors.test.ts` (an unknown id with ids and names list
 its id, ignoring case and spaces; a shared name listing both ids; a former name matching nothing).
 `packages/agent/src/run.test.ts` ("asks for a state's id in every call that takes one": the same message and
 alternatives from each call, a shared name, and the id working).
+
+### States that change what's inside an instance (PAR-883)
+
+An agent's state can change a layer inside an instance, as the editor's can. `AddState` and `UpdateState` take a
+`changes` key that's a path through instances, `instance/inner`, with nested instances between
+(`person/avatar/initials`). `Update` takes the same path after the design's: `profile/person/meta`. Each step is an id
+or a name, the instance's in the design and the layer's in its component. The change is written as the editor writes
+one:
+
+- In a state, it's that state's patch for the path, so the base and the other states stay as they were.
+- In the base state, `Update` changes that copy alone, as the instance's override.
+- A text, prop or visibility the component binds to a param gives the instance around it a value for the param instead.
+- `null` in `changes` takes the state's change to that layer back, with the param values its bound fields took.
+
+Inside an instance only `hidden`, `text`, `props`, `style` and `unset` change. A path through a layer that isn't an
+instance fails with `unknown_node`, saying it isn't one, as does a layer its component doesn't have.
+
+Implementation: `layerPath`, `applyChanges`, `update` and `updateInner` in `packages/agent/src/workspace.ts`, which
+write through core's `editInner` and `resetInner` (`packages/core/src/instances.ts`).
+
+Tests: `packages/agent/src/workspace.test.ts` ("states changing what's inside an instance": a new state changing layers
+inside an instance and a nested one, by id and by name, with the base unchanged; a bound title given as the instance's
+param in that state; `null` taking a state's change back; `Update` in a state and on the base copy; a path that leads
+nowhere and one through a layer that isn't an instance).
 
 ### Measure draws one frame (PAR-461)
 

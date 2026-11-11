@@ -267,6 +267,14 @@ In each column, ● means the feature needs it, and ◐ means the feature is bet
 | Export PNG and SVG              |            | ●     | ●    |             |               |                                                                |
 | Agent API                       |            | ●     | ●    | ◐           |               | Spacing values assume `--spacing`                              |
 
+## Screenshots for agents
+
+| Client                 | How screenshots arrive                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Claude Code over MCP   | Image blocks in `screenshot`'s result, one per frame, or one per design with `sheet: true`.                  |
+| Codex over MCP         | None yet: Codex shows the model only `structuredContent`, which leaves images out (PAR-528).                 |
+| Any agent with the CLI | PNG files under `~/.parity/screenshots`, one read each. `--sheet` saves one labeled file per design instead. |
+
 ## Gaps to fix
 
 Not requirements, just work not done yet:

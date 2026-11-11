@@ -2,6 +2,44 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Wed, 11 Nov 2026 08:07:17 GMT",
+      "version": "0.57.0",
+      "tag": "@parity-app/desktop_v0.57.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3e86408f3cfde450a00fe72ec05cc5f7f71f9bf9",
+            "comment": "Agents' states and Update can change a layer inside an instance by its instance/inner path, as the editor can"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "eafafc97527e1304170ae7588a0d0017ba3c1e8c",
+            "comment": "screenshot --sheet (MCP sheet: true) returns one labeled contact sheet per design, every state and mode, instead of one image per frame"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 11 Nov 2026 01:41:00 GMT",
+      "version": "0.56.0",
+      "tag": "@parity-app/desktop_v0.56.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c5f1200375586db131c579bff25b60a0be46ee70",
+            "comment": "Etched lines split the floating bars, Insert and Find references sit beside Search, Comment is pink, and every bar's controls pop when picked and spring when pressed."
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 10 Nov 2026 23:55:31 GMT",
       "version": "0.55.0",
       "tag": "@parity-app/desktop_v0.55.0",

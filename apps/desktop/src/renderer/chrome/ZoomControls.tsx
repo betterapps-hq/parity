@@ -7,7 +7,7 @@ import { actions } from "./actions.ts"
 import { zoomIn, zoomOut, zoomTo100, zoomToFit } from "./commands.ts"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
-import { CommandTip, floatingBar } from "./toolbar-parts.tsx"
+import { CommandTip, floatingBar, pressableWide, pressMotion } from "./toolbar-parts.tsx"
 
 /**
  * Zoom, floating at the top right of the canvas (PAR-780, PAR-795): zoom out, the level, which goes to 100%, zoom in and
@@ -33,7 +33,8 @@ export function ZoomControls() {
           variant="ghost"
           size="sm"
           aria-label={`${keymap.zoomTo100.label}, now ${zoom}%`}
-          className="min-w-14 tabular-nums"
+          className={`min-w-14 tabular-nums ${pressableWide}`}
+          style={pressMotion}
           disabled={!editor}
           onClick={() => void actions.zoomTo100.run("toolbar", { instead: () => zoomTo100(session) })}
         >
@@ -67,7 +68,13 @@ interface ZoomButtonProps {
 
 function ZoomButton({ command, disabled, onClick, children }: ZoomButtonProps) {
   return (
-    <IconButton label={keymap[command].label} shortcut={keymap[command].keys[0]} disabled={disabled} onClick={onClick}>
+    <IconButton
+      label={keymap[command].label}
+      shortcut={keymap[command].keys[0]}
+      disabled={disabled}
+      pressable
+      onClick={onClick}
+    >
       {children}
     </IconButton>
   )

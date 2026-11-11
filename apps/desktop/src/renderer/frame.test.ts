@@ -21,7 +21,9 @@ const entry = `
 export { prepareFrame, setFrameViewport } from "./frame.ts"
 export { prepareCanvasCss } from "@parity-app/core"
 export { createGuest } from "@parity-app/renderer-react/guest"
-import { Component, createElement, createRef, useEffect, useState, useSyncExternalStore } from "react"
+import { Component, createElement, createRef, useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react"
+import { createPortal } from "react-dom"
+import { createRoot } from "react-dom/client"
 
 // shadcn's useIsMobile.
 function useIsMobile() {
@@ -89,6 +91,28 @@ class LaterClass extends Component {
   render() {
     return createElement("span", { ref: this.span, "data-ready": String(this.state.ready) }, "Probe")
   }
+}
+
+// Portals its popup to the page's body once mounted, as Radix's and Base UI's do, and closes when it's clicked.
+export function Popup({ label }) {
+  const [open, setOpen] = useState(true)
+  const [mounted, setMounted] = useState(false)
+  useLayoutEffect(() => setMounted(true), [])
+  return createElement(
+    "button",
+    { className: "trigger", onClick: () => setOpen(false) },
+    label,
+    mounted && open
+      ? createPortal(createElement("div", { className: "popup", role: "listbox" }, label + " options"), document.body)
+      : null
+  )
+}
+
+// Parity's own menu, portaled to the page's body from a root that isn't a frame's.
+export function parityMenu() {
+  const container = document.createElement("div")
+  document.querySelector("#frames").append(container)
+  createRoot(container).render(createElement(() => createPortal(createElement("div", { id: "parity-menu" }), document.body)))
 }
 
 export function Probe() {
@@ -170,6 +194,8 @@ declare const frame: typeof frameModule & {
   prepareCanvasCss: typeof prepareCanvasCss
   createGuest: typeof createGuest
   Probe: ComponentType
+  Popup: ComponentType<{ label: string }>
+  parityMenu(): void
 }
 
 /** The handles of the frames "a frame's window" mounts, by id, which it keeps on the page's window. */
@@ -667,5 +693,80 @@ describe("a frame's window", () => {
     })
     expect(await probe("laptop")).toMatchObject({ mobile: "false", wide: "true", resizes: "0" })
     expect(errors).toEqual([])
+  })
+})
+
+describe("a frame's portals (PAR-881)", () => {
+  /** Mounts a frame drawing a popup that portals to the page's body, with the project's style for it. */
+  function mount(id: string) {
+    return page.evaluate((id) => {
+      const guest = frame.createGuest({ components: { Popup: frame.Popup }, css: "" })
+      const host = document.createElement("div")
+      host.id = id
+      host.style.width = "390px"
+      document.querySelector("#frames")!.append(host)
+      const sheet = new CSSStyleSheet()
+      sheet.replaceSync(
+        frame.prepareCanvasCss(".popup { color: rgb(0, 128, 0) }", { baseUrl: "http://project.test" }).scoped
+      )
+      const viewport = { width: 390, height: 844 }
+      const target = frame.prepareFrame(host, sheet, { classNames: [], attributes: {}, viewport })
+
+      const handle = guest.mount(
+        target,
+        [{ kind: "component", component: "Popup", nodeId: id, props: { label: id }, slots: {} }],
+        { viewport }
+      )
+
+      handles[id] = handle
+    }, id)
+  }
+
+  /** Where each popup is: the frame it's drawn in, or the page, with its colour. */
+  function popups() {
+    return page.evaluate(() =>
+      [...document.querySelectorAll("#frames > div")].flatMap((host) =>
+        [...(host.shadowRoot?.querySelectorAll(".popup") ?? [])].map((popup) => ({
+          in: host.id,
+          text: popup.textContent,
+          // The frame's body holds it, after what the frame drew.
+          inBody: popup.parentElement === host.shadowRoot!.firstElementChild,
+          color: getComputedStyle(popup).color
+        }))
+      )
+    )
+  }
+
+  beforeAll(async () => {
+    await page.evaluate(() => {
+      document.querySelector("#frames")!.replaceChildren()
+      Object.assign(window, { handles: {} })
+    })
+    await mount("menu")
+    await mount("select")
+  })
+
+  it("draws each frame's popup in that frame's body, with the project's styles", async () => {
+    await expect.poll(popups).toEqual([
+      { in: "menu", text: "menu options", inBody: true, color: "rgb(0, 128, 0)" },
+      { in: "select", text: "select options", inBody: true, color: "rgb(0, 128, 0)" }
+    ])
+    expect(await page.evaluate(() => document.querySelectorAll("body > .popup").length)).toBe(0)
+    expect(errors).toEqual([])
+  })
+
+  it("takes a popup out of its frame when it closes, and when the frame goes", async () => {
+    await page.click("#menu .trigger")
+    await expect.poll(popups).toEqual([expect.objectContaining({ in: "select" })])
+    await page.evaluate(() => handles.select!.unmount())
+    await expect.poll(popups).toEqual([])
+    expect(errors).toEqual([])
+  })
+
+  it("leaves what Parity's own code portals in the page's body", async () => {
+    await page.evaluate(() => frame.parityMenu())
+    await expect
+      .poll(() => page.evaluate(() => document.querySelector("#parity-menu")?.parentElement?.tagName))
+      .toBe("BODY")
   })
 })

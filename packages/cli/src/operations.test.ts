@@ -301,7 +301,7 @@ const cases: Case[] = [
     tool: "screenshot",
     method: "screenshot",
     input: { design: "home" },
-    params: { design: "home", scale: 1 },
+    params: { design: "home", scale: 1, sheet: false },
     result: screenshot,
     structured: structuredExec(execResponse(screenshot)),
     text: describeExec(execResponse(screenshot))
@@ -704,7 +704,7 @@ describe("remaining transport contracts", processTests, () => {
       tool: "screenshot",
       method: "screenshot",
       input: { design: "home", state: ["ready", "empty"], mode: ["mobile"], scale: 0.25 },
-      params: { design: "home", state: ["ready", "empty"], mode: "mobile", scale: 0.25 },
+      params: { design: "home", state: ["ready", "empty"], mode: "mobile", scale: 0.25, sheet: false },
       result: screenshot
     },
     {
@@ -807,6 +807,28 @@ describe("remaining transport contracts", processTests, () => {
     expect(toolReply(protocol.stdout)).toEqual(
       expectedReply(describeExec(execResponse(result)), structured, false, shots)
     )
+  })
+
+  it("sends sheet, returns each sheet as an image, and names its file in the text", async () => {
+    const shot = { path: "/home-sheet.png", png: "AA==", design: "home", state: "default", mode: "desktop" }
+    const frames = [{ state: "default", mode: "desktop", x: 24, y: 114, width: 640, height: 400 }]
+    const sheets = [{ design: "home", path: "/home-sheet.png", png: "AA==", width: 688, height: 538, scale: 1, frames }]
+    const result = { ...screenshot, sheets }
+    fixture.response = { result }
+
+    const [cli, protocol] = await Promise.all([
+      run(["screenshot", "home", "--sheet", "--json"]),
+      mcp({ design: "home", sheet: true }, "screenshot")
+    ])
+
+    const { png: _png, ...sheet } = sheets[0]!
+    const structured = { ...result, sheets: [sheet] }
+    const text = describeExec(execResponse(result))
+
+    expect(fixture.requests.at(-1)?.params).toMatchObject({ design: "home", sheet: true })
+    expect(JSON.parse(cli.stdout)).toEqual(structured)
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply(text, structured, false, [shot]))
+    expect(text).toContain("home, 1 state by 1 mode: /home-sheet.png")
   })
 
   it("bounds tokens to the limit, the first ones, and says how many there were", async () => {

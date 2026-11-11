@@ -226,7 +226,8 @@ export const requests = {
     mode: selector("mode")
       .transform(single)
       .optional()
-      .describe('Mode id, list of ids, "shown" or "all". Defaults to the primary mode.')
+      .describe('Mode id, list of ids, "shown" or "all". Defaults to the primary mode.'),
+    sheet: flag("sheet", "One labeled image of every frame instead of one per frame.")
   }),
   problems: fields(checks),
   accessibility: fields(checks),
@@ -580,7 +581,32 @@ const execReply = z.looseObject({
       state: z.string(),
       mode: z.string()
     })
-  )
+  ),
+  sheets: z
+    .array(
+      z.looseObject({
+        design: z.string(),
+        path: z.string().describe("Where the PNG was saved."),
+        png: z.string(),
+        width: z.int(),
+        height: z.int(),
+        scale: z.number().describe("Sheet pixels per CSS pixel."),
+        frames: z
+          .array(
+            z.looseObject({
+              state: z.string(),
+              mode: z.string(),
+              x: z.int(),
+              y: z.int(),
+              width: z.int(),
+              height: z.int()
+            })
+          )
+          .describe("Where each frame is on the sheet, in its pixels.")
+      })
+    )
+    .optional()
+    .describe("With sheet, one per design, in place of screenshots.")
 })
 
 /** A box in a frame, in CSS pixels from its top left corner. */
@@ -593,7 +619,9 @@ const frameBox = z.looseObject({ x: number, y: number, width: number, height: nu
 const problem = z.looseObject({
   state: z.string(),
   mode: z.string(),
-  kind: z.enum(["render-error", "unknown-component", "content-wider", "frame-overflow", "clipped"]).optional(),
+  kind: z
+    .enum(["render-error", "unknown-component", "content-wider", "frame-overflow", "clipped", "outside-frame"])
+    .optional(),
   problem: z.string(),
   node: z.string().optional(),
   name: z.string().optional(),

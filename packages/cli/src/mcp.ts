@@ -168,13 +168,17 @@ const tools: Tool[] = [
   },
   operationTool(
     "screenshot",
-    'Capture a design in any of its states and modes, rendered offscreen at real widths. state and mode take an id, a list, or "all"; mode also takes "shown".',
+    'Capture a design in any of its states and modes, rendered offscreen at real widths. state and mode take an id, a list, or "all"; mode also takes "shown". sheet: true returns one labeled image of every frame per design.',
     operations.screenshot,
-    (result) => [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))]
+    (result) => [
+      text(describeExec(result)),
+      ...result.screenshots.map((shot) => image(shot.png)),
+      ...(result.sheets ?? []).map((sheet) => image(sheet.png))
+    ]
   ),
   operationTool(
     "find_problems",
-    'Find layout problems in a design, rendered offscreen in every state and the modes it shows unless you narrow it: render errors, nodes that stick out of the frame, nodes cut off by an ancestor that clips, and components that aren\'t the project\'s. Each layout finding names the node and what it overflows, with both boxes and how far past each edge. Run it after changes, with screenshot. state and mode take an id, a list, or "all"; mode also takes "shown".',
+    'Find layout problems in a design, rendered offscreen in every state and the modes it shows unless you narrow it: render errors, nodes that stick out of the frame, nodes cut off by an ancestor that clips, components that aren\'t the project\'s, and content drawn outside the frame. Each layout finding names the node and what it overflows, with both boxes and how far past each edge. Run it after changes, with screenshot. state and mode take an id, a list, or "all"; mode also takes "shown".',
     operations.problems,
     (result) => [text(describeProblems(result))]
   ),

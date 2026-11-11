@@ -394,6 +394,18 @@ export function describeExec(result: ExecResponse): string {
     )
   }
 
+  if (result.sheets?.length) {
+    lines.push("", "Sheets (states in rows, modes in columns):")
+
+    for (const sheet of result.sheets) {
+      const states = new Set(sheet.frames.map((frame) => frame.state)).size
+      const modes = new Set(sheet.frames.map((frame) => frame.mode)).size
+      const shrunk = sheet.scale < 1 ? `, frames at ${Math.round(sheet.scale * 100)}%` : ""
+      const size = `${states} ${states === 1 ? "state" : "states"} by ${modes} ${modes === 1 ? "mode" : "modes"}`
+      lines.push(`  ${sheet.design}, ${size}${shrunk}: ${sheet.path}`)
+    }
+  }
+
   return lines.join("\n")
 }
 

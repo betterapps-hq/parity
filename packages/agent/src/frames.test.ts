@@ -70,6 +70,17 @@ describe("frameProblems", () => {
     })
   })
 
+  it("says what was drawn outside the frame, where the project's styles don't reach (PAR-881)", () => {
+    expect(frameProblems(design, state, mode, frame({ outside: ['<div class="toast"> "Saved"'] }))).toEqual([
+      {
+        state: "default",
+        mode: mode.id,
+        kind: "outside-frame",
+        problem: `<div class="toast"> "Saved" is drawn outside the frame, without the project's styles, and isn't in its screenshots`
+      }
+    ])
+  })
+
   it("says content is wider than the frame when no node accounts for it", () => {
     expect(frameProblems(design, state, mode, frame({ overflowsX: true }))).toEqual([
       {

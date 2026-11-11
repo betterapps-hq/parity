@@ -283,7 +283,7 @@ export interface Overflow {
 export interface Problem {
   state: string
   mode: string
-  kind: "render-error" | "unknown-component" | "content-wider" | "frame-overflow" | "clipped"
+  kind: "render-error" | "unknown-component" | "content-wider" | "frame-overflow" | "clipped" | "outside-frame"
   /** What's wrong, in a sentence. */
   problem: string
   node?: string
@@ -300,6 +300,8 @@ export interface FrameResult {
   nodes: MeasuredNode[]
   overflowsX: boolean
   unknownComponents: string[]
+  /** Content drawn outside the frame, without the project's styles, each described in a few words (PAR-881). */
+  outside?: string[]
   error?: string
   /** Base64 PNG, when captured. */
   png?: string
@@ -432,6 +434,17 @@ export interface Screenshot {
   png: string
   /** Each layer's box in the frame, in its CSS pixels, to cut a layer from the picture (PAR-185). */
   nodes?: MeasuredNode[]
+}
+
+/**
+ * A contact sheet to put together (PAR-895): its size, the background, labels and borders as SVG, and each frame's
+ * picture with the box it goes in, in the sheet's pixels. A frame's picture is scaled to its box.
+ */
+export interface ComposedSheet {
+  width: number
+  height: number
+  overlay: string
+  frames: { png: string; x: number; y: number; width: number; height: number }[]
 }
 
 export interface ExecResult {
