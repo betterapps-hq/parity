@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Read, write and match colors for the color picker, and explore the styling controls (PAR-186)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

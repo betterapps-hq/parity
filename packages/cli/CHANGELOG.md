@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Wed, 11 Nov 2026 09:09:45 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 11 Nov 2026 09:32:38 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.44.0
+
+Wed, 11 Nov 2026 09:32:38 GMT
+
+### Minor changes
+
+- Agents can ask for the tokens nearest a raw color or length: GetTokens({ nearest }), parity tokens --nearest and MCP
+  get_tokens list them nearest first, with how far each is (ajcraswell@gmail.com)
 
 ## 0.43.0
 

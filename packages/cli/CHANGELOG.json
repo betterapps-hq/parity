@@ -2,6 +2,29 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Wed, 11 Nov 2026 09:32:38 GMT",
+      "version": "0.44.0",
+      "tag": "@parity-app/cli_v0.44.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dddc241bdbf46f86f730488d61e38d7e303a5a88",
+            "comment": "Agents can ask for the tokens nearest a raw color or length: GetTokens({ nearest }), parity tokens --nearest and MCP get_tokens list them nearest first, with how far each is"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dddc241bdbf46f86f730488d61e38d7e303a5a88",
+            "comment": "Read, write and match colors for the color picker, and explore the styling controls (PAR-186)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 11 Nov 2026 09:09:45 GMT",
       "version": "0.43.0",
       "tag": "@parity-app/cli_v0.43.0",
