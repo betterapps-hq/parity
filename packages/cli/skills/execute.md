@@ -316,6 +316,10 @@ state what the base sets, list it in `unset`:
 `Update(button, { unset: { props: ["disabled"], style: ["gap"] } }, { state: "ready" })`. In the base design, `unset`
 removes the keys as `null` does.
 
+A path can reach inside an instance, `profile/person/meta`, each step an id or a name. In a state the change is that
+state's; in the base it changes that copy alone. Inside an instance only `hidden`, `text`, `props`, `style` and `unset`
+change.
+
 ### Replace, Move, Copy and Delete
 
 `Replace` swaps a node for a new one in the same place and returns its id. `Move` reorders or reparents a node within
@@ -351,7 +355,9 @@ viewport option's id from the modes (such as `desktop`, `tablet` and `mobile`), 
 
 A state is a situation the whole design is in, like a story: loading, empty, error, signed out. It stores only what
 differs from the base. `changes` maps node ids or names to patches (`hidden`, `text`, `props`, `style`); `null` clears a
-node's patch. The first state is the base.
+node's patch. The first state is the base. A key can reach inside an instance: `instance/inner`, with nested instances
+between (`person/avatar/initials`), each step an id or a name. A text or prop the component binds to a param sets the
+instance's param in that state.
 
 ```js
 AddState("team-members", {
