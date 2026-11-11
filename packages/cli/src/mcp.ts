@@ -168,9 +168,13 @@ const tools: Tool[] = [
   },
   operationTool(
     "screenshot",
-    'Capture a design in any of its states and modes, rendered offscreen at real widths. state and mode take an id, a list, or "all"; mode also takes "shown".',
+    'Capture a design in any of its states and modes, rendered offscreen at real widths. state and mode take an id, a list, or "all"; mode also takes "shown". sheet: true returns one labeled image of every frame per design.',
     operations.screenshot,
-    (result) => [text(describeExec(result)), ...result.screenshots.map((shot) => image(shot.png))]
+    (result) => [
+      text(describeExec(result)),
+      ...result.screenshots.map((shot) => image(shot.png)),
+      ...(result.sheets ?? []).map((sheet) => image(sheet.png))
+    ]
   ),
   operationTool(
     "find_problems",

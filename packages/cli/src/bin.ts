@@ -47,7 +47,9 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             take) and what each design shows; a design adds its frames' sizes
   parity exec [file] --label "Do x"         run a snippet (from a file, or stdin) as one undoable step
        [--edit-id id --edits '[{"find":"a","replace":"b"}]']   retry a failed snippet with edits
-  parity screenshot <design> [--state s|all] [--mode m|shown|all] [--scale 2] [--tab t]
+  parity screenshot <design> [--state s|all] [--mode m|shown|all] [--scale 2] [--sheet] [--tab t]
+                                            render a design offscreen and save each frame as a PNG; --sheet saves
+                                            one labeled image of every frame instead
   parity a11y <design> [--state s|all] [--mode m|shown|all] [--tab t]
                                             check accessibility with axe-core, in every state and the modes shown
                                             unless narrowed; exits with 1 when it finds issues
@@ -155,6 +157,7 @@ const { positionals, values } = parseArgs({
     scale: { type: "string" },
     json: { type: "boolean" },
     record: { type: "boolean" },
+    sheet: { type: "boolean" },
     clear: { type: "boolean" },
     summary: { type: "boolean" },
     all: { type: "boolean" },
@@ -311,7 +314,8 @@ async function main(): Promise<void> {
           design: rest[0],
           state: values.state,
           mode: values.mode,
-          scale: values.scale === undefined ? undefined : Number(values.scale)
+          scale: values.scale === undefined ? undefined : Number(values.scale),
+          sheet: values.sheet
         },
         describeExec
       )

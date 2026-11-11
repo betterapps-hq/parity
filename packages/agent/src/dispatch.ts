@@ -16,13 +16,16 @@ import type { AgentMethod, AgentMethods } from "./contracts.ts"
 import { isAgentMethod, readRequest, requests, rpcRequest } from "./contracts.ts"
 import { activeTab, type CopyReport, matchTab } from "./routing.ts"
 import { type ExecRequest, execute } from "./run.ts"
+import { sheetLayout } from "./sheet.ts"
 import type {
   AccessibilityFinding,
   AgentChangeSet,
   AgentEvent,
   AgentHooks,
   AgentReport,
+  ComposedSheet,
   ConsoleEntry,
+  ExecResult,
   FrameRequest,
   FrameResult,
   IconNames,
@@ -68,8 +71,13 @@ export interface AgentHost {
   supports(queries: { property: string; value: string }[]): Promise<boolean[]>
   /** What the tab's project code wrote to the console, forgotten once read when `clear` is set. */
   console(snapshot: TabSnapshot, clear: boolean): Promise<ConsoleEntry[]>
-  /** Keeps a call's screenshots as PNG files, and says where each went, in order. */
-  saveScreenshots(screenshots: Screenshot[]): Promise<string[]>
+  /**
+   * Keeps a call's screenshots or sheets as PNG files, and says where each went, in order. A name says what the picture
+   * is, for its file's name.
+   */
+  saveScreenshots(pictures: { name: string; png: string }[]): Promise<string[]>
+  /** Puts a contact sheet together: its overlay, with each frame's picture over it, as a base64 PNG (PAR-895). */
+  composeSheet(sheet: ComposedSheet): Promise<string>
   /**
    * Sends an agent's report as a Sentry user feedback, with the window's screenshot and replay, tied to the call's trace
    * (PAR-646).
@@ -159,13 +167,28 @@ const methods: MethodTable = {
   async screenshot(params, call) {
     const options = { state: params.state, mode: params.mode, scale: params.scale }
 
-    // The snippet is Parity's own, so a failure has nothing for the agent to retry by editId.
-    const { editId: _editId, ...result } = await exec(call.host, call.presence, params.tab, {
+    const request = {
       label: `Screenshot ${params.design}`,
       code: `Print(await Screenshot(${JSON.stringify(params.design)}, ${JSON.stringify(options)}))`
-    })
+    }
 
-    return result
+    // The snippet is Parity's own, so a failure has nothing for the agent to retry by editId.
+    if (!params.sheet) {
+      const { editId: _editId, ...result } = await exec(call.host, call.presence, params.tab, request)
+
+      return result
+    }
+
+    const snapshot = await call.host.snapshot(params.tab)
+
+    const {
+      changes: _changes,
+      editId: _editId,
+      screenshots,
+      ...result
+    } = await runIn(call.host, call.presence, snapshot, request)
+
+    return { ...result, screenshots: [], sheets: await contactSheets(call.host, snapshot, screenshots, params.scale) }
   },
   async accessibility(params, { host, presence }) {
     const snapshot = await host.snapshot(params.tab)
@@ -721,10 +744,7 @@ async function execIn(
   request: ExecRequest,
   caller?: Caller
 ): Promise<Answer<"exec"> & { changes: AgentChangeSet }> {
-  const tabId = snapshot.tab.id
-  const label = request.label || "Agent edit"
-
-  const run: ExecRequest = { label }
+  const run: ExecRequest = { label: request.label || "Agent edit" }
 
   if (request.code !== undefined) {
     run.code = request.code
@@ -738,6 +758,39 @@ async function execIn(
     run.edits = request.edits
   }
 
+  const { changes, screenshots, ...rest } = await runIn(host, presence, snapshot, run, caller)
+
+  const paths =
+    screenshots.length > 0
+      ? await host.saveScreenshots(
+          screenshots.map((shot) => ({ name: `${shot.design}-${shot.state}-${shot.mode}`, png: shot.png }))
+        )
+      : []
+
+  return {
+    ...rest,
+    changes,
+    screenshots: screenshots.map((shot, index) => ({
+      path: paths[index] ?? "",
+      png: shot.png,
+      design: shot.design,
+      state: shot.state,
+      mode: shot.mode
+    }))
+  }
+}
+
+/** Runs a snippet in a tab and applies what it changed there, keeping its screenshots as pictures, not files. */
+async function runIn(
+  host: AgentHost,
+  presence: Call["presence"],
+  snapshot: TabSnapshot,
+  run: ExecRequest,
+  caller?: Caller
+): Promise<ExecResult & { applied: boolean }> {
+  const tabId = snapshot.tab.id
+  const label = run.label || "Agent edit"
+
   const result = await execute(run, workspaceSnapshot(snapshot), {
     presence: presence(tabId),
     render: renderFor(host, snapshot),
@@ -748,25 +801,74 @@ async function execIn(
     caller: caller?.name
   })
 
-  const { changes, screenshots, ...rest } = result
+  const { changes } = result
 
   const hasChanges =
     changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0 || !!changes.references?.length
 
-  const paths = screenshots.length > 0 ? await host.saveScreenshots(screenshots) : []
+  return { ...result, applied: result.ok && hasChanges }
+}
 
-  return {
-    ...rest,
-    changes,
-    applied: result.ok && hasChanges,
-    screenshots: screenshots.map((shot, index) => ({
-      path: paths[index] ?? "",
-      png: shot.png,
-      design: shot.design,
-      state: shot.state,
-      mode: shot.mode
-    }))
-  }
+/**
+ * Each design's screenshots as one labeled contact sheet, kept as a file (PAR-895): states in rows, modes in columns,
+ * named as the canvas names them. `scale` is the pixel density the frames were drawn at.
+ */
+async function contactSheets(
+  host: AgentHost,
+  snapshot: TabSnapshot,
+  screenshots: readonly Screenshot[],
+  scale: number
+): Promise<NonNullable<Answer<"screenshot">["sheets"]>> {
+  const containers = new Map(
+    snapshot.documents.flatMap(({ document }) => document.containers.map((container) => [container.id, container]))
+  )
+
+  const modes = new Map(resolveModes(snapshot.modes).map((mode) => [mode.id, mode.name]))
+  const designs = [...new Set(screenshots.map((shot) => shot.design))]
+
+  const sheets = await Promise.all(
+    designs.map(async (design) => {
+      const container = containers.get(design)
+      const shots = screenshots.filter((shot) => shot.design === design)
+
+      const layout = sheetLayout(
+        container?.name ?? design,
+        shots.map((shot) => ({
+          state: {
+            id: shot.state,
+            name: container?.states.find((state) => state.id === shot.state)?.name ?? shot.state
+          },
+          mode: { id: shot.mode, name: modes.get(shot.mode) ?? shot.mode },
+          width: Math.round(shot.width * scale),
+          height: Math.round(shot.height * scale)
+        }))
+      )
+
+      const png = await host.composeSheet({
+        width: layout.width,
+        height: layout.height,
+        overlay: layout.overlay,
+        frames: layout.frames.map((frame) => ({ ...frame, png: shots[frame.index]!.png }))
+      })
+
+      return { design, png, layout }
+    })
+  )
+
+  const paths =
+    sheets.length > 0
+      ? await host.saveScreenshots(sheets.map(({ design, png }) => ({ name: `${design}-sheet`, png })))
+      : []
+
+  return sheets.map(({ design, png, layout }, index) => ({
+    design,
+    path: paths[index] ?? "",
+    png,
+    width: layout.width,
+    height: layout.height,
+    scale: scale * layout.fit,
+    frames: layout.frames.map(({ index: _index, ...frame }) => frame)
+  }))
 }
 
 /**

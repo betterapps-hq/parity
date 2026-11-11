@@ -31,7 +31,7 @@ import { mainProcess } from "./main-process.ts"
 import { type FindOptions, foundScreen, savePictures, searchMedia, searchReferences } from "./references.ts"
 import { renderOffscreen } from "./render.ts"
 import { scrubSecrets } from "./telemetry.ts"
-import { composePicture, cutPicture } from "./webp.ts"
+import { composePicture, composeSheet, cutPicture } from "./webp.ts"
 
 interface WindowChannel {
   request<M extends keyof WindowMethods>(
@@ -241,19 +241,20 @@ export function desktopHost(window: WindowChannel, images: AgentImages = noImage
     screen: (id, connector) =>
       foundScreen(id, connector, (from, each) => mainProcess.request("connectorResult", { connector: from, id: each })),
     placed: (placed) => mainProcess.request("connectorPlaced", placed),
-    async saveScreenshots(screenshots) {
+    async saveScreenshots(pictures) {
       await mkdir(screenshotDir, { recursive: true })
       const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-")
 
       return Promise.all(
-        screenshots.map(async (shot, index) => {
-          const path = join(screenshotDir, `${stamp}-${index + 1}-${shot.design}-${shot.state}-${shot.mode}.png`)
-          await writeFile(path, Buffer.from(shot.png, "base64"))
+        pictures.map(async (picture, index) => {
+          const path = join(screenshotDir, `${stamp}-${index + 1}-${picture.name}.png`)
+          await writeFile(path, Buffer.from(picture.png, "base64"))
 
           return path
         })
       )
-    }
+    },
+    composeSheet: async (sheet) => (await composeSheet(sheet)).toString("base64")
   }
 }
 

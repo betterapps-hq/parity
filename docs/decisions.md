@@ -7171,6 +7171,28 @@ and picked these:
   pressed control dips and springs back on the pop spring, both from `toolbar-parts.tsx`.
 - **Grouping by spacing alone, one line before Search only, and lines inset from the bar's edges were set aside.**
 
+## A screenshot can come back as one contact sheet per design (PAR-895)
+
+In the Better Booking run, 137 of an agent's 411 calls read screenshot files, one per frame, because `parity screenshot`
+saves each frame and prints its path. MCP's `screenshot` already returned the images in its result. You chose on
+2026-11-11 to make the sheet opt-in:
+
+- **`sheet: true` (`--sheet`) puts each design's frames on one labeled PNG:** the design's name above, states in rows
+  and modes in columns, in the order they were drawn, named as the canvas names them. The CLI saves it as one file and
+  MCP returns it as one image block, in `sheets`, in place of `screenshots`. Each sheet lists every frame's box on it.
+- **Separate frames stay the default,** so callers that read `screenshots` get what they did before. The skill's "check
+  every frame" step asks for a sheet, then a single frame for a closer look.
+- **A sheet is kept within 2,000 pixels on its longest side.** Claude scales images down to about 1,568 pixels before it
+  sees them, and some clients refuse images over 2,000 pixels once a conversation holds many, so a bigger sheet only
+  costs bytes. Frames shrink to fit and labels keep their size; the sheet's `scale` says how many sheet pixels a CSS
+  pixel became.
+- **The layout is data, in `@parity-app/agent`; the pixels are the host's.** `sheetLayout` in
+  `packages/agent/src/sheet.ts` places the frames and draws the background, labels and borders as SVG. `composeSheet` in
+  the desktop's `webp.ts` draws that SVG with sharp and puts the frames over it, as `composePicture` does for copying.
+  No dependency was added.
+- **`Screenshot` in a snippet doesn't take `sheet`.** A snippet's screenshots come back with its other results, and the
+  `screenshot` tool covers the check.
+
 ## Popups draw inside their frame, taken from the page's body (PAR-881)
 
 The Better Booking run found selects, menus and dialogs drawing unstyled outside their frames, with nothing in
