@@ -108,6 +108,44 @@ describe("the style several layers share", () => {
   })
 })
 
+describe("a layer's order", () => {
+  it("is edited, shown as differing and reset as Layer order's row", () => {
+    let design = toolbar()
+    design = styleSelection(design, ["save"], undefined)!.edit("layerOrder", { zIndex: 10 })(design)
+    expect(styleOf(design, "save").zIndex).toBe(10)
+
+    const both = styleSelection(design, ["save", "cancel"], undefined)!
+    expect(both.differs("layerOrder")).toBe(true)
+
+    design = both.edit("layerOrder", { zIndex: "z-overlay" })(design)
+    expect(styleOf(design, "cancel").zIndex).toBe("z-overlay")
+    expect(styleSelection(design, ["save", "cancel"], undefined)!.style.zIndex).toBe("z-overlay")
+
+    const hover = styleSelection(design, ["save"], "hover")!
+    const reset = hover.reset("layerOrder")(hover.edit("layerOrder", { zIndex: -5 })(design))
+    expect(styleOf(reset, "save", "hover").zIndex).toBe("z-overlay")
+  })
+})
+
+describe("what a layer's order orders it within", () => {
+  it("is the nearest layer around it with a layer order or see-through, or else the design's root", () => {
+    const design = toolbar()
+    const stacking = (container: ContainerSpec, ids: string[]) => styleSelection(container, ids, undefined)!.stacking
+    expect(stacking(design, ["save"])).toMatchObject({ id: "root", because: "root" })
+
+    const buttons = findNode(design.root, "buttons")!
+    buttons.name = "Buttons"
+    buttons.style = { ...buttons.style, zIndex: 1 }
+    const notes = findNode(design.root, "notes")!
+    notes.style = { opacity: 50 }
+
+    expect(stacking(design, ["save", "cancel"])).toEqual({ id: "buttons", name: "Buttons", because: "layerOrder" })
+    expect(stacking(design, ["note"])).toMatchObject({ id: "notes", because: "opacity" })
+    // Layers in different ones share none.
+    expect(stacking(design, ["save", "note"])).toBeUndefined()
+  })
+})
+
 describe("what a state changes", () => {
   it("marks a row changed when the state changes any of its keys on any of the layers", () => {
     const selection = styleSelection(toolbar(), ["save", "cancel"], "hover")!
