@@ -137,7 +137,7 @@ export const Text: Story = { loaders: [pick("Pricing", "Headline")] }
 
 /** Text decorations: underlined and italic, in title case. */
 export const TextDecorations: Story = {
-  loaders: [pick("Sign in", "Create an account", { italic: true, transform: "capitalize" })]
+  loaders: [pick("Sign in", "Create an account", { italic: true, textTransform: "capitalize" })]
 }
 
 /** Text styles on a layout, Pricing's footer: they apply to the text inside, which says so. */

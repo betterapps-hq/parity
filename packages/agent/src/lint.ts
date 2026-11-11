@@ -7,7 +7,8 @@ import {
   fillTokens,
   type NodeStyle,
   type PropValues,
-  radiusKeywords
+  radiusKeywords,
+  type Shadow
 } from "@parity-app/core"
 import { readNearValue } from "@parity-app/tokens"
 import { z } from "zod"
@@ -59,9 +60,9 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
       }
 
       for (const style of [node.style, ...Object.values(node.responsive ?? {}).map((patch) => patch.style)]) {
-        for (const [name, value] of styleTokens(style)) {
+        for (const { name, value, category } of styleTokens(style)) {
           if (!known(name, value)) {
-            warn("not_a_token", `${name} "${value}" isn't a token. ${nearestHint(name, value) ?? anyToken}`, where)
+            warn("not_a_token", `${name} "${value}" isn't a token. ${nearestHint(category, value) ?? anyToken}`, where)
           }
         }
 
@@ -103,9 +104,9 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
 
     for (const state of container.states) {
       for (const [nodeId, patch] of Object.entries(state.overrides ?? {})) {
-        for (const [name, value] of styleTokens(patch.style)) {
+        for (const { name, value, category } of styleTokens(patch.style)) {
           if (!known(name, value)) {
-            const hint = nearestHint(name, value)
+            const hint = nearestHint(category, value)
             const message = `${name} "${value}" isn't a token${hint ? `. ${hint}` : ""}`
             warn("not_a_token", message, `${container.id} state ${state.id}/${nodeId}`)
           }
@@ -164,32 +165,6 @@ export function propWarnings(
 const lengthName = z.string()
 
 /** Lengths given as token names rather than spacing steps, by the style key they're under. */
-/**
- * The token names a style sets under the keys that take one, as `[key, name]`: a fill's paints each name theirs under
- * `background`.
- */
-function styleTokens(style: NodeStyle | undefined): [TokenStyleKey, string][] {
-  const found: [TokenStyleKey, string][] = []
-
-  for (const name of tokenStyleKeys) {
-    if (name === "background") {
-      const { colors, gradients } = fillTokens(style?.background)
-      found.push(
-        ...[...colors, ...gradients].flatMap((value): [TokenStyleKey, string][] => (value ? [[name, value]] : []))
-      )
-      continue
-    }
-
-    const value = style?.[name]
-
-    if (value) {
-      found.push([name, value])
-    }
-  }
-
-  return found
-}
-
 function lengthTokens(style: NodeStyle | undefined): [string, string][] {
   const found: [string, string][] = []
 
@@ -202,6 +177,14 @@ function lengthTokens(style: NodeStyle | undefined): [string, string][] {
       if (token !== undefined && token !== "fill" && token !== "hug") {
         found.push([name, token])
       }
+    }
+  }
+
+  for (const axis of ["x", "y"] as const) {
+    const token = lengthName.safeParse(style?.transform?.[axis]).data
+
+    if (token !== undefined) {
+      found.push([`transform.${axis}`, token])
     }
   }
 
@@ -237,10 +220,11 @@ const tokenStyleKeys = [
   "tracking"
 ] as const
 
-type TokenStyleKey = (typeof tokenStyleKeys)[number]
+/** The category of tokens a color or length is compared with, to find the nearest. */
+type NearestCategory = "color" | "radius" | "font-size" | "tracking"
 
 /** The category of tokens a color or length under each key is compared with, to find the nearest. */
-const nearestCategories: Partial<Record<TokenStyleKey, string>> = {
+const nearestCategories: Partial<Record<(typeof tokenStyleKeys)[number], NearestCategory>> = {
   background: "color",
   foreground: "color",
   border: "color",
@@ -249,14 +233,70 @@ const nearestCategories: Partial<Record<TokenStyleKey, string>> = {
   tracking: "tracking"
 }
 
+/** A token a style names: where (`shadow[1].color`), its name, and the category to find the nearest in. */
+interface StyleToken {
+  name: string
+  value: string
+  category?: NearestCategory
+}
+
+/** The tokens a style names: under its token keys, and in its shadows' and filters' entries. */
+function styleTokens(style: NodeStyle | undefined): StyleToken[] {
+  if (!style) {
+    return []
+  }
+
+  const found: StyleToken[] = []
+
+  for (const name of tokenStyleKeys) {
+    const value = style[name]
+
+    if (value && !Array.isArray(value)) {
+      found.push({ name, value, category: nearestCategories[name] })
+    }
+  }
+
+  // A fill's stack names its colors and gradient tokens under `background` (PAR-931).
+  if (Array.isArray(style.background)) {
+    const { colors, gradients } = fillTokens(style.background)
+    found.push(...colors.map((value): StyleToken => ({ name: "background", value, category: "color" })))
+    found.push(...gradients.map((value): StyleToken => ({ name: "background", value })))
+  }
+
+  const shadowTokens = (entry: Shadow, at: string) => {
+    if ("token" in entry) {
+      found.push({ name: `${at}.token`, value: entry.token })
+    }
+
+    if (entry.color) {
+      found.push({ name: `${at}.color`, value: entry.color.color, category: "color" })
+    }
+  }
+
+  if (Array.isArray(style.shadow)) {
+    style.shadow.forEach((entry, index) => shadowTokens(entry, `shadow[${index}]`))
+  }
+
+  for (const key of ["filter", "backdropFilter"] as const) {
+    style[key]?.forEach((entry, index) => {
+      if (entry.kind === "blur") {
+        found.push({ name: `${key}[${index}].value`, value: entry.value })
+      } else if (entry.kind === "dropShadow") {
+        shadowTokens(entry.shadow, `${key}[${index}].shadow`)
+      }
+    })
+  }
+
+  return found
+}
+
 const anyToken = "Use a name from GetTokens()."
 
 /**
  * For a value that isn't a token but a color under a color's key or a length under a length's, the call that lists
  * the tokens nearest it, as `GetTokens({ nearest: "#2f6fed", category: "color" })`.
  */
-function nearestHint(name: TokenStyleKey, value: string): string | undefined {
-  const category = nearestCategories[name]
+function nearestHint(category: NearestCategory | undefined, value: string): string | undefined {
   const read = readNearValue(value)
 
   if (!category || !read || "color" in read !== (category === "color")) {

@@ -3167,9 +3167,9 @@ them. It's the agreed table in [proposals/design-panel-sections.md](proposals/de
   Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
   Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is called Text when a layer is text, and Text inside otherwise.
-- Grid placement, Effects, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size, and shadow in
-  Appearance, until they are. A frame's Frame size is today's Size, whose width and height are the frame's. Align self
-  in a flex parent isn't in the agreed table, which has it only in Grid placement; it stays as it was.
+- Grid placement, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size until they are. A
+  frame's Frame size is today's Size, whose width and height are the frame's. Align self in a flex parent isn't in the
+  agreed table, which has it only in Grid placement; it stays as it was.
 - `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
   `className` still shows its sections, under the note that says they don't change it.
 
@@ -3248,6 +3248,62 @@ and alphas are refused, the CSS each kind writes, and a render draws it. `packag
 isn't a token), `packages/renderer-react/src/guest.test.ts` (a fill's images against the project), and
 `apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back, ids kept so an open
 editor stays open, and gradient tokens read from CSS.
+
+### Effects: shadows, filters and transform (PAR-933)
+
+The Effects section is the approved Shadow list, Filter list and Transform, each editing the selected layers' style.
+
+- **Shadows.** `shadow` is one shadow token, as before, or a stack, top first: drop and inner shadows, each a token's,
+  whose color can be set over the token's, or its own offsets, blur, spread and color in px, and rings, a width drawn
+  outside or inside. Frames draw them as one `box-shadow`. A token is drawn as the project defines it: its variable
+  can't be recolored, so a color set over a token's shows in the panel and the agent's reads, not yet in the frame.
+- **Drop shadows that follow the shape** are the layer's `filter: drop-shadow()`. The Shadow list shows them in its
+  Follows the shape group, and the Filter list leaves them to it.
+- **Filters.** `filter` is the layer's, and `backdropFilter` what's behind it, each a list of blurs (a blur token),
+  adjustments and, on the layer, drop shadows, drawn in the list's order. Brightness, contrast and saturation are a
+  change from 100%, so +25 is `brightness(125%)`; hue is degrees, and grayscale, sepia and invert 0 to 100. A blur with
+  no token chosen writes nothing.
+- **Transform.** `transform` is a move (spacing steps, a length token, or a percentage of the layer's own size), a
+  rotation, a scale per axis (negative when flipped), a skew per axis, and the origin, drawn as CSS's `translate`,
+  `rotate` and `scale`, with the skew in `transform`. The panel shows Move, Scale with its flips, and Origin, and keeps
+  the rotation and skew the agent sets; PAR-937 adds rows for them.
+- **Text case is `textTransform`.** It was `transform`; a file that still has text case there no longer opens.
+- **Each list's edit replaces every selected layer's list,** as the mixed list says it will. Every entry takes an off
+  flag, kept and not drawn.
+- **The section is three of the approved controls in a row:** the Shadow list titled Effects, then the Filter list
+  titled Filters, whose + leaves out the drop shadow the Shadow list adds, then Transform.
+- **The project's own tokens.** The controls offer the project's colors, shadows (by kind: box, inset and drop) and
+  blurs, read from its tokens, with a shadow token's layers read from its value so its card draws it.
+
+Code: the schema (`shadow`, `filter`, `transform` and `textTransform` in `nodeStyle`) in
+`packages/core/src/document.ts`; `shadowCss`, `filterCss` and `transformCss` in `packages/core/src/render.ts`; the rows
+`shadow`, `filters` and `transform` in `packages/editor/src/style-editing.ts`; tokens inside shadows, filters and the
+transform in `packages/agent/src/lint.ts`. In the app, `EffectsSection` in
+`apps/desktop/src/renderer/inspector/sections/effects.tsx`, with the document's values turned into the controls' in
+`effects-values.ts` and the project's tokens in `effect-tokens.ts`. The agent's skill describes them in
+`packages/cli/skills/document.md`.
+
+Tests:
+
+- `packages/core/src/effects.test.ts` (8): every effect and text case kept through a file; one shadow token still taken;
+  text case under `transform` and a half-token shadow rejected; the shadows that are on drawn top first, with an alpha
+  mixed in; filters in order, with adjustments from 100% and neutral ones left out; a transform's move, rotation, scale,
+  skew and origin; and all of them on a drawn layer.
+- `packages/agent/src/dispatch.test.ts` (1): an agent's `Update` sets shadows, filters, the transform and text case.
+- `packages/agent/src/lint.test.ts` (1): tokens the project doesn't have inside a shadow, a ring's color, a filter's
+  drop shadow, a backdrop blur, and a transform's move.
+- `apps/desktop/src/renderer/inspector/sections/effects-values.test.ts` (11): the Shadow list's entries from a stack, a
+  token and the filter's drop shadows, written back as they were; a drop shadow that follows the shape written to the
+  filter; the Filter list's entries, written back with the drop shadows kept; a blur with no token; and Transform's
+  moves, flips, a length token's move, and the rotation and skew it keeps.
+- `apps/desktop/src/renderer/inspector/sections/effect-tokens.test.ts` (3): a shadow value's layers, and the project's
+  colors, shadows by kind and blurs.
+
+Gaps: the section's wiring has no automated DOM test. In the running app on 2026-11-11, on shadcn-vite's Stat card,
+adding a drop shadow, a background blur, a move of 16px and a flip by keyboard drew `var(--shadow-sm)`,
+`blur(var(--blur-md))` and the move on the layer in its frame and saved them to the file, and the shadow token's editor
+listed the project's two layers of `shadow-sm` with their color. A color set over a shadow token isn't drawn in frames,
+as above.
 
 ## Component props
 
