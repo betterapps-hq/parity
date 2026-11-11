@@ -6169,6 +6169,33 @@ inside an instance and a nested one, by id and by name, with the base unchanged;
 param in that state; `null` taking a state's change back; `Update` in a state and on the base copy; a path that leads
 nowhere and one through a layer that isn't an instance).
 
+### Agents' state changes, viewport patches and instance overrides (PAR-882, PAR-884, PAR-887)
+
+What an agent names for a state is what the state stores. `AddState`, `UpdateState` and `Update` with a `state` keep
+every value they're given, even one equal to what's under it, so the state goes on showing it when the base changes. The
+same holds for `Update` on a layer inside an instance in the base state, which writes that copy's override. The editor
+still drops a value equal to what's under it, since typing the base value back there means no change.
+
+`Responsive` merges with the viewport's earlier patch key by key: `props` and `style` keep the keys the call doesn't
+name, and `unset` adds to the keys the patch takes away. `null` takes one value away, `hidden`, `text` or a prop or
+style key, as it does in `Update`, and `null` for the whole patch removes it. A key set and taken away by different
+calls follows the later one.
+
+An instance an agent inserts can key its `overrides` by each layer's id or name, through nested instances
+(`"Avatar/initials"`), as a state's `changes` can. `Insert`, `Replace` and `CreateDesign` store the ids. A key naming no
+layer in the component fails with `unknown_node`, saying which. An instance of a design the project doesn't have keeps
+its keys.
+
+Implementation: the `keepEqual` option of `editNode`, `editInner` and `patchWith` (`packages/core/src/edit.ts`,
+`packages/core/src/instances.ts`), which `packages/agent/src/workspace.ts` passes as `kept`; `responsive` and
+`mergePatch`, and `prepareNode` with `overridesById` and `innerIds`, in the same file.
+
+Tests: `packages/core/src/edit.test.ts` ("keeps an override that matches the base value when asked to");
+`packages/agent/src/workspace.test.ts` ("a state keeping a change equal to what's under it": `AddState` on the design's
+own layers and inside an instance, and `Update` in a state; "Responsive merging with a viewport's earlier patch": style
+and props merged, `null` taking a style key and `hidden` away; "instance overrides keyed by a layer's name": names and
+ids stored as ids through a nested instance, and a name the component doesn't have refused).
+
 ### Measure draws one frame (PAR-461)
 
 `Measure` takes one state id and one mode id. A list, `"all"` or `"shown"`, which `Screenshot`, `Problems` and

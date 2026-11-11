@@ -82,6 +82,14 @@ describe("editing another state", () => {
     expect(same.states[1]?.overrides?.title).toBeUndefined()
   })
 
+  it("keeps an override that matches the base value when asked to, as agents' changes are written", () => {
+    const kept = { keepEqual: true }
+    const next = editNode(design, "loading", "title", { text: "Create an account", hidden: false }, kept)
+    expect(next.states[1]?.overrides?.title).toEqual({ text: "Create an account", hidden: false })
+    const style = editNode(design, "loading", "page", { style: { gap: 4 } }, kept)
+    expect(style.states[1]?.overrides?.page).toEqual({ style: { gap: 4 } })
+  })
+
   it("shows the node as the state sees it", () => {
     const submit = findNode(design.root, "submit")!
     expect(nodeInState(submit, design.states[1])).toMatchObject({ props: { children: "Sign up", disabled: true } })

@@ -396,6 +396,99 @@ Print(JSON.stringify([at("profile/person/meta", "selected").text, at("profile/pe
   })
 })
 
+describe("a state keeping a change equal to what's under it (PAR-882)", () => {
+  const stored = `const overrides = (state) => GetDesign("profile").states.find((each) => each.id === state).overrides`
+
+  it("keeps an AddState change that matches the base, on the design's own layers and inside an instance", async () => {
+    const result = await read(
+      structuredClone(effectiveFixture.designs),
+      `${stored}
+const id = AddState("profile", { name: "Pinned", changes: { heading: { text: "Profile" }, page: { style: { gap: 4 } }, "person/meta": { text: "Joined 1843", hidden: false } } })
+Print(JSON.stringify(overrides(id)))`
+    )
+
+    expect(result).toEqual({
+      heading: { text: "Profile" },
+      page: { style: { gap: 4 } },
+      "person/meta": { text: "Joined 1843", hidden: false }
+    })
+  })
+
+  it("keeps an Update in a state that matches what the state shows", async () => {
+    const result = await read(
+      structuredClone(effectiveFixture.designs),
+      `${stored}
+Update("profile/heading", { text: "Profile", style: { weight: 700 } }, { state: "selected" })
+Update("profile/heading", { style: { weight: null } }, { state: "selected" })
+Print(JSON.stringify(overrides("selected").heading))`
+    )
+
+    expect(result).toEqual({ text: "Profile" })
+  })
+})
+
+describe("Responsive merging with a viewport's earlier patch (PAR-884)", () => {
+  it("merges style and props key by key, and null takes one key away", async () => {
+    const result = await read(
+      structuredClone(effectiveFixture.designs),
+      `Responsive("profile/page", "mobile", { style: { gap: 2 } })
+const merged = Get("profile/page").responsive.mobile
+Responsive("profile/person", "mobile", { props: { title: "Ada" } })
+Responsive("profile/page", "mobile", { style: { padding: null }, hidden: true })
+Responsive("profile/page", "mobile", { hidden: null })
+Print(JSON.stringify([merged, Get("profile/page").responsive.mobile, Get("profile/person").responsive.mobile]))`
+    )
+
+    expect(result).toEqual([
+      { style: { padding: 4, gap: 2 } },
+      { style: { gap: 2 } },
+      { props: { layout: "stacked", title: "Ada" } }
+    ])
+  })
+})
+
+describe("instance overrides keyed by a layer's name (PAR-887)", () => {
+  /** The fixture's designs, the card's meta and avatar named so an override can reach them by name. */
+  function designs(): ContainerSpec[] {
+    const copies = structuredClone(effectiveFixture.designs)
+    const card = copies.find((design) => design.id === "card")!
+    // SAFETY: the fixture's card is a layout, its avatar instance first and its copy layout second.
+    const body = card.root as Extract<DesignNode, { type: "layout" }>
+    body.children[0]!.name = "Avatar"
+    // SAFETY: the card's second child is its copy layout, holding the title and then the meta text.
+    const copy = body.children[1] as Extract<DesignNode, { type: "layout" }>
+    copy.children[1]!.name = "Meta"
+
+    return copies
+  }
+
+  it("stores an inserted instance's overrides by id, whether they name layers by id or name", async () => {
+    const result = await read(
+      designs(),
+      `const id = Insert("profile/page", { type: "instance", design: "card", overrides: { Meta: { text: "Hi" }, "Avatar/initials": { hidden: true }, title: { text: "Ada" } } })
+Print(JSON.stringify([Get("profile/" + id).overrides, Get("profile/" + id + "/meta", { state: "base" }).text]))`
+    )
+
+    expect(result).toEqual([
+      { meta: { text: "Hi" }, "avatar/initials": { hidden: true }, title: { text: "Ada" } },
+      "Hi"
+    ])
+  })
+
+  it("refuses an override for a layer the component doesn't have", async () => {
+    const result = await execute(
+      {
+        label: "Unknown",
+        code: `Insert("profile/page", { type: "instance", design: "card", overrides: { Subtitle: { text: "Hi" } } })`
+      },
+      snapshot(designs()),
+      hooks
+    )
+
+    expect(result.error).toContain('No layer "Subtitle" in card')
+  })
+})
+
 describe("Update taking a value away in a state", () => {
   const card: ContainerSpec = {
     id: "card",

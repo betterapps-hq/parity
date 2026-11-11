@@ -288,7 +288,8 @@ variants; the call's warnings say what went.
 
 Adds a node, with everything inside it, as the last child of `parent` or at `index`. Into a component node, it goes into
 the `children` slot unless `slot` names another. Every node gets a fresh id; don't pass ids. `parent` can be a design,
-meaning its root.
+meaning its root. An instance's `overrides` can name each layer by its id or its name, `"Avatar/initials"` through a
+nested instance; they're stored by id, and a layer the component doesn't have fails.
 
 ```js
 const form = Insert("settings/Content", {
@@ -349,15 +350,17 @@ Responsive(stats, "mobile", { style: { direction: "column" } })
 
 Patches a node in one viewport: `Responsive("dashboard/Stats", "mobile", { style: { columns: 1 } })`. The viewport is a
 viewport option's id from the modes (such as `desktop`, `tablet` and `mobile`), not a mode's id. Patches take `hidden`,
-`text`, `props` and `style`, and merge with the viewport's earlier patch. `null` removes it.
+`text`, `props`, `style` and `unset`, and merge with the viewport's earlier patch key by key; set a key to `null` to
+remove it. `null` for the patch removes all of it.
 
 ## States
 
-A state is a situation the whole design is in, like a story: loading, empty, error, signed out. It stores only what
-differs from the base. `changes` maps node ids or names to patches (`hidden`, `text`, `props`, `style`); `null` clears a
-node's patch. The first state is the base. A key can reach inside an instance: `instance/inner`, with nested instances
-between (`person/avatar/initials`), each step an id or a name. A text or prop the component binds to a param sets the
-instance's param in that state.
+A state is a situation the whole design is in, like a story: loading, empty, error, signed out. It stores only the
+changes you give it. `changes` maps node ids or names to patches (`hidden`, `text`, `props`, `style`); `null` clears a
+node's patch. Every value given is kept, even one the base already has, so the state keeps it if the base changes. The
+first state is the base. A key can reach inside an instance: `instance/inner`, with nested instances between
+(`person/avatar/initials`), each step an id or a name. A text or prop the component binds to a param sets the instance's
+param in that state.
 
 ```js
 AddState("team-members", {
