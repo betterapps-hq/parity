@@ -1,5 +1,17 @@
 # Decisions
 
+- **A style package owns what a layer's style means, with CSS as the spec in the middle (PAR-938).** You agreed on
+  2026-11-11 to [style-package.md](proposals/style-package.md), after asking whether `NodeStyle` is a real spec (it
+  isn't: it mixes CSS, Tailwind and Figma names) and saying the translation layer should be a package of its own. A pure
+  package, `@parity-app/style`, holds the stored style, moved out of core, and turns it into CSS declarations and back;
+  each framework's adapter prints declarations as its own code and reads that code back, Tailwind's by compiling each
+  class with the project's own Tailwind and comparing. A ledger of every CSS property, generated from spec data, gives
+  each property one owning key and its grammar, which values are checked against. You accepted the four calls: the
+  package, with the schema leaving core; one format change that renames the keys after their CSS properties, after
+  PAR-925, PAR-931, PAR-933 and PAR-934 land; a Tailwind project's canvas draws its compiled classes, with Parity's own
+  rules as the fallback; and the new dependencies `@webref/css` or `css-tree`, and `web-features`. The steps are PAR-939
+  to PAR-944.
+
 - **One table picks a layer's sections and controls, and the controls move into the app in steps (PAR-892).** You agreed
   on 2026-11-11 to [design-panel-sections.md](proposals/design-panel-sections.md): the panel works out what a layer can
   do (`box`, `root`, `frame`, `text`, `textInside`, `media`, `inFlex`, `inGrid`, `styled`), and each section and
