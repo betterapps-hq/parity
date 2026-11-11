@@ -696,6 +696,12 @@ export interface RenderedFrame {
   nodes: MeasuredNode[]
   overflowsX: boolean
   unknownComponents: string[]
+  /**
+   * Content drawn outside the frame, in Parity's page, where the project's styles don't reach, each described in a few
+   * words: what a component portaled to the page's body without React, which the guest can't take into the frame
+   * (PAR-881).
+   */
+  outside?: string[]
   error?: string
   /** The stack of the first error `error` gives, when it had one, for telemetry (PAR-638). */
   errorStack?: string

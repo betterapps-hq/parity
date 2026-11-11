@@ -283,7 +283,7 @@ export interface Overflow {
 export interface Problem {
   state: string
   mode: string
-  kind: "render-error" | "unknown-component" | "content-wider" | "frame-overflow" | "clipped"
+  kind: "render-error" | "unknown-component" | "content-wider" | "frame-overflow" | "clipped" | "outside-frame"
   /** What's wrong, in a sentence. */
   problem: string
   node?: string
@@ -300,6 +300,8 @@ export interface FrameResult {
   nodes: MeasuredNode[]
   overflowsX: boolean
   unknownComponents: string[]
+  /** Content drawn outside the frame, without the project's styles, each described in a few words (PAR-881). */
+  outside?: string[]
   error?: string
   /** Base64 PNG, when captured. */
   png?: string

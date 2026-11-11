@@ -7170,3 +7170,25 @@ and picked these:
 - **Picking and pressing move the same on every floating bar.** A picked tool's button or stamp's chip boings, and a
   pressed control dips and springs back on the pop spring, both from `toolbar-parts.tsx`.
 - **Grouping by spacing alone, one line before Search only, and lines inset from the bar's edges were set aside.**
+
+## Popups draw inside their frame, taken from the page's body (PAR-881)
+
+The Better Booking run found selects, menus and dialogs drawing unstyled outside their frames, with nothing in
+`problems` to say so. My calls in fixing it:
+
+- **The frame takes the element rather than giving each portal a container.** Base UI and Radix take a container per
+  component and have no provider for all of them (see A component preview draws what opens), and a kit's own wrapper
+  holds the portal, so a design can't pass one. The guest answers `document.body`'s `appendChild`, `insertBefore` and
+  `removeChild` instead, and puts an element React adds there in the frame's body. React keeps a portal's node wherever
+  it is. This reads React's internals, a fiber's `return` and its root's `containerInfo`, as the layer walk does.
+- **The frame is found from React's tree, not from which frame drew last.** The canvas draws many frames in one commit,
+  and Parity's own menus portal to the same body, so only the root an element's fiber is under says whose it is.
+- **Into the frame's body, after what's drawn, not a separate popup root.** That's where it is on the project's page, so
+  the project's rules for the body's children and a dialog's fixed backdrop work as there. The frame's host contains
+  what's fixed, so the backdrop covers the frame, not Parity's window.
+- **What the guest can't take is a problem, not a silent miss.** Content added to the body without React stays there,
+  and an offscreen frame reports it as `outside-frame`. It isn't moved after drawing as a preview's is, since a design
+  shows it where the project places it.
+- **Popups still don't count in a layer's box,** so the earlier call on portaled content stands for selection.
+- **Base UI's focus trap already looks through shadow roots,** so a modal in a frame marks the rest of Parity's page as
+  it did before, no more and no less.

@@ -203,9 +203,16 @@ describe("a preview's portals", () => {
   })
 
   it("stay where their library put them for any other job, and after a preview", async () => {
-    await renderPortal(true)
+    const preview = await renderPortal(true)
     const { inFrame, backdrop } = await renderPortal(false)
     expect(inFrame).toBe(false)
     expect(backdrop).toBe("block")
+    expect(preview.frame.outside).toBeUndefined()
+  })
+
+  it("are said to be outside the frame for any other job, when the frame couldn't take them in (PAR-881)", async () => {
+    const { frame } = await renderPortal(false)
+    // The backdrop holds nothing to see, so the portal is described by the popup's text.
+    expect(frame.outside).toEqual(['<div> "Delete this chat?"'])
   })
 })

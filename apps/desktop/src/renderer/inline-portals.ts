@@ -45,31 +45,69 @@ export function inlinePortalSheet(): CSSStyleSheet {
   return sheet
 }
 
+/** What the guest marks content with when it takes it from the page's body into the frame's (PAR-881). */
+const framePortalAttribute = "data-canvas-portal"
+
 /**
- * Moves what's been added to the page's body since the frame was drawn (anything but `host`) into `into`, after what's
- * in it, and puts what in it was placed over the page in the flow. Gives back a function that puts it back in the body,
- * where the library that made it expects to remove it from.
+ * Moves what's been portaled since the frame was drawn into `into`, after what's in it, and puts what in it was placed
+ * over the page in the flow: what was added to the page's body (anything but `host`), and what the guest took from it
+ * into the frame's body. Gives back a function that puts each back where it was, where the library that made it
+ * expects to remove it from.
  */
 export function inlinePortals(host: Element, into: Element): () => void {
-  const moved = [...document.body.children].filter(
-    (element) => element !== host && !["SCRIPT", "STYLE", "LINK", "TEMPLATE"].includes(element.tagName)
+  const added = addedToPage(host)
+
+  const taken = [...(host.shadowRoot?.firstElementChild?.children ?? [])].filter((element) =>
+    element.hasAttribute(framePortalAttribute)
   )
 
-  for (const element of moved) {
+  const moved = [...taken, ...added].map((element) => ({ element, parent: element.parentElement }))
+
+  for (const { element } of moved) {
     element.setAttribute(portalAttribute, "")
     into.append(element)
   }
 
-  for (const element of moved) {
+  for (const { element } of moved) {
     placeInFlow(element)
   }
 
   return () => {
-    for (const element of moved) {
+    for (const { element, parent } of moved) {
+      const back = parent ?? document.body
       element.removeAttribute(portalAttribute)
-      document.body.append(element)
+      back.append(element)
     }
   }
+}
+
+/** What's been added to the page's body besides the frame's host, other than scripts and styles. */
+function addedToPage(host: Element): Element[] {
+  return [...document.body.children].filter(
+    (element) => element !== host && !["SCRIPT", "STYLE", "LINK", "TEMPLATE"].includes(element.tagName)
+  )
+}
+
+/**
+ * What the frame's components drew in the page's body, outside the frame, where the project's styles don't reach and
+ * the frame's screenshots don't show it (PAR-881), each described in a few words, as `<div class="toast"> "Saved"`.
+ * The guest takes what React portals there into the frame, so this is what a library added to the body itself. What
+ * holds nothing to see, as an empty live region, isn't counted.
+ */
+export function contentOutside(host: Element): string[] {
+  return addedToPage(host)
+    .filter((element) => drawsSomething(element))
+    .map(describe)
+}
+
+function describe(element: Element): string {
+  const name = element.tagName.toLowerCase()
+  const className = element.classList[0]
+  const text = (element.textContent ?? "").replace(/\s+/g, " ").trim()
+  const shown = text.length > 40 ? `${text.slice(0, 39)}…` : text
+  const tag = className ? `<${name} class="${className}">` : `<${name}>`
+
+  return shown ? `${tag} "${shown}"` : tag
 }
 
 /**
