@@ -136,11 +136,23 @@ function project(tab: string): AgentSnapshot {
     // Nova's sidebar parts as discovery lists them, with the parents and samples `Props().composition` reads.
     sources: novaSidebar,
     iconSets: [{ id: "lucide", name: "Lucide", package: "lucide-react", version: "0.500.0" }],
+    // Written as shadcn's theme writes them, so GetTokens({ nearest }) can measure them.
     tokens: [
-      { name: "background", category: "color", source: "semantic", values: { default: "white", dark: "black" } },
-      { name: "foreground", category: "color", source: "semantic", values: { default: "black", dark: "white" } },
-      { name: "primary", category: "color", source: "semantic", values: { default: "blue" } },
-      { name: "accent", category: "color", source: "semantic", values: { default: "lightblue" } },
+      {
+        name: "background",
+        category: "color",
+        source: "semantic",
+        values: { default: "oklch(1 0 0)", dark: "oklch(0.145 0 0)" }
+      },
+      {
+        name: "foreground",
+        category: "color",
+        source: "semantic",
+        values: { default: "oklch(0.145 0 0)", dark: "oklch(0.985 0 0)" }
+      },
+      { name: "primary", category: "color", source: "semantic", values: { default: "oklch(0.546 0.245 262.881)" } },
+      { name: "accent", category: "color", source: "semantic", values: { default: "oklch(0.97 0 0)" } },
+      { name: "text-sm", category: "font-size", source: "theme", values: { default: "0.875rem" } },
       { name: "text-2xl", category: "font-size", source: "theme", values: { default: "1.5rem" } },
       { name: "radius-full", category: "radius", source: "theme", values: { default: "9999px" } }
     ],

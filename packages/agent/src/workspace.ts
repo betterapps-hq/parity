@@ -85,7 +85,10 @@ import {
   categorize,
   checkTokenEdit,
   type CssSupports,
+  defaultValues,
+  nearestTokens,
   previewKind,
+  readNearValue,
   substituteReferences
 } from "@parity-app/tokens"
 import { z } from "zod"
@@ -693,8 +696,14 @@ export class AgentWorkspace {
     return [...this.snapshot.tokens, ...keywords]
   }
 
+  /**
+   * The tokens, filtered. Given `nearest`, only those it can be compared with, nearest first, each with its distance:
+   * how a value a design hands over, such as `#2f6fed` or `13px`, becomes a token.
+   */
   private getTokens(filter: z.infer<typeof tokenFilter> = {}) {
-    return this.tokensAndKeywords()
+    const tokens = this.tokensAndKeywords()
+
+    const listed = tokens
       .filter(
         (token) =>
           (!filter.category || token.category === filter.category) &&
@@ -707,6 +716,21 @@ export class AgentWorkspace {
         source: token.source,
         values: { ...token.values }
       }))
+
+    if (filter.nearest === undefined) {
+      return listed
+    }
+
+    const value = readNearValue(filter.nearest)
+
+    if (!value) {
+      throw new CodedError(
+        `nearest: expected a color as hex or oklch(), or a length in px or rem, not "${filter.nearest}"`,
+        { code: "invalid_input", field: "nearest" }
+      )
+    }
+
+    return nearestTokens(value, listed, defaultValues(tokens)).map(({ token, distance }) => ({ ...token, distance }))
   }
 
   /**

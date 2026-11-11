@@ -8,6 +8,7 @@ import {
   type PropValues,
   radiusKeywords
 } from "@parity-app/core"
+import { readNearValue } from "@parity-app/tokens"
 import { z } from "zod"
 import type { Warning } from "./warnings.ts"
 
@@ -61,7 +62,7 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
           const value = style?.[name]
 
           if (value && !known(name, value)) {
-            warn("not_a_token", `${name} "${value}" isn't a token. Use a name from GetTokens().`, where)
+            warn("not_a_token", `${name} "${value}" isn't a token. ${nearestHint(name, value) ?? anyToken}`, where)
           }
         }
 
@@ -100,7 +101,9 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
           const value = patch.style?.[name]
 
           if (value && !known(name, value)) {
-            warn("not_a_token", `${name} "${value}" isn't a token`, `${container.id} state ${state.id}/${nodeId}`)
+            const hint = nearestHint(name, value)
+            const message = `${name} "${value}" isn't a token${hint ? `. ${hint}` : ""}`
+            warn("not_a_token", message, `${container.id} state ${state.id}/${nodeId}`)
           }
         }
       }
@@ -203,3 +206,30 @@ const tokenStyleKeys = [
   "leading",
   "tracking"
 ] as const
+
+/** The category of tokens a color or length under each key is compared with, to find the nearest. */
+const nearestCategories: Partial<Record<(typeof tokenStyleKeys)[number], string>> = {
+  background: "color",
+  foreground: "color",
+  border: "color",
+  radius: "radius",
+  size: "font-size",
+  tracking: "tracking"
+}
+
+const anyToken = "Use a name from GetTokens()."
+
+/**
+ * For a value that isn't a token but a color under a color's key or a length under a length's, the call that lists
+ * the tokens nearest it, as `GetTokens({ nearest: "#2f6fed", category: "color" })`.
+ */
+function nearestHint(name: (typeof tokenStyleKeys)[number], value: string): string | undefined {
+  const category = nearestCategories[name]
+  const read = readNearValue(value)
+
+  if (!category || !read || "color" in read !== (category === "color")) {
+    return undefined
+  }
+
+  return `Use a name from GetTokens({ nearest: ${JSON.stringify(value)}, category: "${category}" }), which lists the nearest first.`
+}

@@ -56,8 +56,8 @@ The layout a layer sits in adds rows:
 | A flex layout          | Fill and Hug on both axes, Align self (with baseline), and under More grow, shrink, basis and order |
 | A grid                 | Span, start lines, Align self and Justify self, and under More end lines and the area               |
 | A Block layout         | Width Fill and Hug, Margin auto; no Align self, Gap or Span                                         |
-| Absolute or fixed      | The pin box's insets; none of the rows above                                                        |
-| Sticky or relative     | The flex or grid rows above, and the pin box                                                        |
+| Absolute or fixed      | The inset box; none of the rows above                                                               |
+| Sticky or relative     | The flex or grid rows above, and the inset box                                                      |
 | None (a design's root) | None of these: Fill is the whole frame                                                              |
 
 A layout that wraps or is a grid shows a row gap and Lines on itself, not on its children. A text layer's and a layout's
@@ -68,30 +68,36 @@ rather than CSS.
 
 Shows for every layer but a design's root.
 
-| Row         | Control                                                                                                            | Writes                                                               | Figma                                                                                |
-| ----------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Align       | Align buttons: left, center, right, top, middle, bottom, and Distribute for three or more layers (today: commands) | Align self or the layout's justify; on an Absolute layer, its insets | Figma's align buttons                                                                |
-| Placement   | Toggles: In layout, Absolute, Fixed, Sticky; Relative under More (today: the first two)                            | `position`                                                           | Absolute position in auto layout; fixed and sticky only in prototype scroll settings |
-| Insets      | The pin box, with presets (below), shown when Placement isn't In layout (today: four fields, Absolute only)        | `top`, `right`, `bottom`, `left`, `inset`                            | Constraints                                                                          |
-| Layer order | Number field, with z-index tokens; shown by default when Absolute, Fixed or Sticky, otherwise under More           | `z-index`                                                            | None: order in Layers only                                                           |
-| Rotation    | Angle field with a dial, and the canvas's rotate handle; clockwise, as CSS is                                      | `rotate`                                                             | Rotation, counter-clockwise                                                          |
+| Row         | Control                                                                                                                            | Writes                                                               | Figma                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Align       | Align buttons: left, center, right, top, middle, bottom, and Distribute for three or more layers (today: commands)                 | Align self or the layout's justify; on an Absolute layer, its insets | Figma's align buttons                                                                |
+| Placement   | Toggles: In layout, Absolute, Fixed, Sticky; Relative under More; Layer order beside them (today: the first two)                   | `position`                                                           | Absolute position in auto layout; fixed and sticky only in prototype scroll settings |
+| Insets      | The inset box (below), with Fill and Scale in its header, shown when Placement isn't In layout (today: four fields, Absolute only) | `top`, `right`, `bottom`, `left`, `inset`                            | Constraints                                                                          |
+| Layer order | Number field, with z-index tokens; shown by default when Absolute, Fixed or Sticky, otherwise under More                           | `z-index`                                                            | None: order in Layers only                                                           |
+| Rotation    | Angle field with a knob, and the canvas's rotate handle; clockwise, as CSS is                                                      | `rotate`                                                             | Rotation, counter-clockwise                                                          |
 
 The Align buttons are today's Align and Distribute commands (editor.md, "Arranging layers and designs"), moved to the
-top of Position. On an Absolute or Fixed layer, Center aligns with the pin box's Center. The pin box is a field on each
-side of a small box, each side pinned or not. The presets are Figma's constraints, each written in CSS:
+top of Position. On an Absolute or Fixed layer, Center aligns with the inset box's center lines.
 
-| Preset         | Writes                                                                                         |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| Left, Top      | `left`, `top`                                                                                  |
-| Right, Bottom  | `right`, `bottom`                                                                              |
-| Left and right | `left` and `right`, width unset, so it stretches                                               |
-| Center         | `left: 0` and `right: 0` with `margin-inline: auto`, and `w-fit` when the width is Hug (below) |
-| Scale          | `left` and `right` as percentages of the parent                                                |
-| Fill parent    | `inset: 0`, Webflow's Full                                                                     |
+The inset box lays the insets out as the box model lays out spacing: what the layer is placed against, named in its
+corner (Parent, Window, Scroll area, or In layout for Relative), the layer in its middle, and each side's inset on a
+line from the edge to the layer. A pinned side's line is solid, in the layer's color, as the canvas measures it; an
+unpinned side's is dashed, and says Auto. Clicking a side's line pins it at its distance, and clicking again unpins it;
+its value opens its field in a popover, as the box model's sides do, with room for a token's chip. Figma's constraints
+are each a way of pinning it, written in CSS:
+
+| Constraint     | In the inset box                         | Writes                                                                                         |
+| -------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Left, Top      | Pin the left or top                      | `left`, `top`                                                                                  |
+| Right, Bottom  | Pin the right or bottom                  | `right`, `bottom`                                                                              |
+| Left and right | Pin both                                 | `left` and `right`, width unset, so it stretches                                               |
+| Center         | The layer's center line                  | `left: 0` and `right: 0` with `margin-inline: auto`, and `w-fit` when the width is Hug (below) |
+| Scale          | Scale, in the header, or a side set to % | each side as a percentage of the parent, where it is                                           |
+| Fill parent    | Fill, in the header                      | `inset: 0`, Webflow's Full                                                                     |
 
 Center needs a definite width, or `w-fit` for Hug, since an auto width between two insets stretches; Margin shows the
 auto margins, and `translate` stays Transform's. Figma's Center keeps an offset d from the parent's center, written as
-`left: d; right: -d` with `margin-inline: auto`, and the preset's field shows it.
+`left: d; right: -d` with `margin-inline: auto`; the start side shows it (+40px), and the end side says Center.
 
 Sticky shows the inset it sticks at and outlines the layout it scrolls inside, and says when a layout around it scrolls
 or hides its overflow (`overflow: hidden`, `auto` or `scroll`), which stops it sticking, or when it's as tall as a
@@ -158,15 +164,14 @@ matches what's seen, and offers Reading order (`reading-flow`) from the CSS row 
 
 Shows for layouts. A flex box or a grid, as today, with direction, alignment and gap. Padding is in Spacing, next.
 
-| Row              | Control                                                                                                                                     | Writes                                                                               | Figma                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Type             | Icon toggles: Vertical, Horizontal, Grid; Block under More (today: the three); Inline beside them when the parent is a Block layout (below) | `display`, `flex-direction`                                                          | Auto layout: vertical, horizontal, grid; freeform          |
-| Wrap             | A toggle beside Type (today)                                                                                                                | `flex-wrap`                                                                          | Wrap; no reverse                                           |
-| Alignment        | Nine-spot box and a distribution menu: Packed, Space between, around, evenly (today)                                                        | `align-items`, `justify-content`; in a grid, `justify-items` and `align-items`       | Alignment box; Auto gap is space between, evenly or around |
-| Baseline         | A toggle under the box: align text on its first or last baseline                                                                            | `align-items: baseline` or `last baseline` (`items-baseline`, `items-baseline-last`) | Text baseline alignment                                    |
-| Lines            | Menu, shown when wrapping or in a grid: Start, Center, End, Space between, Stretch                                                          | `align-content`                                                                      | Auto or space between, when wrapping                       |
-| Gap              | One field, or columns and rows when wrapping or in a grid (today); takes negatives and Auto (below)                                         | `gap`, `row-gap`, `column-gap`                                                       | Gap; row gap when wrapping                                 |
-| Columns and rows | Counts, or a line of track chips (below)                                                                                                    | `grid-template-columns`, `grid-template-rows`                                        | Grid tracks: fixed, fr or hug; no `minmax()` or auto-fill  |
+| Row              | Control                                                                                                                                                                                                                                                | Writes                                                                               | Figma                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| Type             | Beside the box, above Gap; icon toggles: Vertical, Horizontal, Wrap, Grid, and a Reverse direction toggle after them for all but Grid; Block under More (today: three and a Wrap toggle); Inline beside them when the parent is a Block layout (below) | `display`, `flex-direction` (`*-reverse`), `flex-wrap`                               | Auto layout: vertical, horizontal, wrap, grid; freeform   |
+| Alignment        | Nine-spot box, as tall as Type and Gap beside it; clicking the children cycles stretched, spread out (Auto gap) and packed                                                                                                                             | `align-items`, `justify-content`; in a grid, `justify-items` and `align-items`       | Alignment box; Auto gap is space between                  |
+| Baseline         | Line up text baselines under More, and By the last line once it's on; the box then draws the children standing on one line                                                                                                                             | `align-items: baseline` or `last baseline` (`items-baseline`, `items-baseline-last`) | Text baseline alignment                                   |
+| Gap              | Beside the box: padding's field, with the spacing tokens in its menu, or columns and rows when wrapping or in a grid; takes negatives and Auto (below)                                                                                                 | `gap`, `row-gap`, `column-gap`                                                       | Gap; row gap when wrapping                                |
+| Lines            | Menu under Gap when wrapping: Start, Center, End, Space between, Stretch                                                                                                                                                                               | `align-content`                                                                      | Auto or space between, when wrapping                      |
+| Columns and rows | A count and a size, or Each column's list of tracks (below)                                                                                                                                                                                            | `grid-template-columns`, `grid-template-rows`                                        | Grid tracks: fixed, fr or hug; no `minmax()` or auto-fill |
 
 There's no None: hiding a layer is Appearance's Visibility, so `display` has one owner. Inline (`inline-flex`,
 `inline-grid`, `inline-block`, as buttons and badges are written) shows beside the types only when the parent is a Block
@@ -177,25 +182,27 @@ order (`reading-flow`) from the CSS row.
 Gap takes a negative value for overlapping items (an avatar stack), as Figma's does. CSS `gap` can't be negative, so
 it's written as a negative margin on each child but the last (`-space-x-2`), paired with Stacking's First on top. In a
 Reverse direction layout it adds `space-x-reverse` (or `space-y-reverse`). It isn't offered while Wrap is on, since a
-margin on each item but the last breaks wrapped lines. Gap's menu offers Auto, as Figma's does, which sets Space between
-in Alignment and shows Auto in the field.
+margin on each item but the last breaks wrapped lines. Gap's menu offers Auto first, as Figma's does, a row for each way
+it spreads (Space between, around or evenly) above the spacing tokens. Set, it's a chip that says how, which Backspace
+takes off, back to the gap before. Clicking the children in the alignment box cycles stretched, spread out with an Auto
+gap, and packed again at the spot clicked.
 
-Columns and rows are counts, as today, with Figma's grid picker (drag across a small grid to pick 3 × 2), while every
-track is the same size (`grid-cols-3`). Edit tracks in a count's menu, or sizing a track on the canvas, shows the tracks
-as chips (Grid tracks in [design-options-values.md](design-options-values.md)), which go back to counts when the tracks
-match again. A grid inside a grid offers Subgrid in a count's menu. A Fill track is written as `minmax(0, 1fr)`, as
-`grid-cols-N` and today's render.ts do, so long content can't widen its column; plain `1fr` is offered as "Fill, grow
-with content". Repeat's auto-fit (`repeat(auto-fit, minmax(16rem, 1fr))`) fits as many columns as there's room for,
-which Figma can't say. In a reversed layout, the alignment box stays as it looks, and the editor writes `flex-end` where
-needed.
+Columns and rows are each a count and a size side by side while every track is the same size (`grid-cols-3`), with
+Figma's grid picker (drag across a small grid to pick 3 × 2). Each column (or Each row), at the name's end as padding's
+Each side is, lists the tracks one a row, to size, reorder and remove each (Grid tracks in
+[design-options-values.md](design-options-values.md)). A grid inside a grid offers Subgrid in a count's menu. A Fill
+track is written as `minmax(0, 1fr)`, as `grid-cols-N` and today's render.ts do, so long content can't widen its column;
+plain `1fr` is offered as "Fill, grow with content". Repeat's auto-fit (`repeat(auto-fit, minmax(16rem, 1fr))`) fits as
+many columns as there's room for, which Figma can't say. In a reversed layout, the alignment box stays as it looks, and
+the editor writes `flex-end` where needed.
 
-**More:** Block, shown as a fourth Type toggle once set, Reverse direction (`flex-direction: *-reverse`), shown as a
-toggle beside Wrap once set, Freeform (below), Areas (named and painted over the grid on the canvas), Flow (rows or
-columns, and Dense), the size of tracks made by overflow (`grid-auto-rows`, `grid-auto-columns`), Dividers between
-items, Text columns (count and width; the rule between them is Dividers' In the gap, `column-rule`), Stacking (Last on
-top, as CSS paints; First on top, Figma's canvas stacking, writes descending `z-index` on the children) and Size
-container (lets modes ask this layer's width rather than the screen's; its breakpoints are the container tokens, as
-Tailwind v4's `@md:` reads `--container-md`).
+**More:** Block, shown as a fifth Type toggle once set, Wrap into columns for a vertical layout, Line up text baselines,
+Freeform (below), Areas (named and painted over the grid on the canvas), Flow (rows or columns, and Dense), the size of
+tracks made by overflow (`grid-auto-rows`, `grid-auto-columns`), Dividers between items, Text columns (count and width;
+the rule between them is Dividers' In the gap, `column-rule`), Stacking (Last on top, as CSS paints; First on top,
+Figma's canvas stacking, writes descending `z-index` on the children) and Size container (lets modes ask this layer's
+width rather than the screen's; its breakpoints are the container tokens, as Tailwind v4's `@md:` reads
+`--container-md`).
 
 Freeform is Figma's frame without auto layout: every child is Absolute, placed where it's dropped (`relative` on the
 layout, insets on each child). Its width and height are Fixed or Fill, never Hug, since absolute children don't size
@@ -220,11 +227,18 @@ image and icon layers, Spacing starts as a title with + until a padding or margi
 | Padding | The four-sides field, two fields on a layout (today: two, with a per-side toggle); the box-model widget                                                         | `padding` and its sides | Auto layout's padding |
 | Margin  | The four-sides field, shown once set or added from More, and the box-model widget's outer ring; takes `auto` and negatives (today: a sides field, as Padding's) | `margin` and its sides  | None                  |
 
-The box-model widget opens from Custom in the per-side button's menu and shows margin's ring once a margin is set.
-Margin has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`), and hovering a side highlights it.
-Horizontal and vertical are written as `px-*` and `py-*`, which v4 compiles to `padding-inline` and `padding-block`, so
-they follow writing direction; separate sides are physical (`pl-4`), and a Logical switch under More writes `ps-*` and
-`pe-*`.
+Spacing has two forms, both kept, since each will suit different places. The fields form is these two rows, each two
+fields or four. The box-model form is one widget in place of them, the easier to understand: margin's ring around
+padding's around the layer's size, each side's value where the side is. Hovering a value opens its field in a popover
+after a moment, and pressing it or Enter opens it at once, so the box needn't fit a field, a unit menu or a token's chip
+on every side. Both are in Storybook under Spacing.
+
+Padding is modes' green, hatched, and margin is pink, flat within a dashed edge, chosen from pairs compared against the
+colors the canvas already uses. The canvas now draws padding and gaps in the same green (PAR-797), and both take their
+colors from `spacing-colors.ts`. Margin has canvas handles, as padding's and gaps' are today (`SpacingHandles.tsx`), and
+hovering a side highlights it. Horizontal and vertical are written as `px-*` and `py-*`, which v4 compiles to
+`padding-inline` and `padding-block`, so they follow writing direction; separate sides are physical (`pl-4`), and a
+Logical switch under More writes `ps-*` and `pe-*`.
 
 In a Block layout, vertical margins collapse, and a first or last child's margin passes through the layout's edge unless
 it has padding or a stroke in layout; `overflow: clip` doesn't stop this. The Margin row says so (principle 10) and
@@ -358,13 +372,14 @@ stroke of its own, for an SVG that doesn't draw in `currentColor`.
 
 Shows for every layer; on text, it's a highlight or badge behind the text (today). A stack of fills, the top one first,
 as in Figma (Paint stack in [design-options-values.md](design-options-values.md)). With nothing set, it's a title with
-+. A gradient token is one fill's paint, chosen in that fill's paint editor. There's no token button for the whole
-section, since a fill stack can hold a token and other fills at once.
++, a menu of the five fill types; an image dropped on the section is added as an image fill. A gradient token is one
+fill's paint, chosen in that fill's paint editor. There's no token button for the whole section, since a fill stack can
+hold a token and other fills at once.
 
 On a text layer, the section's title reads Background, and its + menu starts with Text color, which opens Text's Color,
-then Background (the highlight behind the text). With no fill, the empty title says "Text color is in Text". A text
-layer brought from Figma has its fill read as Text's Color ([design-options-research.md](design-options-research.md),
-Bringing a design from Figma).
+then the fill types, for the highlight behind the text. With no fill, the empty title says "Text color is in Text". A
+text layer brought from Figma has its fill read as Text's Color
+([design-options-research.md](design-options-research.md), Bringing a design from Figma).
 
 | Row       | Control                                                                                                 | Writes                                                                   | Figma                                                                                      |
 | --------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
@@ -433,16 +448,24 @@ CSS for a box's border; an SVG's own strokes have them, in its file (Icon's SVG 
 
 ## Effects
 
-Shows for every layer. A stack of effects, added from + as a drop shadow and changed in its type menu (Ring included),
-as in Figma; with nothing set, it's a title with +. A shadow token is one entry; its color can be overridden
-(`shadow-lg shadow-black/20`), and any other part offers Detach. Blur and drop shadow tokens are their own entries'
-values.
+Shows for every layer. A stack of effects, added from + as a drop shadow and changed by the type menu its details start
+with (Ring included), as in Figma; with nothing set, it's a title with +. A shadow token is one entry; its color can be
+overridden (`shadow-lg shadow-black/20`), and any other part offers Detach. Blur and drop shadow tokens are their own
+entries' values.
+
+An entry's details put each row's name above its control, so the control takes the whole row, as the simpler fields do.
+A shadow's Blur and Spread sit side by side, a token's layers are a table of their X, Y, blur and spread, and Detach is
+a button after the token's field. Follow shape is a switch at the end of its row; switching it moves the shadow to its
+group with its details still open, and a token keeps its size where the other scale has it (`shadow-lg` becomes
+`drop-shadow-lg`). A blur's row opens straight onto its tokens, so one click picks one, with Custom beside Tokens as the
+color picker has it. Every number carries its unit, in a row's summary, a token's table and a token list as in the
+fields: px for a shadow's lengths, % for an adjustment and ° for hue.
 
 | Effect                 | Control                                                                                                                | Writes                                                                         | Figma                  |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ---------------------- |
 | Drop shadow            | X, Y, blur, spread, color, its X and Y also set by dragging in an offset pad; Follow shape (below)                     | `box-shadow`; `text-shadow` on text; `filter: drop-shadow()` with Follow shape | Drop shadow            |
 | Inner shadow           | The same, inside                                                                                                       | `box-shadow: inset …`                                                          | Inner shadow           |
-| Ring                   | Width and color, and Inset; a ring is a spread with no offset or blur                                                  | `box-shadow: 0 0 0 W c` (`ring-W ring-c`), inset as `inset-ring-W`             | None: a stroke         |
+| Ring                   | Width, Position (Outside or Inside) and color; a ring is a spread with no offset or blur                               | `box-shadow: 0 0 0 W c` (`ring-W ring-c`), inset as `inset-ring-W`             | None: a stroke         |
 | Layer blur             | Blur, with blur tokens                                                                                                 | `filter: blur()`                                                               | Layer blur             |
 | Background blur        | Blur, with blur and backdrop blur tokens; says when what it can see is cut short (below)                               | `backdrop-filter: blur()`                                                      | Background blur        |
 | Adjustments            | One entry of sliders: brightness, contrast and saturation centered on no change, then hue, grayscale, sepia and invert | `filter` functions, in Tailwind's order (Filter list)                          | Image adjustments only |
@@ -450,8 +473,8 @@ values.
 
 Follow shape draws a drop shadow around what's drawn rather than the box, with no spread, and offers drop shadow tokens;
 it's on by default for icons and images with transparency. On a text layer with no fill or stroke, Drop shadow writes
-`text-shadow` (no spread), as Dev Mode does, and offers text shadow tokens; with a fill or stroke, a toggle picks Shadow
-of: Text or Box.
+`text-shadow` (no spread), as Dev Mode does, and offers text shadow tokens; with a fill or stroke, Shadow of picks Text
+or Box.
 
 Background blur says when what it can see is cut short: an ancestor with opacity below 100%, a filter, a mask, a clip
 path, a blend mode or its own backdrop filter becomes the backdrop root, and nothing behind that is blurred. It also

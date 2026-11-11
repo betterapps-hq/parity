@@ -43,7 +43,7 @@ used as soon as it's in the stylesheet.
 | Transition and animation easing                                                                                                                                                                          | easing                                                                                                                                                                                               |
 | Animation                                                                                                                                                                                                | animation                                                                                                                                                                                            |
 | Size container breakpoints                                                                                                                                                                               | container (Tailwind v4's `@md:` reads `--container-md`)                                                                                                                                              |
-| Breakpoints                                                                                                                                                                                              | breakpoint: a viewport's prefix, chosen in the Modes panel, not in a field (call 8)                                                                                                                  |
+| Breakpoints                                                                                                                                                                                              | breakpoint: a viewport's prefix, chosen in the Modes panel, not in a style's field (call 8); a frame's W offers them as its widths                                                                   |
 | Any other number (flex grow, iterations)                                                                                                                                                                 | number tokens whose value is a plain number: the number kind is `previewKind`'s catch-all for any token it can't place, keywords included                                                            |
 | A shadow's offsets, blur and spread (a Ring's width aside); gradient stop positions; filter amounts; scale; grid lines and spans; origins and object positions                                           | none: values or steps only (`brightness-125`, `scale-105`). These fields have no token button                                                                                                        |
 
@@ -157,6 +157,14 @@ paragraph says.
   (one in `spacingScale` for `--spacing`), 0, 1, −1 or 100%, and every value in it is a token:
   `calc(var(--spacing-card) * 1.37)` isn't. Tokens inside an expression are tracked as references (`tokenReferences` in
   `@parity-app/tokens`), so renaming, Missing, `$deprecated` and Off-system cover them.
+- **Tokens only locks the field,** which is never the default: a company asks for it so its apps match its design
+  language. Typing searches the kind's tokens, with the nearest to a value typed first, rather than taking a value of
+  its own, and a color's picker has no Custom tab. A side still takes a step on the scale. A value of its own read from
+  code stays, outlined in the error color with "Not a token.", whether a token matches it or is only near, and Use with
+  that token under it (the nearest step for a side), and CI fails on it until a token is used or it's allowed here.
+- **The nearest token is always offered,** locked or not, so a color or length handed over from a design lands on the
+  system in one click: first in a field's token list ("Nearest to 12px"), in a locked field's search, beside a color's
+  Custom editor, and in a narrow field's hint.
 - **Allow here,** in a refused or marked value's menu, keeps the value with a reason and marks it as an exception. The
   reason is stored on the value (`{ value: "#18181b", allow: "Photo backdrop" }`), so it moves with the layer when it's
   copied, pasted or made into a component; the off-system state itself is worked out, never stored. CI passes an

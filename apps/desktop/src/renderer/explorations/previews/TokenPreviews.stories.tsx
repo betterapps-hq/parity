@@ -27,8 +27,8 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * With reduced motion on, nothing plays by itself: rows and details hold their resting picture (a duration's length
- * against half a second, an easing's curve), and Play runs it once asked.
+ * With reduced motion on, nothing plays by itself: rows and details hold their resting picture (a duration's track,
+ * an easing's curve), and Play runs it once asked.
  */
 export const ReducedMotionOn: Story = {
   render: () => (

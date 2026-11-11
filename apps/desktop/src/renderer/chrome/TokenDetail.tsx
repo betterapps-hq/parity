@@ -497,7 +497,6 @@ export function DetailPreview({
             height={110}
             playing={playing}
             duration={700}
-            stroke={2}
             ghosts={others.map((other) => drawn(other))}
           />
         </div>

@@ -715,10 +715,29 @@ export function describeTokens({ tokens, total, truncated }: TokensResponse): st
   }
 
   const count = `${total === 1 ? "1 token" : `${total} tokens`}${truncated ? `, the first ${tokens.length} shown` : ""}`
-  const lines = [`${count}. Name them in styles without "--".`]
+  const nearest = tokens.some((token) => token.distance !== undefined)
+  const lines = [`${count}${nearest ? ", nearest first" : ""}. Name them in styles without "--".`]
 
   if (truncated) {
     lines.push("Narrow them with category, source or search, or raise limit, to see the rest.")
+  }
+
+  // The default theme first, then the others, such as dark.
+  const valuesOf = (token: TokenInfo) =>
+    Object.entries(token.values)
+      .sort(([a], [b]) => first("default", a, b))
+      .map(([theme, value]) => `${theme} ${value}`)
+      .join(", ")
+
+  // Nearest a value, they keep their order rather than being grouped.
+  if (nearest) {
+    lines.push("")
+
+    for (const token of tokens) {
+      lines.push(`  ${token.name} (${token.category}, ${token.source}, distance ${token.distance}): ${valuesOf(token)}`)
+    }
+
+    return lines.join("\n")
   }
 
   const categories = new Map<string, TokenInfo[]>()
@@ -732,12 +751,7 @@ export function describeTokens({ tokens, total, truncated }: TokensResponse): st
     lines.push("", `${category}:`)
 
     for (const token of list) {
-      // The default theme first, then the others, such as dark.
-      const values = Object.entries(token.values)
-        .sort(([a], [b]) => first("default", a, b))
-        .map(([theme, value]) => `${theme} ${value}`)
-
-      lines.push(`  ${token.name}: ${values.join(", ")}`)
+      lines.push(`  ${token.name}: ${valuesOf(token)}`)
     }
   }
 

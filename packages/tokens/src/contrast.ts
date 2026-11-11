@@ -3,13 +3,7 @@
  * token comes to there, the token closest to the failing text color that passes in all of them.
  */
 
-/** A color as sRGB channels from 0 to 1, with alpha. */
-export interface Rgba {
-  r: number
-  g: number
-  b: number
-  a: number
-}
+import { colorDistance, parseHex, type Rgba, toLinear } from "./color.ts"
 
 /** One frame a layer's text was measured in, failing or passing. */
 export interface ContrastFrame {
@@ -40,27 +34,6 @@ export interface ContrastFixOptions {
   preferred?: ReadonlySet<string>
 }
 
-/** Parses `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`. */
-export function parseHex(hex: string): Rgba | undefined {
-  const digits = /^#([\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.exec(hex.trim())?.[1]
-
-  if (!digits) {
-    return undefined
-  }
-
-  const full =
-    digits.length <= 4
-      ? digits
-          .split("")
-          .map((digit) => digit + digit)
-          .join("")
-      : digits
-
-  const channel = (index: number) => Number.parseInt(full.slice(index * 2, index * 2 + 2), 16) / 255
-
-  return { r: channel(0), g: channel(1), b: channel(2), a: full.length === 8 ? channel(3) : 1 }
-}
-
 /** A color laid over an opaque one, as the text is drawn on its background. */
 export function composite(top: Rgba, bottom: Rgba): Rgba {
   const mix = (a: number, b: number) => a * top.a + b * (1 - top.a)
@@ -68,11 +41,9 @@ export function composite(top: Rgba, bottom: Rgba): Rgba {
   return { r: mix(top.r, bottom.r), g: mix(top.g, bottom.g), b: mix(top.b, bottom.b), a: 1 }
 }
 
-const linear = (channel: number) => (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
-
 /** WCAG 2's relative luminance of an opaque color. */
 export function luminance({ r, g, b }: Rgba): number {
-  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
 }
 
 /** WCAG 2's contrast ratio of text over an opaque background, with the text's alpha laid over it first. */
@@ -80,27 +51,6 @@ export function contrastRatio(foreground: Rgba, background: Rgba): number {
   const [light, dark] = [luminance(composite(foreground, background)), luminance(background)].sort((a, b) => b - a)
 
   return (light! + 0.05) / (dark! + 0.05)
-}
-
-/** How far apart two opaque colors look: the distance between them in OKLab. */
-export function colorDistance(a: Rgba, b: Rgba): number {
-  const [l1, a1, b1] = oklab(a)
-  const [l2, a2, b2] = oklab(b)
-
-  return Math.hypot(l1 - l2, a1 - a2, b1 - b2)
-}
-
-function oklab({ r, g, b }: Rgba): [number, number, number] {
-  const [lr, lg, lb] = [linear(r), linear(g), linear(b)]
-  const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb)
-  const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb)
-  const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb)
-
-  return [
-    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
-    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
-    0.0259040371 * l + 0.7827717662 * m - 0.808675778 * s
-  ]
 }
 
 /**

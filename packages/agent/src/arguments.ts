@@ -198,7 +198,13 @@ export const iconOptions = z
   .optional()
 
 export const tokenFilter = z
-  .strictObject({ category: z.string().optional(), source: z.string().optional(), search: z.string().optional() })
+  .strictObject({
+    category: z.string().optional(),
+    source: z.string().optional(),
+    search: z.string().optional(),
+    /** A color or length that isn't a token, such as `#2f6fed` or `13px`: the tokens nearest it, nearest first. */
+    nearest: z.string().optional()
+  })
   .optional()
 
 export type TokenFilter = NonNullable<z.infer<typeof tokenFilter>>

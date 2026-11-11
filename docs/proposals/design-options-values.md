@@ -11,8 +11,9 @@ with no Editing, the type has only typing, keys and the token button; with no To
 
 ## Length and percentage
 
-- **At rest:** the number with its unit as the suffix; Auto in words with the measured size after. The panel's px or rem
-  setting applies to steps, tokens and what they come to. A value shows in the unit it was typed in or read in.
+- **At rest:** the number with its unit as the suffix; Auto as a chip, with the measured size after it where there's
+  room, and in a narrow field's hint. The panel's px or rem setting applies to steps, tokens and what they come to. A
+  value shows in the unit it was typed in or read in.
 - **Forms:** a token; a step of the field's scale where it has one
   ([design-options-tokens.md](design-options-tokens.md), Framework steps), so 13px is `p-3.25` and 50% is `w-1/2`; Font
   size and Radius have none; a value in any unit; `auto`; an expression.
@@ -34,19 +35,24 @@ with no Editing, the type has only typing, keys and the token button; with no To
 
 ## Size
 
-- **At rest:** Fixed shows its length; Hug, Fill or Fill ×2 show in words, with the measured size faint after.
+- **At rest:** Fixed shows its length; Hug, Fill or Fill ×2 show as chips, with the measured size faint in the chip.
 - **Forms:** also a size mode, stored as `{ size: "hug" }` or `{ size: "fill", share?: 2 }`, since Hug and Fill write
   different CSS for each kind of parent ([design-options-panel.md](design-options-panel.md), Size) and aren't CSS
   keywords. Full is `{ keyword: "full" }`.
-- **Editing:** the unit's menu (the field's slot 3) holds Fixed, Hug, Fill and Auto; the units (px, %, rem, More units,
-  with Min content and Max content under it); Add min and Add max. Hug covers `fit-content`, so it isn't listed twice.
-  Fill's share is chosen in its menu (Fill, Fill ×2, Fill ×3, Custom) or typed as `2fr`; a bare number stays a length.
-  Typing a length in a Hug or Fill field makes it Fixed, as in Figma, and Up or Down on Hug, Fill or Auto makes it Fixed
-  at its measured size and steps from there. Auto is listed only when the value is `auto` from code or freed by the
-  aspect lock, labeled by what it does in this parent ("Auto (fills)", "Auto (hugs)"), since elsewhere Hug and Fill
-  already write `auto`. Freed by the aspect lock, it shows as set by Aspect ratio
-  ([design-options-css.md](design-options-css.md), Properties set by another control).
-- **Tokens:** spacing, container.
+- **Editing:** the words are apart from the units. The chevron at the field's end always opens Sizing: Fixed, Hug, Fill,
+  Min content and Max content, with Auto, then Add min and Add max. The unit's menu (the field's slot 3), after a
+  number, holds only units: px, %, rem and More units. Hug covers `fit-content`, so it isn't listed twice. Fill's share
+  is chosen in its menu (Fill, Fill ×2, Fill ×3, Custom) or typed as `2fr`; a bare number stays a length. Typing a
+  length in a Hug or Fill field makes it Fixed, as in Figma; Backspace on a chip, or Up or Down on Hug, Fill or Auto,
+  makes it Fixed at its measured size, and Up or Down steps from there. Auto is listed only when the value is `auto`
+  from code or freed by the aspect lock, labeled by what it does in this parent ("Auto (fills)", "Auto (hugs)"), since
+  elsewhere Hug and Fill already write `auto`. Freed by the aspect lock, it shows as Auto with its measured size, and
+  its hint and Sizing say it's set by Aspect ratio ([design-options-css.md](design-options-css.md), Properties set by
+  another control). A grid child's W and H are the same field, Fill filling its cell.
+- **Tokens:** spacing, container, listed in Sizing under the words, smallest first, with the token nearest a length of
+  its own above them and Create token under them. A token shows as its pill and steps through the scale with Up and
+  Down; it writes Tailwind's name, `w-gutter` for `--spacing-gutter` and `w-md` for `--container-md`. A design's frame
+  takes the project's breakpoints for its W instead (`xl`, 1280), and Hug or pixels for its H.
 - **Writes:** `flex-1 min-w-0`, `flex-2 min-w-0` (`min-h-0` in a column), `self-stretch`, `w-fit`, `w-full`, or nothing,
   by the parent.
 - **Compared:** Figma's Fixed, Hug and Fill, with Framer's share for Fill.
@@ -64,8 +70,8 @@ Padding, margin, border width and scroll padding.
 - **Forms:** each side holds its own form, token chip and mark.
 - **States:** Mixed is per side; editing one side changes only that side on every layer.
 - **Editing:** a per-side button switches forms; its menu is Figma's (All, Top, Bottom, Left, Right, Custom). Shorthand
-  typed into any of these fields fills them in CSS's order. The box-model widget adds margin's ring. Alt changes the
-  opposite side too, Alt+Shift all four, as Figma's handles do.
+  typed into any of these fields fills them in CSS's order. The box-model widget shows padding and margin together, each
+  side opening its field in a popover. Alt changes the opposite side too, Alt+Shift all four, as Figma's handles do.
 - **Tokens:** spacing, or border-width for Stroke.
 - **Writes:** the fewest classes, shorthand first: `p-4`, `px-4 py-2`, `p-4 pb-6`, `border border-t-2`; logical forms
   under the Logical switch.
@@ -151,19 +157,33 @@ Fill's list of solids, gradients and images.
 
 - **At rest:** each entry is a preview (swatch, gradient strip or image), its type or token chip, its alpha %, the eye
   and −, top first, as CSS paints.
-- **Editing:** the preview opens the paint editor, a tab per type. Solid is the color popover. Linear, Radial and
-  Angular have a bar of stops (click to add, drag off to remove, each a color and a position) and handles on the canvas.
-  Under the bar, Stops lists each stop as a row, as Figma's gradient editor does: a position field in %, the color field
-  (a token chip or a value, with its alpha), and −, with + to add a stop. Clicking a row selects that stop on the bar
-  and on the canvas. Keys and scrubbing are as in every field. CSS's gradient line spans the box at its angle, so
-  dragging the line's ends sets the angle and moves the first and last stops. Radial's handles set the ellipse's two
+- **Adding:** + is a menu of the five types, each drawn as the fill it adds, a gradient from white to blue-600 so its
+  shape shows, with what it draws under its name (One color, Along a line, Out from the center, Around the center, A
+  picture). The fill it adds opens its editor.
+- **Editing:** the preview opens the paint editor for the fill's type, which was picked as it was added. Solid is the
+  color popover. A gradient's editor names its kind at the top, in a menu that draws the gradient as each of Linear,
+  Radial and Angular and switches between them keeping the stops. Under it is the bar of stops (click to add, drag off
+  to remove, each a color and a position), with handles on the canvas, then the gradient's settings, each named above
+  its control: Angle (Start angle for Angular), a field Figma lacks; Center, for Radial and Angular; Blend, `in oklab`
+  as Tailwind v4's, with `in oklch` and sRGB in its menu; and Repeat's switch, which writes `repeating-*-gradient`. A
+  divider sets the stops apart: each stop is a row, as Figma's gradient editor has them, with a position field in %, the
+  color field (a token chip or a value, with its alpha), and − once there are more than the two a gradient needs. Flip,
+  which reverses the stops, and the button that adds one sit beside the Stops title. Clicking a row selects that stop on
+  the bar and on the canvas. Keys and scrubbing are as in every field. CSS's gradient line spans the box at its angle,
+  so dragging the line's ends sets the angle and moves the first and last stops. Radial's handles set the ellipse's two
   radii and center (`radial-gradient(ellipse 40% 60% at 30% 20%, …)`), as Figma's do; Angular's set a center and start
-  angle, and its hint names `conic-gradient`. An Angle field, which Figma lacks, sits beside the line, with Flip and
-  Rotate 90° as in Figma. Delete removes the selected stop, and Left and Right move it 1%, Shift 10%. Two stops at one
-  position make a hard edge; a midpoint dragged between two stops writes a color hint (`red, 30%, blue`), which Figma
-  lacks. Repeat writes `repeating-*-gradient`. Interpolation is `in oklab`, as Tailwind v4's, with `in oklch` and sRGB
-  in its menu. Image takes the project's images (`public/images/`) or one dropped or pasted, copied there, with Fill,
-  Fit, Crop and Tile (`background-size` and `background-repeat`) and a nine-spot position.
+  angle, and its hint names `conic-gradient`. Delete removes the selected stop, and Left and Right move it 1%, Shift
+  10%. Two stops at one position make a hard edge; a midpoint dragged between two stops writes a color hint
+  (`red, 30%, blue`), which Figma lacks.
+- **Image:** no tabs, unlike the pickers that split Upload, Link and Unsplash apart. One search covers the project's
+  images (`public/images/`) and a stock provider's (Unsplash), each a section of one grid, three to a row, with Upload
+  first among the project's, and the fill's image ringed and ticked where it was picked. An image dropped or pasted
+  anywhere on the editor, or uploaded, is copied into `public/images/`, named for a class (`My Photo.PNG` is
+  `my-photo.png`), and used; one dropped on the Fill section is added as an image fill on top, its editor open. A photo
+  picked from Unsplash is linked from Unsplash and its photographer credited, as its terms ask (decisions.md), so it
+  stays ticked in Unsplash's section and its row names it by its title. Under a divider, how it's drawn: Fit as a menu
+  (Fill, Fit, Crop and Tile, each saying what it does, writing `background-size` and `background-repeat`), Crop's scale,
+  and the position, with its nine spots.
 - **Tokens:** color and gradient. A gradient token is one fill's paint; editing its stops offers Detach.
 - **Writes:** the bottom solid as `background-color`; the rest as `background-image` layers, a solid above the bottom as
   `linear-gradient(c, c)`. A simple gradient is utilities (`bg-linear-to-r from-blue-500 to-teal-400`), a longer one is
@@ -227,15 +247,20 @@ Fill's list of solids, gradients and images.
 
 ## Angle
 
-- **At rest:** degrees with a ° suffix.
-- **Editing:** a dial in its popover, as DevTools' angle clock, snapping to 15° with Shift. A typed `turn` or `rad`
-  becomes degrees; one read from code keeps its unit (Typing, in [design-options-fields.md](design-options-fields.md)).
-  Negatives are allowed. Angles are kept as typed, never normalized to −180 to 180 as Figma's rotation is, since a
-  transition to 270° turns the other way from one to −90°.
+- **At rest:** degrees with a ° suffix, an angle glyph inside the field that scrubs it, and a knob beside the field with
+  its pointer at the angle. Past 360°, the knob counts the whole turns in its middle and draws the rest of the last turn
+  as an arc along its rim, with a dot for the pointer at its end: 450° is 1 with a quarter arc.
+- **Editing:** the knob is dragged round, as Framer's is, with no popover, snapping to 15° with Shift; a double-click
+  sets 0°, and the keyboard steps it as a slider. A typed `turn` or `rad` becomes degrees; one read from code keeps its
+  unit (Typing, in [design-options-fields.md](design-options-fields.md)). Negatives are allowed. Angles are kept as
+  typed, never normalized to −180 to 180 as Figma's rotation is, since a transition to 270° turns the other way from one
+  to −90°. A field can wrap within a turn where only the direction matters: a gradient's Angle and Start angle do, so
+  370° comes to 10° and −90° to 270°; Rotation doesn't.
 - **Tokens:** none yet: there's no angle kind.
 - **Writes:** `rotate-45`, `-rotate-12`, `rotate-[22.5deg]`, `hue-rotate-90`, a gradient's `bg-linear-45`, or
   `bg-linear-to-r` for the eight named directions.
-- **Compared:** Figma normalizes rotation; DevTools keeps the angle as typed.
+- **Compared:** Figma normalizes rotation and has no dial; Framer has a knob; DevTools keeps the angle as typed, with
+  its dial in a popover.
 
 ## Time
 
@@ -246,7 +271,7 @@ Fill's list of solids, gradients and images.
   ([design-options-tokens.md](design-options-tokens.md), Framework steps). An animation's duration and delay have no
   Tailwind utility, so they're written in the animation's own value or as an arbitrary property
   (`[animation-duration:200ms]`), as Iterations is.
-- **Tokens:** duration, as a track against half a second.
+- **Tokens:** duration, as a track whose dot crosses it in that time.
 - **Writes:** `duration-200`, `delay-75`, or `duration-[0.2s]` as read from code.
 - **Compared:** Figma's Motion has timing variables.
 
@@ -254,8 +279,12 @@ Fill's list of solids, gradients and images.
 
 - **At rest:** a small curve and its name: the token's name, a preset (Ease out, Linear, Steps 4), Spring (400ms, bounce
   0.2), or Custom.
-- **Editing:** a popover with the curve and its two handles, presets, Steps, and Spring: time and bounce, or stiffness,
-  damping and mass, as Framer's.
+- **Editing:** a popover with a tab for each way to set an easing: Curve, Steps and Spring. Each starts with the same
+  graph, the easing's mark every preview draws, at the editor's size, with a dot riding the curve while it's open, as a
+  token's detail plays it; a tab the easing isn't set by shows its default, faint. Under it, Curve has the curve's two
+  handles, Tailwind's easings and the project's; Steps the count and where each jump comes; Spring a Set by menu that
+  picks time and bounce or stiffness, damping and mass, as Framer's springs are set. A spring says Tailwind has no
+  utility for springs, so it's written as an arbitrary value, and offers Save as token, as the shadow list's note does.
 - **States:** a spring decides how long the motion takes, so with a spring the Duration field shows its settle time, set
   by Easing.
 - **Tokens:** easing, as a curve.
@@ -275,14 +304,21 @@ Motion's Transitions.
   Colors at those defaults.
 - **Forms:** what changes is a keyword set or a property; duration and delay are Time; easing is Easing and spring. A
   transition token fills a whole entry, and its parts can be overridden where the framework can (Composite token).
+- **Details:** Changes is one field. Focused, it lists the sets with their utilities (`transition-colors`); typing
+  narrows them or names a property of its own (`width`, offered as `transition-[width]`), and Enter takes the
+  highlighted one. Duration and Delay draw their time as Easing draws its curve, with the Tokens panel's mark: a track
+  of one weight, whose dot crosses it in that time while the field's hovered. The dot and the track match the Easing's
+  dot and curve. One of Tailwind's easings is a chip (`out` for `ease-out`), as a token is, so Backspace takes it off
+  whole.
 - **Tokens:** transition for a whole entry, which has no kind ([design-options-tokens.md](design-options-tokens.md),
   Fields and token kinds); duration and easing for its parts.
 - **Writes:** Tailwind allows one transition property, duration, easing and delay per element. One entry is utilities
   (`transition-colors duration-200 ease-out delay-75`). Entries with the same timing merge into one property list
   (`transition-[color,opacity] duration-200`). Entries with different timings are one arbitrary value
-  (`[transition:color_200ms_var(--ease-out),opacity_300ms_var(--ease-snappy)]`); the entry that causes this says so and
-  offers Save as token, as the shadow list does. A merged or arbitrary list spells out each entry's properties as its
-  utility does: Transform as `transform, translate, scale, rotate`, and Colors as `transition-colors`' list.
+  (`[transition:color_200ms_var(--ease-out),opacity_300ms_var(--ease-snappy)]`); a note under the list says "Mixed
+  timings are written as one arbitrary value." and offers Save as token, as the shadow list does. A merged or arbitrary
+  list spells out each entry's properties as its utility does: Transform as `transform, translate, scale, rotate`, and
+  Colors as `transition-colors`' list.
 - **Compared:** Webflow stacks transitions, each with its own timing; Figma and Framer set one transition per
   interaction.
 
@@ -380,39 +416,51 @@ Image's Position, Transform's Origin, a fill image's position.
 
 ## Grid tracks
 
-- **At rest:** counts while every track is the same size. Otherwise one line of track chips in order, wrapping, in words
-  where a size mode fits (Fill, Fill ×2, Hug for `auto`, 200, `minmax(…)`), with a `repeat()` collapsed to one chip ("12
-  × Fill", `Auto-fit × 16rem–Fill`), each opening its size. Labels on the canvas show the same sizes.
-- **Editing:** each track in fr, px, %, auto, `min-content`, `max-content`, `minmax()` or `fit-content()`, with Repeat
-  (a count, auto-fill or auto-fit); on the canvas, a size label on each track and dragging between them. A grid inside a
-  grid also offers Subgrid, which takes its parent's tracks (`grid-cols-subgrid`, `grid-rows-subgrid`), so cards in a
-  row line up their titles and footers.
+- **At rest:** while every track is the same size, a count and a size side by side ("3", Fill). Each column (or Each
+  row), the toggle at the name's end, lists the tracks one a row: a grip to reorder, the track's number and size, and −.
+  Sizes are words where a size mode fits, as chips (Fill, Fill ×2, Hug, Min content, Max content, and Fill with its
+  least width after it, `min 120`), or a length (200 px, 50%). Labels on the canvas show the same sizes.
+- **Editing:** a size's menu lists Fill, Hug, Fixed, Fill with a minimum (`minmax()`), Min content and Max content;
+  typing takes CSS or those words (`200`, `50%`, `2fr`, `Fill ×2`, `120-Fill`). The count takes Fit for columns, as many
+  as fit, each at least a width (`repeat(auto-fit, …)`), and Auto for rows, as many as children need, each a chip saying
+  how many it makes; with Auto, the size is the size of those rows (`grid-auto-rows`). Hovering a track's row highlights
+  it on the canvas. On the canvas, a size label on each track and dragging between them. A grid inside a grid also
+  offers Subgrid, which takes its parent's tracks (`grid-cols-subgrid`, `grid-rows-subgrid`), so cards in a row line up
+  their titles and footers.
 - **Tokens:** spacing, container.
-- **Writes:** `grid-cols-3`, or `grid-cols-[200px_minmax(0,1fr)]`, a Fill track as `minmax(0,1fr)`.
-- **Compared:** Figma has fixed, fr and hug tracks; Webflow adds `minmax()` and auto-fit.
+- **Writes:** `grid-cols-3`, or `grid-cols-[200px_minmax(0,1fr)]`, a Fill track as `minmax(0,1fr)`; `auto-rows-fr`.
+- **Compared:** Figma has fixed, fr and hug tracks; Penpot lists each track to size; Webflow adds `minmax()` and
+  auto-fit.
 
 ## Grid placement
 
-- **At rest:** columns and rows spanned, or All, with start lines beside them; end lines and an area under More.
-- **Editing:** dragging a child's edge across the tracks on the canvas sets its span and start line, as Figma's grid
-  does.
+- **At rest:** a map of the grid numbers its lines along its edges, the child's own in the layer's color, with Auto and
+  Manual beside it. Under the map, where it sits in its cell is a box of spots beside Start and Span for columns and
+  rows, laid out as a table; Span takes All as a chip. End lines and an area are under More.
+- **Editing:** dragging the child moves it, dragging an edge moves that line, dragging across cells draws it, and a
+  click on a cell moves it there, keeping its span. A field hovered or focused lights up its line or tracks in the map.
+  A spot on an axis the child fills makes it hug, and Fill stretches it again, so the box, the map and W and H agree; W
+  and H show Fill and Hug as chips, with a Sizing menu at their end. On the canvas, dragging a child's edge across the
+  tracks sets its span and start line, as Figma's grid does.
 - **Writes:** `col-span-2`, `col-start-2`, `row-span-full`, `[grid-area:hero]`.
 - **Compared:** Figma has spans; Webflow adds lines and areas.
 
 ## Insets
 
-- **At rest:** an unpinned side is `auto` and shows its measured distance, muted (Auto · 24); typing pins it.
+- **At rest:** each side's value sits on its line in the inset box, a token's shaded. An unpinned side is `auto` and
+  says Auto; its field shows its measured distance, muted (Auto 176px), and typing pins it.
 - **Forms:** % is of the containing block, Top and Bottom of its height.
-- **Editing:** clicking a side of the pin box pins it at its measured distance, and clicking again unpins it to `auto`,
-  as Framer's pin box does. Dragging an Absolute layer updates the pinned sides.
+- **Editing:** clicking a side's line pins it at its measured distance, and clicking again unpins it to `auto`, as
+  Framer's pin box does. Its value opens its field in a popover, as the box model's sides do; Alt and Alt+Shift reach
+  the opposite side and all four. Dragging an Absolute layer updates the pinned sides.
 - **Tokens:** spacing.
 - **Writes:** `top-4`, `inset-x-0`, `top-1/2`, `-top-2`, `inset-0`.
 - **Compared:** Figma's constraints show no distances.
 
 ## Expression
 
-- **At rest:** `clamp · 24` (the function and what it comes to); `ƒ` only where the field is under 96px. The full text
-  is in the hint.
+- **At rest:** `clamp · 24` (the function and what it comes to), after an `ƒ` mark at the field's start that opens the
+  expression, as clicking its text does; only `ƒ` where the field is under 96px. The full text is in the hint.
 - **Editing:** `=` in any field opens an expression, with completion for `var()`, `calc()`, `min()`, `max()`, `clamp()`
   and `color-mix()`, as Webflow's fields do; maths that mixes units becomes `calc()`. Focusing widens the field to the
   row and shows the text, as Webflow's `=` editor opens wide, with each `var()` drawn as an inline token chip. Clicking

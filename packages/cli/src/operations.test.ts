@@ -740,6 +740,14 @@ describe("remaining transport contracts", processTests, () => {
       result: []
     },
     {
+      cli: ["tokens", "--nearest", "13px", "--category", "radius"],
+      tool: "get_tokens",
+      method: "tokens",
+      input: { nearest: "13px", category: "radius" },
+      params: { nearest: "13px", category: "radius", limit: 100 },
+      result: []
+    },
+    {
       cli: ["status", "--summary", "--limit", "3"],
       tool: "get_status",
       method: "status",
@@ -1125,8 +1133,9 @@ describe("remaining transport contracts", processTests, () => {
     const tools = toolReply(protocol.stdout)?.result?.tools
     // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
     // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos (now find_media), 16.1 KB with a
-    // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834), 19 KB with find_media taking a type (PAR-837), 19.5 KB with get_references (PAR-889).
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(20 * 1024)
+    // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834), 19 KB with find_media taking a type (PAR-837), 19.5 KB with get_references (PAR-889),
+    // 20.2 KB with get_tokens' nearest (PAR-833), so 21 KB.
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(21 * 1024)
   })
 
   it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {

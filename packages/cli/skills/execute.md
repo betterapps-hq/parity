@@ -56,7 +56,7 @@ Components(): string[]                           // the components designs can u
 Props(component, { all? }?): PropsInfo           // a component's props, from its source
 Icons(): IconSet[]                               // the project's icon sets, with their styles
 Icons(set, { search?, style?, limit? }): Icon[]  // async: a set's icons, as component nodes name them
-GetTokens({ category?, source?, search? }?): Token[]
+GetTokens({ category?, source?, search?, nearest? }?): Token[]   // nearest: the closest to a colour or length first
 GetModes(design?): { settings, variables, viewports, modes, designs }   // modes resolved; what each design shows
 Selection(): { design?, node?, mode? }           // what the person has selected
 
@@ -238,6 +238,20 @@ Each token has a `name`, a `category` (`color`, `font-size`, `radius`, `shadow`,
 `leading`, `tracking` and others), a `source` (`semantic` for the project's own variables, `theme` for its styling
 framework's scale, `keyword` for a framework keyword the style fields also take) and its `values` per theme. Filter with
 `GetTokens({ category: "color", source: "semantic" })` or `GetTokens({ search: "radius" })`.
+
+A design handed over often has colours and sizes that aren't tokens, such as `#2f6fed` or `13px`. `nearest` lists the
+tokens closest to one first, each with its `distance`, and leaves out tokens that can't be compared: only colours for a
+colour, only lengths for a length. A colour is hex or `oklch()`, and its distance is how different the two look (under
+0.02 looks the same). A length is px or rem, and its distance is in pixels; give it a category, since a radius, a type
+size and a spacing step are all lengths. Ties go to the project's own semantic tokens. Use the nearest token, and tell
+the person when it's far from what the design asked for.
+
+```js
+// The design asks for #2f6fed text at 13px: use the tokens nearest them.
+const [color] = GetTokens({ nearest: "#2f6fed", category: "color" })
+const [size] = GetTokens({ nearest: "13px", category: "font-size" })
+Update("signup/Title", { style: { foreground: color.name, size: size.name } })
+```
 
 For a circle or a pill, use `radius-full`, Tailwind's `rounded-full`. It's listed under `radius` with
 `source: "keyword"`, and frames draw it as round as the box allows, at any size:

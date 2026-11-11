@@ -202,7 +202,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "get_tokens",
-    "Read tokens filtered by category, source or name, with values in every theme.",
+    "Read tokens filtered by category, source or name, with values in every theme, or those nearest a value.",
     operations.tokens,
     (result) => [text(describeTokens(result))]
   ),

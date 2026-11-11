@@ -777,7 +777,6 @@ function DetailPreview({ token, playing }: { token: SampleToken; playing: boolea
             height={110}
             playing={playing}
             duration={700}
-            stroke={2}
             ghosts={easings.filter((other) => other !== token).map((other) => drawn(other))}
           />
         </div>

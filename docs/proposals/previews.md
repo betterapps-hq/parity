@@ -60,7 +60,7 @@ picker can ask for them; the rest stay finer kinds inside a category.
 | Drop and text shadow, blur, perspective   | The real effect, scaled down as a whole             | The same at full size                          |
 | Font, size, weight, line height, tracking | "Ag", "Aa", "ABC" or lines of text in the value     | A specimen in the project's type               |
 | Opacity                                   | A block at that opacity over a checkerboard         | The same, larger                               |
-| Duration                                  | Its length against half a second                    | A race against the rest of its scale           |
+| Duration                                  | A track its dot crosses in that time                | A race against the rest of its scale           |
 | Easing                                    | Its curve, overshoot included                       | The curve over the project's other easings     |
 | Animation                                 | Its first frame                                     | Its keyframes, playing                         |
 | Z-index                                   | Stacked sheets, its own lit                         | The whole scale as a stack                     |
@@ -70,7 +70,11 @@ picker can ask for them; the rest stay finer kinds inside a category.
 
 **On the design's sheet.** Kinds about how a design looks (shadows, blur, opacity, type) sit on the project's own
 background in its default theme, so a shadow reads as it will in the design rather than on Parity's dark chrome. Kinds
-that are measurements (spacing, radius, z-index, motion) are diagrams in Parity's ink.
+that are measurements (spacing, radius, z-index, motion) are diagrams in Parity's ink. A duration and an easing draw
+alike, so the two match side by side, in a field as in the panel: the line the dot travels, a duration's track or an
+easing's curve, is the mark's own ink, and the dot is one size, 8px, or 5px in a mark under 32px wide. Every easing
+preview is one drawing at different sizes, from a field's 16px curve to a row, a tile, the detail and the easing
+editor's graph: the box from 0 to 1, the straight line a linear easing takes where there's room for it, and the curve.
 
 **Motion only while looked at.** A motion preview runs through the Web Animations API while its row is hovered or
 focused, its picker option is highlighted, or its detail is open, and is cancelled the moment that stops. One-off
