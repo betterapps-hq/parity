@@ -310,6 +310,92 @@ Print(JSON.stringify([at("profile/person").args, at("profile/person/title").text
   })
 })
 
+describe("states changing what's inside an instance", () => {
+  /** The fixture's profile screen, its instance named so a change can reach it by name. */
+  function designs(): ContainerSpec[] {
+    const copies = structuredClone(effectiveFixture.designs)
+    const profile = copies.find((design) => design.id === "profile")!
+    // SAFETY: the fixture's profile screen is a layout, its instance second.
+    const page = profile.root as Extract<DesignNode, { type: "layout" }>
+    page.children[1]!.name = "Person"
+    const card = copies.find((design) => design.id === "card")!
+    // SAFETY: the fixture's card is a layout, its avatar instance first.
+    const body = card.root as Extract<DesignNode, { type: "layout" }>
+    body.children[0]!.name = "Avatar"
+
+    return copies
+  }
+
+  const shown = `const at = (path, state) => Get(path, { state })`
+
+  it("adds a state that changes a layer inside an instance, by id or name, and leaves the base alone", async () => {
+    const result = await read(
+      designs(),
+      `${shown}
+const id = AddState("profile", { name: "Busy", changes: { "person/meta": { text: "Busy" }, "Person/Avatar/initials": { hidden: true } } })
+Print(JSON.stringify([at("profile/person/meta", id).text, at("profile/person/avatar/initials", id).hidden, at("profile/person/meta", "base").text, at("profile/person/avatar/initials", "base").hidden ?? false, Designs().find((design) => design.id === "profile").states.length]))`
+    )
+
+    expect(result).toEqual(["Busy", true, "Joined 1843", false, 3])
+  })
+
+  it("gives a bound text's param a value on the instance in that state", async () => {
+    const result = await read(
+      designs(),
+      `${shown}
+const id = AddState("profile", { name: "Busy" })
+UpdateState("profile", id, { changes: { "person/title": { text: "Grace Hopper" } } })
+Print(JSON.stringify([at("profile/person/title", id).text, at("profile/person", id).args.title, at("profile/person/title", "base").text]))`
+    )
+
+    expect(result).toEqual(["Grace Hopper", "Grace Hopper", "Ada Lovelace"])
+  })
+
+  it("takes a state's change inside an instance back with null", async () => {
+    const result = await read(
+      designs(),
+      `${shown}
+UpdateState("profile", "selected", { changes: { "person/avatar/circle": null } })
+Print(JSON.stringify([at("profile/person/avatar/circle", "selected").style.background, at("profile/person/title", "selected").text]))`
+    )
+
+    expect(result).toEqual(["primary", "Selected"])
+  })
+
+  it("updates a layer inside an instance in a state, or that copy alone in the base", async () => {
+    const result = await read(
+      designs(),
+      `${shown}
+Update("profile/person/meta", { text: "Picked" }, { state: "selected" })
+Update("profile/Person/Avatar/initials", { style: { weight: 400 } })
+Print(JSON.stringify([at("profile/person/meta", "selected").text, at("profile/person/meta", "base").text, Get("profile/person").overrides["avatar/initials"]]))`
+    )
+
+    expect(result).toEqual(["Picked", "Joined 1843", { text: "AL", style: { weight: 400 } }])
+  })
+
+  it("refuses a path that doesn't lead inside an instance", async () => {
+    const unknown = await execute(
+      {
+        label: "Unknown",
+        code: `AddState("profile", { name: "Busy", changes: { "person/nothing": { hidden: true } } })`
+      },
+      snapshot(designs()),
+      hooks
+    )
+
+    expect(unknown.error).toContain('No layer "nothing" in card')
+
+    const notInstance = await execute(
+      { label: "Text", code: `Update("profile/heading/inner", { text: "Hi" }, { state: "selected" })` },
+      snapshot(designs()),
+      hooks
+    )
+
+    expect(notInstance.error).toContain("heading in profile isn't an instance")
+  })
+})
+
 describe("Update taking a value away in a state", () => {
   const card: ContainerSpec = {
     id: "card",
