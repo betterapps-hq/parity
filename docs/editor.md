@@ -5994,6 +5994,18 @@ through the otherwise transparent overlay, so the full hover title is reachable 
 The cursor component was checked in Storybook with a long name; its text and title remain intact and its visible width
 is bounded with ellipsis.
 
+### Contact sheets (PAR-895)
+
+`screenshot` with `sheet: true` (`parity screenshot <design> --sheet`) returns each design's frames as one labeled PNG,
+states in rows and modes in columns, in `sheets` in place of `screenshots`, kept within 2,000 pixels. `sheetLayout` in
+`packages/agent/src/sheet.ts` lays it out and draws its labels as SVG; the desktop's `composeSheet` in
+`apps/desktop/src/utility/webp.ts` draws it with sharp. `packages/agent/src/sheet.test.ts` (7) covers rows and columns,
+frames kept apart, labels, shrinking to the limit, a missing cell, a column widened for its label, and cutting long
+labels. `packages/agent/src/dispatch.test.ts` checks that a sheet call saves one file per design with every frame on it,
+`apps/desktop/src/utility/webp.test.ts` that frames are scaled into their boxes over the overlay, and
+`packages/cli/src/operations.test.ts` that both transports send `sheet` and MCP returns the sheet as an image while
+`--json` leaves its data out. A sheet of three states by two modes was drawn with real fonts and checked by eye.
+
 ### What a component goes inside (PAR-454)
 
 `Props(component)`, `parity props` and `get_props` return the component's `composition` with its props, and before they

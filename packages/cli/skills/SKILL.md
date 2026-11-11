@@ -112,10 +112,11 @@ keeping the designs there, so ask before running that in someone's project.
    fails because the person changed a design it changes, run it again by its `editId`.
 5. **Cover every state.** A screen that loads has a loading state, a list has an empty one, a form has an error one. Add
    them with `AddState`, as changes to the base design, not as copies.
-6. **Check every frame.** Screenshot the design in all its states and the modes it shows (`state: "all"`,
-   `mode: "shown"`). Run `find_problems` and `check_accessibility` too, and read the warnings `execute` returns: they're
-   usually a token that doesn't exist or a prop the component doesn't take. A render failure comes first and means a
-   frame wasn't checked. Fix what you find, then check again.
+6. **Check every frame.** Screenshot the design in all its states and the modes it shows as one sheet (`state: "all"`,
+   `mode: "shown"`, `sheet: true`), then screenshot any frame that needs a closer look on its own. Run `find_problems`
+   and `check_accessibility` too, and read the warnings `execute` returns: they're usually a token that doesn't exist or
+   a prop the component doesn't take. A render failure comes first and means a frame wasn't checked. Fix what you find,
+   then check again.
 7. **Say what you did.** Tell the person what changed and what you couldn't verify. Ask them to try anything interactive
    themselves with the Interact tool (I), which hands their mouse and keyboard to the real components.
 

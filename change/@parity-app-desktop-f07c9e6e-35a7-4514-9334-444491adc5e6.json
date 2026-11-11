@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "screenshot --sheet (MCP sheet: true) returns one labeled contact sheet per design, every state and mode, instead of one image per frame",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

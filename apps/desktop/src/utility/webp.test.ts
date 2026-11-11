@@ -1,6 +1,6 @@
 import sharp from "sharp"
 import { describe, expect, it } from "vite-plus/test"
-import { composePicture, cutPicture, losslessWebp, sharpRefusal } from "./webp.ts"
+import { composePicture, composeSheet, cutPicture, losslessWebp, sharpRefusal } from "./webp.ts"
 
 describe("sharpRefusal", () => {
   it("keeps sharp out of Electron on Linux, where it crashed the service, and nowhere else", () => {
@@ -116,5 +116,28 @@ describe("composePicture", () => {
     ])
 
     expect(placed.equals(original)).toBe(true)
+  })
+})
+
+describe("composeSheet", () => {
+  it("draws the overlay and scales each frame into its box over it", async () => {
+    const png = (await picture()).toString("base64")
+
+    const overlay =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40"><rect width="60" height="40" fill="#ff0000"/></svg>'
+
+    const sheet = await composeSheet({
+      width: 60,
+      height: 40,
+      overlay,
+      frames: [{ png, x: 10, y: 5, width: 20, height: 10 }]
+    })
+
+    const { data, info } = await sharp(sheet).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+    expect(info).toMatchObject({ width: 60, height: 40 })
+    const pixel = (x: number, y: number) => [...data.subarray((y * 60 + x) * 3, (y * 60 + x) * 3 + 3)]
+    expect(pixel(2, 2)).toEqual([255, 0, 0])
+    expect(pixel(15, 8)).not.toEqual([255, 0, 0])
+    expect(pixel(45, 30)).toEqual([255, 0, 0])
   })
 })
