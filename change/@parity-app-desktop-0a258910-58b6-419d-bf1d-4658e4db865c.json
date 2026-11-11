@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Set a layer's order (z-index): a whole number or a z-index token, in the document, the render, the agent's tools and the Design panel's Layer order section",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

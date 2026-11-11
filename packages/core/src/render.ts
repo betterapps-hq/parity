@@ -1005,6 +1005,11 @@ function boxCss(style: NodeStyle, parent: Direction | undefined): InlineStyle {
     }
   }
 
+  // Every node is a flex or grid item, where z-index applies without a position.
+  if (style.zIndex !== undefined) {
+    css.zIndex = isNamedLength(style.zIndex) ? token(style.zIndex) : String(style.zIndex)
+  }
+
   if (style.opacity !== undefined) {
     css.opacity = String(style.opacity / 100)
   }

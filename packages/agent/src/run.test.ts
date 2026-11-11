@@ -1835,6 +1835,30 @@ await Problems("signup", { state: "all", mode: "all" })`
     expect(result.changes).toEqual({ designs: [], tokens: [] })
   })
 
+  it("sets and reads a layer's order, and refuses one that isn't whole", async () => {
+    const result = await execute(
+      {
+        label: "Order",
+        code: `Update("title", { style: { zIndex: 10 } })
+Print(Get("title").style.zIndex)`
+      },
+      snapshot(),
+      hooks()
+    )
+
+    expect(result.output).toEqual(["10"])
+    expect(findNode(result.changes.designs[0]!.after!.root, "title")).toMatchObject({ style: { zIndex: 10 } })
+
+    const refused = await execute(
+      { label: "Order", code: `Update("title", { style: { zIndex: 1.5 } })` },
+      snapshot(),
+      hooks()
+    )
+
+    expect(refused.ok).toBe(false)
+    expect(refused.error).toContain("expected a whole number")
+  })
+
   it("still reads null as taking a value away", async () => {
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!

@@ -262,6 +262,11 @@ export const nodeStyle = fileObject({
   right: length.optional(),
   bottom: length.optional(),
   left: length.optional(),
+  /**
+   * Layer order (CSS `z-index`) among its siblings' stacking context: a whole number, higher in front, or a z-index
+   * token's name. Unset is auto, the order of the layers.
+   */
+  zIndex: z.union([finiteNumber.int(), z.string()]).optional(),
 
   // Appearance.
   /** One color token, or a stack of paints, top first: colors, gradients and images (PAR-931). */

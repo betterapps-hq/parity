@@ -13,6 +13,7 @@ import {
   type Length,
   locateInner,
   locateNode,
+  nodeLabel,
   type NodeStyle,
   type Padding,
   type Paint,
@@ -84,6 +85,7 @@ export const styleRows = {
   span: ["colSpan", "rowSpan"],
   placement: ["position", "top", "right", "bottom", "left"],
   insets: ["top", "right", "bottom", "left"],
+  layerOrder: ["zIndex"],
   fill: ["background"],
   radius: ["radius"],
   shadow: ["shadow"],
@@ -171,6 +173,8 @@ export interface StyleSelection {
   mixed: (keyof NodeStyle)[]
   /** The layout they all sit in, when they share one. */
   parent: ParentLayout | undefined
+  /** What their layer order orders them within, when they share one: unknown inside an instance. */
+  stacking: StackingContext | undefined
   /** Whether the state or variant being edited changes any of the row's keys on any of the layers. */
   changed: (row: StyleRow) => boolean
   /** Whether any of the row's keys differ across the layers. */
@@ -187,6 +191,42 @@ export interface StyleSelection {
   ) => (container: ContainerSpec) => ContainerSpec
   /** Takes back what the state or variant being edited changes about a row's keys, on every layer. */
   reset: (row: StyleRow) => (container: ContainerSpec) => ContainerSpec
+}
+
+/**
+ * The layer a layer's order (z-index) orders it within: the nearest around it that's a stacking context, because it
+ * has a layer order or is see-through, as the render draws them, or else the design's root.
+ */
+export interface StackingContext {
+  id: string
+  name: string
+  because: "root" | "layerOrder" | "opacity"
+}
+
+/** The stacking context of a layer with these layers around it, outermost first, each read as the board shows it. */
+function stackingContext(
+  ancestors: readonly DesignNode[],
+  shown: (node: DesignNode) => DesignNode
+): StackingContext | undefined {
+  const of = (node: DesignNode, because: StackingContext["because"]) => ({
+    id: node.id,
+    name: nodeLabel(node),
+    because
+  })
+
+  for (const around of [...ancestors].reverse()) {
+    const { zIndex, opacity } = shown(around).style ?? {}
+
+    if (zIndex !== undefined) {
+      return of(around, "layerOrder")
+    }
+
+    if (opacity !== undefined && opacity < 100) {
+      return of(around, "opacity")
+    }
+  }
+
+  return ancestors[0] && of(ancestors[0], "root")
 }
 
 /** A layer's rendered length in spacing steps, by its id, rounded by `round`. */
@@ -215,6 +255,7 @@ export function styleSelection(
 
   const layers: SelectedLayer[] = []
   const parentIds: (string | undefined)[] = []
+  const contexts: (StackingContext | undefined)[] = []
 
   for (const id of ids) {
     if (isInnerPath(id)) {
@@ -229,6 +270,7 @@ export function styleSelection(
       const parent = path ? (locateInner(container, path, library, view)?.shown ?? around) : undefined
       layers.push({ id, node: inner.shown, parent: layoutOf(parent), base: false })
       parentIds.push(path)
+      contexts.push(undefined)
     } else {
       const location = locateNode(container.root, id)
 
@@ -239,6 +281,7 @@ export function styleSelection(
       const around = location.ancestors.at(-1)
       layers.push({ id, node: shown(location.node), parent: layoutOf(around && shown(around)), base: designBase })
       parentIds.push(around?.id)
+      contexts.push(stackingContext(location.ancestors, shown))
     }
   }
 
@@ -248,6 +291,8 @@ export function styleSelection(
 
   const { common, mixed } = sharedStyle(layers.map((layer) => layer.node))
   const parent = new Set(parentIds).size === 1 ? layers[0]!.parent : undefined
+  const [stacking] = contexts
+  const sameStacking = contexts.every((each) => each?.id === stacking?.id && each?.because === stacking?.because)
 
   const changes = layers.map((layer) =>
     isInnerPath(layer.id)
@@ -264,6 +309,7 @@ export function styleSelection(
     style: common,
     mixed,
     parent,
+    stacking: sameStacking ? stacking : undefined,
     changed: (row) => changes.some((patch) => keysOf(row).some((key) => changesField(patch, { kind: "style", key }))),
     differs: (row) => keysOf(row).some((key) => mixed.includes(key)),
     edit: (_row, edit, measure) => {

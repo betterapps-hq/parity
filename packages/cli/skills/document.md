@@ -124,6 +124,7 @@ type name a token from `GetTokens()`, without the `--`.
 | `self`                                           | This node across its parent, overriding the parent's `align`              |
 | `colSpan`, `rowSpan`                             | Grid cells to span                                                        |
 | `position`, `top`, `right`, `bottom`, `left`     | `absolute`, placed against the parent's edges by lengths                  |
+| `zIndex`                                         | Layer order: a whole number, higher in front, or a z-index token          |
 | `background`                                     | A colour token, or a stack of paints (below)                              |
 | `foreground`, `border`                           | A colour token                                                            |
 | `borderWidth`                                    | Pixels: 0, 1, 2, 4 or 8                                                   |

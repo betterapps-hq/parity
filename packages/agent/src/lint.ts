@@ -65,6 +65,13 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
           }
         }
 
+        // A layer order is a whole number, or names a z-index token.
+        const zIndex = lengthName.safeParse(style?.zIndex).data
+
+        if (zIndex !== undefined && !tokens.has(zIndex)) {
+          warn("not_a_token", `zIndex "${zIndex}" isn't a token. Use a whole number instead.`, where)
+        }
+
         for (const [name, value] of lengthTokens(style)) {
           if (!tokens.has(value)) {
             warn(

@@ -156,3 +156,13 @@ describe("a project file's corrections", () => {
     )
   })
 })
+
+describe("a layer's order", () => {
+  it("is a whole number or a z-index token's name", () => {
+    const layer = (zIndex: number | string) => ({ type: "layout", id: "plans", style: { zIndex }, children: [] })
+
+    expect(parseDesignNode(layer(-5), "node").style).toEqual({ zIndex: -5 })
+    expect(parseDesignNode(layer("z-overlay"), "node").style).toEqual({ zIndex: "z-overlay" })
+    expect(() => parseDesignNode(layer(1.5), "node")).toThrow("node/style/zIndex: expected a whole number")
+  })
+})
