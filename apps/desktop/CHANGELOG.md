@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Wed, 11 Nov 2026 09:32:21 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 11 Nov 2026 11:07:41 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.60.0
+
+Wed, 11 Nov 2026 11:07:41 GMT
+
+### Minor changes
+
+- Pick a layer's style sections from what it can do, move the approved styling controls into the inspector, and have
+  each field's label name its control (ajcraswell@gmail.com)
 
 ## 0.59.0
 
