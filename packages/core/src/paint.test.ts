@@ -102,6 +102,7 @@ describe("fillCss", () => {
       undefined,
       "desktop"
     )
+
     expect(hero).toMatchObject({ kind: "element", style: fillCss(stack) })
   })
 })

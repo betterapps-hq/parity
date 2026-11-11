@@ -54,6 +54,7 @@ describe("a fill in the Paint stack control", () => {
     ]
 
     expect(entriesFromFill(paintsFromEntries(previous), [], previous)).toEqual(previous)
+
     const changed = entriesFromFill(
       [
         { kind: "solid", color: "primary" },
@@ -62,6 +63,7 @@ describe("a fill in the Paint stack control", () => {
       [],
       previous
     )
+
     expect(changed.map((entry) => entry.id)).toEqual(["fill-7", "fill-9"])
     expect(changed[0]?.paint).toEqual({ kind: "solid", color: "primary" })
   })

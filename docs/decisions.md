@@ -1,5 +1,19 @@
 # Decisions
 
+- **`background` is one color token or a stack of paints (PAR-931).** You approved on 2026-11-11 widening
+  `NodeStyle.background` to `string | Paint[]` rather than adding a `fills` key. A string stays one color token, so
+  every file, override and agent call that sets one keeps working with no migration; a list is the stack, top first, as
+  CSS and the panel order it. A paint is `solid` (a color token and its alpha), `linear`, `radial` or `conic` with its
+  own stops, `gradient` naming a gradient token, or `image` with its fit and position, and any of them can be `hidden`.
+  The fields follow the Paint stack control's model, apart from `conic` for its angular gradient and a token gradient
+  holding only its name, so the file never keeps a stale copy of the token's stops. My calls:
+  - **One plain color is written as its name.** The Fill row writes a stack of one solid with no alpha back as the
+    string, so editing an old file in the panel doesn't change its shape.
+  - **The bottom solid is `background-color`, the rest `background-image` layers.** A solid above another paint is a
+    flat gradient, and an image's size, position and repeat are listed per layer.
+  - **A frame draws a fill's images from the project's dev server,** as it does an image layer's `src`, and the Media
+    tab counts an image a fill paints as used.
+
 - **One table picks a layer's sections and controls, and the controls move into the app in steps (PAR-892).** You agreed
   on 2026-11-11 to [design-panel-sections.md](proposals/design-panel-sections.md): the panel works out what a layer can
   do (`box`, `root`, `frame`, `text`, `textInside`, `media`, `inFlex`, `inGrid`, `styled`), and each section and

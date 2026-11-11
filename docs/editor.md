@@ -3167,10 +3167,10 @@ them. It's the agreed table in [proposals/design-panel-sections.md](proposals/de
   Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
   Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is called Text when a layer is text, and Text inside otherwise.
-- Layer order, Grid placement, Fill, Effects, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in
-  Size, and fill and shadow in Appearance, until they are. A frame's Frame size is today's Size, whose width and height
-  are the frame's. Align self in a flex parent isn't in the agreed table, which has it only in Grid placement; it stays
-  as it was.
+- Layer order, Grid placement, Effects, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size,
+  and shadow in Appearance, until they are. A frame's Frame size is today's Size, whose width and height are the
+  frame's. Align self in a flex parent isn't in the agreed table, which has it only in Grid placement; it stays as it
+  was.
 - `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
   `className` still shows its sections, under the note that says they don't change it.
 
@@ -3184,6 +3184,39 @@ text, an image, a video, a code component that takes `className` and an instance
 code component that takes no `className`, and one whose props aren't known; a layer inside an instance never its
 design's root; and mixed selections, where text keeps its controls, Layout needs every layer to be a layout, a flex and
 a grid parent together give neither's controls, and one layer that takes no style leaves them all out.
+
+### Filling a layer with colors, gradients and images (PAR-931)
+
+The Fill section is the approved Paint stack: a layer's paints, top first, each a color, a linear, radial or angular
+gradient, a gradient token or an image, with its alpha, an eye that keeps it without drawing it, and a handle to drag it
+past the others. + adds a paint on top in the project's own colors, and opens its editor. A gradient's editor starts
+from the project's gradient tokens, read from their CSS; editing a token's stops makes the gradient the layer's own. An
+image's editor lists the project's pictures and takes one uploaded, dropped or pasted, saving it into `public/images/`,
+then its fit and position. An image dropped on the section adds an image fill.
+
+The document keeps the stack in `background`: one color token is a string, as it always was, and a stack a list of
+paints ([decisions.md](decisions.md)). A stack of one plain color is written back as its token's name. The bottom color
+is drawn as `background-color` and the rest as `background-image` layers. Frames draw a fill's images from the project's
+dev server, as an image layer's, and so does a preview while a paint is dragged. The Media tab counts an image a fill
+paints as used, so it isn't offered for removal. Agents set the same list through `Update` and `Insert`, and the lint
+names any color or gradient in it that isn't a token. With several layers selected and fills that differ, the section
+says so and + replaces them all.
+
+Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them. A
+paint's alpha, stops and angle are each one undo step per change, not per drag.
+
+Code: `paint.ts` in `@parity-app/core` (the schema, `fillCss`, `fillTokens`); `fillEdit` in
+`packages/editor/src/style-editing.ts`; `inspector/sections/FillSection.tsx`, with `inspector/paint-values.ts` mapping
+the document's paints to the control's and reading gradient tokens; `ImageSource` in
+`inspector/controls/image-fill.tsx`.
+
+Tests: `packages/core/src/paint.test.ts` (10): an old single color reads as it did, a stack round-trips, bad stops, fits
+and alphas are refused, the CSS each kind writes, and a render draws it. `packages/editor/src/style-editing.test.ts`
+(the Fill row's edit), `packages/editor/src/project-images.test.ts` (an image a fill paints is used),
+`packages/agent/src/lint.test.ts` and `run.test.ts` (an agent fills a layer, reads it back, and hears about a color that
+isn't a token), `packages/renderer-react/src/guest.test.ts` (a fill's images against the project), and
+`apps/desktop/src/renderer/inspector/paint-values.test.ts` (8): paints through the control and back, ids kept so an open
+editor stays open, and gradient tokens read from CSS.
 
 ## Component props
 

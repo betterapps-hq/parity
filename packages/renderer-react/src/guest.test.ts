@@ -172,9 +172,11 @@ describe("a fill's images in a frame", () => {
   it("are the project's, as an image's src is, and other styles are left as they are (PAR-931)", () => {
     // Against the module's own address, which is the project's dev server in a frame.
     const project = new URL("/images/a.png", import.meta.url).href
+
     const style = {
       backgroundImage: 'linear-gradient(red, blue), url("/images/a.png"), url(https://cdn.example/b.png)'
     }
+
     expect(withProjectUrls(style)).toEqual({
       backgroundImage: `linear-gradient(red, blue), url("${project}"), url(https://cdn.example/b.png)`
     })
