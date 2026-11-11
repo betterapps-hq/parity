@@ -1,8 +1,21 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Wed, 11 Nov 2026 08:07:32 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 11 Nov 2026 08:42:05 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.42.1
+
+Wed, 11 Nov 2026 08:42:05 GMT
+
+### Patches
+
+- Agents' state changes keep values equal to the base, Responsive merges style and props key by key, and instance
+  overrides can name layers (ajcraswell@gmail.com)
+- Draw popups that components portal to the page's body inside their frame, with the project's styles, and report
+  content left outside the frame in problems (PAR-881) (ajcraswell@gmail.com)
+- Draw empty layouts as the code does in screenshots, exports and measurements; only the canvas gives them a size and
+  dashes (ajcraswell@gmail.com)
 
 ## 0.42.0
 

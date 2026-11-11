@@ -2,6 +2,33 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Wed, 11 Nov 2026 08:42:05 GMT",
+      "version": "0.42.1",
+      "tag": "@parity-app/cli_v0.42.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "627971695dc47f01cce52428c8bef9d59023ed0b",
+            "comment": "Agents' state changes keep values equal to the base, Responsive merges style and props key by key, and instance overrides can name layers"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e90cd349e4b4b6ec7481e70995aaaedff009b3d1",
+            "comment": "Draw popups that components portal to the page's body inside their frame, with the project's styles, and report content left outside the frame in problems (PAR-881)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f8c88cd5441738c37f9c828c3f5edaa422c7824b",
+            "comment": "Draw empty layouts as the code does in screenshots, exports and measurements; only the canvas gives them a size and dashes"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 11 Nov 2026 08:07:32 GMT",
       "version": "0.42.0",
       "tag": "@parity-app/cli_v0.42.0",
