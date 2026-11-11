@@ -1,5 +1,15 @@
 # Decisions
 
+- **One table picks a layer's sections and controls, and the controls move into the app in steps (PAR-892).** You agreed
+  on 2026-11-11 to [design-panel-sections.md](proposals/design-panel-sections.md): the panel works out what a layer can
+  do (`box`, `root`, `frame`, `text`, `textInside`, `media`, `inFlex`, `inGrid`, `styled`), and each section and
+  conditional control states what it needs, as one line of a table in `@parity-app/editor` with a test per layer kind.
+  PAR-186's controls move from `explorations/styling-controls/` to `inspector/controls/` in one go, their stories under
+  `Parity/Inspector/Controls`, so there's one copy from the start; Field names its control. Then the sections the
+  document already holds are rebuilt on the shared parts, and each property `NodeStyle` can't hold yet (z-index, aspect
+  ratio, blend mode, paint and effect stacks, transitions, raw CSS and the rest of the proposal's list) is its own
+  issue: the schema, what it writes and reads back, the agent's tools and its controls.
+
 - **The CLI goes to npm's `next` tag, and to `latest` when you approve it (PAR-799).** You chose on 2026-11-09 to
   promote the CLI the way the desktop app is promoted, with its own approval. Every merge publishes the CLI to `next`,
   and `cd-npm.yml`'s Production job then waits in the `production` environment; approving it runs

@@ -145,7 +145,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
 function FrameStyles({ entry }: { entry: ContainerEntry }) {
   const editor = useStyleEditor(entry, [entry.container.root.id])
 
-  return editor ? <StyleSections editor={editor} node={entry.container.root} /> : null
+  return editor ? <StyleSections editor={editor} container={entry.container} /> : null
 }
 
 /** A screen's or component's states, params or components, the modes it shows, and a component's code. */

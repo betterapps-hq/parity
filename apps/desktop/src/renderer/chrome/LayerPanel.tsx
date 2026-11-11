@@ -489,7 +489,13 @@ function LayerSections({
         <NoStyleNote component={node.component} wrap={!inner} />
       )}
 
-      {styleEditor && <StyleSections editor={styleEditor} node={node} />}
+      {styleEditor && (
+        <StyleSections
+          editor={styleEditor}
+          container={entry.container}
+          takesStyle={(component) => components[component]?.takesStyle}
+        />
+      )}
 
       <ExportSection targets={[{ design: entry.key, node: nodeId, name }]} label={`Export ${name}`} />
     </>
@@ -504,7 +510,7 @@ function NoStyleNote({ component, wrap }: { component: string; wrap: boolean }) 
   return (
     <div className={`flex flex-col gap-2 border-b py-2.5 pl-4 ${panelEnd}`}>
       <p className="type-description text-muted-foreground">
-        {component} doesn&apos;t take a <code>style</code>, so the size and styles below don&apos;t change it.
+        {component} doesn&apos;t take a <code>style</code>, so it can&apos;t be sized or styled here.
         {wrap ? " Wrap it in a layout and size that instead." : ""}
       </p>
       {wrap && (
@@ -713,7 +719,6 @@ function InstanceSection({
               <ValueInput
                 value={readPropValue(node.args?.[name] ?? param.default)}
                 kind={valueKind(readPropValue(node.args?.[name] ?? param.default), param.type)}
-                title={name}
                 onCommit={(value) => onChange(name, value)}
               />
             </Field>
@@ -1004,7 +1009,6 @@ function MediaSection({ entry, node }: { entry: ContainerEntry; node: MediaNode 
       {node.type === "video" && (
         <Field label="Controls">
           <SwitchInput
-            label="Controls"
             value={node.controls === true}
             onChange={(controls) =>
               edit(controls ? "Show controls" : "Hide controls", "controls", (media) => {

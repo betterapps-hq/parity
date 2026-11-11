@@ -99,6 +99,19 @@ export function useMixed(): boolean {
   return useContext(MixedContext)
 }
 
+/** The id of the label of the field an input sits in, which names the input. */
+const FieldLabelContext = createContext<string | undefined>(undefined)
+
+/**
+ * How an input is named: by `name` when it's given one, for a row of several inputs or an input outside a field, and
+ * otherwise by the label of the field it sits in, so a call site doesn't repeat the label.
+ */
+function useFieldName(name: string | undefined): { "aria-label"?: string; "aria-labelledby"?: string } {
+  const labelId = useContext(FieldLabelContext)
+
+  return name ? { "aria-label": name } : { "aria-labelledby": labelId }
+}
+
 /** Starts scrubbing a field from a pointer pressed on a label. */
 type Scrub = (event: ReactPointerEvent<HTMLElement>) => void
 
@@ -135,12 +148,14 @@ export interface FieldFlag {
 const MessageContext = createContext<((id: string, message: FieldMessage | undefined) => void) | undefined>(undefined)
 
 /**
- * One property row: label, control, and a reset button when a state overrides it. When the row holds one number field
- * without a label of its own, dragging the row's label scrubs it, as Figma's labels do. What its fields say shows under
- * the row.
+ * One property row: label, control, and a reset button when a state overrides it. The label names the inputs inside
+ * that aren't given a name of their own (see `useFieldName`); controls with their own name, such as a button with
+ * text, keep it. When the row holds one number field without a label of its own, dragging the row's label scrubs it,
+ * as Figma's labels do. What its fields say shows under the row.
  */
 export function Field({ label, hint, changed, mixed = false, onReset, children }: FieldProps) {
   const firstState = useContext(FirstStateName)
+  const labelId = useId()
   const scrubs = useRef(new Set<Scrub>())
   const [scrub, setScrub] = useState<Scrub>()
 
@@ -197,6 +212,7 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
           wait
         >
           <span
+            id={labelId}
             className={`truncate text-xs text-muted-foreground ${scrub ? "cursor-ew-resize touch-none select-none" : ""}`}
             style={changed ? { color: kindColors.agent } : undefined}
             onPointerDown={scrub}
@@ -219,11 +235,13 @@ export function Field({ label, hint, changed, mixed = false, onReset, children }
         )}
       </div>
       <div className="min-w-0">
-        <ScrubContext value={register}>
-          <MessageContext value={say}>
-            <MixedContext value={mixed}>{children}</MixedContext>
-          </MessageContext>
-        </ScrubContext>
+        <FieldLabelContext value={labelId}>
+          <ScrubContext value={register}>
+            <MessageContext value={say}>
+              <MixedContext value={mixed}>{children}</MixedContext>
+            </MessageContext>
+          </ScrubContext>
+        </FieldLabelContext>
       </div>
       {messages.size > 0 && (
         <div className="col-start-2 -mt-1 flex flex-col gap-0.5 pb-1">
@@ -281,6 +299,7 @@ function FieldMessageLine({ id, message }: { id: string; message: FieldMessage }
  */
 export function TextInput({
   value,
+  label,
   onCommit,
   placeholder,
   multiline = false,
@@ -288,6 +307,8 @@ export function TextInput({
   name = false
 }: {
   value: string
+  /** Its accessible name, where its field's label doesn't name it. */
+  label?: string
   onCommit: (value: string) => void
   placeholder?: string
   multiline?: boolean
@@ -296,12 +317,14 @@ export function TextInput({
   name?: boolean
 }) {
   const mixed = useMixed()
+  const named = useFieldName(label)
   const className = `h-7 px-2 text-xs ${mono ? "font-mono" : ""}`
 
   if (multiline) {
     return (
       <textarea
         key={value}
+        {...named}
         defaultValue={value}
         placeholder={mixed ? "Mixed" : placeholder}
         rows={Math.min(6, Math.max(1, Math.ceil(value.length / 28)))}
@@ -322,6 +345,7 @@ export function TextInput({
   return (
     <Control
       key={value}
+      {...named}
       defaultValue={value}
       placeholder={mixed ? "Mixed" : placeholder}
       className={className}
@@ -348,8 +372,8 @@ export interface NumberFieldProps {
   /** What it holds; undefined when unset, or when the selected layers differ (then it shows Mixed). */
   value: FieldValue
   rules: FieldRules
-  /** Its accessible name. */
-  title: string
+  /** Its accessible name, where its field's label doesn't name it, as for one of a row's several fields. */
+  title?: string
   /** Length token names it takes as typed. */
   tokens?: readonly string[]
   placeholder?: string
@@ -404,6 +428,7 @@ export function NumberField({
   onCommit
 }: NumberFieldProps) {
   const mixed = useMixed()
+  const named = useFieldName(title)
   const register = useContext(ScrubContext)
   const say = useContext(MessageContext)
   const store = useContext(ProjectContext)?.store
@@ -699,7 +724,7 @@ export function NumberField({
       )}
       <Input
         ref={input}
-        aria-label={title}
+        {...named}
         aria-invalid={error || undefined}
         aria-describedby={[state.message && messageId, flagShown && flagId].filter(Boolean).join(" ") || undefined}
         value={fieldText(state, shown)}
@@ -790,7 +815,7 @@ export function ChoiceInput<T extends string>({
   onChange,
   placeholder = "Default"
 }: {
-  /** Its accessible name, where no label names it. */
+  /** Its accessible name, where its field's label doesn't name it. */
   label?: string
   value: T | undefined
   options: { value: T; label: string }[]
@@ -798,6 +823,7 @@ export function ChoiceInput<T extends string>({
   placeholder?: string
 }) {
   const mixed = useMixed()
+  const named = useFieldName(label)
 
   const items: { value: T | "__unset"; label: ReactNode }[] = [
     { value: "__unset", label: <span className="text-muted-foreground">{placeholder}</span> },
@@ -810,7 +836,7 @@ export function ChoiceInput<T extends string>({
       value={value ?? (mixed ? null : "__unset")}
       onValueChange={(next) => onChange(next === null || next === "__unset" ? undefined : next)}
     >
-      <SelectTrigger size="sm" aria-label={label} className="h-7 w-full text-xs">
+      <SelectTrigger size="sm" {...named} className="h-7 w-full text-xs">
         <SelectValue placeholder="Mixed" />
       </SelectTrigger>
       <PanelSelectContent>
@@ -842,11 +868,13 @@ export function SwitchInput({
   onChange
 }: {
   value: boolean
-  /** Its accessible name, when no label names it. */
+  /** Its accessible name, where its field's label doesn't name it. */
   label?: string
   onChange: (value: boolean) => void
 }) {
-  return <Switch size="sm" checked={value} aria-label={label} onCheckedChange={onChange} />
+  const named = useFieldName(label)
+
+  return <Switch size="sm" checked={value} {...named} onCheckedChange={onChange} />
 }
 
 /** Rules for a number a prop or param takes: any number, with maths. */
@@ -873,7 +901,8 @@ export function NumberValueInput({
   onCommit
 }: {
   value: PropValue | undefined
-  title: string
+  /** Its accessible name, where its field's label doesn't name it. */
+  title?: string
   placeholder?: string
   /** What an unset value counts as when an edit works from it, such as the prop's default. */
   blank?: () => number | undefined
@@ -934,12 +963,13 @@ function numberOrUnset(value: FieldValue): number | undefined {
  */
 export function ValueInput({
   value,
-  title = "Value",
+  title,
   kind = valueKind(value),
   preview,
   onCommit
 }: {
   value: PropValue | undefined
+  /** Its accessible name, where its field's label doesn't name it. */
   title?: string
   kind?: ValueKind
   preview?: NumberPreview
@@ -954,7 +984,7 @@ export function ValueInput({
   }
 
   if (kind === "text") {
-    return <TextInput value={value === undefined ? "" : plainText(value)} onCommit={onCommit} />
+    return <TextInput value={value === undefined ? "" : plainText(value)} label={title} onCommit={onCommit} />
   }
 
   return <ParsedInput value={value} kind={kind} title={title} onCommit={onCommit} />
@@ -972,19 +1002,20 @@ function ParsedInput({
 }: {
   value: PropValue | undefined
   kind: "json" | "any"
-  title: string
+  title: string | undefined
   onCommit: (value: PropValue | undefined) => void
 }) {
   const shown = showValue(value, kind)
   const [error, setError] = useState<string>()
   const id = useId()
+  const named = useFieldName(title)
 
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <Input
         key={shown}
         defaultValue={shown}
-        aria-label={title}
+        {...named}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? id : undefined}
         className="h-7 px-2 font-mono text-xs"

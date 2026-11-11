@@ -158,7 +158,6 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
           <NumberInput
             value={values.opacity}
             rules={percentRules}
-            title="Number"
             placeholder="100"
             suffix="%"
             blank={() => 100}
@@ -171,7 +170,6 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
           <NumberInput
             value={values.lines}
             rules={countRules}
-            title="No number"
             placeholder="No limit"
             onCommit={(update) => set({ lines: update(values.lines) })}
           />
@@ -182,7 +180,6 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
           <NumberField
             value={values.gap}
             rules={lengthRules}
-            title="Length"
             suffix={values.gap === undefined ? undefined : "px"}
             blank={() => 0}
             onCommit={(update) => set({ gap: update(values.gap) })}
@@ -230,8 +227,24 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
   )
 }
 
-/** Every kind of field with a value: text, long text, code, numbers, a choice, a switch, JSON, and tokens. */
-export const EveryKind: Story = {}
+/**
+ * Every kind of field with a value: text, long text, code, numbers, a choice, a switch, JSON, and tokens. Each row's
+ * label names its control; a token picker keeps its own name, which says the value too.
+ */
+export const EveryKind: Story = {
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+
+    for (const name of ["Text", "Long text", "Code", "Number", "No number", "Length", "Any value"]) {
+      await expect(panel.getByRole("textbox", { name })).toBeVisible()
+    }
+
+    await expect(panel.getByRole("combobox", { name: "Choice" })).toBeVisible()
+    await expect(panel.getByRole("switch", { name: "Switch" })).toBeChecked()
+    await expect(panel.getByRole("button", { name: "Color, primary" })).toBeVisible()
+    await expect(panel.getByRole("button", { name: "Token, radius-lg" })).toBeVisible()
+  }
+}
 
 /** Nothing set: each control shows its placeholder or default, None for tokens. */
 export const NothingSet: Story = { args: { look: "unset" } }
@@ -291,7 +304,7 @@ export const Swatches: Story = {
 /** A choice open: the default first, muted, then each option. */
 export const ChoiceOpen: Story = {
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("combobox"))
+    await userEvent.click(within(canvasElement).getByRole("combobox", { name: "Choice" }))
     await within(document.body).findByRole("listbox", undefined, slowly)
   }
 }
@@ -315,7 +328,7 @@ export const NoTokenMatches: Story = {
 /** Typing in a text field: nothing is written until Enter or the field loses focus. */
 export const Typing: Story = {
   play: async ({ canvasElement }) => {
-    const input = within(canvasElement).getByDisplayValue("Get started")
+    const input = within(canvasElement).getByRole("textbox", { name: "Text" })
     await userEvent.clear(input)
     await userEvent.type(input, "Start your free trial", typing)
   }

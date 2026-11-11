@@ -1,6 +1,5 @@
 import {
   boardTarget,
-  type DesignNode,
   editNode,
   locateNode,
   type NodeChange,
@@ -131,13 +130,13 @@ export function SelectedStyles() {
     return null
   }
 
-  return <LayerStyles key={layer.nodeId} entry={layer.entry} nodeId={layer.nodeId} node={layer.node} />
+  return <LayerStyles key={layer.nodeId} entry={layer.entry} nodeId={layer.nodeId} />
 }
 
-function LayerStyles({ entry, nodeId, node }: { entry: ContainerEntry; nodeId: string; node: DesignNode }) {
+function LayerStyles({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
   const editor = useStyleEditor(entry, [nodeId])
 
-  return editor ? <StyleSections editor={editor} node={node} /> : null
+  return editor ? <StyleSections editor={editor} container={entry.container} /> : null
 }
 
 /** Types as a person would, a key at a time. */

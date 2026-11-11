@@ -304,6 +304,7 @@ function VariantsSection({ entry, variants }: { entry: ContainerEntry; variants:
             <div className="grid grid-cols-[96px_1fr] items-center gap-2">
               <span className="px-1 text-xs text-muted-foreground">Default</span>
               <ChoiceInput
+                label={`${name} default`}
                 value={textValue.safeParse(param.default).data}
                 options={(param.options ?? []).map((option) => ({ value: option.id, label: option.name }))}
                 placeholder={param.options?.[0]?.name}

@@ -118,11 +118,11 @@ to pass on to its DOM.
   attribute to components as a prop, where it does no harm, so that fallback and the scripts that count drawn layers
   keep working.
 - **When a component doesn't take `style`.** What a design sets on a component (size, spacing, place, fill) goes to its
-  root through its `style` prop. When the props the type checker reads have no `style`, the inspector says so above the
-  styles, "MemberRow doesn't take a `style`, so the size and styles below don't change it. Wrap it in a layout and size
-  that instead.", with a Wrap in layout button (Ctrl G). Inside an instance the note shows without the button, since
-  that belongs in the component design. Props typed `any`, `object` or with an index signature could take anything, so
-  the note doesn't show for them.
+  root through its `style` prop. When the props the type checker reads have no `style`, the inspector shows no style
+  sections and says why: "MemberRow doesn't take a `style`, so it can't be sized or styled here. Wrap it in a layout and
+  size that instead.", with a Wrap in layout button (Ctrl G). Inside an instance the note shows without the button,
+  since that belongs in the component design. Props typed `any`, `object` or with an index signature could take
+  anything, so the note doesn't show for them.
 - **When a component puts its `style` inside (PAR-201).** A component can take `style` and put it on an element inside
   another it draws, as a field passes its props to its input. The first time a layer draws such a component with a
   style, the guest finds where the style went in React's tree, before the frame is painted, and from then on draws a
@@ -2642,6 +2642,7 @@ Tests:
   attributes left alone.
 - `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
 - `chrome/layer-kind.test.ts`: an image is Image and a video Video.
+- `chrome/LayerPanel.stories.tsx` VideoLayer: its section's fields and Controls found by their labels (PAR-892).
 - `packages/agent/src/dispatch.test.ts`: a video saved and placed in a video node, and a picture and a video each
   refused by the other's node.
 
@@ -3063,6 +3064,29 @@ Tests:
 - `chrome/StyleSections.stories.tsx` PickingAColor and `chrome/fields.stories.tsx` SearchingTokens and NoTokenMatches
   open their pickers by name.
 
+### Each field's label names its control (PAR-892)
+
+A row's label names the control beside it, so a screen reader hears "Alt text" on an image's alt text, and a test finds
+it by role and name. Before, the label was only text beside the control: an image's or video's Visible, File, Alt text
+and Fit, a component's props and an instance's params had no name unless the call site repeated the label. A text field,
+choice, switch, number field or JSON field takes its row's label through `aria-labelledby`. One given a name of its own
+keeps it: one of a row's several fields, such as Min's Minimum width and Minimum height, or a field outside a row, such
+as a variant's default in the Components section ("size default"). Controls that name themselves keep their names too: a
+token picker ("Fill, primary"), a slot's button, and the buttons that bind a field to a prop.
+
+Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/chrome/fields.tsx`; `TextInput`, `ChoiceInput`,
+`SwitchInput`, `NumberField` and `ValueInput` take a name only where the row's label doesn't say it.
+
+Tests:
+
+- `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: every number field found by its row's label, with no
+  name of its own.
+- `chrome/fields.stories.tsx` EveryKind: each kind of field found by its row's label, and the token pickers by their own
+  names. ChoiceOpen and Typing find their controls by name.
+- `chrome/LayerPanel.stories.tsx` ImageLayer and VideoLayer: Visible, File, Alt text, Fit and, for a video, Controls
+  found by role and name.
+- `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
+
 ### One right edge in the inspector (PAR-552)
 
 Everything in the inspector's Design tab runs to one right edge, 12px from the panel's side: inputs, the Editing bar,
@@ -3125,6 +3149,41 @@ project's tab, beside a component's Box; and outside a tab when it's given the l
 icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select layer names an
 unnamed icon by its icon). The header itself is checked in the Inspector stories (Layer/Kinds, Layer/Instances: Layer
 Inside An Instance, Layer/Basics: Unnamed Layer, Design: Screen Selected), in light and dark.
+
+### Which sections a layer gets (PAR-892)
+
+The Design tab's style sections follow what the selected layers can do, not each node's type. What they can do is worked
+out once: `box` (a layout), `root` (its design's outermost layout), `frame` (a frame's root), `text`, `textInside` (a
+layout, a component or an instance), `media` (an image or a video), `inFlex` and `inGrid` (its parent's layout), and
+`styled` (every layer but a code component whose props take no `className`). With several layers selected, one holds
+when it holds for every layer, except `text`, which holds when any of them is text: a mixed selection's text layers get
+Resizing and Max lines, and Resizing changes only them.
+
+One table lists every section, and every control only some layers get, with what it needs, in the order the panel shows
+them. It's the agreed table in [proposals/design-panel-sections.md](proposals/design-panel-sections.md):
+
+- Frame size (`frame`); Position and Layer order (not `root`); Size (not `frame`), with Fill in its menu (`inFlex`,
+  `inGrid` or `box`) and Align self (`inFlex`); Grid placement (`inGrid`), with Span; Layout (`box`); Spacing, with
+  Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
+  Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
+- The text section is called Text when a layer is text, and Text inside otherwise.
+- Layer order, Grid placement, Fill, Effects, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in
+  Size, and fill and shadow in Appearance, until they are. A frame's Frame size is today's Size, whose width and height
+  are the frame's. Align self in a flex parent isn't in the agreed table, which has it only in Grid placement; it stays
+  as it was.
+- `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
+  `className` still shows its sections, under the note that says they don't change it.
+
+Code: `selectionCapabilities`, `styleTable` and `styleParts` in `packages/editor/src/layer-capabilities.ts`;
+`StyleSections` in `apps/desktop/src/renderer/chrome/StyleSections.tsx` draws the sections `styleParts` gives, with the
+design passed in by `chrome/DesignPanel.tsx` and `chrome/MultiPanel.tsx`. The layer panel never shows a design's root,
+so it leaves the design out.
+
+Tests: `packages/editor/src/layer-capabilities.test.ts` (23): a screen's, a component's and a frame's root; a layout,
+text, an image, a video, a code component that takes `className` and an instance, each in a flex parent and in a grid; a
+code component that takes no `className`, and one whose props aren't known; a layer inside an instance never its
+design's root; and mixed selections, where text keeps its controls, Layout needs every layer to be a layout, a flex and
+a grid parent together give neither's controls, and one layer that takes no style leaves them all out.
 
 ## Component props
 
