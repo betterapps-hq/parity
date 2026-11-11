@@ -3,9 +3,9 @@ import { createContext, type CSSProperties, type ReactNode, use, useLayoutEffect
 import { KeyHints } from "../../canvas/KeyHints.tsx"
 import { spacingColors } from "../../canvas/spacing-colors.ts"
 import { gestures as held } from "../../chrome/keymap.ts"
-import { formatNumber, sameValue, tint } from "./css-values.ts"
+import { sameValue, tint } from "./css-values.ts"
 import { useTokens } from "./field-parts.tsx"
-import { type Side, type SideRules, type Sides, sideInline, sideNames, sideRules } from "./sides-writes.ts"
+import { type Side, type SideRules, type Sides, sideInline, sideNames, sideRules, sideShown } from "./sides-writes.ts"
 import { setSides, SideField, type Spread, spreadTo } from "./sides.tsx"
 import type { LengthToken } from "./tokens.ts"
 
@@ -37,30 +37,6 @@ const hatched = (color: string) =>
 
 /** A side that's hovered or being edited, as the canvas shades the handle it's dragging. */
 const active = (color: string) => tint(color, 30)
-
-/**
- * A side's measurement as the box shows it, with its unit: `16px`, `10%`, `Auto`, a token's value. A token missing from
- * the project shows its name, since it has no value.
- */
-function measurement(side: Side, token: LengthToken | undefined): { number: string; unit?: string } | undefined {
-  if (side === undefined) {
-    return undefined
-  }
-
-  if (side === "auto") {
-    return { number: "Auto" }
-  }
-
-  if ("number" in side) {
-    return { number: formatNumber(side.number), unit: "px" }
-  }
-
-  if ("percent" in side) {
-    return { number: formatNumber(side.percent), unit: "%" }
-  }
-
-  return token ? { number: formatNumber(token.px), unit: "px" } : { number: side.token }
-}
 
 /** What a side shows: its number, and its unit after it, muted. */
 interface Shown {
@@ -123,7 +99,8 @@ export function SideValue({
   const { tokens } = useTokens(rules.tokens.set)
   const tokenName = value !== undefined && value !== "auto" && "token" in value ? value.token : undefined
   const token = tokens.find((other) => other.name === tokenName)
-  const shown: Shown = mixed ? { number: "Mixed" } : (measurement(value, token) ?? unset)
+  // Its measurement with its unit: `16px`, `10%`, Auto, a token's value, or a missing token's name.
+  const shown: Shown = mixed ? { number: "Mixed" } : (sideShown(value, tokens, rules.unit) ?? unset)
   const faint = mixed || value === undefined
   const plus = signed && value !== undefined && value !== "auto" && "number" in value && value.number > 0 ? "+" : ""
   let named = `${plus}${shown.number}${shown.unit ?? ""}`

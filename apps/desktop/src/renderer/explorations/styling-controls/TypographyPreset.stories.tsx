@@ -132,12 +132,12 @@ export const OverridingAndResetting: Story = {
   render: () => <PresetStory start={{ preset: "heading", own: {} }} open />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("button", { name: "Unlock Size to override heading" }))
+    await userEvent.click(canvas.getByRole("button", { name: "Lock Size to heading", pressed: true }))
     const size = canvas.getByRole("textbox", { name: "Size" })
     await expect(size).toHaveFocus()
     await userEvent.type(size, "22{Enter}")
     await userEvent.click(await canvas.findByRole("button", { name: "Reset Size to heading" }))
-    await expect(await canvas.findByRole("button", { name: "Unlock Size to override heading" })).toHaveFocus()
+    await expect(await canvas.findByRole("button", { name: "Lock Size to heading", pressed: true })).toHaveFocus()
   }
 }
 

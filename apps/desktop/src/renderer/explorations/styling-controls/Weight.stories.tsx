@@ -10,10 +10,12 @@ import { weightTokens } from "./tokens.ts"
 import type { StoredObject, Writes } from "./writes.ts"
 
 /**
- * Weight and style (PAR-186, design-options-values.md's Weight): the weight's name (Semibold), with its number and
- * class in the hint, and Italic beside it. Its menu lists the font's own weights first, each set in that weight, and
- * moving through it previews each on the text; a variable font adds a number field and a slider over its weight axis.
- * Up and Down on the field step through the font's weights. A weight the font has no face for is drawn with the
+ * Weight and style (PAR-186, design-options-values.md's Weight): a token field, as Size and Line height are, with
+ * Italic beside it. A weight token is its chip (semibold), with its number and class in the hint; a weight's number or
+ * name can be typed, Backspace on the chip goes back to the inherited weight, and dragging the row's name changes it.
+ * Its chevron lists the font's own weights first, each set in that weight, with Up and Down moving through them and
+ * previewing each on the text, and Detach while a token's set; a variable font adds a number field and a slider over
+ * its weight axis. Up and Down on the field step through the font's weights. A weight the font has no face for is drawn with the
  * nearest face, or faked by the browser, and the field says so. Font is above it, so changing the font changes what
  * Weight offers.
  */
@@ -110,7 +112,7 @@ function Weight({
   )
 }
 
-/** Semibold in Geist, `font-semibold`. Up and Down step to Medium and Bold. */
+/** Semibold in Geist, `font-semibold`, as its chip. Up and Down step to Medium and Bold. */
 export const Named: Story = { render: () => <Weight font={{ token: "sans" }} start={{ token: "semibold" }} /> }
 
 /** Unset: Regular, muted, inherited. Nothing is written. */

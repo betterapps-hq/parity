@@ -19,7 +19,7 @@ import {
   stepThrough
 } from "./css-values.ts"
 import type { LengthToken } from "./tokens.ts"
-import { readLength } from "./typing.ts"
+import { readLength, readNumber } from "./typing.ts"
 import { type StoredObject, type StoredValue, withAllow, type Writes } from "./writes.ts"
 
 /**
@@ -166,8 +166,17 @@ export function sideNumber(side: Side, tokens: readonly LengthToken[]): number |
 export type SideReading = { side: Side } | { shorthand: Sides } | { reason: string }
 
 /**
+ * Whether what's typed is CSS's shorthand of two to four values (`8 16`, `16 -8`, `auto 1rem`) rather than one value
+ * with the app's maths: none of its parts is an operator or a bracket, or starts with one (`16 + 4`, `16 *2`,
+ * `(24 - 4) / 2` are sums). A leading `-` is a negative value, as CSS reads `margin: 16px -8px`.
+ */
+const isShorthand = (parts: readonly string[]) =>
+  parts.length > 1 && parts.every((part) => !/^[+*/]|[-+*/]$|[()]/.test(part))
+
+/**
  * What's typed into a side: a length with the app's maths and units, a token's name with or without its namespace,
- * `auto` where it's taken, or CSS's shorthand of two to four values, which fills the sides in CSS's order.
+ * `auto` where it's taken, or CSS's shorthand of two to four values, which fills the sides in CSS's order. Text with
+ * spaces is one value, worked out with the app's maths, unless it's shorthand as `isShorthand` says.
  */
 export function readSide(
   text: string,
@@ -184,7 +193,7 @@ export function readSide(
 
   const parts = trimmed.split(/\s+/)
 
-  if (parts.length === 1) {
+  if (!isShorthand(parts)) {
     return readOne(trimmed, label, rules, current, tokens)
   }
 
@@ -229,13 +238,23 @@ function readOne(
   }
 
   if (rules.stepBy === "count") {
-    const number = Number(text)
+    const reading = readNumber(text, sideNumber(current, tokens), label)
 
-    if (!Number.isInteger(number)) {
-      return { reason: `Enter a whole number, such as 10, or a token` }
+    if ("clear" in reading) {
+      return { side: undefined }
     }
 
-    return { side: { number } }
+    if ("reason" in reading) {
+      return reading.reason.startsWith("Can't read")
+        ? { reason: `Enter a whole number, such as 10, or a token` }
+        : reading
+    }
+
+    if (!Number.isInteger(reading.value)) {
+      return { reason: `${capital(rules.noun)} takes a whole number, such as 10` }
+    }
+
+    return { side: { number: reading.value } }
   }
 
   const reading = readLength(text, { label, current: sideNumber(current, tokens), takesPercent: rules.percent })
@@ -294,7 +313,9 @@ export function stepSide(
   const by = stepCount(up, shift)
 
   if (side !== undefined && side !== "auto" && "percent" in side) {
-    return { percent: side.percent + by }
+    const next = side.percent + by
+
+    return { percent: rules.negatives ? next : Math.max(0, next) }
   }
 
   const from = sideNumber(side, tokens) ?? measured ?? 0
@@ -430,6 +451,36 @@ export function sideCss(kind: SideKind, side: SideValue): string {
   }
 
   return lengthCss(side.number)
+}
+
+/**
+ * A side as a field shows it, with its unit: `16` px, `10` %, Auto, a token's number in pixels, or a missing token's
+ * name, since it has no value. `unit` is the field's (a count has none).
+ */
+export function sideShown(
+  side: Side,
+  tokens: readonly LengthToken[],
+  unit: string | undefined
+): { number: string; unit?: string } | undefined {
+  if (side === undefined) {
+    return undefined
+  }
+
+  if (side === "auto") {
+    return { number: "Auto" }
+  }
+
+  if ("percent" in side) {
+    return { number: formatNumber(side.percent), unit: "%" }
+  }
+
+  const number = sideNumber(side, tokens)
+
+  if (number === undefined) {
+    return { number: "token" in side ? side.token : "" }
+  }
+
+  return unit === undefined ? { number: formatNumber(number) } : { number: formatNumber(number), unit }
 }
 
 /** One side as it's drawn in a preview, in pixels where it has them. */

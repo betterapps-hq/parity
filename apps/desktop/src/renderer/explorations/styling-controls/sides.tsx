@@ -26,6 +26,7 @@ import {
   type Sides,
   sideNames,
   sideNumber,
+  sideShown,
   stepSide
 } from "./sides-writes.ts"
 import { isBareNumber } from "./typing.ts"
@@ -67,15 +68,15 @@ export function setSides(sides: Sides, reached: readonly number[], value: Side):
 }
 
 /**
- * Dragging a side's label: a whole spacing step per 2 screen pixels, or a pixel or one per screen pixel; Shift goes ten
- * times as far, except where Alt reaches other sides, and Alt+Shift means all four instead.
+ * Dragging a side's label: a whole spacing step per 2 screen pixels, or a pixel, a percent or one per screen pixel;
+ * Shift goes ten times as far, except where Alt reaches other sides, and Alt+Shift means all four instead.
  */
-function sideScrub(rules: SideRules, spreads: boolean): ScrubBy {
+function sideScrub(rules: SideRules, spreads: boolean, percent: boolean): ScrubBy {
   return {
     move: (start, dx, { shift, alt }) => {
       const further = shift && !(spreads && alt)
 
-      if (rules.stepBy === "spacing") {
+      if (rules.stepBy === "spacing" && !percent) {
         return stepSpacing(start, scrubSteps(dx, further))
       }
 
@@ -169,15 +170,8 @@ export function SideField({
   const useNearest = () => onChange({ number: nearestStep }, "side")
   const spreadFrom = (keys: ScrubKeys): Spread => (spreads ? spreadOf(keys) : "side")
 
-  let shown: string | undefined
-
-  if (value === "auto") {
-    shown = "Auto"
-  } else if (own) {
-    shown = formatNumber(own.number)
-  } else if (percent !== undefined) {
-    shown = formatNumber(percent)
-  }
+  // A token is its chip, so the text shows nothing of it.
+  const shown = tokenName === undefined ? sideShown(value, tokens, rules.unit)?.number : undefined
 
   // The unit a bare number is typed in: the value's, or the one last chosen from the menu while the side was unset.
   const percentUnit = usePercentUnit(own?.number, percent, {
@@ -186,6 +180,8 @@ export function SideField({
   })
 
   const unitNow = percentUnit.unit
+  // A percentage scrubs as a percentage, and so does unset with % chosen from the menu.
+  const scrubsPercent = percent !== undefined || (value === undefined && rules.percent && unitNow === "%")
   let shownUnit: ReactNode
 
   if (rules.percent) {
@@ -268,9 +264,9 @@ export function SideField({
         bare
           ? undefined
           : {
-              from: () => sideNumber(value, tokens) ?? measured ?? 0,
-              apply: (number, keys) => onChange({ number }, spreadFrom(keys)),
-              by: sideScrub(rules, spreads)
+              from: () => (scrubsPercent ? (percent ?? 0) : (sideNumber(value, tokens) ?? measured ?? 0)),
+              apply: (number, keys) => onChange(scrubsPercent ? { percent: number } : { number }, spreadFrom(keys)),
+              by: sideScrub(rules, spreads, scrubsPercent)
             }
       }
       shown={shown}
@@ -312,10 +308,13 @@ export function SideField({
         tokensOnly
           ? {
               tokens,
+              // Read as the field reads it, so `1rem`, `+8` and `spacing-4` find the token nearest what they come to.
               nearestTo: (text) => {
-                const typed = Number.parseFloat(text)
+                const reading = read(text)
+                const typed = "value" in reading && "side" in reading.value ? reading.value.side : undefined
+                const px = sideNumber(typed, tokens)
 
-                return Number.isFinite(typed) ? nearestToken(tokens, (each) => each.px, typed) : undefined
+                return px === undefined ? undefined : nearestToken(tokens, (each) => each.px, px)
               },
               takes: (text) => {
                 const reading = read(text)
@@ -413,15 +412,32 @@ export function FourSidesField({
   onHover?: (sides: number[] | undefined) => void
 }) {
   const [each, setEach] = useState(() => !fitsTogether(together, sides, mixed))
+  // The sides last shown, and the sides this field last wrote, so sides that come from elsewhere (another selection,
+  // an undo) work out Each side afresh, while the field's own edits leave it as it is.
+  const [shownFor, setShownFor] = useState({ sides, mixed })
+  const [wrote, setWrote] = useState<Sides>()
   const noun = label.toLowerCase()
+
+  if (!sameValue(shownFor, { sides, mixed })) {
+    setShownFor({ sides, mixed })
+
+    if (!sameValue(sides, wrote)) {
+      setEach(!fitsTogether(together, sides, mixed))
+    }
+  }
+
+  const write = (next: Sides, reached: number[]) => {
+    setWrote(next)
+    onChange(next, reached)
+  }
 
   const update = (indexes: number[], value: Side, spread: Spread) => {
     const reached = spreadTo(indexes, spread)
-    onChange(setSides(sides, reached, value), reached)
+    write(setSides(sides, reached, value), reached)
   }
 
   const shorthand = (next: Sides) => {
-    onChange(next, [0, 1, 2, 3])
+    write(next, [0, 1, 2, 3])
 
     // Sides typed that differ open every side, to show them; nothing closes it under the pointer.
     if (!fitsTogether(together, next, [])) {

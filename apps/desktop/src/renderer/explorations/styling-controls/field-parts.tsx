@@ -12,15 +12,13 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { applyFieldInput, readFieldInput, scrubSteps } from "@parity-app/core"
+import { scrubSteps } from "@parity-app/core"
 import type { PreviewKind } from "@parity-app/tokens"
 import {
   Check,
   ChevronDown,
   ChevronRight,
-  Circle,
   CircleAlert,
-  CircleCheck,
   CircleDashed,
   Hexagon,
   SunMoon,
@@ -36,13 +34,13 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useContext,
+  useEffect,
   useId,
   useRef,
   useState
 } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
-import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { numberValue, textValue } from "../../chrome/prop-values.ts"
 import { moving, onPaper, paper, TokenArt } from "../../chrome/token-previews.tsx"
 import { clamp, formatNumber, stepSpacing, stepThrough } from "./css-values.ts"
@@ -56,6 +54,7 @@ import {
   type TokenSets,
   tokenSets
 } from "./tokens.ts"
+import { readNumber } from "./typing.ts"
 
 /*
  * The one field every styling control builds on, as PAR-652's design-options-fields.md sets its anatomy: an inner
@@ -66,6 +65,10 @@ import {
  */
 
 /* Messages and typing */
+
+// The parsers are data in and data out, so they live with the other typing that data code reads; fields import them
+// from here too.
+export { readNumber, readUnitNumber } from "./typing.ts"
 
 /** A button after a message's text: the other reading ("Did you mean 24px?"), or the nearest token. */
 export interface MessageAction {
@@ -96,72 +99,6 @@ export const arrowMoves = new Map<string, [number, number]>([
   ["ArrowUp", [0, -1]],
   ["ArrowDown", [0, 1]]
 ])
-
-/** A number typed with the app's maths: `8`, `+2`, `*2`, `(24 - 4) / 2`, working from `current` when it starts with one. */
-export function readNumber(
-  text: string,
-  current: number | undefined,
-  label: string
-): { value: number } | { clear: true } | { reason: string } {
-  const rules = { kind: "number" as const, label }
-  const outcome = applyFieldInput(readFieldInput(text, rules), current, rules)
-
-  if (!outcome.ok) {
-    return { reason: outcome.reason }
-  }
-
-  const number = numberValue.safeParse(outcome.value).data
-
-  if (number === undefined) {
-    return { clear: true }
-  }
-
-  return { value: Math.round(number * 10_000) / 10_000 }
-}
-
-/**
- * A number typed in a field's own units, with the app's maths as `readNumber` reads it: `45`, `0.25turn`, `+15`, `*2`,
- * `(90 - 30) / 2`. A unit at the end converts from that unit, `units` giving what one of each comes to in the field's
- * own; a bare number is in the field's own unit, and a leading `-` is a negative number, not a step down. Text it
- * can't read gets `takes`, which says what the field takes.
- */
-export function readUnitNumber(
-  text: string,
-  {
-    units,
-    current,
-    label,
-    takes
-  }: { units: Readonly<Record<string, number>>; current: number; label: string; takes: string }
-): { value: number } | { reason: string } {
-  const trimmed = text.trim()
-  const cannot = { reason: `Can't read "${trimmed}". ${takes}` }
-
-  // A percentage is a share of a length, which a field in its own units doesn't take.
-  if (trimmed.includes("%")) {
-    return cannot
-  }
-
-  const withUnit = /^(.*[\d.)])\s*([a-z°]+)$/i.exec(trimmed)
-  const unit = withUnit?.[2]?.toLowerCase().replace("°", "deg")
-  const factor = unit === undefined ? 1 : units[unit]
-
-  if (factor === undefined) {
-    return cannot
-  }
-
-  const reading = readNumber(withUnit?.[1] ?? trimmed, current / factor, label)
-
-  if ("clear" in reading) {
-    return cannot
-  }
-
-  if ("reason" in reading) {
-    return reading.reason.startsWith("Can't read") ? cannot : reading
-  }
-
-  return { value: Math.round(reading.value * factor * 10_000) / 10_000 }
-}
 
 /** A reason as a sentence of its own, ending in a full stop unless it ends in one already or leads into an answer. */
 const sentence = (text: string) => (/[.:?!]$/.test(text) ? text : `${text}.`)
@@ -195,11 +132,19 @@ export function useTyped<T>({
   /** Leaving with text it can't read puts the value back saying nothing, as a search does: a field locked to tokens. */
   quiet?: boolean
 }) {
-  const [typed, setTyped] = useState<string>()
+  const [typed, setTypedState] = useState<string>()
+  // What's typed as of now, not as of the last render: Enter commits and leaves the field at once, and leaving reads
+  // what's typed again, so it finds it already taken rather than committing it twice.
+  const typedNow = useRef<string>(undefined)
   const [focused, setFocused] = useState(false)
   const [ownMessage, setOwnMessage] = useState<Message>()
   const [failed, setFailed] = useState(false)
   const message = line ? line.message : ownMessage
+
+  const setTyped = (next: string | undefined) => {
+    typedNow.current = next
+    setTypedState(next)
+  }
 
   const setMessage = (next: Message | undefined) => {
     setFailed(next?.tone === "error")
@@ -230,11 +175,13 @@ export function useTyped<T>({
   }
 
   const commit = (leaving: boolean): boolean => {
-    if (typed === undefined) {
+    const text = typedNow.current
+
+    if (text === undefined) {
       return true
     }
 
-    const outcome = read(typed)
+    const outcome = read(text)
 
     if ("value" in outcome) {
       onCommit(outcome.value)
@@ -305,13 +252,28 @@ export function useTyped<T>({
 }
 
 /**
+ * Focuses what it's on once, as it's drawn, as a form a menu row opens is typed into at once. Once, not on every
+ * render, so pointing at or focusing another row of the menu, which draws it again, doesn't take the focus back.
+ */
+function useFocusOnMount<E extends HTMLElement>() {
+  const ref = useRef<E>(null)
+  useEffect(() => {
+    ref.current?.focus()
+  }, [])
+
+  return ref
+}
+
+/**
  * Why a value is allowed here, typed as Allow here asks: a sentence, so it wraps and grows, with a handle to drag it
  * taller. Enter submits its form; Shift+Enter starts a line.
  */
 function ReasonBox({ reason, onReason }: { reason: string; onReason: (reason: string) => void }) {
+  const box = useFocusOnMount<HTMLTextAreaElement>()
+
   return (
     <textarea
-      ref={(node) => node?.focus()}
+      ref={box}
       aria-label="Why it's allowed here"
       placeholder="Photo backdrop"
       rows={1}
@@ -332,23 +294,23 @@ function ReasonBox({ reason, onReason }: { reason: string; onReason: (reason: st
 
 /**
  * What a field says under its row, with its answer button when it asks something. It spans a grid's row, and the
- * button runs on after the words as part of the sentence, so a short message is one line across the whole row.
+ * button runs on after the words as part of the sentence, so a short message is one line across the whole row. It's
+ * there with nothing in it while there's nothing to say, out of the layout, so a screen reader hears what it says once
+ * it says it; `id` lets the field it's for point at it (`aria-describedby`) while it does.
  */
-export function MessageLine({ message }: { message: Message | undefined }) {
-  if (!message) {
-    return null
+export function MessageLine({ message, id }: { message: Message | undefined; id?: string }) {
+  const error = message?.tone === "error"
+  let look = "sr-only"
+
+  if (message) {
+    look = `col-span-full mt-1 type-message ${error ? "text-destructive" : "text-muted-foreground"}`
   }
 
-  const error = message.tone === "error"
-
   return (
-    <p
-      role={error ? "alert" : "status"}
-      className={`col-span-full mt-1 type-message ${error ? "text-destructive" : "text-muted-foreground"}`}
-    >
-      {message.text}
-      {message.action && " "}
-      {message.action && (
+    <output id={id} aria-live={error ? "assertive" : "polite"} className={`block ${look}`}>
+      {message?.text}
+      {message?.action && " "}
+      {message?.action && (
         <button
           type="button"
           // Pressing it leaves the typing where it is, so the field doesn't put its value back and move the answer away.
@@ -359,7 +321,7 @@ export function MessageLine({ message }: { message: Message | undefined }) {
           {message.action.label}
         </button>
       )}
-    </p>
+    </output>
   )
 }
 
@@ -713,54 +675,24 @@ export function MissingMark({
       </Hint>
       <PopoverContent aria-label={`${name} is missing`} className="w-60 gap-1 p-1" align="end">
         <p className="px-2 pt-1 pb-1.5 type-description text-muted-foreground">{description}</p>
-        {actions.map((action) => (
-          <MenuButton
-            key={action.label}
-            onClick={() => {
-              action.run()
-              setOpen(false)
-            }}
-          >
-            {action.label}
-          </MenuButton>
-        ))}
+        {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- the arrow keys of the buttons inside, handled once for them all */}
+        <div className="flex flex-col" onKeyDown={moveThroughRows}>
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              className={menuRow}
+              onClick={() => {
+                action.run()
+                setOpen(false)
+              }}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
       </PopoverContent>
     </Popover>
-  )
-}
-
-/**
- * The warning on a deprecated token, with its replacement in the hint; with `onReplace`, it's a button that swaps the
- * replacement in, as the chip's is.
- */
-export function DeprecatedMark({
-  name,
-  replacement,
-  onReplace
-}: {
-  name: string
-  replacement: string
-  onReplace?: () => void
-}) {
-  const said = `${name} is deprecated. Use ${replacement} instead`
-
-  return (
-    <Hint label={`${name} is deprecated`} detail={`Use ${replacement} instead`}>
-      {onReplace ? (
-        <button
-          type="button"
-          aria-label={said}
-          onClick={onReplace}
-          className="grid size-4 shrink-0 place-items-center rounded-sm text-amber-500 outline-none hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <TriangleAlert className="size-3" />
-        </button>
-      ) : (
-        <span className="grid size-4 shrink-0 place-items-center text-amber-500">
-          <TriangleAlert aria-label={said} className="size-3" />
-        </span>
-      )}
-    </Hint>
   )
 }
 
@@ -776,163 +708,6 @@ export function ThemeMark({ label, theme }: { label: string; theme: { name: stri
         <SunMoon className="size-3.5" />
       </button>
     </Hint>
-  )
-}
-
-/**
- * The status slot's mark for a value off the token system, or refused by Tokens only: hollow, or filled once it's
- * allowed here, with the reason in its hint. Its menu has the nearest token, Create token (named here, with this value)
- * where the field can make one, and Allow here, which asks why and keeps the reason with the value. Every field's value
- * of its own uses it.
- */
-export function OffSystemMark({
-  label,
-  description,
-  nearest,
-  allowed,
-  isTaken,
-  namePlaceholder = "brand",
-  compact = false,
-  onUse,
-  onCreate,
-  onAllow
-}: {
-  label: string
-  /** Says what the value is and that it isn't a token, at the top of the menu. */
-  description: string
-  nearest: { name: string; preview?: ReactNode }
-  allowed: string | undefined
-  /** Whether a token of this kind has the name already. */
-  isTaken: (name: string) => boolean
-  namePlaceholder?: string
-  /** Smaller, for the status slot inside a field rather than beside it. */
-  compact?: boolean
-  onUse: () => void
-  /** Makes a token of the value; without it, the menu has no Create token. */
-  onCreate?: (name: string) => void
-  onAllow: (reason: string | undefined) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState<string>()
-  const [reason, setReason] = useState<string>()
-  const taken = name !== undefined && isTaken(name.trim())
-
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-
-        if (!next) {
-          setName(undefined)
-          setReason(undefined)
-        }
-      }}
-    >
-      <Hint
-        label={allowed === undefined ? "Not a token" : `Allowed here: ${allowed}`}
-        detail={`Nearest: ${nearest.name}`}
-      >
-        <PopoverTrigger
-          aria-label={`${label} isn't a token${allowed === undefined ? "" : `, allowed here: ${allowed}`}`}
-          className={`grid shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent ${compact ? "size-5" : "size-7"}`}
-        >
-          {allowed === undefined ? (
-            <Circle className="size-3.5" strokeDasharray="3 2" />
-          ) : (
-            <CircleCheck className="size-3.5" />
-          )}
-        </PopoverTrigger>
-      </Hint>
-      <PopoverContent aria-label={`${label} isn't a token`} className="w-60 gap-1 p-1" align="end">
-        <p className="px-2 pt-1 pb-1.5 type-description text-muted-foreground">{description}</p>
-        <MenuButton
-          onClick={() => {
-            onUse()
-            setOpen(false)
-          }}
-        >
-          {nearest.preview}
-          Use nearest, <span className="font-mono">{nearest.name}</span>
-        </MenuButton>
-        {onCreate && name === undefined && <MenuButton onClick={() => setName("")}>Create token…</MenuButton>}
-        {onCreate && name !== undefined && (
-          <form
-            className="flex flex-col gap-1 px-1 py-1"
-            onSubmit={(event) => {
-              event.preventDefault()
-
-              if (!name.trim() || taken) {
-                return
-              }
-
-              onCreate(name.trim())
-              setOpen(false)
-            }}
-          >
-            <Input
-              ref={(input) => input?.focus()}
-              aria-label="New token's name"
-              placeholder={namePlaceholder}
-              value={name}
-              onChange={(event) => setName(event.target.value.replace(/\s+/g, "-").toLowerCase())}
-              aria-invalid={taken}
-              className="h-7 font-mono text-xs"
-            />
-            {taken && <p className="type-message text-destructive">{`There's a token called ${name} already.`}</p>}
-            <Button type="submit" size="sm" className="h-7 text-xs" disabled={!name.trim() || taken}>
-              Create {name.trim() || "token"}
-            </Button>
-          </form>
-        )}
-        {allowed !== undefined && (
-          <MenuButton
-            onClick={() => {
-              onAllow(undefined)
-              setOpen(false)
-            }}
-          >
-            Don&apos;t allow here
-          </MenuButton>
-        )}
-        {allowed === undefined && reason === undefined && (
-          <MenuButton onClick={() => setReason("")}>Allow here…</MenuButton>
-        )}
-        {allowed === undefined && reason !== undefined && (
-          // The reason is kept with the value, so it moves with the layer and shows in the mark's hover.
-          <form
-            className="flex flex-col gap-1 px-1 py-1"
-            onSubmit={(event) => {
-              event.preventDefault()
-
-              if (!reason.trim()) {
-                return
-              }
-
-              onAllow(reason.trim())
-              setOpen(false)
-            }}
-          >
-            <ReasonBox reason={reason} onReason={setReason} />
-            <Button type="submit" size="sm" className="h-7 text-xs" disabled={!reason.trim()}>
-              Allow here
-            </Button>
-          </form>
-        )}
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-function MenuButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent"
-    >
-      {children}
-    </button>
   )
 }
 
@@ -1275,6 +1050,13 @@ export interface TokenListProps {
    * size, and what it comes to after it. Comfortable, the default, draws each larger, its name over what it comes to.
    */
   compact?: boolean
+  /**
+   * Up and Down move through its rows; off where it's part of a menu whose rows they move through together, as a
+   * token menu's are.
+   */
+  arrows?: boolean
+  /** For a button that shows or hides it to name (`aria-controls`). */
+  id?: string
   onPick: (name: string | undefined) => void
 }
 
@@ -1343,6 +1125,8 @@ export function TokenList({
   noneValue,
   own = false,
   compact = false,
+  arrows = true,
+  id,
   onPick
 }: TokenListProps) {
   const { live, rowProps } = useLiveRow()
@@ -1352,21 +1136,13 @@ export function TokenList({
     ...tokens.map((token) => ({ name: token.name, token }))
   ]
 
-  const move = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
-      return
-    }
-
-    event.preventDefault()
-    const buttons = [...(event.currentTarget.parentElement?.querySelectorAll("button") ?? [])]
-    const at = buttons.indexOf(event.currentTarget)
-    buttons[clamp(at + (event.key === "ArrowDown" ? 1 : -1), 0, buttons.length - 1)]?.focus()
-  }
-
   return (
     // Text styles' rows are taller, their names in their own type over what they come to.
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the arrow keys of the buttons inside, handled once for them all
     <fieldset
+      id={id}
       aria-label={`${label} tokens`}
+      onKeyDown={arrows ? moveThroughRows : undefined}
       className={`flex ${tokens[0]?.kind === "type-style" && !compact ? "max-h-112" : "max-h-64"} min-w-0 flex-col overflow-y-auto`}
     >
       {rows.map(({ name, token }) => {
@@ -1378,7 +1154,6 @@ export function TokenList({
             type="button"
             aria-current={selected || undefined}
             onClick={() => onPick(name)}
-            onKeyDown={move}
             {...rowProps(name)}
             className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent ${selected ? "bg-accent" : ""}`}
           >
@@ -1426,6 +1201,65 @@ function inScaleOrder<T extends FieldToken>(tokens: readonly T[]): readonly T[] 
   }
 
   return tokens.toSorted((a, b) => measureOf(a)! - measureOf(b)!)
+}
+
+/**
+ * The token Up or Down steps to from the one a field holds: the next in the scale its list shows (smallest first,
+ * without the ones the project has replaced), or with Shift the last or first. A replaced token steps onto the scale
+ * from where it would sit.
+ */
+export function stepToken<T extends FieldToken>(tokens: readonly T[], current: T, up: boolean, shift: boolean): T {
+  const scale = inScaleOrder(tokens.filter((token) => token.deprecated === undefined || token === current))
+
+  return stepThrough(scale, current, up, shift)
+}
+
+/**
+ * The token a typed name names, with the field's namespace or without it, whichever way the tokens are named:
+ * `lg` and `radius-lg` both find `radius-lg` in Radius, and `xl` and `text-xl` both find `xl` in Size. Case doesn't
+ * matter, and spaces around it don't either.
+ */
+export function tokenNamed<T extends { name: string }>(
+  tokens: readonly T[] | undefined,
+  typed: string,
+  namespace = ""
+): T | undefined {
+  const words = typed.trim().toLowerCase()
+
+  if (words === "" || !tokens) {
+    return undefined
+  }
+
+  return tokens.find((token) => {
+    const name = token.name.toLowerCase()
+
+    return name === words || name === `${namespace}${words}` || `${namespace}${name}` === words
+  })
+}
+
+/**
+ * Up and Down move the focus through a menu's rows, and Home and End to its first and last, for a list of buttons
+ * that picks one (a token menu, Weight's faces): on the rows' container, as one keyboard model for every such list.
+ */
+export function moveThroughRows(event: KeyboardEvent<HTMLElement>) {
+  const moves = ["ArrowDown", "ArrowUp", "Home", "End"]
+
+  if (!moves.includes(event.key) || !(event.target instanceof HTMLButtonElement) || event.defaultPrevented) {
+    return
+  }
+
+  const rows = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)")]
+  const at = rows.indexOf(event.target)
+  let next = clamp(at + (event.key === "ArrowDown" ? 1 : -1), 0, rows.length - 1)
+
+  if (event.key === "Home") {
+    next = 0
+  } else if (event.key === "End") {
+    next = rows.length - 1
+  }
+
+  event.preventDefault()
+  rows[next]?.focus()
 }
 
 /** A row of a token menu that isn't a token: Create token, Allow here. */
@@ -1488,6 +1322,80 @@ export function TokenName({ token, compact = false }: { token: FieldToken; compa
 }
 
 const rowDetail = "min-w-12 flex-1 basis-0 truncate text-right text-muted-foreground tabular-nums"
+
+/**
+ * What's wrong with a new token's name, or nothing: it's written into `var(--…)` and a Tailwind class, so it starts
+ * with a lowercase letter and goes on in lowercase letters, digits and hyphens; and no token has its whole name
+ * (`full`, with the namespace) already.
+ */
+export function tokenNameProblem(name: string, full: string, isTaken: (full: string) => boolean): string | undefined {
+  if (name === "") {
+    return undefined
+  }
+
+  if (!/^[a-z][a-z0-9-]*$/.test(name)) {
+    return "Start with a lowercase letter, then use lowercase letters, digits and hyphens."
+  }
+
+  return isTaken(full) ? `There's a token called ${full} already.` : undefined
+}
+
+/**
+ * Naming a new token, as Create token asks: the namespace the field implies before the name typed, spaces typed as
+ * hyphens and capitals as lowercase, what's wrong with the name under it, tied to it and said aloud, and the button
+ * that makes it, named with the whole name. It's typed into as it opens.
+ */
+export function NewTokenForm({
+  namespace = "",
+  placeholder = namespace === "" ? "brand" : "card",
+  isTaken,
+  onCreate
+}: {
+  /** What the field's tokens' names start with, put before the name typed: `radius-`. */
+  namespace?: string
+  placeholder?: string
+  /** Whether a token has this whole name already. */
+  isTaken: (full: string) => boolean
+  /** Makes the token, by its whole name. */
+  onCreate: (full: string) => void
+}) {
+  const [name, setName] = useState("")
+  const input = useFocusOnMount<HTMLInputElement>()
+  const errorId = useId()
+  const full = `${namespace}${name}`
+  const problem = tokenNameProblem(name, full, isTaken)
+
+  return (
+    <form
+      className="flex flex-col gap-1 p-1"
+      onSubmit={(event) => {
+        event.preventDefault()
+
+        if (name !== "" && problem === undefined) {
+          onCreate(full)
+        }
+      }}
+    >
+      <div className="flex items-center gap-1">
+        {namespace !== "" && <span className="text-xs text-muted-foreground">{namespace}</span>}
+        <Input
+          ref={input}
+          aria-label="New token's name"
+          placeholder={placeholder}
+          value={name}
+          onChange={(event) => setName(event.target.value.replace(/\s+/g, "-").toLowerCase())}
+          aria-invalid={problem !== undefined || undefined}
+          aria-describedby={problem === undefined ? undefined : errorId}
+          className="h-7 text-xs"
+        />
+      </div>
+      <MessageLine id={errorId} message={problem === undefined ? undefined : { tone: "error", text: problem }} />
+      <Button type="submit" size="sm" className="h-7 text-xs" disabled={name === "" || problem !== undefined}>
+        Create {name === "" ? "token" : full}
+      </Button>
+    </form>
+  )
+}
 
 /** Detach, in what a field's chevron opens while it holds a token: keeps what the token comes to, without it. */
 function DetachRow({ token, onDetach }: { token: FieldToken; onDetach: () => void }) {
@@ -1572,12 +1480,10 @@ export function TokenMenu<T extends FieldToken>({
 }: TokenMenuProps<T>) {
   const [unfolded, setUnfolded] = useState(false)
   const [query, setQuery] = useState("")
-  const [naming, setNaming] = useState<string>()
+  const [naming, setNaming] = useState(false)
   const [reason, setReason] = useState<string>()
   const { live, rowProps } = useLiveRow()
-  const name = (naming ?? "").trim()
-  const full = `${namespace}${name}`
-  const taken = name !== "" && tokens.some((each) => each.name === full)
+  const listId = useId()
   const allowing = tokensOnly && onAllow !== undefined
   const pickable = tokens.filter((each) => each.deprecated === undefined)
   const listed = order ? pickable.toSorted(order) : inScaleOrder(pickable)
@@ -1588,10 +1494,13 @@ export function TokenMenu<T extends FieldToken>({
       ? listed.filter((each) => each.name.toLowerCase().includes(words) || each.detail.toLowerCase().includes(words))
       : listed
 
-  const folded = shown === "folded" && !unfolded && listed.length > 0
+  const foldable = shown === "folded" && listed.length > 0
+  const folded = foldable && !unfolded
 
   return (
-    <div className="flex min-w-0 flex-col">
+    // Up and Down move through all of its rows, the words, the nearest token, the tokens and what's under them.
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- the arrow keys of the buttons inside, handled once for them all
+    <div className="flex min-w-0 flex-col" onKeyDown={moveThroughRows}>
       {keywords && (
         <div className={`flex flex-col ${listed.length > 0 || none !== undefined ? "mb-1 border-b pb-1" : ""}`}>
           <p className="px-2 pt-1 pb-0.5 type-description text-muted-foreground">{keywords.heading}</p>
@@ -1663,58 +1572,48 @@ export function TokenMenu<T extends FieldToken>({
       {shown === "searched" && words !== "" && found.length === 0 && (
         <p className="px-2 py-1.5 text-xs text-muted-foreground">No tokens match “{query.trim()}”</p>
       )}
-      {folded && (
-        <button type="button" aria-expanded={false} className={menuRow} onClick={() => setUnfolded(true)}>
+      {foldable && (
+        // A disclosure that stays where it is, so the focus stays on it as the tokens open under it.
+        <button
+          type="button"
+          aria-expanded={unfolded}
+          aria-controls={unfolded ? listId : undefined}
+          className={menuRow}
+          onClick={() => setUnfolded(!unfolded)}
+        >
           <span className={rowName}>Tokens</span>
-          <ChevronRight aria-hidden className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
+          <ChevronRight
+            aria-hidden
+            className={`ml-auto size-3.5 shrink-0 text-muted-foreground ${unfolded ? "rotate-90" : ""}`}
+          />
         </button>
       )}
       {!folded && (found.length > 0 || none !== undefined) && (
         <TokenList
+          id={listId}
           label={label}
           tokens={found}
           current={current}
           none={none}
           noneValue={noneValue}
           own={own !== undefined || holdsOwn}
+          arrows={false}
           onPick={onPick}
         />
       )}
       {own !== undefined && (onCreate !== undefined || allowing) && (
         <div className="mt-1 flex flex-col border-t pt-1">
-          {onCreate && naming === undefined && (
-            <button type="button" className={menuRow} onClick={() => setNaming("")}>
+          {onCreate && !naming && (
+            <button type="button" className={menuRow} onClick={() => setNaming(true)}>
               Create token from {own}…
             </button>
           )}
-          {onCreate && naming !== undefined && (
-            <form
-              className="flex flex-col gap-1 p-1"
-              onSubmit={(event) => {
-                event.preventDefault()
-
-                if (name !== "" && !taken) {
-                  onCreate(full)
-                }
-              }}
-            >
-              <div className="flex items-center gap-1">
-                {namespace !== "" && <span className="text-xs text-muted-foreground">{namespace}</span>}
-                <Input
-                  ref={(node) => node?.focus()}
-                  aria-label="New token's name"
-                  placeholder={namespace === "" ? "brand" : "card"}
-                  value={naming}
-                  onChange={(event) => setNaming(event.target.value.replace(/\s+/g, "-").toLowerCase())}
-                  aria-invalid={taken || undefined}
-                  className="h-7 text-xs"
-                />
-              </div>
-              {taken && <p className="type-message text-destructive">{`There's a token called ${full} already.`}</p>}
-              <Button type="submit" size="sm" className="h-7 text-xs" disabled={name === "" || taken}>
-                Create {name === "" ? "token" : full}
-              </Button>
-            </form>
+          {onCreate && naming && (
+            <NewTokenForm
+              namespace={namespace}
+              isTaken={(full) => tokens.some((each) => each.name === full)}
+              onCreate={onCreate}
+            />
           )}
           {/* A reason kept with the value shows wherever it is, so it isn't lost on a project that's not Tokens only. */}
           {onAllow !== undefined && allowed !== undefined && (
@@ -1764,6 +1663,21 @@ export interface SearchOption {
 }
 
 /**
+ * What makes a text box a combobox over a SearchList, one set for every one of them (a field's search, a CSS row's
+ * name and value, an expression's editor, a one-line input or a box that wraps): it says whether the list is open,
+ * names it while it is, and names the highlighted option, which stays where typing is.
+ */
+export function comboboxProps({ listId, open, highlight }: { listId: string; open: boolean; highlight?: number }) {
+  return {
+    role: "combobox",
+    "aria-expanded": open,
+    "aria-controls": open ? listId : undefined,
+    "aria-autocomplete": "list",
+    "aria-activedescendant": open && highlight !== undefined ? `${listId}-${highlight}` : undefined
+  } as const
+}
+
+/**
  * The list under a combobox that what's typed searches, as Font's list, an expression's completions and a CSS row's
  * are: each option on a line, headed by its group where one starts, the highlighted one lit. The input keeps focus and
  * moves the highlight with Up and Down (it names the list with `aria-controls` and the option with
@@ -1797,6 +1711,8 @@ export function SearchList({
     return null
   }
 
+  const runs = groupRuns(options)
+
   if (options.length === 0) {
     return (
       <div
@@ -1817,14 +1733,10 @@ export function SearchList({
       aria-label={label}
       className={`flex ${tall ? "max-h-112" : "max-h-64"} flex-col overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md ${className}`}
     >
-      {options.map((option, index) => (
-        <div key={option.key} className="contents">
-          {option.group !== undefined && option.group !== options[index - 1]?.group && (
-            <GroupLabel as="p" className="px-2 pt-1.5 pb-1">
-              {option.group}
-            </GroupLabel>
-          )}
+      {runs.map((run) => {
+        const drawn = run.options.map(({ option, index }) => (
           <div
+            key={option.key}
             id={`${id}-${index}`}
             // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an option of the listbox above
             role="option"
@@ -1840,10 +1752,53 @@ export function SearchList({
           >
             {option.content}
           </div>
-        </div>
-      ))}
+        ))
+
+        const first = run.options[0]!.index
+
+        if (run.group === undefined) {
+          return (
+            <div key={first} className="contents">
+              {drawn}
+            </div>
+          )
+        }
+
+        // A listbox holds only options and groups of them, so a group's heading names its group rather than sitting
+        // among the options, and a screen reader says which group an option is in.
+        return (
+          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a group of the listbox's options, which a fieldset can't be inside a listbox
+          <div key={first} role="group" aria-labelledby={`${id}-group-${first}`} className="contents">
+            <p
+              id={`${id}-group-${first}`}
+              aria-hidden
+              className="px-2 pt-1.5 pb-1 text-xs font-medium text-muted-foreground"
+            >
+              {run.group}
+            </p>
+            {drawn}
+          </div>
+        )
+      })}
     </div>
   )
+}
+
+/** A list's options in runs that share a group, each with its place in the whole list. */
+function groupRuns(options: readonly SearchOption[]) {
+  const runs: { group: string | undefined; options: { option: SearchOption; index: number }[] }[] = []
+
+  for (const [index, option] of options.entries()) {
+    const last = runs.at(-1)
+
+    if (last && last.group === option.group) {
+      last.options.push({ option, index })
+    } else {
+      runs.push({ group: option.group, options: [{ option, index }] })
+    }
+  }
+
+  return runs
 }
 
 /** The nearest of a field's tokens to a number, leaving out deprecated ones, which are on their way out. */
@@ -1915,13 +1870,11 @@ export function useTokenSets(): TokenSets {
  * The status slot's marks (slot 5), of which the field shows the first that applies. Since the simpler fields
  * (PAR-186), a token's problems show on its pill (red for missing, amber for replaced) and a value of its own has no
  * mark, its nearest token and Create token being in its list (`own`), so a field shows only `missing` for something
- * that isn't a token (a font the frame can't load) and `theme`. `offSystem` and `deprecated` are no longer drawn.
+ * that isn't a token (a font the frame can't load) and `theme`.
  */
 export interface StatusMarks {
   missing?: ReactNode
-  offSystem?: ReactNode
   theme?: ReactNode
-  deprecated?: ReactNode
 }
 
 /** The token a field holds, drawn as its pill in the value's place. */
@@ -2044,17 +1997,66 @@ export function ownLength({
   onToken: (name: string) => void
   onAllow: (reason: string | undefined) => void
 }): OwnValue {
-  const nearest = nearestToken(tokens, (each) => each.px, px)
+  return ownValue({
+    value: px,
+    text: `${formatNumber(px)}${unit}`,
+    tokens,
+    measure: (each) => each.px,
+    make: (name) => lengthToken(kind, name, px),
+    namespace,
+    create,
+    tokensOnly,
+    allow,
+    onToken,
+    onAllow
+  })
+}
+
+/**
+ * A value of a field's own that comes to a number, as its token list offers it, for any kind of token: the token
+ * nearest `value` by `measure` first, or the same one, then Create token, which makes a token of it (`make`), adds it
+ * (`create`) and takes it (`onToken`), and Allow here under Tokens only.
+ */
+export function ownValue<T extends FieldToken>({
+  value,
+  text,
+  tokens,
+  measure,
+  make,
+  namespace,
+  create,
+  tokensOnly = false,
+  allow,
+  onToken,
+  onAllow
+}: {
+  /** The value as a number, in what `measure` gives: pixels, a multiple, em, a percentage. */
+  value: number
+  /** The value in words, as the list says it: `12px`, `1.5×`. */
+  text: string
+  tokens: readonly T[]
+  measure: (token: T) => number
+  /** The token Create token makes of the value, by the whole name given. */
+  make: (name: string) => T
+  namespace?: string
+  create?: (token: T) => void
+  tokensOnly?: boolean
+  allow: string | undefined
+  onToken: (name: string) => void
+  /** Keeps why it's allowed here with the value; without it, the list has no Allow here. */
+  onAllow?: (reason: string | undefined) => void
+}): OwnValue {
+  const nearest = nearestToken(tokens, measure, value)
 
   return {
-    text: `${formatNumber(px)}${unit}`,
+    text,
     nearest,
-    same: nearest?.px === px,
+    same: nearest !== undefined && measure(nearest) === value,
     namespace,
     onCreate:
       create &&
       ((name) => {
-        create(lengthToken(kind, name, px))
+        create(make(name))
         onToken(name)
       }),
     tokensOnly,
@@ -2310,9 +2312,7 @@ function lockedTyping<T>(
   const takenAsIs = (text: string) =>
     lower(text) === "" ||
     lower(text) === none?.toLowerCase() ||
-    locked.tokens.some((token) =>
-      [lower(token.name), lower(token.name.slice(namespace.length))].includes(lower(text))
-    ) ||
+    tokenNamed(locked.tokens, text, namespace) !== undefined ||
     locked.takes?.(text.trim()) === true
 
   const valueOf = (token: FieldToken) => {
@@ -2443,6 +2443,11 @@ export function ValueField<T>({
   const unitText = unitName ?? unitWord ?? ""
   let backTo = shown === undefined ? placeholder || "unset" : `${shown}${unitText}`
 
+  // Mixed layers still differ once typing's put back, so that's what it's back to, not what unset comes to.
+  if (mixed && shown === undefined) {
+    backTo = "Mixed"
+  }
+
   if (chip) {
     backTo = chip.name
   }
@@ -2456,6 +2461,9 @@ export function ValueField<T>({
   })
 
   const search = ownSearch ?? locking?.search
+  // A field's own search (Font's) opens as it's focused; the one Tokens only brings opens only on typing, so until
+  // something's typed, Up and Down step the value as they do unlocked.
+  const searchOnFocus = ownSearch !== undefined
 
   const typed = useTyped({
     label,
@@ -2482,6 +2490,9 @@ export function ValueField<T>({
   const setOpen = picker ? picker.onOpenChange : setListOpen
   const said = refused ? notAToken(refused.nearest, refused.onUse, own?.same) : refusal
   const error = typed.error || said !== undefined
+  // The line under the row, which the input points at while it says something, so it's read again on coming back.
+  const messageId = `${searchId}-message`
+  const saysSomething = !line && (typed.message !== undefined || (said !== undefined && typed.typed === undefined))
 
   const clearTyping = () => {
     typed.setTyped(undefined)
@@ -2642,7 +2653,7 @@ export function ValueField<T>({
         <Hint label="Picker" detail={altSteps ? undefined : "Alt+Down"}>
           <button
             type="button"
-            aria-label={`${label} tokens`}
+            aria-label={`${label} picker`}
             aria-haspopup="dialog"
             aria-expanded={open}
             disabled={disabled}
@@ -2658,7 +2669,7 @@ export function ValueField<T>({
         // it's open, as a pick sets a token or takes one off.
         <Hint label={picker ? "Picker" : listName} detail={altSteps ? undefined : "Alt+Down"}>
           <PopoverTrigger
-            aria-label={`${label} ${listName.toLowerCase()}`}
+            aria-label={`${label} ${picker ? "picker" : listName.toLowerCase()}`}
             disabled={disabled}
             className={fieldEndButtonShown}
           >
@@ -2726,17 +2737,17 @@ export function ValueField<T>({
           ref={input}
           aria-label={label}
           aria-invalid={error || undefined}
-          aria-describedby={description === undefined ? undefined : `${searchId}-description`}
+          aria-describedby={
+            [description !== undefined && `${searchId}-description`, saysSomething && messageId]
+              .filter(Boolean)
+              .join(" ") || undefined
+          }
           disabled={disabled}
           inputMode={inputMode}
           spellCheck={false}
           placeholder={fieldPlaceholder}
           value={typed.typed ?? (showChip ? "" : (shown ?? ""))}
-          role={search ? "combobox" : undefined}
-          aria-expanded={search ? showList : undefined}
-          aria-controls={search && showList ? searchId : undefined}
-          aria-autocomplete={search ? "list" : undefined}
-          aria-activedescendant={showList && found[lit] ? `${searchId}-${lit}` : undefined}
+          {...(search && comboboxProps({ listId: searchId, open: showList, highlight: found[lit] ? lit : undefined }))}
           style={inputStyle}
           onChange={(event) => {
             if (expression && event.target.value.startsWith("=")) {
@@ -2757,7 +2768,7 @@ export function ValueField<T>({
           onClick={() => {
             expression?.onOpen?.()
 
-            if (search && !searching) {
+            if (search && searchOnFocus && !searching) {
               setSearching(true)
               setHighlight(0)
             }
@@ -2776,7 +2787,7 @@ export function ValueField<T>({
             const from = event.relatedTarget
 
             // Focus coming back from the chevron's list, on a pick or Escape, leaves the search closed.
-            if (search && !fromList.current) {
+            if (search && searchOnFocus && !fromList.current) {
               setSearching(true)
               setHighlight(0)
             }
@@ -2819,7 +2830,10 @@ export function ValueField<T>({
               return
             }
 
-            if (search && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+            // Alt+Down is the chevron's, and a locked field's Up and Down step its value until something's typed.
+            const arrowsSearch = search && !event.altKey && (searchOnFocus || searching)
+
+            if (arrowsSearch && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
               // Up and Down open the list, then move through it, rather than stepping the value.
               event.preventDefault()
 
@@ -2880,10 +2894,27 @@ export function ValueField<T>({
 
   if (picker) {
     popup = (
-      <PopoverContent aria-label={`${label} picker`} className={picker.className ?? "w-64 gap-0 p-0"} align="start">
+      <PopoverContent
+        aria-label={`${label} picker`}
+        className={picker.className ?? "w-64 gap-0 p-0"}
+        align="start"
+        // As the token list does: the focus comes back to the value's text, and the search doesn't open over it.
+        finalFocus={() => {
+          picked.current = false
+          fromList.current = true
+
+          return input.current
+        }}
+      >
         {showChip && chip.token && (
           <div className="border-b p-1">
-            <DetachRow token={chip.token} onDetach={detach} />
+            <DetachRow
+              token={chip.token}
+              onDetach={() => {
+                picker.onOpenChange(false)
+                detach()
+              }}
+            />
           </div>
         )}
         {picker.content}
@@ -3008,7 +3039,7 @@ export function ValueField<T>({
           />
         )}
       </div>
-      {!line && message && <MessageLine message={message} />}
+      {!line && <MessageLine id={messageId} message={message} />}
       {!line && !message && narrow && typed.focused && comesTo && (
         <p className="col-span-full mt-1 type-description text-muted-foreground">{comesTo}</p>
       )}
@@ -3092,12 +3123,12 @@ export function PercentField({
       : "Enter a percentage, such as 50"
 
   // A token steps to the next in the list's order, Shift to the first or last, as every token does.
-  const stepToken = (up: boolean, { shift }: ScrubKeys) => {
+  const stepHeld = (up: boolean, { shift }: ScrubKeys) => {
     if (!tokens || !held) {
       return false
     }
 
-    tokens.onPick(stepThrough(tokens.list, held, up, shift).name)
+    tokens.onPick(stepToken(tokens.list, held, up, shift).name)
 
     return true
   }
@@ -3129,7 +3160,7 @@ export function PercentField({
       rowClassName={rowClassName}
       read={(text): Reading<number | undefined | { token: string }> => {
         const trimmed = text.trim().toLowerCase()
-        const token = tokens?.list.find((each) => each.name === trimmed || `opacity-${each.name}` === trimmed)
+        const token = tokenNamed(tokens?.list, trimmed, "opacity-")
 
         if (token) {
           return { value: { token: token.name } }
@@ -3164,7 +3195,7 @@ export function PercentField({
         }
       }}
       onStep={(up, keys) => {
-        if (!stepToken(up, keys)) {
+        if (!stepHeld(up, keys)) {
           onChange(settle(from + (up ? 1 : -1) * percentStep(keys)))
         }
       }}

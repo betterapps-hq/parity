@@ -303,7 +303,10 @@ export const Cursor: Story = {
   )
 }
 
-/** A cursor token, `interactive`, first in the menu under Tokens: `cursor-(--cursor-interactive)`. */
+/**
+ * A cursor token, `interactive`, first in the menu under Tokens: `cursor-(--cursor-interactive)`. It shows as its pill,
+ * as a token field's does; the menu's Detach keeps the pointer it comes to, and Backspace on the field unsets it.
+ */
 export const CursorToken: Story = {
   render: () => (
     <Menu

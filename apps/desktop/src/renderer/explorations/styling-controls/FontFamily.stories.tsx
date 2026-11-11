@@ -13,7 +13,9 @@ import { type FontValue, fontWrites } from "./text-writes.ts"
  * its own face, with +2 when the stack has fallbacks and the stack in the hint; a font token is a chip with Ag in the
  * font. Focused, it lists the fonts, set in each, the project's first; typing searches them, and moving through them
  * previews each on the text. Enter takes the highlighted font; a comma-separated stack is kept as typed. A font the
- * frame can't load is Missing, drawn in the fallback with its name struck through. The list's More fonts are fonts
+ * frame can't load is Missing, drawn in the fallback with its name struck through. Its chevron opens the font tokens,
+ * as every token field's does: the nearest token first for a font of its own, then Create token and Allow here, and
+ * Detach while a token's set. The list's More fonts are fonts
  * installed on this computer, standing in for Google Fonts, which the app adds to the project when one is chosen.
  */
 const meta = {
@@ -48,16 +50,19 @@ function Font({ start, tokensOnly, mixed }: { start?: FontValue; tokensOnly?: bo
   )
 }
 
-/** A font token, `sans`, as a chip with Ag set in Geist. Click the field to search; Backspace or × takes it off. */
+/**
+ * A font token, `sans`, as a chip. Click the field to search; Backspace takes it off. The chevron opens the font tokens,
+ * with Detach, which keeps Geist as a stack of its own.
+ */
 export const Token: Story = { render: () => <Font start={{ token: "sans" }} /> }
 
 /** Unset: Geist, muted, inherited from Plans, which the hint names. Nothing is written. */
 export const Unset: Story = { render: () => <Font /> }
 
-/** A font of its own, Segoe UI, picked from More fonts, with no mark: Tokens offers sans, the nearest, first. */
+/** A font of its own, Segoe UI, picked from More fonts, with no mark: the chevron offers sans, the nearest, first. */
 export const ValueOfItsOwn: Story = { render: () => <Font start={{ stack: '"Segoe UI", sans-serif' }} /> }
 
-/** Segoe UI allowed here, with its reason in Tokens, which can stop allowing it. */
+/** Segoe UI allowed here, with its reason in the chevron's list, which can stop allowing it. */
 export const AllowedHere: Story = {
   render: () => <Font start={{ stack: '"Segoe UI", sans-serif', allow: "The partner's brand font" }} />
 }

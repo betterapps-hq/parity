@@ -11,6 +11,7 @@ import { Ellipsis, Lock, LockOpen, Minus, Plus, RotateCcw } from "lucide-react"
 import {
   type ComponentProps,
   createContext,
+  type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type Ref,
@@ -32,7 +33,7 @@ import { overrideColor } from "./field-parts.tsx"
  * a section's grid (`FieldGrid`). Dragging the name scrubs the row's one draggable field, and a reset arrow at the end of
  * the name's row puts back a value a state changed. It takes the app's Field's props, so a control moves onto it by its
  * import; the app's own panel keeps its Field until this is approved. A row a typography preset sets (call 6) is locked
- * to it, with Unlock at the end of the name's row, and a row that overrides it has its name and value in the override
+ * to it, with a lock toggle at the end of the name's row, and a row that overrides it has its name and value in the override
  * color with a reset arrow; a dot after the name says the value changes with the viewport.
  */
 
@@ -137,23 +138,27 @@ export function Field({
   // A locked row's value can't be dragged, so its name doesn't scrub.
   const locked = lock !== undefined && !lock.open
   const dragsBy = locked ? undefined : scrub
-  let nameHint = label
+  let state: string | undefined
   let tone: string | undefined
   let resetTo: string | undefined
 
   if (overrides !== undefined) {
-    nameHint = `${label}: overrides ${overrides}`
+    state = `overrides ${overrides}`
     tone = overrideColor
     resetTo = overrides
   } else if (changed) {
-    nameHint = `${label}: changed in this state`
+    state = "changed in this state"
     tone = kindColors.agent
     resetTo = firstState
   }
 
   if (locked) {
-    nameHint = `${label}: locked to ${lock.preset}`
+    state = `locked to ${lock.preset}`
   }
+
+  const nameHint = state === undefined ? label : `${label}: ${state}`
+  // What the name's color and hint say, in the row's name for a screen reader, which neither reaches.
+  const said = [state, mixed && "different across the selected layers"].filter(Boolean).join(", ")
 
   // The row is a fieldset its name labels, so a screen reader says Size before W and H, and the row's own buttons.
   return (
@@ -174,6 +179,7 @@ export function Field({
               onPointerDown={dragsBy}
             >
               {label}
+              {said !== "" && <span className="sr-only">, {said}</span>}
             </span>
           </Hint>
           {viewports !== undefined && (
@@ -200,15 +206,15 @@ export function Field({
             </Hint>
           )}
           {lock && overrides === undefined && (
-            <Hint label={lock.open ? `Lock to ${lock.preset}` : "Unlock to override it"}>
+            // A toggle, as NameToggle is: its name stays the same, and pressed says it's locked.
+            <Hint label={`Lock to ${lock.preset}`}>
               <button
                 type="button"
                 data-lock
                 onClick={() => lock.onOpenChange(!lock.open)}
                 className={nameButton}
-                aria-label={
-                  lock.open ? `Lock ${label} to ${lock.preset}` : `Unlock ${label} to override ${lock.preset}`
-                }
+                aria-label={`Lock ${label} to ${lock.preset}`}
+                aria-pressed={!lock.open}
               >
                 {lock.open ? <LockOpen className="size-3" /> : <Lock className="size-3" />}
               </button>
@@ -249,7 +255,8 @@ export interface Segment<V extends string> {
 /**
  * A choice of one from a few, as segments in a box, the chosen one raised. Unset, the option it comes to anyway shows
  * faintly (`faint`), as an inherited keyword does. They share the row's width, or `fit` their content, as a set of
- * keywords or a short switch does.
+ * keywords or a short switch does. They take the keys IconSegments' toggle group does: one Tab stop, the arrow keys
+ * moving between the options, Home and End to the first and last, and Enter or Space choosing.
  */
 export function Segments<V extends string>({
   label,
@@ -266,9 +273,36 @@ export function Segments<V extends string>({
   options: readonly Segment<V>[]
   onChange: (value: V) => void
 }) {
+  // The Tab stop: the chosen option, or the one unset comes to, or the first.
+  const stop = options.find((option) => option.value === value)?.value ?? faint ?? options[0]?.value
+
+  const move = (event: KeyboardEvent<HTMLFieldSetElement>) => {
+    const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"]
+
+    if (!keys.includes(event.key) || !(event.target instanceof HTMLButtonElement)) {
+      return
+    }
+
+    const buttons = [...event.currentTarget.querySelectorAll("button")]
+    const at = buttons.indexOf(event.target)
+    const by = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1
+    let next = (at + by + buttons.length) % buttons.length
+
+    if (event.key === "Home") {
+      next = 0
+    } else if (event.key === "End") {
+      next = buttons.length - 1
+    }
+
+    event.preventDefault()
+    buttons[next]?.focus()
+  }
+
   return (
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the arrow keys of the buttons inside, handled once for them all
     <fieldset
       aria-label={label}
+      onKeyDown={move}
       className={`m-0 flex h-7 items-center gap-px rounded-md border p-0.5 ${fit ? "" : "min-w-0"}`}
     >
       {options.map((option) => {
@@ -287,6 +321,7 @@ export function Segments<V extends string>({
               type="button"
               aria-label={option.label}
               aria-pressed={pressed}
+              tabIndex={option.value === stop ? 0 : -1}
               onClick={() => onChange(option.value)}
               className={`h-full rounded-sm px-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring ${fit ? "relative grid min-w-6 place-items-center" : "min-w-0 flex-1 truncate"} ${look}`}
             >

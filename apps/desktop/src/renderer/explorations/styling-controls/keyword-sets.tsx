@@ -12,10 +12,18 @@ import {
   DropdownMenuTrigger,
   Toggle
 } from "@buildkitgg/shadcn-baseui-kit"
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Crop } from "lucide-react"
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Crop, Unlink } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { fieldBox, NotBaseline, NotBaselineMark, type Reading, TokenMark, ValueField } from "./field-parts.tsx"
+import {
+  fieldBox,
+  NotBaseline,
+  NotBaselineMark,
+  type Reading,
+  TokenChip,
+  TokenMark,
+  ValueField
+} from "./field-parts.tsx"
 import { Segments, TitleMenu } from "./field-row.tsx"
 import type { KeywordOption, KeywordValue } from "./text-writes.ts"
 import { cursorTokens } from "./tokens.ts"
@@ -249,7 +257,9 @@ export function PreviewMenu({ onPreview, children }: { onPreview?: (value: undef
 
 /**
  * A keyword menu's trigger, drawn as a field: the option, drawn where words alone don't show it, with a mark where it
- * isn't Baseline, or what unset comes to, muted. `compact` leaves only the chevron, beside a custom value's field.
+ * isn't Baseline, or what unset comes to, muted; a token chosen, as its pill, as a token field shows it. `compact`
+ * leaves only the chevron, beside a custom value's field. Backspace or Delete on it unsets the field (`onClear`), as on
+ * a token field's pill.
  */
 export function KeywordTrigger({
   label,
@@ -259,7 +269,9 @@ export function KeywordTrigger({
   drawn,
   browsers,
   compact = false,
-  className = "flex-1"
+  className = "flex-1",
+  chip,
+  onClear
 }: {
   label: string
   shown: string
@@ -271,14 +283,24 @@ export function KeywordTrigger({
   compact?: boolean
   /** Its width in the row. */
   className?: string
+  /** A token's pill, in place of the option's words. */
+  chip?: ReactNode
+  onClear?: () => void
 }) {
   return (
     <Hint label={`${label}: ${shown}`} detail={detail} wait>
       <DropdownMenuTrigger
         aria-label={`${label}: ${compact ? "Custom" : shown}`}
+        onKeyDown={(event) => {
+          if (onClear && (event.key === "Backspace" || event.key === "Delete")) {
+            event.preventDefault()
+            onClear()
+          }
+        }}
         className={`${fieldBox(false, `${compact ? "w-7 justify-center" : `${className} justify-between`} pr-1 outline-none`)} data-popup-open:ring-2 data-popup-open:ring-ring`}
       >
-        {!compact && (
+        {!compact && chip}
+        {!compact && chip === undefined && (
           <span className={`flex min-w-0 items-center gap-1.5 ${chosen ? "" : "text-muted-foreground"}`}>
             {drawn}
             <span className="truncate">{shown}</span>
@@ -328,7 +350,8 @@ export function KeywordItem({
 /**
  * A menu for a keyword set, as Wrap, Cursor and Stroke's Style are: its trigger shows the option, or what the layer has
  * while unset, muted. Each option shows its CSS keyword and is previewed on the canvas while hovered or highlighted.
- * Tokens come first where the set has them; More holds the rarer options.
+ * Tokens come first where the set has them, and a token chosen shows as its pill, as a token field's does, with Detach
+ * in the menu, which keeps what it comes to; Backspace on the trigger unsets it. More holds the rarer options.
  */
 export function KeywordMenu({
   label,
@@ -389,6 +412,14 @@ export function KeywordMenu({
   }
 
   const showCustom = custom !== undefined || editingCustom
+  const comesTo = chosen?.token ? chosen.comesTo : undefined
+  let detached: KeywordValue | undefined
+
+  if (comesTo !== undefined) {
+    detached = choices.some((choice) => choice.value === comesTo && !choice.token)
+      ? { option: comesTo }
+      : { custom: comesTo }
+  }
 
   return (
     <div className="flex items-start gap-1">
@@ -411,6 +442,24 @@ export function KeywordMenu({
           drawn={chosen && draw?.(chosen)}
           browsers={chosen?.browsers}
           compact={showCustom}
+          chip={
+            chosen?.token ? (
+              <TokenChip
+                name={`${property}-${chosen.value}`}
+                namespace={`${property}-`}
+                preview={draw?.(chosen)}
+                hint={false}
+              />
+            ) : undefined
+          }
+          onClear={
+            value === undefined
+              ? undefined
+              : () => {
+                  setEditingCustom(false)
+                  onChange(undefined)
+                }
+          }
         />
         <DropdownMenuContent align="end" className="w-64">
           {tokens.length > 0 && (
@@ -436,6 +485,14 @@ export function KeywordMenu({
             </DropdownMenuSub>
           )}
           <DropdownMenuSeparator />
+          {detached !== undefined && (
+            // As a token field's Detach: keeps what the token comes to, without it.
+            <DropdownMenuItem className="text-xs" onClick={() => onChange(detached)}>
+              <Unlink aria-hidden className="size-3.5 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">Detach</span>
+              <span className="shrink-0 font-mono text-2xs text-muted-foreground">{chosen?.comesTo}</span>
+            </DropdownMenuItem>
+          )}
           {inherits && (
             <DropdownMenuItem className="text-xs" onClick={() => onChange({ custom: "inherit" })}>
               Inherit

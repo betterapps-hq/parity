@@ -5,8 +5,9 @@ import { type KeyboardEvent, type ReactNode, useId, useRef, useState } from "rea
 import { Hint } from "../../chrome/Hint.tsx"
 import { numberValue } from "../../chrome/prop-values.ts"
 import { swatch } from "../../chrome/token-previews.tsx"
-import { arbitrary, formatNumber, lengthForm } from "./css-values.ts"
+import { arbitrary, formatNumber, lengthForm, remPx } from "./css-values.ts"
 import {
+  comboboxProps,
   fieldBox,
   type FieldHint,
   fieldInput,
@@ -15,10 +16,11 @@ import {
   MessageLine,
   MissingMark,
   type Reading,
-  readNumber,
+  readUnitNumber,
   SearchList,
   TokenChip,
   TokenMark,
+  tokenNamed,
   ValueField,
   wrappingText
 } from "./field-parts.tsx"
@@ -762,20 +764,17 @@ export function ExpressionField({
       return { value: undefined }
     }
 
-    const token = lengthTokens.find((each) => each.name === trimmed || `--${each.name}` === trimmed)
+    const token = tokenNamed(lengthTokens, trimmed, "--")
 
     if (token) {
       return { value: `var(--${token.name})` }
     }
 
-    const reading = readNumber(trimmed.replace(/px$/, ""), px, label)
+    const takes = "Type = for an expression"
+    const reading = readUnitNumber(trimmed, { units: { px: 1, rem: remPx }, current: px ?? 0, label, takes })
 
     if ("reason" in reading) {
-      return { reason: `${reading.reason}. Type = for an expression` }
-    }
-
-    if ("clear" in reading) {
-      return { value: undefined }
+      return { reason: reading.reason.endsWith(takes) ? reading.reason : `${reading.reason}. ${takes}` }
     }
 
     return { value: `${reading.value}px` }
@@ -878,9 +877,7 @@ export function ExpressionField({
               data-expression-editor
               rows={1}
               aria-label={`${label} expression`}
-              aria-autocomplete="list"
-              aria-controls={showList ? listId : undefined}
-              aria-activedescendant={showList ? `${listId}-${highlight}` : undefined}
+              {...comboboxProps({ listId, open: showList, highlight })}
               aria-invalid={error || undefined}
               value={editing}
               onChange={(event) => {

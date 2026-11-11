@@ -71,3 +71,69 @@ export function readLength(
 
 /** Whether what's typed is a bare number, which a field reads in the unit it shows. */
 export const isBareNumber = (text: string) => /^\s*-?\d*\.?\d+\s*$/.test(text)
+
+/** A number typed with the app's maths: `8`, `+2`, `*2`, `(24 - 4) / 2`, working from `current` when it starts with one. */
+export function readNumber(
+  text: string,
+  current: number | undefined,
+  label: string
+): { value: number } | { clear: true } | { reason: string } {
+  const rules = { kind: "number" as const, label }
+  const outcome = applyFieldInput(readFieldInput(text, rules), current, rules)
+
+  if (!outcome.ok) {
+    return { reason: outcome.reason }
+  }
+
+  const number = numberValue.safeParse(outcome.value).data
+
+  if (number === undefined) {
+    return { clear: true }
+  }
+
+  return { value: Math.round(number * 10_000) / 10_000 }
+}
+
+/**
+ * A number typed in a field's own units, with the app's maths as `readNumber` reads it: `45`, `0.25turn`, `+15`, `*2`,
+ * `(90 - 30) / 2`. A unit at the end converts from that unit, `units` giving what one of each comes to in the field's
+ * own; a bare number is in the field's own unit, and a leading `-` is a negative number, not a step down. Text it
+ * can't read gets `takes`, which says what the field takes.
+ */
+export function readUnitNumber(
+  text: string,
+  {
+    units,
+    current,
+    label,
+    takes
+  }: { units: Readonly<Record<string, number>>; current: number; label: string; takes: string }
+): { value: number } | { reason: string } {
+  const trimmed = text.trim()
+  const cannot = { reason: `Can't read "${trimmed}". ${takes}` }
+
+  // A percentage is a share of a length, which a field in its own units doesn't take.
+  if (trimmed.includes("%")) {
+    return cannot
+  }
+
+  const withUnit = /^(.*[\d.)])\s*([a-z°]+)$/i.exec(trimmed)
+  const unit = withUnit?.[2]?.toLowerCase().replace("°", "deg")
+  const factor = unit === undefined ? 1 : units[unit]
+
+  if (factor === undefined) {
+    return cannot
+  }
+
+  const reading = readNumber(withUnit?.[1] ?? trimmed, current / factor, label)
+
+  if ("clear" in reading) {
+    return cannot
+  }
+
+  if ("reason" in reading) {
+    return reading.reason.startsWith("Can't read") ? cannot : reading
+  }
+
+  return { value: Math.round(reading.value * factor * 10_000) / 10_000 }
+}

@@ -1,21 +1,24 @@
-import { Popover, PopoverContent, PopoverTrigger, Slider, Toggle } from "@buildkitgg/shadcn-baseui-kit"
-import { ALargeSmall, ChevronDown, Italic, MoveHorizontal, MoveVertical, TriangleAlert } from "lucide-react"
-import { type KeyboardEvent, type ReactNode, useState } from "react"
+import { Slider, Toggle } from "@buildkitgg/shadcn-baseui-kit"
+import { ALargeSmall, Italic, MoveHorizontal, MoveVertical, TriangleAlert } from "lucide-react"
+import { type ReactNode, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
-import { clamp, formatNumber, lengthForm, stepCount, stepThrough } from "./css-values.ts"
+import { clamp, formatNumber, lengthForm, remPx, stepCount } from "./css-values.ts"
 import {
   asToken,
-  fieldBox,
   type Message,
   MessageLine,
   MissingMark,
-  nearestToken,
+  moveThroughRows,
+  ownValue,
   type Reading,
   readNumber,
+  readUnitNumber,
   type ScrubKeys,
   type SearchOption,
+  stepToken,
   tokenChip,
+  tokenNamed,
   UnitMenu,
   useTokens,
   ValueField
@@ -82,7 +85,9 @@ interface FontOption {
  * Font family: the first family's name in its own face, with +2 when the stack has fallbacks and the stack in the
  * hint. Focused, it lists the fonts, set in each, the project's first; typing searches them, and Up and Down move
  * through them, previewing each on the canvas; Enter takes the highlighted one, and a comma-separated stack is kept as
- * typed. A font the frame can't load is Missing, drawn in the fallback with its name struck through.
+ * typed. Its chevron opens the font tokens, as every token field's does: for a font of its own, the nearest token
+ * first, then Create token and Allow here; Detach while a token's set. A font the frame can't load is Missing, drawn in
+ * the fallback with its name struck through.
  */
 export function FontFamilyField({
   value,
@@ -260,6 +265,9 @@ export function FontFamilyField({
             ? { nearest: near, onUse: () => change({ token: near.name }) }
             : undefined
         }
+        // The chevron's list, as every token field has: the nearest token first for a font of its own, then the tokens,
+        // Create token and Allow here, and Detach while a token's set. Typing still searches every font.
+        tokens={{ list: tokens, current: held, onPick: (name) => change(asToken(name)) }}
         search={{
           label: "Fonts",
           options,
@@ -339,9 +347,13 @@ export function weightFace(
 }
 
 /**
- * Weight and style: the weight's name (Semibold), with its number and class in the hint, and Italic beside it. Its
- * menu lists the font's weights first; a variable font adds a number field and a slider over its weight axis. A weight
- * the font has no face for is drawn with the nearest one, or faked by the browser, and the field says so.
+ * Weight and style: a ValueField, as every token field is, with Italic beside it. A weight token is its chip
+ * (semibold), with its number and class in the hint; a number of its own shows as typed, and unset, the weight it
+ * inherits shows faintly by name. It takes a weight's number or name typed, Up and Down step through the font's
+ * weights, and dragging the row's name changes it. Its chevron opens the font's weights first, each set in that weight
+ * and previewed while it's hovered or focused, with Up and Down moving through them; a variable font adds a number field
+ * and a slider over its weight axis. A weight the font has no face for is drawn with the nearest one, or faked by the
+ * browser, and the field says so.
  */
 export function WeightField({
   font,
@@ -369,6 +381,8 @@ export function WeightField({
   const face = weightFace(font, shown)
   const faces = font.axis ? tokens.map((token) => token.weight) : font.weights
   const others = tokens.map((token) => token.weight).filter((each) => !faces.includes(each))
+  const held = value !== undefined && "token" in value ? value.token : undefined
+  const heldToken = tokens.find((token) => token.name === held)
 
   /** The weight a typed or slid number is stored as: its token where one names it (600 is `semibold`). */
   const weightValue = (number: number): WeightValue => {
@@ -377,18 +391,13 @@ export function WeightField({
     return token ? { token: token.name } : { value: number }
   }
 
-  // Up and Down on the menu's button step through the font's weights, as a token steps through its scale.
-  const step = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") {
-      return
-    }
-
-    event.preventDefault()
+  // Up and Down step through the font's weights, as a token steps through its scale.
+  const step = (up: boolean, { shift }: ScrubKeys) => {
     const at = faces.indexOf(shown)
-    let index = at === -1 ? faces.findIndex((each) => each > shown) : at + (event.key === "ArrowUp" ? 1 : -1)
+    let index = at === -1 ? faces.findIndex((each) => each > shown) : at + (up ? 1 : -1)
 
-    if (event.shiftKey) {
-      index = event.key === "ArrowUp" ? faces.length - 1 : 0
+    if (shift) {
+      index = up ? faces.length - 1 : 0
     }
 
     const next = faces[clamp(index, 0, faces.length - 1)]
@@ -396,6 +405,36 @@ export function WeightField({
     if (next !== undefined) {
       onChange(weightValue(next))
     }
+  }
+
+  const read = (text: string): Reading<WeightValue | undefined> => {
+    const trimmed = text.trim().toLowerCase()
+
+    if (trimmed === "") {
+      return { value: undefined }
+    }
+
+    const named = tokenNamed(tokens, trimmed, "font-") ?? tokens.find((token) => token.label.toLowerCase() === trimmed)
+
+    if (named) {
+      return { value: { token: named.name } }
+    }
+
+    const reading = readNumber(trimmed, shown, "Weight")
+
+    if ("clear" in reading) {
+      return { value: undefined }
+    }
+
+    if ("reason" in reading) {
+      return { reason: "Enter a weight from 1 to 1000, or its name, such as semibold" }
+    }
+
+    if (reading.value < 1 || reading.value > 1000) {
+      return { reason: "Weight goes from 1 to 1000" }
+    }
+
+    return { value: weightValue(Math.round(reading.value)) }
   }
 
   let label = weightName(shown, tokens)
@@ -417,17 +456,24 @@ export function WeightField({
   const tokenName = weight === undefined ? undefined : tokens.find((token) => token.weight === weight)?.name
   const italicFaked = italic === true && !font.italic
 
+  const choose = (next: boolean) => {
+    setOpen(next)
+
+    if (!next) {
+      onPreview(undefined)
+    }
+  }
+
   const item = (each: number, faked: boolean) => (
     <button
       key={each}
       type="button"
-      aria-pressed={each === weight}
+      aria-current={each === weight || undefined}
       onPointerEnter={() => onPreview(each)}
       onFocus={() => onPreview(each)}
       onClick={() => {
         onChange(weightValue(each))
-        setOpen(false)
-        onPreview(undefined)
+        choose(false)
       }}
       className={`flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1 text-left text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none ${each === weight ? "bg-accent" : ""}`}
     >
@@ -436,103 +482,104 @@ export function WeightField({
     </button>
   )
 
+  const picker = (
+    <div className="flex flex-col gap-1 p-1">
+      {font.axis && (
+        <div className="grid grid-cols-[minmax(0,1fr)_4rem] items-center gap-x-2 border-b px-2 pt-1.5 pb-2.5">
+          <p className="col-span-full pb-2 type-description text-muted-foreground">
+            {font.name} is variable: any weight from {font.axis[0]} to {font.axis[1]}
+          </p>
+          <Slider
+            aria-label="Weight axis"
+            min={font.axis[0]}
+            max={font.axis[1]}
+            step={1}
+            value={shown}
+            onValueChange={(next) => onChange(weightValue(Array.isArray(next) ? next[0]! : next))}
+          />
+          <ValueField
+            label="Weight number"
+            shown={String(shown)}
+            selectOnFocus
+            read={(text): Reading<number> => {
+              const reading = readNumber(text, shown, "Weight")
+
+              if ("reason" in reading) {
+                return { reason: reading.reason }
+              }
+
+              if ("clear" in reading) {
+                return { reason: "Enter a weight from 1 to 1000" }
+              }
+
+              if (reading.value < 1 || reading.value > 1000) {
+                return { reason: "Weight goes from 1 to 1000" }
+              }
+
+              return { value: Math.round(reading.value) }
+            }}
+            onCommit={(next) => onChange(weightValue(next))}
+            onStep={(up, { shift }) => onChange(weightValue(clamp(shown + stepCount(up, shift) * 10, 1, 1000)))}
+          />
+        </div>
+      )}
+      {/* One list of choices, as a token list is: the current one marked, Up and Down moving through them. */}
+      {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- the arrow keys of the buttons inside, handled once for them all */}
+      <div className="flex flex-col" onKeyDown={moveThroughRows}>
+        <GroupLabel as="p" className="px-2 pt-1">
+          In {font.name}
+        </GroupLabel>
+        {faces.map((each) => item(each, false))}
+        {others.length > 0 && (
+          <>
+            <GroupLabel as="p" className="mt-1 border-t px-2 pt-1.5">
+              Not in {font.name}
+            </GroupLabel>
+            {others.map((each) => item(each, weightFace(font, each).kind === "faked"))}
+          </>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <div>
       <div className="flex items-center gap-1">
-        <Popover
-          open={open}
-          onOpenChange={(next) => {
-            setOpen(next)
-
-            if (!next) {
-              onPreview(undefined)
-            }
-          }}
-        >
-          <Hint
-            label={`Weight: ${label}`}
-            detail={[
-              `${shown}${tokenName ? `, font-${tokenName}` : ""}`,
-              weight === undefined && !mixed ? "Inherited" : undefined,
-              faceNote
-            ]
-              .filter(Boolean)
-              .join("\n")}
-            wait
-          >
-            <PopoverTrigger
-              aria-label={`Weight: ${label}`}
-              onKeyDown={step}
-              className={`${fieldBox(false, "flex-1 justify-between pr-1 text-left outline-none")} data-popup-open:ring-2 data-popup-open:ring-ring`}
-            >
-              <span
-                className={`truncate ${weight === undefined ? "text-muted-foreground" : ""}`}
-                style={{ fontWeight: shown, fontFamily: font.stack }}
-              >
-                {label}
-              </span>
-              <span className="flex shrink-0 items-center gap-1">
-                {face.kind === "faked" && (
-                  <TriangleAlert aria-label="Faked by the browser" className="size-3.5 text-amber-600" />
-                )}
-                <ChevronDown className="size-3.5 text-muted-foreground" />
-              </span>
-            </PopoverTrigger>
-          </Hint>
-          <PopoverContent aria-label="Weight" align="start" className="w-60 gap-1 p-1">
-            {font.axis && (
-              <div className="grid grid-cols-[minmax(0,1fr)_4rem] items-center gap-x-2 border-b px-2 pt-1.5 pb-2.5">
-                <p className="col-span-full pb-2 type-description text-muted-foreground">
-                  {font.name} is variable: any weight from {font.axis[0]} to {font.axis[1]}
-                </p>
-                <Slider
-                  aria-label="Weight axis"
-                  min={font.axis[0]}
-                  max={font.axis[1]}
-                  step={1}
-                  value={shown}
-                  onValueChange={(next) => onChange(weightValue(Array.isArray(next) ? next[0]! : next))}
-                />
-                <ValueField
-                  label="Weight"
-                  shown={String(shown)}
-                  selectOnFocus
-                  read={(text): Reading<number> => {
-                    const reading = readNumber(text, shown, "Weight")
-
-                    if ("reason" in reading) {
-                      return { reason: reading.reason }
-                    }
-
-                    if ("clear" in reading) {
-                      return { reason: "Enter a weight from 1 to 1000" }
-                    }
-
-                    if (reading.value < 1 || reading.value > 1000) {
-                      return { reason: "Weight goes from 1 to 1000" }
-                    }
-
-                    return { value: Math.round(reading.value) }
-                  }}
-                  onCommit={(next) => onChange(weightValue(next))}
-                  onStep={(up, { shift }) => onChange(weightValue(clamp(shown + stepCount(up, shift) * 10, 1, 1000)))}
-                />
-              </div>
-            )}
-            <GroupLabel as="p" className="px-2 pt-1">
-              In {font.name}
-            </GroupLabel>
-            {faces.map((each) => item(each, false))}
-            {others.length > 0 && (
-              <>
-                <GroupLabel as="p" className="mt-1 border-t px-2 pt-1.5">
-                  Not in {font.name}
-                </GroupLabel>
-                {others.map((each) => item(each, weightFace(font, each).kind === "faked"))}
-              </>
-            )}
-          </PopoverContent>
-        </Popover>
+        <div className="min-w-0 flex-1">
+          <ValueField
+            label="Weight"
+            scrub={{
+              from: () => shown,
+              apply: (next) => onChange(weightValue(Math.round(next))),
+              by: { step: 10, shiftStep: 100, min: 1, max: 1000 }
+            }}
+            shown={value !== undefined && "value" in value ? String(value.value) : undefined}
+            placeholder={weightName(inherited, tokens)}
+            mixed={mixed}
+            chip={tokenChip(held, heldToken, {
+              pick: (name) => onChange(asToken(name)),
+              detach: (token) => onChange({ value: token.weight })
+            })}
+            picker={{ content: picker, open, onOpenChange: choose, className: "w-60 gap-0 p-0" }}
+            hint={{
+              label: `Weight: ${label}`,
+              detail: [
+                `${shown}${tokenName ? `, font-${tokenName}` : ""}`,
+                weight === undefined && !mixed ? "Inherited" : undefined,
+                faceNote
+              ]
+                .filter(Boolean)
+                .join("\n")
+            }}
+            inputMode="text"
+            // The weight's name or number set in that weight, in the font.
+            inputStyle={{ fontWeight: shown, fontFamily: font.stack }}
+            selectOnFocus
+            read={read}
+            onCommit={onChange}
+            onStep={step}
+          />
+        </div>
         <Hint label="Italic" detail={italicFaked ? `Faked by the browser: ${font.name} has no italic` : undefined}>
           <Toggle
             variant="outline"
@@ -649,10 +696,10 @@ export function LineHeightField({
       return { value: { keyword: "normal" } }
     }
 
-    const name = trimmed.replace(/^leading-/, "")
+    const named = tokenNamed(tokens, trimmed, "leading-")
 
-    if (tokens.some((each) => each.name === name)) {
-      return { value: { token: name } }
+    if (named) {
+      return { value: { token: named.name } }
     }
 
     const step = /^spacing-(\d*\.?\d+)$/.exec(trimmed)?.[1]
@@ -731,7 +778,7 @@ export function LineHeightField({
 
   const step = (up: boolean, keys: ScrubKeys) => {
     if (token) {
-      onChange({ token: stepThrough(tokens, token, up, keys.shift).name })
+      onChange({ token: stepToken(tokens, token, up, keys.shift).name })
 
       return
     }
@@ -769,7 +816,6 @@ export function LineHeightField({
   }
 
   const multiple = multipleOf(value ?? { multiple: 1.5 }, fontSize, tokens)
-  const nearest = nearestToken(tokens, (each) => each.multiple, multiple)
   const auto = value !== undefined && "keyword" in value
 
   return (
@@ -819,20 +865,18 @@ export function LineHeightField({
       own={
         own === undefined
           ? undefined
-          : {
+          : ownValue({
+              value: multiple,
               text: `${shown}${unit === "px" ? "px" : "×"}`,
-              nearest,
-              same: nearest?.multiple === multiple,
-              onCreate:
-                create &&
-                ((name) => {
-                  create(leadingToken(name, Math.round(multiple * 1000) / 1000))
-                  onChange({ token: name })
-                }),
-              allowed: "px" in own ? own.allow : undefined,
+              tokens,
+              measure: (each) => each.multiple,
+              make: (name) => leadingToken(name, Math.round(multiple * 1000) / 1000),
+              create,
+              allow: "px" in own ? own.allow : undefined,
+              onToken: (name) => onChange({ token: name }),
               // A multiple is a value in CSS's own terms; pixels off the steps keep why they're allowed here.
               onAllow: "px" in own ? (allow) => onChange({ px: own.px, allow }) : undefined
-            }
+            })
       }
       tokens={{
         list: tokens,
@@ -888,20 +932,21 @@ export function FontSizeField({
       return { value: undefined }
     }
 
-    const name = trimmed.replace(/^text-/, "")
+    const named = tokenNamed(tokens, trimmed, "text-")
 
-    if (tokens.some((each) => each.name === name)) {
-      return { value: { token: name } }
+    if (named) {
+      return { value: { token: named.name } }
     }
 
-    const reading = readNumber(trimmed.replace(/px$/, ""), px, "Size")
+    const reading = readUnitNumber(trimmed, {
+      units: { px: 1, rem: remPx },
+      current: px ?? inherited,
+      label: "Size",
+      takes: "Enter pixels, such as 20, or a text size token"
+    })
 
     if ("reason" in reading) {
-      return { reason: "Enter pixels, such as 20, or a text size token" }
-    }
-
-    if ("clear" in reading) {
-      return { value: undefined }
+      return reading
     }
 
     if (reading.value <= 0) {
@@ -910,8 +955,6 @@ export function FontSizeField({
 
     return { value: { px: Math.round(reading.value * 100) / 100 } }
   }
-
-  const nearest = px === undefined ? undefined : nearestToken(tokens, (each) => each.px, px)
 
   return (
     <ValueField
@@ -934,26 +977,24 @@ export function FontSizeField({
       own={
         own === undefined
           ? undefined
-          : {
+          : ownValue({
+              value: own.px,
               text: `${formatNumber(own.px)}px`,
-              nearest,
-              same: nearest?.px === own.px,
-              onCreate:
-                create &&
-                ((name) => {
-                  create({
-                    name,
-                    kind: "font-size",
-                    value: `${own.px}px`,
-                    detail: `${own.px}px`,
-                    px: own.px,
-                    lineHeight: Math.round(own.px * 1.5)
-                  })
-                  onChange({ token: name })
-                }),
-              allowed: own.allow,
+              tokens,
+              measure: (each) => each.px,
+              make: (name) => ({
+                name,
+                kind: "font-size",
+                value: `${own.px}px`,
+                detail: `${own.px}px`,
+                px: own.px,
+                lineHeight: Math.round(own.px * 1.5)
+              }),
+              create,
+              allow: own.allow,
+              onToken: (name) => onChange({ token: name }),
               onAllow: (allow) => onChange({ px: own.px, allow })
-            }
+            })
       }
       tokens={{
         list: tokens,
@@ -964,7 +1005,7 @@ export function FontSizeField({
       onCommit={onChange}
       onStep={(up, keys) => {
         if (token) {
-          onChange({ token: stepThrough(tokens, token, up, keys.shift).name })
+          onChange({ token: stepToken(tokens, token, up, keys.shift).name })
 
           return
         }
@@ -1044,10 +1085,10 @@ export function LetterSpacingField({
       return { value: undefined }
     }
 
-    const name = trimmed.replace(/^tracking-/, "")
+    const named = tokenNamed(tokens, trimmed, "tracking-")
 
-    if (tokens.some((each) => each.name === name)) {
-      return { value: { token: name } }
+    if (named) {
+      return { value: { token: named.name } }
     }
 
     let typedUnit = unit
@@ -1079,7 +1120,6 @@ export function LetterSpacingField({
   }
 
   const em = value === undefined ? 0 : emOf(value, fontSize, tokens)
-  const nearest = nearestToken(tokens, (each) => each.em, em)
 
   return (
     <ValueField
@@ -1119,17 +1159,15 @@ export function LetterSpacingField({
       own={
         value === undefined || "token" in value
           ? undefined
-          : {
+          : ownValue({
+              value: em,
               text: `${shown}${unit}`,
-              nearest,
-              same: nearest?.em === em,
-              onCreate:
-                create &&
-                ((name) => {
-                  create(trackingToken(name, Math.round(em * 10_000) / 10_000))
-                  onChange({ token: name })
-                }),
-              allowed: value.allow,
+              tokens,
+              measure: (each) => each.em,
+              make: (name) => trackingToken(name, Math.round(em * 10_000) / 10_000),
+              create,
+              allow: value.allow,
+              onToken: (name) => onChange({ token: name }),
               onAllow: (allow) => {
                 if ("em" in value) {
                   onChange({ em: value.em, allow })
@@ -1139,7 +1177,7 @@ export function LetterSpacingField({
                   onChange({ px: value.px, allow })
                 }
               }
-            }
+            })
       }
       tokens={{
         list: tokens,
@@ -1150,7 +1188,7 @@ export function LetterSpacingField({
       onCommit={onChange}
       onStep={(up, keys) => {
         if (token) {
-          onChange({ token: stepThrough(tokens, token, up, keys.shift).name })
+          onChange({ token: stepToken(tokens, token, up, keys.shift).name })
 
           return
         }

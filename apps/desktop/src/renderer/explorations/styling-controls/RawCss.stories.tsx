@@ -177,7 +177,7 @@ export const PastingDeclarations: Story = {
   render: () => <Css start={cssModel([{ property: "scroll-margin-top", value: "4rem" }])} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.click(canvas.getByRole("textbox", { name: "scroll-margin-top value" }))
+    await userEvent.click(canvas.getByRole("combobox", { name: "scroll-margin-top value" }))
     await userEvent.paste("padding: 16px; interpolate-size: allow-keywords; colour: red;")
   }
 }

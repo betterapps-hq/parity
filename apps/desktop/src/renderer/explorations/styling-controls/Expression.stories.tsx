@@ -132,7 +132,7 @@ export const TypingAnExpression: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
-    const editor = await canvas.findByRole("textbox", { name: "Width expression" })
+    const editor = await canvas.findByRole("combobox", { name: "Width expression" })
     await userEvent.type(editor, "min(100%, 40rem){Enter}")
     await expect(canvas.getByRole("textbox", { name: "Width" })).toHaveFocus()
   }
@@ -152,7 +152,7 @@ export const JustEquals: Story = {
     await expect(canvas.queryByRole("option", { name: /color-mix\(\)/ })).toBeNull()
     await step("Backspace takes the = away", async () => {
       await userEvent.keyboard("{Backspace}")
-      await expect(canvas.queryByRole("textbox", { name: "Width expression" })).toBeNull()
+      await expect(canvas.queryByRole("combobox", { name: "Width expression" })).toBeNull()
       await expect(canvas.getByRole("textbox", { name: "Width" })).toHaveFocus()
       await expect(canvas.getByRole("textbox", { name: "Width" })).toHaveValue("320")
     })
@@ -167,7 +167,7 @@ export const Completion: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
-    const editor = await canvas.findByRole("textbox", { name: "Width expression" })
+    const editor = await canvas.findByRole("combobox", { name: "Width expression" })
     await userEvent.type(editor, "cl")
   }
 }
@@ -178,7 +178,7 @@ export const SimplestForm: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
-    const editor = await canvas.findByRole("textbox", { name: "Width expression" })
+    const editor = await canvas.findByRole("combobox", { name: "Width expression" })
     await userEvent.type(editor, "calc(var(--spacing) * 18){Enter}")
     await expect(canvas.getByRole("textbox", { name: "Width" })).toHaveFocus()
   }
@@ -203,7 +203,7 @@ export const InvalidAsTyped: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole("textbox", { name: "Width" }))
-    const editor = await canvas.findByRole("textbox", { name: "Width expression" })
+    const editor = await canvas.findByRole("combobox", { name: "Width expression" })
     await userEvent.clear(editor)
     await userEvent.type(editor, "calc(100% - ){Enter}")
   }

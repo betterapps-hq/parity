@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
-import { userEvent, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { SpacingPreview } from "./box-model.tsx"
 import { Playground } from "./playground.tsx"
@@ -100,6 +100,23 @@ export const LockedToTokens: Story = {
   render: () => <Padding start={[px(13.5), px(16), px(13.5), px(16)]} tokensOnly />
 }
 
+/**
+ * Locked to tokens, `1.4rem` typed: it comes to 22.5, off the steps, so the tokens offer spacing-gutter (24), the
+ * nearest to what it comes to.
+ */
+export const LockedNearestToken: Story = {
+  render: () => <Padding start={all(px(16))} tokensOnly />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    // Locked, the field searches the tokens, so it's a combobox.
+    const field = canvas.getByRole("combobox", { name: "Vertical padding" })
+    await userEvent.clear(field)
+    await userEvent.type(field, "1.4rem")
+    await expect(await canvas.findByRole("option", { name: /gutter/ })).toBeVisible()
+    await expect(canvas.queryByRole("option", { name: /inset/ })).toBeNull()
+  }
+}
+
 /** A replaced token, `spacing-card`: its pill is amber, and Tokens offers spacing-gutter in its place first. */
 export const DeprecatedToken: Story = {
   render: () => <Padding start={all({ token: "spacing-card" })} />
@@ -107,6 +124,28 @@ export const DeprecatedToken: Story = {
 
 /** 5% across: a percentage of Pricing's width, the containing block's, written `px-[5%]`. */
 export const Percentage: Story = { render: () => <Padding start={[px(16), { percent: 5 }, px(16), { percent: 5 }]} /> }
+
+/** 5% across, its glyph dragged 20 screen pixels right: a percent each, so 25%, still a percentage. */
+export const PercentageScrubbed: Story = {
+  render: () => <Padding start={[px(16), { percent: 5 }, px(16), { percent: 5 }]} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement)
+    const field = canvas.getByRole("textbox", { name: "Horizontal padding" })
+    const glyph = field.parentElement?.querySelector(".cursor-ew-resize")
+
+    if (!glyph) {
+      throw new Error("Horizontal padding has no glyph to drag")
+    }
+
+    const { left, top } = glyph.getBoundingClientRect()
+    const at = (x: number) => ({ bubbles: true, button: 0, pointerId: 1, clientX: left + x, clientY: top + 4 })
+    glyph.dispatchEvent(new PointerEvent("pointerdown", at(2)))
+    glyph.dispatchEvent(new PointerEvent("pointermove", at(22)))
+    glyph.dispatchEvent(new PointerEvent("pointerup", at(22)))
+    await waitFor(() => expect(field).toHaveValue("25"))
+    await expect(canvas.getAllByText(/px-\[25%\]/).length).toBeGreaterThan(0)
+  }
+}
 
 /** Unset: 0, muted, and nothing written. Typing pads every side. */
 export const Unset: Story = { render: () => <Padding start={all(undefined)} /> }

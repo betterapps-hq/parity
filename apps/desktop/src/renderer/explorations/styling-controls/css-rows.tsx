@@ -9,6 +9,7 @@ import { arbitrary, clamp, formatNumber, isPlainColor } from "./css-values.ts"
 import { CurveThumb } from "./easing.tsx"
 import { fillTokens } from "./expression.tsx"
 import {
+  comboboxProps,
   InvalidMark,
   type Message,
   MessageLine,
@@ -483,7 +484,8 @@ function Completing({
 
   const shared = {
     "aria-label": label,
-    "aria-activedescendant": open ? `${listId}-${highlight}` : undefined,
+    // The same combobox, one line or wrapping: it says whether its completions are open, and which is highlighted.
+    ...comboboxProps({ listId, open, highlight }),
     ref: input,
     value: typed ?? value,
     placeholder,
@@ -530,19 +532,10 @@ function Completing({
   return (
     <div className={`relative min-w-0 ${className}`}>
       {wrap ? (
-        <textarea
-          {...shared}
-          rows={1}
-          aria-autocomplete="list"
-          aria-controls={open ? listId : undefined}
-          className={`${wrappingText} block w-full ${text}`}
-        />
+        <textarea {...shared} rows={1} className={`${wrappingText} block w-full ${text}`} />
       ) : (
         <input
           {...shared}
-          role="combobox"
-          aria-controls={open ? listId : undefined}
-          aria-expanded={open}
           className={`${sizeToContent ? "field-sizing-content max-w-full min-w-[8ch]" : "w-full min-w-0"} ${text}`}
         />
       )}
