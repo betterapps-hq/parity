@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Wed, 11 Nov 2026 08:41:52 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 11 Nov 2026 09:09:16 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.58.0
+
+Wed, 11 Nov 2026 09:09:16 GMT
+
+### Minor changes
+
+- Problems reports a node squeezed narrower than its width, and a node in the layout's flow spilling out of a parent
+  that doesn't clip (ajcraswell@gmail.com)
 
 ## 0.57.1
 
