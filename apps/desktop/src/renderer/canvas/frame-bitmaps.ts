@@ -105,7 +105,8 @@ export function useFrameShows(
           },
           scale: bitmapScale * scale,
           tokens: previews,
-          design: { key: drawn.key, state: drawn.state, mode: mode.id }
+          design: { key: drawn.key, state: drawn.state, mode: mode.id },
+          canvas: true
         }
       ),
     [
