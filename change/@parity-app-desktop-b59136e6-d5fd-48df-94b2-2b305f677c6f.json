@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Agents' state changes keep values equal to the base, Responsive merges style and props key by key, and instance overrides can name layers",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

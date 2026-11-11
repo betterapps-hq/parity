@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Draw popups that components portal to the page's body inside their frame, with the project's styles, and report content left outside the frame in problems (PAR-881)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
