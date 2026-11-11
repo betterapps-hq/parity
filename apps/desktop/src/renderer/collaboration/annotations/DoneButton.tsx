@@ -2,6 +2,7 @@ import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { actions } from "../../chrome/actions.ts"
 import { keymap } from "../../chrome/keymap.ts"
 import { formatKeys } from "../../chrome/keys.ts"
+import { pressableWide, pressMotion } from "../../chrome/toolbar-parts.tsx"
 
 interface DoneButtonProps {
   /** Smaller, for a bar beside the toolbar rather than in it. */
@@ -14,7 +15,8 @@ export function DoneButton({ compact = false }: DoneButtonProps) {
     <Button
       variant="secondary"
       size={compact ? "xs" : "default"}
-      className={compact ? undefined : "ml-0.5 h-8 gap-1.5 px-2.5 active:scale-95"}
+      className={compact ? undefined : `ml-0.5 h-8 gap-1.5 px-2.5 ${pressableWide}`}
+      style={compact ? undefined : pressMotion}
       onClick={() => void actions.back.run("toolbar")}
     >
       Done <Kbd>{formatKeys(keymap.back.keys[0])}</Kbd>

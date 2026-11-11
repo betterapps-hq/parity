@@ -238,7 +238,9 @@ still need your call.
   registers no keys, so Ctrl+R is free for Rename; Ctrl+Shift+I opens developer tools through the keymap. Its keys never
   worked on Windows anyway, where the menu isn't shown.
 - **The canvas area is its own stacking context,** so its floating toolbars and overlays stay below menus and dialogs
-  instead of covering their close buttons.
+  instead of covering their close buttons. It sits above the panels beside it (PAR-893), so a floating bar wider than a
+  narrow canvas lies over them rather than being cut off under one; its overlays clip to it, and the panels' resize
+  edges stay above it.
 - **The theme defaults to dark** (what the app looked like before), with light and system in Settings. It covers the
   app's chrome and canvas only; designs keep whatever theme their mode picks. The main process remembers it too, so the
   window opens in the right theme without a flash.
@@ -7140,3 +7142,31 @@ The last of the four pull requests that build the references design. My calls:
   video node for a picture, saying which to use. `Update` takes `src`, `alt` and `credit` on a video as on an image.
 - **The player is `@parity-app/media-player`'s** (PAR-891): `VideoPlayer` in the larger view and on a Media card,
   `VideoPreview` and `VideoLength` on a tile.
+
+## The floating bars' lines are etched, and the toolbar has two (PAR-893)
+
+You found the toolbar's hairlines awkward on 2026-11-10: three of them split five tools, and two of the groups held one
+tool each. You compared ways of grouping, ordering and coloring in a Storybook exploration, removed once this was built,
+and picked these:
+
+- **Every line between a floating bar's groups is etched:** a dark groove cut into the bar, with a highlight on its
+  right. The toolbar's lines and the annotation bars' line before Suggest both change, since they share `BarDivider`.
+- **The lines run the bar's full height,** through its 4px padding to its border, so they read as cuts rather than lines
+  drawn on it, with 8px beside each.
+- **Both sides are borders,** since a browser rounds a border's width to whole screen pixels. Drawn as a 1px background
+  and shadow, two lines on one bar painted one and two pixels wide at 150% scaling.
+- **The bars are off-white in light mode,** so the highlight shows against them, and hover and a picked stamp are a step
+  darker inside them to keep their contrast.
+- **The toolbar keeps two lines,** one after the pointer's button and one before the commands. The line between Insert
+  and the review button goes.
+- **The colored tools that add things sit in the middle,** Frame, Text and the review button, and the commands that open
+  a dialog or a search sit on the right: Insert, Find references and Search actions. Insert and Find references leave
+  the tools' group, since they run a command rather than pick a tool, so the arrow keys move through tools alone.
+- **Comment is pink,** `oklch(0.72 0.2 355)` on the dark theme and `oklch(0.6 0.22 355)` on the light, so every tool in
+  the middle has a color. It's tuned on its own rather than at the annotations' lightness, and takes a darker step on
+  the light theme, as Frame and Text do. Sticky yellow was the other one considered.
+- **The kinds of annotation keep PAR-184's colors.** Moving them all to hues the canvas doesn't use was tried and set
+  aside: you found today's much better.
+- **Picking and pressing move the same on every floating bar.** A picked tool's button or stamp's chip boings, and a
+  pressed control dips and springs back on the pop spring, both from `toolbar-parts.tsx`.
+- **Grouping by spacing alone, one line before Search only, and lines inset from the bar's edges were set aside.**

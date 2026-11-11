@@ -9,14 +9,12 @@ import {
 import type { AnnotationKind } from "@parity-app/editor"
 import { Sparkles } from "lucide-react"
 import { useState } from "react"
-import { BarDivider } from "../../chrome/toolbar-parts.tsx"
+import { BarDivider, pressable, pressableWide, pressMotion, usePickPop } from "../../chrome/toolbar-parts.tsx"
 import { springIn } from "../../springs.ts"
 import { kindOptions, type KindOption } from "./annotation-options.ts"
 import { DoneButton } from "./DoneButton.tsx"
 
-/** A picked stamp's chip boings, and its name slides out of it. */
-const chipPop = springIn((progress) => ({ scale: String(0.6 + 0.4 * progress), rotate: `${(1 - progress) * -18}deg` }))
-
+/** A picked stamp's name slides out of its chip, which boings as every picked control on a bar does. */
 const nameIn = springIn((progress) => ({
   opacity: Math.min(1, progress * 1.6),
   translate: `${(1 - progress) * -6}px 0`,
@@ -54,7 +52,7 @@ export function KindBar({ kind }: KindBarProps) {
         ))}
       </ToggleGroup>
       <BarDivider />
-      <Button variant="ghost" className="h-8 gap-1.5 px-2 active:scale-95">
+      <Button variant="ghost" className={`h-8 gap-1.5 px-2 ${pressableWide}`} style={pressMotion}>
         <Sparkles /> Suggest
       </Button>
       <DoneButton />
@@ -70,6 +68,8 @@ interface StampProps {
 
 /** One option, as its chip, and with its name beside it once it's picked. Its tooltip says what it's for. */
 function Stamp({ id, option: { title, hint, icon: Icon, bg, ink }, picked }: StampProps) {
+  const popRef = usePickPop<HTMLSpanElement>(picked)
+
   return (
     <Tooltip>
       <TooltipTrigger
@@ -77,11 +77,11 @@ function Stamp({ id, option: { title, hint, icon: Icon, bg, ink }, picked }: Sta
           <ToggleGroupItem
             value={id}
             aria-label={title}
-            className="h-8 min-w-8 gap-1.5 px-1.5 text-xs transition-[scale,background-color] duration-200 ease-[cubic-bezier(0.3,1.8,0.5,1)] active:scale-90 aria-pressed:bg-muted aria-pressed:pr-2.5"
+            className={`h-8 min-w-8 gap-1.5 px-1.5 text-xs aria-pressed:bg-muted aria-pressed:pr-2.5 ${pressable}`}
+            style={pressMotion}
           >
             <span
-              key={picked ? "picked" : "idle"}
-              ref={picked ? chipPop : undefined}
+              ref={popRef}
               className="grid size-5 place-items-center rounded-[5px]"
               style={{ background: bg, color: ink }}
             >

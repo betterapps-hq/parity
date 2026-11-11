@@ -1,22 +1,20 @@
 import { ToggleGroup, ToggleGroupItem } from "@buildkitgg/shadcn-baseui-kit"
 import { isReviewTool } from "@parity-app/editor"
-import { SquarePlus, Telescope } from "lucide-react"
 import { useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { reviewToolLook } from "../../collaboration/annotations/annotation-kinds.ts"
 import { isTool, type Tool, useReview, useTool } from "../../selection.ts"
 import { actions } from "../actions.ts"
-import { IconButton } from "../IconButton.tsx"
 import { keymap } from "../keymap.ts"
-import { BarDivider, CommandTip, toolButton } from "../toolbar-parts.tsx"
+import { BarDivider, CommandTip, pressable, pressMotion, toolButton, usePickPop } from "../toolbar-parts.tsx"
 import { FrameMenu } from "./FrameMenu.tsx"
 import { MoveMenu } from "./MoveMenu.tsx"
 import { ReviewButton } from "./ReviewButton.tsx"
 import { isPointerTool, type PointerTool, toolIcons, toolTints } from "./tool-details.ts"
 
 /**
- * The tools as one group you move through with the arrow keys: what the pointer does, with its menu; Frame with its
- * menu, Text, and Insert, which makes things too; then the review button and Find references. Each runs its command
+ * The tools as one group you move through with the arrow keys: what the pointer does, with its menu; then the colored
+ * tools that add things (PAR-893), Frame with its menu, Text, and the review button with its menu. Each runs its command
  * from the toolbar.
  */
 export function Tools() {
@@ -53,24 +51,7 @@ export function Tools() {
       <ToolButton tool="frame" picked={current === "frame"} />
       <FrameMenu />
       <ToolButton tool="text" picked={current === "text"} />
-      <IconButton
-        label={keymap.insert.label}
-        shortcut={keymap.insert.keys[0]}
-        size="icon"
-        onClick={() => void actions.insert.run("toolbar")}
-      >
-        <SquarePlus />
-      </IconButton>
-      <BarDivider />
       <ReviewButton review={review} />
-      <IconButton
-        label={keymap.findReferences.label}
-        shortcut={keymap.findReferences.keys[0]}
-        size="icon"
-        onClick={() => void actions.findReferences.run("toolbar")}
-      >
-        <Telescope />
-      </IconButton>
     </ToggleGroup>
   )
 }
@@ -84,10 +65,17 @@ interface ToolButtonProps {
 function ToolButton({ tool, picked }: ToolButtonProps) {
   const Icon = toolIcons[tool]
   const tint = toolTints[tool]
+  const popRef = usePickPop<HTMLButtonElement>(picked)
 
   return (
     <CommandTip command={tool}>
-      <ToggleGroupItem value={tool} aria-label={keymap[tool].label} className={toolButton}>
+      <ToggleGroupItem
+        ref={popRef}
+        value={tool}
+        aria-label={keymap[tool].label}
+        className={`${toolButton} ${pressable}`}
+        style={pressMotion}
+      >
         <Icon style={picked || !tint ? undefined : { color: tint }} />
       </ToggleGroupItem>
     </CommandTip>

@@ -15,7 +15,7 @@ import type { Tool } from "../../selection.ts"
 import { actions } from "../actions.ts"
 import { keymap } from "../keymap.ts"
 import { formatKeys } from "../keys.ts"
-import { CommandTip, MenuArrow, toolButton } from "../toolbar-parts.tsx"
+import { CommandTip, MenuArrow, pressable, pressMotion, toolButton, usePickPop } from "../toolbar-parts.tsx"
 
 interface ReviewButtonProps {
   review: Review<Tool>
@@ -30,12 +30,20 @@ export function ReviewButton({ review }: ReviewButtonProps) {
   const { selection } = useProject()
   const { label, icon: Icon, color, command } = reviewToolLook(review.shown)
   const picked = review.picked === review.shown
+  const popRef = usePickPop<HTMLButtonElement>(picked)
 
   return (
     <>
       <CommandTip command={command} label={label}>
-        <ToggleGroupItem data-warp-anchor value={review.shown} aria-label={label} className={toolButton}>
-          <Icon style={picked || !color ? undefined : { color }} />
+        <ToggleGroupItem
+          ref={popRef}
+          data-warp-anchor
+          value={review.shown}
+          aria-label={label}
+          className={`${toolButton} ${pressable}`}
+          style={pressMotion}
+        >
+          <Icon style={picked ? undefined : { color }} />
         </ToggleGroupItem>
       </CommandTip>
       <DropdownMenu modal={false}>
@@ -77,7 +85,7 @@ function ReviewMenuItem({ tool, shortcut }: ReviewMenuItemProps) {
 
   return (
     <DropdownMenuRadioItem value={tool} closeOnClick>
-      <Icon style={color ? { color } : undefined} />
+      <Icon style={{ color }} />
       {name}
       {shortcut && <DropdownMenuShortcut>{formatKeys(shortcut)}</DropdownMenuShortcut>}
     </DropdownMenuRadioItem>

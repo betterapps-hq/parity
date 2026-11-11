@@ -121,12 +121,14 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
     editor.setCurrentTool(tool === "hand" ? "hand" : "select")
   }, [session?.editor, tool])
 
-  // Isolated, so the canvas's floating controls and overlays, high up within it, stay below menus and dialogs. A
+  // Isolated, so the canvas's floating controls and overlays, high up within it, stay below menus and dialogs. It sits
+  // above the panels beside it, so a floating bar wider than a narrow canvas lies over them rather than under them
+  // (PAR-893); its overlays clip to it, so only the bars reach out. The panels' resize edges, z-10, stay above it. A
   // right-click on it opens the canvas's menu.
   return (
     <CanvasMenu>
       <div
-        className={`canvas-area relative isolate min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""} ${tool === "frame" ? "cursor-crosshair" : ""}`}
+        className={`canvas-area relative isolate z-[5] min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""} ${tool === "frame" ? "cursor-crosshair" : ""}`}
         data-tool={tool}
       >
         <CanvasEditor onEditor={onEditor} shown={shown} />
