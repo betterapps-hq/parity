@@ -44,7 +44,7 @@ describe("effectTokenSets", () => {
         token("shadow-sm", "shadow", "0 1px 2px 0 rgb(0 0 0 / 0.05)"),
         token("inset-shadow-xs", "shadow", "inset 0 1px 1px rgb(0 0 0 / 0.05)"),
         token("drop-shadow-md", "shadow", "0 3px 3px rgb(0 0 0 / 0.12)"),
-        token("blur-sm", "blur", "8px"),
+        token("blur-sm", "effect", "8px"),
         token("radius-lg", "radius", "0.5rem")
       ],
       length,

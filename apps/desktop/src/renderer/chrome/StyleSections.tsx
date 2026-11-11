@@ -68,6 +68,7 @@ import {
 import { type ComponentType, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
 import { EffectsSection } from "../inspector/sections/effects.tsx"
+import { LayerOrderSection } from "../inspector/sections/LayerOrderSection.tsx"
 import {
   ChoiceInput,
   Field,
@@ -153,13 +154,14 @@ interface SectionProps {
 }
 
 /**
- * Each section the app draws, by the table's name for it. The table's other sections (Layer order, Grid placement,
- * Fill, Motion, Raw CSS) aren't built yet, and draw nothing.
+ * Each section the app draws, by the table's name for it. The table's other sections (Grid placement, Fill, Motion,
+ * Raw CSS) aren't built yet, and draw nothing.
  */
 const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> = {
   // Until Frame size is built, a frame's root's Size is the frame's own size (see `useStyleEditor`).
   frameSize: SizeSection,
   placement: PositionSection,
+  layerOrder: LayerOrderSection,
   size: SizeSection,
   layout: LayoutSection,
   spacing: SpacingSection,
