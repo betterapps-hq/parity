@@ -1,8 +1,8 @@
 # Proposal: the style package (PAR-938)
 
-Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Nothing here is built yet. It sets where the rules for what a
-layer's style means live, so the canvas, Copy as code, writing components (PAR-265) and reading code back all follow one
-set.
+Agreed on 2026-11-11 ([decisions.md](../decisions.md)). Step 1 is built (PAR-939): the package holds the stored style
+and `declarations`, which render calls. The rest isn't built yet. It sets where the rules for what a layer's style means
+live, so the canvas, Copy as code, writing components (PAR-265) and reading code back all follow one set.
 
 ## In one line
 
@@ -92,9 +92,14 @@ interface Declaration {
 }
 ```
 
+A layer has one declaration for each property. Where two keys write one property, as `size` and `leading` both write
+`line-height`, the later key's value stands, in the place the property was first written. What a kind of layer draws
+before any key is set, such as a layout's `display: flex` or text's `margin: 0`, is from the key that would change it.
+
 `declarations(style, context)` gives a layer's declarations. The context carries what a key's meaning depends on: the
 parent's layout (Fill writes `flex: 1 1 0` with `min-width: 0` in a row, and `align-self: stretch` across it), the
-layer's kind, and the project's tokens. Each key's function is the only place that key's CSS is decided.
+layer's kind, and the project's tokens. Today it holds the kind and the parent's direction, which are all the keys read;
+the tokens join it with the first key that needs them. Each key's function is the only place that key's CSS is decided.
 
 ### The ledger
 

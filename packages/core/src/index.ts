@@ -85,3 +85,19 @@ export * from "./webp-text.ts"
 export * from "./code-editors.ts"
 
 export * from "./element-source.ts"
+
+// The stored style's schema and its CSS are `@parity-app/style`'s. What the rest of Parity reads of them comes through
+// here, so a package that holds documents needs only core.
+export {
+  isNamedLength,
+  type Length,
+  type NodeStyle,
+  nodeStyle,
+  type Padding,
+  radiusKeywords,
+  type Size,
+  spacing,
+  type StyleKey,
+  styleKeys,
+  token
+} from "@parity-app/style"
