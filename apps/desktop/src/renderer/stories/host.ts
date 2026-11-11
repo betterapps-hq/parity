@@ -14,7 +14,14 @@ import {
   type DesignNode,
   parseData
 } from "@parity-app/core"
-import { type CodeReference, type ImageFile, imageExtension } from "@parity-app/editor"
+import {
+  type CodeReference,
+  type ImageFile,
+  imagesFolder,
+  mediaExtension,
+  mediumOfType,
+  videosFolder
+} from "@parity-app/editor"
 import discovered from "virtual:parity/example-project"
 import { z } from "zod"
 import desktop from "../../../package.json"
@@ -398,6 +405,7 @@ export function installHost(): void {
     onReconnect: () => undefined,
     ...cancelled,
     showItem: () => Promise.resolve(),
+    copiedFiles: () => Promise.resolve([]),
     openInEditor: () => Promise.resolve({ opened: "VS Code" }),
     quit: () => Promise.resolve(),
     toggleDevTools: () => Promise.resolve(),
@@ -705,7 +713,8 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
 
     case "images.import": {
       const { name, type, data } = request.params
-      const path = `public/images/${name}.${imageExtension(type) ?? "png"}`
+      const folder = mediumOfType(type) === "video" ? videosFolder : imagesFolder
+      const path = `${folder}/${name}.${mediaExtension(type) ?? "png"}`
 
       media.files = [
         ...media.files.filter((file) => file.path !== path),
@@ -716,9 +725,9 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
     }
 
     case "images.saveFrom": {
-      // Story pictures are served at /images/, so the file saved is the one the link names.
+      // Story pictures are served at /images/ and /videos/, so the file saved is the one the link names.
       const name = new URL(request.params.url).pathname.split("/").at(-1) ?? "picture.jpg"
-      const path = `public/images/${name}`
+      const path = `${name.endsWith(".mp4") ? videosFolder : imagesFolder}/${name}`
 
       media.files = [...media.files.filter((file) => file.path !== path), { path, bytes: 120_000 }]
 

@@ -37,7 +37,7 @@ export type DesignName = (id: string) => string | undefined
 
 /**
  * What a frame made of `nodes` is called, after what's in it: one layer's name as the Layers panel gives it, with a
- * component named without its library ("Button") and an instance after its design; "Images" for several images; and
+ * component named without its library ("Button") and an instance after its design; "Images" for several images and "Videos" for several videos; and
  * the first layer's name and how many more for several others ("Headline and 2 more").
  */
 export function layersName(nodes: readonly DesignNode[], designName?: DesignName): string {
@@ -49,6 +49,10 @@ export function layersName(nodes: readonly DesignNode[], designName?: DesignName
 
   if (nodes.length > 1 && nodes.every((node) => node.type === "image")) {
     return "Images"
+  }
+
+  if (nodes.length > 1 && nodes.every((node) => node.type === "video")) {
+    return "Videos"
   }
 
   const name =

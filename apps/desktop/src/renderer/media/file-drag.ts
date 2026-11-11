@@ -1,11 +1,11 @@
-import { mayBeImage } from "@parity-app/editor"
+import { countMedia, type MediaCount, mayBeMedia } from "@parity-app/editor"
 import { type DragEvent, useRef, useState } from "react"
 
-/** Files dragged over an element: whether they're over it, and how many may be images. */
+/** Files dragged over an element: whether they're over it, and how many may be images or videos. */
 export interface FileDrag {
   over: boolean
-  /** All a drag says until the drop is each file's type, so this is how many look like images. */
-  images: number
+  /** All a drag says until the drop is each file's type, so this is how many look like images and videos. */
+  count: MediaCount
   handlers: {
     onDragEnter: (event: DragEvent) => void
     onDragOver: (event: DragEvent) => void
@@ -19,18 +19,18 @@ export interface FileDrag {
  * trusting `dragleave`. Anything else dragged over it, such as a layer, passes by.
  */
 export function useFileDrag(onDrop: (files: File[]) => void): FileDrag {
-  const [images, setImages] = useState<number>()
+  const [count, setCount] = useState<MediaCount>()
   const depth = useRef(0)
   const carriesFiles = (event: DragEvent) => event.dataTransfer.types.includes("Files")
 
   const end = () => {
     depth.current = 0
-    setImages(undefined)
+    setCount(undefined)
   }
 
   return {
-    over: images !== undefined,
-    images: images ?? 0,
+    over: count !== undefined,
+    count: count ?? { images: 0, videos: 0 },
     handlers: {
       onDragEnter: (event) => {
         if (!carriesFiles(event)) {
@@ -40,7 +40,7 @@ export function useFileDrag(onDrop: (files: File[]) => void): FileDrag {
         event.preventDefault()
         depth.current += 1
         const files = [...event.dataTransfer.items].filter((item) => item.kind === "file")
-        setImages(files.filter((item) => mayBeImage(item.type)).length)
+        setCount(countMedia(files.map((item) => mayBeMedia(item.type))))
       },
       onDragOver: (event) => {
         if (carriesFiles(event)) {

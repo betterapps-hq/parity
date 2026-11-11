@@ -7,7 +7,7 @@ import {
   type Searched
 } from "@parity-app/connectors"
 import type { ImageDetails } from "@parity-app/core"
-import { keepImageDetails } from "@parity-app/editor"
+import { keepImageDetails, mediaWords } from "@parity-app/editor"
 import { toast } from "sonner"
 import { openLibraryBrowser } from "../library/library-browser.ts"
 import { reportError } from "../report-error.ts"
@@ -16,9 +16,10 @@ import type { ProjectSession } from "../workspace.ts"
 import { mediaFilesOf } from "./project-media.ts"
 
 /*
- * Adding stock pictures to the project from the Media tab (PAR-839). The library browser searches the stock library,
- * and what's picked is saved into `public/images/`, since a stock library's links only show results. The project's
- * main file keeps what each shows and who made it, so the Media tab credits it before any layer uses it.
+ * Adding stock pictures and videos to the project from the Media tab (PAR-839, PAR-841). The library browser searches
+ * the stock library, and what's picked is saved into `public/images/` or `public/videos/`, since a stock library's links
+ * only show results. The project's main file keeps what each shows and who made it, so the Media tab credits it before
+ * any layer uses it.
  */
 
 /** The stock library the Media tab searches: the first offered connector that finds photos. */
@@ -45,28 +46,31 @@ export function findStock(session: ProjectSession, query?: string): void {
   })
 }
 
-/** A picture saved into the project, by the result it came from. */
+/** A picture or video saved into the project, by the result it came from. */
 interface Saved {
   found: Found
   src: string
   path: string
 }
 
+/** Picked results in words: "the video", "3 images", "4 files" for some of each. */
+function pickedWords(picked: readonly Found[]): string {
+  const videos = picked.filter((found) => found.video).length
+
+  return mediaWords({ images: picked.length - videos, videos })
+}
+
 /**
- * Saves picked pictures into the project, one at a time in the order picked, saying so while it does. What each shows
- * and who made it go into the main file as one step, each counts as used once, and they arrive on the wall marked.
- * Any that fail to save are named, and the rest are kept.
+ * Saves picked pictures and videos into the project, one at a time in the order picked, saying so while it does. A
+ * video saves its footage, not its poster. What each shows and who made it go into the main file as one step, each
+ * counts as used once, and they arrive on the wall marked. Any that fail to save are named, and the rest are kept.
  */
 export async function addStock(
   session: ProjectSession,
   library: ConnectorInfo,
   picked: readonly Found[]
 ): Promise<void> {
-  const progress = toast.loading(
-    picked.length === 1
-      ? `Adding a picture from ${library.name}…`
-      : `Adding ${picked.length} pictures from ${library.name}…`
-  )
+  const progress = toast.loading(`Adding ${pickedWords(picked)} from ${library.name}…`)
 
   const saved: Saved[] = []
   const failed: { found: Found; error: unknown }[] = []
@@ -75,7 +79,7 @@ export async function addStock(
     try {
       const { src, path } = await request("images.saveFrom", {
         projectId: session.id,
-        url: found.image.url,
+        url: found.video?.url ?? found.image.url,
         name: found.title
       })
 
@@ -90,7 +94,10 @@ export async function addStock(
 
     reportError(first?.error, {
       operation: "images.saveFrom",
-      title: failed.length === 1 ? `Couldn't add ${first?.found.title}` : `Couldn't add ${failed.length} pictures`,
+      title:
+        failed.length === 1
+          ? `Couldn't add ${first?.found.title}`
+          : `Couldn't add ${pickedWords(failed.map(({ found }) => found))}`,
       context: { pictures: failed.length },
       id: progress
     })
@@ -119,7 +126,7 @@ export async function addStock(
   media.markFresh(saved.map(({ src }) => src))
 }
 
-/** Records what each saved picture shows and who made it in the project's main file, as one step. */
+/** Records what each saved picture or video shows and who made it in the project's main file, as one step. */
 function keepDetails(session: ProjectSession, library: ConnectorInfo, saved: readonly Saved[]): void {
   const { store } = session
   const main = store.getDocuments().find((entry) => entry.path === store.mainPath)
@@ -136,6 +143,8 @@ function keepDetails(session: ProjectSession, library: ConnectorInfo, saved: rea
     })
   )
 
-  const label = saved.length === 1 ? `Add ${saved[0]?.found.title}` : `Add ${saved.length} pictures`
+  const label =
+    saved.length === 1 ? `Add ${saved[0]?.found.title}` : `Add ${pickedWords(saved.map(({ found }) => found))}`
+
   store.applyDocuments(label, [{ path: main.path, document: keepImageDetails(main.document, details) }])
 }

@@ -50,12 +50,12 @@ function picture({ file, title, by, width, height }: Picture, copy: number): Fou
   }
 }
 
-/** A Pixabay video, which plays from a link stories don't serve, so only its poster shows. */
+/** A Pixabay video: its picture is its poster, and every one plays the stories' 12-second clip. */
 function clip(source: Picture, copy: number): Found {
   return {
     ...picture(source, copy),
     kind: "videos",
-    video: { url: at(source.file.replace(/\.\w+$/, ".mp4")), duration: 18 + copy, width: 1280, height: 720 }
+    video: { url: at("sample-clip.mp4"), duration: 18 + copy, width: 1280, height: 720 }
   }
 }
 

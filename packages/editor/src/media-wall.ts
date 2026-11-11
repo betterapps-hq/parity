@@ -29,10 +29,12 @@ export interface WallSpot<Item> {
   above: Stretch
 }
 
-/** A picture's size in pixels. */
+/** A picture's size in pixels, and a video's length. */
 export interface PictureSize {
   width: number
   height: number
+  /** How long a video runs, in seconds. */
+  seconds?: number
 }
 
 /** Where each picture sits on a wall, and how long the wall is. */

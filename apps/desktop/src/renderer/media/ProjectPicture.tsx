@@ -55,6 +55,35 @@ export function ProjectPicture({ url, className = "", style }: ProjectPicturePro
   )
 }
 
+/**
+ * One of the project's videos, still, at its first picture, which says its size and length once they're known, as a
+ * picture says its size (PAR-841). One that doesn't load shows that it didn't, in its place.
+ */
+export function ProjectVideo({ url, className = "", style }: ProjectPictureProps) {
+  const [broken, setBroken] = useState<string>()
+
+  if (broken === url) {
+    return <PictureMissing />
+  }
+
+  return (
+    <video
+      src={url}
+      muted
+      playsInline
+      preload="metadata"
+      aria-hidden
+      className={`block object-cover ${className}`}
+      style={style}
+      onLoadedMetadata={(event) => {
+        const { videoWidth, videoHeight, duration } = event.currentTarget
+        notePictureSize(url, { width: videoWidth, height: videoHeight, seconds: duration })
+      }}
+      onError={() => setBroken(url)}
+    />
+  )
+}
+
 /** In a picture's place when there's none to show: no file at its path, or one that didn't load. */
 export function PictureMissing({ label }: { label?: string }) {
   return (

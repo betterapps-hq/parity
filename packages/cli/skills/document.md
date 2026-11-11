@@ -93,6 +93,16 @@ and weight come from `style`.
 A picture: `src` is a path the project serves (`/images/team.jpg`) or a URL; `alt` describes it, or is empty when it's
 decoration; `fit` is `cover` (the default), `contain` or `fill`; `credit` names its maker when a photo asks for it.
 
+### `video`
+
+A video, written as a `<video>`: `src` is a path the project serves (`/videos/waves.mp4`) or a URL; `alt` describes it
+for screen readers; `fit` and `credit` work as an image's do. It plays by itself, without sound, round and round, as a
+video behind a heading does. `controls: true` shows the browser's controls instead, and it waits to be played.
+
+```json
+{ "type": "video", "src": "/videos/waves.mp4", "alt": "Waves at dusk", "style": { "width": "fill", "height": 90 } }
+```
+
 ## Style
 
 Every value comes from the project. Lengths are steps of the spacing scale or the name of a length token; colours and

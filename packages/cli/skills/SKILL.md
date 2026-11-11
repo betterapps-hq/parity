@@ -47,7 +47,7 @@ project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the 
 | `find_references`     | `parity references "<screen>"`                  | Screens from real apps, with previews to look at, when this copy of Parity can search.                                                                                                                                  |
 | `get_references`      | `parity references placed [design]`             | The screens placed beside designs as references, with who placed each and why, and their pictures to look at.                                                                                                           |
 | `find_media`          | `parity media "<subject>"`                      | Stock photos, illustrations, vectors or videos, with previews to look at.                                                                                                                                               |
-| `place_result`        | `parity place <connector> <id> "<design/node>"` | Puts a picture a search found into an image node, or a component's prop, as one undoable edit. Credit its author and the source where the design shows it.                                                              |
+| `place_result`        | `parity place <connector> <id> "<design/node>"` | Puts a picture a search found into an image node, a video into a video node, or either into a component's prop, as one undoable edit. Credit its author and the source where the design shows it.                       |
 | `report_problem`      | `parity report "<problem>"`                     | Reports a problem in Parity itself to its developers, with the window's screenshot and replay and the design's frames; returns the link.                                                                                |
 | `read_skill`          | `parity skill [file]`                           | This skill.                                                                                                                                                                                                             |
 
@@ -101,8 +101,8 @@ keeping the designs there, so ask before running that in someone's project.
    Follow the patterns you see with the project's own components and tokens, never an app's layout, text or branding,
    and say which apps you drew on. Leave the ones you drew on beside the design with `PlaceReference` in `execute`, each
    with a note on what you took from it. If it says there's no key, carry on without it. For a real photo or
-   illustration, look at `find_media` previews and put the one you choose in an image node with `place_result`; searches
-   give no image link to paste.
+   illustration, look at `find_media` previews and put the one you choose in an image node with `place_result`; for a
+   video, insert a `video` node and place it there. Searches give no link to paste.
 3. **Look before you change.** Read the design with `Get("design-id", { depth: 3 })` in `execute`, and take a screenshot
    of what's there. When `get_app_state` gives the design `references`, look at them first with `get_references` for
    that design: they're the screens the person or an agent picked for it, with notes on why. Find the components you

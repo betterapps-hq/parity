@@ -418,6 +418,14 @@ export interface ProblemReportRequest {
 }
 
 /** Exposed on `window.canvasHost` by the preload script. */
+/** A file copied in Explorer or Finder, with its bytes unless it's too large for any type Parity takes. */
+export interface CopiedFile {
+  name: string
+  /** In bytes. */
+  size: number
+  data?: Uint8Array
+}
+
 export interface CanvasHost {
   appVersion: string
   getBuildInfo: () => Promise<BuildInfo>
@@ -505,6 +513,8 @@ export interface CanvasHost {
   saveFile(options: SaveDialogOptions): Promise<string | undefined>
   /** Shows a file in the system's file manager. */
   showItem(path: string): Promise<void>
+  /** The file copied in Explorer or Finder, for pasting it; none when no file is copied. */
+  copiedFiles(): Promise<CopiedFile[]>
   /** Opens a file in the person's editor, at its export's line when one is named, and says which opened it. */
   openInEditor(request: OpenInEditorRequest): Promise<{ opened: string }>
   quit(): Promise<void>

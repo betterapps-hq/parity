@@ -246,7 +246,10 @@ export function labelOf(found: Pick<Found, "credit" | "title" | "kind">): string
   return layoutFor(found.kind) === "columns" ? `${found.title}, by ${creditOf(found)}` : creditOf(found)
 }
 
-/** Whether a result can go into a design, or into the project to use in one: photos, not screens from real apps. */
+/**
+ * Whether a result can go into a design, or into the project to use in one: photos and videos, not screens from real
+ * apps.
+ */
 export function isPlaceable(found: Pick<Found, "kind">): boolean {
   return placeableKinds.includes(found.kind)
 }

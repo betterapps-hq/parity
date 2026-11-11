@@ -1071,7 +1071,7 @@ export function describeMedia(result: FindResponse): string {
     one: "result",
     many: "results",
     none: "Nothing matches. Try other words, or fewer filters.",
-    use: 'Place a picture in an image node with place_result (parity place <connector> <id> "<node>"), then credit its author and the source where the design shows it.'
+    use: 'Place a picture in an image node, or a video in a video node, with place_result (parity place <connector> <id> "<node>"), then credit its author and the source where the design shows it.'
   })
 }
 

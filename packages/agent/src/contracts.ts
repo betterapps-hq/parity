@@ -288,8 +288,8 @@ export const requests = {
     tab,
     connector: text("connector", "The result's connector, from the search."),
     id: text("id", "The result's id, from a search."),
-    node: text("node", 'The image, or a component with an image prop, as design/node: "home/photo".'),
-    prop: text("prop", "A component's prop that takes the image. Defaults to src.").optional(),
+    node: text("node", 'The image or video, or a component with a prop that takes it, as design/node: "home/photo".'),
+    prop: text("prop", "A component's prop that takes the picture or video. Defaults to src.").optional(),
     state: text("state", "State id, for a component's prop in one state.").optional()
   }),
   placedReferences: fields({

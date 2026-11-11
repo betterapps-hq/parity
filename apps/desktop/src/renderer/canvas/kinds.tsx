@@ -11,6 +11,7 @@ import {
   Columns3,
   Component,
   Diamond,
+  Film,
   Frame,
   Grid3x3,
   Image as ImageIcon,
@@ -152,6 +153,10 @@ export function NodeIcon({
 
   if (node.type === "image") {
     return <ImageIcon {...props} />
+  }
+
+  if (node.type === "video") {
+    return <Film {...props} />
   }
 
   if (node.type === "component") {

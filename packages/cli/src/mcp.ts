@@ -240,13 +240,13 @@ const tools: Tool[] = [
   ),
   operationTool(
     "find_media",
-    "Search stock photos, illustrations, vectors or videos when a design needs one, as a hero or an avatar, and look at the previews. Place a picture with place_result.",
+    "Search stock photos, illustrations, vectors or videos when a design needs one, as a hero or an avatar, and look at the previews. Place a picture or a video with place_result.",
     operations.media,
     (result) => [text(describeMedia(result)), ...previews(result.found)]
   ),
   operationTool(
     "place_result",
-    "Put a picture a search found into an image node, as one undoable edit. Parity saves the file when the link doesn't last and tells the source it was used. Credit who it names where the design shows it.",
+    "Put a picture a search found into an image node, or a video into a video node, as one undoable edit. Parity saves the file when the link doesn't last, and every video, and tells the source it was used. Credit who it names where the design shows it.",
     operations.place,
     (result) => [text(describePlace(result))]
   ),

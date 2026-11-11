@@ -17,10 +17,10 @@ export const findKind = z.enum(["screens", "flows", "sections", "photos", "video
 export type FindKind = z.infer<typeof findKind>
 
 /**
- * What can be placed in a design: photos. Screens, flows and sections from real apps are for looking at, so they stay
- * out of designs and code, whichever connector found them.
+ * What can be placed in a design: photos and videos (PAR-841). Screens, flows and sections from real apps are for
+ * looking at, so they stay out of designs and code, whichever connector found them.
  */
-export const placeableKinds: readonly FindKind[] = ["photos"]
+export const placeableKinds: readonly FindKind[] = ["photos", "videos"]
 
 /** The platform a screen or flow is from. */
 export const platform = z.enum(["ios", "web"])
