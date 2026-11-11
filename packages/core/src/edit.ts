@@ -534,6 +534,15 @@ function findOption(container: ContainerSpec, param: string, option: string) {
   return found
 }
 
+/** How a change is written into a patch. */
+export interface PatchOptions {
+  /**
+   * Keep values equal to what's under the patch. The editor drops them, since typing the base value back means no
+   * change; an agent naming a value for a state means the state shows it, whatever the base becomes.
+   */
+  keepEqual?: boolean
+}
+
 /**
  * Writes a change to a node: into the design in the base state; otherwise into the patches of the state, or of the
  * variant option, being edited.
@@ -542,7 +551,8 @@ export function editNode(
   container: ContainerSpec,
   target: string | EditTarget,
   nodeId: string,
-  change: NodeChange
+  change: NodeChange,
+  options: PatchOptions = {}
 ): ContainerSpec {
   const base = findNode(container.root, nodeId)
 
@@ -569,7 +579,11 @@ export function editNode(
 
   const under = nodeInState(base, undefined, variants, boardArgs(container.params, choices))
 
-  return withTargetPatches(container, target, patchWith(targetPatches(container, target), nodeId, under, change))
+  return withTargetPatches(
+    container,
+    target,
+    patchWith(targetPatches(container, target), nodeId, under, change, options)
+  )
 }
 
 /**
@@ -656,31 +670,33 @@ function withBoundDefaults(container: ContainerSpec, node: DesignNode, change: N
 
 /**
  * Applies a change to one node's patch among `patches`, keyed by `key`. `under` is the node as it shows without this
- * patch: values equal to its own aren't kept, and a patch left empty goes.
+ * patch: values equal to its own aren't kept, unless `keepEqual` says to, and a patch left empty goes.
  */
 export function patchWith(
   patches: PatchLayer,
   key: string,
   under: DesignNode,
-  change: NodeChange
+  change: NodeChange,
+  { keepEqual = false }: PatchOptions = {}
 ): Record<string, NodePatch> | undefined {
   const patch: NodePatch = { ...patches?.[key] }
 
   if (Object.hasOwn(change, "hidden")) {
-    patch.hidden = change.hidden === undefined || change.hidden === (under.hidden ?? false) ? undefined : change.hidden
+    const same = !keepEqual && change.hidden === (under.hidden ?? false)
+    patch.hidden = change.hidden === undefined || same ? undefined : change.hidden
   }
 
   if (Object.hasOwn(change, "text")) {
-    patch.text =
-      change.text === undefined || (under.type === "text" && change.text === under.text) ? undefined : change.text
+    const same = !keepEqual && under.type === "text" && change.text === under.text
+    patch.text = change.text === undefined || same ? undefined : change.text
   }
 
   if (change.props) {
-    patch.props = mergeValues<PropValues>(patch.props, change.props, ownProps(under))
+    patch.props = mergeValues<PropValues>(patch.props, change.props, keepEqual ? {} : ownProps(under))
   }
 
   if (change.style) {
-    patch.style = mergeValues<NodeStyle>(patch.style, change.style, under.style ?? {})
+    patch.style = mergeValues<NodeStyle>(patch.style, change.style, keepEqual ? {} : (under.style ?? {}))
   }
 
   if (patch.unset || change.unset) {

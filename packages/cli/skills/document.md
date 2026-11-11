@@ -69,8 +69,8 @@ A copy of one of the project's component designs. `design` is the component desi
 ```
 
 `overrides` holds what this copy changes inside the component, keyed by the inner node's id, or `nested/inner` for a
-node inside a nested instance. Each is a patch like a state's (`hidden`, `text`, `props`, `style`). Everything the copy
-doesn't override keeps following the component.
+node inside a nested instance. A file keys them by id only; a name there matches nothing. Each is a patch like a state's
+(`hidden`, `text`, `props`, `style`). Everything the copy doesn't override keeps following the component.
 
 ```json
 { "type": "instance", "design": "stat-card", "overrides": { "trend": { "hidden": true } } }

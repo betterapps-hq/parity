@@ -43,6 +43,7 @@ import {
   moveNode,
   type NodeChange,
   nodeIds,
+  type InstanceNode,
   type NodePatch,
   nodeTree,
   parseCanvasDocument,
@@ -58,6 +59,7 @@ import {
   type ResolvedMode,
   resolveModes,
   type StateSpec,
+  tidyPatch,
   uniqueId,
   unknownReference,
   walkNodes,
@@ -944,7 +946,7 @@ export class AgentWorkspace {
       this.checkProps(change.component ?? node.component, change.props, `${container.id}/${node.id}`)
     }
 
-    let next = editNode(container, stateId, node.id, toChange(change))
+    let next = editNode(container, stateId, node.id, toChange(change), kept)
 
     if (base && renames.length > 0) {
       next = {
@@ -1013,7 +1015,7 @@ export class AgentWorkspace {
       this.checkProps(inner.node.component, change.props, `${container.id}/${layer}`)
     }
 
-    const next = editInner(container, stateId, layer, toChange(change), library)
+    const next = editInner(container, stateId, layer, toChange(change), library, kept)
     const base = stateId === container.states[0]!.id
     this.setContainer(file, next, layer.split("/")[0], base ? undefined : stateId)
   }
@@ -1100,7 +1102,10 @@ export class AgentWorkspace {
     this.setContainer(file, deleteNode(container, node.id), node.id)
   }
 
-  /** A viewport's patch on a node, merged over what it has; `null` takes the whole patch away. */
+  /**
+   * A viewport's patch on a node, merged over what it has key by key, where `null` takes one value away; `null` for the
+   * patch takes the whole of it away.
+   */
   private responsive(path: string, viewport: string, input: PatchInput | null): void {
     const viewports = new Set(
       this.modes.variables
@@ -1119,13 +1124,13 @@ export class AgentWorkspace {
     }
 
     const { path: file, container, node } = this.findNode(path)
-    const patch = input === null ? undefined : stripNulls(input)
 
     const root = mapNode(container.root, node.id, (current) => {
       const responsive = { ...current.responsive }
+      const patch = input === null ? undefined : mergePatch(responsive[viewport], input)
 
       if (patch) {
-        responsive[viewport] = { ...responsive[viewport], ...patch }
+        responsive[viewport] = patch
       } else {
         delete responsive[viewport]
       }
@@ -1185,7 +1190,7 @@ export class AgentWorkspace {
         next =
           value === null
             ? resetInner(next, stateId, path, library)
-            : editInner(next, stateId, path, toChange(value), library)
+            : editInner(next, stateId, path, toChange(value), library, kept)
         continue
       }
 
@@ -1197,7 +1202,7 @@ export class AgentWorkspace {
         continue
       }
 
-      next = editNode(next, stateId, path, toChange(value))
+      next = editNode(next, stateId, path, toChange(value), kept)
     }
 
     return next
@@ -1821,9 +1826,14 @@ export class AgentWorkspace {
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the snippet API's edge: a node as a snippet passed it, checked here
   private prepareNode(input: unknown, taken: Set<string>, name: string): DesignNode {
     const node = readArgument(nodeTree, withNewIds(input, taken), name)
+    const library = this.library()
     walkNodes(node, (each) => {
       if (each.name !== undefined) {
         this.created[each.name] = each.id
+      }
+
+      if (each.type === "instance" && each.overrides) {
+        each.overrides = overridesById(each, library)
       }
 
       this.inserted.add(each.id)
@@ -2121,26 +2131,61 @@ function key(path: string, id: string): string {
  */
 function layerPath(container: ContainerSpec, reference: string, library: ComponentLibrary): string {
   const [first = "", ...inner] = reference.split("/")
-  let node = resolveInDesign(container, first)
-  const ids = [node.id]
+  const node = resolveInDesign(container, first)
 
-  for (const segment of inner) {
-    const component = node.type === "instance" ? library.get(node.design) : undefined
+  return innerIds(node, inner, library, [node.id], container.id).join("/")
+}
+
+/**
+ * The path to the layers `steps` name inside an instance, each by id or name, through nested instances, after `ids`,
+ * the path to `node` in the design `where`.
+ */
+function innerIds(
+  node: DesignNode,
+  steps: readonly string[],
+  library: ComponentLibrary,
+  ids: readonly string[],
+  where: string
+): string[] {
+  let holder = node
+  const path = [...ids]
+
+  for (const step of steps) {
+    const component = holder.type === "instance" ? library.get(holder.design) : undefined
 
     if (!component) {
       throw new CodedError(
-        node.type === "instance"
-          ? `${ids.join("/")} in ${container.id} is an instance of ${node.design}, which isn't in the project`
-          : `${ids.join("/")} in ${container.id} isn't an instance, so nothing is inside it`,
+        holder.type === "instance"
+          ? `${path.join("/")} in ${where} is an instance of ${holder.design}, which isn't in the project`
+          : `${path.join("/")} in ${where} isn't an instance, so nothing is inside it`,
         { code: "unknown_node", field: "path" }
       )
     }
 
-    node = resolveInDesign(component, segment)
-    ids.push(node.id)
+    holder = resolveInDesign(component, step)
+    path.push(holder.id)
   }
 
-  return ids.join("/")
+  return path
+}
+
+/**
+ * An instance's overrides keyed by the ids of the layers they change, `inner` or `nested/inner`, from keys that name
+ * each step by id or name (PAR-887). An instance of a design the project doesn't have keeps its keys.
+ */
+function overridesById(instance: InstanceNode, library: ComponentLibrary): Record<string, NodePatch> {
+  const overrides = instance.overrides ?? {}
+
+  if (!library.get(instance.design)) {
+    return overrides
+  }
+
+  return Object.fromEntries(
+    Object.entries(overrides).map(([key, patch]) => [
+      innerIds(instance, key.split("/"), library, [], instance.design).join("/"),
+      patch
+    ])
+  )
 }
 
 function resolveInDesign(container: ContainerSpec, reference: string): DesignNode {
@@ -2259,6 +2304,12 @@ function elide(node: DesignNode, depth: number | undefined, level = 0): ElidedNo
   return copy
 }
 
+/**
+ * How an agent's changes are written into a state's patch or an instance's override: every value it names is kept, even
+ * one equal to what's under it, so the state goes on showing it when the base changes (PAR-882).
+ */
+const kept = { keepEqual: true } as const
+
 /** A patch as `editNode` takes it, where `undefined` takes away what `null` did. */
 function toChange(change: PatchInput): NodeChange {
   const result: NodeChange = {}
@@ -2294,29 +2345,56 @@ function nullsToUndefined<T extends object>(values: T): { [K in keyof T]: Exclud
   ) as { [K in keyof T]: Exclude<T[K], null> | undefined }
 }
 
-/** What isn't `null` in an object. */
-function withoutNulls<T extends object>(values: T): { [K in keyof T]?: Exclude<T[K], null> } {
-  // SAFETY: the entries are `values`' own less the `null` ones; `Object.fromEntries` only knows it has string keys.
-  return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== null)) as {
-    [K in keyof T]?: Exclude<T[K], null>
+/**
+ * A viewport's patch with `input` merged over it: `hidden` and `text` replaced, props and style key by key, and the
+ * keys `unset` lists added to what it takes away. `null` takes a value away, or everything `unset` held. A key is never
+ * both set and taken away, so the later call wins. A patch left with nothing is no patch.
+ */
+function mergePatch(current: NodePatch | undefined, input: PatchInput): NodePatch | undefined {
+  const next: NodePatch = { ...current }
+
+  if (input.hidden !== undefined) {
+    next.hidden = input.hidden ?? undefined
   }
+
+  if (input.text !== undefined) {
+    next.text = input.text ?? undefined
+  }
+
+  const unset = input.unset === null ? undefined : current?.unset
+  next.props = mergeKeys(current?.props, input.props, input.unset?.props)
+  next.style = mergeKeys(current?.style, input.style, input.unset?.style)
+
+  next.unset = {
+    props: takenKeys(unset?.props, Object.keys(input.props ?? {}), input.unset?.props),
+    style: takenKeys(unset?.style, Object.keys(input.style ?? {}), input.unset?.style)
+  }
+
+  const tidied = tidyPatch(next)
+
+  return Object.keys(tidied).length > 0 ? tidied : undefined
 }
 
-/** A patch as a viewport keeps it: without what's `null` in it, nor in its props and style. */
-function stripNulls(patch: PatchInput): NodePatch {
-  const { props, style, ...rest } = withoutNulls(patch)
+/** Values with `input`'s merged over them, where `null` takes one away, less the keys `taken` lists. */
+function mergeKeys<T extends object>(
+  current: T | undefined,
+  input: { [K in keyof T]?: T[K] | null } | undefined,
+  taken: readonly string[] | undefined
+): T {
+  const merged = Object.entries({ ...current, ...input })
 
-  const stripped: NodePatch = { ...rest }
+  // SAFETY: every entry is one of `current`'s or `input`'s, less the `null` ones, so each key holds its own type;
+  // `Object.fromEntries` only knows it has string keys.
+  return Object.fromEntries(merged.filter(([key, value]) => value !== null && !taken?.includes(key))) as T
+}
 
-  if (props) {
-    stripped.props = withoutNulls(props)
-  }
-
-  if (style) {
-    stripped.style = withoutNulls(style)
-  }
-
-  return stripped
+/** The keys a patch takes away: those it did, less the ones `given` now sets, plus those `added` lists. */
+function takenKeys<K extends string>(
+  kept: readonly K[] | undefined,
+  given: readonly string[],
+  added: readonly K[] | undefined
+): K[] {
+  return [...new Set([...(kept ?? []).filter((key) => !given.includes(key)), ...(added ?? [])])]
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   type NodeLocation,
   nodeIds,
   type PatchField,
+  type PatchOptions,
   patchSize,
   patchWith,
   patchWithout,
@@ -170,11 +171,12 @@ function editAt(
   target: string | EditTarget,
   path: string,
   change: NodeChange,
-  library: ComponentLibrary
+  library: ComponentLibrary,
+  options: PatchOptions = {}
 ): ContainerSpec {
   return path.includes("/")
-    ? editInner(container, target, path, change, library)
-    : editNode(container, target, path, change)
+    ? editInner(container, target, path, change, library, options)
+    : editNode(container, target, path, change, options)
 }
 
 /**
@@ -188,7 +190,8 @@ export function editInner(
   target: string | EditTarget,
   path: string,
   change: NodeChange,
-  library: ComponentLibrary
+  library: ComponentLibrary,
+  options: PatchOptions = {}
 ): ContainerSpec {
   const inner = locateInner(container, path, library)
 
@@ -197,7 +200,7 @@ export function editInner(
   }
 
   const { args, rest } = boundArgs(inner.node, change)
-  let next = args ? editAt(container, target, holderPath(path), { props: args }, library) : container
+  let next = args ? editAt(container, target, holderPath(path), { props: args }, library, options) : container
 
   if (isEmptyChange(rest)) {
     return next
@@ -208,11 +211,11 @@ export function editInner(
     const under = locateInner(without, path, library)!.shown
     const instance = instanceIn(next.root, inner.instance.id)
 
-    return setOverrides(next, instance.id, patchWith(instance.overrides, inner.key, under, rest))
+    return setOverrides(next, instance.id, patchWith(instance.overrides, inner.key, under, rest, options))
   }
 
   const under = locateInner(next, path, library)!.shown
-  next = withTargetPatches(next, target, patchWith(targetPatches(next, target), path, under, rest))
+  next = withTargetPatches(next, target, patchWith(targetPatches(next, target), path, under, rest, options))
 
   return next
 }
