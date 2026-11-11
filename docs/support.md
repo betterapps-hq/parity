@@ -121,6 +121,7 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 | Themes as attributes (`[data-theme]`)      | ◐      | Read, written in place and shown: `[data-theme="dark"]` is the `dark` theme, and a frame in the Dark mode gets `data-theme="dark"` with its `dark` class. On the root (`:root[data-theme]`) it never applies in a frame.             |
 | `prefers-color-scheme` blocks              | ✅     | Read, written in place and shown: `(prefers-color-scheme: dark)` around the root is `dark`, below a `.dark` or `[data-theme]` value, and `light` the default. Frames draw it for their mode, not Parity's window.                    |
 | Selectors that only scope a theme          | ❌     | `.dark .card`, `.dark.contrast` and `:where(:root, :host)` name no theme.                                                                                                                                                            |
+| Shadow and blur tokens                     | ◐      | Effects offers shadow tokens by kind (box, inset and drop) and blur tokens. A color set over a shadow token isn't drawn in frames yet, since its variable can't be recolored.                                                        |
 | Breakpoints (`--breakpoint-*`, `.lib.par`) | ✅     | Plus device presets.                                                                                                                                                                                                                 |
 | DTCG token files and resolvers             | ✅     | Read from a `.lib.par`'s `tokens`, filed by the category `$extensions.parity` gives, each theme as a mode. A malformed token is left out, and the project's notes say why. Buildkit's styles ship one, which `parity lib` copies in. |
 | JavaScript themes (MUI, Chakra, Fluent)    | ✅     | Read by `parity lib` into the registry's DTCG.                                                                                                                                                                                       |
@@ -282,6 +283,7 @@ Not requirements, just work not done yet:
 - A theme set by attribute on the root (`:root[data-theme="dark"]`) never shows in a frame.
 - Per-component styles (CSS modules, CSS-in-JS) don't reach frames.
 - Library installs are limited to the built-in catalog.
+- A color set over a shadow token shows in the panel but not in frames.
 
 ## Decided
 

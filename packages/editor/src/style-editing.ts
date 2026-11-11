@@ -85,7 +85,10 @@ export const styleRows = {
   insets: ["top", "right", "bottom", "left"],
   fill: ["background"],
   radius: ["radius"],
-  shadow: ["shadow"],
+  // The Shadow list holds the drop shadows that follow the shape too, which are the layer's `filter`.
+  shadow: ["shadow", "filter"],
+  filters: ["filter", "backdropFilter"],
+  transform: ["transform"],
   opacity: ["opacity"],
   overflow: ["overflow"],
   stroke: ["border", "borderWidth", "borderStyle"],
@@ -101,7 +104,7 @@ export const styleRows = {
   textAlign: ["textAlign"],
   resizing: textSizingKeys,
   decoration: ["italic", "decoration"],
-  case: ["transform"],
+  case: ["textTransform"],
   lines: ["lines"]
 } as const satisfies Record<string, readonly (keyof NodeStyle)[]>
 

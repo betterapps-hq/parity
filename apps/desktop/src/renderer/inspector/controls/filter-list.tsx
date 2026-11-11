@@ -95,11 +95,17 @@ export function FilterList({
   entries,
   onChange,
   tokensOnly = false,
+  title = "Effects",
+  dropShadows = true,
   openId
 }: {
   entries: FilterEntry[]
   onChange: (entries: FilterEntry[]) => void
   tokensOnly?: boolean
+  /** Its title: Filters under the Shadow list, which the Design tab's Effects section opens with. */
+  title?: string
+  /** Whether + offers a drop shadow, which the Shadow list beside it adds instead. */
+  dropShadows?: boolean
   /** The entry whose editor is open at first, for a story. */
   openId?: string
 }) {
@@ -116,19 +122,21 @@ export function FilterList({
 
   return (
     <PanelSection
-      title="Effects"
+      title={title}
       action={
         <TitleMenu label="Add an effect" icon={<Plus className="size-4" />} hinted menuClassName="w-52">
-          {addables.map((kind) => (
-            <DropdownMenuItem
-              key={kind}
-              className="text-xs"
-              disabled={taken.has(kind)}
-              onClick={() => onChange([...entries, newEntry(kind)])}
-            >
-              {addNames[kind]}
-            </DropdownMenuItem>
-          ))}
+          {addables
+            .flatMap((kind) => (kind === "dropShadow" && !dropShadows ? [] : [kind]))
+            .map((kind) => (
+              <DropdownMenuItem
+                key={kind}
+                className="text-xs"
+                disabled={taken.has(kind)}
+                onClick={() => onChange([...entries, newEntry(kind)])}
+              >
+                {addNames[kind]}
+              </DropdownMenuItem>
+            ))}
         </TitleMenu>
       }
     >
