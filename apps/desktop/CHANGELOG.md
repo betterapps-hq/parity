@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 10 Nov 2026 23:55:31 GMT and should not be manually modified. -->
+<!-- This log was last generated on Wed, 11 Nov 2026 01:41:00 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.56.0
+
+Wed, 11 Nov 2026 01:41:00 GMT
+
+### Minor changes
+
+- Etched lines split the floating bars, Insert and Find references sit beside Search, Comment is pink, and every bar's
+  controls pop when picked and spring when pressed. (ajcraswell@gmail.com)
 
 ## 0.55.0
 

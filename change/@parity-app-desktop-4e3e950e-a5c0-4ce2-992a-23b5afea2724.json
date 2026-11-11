@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Etched lines split the floating bars, Insert and Find references sit beside Search, Comment is pink, and every bar's controls pop when picked and spring when pressed.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
