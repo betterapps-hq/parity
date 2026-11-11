@@ -88,6 +88,31 @@ describe("lintDocument", () => {
     ])
   })
 
+  it("names tokens inside shadows, filters and the transform that the project doesn't have (PAR-933)", () => {
+    const root = {
+      type: "layout" as const,
+      id: "page",
+      style: {
+        shadow: [
+          { kind: "drop" as const, token: "shadow-huge", color: { color: "primary" } },
+          { kind: "ring" as const, width: 1, color: { color: "#ff0000" } }
+        ],
+        filter: [{ kind: "dropShadow" as const, shadow: { kind: "drop" as const, token: "drop-shadow-xl" } }],
+        backdropFilter: [{ kind: "blur" as const, value: "blur-max" }],
+        transform: { x: "gutter", y: "far" }
+      },
+      children: []
+    }
+
+    expect(lintDocument(design(root), context).map(({ message }) => message)).toEqual([
+      `shadow[0].token "shadow-huge" isn't a token. Use a name from GetTokens().`,
+      `shadow[1].color "#ff0000" isn't a token. Use a name from GetTokens({ nearest: "#ff0000", category: "color" }), which lists the nearest first.`,
+      `filter[0].shadow.token "drop-shadow-xl" isn't a token. Use a name from GetTokens().`,
+      `backdropFilter[0].value "blur-max" isn't a token. Use a name from GetTokens().`,
+      `transform.y "far" isn't a length token. Use a spacing step (a number) instead.`
+    ])
+  })
+
   it("names the call that lists the tokens nearest a raw color or length (PAR-833)", () => {
     const root = {
       type: "layout" as const,
