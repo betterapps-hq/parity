@@ -50,6 +50,7 @@
     "@parity-app/project": "workspace:*",
     "@parity-app/registry": "workspace:*",
     "@parity-app/renderer-react": "workspace:*",
+    "@parity-app/style": "workspace:*",
     "@parity-app/styles-tailwind": "workspace:*",
     "@parity-app/telemetry": "workspace:*",
     "@parity-app/tokens": "workspace:*",

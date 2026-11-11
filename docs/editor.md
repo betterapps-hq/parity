@@ -4129,8 +4129,10 @@ panel's `TokenPopover` and `Detail` in `chrome/TokensPanel.tsx`, which name them
 project's modes and apply through `TokenStore.set`. What an edit may write is decided in `packages/tokens/src/checks.ts`
 (PAR-569): `checkTokenEdit` gives each theme's problem and the smallest changes to save, from `loopProblem` and
 `valueProblem`, with `builtOn` for the tokens another is built on; the detail passes in the browser's `CSS.supports`,
-and keeps only the view. The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design
-it came from, with Save in place of Apply.
+and keeps only the view. The agent's `SetTokens` passes `validate` from `@parity-app/style` as it runs, which checks the
+value against its property's grammar without a browser (PAR-940), then asks the window's browser once the snippet ends.
+The Storybook exploration's own detail (`explorations/previews/token-panels.tsx`) is the design it came from, with Save
+in place of Apply.
 
 Tests: `packages/tokens/src/checks.test.ts` (14): a value of its kind with references filled in, an empty one, a bracket
 left open, a reference to no token, a value the browser refuses named with an example, a blur checked as its filter, a

@@ -80,6 +80,7 @@ import {
   referenceSize,
   turnInto
 } from "@parity-app/editor"
+import { validate } from "@parity-app/style"
 import {
   builtOn,
   categorize,
@@ -1241,8 +1242,9 @@ export class AgentWorkspace {
 
   /**
    * Sets token values, refusing any the token detail would: a bracket or quote left open, a reference to no token, or
-   * a token built on itself. Nothing in the call is kept when one is refused. Whether each value is its kind's (a color
-   * a color) needs the browser, so `checkTokenKinds` asks once the snippet has finished, before anything is applied.
+   * a token built on itself, or a value that isn't its kind's (a color a color) by the kind's CSS grammar. Nothing in the
+   * call is kept when one is refused. The browser can still refuse what the grammar allows, so `checkTokenKinds` asks it
+   * once the snippet has finished, before anything is applied.
    */
   private setTokens(values: z.infer<typeof tokenValues>): void {
     const changes: TokenChange[] = []
@@ -1259,7 +1261,7 @@ export class AgentWorkspace {
     const reading = this.tokenReading([...this.tokenChanges, ...changes])
 
     for (const change of changes) {
-      const problem = reading.problem(change, () => true)
+      const problem = reading.problem(change, (property, value) => validate(property, value).valid)
 
       if (problem) {
         throw refusedToken(change, problem)
@@ -1270,8 +1272,9 @@ export class AgentWorkspace {
   }
 
   /**
-   * Refuses the call when a value it sets isn't its token's kind, as the token detail does, asking `hooks.supports`
-   * (the browser's `CSS.supports`) about every value at once. Without the hook, kinds aren't checked.
+   * Refuses the call when the browser doesn't take a value it sets for its token's kind, as the token detail does,
+   * asking `hooks.supports` (the browser's `CSS.supports`) about every value at once. Without the hook, the grammar's
+   * check in `setTokens` stands alone.
    */
   async checkTokenKinds(): Promise<void> {
     const hooks = this.hooks
