@@ -26,6 +26,7 @@ import {
 } from "./frame.ts"
 import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
 import { contentOutside, inlinePortalSheet, inlinePortals } from "./inline-portals.ts"
+import { isOutOfFlow, squeezedElement } from "./layout-checks.ts"
 import { startTelemetry } from "./telemetry.ts"
 
 startTelemetry()
@@ -175,6 +176,10 @@ window.canvasRender = async (job) => {
         measured.parent = parent
       }
 
+      if (isOutOfFlow(element)) {
+        measured.outOfFlow = true
+      }
+
       // Where the project's code writes the node's own element, for agents (PAR-167).
       const written = element.getAttribute(elementSourceAttribute)
 
@@ -196,6 +201,8 @@ window.canvasRender = async (job) => {
 
       nodes.push(measured)
     }
+
+    addSqueezes(host, body, nodes)
 
     const known = new Set(loaded.guest.components)
 
@@ -502,6 +509,33 @@ function clipper(element: HTMLElement, rect: DOMRect, body: HTMLElement): HTMLEl
   }
 
   return undefined
+}
+
+/**
+ * Marks each node drawn narrower than its width, or holding an element its component draws that is, such as a
+ * sidebar's gap beside content that can't shrink (PAR-886). A node gets its own element's squeeze, or else the one
+ * short by the most among the elements it draws inside.
+ */
+function addSqueezes(host: HTMLElement, body: HTMLElement, nodes: MeasuredNode[]): void {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+
+  for (const element of body.querySelectorAll<HTMLElement>("*")) {
+    const squeeze = element instanceof HTMLElement ? squeezedElement(element) : undefined
+    const id = squeeze && nodeOfElement(host, element)
+    const node = id ? byId.get(id) : undefined
+
+    if (!squeeze || !id || !node) {
+      continue
+    }
+
+    const own = findNodeElement(host, id) === element
+    const found = own ? squeeze : { ...squeeze, element: element.dataset.slot ?? element.localName }
+    const before = node.squeezed
+
+    if (!before || (before.element && (own || found.wants - found.width > before.wants - before.width))) {
+      node.squeezed = found
+    }
+  }
 }
 
 /**

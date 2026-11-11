@@ -269,6 +269,26 @@ export interface MeasuredNode extends FrameBox {
    * the development guest (PAR-167). None for Parity's own layers, libraries' elements and production builds.
    */
   source?: string
+  /**
+   * True when the layout around the node doesn't set its box, so reaching past its parent is intended: it's positioned
+   * absolutely, fixed or sticky, nudged, moved by a transform or a negative margin, or inline (PAR-886).
+   */
+  outOfFlow?: boolean
+  /**
+   * When the node, or an element its component draws, is drawn narrower than the width it's given, as a flex item that
+   * shrinks is (PAR-886): how wide it's drawn, how wide its width makes it, and which element, when it's one inside.
+   */
+  squeezed?: Squeeze
+}
+
+/** An element drawn narrower than the width it's given, in CSS pixels (PAR-886). */
+export interface Squeeze {
+  /** How wide it's drawn. */
+  width: number
+  /** How wide its `width` makes it, kept within its `min-width` and `max-width`. */
+  wants: number
+  /** The element inside the node's component, by its `data-slot` or tag, when it isn't the node's own. */
+  element?: string
 }
 
 /** How far a box reaches past each edge of the one around it, in CSS pixels. Edges it stays inside are left out. */
@@ -283,15 +303,25 @@ export interface Overflow {
 export interface Problem {
   state: string
   mode: string
-  kind: "render-error" | "unknown-component" | "content-wider" | "frame-overflow" | "clipped" | "outside-frame"
+  kind:
+    | "render-error"
+    | "unknown-component"
+    | "content-wider"
+    | "frame-overflow"
+    | "clipped"
+    | "outside-frame"
+    | "parent-overflow"
+    | "squeezed"
   /** What's wrong, in a sentence. */
   problem: string
   node?: string
   name?: string
   box?: FrameBox
-  /** What the node overflows: the node that clips it, or the frame, which has no node. */
+  /** What the node overflows: the node that clips it, the parent it spills out of, or the frame, which has no node. */
   container?: { node?: string; name?: string; box: FrameBox }
   overflow?: Overflow
+  /** For `squeezed`: how wide it's drawn and how wide its width makes it. */
+  squeezed?: Squeeze
 }
 
 export interface FrameResult {

@@ -7,7 +7,17 @@ const frame = {
   height: 120,
   nodes: [
     { id: "root", x: 0, y: 0, width: 390, height: 120 },
-    { id: "pay", parent: "root", x: 16, y: 40, width: 80, height: 36, source: "src/components/ui/button.tsx:44:5" }
+    { id: "pay", parent: "root", x: 16, y: 40, width: 80, height: 36, source: "src/components/ui/button.tsx:44:5" },
+    { id: "badge", parent: "pay", x: 90, y: 34, width: 12, height: 12, outOfFlow: true },
+    {
+      id: "nav",
+      parent: "root",
+      x: 0,
+      y: 0,
+      width: 74,
+      height: 120,
+      squeezed: { width: 74, wants: 256, element: "gap" }
+    }
   ],
   overflowsX: false,
   unknownComponents: []

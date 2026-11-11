@@ -81,6 +81,31 @@ describe("frameProblems", () => {
     ])
   })
 
+  it("reports a node drawn narrower than its width by layer name, with both widths (PAR-886)", () => {
+    const squeezed = { width: 112, wants: 256, element: "sidebar-gap" }
+
+    const problems = frameProblems(
+      design,
+      state,
+      mode,
+      frame({ nodes: [{ id: "nav", x: 0, y: 0, width: 112, height: 600, squeezed }] })
+    )
+
+    expect(problems).toEqual([
+      {
+        state: "default",
+        mode: mode.id,
+        kind: "squeezed",
+        problem:
+          "its sidebar-gap element is drawn 112px wide, 144px narrower than its 256px width, squeezed by what's beside it",
+        node: "nav",
+        name: expect.stringContaining("navbar"),
+        box: { x: 0, y: 0, width: 112, height: 600 },
+        squeezed
+      }
+    ])
+  })
+
   it("says content is wider than the frame when no node accounts for it", () => {
     expect(frameProblems(design, state, mode, frame({ overflowsX: true }))).toEqual([
       {

@@ -609,14 +609,24 @@ const execReply = z.looseObject({
 const frameBox = z.looseObject({ x: number, y: number, width: number, height: number })
 
 /**
- * One problem in one frame. Layout problems (`frame-overflow`, `clipped`) name the node, what it overflows (the node
- * that clips it, or the frame, which has none), both boxes, and how far past each edge it reaches.
+ * One problem in one frame. Layout problems (`frame-overflow`, `clipped`, `parent-overflow`) name the node, what it
+ * overflows (the node that clips it, the parent it spills out of, or the frame, which has none), both boxes, and how far
+ * past each edge it reaches. `squeezed` names a node drawn narrower than its width, and both widths.
  */
 const problem = z.looseObject({
   state: z.string(),
   mode: z.string(),
   kind: z
-    .enum(["render-error", "unknown-component", "content-wider", "frame-overflow", "clipped", "outside-frame"])
+    .enum([
+      "render-error",
+      "unknown-component",
+      "content-wider",
+      "frame-overflow",
+      "clipped",
+      "outside-frame",
+      "parent-overflow",
+      "squeezed"
+    ])
     .optional(),
   problem: z.string(),
   node: z.string().optional(),
@@ -630,7 +640,8 @@ const problem = z.looseObject({
       top: number.optional(),
       bottom: number.optional()
     })
-    .optional()
+    .optional(),
+  squeezed: z.looseObject({ width: number, wants: number, element: z.string().optional() }).optional()
 })
 
 const problemsReply = z.looseObject({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { describeLayoutFinding, describeOverflow, layoutFindings, overflowPast } from "./overflow.ts"
+import { describeLayoutFinding, describeOverflow, describeSqueeze, layoutFindings, overflowPast } from "./overflow.ts"
 import type { MeasuredNode } from "./types.ts"
 
 const phone = { width: 375, height: 800, fixedHeight: false }
@@ -39,13 +39,73 @@ describe("layoutFindings", () => {
     ])
   })
 
-  it("leaves out a node that overflows a parent that doesn't clip, inside the frame", () => {
+  it("leaves out a node out of the flow reaching past a parent that doesn't clip", () => {
     const nodes: MeasuredNode[] = [
       { id: "card", x: 20, y: 20, width: 200, height: 100 },
-      { id: "badge", parent: "card", x: 200, y: 10, width: 30, height: 20 }
+      { id: "badge", parent: "card", x: 200, y: 10, width: 30, height: 20, outOfFlow: true }
     ]
 
     expect(layoutFindings(nodes, phone)).toEqual([])
+  })
+
+  it("finds a node in the flow spilling out of a parent that doesn't clip, inside the frame (PAR-886)", () => {
+    const card = { x: 20, y: 20, width: 200, height: 100 }
+    const table = { x: 36, y: 36, width: 300, height: 60 }
+
+    const nodes: MeasuredNode[] = [
+      { id: "card", ...card },
+      { id: "table", parent: "card", ...table },
+      { id: "row", parent: "table", x: 36, y: 36, width: 300, height: 30 }
+    ]
+
+    expect(layoutFindings(nodes, phone)).toEqual([
+      {
+        kind: "parent-overflow",
+        node: "table",
+        box: table,
+        container: { node: "card", box: card },
+        overflow: { right: 116 }
+      }
+    ])
+  })
+
+  it("allows a pixel of spill, for text set in a box its own width", () => {
+    const nodes: MeasuredNode[] = [
+      { id: "day", x: 10, y: 10, width: 60, height: 20 },
+      { id: "label", parent: "day", x: 9.3, y: 10, width: 61.4, height: 20 }
+    ]
+
+    expect(layoutFindings(nodes, phone)).toEqual([])
+    expect(layoutFindings([nodes[0]!, { ...nodes[1]!, x: 8.9, width: 62.2 }], phone)[0]?.overflow).toEqual({
+      left: 1.1,
+      right: 1.1
+    })
+  })
+
+  it("finds a spill inside an ancestor that clips but doesn't cut it, and only a cut when one does", () => {
+    const page = { x: 0, y: 0, width: 375, height: 400 }
+    const label = { x: 10, y: 10, width: 80, height: 20 }
+
+    const nodes: MeasuredNode[] = [
+      { id: "page", ...page },
+      { id: "label", parent: "page", ...label },
+      { id: "text", parent: "label", x: 10, y: 10, width: 120, height: 20 },
+      {
+        id: "long",
+        parent: "label",
+        x: 10,
+        y: 10,
+        width: 420,
+        height: 20,
+        clipped: true,
+        clip: { node: "page", ...page }
+      }
+    ]
+
+    expect(layoutFindings(nodes, phone).map(({ kind, node, container }) => [kind, node, container.node])).toEqual([
+      ["parent-overflow", "text", "label"],
+      ["clipped", "long", "page"]
+    ])
   })
 
   it("names the nearest ancestor that clips, at each level of nested clipping", () => {
@@ -135,6 +195,26 @@ describe("describing findings", () => {
     const [finding] = layoutFindings([{ id: "pay", x: 340, y: 20, width: 60, height: 32 }], phone)
     expect(describeLayoutFinding(finding!, name)).toBe(
       "at x 340, y 20 and 60 × 32px, it sticks out of the 375px frame by 25px on the right"
+    )
+  })
+
+  it("names the parent a node spills out of", () => {
+    const nodes: MeasuredNode[] = [
+      { id: "list", x: 0, y: 0, width: 100, height: 100 },
+      { id: "item", parent: "list", x: 0, y: 90, width: 100, height: 30 }
+    ]
+
+    expect(describeLayoutFinding(layoutFindings(nodes, phone)[0]!, name)).toBe(
+      "20px at the bottom spills out of Results (list), which doesn't clip it"
+    )
+  })
+
+  it("says how much narrower than its width a squeezed node is drawn, and the element inside it", () => {
+    expect(describeSqueeze({ width: 112, wants: 256 })).toBe(
+      "drawn 112px wide, 144px narrower than its 256px width, squeezed by what's beside it"
+    )
+    expect(describeSqueeze({ width: 112.4, wants: 256, element: "sidebar-gap" })).toBe(
+      "its sidebar-gap element is drawn 112.4px wide, 143.6px narrower than its 256px width, squeezed by what's beside it"
     )
   })
 

@@ -34,27 +34,27 @@ writes only that file, and a CLI given the same file reaches only that copy.
 
 ## Commands
 
-| Command                      | What it does                                                                               |
-| ---------------------------- | ------------------------------------------------------------------------------------------ |
-| `parity tabs`                | Lists the open projects.                                                                   |
-| `parity state`               | A tab's designs, selection, modes, components and tokens. Start here.                      |
-| `parity status`              | Revision, unsaved files and token values, the last save, and undo and redo.                |
-| `parity modes [design]`      | Viewports, modes and what each design shows; a design adds its frames' sizes.              |
-| `parity exec [file]`         | Runs a JavaScript snippet against the designs, from a file or stdin, as one undoable step. |
-| `parity screenshot <design>` | Renders a design in its states and modes, offscreen, as images.                            |
-| `parity problems <design>`   | Render errors, overflow, clipping, unknown components and content outside the frame.       |
-| `parity a11y <design>`       | Checks accessibility with axe-core, per frame.                                             |
-| `parity console`             | What the project's own code wrote to the console.                                          |
-| `parity logs`                | Parity's own events from its local log, by level, process, trace, test run or time.        |
-| `parity diagnostics`         | A zip of the last hour of the local log, versions, projects and the latest crash.          |
-| `parity report "<problem>"`  | Reports a problem in Parity itself to its team, with a screenshot, replay and trace.       |
-| `parity tokens`              | The tokens styles can name, with their values per theme.                                   |
-| `parity components`          | The components designs can use, by library.                                                |
-| `parity props <Component>`   | A component's props, read from its source.                                                 |
-| `parity lib [package]`       | Writes a `.lib.par` describing a library's components, tokens and icons, or the app's.     |
-| `parity open <folder>`       | Opens a project in a new tab.                                                              |
-| `parity skill [file]`        | Prints the skill that teaches an agent to design with Parity.                              |
-| `parity mcp`                 | Serves these commands as MCP tools on stdio.                                               |
+| Command                      | What it does                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| `parity tabs`                | Lists the open projects.                                                                        |
+| `parity state`               | A tab's designs, selection, modes, components and tokens. Start here.                           |
+| `parity status`              | Revision, unsaved files and token values, the last save, and undo and redo.                     |
+| `parity modes [design]`      | Viewports, modes and what each design shows; a design adds its frames' sizes.                   |
+| `parity exec [file]`         | Runs a JavaScript snippet against the designs, from a file or stdin, as one undoable step.      |
+| `parity screenshot <design>` | Renders a design in its states and modes, offscreen, as images.                                 |
+| `parity problems <design>`   | Render errors, overflow, clipping, squeezing, unknown components and content outside the frame. |
+| `parity a11y <design>`       | Checks accessibility with axe-core, per frame.                                                  |
+| `parity console`             | What the project's own code wrote to the console.                                               |
+| `parity logs`                | Parity's own events from its local log, by level, process, trace, test run or time.             |
+| `parity diagnostics`         | A zip of the last hour of the local log, versions, projects and the latest crash.               |
+| `parity report "<problem>"`  | Reports a problem in Parity itself to its team, with a screenshot, replay and trace.            |
+| `parity tokens`              | The tokens styles can name, with their values per theme.                                        |
+| `parity components`          | The components designs can use, by library.                                                     |
+| `parity props <Component>`   | A component's props, read from its source.                                                      |
+| `parity lib [package]`       | Writes a `.lib.par` describing a library's components, tokens and icons, or the app's.          |
+| `parity open <folder>`       | Opens a project in a new tab.                                                                   |
+| `parity skill [file]`        | Prints the skill that teaches an agent to design with Parity.                                   |
+| `parity mcp`                 | Serves these commands as MCP tools on stdio.                                                    |
 
 `parity --help` lists every option. `problems` and `a11y` exit with 1 when they find something, so they can gate a
 script.

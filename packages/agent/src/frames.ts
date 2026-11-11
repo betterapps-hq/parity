@@ -9,8 +9,8 @@ import {
   type StateSpec
 } from "@parity-app/core"
 import { contrastFix } from "@parity-app/tokens"
-import { describeLayoutFinding, layoutFindings } from "./overflow.ts"
-import type { AccessibilityFinding, FrameContrast, FrameResult, Problem } from "./types.ts"
+import { describeLayoutFinding, describeSqueeze, layoutFindings } from "./overflow.ts"
+import type { AccessibilityFinding, FrameBox, FrameContrast, FrameResult, MeasuredNode, Problem } from "./types.ts"
 
 /** The name of a design by id, for naming its instances. */
 export type DesignName = (id: string) => string | undefined
@@ -75,6 +75,15 @@ export function frameProblems(
     add({ ...head, box: finding.box, container, overflow: finding.overflow })
   }
 
+  // Drawn narrower than the width it's given, as a sidebar beside content that can't shrink is (PAR-886).
+  for (const node of frame.nodes) {
+    if (node.squeezed) {
+      const label = name(node.id)
+      const about = { kind: "squeezed" as const, problem: describeSqueeze(node.squeezed), node: node.id }
+      add({ ...(label ? { ...about, name: label } : about), box: frameBoxOf(node), squeezed: node.squeezed })
+    }
+  }
+
   // Content wider than the frame that no node accounts for, such as a component's own element.
   if (frame.overflowsX && !layout.some((finding) => finding.kind === "frame-overflow" && finding.overflow.right)) {
     add({ kind: "content-wider", problem: `content is wider than the ${size.width}px frame` })
@@ -89,6 +98,11 @@ export function frameProblems(
   }
 
   return found
+}
+
+/** A measured node's box alone. */
+function frameBoxOf(node: MeasuredNode): FrameBox {
+  return { x: node.x, y: node.y, width: node.width, height: node.height }
 }
 
 /** What axe-core found in one drawn frame, and the contrast it measured for each contrast failure. */
