@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Wed, 11 Nov 2026 09:09:45 GMT",
+      "version": "0.43.0",
+      "tag": "@parity-app/cli_v0.43.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a7789b1d4da518ad0f6020bef9ae7fb18e2466f3",
+            "comment": "Problems reports a node squeezed narrower than its width, and a node in the layout's flow spilling out of a parent that doesn't clip"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 11 Nov 2026 08:42:05 GMT",
       "version": "0.42.1",
       "tag": "@parity-app/cli_v0.42.1",
