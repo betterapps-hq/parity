@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Agents' states and Update can change a layer inside an instance by its instance/inner path, as the editor can",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
