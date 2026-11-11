@@ -1882,7 +1882,8 @@ recommended answer to each of its questions.
   - **Frame overflow:** it reaches past the frame's left or right edge, or the bottom of a frame with a fixed height, by
     its position as much as its width, so a 60px button at x 340 overflows a 375px frame.
   - **Visible overflow** of a parent that doesn't clip, inside the frame, is drawn, so it's taken as intended (a badge
-    over a card's corner) and isn't reported.
+    over a card's corner) and isn't reported. PAR-886 reports it when the node is in the layout's flow; see "Problems
+    reports a squeezed node and content spilling out of its parent".
 
   Half a CSS pixel of overflow is allowed for subpixel layout, as before. A node that goes no further past the same
   edges of the same container than an ancestor already reported is left out, so the finding is on the node to fix.
@@ -7216,3 +7217,33 @@ The Better Booking run found selects, menus and dialogs drawing unstyled outside
 - **Popups still don't count in a layer's box,** so the earlier call on portaled content stands for selection.
 - **Base UI's focus trap already looks through shadow roots,** so a modal in a frame marks the rest of Parity's page as
   it did before, no more and no less.
+
+## Problems reports a squeezed node and content spilling out of its parent (PAR-886)
+
+In the Better Booking run, a table too wide for its content area squeezed a nova `Sidebar` (`collapsible="none"`,
+`w-(--sidebar-width)`) to well under its 256px, and `problems` found nothing. The table stayed inside the frame and
+nothing clipped it, and PAR-456 left out overflow of a parent that doesn't clip. My calls:
+
+- **`squeezed`: an element drawn narrower than its own width.** The renderer reads each element's computed `width`
+  (`computedStyleMap`, so `16rem` is 256px and `auto` is a keyword), keeps it within its `min-width` and `max-width`,
+  and compares it with `offsetWidth`, a pixel allowed for rounding. Only a width in pixels counts: a percentage, `auto`
+  or a sum with one has no width to fall short of. Inline elements and a table's parts are left out, since a width
+  doesn't hold them. In practice only a flex item that shrinks is drawn narrower than its width, which is the bug: a
+  fixed-width sidebar or icon beside content that can't shrink.
+- **An element a component draws counts for its node.** The squeezed element is often a kit's own, such as a sidebar's
+  gap. The finding goes on the node that draws it, naming the element by its `data-slot` or tag, and a node gets its own
+  element's squeeze before the most squeezed inside it, so a node is reported once.
+- **`parent-overflow`: a node in the layout's flow reaching past its parent's box,** inside the frame, where nothing
+  cuts it off. What says it's intended is how the node is placed, not whether it shows. A node positioned absolutely,
+  fixed or sticky, nudged with an inset, moved by a transform or a negative margin, or inline is `outOfFlow`, and its
+  overflow isn't reported: the badge over a card's corner, a bleed, a tooltip. A node in the flow has no reason to leave
+  its parent, so when it does, it's drawn over or beside what's around it by accident. Inline nodes are left out because
+  their box follows the font, not the line, and would spill a pixel or two out of a tight line height.
+- **Covering a sibling isn't a check of its own.** A node in the flow can only cover a sibling by leaving its parent,
+  which `parent-overflow` finds, and one out of the flow covers siblings on purpose.
+- **The node to fix is reported, as before.** A node past the frame or cut off is reported as that, not also as
+  spilling. Children inside a spilling node stay inside it, so only the outermost node that spills is reported.
+- **The finding states the measure, not the fix.** `problem` says how wide the node is drawn against its width, or how
+  far past which edges of which parent it reaches. The skill says what usually fixes each (`min-w-0` on the content that
+  won't shrink, or `shrink-0` on the squeezed node; letting a spilling node wrap or shrink, or clipping its parent with
+  a scroll).

@@ -451,15 +451,27 @@ token values not yet saved show, the person's edits and this call's own `SetToke
 
 `Measure` lays out one frame and returns its state, mode and size, whether it overflows sideways, and every node's box
 with the node it's drawn inside (`parent`); a node an ancestor cuts off has `clipped` and that ancestor's box in `clip`.
-A node whose element the project's code writes, such as a component's, has `source`: the file, line and column, as
+A node the layout doesn't place (positioned absolutely, fixed or sticky, nudged, moved by a transform or a negative
+margin, or inline) has `outOfFlow`, and one drawn narrower than its width has `squeezed`. A node whose element the
+project's code writes, such as a component's, has `source`: the file, line and column, as
 `src/components/ui/button.tsx:44:5`, to open or edit. Parity's own layers have none. `Problems` checks frames for render
-errors, overflow, clipping, unknown components and content drawn outside the frame (`outside-frame`: something a library
-added to the page's body itself, which has none of the project's styles and isn't in screenshots; React portals, as Base
-UI's and Radix's popups use, are drawn inside the frame). Each layout problem has its `kind`: `frame-overflow` for a
-node that sticks out of the frame, by its position or its width, or `clipped` for one an ancestor that hides overflow
-cuts off. It names the `node`, its `box`, the `container` it overflows (the clipping node, or the frame, which has no
-`node`) with that box, and the pixels past each edge in `overflow`. A node past a parent that doesn't clip, inside the
-frame, shows, so it isn't a problem; children going no further than a reported parent are left out.
+errors, overflow, clipping, squeezing, unknown components and content drawn outside the frame. Each problem has its
+`kind`:
+
+- `frame-overflow`: the node sticks out of the frame, by its position or its width.
+- `clipped`: an ancestor that hides overflow cuts it off.
+- `parent-overflow`: it spills out of its parent, which doesn't clip, so it's drawn over what's beside it. Only a node
+  in the layout's flow counts; an `outOfFlow` one, such as a badge over a card's corner, may reach past its parent. Let
+  it wrap or shrink (`min-w-0`, `truncate`), or give the parent a scroll.
+- `outside-frame`: something a library added to the page's body itself, which has none of the project's styles and isn't
+  in screenshots. React portals, as Base UI's and Radix's popups use, are drawn inside the frame.
+- `squeezed`: it's drawn narrower than its width, as a fixed-width sidebar beside a table that can't shrink is. It gives
+  `squeezed.width` (drawn) and `squeezed.wants` (its width), and `squeezed.element` when the squeezed element is one its
+  component draws, by its `data-slot`. Give what takes the room `min-w-0` so it can shrink, or the node `shrink-0`.
+
+The overflow kinds name the `node`, its `box`, the `container` it overflows (the clipping node, the parent, or the
+frame, which has no `node`) with that box, and the pixels past each edge in `overflow`. Children going no further than a
+reported parent are left out.
 
 ```js
 const id = CreateDesign({ name: "Checkout" })

@@ -54,6 +54,38 @@ export default {
 }
 `
 
+// A guest that draws a sidebar beside content that can't shrink (PAR-886): the sidebar is 256px wide, as a flex item,
+// and the content holds a 450px block, so in a 600px frame with the body's 8px margins the sidebar is drawn 134px wide. A nav's logo, an element
+// its component draws, is squeezed to nothing beside a part that doesn't shrink, and a radio's indicator is as wide as
+// the radio inside its border, kept narrow by its parent, not by anything beside it. A card holds a table wider than it,
+// in the flow, and a badge positioned over its corner.
+const layoutGuest = `
+export default {
+  renderer: "test",
+  components: [],
+  hasComponent: () => false,
+  css: "",
+  mount(target) {
+    const root = document.createElement("div")
+    root.innerHTML =
+      '<div data-canvas-node="shell" style="display: flex">' +
+      '<aside data-canvas-node="sidebar" style="width: 16rem; box-sizing: border-box; padding: 8px">Menu</aside>' +
+      '<main data-canvas-node="inset" style="flex: 1">' +
+      '<div data-canvas-node="wide" style="width: 450px; height: 10px"></div>' +
+      '<nav data-canvas-node="nav" style="display: flex; width: 200px">' +
+      '<div data-slot="logo" style="width: 120px"></div><div style="width: 200px; flex-shrink: 0">Links</div></nav>' +
+      '<div data-canvas-node="radio" style="display: flex; width: 16px; height: 16px; border: 1px solid">' +
+      '<span data-slot="indicator" style="display: block; width: 16px"></span></div>' +
+      '<div data-canvas-node="card" style="position: relative; width: 200px">' +
+      '<div data-canvas-node="table" style="width: 300px; height: 20px"></div>' +
+      '<span data-canvas-node="badge" style="position: absolute; top: -4px; right: -8px">New</span>' +
+      '</div></main></div>'
+    target.append(root)
+    return { update() {}, unmount() { root.remove() } }
+  }
+}
+`
+
 beforeAll(async () => {
   const bundle = await build({
     entryPoints: [fileURLToPath(new URL("render.ts", import.meta.url))],
@@ -74,6 +106,9 @@ beforeAll(async () => {
   )
   await page.route("http://parity.test/portal-guest.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: portalGuest })
+  )
+  await page.route("http://parity.test/layout-guest.js", (route) =>
+    route.fulfill({ contentType: "text/javascript", body: layoutGuest })
   )
   await page.route("http://parity.test/render.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: bundle.outputFiles[0]!.text })
@@ -214,5 +249,29 @@ describe("a preview's portals", () => {
     const { frame } = await renderPortal(false)
     // The backdrop holds nothing to see, so the portal is described by the popup's text.
     expect(frame.outside).toEqual(['<div> "Delete this chat?"'])
+  })
+})
+
+describe("a frame's layout", () => {
+  it("marks what's squeezed narrower than its width by what's beside it, and which nodes are out of the flow (PAR-886)", async () => {
+    const job: RenderJob = {
+      projectId: "layout",
+      guestUrl: "http://parity.test/layout-guest.js",
+      theme: [],
+      tree: [],
+      mode: { width: 600, viewport: { width: 600, height: 800 }, classNames: [], attributes: {} },
+      scale: 1
+    }
+
+    const frame = await page.evaluate((job) => window.canvasRender(job), job)
+    const node = (id: string) => frame.nodes.find((each) => each.id === id)
+    expect(frame.error).toBeUndefined()
+    expect(node("sidebar")).toMatchObject({ width: 134, squeezed: { width: 134, wants: 256 } })
+    expect(node("nav")?.squeezed).toEqual({ width: 0, wants: 120, element: "logo" })
+    expect(node("inset")?.squeezed).toBeUndefined()
+    expect(node("radio")?.squeezed).toBeUndefined()
+    expect(node("table")).toMatchObject({ parent: "card", width: 300 })
+    expect(node("table")?.outOfFlow).toBeUndefined()
+    expect(node("badge")?.outOfFlow).toBe(true)
   })
 })

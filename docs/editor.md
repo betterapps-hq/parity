@@ -5864,36 +5864,54 @@ Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by
 CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
 were checked when their `.lib.par` was read.
 
-### Which node overflows what (PAR-456)
+### Which node overflows what (PAR-456, PAR-886)
 
 Agents' `Measure` gives each node's box with the node it's drawn inside (`parent`), the ancestor that clips it when one
-cuts it off (`clip`, with its box), and the state and mode it drew. `Problems`, `find_problems` and `parity problems`
-give each layout problem as a finding: its `kind` (`frame-overflow` or `clipped`; `outside-frame`, for content drawn
-outside the frame, is described under Popups draw inside their frame), the node and its name, its box, the `container`
-it overflows (the node that clips it, or the frame) with that box, and the pixels past each edge in `overflow`. The
-sentence with it says the same, such as "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame by 10px on the
-right", and the CLI puts the layer's name before its id. Overflow of a parent that doesn't clip, inside the frame, isn't
-reported; see [decisions.md](decisions.md), "Problems reports where a node overflows".
+cuts it off (`clip`, with its box), whether the layout leaves its box alone (`outOfFlow`), what's squeezed narrower than
+its width (`squeezed`), and the state and mode it drew. `Problems`, `find_problems` and `parity problems` give each
+layout problem as a finding: its `kind`, the node and its name, and its box. `outside-frame`, for content drawn outside
+the frame, is described under Popups draw inside their frame.
 
-Code: `layoutFindings` and `describeLayoutFinding` in `packages/agent/src/overflow.ts`, used by `frameProblems` in
-`packages/agent/src/frames.ts`; `clipper` and `nodeParent` in `apps/desktop/src/renderer/render.ts` measure each node;
-`describeProblems` in `packages/cli/src/client.ts` and the problems schema in `operations.ts`.
+- `frame-overflow`, `clipped` and `parent-overflow` give the `container` the node overflows (the frame, the node that
+  clips it, or the parent it spills out of) with that box, and the pixels past each edge in `overflow`. The sentence
+  says the same, such as "at x 340, y 100 and 60 × 36px, it sticks out of the 390px frame by 10px on the right" or
+  "116px on the right spills out of Card (card), which doesn't clip it".
+- `parent-overflow` is only for a node in the layout's flow. One that's `outOfFlow` (positioned absolutely, fixed or
+  sticky, nudged, moved by a transform or a negative margin, or inline) may reach past its parent, as a badge over a
+  card's corner does.
+- `squeezed` gives how wide the node, or an element its component draws, is drawn and how wide its width makes it, as
+  "its sidebar-gap element is drawn 134px wide, 122px narrower than its 256px width, squeezed by what's beside it".
+
+The CLI puts the layer's name before its id. See [decisions.md](decisions.md), "Problems reports where a node overflows"
+and "Problems reports a squeezed node and content spilling out of its parent".
+
+Code: `layoutFindings`, `describeLayoutFinding` and `describeSqueeze` in `packages/agent/src/overflow.ts`, used by
+`frameProblems` in `packages/agent/src/frames.ts`; `clipper`, `nodeParent` and `addSqueezes` in
+`apps/desktop/src/renderer/render.ts`, with `squeezedElement` and `isOutOfFlow` in `layout-checks.ts`, measure each
+node; `describeProblems` in `packages/cli/src/client.ts` and the problems schema in `contracts.ts`.
 
 Tests:
 
-- `packages/agent/src/overflow.test.ts` (13): a node narrower than the frame that its position takes past the right
-  edge; the half-pixel tolerance; a badge past a parent that doesn't clip isn't reported; nested clipping names the
-  nearest ancestor at each level; a clipping element outside the layers; children going no further than their reported
-  parent left out, one going further kept; a bottom edge only with a fixed height; nodes drawn at no size; the
-  sentences.
-- `packages/agent/src/frames.test.ts` (3 of its 6): a clean frame, then a render error, an unknown component and a node
-  past the edge named by its layer, and content wider than the frame that no node accounts for.
+- `packages/agent/src/overflow.test.ts` (17): a node narrower than the frame that its position takes past the right
+  edge; the half-pixel tolerance; a positioned badge past a parent that doesn't clip isn't reported; a table spilling
+  out of its card is, without its rows; a spill inside an ancestor that clips without cutting it, and a cut where one
+  does; nested clipping names the nearest ancestor at each level; a clipping element outside the layers; children going
+  no further than their reported parent left out, one going further kept; a bottom edge only with a fixed height; nodes
+  drawn at no size; the sentences, for spilling and squeezing too.
+- `packages/agent/src/frames.test.ts` (4 of its 7): a clean frame, then a render error, an unknown component and a node
+  past the edge named by its layer, a squeezed node with both widths, and content wider than the frame that no node
+  accounts for.
+- `apps/desktop/src/renderer/render.test.ts` (1 of its 6), in Chrome: a 16rem sidebar beside content that can't shrink
+  drawn 134px wide, a logo inside a nav's component squeezed to nothing and named by its slot, content that takes the
+  room not squeezed, and a positioned badge `outOfFlow` where a table in the flow isn't.
 - `packages/agent/src/run.test.ts` (2 of its 46): the finding in only the mode whose frame the button passes, with its
   boxes, the frame's overflow not reported again, a clipped title in every mode, and Measure's parent, state and mode; a
   node wider than every frame found once in each.
 - `packages/cli/src/client.test.ts` (1 of its 11): the readable line names the layer.
 
-Gaps: the renderer's `clipper` and `nodeParent` run in the offscreen window, which the end-to-end tests cover in CI.
+Gaps: `clipper` and `nodeParent` run in the offscreen window, which the end-to-end tests cover in CI. `isOutOfFlow`
+reads the node's first element only, so a component drawing a fragment is judged by its first part. Height isn't checked
+for squeezing.
 
 ### Every frame drawn in the same window (PAR-466)
 

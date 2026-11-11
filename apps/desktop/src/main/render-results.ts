@@ -17,7 +17,9 @@ const measuredNode = z.object({
   parent: z.string().optional(),
   clipped: z.boolean().optional(),
   clip: z.object({ ...box, node: z.string().optional() }).optional(),
-  source: z.string().optional()
+  source: z.string().optional(),
+  outOfFlow: z.boolean().optional(),
+  squeezed: z.object({ width: finiteNumber, wants: finiteNumber, element: z.string().optional() }).optional()
 })
 
 const frame = z.object({

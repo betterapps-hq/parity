@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Problems reports a node squeezed narrower than its width, and a node in the layout's flow spilling out of a parent that doesn't clip",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
