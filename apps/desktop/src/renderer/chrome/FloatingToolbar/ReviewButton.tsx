@@ -15,7 +15,7 @@ import type { Tool } from "../../selection.ts"
 import { actions } from "../actions.ts"
 import { keymap } from "../keymap.ts"
 import { formatKeys } from "../keys.ts"
-import { CommandTip, MenuArrow, pressable, pressMotion, toolButton, usePickPop } from "../toolbar-parts.tsx"
+import { CommandTip, MenuArrow, pressable, pressMotion, toolButton } from "../toolbar-parts.tsx"
 
 interface ReviewButtonProps {
   review: Review<Tool>
@@ -30,13 +30,11 @@ export function ReviewButton({ review }: ReviewButtonProps) {
   const { selection } = useProject()
   const { label, icon: Icon, color, command } = reviewToolLook(review.shown)
   const picked = review.picked === review.shown
-  const popRef = usePickPop<HTMLButtonElement>(picked)
 
   return (
     <>
       <CommandTip command={command} label={label}>
         <ToggleGroupItem
-          ref={popRef}
           data-warp-anchor
           value={review.shown}
           aria-label={label}

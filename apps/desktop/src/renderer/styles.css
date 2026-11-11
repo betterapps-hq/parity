@@ -417,13 +417,14 @@ body,
 
 /*
  * The bars floating on the canvas (PAR-893). Their lines are etched: a groove with a highlight on its right. The light
- * theme's bar is a step off white, or the highlight couldn't show, and hover and a picked stamp go a step darker on it
- * to keep the contrast they have on white. The dark theme keeps the popover and its own steps.
+ * theme's bar is a step off white, or the highlight couldn't show, and hover, a picked stamp and Done's fill go a step
+ * darker on it to keep the contrast they have on white. The dark theme keeps the popover and its own steps.
  */
 :root {
   --floating-bar: light-dark(oklch(0.985 0 0), var(--popover));
-  --floating-bar-accent: light-dark(oklch(0.955 0 0), var(--accent));
-  --floating-bar-muted: light-dark(oklch(0.955 0 0), var(--muted));
+  --floating-bar-step: oklch(0.955 0 0);
+  --floating-bar-muted: light-dark(var(--floating-bar-step), var(--muted));
+  --floating-bar-secondary: light-dark(var(--floating-bar-step), var(--secondary));
   --floating-bar-groove: light-dark(rgb(0 0 0 / 0.14), rgb(0 0 0 / 0.7));
   --floating-bar-highlight: light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.11));
 

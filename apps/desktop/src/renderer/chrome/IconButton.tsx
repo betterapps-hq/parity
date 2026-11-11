@@ -1,5 +1,7 @@
 import { Button, Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import type { ReactNode } from "react"
+import { actions } from "./actions.ts"
+import { type Command, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { pressable as pressing, pressMotion } from "./toolbar-parts.tsx"
 
@@ -47,5 +49,25 @@ export function IconButton({
         {label} {shortcut && <Kbd>{formatKeys(shortcut)}</Kbd>}
       </TooltipContent>
     </Tooltip>
+  )
+}
+
+interface CommandButtonProps {
+  command: Command
+  children: ReactNode
+}
+
+/** A floating bar's button for a command: its label and first key in the tooltip, the bar's press, run from the toolbar. */
+export function CommandButton({ command, children }: CommandButtonProps) {
+  return (
+    <IconButton
+      label={keymap[command].label}
+      shortcut={keymap[command].keys[0]}
+      size="icon"
+      pressable
+      onClick={() => void actions[command].run("toolbar")}
+    >
+      {children}
+    </IconButton>
   )
 }

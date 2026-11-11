@@ -8,10 +8,10 @@ import { Window } from "../chrome-fixtures.tsx"
 import { FloatingToolbar } from "./FloatingToolbar.tsx"
 
 /**
- * The toolbar floating at the bottom of the canvas (PAR-780, PAR-795, PAR-893): what the pointer does; Frame, Text and the
- * review button, which add things; then Insert, Find references and Search actions, which open a dialog or a search. It
- * warps into a review tool's bar while one is picked. It needs the canvas, so each story shows the whole window with
- * designs framed.
+ * The toolbar floating at the bottom of the canvas (PAR-780, PAR-795, PAR-893): what the pointer does; Frame, Text and
+ * the review button, which add things; then Insert, Find references and Search actions, which open a dialog or a
+ * search. It warps into a review tool's bar while one is picked. It needs the canvas, so each story shows the whole
+ * window with designs framed.
  */
 const meta = {
   title: "Parity/Chrome/Toolbar",

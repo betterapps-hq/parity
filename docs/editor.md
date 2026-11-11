@@ -1919,7 +1919,8 @@ What the floating controls on the canvas hold, and how a review tool takes over 
   component purple. The arrow keys move through the tools; the commands are Tab stops of their own.
 - **The floating bars** sit on a surface a step off white on the light theme, and their groups are split by lines etched
   into them: a groove with a highlight on its right, through the bar's padding to its border. A picked tool's button, or
-  a stamp's chip, boings, and a pressed control dips and springs back; with reduced motion they keep still.
+  a stamp's chip, boings (picking a review tool warps the bar instead), and a pressed control dips and springs back;
+  with reduced motion they keep still.
 - **The review button** shows the review tool picked last, Comment at first, in its color when it isn't picked: Comment
   is pink, and each kind of annotation has its own hue. Its arrow lists Comment, with C, then, under Annotate with
   Shift+T, each kind of annotation: Behaviour, Content, Accessibility and Development. C picks Comment, and Shift+T
@@ -1952,8 +1953,9 @@ warp in `Warp.tsx` (the bar and its two sides), `useWarp.ts` (widths, focus) and
 `annotation-options.ts` lists each kind's options, and `ReviewToolBar.tsx` shows `KindBar.tsx` or `CommentBar.tsx`, with
 `DoneButton.tsx`. `ReviewBar.tsx`, a bar for a review tool beside the toolbar rather than in it, is kept for later.
 `renderer/springs.ts` has the springs the warp and the floating bars' controls move on; `usePickPop`, `pressable` and
-`pressMotion` in `chrome/toolbar-parts.tsx` give every bar's controls the same pick and press, and `styles.css` has the
-bars' surface, their lines' colors and Comment's pink.
+`pressMotion` in `chrome/toolbar-parts.tsx` give every bar's controls the same pick and press, `CommandButton` in
+`chrome/IconButton.tsx` is a bar's button for a command, and `styles.css` has the bars' surface, their lines' colors and
+Comment's pink.
 
 Tests:
 

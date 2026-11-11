@@ -17,10 +17,10 @@ import { formatKeys } from "./keys.ts"
 
 /**
  * The surface each bar floating on the canvas sits on: a step off white on the light theme, so a line's highlight shows,
- * with hover and a picked stamp a step darker on it (see styles.css).
+ * with hover, a picked stamp and Done a step darker on it (see styles.css).
  */
 export const floatingBar =
-  "rounded-xl border bg-(--floating-bar) p-1 text-popover-foreground shadow-lg [--accent:var(--floating-bar-accent)] [--muted:var(--floating-bar-muted)]"
+  "rounded-xl border bg-(--floating-bar) p-1 text-popover-foreground shadow-lg [--muted:var(--floating-bar-muted)] [--secondary:var(--floating-bar-secondary)]"
 
 /**
  * A tool, 32px square as Figma's are, picked out in the canvas's selection blue at the step its chips use, so the white
