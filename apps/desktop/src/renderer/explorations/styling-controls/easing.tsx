@@ -281,7 +281,7 @@ export function EasingField({
           <CurveThumb plot={plot} faint={value === undefined} playing={live(label)} />
         </PopoverTrigger>
       </Hint>
-      <PopoverContent className="w-72 gap-0 p-0" align="start">
+      <PopoverContent aria-label={label} className="w-72 gap-0 p-0" align="start">
         <EasingEditor value={value} tokens={tokens} defaultTab={defaultTab} onChange={onChange} onSave={saveToken} />
       </PopoverContent>
     </Popover>
@@ -367,7 +367,7 @@ export function SaveAsToken({
         <PopoverTrigger className="text-foreground underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring">
           Save as token
         </PopoverTrigger>
-        <PopoverContent className="w-56 gap-2 p-2" align="start">
+        <PopoverContent aria-label="Save as token" className="w-56 gap-2 p-2" align="start">
           <label htmlFor={id} className="text-xs">
             Token name
           </label>

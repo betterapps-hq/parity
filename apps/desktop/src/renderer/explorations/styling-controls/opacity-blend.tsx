@@ -149,11 +149,9 @@ export function OpacityRow({
   onPreviewBlend: (value: BlendMode | undefined) => void
 }) {
   return (
-    // Opacity needs room for 100 and its %, or a token's name; Blend mode takes the rest, as its names are long (Color dodge).
-    <div className="flex items-start gap-1">
-      <div className="w-32 shrink-0">
-        <OpacityField value={opacity} mixed={mixed} onChange={onOpacity} />
-      </div>
+    // Half each, as the panel's paired fields are: room for a token's name in Opacity and Color dodge in Blend mode.
+    <div className="grid grid-cols-2 items-start gap-1">
+      <OpacityField value={opacity} mixed={mixed} onChange={onOpacity} />
       <BlendMenu value={blend} mixed={mixed} onChange={onBlend} onPreview={onPreviewBlend} />
     </div>
   )

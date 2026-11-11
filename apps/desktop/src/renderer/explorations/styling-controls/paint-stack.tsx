@@ -536,7 +536,7 @@ export function GradientEditor({
           >
             Tokens <ChevronDown className="size-3" />
           </PopoverTrigger>
-          <PopoverContent className="w-56 gap-0 p-1" align="end">
+          <PopoverContent aria-label="Gradient tokens" className="w-56 gap-0 p-1" align="end">
             <TokenList
               label="Gradient"
               tokens={[...gradientTokens, ...saved]}

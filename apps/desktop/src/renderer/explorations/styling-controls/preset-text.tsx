@@ -1,29 +1,17 @@
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
-import {
-  ALargeSmall,
-  CaseSensitive,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Lock,
-  MoveHorizontal,
-  MoveVertical,
-  Unlink
-} from "lucide-react"
+import { ALargeSmall, CaseSensitive, ChevronRight, Lock, MoveHorizontal, MoveVertical } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
-import { formatNumber } from "./css-values.ts"
-import { fieldBox, fieldEndButton, MessageLine, TokenChip, useTokenSets } from "./field-parts.tsx"
+import {
+  MessageLine,
+  type Reading,
+  type SearchOption,
+  TokenChip,
+  TokenMark,
+  TokenName,
+  styleMark,
+  useTokenSets,
+  ValueField
+} from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
 import { FontFamilyField, FontSizeField, LetterSpacingField, LineHeightField, WeightField } from "./font-fields.tsx"
 import {
@@ -219,9 +207,28 @@ function PresetRow({
 
 const valueCount = (count: number) => (count === 1 ? "1 value" : `${count} values`)
 
-/** The largest a preset's name is drawn in the list, so a display size still fits a row. */
-const largestPreview = 28
+/** The presets smallest first, as a scale reads, in every list of them. */
+const bySize = typePresets.toSorted((a, b) => measured(presetType(a)).size - measured(presetType(b)).size)
 
+/** A preset as the field's token list draws it: Ag in its family and weight, its size and line height after. */
+function presetToken(preset: TypePreset): FieldToken {
+  const values = measured(presetType(preset))
+
+  return {
+    name: preset.name,
+    kind: "type-style",
+    value: `${values.weight} ${values.size}px/${values.lineHeight}px ${values.stack}`,
+    detail: summary(preset)
+  }
+}
+
+/** The presets as tokens, smallest first, for a list of them. */
+export const presetTokens = bySize.map(presetToken)
+
+/**
+ * The preset as every token field holds one: a chip that Backspace takes off, the chevron's list of presets with
+ * Detach, and typing to search them, each with its Ag and its name in its own type.
+ */
 function PresetPicker({
   preset,
   overrides,
@@ -233,97 +240,81 @@ function PresetPicker({
   onPick: (name: string | undefined) => void
   onDetach: () => void
 }) {
-  const [open, setOpen] = useState(false)
-  const groups = Map.groupBy(typePresets, (each) => each.source)
+  const options = (text: string): (SearchOption & { value: string | undefined })[] => {
+    const searched = text.trim().toLowerCase()
 
-  const pick = (name: string | undefined) => {
-    onPick(name)
-    setOpen(false)
+    return bySize.flatMap((each) => {
+      if (searched !== "" && !each.name.toLowerCase().includes(searched)) {
+        return []
+      }
+
+      const token = presetToken(each)
+
+      return [
+        {
+          key: each.name,
+          value: each.name,
+          // As the chevron's list draws it: its mark, and its name in its own type over what it comes to.
+          content: (
+            <>
+              <span className="flex min-w-0 items-center gap-2">
+                <TokenMark kind={token.kind} value={token.value} name={token.name} {...styleMark} />
+                <TokenName token={token} />
+              </span>
+            </>
+          )
+        }
+      ]
+    })
   }
 
-  const detail = preset && `${summary(preset)}${overrides > 0 ? `. ${valueCount(overrides)} overridden here` : ""}`
-  // Room at the end for Detach only while it shows, as every field keeps it.
-  const room = preset ? "transition-[padding] duration-100 hover:pr-7 focus-within:pr-7" : "pr-7"
+  const read = (text: string): Reading<string | undefined> => {
+    const typed = text.trim()
+
+    if (typed === "") {
+      return { value: undefined }
+    }
+
+    const named = typePresets.find((each) => each.name.toLowerCase() === typed.toLowerCase())
+
+    return named ? { value: named.name } : { reason: `No preset named ${typed}` }
+  }
+
+  const overridden = overrides > 0 ? `. ${valueCount(overrides)} overridden here` : ""
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <div className={fieldBox(false, `flex-1 ${room}`)}>
-        <span className="flex shrink-0 text-muted-foreground">
-          <CaseSensitive aria-hidden className="size-3.5" />
-        </span>
-        {/* One trigger, holding the pill or None, so what the list's anchored to stays as a pick sets a preset or clears it. */}
-        <Hint label={preset?.name ?? "None"} detail={detail} hidden={!preset} wait>
-          <PopoverTrigger
-            aria-label={preset ? `Typography preset: ${preset.name}` : "Typography preset: none"}
-            className={`flex h-full min-w-0 items-center rounded outline-none focus-visible:ring-2 focus-visible:ring-ring ${preset ? "" : "flex-1 text-left text-muted-foreground"}`}
-          >
-            {preset ? (
-              <TokenChip
-                name={preset.name}
-                token={{ name: preset.name, kind: "font-size", value: summary(preset), detail: detail ?? "" }}
-                overridden={overrides > 0}
-                label="Typography preset"
-                preview={null}
-                hint={false}
-              />
-            ) : (
-              "None"
-            )}
-          </PopoverTrigger>
-        </Hint>
-        {preset ? (
-          <Hint label={`Detach ${preset.name}`} detail="Keeps every value it gives here">
-            <button type="button" aria-label={`Detach ${preset.name}`} onClick={onDetach} className={fieldEndButton}>
-              <Unlink className="size-3" />
-            </button>
-          </Hint>
-        ) : (
-          <ChevronDown aria-hidden className="absolute top-1/2 right-2 size-3 -translate-y-1/2 text-muted-foreground" />
-        )}
-      </div>
-      <PopoverContent className="w-72 p-0" align="start">
-        <Command defaultValue={preset?.name ?? "__none"}>
-          <CommandInput placeholder="Search presets" className="h-8 text-xs" />
-          <CommandList className="max-h-96">
-            <CommandEmpty>No preset matches.</CommandEmpty>
-            <CommandGroup>
-              <CommandItem value="__none" onSelect={() => pick(undefined)} className="text-xs text-muted-foreground">
-                None
-                {!preset && <Check className="ml-auto size-3.5" />}
-              </CommandItem>
-            </CommandGroup>
-            {[...groups].map(([source, presets]) => (
-              <CommandGroup key={source} heading={`From ${source}`}>
-                {presets.map((each) => {
-                  const values = measured(presetType(each))
-
-                  return (
-                    <CommandItem key={each.name} value={each.name} onSelect={() => pick(each.name)} className="gap-2">
-                      <span
-                        className="min-w-0 flex-1 truncate text-foreground"
-                        style={{
-                          fontFamily: values.stack,
-                          fontWeight: values.weight,
-                          fontSize: Math.min(values.size, largestPreview),
-                          lineHeight: 1.25,
-                          letterSpacing: `${values.letterSpacing}em`
-                        }}
-                      >
-                        {each.name}
-                      </span>
-                      <span className="shrink-0 text-2xs text-muted-foreground tabular-nums">
-                        {formatNumber(values.size)}/{formatNumber(values.lineHeight)}
-                      </span>
-                      <Check className={`size-3.5 shrink-0 ${each.name === preset?.name ? "" : "invisible"}`} />
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            ))}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <ValueField
+      label="Typography preset"
+      inner={<CaseSensitive aria-hidden className="size-3.5" />}
+      shown={undefined}
+      placeholder="None"
+      chip={
+        preset && {
+          name: preset.name,
+          token: presetToken(preset),
+          overridden: overrides > 0,
+          onRemove: () => onPick(undefined),
+          onDetach,
+          onReplace: onPick
+        }
+      }
+      tokens={{
+        list: presetTokens,
+        current: preset?.name,
+        none: "None",
+        name: "Presets",
+        onPick
+      }}
+      search={{ label: "Presets", options, empty: () => "No preset matches", tall: true }}
+      hint={{
+        label: preset ? `Typography preset: ${preset.name}` : "Typography preset: none",
+        detail: preset ? `${summary(preset)}${overridden}` : undefined
+      }}
+      inputMode="text"
+      selectOnFocus
+      read={read}
+      onCommit={onPick}
+    />
   )
 }
 
@@ -344,11 +335,14 @@ function ClosestPreset({ match, onUse }: { match: PresetMatch | undefined; onUse
     <MessageLine
       message={{
         tone: "note",
-        text: differs.length === 0 ? `Matches ${preset.name}` : `Near ${preset.name}`,
+        text: differs.length === 0 ? "Matches a preset." : "Near a preset.",
+        // As a token's Use reads: its name, then what it comes to.
         action: {
           label: (
             <Hint label={`Use ${preset.name}`} detail={changes.join("\n") || undefined}>
-              <span>Use</span>
+              <span>
+                Use {preset.name} <span className="font-normal text-muted-foreground">{summary(preset)}</span>
+              </span>
             </Hint>
           ),
           run: () => onUse(preset.name)

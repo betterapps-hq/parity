@@ -143,8 +143,8 @@ export function ListRow({
     entry = (
       <Popover defaultOpen={details.defaultOpen} open={details.open} onOpenChange={details.onOpenChange}>
         <Hint label={`Edit ${name.toLowerCase()}`} wait>
+          {/* Named by what it shows, its name and summary; it says it opens a dialog to edit them. */}
           <PopoverTrigger
-            aria-label={`Edit ${name}`}
             // Dragging the entry carries the row, as its handle does; a click still opens its details.
             data-sort-grip
             className={`${entryBox} outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-accent`}
@@ -154,6 +154,7 @@ export function ListRow({
           </PopoverTrigger>
         </Hint>
         <PopoverContent
+          aria-label={name}
           ref={popup}
           className={details.className ?? "w-72 p-2"}
           align="start"

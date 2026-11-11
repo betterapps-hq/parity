@@ -200,9 +200,11 @@ function EntryRow({
     >
       {/* Inline text, so the commas sit after each part and the whole summary is cut at its end. */}
       <span className="min-w-0 truncate">
-        <span className={entry.duration === undefined && !spring ? "opacity-60" : ""}>{ms ?? defaultDuration}ms</span>
+        <span className={entry.duration === undefined && !spring ? "text-muted-foreground" : ""}>
+          {ms ?? defaultDuration}ms
+        </span>
         {", "}
-        <span className={entry.easing === undefined ? "opacity-60" : ""}>{easingName(entry.easing)}</span>
+        <span className={entry.easing === undefined ? "text-muted-foreground" : ""}>{easingName(entry.easing)}</span>
         {delay !== undefined && delay !== 0 && `, after ${delay}ms`}
       </span>
     </ListRow>

@@ -479,7 +479,7 @@ export function WeightField({
               </span>
             </PopoverTrigger>
           </Hint>
-          <PopoverContent align="start" className="w-60 gap-1 p-1">
+          <PopoverContent aria-label="Weight" align="start" className="w-60 gap-1 p-1">
             {font.axis && (
               <div className="grid grid-cols-[minmax(0,1fr)_4rem] items-center gap-x-2 border-b px-2 pt-1.5 pb-2.5">
                 <p className="col-span-full pb-2 type-description text-muted-foreground">

@@ -534,14 +534,14 @@ function Completing({
           {...shared}
           rows={1}
           aria-autocomplete="list"
-          aria-controls={listId}
+          aria-controls={open ? listId : undefined}
           className={`${wrappingText} block w-full ${text}`}
         />
       ) : (
         <input
           {...shared}
           role="combobox"
-          aria-controls={listId}
+          aria-controls={open ? listId : undefined}
           aria-expanded={open}
           className={`${sizeToContent ? "field-sizing-content max-w-full min-w-[8ch]" : "w-full min-w-0"} ${text}`}
         />
@@ -691,7 +691,7 @@ function InlinePreview({ row, onValue }: { row: CssRow; onValue: (value: string)
       >
         {preview}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-3">
+      <PopoverContent aria-label={`${row.property}'s value`} align="start" className="w-64 p-3">
         {editor}
       </PopoverContent>
     </Popover>

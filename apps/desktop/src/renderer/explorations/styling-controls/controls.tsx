@@ -730,7 +730,7 @@ function CornerStyle({
           <Squircle className="size-3" />
         </PopoverTrigger>
       </Hint>
-      <PopoverContent className="w-52 gap-2 p-2" align="end">
+      <PopoverContent aria-label="Corner shape" className="w-52 gap-2 p-2" align="end">
         <p className="flex items-center gap-1 text-sm font-medium">
           Corner shape
           <NotBaseline what="Corner shape" />
@@ -1192,6 +1192,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
           <div className="flex items-center gap-1">
             <div className="min-w-0 flex-1">
               <ChoiceInput
+                label="Stroke position"
                 value={position}
                 options={strokePositions}
                 onChange={(next) => {

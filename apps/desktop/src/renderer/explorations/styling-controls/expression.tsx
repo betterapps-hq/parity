@@ -838,7 +838,11 @@ export function ExpressionField({
                   <SlidersHorizontal className="size-3.5" />
                 </PopoverTrigger>
               </Hint>
-              <PopoverContent align="end" className="w-64 gap-2 p-3">
+              <PopoverContent
+                aria-label={`${label}'s least, preferred and most`}
+                align="end"
+                className="w-64 gap-2 p-3"
+              >
                 <ClampFields
                   label={label}
                   parts={clamp}
@@ -875,7 +879,7 @@ export function ExpressionField({
               rows={1}
               aria-label={`${label} expression`}
               aria-autocomplete="list"
-              aria-controls={listId}
+              aria-controls={showList ? listId : undefined}
               aria-activedescendant={showList ? `${listId}-${highlight}` : undefined}
               aria-invalid={error || undefined}
               value={editing}

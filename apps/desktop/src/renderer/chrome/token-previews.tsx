@@ -863,9 +863,14 @@ export function TokenArt({
         />
       )
     case "type-style": {
-      // The style's own family and weight, at its size up to what the box holds.
+      // The style's own family and weight, at its size up to what the box holds, its descender too: a row's glyph, 24px
+      // tall, up to 15px.
       const size = fontSizePx(value)
-      const most = large ? 34 : 15
+      let most = height > 24 ? Math.round(height * 0.8) : Math.min(15, Math.round(height * 0.7))
+
+      if (large) {
+        most = 34
+      }
 
       // Keyed by the value, so a new one sets every property again: the shorthand alone would undo the size.
       return (

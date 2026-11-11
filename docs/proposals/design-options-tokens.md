@@ -160,8 +160,8 @@ paragraph says.
 - **Tokens only locks the field,** which is never the default: a company asks for it so its apps match its design
   language. Typing searches the kind's tokens, with the nearest to a value typed first, rather than taking a value of
   its own, and a color's picker has no Custom tab. A side still takes a step on the scale. A value of its own read from
-  code stays, outlined in the error color with "Not a token." and Use with the nearest token under it (the nearest step
-  for a side), and CI fails on it until a token is used or it's allowed here.
+  code stays, outlined in the error color with "Not a token.", whether a token matches it or is only near, and Use with
+  that token under it (the nearest step for a side), and CI fails on it until a token is used or it's allowed here.
 - **The nearest token is always offered,** locked or not, so a color or length handed over from a design lands on the
   system in one click: first in a field's token list ("Nearest to 12px"), in a locked field's search, beside a color's
   Custom editor, and in a narrow field's hint.

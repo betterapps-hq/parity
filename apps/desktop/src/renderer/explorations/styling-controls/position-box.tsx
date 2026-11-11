@@ -211,6 +211,26 @@ export function NineSpots({ label, lit, set = true, off, spotName = spotLabel, o
     }
   }
 
+  // One Tab stop, as a radio group has: the lit spot, or the center where none is; the arrows choose the next spot.
+  const anchor = spotValues.flatMap((y) => spotValues.map((x) => ({ x, y }))).find((spot) => lit(spot)) ?? {
+    x: 50,
+    y: 50
+  }
+
+  const arrow = (event: KeyboardEvent<HTMLButtonElement>, from: { x: SpotValue; y: SpotValue }) => {
+    const move = arrowMoves.get(event.key)
+
+    if (!move) {
+      return
+    }
+
+    event.preventDefault()
+    const at = (value: SpotValue, by: number) => spotValues[clamp(spotValues.indexOf(value) + by, 0, 2)] ?? value
+    const next = { x: at(from.x, move[0]), y: at(from.y, move[1]) }
+    onSpot(next)
+    box.current?.querySelector<HTMLButtonElement>(`[data-spot="${next.x},${next.y}"]`)?.focus()
+  }
+
   return (
     <fieldset
       ref={box}
@@ -230,6 +250,9 @@ export function NineSpots({ label, lit, set = true, off, spotName = spotLabel, o
                 type="button"
                 aria-label={name}
                 aria-pressed={set && on}
+                data-spot={`${x},${y}`}
+                tabIndex={x === anchor.x && y === anchor.y ? 0 : -1}
+                onKeyDown={(event) => arrow(event, spot)}
                 onClick={(event) => {
                   // A press in a box that drags has set it from the pointer already; this is for the keyboard.
                   if (!onDrag || event.detail === 0) {

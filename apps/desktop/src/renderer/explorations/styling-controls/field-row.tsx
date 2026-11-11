@@ -17,6 +17,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useRef,
   useState
 } from "react"
@@ -118,6 +119,7 @@ export function Field({
   children
 }: FieldProps) {
   const firstState = useContext(FirstStateName)
+  const labelId = useId()
   const scrubs = useRef(new Set<Scrub>())
   const [scrub, setScrub] = useState<Scrub>()
 
@@ -153,8 +155,9 @@ export function Field({
     nameHint = `${label}: locked to ${lock.preset}`
   }
 
+  // The row is a fieldset its name labels, so a screen reader says Size before W and H, and the row's own buttons.
   return (
-    <div className={`flex min-w-0 flex-col gap-1 ${half ? "" : "col-span-2"}`}>
+    <fieldset aria-labelledby={labelId} className={`flex min-w-0 flex-col gap-1 ${half ? "" : "col-span-2"}`}>
       <div className={nameRow}>
         <span className="flex min-w-0 items-center gap-1">
           <Hint
@@ -165,6 +168,7 @@ export function Field({
             wait
           >
             <span
+              id={labelId}
               className={`truncate text-xs text-muted-foreground ${dragsBy ? "cursor-ew-resize touch-none select-none" : ""}`}
               style={tone ? { color: tone } : undefined}
               onPointerDown={dragsBy}
@@ -219,7 +223,7 @@ export function Field({
           {children}
         </div>
       </RowScrub>
-    </div>
+    </fieldset>
   )
 }
 
@@ -286,7 +290,8 @@ export function Segments<V extends string>({
               onClick={() => onChange(option.value)}
               className={`h-full rounded-sm px-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring ${fit ? "relative grid min-w-6 place-items-center" : "min-w-0 flex-1 truncate"} ${look}`}
             >
-              {option.icon ?? option.label}
+              {/* A sample drawn for the eye (AG, Ag), so the name says what it does. */}
+              {option.icon === undefined ? option.label : <span aria-hidden>{option.icon}</span>}
               {option.mark}
             </button>
           </Hint>

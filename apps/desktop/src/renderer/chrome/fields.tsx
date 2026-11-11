@@ -784,11 +784,14 @@ export function NumberInput({
 }
 
 export function ChoiceInput<T extends string>({
+  label,
   value,
   options,
   onChange,
   placeholder = "Default"
 }: {
+  /** Its accessible name, where no label names it. */
+  label?: string
   value: T | undefined
   options: { value: T; label: string }[]
   onChange: (value: T | undefined) => void
@@ -807,7 +810,7 @@ export function ChoiceInput<T extends string>({
       value={value ?? (mixed ? null : "__unset")}
       onValueChange={(next) => onChange(next === null || next === "__unset" ? undefined : next)}
     >
-      <SelectTrigger size="sm" className="h-7 w-full text-xs">
+      <SelectTrigger size="sm" aria-label={label} className="h-7 w-full text-xs">
         <SelectValue placeholder="Mixed" />
       </SelectTrigger>
       <PanelSelectContent>

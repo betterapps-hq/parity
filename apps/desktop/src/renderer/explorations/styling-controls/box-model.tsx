@@ -131,7 +131,8 @@ export function SideValue({
   if (tokenName !== undefined) {
     named = `${tokenName}, ${token?.detail ?? "missing"}`
   } else if (value === undefined && !mixed) {
-    named = unset.name
+    // Unset still shows what it comes to, so its name says that first.
+    named = `${shown.number}${shown.unit ?? ""}, ${unset.name.toLowerCase()}`
   }
 
   return (
@@ -163,7 +164,7 @@ export function SideValue({
         </span>
         {shown.unit && <span className="text-muted-foreground">{shown.unit}</span>}
       </PopoverTrigger>
-      <PopoverContent className="w-52 gap-2 p-2" side={side}>
+      <PopoverContent aria-label={label} className="w-52 gap-2 p-2" side={side}>
         <div className="flex items-baseline justify-between gap-2 text-xs">
           <span className="font-medium">{label}</span>
           {/* A token's value, which its chip in the field doesn't say. */}

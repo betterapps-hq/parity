@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, within } from "storybook/test"
+import { TokenList } from "./field-parts.tsx"
 import { Playground } from "./playground.tsx"
 import { measured, type PresetLayer, presetWrites, type TypeField, typeOf } from "./preset-data.ts"
-import { PresetTextSection } from "./preset-text.tsx"
+import { presetTokens, PresetTextSection } from "./preset-text.tsx"
 import { TextSample } from "./text-preview.tsx"
 
 /**
@@ -11,8 +12,9 @@ import { TextSample } from "./text-preview.tsx"
  * it ("Geist 20/28 Semibold"), with a lock. Opened, they're locked to the preset, each with Unlock at the end of its
  * name's row, and their values drawn faintly and read-only. Unlocked, a row is the ordinary field; changing it overrides
  * the preset there, in the override color with a reset arrow, and it stays shown while the summary is closed, with a
- * dot on the preset's pill. Picking the preset again takes back every override. Detach, over the field's end on hover,
- * keeps every value it gave. A layer with no preset says which it matches, or is near, with Use. A dot after a row's
+ * dot on the preset's pill. Picking the preset again takes back every override. The field holds the preset as any token
+ * field does: Backspace takes it off, typing searches the presets, and its chevron lists them with Detach, which keeps
+ * every value it gave. A layer with no preset says which it matches, or is near, with Use. A dot after a row's
  * name says it changes with the viewport. Rows a preset doesn't set stay ordinary rows.
  */
 const meta = {
@@ -80,7 +82,7 @@ export const ChangesWithViewport: Story = {
   render: () => <PresetStory start={{ preset: "display", own: {} }} open />
 }
 
-/** No preset, with Heading's type set by hand: "Matches heading", and Use applies it. */
+/** No preset, with Heading's type set by hand: "Matches a preset." and Use heading applies it. */
 export const MatchesAPreset: Story = {
   render: () => (
     <PresetStory
@@ -97,7 +99,7 @@ export const MatchesAPreset: Story = {
   )
 }
 
-/** No preset, at 21px: "Near heading", with what Use changes in its hint. */
+/** No preset, at 21px: "Near a preset." and Use heading, with what it changes in its hint. */
 export const NearAPreset: Story = {
   render: () => (
     <PresetStory
@@ -113,12 +115,13 @@ export const NearAPreset: Story = {
   )
 }
 
-/** The presets open: each name drawn in its own type, with its size and line height, under where it comes from. */
+/** Typing searches the presets: each with its Ag and its name in its own type, smallest first, and what it comes to. */
 export const Picking: Story = {
   render: () => <PresetStory start={{ preset: "heading", own: {} }} />,
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Typography preset: heading" }))
-    await within(document.body).findByPlaceholderText("Search presets")
+    const canvas = within(canvasElement)
+    await userEvent.type(canvas.getByRole("combobox", { name: "Typography preset" }), "bo")
+    await expect(await canvas.findByRole("option", { name: /body/ })).toBeVisible()
   }
 }
 
@@ -137,3 +140,36 @@ export const OverridingAndResetting: Story = {
     await expect(await canvas.findByRole("button", { name: "Unlock Size to override heading" })).toHaveFocus()
   }
 }
+
+/**
+ * The presets' list in both densities. Comfortable, what the field's chevron and search show: one box that holds the
+ * largest Ag, each style's at its own size, and its name in its own type over what it comes to. Compact, for a tight
+ * place: the small mark, the name in its family and weight at the row's size, and what it comes to after it.
+ */
+function Densities() {
+  const [current, setCurrent] = useState<string | undefined>("heading")
+
+  return (
+    <div className="flex items-start gap-6 p-6">
+      {[false, true].map((compact) => (
+        <section key={String(compact)} aria-label={compact ? "Compact" : "Comfortable"} className="flex flex-col gap-2">
+          <h2 className="text-xs text-muted-foreground">{compact ? "Compact" : "Comfortable"}</h2>
+          <div
+            className={`${compact ? "w-72" : "w-80"} rounded-md border bg-popover p-1 text-popover-foreground shadow-md`}
+          >
+            <TokenList
+              label="Typography preset"
+              tokens={presetTokens}
+              current={current}
+              none="None"
+              compact={compact}
+              onPick={setCurrent}
+            />
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+export const ListDensities: Story = { render: () => <Densities /> }

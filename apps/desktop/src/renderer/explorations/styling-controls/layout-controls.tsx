@@ -1448,7 +1448,7 @@ function GridPicker({
           <LayoutGrid className="size-3" />
         </PopoverTrigger>
       </Hint>
-      <PopoverContent className="w-auto gap-2 p-2" align="end">
+      <PopoverContent aria-label="Pick columns and rows" className="w-auto gap-2 p-2" align="end">
         <p className="text-sm font-medium">
           {shown.x} × {shown.y === 0 ? "Auto" : shown.y}
         </p>

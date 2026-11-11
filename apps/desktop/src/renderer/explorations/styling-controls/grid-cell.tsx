@@ -539,7 +539,8 @@ function CellMap({
     return (
       <span
         key={`${line}-${last ? "end" : "start"}`}
-        className={`absolute text-[9px] leading-none tabular-nums ${own ? "font-semibold" : "text-muted-foreground/70"} ${
+        aria-hidden
+        className={`absolute text-[9px] leading-none tabular-nums ${own ? "font-semibold" : "text-muted-foreground"} ${
           axis === "col"
             ? `top-0 ${last ? "right-0 translate-x-1/2" : "left-0 -translate-x-1/2"}`
             : `right-1 ${last ? "bottom-0 translate-y-1/2" : "top-0 -translate-y-1/2"}`

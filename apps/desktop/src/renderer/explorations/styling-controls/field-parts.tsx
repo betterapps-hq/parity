@@ -364,15 +364,15 @@ export function MessageLine({ message }: { message: Message | undefined }) {
 }
 
 /**
- * What Tokens only says under a value of its own, which is kept: "Not a token." and Use with the nearest token, a
- * color's swatch before its name, or what another kind comes to after it (Use radius-xl 14px), since their marks are
- * too small to read at a message's size.
+ * What Tokens only says under a value of its own, which is kept: "Not a token.", whether a token matches it or is only
+ * near, and Use with that token, a color's swatch before its name, or what another kind comes to after it (Use
+ * radius-xl 14px), since their marks are too small to read at a message's size.
  */
-export function notAToken(nearest: FieldToken, onUse: () => void) {
+export function notAToken(nearest: FieldToken, onUse: () => void, same = false) {
   const color = nearest.kind === "color"
 
   return {
-    reason: "Not a token.",
+    reason: same ? "Not a token. One matches." : "Not a token. One is near.",
     action: {
       label: (
         <>
@@ -567,7 +567,7 @@ export function fieldBox(error: boolean, extra = ""): string {
     ? "ring-1 ring-destructive"
     : "hover:not-focus-within:ring-1 hover:not-focus-within:ring-border focus-within:ring-1 focus-within:ring-ring"
 
-  return `group/field relative flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-muted px-2 text-xs ring-inset dark:bg-input/40 ${ring} ${extra}`
+  return `group/field relative flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-muted/50 px-2 text-xs ring-inset dark:bg-input/40 ${ring} ${extra}`
 }
 
 /**
@@ -711,7 +711,7 @@ export function MissingMark({
           <CircleDashed className="size-3.5" />
         </PopoverTrigger>
       </Hint>
-      <PopoverContent className="w-60 gap-1 p-1" align="end">
+      <PopoverContent aria-label={`${name} is missing`} className="w-60 gap-1 p-1" align="end">
         <p className="px-2 pt-1 pb-1.5 type-description text-muted-foreground">{description}</p>
         {actions.map((action) => (
           <MenuButton
@@ -844,7 +844,7 @@ export function OffSystemMark({
           )}
         </PopoverTrigger>
       </Hint>
-      <PopoverContent className="w-60 gap-1 p-1" align="end">
+      <PopoverContent aria-label={`${label} isn't a token`} className="w-60 gap-1 p-1" align="end">
         <p className="px-2 pt-1 pb-1.5 type-description text-muted-foreground">{description}</p>
         <MenuButton
           onClick={() => {
@@ -964,8 +964,11 @@ export function NotBaselineMark({ className = "" }: { className?: string }) {
 export function NotBaseline({ what, browsers = "Chromium" }: { what: string; browsers?: string }) {
   return (
     <Hint label={`${what} isn't Baseline`} detail={`Only ${browsers} draws it; other browsers ignore it`}>
-      <span aria-label={`${what} isn't Baseline`} className="cursor-default">
-        <NotBaselineMark />
+      <span className="cursor-default">
+        <span aria-hidden>
+          <NotBaselineMark />
+        </span>
+        <span className="sr-only">{`${what} isn't Baseline`}</span>
       </span>
     </Hint>
   )
@@ -1125,7 +1128,7 @@ export function TokenChip({
   let tone = "bg-foreground/10 hover:bg-foreground/15"
   let hintLabel = name
   let hintDetail = token?.detail ?? about
-  let named = `${label ? `${label}: ` : ""}${name}`
+  let named = `${label ? `${label}: ` : ""}${shownName}${detail ? ` ${detail}` : ""}`
 
   if (struck) {
     tone = "bg-destructive/15 text-destructive hover:bg-destructive/25"
@@ -1149,9 +1152,9 @@ export function TokenChip({
     <>
       {drawn}
       <span className={keepsName ? "shrink-0" : "truncate"}>{shownName}</span>
-      {detail && (
-        <span className={`text-muted-foreground ${keepsName ? "min-w-0 truncate" : "shrink-0"}`}>{detail}</span>
-      )}
+      {/* A space between, so the text reads as the name says it ("Hug 435"); a flex row draws none. */}
+      {detail && " "}
+      {detail && <span className={`text-foreground/65 ${keepsName ? "min-w-0 truncate" : "shrink-0"}`}>{detail}</span>}
     </>
   )
 
@@ -1267,6 +1270,11 @@ export interface TokenListProps {
   noneValue?: string
   /** The field holds a value of its own, so neither the first row nor any token is the one it holds. */
   own?: boolean
+  /**
+   * Text styles on one line each, for a tight place: the small mark, the name in its family and weight at the row's
+   * size, and what it comes to after it. Comfortable, the default, draws each larger, its name over what it comes to.
+   */
+  compact?: boolean
   onPick: (name: string | undefined) => void
 }
 
@@ -1275,15 +1283,44 @@ function RowMark({
   token,
   kind,
   noneValue,
-  playing
+  playing,
+  compact = false
 }: {
   token?: FieldToken
   kind?: FieldToken["kind"]
   noneValue?: string
+  compact?: boolean
   playing: boolean
 }) {
+  // A text style's mark holds the largest a list draws, so every style's Ag sits at its own size in one box.
+  if (token?.kind === "type-style") {
+    return (
+      <TokenMark
+        kind={token.kind}
+        value={token.value}
+        name={token.name}
+        {...(compact ? compactStyleMark : styleMark)}
+      />
+    )
+  }
+
   if (token) {
     return <TokenMark kind={token.kind} value={token.value} name={token.name} playing={playing} />
+  }
+
+  // No text style: a box the size of the others, dashed, with a faint Ag in the type it inherits.
+  if (kind === "type-style") {
+    const size = compact ? compactStyleMark : styleMark
+
+    return (
+      <span
+        aria-hidden
+        className="grid shrink-0 place-items-center rounded-[3px] border border-dashed border-muted-foreground/60 text-muted-foreground"
+        style={{ ...size, fontSize: compact ? 11 : 15 }}
+      >
+        Ag
+      </span>
+    )
   }
 
   if (kind !== undefined && noneValue !== undefined) {
@@ -1298,7 +1335,16 @@ function RowMark({
  * to, a deprecated one marked, and the one the field holds highlighted. Up and Down move through it. A token that
  * moves (a duration, an easing) plays while its row is hovered or focused, as in the Tokens panel.
  */
-export function TokenList({ label, tokens, current, none, noneValue, own = false, onPick }: TokenListProps) {
+export function TokenList({
+  label,
+  tokens,
+  current,
+  none,
+  noneValue,
+  own = false,
+  compact = false,
+  onPick
+}: TokenListProps) {
   const { live, rowProps } = useLiveRow()
 
   const rows: { name: string | undefined; token?: FieldToken }[] = [
@@ -1318,7 +1364,11 @@ export function TokenList({ label, tokens, current, none, noneValue, own = false
   }
 
   return (
-    <fieldset aria-label={`${label} tokens`} className="flex max-h-64 min-w-0 flex-col overflow-y-auto">
+    // Text styles' rows are taller, their names in their own type over what they come to.
+    <fieldset
+      aria-label={`${label} tokens`}
+      className={`flex ${tokens[0]?.kind === "type-style" && !compact ? "max-h-112" : "max-h-64"} min-w-0 flex-col overflow-y-auto`}
+    >
       {rows.map(({ name, token }) => {
         const selected = name === current && !(name === undefined && own)
 
@@ -1332,10 +1382,20 @@ export function TokenList({ label, tokens, current, none, noneValue, own = false
             {...rowProps(name)}
             className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs outline-none hover:bg-accent focus-visible:bg-accent ${selected ? "bg-accent" : ""}`}
           >
-            <RowMark token={token} kind={tokens[0]?.kind} noneValue={noneValue} playing={live(name)} />
-            <span className={`${rowName} ${token ? "" : "text-muted-foreground"}`}>{name ?? none}</span>
+            <RowMark
+              token={token}
+              kind={tokens[0]?.kind}
+              noneValue={noneValue}
+              playing={live(name)}
+              compact={compact}
+            />
+            {token ? (
+              <TokenName token={token} compact={compact} />
+            ) : (
+              <span className={`${rowName} text-muted-foreground`}>{none}</span>
+            )}
             {token?.deprecated && <TriangleAlert aria-label="Deprecated" className="size-3 shrink-0 text-amber-500" />}
-            {token && <span className={rowDetail}>{token.detail}</span>}
+            {token && (compact || token.kind !== "type-style") && <span className={rowDetail}>{token.detail}</span>}
             {selected && <Check aria-hidden className="ml-auto size-3.5 shrink-0" />}
           </button>
         )
@@ -1375,6 +1435,58 @@ const menuRow =
 // A row's name takes the room it needs and what it comes to has the rest, so a long value (a shadow's
 // `0px 25px 50px −12px`) cuts short before the name it belongs to does; only a name too long for the row cuts short.
 const rowName = "min-w-0 truncate"
+
+/** A text style's mark in a list, comfortable: one box that holds the largest Ag (28px), each style's at its own size. */
+export const styleMark = { width: 48, height: 36 }
+
+/** A text style's mark in a compact list: small, its Ag at its own size up to 14px. */
+const compactStyleMark = { width: 28, height: 20 }
+
+/** The largest a text style's name is drawn in a list, so a display size still fits a row. */
+const largestStyleName = 28
+
+/**
+ * A token's name in a list: a text style's in its own type (CSS `font`), up to a size a row holds, as its mark draws
+ * it, with what it comes to under it, as a large name leaves no room beside it; any other's plainly.
+ */
+export function TokenName({ token, compact = false }: { token: FieldToken; compact?: boolean }) {
+  if (token.kind !== "type-style") {
+    return <span className={rowName}>{token.name}</span>
+  }
+
+  // Compact, the row's size: the family and weight say which, the size is in what it comes to.
+  if (compact) {
+    return (
+      <span
+        key={token.value}
+        className={rowName}
+        style={{ font: token.value, fontSize: "inherit", lineHeight: "inherit" }}
+      >
+        {token.name}
+      </span>
+    )
+  }
+
+  const size = Number.parseFloat(/(\d+(?:\.\d+)?)px/.exec(token.value)?.[1] ?? "")
+
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span
+        key={token.value}
+        className={rowName}
+        style={{
+          font: token.value,
+          lineHeight: 1.25,
+          fontSize: Number.isFinite(size) ? Math.min(size, largestStyleName) : undefined
+        }}
+      >
+        {token.name}
+      </span>
+      <span className="truncate text-2xs text-muted-foreground tabular-nums">{token.detail}</span>
+    </span>
+  )
+}
+
 const rowDetail = "min-w-12 flex-1 basis-0 truncate text-right text-muted-foreground tabular-nums"
 
 /** Detach, in what a field's chevron opens while it holds a token: keeps what the token comes to, without it. */
@@ -1664,12 +1776,15 @@ export function SearchList({
   highlight,
   empty,
   className = "",
+  tall = false,
   onHighlight,
   onPick
 }: {
   id: string
   label: string
   options: readonly SearchOption[]
+  /** Taller, for rows that are, as text styles' are. */
+  tall?: boolean
   highlight: number
   /** What it says when nothing's found; without it, an empty list isn't drawn. */
   empty?: string
@@ -1682,15 +1797,26 @@ export function SearchList({
     return null
   }
 
+  if (options.length === 0) {
+    return (
+      <div
+        id={id}
+        className={`rounded-md border bg-popover p-1 text-popover-foreground shadow-md ${className}`}
+        aria-live="polite"
+      >
+        <p className="px-2 py-1.5 text-xs text-muted-foreground">{empty}</p>
+      </div>
+    )
+  }
+
   return (
     <div
       id={id}
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a combobox's listbox, its options drawn as each needs, which a select or datalist can't draw
       role="listbox"
       aria-label={label}
-      className={`flex max-h-64 flex-col overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md ${className}`}
+      className={`flex ${tall ? "max-h-112" : "max-h-64"} flex-col overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md ${className}`}
     >
-      {options.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">{empty}</p>}
       {options.map((option, index) => (
         <div key={option.key} className="contents">
           {option.group !== undefined && option.group !== options[index - 1]?.group && (
@@ -2136,6 +2262,8 @@ export interface FieldSearch<T> {
   empty?: (text: string) => string | undefined
   /** The option highlighted with Up and Down or the pointer, to preview it; nothing once the list closes. */
   onHighlight?: (value: T | undefined) => void
+  /** Its rows are taller, as text styles' are, so it is too. */
+  tall?: boolean
 }
 
 /** A token as a search list draws it: its mark and name, and what it comes to at the end. */
@@ -2202,7 +2330,9 @@ function lockedTyping<T>(
       const near = locked.nearestTo(text.trim())
       const taken = near && valueOf(near)
 
-      return near && taken ? notAToken(near, () => onCommit(taken.value)) : { reason: "Not a token" }
+      const same = near?.detail.toLowerCase() === text.trim().toLowerCase()
+
+      return near && taken ? notAToken(near, () => onCommit(taken.value), same) : { reason: "Not a token" }
     },
     search: {
       label: `${label} tokens`,
@@ -2307,6 +2437,8 @@ export function ValueField<T>({
   const input = useRef<HTMLInputElement>(null)
   // Set when a pick closes the list, so the focus goes to the value's text rather than a pill that may have gone.
   const picked = useRef(false)
+  // Set as the chevron's list hands focus back, so the search doesn't open over what was just picked.
+  const fromList = useRef(false)
   const unitWord = textValue.safeParse(unit).data
   const unitText = unitName ?? unitWord ?? ""
   let backTo = shown === undefined ? placeholder || "unset" : `${shown}${unitText}`
@@ -2339,9 +2471,16 @@ export function ValueField<T>({
   const typing = typed.typed !== undefined
   const showChip = chip !== undefined && !typing
   const offers = tokens !== undefined || picker !== undefined
+  // What the chevron opens, as it's named and hinted: the list's own name, Tokens, or Options where it holds only words.
+  let listName = tokens?.name ?? "Tokens"
+
+  if (tokens?.name === undefined && tokens?.list.length === 0 && tokens.keywords !== undefined) {
+    listName = "Options"
+  }
+
   const open = picker ? picker.open : listOpen
   const setOpen = picker ? picker.onOpenChange : setListOpen
-  const said = refused ? notAToken(refused.nearest, refused.onUse) : refusal
+  const said = refused ? notAToken(refused.nearest, refused.onUse, own?.same) : refusal
   const error = typed.error || said !== undefined
 
   const clearTyping = () => {
@@ -2517,9 +2656,9 @@ export function ValueField<T>({
       {offers && picker?.swatch === undefined && !bare && (
         // The list's one trigger, there whatever the field holds, so what the list's anchored to never leaves while
         // it's open, as a pick sets a token or takes one off.
-        <Hint label={picker ? "Picker" : (tokens?.name ?? "Tokens")} detail={altSteps ? undefined : "Alt+Down"}>
+        <Hint label={picker ? "Picker" : listName} detail={altSteps ? undefined : "Alt+Down"}>
           <PopoverTrigger
-            aria-label={`${label} ${tokens?.name?.toLowerCase() ?? "tokens"}`}
+            aria-label={`${label} ${listName.toLowerCase()}`}
             disabled={disabled}
             className={fieldEndButtonShown}
           >
@@ -2595,7 +2734,7 @@ export function ValueField<T>({
           value={typed.typed ?? (showChip ? "" : (shown ?? ""))}
           role={search ? "combobox" : undefined}
           aria-expanded={search ? showList : undefined}
-          aria-controls={search ? searchId : undefined}
+          aria-controls={search && showList ? searchId : undefined}
           aria-autocomplete={search ? "list" : undefined}
           aria-activedescendant={showList && found[lit] ? `${searchId}-${lit}` : undefined}
           style={inputStyle}
@@ -2614,6 +2753,15 @@ export function ValueField<T>({
               setHighlight(0)
             }
           }}
+          // Clicked while focused, as after the chevron's list hands focus back, the search opens as on focus.
+          onClick={() => {
+            expression?.onOpen?.()
+
+            if (search && !searching) {
+              setSearching(true)
+              setHighlight(0)
+            }
+          }}
           onFocus={(event) => {
             typed.input.onFocus()
 
@@ -2625,19 +2773,22 @@ export function ValueField<T>({
               event.currentTarget.select()
             }
 
-            if (search) {
+            const from = event.relatedTarget
+
+            // Focus coming back from the chevron's list, on a pick or Escape, leaves the search closed.
+            if (search && !fromList.current) {
               setSearching(true)
               setHighlight(0)
             }
 
+            fromList.current = false
+
             // Focus coming back from the expression's own editor, on Enter, Escape or Shift+Tab, leaves it closed.
-            const from = event.relatedTarget
 
             if (!(from instanceof Element && from.closest("[data-expression-editor]"))) {
               expression?.onOpen?.()
             }
           }}
-          onClick={() => expression?.onOpen?.()}
           onBlur={() => {
             typed.input.onBlur()
 
@@ -2705,7 +2856,7 @@ export function ValueField<T>({
           className={`${inputBase} ${showChip ? "min-w-1" : "min-w-6"} ${muted && !typing ? "text-muted-foreground" : ""} ${said && !typing ? "text-destructive" : ""} ${typed.focused ? "" : "truncate"} ${bare ? "text-center" : ""} ${inputClassName}`}
         />
         {comesTo && !narrow && !showChip && !typed.focused && !typed.error && (
-          <span className="min-w-0 shrink truncate text-muted-foreground/70 tabular-nums">{comesTo}</span>
+          <span className="min-w-0 shrink truncate text-muted-foreground tabular-nums">{comesTo}</span>
         )}
         {unitPart}
         {mark}
@@ -2729,7 +2880,7 @@ export function ValueField<T>({
 
   if (picker) {
     popup = (
-      <PopoverContent className={picker.className ?? "w-64 gap-0 p-0"} align="start">
+      <PopoverContent aria-label={`${label} picker`} className={picker.className ?? "w-64 gap-0 p-0"} align="start">
         {showChip && chip.token && (
           <div className="border-b p-1">
             <DetachRow token={chip.token} onDetach={detach} />
@@ -2751,10 +2902,13 @@ export function ValueField<T>({
     const onCreate = own?.onCreate
     popup = (
       <PopoverContent
-        className="w-60 gap-0 p-1"
+        aria-label={`${label} ${listName.toLowerCase()}`}
+        // Text styles' names are drawn in their own type, so their list is wider.
+        className={`${tokens.list[0]?.kind === "type-style" ? "w-80" : "w-60"} gap-0 p-1`}
         align="end"
         finalFocus={() => {
           picked.current = false
+          fromList.current = true
 
           return input.current
         }}
@@ -2848,6 +3002,7 @@ export function ValueField<T>({
             empty={nothingFound}
             // As wide as what it lists, so a narrow field's names read whole, and never narrower than the field.
             className="absolute top-full left-0 z-30 mt-1 w-max max-w-72 min-w-full"
+            tall={search.tall}
             onHighlight={highlightAt}
             onPick={(index) => take(found[index]!.value)}
           />
