@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vite-plus/test"
 
 vi.mock("@sentry/electron/renderer", () => ({}))
 
-const { replayPrivacy, pageHolds } = await import("./replay.ts")
+const { replayPrivacy, pageHolds, zoomHold } = await import("./replay.ts")
 const { scrubber } = await import("./telemetry.ts")
 
 const key = "sk-proj-4fT9xQ2mLw8ZpR7vK3nB6yH1"
@@ -152,5 +152,87 @@ describe("Session Replay held while a canvas mounts (PAR-758)", () => {
     turnedOff()
     timers.elapse(0)
     expect(held.asked).toEqual(["pause", "resume", "pause"])
+  })
+})
+
+/** A zoom's hold on a fake recorder, with timers and the window's idle time run by hand: `goIdle` runs what waits. */
+function zoomHolds() {
+  const recorder = fakeRecorder()
+  const timers = fakeTimers()
+  const waiting = new Map<number, () => void>()
+  let next = 0
+
+  const zoom = zoomHold(
+    pageHolds(() => recorder, timers),
+    {
+      ...timers,
+      lingerMs: 1000,
+      idle: (run) => {
+        waiting.set(++next, run)
+
+        return next
+      },
+      cancelIdle: (id) => void waiting.delete(id)
+    }
+  )
+
+  const goIdle = () => {
+    const runs = [...waiting.values()]
+    waiting.clear()
+    runs.forEach((run) => run())
+    timers.elapse(0)
+  }
+
+  return { recorder, timers, zoom, goIdle }
+}
+
+describe("Session Replay held while the canvas zooms (PAR-957)", () => {
+  it("pauses recording while the zoom moves and resumes once it has settled a while and the window is idle", () => {
+    const { recorder, timers, zoom, goIdle } = zoomHolds()
+    zoom.zooming()
+    zoom.zooming()
+    expect(recorder.asked).toEqual(["pause"])
+    zoom.settled()
+    goIdle()
+    timers.elapse(999)
+    goIdle()
+    expect(recorder.asked).toEqual(["pause"])
+    timers.elapse(1)
+    expect(recorder.asked).toEqual(["pause"])
+    goIdle()
+    expect(recorder.asked).toEqual(["pause", "resume"])
+  })
+
+  it("stays paused through a zoom that starts again before it resumes", () => {
+    const { recorder, timers, zoom, goIdle } = zoomHolds()
+    zoom.zooming()
+    zoom.settled()
+    timers.elapse(500)
+    zoom.zooming()
+    timers.elapse(5000)
+    goIdle()
+    expect(recorder.asked).toEqual(["pause"])
+    zoom.settled()
+    timers.elapse(1000)
+    zoom.zooming()
+    goIdle()
+    expect(recorder.asked).toEqual(["pause"])
+    zoom.settled()
+    zoom.settled()
+    timers.elapse(1000)
+    goIdle()
+    expect(recorder.asked).toEqual(["pause", "resume"])
+  })
+
+  it("resumes at once when the canvas goes, and leaves alone a zoom that never moved", () => {
+    const { recorder, timers, zoom, goIdle } = zoomHolds()
+    zoom.settled()
+    timers.elapse(2000)
+    goIdle()
+    expect(recorder.asked).toEqual([])
+    zoom.zooming()
+    zoom.end()
+    timers.elapse(0)
+    expect(recorder.asked).toEqual(["pause", "resume"])
   })
 })
