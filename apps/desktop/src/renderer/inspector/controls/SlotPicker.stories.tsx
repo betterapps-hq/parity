@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Rows3 } from "lucide-react"
 import { useState } from "react"
 import { expect, fn, userEvent, within } from "storybook/test"
-import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
 import { SlotPickerField, type SlotLayer } from "./slot-picker.tsx"
 
@@ -55,27 +54,4 @@ export const Filled: Story = {
     await expect(args.onSelectLayer).toHaveBeenCalledTimes(1)
     await expect(box.queryByText("Feature list")).toBeNull()
   }
-}
-
-/** A name too long for the box truncates. */
-export const LongName: Story = {
-  args: {
-    layer: {
-      id: "list",
-      name: "Everything included in the Business plan, listed",
-      icon: <Rows3 className="size-3 shrink-0" />
-    }
-  }
-}
-
-/** Filled differently in the state being edited: the box has the change dot. */
-export const Changed: Story = {
-  args: { layer: { id: "list", name: "Feature list", icon: <Rows3 className="size-3 shrink-0" /> } },
-  decorators: [
-    (Story) => (
-      <MarkChanged>
-        <Story />
-      </MarkChanged>
-    )
-  ]
 }

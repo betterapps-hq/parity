@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Class names and a slot's layer share one chips field built on the kit's Combobox chips",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -3505,6 +3505,23 @@ Tests:
   padded 4px, at 12px and 13px.
 - `chrome/LayerStates.stories.tsx` ChoosingTheState and `chrome/fields.stories.tsx` ChoiceOpen open a panel's select.
 
+### Chips (PAR-1035)
+
+A field of tags, such as class names or the layer in a slot, is one component, `AppChips`, built from the kit's Combobox
+chips. A chip reads at the panel's 10px with an × that removes it, and the box grows onto more lines as chips are added.
+A chip too long for the box truncates. Backspace in the empty input removes the last chip. Given options, typing in the
+input lists the matches under the box in groups, and picking one adds it as a chip. When nothing matches, the list says
+No matches. Keyboard use, focus and names are Base UI's.
+
+Code: `AppChips`, `AppChip` and `AppChipsInput` in `apps/desktop/src/renderer/chrome/AppChips.tsx`, used by
+`ClassTagsField` in `inspector/controls/class-tags.tsx` and `SlotPickerField` in `inspector/controls/slot-picker.tsx`;
+the `no-restricted-imports` entry for `apps/**` in `vite.config.ts` stops other files importing the kit's chip parts.
+
+Tests:
+
+- `chrome/AppChips.stories.tsx` Removing, BackspaceRemovesTheLast, Searching and NothingMatches: removing a chip by its
+  × and by Backspace, picking a match, and the empty list.
+
 ### One right edge in the inspector (PAR-552)
 
 Everything in the inspector's Design tab runs to one right edge, 12px from the panel's side: inputs, the Editing bar,
