@@ -2024,6 +2024,13 @@ recommended answer to each of its questions.
     into `auto`, so that axis scrolls too, as the browser draws it.
   - **The scrolling container is still checked** as any node is. A row that scrolls but is itself wider than the frame
     sticks out of it, and that's reported on the row; its days go no further, so they're left out.
+- **Measure and Problems give a box in one shape** (PAR-915). Measure put `x`, `y`, `width` and `height` flat on each
+  node and its clipping ancestor's on `clip`, while Problems nests a node's under `box` and gives what it overflows as
+  `container: { node, name, box }`, so code reading one broke on the other. Measure now follows Problems: each node has
+  `box`, and `clip` is `{ node, name, box }`. `inView` was already a box. Problems' shape won because it's the one in
+  the CLI's and MCP's output schema and keeps a box apart from the node it belongs to. The renderer still measures flat
+  boxes; `layoutNode` in `packages/agent/src/frames.ts` reshapes them for Measure, and screenshots keep theirs, which
+  don't leave the agent.
 
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
