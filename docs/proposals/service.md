@@ -1,7 +1,7 @@
 # Proposal: Parity's service, starting with stock media search
 
-Status: draft for discussion, 2026-11-11 (PAR-131). Nothing here is built. It says where Parity's server code runs, how
-it grows, and what its first route does. Calls already made are in
+Status: agreed, 2026-11-11 (PAR-131), and recorded in decisions.md. Nothing here is built. It says where Parity's server
+code runs, how it grows, and what its first route does. Calls already made are in
 [decisions.md](../decisions.md#keys-are-the-app-owners-and-parity-reports-uses-itself-par-829); the connectors it serves
 are in [connectors.md](../connectors.md).
 
@@ -150,8 +150,9 @@ As [packages.md](packages.md) sets out, logic takes data and returns data:
   Worker's secrets. Pull requests get Worker previews, and Neon branches once there's a database. No deploy workflow is
   written here. The KV namespace and the rate limits are bindings in the app's Wrangler config, which deploys own.
 
-**New dependencies, which need your agreement:** `@tanstack/react-start`, `@cloudflare/vite-plugin` and `wrangler`.
-TanStack Start 1.0 is reported to need Vite 8; that's checked against this repository's `vp` before anything is added.
+**New dependencies, which you agreed to on 2026-11-11:** `@tanstack/react-start`, `@cloudflare/vite-plugin` and
+`wrangler`. TanStack Start 1.0 is reported to need Vite 8; that's checked against this repository's `vp` before anything
+is added.
 
 ## Still to check
 
@@ -164,15 +165,15 @@ TanStack Start 1.0 is reported to need Vite 8; that's checked against this repos
 - Whether Better Apps' WorkOS identity can be installed in this repository, or its check is written here on `fetch` and
   zod as `@parity-app/account` was.
 
-## Decisions needed from you
+## Decisions
 
 1. **Who can call it: decided, signed-in people only** (your call, 2026-11-11).
 2. **Mobbin: decided, from the start,** with Pixabay (your call, 2026-11-11).
 3. **The domain: decided, `api.tryparity.dev`** (your call, 2026-11-11), a custom domain on the Worker, on the zone
    Cloudflare already holds. The portal's pages get their own host on the same Worker later.
-4. **The three new dependencies** above.
+4. **The three new dependencies: decided, add them** (your call, 2026-11-11).
 
-## The work, once this is agreed
+## The work
 
 Each is its own issue and pull request:
 

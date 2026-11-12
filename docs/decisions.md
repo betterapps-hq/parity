@@ -7295,3 +7295,26 @@ and `transform` was text case. Your calls on 2026-11-11:
   called it a miss in the UX work, and PAR-937 adds them to the Transform control.
 - **Text case is renamed `textTransform`, and a file with the old key is rejected,** by the Fix forward rule. Stale
   prototype data is disposable.
+
+## Parity's service is one TanStack Start app on a Cloudflare Worker (PAR-131)
+
+The design is in [proposals/service.md](proposals/service.md). Your calls, on 2026-11-11:
+
+- **Server code runs in one TanStack Start app, `apps/portal`, on a Cloudflare Worker.** It ships first with only an
+  API, and the portal's pages join it later. A piece leaves the one Worker only when it scales differently, releases on
+  its own schedule or mustn't share its secrets.
+- **The API is at `api.tryparity.dev`,** with the version in the path (`/v1`).
+- **Searches need a signed-in person.** Main sends its WorkOS access token and the service checks it. Signing in is
+  heading towards required for the whole app, but "Signing in is optional" stands until that's decided on its own.
+- **The service searches Mobbin and Pixabay from the start,** each with the app owner's key as a Worker secret.
+- **`@tanstack/react-start`, `@cloudflare/vite-plugin` and `wrangler` are added.**
+
+My calls:
+
+- **Answers are kept for 24 hours in Workers KV,** shared by everyone, as Pixabay's terms ask. The Workers Cache API
+  keeps things in one data centre, so each would ask the source again.
+- **Each person is limited by their WorkOS user id,** with the Workers rate limiting binding, and the service keeps no
+  personal data: the id is only a counter's key, and the query is kept only as a hash.
+- **It deploys through the shared pipelines,** with the `cloudflare-web` Terraform module and the web templates, so
+  Parity writes no deploy workflow of its own.
+- **Mobbin's API terms are read before its route ships,** since its key belongs to a paid Team plan.
