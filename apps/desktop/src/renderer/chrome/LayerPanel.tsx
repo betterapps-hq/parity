@@ -5,12 +5,12 @@ import {
   changesField,
   type ContainerSpec,
   type DesignNode,
+  designStates,
   editNode,
-  type EditTarget,
   editsDesign,
+  type EditTarget,
   findNode,
   type ImageNode,
-  type VideoNode,
   innerChanges,
   type InstanceNode,
   isInnerPath,
@@ -21,14 +21,15 @@ import {
   type NodePatch,
   overrideCount,
   type PatchField,
-  propChange,
   patchSize,
+  propChange,
   resetInstance,
   resetOverride,
   slotAtPath,
   type StateSpec,
   swapInstance,
-  targetPatches
+  targetPatches,
+  type VideoNode
 } from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
 import { BookOpen, Diamond, Eye, EyeOff, Group, Info, RotateCcw, Sparkles } from "lucide-react"
@@ -684,7 +685,7 @@ function InstanceSection({
   const library = projectLibrary(store)
 
   // The instance's own field, as the design has it, to record what a change to it did.
-  const instanceField = (name: "state" | "design") => ({
+  const instanceField = (name: "design") => ({
     field: `instance.${name}`,
     layers: [node.id],
     read: (container: ContainerSpec) => {
@@ -693,32 +694,6 @@ function InstanceSection({
       return instance?.type === "instance" ? instance[name] : undefined
     }
   })
-
-  const setState = (state: string | undefined) =>
-    updateAndRecord(
-      store,
-      entry.key,
-      "Change instance state",
-      (container) => ({
-        ...container,
-        root: mapNode(container.root, node.id, (current) => {
-          if (current.type !== "instance") {
-            return current
-          }
-
-          const next = { ...current }
-
-          if (state) {
-            next.state = state
-          } else {
-            delete next.state
-          }
-
-          return next
-        })
-      }),
-      instanceField("state")
-    )
 
   const menu = own && {
     overrides: overrideCount(own),
@@ -764,16 +739,12 @@ function InstanceSection({
         })
       }
       linked={from?.name}
-      // Only a design's own instance picks its state; a nested one shows its component's.
-      states={own ? design.states.map((state) => ({ id: state.id, name: state.name })) : []}
-      state={own?.state}
       props={instanceRows(design.params ?? {}, node.args ?? {})}
       changed={changed}
       onResetProp={onReset}
-      onState={setState}
       onChange={(name, value) => onChange(name, value)}
       menu={menu}
-      note={own && <BaseDesignNote entry={entry} what="Its state, Reset overrides, Swap and Detach" />}
+      note={own && <BaseDesignNote entry={entry} what="Reset overrides, Swap and Detach" />}
     >
       {own && <InstanceSlotFields entry={entry} instance={own} />}
     </InstanceControls>
@@ -830,17 +801,26 @@ function instanceRows(
   })
 }
 
-/** Says where edits go, and switches it. Editing another state, or a variant, never changes the base design. */
+/**
+ * Says where edits go, and switches it. Editing another state, or a variant, never changes the base design. Only a
+ * component has states and variants, so a screen's or a frame's edits always change the design, and it shows nothing.
+ */
 function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: StateSpec; target: EditTarget }) {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
+
+  if (entry.container.kind !== "component") {
+    return null
+  }
+
   const base = editsDesign(entry.container, target)
+  const states = designStates(entry.container)
 
   const variant =
     target.variant &&
     entry.container.params?.[target.variant.param]?.options?.find((option) => option.id === target.variant!.option)
 
-  const variantOnly = !base && variant && state.id === entry.container.states[0]!.id
+  const variantOnly = !base && variant && state.id === states[0]!.id
   let changes = "changes only this state"
 
   if (base) {
@@ -860,14 +840,14 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
       <Select
-        items={entry.container.states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
+        items={states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
           if (!id) {
             return
           }
 
-          const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
+          const name = states.find((candidate) => candidate.id === id)?.name ?? id
           store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
@@ -879,7 +859,7 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
           <SelectValue />
         </SelectTrigger>
         <PanelSelectContent>
-          {entry.container.states.map((candidate) => (
+          {states.map((candidate) => (
             <SelectItem key={candidate.id} value={candidate.id}>
               {candidate.name}
             </SelectItem>

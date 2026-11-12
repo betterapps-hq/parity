@@ -1,4 +1,12 @@
-import type { ContainerSpec, DesignNode, InstanceNode, NodeBinding, ParamSpec, PropValues } from "./document.ts"
+import {
+  type ContainerSpec,
+  type DesignNode,
+  designStates,
+  type InstanceNode,
+  type NodeBinding,
+  type ParamSpec,
+  type PropValues
+} from "./document.ts"
 import { childEntries, locateNode, mapNode, nodeIds, withFreshIds } from "./edit.ts"
 import { boardRoot, type ComponentLibrary, type RenderNode, resolveDesign, variantChoices } from "./render.ts"
 
@@ -136,7 +144,7 @@ export function extractComponent(design: ContainerSpec, occurrences: string[], o
   for (const node of nodes) {
     const inside = new Set(nodeIds(node))
 
-    for (const state of design.states) {
+    for (const state of designStates(design)) {
       for (const [id, patch] of Object.entries(state.overrides ?? {})) {
         if (!inside.has(id)) {
           continue
@@ -181,7 +189,6 @@ export function extractComponent(design: ContainerSpec, occurrences: string[], o
     ...heading,
     position: options.position,
     root: { ...template, name: options.name },
-    states: [{ id: "default", name: "Default" }],
     params: Object.fromEntries(params.map((param) => [param.name, { type: param.type, default: param.values[0] }]))
   }
 
@@ -213,7 +220,7 @@ export function extractComponent(design: ContainerSpec, occurrences: string[], o
   for (const { choices, option } of variantViews(design)) {
     const variants = { params: design.params, choices }
 
-    for (const state of design.states) {
+    for (const state of designStates(design)) {
       for (const viewport of options.viewports) {
         const before = resolveDesign(boardRoot(design), state, viewport, options.library, variants)
         const after = resolveDesign(boardRoot(extracted), state, viewport, library, variants)
@@ -325,20 +332,23 @@ function structure(node: DesignNode): string {
       return JSON.stringify({
         ...base,
         design: node.design,
-        state: node.state ?? null,
         args: Object.keys(node.args ?? {}).sort()
       })
     case "component":
       return JSON.stringify({
         ...base,
         component: node.component,
-        props: Object.fromEntries(
-          Object.entries(node.props ?? {})
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([key, value]) => [key, contentKind(value) ?? value])
-        )
+        props: Object.fromEntries(propsInOrder(node.props).map(([key, value]) => [key, contentKind(value) ?? value]))
       })
   }
+}
+
+/**
+ * A component's props sorted by name: `structure` compares them in this order and `slotsOf` lists them in it, so two
+ * parts that write the same props in another order have each prop's value in the same place.
+ */
+function propsInOrder(props: PropValues | undefined): [string, PropValue][] {
+  return Object.entries(props ?? {}).sort(([a], [b]) => a.localeCompare(b))
 }
 
 /** Which kind of content a value is, or `undefined` for one that's structure: an object, a list or `null`. */
@@ -357,7 +367,7 @@ function slotsOf(node: DesignNode, path = ""): Slot[] {
   }
 
   if (node.type === "component") {
-    for (const [prop, value] of Object.entries(node.props ?? {})) {
+    for (const [prop, value] of propsInOrder(node.props)) {
       if (contentKind(value)) {
         slots.push({ path, field: `props.${prop}`, node })
       }

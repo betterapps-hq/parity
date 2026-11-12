@@ -1,5 +1,5 @@
 import type { DeviceKind } from "./devices.ts"
-import type { ContainerSpec } from "./document.ts"
+import { type ContainerSpec, designStates } from "./document.ts"
 import {
   defaultWidth,
   type ModeSettings,
@@ -120,13 +120,14 @@ function modeReport(mode: ResolvedMode, primary: boolean): ModeReport {
  */
 export function designModes(settings: ModeSettings, design: ContainerSpec, frames = false): DesignModes {
   const shown = shownModes(settings, design)
-  const state = design.view?.state ?? design.states[0]!.id
+  const states = designStates(design)
+  const state = design.view?.state ?? states[0]!.id
 
   const report: DesignModes = {
     id: design.id,
     name: design.name,
     state,
-    states: design.view?.allStates ? design.states.map((each) => each.id) : [state],
+    states: design.view?.allStates ? states.map((each) => each.id) : [state],
     main: shown.main.id,
     beside: shown.beside.map((mode) => mode.id)
   }

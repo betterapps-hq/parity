@@ -258,8 +258,7 @@ describe("Enter", () => {
         },
         { type: "text", id: "note", text: "Up from last month" }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const store = new DesignStore(

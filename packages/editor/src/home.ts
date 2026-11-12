@@ -69,8 +69,7 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
         ? { background: "background", foreground: "foreground" }
         : { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
       children: [content]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   if (beside) {

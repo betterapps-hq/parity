@@ -4,9 +4,8 @@ import { type InstanceProp, InstanceSection } from "./instance-section.tsx"
 import { Playground } from "./playground.tsx"
 
 /**
- * Component instance (proposal): the state it shows, then its props under their own heading, drawn as the style
- * sections draw their rows, with the component's name in the title row and Swap, Reset overrides, Push to main and Detach in the menu
- * beside it.
+ * Component instance: its props, drawn as the style sections draw their rows, with the component's name in the title
+ * row and Swap, Reset overrides, Push to main and Detach in the menu beside it.
  */
 const meta = {
   title: "Parity/Inspector/Controls/Controls/Component instance",
@@ -107,7 +106,6 @@ function Instance({
   changedProps?: string[]
 }) {
   const [props, setProps] = useState(start)
-  const [state, setState] = useState<string>()
   const [changed, setChanged] = useState(changedProps)
 
   return (
@@ -123,12 +121,6 @@ function Instance({
     >
       <InstanceSection
         component={component}
-        states={[
-          { id: "default", name: "Default" },
-          { id: "hover", name: "Hover" },
-          { id: "loading", name: "Loading" }
-        ]}
-        state={state}
         props={props}
         onGoTo={() => undefined}
         menu={{
@@ -142,7 +134,6 @@ function Instance({
           onDetach: () => undefined
         }}
         changed={(name) => changed.includes(name)}
-        onState={setState}
         onChange={(name, value) =>
           setProps((current) =>
             current.map((prop) =>

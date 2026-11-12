@@ -444,7 +444,7 @@ export function changeArgs(
     })
   }
 
-  const states = container.states.map((state) => {
+  const states = container.states?.map((state) => {
     const overrides = editLayer(state.overrides)
 
     return overrides === state.overrides ? state : withOverrides(state, overrides)
@@ -468,7 +468,11 @@ export function changeArgs(
       )
     : undefined
 
-  const next: ContainerSpec = { ...container, root, states }
+  const next: ContainerSpec = { ...container, root }
+
+  if (states) {
+    next.states = states
+  }
 
   if (params) {
     next.params = params

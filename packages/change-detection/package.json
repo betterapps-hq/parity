@@ -1,5 +1,5 @@
 {
-  "name": "@parity-app/style",
+  "name": "@parity-app/change-detection",
   "version": "0.0.0",
   "license": "MIT",
   "private": true,
@@ -8,11 +8,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "css-tree": "catalog:",
+    "@parity-app/core": "workspace:*",
     "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@webref/css": "catalog:",
-    "web-features": "catalog:"
   }
 }

@@ -55,7 +55,7 @@ const projectPicture = z.object({
 
 const project = z.object({ projectId: z.string() })
 
-/** A declaration a frame asks the project's classes for, as `@parity-app/style` has them. */
+/** A declaration a frame asks the project's classes for, as `@parity-app/style-schema` has them. */
 const cssDeclaration = z.object({
   property: z.string(),
   value: z.string(),
@@ -115,6 +115,7 @@ const serviceParams = {
   }),
   "frames.capture": z.object({ job: renderJob, height: finiteNumber.optional() }),
   "frames.stored": z.object({ jobs: z.string() }),
+  "frames.changes": z.object({ frames: z.string() }),
   "frames.clearStored": z.undefined(),
   "pictures.store": z.object({ root: z.string(), picture: projectPicture }),
   "pictures.read": roots,
@@ -134,6 +135,16 @@ const serviceParams = {
 
 /** The jobs `frames.stored` is asked for, as JSON text, which its handler reads with `parseInput`. */
 export const storedJobs = jsonText(z.array(renderJob))
+
+/** The frames `frames.changes` is asked about, as JSON text: each frame's id and the job it's drawn with (PAR-997). */
+export const changedFrames = jsonText(
+  z.array(
+    z.object({
+      id: z.object({ project: z.string(), design: z.string(), state: z.string(), mode: z.string() }),
+      job: renderJob
+    })
+  )
+)
 
 /** Reads each request's params as `serviceParams` says, or throws `CodedError` with `invalid_input`. */
 // SAFETY: `serviceParams` has a schema for every method, each checked against that method's params by `satisfies`.

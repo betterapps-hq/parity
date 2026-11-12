@@ -46,8 +46,7 @@ const container = {
         }
       }
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 const card = { type: "text", id: "pasted", text: "Pasted" }
@@ -137,7 +136,7 @@ function pasteAt(chain: string[], point: { x: number; y: number }) {
       // @ts-expect-error The bundle's global.
       const measured = here.measureHere(hit, screen, 4)
       // @ts-expect-error The bundle's global.
-      const pasted = here.pasteHere(container, [card], measured, container.states[0])
+      const pasted = here.pasteHere(container, [card], measured, { id: "default", name: "Default" })
       const parent = find(pasted.container.root, measured.layout)
       const siblings = (measured.slot ? parent?.slots?.[measured.slot] : parent?.children) ?? []
 

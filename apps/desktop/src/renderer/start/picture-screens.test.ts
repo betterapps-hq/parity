@@ -17,7 +17,6 @@ function design(name: string, kind?: ContainerSpec["kind"], beside: string[] = [
     name,
     position: { x: 0, y: 0 },
     root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }],
     view
   }
 

@@ -331,6 +331,9 @@ importers:
       '@parity-app/builder-vite':
         specifier: workspace:*
         version: link:../../packages/builder-vite
+      '@parity-app/change-detection':
+        specifier: workspace:*
+        version: link:../../packages/change-detection
       '@parity-app/channel':
         specifier: workspace:*
         version: link:../../packages/channel
@@ -361,9 +364,9 @@ importers:
       '@parity-app/renderer-react':
         specifier: workspace:*
         version: link:../../packages/renderer-react
-      '@parity-app/style':
+      '@parity-app/style-schema':
         specifier: workspace:*
-        version: link:../../packages/style
+        version: link:../../packages/style-schema
       '@parity-app/styles-tailwind':
         specifier: workspace:*
         version: link:../../packages/styles-tailwind
@@ -573,9 +576,9 @@ importers:
       '@parity-app/icons':
         specifier: workspace:*
         version: link:../icons
-      '@parity-app/style':
+      '@parity-app/style-schema':
         specifier: workspace:*
-        version: link:../style
+        version: link:../style-schema
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
@@ -602,6 +605,15 @@ importers:
       vite:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
+
+  packages/change-detection:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/channel: {}
 
@@ -656,9 +668,9 @@ importers:
 
   packages/core:
     dependencies:
-      '@parity-app/style':
+      '@parity-app/style-schema':
         specifier: workspace:*
-        version: link:../style
+        version: link:../style-schema
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -820,7 +832,7 @@ importers:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
 
-  packages/style:
+  packages/style-schema:
     dependencies:
       css-tree:
         specifier: 'catalog:'
@@ -844,9 +856,9 @@ importers:
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
-      '@parity-app/style':
+      '@parity-app/style-schema':
         specifier: workspace:*
-        version: link:../style
+        version: link:../style-schema
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens

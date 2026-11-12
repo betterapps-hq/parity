@@ -53,8 +53,8 @@ describe("findRepeats", () => {
     expect(candidate).toMatchObject({ nodes: ["row-a", "row-j", "row-s"], size: 4, name: "TableRow item" })
     expect(candidate!.params).toEqual([
       { name: "text", type: "text", values: ["Avery", "Jordan", "Sam"] },
-      { name: "roleVariant", type: "text", values: ["default", "secondary", "outline"] },
       { name: "role", type: "text", values: ["Owner", "Admin", "Member"] },
+      { name: "roleVariant", type: "text", values: ["default", "secondary", "outline"] },
       { name: "showText", type: "boolean", values: [false, true, false] }
     ])
   })
@@ -94,6 +94,49 @@ describe("findRepeats among instances filling a slot (PAR-966)", () => {
   })
 })
 
+describe("repeated parts whose props are written in another order (PAR-998)", () => {
+  const item = (key: string, props: Record<string, string | number>): DesignNode => ({
+    type: "component",
+    id: `item-${key}`,
+    component: "ItemRow",
+    slots: { children: [{ type: "component", id: `${key}-badge`, name: "Badge", component: "Badge", props }] }
+  })
+
+  const listed: ContainerSpec = {
+    id: "inbox",
+    name: "Inbox",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "page",
+      children: [item("a", { label: "New", count: 1 }), item("b", { count: 2, label: "Old" })]
+    },
+    states: [{ id: "default", name: "Default" }]
+  }
+
+  it("pairs each prop's values by name", () => {
+    expect(findRepeats(listed.root, 2)[0]?.params).toEqual([
+      { name: "badgeCount", type: "number", values: [1, 2] },
+      { name: "badgeLabel", type: "text", values: ["New", "Old"] }
+    ])
+  })
+
+  it("gives each instance its own value for each prop", () => {
+    const { component, design: extracted } = extractComponent(listed, ["item-a", "item-b"], {
+      id: "item",
+      name: "Item",
+      position: { x: 0, y: -400 },
+      viewports: ["desktop"],
+      library: componentLibrary([])
+    })
+
+    expect(findNode(component.root, component.root.id)).toMatchObject({
+      slots: { children: [{ bind: { props: { count: "badgeCount", label: "badgeLabel" } } }] }
+    })
+    expect(findNode(extracted.root, "item-b")).toMatchObject({ args: { badgeCount: 2, badgeLabel: "Old" } })
+  })
+})
+
 describe("extractComponent", () => {
   const options = {
     id: "member-row",
@@ -118,7 +161,7 @@ describe("extractComponent", () => {
     })
     // The Without Sam state still hides Sam's row, now an instance.
     const library = componentLibrary([component])
-    const rendered = JSON.stringify(resolveDesign(extracted.root, extracted.states[1], "desktop", library))
+    const rendered = JSON.stringify(resolveDesign(extracted.root, extracted.states![1], "desktop", library))
     expect(rendered).not.toContain("Sam")
     expect(rendered).toContain('"nodeId":"row-j/')
   })
@@ -126,7 +169,7 @@ describe("extractComponent", () => {
   it("refuses when a state changes something inside the part", () => {
     const changed: ContainerSpec = {
       ...design,
-      states: [...design.states, { id: "renamed", name: "Renamed", overrides: { "a-name": { text: "Ava" } } }]
+      states: [...design.states!, { id: "renamed", name: "Renamed", overrides: { "a-name": { text: "Ava" } } }]
     }
 
     expect(() => extractComponent(changed, ["row-a", "row-j", "row-s"], options)).toThrow("Renamed state changes")

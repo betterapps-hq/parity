@@ -55,7 +55,7 @@ const fixture = (id: string, variants?: Record<string, string>): ContainerSpec =
 }
 
 const styleOf = (container: ContainerSpec, id: string, state?: string) =>
-  boardReader(container, { state: container.states.find((candidate) => candidate.id === state) })(
+  boardReader(container, { state: container.states!.find((candidate) => candidate.id === state) })(
     findNode(container.root, id)!
   ).style ?? {}
 

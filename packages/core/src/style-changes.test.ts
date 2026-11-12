@@ -1,4 +1,4 @@
-import type { NodeStyle } from "@parity-app/style"
+import type { NodeStyle } from "@parity-app/style-schema"
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerSpec } from "./document.ts"
 import { resolveDesign } from "./render.ts"
@@ -24,7 +24,7 @@ const design: ContainerSpec = {
   ]
 }
 
-function render(root: ContainerSpec["root"], state = design.states[0]) {
+function render(root: ContainerSpec["root"], state = design.states![0]) {
   return resolveDesign(root, state, "desktop")
 }
 
@@ -58,7 +58,7 @@ describe("styleChanges", () => {
   })
 
   it("follows the state each render shows", () => {
-    const faint = design.states[2]
+    const faint = design.states![2]
     // In Faint, the state's own opacity wins over the base design's, so a base edit to it changes nothing there.
     expect(styleChanges(render(design.root, faint), render(withStyle("button", { opacity: 40 }), faint))).toEqual([])
   })

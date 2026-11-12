@@ -1,13 +1,14 @@
 import { portFree, viteBuilder } from "@parity-app/builder-vite"
+import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
-import { parseInput } from "@parity-app/core"
+import { parseInput, type RenderNode } from "@parity-app/core"
 import { reactRenderer } from "@parity-app/renderer-react"
 import { tailwindStyles } from "@parity-app/styles-tailwind"
 import { errorCode } from "@parity-app/telemetry"
 import type { MessagePortMain } from "electron"
 import { z } from "zod"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
-import { storedJobs } from "../shared/service-checks.ts"
+import { changedFrames, storedJobs } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
 import {
   type AgentImages,
@@ -87,13 +88,20 @@ const projects = openProjects({
 const previews = componentPreviews(projects)
 const traces = frameTraces(projects)
 
+// Each open project's frames' traces when first looked at, which their changes are counted from (PAR-997).
+const baselines = new ChangeBaselines()
+
 // The projects open when the service last ran open again as it starts, before the window asks for them (PAR-179).
 const reopening = startReopening({
   file: environment().PARITY_REOPEN_FILE,
   open: async (root) => {
     await projects.open(root, { reopen: true }).finally(rememberOpen)
   },
-  close: (root) => projects.close(root).finally(rememberOpen)
+  close: (root) =>
+    projects.close(root).finally(() => {
+      baselines.forget(root)
+      rememberOpen()
+    })
 })
 
 // Projects' unsaved changes, kept in case Parity closes before they're saved (PAR-905).
@@ -121,7 +129,11 @@ const handlers: Handlers<ServiceMethods> = {
 
     return projects.open(projectRoot).finally(rememberOpen)
   },
-  "project.close": ({ projectId }) => projects.close(projectId).finally(rememberOpen),
+  "project.close": ({ projectId }) =>
+    projects.close(projectId).finally(() => {
+      baselines.forget(projectId)
+      rememberOpen()
+    }),
   "project.detectAgain": ({ projectId }) => projects.detectAgain(projectId),
   "document.save": projects.saveDocument,
   "recovery.keep": ({ projectId, copy }) => recovery.keep(projectId, copy),
@@ -163,6 +175,14 @@ const handlers: Handlers<ServiceMethods> = {
 
     return { src: `data:image/webp;base64,${webp.toString("base64")}`, height: kept }
   },
+  "frames.changes": async ({ frames }) => ({
+    changes: await Promise.all(
+      parseInput(changedFrames, frames).map(async ({ id, job }) =>
+        // SAFETY: the window builds a job's tree with `renderJob`, which gives render nodes; the checks leave it as it came.
+        baselines.compare(id, job.tree as RenderNode[], await traces.trace(job).catch(() => undefined))
+      )
+    )
+  }),
   "frames.stored": async ({ jobs }) => ({
     kept: await Promise.all(
       parseInput(storedJobs, jobs).map(async (job) => {

@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url"
-import { type CssDeclaration, declarations, type NodeStyle } from "@parity-app/style"
+import { type CssDeclaration, declarations, type NodeStyle } from "@parity-app/style-schema"
 import { beforeAll, describe, expect, it } from "vite-plus/test"
 import { loadDesignSystem } from "./design-system.ts"
 import { type DesignSystems, tailwindPrinter } from "./printer.ts"
@@ -72,12 +72,39 @@ describe("printing declarations as classes", () => {
     expect(classes({ property: "transform-origin", value: "50% 0%" })).toEqual(["origin-[50%_0%]"])
   })
 
-  it("keeps the value as written where Tailwind's own utility says it another way", () => {
-    // `min-w-0` is `calc(var(--spacing) * 0)` and `font-semibold` is `var(--font-weight-semibold)`.
-    expect(classes({ property: "min-width", value: "0" })).toEqual(["min-w-[0]"])
-    expect(classes({ property: "font-weight", value: "600" })).toEqual(["font-[600]"])
-    // The example's theme is inline, so `rounded-md` holds the radius itself and never reads `--radius-md`.
+  // Each of these compiles to other text than the value: `m-0` to `0px`, `gap-1` to `var(--spacing)`, `font-medium` to
+  // `var(--font-weight-medium)`, `leading-normal` to `var(--leading-normal)`.
+  it.each([
+    ["margin", "0", "m-0"],
+    ["min-width", "0", "min-w-0"],
+    ["inset", "0", "inset-0"],
+    ["gap", "calc(var(--spacing) * 1)", "gap-1"],
+    ["gap", "calc(var(--spacing)*1)", "gap-1"],
+    ["row-gap", "calc(var(--spacing) * 1)", "gap-y-1"],
+    ["padding", "calc(var(--spacing) * 1)", "p-1"],
+    ["gap", "1rem", "gap-4"],
+    ["font-weight", "500", "font-medium"],
+    ["font-weight", "600", "font-semibold"],
+    ["line-height", "1.5", "leading-normal"],
+    ["color", "#fff", "text-white"]
+  ])("writes %s: %s as %s, which Tailwind says is the same value written another way", (property, value, expected) => {
+    expect(classes({ property, value })).toEqual([expected])
+    expect(printer().read([expected]).declarations).toMatchObject([{ property }])
+  })
+
+  it("keeps a font size's variable, since the size's own utility sets a line height too", () => {
+    expect(printer().css(["text-sm"])).toContain("line-height: var(--tw-leading, var(--text-sm--line-height))")
+    expect(classes({ property: "font-size", value: "var(--text-sm)" })).toEqual(["text-(length:--text-sm)"])
+  })
+
+  it("keeps the value as written where Tailwind's spelling would draw something else here", () => {
+    // Tailwind spells both of these from its theme, where `--radius` is 0.25rem. The example sets it to 0.625rem
+    // outside the theme, so `rounded-lg` isn't 0.25rem here, and `rounded-md` doesn't read `--radius-md`.
+    expect(systems.spells.canonicalizeCandidates(["[border-radius:0.25rem]"])).toEqual(["rounded-lg"])
+    expect(classes({ property: "border-radius", value: "0.25rem" })).toEqual(["rounded-[0.25rem]"])
     expect(classes({ property: "border-radius", value: "var(--radius-md)" })).toEqual(["rounded-(--radius-md)"])
+    // A length Tailwind's scale has no step for.
+    expect(classes({ property: "gap", value: "4px" })).toEqual(["gap-[4px]"])
   })
 
   it("writes a property Tailwind has no utility for as an arbitrary property", () => {

@@ -3,7 +3,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useStat
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { ProjectContext } from "../canvas/context.ts"
 import { registerFrame } from "../frame.ts"
-import type { ProjectSession } from "../workspace.ts"
+import { ProjectSession, type SessionParts } from "../workspace.ts"
 import { AgentPresence } from "./AgentPresence.tsx"
 import { heldBoards } from "./held-boards.ts"
 import { presence } from "./presence.ts"
@@ -128,8 +128,14 @@ function Frame({ board }: { board: MockBoard }) {
  */
 function Stage({ calls, note }: { calls: Call[]; note: string }) {
   const tab = `story-${useId()}`
-  // SAFETY: AgentPresence reads only the session's id, and its editor, which a story without tldraw leaves out.
-  const session = useMemo(() => ({ id: tab }) as ProjectSession, [tab])
+
+  const session = useMemo(
+    () =>
+      // SAFETY: AgentPresence reads only the session's id, and its editor, which a story without tldraw leaves out.
+      new ProjectSession({ id: tab } as ConstructorParameters<typeof ProjectSession>[0], {} as SessionParts),
+    [tab]
+  )
+
   const [positions, setPositions] = useState(() => new Map(boards.map((board) => [board.key, board])))
   const [run, replay] = useReducer((count: number) => count + 1, 0)
   const [, redraw] = useReducer((count: number) => count + 1, 0)

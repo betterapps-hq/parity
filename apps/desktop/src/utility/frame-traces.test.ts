@@ -79,6 +79,13 @@ describe("frame traces (PAR-994)", () => {
     expect(Object.keys(traced!.files)).toContain("src/lib/utils.ts")
   })
 
+  it("says which files each component reads, leaving the stylesheets and config to every node (PAR-997)", async () => {
+    const traced = await frameTraces(await projects(["src/button.tsx", "src/generated/icons.ts"])).trace(job)
+    expect(traced!.components).toEqual({
+      Button: ["src/button.tsx", "src/generated/icons.ts", "src/lib/utils.ts"]
+    })
+  })
+
   it("holds after a touch or a change to a file the frame doesn't read", async () => {
     const traces = frameTraces(await projects())
     const traced = (await traces.trace(job))!
