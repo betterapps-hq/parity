@@ -2,6 +2,37 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 09:40:43 GMT",
+      "version": "0.54.0",
+      "tag": "@parity-app/cli_v0.54.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "31327249126dc7b7017b7de98ee3dbb887bed23a",
+            "comment": "Rename @parity-app/style to @parity-app/style-schema"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6bea2c2034f8f56a3bf4f11e12915f27ab2b6f85",
+            "comment": "Repeated parts pair a component's props by name, so two parts writing the same props in another order get the right values and extract cleanly (PAR-998)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "88e402ad8e66c17330c70d31e54b46822e8b3514",
+            "comment": "Kept frame pictures are reused while the files each frame reads are unchanged, so a branch switch, a new worktree or an edit to one component no longer recaptures every frame"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 08:08:28 GMT",
       "version": "0.53.2",
       "tag": "@parity-app/cli_v0.53.2",
