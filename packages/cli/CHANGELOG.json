@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 05:54:47 GMT",
+      "version": "0.53.0",
+      "tag": "@parity-app/cli_v0.53.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "22637499fd40c33f85b748efc0cc11227a34e4af",
+            "comment": "Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 05:19:24 GMT",
       "version": "0.52.0",
       "tag": "@parity-app/cli_v0.52.0",
