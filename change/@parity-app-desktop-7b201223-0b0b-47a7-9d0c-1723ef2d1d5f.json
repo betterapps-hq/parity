@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A tab closed while the project service restarts no longer leaves its project open in the new service or its guest loaded (PAR-978)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
