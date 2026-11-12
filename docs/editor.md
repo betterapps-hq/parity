@@ -6645,6 +6645,38 @@ name the badge showed Terminal; with `PARITY_AGENT_NAME=DeepSeek Harness` it sho
 without design edits, and the badges were checked in screenshots. Concurrent long-name MCP cursors have not been checked
 visually; their id truncation regression is covered by `caller.test.ts`.
 
+### A cursor for each subagent (PAR-960)
+
+A session's subagents share its MCP connection, so their calls carry one name and one id and move one cursor. A call
+that passes `subagent`, a short name the subagent gives itself, gets a cursor and a strip of its own, shown as
+`Header (Claude Code)`: the subagent first, since that's what tells them apart, then the session. The same name on a
+later call picks up the same cursor, and a call that names no subagent is the session's own, as before. The server's
+instructions and the skill ask an agent to give each subagent that works at once a name to pass. In a terminal each
+subagent sets its own `PARITY_AGENT_NAME`.
+
+- **Every MCP tool that reaches the app takes it,** as a bare string beside the tool's own fields. `get_logs` and
+  `read_skill` answer without the app and show no cursor, so they don't.
+- **A name that's blank or isn't text is left out,** not refused. One is kept to a line and 40 characters.
+- **Telemetry still names the session.** The subagent travels beside the caller in the request, and only the canvas
+  joins them.
+- **An older app ignores it,** and shows one cursor as it did.
+
+Implementation: `withSubagent` and `splitSubagent` in `packages/cli/src/mcp.ts` publish it and take it out of a call's
+arguments; `callAs` in `client.ts` sends it in the body; `callerIdentity` and `presenceIdentity` in
+`packages/agent/src/caller.ts` read it and name the cursor, which `dispatch` puts on each presence event.
+
+Tests: `packages/agent/src/caller.test.ts` (3: a subagent kept on one line and 40 characters, and left out when blank or
+not text; the session's name and id without one; three subagents named and keyed apart, the same one keeping its id, and
+another session's of the same name apart). `packages/agent/src/dispatch.test.ts` (1: a body's subagent shown as its own
+caller under the session's id, with telemetry told the session each time). `packages/cli/src/execute.test.ts` (2,
+through the real MCP server: a named subagent reaching the app beside the caller and out of the params, with blank and
+numeric ones left out; `subagent` on every listed tool but the two that answer alone).
+`packages/cli/src/operations.test.ts` (2: each listed tool's schema is its contract's with `subagent` beside its fields;
+the tool list stays within 21.5 KB).
+
+Gap: not tried with real subagents. Claude Code's CLI wasn't signed in where this was built, so nothing here shows that
+subagents pass the name. The story Agent/Behavior, Three subagents, plays what the canvas shows when they do.
+
 ### Shared execute contract (PAR-451)
 
 CLI `exec` and MCP `execute` use the same operation in `packages/cli/src/execute.ts`. Both default the task label to

@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

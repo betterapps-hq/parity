@@ -33,6 +33,11 @@ terminal, run `parity`, not `npx @parity-app/cli`: npx spends 1–2 seconds find
 `parity` isn't found and you have no Parity MCP tools, ask the person to choose Help > Install the parity command in
 Parity, then use a new terminal.
 
+When you give Parity work to subagents that run at the same time, give each a short name and have it pass that name as
+`subagent` on every MCP call (`subagent: "Header"`). The canvas then shows a cursor for each one, so the person can
+follow them. Subagents share your connection, so without a name they all move one cursor. In a terminal, set
+`PARITY_AGENT_NAME` to a different name for each instead.
+
 | MCP                   | CLI                                             | What it does                                                                                                                                                                                                            |
 | --------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get_app_state`       | `parity state`                                  | Designs (with how many references each has), the selection, modes (the primary one marked), components and token names, and what Parity detected (builder and config, package manager, installed versions). Start here. |
