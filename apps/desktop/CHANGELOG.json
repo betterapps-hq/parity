@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 19:51:56 GMT",
+      "version": "0.74.2",
+      "tag": "@parity-app/desktop_v0.74.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f99ad4d9abce2c97354fa0e296edfdbfbae7cf37",
+            "comment": "Stop a project's Storybook and its workers when Parity quits or restarts its project service, on Windows, macOS and Linux"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "149250d3732dfcc3538c8752c761c6fbefc4cf3f",
+            "comment": "Canvas functions take the parts of the project they read instead of the whole session"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 19:27:29 GMT",
       "version": "0.74.1",
       "tag": "@parity-app/desktop_v0.74.1",

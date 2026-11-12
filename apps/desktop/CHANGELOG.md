@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 19:27:29 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 19:51:56 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.74.2
+
+Thu, 12 Nov 2026 19:51:56 GMT
+
+### Patches
+
+- Stop a project's Storybook and its workers when Parity quits or restarts its project service, on Windows, macOS and
+  Linux (ajcraswell@gmail.com)
 
 ## 0.74.1
 

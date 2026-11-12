@@ -3,7 +3,6 @@ import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/t
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { ServiceMethods } from "../../shared/protocol.ts"
 import { setWindowTelemetry } from "../report-error.ts"
-import type { ProjectSession } from "../workspace.ts"
 import { exportLayers } from "./commands.ts"
 
 type LayersExport = ServiceMethods["layers.export"]
@@ -28,8 +27,6 @@ vi.mock("../canvas/CanvasEditor.tsx", () => ({ canvasIdFor: (key: string) => key
 
 const sink = createTestSink()
 
-// SAFETY: `exportLayers` reads only the session's ID, which this sets.
-const session = { id: "project" } as ProjectSession
 const card = [{ design: "card", name: "Card" }]
 const png = [{ format: "png", scale: 2 }] as const
 
@@ -68,7 +65,7 @@ afterEach(() => {
 describe("export events", () => {
   it("say how long an export took, from asking for it until its files are written", async () => {
     exportTaking(240.4, () => Promise.resolve({ files: ["C:/exports/Card@2x.png"], warnings: [] }))
-    await exportLayers(session, card, png)
+    await exportLayers("project", card, png)
 
     expect(sink.named("export.done").map((event) => event.attributes)).toEqual([
       { kind: "layers", formats: ["png"], scales: [2], designs: 1, durationMs: 240, files: 1, warnings: 0 }
@@ -82,14 +79,14 @@ describe("export events", () => {
         warnings: ["Badge couldn't be drawn", "Avatar couldn't be drawn"]
       })
     )
-    await exportLayers(session, card, png)
+    await exportLayers("project", card, png)
 
     expect(sink.named("export.done").map((event) => event.attributes.warnings)).toEqual([2])
   })
 
   it("say how long a failed export ran before it failed", async () => {
     exportTaking(75, () => Promise.reject(new CodedError("No design card", { code: "unknown_design" })))
-    await exportLayers(session, card, png)
+    await exportLayers("project", card, png)
 
     expect(sink.named("export.failed").map((event) => event.attributes)).toEqual([
       { kind: "layers", formats: ["png"], scales: [2], designs: 1, durationMs: 75, code: "unknown_design" }

@@ -34,6 +34,7 @@ import {
 import { editingState } from "@parity-app/editor"
 import { Diamond, Eye, EyeOff, Group, Info, RotateCcw, Sparkles } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
+import type { Editor } from "tldraw"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
 import { frameGeometry, frameSize } from "../canvas/frame-geometry.ts"
@@ -45,7 +46,6 @@ import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
 import { InstanceSection as InstanceControls, type PropRow } from "../inspector/controls/instance-section.tsx"
 import { useSelection } from "../selection.ts"
-import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { componentFile, viewCode } from "./code-editor.ts"
 import { detachAndRecord, pushAndRecord } from "./component-events.ts"
@@ -111,8 +111,8 @@ function LayerActions({ node }: { node: DesignNode }) {
   const actions = layerActions(
     node,
     {
-      stories: component !== undefined && hasStories(session, component),
-      code: component !== undefined && componentFile(session, component) !== undefined,
+      stories: component !== undefined && hasStories(session.info, component),
+      code: component !== undefined && componentFile(session.info, component) !== undefined,
       design: design !== undefined
     },
     session.info.libraries
@@ -123,9 +123,9 @@ function LayerActions({ node }: { node: DesignNode }) {
       session.selection.set({ design: design.key })
       revealSelection(session)
     } else if (action === "open-in-storybook" && component) {
-      void openInStorybook(session, component)
+      void openInStorybook(session.id, component)
     } else if (action === "open-in-editor" && component) {
-      void viewCode(session, component)
+      void viewCode(session.info, component)
     }
   }
 
@@ -902,12 +902,12 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
 
 /** A node's rendered size in layout pixels, in the frame it was picked in. */
 export function measureNode(
-  session: ProjectSession,
+  editor: Editor | undefined,
   design: string,
   nodeId: string,
   picked: { mode?: string; state?: string }
 ): { width: number; height: number } | undefined {
-  const area = session.editor?.getContainer().closest(".canvas-area")
+  const area = editor?.getContainer().closest(".canvas-area")
   const host = area ? selectionFrame(area, design, picked) : undefined
   const rect = host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.rect : undefined
 
@@ -919,7 +919,7 @@ export function measureNode(
  * parent's top left, as Position's inset box measures pinned sides against. Undefined when it isn't drawn.
  */
 export function placeNode(
-  session: ProjectSession,
+  editor: Editor | undefined,
   design: string,
   nodeId: string,
   picked: { mode?: string; state?: string }
@@ -930,13 +930,13 @@ export function placeNode(
       inFlow: { x: number; y: number }
     }
   | undefined {
-  const area = session.editor?.getContainer().closest(".canvas-area")
+  const area = editor?.getContainer().closest(".canvas-area")
   const host = area ? selectionFrame(area, design, picked) : undefined
   const found = host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked) : undefined
   // Insets count from the containing block inside its border, which `offsetParent` gives (see `LayerSnapping`).
   const around = found?.element?.offsetParent
 
-  if (!host || !found || !(around instanceof HTMLElement) || !session.editor) {
+  if (!host || !found || !(around instanceof HTMLElement) || !editor) {
     return undefined
   }
 

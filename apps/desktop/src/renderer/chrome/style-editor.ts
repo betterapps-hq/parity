@@ -97,7 +97,7 @@ function useDrawnBox(
   const [, redraw] = useReducer((count: number) => count + 1, 0)
   // The size this draw of the panel saw, which a change is told against.
   const seen = useRef("")
-  const drawn = layer ? sizeKey(measureNode(session, design, layer, picked)) : ""
+  const drawn = layer ? sizeKey(measureNode(session.editor, design, layer, picked)) : ""
   const { mode, state } = picked
 
   useEffect(() => {
@@ -116,7 +116,7 @@ function useDrawnBox(
     const check = () => {
       frame = 0
 
-      if (sizeKey(measureNode(session, design, layer, { mode, state })) !== seen.current) {
+      if (sizeKey(measureNode(session.editor, design, layer, { mode, state })) !== seen.current) {
         redraw()
       }
     }
@@ -201,7 +201,7 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
 
   // Each layer measured in the frame the selection was picked in, so a size worked out from it is its own.
   const measure: LayerMeasure = (id, axis, round) => {
-    const size = measureNode(session, entry.key, id, selected)
+    const size = measureNode(session.editor, entry.key, id, selected)
 
     return size && Math.max(1, round(size[axis] / unit))
   }
@@ -276,6 +276,6 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
     tokens,
     unit,
     measure: (axis, round = Math.round) => (only ? measure(only, axis, round) : undefined),
-    place: () => (only ? placeNode(session, entry.key, only, selected) : undefined)
+    place: () => (only ? placeNode(session.editor, entry.key, only, selected) : undefined)
   }
 }

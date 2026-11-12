@@ -70,7 +70,8 @@ import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
-import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { type ContainerEntry, type DesignStore, useContainerEntries } from "../design-store.ts"
+import type { LoadedGuest } from "../guest.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
@@ -94,8 +95,8 @@ const noStatus: Record<string, ComponentRenderStatus> = {}
 const noSubscription = () => () => undefined
 
 /** How each component drawn so far fares on the canvas, as the guest's boundaries saw it. */
-function useRenderStatus(session: ProjectSession): Record<string, ComponentRenderStatus> {
-  const status = session.loaded.guest.renderStatus
+function useRenderStatus(loaded: LoadedGuest): Record<string, ComponentRenderStatus> {
+  const status = loaded.guest.renderStatus
 
   return useSyncExternalStore(status?.subscribe ?? noSubscription, status?.get ?? (() => noStatus))
 }
@@ -104,8 +105,7 @@ function useRenderStatus(session: ProjectSession): Record<string, ComponentRende
  * Puts an export on the component list, as an undoable change to the main project file, saved with it. The list follows
  * straight away.
  */
-function listByHand(session: ProjectSession, target: ComponentRef, name: string): void {
-  const { store } = session
+function listByHand(store: DesignStore, target: ComponentRef, name: string): void {
   const ref = { path: target.path, export: target.export }
 
   const main: CanvasDocument = store.getDocuments().find((entry) => entry.path === store.mainPath)?.document ?? {
@@ -488,7 +488,7 @@ function NotListed({ entries }: { entries: LeftOutExport[] }) {
               variant="ghost"
               size="sm"
               className="h-6 shrink-0 px-2"
-              onClick={() => listByHand(session, entry, entry.name)}
+              onClick={() => listByHand(session.store, entry, entry.name)}
             >
               List it
             </Button>
@@ -512,7 +512,7 @@ function SourceSection({
   uses: ReadonlyMap<string, number>
 }) {
   const session = useProject()
-  const statuses = useRenderStatus(session)
+  const statuses = useRenderStatus(session.loaded)
 
   const storybookRunning = useProcesses(false).some(
     (process) => process.kind === "storybook" && process.projectId === session.id && process.status === "running"
@@ -593,7 +593,7 @@ function AssetEntry({
   const session = useProject()
   const { item } = entry
   const component = item.kind === "component" ? entry.key : undefined
-  const stories = component !== undefined && hasStories(session, component)
+  const stories = component !== undefined && hasStories(session.info, component)
   const failing = status && "error" in status
   const card = useHoverCard()
   const { pictured, about } = useComponentCard(session, component, card.open)
@@ -703,10 +703,10 @@ function AssetEntry({
     <ComponentMenu
       storybook={
         component && session.info.storybook
-          ? { stories, running: storybookRunning, open: () => void openInStorybook(session, component) }
+          ? { stories, running: storybookRunning, open: () => void openInStorybook(session.id, component) }
           : undefined
       }
-      code={component ? { file, open: () => void viewCode(session, component) } : undefined}
+      code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
     >
       {instance && (
         // A library's design is placed linked, following the library, or as a copy to change freely.
@@ -764,7 +764,7 @@ function AssetEntry({
           <button
             type="button"
             aria-label={`Open ${entry.label} in Storybook`}
-            onClick={() => void openInStorybook(session, entry.key)}
+            onClick={() => void openInStorybook(session.id, entry.key)}
             className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100`}
           >
             <BookOpen className="size-3.5" />
@@ -819,12 +819,12 @@ export function useComponentCard(
     }
   }
 
-  if (componentFile(session, component) !== undefined) {
-    about.onOpenFile = () => void viewCode(session, component)
+  if (componentFile(session.info, component) !== undefined) {
+    about.onOpenFile = () => void viewCode(session.info, component)
   }
 
   if (stories > 0) {
-    about.onOpenStorybook = () => void openInStorybook(session, component)
+    about.onOpenStorybook = () => void openInStorybook(session.id, component)
   }
 
   return { pictured: previewStatus(preview, missing), about }
@@ -852,14 +852,14 @@ function AssetRow({ component, children }: { component: string | undefined; chil
 }
 
 /** Installs a catalog library with the project's package manager, then reopens the tab to load it. */
-async function installLibrary(session: ProjectSession, library: { id: string; name: string }): Promise<void> {
+async function installLibrary(projectId: string, library: { id: string; name: string }): Promise<void> {
   const progress = toast.loading(`Installing ${library.name}…`, { description: "With the project's package manager" })
 
   try {
-    await request("library.add", { projectId: session.id, library: library.id })
+    await request("library.add", { projectId, library: library.id })
     track("library.added", { package: library.id })
     toast.success(`${library.name} is ready`, { id: progress, description: undefined })
-    await workspace.reload(session.id, `Loading ${library.name}`)
+    await workspace.reload(projectId, `Loading ${library.name}`)
   } catch (error) {
     const failed: Attributes<"library.failed"> = { package: library.id }
     const code = errorCode(error)
@@ -940,7 +940,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
                       shownIconSets.set(session.id, library.id)
                     }
 
-                    void installLibrary(session, library)
+                    void installLibrary(session.id, library)
                   }}
                 >
                   {library.installed ? "Added" : "Add"}
@@ -962,7 +962,7 @@ function ImportStyles({ library }: { library: LibraryInfo }) {
       <button
         type="button"
         className="font-medium text-foreground underline-offset-2 hover:underline"
-        onClick={() => void importStyles(session, library)}
+        onClick={() => void importStyles(session.id, library)}
       >
         Import them
       </button>
@@ -974,9 +974,9 @@ function ImportStyles({ library }: { library: LibraryInfo }) {
  * Imports a library's styles into the project's stylesheet, then reopens the tab to draw with them, and says what it
  * changed, to look at or undo.
  */
-export async function importStyles(session: ProjectSession, library: LibraryInfo): Promise<void> {
+export async function importStyles(projectId: string, library: LibraryInfo): Promise<void> {
   try {
-    const edit = await request("library.importStyles", { projectId: session.id, library: library.id })
+    const edit = await request("library.importStyles", { projectId, library: library.id })
 
     const imported: Attributes<"styles.imported"> = {
       package: library.package,
@@ -988,11 +988,11 @@ export async function importStyles(session: ProjectSession, library: LibraryInfo
     }
 
     track("styles.imported", imported)
-    await workspace.reload(session.id, `Loading ${library.name}'s styles`)
+    await workspace.reload(projectId, `Loading ${library.name}'s styles`)
 
     if (edit) {
-      announceEdit(session.id, edit, {
-        afterUndo: () => workspace.reload(session.id, `Taking out ${library.name}'s styles`)
+      announceEdit(projectId, edit, {
+        afterUndo: () => workspace.reload(projectId, `Taking out ${library.name}'s styles`)
       })
     }
   } catch (error) {
@@ -1076,7 +1076,7 @@ export function IconsPanel() {
           Add an icon library to drop icons into screens and components. They render with the project&apos;s own copy.
         </p>
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => void installLibrary(session, { id: "lucide", name: "Lucide" })}>
+          <Button size="sm" onClick={() => void installLibrary(session.id, { id: "lucide", name: "Lucide" })}>
             <Plus /> Add Lucide
           </Button>
           <AddLibrary
