@@ -101,8 +101,8 @@ function useSelectedLayer() {
   return { entry, nodeId, node, components, override, change, reset }
 }
 
-/** The selected component layer's props section, as the layer panel shows it. */
-export function SelectedProps() {
+/** The selected component layer's props section and Attributes, as the layer panel shows them, or `only` Attributes. */
+export function SelectedProps({ only }: { only?: "attributes" }) {
   const layer = useSelectedLayer()
 
   if (layer?.node.type !== "component") {
@@ -118,6 +118,7 @@ export function SelectedProps() {
       changed={(name) => override?.props?.[name] !== undefined}
       onChange={(name, value, gesture) => change(`Change ${name}`, propChange(name, value), gesture)}
       onReset={(name) => reset({ kind: "props", key: name })}
+      only={only}
     />
   )
 }

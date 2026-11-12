@@ -3238,17 +3238,20 @@ section with the group's own title leads it without a title of its own, and its 
   inside a design but a component or an instance, which already is one.
 - **Component instance**, the same section for an instance of a component design and of a code component: the
   component's name in the title row, which goes to a project design's component, or for a library's says where it's
-  linked from. A code component's links, to its stories and its file, are in the header. Beside the name, a code
-  component has + to add an attribute it passes to its element, and one of the design's own instances has the menu with
-  Swap component, Reset overrides with how many there are, Push to main where the component is the project's, and
-  Detach. Then its props, or "No props to set."
+  linked from. A code component's links, to its stories and its file, are in the header. Beside the name, one of the
+  design's own instances has the menu with Swap component, Reset overrides with how many there are, Push to main where
+  the component is the project's, and Detach. Then its props, or "No props to set." Before a code component's props are
+  read from its source, it says so, and its + adds any prop by name.
+- **Attributes** (PAR-1026), after a code component's Component instance: what it passes on to its component's root
+  element, apart from its own props. + adds one from a searchable list grouped as Attributes, Accessibility and Events,
+  each with its kind; its row says Accessibility or Events on hover, and × removes it until a state changes it. Without
+  the component's source, nothing can be told apart from a prop, so there's no Attributes section.
 - **Props rows**, an instance's and a component design's alike: each prop's type as a small tile (text, a number, on or
   off, JSON, options) and its name with a capital first letter, above its control. Text wraps and grows in a box with a
   handle; a number takes maths, steps, scrubs, previews on the canvas while it's typed (PAR-203), and says why it can't
   read what's typed; on or off is a switch row; options are a select with the default first; an object or a list is JSON
   a key to a line, read when it's left, and a prop whose type isn't known takes any value. An unset prop is empty with
-  its default shown faintly, and choosing the default, or clearing the field, unsets it again. A code component's
-  pass-through attributes have a remove button at the end of their name's row.
+  its default shown faintly, and choosing the default, or clearing the field, unsets it again.
 - **Content** (text layers only): the words, which wrap and grow in their field, with a handle to drag it taller. Enter
   or leaving makes the edit, Shift+Enter starts a line, and Escape puts the words back. In a component design, the
   button beside it uses one of the component's props for the text. Then Tag. Not saved: Tag. A component whose only

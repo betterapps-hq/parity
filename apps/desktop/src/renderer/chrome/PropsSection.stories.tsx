@@ -7,7 +7,8 @@ import { inspecting, InspectorStage, PanelColumn, search, SelectedProps, slowly 
 
 /**
  * A component layer's props, as the layer panel shows them, inferred from the component's source: variants offer their
- * options, booleans a switch, numbers and strings an input, each with its default; attributes show once set.
+ * options, booleans a switch, numbers and strings an input, each with its default. What it passes on to its element is
+ * in Inspector › Attributes.
  */
 const meta = {
   title: "Parity/Inspector/Props",
@@ -38,30 +39,6 @@ export const VariantsAndBooleans: Story = { loaders: [pick("Plan card", "Call to
 
 /** Badge with nothing set: each variant shows its default as a placeholder. */
 export const AllDefaults: Story = { loaders: [pick("Plan card", "Popular")] }
-
-/**
- * Attributes Pricing's billing toggle sets: an accessible name, an array shown as JSON, and a prop the component
- * doesn't declare. Each says where it comes from on hover.
- */
-export const AttributesSet: Story = { loaders: [pick("Pricing", "Period toggle")] }
-
-/** A checkbox's attributes: its id as text, and defaultChecked as a switch. */
-export const BooleanAttribute: Story = { loaders: [pick("Sign in", "Remember checkbox")] }
-
-/** An attribute with options, the submit button's type, picked from a list. */
-export const AttributeWithOptions: Story = {
-  loaders: [
-    inspecting("design", () => {
-      const key = design("Sign in")
-      const id = node("Sign in", "Sign in button")
-      example().store.updateContainer(key, "Change type", (container) =>
-        editNode(container, designStates(container)[0]!.id, id, { props: { type: "submit" } })
-      )
-
-      return layersSelection(key, [id])
-    })
-  ]
-}
 
 /** A prop inferred as a number, the search field's size: a number input, with its default as the placeholder. */
 export const NumberProp: Story = { loaders: [pick("Projects", "Search input")] }
@@ -109,33 +86,6 @@ export const ChoosingAVariant: Story = {
     const [variant] = await within(canvasElement).findAllByRole("combobox", undefined, slowly)
     await userEvent.click(variant!)
     await within(document.body).findByRole("listbox", undefined, slowly)
-  }
-}
-
-/** The add button opened: every prop the component accepts that isn't showing, grouped, with what kind each is. */
-export const AddingAProp: Story = {
-  loaders: [pick("Plan card", "Call to action")],
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Add a prop" }))
-    await within(document.body).findByPlaceholderText("Search props", undefined, slowly)
-  }
-}
-
-/** Searching the props to add, for aria attributes. */
-export const SearchingProps: Story = {
-  loaders: [pick("Plan card", "Call to action")],
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Add a prop" }))
-    await search(await within(document.body).findByPlaceholderText("Search props", undefined, slowly), "aria-d")
-  }
-}
-
-/** A search that matches no prop the component declares. */
-export const NoPropMatches: Story = {
-  loaders: [pick("Plan card", "Call to action")],
-  play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Add a prop" }))
-    await search(await within(document.body).findByPlaceholderText("Search props", undefined, slowly), "strokeWidth")
   }
 }
 
