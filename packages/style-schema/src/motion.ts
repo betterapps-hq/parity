@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { finiteNumber, stored } from "./stored.ts"
+import { off, stepForm, token, tokenForm, valueForm } from "./value.ts"
 
 /*
  * A layer's transitions, and what they come to in CSS: the properties each of Tailwind's sets changes, its easings'
@@ -12,8 +13,10 @@ export const transitionSets = ["all", "colors", "opacity", "transform", "shadow"
 /** Tailwind's own easings, whose curves its theme defines as `--ease-in` and the like (`linear` is CSS's). */
 export const easingKeywords = ["linear", "ease-in", "ease-out", "ease-in-out"] as const
 
-/** A time: whole or part milliseconds (`duration-200`), or a duration token's name. */
-const time = z.union([finiteNumber, z.string()])
+/** A time: whole or part milliseconds (`{ step: 200 }` is `duration-200`), or a duration token. */
+const time = z.union([stepForm, tokenForm], "expected { step } in milliseconds or { token }")
+
+export type Time = z.infer<typeof time>
 
 /** A spring, by the time it takes and how much it bounces (0 to 1), or by its physics, as Framer's are set. */
 const spring = z.union([
@@ -24,10 +27,13 @@ const spring = z.union([
 export type Spring = z.infer<typeof spring>
 
 /**
- * An easing: one of Tailwind's (`ease-out`), an easing token's name (`ease-snappy`), a curve or steps of its own
- * (`cubic-bezier(0.2, 0.8, 0.2, 1)`, `steps(4)`), or a spring.
+ * An easing: one of Tailwind's (`{ keyword: "ease-out" }`), an easing token (`{ token: "ease-snappy" }`), a curve or
+ * steps of its own (`{ value: "cubic-bezier(0.2, 0.8, 0.2, 1)" }`, `{ value: "steps(4)" }`), or a spring.
  */
-const easing = z.union([z.string(), stored({ spring })])
+const easing = z.union(
+  [stored({ keyword: z.enum(easingKeywords) }), tokenForm, valueForm, stored({ spring })],
+  "expected { keyword }, { token }, { value } or { spring }"
+)
 
 export type Easing = z.infer<typeof easing>
 
@@ -39,8 +45,7 @@ export const transition = stored({
   /** Tailwind's default curve when unset. */
   easing: easing.optional(),
   delay: time.optional(),
-  /** Hidden with the eye: kept, not drawn or written, as a hidden layer is. */
-  hidden: z.boolean().optional()
+  off
 })
 
 /** How one property, or one of Tailwind's sets of them, changes when the layer's style does. */
@@ -105,17 +110,12 @@ export const defaultTransitionEasing = "cubic-bezier(0.4, 0, 0.2, 1)"
 export const isEasingFunction = (easing: string) => /^(cubic-bezier|steps|linear)\(/i.test(easing.trim())
 
 /** A time as CSS: milliseconds, or its token's variable. */
-export function timeCss(time: number | string): string {
-  return isTimeToken(time) ? `var(--${time})` : `${time}ms`
+export function timeCss(time: Time): string {
+  return "token" in time ? token(time.token) : `${time.step}ms`
 }
 
-/** Whether a time names a duration token, rather than being milliseconds. */
-// oxlint-disable-next-line anti-slop/no-runtime-typeof -- a time is milliseconds (number) or a token's name (string), with no tag to tell them apart
-export const isTimeToken = (time: number | string): time is string => typeof time === "string"
-
 /** Whether an easing is a spring, rather than a keyword, a token or a curve of its own. */
-// oxlint-disable-next-line anti-slop/no-runtime-typeof -- an easing is a string or a spring object, with no tag to tell them apart
-export const isSpring = (easing: Easing): easing is { spring: Spring } => typeof easing === "object"
+export const isSpring = (easing: Easing): easing is { spring: Spring } => "spring" in easing
 
 /** An easing as CSS: Tailwind's variable with its curve to fall back on, the token's, the curve, or a spring's. */
 export function easingCss(easing: Easing): string {
@@ -123,15 +123,15 @@ export function easingCss(easing: Easing): string {
     return springLinear(easing.spring)
   }
 
-  if (easing === "linear") {
-    return "linear"
+  if ("token" in easing) {
+    return token(easing.token)
   }
 
-  if (isEasingKeyword(easing)) {
-    return `var(--${easing}, ${easingCurves[easing]})`
+  if ("value" in easing) {
+    return easing.value
   }
 
-  return isEasingFunction(easing) ? easing : `var(--${easing})`
+  return easing.keyword === "linear" ? "linear" : `var(--${easing.keyword}, ${easingCurves[easing.keyword]})`
 }
 
 /**
@@ -141,7 +141,7 @@ export function easingCss(easing: Easing): string {
  */
 export function transitionCss(transitions: readonly Transition[] | undefined): string | undefined {
   const parts = (transitions ?? [])
-    .filter((transition) => !transition.hidden)
+    .filter((transition) => !transition.off)
     .flatMap((transition) => {
       const spring =
         transition.easing !== undefined && isSpring(transition.easing) ? transition.easing.spring : undefined

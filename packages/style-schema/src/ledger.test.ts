@@ -39,8 +39,8 @@ describe("the ledger", () => {
   })
 
   it("names the owning key on a property's entry, and none on the CSS map's", () => {
-    expect(ledger.get("align-self")).toMatchObject({ key: "self", section: "size", where: "control" })
-    expect(ledger.get("line-height")).toMatchObject({ key: "leading", tokens: ["leading", "spacing"] })
+    expect(ledger.get("align-self")).toMatchObject({ key: "alignSelf", section: "size", where: "control" })
+    expect(ledger.get("line-height")).toMatchObject({ key: "lineHeight", tokens: ["leading", "spacing"] })
     expect(ledger.get("mix-blend-mode")?.key).toBeUndefined()
   })
 

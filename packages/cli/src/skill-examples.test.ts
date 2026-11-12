@@ -43,7 +43,7 @@ const layout = (name: string, children: DesignNode[] = [], hidden?: boolean): De
 const row = (id: string, name: string, email: string): DesignNode => ({
   type: "layout",
   id,
-  style: { direction: "row", gap: 4 },
+  style: { flexDirection: "row", gap: { step: 4 } },
   children: [text(`${id}-name`, name), text(`${id}-email`, email)]
 })
 
@@ -160,7 +160,7 @@ function project(tab: string): AgentSnapshot {
     ],
     theme: [],
     modes: defaultModeSettings,
-    documents: [{ path: "app.par", document: { version: 3, containers: structuredClone(designs), references } }],
+    documents: [{ path: "app.par", document: { version: 4, containers: structuredClone(designs), references } }],
     libraryDesigns: [],
     tokenOverrides: [],
     mainDocument: "app.par",

@@ -27,7 +27,7 @@ import {
 
 /** The file checks a design as it reads it, so a frame these make is one the project file takes. */
 function parses(design: ContainerSpec): void {
-  expect(() => parseCanvasDocument({ version: 3, containers: [design] })).not.toThrow()
+  expect(() => parseCanvasDocument({ version: 4, containers: [design] })).not.toThrow()
 }
 
 describe("drawing a frame", () => {
@@ -84,7 +84,7 @@ describe("text on the empty canvas", () => {
     const { design, node } = frameOfText("Plans for every team", ["plans-for-every-team"], { x: 12, y: 34 })
     expect(design).toMatchObject({ kind: "frame", name: "Plans for every team", position: { x: 12, y: 34 } })
     expect(design.id).not.toBe("plans-for-every-team")
-    expect(design.root).toMatchObject({ type: "layout", style: { padding: 2, width: "hug" } })
+    expect(design.root).toMatchObject({ type: "layout", style: { padding: { step: 2 }, width: { size: "hug" } } })
     expect(findNode(design.root, node)).toMatchObject({ type: "text", text: "Plans for every team" })
     expect(hugsContent(design)).toBe(true)
     parses(design)
@@ -112,7 +112,7 @@ describe("a frame's size in the inspector", () => {
   const frame = drawnFrame([], { x: 0, y: 0 }, { width: 640, height: 400 })
 
   it("shows as its root's width and height, in steps", () => {
-    expect(frameRootShown(frame, 4).root.style).toMatchObject({ width: 160, height: 100 })
+    expect(frameRootShown(frame, 4).root.style).toMatchObject({ width: { step: 160 }, height: { step: 100 } })
   })
 
   it("puts a fixed width or height back as the frame's size, and anything else as its default", () => {
@@ -122,12 +122,15 @@ describe("a frame's size in the inspector", () => {
       return frameRootStored({ ...shown, root: { ...shown.root, style: { ...shown.root.style, ...style } } }, 4)
     }
 
-    const wider = edit({ width: 200 })
+    const wider = edit({ width: { step: 200 } })
     expect(wider.size).toEqual({ width: 800, height: 400 })
     expect(wider.root.style).not.toHaveProperty("width")
-    expect(edit({ height: "hug" }).size).toEqual({ width: 640 })
-    expect(edit({ width: "fill", height: "hug" }).size).toBeUndefined()
-    expect(edit({ width: "hug" })).toMatchObject({ size: { width: 640 }, root: { style: { width: "hug" } } })
+    expect(edit({ height: { size: "hug" } }).size).toEqual({ width: 640 })
+    expect(edit({ width: { size: "fill" }, height: { size: "hug" } }).size).toBeUndefined()
+    expect(edit({ width: { size: "hug" } })).toMatchObject({
+      size: { width: 640 },
+      root: { style: { width: { size: "hug" } } }
+    })
     parses(wider)
   })
 })

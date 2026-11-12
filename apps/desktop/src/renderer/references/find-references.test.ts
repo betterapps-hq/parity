@@ -25,7 +25,7 @@ function screen(id: string, platform: "web" | "ios" = "web"): Found {
 
 function session(containers: ContainerSpec[] = []): ProjectSession {
   const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers } }],
+    [{ path: "app.par", document: { version: 4, containers } }],
     defaultModeSettings,
     "app.par",
     {

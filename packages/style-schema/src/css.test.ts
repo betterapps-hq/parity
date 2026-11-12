@@ -106,23 +106,58 @@ describe("reading CSS back", () => {
 
 describe("round trips", () => {
   const styles: NodeStyle[] = [
-    { direction: "row", gap: 4, padding: [2, 4], align: "center", justify: "between", wrap: true },
-    { display: "grid", columns: 3, rowGap: 2, width: "fill", minWidth: 10, self: "end" },
-    { position: "absolute", top: 0, zIndex: 10, opacity: 50, overflow: "scroll", radius: "radius-full" },
-    { font: "font-sans", size: "text-lg", weight: 600, textTransform: "uppercase", lines: 2 },
-    { shadow: [{ kind: "drop", x: 0, y: 4, blur: 12, spread: -2, color: { color: "foreground", alpha: 10 } }] },
-    { transform: { x: 2, y: { percent: -50 }, rotate: 45 }, filter: [{ kind: "blur", value: "blur-sm" }] },
     {
-      background: [
-        { kind: "image", src: "/t.png", fit: "fill" },
+      flexDirection: "row",
+      gap: { step: 4 },
+      padding: [{ step: 2 }, { step: 4 }],
+      alignItems: "center",
+      justifyContent: "space-between",
+      flexWrap: "wrap"
+    },
+    {
+      display: "grid",
+      gridTemplateColumns: [{ fr: 1 }, { fr: 1 }, { fr: 1 }],
+      rowGap: { step: 2 },
+      width: { size: "fill" },
+      minWidth: { step: 10 },
+      alignSelf: "end"
+    },
+    {
+      position: "absolute",
+      top: { step: 0 },
+      zIndex: { step: 10 },
+      opacity: 50,
+      overflow: "auto",
+      borderRadius: { token: "radius-full" }
+    },
+    {
+      fontFamily: { token: "font-sans" },
+      fontSize: { token: "text-lg" },
+      fontWeight: 600,
+      textTransform: "uppercase",
+      lineClamp: 2
+    },
+    {
+      boxShadow: [
+        { type: "drop", x: 0, y: 4, blur: 12, spread: -2, color: { token: "foreground", alpha: { step: 10 } } }
+      ]
+    },
+    {
+      translate: { x: { step: 2 }, y: { value: "-50%" } },
+      rotate: 45,
+      filter: [{ type: "blur", value: { token: "blur-sm" } }]
+    },
+    {
+      fills: [
+        { type: "image", src: "/t.png", fit: "fill" },
         {
-          kind: "linear",
+          type: "linear",
           stops: [
-            { color: "primary", position: 0 },
-            { color: "card", alpha: 50, position: 100 }
+            { color: { token: "primary" }, position: 0 },
+            { color: { token: "card", alpha: { step: 50 } }, position: 100 }
           ]
         },
-        { kind: "solid", color: "muted" }
+        { type: "solid", color: { token: "muted" } }
       ]
     }
   ]

@@ -63,7 +63,7 @@ export const StateWithStyleChanges: Story = {
     showing("Pricing", "yearly", (key) =>
       example().store.updateContainer(key, "Change style", (container) =>
         editNode(container, "yearly", node("Pricing", "Headline"), {
-          style: { foreground: "primary", weight: 700, textAlign: "start" }
+          style: { color: { token: "primary" }, fontWeight: 700, textAlign: "start" }
         })
       )
     )

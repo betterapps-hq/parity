@@ -39,14 +39,18 @@ const badge: ContainerSpec = {
       type: "variant",
       options: [
         { id: "neutral", name: "Neutral" },
-        { id: "danger", name: "Danger", overrides: { badge: { style: { background: "destructive" } } } }
+        {
+          id: "danger",
+          name: "Danger",
+          overrides: { badge: { style: { fills: [{ type: "solid", color: { token: "destructive" } }] } } }
+        }
       ]
     }
   },
   root: {
     type: "layout",
     id: "badge",
-    style: { background: "muted", padding: 1 },
+    style: { fills: [{ type: "solid", color: { token: "muted" } }], padding: { step: 1 } },
     children: [{ type: "text", id: "label", text: "Badge", bind: { text: "label" } }]
   },
   states: [{ id: "default", name: "Default" }]
@@ -61,10 +65,10 @@ const card: ContainerSpec = {
   root: {
     type: "layout",
     id: "card",
-    style: { padding: 4, gap: 2 },
+    style: { padding: { step: 4 }, gap: { step: 2 } },
     children: [
       { type: "text", id: "title", text: "Title", bind: { text: "title" } },
-      { type: "text", id: "body", name: "Body", text: "Body copy", style: { foreground: "muted-foreground" } },
+      { type: "text", id: "body", name: "Body", text: "Body copy", style: { color: { token: "muted-foreground" } } },
       { type: "instance", id: "status", design: "badge", args: { label: "Active" } }
     ]
   },
@@ -137,11 +141,11 @@ function render(design: ContainerSpec, state = design.states[0], lib = library) 
 
 describe("variants", () => {
   it("shows the chosen option's patches, the default otherwise", () => {
-    expect(css(render(badge), "badge")).toMatchObject({ background: "var(--muted)" })
+    expect(css(render(badge), "badge")).toMatchObject({ "background-color": "var(--muted)" })
     const danger = { ...badge, view: { variants: { tone: "danger" } } }
-    expect(css(render(danger), "badge")).toMatchObject({ background: "var(--destructive)" })
+    expect(css(render(danger), "badge")).toMatchObject({ "background-color": "var(--destructive)" })
     const unknown = { ...badge, view: { variants: { tone: "gone" } } }
-    expect(css(render(unknown), "badge")).toMatchObject({ background: "var(--muted)" })
+    expect(css(render(unknown), "badge")).toMatchObject({ "background-color": "var(--muted)" })
   })
 
   it("lets an instance pick an option through its args", () => {
@@ -151,7 +155,7 @@ describe("variants", () => {
     }
 
     const tree = render(screen)
-    expect(css(tree, "alert")).toMatchObject({ background: "var(--destructive)" })
+    expect(css(tree, "alert")).toMatchObject({ "background-color": "var(--destructive)" })
     expect(textOf(tree, "alert/label")).toBe("Late")
   })
 
@@ -159,13 +163,13 @@ describe("variants", () => {
     const danger = { ...badge, view: { variants: { tone: "danger" } } }
     const target = boardTarget(danger, "default")
     expect(target).toEqual({ state: "default", variant: { param: "tone", option: "danger" } })
-    const edited = editNode(danger, target, "badge", { style: { radius: "radius-full" } })
+    const edited = editNode(danger, target, "badge", { style: { borderRadius: { token: "radius-full" } } })
     expect(edited.root.style).toEqual(badge.root.style)
     expect(edited.params?.tone?.options?.[1]?.overrides?.badge?.style).toEqual({
-      background: "destructive",
-      radius: "radius-full"
+      fills: [{ type: "solid", color: { token: "destructive" } }],
+      borderRadius: { token: "radius-full" }
     })
-    const reset = resetOverride(edited, target, "badge", { kind: "style", key: "radius" })
+    const reset = resetOverride(edited, target, "badge", { kind: "style", key: "borderRadius" })
     expect(reset.params?.tone?.options?.[1]?.overrides).toEqual(badge.params?.tone?.options?.[1]?.overrides)
   })
 
@@ -178,13 +182,13 @@ describe("variants", () => {
     expect(removed.params?.Size?.options).toHaveLength(2)
     expect(removed.view?.variants).toBeUndefined()
     expect(() => removeVariantOption(addVariant(card, "One", ["Only"]), "One", "only")).toThrow(/at least one/)
-    const loaded = parseCanvasDocument({ version: 3, containers: [badge, card, team] })
+    const loaded = parseCanvasDocument({ version: 4, containers: [badge, card, team] })
     expect(loaded.containers[0]).toEqual(badge)
   })
 
   it("rejects a variant without options, and patches for nodes that don't exist", () => {
     const parse = (params: JsonValue) =>
-      parseCanvasDocument({ version: 3, containers: [{ ...badge, params }] }).containers[0]
+      parseCanvasDocument({ version: 4, containers: [{ ...badge, params }] }).containers[0]
 
     expect(() => parse({ tone: { type: "variant" } })).toThrow(/needs options/)
     expect(() =>
@@ -195,14 +199,22 @@ describe("variants", () => {
 
 describe("instance overrides", () => {
   it("changes one copy and keeps the rest linked to the component", () => {
-    const edited = editInner(team, "default", "first/body", { text: "Leads design", style: { weight: 600 } }, library)
+    const edited = editInner(
+      team,
+      "default",
+      "first/body",
+      { text: "Leads design", style: { fontWeight: 600 } },
+      library
+    )
+
     const instance = edited.root.type === "layout" ? edited.root.children[0] : undefined
-    expect(instance).toMatchObject({ overrides: { body: { text: "Leads design", style: { weight: 600 } } } })
+
+    expect(instance).toMatchObject({ overrides: { body: { text: "Leads design", style: { fontWeight: 600 } } } })
     const tree = render(edited)
     expect(textOf(tree, "first/body")).toBe("Leads design")
     expect(textOf(tree, "second/body")).toBe("Body copy")
     // The component changing still reaches the copy, for whatever the copy doesn't change itself.
-    const restyled = editNode(card, "default", "body", { style: { foreground: "primary" } })
+    const restyled = editNode(card, "default", "body", { style: { color: { token: "primary" } } })
     const later = render(edited, edited.states[0], componentLibrary([badge, restyled]))
     expect(css(later, "first/body")).toMatchObject({ color: "var(--primary)", "font-weight": "600" })
   })
@@ -227,7 +239,7 @@ describe("instance overrides", () => {
     const styled = editInner(edited, "default", "first/status", { props: { tone: "danger" } }, library)
     const tree = render(styled)
     expect(textOf(tree, "first/status/label")).toBe("Away")
-    expect(css(tree, "first/status")).toMatchObject({ background: "var(--destructive)" })
+    expect(css(tree, "first/status")).toMatchObject({ "background-color": "var(--destructive)" })
     expect(textOf(tree, "second/status/label")).toBe("Active")
     expect(locateInner(styled, "first/status/label", library)?.shown).toMatchObject({ text: "Away" })
   })
@@ -415,7 +427,7 @@ describe("a component's board", () => {
     expect(layerOnBoard(card, "status/label", library, empty)).toMatchObject({ text: "Active" })
     const danger = { ...badge, view: { variants: { tone: "danger" } } }
     const shown = layerOnBoard(danger, "badge", library, danger.states[0])
-    expect(shown?.style).toMatchObject({ background: "destructive" })
+    expect(shown?.style).toMatchObject({ fills: [{ type: "solid", color: { token: "destructive" } }] })
   })
 })
 

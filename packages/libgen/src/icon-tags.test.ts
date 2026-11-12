@@ -193,7 +193,7 @@ describe("iconWords", () => {
 describe("manifestText", () => {
   it("writes each icon's tags on one line, and the rest as indented JSON", () => {
     const manifest: LibraryManifest = {
-      version: 3,
+      version: 4,
       name: "Lucide",
       icons: { render: "export", tags: { X: ["close", "cancel"], Cog: [] } }
     }
@@ -201,8 +201,8 @@ describe("manifestText", () => {
     const text = manifestText(manifest)
     expect(text).toContain('      "X": ["close","cancel"],\n      "Cog": []\n    }')
     expect(JSON.parse(text)).toEqual(manifest)
-    expect(manifestText({ version: 3, name: "Nova" })).toBe(
-      `${JSON.stringify({ version: 3, name: "Nova" }, null, 2)}\n`
+    expect(manifestText({ version: 4, name: "Nova" })).toBe(
+      `${JSON.stringify({ version: 4, name: "Nova" }, null, 2)}\n`
     )
   })
 })

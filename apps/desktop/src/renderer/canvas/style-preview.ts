@@ -66,8 +66,7 @@ export class StylePreview {
 
           const values = now.get(element) ?? new Map<string, string>()
 
-          // What's taken away goes first, so taking away a shorthand, as a fill's `background` going to a stack's
-          // `background-color` and `background-image`, doesn't clear the longhands set after it.
+          // What's taken away goes first, so taking away a shorthand doesn't clear the longhands set after it.
           for (const name of change.unset) {
             values.set(cssName(name), "")
           }

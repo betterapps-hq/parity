@@ -1,5 +1,33 @@
 # Decisions
 
+- **The stored style is named and shaped as CSS is, in `.par` version 4 (PAR-941).** Step 3 of
+  [style-package.md](proposals/style-package.md), following What the design model needs in
+  [design-options-code.md](proposals/design-options-code.md). A version 3 file is rejected, and the examples, the
+  libraries and the fixtures are rewritten, as Fix forward says. What a file holds is in [editor.md](editor.md), The
+  stored style.
+  - **Every key that writes one CSS property takes its name.** You chose this on 2026-11-12 over the issue's shorter
+    list, so `alignItems` sits beside `justifyContent` rather than `align`: `flexDirection`, `flexWrap`, `fontWeight`,
+    `borderRadius`, `textDecorationLine`, `fontStyle` and `lineClamp` join the renames the issue names. `grow`,
+    `colSpan` and `rowSpan` keep their names, since each is Parity's idea rather than one property.
+  - **Transform is CSS's own properties.** You chose this on 2026-11-12 over one list: `translate`, `rotate`, `scale`
+    and `transformOrigin` are keys, since CSS applies them in a fixed order, and `transform` is the ordered list, which
+    holds skew today.
+  - **My call: a value takes a form where it can be a token or is a length; a number in one fixed unit stays a number.**
+    Lengths, sizes, colors, radius, the type keys, `zIndex`, a blur and a transition's times and easing are stored with
+    their form. Opacity, border width, font weight, rotation, scale, a shadow's offsets and a filter's adjustments stay
+    numbers. The proposal counts some of those as steps too; giving them forms later changes the format again, so say if
+    you'd rather they went now.
+  - **My call: a list entry is told apart by `type` and turned off by `off`,** in every list, as the proposal's own
+    example has it. Paints and transitions had `kind` and `hidden`.
+  - **My call: `flexWrap` and `fontStyle` take the value that takes them off** (`nowrap`, `normal`), which a state or a
+    viewport needs to undo the base's. They write nothing, as an unset key does.
+  - **My call: `overflow`'s `scroll` is `auto`,** which is what it always drew, as the proposal asks.
+  - **My call: the CSS map is `css`, by property, each `{ value, off? }`,** and the schema refuses a property a key
+    owns, by the ledger. Nothing in the panel writes it yet.
+  - **Left for later, each a wider form the file can take without changing what it holds now:** one value or four for
+    radius and the border's sides, the `allow` reason on an exception, and controls for the value, keyword and
+    expression forms, which the panel shows as text.
+
 - **The style package is `@parity-app/style-schema` (PAR-999).** You found `@parity-app/style` too vague on 2026-11-12
   and chose this name. Only the name and the folder (`packages/style-schema`) changed: the schema, the ledger,
   `validate` and the adapter contract are as they were. Entries below written before the rename use the new name.

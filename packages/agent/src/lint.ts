@@ -1,22 +1,25 @@
 import {
   type CanvasDocument,
   childEntries,
+  type Color,
   type ComponentInfo,
   type ComponentLibrary,
   type DesignNode,
-  fillTokens,
-  isEasingFunction,
-  isEasingKeyword,
   isSpring,
-  isTimeToken,
+  type LineHeight,
+  type Named,
   type NodeStyle,
   type PropValues,
   radiusKeywords,
-  type Shadow
+  type Shadow,
+  type Size,
+  type StyleKey,
+  type Time,
+  type Track
 } from "@parity-app/core"
 import type { TokenCategory } from "@parity-app/core"
+import { type Easing, validate } from "@parity-app/style-schema"
 import { compareNames, readNearValue } from "@parity-app/tokens"
-import { z } from "zod"
 import type { Warning } from "./warnings.ts"
 
 /** What a design is checked against: the project's components, tokens and icon sets, and what this call inserted. */
@@ -41,7 +44,69 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
   const components = new Set(context.components)
   const icons = (context.iconSets ?? []).map((set) => `${set.id}/`)
   const tokens = new Set(context.tokens.map((token) => token.name))
-  const known = (name: string, value: string) => tokens.has(value) || (name === "radius" && value in radiusKeywords)
+
+  const known = (name: string, value: string) =>
+    tokens.has(value) || (name === "borderRadius" && value in radiusKeywords)
+
+  /** What's wrong with a style's values, in a design, a viewport's patch or a state. */
+  const checkStyle = (style: NodeStyle | undefined, where: string) => {
+    for (const entry of styleValues(style)) {
+      const { name, value } = entry
+
+      if ("token" in value) {
+        if (known(name, value.token)) {
+          continue
+        }
+
+        if (entry.takes === "zIndex") {
+          warn(
+            "not_a_token",
+            `zIndex "${value.token}" isn't a token. Use a whole number ({ step: 10 }) instead.`,
+            where
+          )
+        } else if (entry.takes === "length") {
+          warn(
+            "not_a_length_token",
+            `${name} "${value.token}" isn't a length token. Use spacing steps ({ step: 4 }) instead.`,
+            where
+          )
+        } else {
+          warn("not_a_token", notAToken({ ...entry, value: value.token, named: true }, context.tokens), where)
+        }
+
+        continue
+      }
+
+      const written = writtenOut(value)
+
+      if (written === undefined) {
+        continue
+      }
+
+      // A value CSS wouldn't take is said once, as that: which token is nearest it isn't worth knowing.
+      if (!validate(entry.property, entry.css ? entry.css(written) : written).valid) {
+        warn("invalid_value", `${name} "${written}" isn't a value ${entry.property} takes.`, where)
+      } else if (entry.tokened && "value" in value) {
+        warn("not_a_token", notAToken({ ...entry, value: written, named: false }, context.tokens), where)
+      }
+    }
+
+    for (const [property, declaration] of Object.entries(style?.css ?? {})) {
+      const validity = validate(property, declaration.value)
+
+      if (validity.valid) {
+        continue
+      }
+
+      warn(
+        "invalid_value",
+        validity.problem === "property"
+          ? `css "${property}" isn't a CSS property.`
+          : `css.${property} "${declaration.value}" isn't a value ${property} takes.`,
+        where
+      )
+    }
+  }
 
   for (const container of document.containers) {
     const check = (node: DesignNode, where: string) => {
@@ -66,28 +131,7 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
       }
 
       for (const style of [node.style, ...Object.values(node.responsive ?? {}).map((patch) => patch.style)]) {
-        for (const token of styleTokens(style)) {
-          if (!known(token.name, token.value)) {
-            warn("not_a_token", notAToken(token, context.tokens), where)
-          }
-        }
-
-        // A layer order is a whole number, or names a z-index token.
-        const zIndex = lengthName.safeParse(style?.zIndex).data
-
-        if (zIndex !== undefined && !tokens.has(zIndex)) {
-          warn("not_a_token", `zIndex "${zIndex}" isn't a token. Use a whole number instead.`, where)
-        }
-
-        for (const [name, value] of lengthTokens(style)) {
-          if (!tokens.has(value)) {
-            warn(
-              "not_a_length_token",
-              `${name} "${value}" isn't a length token. Use a spacing step (a number) instead.`,
-              where
-            )
-          }
-        }
+        checkStyle(style, where)
       }
 
       if (
@@ -110,11 +154,7 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
 
     for (const state of container.states) {
       for (const [nodeId, patch] of Object.entries(state.overrides ?? {})) {
-        for (const token of styleTokens(patch.style)) {
-          if (!known(token.name, token.value)) {
-            warn("not_a_token", notAToken(token, context.tokens), `${container.id} state ${state.id}/${nodeId}`)
-          }
-        }
+        checkStyle(patch.style, `${container.id} state ${state.id}/${nodeId}`)
       }
     }
   }
@@ -170,180 +210,226 @@ export function propWarnings(
   return found
 }
 
-/** A length written as a name, a token's or `fill` or `hug`, rather than a number of spacing steps. */
-const lengthName = z.string()
-
-/** Lengths given as token names rather than spacing steps, by the style key they're under. */
-function lengthTokens(style: NodeStyle | undefined): [string, string][] {
-  const found: [string, string][] = []
-
-  for (const name of lengthStyleKeys) {
-    const value = style?.[name]
-
-    for (const side of Array.isArray(value) ? value : [value]) {
-      const token = lengthName.safeParse(side).data
-
-      if (token !== undefined && token !== "fill" && token !== "hug") {
-        found.push([name, token])
-      }
-    }
-  }
-
-  for (const axis of ["x", "y"] as const) {
-    const token = lengthName.safeParse(style?.transform?.[axis]).data
-
-    if (token !== undefined) {
-      found.push([`transform.${axis}`, token])
-    }
-  }
-
-  return found
-}
-
-const lengthStyleKeys = [
-  "gap",
-  "rowGap",
-  "padding",
-  "margin",
-  "width",
-  "height",
-  "minWidth",
-  "maxWidth",
-  "minHeight",
-  "maxHeight",
-  "top",
-  "right",
-  "bottom",
-  "left"
-] as const
-
-const tokenStyleKeys = [
-  "background",
-  "foreground",
-  "border",
-  "radius",
-  "shadow",
-  "font",
-  "size",
-  "leading",
-  "tracking"
-] as const
+/** A stored value that can name a token or be written out. A size's `{ size }` and a track's `{ fr }` are neither. */
+type Stored = Size | Track | Color | Named | LineHeight | Time | Exclude<Easing, { spring: object }>
 
 /** The category of tokens a color or length is compared with, to find the nearest. */
 type NearestCategory = "color" | "radius" | "font-size" | "tracking"
 
-/** The category of tokens a color or length under each key is compared with, to find the nearest. */
-const nearestCategories: Partial<Record<(typeof tokenStyleKeys)[number], NearestCategory>> = {
-  background: "color",
-  foreground: "color",
-  border: "color",
-  radius: "radius",
-  size: "font-size",
-  tracking: "tracking"
-}
-
-/** The category of tokens each key takes, which a warning lists the project's tokens of. */
-const keyCategories: Record<(typeof tokenStyleKeys)[number], TokenCategory> = {
-  background: "color",
-  foreground: "color",
-  border: "color",
-  radius: "radius",
-  shadow: "shadow",
-  font: "font",
-  size: "font-size",
-  leading: "leading",
-  tracking: "tracking"
-}
-
 /**
- * A token a style names: where (`shadow[1].color`), its name, the category of tokens that goes there, when it's one
- * category, and the category to find the nearest in.
+ * A value in a style that can name a token or be written out: where (`boxShadow[1].color`), the CSS property it's
+ * written to, and what a name there has to be.
  */
-interface StyleToken {
+interface StyleValue {
   name: string
-  value: string
+  /** The property a value written out is checked against. */
+  property: string
+  value: Stored
+  /** A name there is a token of the key's kind, a length token or a z-index token, each with its own warning. */
+  takes: "token" | "length" | "zIndex"
+  /** The category of tokens that goes there, when it's one category, which a warning lists the project's tokens of. */
   category?: TokenCategory
+  /** The category to find the nearest token in, for a color or a length written where a token goes. */
   nearest?: NearestCategory
+  /** Whether the project's tokens are what goes there, so a `{ value }` is off them and gets the token's warning. */
+  tokened?: boolean
+  /** The value as its property reads it, where that isn't the value alone: a blur's length inside `blur()`. */
+  css?: (written: string) => string
 }
 
-/** The tokens a style names: under its token keys, and in its shadows' and filters' entries. */
-function styleTokens(style: NodeStyle | undefined): StyleToken[] {
+/** A color, whose tokens are colors, and the token its alpha names when it names one. */
+function colorValues(name: string, property: string, value: Color): StyleValue[] {
+  const color: StyleValue = {
+    name,
+    property,
+    value,
+    takes: "token",
+    category: "color",
+    nearest: "color",
+    tokened: true
+  }
+
+  const alpha = "alpha" in value ? value.alpha : undefined
+
+  return alpha !== undefined && "token" in alpha
+    ? [color, { name: `${name}.alpha`, property: "opacity", value: { token: alpha.token }, takes: "token" }]
+    : [color]
+}
+
+/** The keys that take one token of one category, with the property each writes. */
+const tokenKeys = [
+  { key: "borderRadius", property: "border-radius", category: "radius", nearest: "radius" },
+  { key: "fontFamily", property: "font-family", category: "font" },
+  { key: "fontSize", property: "font-size", category: "font-size", nearest: "font-size" },
+  { key: "lineHeight", property: "line-height", category: "leading" },
+  { key: "letterSpacing", property: "letter-spacing", category: "tracking", nearest: "tracking" }
+] as const satisfies readonly { key: StyleKey; property: string; category: TokenCategory; nearest?: NearestCategory }[]
+
+/** The keys that take a length, with the property each writes. */
+const lengthKeys = [
+  ["gap", "gap"],
+  ["rowGap", "row-gap"],
+  ["padding", "padding"],
+  ["margin", "margin"],
+  ["width", "width"],
+  ["height", "height"],
+  ["minWidth", "min-width"],
+  ["maxWidth", "max-width"],
+  ["minHeight", "min-height"],
+  ["maxHeight", "max-height"],
+  ["top", "top"],
+  ["right", "right"],
+  ["bottom", "bottom"],
+  ["left", "left"]
+] as const satisfies readonly [StyleKey, string][]
+
+/** The values in a style that can name a token or be written out, in the order their warnings are given. */
+function styleValues(style: NodeStyle | undefined): StyleValue[] {
   if (!style) {
     return []
   }
 
-  const found: StyleToken[] = []
+  const found: StyleValue[] = []
 
-  for (const name of tokenStyleKeys) {
-    const value = style[name]
-
-    if (value && !Array.isArray(value)) {
-      found.push({ name, value, category: keyCategories[name], nearest: nearestCategories[name] })
+  // A fill's colors, then its gradient tokens, all under `fills` (PAR-931).
+  for (const layer of style.fills ?? []) {
+    if (layer.type === "solid") {
+      found.push(...colorValues("fills", "background-color", layer.color))
+    } else if (layer.type !== "gradient" && layer.type !== "image") {
+      found.push(...layer.stops.flatMap((stop) => colorValues("fills", "color", stop.color)))
     }
   }
 
-  // A fill's stack names its colors and gradient tokens under `background` (PAR-931).
-  if (Array.isArray(style.background)) {
-    const { colors, gradients } = fillTokens(style.background)
-    found.push(
-      ...colors.map((value): StyleToken => ({ name: "background", value, category: "color", nearest: "color" }))
-    )
-    found.push(...gradients.map((value): StyleToken => ({ name: "background", value })))
+  for (const layer of style.fills ?? []) {
+    if (layer.type === "gradient") {
+      found.push({ name: "fills", property: "background-image", value: { token: layer.token }, takes: "token" })
+    }
   }
 
-  const shadowTokens = (entry: Shadow, at: string) => {
+  if (style.color) {
+    found.push(...colorValues("color", "color", style.color))
+  }
+
+  if (style.borderColor) {
+    found.push(...colorValues("borderColor", "border-color", style.borderColor))
+  }
+
+  const shadowValues = (entry: Shadow, at: string) => {
     if ("token" in entry) {
-      found.push({ name: `${at}.token`, value: entry.token, category: "shadow" })
+      found.push({
+        name: `${at}.token`,
+        property: "box-shadow",
+        value: { token: entry.token },
+        takes: "token",
+        category: "shadow"
+      })
     }
 
     if (entry.color) {
-      found.push({ name: `${at}.color`, value: entry.color.color, category: "color", nearest: "color" })
+      found.push(...colorValues(`${at}.color`, "color", entry.color))
     }
   }
 
-  if (Array.isArray(style.shadow)) {
-    style.shadow.forEach((entry, index) => shadowTokens(entry, `shadow[${index}]`))
+  for (const { key, ...takes } of tokenKeys) {
+    const value = style[key]
+
+    if (value) {
+      found.push({ name: key, value, takes: "token", tokened: true, ...takes })
+    }
+
+    // Shadows come after the radius, as a style's keys are ordered.
+    if (key === "borderRadius") {
+      style.boxShadow?.forEach((entry, index) => shadowValues(entry, `boxShadow[${index}]`))
+    }
   }
 
   for (const key of ["filter", "backdropFilter"] as const) {
     style[key]?.forEach((entry, index) => {
-      if (entry.kind === "blur") {
-        found.push({ name: `${key}[${index}].value`, value: entry.value })
-      } else if (entry.kind === "dropShadow") {
-        shadowTokens(entry.shadow, `${key}[${index}].shadow`)
+      if (entry.type === "blur") {
+        found.push({
+          name: `${key}[${index}].value`,
+          property: key === "filter" ? "filter" : "backdrop-filter",
+          value: entry.value,
+          takes: "token",
+          css: (written) => `blur(${written})`
+        })
+      } else if (entry.type === "dropShadow") {
+        shadowValues(entry.shadow, `${key}[${index}].shadow`)
       }
     })
   }
 
-  found.push(...transitionTokens(style).map(([name, value]): StyleToken => ({ name, value })))
-
-  return found
-}
-
-/**
- * The token names a style's transitions use, by where they are (`transitions[0].duration`): a duration or delay given
- * as a name, and an easing that's neither Tailwind's own, a curve of its own nor a spring.
- */
-function transitionTokens(style: NodeStyle): [string, string][] {
-  const found: [string, string][] = []
-
-  for (const [index, transition] of (style.transitions ?? []).entries()) {
+  for (const [index, transition] of (style.transition ?? []).entries()) {
     for (const key of ["duration", "delay"] as const) {
       const time = transition[key]
 
-      if (time !== undefined && isTimeToken(time)) {
-        found.push([`transitions[${index}].${key}`, time])
+      if (time !== undefined) {
+        found.push({
+          name: `transition[${index}].${key}`,
+          property: `transition-${key}`,
+          value: time,
+          takes: "token"
+        })
       }
     }
 
     const easing = transition.easing
 
-    if (easing !== undefined && !isSpring(easing) && !isEasingKeyword(easing) && !isEasingFunction(easing)) {
-      found.push([`transitions[${index}].easing`, easing])
+    // A spring names nothing and is written as no CSS value of its own.
+    if (easing !== undefined && !isSpring(easing)) {
+      found.push({
+        name: `transition[${index}].easing`,
+        property: "transition-timing-function",
+        value: easing,
+        takes: "token"
+      })
+    }
+  }
+
+  // A layer order is a whole number, or names a z-index token.
+  if (style.zIndex !== undefined) {
+    found.push({ name: "zIndex", property: "z-index", value: style.zIndex, takes: "zIndex" })
+  }
+
+  for (const [key, property] of lengthKeys) {
+    const value = style[key]
+
+    for (const side of Array.isArray(value) ? value : [value]) {
+      if (side !== undefined) {
+        found.push({ name: key, property, value: side, takes: "length" })
+      }
+    }
+  }
+
+  for (const [key, property] of [
+    ["gridTemplateColumns", "grid-template-columns"],
+    ["gridTemplateRows", "grid-template-rows"]
+  ] as const) {
+    found.push(...(style[key] ?? []).map((value): StyleValue => ({ name: key, property, value, takes: "length" })))
+  }
+
+  for (const axis of ["x", "y"] as const) {
+    const value = style.translate?.[axis]
+
+    if (value !== undefined) {
+      found.push({ name: `translate.${axis}`, property: "translate", value, takes: "length" })
     }
   }
 
   return found
+}
+
+/** A stored value's text when it's written out as CSS reads it, rather than naming a token, steps or a size. */
+function writtenOut(value: Stored): string | undefined {
+  if ("value" in value) {
+    return value.value
+  }
+
+  if ("keyword" in value) {
+    return value.keyword
+  }
+
+  return "expr" in value ? value.expr : undefined
 }
 
 /** How many of the project's tokens a warning lists by name before it points at `GetTokens` instead. */
@@ -352,13 +438,24 @@ const listedTokens = 8
 /** A name `SetTokens` could add as a token, rather than a raw value such as `#ff00aa` or `0 1px 2px black`. */
 const tokenName = /^[a-z_][\w-]*$/i
 
+/** What a style has where a token goes, which isn't one of the project's: a name, or a value written out. */
+interface OffToken {
+  /** Where it is in the style: `boxShadow[1].color`. */
+  name: string
+  value: string
+  category?: TokenCategory
+  nearest?: NearestCategory
+  /** Whether it was given as a token's name (`{ token }`) rather than written out (`{ value }`). */
+  named: boolean
+}
+
 /**
  * What to say about a style value that isn't one of the project's tokens: that the project has none of the category
  * that goes there; else, for a raw color or length, the call that lists the tokens nearest it; else the project's
- * tokens of that category, by name while they're few. A value that could be a token's name is one `SetTokens` can add.
+ * tokens of that category, by name while they're few. A name that could be a token's is one `SetTokens` can add.
  * A place that takes several categories gets the plain hint.
  */
-function notAToken({ name, value, category, nearest }: StyleToken, tokens: LintContext["tokens"]): string {
+function notAToken({ name, value, category, nearest, named: asName }: OffToken, tokens: LintContext["tokens"]): string {
   const said = `${name} "${value}" isn't a token`
 
   if (!category) {
@@ -370,7 +467,7 @@ function notAToken({ name, value, category, nearest }: StyleToken, tokens: LintC
     .map((token) => token.name)
     .toSorted(compareNames)
 
-  const named = tokenName.test(value)
+  const named = asName && tokenName.test(value)
 
   if (names.length === 0) {
     return `${said}, and the project has no ${category} tokens. Add ${named ? value : "one"} with SetTokens.`

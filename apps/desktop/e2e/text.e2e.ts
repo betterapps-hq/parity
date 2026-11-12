@@ -230,13 +230,13 @@ describe("auto width, auto height and fixed text", () => {
     await width.press("ControlOrMeta+a")
     await width.pressSequentially("80", { delay: 20 })
     await width.press("Enter")
-    await expect.poll(async () => (await app.style("Pricing", heading)).width).toBe(20)
+    await expect.poll(() => app.steps("Pricing", heading, "width")).toBe(20)
     const wrapped = await app.size("Pricing", heading)
     expect(await pressed()).toBe("Auto height")
 
     // Auto width: one line, as wide as the text.
     await sizing("Auto width").click()
-    await expect.poll(async () => (await app.style("Pricing", heading)).width).toBe("hug")
+    await expect.poll(async () => (await app.style("Pricing", heading)).width).toEqual({ size: "hug" })
     const line = (await app.size("Pricing", heading))!
     expect(line.width).toBeGreaterThan(160)
     expect(line.height).toBeLessThan(wrapped!.height * 0.75)
@@ -244,8 +244,8 @@ describe("auto width, auto height and fixed text", () => {
 
     // Auto height: the width it's drawn at, fixed, in spacing steps; the height still follows the text.
     await sizing("Auto height").click()
-    await expect.poll(async () => (await app.style("Pricing", heading)).width).toEqual(expect.any(Number))
-    const fixedWidth = Number((await app.style("Pricing", heading)).width)
+    await expect.poll(() => app.steps("Pricing", heading, "width")).toEqual(expect.any(Number))
+    const fixedWidth = Number(await app.steps("Pricing", heading, "width"))
     // Rounded up to whole steps, so the text doesn't wrap again.
     expect(fixedWidth * 4).toBeGreaterThanOrEqual(line.width - 0.5)
     expect(fixedWidth * 4).toBeLessThan(line.width + 4.5)
@@ -254,8 +254,8 @@ describe("auto width, auto height and fixed text", () => {
 
     // Fixed: the height it's drawn at too.
     await sizing("Fixed size").click()
-    await expect.poll(async () => (await app.style("Pricing", heading)).height).toEqual(expect.any(Number))
-    const fixedHeight = Number((await app.style("Pricing", heading)).height)
+    await expect.poll(() => app.steps("Pricing", heading, "height")).toEqual(expect.any(Number))
+    const fixedHeight = Number(await app.steps("Pricing", heading, "height"))
     expect(fixedHeight * 4).toBeGreaterThanOrEqual(line.height - 0.5)
     expect(fixedHeight * 4).toBeLessThan(line.height + 4.5)
     expect(await pressed()).toBe("Fixed size")

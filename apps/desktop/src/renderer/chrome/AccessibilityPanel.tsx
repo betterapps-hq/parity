@@ -1,6 +1,6 @@
 import { Button, Label, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail, TokenFix } from "@parity-app/agent"
-import { type ContainerSpec, findNode, mapNode, type ModeSettings, shownModes } from "@parity-app/core"
+import { type ContainerSpec, findNode, mapNode, type ModeSettings, shownModes, tokenColor } from "@parity-app/core"
 import { kindName, type Selection } from "@parity-app/editor"
 import {
   ArrowUpRight,
@@ -722,7 +722,8 @@ function ContrastFixRow({
     session.store.updateContainer(entry.key, step, (container) => ({
       ...container,
       root: nodes.reduce(
-        (root, id) => mapNode(root, id, (node) => ({ ...node, style: { ...node.style, foreground: fix.token } })),
+        (root, id) =>
+          mapNode(root, id, (node) => ({ ...node, style: { ...node.style, color: tokenColor(fix.token) } })),
         container.root
       )
     }))

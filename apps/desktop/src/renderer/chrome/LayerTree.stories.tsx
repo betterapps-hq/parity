@@ -722,7 +722,7 @@ function largeScreen(taken: string[]): ContainerSpec {
       type: "layout",
       id: `large-${section + 1}-${index + 1}`,
       name: `Row ${section + 1}.${index + 1}`,
-      style: { direction: "row" },
+      style: { flexDirection: "row" },
       children: [
         text(`large-${section + 1}-${index + 1}-title`, `Title ${section + 1}.${index + 1}`),
         text(`large-${section + 1}-${index + 1}-detail`, `Detail ${section + 1}.${index + 1}`),

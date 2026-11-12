@@ -1,11 +1,4 @@
-import {
-  isEasingFunction,
-  isEasingKeyword,
-  isSpring,
-  isTimeToken,
-  isTransitionSet,
-  type Transition
-} from "@parity-app/core"
+import { isEasingKeyword, isTransitionSet, type Time as StoredTime, type Transition } from "@parity-app/core"
 import { defaultValues, previewKind, type Token } from "@parity-app/tokens"
 import { z } from "zod"
 import { readEasingValue, splitUnit, type Time, timeMs, type TransitionEntry } from "./controls/motion-data.ts"
@@ -13,8 +6,9 @@ import { durationToken, type DurationToken, easingToken, type EasingToken } from
 
 /*
  * Motion's transitions between the forms `NodeStyle` holds them in and the forms the Transition list edits: a time is
- * milliseconds or a duration token's name, and an easing is one of Tailwind's, a token's name, a curve of its own or a
- * spring. The control's other forms come back as one of these: `0.2s` as 200 milliseconds.
+ * milliseconds (`{ step }`) or a duration token, and an easing is one of Tailwind's, a token, a curve of its own or a
+ * spring, in the forms the list holds them. The list's other times come back as one of these: `0.2s` as 200
+ * milliseconds.
  */
 
 /** A layer's transitions as the Transition list's entries, without the ids it keys its rows by. */
@@ -29,22 +23,14 @@ export function entriesOf(transitions: readonly Transition[] | undefined): Omit<
     }
 
     if (transition.easing !== undefined) {
-      const easing = transition.easing
-
-      if (isSpring(easing)) {
-        entry.easing = { spring: easing.spring }
-      } else if (isEasingKeyword(easing)) {
-        entry.easing = { keyword: easing }
-      } else {
-        entry.easing = isEasingFunction(easing) ? { value: easing } : { token: easing }
-      }
+      entry.easing = transition.easing
     }
 
     if (transition.delay !== undefined) {
       entry.delay = timeOf(transition.delay)
     }
 
-    if (transition.hidden) {
+    if (transition.off) {
       entry.off = true
     }
 
@@ -53,12 +39,12 @@ export function entriesOf(transitions: readonly Transition[] | undefined): Omit<
 }
 
 /** A time as the Time field holds it: whole milliseconds as a step, part milliseconds as typed, or a token. */
-function timeOf(time: number | string): Time {
-  if (isTimeToken(time)) {
-    return { token: time }
+function timeOf(time: StoredTime): Time {
+  if ("token" in time) {
+    return time
   }
 
-  return Number.isInteger(time) ? { step: time } : { value: `${time}ms` }
+  return Number.isInteger(time.step) ? { step: time.step } : { value: `${time.step}ms` }
 }
 
 /** What changes, as the Transition list holds it: one of Tailwind's sets by name, or a property of its own. */
@@ -83,15 +69,7 @@ export function transitionsOf(entries: readonly TransitionEntry[]): Transition[]
     }
 
     if (entry.easing !== undefined) {
-      const easing = entry.easing
-
-      if ("spring" in easing) {
-        transition.easing = { spring: easing.spring }
-      } else if ("keyword" in easing) {
-        transition.easing = easing.keyword
-      } else {
-        transition.easing = "token" in easing ? easing.token : easing.value
-      }
+      transition.easing = entry.easing
     }
 
     const delay = storedTime(entry.delay)
@@ -101,20 +79,26 @@ export function transitionsOf(entries: readonly TransitionEntry[]): Transition[]
     }
 
     if (entry.off) {
-      transition.hidden = true
+      transition.off = true
     }
 
     return transition
   })
 }
 
-/** A time as `NodeStyle` holds it: a token's name, or milliseconds, whatever unit it was typed or read in. */
-function storedTime(time: Time | undefined): number | string | undefined {
+/** A time as `NodeStyle` holds it: a token, or milliseconds, whatever unit it was typed or read in. */
+function storedTime(time: Time | undefined): StoredTime | undefined {
   if (time === undefined) {
     return undefined
   }
 
-  return "token" in time ? time.token : timeMs(time, [])
+  if ("token" in time) {
+    return { token: time.token }
+  }
+
+  const ms = timeMs(time, [])
+
+  return ms === undefined ? undefined : { step: ms }
 }
 
 /**

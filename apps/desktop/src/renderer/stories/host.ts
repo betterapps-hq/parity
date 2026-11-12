@@ -448,7 +448,7 @@ export function projectInfo(root: string): ProjectInfo {
       id: root,
       root,
       name,
-      documents: empty ? [] : [{ path: file, document: { version: 3, containers: [] } }],
+      documents: empty ? [] : [{ path: file, document: { version: 4, containers: [] } }],
       mainDocument: file,
       modes: { settings: defaultModeSettings, custom: false },
       notes: [

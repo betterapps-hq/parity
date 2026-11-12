@@ -1,24 +1,103 @@
 import { z } from "zod"
+import { ownerOf } from "./ledger.ts"
 import { transition } from "./motion.ts"
-import { nodeFill } from "./paint.ts"
+import { color, paint } from "./paint.ts"
 import { finiteNumber, stored } from "./stored.ts"
+import { exprForm, keywordForm, off, stepForm, tokenForm, valueForm } from "./value.ts"
 
 // The stored style: what a layer's `style`, and a patch's, holds in a `.par` file. The file's other schemas are in
-// `@parity-app/core`, which builds its nodes and patches on this one.
+// `@parity-app/core`, which builds its nodes and patches on this one. A key is named after the CSS property it writes,
+// and a value that can be a token is stored with its form (value.ts), so nothing is guessed from its text.
 
-/** Steps of the spacing scale (`4` is `calc(var(--spacing) * 4)`), or the name of a length token. */
-const length = z.union([finiteNumber, z.string()])
+const lengthForms = "expected { step }, { token }, { value }, { keyword } or { expr }"
+
+/**
+ * A length: steps of the spacing scale (`{ step: 4 }` is `calc(var(--spacing) * 4)`), a length token, a value with its
+ * unit (`{ value: "280px" }`, `{ value: "50%" }`), a keyword (`auto`) or an expression (`clamp(…)`).
+ */
+const length = z.union([stepForm, tokenForm, valueForm, keywordForm, exprForm], lengthForms)
 
 export type Length = z.infer<typeof length>
 
-/** Whether a length, or a field's value, is a name (a length token's, or `"fill"` and `"hug"`) rather than steps. */
-export function isNamedLength(value: number | string | undefined): value is string {
-  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a length is steps (number) or a name (string), with no tag to tell them apart
+const hug = stored({ size: z.literal("hug") })
+
+/** Fill the parent, with the share of the free space it takes beside other fills when that isn't one. */
+const fill = stored({ size: z.literal("fill"), share: finiteNumber.positive().optional() })
+
+/** A length, or `{ size: "fill" }` the parent, or `{ size: "hug" }` the content. */
+const size = z.union([stepForm, tokenForm, valueForm, keywordForm, exprForm, hug, fill], `${lengthForms}, or { size }`)
+
+export type Size = z.infer<typeof size>
+
+/**
+ * What a length field holds for a length: its steps as a number, or a name, which is a length token's, `"fill"` or
+ * `"hug"`. A field edits steps and names; the stored form says which a value is.
+ */
+export type FieldLength = number | string
+
+/** Whether a field's length is a name (a length token's, or `"fill"` and `"hug"`) rather than steps. */
+export function isNamedLength(value: FieldLength | undefined): value is string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- a field's length is steps (number) or a name (string), with no tag to tell them apart
   return typeof value === "string"
 }
 
-/** A fixed length, or `"fill"` the parent, or `"hug"` the content: both are among Length's strings. */
-export type Size = Length
+/** Whether a size fills its parent. */
+export function isFill(value: Size | undefined): value is z.infer<typeof fill> {
+  return value !== undefined && "size" in value && value.size === "fill"
+}
+
+/** Whether a size hugs its content. */
+export function isHug(value: Size | undefined): value is z.infer<typeof hug> {
+  return value !== undefined && "size" in value && value.size === "hug"
+}
+
+/** The steps a length is, when it's steps of the spacing scale. */
+export function lengthSteps(value: Size | undefined): number | undefined {
+  return value !== undefined && "step" in value ? value.step : undefined
+}
+
+/** The length token a length names, when it names one. */
+export function lengthToken(value: Size | undefined): string | undefined {
+  return value !== undefined && "token" in value ? value.token : undefined
+}
+
+/**
+ * A stored length as a length field holds it: its steps, its token's name, or `"fill"` and `"hug"`. A length written
+ * out (`50%`, `auto`, `clamp(…)`) is shown as it's written, which no field edits yet.
+ */
+export function lengthField(value: Size | undefined): FieldLength | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if ("size" in value) {
+    return value.size
+  }
+
+  if ("step" in value) {
+    return value.step
+  }
+
+  if ("token" in value) {
+    return value.token
+  }
+
+  if ("value" in value) {
+    return value.value
+  }
+
+  return "keyword" in value ? value.keyword : value.expr
+}
+
+/** What a length field holds, as a stored length: steps, or the length token it names. */
+export function fieldLength(value: FieldLength): Length {
+  return isNamedLength(value) ? { token: value } : { step: value }
+}
+
+/** What a size field holds, as a stored size: steps, `"fill"`, `"hug"`, or the length token it names. */
+export function fieldSize(value: FieldLength): Size {
+  return value === "fill" || value === "hug" ? { size: value } : fieldLength(value)
+}
 
 // The lists come first, so a list of another length, or something that is neither a list nor a length, says what
 // padding takes.
@@ -30,13 +109,28 @@ export type Padding = z.infer<typeof padding>
 
 const alignment = z.enum(["start", "center", "end", "stretch"])
 
-/** A color token's name, with its alpha from 0 to 100 when it's see-through. */
-const effectColor = stored({ color: z.string().min(1), alpha: finiteNumber.optional() })
+/** A value that names a token of its kind, or is written out: a radius, a font size, a family. */
+const named = z.union(
+  [tokenForm, valueForm, keywordForm, exprForm],
+  "expected { token }, { value }, { keyword } or { expr }"
+)
 
-export type EffectColor = z.infer<typeof effectColor>
+export type Named = z.infer<typeof named>
 
-/** Turned off with the eye: kept in the file, not drawn. */
-const off = z.boolean().optional()
+/** A line height: a token, steps of the spacing scale (`leading-6`), or written out. */
+const lineHeight = z.union([tokenForm, stepForm, valueForm, keywordForm, exprForm], lengthForms)
+
+export type LineHeight = z.infer<typeof lineHeight>
+
+/** A grid track: Fill, taking a share of what's left (`minmax(0, 1fr)`), or a length. */
+const track = z.union(
+  [stored({ fr: finiteNumber.positive() }), stepForm, tokenForm, valueForm, keywordForm, exprForm],
+  `expected { fr } or a length: ${lengthForms}`
+)
+
+export type Track = z.infer<typeof track>
+
+const tracks = z.array(track).min(1, "expected at least one track")
 
 /**
  * One shadow in a layer's stack. A token's shadow draws the token's layers, with only their color changed; a shadow of
@@ -44,21 +138,21 @@ const off = z.boolean().optional()
  * are drawn outside, inner inside.
  */
 const shadow = z.union([
-  stored({ kind: z.enum(["drop", "inner"]), token: z.string().min(1), color: effectColor.optional(), off }),
+  stored({ type: z.enum(["drop", "inner"]), token: z.string().min(1), color: color.optional(), off }),
   stored({
-    kind: z.enum(["drop", "inner"]),
+    type: z.enum(["drop", "inner"]),
     x: finiteNumber,
     y: finiteNumber,
     blur: finiteNumber.nonnegative(),
     spread: finiteNumber,
-    color: effectColor,
+    color,
     off
   }),
   stored({
-    kind: z.literal("ring"),
+    type: z.literal("ring"),
     width: finiteNumber.nonnegative(),
     inset: z.boolean().optional(),
-    color: effectColor,
+    color,
     off
   })
 ])
@@ -71,14 +165,14 @@ export const filterAdjustments = ["brightness", "contrast", "saturate", "hue", "
 export type FilterAdjustment = (typeof filterAdjustments)[number]
 
 /**
- * One entry of a layer's filters: a blur by a blur token's name, a set of adjustments (brightness, contrast and
+ * One entry of a layer's filters: a blur by a blur token or a length, a set of adjustments (brightness, contrast and
  * saturation as a change from 100%, so +25 is 125%; hue in degrees; grayscale, sepia and invert from 0 to 100), or a
  * drop shadow that follows what's drawn rather than the box (the layer's own filters only).
  */
 const filter = z.union([
-  stored({ kind: z.literal("blur"), value: z.string().min(1), off }),
+  stored({ type: z.literal("blur"), value: z.union([tokenForm, valueForm, exprForm]), off }),
   stored({
-    kind: z.literal("adjust"),
+    type: z.literal("adjust"),
     values: stored({
       brightness: finiteNumber.optional(),
       contrast: finiteNumber.optional(),
@@ -90,42 +184,45 @@ const filter = z.union([
     }),
     off
   }),
-  stored({ kind: z.literal("dropShadow"), shadow, off })
+  stored({ type: z.literal("dropShadow"), shadow, off })
 ])
 
 export type Filter = z.infer<typeof filter>
 
-/** A move: steps of the spacing scale, a length token's name, or a percentage of the layer's own size. */
-const move = z.union([length, stored({ percent: finiteNumber })])
+/** How far the layer is drawn moved, without moving anything around it: a length each way, 0 when unset. */
+const translate = stored({ x: length.optional(), y: length.optional() })
 
-export type Move = z.infer<typeof move>
+export type Translate = z.infer<typeof translate>
+
+/** How large the layer is drawn, as a percentage each way, negative when flipped. 100 when unset. */
+const scale = stored({ x: finiteNumber.optional(), y: finiteNumber.optional() })
+
+export type Scale = z.infer<typeof scale>
+
+/** One function of `transform`, which applies after `translate`, `rotate` and `scale`, in the list's order. */
+const transformFunction = stored({ type: z.enum(["skewX", "skewY"]), value: finiteNumber, off })
+
+export type TransformFunction = z.infer<typeof transformFunction>
+
+/** A declaration no key owns, as CSS reads it. */
+const cssDeclaration = stored({ value: z.string().min(1), off })
 
 /**
- * How the layer is drawn moved, turned, scaled and skewed about its origin, without moving anything around it. Scale is
- * a percentage, negative when flipped; rotation and skew are degrees; the origin is a point in the layer, in percent
- * from its top left, its center when unset.
+ * The CSS map: declarations by property, for what no key holds. A property a key owns is that key's alone, so one row
+ * of the panel answers for it.
  */
-const transform = stored({
-  x: move.optional(),
-  y: move.optional(),
-  rotate: finiteNumber.optional(),
-  scaleX: finiteNumber.optional(),
-  scaleY: finiteNumber.optional(),
-  skewX: finiteNumber.optional(),
-  skewY: finiteNumber.optional(),
-  origin: stored({ x: finiteNumber, y: finiteNumber }).optional()
-})
+const cssMap = z.record(z.string().regex(/^-{0,2}[a-z][a-z0-9-]*$/i, "expected a CSS property"), cssDeclaration)
 
-export type Transform = z.infer<typeof transform>
+export type CssMap = z.infer<typeof cssMap>
 
 export const nodeStyle = stored({
   // Layout (layouts only).
   /** Auto layout (flex, the default) or a grid. */
   display: z.enum(["flex", "grid"]).optional(),
-  direction: z.enum(["row", "column"]).optional(),
-  /** A grid's columns, all the same width; or rows, all the same height. */
-  columns: finiteNumber.optional(),
-  rows: finiteNumber.optional(),
+  flexDirection: z.enum(["row", "column"]).optional(),
+  /** A grid's columns, and its rows: each track Fill (`{ fr: 1 }`) or a length. */
+  gridTemplateColumns: tracks.optional(),
+  gridTemplateRows: tracks.optional(),
   gap: length.optional(),
   /** In a grid or wrapping layout, the gap between rows when it differs from `gap`. */
   rowGap: length.optional(),
@@ -134,14 +231,15 @@ export const nodeStyle = stored({
   /** Space outside the node, in the same forms as padding. */
   margin: padding.optional(),
   /** Children on the cross axis. */
-  align: alignment.optional(),
-  /** Children on the main axis. */
-  justify: z.enum(["start", "center", "end", "between", "around", "evenly"]).optional(),
-  wrap: z.boolean().optional(),
+  alignItems: alignment.optional(),
+  /** Children on the main axis. In a grid, `start`, `center` and `end` place each child in its cell. */
+  justifyContent: z.enum(["start", "center", "end", "space-between", "space-around", "space-evenly"]).optional(),
+  /** `nowrap` is what a layout does unset: a patch sets it to take a wrap off. */
+  flexWrap: z.enum(["wrap", "nowrap"]).optional(),
 
   // Size, within the parent's layout.
-  width: length.optional(),
-  height: length.optional(),
+  width: size.optional(),
+  height: size.optional(),
   minWidth: length.optional(),
   maxWidth: length.optional(),
   minHeight: length.optional(),
@@ -149,10 +247,10 @@ export const nodeStyle = stored({
   /** Grid cells the node spans, in a grid. */
   colSpan: finiteNumber.optional(),
   rowSpan: finiteNumber.optional(),
-  /** Fill along the parent's direction. Same as `fill` for the parent's main axis. */
+  /** Fill along the parent's direction. Same as `{ size: "fill" }` for the parent's main axis. */
   grow: z.boolean().optional(),
-  /** Where this node sits on its parent's cross axis, overriding the parent's `align`. */
-  self: alignment.optional(),
+  /** Where this node sits on its parent's cross axis, overriding the parent's `alignItems`. */
+  alignSelf: alignment.optional(),
 
   // Position: taken out of the layout and placed against the parent's edges.
   position: z.enum(["absolute"]).optional(),
@@ -161,46 +259,56 @@ export const nodeStyle = stored({
   bottom: length.optional(),
   left: length.optional(),
   /**
-   * Layer order (CSS `z-index`) among its siblings' stacking context: a whole number, higher in front, or a z-index
-   * token's name. Unset is auto, the order of the layers.
+   * Layer order among its siblings' stacking context: a whole number, higher in front, or a z-index token. Unset is
+   * auto, the order of the layers.
    */
-  zIndex: z.union([finiteNumber.int(), z.string()]).optional(),
+  zIndex: z.union([stored({ step: finiteNumber.int() }), tokenForm], "expected { step } or { token }").optional(),
 
   // Appearance.
-  /** One color token, or a stack of paints, top first: colors, gradients and images (PAR-931). */
-  background: nodeFill.optional(),
-  foreground: z.string().optional(),
-  /** Border color. */
-  border: z.string().optional(),
+  /** The stack of paints, top first: colors, gradients and images. It writes `background-color` and `background-image`. */
+  fills: z.array(paint).optional(),
+  /** The color of text. Set on a layout, it applies to the text inside. */
+  color: color.optional(),
+  borderColor: color.optional(),
   /** Border width in pixels, as in Tailwind: 0, 1, 2, 4 or 8. */
   borderWidth: finiteNumber.optional(),
   borderStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
-  radius: z.string().optional(),
-  /** One shadow token's name, or the stack of shadows, top first. */
-  shadow: z.union([z.string(), z.array(shadow)]).optional(),
+  borderRadius: named.optional(),
+  /** The stack of shadows, top first. */
+  boxShadow: z.array(shadow).optional(),
   /** Percent, 0 to 100. */
   opacity: finiteNumber.optional(),
-  overflow: z.enum(["visible", "hidden", "scroll"]).optional(),
+  /** `auto` scrolls what doesn't fit. */
+  overflow: z.enum(["visible", "hidden", "auto"]).optional(),
 
   // Effects.
   /** The layer's own filters, in the order they apply. */
   filter: z.array(filter).optional(),
   /** Filters on what's behind the layer, seen through it. */
   backdropFilter: z.array(filter).optional(),
-  transform: transform.optional(),
+  // CSS applies translate, rotate and scale in that order whatever the order they're set, and `transform` after them.
+  translate: translate.optional(),
+  /** Degrees, clockwise. */
+  rotate: finiteNumber.optional(),
+  scale: scale.optional(),
+  /** Skew, in the order it applies. */
+  transform: z.array(transformFunction).optional(),
+  /** The point the layer turns and scales about, in percent from its top left. Its center when unset. */
+  transformOrigin: stored({ x: finiteNumber, y: finiteNumber }).optional(),
 
   // Type. Set on a layout, it applies to the text inside.
-  font: z.string().optional(),
-  size: z.string().optional(),
-  weight: finiteNumber.optional(),
-  leading: z.string().optional(),
-  tracking: z.string().optional(),
+  fontFamily: named.optional(),
+  fontSize: named.optional(),
+  fontWeight: finiteNumber.optional(),
+  lineHeight: lineHeight.optional(),
+  letterSpacing: named.optional(),
   textAlign: z.enum(["start", "center", "end", "justify"]).optional(),
   textTransform: z.enum(["uppercase", "lowercase", "capitalize"]).optional(),
-  decoration: z.enum(["underline", "line-through"]).optional(),
-  italic: z.boolean().optional(),
+  textDecorationLine: z.enum(["underline", "line-through"]).optional(),
+  /** `normal` is what text is unset: a patch sets it to take italic off. */
+  fontStyle: z.enum(["italic", "normal"]).optional(),
   /** Lines of text before it's cut off with an ellipsis. */
-  lines: finiteNumber.optional(),
+  lineClamp: finiteNumber.optional(),
   /**
    * Where a word too long for its line may break: `anywhere`, which also lets a table cell or hugging layout narrow to
    * fit it, or `break-word`, only once it can't fit on a line of its own. Unset, a long word spills out.
@@ -209,14 +317,33 @@ export const nodeStyle = stored({
 
   // Motion.
   /** How the layer moves from one look to the next, as a state change shows it. */
-  transitions: z.array(transition).optional()
+  transition: z.array(transition).optional(),
+
+  // Everything else.
+  /** Declarations for the properties no key above owns, drawn after them. */
+  css: cssMap
+    .check((context) => {
+      for (const property of Object.keys(context.value)) {
+        const key = ownerOf(property)
+
+        if (key !== undefined) {
+          context.issues.push({
+            code: "custom",
+            input: context.value,
+            path: [property],
+            message: `${property} is set by the ${key} key`
+          })
+        }
+      }
+    })
+    .optional()
 })
 
 /**
- * Visual properties, locked to the project's tokens: lengths are steps of the spacing scale (multiples of `--spacing`)
- * or name a length token, and colors, radii, shadows and type values name one of the project's CSS custom properties
- * (without `--`). Layout is Figma's auto layout, a flex box, or a grid; children size themselves to fill, hug, or a
- * fixed length.
+ * Visual properties, as the project's code would write them: each key is named after its CSS property, a length is
+ * steps of the spacing scale (multiples of `--spacing`), a token or a written value, and colors, radii and type values
+ * name one of the project's CSS custom properties (without `--`) or are written out. Layout is Figma's auto layout, a
+ * flex box, or a grid; children size themselves to fill, hug, or a length.
  */
 export type NodeStyle = z.infer<typeof nodeStyle>
 

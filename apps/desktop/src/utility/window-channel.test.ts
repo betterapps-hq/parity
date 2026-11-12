@@ -42,7 +42,7 @@ describe("the window's requests to the project service", () => {
     const refused = request("document.save", { projectId: "D:/shop", path: "shop.par", document: { version: 2 } })
     await expect(refused).rejects.toBeInstanceOf(CodedError)
     await expect(refused).rejects.toMatchObject({
-      message: "/document/version: expected 3",
+      message: "/document/version: expected 4",
       details: { code: "invalid_input", field: "document/version" }
     })
     expect(save).not.toHaveBeenCalled()

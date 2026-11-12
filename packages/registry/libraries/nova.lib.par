@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "id": "nova",
   "name": "Shadcn Nova",
   "description": "Every shadcn component on Base UI, in the nova style, kept in step with upstream.",

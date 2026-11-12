@@ -32,7 +32,7 @@ function page(): ContainerSpec {
       id: "root",
       children: [
         text("heading"),
-        { type: "layout", id: "actions", style: { direction: "row" }, children: [text("save"), text("cancel")] },
+        { type: "layout", id: "actions", style: { flexDirection: "row" }, children: [text("save"), text("cancel")] },
         { type: "component", id: "card", component: "Card", slots: { header: [text("title")] } }
       ]
     },
@@ -116,7 +116,7 @@ describe("the layer an item becomes", () => {
     )
 
     expect(node).toMatchObject({ type: "image", src: "images/hill.png", alt: "A hill", credit })
-    expect(node.style).toEqual({ width: 80, height: 45 })
+    expect(node.style).toEqual({ width: { step: 80 }, height: { step: 45 } })
   })
 
   it("makes a video layer at its proportions from a video item (PAR-841)", () => {
@@ -129,12 +129,12 @@ describe("the layer an item becomes", () => {
     )
 
     expect(node).toMatchObject({ type: "video", src: "/videos/waves.mp4", alt: "Waves", credit })
-    expect(node.style).toEqual({ width: 80, height: 45 })
+    expect(node.style).toEqual({ width: { step: 80 }, height: { step: 45 } })
   })
 
   it("keeps an image at least a step tall, and leaves out alt text it wasn't given", () => {
     const node = nodeForItem({ kind: "image", src: "line.png", width: 0, height: 0 }, undefined, new Set())
-    expect(node.style).toEqual({ width: 80, height: 1 })
+    expect(node.style).toEqual({ width: { step: 80 }, height: { step: 1 } })
     expect(node).not.toHaveProperty("alt")
     expect(node).not.toHaveProperty("credit")
   })
@@ -210,7 +210,11 @@ describe("inserting into a design", () => {
     )
 
     expect(childIds(placed.container, "root").at(-1)).toBe(placed.node)
-    expect(findNode(placed.container.root, placed.node)?.style).toEqual({ position: "absolute", left: 12.5, top: 30 })
+    expect(findNode(placed.container.root, placed.node)?.style).toEqual({
+      position: "absolute",
+      left: { step: 12.5 },
+      top: { step: 30 }
+    })
   })
 
   it("brings the library parents a part needs, unless they're around the layout already", () => {

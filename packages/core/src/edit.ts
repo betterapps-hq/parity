@@ -120,7 +120,7 @@ export function nodeLabel(node: DesignNode, designName?: (id: string) => string 
     return node.alt || "Video"
   }
 
-  return node.style?.direction === "row" ? "Row" : "Column"
+  return node.style?.flexDirection === "row" ? "Row" : "Column"
 }
 
 /**

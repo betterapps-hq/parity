@@ -449,7 +449,12 @@ const membersDesign = {
     id: "page",
     name: "Page",
     type: "layout",
-    style: { gap: 3, padding: [6, 6], background: "background", foreground: "foreground" },
+    style: {
+      gap: { step: 3 },
+      padding: [{ step: 6 }, { step: 6 }],
+      fills: [{ type: "solid", color: { token: "background" } }],
+      color: { token: "foreground" }
+    },
     children: [
       member("ada", "Ada Lovelace", "Admin"),
       member("lin", "Lin Yu", "Editor"),

@@ -109,7 +109,7 @@ function listByHand(session: ProjectSession, target: ComponentRef, name: string)
   const ref = { path: target.path, export: target.export }
 
   const main: CanvasDocument = store.getDocuments().find((entry) => entry.path === store.mainPath)?.document ?? {
-    version: 3,
+    version: 4,
     containers: []
   }
 

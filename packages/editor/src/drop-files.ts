@@ -277,7 +277,7 @@ export function designOfMedia(
     root: {
       type: "layout",
       id: rootId,
-      style: { ...landedStyle, direction: "row", align: "start" },
+      style: { ...landedStyle, flexDirection: "row", alignItems: "start" },
       children: nodes.map((node) => withFreshIds(node, ids))
     },
     states: [{ id: "default", name: "Default" }]

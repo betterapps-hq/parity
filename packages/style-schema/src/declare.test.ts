@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import { type Declaration, declarations, type StyleContext } from "./declare.ts"
-import { owned, setsForOthers } from "./ledger.ts"
+import { owned, ownerOf, setsForOthers } from "./ledger.ts"
 import { type NodeStyle, styleKeys } from "./model.ts"
 
 /** A component draws nothing of its own, so its declarations are only what the style's keys write. */
@@ -14,7 +14,7 @@ const inlineText: StyleContext = { kind: "text", inline: true }
 /** What a layout draws before any key is set. */
 const flexBox = [
   ["display", "flex", "display"],
-  ["flex-direction", "column", "direction"]
+  ["flex-direction", "column", "flexDirection"]
 ] as const
 
 type Written = readonly (readonly [property: string, value: string, from: string])[]
@@ -32,85 +32,132 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     layout,
     [
       ["display", "grid", "display"],
-      ["grid-template-columns", "repeat(2, minmax(0, 1fr))", "columns"]
+      ["grid-template-columns", "repeat(2, minmax(0, 1fr))", "gridTemplateColumns"]
     ]
   ],
   [
-    "columns and rows",
-    { display: "grid", columns: 3, rows: 2 },
+    "tracks of different sizes, one a track",
+    {
+      display: "grid",
+      gridTemplateColumns: [{ value: "200px" }, { fr: 1 }, { step: 10 }, { fr: 2 }],
+      gridTemplateRows: [{ keyword: "auto" }, { token: "row" }, { expr: "minmax(4rem, auto)" }]
+    },
     layout,
     [
       ["display", "grid", "display"],
-      ["grid-template-columns", "repeat(3, minmax(0, 1fr))", "columns"],
-      ["grid-template-rows", "repeat(2, minmax(0, 1fr))", "rows"]
+      ["grid-template-columns", "200px minmax(0, 1fr) calc(var(--spacing) * 10) minmax(0, 2fr)", "gridTemplateColumns"],
+      ["grid-template-rows", "auto var(--row) minmax(4rem, auto)", "gridTemplateRows"]
     ]
   ],
   [
-    "direction: row, wrapping",
-    { direction: "row", wrap: true },
-    layout,
-    [...flexBox.slice(0, 1), ["flex-direction", "row", "direction"], ["flex-wrap", "wrap", "wrap"]]
-  ],
-  ["gap in steps", { gap: 4 }, layout, [...flexBox, ["gap", "calc(var(--spacing) * 4)", "gap"]]],
-  ["gap of none", { gap: 0 }, layout, [...flexBox, ["gap", "0", "gap"]]],
-  ["gap as a token", { gap: "gutter" }, layout, [...flexBox, ["gap", "var(--gutter)", "gap"]]],
-  ["rowGap", { rowGap: 2 }, layout, [...flexBox, ["row-gap", "calc(var(--spacing) * 2)", "rowGap"]]],
-  ["align", { align: "end" }, layout, [...flexBox, ["align-items", "flex-end", "align"]]],
-  ["justify", { justify: "between" }, layout, [...flexBox, ["justify-content", "space-between", "justify"]]],
-  [
-    "justify in a grid places items in their cells",
-    { display: "grid", justify: "center" },
+    "gridTemplateColumns and gridTemplateRows",
+    {
+      display: "grid",
+      gridTemplateColumns: [{ fr: 1 }, { fr: 1 }, { fr: 1 }],
+      gridTemplateRows: [{ fr: 1 }, { fr: 1 }]
+    },
     layout,
     [
       ["display", "grid", "display"],
-      ["grid-template-columns", "repeat(2, minmax(0, 1fr))", "columns"],
-      ["justify-items", "center", "justify"]
+      ["grid-template-columns", "repeat(3, minmax(0, 1fr))", "gridTemplateColumns"],
+      ["grid-template-rows", "repeat(2, minmax(0, 1fr))", "gridTemplateRows"]
     ]
   ],
   [
-    "justify in a grid distributes the tracks",
-    { display: "grid", justify: "evenly" },
+    "flexDirection: row, wrapping",
+    { flexDirection: "row", flexWrap: "wrap" },
+    layout,
+    [...flexBox.slice(0, 1), ["flex-direction", "row", "flexDirection"], ["flex-wrap", "wrap", "flexWrap"]]
+  ],
+  ["gap in steps", { gap: { step: 4 } }, layout, [...flexBox, ["gap", "calc(var(--spacing) * 4)", "gap"]]],
+  ["gap of none", { gap: { step: 0 } }, layout, [...flexBox, ["gap", "0", "gap"]]],
+  ["gap as a token", { gap: { token: "gutter" } }, layout, [...flexBox, ["gap", "var(--gutter)", "gap"]]],
+  ["gap as a value", { gap: { value: "12px" } }, layout, [...flexBox, ["gap", "12px", "gap"]]],
+  [
+    "gap as an expression",
+    { gap: { expr: "clamp(1rem, 2vw, 2rem)" } },
+    layout,
+    [...flexBox, ["gap", "clamp(1rem, 2vw, 2rem)", "gap"]]
+  ],
+  ["rowGap", { rowGap: { step: 2 } }, layout, [...flexBox, ["row-gap", "calc(var(--spacing) * 2)", "rowGap"]]],
+  ["alignItems", { alignItems: "end" }, layout, [...flexBox, ["align-items", "flex-end", "alignItems"]]],
+  [
+    "justifyContent",
+    { justifyContent: "space-between" },
+    layout,
+    [...flexBox, ["justify-content", "space-between", "justifyContent"]]
+  ],
+  [
+    "justifyContent in a grid places items in their cells",
+    { display: "grid", justifyContent: "center" },
     layout,
     [
       ["display", "grid", "display"],
-      ["grid-template-columns", "repeat(2, minmax(0, 1fr))", "columns"],
-      ["justify-content", "space-evenly", "justify"]
+      ["grid-template-columns", "repeat(2, minmax(0, 1fr))", "gridTemplateColumns"],
+      ["justify-items", "center", "justifyContent"]
     ]
   ],
-  ["a component ignores layout keys", { direction: "row", gap: 4, align: "center", wrap: true }, component, []],
+  [
+    "justifyContent in a grid distributes the tracks",
+    { display: "grid", justifyContent: "space-evenly" },
+    layout,
+    [
+      ["display", "grid", "display"],
+      ["grid-template-columns", "repeat(2, minmax(0, 1fr))", "gridTemplateColumns"],
+      ["justify-content", "space-evenly", "justifyContent"]
+    ]
+  ],
+  [
+    "a component ignores layout keys",
+    { flexDirection: "row", gap: { step: 4 }, alignItems: "center", flexWrap: "wrap" },
+    component,
+    []
+  ],
 
-  ["padding on all sides", { padding: 4 }, component, [["padding", "calc(var(--spacing) * 4)", "padding"]]],
+  ["padding on all sides", { padding: { step: 4 } }, component, [["padding", "calc(var(--spacing) * 4)", "padding"]]],
   [
     "padding per axis",
-    { padding: [2, "gutter"] },
+    { padding: [{ step: 2 }, { token: "gutter" }] },
     component,
     [["padding", "calc(var(--spacing) * 2) var(--gutter)", "padding"]]
   ],
   [
     "padding per side",
-    { padding: [1, 2, 0, 4] },
+    { padding: [{ step: 1 }, { step: 2 }, { step: 0 }, { step: 4 }] },
     component,
     [["padding", "calc(var(--spacing) * 1) calc(var(--spacing) * 2) 0 calc(var(--spacing) * 4)", "padding"]]
   ],
-  ["margin", { margin: [0, 2] }, component, [["margin", "0 calc(var(--spacing) * 2)", "margin"]]],
+  ["margin", { margin: [{ step: 0 }, { step: 2 }] }, component, [["margin", "0 calc(var(--spacing) * 2)", "margin"]]],
+  ["margin as a keyword", { margin: [{ step: 0 }, { keyword: "auto" }] }, component, [["margin", "0 auto", "margin"]]],
   ["text has no margin of its own", {}, text, [["margin", "0", "margin"]]],
-  ["text with a margin", { margin: 2 }, text, [["margin", "calc(var(--spacing) * 2)", "margin"]]],
+  ["text with a margin", { margin: { step: 2 } }, text, [["margin", "calc(var(--spacing) * 2)", "margin"]]],
 
-  ["a fixed width", { width: 20 }, component, [["width", "calc(var(--spacing) * 20)", "width"]]],
-  ["a width token", { width: "container-sm" }, component, [["width", "var(--container-sm)", "width"]]],
+  ["a fixed width", { width: { step: 20 } }, component, [["width", "calc(var(--spacing) * 20)", "width"]]],
+  ["a width token", { width: { token: "container-sm" } }, component, [["width", "var(--container-sm)", "width"]]],
+  ["a width as a value", { width: { value: "50%" } }, component, [["width", "50%", "width"]]],
+  ["a height as a keyword", { height: { keyword: "auto" } }, component, [["height", "auto", "height"]]],
+  [
+    "a width as an expression",
+    { width: { expr: "calc(100% - 2rem)" } },
+    inRow,
+    [
+      ["width", "calc(100% - 2rem)", "width"],
+      ["flex-shrink", "0", "width"]
+    ]
+  ],
   [
     "hugging",
-    { width: "hug", height: "hug" },
+    { width: { size: "hug" }, height: { size: "hug" } },
     component,
     [
       ["width", "fit-content", "width"],
       ["height", "fit-content", "height"]
     ]
   ],
-  ["filling with no layout around it", { width: "fill" }, component, [["width", "100%", "width"]]],
+  ["filling with no layout around it", { width: { size: "fill" } }, component, [["width", "100%", "width"]]],
   [
     "a fixed length along a row doesn't shrink",
-    { width: 20, height: 10 },
+    { width: { step: 20 }, height: { step: 10 } },
     inRow,
     [
       ["width", "calc(var(--spacing) * 20)", "width"],
@@ -120,7 +167,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   [
     "filling a row along it grows, and across it stretches",
-    { width: "fill", height: "fill" },
+    { width: { size: "fill" }, height: { size: "fill" } },
     inRow,
     [
       ["flex", "1 1 0%", "width"],
@@ -130,13 +177,28 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   [
     "filling a column along it grows, and across it stretches",
-    { width: "fill", height: "fill" },
+    { width: { size: "fill" }, height: { size: "fill" } },
     inColumn,
     [
       ["align-self", "stretch", "width"],
       ["flex", "1 1 0%", "height"],
       ["min-height", "0", "height"]
     ]
+  ],
+  [
+    "filling along a row with a share of the free space",
+    { width: { size: "fill", share: 2 } },
+    inRow,
+    [
+      ["flex", "2 1 0%", "width"],
+      ["min-width", "0", "width"]
+    ]
+  ],
+  [
+    "a share across the parent changes nothing",
+    { height: { size: "fill", share: 2 } },
+    inRow,
+    [["align-self", "stretch", "height"]]
   ],
   [
     "grow in a row",
@@ -167,7 +229,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   [
     "least and most sizes",
-    { minWidth: 10, maxWidth: "container-md", minHeight: 0, maxHeight: 40 },
+    { minWidth: { step: 10 }, maxWidth: { token: "container-md" }, minHeight: { step: 0 }, maxHeight: { step: 40 } },
     component,
     [
       ["min-width", "calc(var(--spacing) * 10)", "minWidth"],
@@ -177,29 +239,39 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     ]
   ],
   [
+    "least and most sizes written out",
+    { minWidth: { value: "280px" }, maxWidth: { expr: "min(100%, 40rem)" }, maxHeight: { keyword: "none" } },
+    component,
+    [
+      ["min-width", "280px", "minWidth"],
+      ["max-width", "min(100%, 40rem)", "maxWidth"],
+      ["max-height", "none", "maxHeight"]
+    ]
+  ],
+  [
     "a layout's least width",
-    { minWidth: 10 },
+    { minWidth: { step: 10 } },
     layout,
     [
       ["display", "flex", "display"],
       ["min-width", "calc(var(--spacing) * 10)", "minWidth"],
-      ["flex-direction", "column", "direction"]
+      ["flex-direction", "column", "flexDirection"]
     ]
   ],
-  ["self", { self: "start" }, component, [["align-self", "flex-start", "self"]]],
+  ["alignSelf", { alignSelf: "start" }, component, [["align-self", "flex-start", "alignSelf"]]],
   [
     "a centred column fills up to its maximum",
-    { width: "fill", maxWidth: 160, self: "center" },
+    { width: { size: "fill" }, maxWidth: { step: 160 }, alignSelf: "center" },
     inColumn,
     [
       ["width", "100%", "width"],
       ["max-width", "calc(var(--spacing) * 160)", "maxWidth"],
-      ["align-self", "center", "self"]
+      ["align-self", "center", "alignSelf"]
     ]
   ],
   [
     "a fill with a maximum is left to the parent's alignment",
-    { width: "fill", maxWidth: 112 },
+    { width: { size: "fill" }, maxWidth: { step: 112 } },
     inColumn,
     [
       ["width", "100%", "width"],
@@ -208,7 +280,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   [
     "a fill along the parent with a maximum still grows",
-    { width: "fill", maxWidth: 112 },
+    { width: { size: "fill" }, maxWidth: { step: 112 } },
     inRow,
     [
       ["flex", "1 1 0%", "width"],
@@ -216,14 +288,15 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
       ["max-width", "calc(var(--spacing) * 112)", "maxWidth"]
     ]
   ],
-  // A fill placed by `self` takes the whole parent rather than stretching, which `self` would replace (PAR-897).
+  // A fill placed by `alignSelf` takes the whole parent rather than stretching, which `alignSelf` would replace
+  // (PAR-897).
   [
-    "self over filling across a row",
-    { height: "fill", self: "center" },
+    "alignSelf over filling across a row",
+    { height: { size: "fill" }, alignSelf: "center" },
     inRow,
     [
       ["height", "100%", "height"],
-      ["align-self", "center", "self"]
+      ["align-self", "center", "alignSelf"]
     ]
   ],
   [
@@ -238,7 +311,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
 
   [
     "position, placed against its parent's edges, stretching between both edges whatever size its classes give it",
-    { position: "absolute", top: 0, right: 4, bottom: "inset", left: 2 },
+    { position: "absolute", top: { step: 0 }, right: { step: 4 }, bottom: { token: "inset" }, left: { step: 2 } },
     component,
     [
       ["position", "absolute", "position"],
@@ -252,7 +325,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   [
     "a component placed between both edges keeps a width it's given",
-    { position: "absolute", left: 4, right: 0, width: 20 },
+    { position: "absolute", left: { step: 4 }, right: { step: 0 }, width: { step: 20 } },
     component,
     [
       ["width", "calc(var(--spacing) * 20)", "width"],
@@ -261,7 +334,20 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
       ["left", "calc(var(--spacing) * 4)", "left"]
     ]
   ],
-  ["edges without a position write nothing", { top: 4, left: 4 }, component, []],
+  [
+    "edges written out",
+    { position: "absolute", top: { value: "50%" }, left: { keyword: "auto" }, right: { expr: "calc(100% - 1rem)" } },
+    layout,
+    [
+      ["display", "flex", "display"],
+      ["position", "absolute", "position"],
+      ["top", "50%", "top"],
+      ["right", "calc(100% - 1rem)", "right"],
+      ["left", "auto", "left"],
+      ["flex-direction", "column", "flexDirection"]
+    ]
+  ],
+  ["edges without a position write nothing", { top: { step: 4 }, left: { step: 4 } }, component, []],
   [
     "an absolute layout",
     { position: "absolute" },
@@ -269,7 +355,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     [
       ["display", "flex", "display"],
       ["position", "absolute", "position"],
-      ["flex-direction", "column", "direction"]
+      ["flex-direction", "column", "flexDirection"]
     ]
   ],
   [
@@ -279,7 +365,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     [
       ["display", "flex", "display"],
       ["position", "relative", "position"],
-      ["flex-direction", "column", "direction"]
+      ["flex-direction", "column", "flexDirection"]
     ]
   ],
   [
@@ -289,67 +375,105 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     [
       ["display", "flex", "display"],
       ["position", "absolute", "position"],
-      ["flex-direction", "column", "direction"]
+      ["flex-direction", "column", "flexDirection"]
     ]
   ],
-  ["zIndex as a number", { zIndex: -1 }, component, [["z-index", "-1", "zIndex"]]],
-  ["zIndex as a token", { zIndex: "z-modal" }, component, [["z-index", "var(--z-modal)", "zIndex"]]],
+  ["zIndex as a number", { zIndex: { step: -1 } }, component, [["z-index", "-1", "zIndex"]]],
+  ["zIndex as a token", { zIndex: { token: "z-modal" } }, component, [["z-index", "var(--z-modal)", "zIndex"]]],
 
-  ["background", { background: "primary" }, component, [["background", "var(--primary)", "background"]]],
+  [
+    "fills, one color",
+    { fills: [{ type: "solid", color: { token: "primary" } }] },
+    component,
+    [["background-color", "var(--primary)", "fills"]]
+  ],
+  ["fills, a color that is off", { fills: [{ type: "solid", color: { token: "primary" }, off: true }] }, component, []],
   [
     "a stack of paints, the bottom color under the image layers",
     {
-      background: [
-        { kind: "image", src: "/t.png", fit: "fill" },
-        { kind: "gradient", token: "gradient-brand" },
-        { kind: "solid", color: "muted", alpha: 50 }
+      fills: [
+        { type: "image", src: "/t.png", fit: "fill" },
+        { type: "gradient", token: "gradient-brand" },
+        { type: "solid", color: { token: "muted", alpha: { step: 50 } } }
       ]
     },
     component,
     [
-      ["background-color", "color-mix(in oklab, var(--muted) 50%, transparent)", "background"],
-      ["background-image", 'url("/t.png"), var(--gradient-brand)', "background"],
-      ["background-size", "cover, auto", "background"],
-      ["background-position", "50% 50%, 0% 0%", "background"],
-      ["background-repeat", "no-repeat, repeat", "background"]
+      ["background-color", "color-mix(in oklab, var(--muted) 50%, transparent)", "fills"],
+      ["background-image", 'url("/t.png"), var(--gradient-brand)', "fills"],
+      ["background-size", "cover, auto", "fills"],
+      ["background-position", "50% 50%, 0% 0%", "fills"],
+      ["background-repeat", "no-repeat, repeat", "fills"]
     ]
   ],
   [
-    "a border color alone is a 1px solid border",
-    { border: "input" },
+    "borderColor alone is a 1px solid border",
+    { borderColor: { token: "input" } },
     component,
     [
       ["border-width", "1px", "borderWidth"],
       ["border-style", "solid", "borderStyle"],
-      ["border-color", "var(--input)", "border"]
+      ["border-color", "var(--input)", "borderColor"]
     ]
   ],
   [
-    "a border width alone takes the project's border color",
+    "borderWidth alone takes the project's border color",
     { borderWidth: 2, borderStyle: "dashed" },
     component,
     [
       ["border-width", "2px", "borderWidth"],
       ["border-style", "dashed", "borderStyle"],
-      ["border-color", "var(--border, currentColor)", "border"]
+      ["border-color", "var(--border, currentColor)", "borderColor"]
     ]
   ],
-  ["a border style alone writes nothing", { borderStyle: "dotted" }, component, []],
-  ["radius as a token", { radius: "radius-md" }, component, [["border-radius", "var(--radius-md)", "radius"]]],
   [
-    "radius as a keyword",
-    { radius: "radius-full" },
+    "borderColor as a value",
+    { borderColor: { value: "#2563eb" }, borderWidth: 1 },
     component,
-    [["border-radius", "var(--radius-full, calc(infinity * 1px))", "radius"]]
+    [
+      ["border-width", "1px", "borderWidth"],
+      ["border-style", "solid", "borderStyle"],
+      ["border-color", "#2563eb", "borderColor"]
+    ]
   ],
-  ["shadow", { shadow: "shadow-md" }, component, [["box-shadow", "var(--shadow-md)", "shadow"]]],
+  ["borderStyle alone writes nothing", { borderStyle: "dotted" }, component, []],
+  [
+    "borderRadius as a token",
+    { borderRadius: { token: "radius-md" } },
+    component,
+    [["border-radius", "var(--radius-md)", "borderRadius"]]
+  ],
+  [
+    "borderRadius as radius-full, which the framework writes as a keyword",
+    { borderRadius: { token: "radius-full" } },
+    component,
+    [["border-radius", "var(--radius-full, calc(infinity * 1px))", "borderRadius"]]
+  ],
+  [
+    "borderRadius as a value",
+    { borderRadius: { value: "6px" } },
+    component,
+    [["border-radius", "6px", "borderRadius"]]
+  ],
+  [
+    "borderRadius as an expression",
+    { borderRadius: { expr: "calc(var(--radius) - 2px)" } },
+    component,
+    [["border-radius", "calc(var(--radius) - 2px)", "borderRadius"]]
+  ],
+  [
+    "boxShadow",
+    { boxShadow: [{ type: "drop", token: "shadow-md" }] },
+    component,
+    [["box-shadow", "var(--shadow-md)", "boxShadow"]]
+  ],
   [
     "a stack of shadows, top first, without the ones that are off",
     {
-      shadow: [
-        { kind: "drop", token: "shadow-md" },
-        { kind: "inner", x: 0, y: 1, blur: 2, spread: 0, color: { color: "foreground", alpha: 10 } },
-        { kind: "ring", width: 1, color: { color: "ring" }, off: true }
+      boxShadow: [
+        { type: "drop", token: "shadow-md" },
+        { type: "inner", x: 0, y: 1, blur: 2, spread: 0, color: { token: "foreground", alpha: { step: 10 } } },
+        { type: "ring", width: 1, color: { token: "ring" }, off: true }
       ]
     },
     component,
@@ -357,7 +481,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
       [
         "box-shadow",
         "var(--shadow-md), inset 0 1px 2px 0 color-mix(in oklab, var(--foreground) 10%, transparent)",
-        "shadow"
+        "boxShadow"
       ]
     ]
   ],
@@ -365,10 +489,10 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     "filters, and those on what's behind",
     {
       filter: [
-        { kind: "blur", value: "blur-sm" },
-        { kind: "adjust", values: { brightness: 25 } }
+        { type: "blur", value: { token: "blur-sm" } },
+        { type: "adjust", values: { brightness: 25 } }
       ],
-      backdropFilter: [{ kind: "blur", value: "blur-md" }]
+      backdropFilter: [{ type: "blur", value: { token: "blur-md" } }]
     },
     component,
     [
@@ -377,59 +501,149 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     ]
   ],
   [
+    "a blur as a value",
+    { filter: [{ type: "blur", value: { value: "4px" } }] },
+    component,
+    [["filter", "blur(4px)", "filter"]]
+  ],
+  [
     "a transform, each part its own property",
-    { transform: { x: 2, y: { percent: -50 }, rotate: 45, scaleX: -100, skewX: 10, origin: { x: 50, y: 0 } } },
+    {
+      translate: { x: { step: 2 }, y: { value: "-50%" } },
+      rotate: 45,
+      scale: { x: -100 },
+      transform: [{ type: "skewX", value: 10 }],
+      transformOrigin: { x: 50, y: 0 }
+    },
     component,
     [
-      ["translate", "calc(var(--spacing) * 2) -50%", "transform"],
-      ["rotate", "45deg", "transform"],
-      ["scale", "-1 1", "transform"],
+      ["translate", "calc(var(--spacing) * 2) -50%", "translate"],
+      ["rotate", "45deg", "rotate"],
+      ["scale", "-1 1", "scale"],
       ["transform", "skewX(10deg)", "transform"],
-      ["transform-origin", "50% 0%", "transform"]
+      ["transform-origin", "50% 0%", "transformOrigin"]
     ]
+  ],
+  [
+    "translate one way moves none the other",
+    { translate: { y: { step: 4 } } },
+    component,
+    [["translate", "0 calc(var(--spacing) * 4)", "translate"]]
+  ],
+  [
+    "transform without an entry that is off",
+    {
+      transform: [
+        { type: "skewX", value: 10, off: true },
+        { type: "skewY", value: 5 }
+      ]
+    },
+    component,
+    [["transform", "skewY(5deg)", "transform"]]
+  ],
+  [
+    "transform with every entry off writes nothing",
+    { transform: [{ type: "skewX", value: 10, off: true }] },
+    component,
+    []
   ],
   ["opacity", { opacity: 50 }, component, [["opacity", "0.5", "opacity"]]],
   ["opacity of none", { opacity: 0 }, component, [["opacity", "0", "opacity"]]],
   ["overflow", { overflow: "hidden" }, component, [["overflow", "hidden", "overflow"]]],
-  [
-    "overflow: scroll scrolls only when it needs to",
-    { overflow: "scroll" },
-    component,
-    [["overflow", "auto", "overflow"]]
-  ],
+  ["overflow: auto scrolls only when it needs to", { overflow: "auto" }, component, [["overflow", "auto", "overflow"]]],
 
-  ["foreground", { foreground: "muted-foreground" }, component, [["color", "var(--muted-foreground)", "foreground"]]],
-  ["font", { font: "font-sans" }, component, [["font-family", "var(--font-sans)", "font"]]],
+  ["color", { color: { token: "muted-foreground" } }, component, [["color", "var(--muted-foreground)", "color"]]],
+  ["color as a value", { color: { value: "#2563eb" } }, component, [["color", "#2563eb", "color"]]],
   [
-    "size brings its line height",
-    { size: "text-lg" },
+    "color with an alpha in percent",
+    { color: { token: "primary", alpha: { step: 50 } } },
+    component,
+    [["color", "color-mix(in oklab, var(--primary) 50%, transparent)", "color"]]
+  ],
+  [
+    "color with an alpha from 0 to 1",
+    { color: { value: "#2563eb", alpha: { value: 0.25 } } },
+    component,
+    [["color", "color-mix(in oklab, #2563eb 25%, transparent)", "color"]]
+  ],
+  [
+    "color with an alpha token",
+    { color: { token: "primary", alpha: { token: "opacity-muted" } } },
+    component,
+    [["color", "color-mix(in oklab, var(--primary) var(--opacity-muted), transparent)", "color"]]
+  ],
+  [
+    "color with an alpha of 100% is the color",
+    { color: { token: "primary", alpha: { step: 100 } } },
+    component,
+    [["color", "var(--primary)", "color"]]
+  ],
+  ["color as a keyword", { color: { keyword: "currentColor" } }, component, [["color", "currentColor", "color"]]],
+  [
+    "color as an expression",
+    { color: { expr: "light-dark(#111, #eee)" } },
+    component,
+    [["color", "light-dark(#111, #eee)", "color"]]
+  ],
+  [
+    "fontFamily",
+    { fontFamily: { token: "font-sans" } },
+    component,
+    [["font-family", "var(--font-sans)", "fontFamily"]]
+  ],
+  [
+    "fontSize as a token brings its line height",
+    { fontSize: { token: "text-lg" } },
     component,
     [
-      ["font-size", "var(--text-lg)", "size"],
-      ["line-height", "var(--text-lg--line-height, 1.5)", "size"]
+      ["font-size", "var(--text-lg)", "fontSize"],
+      ["line-height", "var(--text-lg--line-height, 1.5)", "fontSize"]
     ]
   ],
   [
-    "leading over the size's line height",
-    { size: "text-lg", leading: "leading-tight" },
+    "fontSize as a value brings no line height",
+    { fontSize: { value: "18px" } },
+    component,
+    [["font-size", "18px", "fontSize"]]
+  ],
+  [
+    "lineHeight in steps",
+    { lineHeight: { step: 6 } },
+    component,
+    [["line-height", "calc(var(--spacing) * 6)", "lineHeight"]]
+  ],
+  ["lineHeight as a value", { lineHeight: { value: "1.5" } }, component, [["line-height", "1.5", "lineHeight"]]],
+  [
+    "lineHeight over the fontSize's line height",
+    { fontSize: { token: "text-lg" }, lineHeight: { token: "leading-tight" } },
     component,
     [
-      ["font-size", "var(--text-lg)", "size"],
-      ["line-height", "var(--leading-tight)", "leading"]
+      ["font-size", "var(--text-lg)", "fontSize"],
+      ["line-height", "var(--leading-tight)", "lineHeight"]
     ]
   ],
-  ["weight", { weight: 600 }, component, [["font-weight", "600", "weight"]]],
-  ["tracking", { tracking: "tracking-wide" }, component, [["letter-spacing", "var(--tracking-wide)", "tracking"]]],
+  ["fontWeight", { fontWeight: 600 }, component, [["font-weight", "600", "fontWeight"]]],
+  [
+    "letterSpacing",
+    { letterSpacing: { token: "tracking-wide" } },
+    component,
+    [["letter-spacing", "var(--tracking-wide)", "letterSpacing"]]
+  ],
   ["textAlign", { textAlign: "center" }, component, [["text-align", "center", "textAlign"]]],
   ["textTransform", { textTransform: "uppercase" }, component, [["text-transform", "uppercase", "textTransform"]]],
-  ["decoration", { decoration: "line-through" }, component, [["text-decoration-line", "line-through", "decoration"]]],
-  ["italic", { italic: true }, component, [["font-style", "italic", "italic"]]],
+  [
+    "textDecorationLine",
+    { textDecorationLine: "line-through" },
+    component,
+    [["text-decoration-line", "line-through", "textDecorationLine"]]
+  ],
+  ["fontStyle", { fontStyle: "italic" }, component, [["font-style", "italic", "fontStyle"]]],
   ["overflowWrap", { overflowWrap: "anywhere" }, component, [["overflow-wrap", "anywhere", "overflowWrap"]]],
-  ["what's switched off writes nothing", { italic: false, wrap: false, grow: false }, layout, flexBox],
+  ["what's switched off writes nothing", { fontStyle: "normal", flexWrap: "nowrap", grow: false }, layout, flexBox],
 
   [
     "hugging text is as wide as its line",
-    { width: "hug" },
+    { width: { size: "hug" } },
     text,
     [
       ["margin", "0", "margin"],
@@ -438,38 +652,38 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   [
     "one line",
-    { lines: 1 },
+    { lineClamp: 1 },
     text,
     [
       ["margin", "0", "margin"],
-      ["overflow", "hidden", "lines"],
-      ["text-overflow", "ellipsis", "lines"],
-      ["white-space", "nowrap", "lines"]
+      ["overflow", "hidden", "lineClamp"],
+      ["text-overflow", "ellipsis", "lineClamp"],
+      ["white-space", "nowrap", "lineClamp"]
     ]
   ],
   [
     "several lines",
-    { lines: 3 },
+    { lineClamp: 3 },
     text,
     [
       ["margin", "0", "margin"],
-      ["display", "-webkit-box", "lines"],
-      ["-webkit-box-orient", "vertical", "lines"],
-      ["-webkit-line-clamp", "3", "lines"],
-      ["overflow", "hidden", "lines"]
+      ["display", "-webkit-box", "lineClamp"],
+      ["-webkit-box-orient", "vertical", "lineClamp"],
+      ["-webkit-line-clamp", "3", "lineClamp"],
+      ["overflow", "hidden", "lineClamp"]
     ]
   ],
   [
     "inline text given a maximum width draws as a block",
-    { maxWidth: 40, lines: 1 },
+    { maxWidth: { step: 40 }, lineClamp: 1 },
     inlineText,
     [
       ["margin", "0", "margin"],
       ["max-width", "calc(var(--spacing) * 40)", "maxWidth"],
       ["display", "block", "maxWidth"],
-      ["overflow", "hidden", "lines"],
-      ["text-overflow", "ellipsis", "lines"],
-      ["white-space", "nowrap", "lines"]
+      ["overflow", "hidden", "lineClamp"],
+      ["text-overflow", "ellipsis", "lineClamp"],
+      ["white-space", "nowrap", "lineClamp"]
     ]
   ],
   [
@@ -484,36 +698,55 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   [
     "inline text cut off after several lines keeps the box that clamps it",
-    { lines: 2 },
+    { lineClamp: 2 },
     inlineText,
     [
       ["margin", "0", "margin"],
-      ["display", "-webkit-box", "lines"],
-      ["-webkit-box-orient", "vertical", "lines"],
-      ["-webkit-line-clamp", "2", "lines"],
-      ["overflow", "hidden", "lines"]
+      ["display", "-webkit-box", "lineClamp"],
+      ["-webkit-box-orient", "vertical", "lineClamp"],
+      ["-webkit-line-clamp", "2", "lineClamp"],
+      ["overflow", "hidden", "lineClamp"]
     ]
   ],
   [
     "inline text with nothing that needs a box stays inline",
-    { weight: 600 },
+    { fontWeight: 600 },
     inlineText,
     [
       ["margin", "0", "margin"],
-      ["font-weight", "600", "weight"]
+      ["font-weight", "600", "fontWeight"]
     ]
   ],
-  ["lines on anything but text write nothing", { lines: 2 }, component, []],
+  ["lineClamp on anything but text writes nothing", { lineClamp: 2 }, component, []],
   [
-    "transitions, leaving out a hidden one",
+    "transition, leaving out one that is off",
     {
-      transitions: [
-        { property: "opacity", duration: 200, easing: "linear" },
-        { property: "width", hidden: true }
+      transition: [
+        { property: "opacity", duration: { step: 200 }, easing: { keyword: "linear" } },
+        { property: "width", off: true }
       ]
     },
     component,
-    [["transition", "opacity 200ms linear", "transitions"]]
+    [["transition", "opacity 200ms linear", "transition"]]
+  ],
+  [
+    "css, drawn after the keys, without what is off",
+    {
+      opacity: 50,
+      css: {
+        "scroll-snap-type": { value: "x mandatory" },
+        "mix-blend-mode": { value: "multiply", off: true },
+        "--accent": { value: "#2563eb" }
+      }
+    },
+    layout,
+    [
+      ["display", "flex", "display"],
+      ["opacity", "0.5", "opacity"],
+      ["flex-direction", "column", "flexDirection"],
+      ["scroll-snap-type", "x mandatory", "css"],
+      ["--accent", "#2563eb", "css"]
+    ]
   ]
 ]
 
@@ -528,18 +761,29 @@ describe("declarations", () => {
     expect(styleKeys.filter((key) => !covered.has(key))).toEqual([])
   })
 
-  it("writes only properties the key owns, or sets for the key that does", () => {
+  it("writes only properties the key owns, or sets for the key that does, and from css only what no key owns", () => {
     const strays = cases.flatMap(([, style, context]) =>
-      declarations(style, context).flatMap(({ property, from }) =>
-        owned[from].includes(property) || setsForOthers[from]?.includes(property) ? [] : [`${from} writes ${property}`]
-      )
+      declarations(style, context).flatMap(({ property, from }) => {
+        const own =
+          from === "css"
+            ? ownerOf(property) === undefined
+            : owned[from].includes(property) || setsForOthers[from]?.includes(property)
+
+        return own ? [] : [`${from} writes ${property}`]
+      })
     )
 
     expect(strays).toEqual([])
   })
 
   it("draws an image, a video and an instance as it draws a component", () => {
-    const style: NodeStyle = { width: "fill", background: "muted", radius: "radius-md", opacity: 80 }
+    const style: NodeStyle = {
+      width: { size: "fill" },
+      fills: [{ type: "solid", color: { token: "muted" } }],
+      borderRadius: { token: "radius-md" },
+      opacity: 80
+    }
+
     const expected = declarations(style, inRow)
 
     for (const kind of ["image", "video", "instance"] as const) {
@@ -548,15 +792,27 @@ describe("declarations", () => {
   })
 
   it("writes each property once", () => {
-    const style: NodeStyle = { grow: true, width: "fill", minWidth: 4, size: "text-sm", leading: "leading-6", lines: 2 }
+    const style: NodeStyle = {
+      grow: true,
+      width: { size: "fill" },
+      minWidth: { step: 4 },
+      fontSize: { token: "text-sm" },
+      lineHeight: { token: "leading-6" },
+      lineClamp: 2
+    }
+
     const properties = declarations(style, { kind: "text", parent: "row" }).map(({ property }) => property)
 
     expect(properties).toEqual([...new Set(properties)])
   })
 
   it("keeps a property where it was first written when a later key changes it", () => {
-    const under: Declaration[] = declarations({ size: "text-sm", weight: 500 }, component)
-    const over: Declaration[] = declarations({ size: "text-sm", weight: 500, leading: "leading-6" }, component)
+    const under: Declaration[] = declarations({ fontSize: { token: "text-sm" }, fontWeight: 500 }, component)
+
+    const over: Declaration[] = declarations(
+      { fontSize: { token: "text-sm" }, fontWeight: 500, lineHeight: { token: "leading-6" } },
+      component
+    )
 
     expect(over.map(({ property }) => property)).toEqual(under.map(({ property }) => property))
   })

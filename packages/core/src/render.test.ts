@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type ContainerSpec, type DesignNode, parseCanvasDocument } from "./document.ts"
+import { type ContainerSpec, type DesignNode, parseCanvasDocument, type StateSpec } from "./document.ts"
 import { defaultModeSettings, resolveModes } from "./modes.ts"
 import {
   applyPatch,
@@ -33,10 +33,10 @@ function declaring(properties: Record<string, string>): { property: string; valu
 const root: DesignNode = {
   type: "layout",
   id: "page",
-  style: { direction: "row", gap: 4, background: "background" },
-  responsive: { mobile: { style: { direction: "column" } } },
+  style: { flexDirection: "row", gap: { step: 4 }, fills: [{ type: "solid", color: { token: "background" } }] },
+  responsive: { mobile: { style: { flexDirection: "column" } } },
   children: [
-    { type: "text", id: "title", tag: "h1", text: "Team", style: { size: "text-2xl", weight: 600 } },
+    { type: "text", id: "title", tag: "h1", text: "Team", style: { fontSize: { token: "text-2xl" }, fontWeight: 600 } },
     {
       type: "component",
       id: "card",
@@ -56,7 +56,13 @@ describe("resolveDesign", () => {
       type: "layout",
       id: "page",
       children: [
-        { type: "video", id: "hero", src: "/videos/waves.mp4", alt: "Waves", style: { width: 80, height: 45 } },
+        {
+          type: "video",
+          id: "hero",
+          src: "/videos/waves.mp4",
+          alt: "Waves",
+          style: { width: { step: 80 }, height: { step: 45 } }
+        },
         { type: "video", id: "talk", src: "/videos/talk.webm", fit: "contain", controls: true }
       ]
     }
@@ -100,7 +106,7 @@ describe("resolveDesign", () => {
         display: "flex",
         "flex-direction": "row",
         gap: "calc(var(--spacing) * 4)",
-        background: "var(--background)"
+        "background-color": "var(--background)"
       })
     })
 
@@ -132,15 +138,15 @@ describe("resolveDesign", () => {
       {
         type: "layout",
         id: "row",
-        style: { direction: "row" },
+        style: { flexDirection: "row" },
         children: [
           empty("hugs", undefined),
-          empty("hugs-too", { width: "hug", height: "hug" }),
-          empty("spacer", { width: 2 }),
-          empty("least", { minHeight: 4 }),
+          empty("hugs-too", { width: { size: "hug" }, height: { size: "hug" } }),
+          empty("spacer", { width: { step: 2 } }),
+          empty("least", { minHeight: { step: 4 } }),
           // Growing and filling leave a layout at nothing in a grid, or with no space to share.
           empty("grows", { grow: true }),
-          empty("fills", { width: "fill", height: 10 })
+          empty("fills", { width: { size: "fill" }, height: { step: 10 } })
         ]
       },
       undefined,
@@ -169,7 +175,7 @@ describe("resolveDesign", () => {
       name: "Gap",
       kind: "component",
       position: { x: 0, y: 0 },
-      root: { type: "layout", id: "root", style: { width: 6, height: 4 }, children: [] },
+      root: { type: "layout", id: "root", style: { width: { step: 6 }, height: { step: 4 } }, children: [] },
       states: [{ id: "default", name: "Default" }]
     }
 
@@ -177,11 +183,11 @@ describe("resolveDesign", () => {
       {
         type: "layout",
         id: "row",
-        style: { direction: "row" },
+        style: { flexDirection: "row" },
         children: [
-          { type: "instance", id: "narrow", design: "gap", style: { width: 2 } },
+          { type: "instance", id: "narrow", design: "gap", style: { width: { step: 2 } } },
           { type: "instance", id: "fixed", design: "gap" },
-          { type: "instance", id: "hugs", design: "gap", style: { width: "hug", height: "hug" } }
+          { type: "instance", id: "hugs", design: "gap", style: { width: { size: "hug" }, height: { size: "hug" } } }
         ]
       },
       undefined,
@@ -300,7 +306,11 @@ describe("resolveDesign", () => {
     const state = {
       id: "error",
       name: "Error",
-      overrides: { error: { hidden: false }, save: { props: { disabled: true } }, page: { style: { gap: 2 } } }
+      overrides: {
+        error: { hidden: false },
+        save: { props: { disabled: true } },
+        page: { style: { gap: { step: 2 } } }
+      }
     }
 
     const [page] = resolveDesign(root, state, "mobile")
@@ -325,12 +335,12 @@ describe("resolveDesign", () => {
       id: "plain",
       name: "Plain",
       overrides: {
-        page: { unset: { style: ["direction" as const, "background" as const, "radius" as const] } },
+        page: { unset: { style: ["flexDirection" as const, "fills" as const, "borderRadius" as const] } },
         save: { unset: { props: ["children"] } }
       }
     }
 
-    const rounded: DesignNode = { ...root, responsive: { mobile: { style: { radius: "radius" } } } }
+    const rounded: DesignNode = { ...root, responsive: { mobile: { style: { borderRadius: { token: "radius" } } } } }
     const [page] = resolveDesign(rounded, state, "mobile")
 
     if (page?.kind !== "element") {
@@ -339,7 +349,7 @@ describe("resolveDesign", () => {
 
     // The design's row is taken away, so the layout is a column, as it is by default.
     expect(css(page)).toMatchObject({ "flex-direction": "column", gap: "calc(var(--spacing) * 4)" })
-    expect(css(page)).not.toHaveProperty("background")
+    expect(css(page)).not.toHaveProperty("background-color")
     // A breakpoint's style applies whatever the state is.
     expect(css(page)).toMatchObject({ "border-radius": "var(--radius)" })
     expect(css(resolveDesign(rounded, state, "desktop")[0])).not.toHaveProperty("border-radius")
@@ -403,12 +413,22 @@ describe("resolveDesign", () => {
     const avatars: DesignNode = {
       type: "layout",
       id: "people",
-      style: { radius: "radius-md" },
-      responsive: { mobile: { style: { radius: "radius-full" } } },
+      style: { borderRadius: { token: "radius-md" } },
+      responsive: { mobile: { style: { borderRadius: { token: "radius-full" } } } },
       children: [
-        { type: "layout", id: "small", style: { width: 6, height: 6, radius: "radius-full" }, children: [] },
-        { type: "layout", id: "large", style: { width: 96, height: 96, radius: "radius-full" }, children: [] },
-        { type: "component", id: "pill", component: "Badge", style: { radius: "radius-full" } }
+        {
+          type: "layout",
+          id: "small",
+          style: { width: { step: 6 }, height: { step: 6 }, borderRadius: { token: "radius-full" } },
+          children: []
+        },
+        {
+          type: "layout",
+          id: "large",
+          style: { width: { step: 96 }, height: { step: 96 }, borderRadius: { token: "radius-full" } },
+          children: []
+        },
+        { type: "component", id: "pill", component: "Badge", style: { borderRadius: { token: "radius-full" } } }
       ]
     }
 
@@ -431,9 +451,9 @@ describe("resolveDesign", () => {
 
 describe("layering patches that take values away", () => {
   it("takes away the lower patch's values, and a value the upper one sets wins over what the lower took away", () => {
-    expect(mergePatches({ style: { gap: 2, padding: 1 } }, { unset: { style: ["gap"] } })).toEqual({
+    expect(mergePatches({ style: { gap: { step: 2 }, padding: { step: 1 } } }, { unset: { style: ["gap"] } })).toEqual({
       props: {},
-      style: { padding: 1 },
+      style: { padding: { step: 1 } },
       unset: { style: ["gap"] }
     })
     expect(mergePatches({ unset: { props: ["disabled"] } }, { props: { disabled: false } })).toEqual({
@@ -470,20 +490,30 @@ describe("transitions", () => {
     const card: DesignNode = {
       type: "layout",
       id: "card",
-      style: { background: "card", transitions: [{ property: "colors", duration: 200 }] },
+      style: {
+        fills: [{ type: "solid", color: { token: "card" } }],
+        transition: [{ property: "colors", duration: { step: 200 } }]
+      },
       children: []
     }
 
-    const hover = {
+    const hover: StateSpec = {
       id: "hover",
       name: "Hover",
-      overrides: { card: { style: { background: "accent", transitions: [{ property: "all", duration: 300 }] } } }
+      overrides: {
+        card: {
+          style: {
+            fills: [{ type: "solid", color: { token: "accent" } }],
+            transition: [{ property: "all", duration: { step: 300 } }]
+          }
+        }
+      }
     }
 
-    const style = (state?: typeof hover) => css(resolveDesign(card, state, "desktop")[0])
+    const style = (state?: StateSpec) => css(resolveDesign(card, state, "desktop")[0])
 
     expect(style().transition).toMatch(/^color 200ms /)
-    expect(style(hover)).toMatchObject({ background: "var(--accent)" })
+    expect(style(hover)).toMatchObject({ "background-color": "var(--accent)" })
     expect(style(hover).transition).toMatch(/^all 300ms /)
   })
 })
@@ -491,7 +521,7 @@ describe("transitions", () => {
 describe("parseCanvasDocument", () => {
   // Fields laid over a valid design, which may make it invalid on purpose.
   const document = <Fields extends object>(overrides?: Fields) => ({
-    version: 3,
+    version: 4,
     containers: [
       {
         id: "team",
@@ -559,7 +589,7 @@ describe("sizing", () => {
       {
         type: "layout",
         id: "page",
-        style: { ...parent, direction },
+        style: { ...parent, flexDirection: direction },
         children: [{ type: "layout", id: "box", style, children: [] }]
       },
       undefined,
@@ -574,37 +604,43 @@ describe("sizing", () => {
   }
 
   it("fills along the parent's direction by growing, and across it by stretching", () => {
-    expect(sized("row", { width: "fill" })).toMatchObject({ flex: "1 1 0%", "min-width": "0" })
-    expect(sized("column", { width: "fill" })).toMatchObject({ "align-self": "stretch" })
-    expect(sized("column", { height: "fill" })).toMatchObject({ flex: "1 1 0%", "min-height": "0" })
+    expect(sized("row", { width: { size: "fill" } })).toMatchObject({ flex: "1 1 0%", "min-width": "0" })
+    expect(sized("column", { width: { size: "fill" } })).toMatchObject({ "align-self": "stretch" })
+    expect(sized("column", { height: { size: "fill" } })).toMatchObject({ flex: "1 1 0%", "min-height": "0" })
   })
 
   it("fills across up to a maximum and then takes its place, as mx-auto max-w-… does", () => {
-    // Stretching would give way to `self`, leaving the box as wide as its content.
-    expect(sized("column", { width: "fill", maxWidth: 240, self: "center" })).toMatchObject({
+    // Stretching would give way to `alignSelf`, leaving the box as wide as its content.
+    expect(sized("column", { width: { size: "fill" }, maxWidth: { step: 240 }, alignSelf: "center" })).toMatchObject({
       width: "100%",
       "max-width": "calc(var(--spacing) * 240)",
       "align-self": "center"
     })
     // A stretched box stops at its maximum at the start; filling instead leaves it to the parent's alignment.
-    const capped = sized("column", { width: "fill", maxWidth: 112 }, { align: "center" })
+    const capped = sized("column", { width: { size: "fill" }, maxWidth: { step: 112 } }, { alignItems: "center" })
     expect(capped).toMatchObject({ width: "100%", "max-width": "calc(var(--spacing) * 112)" })
     expect(capped["align-self"]).toBeUndefined()
-    expect(sized("row", { height: "fill", self: "end" })).toMatchObject({ height: "100%", "align-self": "flex-end" })
+    expect(sized("row", { height: { size: "fill" }, alignSelf: "end" })).toMatchObject({
+      height: "100%",
+      "align-self": "flex-end"
+    })
     // Along the parent, it still grows.
-    expect(sized("row", { width: "fill", maxWidth: 240 })).toMatchObject({ flex: "1 1 0%" })
-    expect(sized("row", { width: "fill", maxWidth: 240 }).width).toBeUndefined()
+    expect(sized("row", { width: { size: "fill" }, maxWidth: { step: 240 } })).toMatchObject({ flex: "1 1 0%" })
+    expect(sized("row", { width: { size: "fill" }, maxWidth: { step: 240 } }).width).toBeUndefined()
     // Hugging still hugs.
-    expect(sized("column", { width: "hug", maxWidth: 240, self: "center" })).toMatchObject({
+    expect(sized("column", { width: { size: "hug" }, maxWidth: { step: 240 }, alignSelf: "center" })).toMatchObject({
       width: "fit-content",
       "align-self": "center"
     })
   })
 
   it("keeps fixed sizes from shrinking along the parent's direction only", () => {
-    expect(sized("row", { width: 64 })).toMatchObject({ width: "calc(var(--spacing) * 64)", "flex-shrink": "0" })
-    expect(sized("column", { width: 64 })["flex-shrink"]).toBeUndefined()
-    expect(sized("row", { height: "hug" })).toMatchObject({ height: "fit-content" })
+    expect(sized("row", { width: { step: 64 } })).toMatchObject({
+      width: "calc(var(--spacing) * 64)",
+      "flex-shrink": "0"
+    })
+    expect(sized("column", { width: { step: 64 } })["flex-shrink"]).toBeUndefined()
+    expect(sized("row", { height: { size: "hug" } })).toMatchObject({ height: "fit-content" })
   })
 
   it("draws a hugging text on its own line, never wrapping for its parent, as Figma's auto width does", () => {
@@ -622,13 +658,13 @@ describe("sizing", () => {
       return css(page.children[0])
     }
 
-    expect(text({ width: "hug" }).width).toBe("max-content")
+    expect(text({ width: { size: "hug" } }).width).toBe("max-content")
     // A maximum still wraps it, as it does in Figma.
-    expect(text({ width: "hug", maxWidth: 80 })).toMatchObject({
+    expect(text({ width: { size: "hug" }, maxWidth: { step: 80 } })).toMatchObject({
       width: "max-content",
       "max-width": "calc(var(--spacing) * 80)"
     })
-    expect(text({ width: 40 }).width).toBe("calc(var(--spacing) * 40)")
+    expect(text({ width: { step: 40 } }).width).toBe("calc(var(--spacing) * 40)")
     expect(text({}).width).toBeUndefined()
   })
 
@@ -642,7 +678,7 @@ describe("sizing", () => {
           children: [
             { type: "text", id: "amount", tag: "span", text: "$1,200", style: { textAlign: "end" } },
             { type: "text", id: "note", tag: "strong", text: "Paid" },
-            { type: "text", id: "title", tag: "p", text: "Plans", style: { maxWidth: 40 } }
+            { type: "text", id: "title", tag: "p", text: "Plans", style: { maxWidth: { step: 40 } } }
           ]
         }
       },
@@ -669,7 +705,7 @@ describe("sizing", () => {
             id: "line",
             component: "Separator",
             props: { style: { width: "100%" } },
-            style: { position: "absolute", left: 14, right: 0 }
+            style: { position: "absolute", left: { step: 14 }, right: { step: 0 } }
           }
         ]
       },
@@ -687,14 +723,14 @@ describe("sizing", () => {
   it("writes padding per side, appearance and type from tokens", () => {
     expect(
       sized("row", {
-        padding: [1, 2, 3, 4],
-        border: "border",
+        padding: [{ step: 1 }, { step: 2 }, { step: 3 }, { step: 4 }],
+        borderColor: { token: "border" },
         borderWidth: 2,
-        shadow: "shadow-sm",
+        boxShadow: [{ type: "drop", token: "shadow-sm" }],
         opacity: 50,
-        leading: "leading-tight",
+        lineHeight: { token: "leading-tight" },
         position: "absolute",
-        top: 2
+        top: { step: 2 }
       })
     ).toMatchObject({
       padding: "calc(var(--spacing) * 1) calc(var(--spacing) * 2) calc(var(--spacing) * 3) calc(var(--spacing) * 4)",
@@ -710,21 +746,26 @@ describe("sizing", () => {
   })
 
   it("writes a layer order as z-index, from a whole number or a z-index token", () => {
-    expect(sized("row", { zIndex: 10 })["z-index"]).toBe("10")
-    expect(sized("row", { zIndex: -5 })["z-index"]).toBe("-5")
-    expect(sized("row", { zIndex: "z-overlay" })["z-index"]).toBe("var(--z-overlay)")
+    expect(sized("row", { zIndex: { step: 10 } })["z-index"]).toBe("10")
+    expect(sized("row", { zIndex: { step: -5 } })["z-index"]).toBe("-5")
+    expect(sized("row", { zIndex: { token: "z-overlay" } })["z-index"]).toBe("var(--z-overlay)")
     expect(sized("row", {})["z-index"]).toBeUndefined()
   })
 
   it("sizes frames from the design's own size for a viewport", () => {
     const design = parseCanvasDocument({
-      version: 3,
+      version: 4,
       containers: [
         {
           id: "card",
           name: "Card",
           position: { x: 0, y: 0 },
-          root: { type: "layout", id: "root", style: { width: 80, padding: [1, 2, 3, 4] }, children: [] },
+          root: {
+            type: "layout",
+            id: "root",
+            style: { width: { step: 80 }, padding: [{ step: 1 }, { step: 2 }, { step: 3 }, { step: 4 }] },
+            children: []
+          },
           states: [{ id: "default", name: "Default" }],
           frames: { mobile: { height: 844 } }
         }
@@ -770,7 +811,7 @@ describe("sizing", () => {
     })
 
     const [grows, fixed] = parseCanvasDocument({
-      version: 3,
+      version: 4,
       containers: [
         {
           id: "page",
@@ -804,8 +845,14 @@ describe("grid, margin and length tokens", () => {
       {
         type: "layout",
         id: "page",
-        style: { display: "grid", columns: 3, gap: 4, rowGap: "spacing-section", margin: [2, "gutter"] },
-        children: [{ type: "text", id: "wide", text: "Wide", style: { colSpan: 2, padding: 1 } }]
+        style: {
+          display: "grid",
+          gridTemplateColumns: [{ fr: 1 }, { fr: 1 }, { fr: 1 }],
+          gap: { step: 4 },
+          rowGap: { token: "spacing-section" },
+          margin: [{ step: 2 }, { token: "gutter" }]
+        },
+        children: [{ type: "text", id: "wide", text: "Wide", style: { colSpan: 2, padding: { step: 1 } } }]
       },
       undefined,
       "desktop"
@@ -835,14 +882,20 @@ describe("grid, margin and length tokens", () => {
         type: "component",
         id: "card",
         component: "Card",
-        style: { background: "muted", padding: 6, foreground: "primary" }
+        style: {
+          fills: [{ type: "solid", color: { token: "muted" } }],
+          padding: { step: 6 },
+          color: { token: "primary" }
+        }
       },
       undefined,
       "desktop"
     )
 
     expect(card).toMatchObject({
-      props: { style: { background: "var(--muted)", padding: "calc(var(--spacing) * 6)", color: "var(--primary)" } }
+      props: {
+        style: { backgroundColor: "var(--muted)", padding: "calc(var(--spacing) * 6)", color: "var(--primary)" }
+      }
     })
   })
 })
@@ -914,7 +967,7 @@ describe("reachableLibrary", () => {
 })
 
 describe("what a frame adds to a layout (PAR-942)", () => {
-  const placed = { position: "absolute", top: 0 } as const
+  const placed = { position: "absolute", top: { step: 0 } } as const
 
   /** A layout holding `children`, as it's drawn. */
   function box(children: DesignNode[], style: DesignNode["style"] = {}, library = componentLibrary([])) {
@@ -966,10 +1019,10 @@ describe("what a frame adds to a layout (PAR-942)", () => {
     const row: DesignNode = {
       type: "layout",
       id: "row",
-      style: { direction: "row" },
+      style: { flexDirection: "row" },
       children: [
         { type: "layout", id: "hugs", children: [] },
-        { type: "layout", id: "fills", style: { width: "fill" }, children: [] }
+        { type: "layout", id: "fills", style: { width: { size: "fill" } }, children: [] }
       ]
     }
 

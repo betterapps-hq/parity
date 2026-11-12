@@ -71,7 +71,7 @@ async function agentRequest(container: ContainerSpec): Promise<FrameRequest> {
       modes,
       libraryDesigns: [],
       tokenOverrides: [],
-      documents: [{ path: "app.par", document: { version: 3, containers: [container] } }],
+      documents: [{ path: "app.par", document: { version: 4, containers: [container] } }],
       mainDocument: "app.par",
       props: {},
       selection: {},

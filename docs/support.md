@@ -1,6 +1,6 @@
 # What Parity supports
 
-Parity's `.par` and `.lib.par` files each have one current format (`version: 3`); obsolete library formats are rejected
+Parity's `.par` and `.lib.par` files each have one current format (`version: 4`); obsolete library formats are rejected
 rather than migrated. Modes and clipboard envelopes each accept only their current format (`version: 1`). Format
 identifiers do not introduce parallel implementations. Library aliases are resolved during discovery, including
 providers, nested sample values and icons.

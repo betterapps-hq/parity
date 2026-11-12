@@ -34,7 +34,7 @@ function card(): ContainerSpec {
         default: "small",
         options: [
           { id: "medium", name: "Medium" },
-          { id: "small", name: "Small", overrides: { card: { style: { padding: 3 } } } }
+          { id: "small", name: "Small", overrides: { card: { style: { padding: { step: 3 } } } } }
         ]
       }
     },

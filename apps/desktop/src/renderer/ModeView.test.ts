@@ -262,12 +262,12 @@ const card: ContainerSpec = {
   root: {
     type: "layout",
     id: "root",
-    style: { padding: 4, gap: 2 },
+    style: { padding: { step: 4 }, gap: { step: 2 } },
     children: [
       {
         type: "layout",
         id: "actions",
-        style: { direction: "row", gap: 2 },
+        style: { flexDirection: "row", gap: { step: 2 } },
         children: [
           { type: "text", id: "save", text: "Save" },
           { type: "text", id: "cancel", text: "Cancel" }
@@ -276,14 +276,20 @@ const card: ContainerSpec = {
       {
         type: "layout",
         id: "tiles",
-        style: { display: "grid", columns: 3, gap: 1 },
+        style: { display: "grid", gridTemplateColumns: [{ fr: 1 }, { fr: 1 }, { fr: 1 }], gap: { step: 1 } },
         children: ["one", "two", "three", "four"].map((id) => ({ type: "text", id, text: id }))
       },
       {
         type: "text",
         id: "badge",
         text: "New",
-        style: { position: "absolute", top: "header", left: 2, width: 20, height: 5 }
+        style: {
+          position: "absolute",
+          top: { token: "header" },
+          left: { step: 2 },
+          width: { step: 20 },
+          height: { step: 5 }
+        }
       },
       { type: "component", id: "field", component: "Field" }
     ]
@@ -462,8 +468,8 @@ describe("a frame in a project whose styling framework writes classes (PAR-942)"
     root: {
       type: "layout",
       id: "root",
-      style: { padding: 4, gap: 2 },
-      children: [{ type: "text", id: "title", text: "Plans", style: { width: 20 } }]
+      style: { padding: { step: 4 }, gap: { step: 2 } },
+      children: [{ type: "text", id: "title", text: "Plans", style: { width: { step: 20 } } }]
     },
     states: [{ id: "default", name: "Default" }]
   }

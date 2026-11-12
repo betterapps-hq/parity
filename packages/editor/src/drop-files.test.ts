@@ -15,8 +15,20 @@ import {
 } from "./drop-files.ts"
 
 const file = (name: string, type: string, size = 1024) => ({ name, type, size })
-const image = (id: string): DesignNode => ({ type: "image", id, src: `/images/${id}.png`, style: { width: 80 } })
-const video = (id: string): DesignNode => ({ type: "video", id, src: `/videos/${id}.mp4`, style: { width: 80 } })
+
+const image = (id: string): DesignNode => ({
+  type: "image",
+  id,
+  src: `/images/${id}.png`,
+  style: { width: { step: 80 } }
+})
+
+const video = (id: string): DesignNode => ({
+  type: "video",
+  id,
+  src: `/videos/${id}.mp4`,
+  style: { width: { step: 80 } }
+})
 
 const takenTypes = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml", "video/mp4", "video/webm"]
 
@@ -158,7 +170,16 @@ describe("a new design of dropped images", () => {
       name: "Hero banner",
       kind: "frame",
       position: { x: 120, y: -40 },
-      root: { type: "layout", style: { direction: "row", align: "start", padding: 6, gap: 4, width: "hug" } },
+      root: {
+        type: "layout",
+        style: {
+          flexDirection: "row",
+          alignItems: "start",
+          padding: { step: 6 },
+          gap: { step: 4 },
+          width: { size: "hug" }
+        }
+      },
       states: [{ id: "default", name: "Default" }]
     })
   })

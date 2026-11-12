@@ -699,7 +699,9 @@ function fixLine(finding: AccessibilityFinding): string | undefined {
     return "Fix: none of the project's color tokens pass on this background; change the background."
   }
 
-  return fix && `Fix: set style.foreground to "${fix.token}", which reaches ${fix.ratio}:1 in every frame checked.`
+  return (
+    fix && `Fix: set style.color to { token: "${fix.token}" }, which reaches ${fix.ratio}:1 in every frame checked.`
+  )
 }
 
 /** A layout problem, with the node it's on and the frames it's in. */

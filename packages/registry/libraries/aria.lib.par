@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "id": "aria",
   "name": "React Aria Components",
   "description": "Adobe's unstyled, accessible components; styles come from the project's CSS.",

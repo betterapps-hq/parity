@@ -65,7 +65,7 @@ function useImageSourceOf(session: ProjectSession): ImageSource {
 
 /**
  * Fill: the selected layers' paint stack, colors, gradients and images, top first, on the approved Paint stack control
- * (PAR-931). One plain color is written as its token's name, as `background` always held it.
+ * (PAR-931), written to the layers' `fills`.
  */
 export function FillSection({ editor }: { editor: StyleEditor }) {
   const session = useProject()
@@ -74,8 +74,8 @@ export function FillSection({ editor }: { editor: StyleEditor }) {
   const images = useImageSourceOf(session)
   // The control's own ids for the entries, kept while the document holds what they say, so an open editor stays open.
   const [held, setHeld] = useState<PaintEntry[]>([])
-  const entries = entriesFromFill(style.background, sets.gradient, held)
-  const edit = (next: PaintEntry[]) => fillEdit(paintsFromEntries(next))
+  const entries = entriesFromFill(style.fills, sets.gradient, held)
+  const edit = (next: PaintEntry[]) => fillEdit(paintsFromEntries(next, style.fills))
 
   return (
     // The control reads tokens from here; a new list of them starts it again with the project's.
@@ -83,7 +83,7 @@ export function FillSection({ editor }: { editor: StyleEditor }) {
       <ImageSourceProvider value={images}>
         <PaintStack
           entries={entries}
-          mixed={mixed.includes("background")}
+          mixed={mixed.includes("fills")}
           tokensOnly
           onPreview={(carried) => (carried ? editor.preview?.("fill", edit(carried)) : editor.endPreview?.())}
           onChange={(next) => {

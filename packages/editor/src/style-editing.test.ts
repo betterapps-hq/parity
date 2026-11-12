@@ -1,4 +1,14 @@
-import { type ContainerSpec, type DesignNode, effectiveNode, findNode, type NodeStyle } from "@parity-app/core"
+import {
+  type ContainerSpec,
+  type DesignNode,
+  effectiveNode,
+  findNode,
+  type NodeStyle,
+  type Paint,
+  solidFill,
+  tokenColor,
+  type Transition
+} from "@parity-app/core"
 import { effectiveFixture } from "@parity-app/core/fixtures"
 import { describe, expect, it } from "vite-plus/test"
 import { boardReader } from "./shown.ts"
@@ -8,6 +18,7 @@ import {
   layoutTypeEdit,
   placementEdit,
   rowKeys,
+  shownSize,
   sidesField,
   sizeEdit,
   sizeField,
@@ -33,15 +44,22 @@ function toolbar(): ContainerSpec {
         {
           type: "layout",
           id: "buttons",
-          style: { direction: "row", gap: 2 },
-          children: [text("save", { padding: 2, weight: 600 }), text("cancel", { padding: 4, weight: 600 })]
+          style: { flexDirection: "row", gap: { step: 2 } },
+          children: [
+            text("save", { padding: { step: 2 }, fontWeight: 600 }),
+            text("cancel", { padding: { step: 4 }, fontWeight: 600 })
+          ]
         },
-        { type: "layout", id: "notes", children: [text("note", { grow: true, padding: 2 })] }
+        { type: "layout", id: "notes", children: [text("note", { grow: true, padding: { step: 2 } })] }
       ]
     },
     states: [
       { id: "default", name: "Default" },
-      { id: "hover", name: "Hover", overrides: { save: { style: { background: "accent", padding: 3 } } } }
+      {
+        id: "hover",
+        name: "Hover",
+        overrides: { save: { style: { fills: [{ type: "solid", color: { token: "accent" } }], padding: { step: 3 } } } }
+      }
     ]
   }
 }
@@ -65,19 +83,19 @@ describe("the state a style edit goes to", () => {
     expect(selection.target).toEqual({ state: "base", variant: { param: "layout", option: "inline" } })
     expect(selection.layers[0]!.base).toBe(false)
     // The layer shows as the option draws it.
-    expect(selection.style).toMatchObject({ direction: "row", gap: 6 })
+    expect(selection.style).toMatchObject({ flexDirection: "row", gap: { step: 6 } })
 
     const card = fixture("card", { layout: "inline" })
-    const edited = selection.edit("gap", { gap: 8 })(card)
-    expect(edited.root.style?.gap).toBe(4)
-    expect(edited.params?.layout?.options?.[1]?.overrides?.body?.style?.gap).toBe(8)
+    const edited = selection.edit("gap", { gap: { step: 8 } })(card)
+    expect(edited.root.style?.gap).toEqual({ step: 4 })
+    expect(edited.params?.layout?.options?.[1]?.overrides?.body?.style?.gap).toEqual({ step: 8 })
   })
 })
 
 describe("the style several layers share", () => {
   it("shows what they share and lists what differs", () => {
     const selection = styleSelection(toolbar(), ["save", "cancel"], undefined)!
-    expect(selection.style).toEqual({ weight: 600 })
+    expect(selection.style).toEqual({ fontWeight: 600 })
     expect(selection.mixed).toEqual(["padding"])
     expect(selection.differs("padding")).toBe(true)
     expect(selection.differs("weight")).toBe(false)
@@ -85,7 +103,7 @@ describe("the style several layers share", () => {
 
   it("reads each layer as the state being edited shows it", () => {
     const selection = styleSelection(toolbar(), ["save", "cancel"], "hover")!
-    expect(selection.mixed).toEqual(["padding", "background"])
+    expect(selection.mixed).toEqual(["padding", "fills"])
   })
 
   it("skips layers that no longer exist, and is nothing when none do", () => {
@@ -104,27 +122,27 @@ describe("the style several layers share", () => {
       fieldEdit(read, write, (value) => Number(value ?? 0) + 2)
     )(design)
 
-    expect(styleOf(edited, "save").padding).toBe(4)
-    expect(styleOf(edited, "cancel").padding).toBe(6)
+    expect(styleOf(edited, "save").padding).toEqual({ step: 4 })
+    expect(styleOf(edited, "cancel").padding).toEqual({ step: 6 })
   })
 })
 
 describe("a layer's order", () => {
   it("is edited, shown as differing and reset as Layer order's row", () => {
     let design = toolbar()
-    design = styleSelection(design, ["save"], undefined)!.edit("layerOrder", { zIndex: 10 })(design)
-    expect(styleOf(design, "save").zIndex).toBe(10)
+    design = styleSelection(design, ["save"], undefined)!.edit("layerOrder", { zIndex: { step: 10 } })(design)
+    expect(styleOf(design, "save").zIndex).toEqual({ step: 10 })
 
     const both = styleSelection(design, ["save", "cancel"], undefined)!
     expect(both.differs("layerOrder")).toBe(true)
 
-    design = both.edit("layerOrder", { zIndex: "z-overlay" })(design)
-    expect(styleOf(design, "cancel").zIndex).toBe("z-overlay")
-    expect(styleSelection(design, ["save", "cancel"], undefined)!.style.zIndex).toBe("z-overlay")
+    design = both.edit("layerOrder", { zIndex: { token: "z-overlay" } })(design)
+    expect(styleOf(design, "cancel").zIndex).toEqual({ token: "z-overlay" })
+    expect(styleSelection(design, ["save", "cancel"], undefined)!.style.zIndex).toEqual({ token: "z-overlay" })
 
     const hover = styleSelection(design, ["save"], "hover")!
-    const reset = hover.reset("layerOrder")(hover.edit("layerOrder", { zIndex: -5 })(design))
-    expect(styleOf(reset, "save", "hover").zIndex).toBe("z-overlay")
+    const reset = hover.reset("layerOrder")(hover.edit("layerOrder", { zIndex: { step: -5 } })(design))
+    expect(styleOf(reset, "save", "hover").zIndex).toEqual({ token: "z-overlay" })
   })
 })
 
@@ -136,7 +154,7 @@ describe("what a layer's order orders it within", () => {
 
     const buttons = findNode(design.root, "buttons")!
     buttons.name = "Buttons"
-    buttons.style = { ...buttons.style, zIndex: 1 }
+    buttons.style = { ...buttons.style, zIndex: { step: 1 } }
     const notes = findNode(design.root, "notes")!
     notes.style = { opacity: 50 }
 
@@ -158,43 +176,59 @@ describe("what a state changes", () => {
 
   it("writes an edit into the state, leaving the design as it was", () => {
     const design = toolbar()
-    const edited = styleSelection(design, ["cancel"], "hover")!.edit("weight", { weight: 700 })(design)
-    expect(styleOf(edited, "cancel").weight).toBe(600)
-    expect(styleOf(edited, "cancel", "hover").weight).toBe(700)
+    const edited = styleSelection(design, ["cancel"], "hover")!.edit("weight", { fontWeight: 700 })(design)
+    expect(styleOf(edited, "cancel").fontWeight).toBe(600)
+    expect(styleOf(edited, "cancel", "hover").fontWeight).toBe(700)
   })
 
   it("resets every key of the row on every layer", () => {
     let design = toolbar()
-    design = styleSelection(design, ["cancel"], "hover")!.edit("padding", { padding: 5 })(design)
+    design = styleSelection(design, ["cancel"], "hover")!.edit("padding", { padding: { step: 5 } })(design)
     const selection = styleSelection(design, ["save", "cancel"], "hover")!
     const reset = selection.reset("padding")(design)
-    expect(styleOf(reset, "save", "hover")).toEqual({ padding: 2, weight: 600, background: "accent" })
-    expect(styleOf(reset, "cancel", "hover")).toEqual({ padding: 4, weight: 600 })
+    expect(styleOf(reset, "save", "hover")).toEqual({
+      padding: { step: 2 },
+      fontWeight: 600,
+      fills: solidFill("accent")
+    })
+    expect(styleOf(reset, "cancel", "hover")).toEqual({ padding: { step: 4 }, fontWeight: 600 })
   })
 
   it("resets Placement's insets with it, as putting a layer back in the layout drops them", () => {
     let design = toolbar()
     design = styleSelection(design, ["save"], "hover")!.edit("placement", placementEdit(true))(design)
-    expect(styleOf(design, "save", "hover")).toMatchObject({ position: "absolute", top: 0, left: 0 })
+    expect(styleOf(design, "save", "hover")).toMatchObject({
+      position: "absolute",
+      top: { step: 0 },
+      left: { step: 0 }
+    })
     design = styleSelection(design, ["save"], "hover")!.reset("placement")(design)
-    expect(styleOf(design, "save", "hover")).toEqual({ padding: 3, weight: 600, background: "accent" })
+    expect(styleOf(design, "save", "hover")).toEqual({
+      padding: { step: 3 },
+      fontWeight: 600,
+      fills: solidFill("accent")
+    })
   })
 
   it("gives a state transitions of its own, which the board plays on switching to it, and takes them back (PAR-934)", () => {
     let design = toolbar()
-    const transitions = [{ property: "colors", duration: 200, easing: "ease-out" }]
-    design = styleSelection(design, ["save", "cancel"], "default")!.edit("transitions", { transitions })(design)
-    const springy = [{ property: "transform", easing: { spring: { duration: 400, bounce: 0.3 } } }]
-    design = styleSelection(design, ["save"], "hover")!.edit("transitions", { transitions: springy })(design)
-    expect(styleOf(design, "save").transitions).toEqual(transitions)
-    expect(styleOf(design, "save", "hover").transitions).toEqual(springy)
+    const transitions: Transition[] = [{ property: "colors", duration: { step: 200 }, easing: { keyword: "ease-out" } }]
+
+    design = styleSelection(design, ["save", "cancel"], "default")!.edit("transitions", { transition: transitions })(
+      design
+    )
+
+    const springy: Transition[] = [{ property: "transform", easing: { spring: { duration: 400, bounce: 0.3 } } }]
+    design = styleSelection(design, ["save"], "hover")!.edit("transitions", { transition: springy })(design)
+    expect(styleOf(design, "save").transition).toEqual(transitions)
+    expect(styleOf(design, "save", "hover").transition).toEqual(springy)
 
     const hover = styleSelection(design, ["save", "cancel"], "hover")!
     expect(hover.changed("transitions")).toBe(true)
     expect(hover.differs("transitions")).toBe(true)
     design = hover.reset("transitions")(design)
-    expect(styleOf(design, "save", "hover").transitions).toEqual(transitions)
-    expect(styleSelection(design, ["save", "cancel"], "hover")!.style.transitions).toEqual(transitions)
+    expect(styleOf(design, "save", "hover").transition).toEqual(transitions)
+    expect(styleSelection(design, ["save", "cancel"], "hover")!.style.transition).toEqual(transitions)
   })
 
   it("does nothing on reset when edits change the design itself", () => {
@@ -242,13 +276,13 @@ describe("a layer inside an instance", () => {
     const profile = fixture("profile")
     const selection = styleSelection(profile, ["person/title"], undefined, library)!
     expect(selection.layers[0]!.base).toBe(false)
-    expect(selection.style.weight).toBe(600)
-    const edited = selection.edit("weight", { weight: 800 })(profile)
-    expect(effectiveNode(edited, "person/title", { library })?.style?.weight).toBe(800)
+    expect(selection.style.fontWeight).toBe(600)
+    const edited = selection.edit("weight", { fontWeight: 800 })(profile)
+    expect(effectiveNode(edited, "person/title", { library })?.style?.fontWeight).toBe(800)
 
     const again = styleSelection(edited, ["person/title"], undefined, library)!
     expect(again.changed("weight")).toBe(true)
-    expect(effectiveNode(again.reset("weight")(edited), "person/title", { library })?.style?.weight).toBe(600)
+    expect(effectiveNode(again.reset("weight")(edited), "person/title", { library })?.style?.fontWeight).toBe(600)
   })
 
   it("is skipped without the library to find it in", () => {
@@ -261,7 +295,24 @@ describe("rows' edits", () => {
   const written = (edit: (style: NodeStyle) => StyleValues, styles: NodeStyle[]) =>
     new Set(styles.flatMap((style) => Object.keys(edit(style))))
 
-  const styles: NodeStyle[] = [{}, { grow: true }, { width: "hug", height: 10, columns: 3, top: 2 }]
+  const styles: NodeStyle[] = [
+    {},
+    { grow: true },
+    {
+      width: { size: "hug" },
+      height: { step: 10 },
+      gridTemplateColumns: [{ fr: 1 }, { fr: 1 }, { fr: 1 }],
+      top: { step: 2 }
+    },
+    // A grid whose tracks aren't all Fill, and lengths written out, which have no steps.
+    {
+      display: "grid",
+      gridTemplateColumns: [{ value: "200px" }, { fr: 1 }],
+      width: { value: "50%" },
+      padding: [{ expr: "calc(1rem + 2px)" }, { keyword: "auto" }]
+    }
+  ]
+
   const layer = { base: false, measure: () => 12, type: "text" as const, column: true }
 
   it("write only the keys their row resets", () => {
@@ -291,16 +342,54 @@ describe("rows' edits", () => {
   })
 
   it("replace a `grow` that filled along the size with the size set", () => {
-    expect(styleValues(sizeEdit("width", 20, undefined), { grow: true }, layer)).toEqual({ width: 20, grow: undefined })
+    expect(styleValues(sizeEdit("width", 20, undefined), { grow: true }, layer)).toEqual({
+      width: { step: 20 },
+      grow: undefined
+    })
 
     expect(styleValues(sizeEdit("width", 20, { direction: "column", grid: false }), { grow: true }, layer)).toEqual({
-      width: 20
+      width: { step: 20 }
     })
     // A cleared length leaves fill as it shows.
     expect(sizeField("height", { direction: "column", grid: false }).write(undefined, { grow: true })).toEqual({
-      height: "fill",
+      height: { size: "fill" },
       grow: undefined
     })
+  })
+
+  it("read and write sizes and sides as a field holds them, steps or a name, storing each with its form", () => {
+    const width = sizeField("width", undefined)
+    expect(width.read({ width: { step: 20 } })).toBe(20)
+    expect(width.read({ width: { token: "sidebar" } })).toBe("sidebar")
+    expect(width.read({ width: { size: "fill" } })).toBeUndefined()
+    expect(width.write("sidebar", {})).toEqual({ width: { token: "sidebar" } })
+    expect(shownSize({ width: { size: "hug" } }, "width", undefined)).toBe("hug")
+    expect(styleValues(sizeEdit("height", "fill", undefined), {}, layer)).toEqual({ height: { size: "fill" } })
+    // A cleared length keeps a fill as it's stored, with its share, and takes a fixed length away.
+    expect(width.write(undefined, { width: { size: "fill", share: 2 } })).toEqual({ width: { size: "fill", share: 2 } })
+    expect(width.write(undefined, { width: { value: "50%" } })).toEqual({ width: undefined })
+
+    const top = sidesField("padding", [0])
+    expect(top.read({ padding: [{ step: 2 }, { token: "gutter" }] })).toBe(2)
+    expect(sidesField("padding", [1]).read({ padding: [{ step: 2 }, { token: "gutter" }] })).toBe("gutter")
+    // The sides it doesn't write stay as they're stored, whatever their form.
+    expect(top.write("gutter", { padding: [{ step: 2 }, { value: "10%" }] })).toEqual({
+      padding: [{ token: "gutter" }, { value: "10%" }, { step: 2 }, { value: "10%" }]
+    })
+    expect(top.write(undefined, { padding: { step: 0 } })).toEqual({ padding: { step: 0 } })
+  })
+
+  it("starts a grid with two Fill columns, and keeps the tracks one already has", () => {
+    expect(styleValues(layoutTypeEdit("grid"), {}, layer)).toEqual({
+      display: "grid",
+      gridTemplateColumns: [{ fr: 1 }, { fr: 1 }]
+    })
+    const tracks: NodeStyle["gridTemplateColumns"] = [{ value: "200px" }, { fr: 1 }, { fr: 2 }]
+    expect(styleValues(layoutTypeEdit("grid"), { gridTemplateColumns: tracks }, layer)).toEqual({
+      display: "grid",
+      gridTemplateColumns: tracks
+    })
+    expect(layoutTypeEdit("row")).toEqual({ display: undefined, flexDirection: "row" })
   })
 
   it("size text by each layer's own measure, rounded up, and leave other layers alone", () => {
@@ -309,7 +398,7 @@ describe("rows' edits", () => {
       root: {
         type: "layout",
         id: "root",
-        children: [text("label", { width: "hug" }), { type: "layout", id: "box", children: [] }]
+        children: [text("label", { width: { size: "hug" } }), { type: "layout", id: "box", children: [] }]
       }
     }
 
@@ -328,29 +417,29 @@ describe("rows' edits", () => {
       }
     )(design)
 
-    expect(styleOf(edited, "label")).toEqual({ width: 11, height: 4 })
+    expect(styleOf(edited, "label")).toEqual({ width: { step: 11 }, height: { step: 4 } })
     expect(styleOf(edited, "box")).toEqual({})
   })
 })
 
 describe("the Fill row's edit", () => {
-  it("writes one plain color as its token's name, as a file before paint stacks held it", () => {
-    expect(fillEdit([{ kind: "solid", color: "card" }])).toEqual({ background: "card" })
+  it("writes one color token as a list of the one paint, as every fill is stored", () => {
+    expect(fillEdit(solidFill("card"))).toEqual({ fills: [{ type: "solid", color: { token: "card" } }] })
   })
 
-  it("writes a stack, or one color with alpha or hidden, as paints, and nothing for no paints", () => {
-    const stack = [
-      { kind: "gradient" as const, token: "gradient-brand" },
-      { kind: "solid" as const, color: "card" }
+  it("writes a stack, or one color with alpha or turned off, as paints, and nothing for no paints", () => {
+    const stack: Paint[] = [
+      { type: "gradient", token: "gradient-brand" },
+      { type: "solid", color: { token: "card" } }
     ]
 
-    expect(fillEdit(stack)).toEqual({ background: stack })
-    expect(fillEdit([{ kind: "solid", color: "card", alpha: 40 }])).toEqual({
-      background: [{ kind: "solid", color: "card", alpha: 40 }]
+    expect(fillEdit(stack)).toEqual({ fills: stack })
+    expect(fillEdit([{ type: "solid", color: tokenColor("card", 40) }])).toEqual({
+      fills: [{ type: "solid", color: { token: "card", alpha: { step: 40 } } }]
     })
-    expect(fillEdit([{ kind: "solid", color: "card", hidden: true }])).toEqual({
-      background: [{ kind: "solid", color: "card", hidden: true }]
+    expect(fillEdit([{ type: "solid", color: { token: "card" }, off: true }])).toEqual({
+      fills: [{ type: "solid", color: { token: "card" }, off: true }]
     })
-    expect(fillEdit([])).toEqual({ background: undefined })
+    expect(fillEdit([])).toEqual({ fills: undefined })
   })
 })

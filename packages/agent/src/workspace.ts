@@ -827,7 +827,12 @@ export class AgentWorkspace {
     const page = {
       type: "layout",
       name: "Page",
-      style: { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
+      style: {
+        padding: [{ step: 10 }, { step: 12 }],
+        gap: { step: 6 },
+        fills: [{ type: "solid", color: { token: "background" } }],
+        color: { token: "foreground" }
+      },
       children: []
     }
 
@@ -860,7 +865,7 @@ export class AgentWorkspace {
     const room = kind === "frame" ? estimateSize(built, this.modes) : { width: 1400, height: 1000 }
     const place = spec.x === undefined || spec.y === undefined ? this.findEmptySpace(room) : undefined
     const container = place ? { ...built, position: { x: spec.x ?? place.x, y: spec.y ?? place.y } } : built
-    const document = this.documents.get(path) ?? { version: 3, containers: [] }
+    const document = this.documents.get(path) ?? { version: 4, containers: [] }
     this.documents.set(path, { ...document, containers: [...document.containers, container] })
     this.changed.add(path)
     this.created[spec.name] = id
@@ -1987,7 +1992,7 @@ export class AgentWorkspace {
 
     this.setContainer(path, design)
     const file = options.file ?? this.snapshot.mainDocument
-    const target = this.documents.get(file) ?? { version: 3, containers: [] }
+    const target = this.documents.get(file) ?? { version: 4, containers: [] }
     this.documents.set(file, { ...target, containers: [...target.containers, component] })
     this.changed.add(file)
     this.created[options.name] = id

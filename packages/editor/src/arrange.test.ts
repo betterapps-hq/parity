@@ -33,7 +33,7 @@ function form(): ContainerSpec {
         {
           type: "layout",
           id: "fields",
-          style: { direction: "row", gap: 3 },
+          style: { flexDirection: "row", gap: { step: 3 } },
           children: [text("email"), text("password")]
         },
         {
@@ -47,7 +47,7 @@ function form(): ContainerSpec {
     },
     states: [
       { id: "default", name: "Default" },
-      { id: "wide", name: "Wide", overrides: { fields: { style: { direction: "column" } } } }
+      { id: "wide", name: "Wide", overrides: { fields: { style: { flexDirection: "column" } } } }
     ]
   }
 }
@@ -134,8 +134,8 @@ describe("deleting designs", () => {
     const other: ContainerSpec = { ...form(), id: "other", name: "Other" }
 
     const documents = new Map<string, CanvasDocument>([
-      ["main.par", { version: 3, containers: [form(), other] }],
-      ["more.par", { version: 3, containers: [{ ...form(), id: "more" }] }]
+      ["main.par", { version: 4, containers: [form(), other] }],
+      ["more.par", { version: 4, containers: [{ ...form(), id: "more" }] }]
     ])
 
     const next = removeDesigns(documents, [
@@ -167,25 +167,25 @@ describe("wrapping in a layout", () => {
     expect(childIds(container, "fields")).toEqual([id])
     expect(findNode(container.root, id)).toMatchObject({
       type: "layout",
-      style: { direction: "row", gap: 3 },
+      style: { flexDirection: "row", gap: { step: 3 } },
       children: [{ id: "email" }, { id: "password" }]
     })
   })
 
   it("reads the parent's layout in the state shown", () => {
     const { container, id } = wrapInLayout(form(), ["email", "password"], wide)
-    expect(findNode(container.root, id)).toMatchObject({ style: { gap: 3 } })
-    expect(findNode(container.root, id)?.style?.direction).toBeUndefined()
+    expect(findNode(container.root, id)).toMatchObject({ style: { gap: { step: 3 } } })
+    expect(findNode(container.root, id)?.style?.flexDirection).toBeUndefined()
   })
 
   it("reads the parent as the board shows it, with the variant options shown and the frame's viewport", () => {
     // The card's Inline option turns its body into a row, and the body's mobile gap of 2 wins over the option's 6.
     const inline = wrapInLayout(card({ layout: "inline" }), ["avatar", "copy"], card().states[0]!, "mobile")
-    expect(findNode(inline.container.root, inline.id)?.style).toEqual({ direction: "row", gap: 2 })
+    expect(findNode(inline.container.root, inline.id)?.style).toEqual({ flexDirection: "row", gap: { step: 2 } })
     const stacked = wrapInLayout(card(), ["avatar", "copy"], card().states[0]!, "mobile")
-    expect(findNode(stacked.container.root, stacked.id)?.style).toEqual({ gap: 2 })
+    expect(findNode(stacked.container.root, stacked.id)?.style).toEqual({ gap: { step: 2 } })
     const desktop = wrapInLayout(card(), ["avatar", "copy"], card().states[0]!, "desktop")
-    expect(findNode(desktop.container.root, desktop.id)?.style).toEqual({ gap: 4 })
+    expect(findNode(desktop.container.root, desktop.id)?.style).toEqual({ gap: { step: 4 } })
   })
 
   it("gives a column nothing of its own", () => {
@@ -243,14 +243,14 @@ describe("aligning layers", () => {
   it("aligns a layer by itself on its layout's cross axis", () => {
     // The root is a column, whose cross axis is horizontal.
     const container = alignInLayouts(form(), ["heading"], base, "right")
-    expect(findNode(container.root, "heading")?.style).toEqual({ self: "end" })
+    expect(findNode(container.root, "heading")?.style).toEqual({ alignSelf: "end" })
     expect(findNode(container.root, "root")?.style).toBeUndefined()
   })
 
   it("moves all of a layout's children along its main axis", () => {
     // The fields are a row, whose main axis is horizontal.
     const container = alignInLayouts(form(), ["email"], base, "center")
-    expect(findNode(container.root, "fields")?.style).toMatchObject({ justify: "center" })
+    expect(findNode(container.root, "fields")?.style).toMatchObject({ justifyContent: "center" })
     expect(findNode(container.root, "email")?.style).toBeUndefined()
   })
 
@@ -259,23 +259,23 @@ describe("aligning layers", () => {
     const container = alignInLayouts(form(), ["email"], wide, "left")
     const email = findNode(container.root, "email")!
     expect(email.style).toBeUndefined()
-    expect(nodeInState(email, container.states[1]).style).toEqual({ self: "start" })
+    expect(nodeInState(email, container.states[1]).style).toEqual({ alignSelf: "start" })
   })
 
   it("reads the layout's direction with the variant options the board shows", () => {
     // Inline turns the card's body into a row, so Align right moves its children along it, in the variant shown.
     const container = alignInLayouts(card({ layout: "inline" }), ["copy"], card().states[0]!, "right")
     expect(findNode(container.root, "copy")?.style).toBeUndefined()
-    expect(findNode(container.root, "body")?.style).not.toHaveProperty("justify")
+    expect(findNode(container.root, "body")?.style).not.toHaveProperty("justifyContent")
     const layout = container.params?.layout
     const inline = layout?.type === "variant" ? layout.options?.find((option) => option.id === "inline") : undefined
-    expect(inline?.overrides?.body?.style).toMatchObject({ direction: "row", justify: "end" })
+    expect(inline?.overrides?.body?.style).toMatchObject({ flexDirection: "row", justifyContent: "end" })
     expect(inline?.overrides?.copy).toBeUndefined()
   })
 
   it("aligns a layer by itself in a column the board shows", () => {
     const container = alignInLayouts(card({ layout: "stacked" }), ["copy"], card().states[0]!, "right", "mobile")
-    expect(findNode(container.root, "copy")?.style).toEqual({ self: "end" })
+    expect(findNode(container.root, "copy")?.style).toEqual({ alignSelf: "end" })
   })
 
   it("leaves layers in a slot as they are", () => {
@@ -355,7 +355,7 @@ describe("distributing designs", () => {
 
 describe("moving designs", () => {
   const documents = () =>
-    new Map<string, CanvasDocument>([["main.par", { version: 3, containers: [form(), { ...form(), id: "other" }] }]])
+    new Map<string, CanvasDocument>([["main.par", { version: 4, containers: [form(), { ...form(), id: "other" }] }]])
 
   it("moves each to its new position, in whole pixels", () => {
     const next = repositionDesigns(documents(), [{ path: "main.par", id: "form", position: { x: 10.4, y: -3.6 } }])

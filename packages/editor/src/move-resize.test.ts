@@ -31,42 +31,63 @@ const drawn = (sides: Partial<DrawnSteps> = {}): DrawnSteps => ({ top: 0, right:
 
 describe("moving an absolutely placed layer", () => {
   it("moves it by the sides it's placed from", () => {
-    expect(shiftInsets({ top: 4, left: 2 }, 1, 0)).toEqual({ change: { left: 3 } })
-    expect(shiftInsets({ top: 4, left: 2 }, 0, -10)).toEqual({ change: { top: -6 } })
-    expect(shiftInsets({ bottom: 4, right: 2 }, 1, 1)).toEqual({ change: { right: 1, bottom: 3 } })
+    expect(shiftInsets({ top: { step: 4 }, left: { step: 2 } }, 1, 0)).toEqual({ change: { left: 3 } })
+    expect(shiftInsets({ top: { step: 4 }, left: { step: 2 } }, 0, -10)).toEqual({ change: { top: -6 } })
+    expect(shiftInsets({ bottom: { step: 4 }, right: { step: 2 } }, 1, 1)).toEqual({ change: { right: 1, bottom: 3 } })
   })
 
   it("moves both sides of a layer stretched between them, so it keeps its size", () => {
-    expect(shiftInsets({ left: 0, right: 0, top: 2 }, 1, 0)).toEqual({ change: { left: 1, right: -1 } })
+    expect(shiftInsets({ left: { step: 0 }, right: { step: 0 }, top: { step: 2 } }, 1, 0)).toEqual({
+      change: { left: 1, right: -1 }
+    })
     // Calendar's Review slot, dragged six steps right and four down.
-    expect(shiftInsets({ top: 40, left: 0, right: 0, height: 16 }, 6, 4, drawn({ top: 40 }))).toEqual({
+    expect(
+      shiftInsets(
+        { top: { step: 40 }, left: { step: 0 }, right: { step: 0 }, height: { step: 16 } },
+        6,
+        4,
+        drawn({ top: 40 })
+      )
+    ).toEqual({
       change: { left: 6, right: -6, top: 44 }
     })
   })
 
   it("keeps negative insets, and lets them go negative", () => {
-    expect(shiftInsets({ left: -4, top: -2 }, 1, 1)).toEqual({ change: { left: -3, top: -1 } })
-    expect(shiftInsets({ left: 1 }, -3, 0)).toEqual({ change: { left: -2 } })
+    expect(shiftInsets({ left: { step: -4 }, top: { step: -2 } }, 1, 1)).toEqual({ change: { left: -3, top: -1 } })
+    expect(shiftInsets({ left: { step: 1 } }, -3, 0)).toEqual({ change: { left: -2 } })
   })
 
   it("moves in half steps", () => {
-    expect(shiftInsets({ left: 1.5 }, 0.5, 0)).toEqual({ change: { left: 2 } })
+    expect(shiftInsets({ left: { step: 1.5 } }, 0.5, 0)).toEqual({ change: { left: 2 } })
   })
 
   it("moves a side set to a token, or not set, from where it's drawn", () => {
     const at = { top: 10, right: 71.5, bottom: 40, left: 2 }
-    expect(shiftInsets({ top: "header", left: 2 }, 0, 1, at)).toEqual({ change: { top: 11 } })
+    expect(shiftInsets({ top: { token: "header" }, left: { step: 2 } }, 0, 1, at)).toEqual({ change: { top: 11 } })
     expect(shiftInsets({}, 1, 0, at)).toEqual({ change: { left: 3 } })
     // A token on one side of a stretched layer, and a negative number on the other.
-    expect(shiftInsets({ left: -2, right: "gutter" }, 4, 0, drawn({ right: 6 }))).toEqual({
+    expect(shiftInsets({ left: { step: -2 }, right: { token: "gutter" } }, 4, 0, drawn({ right: 6 }))).toEqual({
       change: { left: 2, right: 2 }
     })
   })
 
   it("keeps an axis with a token when it isn't drawn, and an axis it doesn't move along", () => {
-    expect(shiftInsets({ top: "header", left: 2 }, 0, 1)).toEqual({ change: {}, blocked: "top" })
-    expect(shiftInsets({ top: "header", left: 2 }, 1, 0)).toEqual({ change: { left: 3 } })
+    expect(shiftInsets({ top: { token: "header" }, left: { step: 2 } }, 0, 1)).toEqual({ change: {}, blocked: "top" })
+    expect(shiftInsets({ top: { token: "header" }, left: { step: 2 } }, 1, 0)).toEqual({ change: { left: 3 } })
     expect(shiftInsets({}, 1, 0)).toEqual({ change: { left: 1 } })
+  })
+
+  it("treats a side written out, which has no steps, as it treats a token", () => {
+    const percent = { left: { value: "50%" }, top: { step: 2 } }
+    const centred = { left: { expr: "calc(50% - 2rem)" }, right: { keyword: "auto" } }
+
+    // Not drawn, there's nowhere to move it from, so its axis stays and the other moves.
+    expect(shiftInsets(percent, 1, 1)).toEqual({ change: { top: 3 }, blocked: "left" })
+    expect(shiftInsets(centred, 1, 0)).toEqual({ change: {}, blocked: "left" })
+    // Drawn, it moves from where it's drawn, in steps.
+    expect(shiftInsets(percent, 1, 0, drawn({ left: 40 }))).toEqual({ change: { left: 41 } })
+    expect(shiftInsets(centred, 1, 0, drawn({ left: 12, right: 30 }))).toEqual({ change: { left: 13, right: 29 } })
   })
 })
 
@@ -76,81 +97,104 @@ const unit = 4
 describe("resizing an absolutely placed layer", () => {
   it("moves the left inset with the left handle, keeping the right edge where it was", () => {
     // 100px wide at left 10; the left handle dragged 20px left.
-    expect(resizeInsets({ left: 10 }, drawn({ left: 10 }), "x", false, -20, 100, unit)).toEqual({
+    expect(resizeInsets({ left: { step: 10 } }, drawn({ left: 10 }), "x", false, -20, 100, unit)).toEqual({
       size: 30,
-      insets: { left: 5 }
+      insets: { left: { step: 5 } }
     })
   })
 
   it("moves the top inset with the top handle, and keeps it negative", () => {
-    expect(resizeInsets({ top: -2 }, drawn({ top: -2 }), "y", false, 8, 40, unit)).toEqual({
+    expect(resizeInsets({ top: { step: -2 } }, drawn({ top: -2 }), "y", false, 8, 40, unit)).toEqual({
       size: 8,
-      insets: { top: 0 }
+      insets: { top: { step: 0 } }
     })
-    expect(resizeInsets({ top: -2 }, drawn({ top: -2 }), "y", false, -8, 40, unit)).toEqual({
+    expect(resizeInsets({ top: { step: -2 } }, drawn({ top: -2 }), "y", false, -8, 40, unit)).toEqual({
       size: 12,
-      insets: { top: -4 }
+      insets: { top: { step: -4 } }
     })
   })
 
   it("moves a token inset from where it's drawn", () => {
-    expect(resizeInsets({ left: "gutter" }, drawn({ left: 6 }), "x", false, 8, 100, unit)).toEqual({
+    expect(resizeInsets({ left: { token: "gutter" } }, drawn({ left: 6 }), "x", false, 8, 100, unit)).toEqual({
       size: 23,
-      insets: { left: 8 }
+      insets: { left: { step: 8 } }
+    })
+  })
+
+  it("moves an inset written out from where it's drawn, as a token's", () => {
+    expect(resizeInsets({ left: { value: "10%" } }, drawn({ left: 6 }), "x", false, 8, 100, unit)).toEqual({
+      size: 23,
+      insets: { left: { step: 8 } }
     })
   })
 
   it("keeps a token inset that doesn't move", () => {
     // The left handle moved too little to change the size, so the left side stays where it is.
-    expect(resizeInsets({ left: "gutter" }, drawn({ left: 6 }), "x", false, 1, 100, unit)).toEqual({
+    expect(resizeInsets({ left: { token: "gutter" } }, drawn({ left: 6 }), "x", false, 1, 100, unit)).toEqual({
       size: 25,
       insets: {}
     })
   })
 
   it("leaves the insets alone when the far handle grows a layer placed from the near side", () => {
-    expect(resizeInsets({ left: "gutter", top: 2 }, drawn({ left: 6 }), "x", true, 20, 100, unit)).toEqual({
+    expect(
+      resizeInsets({ left: { token: "gutter" }, top: { step: 2 } }, drawn({ left: 6 }), "x", true, 20, 100, unit)
+    ).toEqual({
       size: 30,
       insets: {}
     })
   })
 
   it("resizes a layer placed from both sides by the dragged side's inset alone", () => {
-    expect(resizeInsets({ left: 0, right: 0 }, drawn(), "x", false, 12, 300, unit)).toEqual({ insets: { left: 3 } })
-    expect(resizeInsets({ left: 0, right: 0 }, drawn(), "x", true, 12, 300, unit)).toEqual({ insets: { right: -3 } })
+    expect(resizeInsets({ left: { step: 0 }, right: { step: 0 } }, drawn(), "x", false, 12, 300, unit)).toEqual({
+      insets: { left: { step: 3 } }
+    })
+    expect(resizeInsets({ left: { step: 0 }, right: { step: 0 } }, drawn(), "x", true, 12, 300, unit)).toEqual({
+      insets: { right: { step: -3 } }
+    })
   })
 
   it("keeps a layer placed from the right where it is", () => {
     // The right handle moves the right inset as the layer grows; the left handle only sizes it.
-    expect(resizeInsets({ right: 4 }, drawn({ right: 4 }), "x", true, 20, 100, unit)).toEqual({
+    expect(resizeInsets({ right: { step: 4 } }, drawn({ right: 4 }), "x", true, 20, 100, unit)).toEqual({
       size: 30,
-      insets: { right: -1 }
+      insets: { right: { step: -1 } }
     })
-    expect(resizeInsets({ right: 4 }, drawn({ right: 4 }), "x", false, -20, 100, unit)).toEqual({
+    expect(resizeInsets({ right: { step: 4 } }, drawn({ right: 4 }), "x", false, -20, 100, unit)).toEqual({
       size: 30,
       insets: {}
     })
   })
 
   it("places a layer with both sides and its own size from the near side", () => {
-    expect(resizeInsets({ left: 2, right: 2, width: 20 }, drawn({ left: 2 }), "x", false, -8, 80, unit)).toEqual({
+    expect(
+      resizeInsets(
+        { left: { step: 2 }, right: { step: 2 }, width: { step: 20 } },
+        drawn({ left: 2 }),
+        "x",
+        false,
+        -8,
+        80,
+        unit
+      )
+    ).toEqual({
       size: 22,
-      insets: { left: 0 }
+      insets: { left: { step: 0 } }
     })
   })
 
   it("goes exactly where a snapped edge locks, to the half pixel, rather than in steps", () => {
     // 6px on a 4px scale is 1.5 steps, so the size is 26.5 where whole steps would round it; 5px is 1.25.
-    expect(resizeInsets({ left: 3 }, drawn({ left: 3 }), "x", true, 6, 100, unit, true)).toEqual({
+    expect(resizeInsets({ left: { step: 3 } }, drawn({ left: 3 }), "x", true, 6, 100, unit, true)).toEqual({
       size: 26.5,
       insets: {}
     })
-    expect(resizeInsets({ left: 3 }, drawn({ left: 3 }), "x", false, 5, 100, unit, true)).toEqual({
+    expect(resizeInsets({ left: { step: 3 } }, drawn({ left: 3 }), "x", false, 5, 100, unit, true)).toEqual({
       size: 23.75,
-      insets: { left: 4.25 }
+      insets: { left: { step: 4.25 } }
     })
-    expect(resizeInsets({ left: 0, right: 0 }, drawn(), "x", false, 6.3, 300, unit, true)).toEqual({
-      insets: { left: 1.625 }
+    expect(resizeInsets({ left: { step: 0 }, right: { step: 0 } }, drawn(), "x", false, 6.3, 300, unit, true)).toEqual({
+      insets: { left: { step: 1.625 } }
     })
   })
 })
@@ -206,7 +250,7 @@ describe("which sizes a handle changes", () => {
 describe("resizing a layer in a layout", () => {
   it("changes only the width with the right handle, whichever way the pointer drifts", () => {
     // Dragged 50px right, wandering up and down: 122.6 + 50 / 0.71 is 193px, 48 steps.
-    expect(drag(start("e"), [10, -3], [30, 6], [50, 4])).toEqual({ width: 48 })
+    expect(drag(start("e"), [10, -3], [30, 6], [50, 4])).toEqual({ width: { step: 48 } })
   })
 
   it("changes nothing when a side's handle is dragged along its side", () => {
@@ -216,31 +260,31 @@ describe("resizing a layer in a layout", () => {
 
   it("changes nothing until the pointer has moved four pixels", () => {
     expect(drag(start("e"), [1, 0], [3, 0])).toBeUndefined()
-    expect(drag(start("e"), [3, 0], [4, 0])).toEqual({ width: 32 })
+    expect(drag(start("e"), [3, 0], [4, 0])).toEqual({ width: { step: 32 } })
   })
 
   it("doesn't fill when an edge starts on the inside of the parent", () => {
     // The right edge starts on the row's inside: moving it a little gives a fixed width, not fill.
-    expect(drag(start("e"), [-5, 0])).toEqual({ width: 29 })
-    expect(drag(start("n"), [0, -5])).toEqual({ height: 10 })
+    expect(drag(start("e"), [-5, 0])).toEqual({ width: { step: 29 } })
+    expect(drag(start("n"), [0, -5])).toEqual({ height: { step: 10 } })
   })
 
   it("fills once the edge comes back to the inside of the parent", () => {
-    expect(drag(start("e"), [-30, 0], [-2, 0])).toEqual({ width: "fill" })
+    expect(drag(start("e"), [-30, 0], [-2, 0])).toEqual({ width: { size: "fill" } })
     // Shift keeps it fixed.
-    expect(drag(start("e"), [-30, 0], [-2, 0, true])).toEqual({ width: 30 })
+    expect(drag(start("e"), [-30, 0], [-2, 0, true])).toEqual({ width: { step: 30 } })
   })
 
   it("fills when an edge that started away from the inside reaches it", () => {
     const narrow = box(1000, 200, 60, 10)
-    expect(drag(start("s", { rect: narrow }), [0, 12])).toEqual({ height: "fill" })
+    expect(drag(start("s", { rect: narrow }), [0, 12])).toEqual({ height: { size: "fill" } })
   })
 
   it("keeps a corner's proportions with Shift", () => {
     const square = box(0, 0, 40, 40)
     expect(drag(start("se", { rect: square, inner: box(-100, -100, 400, 400), scale: 1 }), [20, 0, true])).toEqual({
-      width: 15,
-      height: 15
+      width: { step: 15 },
+      height: { step: 15 }
     })
   })
 })
@@ -258,35 +302,51 @@ describe("resizing an absolutely placed layer", () => {
     })
 
   it("moves the top inset with the top handle and keeps the bottom edge", () => {
-    expect(drag(from("n", { top: 40, left: 0, right: 0, height: 16 }), [0, -16])).toEqual({ height: 20, top: 36 })
+    expect(
+      drag(from("n", { top: { step: 40 }, left: { step: 0 }, right: { step: 0 }, height: { step: 16 } }), [0, -16])
+    ).toEqual({ height: { step: 20 }, top: { step: 36 } })
   })
 
   it("moves a stretched layer's left inset with the left handle, keeping both sides", () => {
-    expect(drag(from("w", { top: 40, left: 0, right: 0, height: 16 }), [12, 0])).toEqual({ left: 3 })
-    expect(drag(from("e", { top: 40, left: 0, right: 0, height: 16 }), [-12, 0])).toEqual({ right: 3 })
+    expect(
+      drag(from("w", { top: { step: 40 }, left: { step: 0 }, right: { step: 0 }, height: { step: 16 } }), [12, 0])
+    ).toEqual({ left: { step: 3 } })
+    expect(
+      drag(from("e", { top: { step: 40 }, left: { step: 0 }, right: { step: 0 }, height: { step: 16 } }), [-12, 0])
+    ).toEqual({ right: { step: 3 } })
   })
 
   it("keeps a negative inset negative, and a token inset it doesn't move", () => {
     // The top-left corner dragged 8px left: the left inset moves further out, the top stays a token.
-    expect(drag(from("nw", { top: "gutter", left: -2, width: 50, height: 16 }), [-8, 0])).toEqual({
-      width: 52,
-      height: 16,
-      left: -4
+    expect(
+      drag(
+        from("nw", { top: { token: "gutter" }, left: { step: -2 }, width: { step: 50 }, height: { step: 16 } }),
+        [-8, 0]
+      )
+    ).toEqual({
+      width: { step: 52 },
+      height: { step: 16 },
+      left: { step: -4 }
     })
   })
 
   it("never fills", () => {
-    expect(drag(from("s", { top: 40, left: 0, right: 0 }), [0, 336])).toEqual({ height: 100 })
+    expect(drag(from("s", { top: { step: 40 }, left: { step: 0 }, right: { step: 0 } }), [0, 336])).toEqual({
+      height: { step: 100 }
+    })
   })
 
   it("takes an edge that snapped exactly where it locked, rather than in steps (PAR-174)", () => {
-    // The bottom handle dragged 26px, its edge snapped 32px down to the Lunch slot's top: 24 steps, not 23.
-    const gesture = resizeGesture(from("s", { top: 40, left: 0, right: 0, height: 16 }))
-    expect(gesture({ dx: 0, dy: 26, shift: false, snapped: { y: 32 } })).toEqual({ height: 24 })
+    // The bottom handle dragged 26px, its edge snapped 32px down to the Lunch slot's top: { step: 24 } steps, not 23.
+    const gesture = resizeGesture(
+      from("s", { top: { step: 40 }, left: { step: 0 }, right: { step: 0 }, height: { step: 16 } })
+    )
+
+    expect(gesture({ dx: 0, dy: 26, shift: false, snapped: { y: 32 } })).toEqual({ height: { step: 24 } })
     // Snapped 30px down, it's 23.5 steps high, to the half pixel.
-    expect(gesture({ dx: 0, dy: 26, shift: false, snapped: { y: 30 } })).toEqual({ height: 23.5 })
+    expect(gesture({ dx: 0, dy: 26, shift: false, snapped: { y: 30 } })).toEqual({ height: { step: 23.5 } })
     // Along an axis that didn't snap, the pointer counts, in steps.
-    expect(gesture({ dx: 0, dy: 26, shift: false, snapped: {} })).toEqual({ height: 23 })
+    expect(gesture({ dx: 0, dy: 26, shift: false, snapped: {} })).toEqual({ height: { step: 23 } })
   })
 })
 
@@ -299,12 +359,14 @@ describe("resizing a layer from what the board shows and what was measured", () 
       layerResize({ ...measured, edge, layer: { style: { grow: true }, parentDirection } })
 
     expect(growing("e", "row")({ dx: 20, dy: 0, shift: false, snaps: true }).style).toStrictEqual({
-      width: 30,
+      width: { step: 30 },
       grow: undefined
     })
-    expect(growing("s", "row")({ dx: 0, dy: 20, shift: false, snaps: true }).style).toStrictEqual({ height: 15 })
+    expect(growing("s", "row")({ dx: 0, dy: 20, shift: false, snaps: true }).style).toStrictEqual({
+      height: { step: 15 }
+    })
     expect(growing("s", "column")({ dx: 0, dy: 20, shift: false, snaps: true }).style).toStrictEqual({
-      height: 15,
+      height: { step: 15 },
       grow: undefined
     })
   })
@@ -324,7 +386,9 @@ describe("resizing a layer from what the board shows and what was measured", () 
       edge,
       rect: box(0, 160, 200, 64),
       inner: box(0, 0, 200, 560),
-      layer: { style: { position: "absolute", top: 40, left: 0, right: 0, height: 16 } },
+      layer: {
+        style: { position: "absolute", top: { step: 40 }, left: { step: 0 }, right: { step: 0 }, height: { step: 16 } }
+      },
       drawn: { top: 40, right: 0, bottom: 84, left: 0 },
       snapping: { box: slot, scene: day }
     })
@@ -332,10 +396,10 @@ describe("resizing a layer from what the board shows and what was measured", () 
   it("snaps an absolutely placed layer's dragged edge, and takes it exactly", () => {
     // The bottom handle dragged 26px: its edge, 6px from Lunch's top, locks there, 32px down, so it's 24 steps high.
     const snapped = review("s")({ dx: 0, dy: 26, shift: false, snaps: true })
-    expect(snapped.style).toEqual({ height: 24 })
+    expect(snapped.style).toEqual({ height: { step: 24 } })
     expect(snapped.snapped?.box).toEqual({ x: 0, y: 160, w: 200, h: 96 })
     // With Ctrl held, it goes by the pointer, in steps.
-    expect(review("s")({ dx: 0, dy: 26, shift: false, snaps: false })).toEqual({ style: { height: 23 } })
+    expect(review("s")({ dx: 0, dy: 26, shift: false, snaps: false })).toEqual({ style: { height: { step: 23 } } })
   })
 
   it("keeps a corner's proportions with Shift rather than snapping", () => {
@@ -346,20 +410,20 @@ describe("resizing a layer from what the board shows and what was measured", () 
 
 describe("double-clicking a layer's handle (PAR-169)", () => {
   it("makes the size on the handle's axes hug its content", () => {
-    expect(layerSizeReset("e")).toStrictEqual({ width: "hug" })
-    expect(layerSizeReset("n")).toStrictEqual({ height: "hug" })
-    expect(layerSizeReset("se")).toStrictEqual({ width: "hug", height: "hug" })
+    expect(layerSizeReset("e")).toStrictEqual({ width: { size: "hug" } })
+    expect(layerSizeReset("n")).toStrictEqual({ height: { size: "hug" } })
+    expect(layerSizeReset("se")).toStrictEqual({ width: { size: "hug" }, height: { size: "hug" } })
   })
 
   it("makes it fill its parent with Alt", () => {
-    expect(layerSizeReset("w", true)).toStrictEqual({ width: "fill" })
-    expect(layerSizeReset("nw", true)).toStrictEqual({ width: "fill", height: "fill" })
+    expect(layerSizeReset("w", true)).toStrictEqual({ width: { size: "fill" } })
+    expect(layerSizeReset("nw", true)).toStrictEqual({ width: { size: "fill" }, height: { size: "fill" } })
   })
 
   it("takes `grow` away along the direction of the layout the layer is in, and keeps it across", () => {
     const layer = { style: { grow: true }, parentDirection: "row" as const }
-    expect(layerSizeReset("e", false, layer)).toStrictEqual({ width: "hug", grow: undefined })
-    expect(layerSizeReset("s", true, layer)).toStrictEqual({ height: "fill" })
+    expect(layerSizeReset("e", false, layer)).toStrictEqual({ width: { size: "hug" }, grow: undefined })
+    expect(layerSizeReset("s", true, layer)).toStrictEqual({ height: { size: "fill" } })
   })
 })
 
@@ -369,17 +433,17 @@ describe("resizing from the middle with Alt (PAR-169)", () => {
 
   it("moves the opposite edge as far, so a layer in a layout grows twice the pointer's movement", () => {
     const gesture = resizeGesture({ edge: "e", rect: square, inner: far, scale: 1, unit: 4 })
-    expect(gesture({ dx: 20, dy: 0, shift: false, centre: true })).toEqual({ width: 20 })
-    expect(gesture({ dx: 20, dy: 0, shift: false })).toEqual({ width: 15 })
+    expect(gesture({ dx: 20, dy: 0, shift: false, centre: true })).toEqual({ width: { step: 20 } })
+    expect(gesture({ dx: 20, dy: 0, shift: false })).toEqual({ width: { step: 15 } })
     // From the left, moving left grows it.
     const left = resizeGesture({ edge: "w", rect: square, inner: far, scale: 1, unit: 4 })
-    expect(left({ dx: -8, dy: 0, shift: false, centre: true })).toEqual({ width: 14 })
+    expect(left({ dx: -8, dy: 0, shift: false, centre: true })).toEqual({ width: { step: 14 } })
   })
 
   it("doesn't fill when the edge reaches the inside of its parent", () => {
     const gesture = resizeGesture({ edge: "e", rect: button, inner: header, scale, unit: 4 })
     gesture({ dx: -30, dy: 0, shift: false, centre: true })
-    expect(gesture({ dx: -2, dy: 0, shift: false, centre: true })).toEqual({ width: 29 })
+    expect(gesture({ dx: -2, dy: 0, shift: false, centre: true })).toEqual({ width: { step: 29 } })
   })
 
   it("moves an absolutely placed layer's inset back by half of what it grows, keeping its middle", () => {
@@ -396,14 +460,27 @@ describe("resizing from the middle with Alt (PAR-169)", () => {
         absolute: { style, drawn: { top: 40, right: 0, bottom: 84, left: 0 } }
       })
 
-    const style: NodeStyle = { top: 40, left: 0, right: 0, height: 16 }
-    expect(from("n", style)({ dx: 0, dy: -16, shift: false, centre: true })).toEqual({ height: 24, top: 36 })
+    const style: NodeStyle = { top: { step: 40 }, left: { step: 0 }, right: { step: 0 }, height: { step: 16 } }
+    expect(from("n", style)({ dx: 0, dy: -16, shift: false, centre: true })).toEqual({
+      height: { step: 24 },
+      top: { step: 36 }
+    })
     // Stretched between both sides, both insets move.
-    expect(from("e", style)({ dx: 12, dy: 0, shift: false, centre: true })).toEqual({ left: -3, right: -3 })
+    expect(from("e", style)({ dx: 12, dy: 0, shift: false, centre: true })).toEqual({
+      left: { step: -3 },
+      right: { step: -3 }
+    })
     // Placed from the bottom alone, the bottom inset moves.
-    expect(from("s", { bottom: 10, left: 0, height: 16 })({ dx: 0, dy: 8, shift: false, centre: true })).toEqual({
-      height: 20,
-      bottom: 8
+    expect(
+      from("s", { bottom: { step: 10 }, left: { step: 0 }, height: { step: 16 } })({
+        dx: 0,
+        dy: 8,
+        shift: false,
+        centre: true
+      })
+    ).toEqual({
+      height: { step: 20 },
+      bottom: { step: 8 }
     })
   })
 })
@@ -429,30 +506,41 @@ describe("resizing several layers together (PAR-169)", () => {
   it("gives each layer its share of the movement, so they grow in proportion", () => {
     // 28px across the box, of which each card is 40/140: 8px each, so 12 steps.
     expect(together("e")({ dx: 28, dy: 0, shift: false, snaps: false })).toEqual([
-      { width: 12 },
-      { width: 12 },
-      { width: 12 }
+      { width: { step: 12 } },
+      { width: { step: 12 } },
+      { width: { step: 12 } }
     ])
   })
 
   it("starts them all once the pointer has gone four pixels, though each one's share is less", () => {
     const resize = together("e")
     expect(resize({ dx: 3, dy: 0, shift: false, snaps: false })).toEqual([undefined, undefined, undefined])
-    expect(resize({ dx: 14, dy: 0, shift: false, snaps: false })).toEqual([{ width: 11 }, { width: 11 }, { width: 11 }])
+    expect(resize({ dx: 14, dy: 0, shift: false, snaps: false })).toEqual([
+      { width: { step: 11 } },
+      { width: { step: 11 } },
+      { width: { step: 11 } }
+    ])
   })
 
   it("resizes them all from their middles with Alt", () => {
     expect(together("e")({ dx: 28, dy: 0, shift: false, centre: true, snaps: false })).toEqual([
-      { width: 14 },
-      { width: 14 },
-      { width: 14 }
+      { width: { step: 14 } },
+      { width: { step: 14 } },
+      { width: { step: 14 } }
     ])
   })
 })
 
 describe("dragging an absolutely placed layer", () => {
   // The Review slot again, with Lunch's top 32px below its bottom, or 33px.
-  const style: NodeStyle = { position: "absolute", top: 40, left: 0, right: 0, height: 16 }
+  const style: NodeStyle = {
+    position: "absolute",
+    top: { step: 40 },
+    left: { step: 0 },
+    right: { step: 0 },
+    height: { step: 16 }
+  }
+
   const slot = { x: 0, y: 160, w: 200, h: 64 }
 
   const day = (lunch: number) => ({
@@ -464,22 +552,22 @@ describe("dragging an absolutely placed layer", () => {
     absoluteDrag({ style, unit: 4, scale: 1, snapping: { box: slot, scene: day(lunch) } })
 
   it("moves in half steps where nothing is near", () => {
-    expect(moving(256)({ dx: 0, dy: 30, snaps: false })).toEqual({ change: { top: 47.5 } })
-    expect(moving(256)({ dx: 0, dy: 31, snaps: false })).toEqual({ change: { top: 48 } })
+    expect(moving(256)({ dx: 0, dy: 30, snaps: false })).toEqual({ change: { top: { step: 47.5 } } })
+    expect(moving(256)({ dx: 0, dy: 31, snaps: false })).toEqual({ change: { top: { step: 48 } } })
   })
 
   it("goes exactly where it snaps, to the half pixel", () => {
     // Dragged 30px down, its bottom locks to Lunch's top, 32px down: 8 steps.
     const snapped = moving(256)({ dx: 0, dy: 30, snaps: true })
-    expect(snapped.change).toEqual({ top: 48 })
+    expect(snapped.change).toEqual({ top: { step: 48 } })
     expect(snapped.snapped?.locked).toEqual({ x: true, y: true })
     // A line off the scale, 33px down, is 8.25 steps.
-    expect(moving(257)({ dx: 0, dy: 30, snaps: true }).change).toEqual({ top: 48.25 })
+    expect(moving(257)({ dx: 0, dy: 30, snaps: true }).change).toEqual({ top: { step: 48.25 } })
   })
 
   it("moves by the pointer when it isn't drawn", () => {
     expect(absoluteDrag({ style, unit: 4, scale: 0.5 })({ dx: 10, dy: 0, snaps: true })).toEqual({
-      change: { left: 5, right: -5 }
+      change: { left: { step: 5 }, right: { step: -5 } }
     })
   })
 })
@@ -562,20 +650,24 @@ describe("what a resize starts from", () => {
 
   it("reads the layer's style in the frame's viewport and the state edited", () => {
     const stacked = card({ layout: "stacked" })
-    expect(resizeStart(stacked, "body", { state: base, viewport: "mobile" })?.style).toMatchObject({ padding: 2 })
-    expect(resizeStart(stacked, "body", { state: base, viewport: "desktop" })?.style).toMatchObject({ padding: 4 })
+    expect(resizeStart(stacked, "body", { state: base, viewport: "mobile" })?.style).toMatchObject({
+      padding: { step: 2 }
+    })
+    expect(resizeStart(stacked, "body", { state: base, viewport: "desktop" })?.style).toMatchObject({
+      padding: { step: 4 }
+    })
     // The Compact state's gap wins over the mobile patch, and the Inline option's direction stays.
     const inline = card({ layout: "inline" })
     expect(resizeStart(inline, "body", { state: compact, viewport: "mobile" })?.style).toMatchObject({
-      direction: "row",
-      gap: 2,
-      padding: 2
+      flexDirection: "row",
+      gap: { step: 2 },
+      padding: { step: 2 }
     })
   })
 
   it("has no layout around the root, and nothing for a layer that isn't there", () => {
     expect(resizeStart(card({}), "body", { state: base })).toEqual({
-      style: { direction: "column", gap: 4, padding: 4 }
+      style: { flexDirection: "column", gap: { step: 4 }, padding: { step: 4 } }
     })
     expect(resizeStart(card({}), "missing", { state: base })).toBeUndefined()
   })
@@ -654,9 +746,9 @@ function card(): ContainerSpec {
       type: "layout",
       id: "root",
       children: [
-        { type: "layout", id: "actions", style: { direction: "row" }, children: [text("save"), text("cancel")] },
+        { type: "layout", id: "actions", style: { flexDirection: "row" }, children: [text("save"), text("cancel")] },
         text("title"),
-        text("badge", { style: { position: "absolute", top: 2, left: 2 } }),
+        text("badge", { style: { position: "absolute", top: { step: 2 }, left: { step: 2 } } }),
         text("body"),
         { type: "instance", id: "stat", design: "stat" }
       ]
@@ -713,12 +805,16 @@ describe("nudging a design's layers", () => {
 
   it("moves an absolutely placed layer 1px, or 10px with Shift, off the spacing scale", () => {
     const pixel = nudgeLayers(card(), ["badge"], base, "right", false, 4, nothingDrawn).container
-    expect(findNode(pixel.root, "badge")?.style).toEqual({ position: "absolute", top: 2, left: 2.25 })
+    expect(findNode(pixel.root, "badge")?.style).toEqual({
+      position: "absolute",
+      top: { step: 2 },
+      left: { step: 2.25 }
+    })
     const ten = nudgeLayers(card(), ["badge"], base, "up", true, 4, nothingDrawn).container
-    expect(findNode(ten.root, "badge")?.style).toEqual({ position: "absolute", top: -0.5, left: 2 })
+    expect(findNode(ten.root, "badge")?.style).toEqual({ position: "absolute", top: { step: -0.5 }, left: { step: 2 } })
     // With MUI's 8px unit, 1px is an eighth of a step.
     const mui = nudgeLayers(card(), ["badge"], base, "down", false, 8, nothingDrawn).container
-    expect(findNode(mui.root, "badge")?.style?.top).toBe(2.125)
+    expect(findNode(mui.root, "badge")?.style?.top).toEqual({ step: 2.125 })
   })
 
   it("lands on whole pixels after many presses with a unit that doesn't divide evenly", () => {
@@ -729,25 +825,34 @@ describe("nudging a design's layers", () => {
     }
 
     // 2 steps of 6px is 12px; six presses make it 18px, 3 steps exactly.
-    expect(findNode(container.root, "badge")?.style?.left).toBe(3)
+    expect(findNode(container.root, "badge")?.style?.left).toEqual({ step: 3 })
   })
 
   it("moves an absolutely placed layer in the state being edited only", () => {
     const loading = card().states[1]!
     const moved = nudgeLayers(card(), ["badge"], loading, "down", false, 4, nothingDrawn).container
-    expect(findNode(moved.root, "badge")?.style?.top).toBe(2)
-    expect(moved.states[1]?.overrides?.badge).toEqual({ style: { top: 2.25 } })
+    expect(findNode(moved.root, "badge")?.style?.top).toEqual({ step: 2 })
+    expect(moved.states[1]?.overrides?.badge).toEqual({ style: { top: { step: 2.25 } } })
   })
 
   it("names a token it couldn't move by", () => {
     const container = card()
     const badge = findNode(container.root, "badge")!
-    badge.style = { position: "absolute", top: "header", left: 2 }
+    badge.style = { position: "absolute", top: { token: "header" }, left: { step: 2 } }
     expect(nudgeLayers(container, ["badge"], base, "down", false, 4, nothingDrawn).blocked).toEqual({
       layer: "badge",
       side: "top",
       token: "header"
     })
+  })
+
+  it("names a length written out it couldn't move by, as it's written", () => {
+    const container = card()
+    const badge = findNode(container.root, "badge")!
+    badge.style = { position: "absolute", top: { step: 2 }, left: { value: "50%" } }
+    const nudged = nudgeLayers(container, ["badge"], base, "right", false, 4, nothingDrawn)
+    expect(nudged.blocked).toEqual({ layer: "badge", side: "left", token: "50%" })
+    expect(findNode(nudged.container.root, "badge")?.style?.left).toEqual({ value: "50%" })
   })
 
   it("leaves layers inside instances where they are", () => {

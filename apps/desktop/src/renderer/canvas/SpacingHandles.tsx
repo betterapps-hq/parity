@@ -9,7 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { type Length, remPixels } from "@parity-app/core"
+import { type FieldLength, remPixels } from "@parity-app/core"
 import {
   type LengthToken,
   type PaddingSide,
@@ -65,7 +65,7 @@ export interface SpacingHandlesProps {
   /** A value typed after a click; gives the reason when it can't be read, and nothing once it's made. */
   onType: (handle: SpacingHandle, text: string, keys: SpacingKeys) => string | undefined
   /** A token or a step of the spacing scale picked from the list beside the box. */
-  onPick: (handle: SpacingHandle, value: Length, keys: SpacingKeys) => void
+  onPick: (handle: SpacingHandle, value: FieldLength, keys: SpacingKeys) => void
   /** Up or Down (Right or Left) on a focused handle: one step, ten with Shift. */
   onStep: (handle: SpacingHandle, count: number, keys: SpacingKeys) => void
 }
@@ -345,7 +345,7 @@ function TypeBox(props: {
   onChange: (text: string) => void
   /** What's typed, with the unit a plain number is in. */
   onCommit: (text: string) => void
-  onPick: (value: Length) => void
+  onPick: (value: FieldLength) => void
   onCancel: () => void
 }) {
   const ref = useRef<HTMLInputElement>(null)

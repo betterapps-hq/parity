@@ -24,7 +24,7 @@ describe("a frame in a project file", () => {
     states: [{ id: "default", name: "Default" }]
   }
 
-  const file = (design: Partial<ContainerSpec>) => ({ version: 3, containers: [design] })
+  const file = (design: Partial<ContainerSpec>) => ({ version: 4, containers: [design] })
 
   it("is read and written like the other kinds, with a size of its own", () => {
     const read = parseCanvasDocument(file(frame))
@@ -73,7 +73,7 @@ describe("canvas objects, links and sources in a project file", () => {
   ]
 
   const file = {
-    version: 3,
+    version: 4,
     containers: [],
     objects,
     links,
@@ -85,7 +85,7 @@ describe("canvas objects, links and sources in a project file", () => {
     expect(read).toEqual(file)
     const written = JSON.stringify(read)
     expect(parseCanvasDocument(JSON.parse(written))).toEqual(read)
-    expect(parseCanvasDocument({ version: 3, containers: [] })).toEqual({ version: 3, containers: [] })
+    expect(parseCanvasDocument({ version: 4, containers: [] })).toEqual({ version: 4, containers: [] })
   })
 
   it("keep a table, operation or route only as where it sits", () => {
@@ -137,7 +137,7 @@ describe("a design's layers", () => {
 
 describe("a project file's modes", () => {
   it("are checked where they sit in the file", () => {
-    expect(() => parseCanvasDocument({ version: 3, containers: [], modes: { version: 2 } })).toThrow(
+    expect(() => parseCanvasDocument({ version: 4, containers: [], modes: { version: 2 } })).toThrow(
       "/modes/version: expected 1"
     )
   })
@@ -145,7 +145,7 @@ describe("a project file's modes", () => {
 
 describe("a project file's corrections", () => {
   it("are read with the designs, and checked", () => {
-    const file = { version: 3, containers: [], detection: { include: [price] } }
+    const file = { version: 4, containers: [], detection: { include: [price] } }
     expect(parseCanvasDocument(file).detection).toEqual({ include: [price] })
     // A list of components taken off by hand, as an earlier version saved, is dropped (PAR-531).
     expect(parseCanvasDocument({ ...file, detection: { include: [price], exclude: [toaster] } }).detection).toEqual({
@@ -158,11 +158,51 @@ describe("a project file's corrections", () => {
 })
 
 describe("a layer's order", () => {
-  it("is a whole number or a z-index token's name", () => {
-    const layer = (zIndex: number | string) => ({ type: "layout", id: "plans", style: { zIndex }, children: [] })
+  it("is a whole number of steps or a z-index token", () => {
+    const layer = (zIndex: { step: number } | { token: string } | number) => ({
+      type: "layout",
+      id: "plans",
+      style: { zIndex },
+      children: []
+    })
 
-    expect(parseDesignNode(layer(-5), "node").style).toEqual({ zIndex: -5 })
-    expect(parseDesignNode(layer("z-overlay"), "node").style).toEqual({ zIndex: "z-overlay" })
-    expect(() => parseDesignNode(layer(1.5), "node")).toThrow("node/style/zIndex: expected a whole number")
+    expect(parseDesignNode(layer({ step: -5 }), "node").style).toEqual({ zIndex: { step: -5 } })
+    expect(parseDesignNode(layer({ token: "z-overlay" }), "node").style).toEqual({ zIndex: { token: "z-overlay" } })
+    expect(() => parseDesignNode(layer({ step: 1.5 }), "node")).toThrow(
+      "node/style/zIndex/step: expected a whole number"
+    )
+    expect(() => parseDesignNode(layer(10), "node")).toThrow("node/style/zIndex: expected { step } or { token }")
+  })
+})
+
+describe("a style in an earlier file's form", () => {
+  const layer = (key: string, value: number | string | { step: string }) => ({
+    type: "layout",
+    id: "plans",
+    style: { [key]: value },
+    children: []
+  })
+
+  it("is refused, saying the forms the value takes", () => {
+    expect(() => parseDesignNode(layer("gap", 4), "node")).toThrow(
+      "node/style/gap: expected { step }, { token }, { value }, { keyword } or { expr }"
+    )
+    expect(() => parseDesignNode(layer("width", "fill"), "node")).toThrow("node/style/width: expected { step }")
+    expect(() => parseDesignNode(layer("color", "primary"), "node")).toThrow("node/style/color: expected { token }")
+  })
+
+  it("is refused for a key that has another name now", () => {
+    expect(() => parseDesignNode(layer("direction", "row"), "node")).toThrow("node/style/direction: ")
+  })
+
+  it("says what a form that nearly fits got wrong", () => {
+    expect(() => parseDesignNode(layer("gap", { step: "4" }), "node")).toThrow("node/style/gap/step: ")
+  })
+})
+
+describe("a file's version", () => {
+  it("is 4, and an earlier one is refused", () => {
+    expect(parseCanvasDocument({ version: 4, containers: [] }).version).toBe(4)
+    expect(() => parseCanvasDocument({ version: 3, containers: [] })).toThrow("/version: expected 4")
   })
 })

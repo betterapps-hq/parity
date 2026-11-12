@@ -11,15 +11,15 @@ const design: ContainerSpec = {
   root: {
     type: "layout",
     id: "root",
-    style: { gap: 4, padding: 2 },
+    style: { gap: { step: 4 }, padding: { step: 2 } },
     children: [
-      { type: "text", id: "title", text: "Hello", style: { width: 8 } },
+      { type: "text", id: "title", text: "Hello", style: { width: { step: 8 } } },
       { type: "component", id: "button", component: "Button", props: { children: "Go" }, style: { opacity: 50 } }
     ]
   },
   states: [
     { id: "default", name: "Default" },
-    { id: "wide", name: "Wide", overrides: { title: { style: { width: 20 } } } },
+    { id: "wide", name: "Wide", overrides: { title: { style: { width: { step: 20 } } } } },
     { id: "faint", name: "Faint", overrides: { button: { style: { opacity: 20 } } } }
   ]
 }
@@ -48,7 +48,7 @@ describe("styleChanges", () => {
   })
 
   it("lists only what a style edit changes, component by component", () => {
-    const changes = styleChanges(render(design.root), render(withStyle("button", { width: 80 })))
+    const changes = styleChanges(render(design.root), render(withStyle("button", { width: { step: 80 } })))
     expect(changes).toEqual([{ nodeId: "button", set: { width: "calc(var(--spacing) * 80)" }, unset: [] }])
   })
 
@@ -64,7 +64,7 @@ describe("styleChanges", () => {
   })
 
   it("leaves elements out, since rules draw them", () => {
-    expect(styleChanges(render(design.root), render(withStyle("title", { width: 80 })))).toEqual([])
+    expect(styleChanges(render(design.root), render(withStyle("title", { width: { step: 80 } })))).toEqual([])
     expect(styleChanges(render(design.root), render(withStyle("root", { gap: undefined })))).toEqual([])
   })
 

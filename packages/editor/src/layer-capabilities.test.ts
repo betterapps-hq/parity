@@ -33,10 +33,15 @@ function screen(kind: ContainerSpec["kind"] = "screen"): ContainerSpec {
     root: {
       type: "layout",
       id: "root",
-      style: { direction: "row" },
+      style: { flexDirection: "row" },
       children: [
         ...kinds("flex"),
-        { type: "layout", id: "grid", style: { display: "grid", columns: 2 }, children: kinds("grid") }
+        {
+          type: "layout",
+          id: "grid",
+          style: { display: "grid", gridTemplateColumns: [{ fr: 1 }, { fr: 1 }] },
+          children: kinds("grid")
+        }
       ]
     },
     states: [{ id: "default", name: "Default" }]

@@ -91,13 +91,18 @@ const basics: { id: string; label: string; icon: typeof Type; node: () => Design
     id: "column",
     label: "Vertical layout",
     icon: Rows3,
-    node: () => ({ type: "layout", id: "column", style: { gap: 2 }, children: [] })
+    node: () => ({ type: "layout", id: "column", style: { gap: { step: 2 } }, children: [] })
   },
   {
     id: "row",
     label: "Horizontal layout",
     icon: Columns3,
-    node: () => ({ type: "layout", id: "row", style: { direction: "row", gap: 2, align: "center" }, children: [] })
+    node: () => ({
+      type: "layout",
+      id: "row",
+      style: { flexDirection: "row", gap: { step: 2 }, alignItems: "center" },
+      children: []
+    })
   }
 ]
 

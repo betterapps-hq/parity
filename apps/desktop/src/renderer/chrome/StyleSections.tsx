@@ -14,12 +14,22 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
+  alphaPercent,
+  type Color,
+  colorCss,
+  colorToken,
   type ContainerSpec,
+  type FieldLength,
+  fieldLength,
   type FieldRules,
+  isNamedLength,
   type Length,
+  lengthField,
+  type LineHeight,
+  type Named,
   type NodeStyle,
   offScaleFlag,
-  type Size
+  tokenColor
 } from "@parity-app/core"
 import {
   type Capabilities,
@@ -67,10 +77,12 @@ import {
 } from "lucide-react"
 import { type ComponentType, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
+import { colorText } from "../inspector/color-values.ts"
 import { EffectsSection } from "../inspector/sections/effects.tsx"
 import { FillSection } from "../inspector/sections/FillSection.tsx"
 import { LayerOrderSection } from "../inspector/sections/LayerOrderSection.tsx"
 import { MotionSection } from "../inspector/sections/MotionSection.tsx"
+import { tracksOfCount } from "../inspector/track-values.ts"
 import {
   ChoiceInput,
   Field,
@@ -113,7 +125,9 @@ function mixedOf(editor: StyleEditor): (name: keyof NodeStyle) => boolean {
 
 /**
  * A number field's edits of a row: previewed while typed or scrubbed, then made, each worked out from every selected
- * layer's own value (`read`) and written back into its style (`write`).
+ * layer's own value (`read`) and written back into its style (`write`). A layer whose named length the edit left as it
+ * was writes nothing: a field shows a length written out (`50%`, `auto`) as its text, and writing that back would
+ * store it as a token's name.
  */
 function fieldEdits<R extends StyleRow>(
   editor: StyleEditor,
@@ -122,7 +136,15 @@ function fieldEdits<R extends StyleRow>(
   read: (style: NodeStyle) => FieldValue,
   write: (value: FieldValue, style: NodeStyle) => Pick<StyleValues, RowKey<R>>
 ): Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit"> {
-  const edit = (update: FieldUpdate) => fieldEdit(read, write, update)
+  // SAFETY: every style value is optional, so an edit with no keys is any row's edit, and changes nothing.
+  const unchanged = {} as Pick<StyleValues, RowKey<R>>
+
+  const edit = (update: FieldUpdate) =>
+    fieldEdit(
+      read,
+      (value, style) => (isNamedLength(value) && value === read(style) ? unchanged : write(value, style)),
+      update
+    )
 
   return {
     onPreview: (update) => editor.preview?.(row, edit(update)),
@@ -136,9 +158,31 @@ function numberOf(value: FieldValue): number | undefined {
   return numberValue.safeParse(value).data
 }
 
-/** A field's value as a length: steps, or a token's name. */
+/** A field's value as a stored length: steps, or the token it names. */
 function asLength(value: FieldValue): Length | undefined {
-  return value
+  return value === undefined ? undefined : fieldLength(value)
+}
+
+/** What a token field shows of a stored value: its token's name, or the value as it's written, which no field edits yet. */
+function shownName(value: Named | LineHeight | undefined): string | undefined {
+  const held = lengthField(value)
+
+  return held === undefined ? undefined : String(held)
+}
+
+/** A token field's choice as a stored value: the token it names, or unset for None. */
+function named(name: string | undefined): Named | undefined {
+  return name === undefined ? undefined : { token: name }
+}
+
+/** What a color written out draws as, for its swatch; a token's swatch is the token's own. */
+function drawnColor(color: Color | undefined): string | undefined {
+  return color === undefined || colorToken(color) !== undefined ? undefined : colorCss(color)
+}
+
+/** A color field's choice for a layer: the token it names at the alpha the layer's color had, or unset for None. */
+function colorChoice(name: string | undefined, was: Color | undefined): Color | undefined {
+  return name === undefined ? undefined : tokenColor(name, alphaPercent(was))
 }
 
 /** Unset padding, margin, gaps and insets count as 0 when an edit works from them. */
@@ -220,8 +264,9 @@ function LayoutSection({ editor }: SectionProps) {
   const { style } = editor.selection
   const mixed = mixedOf(editor)
   const grid = style.display === "grid"
-  const direction = style.direction ?? "column"
-  const distributed = style.justify === "between" || style.justify === "around" || style.justify === "evenly"
+  const direction = style.flexDirection ?? "column"
+  const distribution = distributeOptions.find((option) => option.value === style.justifyContent)?.value
+  const distributed = distribution !== undefined
   const mode = grid ? "grid" : direction
 
   return (
@@ -234,7 +279,7 @@ function LayoutSection({ editor }: SectionProps) {
               size="sm"
               spacing={0}
               // Mixed directions press no button, rather than the default.
-              value={[mixed("display") || mixed("direction") ? "" : mode]}
+              value={[mixed("display") || mixed("flexDirection") ? "" : mode]}
               onValueChange={([value]) => {
                 if (!value) {
                   return
@@ -268,8 +313,8 @@ function LayoutSection({ editor }: SectionProps) {
                   size="sm"
                   className="h-7 px-2"
                   aria-label="Wrap"
-                  pressed={style.wrap ?? false}
-                  onPressedChange={(wrap) => set("layoutType", { wrap: wrap || undefined }, "Toggle wrap")}
+                  pressed={style.flexWrap === "wrap"}
+                  onPressedChange={(wrap) => set("layoutType", { flexWrap: wrap ? "wrap" : undefined }, "Toggle wrap")}
                 >
                   <WrapText />
                 </Toggle>
@@ -283,7 +328,7 @@ function LayoutSection({ editor }: SectionProps) {
               <CompactNumber
                 label="Cols"
                 title="Columns"
-                value={style.columns}
+                value={style.gridTemplateColumns?.length}
                 placeholder="2"
                 // A grid without columns set has two.
                 blank={() => 2}
@@ -291,21 +336,23 @@ function LayoutSection({ editor }: SectionProps) {
                   editor,
                   "tracks",
                   "Change columns",
-                  (style) => style.columns,
-                  (columns) => ({ columns: numberOf(columns) })
+                  (layer) => layer.gridTemplateColumns?.length,
+                  (columns, layer) => ({
+                    gridTemplateColumns: tracksOfCount(numberOf(columns), layer.gridTemplateColumns)
+                  })
                 )}
               />
               <CompactNumber
                 label="Rows"
                 title="Rows"
-                value={style.rows}
+                value={style.gridTemplateRows?.length}
                 placeholder="Auto"
                 {...fieldEdits(
                   editor,
                   "tracks",
                   "Change rows",
-                  (style) => style.rows,
-                  (rows) => ({ rows: numberOf(rows) })
+                  (layer) => layer.gridTemplateRows?.length,
+                  (rows, layer) => ({ gridTemplateRows: tracksOfCount(numberOf(rows), layer.gridTemplateRows) })
                 )}
               />
             </div>
@@ -321,27 +368,29 @@ function LayoutSection({ editor }: SectionProps) {
             />
             <div className="min-w-0 flex-1">
               <ChoiceInput
-                value={distributed ? style.justify : undefined}
+                value={distribution}
                 options={distributeOptions}
                 placeholder="Packed"
-                onChange={(justify) => set("alignment", { justify: justify ?? "start" }, "Change distribution")}
+                onChange={(justifyContent) =>
+                  set("alignment", { justifyContent: justifyContent ?? "start" }, "Change distribution")
+                }
               />
             </div>
           </div>
         </Field>
         <Field label="Gap" {...rowOf(editor, "gap")}>
-          {grid || style.wrap ? (
+          {grid || style.flexWrap === "wrap" ? (
             <div className="grid grid-cols-2 gap-1">
               <LengthInput
                 editor={editor}
                 label={grid ? "Col" : "X"}
                 title="Gap between columns"
-                value={style.gap}
+                value={lengthField(style.gap)}
                 {...fieldEdits(
                   editor,
                   "gap",
                   "Change gap",
-                  (style) => style.gap,
+                  (layer) => lengthField(layer.gap),
                   (gap) => ({ gap: asLength(gap) })
                 )}
               />
@@ -349,12 +398,12 @@ function LayoutSection({ editor }: SectionProps) {
                 editor={editor}
                 label={grid ? "Row" : "Y"}
                 title="Gap between rows"
-                value={style.rowGap ?? style.gap}
+                value={lengthField(style.rowGap ?? style.gap)}
                 {...fieldEdits(
                   editor,
                   "gap",
                   "Change row gap",
-                  (style) => style.rowGap ?? style.gap,
+                  (layer) => lengthField(layer.rowGap ?? layer.gap),
                   (rowGap) => ({ rowGap: asLength(rowGap) })
                 )}
               />
@@ -363,12 +412,12 @@ function LayoutSection({ editor }: SectionProps) {
             <LengthInput
               editor={editor}
               title="Gap"
-              value={style.gap}
+              value={lengthField(style.gap)}
               {...fieldEdits(
                 editor,
                 "gap",
                 "Change gap",
-                (style) => style.gap,
+                (layer) => lengthField(layer.gap),
                 (gap) => ({ gap: asLength(gap) })
               )}
             />
@@ -395,8 +444,8 @@ function AlignmentGrid({
   onChange: (values: StyleValues, label: string) => void
 }) {
   const spots = ["start", "center", "end"] as const
-  const justify = distributed ? undefined : (style.justify ?? "start")
-  const align = style.align === "stretch" ? undefined : (style.align ?? "stretch")
+  const justify = distributed ? undefined : (style.justifyContent ?? "start")
+  const align = style.alignItems === "stretch" ? undefined : (style.alignItems ?? "stretch")
 
   return (
     <div className="grid size-[60px] shrink-0 grid-cols-3 grid-rows-3 rounded-md border bg-muted/40 p-0.5">
@@ -417,7 +466,10 @@ function AlignmentGrid({
                 type="button"
                 aria-label={`Align ${row} ${column}`}
                 onClick={() =>
-                  onChange(distributed ? { align: cross } : { justify: main, align: cross }, "Change alignment")
+                  onChange(
+                    distributed ? { alignItems: cross } : { justifyContent: main, alignItems: cross },
+                    "Change alignment"
+                  )
                 }
                 className="group grid place-items-center rounded-sm hover:bg-accent"
               >
@@ -457,7 +509,7 @@ function SidesField({ editor, name, label }: { editor: StyleEditor; name: "paddi
   const sideEdits = (indices: number[]) => {
     const { read, write } = sidesField(name, indices)
 
-    return fieldEdits(editor, name, `Change ${name}`, read, (value, layer) => write(asLength(value), layer))
+    return fieldEdits(editor, name, `Change ${name}`, read, write)
   }
 
   return (
@@ -471,7 +523,7 @@ function SidesField({ editor, name, label }: { editor: StyleEditor; name: "paddi
                 editor={editor}
                 label={side[0]}
                 title={`${side} ${name}`}
-                value={sides?.[index]}
+                value={lengthField(sides?.[index])}
                 {...sideEdits([index])}
               />
             ))}
@@ -482,14 +534,14 @@ function SidesField({ editor, name, label }: { editor: StyleEditor; name: "paddi
               editor={editor}
               label="V"
               title={`Top and bottom ${name}`}
-              value={sides?.[0]}
+              value={lengthField(sides?.[0])}
               {...sideEdits([0, 2])}
             />
             <LengthInput
               editor={editor}
               label="H"
               title={`Left and right ${name}`}
-              value={sides?.[1]}
+              value={lengthField(sides?.[1])}
               {...sideEdits([1, 3])}
             />
           </div>
@@ -530,7 +582,7 @@ function SizeSection({ editor, parent, shows }: SectionProps) {
           canFill={shows("sizeFill")}
           onChange={(value) => set(axis, sizeEdit(axis, value, parent), `Change ${axis}`)}
           // A typed length makes a layer's size fixed; clearing it puts a fixed size back to auto and leaves fill or hug.
-          edits={fieldEdits(editor, axis, `Change ${axis}`, read, (value, layer) => write(asLength(value), layer))}
+          edits={fieldEdits(editor, axis, `Change ${axis}`, read, write)}
         />
       </Field>
     )
@@ -541,7 +593,7 @@ function SizeSection({ editor, parent, shows }: SectionProps) {
       editor,
       row,
       label,
-      (layer) => layer[name],
+      (layer) => lengthField(layer[name]),
       (value) => ({ [name]: asLength(value) })
     )
 
@@ -570,7 +622,7 @@ function SizeSection({ editor, parent, shows }: SectionProps) {
                   editor={editor}
                   label="W"
                   title="Minimum width"
-                  value={style.minWidth}
+                  value={lengthField(style.minWidth)}
                   blank={none}
                   offScale="keep"
                   {...lengthEdits("min", "minWidth", "Change minimum width")}
@@ -579,7 +631,7 @@ function SizeSection({ editor, parent, shows }: SectionProps) {
                   editor={editor}
                   label="H"
                   title="Minimum height"
-                  value={style.minHeight}
+                  value={lengthField(style.minHeight)}
                   blank={none}
                   offScale="keep"
                   {...lengthEdits("min", "minHeight", "Change minimum height")}
@@ -592,7 +644,7 @@ function SizeSection({ editor, parent, shows }: SectionProps) {
                   editor={editor}
                   label="W"
                   title="Maximum width"
-                  value={style.maxWidth}
+                  value={lengthField(style.maxWidth)}
                   blank={none}
                   offScale="keep"
                   {...lengthEdits("max", "maxWidth", "Change maximum width")}
@@ -601,7 +653,7 @@ function SizeSection({ editor, parent, shows }: SectionProps) {
                   editor={editor}
                   label="H"
                   title="Maximum height"
-                  value={style.maxHeight}
+                  value={lengthField(style.maxHeight)}
                   blank={none}
                   offScale="keep"
                   {...lengthEdits("max", "maxHeight", "Change maximum height")}
@@ -613,10 +665,10 @@ function SizeSection({ editor, parent, shows }: SectionProps) {
         {shows("alignSelf") && (
           <Field label="Align self" {...rowOf(editor, "self")}>
             <ChoiceInput
-              value={style.self}
+              value={style.alignSelf}
               options={selfOptions}
               placeholder="Follow layout"
-              onChange={(self) => set("self", { self }, "Change self alignment")}
+              onChange={(alignSelf) => set("self", { alignSelf }, "Change self alignment")}
             />
           </Field>
         )}
@@ -676,9 +728,10 @@ function SizeInput({
 }: {
   editor: StyleEditor
   axis: "width" | "height"
-  value: Size | undefined
+  /** The size as a field holds it: steps, a name, or `"fill"` and `"hug"`. */
+  value: FieldLength | undefined
   canFill: boolean
-  onChange: (value: Size | undefined) => void
+  onChange: (value: FieldLength | undefined) => void
   edits: Pick<NumberFieldProps, "onPreview" | "onCancel" | "onCommit">
 }) {
   const fixed = value !== undefined && value !== "fill" && value !== "hug"
@@ -713,10 +766,11 @@ function SizeInput({
           ]}
           placeholder="Auto"
           onChange={(next) => {
-            if (next === "fixed") {
-              onChange(fixed ? value : (editor.measure(axis) ?? 64))
-            } else {
+            if (next !== "fixed") {
               onChange(next)
+            } else if (!fixed) {
+              // A size that's already fixed stays as it's stored.
+              onChange(editor.measure(axis) ?? 64)
             }
           }}
         />
@@ -767,7 +821,7 @@ function PositionSection({ editor }: SectionProps) {
                   editor={editor}
                   label={side[0]!.toUpperCase()}
                   title={`Distance from the parent's ${side} edge`}
-                  value={style[side]}
+                  value={lengthField(style[side])}
                   // An inset can be negative, past the parent's edge.
                   min={-Infinity}
                   offScale="keep"
@@ -775,7 +829,7 @@ function PositionSection({ editor }: SectionProps) {
                     editor,
                     "insets",
                     `Change ${side}`,
-                    (layer) => layer[side],
+                    (layer) => lengthField(layer[side]),
                     (value) => ({ [side]: asLength(value) })
                   )}
                 />
@@ -798,10 +852,10 @@ function AppearanceSection({ editor }: SectionProps) {
         <Field label="Radius" {...rowOf(editor, "radius")}>
           <TokenInput
             label="Radius"
-            value={style.radius}
+            value={shownName(style.borderRadius)}
             tokens={tokens}
             categories={["radius"]}
-            onChange={(radius) => set("radius", { radius }, "Change radius")}
+            onChange={(radius) => set("radius", { borderRadius: named(radius) }, "Change radius")}
           />
         </Field>
         <Field label="Opacity" {...rowOf(editor, "opacity")}>
@@ -838,7 +892,7 @@ function AppearanceSection({ editor }: SectionProps) {
 function StrokeSection({ editor }: SectionProps) {
   const { set, tokens } = editor
   const { style } = editor.selection
-  const on = style.border !== undefined || style.borderWidth !== undefined
+  const on = style.borderColor !== undefined || style.borderWidth !== undefined
 
   return (
     <PanelSection
@@ -849,7 +903,7 @@ function StrokeSection({ editor }: SectionProps) {
             variant="ghost"
             size="sm"
             className="h-6 px-2 text-xs text-muted-foreground"
-            onClick={() => set("stroke", { border: "border", borderWidth: 1 }, "Add stroke")}
+            onClick={() => set("stroke", { borderColor: tokenColor("border"), borderWidth: 1 }, "Add stroke")}
           >
             <Square /> Add
           </Button>
@@ -861,10 +915,17 @@ function StrokeSection({ editor }: SectionProps) {
           <Field label="Color" {...rowOf(editor, "strokeColor")}>
             <TokenInput
               label="Stroke color"
-              value={style.border}
+              value={style.borderColor && colorText(style.borderColor)}
+              drawn={drawnColor(style.borderColor)}
               tokens={tokens}
               categories={["color"]}
-              onChange={(border) => set("strokeColor", { border }, "Change stroke color")}
+              onChange={(name) =>
+                set(
+                  "strokeColor",
+                  (layer) => ({ borderColor: colorChoice(name, layer.borderColor) }),
+                  "Change stroke color"
+                )
+              }
             />
           </Field>
           <Field label="Width" {...rowOf(editor, "strokeWidth")}>
@@ -897,7 +958,7 @@ function StrokeSection({ editor }: SectionProps) {
             size="sm"
             className="mt-1 h-7 self-start text-xs text-muted-foreground"
             onClick={() =>
-              set("stroke", { border: undefined, borderWidth: undefined, borderStyle: undefined }, "Remove stroke")
+              set("stroke", { borderColor: undefined, borderWidth: undefined, borderStyle: undefined }, "Remove stroke")
             }
           >
             Remove stroke
@@ -923,56 +984,59 @@ function TextSection({ editor, can, shows }: SectionProps) {
         <Field label="Color" {...rowOf(editor, "textColor")}>
           <TokenInput
             label="Text color"
-            value={style.foreground}
+            value={style.color && colorText(style.color)}
+            drawn={drawnColor(style.color)}
             tokens={tokens}
             categories={["color"]}
-            onChange={(foreground) => set("textColor", { foreground }, "Change text color")}
+            onChange={(name) =>
+              set("textColor", (layer) => ({ color: colorChoice(name, layer.color) }), "Change text color")
+            }
           />
         </Field>
         <Field label="Font" {...rowOf(editor, "font")}>
           <TokenInput
             label="Font"
-            value={style.font}
+            value={shownName(style.fontFamily)}
             tokens={tokens}
             categories={["font"]}
-            onChange={(font) => set("font", { font }, "Change font")}
+            onChange={(font) => set("font", { fontFamily: named(font) }, "Change font")}
           />
         </Field>
         <Field label="Size" {...rowOf(editor, "textSize")}>
           <TokenInput
             label="Text size"
-            value={style.size}
+            value={shownName(style.fontSize)}
             tokens={tokens}
             categories={["font-size"]}
-            onChange={(size) => set("textSize", { size }, "Change text size")}
+            onChange={(size) => set("textSize", { fontSize: named(size) }, "Change text size")}
           />
         </Field>
         <Field label="Weight" {...rowOf(editor, "weight")}>
           <ChoiceInput
-            value={style.weight === undefined ? undefined : String(style.weight)}
+            value={style.fontWeight === undefined ? undefined : String(style.fontWeight)}
             options={weightOptions}
             placeholder="Inherit"
             onChange={(weight) =>
-              set("weight", { weight: weight === undefined ? undefined : Number(weight) }, "Change weight")
+              set("weight", { fontWeight: weight === undefined ? undefined : Number(weight) }, "Change weight")
             }
           />
         </Field>
         <Field label="Line height" {...rowOf(editor, "lineHeight")}>
           <TokenInput
             label="Line height"
-            value={style.leading}
+            value={shownName(style.lineHeight)}
             tokens={tokens}
             categories={["leading"]}
-            onChange={(leading) => set("lineHeight", { leading }, "Change line height")}
+            onChange={(leading) => set("lineHeight", { lineHeight: named(leading) }, "Change line height")}
           />
         </Field>
         <Field label="Letter spacing" {...rowOf(editor, "letterSpacing")}>
           <TokenInput
             label="Letter spacing"
-            value={style.tracking}
+            value={shownName(style.letterSpacing)}
             tokens={tokens}
             categories={["tracking"]}
-            onChange={(tracking) => set("letterSpacing", { tracking }, "Change letter spacing")}
+            onChange={(tracking) => set("letterSpacing", { letterSpacing: named(tracking) }, "Change letter spacing")}
           />
         </Field>
         <Field label="Align" {...rowOf(editor, "textAlign")}>
@@ -1008,8 +1072,10 @@ function TextSection({ editor, can, shows }: SectionProps) {
                 size="sm"
                 className="h-7 px-2"
                 aria-label="Italic"
-                pressed={style.italic ?? false}
-                onPressedChange={(italic) => set("decoration", { italic: italic || undefined }, "Toggle italic")}
+                pressed={style.fontStyle === "italic"}
+                onPressedChange={(italic) =>
+                  set("decoration", { fontStyle: italic ? "italic" : undefined }, "Toggle italic")
+                }
               >
                 <Italic />
               </Toggle>
@@ -1020,9 +1086,9 @@ function TextSection({ editor, can, shows }: SectionProps) {
                 size="sm"
                 className="h-7 px-2"
                 aria-label="Underline"
-                pressed={style.decoration === "underline"}
+                pressed={style.textDecorationLine === "underline"}
                 onPressedChange={(on) =>
-                  set("decoration", { decoration: on ? "underline" : undefined }, "Toggle underline")
+                  set("decoration", { textDecorationLine: on ? "underline" : undefined }, "Toggle underline")
                 }
               >
                 <Underline />
@@ -1034,9 +1100,9 @@ function TextSection({ editor, can, shows }: SectionProps) {
                 size="sm"
                 className="h-7 px-2"
                 aria-label="Strikethrough"
-                pressed={style.decoration === "line-through"}
+                pressed={style.textDecorationLine === "line-through"}
                 onPressedChange={(on) =>
-                  set("decoration", { decoration: on ? "line-through" : undefined }, "Toggle strikethrough")
+                  set("decoration", { textDecorationLine: on ? "line-through" : undefined }, "Toggle strikethrough")
                 }
               >
                 <Strikethrough />
@@ -1055,7 +1121,7 @@ function TextSection({ editor, can, shows }: SectionProps) {
         {shows("maxLines") && (
           <Field label="Max lines" {...rowOf(editor, "lines")}>
             <NumberInput
-              value={style.lines}
+              value={style.lineClamp}
               rules={linesRules}
               title="Max lines"
               placeholder="No limit"
@@ -1063,8 +1129,8 @@ function TextSection({ editor, can, shows }: SectionProps) {
                 editor,
                 "lines",
                 "Change max lines",
-                (layer) => layer.lines,
-                (lines) => ({ lines: numberOf(lines) })
+                (layer) => layer.lineClamp,
+                (lines) => ({ lineClamp: numberOf(lines) })
               )}
             />
           </Field>
@@ -1125,7 +1191,8 @@ const textSizingOptions = [
 
 /**
  * A length, typed and shown in pixels (320 is 320px) and kept as steps of the spacing scale, or one of the project's
- * length tokens by name. The list beside it picks a step or a token. A size or an inset keeps a length off the scale as
+ * length tokens by name. A length written out (`50%`, `auto`) shows as its text. The list beside it picks a step or a
+ * token. A size or an inset keeps a length off the scale as
  * typed (`offScale`); others land on the nearest step. Any length off the scale is flagged under the row, with a button
  * for the nearest step (PAR-194). What it reads is in `@parity-app/core`'s fields.ts.
  */
@@ -1143,7 +1210,8 @@ export function LengthInput({
   onCommit
 }: {
   editor: Pick<StyleEditor, "tokens" | "unit">
-  value: Length | undefined
+  /** The length as a field holds it: steps, or a name (`lengthField`). */
+  value: FieldLength | undefined
   /** A letter or two inside the field, for rows of related lengths. Dragging it scrubs. */
   label?: string
   title: string
@@ -1169,7 +1237,7 @@ export function LengthInput({
     ? { kind: "length", unit, min, label: title, offScale }
     : { kind: "length", unit, min, label: title }
 
-  const pick = (picked: Length) => {
+  const pick = (picked: FieldLength) => {
     onCommit(() => picked)
     setOpen(false)
   }
@@ -1302,10 +1370,8 @@ function CompactNumber({
 }
 
 /** A step's token name, for showing it the way the Tokens panel does. */
-export function lengthLabel(value: Length): string {
-  const steps = numberValue.safeParse(value)
-
-  return steps.success ? spacingStepName(steps.data) : String(value)
+export function lengthLabel(value: FieldLength): string {
+  return isNamedLength(value) ? value : spacingStepName(value)
 }
 
 function formatPx(value: number): string {
@@ -1313,9 +1379,9 @@ function formatPx(value: number): string {
 }
 
 const distributeOptions = [
-  { value: "between" as const, label: "Space between" },
-  { value: "around" as const, label: "Space around" },
-  { value: "evenly" as const, label: "Space evenly" }
+  { value: "space-between" as const, label: "Space between" },
+  { value: "space-around" as const, label: "Space around" },
+  { value: "space-evenly" as const, label: "Space evenly" }
 ]
 
 const selfOptions = [
@@ -1327,7 +1393,7 @@ const selfOptions = [
 
 const overflowOptions = [
   { value: "hidden" as const, label: "Clip content" },
-  { value: "scroll" as const, label: "Scroll" }
+  { value: "auto" as const, label: "Scroll" }
 ]
 
 const borderStyleOptions = [

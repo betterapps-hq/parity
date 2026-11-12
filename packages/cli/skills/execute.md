@@ -154,7 +154,7 @@ CreateDesign({
   root: {
     type: "layout",
     name: "Frame",
-    style: { width: 280, height: 400 },
+    style: { width: { step: 280 }, height: { step: 400 } },
     children: [
       part("nova/SidebarProvider", {}, [
         part("nova/Sidebar", { collapsible: "none" }, [
@@ -206,14 +206,14 @@ the person when it's far from what the design asked for.
 // The design asks for #2f6fed text at 13px: use the tokens nearest them.
 const [color] = GetTokens({ nearest: "#2f6fed", category: "color" })
 const [size] = GetTokens({ nearest: "13px", category: "font-size" })
-Update("signup/Title", { style: { foreground: color.name, size: size.name } })
+Update("signup/Title", { style: { color: { token: color.name }, fontSize: { token: size.name } } })
 ```
 
 For a circle or a pill, use `radius-full`, Tailwind's `rounded-full`. It's listed under `radius` with
 `source: "keyword"`, and frames draw it as round as the box allows, at any size:
 
 ```js
-Update("avatar", { style: { width: 10, height: 10, radius: "radius-full" } })
+Update("avatar", { style: { width: { step: 10 }, height: { step: 10 }, borderRadius: { token: "radius-full" } } })
 ```
 
 ### Selection
@@ -287,18 +287,35 @@ nested instance; they're stored by id, and a layer the component doesn't have fa
 const form = Insert("settings/Content", {
   type: "layout",
   name: "Profile form",
-  style: { gap: 4, maxWidth: 120 },
+  style: { gap: { step: 4 }, maxWidth: { step: 120 } },
   children: [
     { type: "component", component: "Label", props: { htmlFor: "name", children: "Name" } },
     { type: "component", component: "Input", props: { id: "name", defaultValue: "Avery Chen" } },
-    { type: "component", component: "Button", props: { children: "Save changes" }, style: { self: "start" } }
+    { type: "component", component: "Button", props: { children: "Save changes" }, style: { alignSelf: "start" } }
   ]
 })
 ```
 
-Style keys are in the document reference. Some that trip agents up: a `span` given a width, maximum, `textAlign` or
-`lines: 1` is drawn as a block, so it works in a slot or table cell, and `overflowWrap: "anywhere"` wraps a long word
-such as a web address. An absolutely placed component with `left` and `right` stretches between them.
+Style keys and the forms their values take are in document.md, under Style. Some that trip agents up: a length is always
+an object, as `{ step: 4 }`, and so is a token's name, as `{ token: "primary" }`; `fills` and `boxShadow` are lists, of
+one entry for one colour or one shadow; a `span` given a width, maximum, `textAlign` or `lineClamp: 1` is drawn as a
+block, so it works in a slot or table cell, and `overflowWrap: "anywhere"` wraps a long word such as a web address. An
+absolutely placed component with `left` and `right` stretches between them.
+
+```js
+// One colour, one shadow, and a row that scrolls sideways and snaps, which only the CSS map holds.
+Update("dashboard/Stats", {
+  style: {
+    flexDirection: "row",
+    gap: { step: 4 },
+    padding: [{ step: 4 }, { step: 6 }],
+    fills: [{ type: "solid", color: { token: "background" } }],
+    boxShadow: [{ type: "ring", width: 1, color: { token: "foreground", alpha: { step: 10 } } }],
+    overflow: "auto",
+    css: { "scroll-snap-type": { value: "x mandatory" } }
+  }
+})
+```
 
 ### Update
 
@@ -338,16 +355,21 @@ Put back the ones you still want on the new ids, in the same call or the next. A
 `UpdateState(design, state, { changes: { [id]: … } })`.
 
 ```js
-const stats = Replace("dashboard/Stats", { type: "layout", name: "Stats", style: { direction: "row", gap: 16 } })
-Responsive(stats, "mobile", { style: { direction: "column" } })
+const stats = Replace("dashboard/Stats", {
+  type: "layout",
+  name: "Stats",
+  style: { flexDirection: "row", gap: { step: 16 } }
+})
+Responsive(stats, "mobile", { style: { flexDirection: "column" } })
 ```
 
 ### Responsive
 
-Patches a node in one viewport: `Responsive("dashboard/Stats", "mobile", { style: { columns: 1 } })`. The viewport is a
-viewport option's id from the modes (such as `desktop`, `tablet` and `mobile`), not a mode's id. Patches take `hidden`,
-`text`, `props`, `style` and `unset`, and merge with the viewport's earlier patch key by key; set a key to `null` to
-remove it. `null` for the patch removes all of it. The patch applies in every state, as
+Patches a node in one viewport:
+`Responsive("dashboard/Stats", "mobile", { style: { gridTemplateColumns: [{ fr: 1 }] } })`. The viewport is a viewport
+option's id from the modes (such as `desktop`, `tablet` and `mobile`), not a mode's id. Patches take `hidden`, `text`,
+`props`, `style` and `unset`, and merge with the viewport's earlier patch key by key; set a key to `null` to remove it.
+`null` for the patch removes all of it. The patch applies in every state, as
 [How a design fits together](#how-a-design-fits-together) describes.
 
 ## States
@@ -419,7 +441,7 @@ const sidebar = CreateDesign({
   root: {
     type: "layout",
     name: "Sidebar",
-    style: { gap: 4 },
+    style: { gap: { step: 4 } },
     children: [
       { type: "text", name: "Workspace", text: "Acme", bind: { text: "workspace" } },
       { type: "text", name: "Beta", text: "Beta", bind: { visible: "showBeta" } }
@@ -430,7 +452,7 @@ const sidebar = CreateDesign({
     showBeta: { type: "boolean", default: false },
     density: {
       type: "variant",
-      options: [{ name: "Comfortable" }, { name: "Compact", overrides: { Sidebar: { style: { gap: 2 } } } }]
+      options: [{ name: "Comfortable" }, { name: "Compact", overrides: { Sidebar: { style: { gap: { step: 2 } } } } }]
     }
   }
 })
@@ -489,7 +511,18 @@ Print(GetTokens({ search: "shadow-popup" })[0].category) // shadow
 
 A style that names a token the project doesn't have gets a `not_a_token` warning. It lists the project's tokens of the
 category that goes there, or says the project has none:
-`size "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
+`fontSize "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
+
+A colour, `borderRadius`, `fontFamily`, `fontSize`, `lineHeight` or `letterSpacing` written out as `{ value }` is drawn,
+and gets the same warning, naming the call that lists the tokens nearest it when they can be compared:
+`color "#2f6fed" isn't a token. Use a name from GetTokens({ nearest: "#2f6fed", category: "color" }), which lists the nearest first.`
+Use the token, or keep the value when the person asked for exactly it and tell them it's off the design system. A length
+that names something other than a length token gets `not_a_length_token`.
+
+A `{ value }`, `{ keyword }` or `{ expr }` its CSS property doesn't take, in a key or in the CSS map, gets an
+`invalid_value` warning that names the place, the value and the property, as does a CSS map property that isn't one. The
+browser would drop the declaration, so fix the value: `gap "red" isn't a value gap takes.`,
+`css "scrol-margin" isn't a CSS property.`
 
 `SetTokens` refuses a value the Tokens panel would refuse, throwing an `invalid_input` error that names the token and
 theme and says what's wrong: a bracket or quote left open, a `var()` naming no token, or a token built on itself. None
@@ -663,7 +696,7 @@ A new screen, checked in every state and mode:
 
 ```js
 const id = CreateDesign({ name: "Billing" })
-Insert(id, { type: "text", tag: "h1", text: "Billing", style: { size: "text-2xl", weight: 600 } })
+Insert(id, { type: "text", tag: "h1", text: "Billing", style: { fontSize: { token: "text-2xl" }, fontWeight: 600 } })
 Insert(id, {
   type: "component",
   component: "Card",

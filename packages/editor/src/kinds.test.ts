@@ -20,7 +20,12 @@ const pricing: ContainerSpec = {
     id: "page",
     name: "Page",
     children: [
-      { type: "text", id: "title", text: "Plans", responsive: { mobile: { style: { size: "text-xl" } } } },
+      {
+        type: "text",
+        id: "title",
+        text: "Plans",
+        responsive: { mobile: { style: { fontSize: { token: "text-xl" } } } }
+      },
       { type: "text", id: "empty", text: "No plans yet", hidden: true }
     ]
   },
@@ -50,7 +55,7 @@ const card: ContainerSpec = {
       type: "variant",
       options: [
         { id: "small", name: "Small" },
-        { id: "large", name: "Large", overrides: { "card-root": { style: { padding: 8 } } } }
+        { id: "large", name: "Large", overrides: { "card-root": { style: { padding: { step: 8 } } } } }
       ]
     }
   },
@@ -66,7 +71,7 @@ const sketch: ContainerSpec = {
   root: {
     type: "layout",
     id: "sketch-root",
-    style: { padding: 6, background: "background" },
+    style: { padding: { step: 6 }, fills: [{ type: "solid", color: { token: "background" } }] },
     children: [{ type: "text", id: "idea", text: "Idea" }]
   },
   states: [{ id: "default", name: "Default" }]
@@ -74,7 +79,7 @@ const sketch: ContainerSpec = {
 
 /** A design as a file reads it back, which throws when the file would be invalid. */
 function reread(design: ContainerSpec): ContainerSpec | undefined {
-  return parseCanvasDocument({ version: 3, containers: [design] }).containers[0]
+  return parseCanvasDocument({ version: 4, containers: [design] }).containers[0]
 }
 
 describe("turning a design into a frame", () => {
@@ -106,7 +111,7 @@ describe("turning a design into a frame", () => {
     expect(design.root).toEqual({
       type: "layout",
       id: "card-root",
-      style: { padding: 8 },
+      style: { padding: { step: 8 } },
       children: [{ type: "text", id: "heading", text: "Card title" }]
     })
     expect(design).not.toHaveProperty("params")
@@ -170,14 +175,19 @@ describe("a frame inside another design", () => {
       type: "layout",
       id: "sketch-root",
       name: "Sketch",
-      style: { padding: 6, background: "background", width: 100, height: 75 },
+      style: {
+        padding: { step: 6 },
+        fills: [{ type: "solid", color: { token: "background" } }],
+        width: { step: 100 },
+        height: { step: 75 }
+      },
       children: [{ type: "text", id: "idea", text: "Idea" }]
     })
     // 402px is 100.5 steps, on the half step; a frame without a size leaves its layout's to the layout around it.
     expect(frameAsLayout({ ...sketch, size: { width: 402 } }, 4).style).toEqual({
-      padding: 6,
-      background: "background",
-      width: 100.5
+      padding: { step: 6 },
+      fills: [{ type: "solid", color: { token: "background" } }],
+      width: { step: 100.5 }
     })
     expect(() => frameAsLayout(pricing, 4)).toThrow("Pricing isn't a frame")
   })
@@ -186,7 +196,11 @@ describe("a frame inside another design", () => {
     const pasted = pasteFramesInto(pricing, { parent: "page", index: 1 }, [sketch], 4)!
     const root = pasted.container.root
     const layer = root.type === "layout" ? root.children[1] : undefined
-    expect(layer).toMatchObject({ type: "layout", name: "Sketch", style: { width: 100, height: 75 } })
+    expect(layer).toMatchObject({
+      type: "layout",
+      name: "Sketch",
+      style: { width: { step: 100 }, height: { step: 75 } }
+    })
     expect(pasted.copies).toEqual([layer?.id])
     expect(layer?.id).not.toBe("sketch-root")
     expect(pasteFramesInto(pricing, { parent: "page" }, [sketch, card], 4)).toBeUndefined()
@@ -194,8 +208,8 @@ describe("a frame inside another design", () => {
 
   it("leaves the canvas when moved into a design", () => {
     const documents = new Map<string, CanvasDocument>([
-      ["app.par", { version: 3, containers: [pricing, sketch] }],
-      ["more.par", { version: 3, containers: [card] }]
+      ["app.par", { version: 4, containers: [pricing, sketch] }],
+      ["more.par", { version: 4, containers: [card] }]
     ])
 
     const moved = moveFrameInto(

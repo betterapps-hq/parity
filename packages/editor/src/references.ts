@@ -242,7 +242,7 @@ export function addReferences(
     return snapshot
   }
 
-  const document = snapshot.documents.get(path) ?? { version: 3, containers: [] }
+  const document = snapshot.documents.get(path) ?? { version: 4, containers: [] }
   const next = { ...document, references: [...(document.references ?? []), ...references] }
 
   return { ...snapshot, documents: new Map(snapshot.documents).set(path, next) }

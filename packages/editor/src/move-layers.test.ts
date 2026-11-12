@@ -22,7 +22,7 @@ function dashboard(): ContainerSpec {
     },
     states: [
       { id: "default", name: "Default" },
-      { id: "loading", name: "Loading", overrides: { users: { text: "…" }, stats: { style: { gap: 1 } } } }
+      { id: "loading", name: "Loading", overrides: { users: { text: "…" }, stats: { style: { gap: { step: 1 } } } } }
     ]
   }
 }
@@ -124,7 +124,7 @@ describe("moving layers into another design", () => {
   it("copies them as the state being edited shows them", () => {
     const moved = moveLayersAcross(dashboard(), settings(), ["stats"], { parent: "root", index: 1 }, loading)
     const copy = findNode(moved.destination.root, moved.copies[0]!)
-    expect(copy).toMatchObject({ type: "layout", style: { gap: 1 } })
+    expect(copy).toMatchObject({ type: "layout", style: { gap: { step: 1 } } })
     expect(copy?.type === "layout" && copy.children[1]).toMatchObject({ text: "…" })
     // Everything inside gets a fresh id too.
     expect(copy?.type === "layout" && copy.children.map((child) => child.id)).not.toContain("users")

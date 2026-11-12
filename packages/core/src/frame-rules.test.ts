@@ -12,15 +12,15 @@ const design: ContainerSpec = {
   root: {
     type: "layout",
     id: "root",
-    style: { gap: 4, padding: 2 },
+    style: { gap: { step: 4 }, padding: { step: 2 } },
     children: [
-      { type: "text", id: "title", text: "Hello", style: { width: 8 } },
+      { type: "text", id: "title", text: "Hello", style: { width: { step: 8 } } },
       { type: "component", id: "button", component: "Button", props: { children: "Go" }, style: { opacity: 50 } }
     ]
   },
   states: [
     { id: "default", name: "Default" },
-    { id: "wide", name: "Wide", overrides: { title: { style: { width: 20 } } } }
+    { id: "wide", name: "Wide", overrides: { title: { style: { width: { step: 20 } } } } }
   ]
 }
 
@@ -132,7 +132,7 @@ describe("frameRules", () => {
 
 describe("previewRules", () => {
   it("gives a rule only for the element a style edit changes", () => {
-    const css = previewRules(render(design.root), render(withStyle("title", { width: 80 })))
+    const css = previewRules(render(design.root), render(withStyle("title", { width: { step: 80 } })))
     expect(css).toBe(rule("title", ["margin: 0", "width: calc(var(--spacing) * 80)"]))
   })
 
@@ -156,7 +156,7 @@ describe("previewRules", () => {
   it("follows the state each render shows", () => {
     const wide = design.states[1]
     // In Wide, the state's own width wins over the base design's, so a base edit to it changes nothing there.
-    expect(previewRules(render(design.root, wide), render(withStyle("title", { width: 80 }), wide))).toBe("")
+    expect(previewRules(render(design.root, wide), render(withStyle("title", { width: { step: 80 } }), wide))).toBe("")
     expect(previewRules(render(design.root), render(design.root, wide))).toBe(
       rule("title", ["margin: 0", "width: calc(var(--spacing) * 20)"])
     )
@@ -175,12 +175,18 @@ describe("previewRules", () => {
     }
 
     // The title is gone and a note is new: neither is a change of style.
-    swapped.children = [{ type: "text", id: "note", text: "Saved", style: { width: 12 } }, ...swapped.children.slice(1)]
+    swapped.children = [
+      { type: "text", id: "note", text: "Saved", style: { width: { step: 12 } } },
+      ...swapped.children.slice(1)
+    ]
     expect(previewRules(render(design.root), render(swapped))).toBe("")
   })
 
   it("puts the rules in a cascade layer when given one", () => {
-    const css = previewRules(render(design.root), render(withStyle("title", { width: 80 })), { layer: "utilities" })
+    const css = previewRules(render(design.root), render(withStyle("title", { width: { step: 80 } })), {
+      layer: "utilities"
+    })
+
     expect(css).toBe(`@layer utilities {\n${rule("title", ["margin: 0", "width: calc(var(--spacing) * 80)"])}}\n`)
   })
 })
@@ -211,7 +217,7 @@ describe("withClasses", () => {
       type: "component",
       id: "cell",
       component: "TableCell",
-      slots: { children: [{ type: "text", id: "amount", text: "$1,200", style: { width: 8 } }] }
+      slots: { children: [{ type: "text", id: "amount", text: "$1,200", style: { width: { step: 8 } } }] }
     }
 
     const tree = withClasses(resolveDesign(cell, undefined, "desktop"), widthClasses)

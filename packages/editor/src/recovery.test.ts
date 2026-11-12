@@ -22,7 +22,7 @@ function design(id: string, name = id): ContainerSpec {
   }
 }
 
-const file = (...containers: ContainerSpec[]): CanvasDocument => ({ version: 3, containers })
+const file = (...containers: ContainerSpec[]): CanvasDocument => ({ version: 4, containers })
 
 /** A project as it opens from its files: `app.par` with a home design, and its stylesheet. */
 function open(document = file(design("home")), modes: ModeSettings = defaultModeSettings): DesignHistory {

@@ -25,11 +25,11 @@ import { componentLabel, type InsertContext, insertIntoDesign, type InsertItem }
  * project's background, as a new frame is.
  */
 export const landedStyle = {
-  padding: 6,
-  gap: 4,
-  width: "hug",
-  background: "background",
-  foreground: "foreground"
+  padding: { step: 6 },
+  gap: { step: 4 },
+  width: { size: "hug" },
+  fills: [{ type: "solid", color: { token: "background" } }],
+  color: { token: "foreground" }
 } as const satisfies NodeStyle
 
 /** A design's name by its id, as the Layers panel names an instance after the design it places. */

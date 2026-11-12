@@ -13,10 +13,12 @@ export const warningCategories = {
   unknown_prop: "warning",
   /** A variant value outside the prop's options. */
   invalid_option: "warning",
-  /** A colour, radius or other token style that isn't one of the project's tokens. */
+  /** A colour, radius or other value where a token goes that isn't one of the project's tokens. */
   not_a_token: "warning",
-  /** A length that isn't a spacing step or a length token. */
+  /** A length that names something other than a length token. */
   not_a_length_token: "warning",
+  /** A style value written out that its CSS property doesn't take, or a CSS map property that isn't one. */
+  invalid_value: "warning",
   /** A board this call created, changed or moved collides with another. */
   overlap: "warning",
   /** A board this call touched is clear of another, but so close that the lower one's title covers the upper. */

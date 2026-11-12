@@ -233,6 +233,14 @@ function firstProblem(issues: readonly z.core.$ZodIssue[], at: string): SchemaPr
   }
 
   if (issue.code === "invalid_union" && issue.errors.length > 0) {
+    // A union that says what it takes, as a style's value forms do, is clearer than "an object" when the value is
+    // none of them outright. Inside a form that nearly fits, the closest option's own problem says more.
+    const outright = issue.errors.flat().every((error) => error.path.length === 0)
+
+    if (outright && issue.message !== "Invalid input") {
+      return { pointer, message: issue.message }
+    }
+
     return unionProblem(issue.errors, pointer)
   }
 

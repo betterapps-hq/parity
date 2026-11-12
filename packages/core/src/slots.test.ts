@@ -148,7 +148,7 @@ describe("a design's slots", () => {
   })
 
   it("are read from a project file, which refuses a name code can't use and a name two layouts share", () => {
-    const file = (container: ContainerSpec) => ({ version: 3, containers: [container] })
+    const file = (container: ContainerSpec) => ({ version: 4, containers: [container] })
     const marked = setSlot(setSlot(card, "body", "content"), "footer", "actions")
     expect(parseCanvasDocument(file(marked)).containers[0]).toEqual(marked)
     expect(() => parseCanvasDocument(file(marking(marked, "footer", "side actions")))).toThrow(
@@ -315,11 +315,11 @@ describe("filling an instance's slots", () => {
 
     expect(leads).toHaveLength(2)
     expect(new Set([...leads, "lead"]).size).toBe(3)
-    expect(() => parseCanvasDocument({ version: 3, containers: [component, panel, detached] })).not.toThrow()
+    expect(() => parseCanvasDocument({ version: 4, containers: [component, panel, detached] })).not.toThrow()
   })
 
   it("is read from a project file, which refuses a fill reusing one of the design's ids", () => {
-    const file = (container: ContainerSpec) => ({ version: 3, containers: [component, container] })
+    const file = (container: ContainerSpec) => ({ version: 4, containers: [component, container] })
     expect(parseCanvasDocument(file(filled(page))).containers[1]).toEqual(filled(page))
 
     const clash = {

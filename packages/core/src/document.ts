@@ -665,7 +665,7 @@ function problem(context: z.RefinementCtx, path: PropertyKey[], message: string)
 
 /** A project file's schema, which the project service also checks a saved document with (PAR-565). */
 export const canvasDocument = fileObject({
-  version: z.literal(3),
+  version: z.literal(4),
   containers: z.array(containerSpec),
   /** The project's modes. Unset means the defaults. */
   modes: modeSettings.optional(),

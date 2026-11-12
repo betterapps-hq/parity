@@ -96,10 +96,26 @@ const design: ContainerSpec = {
             type: "text",
             id: "review",
             text: "Review",
-            style: { position: "absolute", top: 40, left: 0, right: 0, height: 16 }
+            style: {
+              position: "absolute",
+              top: { step: 40 },
+              left: { step: 0 },
+              right: { step: 0 },
+              height: { step: 16 }
+            }
           },
-          { type: "text", id: "lunch", text: "Lunch", style: { position: "absolute", top: 64, left: 0, right: 0 } },
-          { type: "text", id: "focus", text: "Focus", style: { position: "absolute", top: 0, left: 0 } }
+          {
+            type: "text",
+            id: "lunch",
+            text: "Lunch",
+            style: { position: "absolute", top: { step: 64 }, left: { step: 0 }, right: { step: 0 } }
+          },
+          {
+            type: "text",
+            id: "focus",
+            text: "Focus",
+            style: { position: "absolute", top: { step: 0 }, left: { step: 0 } }
+          }
         ]
       }
     ]
@@ -171,9 +187,9 @@ describe("dragging an absolutely placed layer from what its frame measured", () 
       })
 
       // 120 of the design's pixels down, well clear of Lunch: 30 steps.
-      expect(follow({ dx: 0, dy: 120 * scale, snaps: false }).change).toEqual({ top: 70 })
+      expect(follow({ dx: 0, dy: 120 * scale, snaps: false }).change).toEqual({ top: { step: 70 } })
       // 30 of the design's pixels up from under Lunch, 2 short of touching it: its top locks to Lunch's bottom.
-      expect(follow({ dx: 0, dy: 142 * scale, snaps: true }).change).toEqual({ top: 76 })
+      expect(follow({ dx: 0, dy: 142 * scale, snaps: true }).change).toEqual({ top: { step: 76 } })
     }
   })
 })
@@ -216,9 +232,9 @@ describe("what resizing a layer starts from", () => {
       resize({ dx: 0, dy: 200 * scale, shift: false, snaps: false })
       // The bottom handle dragged 31 of the design's pixels: its edge, 1 from Lunch's top, locks there, 24 steps high.
       // How near it has to come is in screen pixels, so one of the design's is near enough at every scale here.
-      expect(resize({ dx: 0, dy: 31 * scale, shift: false, snaps: true }).style).toEqual({ height: 24 })
+      expect(resize({ dx: 0, dy: 31 * scale, shift: false, snaps: true }).style).toEqual({ height: { step: 24 } })
       // Without snapping it goes where the pointer is: 28 of the design's pixels taller, 7 steps.
-      expect(resize({ dx: 0, dy: 28 * scale, shift: false, snaps: false }).style).toEqual({ height: 23 })
+      expect(resize({ dx: 0, dy: 28 * scale, shift: false, snaps: false }).style).toEqual({ height: { step: 23 } })
     }
   })
 })

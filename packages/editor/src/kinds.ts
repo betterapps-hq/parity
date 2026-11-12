@@ -130,11 +130,11 @@ export function frameAsLayout(frame: ContainerSpec, unit: number): LayoutNode {
   const style = { ...root.style }
 
   if (size?.width !== undefined) {
-    style.width = snapToSpacingGrid(size.width / unit)
+    style.width = { step: snapToSpacingGrid(size.width / unit) }
   }
 
   if (size?.height !== undefined) {
-    style.height = snapToSpacingGrid(size.height / unit)
+    style.height = { step: snapToSpacingGrid(size.height / unit) }
   }
 
   const layout: LayoutNode = { ...root, name: frame.name }

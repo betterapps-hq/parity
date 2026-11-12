@@ -4,7 +4,6 @@ import {
   type ImageDetails,
   type InstanceNode,
   type NodeStyle,
-  paintsOf,
   type StateSpec,
   walkNodes
 } from "@parity-app/core"
@@ -501,8 +500,8 @@ function imageLayers(documents: ImagesInput["documents"]): ImageLayer[] {
 
       // An image a layer's fill paints (PAR-931).
       const fromFill = (style: NodeStyle | undefined, node: string) => {
-        for (const paint of paintsOf(style?.background)) {
-          if (paint.kind === "image") {
+        for (const paint of style?.fills ?? []) {
+          if (paint.type === "image") {
             add({ src: paint.src, use: usage(node) })
           }
         }

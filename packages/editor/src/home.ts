@@ -32,7 +32,7 @@ export function openingDesigns(
   modes: ModeSettings
 ): { path: string; document: CanvasDocument }[] {
   if (files.length === 0) {
-    return [{ path: mainPath, document: { version: 3, containers: [homeScreen(components, modes)] } }]
+    return [{ path: mainPath, document: { version: 4, containers: [homeScreen(components, modes)] } }]
   }
 
   return files.flatMap(({ path, document }) => (document ? [{ path, document }] : []))
@@ -52,7 +52,13 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
 
   const content: DesignNode = component
     ? { type: "component", id: generateId(ids), component }
-    : { type: "text", id: generateId(ids), tag: "h1", text: "Home", style: { size: "text-2xl", weight: 600 } }
+    : {
+        type: "text",
+        id: generateId(ids),
+        tag: "h1",
+        text: "Home",
+        style: { fontSize: { token: "text-2xl" }, fontWeight: 600 }
+      }
 
   const beside = besideMode(modes)
 
@@ -66,8 +72,13 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
       id: rootId,
       name: "Page",
       style: component
-        ? { background: "background", foreground: "foreground" }
-        : { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
+        ? { fills: [{ type: "solid", color: { token: "background" } }], color: { token: "foreground" } }
+        : {
+            padding: [{ step: 10 }, { step: 12 }],
+            gap: { step: 6 },
+            fills: [{ type: "solid", color: { token: "background" } }],
+            color: { token: "foreground" }
+          },
       children: [content]
     },
     states: [{ id: "default", name: "Default" }]
