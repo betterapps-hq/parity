@@ -1,4 +1,11 @@
-import { boardRoot, type ContainerSpec, type RenderNode, resolveDesign, styleChanges } from "@parity-app/core"
+import {
+  boardRoot,
+  type ContainerSpec,
+  designStates,
+  type RenderNode,
+  resolveDesign,
+  styleChanges
+} from "@parity-app/core"
 import { useEffect, useMemo } from "react"
 import { findFrames, findNodeElement, previewFrameRules } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -198,7 +205,8 @@ export class StylePreview {
 
   /** A frame's tree for a version of the design, worked out as the frame works out its own. */
   private render(container: ContainerSpec, host: HTMLElement): RenderNode[] {
-    const state = container.states.find((candidate) => candidate.id === host.dataset.state) ?? container.states[0]
+    const states = designStates(container)
+    const state = states.find((candidate) => candidate.id === host.dataset.state) ?? states[0]
 
     return resolveDesign(
       boardRoot(container),

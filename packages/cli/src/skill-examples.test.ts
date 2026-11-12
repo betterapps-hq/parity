@@ -51,8 +51,7 @@ const screen = (id: string, name: string, x: number, root: DesignNode): Containe
   id,
   name,
   position: { x, y: 2000 },
-  root,
-  states: [{ id: "default", name: "Default" }]
+  root
 })
 
 /** The example project the skill's snippets are written against: every design and node they name. */
@@ -92,16 +91,38 @@ const designs: ContainerSpec[] = [
       layout("Empty state", [text("empty", "No members yet")], true)
     ])
   ),
-  // Replace's example puts back a title's patches in its loading state.
+  // Replace's example puts back a title's patches in its loading state, so it's a component, as only one has states.
   {
     ...screen("signup", "Signup", 4800, layout("Page", [{ ...text("title", "Sign up"), name: "Title" }])),
+    kind: "component",
     states: [
       { id: "default", name: "Default" },
       { id: "loading", name: "Loading" }
     ]
   },
-  // How a design fits together: a header whose desktop menu opens.
-  screen("header", "Header", 6400, layout("Header", [layout("Menu")]))
+  // How a design fits together: a header component whose desktop menu opens.
+  { ...screen("header", "Header", 6400, layout("Header", [layout("Menu")])), kind: "component" },
+  // The states examples: a table component with rows, skeletons and an empty state.
+  {
+    ...screen(
+      "members-table",
+      "Members table",
+      8000,
+      layout("Table", [
+        {
+          type: "component",
+          id: "seats",
+          name: "seats",
+          component: "Badge",
+          props: { children: "3 of 10 seats used" }
+        },
+        layout("Rows", [row("ada", "Ada Lovelace", "ada@example.com")]),
+        layout("Skeleton", [{ type: "component", id: "row-skeleton", component: "Skeleton" }], true),
+        layout("Empty state", [text("empty", "No members yet")], true)
+      ])
+    ),
+    kind: "component"
+  }
 ]
 
 const nova = (name: string, fields: Partial<ComponentSource> = {}): [string, ComponentSource] => [

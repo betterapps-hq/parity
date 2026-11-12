@@ -475,6 +475,5 @@ const membersDesign = {
       }
     ]
   },
-  states: [{ id: "default", name: "Default" }],
   view: { modes: [] }
 }

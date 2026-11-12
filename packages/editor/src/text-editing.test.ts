@@ -45,8 +45,7 @@ const library: ComponentLibrary = new Map([
       name: "Button",
       kind: "component",
       position: { x: 0, y: 0 },
-      root: { type: "component", id: "label", component: "Button", props: { children: "Continue" } },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "component", id: "label", component: "Button", props: { children: "Continue" } }
     }
   ]
 ])

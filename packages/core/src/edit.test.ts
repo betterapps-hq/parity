@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import type { ContainerSpec, DesignNode } from "./document.ts"
+import { baseState, type ContainerSpec, type DesignNode, designStates } from "./document.ts"
 import {
   addState,
   addVariant,
@@ -8,6 +8,7 @@ import {
   duplicateState,
   editNode,
   findNode,
+  findState,
   insertNode,
   locateNode,
   mapChildLists,
@@ -20,6 +21,7 @@ import {
   propChange,
   removeNode,
   removeState,
+  renameState,
   resetOverride,
   withFreshIds
 } from "./edit.ts"
@@ -39,6 +41,7 @@ function caught(run: () => void): Error | undefined {
 const design: ContainerSpec = {
   id: "signup",
   name: "Sign up",
+  kind: "component",
   position: { x: 0, y: 0 },
   root: {
     type: "layout",
@@ -77,14 +80,14 @@ describe("editing another state", () => {
   it("writes an override and leaves the design alone", () => {
     const next = editNode(design, "loading", "submit", { props: { children: "Signing up…" } })
     expect(findNode(next.root, "submit")).toEqual(findNode(design.root, "submit"))
-    expect(next.states[1]?.overrides?.submit).toEqual({ props: { disabled: true, children: "Signing up…" } })
+    expect(next.states![1]?.overrides?.submit).toEqual({ props: { disabled: true, children: "Signing up…" } })
   })
 
   it("drops an override that matches the base value", () => {
     const next = editNode(design, "loading", "submit", { props: { disabled: undefined } })
-    expect(next.states[1]?.overrides).toBeUndefined()
+    expect(next.states![1]?.overrides).toBeUndefined()
     const same = editNode(design, "loading", "title", { text: "Create an account" })
-    expect(same.states[1]?.overrides?.title).toBeUndefined()
+    expect(same.states![1]?.overrides?.title).toBeUndefined()
   })
 
   it("keeps an override that matches the base value when asked to, as agents' changes are written", () => {
@@ -97,16 +100,16 @@ describe("editing another state", () => {
 
   it("shows the node as the state sees it", () => {
     const submit = findNode(design.root, "submit")!
-    expect(nodeInState(submit, design.states[1])).toMatchObject({ props: { children: "Sign up", disabled: true } })
+    expect(nodeInState(submit, design.states![1])).toMatchObject({ props: { children: "Sign up", disabled: true } })
   })
 
   it("resets one field or the whole override", () => {
     const edited = editNode(design, "loading", "title", { hidden: true })
-    expect(changeCount(edited.states[1]!)).toBe(2)
-    expect(resetOverride(edited, "loading", "title", { kind: "hidden" }).states[1]?.overrides).toEqual({
+    expect(changeCount(edited.states![1]!)).toBe(2)
+    expect(resetOverride(edited, "loading", "title", { kind: "hidden" }).states![1]?.overrides).toEqual({
       submit: { props: { disabled: true } }
     })
-    expect(resetOverride(edited, "loading", "submit").states[1]?.overrides).toEqual({ title: { hidden: true } })
+    expect(resetOverride(edited, "loading", "submit").states![1]?.overrides).toEqual({ title: { hidden: true } })
   })
 })
 
@@ -114,19 +117,19 @@ describe("clearing a prop, as the inspector does", () => {
   const disabled: ContainerSpec = editNode(design, "default", "submit", { props: { disabled: true } })
 
   const shown = (container: ContainerSpec) => {
-    const node = nodeInState(findNode(container.root, "submit")!, container.states[1])
+    const node = nodeInState(findNode(container.root, "submit")!, container.states![1])
 
     return node.type === "component" ? { props: node.props } : {}
   }
 
   it("turns a prop the design sets off in one state, and Reset takes that back", () => {
     // The design disables the button; Loading set nothing of its own for it.
-    const base = { ...disabled, states: [disabled.states[0]!, { id: "loading", name: "Loading" }] }
+    const base = { ...disabled, states: [disabled.states![0]!, { id: "loading", name: "Loading" }] }
     const off = editNode(base, "loading", "submit", propChange("disabled", undefined))
     expect(shown(off).props).toEqual({ children: "Sign up" })
     expect(findNode(off.root, "submit")).toMatchObject({ props: { disabled: true } })
     const reset = resetOverride(off, "loading", "submit", { kind: "props", key: "disabled" })
-    expect(reset.states[1]?.overrides).toBeUndefined()
+    expect(reset.states![1]?.overrides).toBeUndefined()
     expect(shown(reset).props).toEqual({ children: "Sign up", disabled: true })
   })
 
@@ -140,32 +143,32 @@ describe("clearing a prop, as the inspector does", () => {
 
 describe("taking a value away", () => {
   const submit = (container: ContainerSpec, state: number) =>
-    nodeInState(findNode(container.root, "submit")!, container.states[state])
+    nodeInState(findNode(container.root, "submit")!, container.states![state])
 
   it("takes a prop the design sets away in one state, leaving the design and the other states alone", () => {
     const next = editNode(design, "loading", "submit", { unset: { props: ["children"] } })
-    expect(next.states[1]?.overrides?.submit).toEqual({ props: { disabled: true }, unset: { props: ["children"] } })
+    expect(next.states![1]?.overrides?.submit).toEqual({ props: { disabled: true }, unset: { props: ["children"] } })
     expect(submit(next, 1)).toEqual({ type: "component", id: "submit", component: "Button", props: { disabled: true } })
     expect(findNode(next.root, "submit")).toEqual(findNode(design.root, "submit"))
-    expect(changeCount(next.states[1]!)).toBe(2)
+    expect(changeCount(next.states![1]!)).toBe(2)
   })
 
   it("takes a value the state set away too, keeping nothing for what the design doesn't set", () => {
     const next = editNode(design, "loading", "submit", { unset: { props: ["disabled"] } })
-    expect(next.states[1]?.overrides).toBeUndefined()
+    expect(next.states![1]?.overrides).toBeUndefined()
     const style = editNode(design, "loading", "page", { unset: { style: ["gap", "padding"] } })
-    expect(style.states[1]?.overrides?.page).toEqual({ unset: { style: ["gap"] } })
-    expect(nodeInState(style.root, style.states[1]).style).toBeUndefined()
+    expect(style.states![1]?.overrides?.page).toEqual({ unset: { style: ["gap"] } })
+    expect(nodeInState(style.root, style.states![1]).style).toBeUndefined()
   })
 
   it("sets a value it took away again, and Reset takes the state's change back", () => {
     const taken = editNode(design, "loading", "submit", { unset: { props: ["children"] } })
     const again = editNode(taken, "loading", "submit", { props: { children: "Wait" } })
-    expect(again.states[1]?.overrides?.submit).toEqual({ props: { disabled: true, children: "Wait" } })
+    expect(again.states![1]?.overrides?.submit).toEqual({ props: { disabled: true, children: "Wait" } })
     const back = editNode(taken, "loading", "submit", { props: { children: undefined } })
-    expect(back.states[1]?.overrides?.submit).toEqual({ props: { disabled: true } })
+    expect(back.states![1]?.overrides?.submit).toEqual({ props: { disabled: true } })
     const reset = resetOverride(taken, "loading", "submit", { kind: "props", key: "children" })
-    expect(reset.states[1]?.overrides?.submit).toEqual({ props: { disabled: true } })
+    expect(reset.states![1]?.overrides?.submit).toEqual({ props: { disabled: true } })
     expect(submit(reset, 1)).toMatchObject({ props: { children: "Sign up", disabled: true } })
   })
 
@@ -181,31 +184,44 @@ describe("states", () => {
     const added = addState(design, "Error")
     expect(added.id).toBe("error")
     const copied = duplicateState(added.container, "loading")
-    expect(copied.container.states.map((state) => state.id)).toEqual(["default", "loading", "loading-copy", "error"])
-    expect(copied.container.states[2]?.overrides).toEqual(design.states[1]?.overrides)
+    expect(copied.container.states!.map((state) => state.id)).toEqual(["default", "loading", "loading-copy", "error"])
+    expect(copied.container.states![2]?.overrides).toEqual(design.states![1]?.overrides)
     expect(removeState(copied.container, "loading-copy").states).toHaveLength(3)
     expect(() => removeState(design, "default")).toThrow("base state")
   })
 
-  it("gives a frame no second state and no variants, with a code an agent can act on", () => {
-    const frame: ContainerSpec = { ...design, kind: "frame", name: "Sketch", states: [design.states[0]!] }
+  it("gives only a component states, with a code an agent can act on (PAR-1002)", () => {
+    const { states: _states, ...layers } = design
 
-    const refusals = [
-      () => addState(frame, "Error"),
-      () => duplicateState(frame, "default"),
-      () => addVariant(frame, "size", ["Small", "Large"])
-    ]
+    for (const kind of ["screen", "frame"] as const) {
+      const other: ContainerSpec = { ...layers, kind, name: "Sketch" }
 
-    for (const refuse of refusals) {
-      expect(refuse).toThrow(CodedError)
-      expect(refuse).toThrow(/^Sketch is a frame, which has/)
-      expect(errorDetails(caught(refuse))).toEqual({ code: "invalid_input", field: "design", retryable: false })
+      const refusals = [
+        () => addState(other, "Error"),
+        () => duplicateState(other, "default"),
+        () => renameState(other, "default", "Base"),
+        () => findState(other, "loading")
+      ]
+
+      for (const refuse of refusals) {
+        expect(refuse).toThrow(CodedError)
+        expect(refuse).toThrow(`Sketch is a ${kind}, and only a component has states.`)
+        expect(errorDetails(caught(refuse))).toEqual({ code: "invalid_input", field: "design", retryable: false })
+      }
+
+      // Its edits go to its base state, which is its layers.
+      expect(designStates(other)).toEqual([baseState])
+      expect(findNode(editNode(other, "default", "title", { text: "Idea" }).root, "title")).toMatchObject({
+        text: "Idea"
+      })
     }
+  })
 
-    // Editing its one state still changes its layers.
-    expect(findNode(editNode(frame, "default", "title", { text: "Idea" }).root, "title")).toMatchObject({
-      text: "Idea"
-    })
+  it("gives a frame no variants", () => {
+    const { states: _states, ...layers } = design
+    const refuse = () => addVariant({ ...layers, kind: "frame", name: "Sketch" }, "size", ["Small", "Large"])
+    expect(refuse).toThrow(/^Sketch is a frame, which has no variants/)
+    expect(errorDetails(caught(refuse))).toEqual({ code: "invalid_input", field: "design", retryable: false })
   })
 })
 
@@ -227,7 +243,7 @@ describe("tree edits", () => {
   it("deletes a node and its overrides", () => {
     const next = deleteNode(design, "card")
     expect(findNode(next.root, "submit")).toBeUndefined()
-    expect(next.states[1]?.overrides).toBeUndefined()
+    expect(next.states![1]?.overrides).toBeUndefined()
   })
 
   it("gives copies fresh ids", () => {

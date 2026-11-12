@@ -469,8 +469,7 @@ describe("layering patches that take values away", () => {
       kind: "component",
       position: { x: 0, y: 0 },
       params: { label: { type: "text", default: "New" } },
-      root: { type: "text", id: "label", text: "New", bind: { text: "label" } },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "text", id: "label", text: "New", bind: { text: "label" } }
     }
 
     const instance: DesignNode = { type: "instance", id: "tag", design: "badge", args: { label: "Sale" } }
@@ -527,9 +526,8 @@ describe("parseCanvasDocument", () => {
         id: "team",
         name: "Team",
         position: { x: 0, y: 0 },
-        view: { modes: ["desktop-dark"], state: "default" },
+        view: { modes: ["desktop-dark"] },
         root,
-        states: [{ id: "default", name: "Default" }],
         ...overrides
       }
     ]
@@ -548,11 +546,15 @@ describe("parseCanvasDocument", () => {
 
   it("reads what a state takes away, and rejects a style key it doesn't know", () => {
     const states = [{ id: "plain", name: "Plain", overrides: { page: { unset: { style: ["gap"], props: [] } } } }]
-    expect(parseCanvasDocument(document({ states })).containers[0]?.states[0]?.overrides?.page).toEqual({
+    expect(
+      parseCanvasDocument(document({ kind: "component", states })).containers[0]?.states?.[0]?.overrides?.page
+    ).toEqual({
       unset: { style: ["gap"], props: [] }
     })
     const bad = [{ id: "plain", name: "Plain", overrides: { page: { unset: { style: ["colour"] } } } }]
-    expect(() => parseCanvasDocument(document({ states: bad }))).toThrow("/overrides/page/unset/style/0")
+    expect(() => parseCanvasDocument(document({ kind: "component", states: bad }))).toThrow(
+      "/overrides/page/unset/style/0"
+    )
   })
 
   it("takes only accessibility props on a layout or text layer (PAR-913)", () => {
@@ -817,15 +819,13 @@ describe("sizing", () => {
           id: "page",
           name: "Page",
           position: { x: 0, y: 0 },
-          root: { type: "layout", id: "root", children: [] },
-          states: [{ id: "default", name: "Default" }]
+          root: { type: "layout", id: "root", children: [] }
         },
         {
           id: "hero",
           name: "Hero",
           position: { x: 0, y: 0 },
           root: { type: "layout", id: "root", children: [] },
-          states: [{ id: "default", name: "Default" }],
           frames: { desktop: { height: 600 } }
         }
       ]
@@ -987,8 +987,7 @@ describe("what a frame adds to a layout (PAR-942)", () => {
       id: "badge",
       name: "Badge",
       position: { x: 0, y: 0 },
-      root: { type: "layout", id: "root", children: [] },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", id: "root", children: [] }
     }
 
     const instance: DesignNode = { type: "instance", id: "first", design: "badge", style: placed }

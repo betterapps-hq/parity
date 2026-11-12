@@ -8,6 +8,7 @@ import type {
 import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
 import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
+import type { FrameChange } from "@parity-app/change-detection"
 import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type {
   CanvasDocument,
@@ -183,6 +184,11 @@ export interface ServiceMethods {
    */
   /** Each job's kept bitmap and its frame's height, `stale` when it's the frame's latest from other code (PAR-993). */
   "frames.stored": { params: { jobs: string }; result: { kept: { src?: string; height?: number; stale?: true }[] } }
+  /**
+   * Whether each frame, and each node in it, changed since it was first looked at while its project's open (PAR-997):
+   * the frames as JSON text, each by its id and the job it's drawn with, and their changes in the same order.
+   */
+  "frames.changes": { params: { frames: string }; result: { changes: FrameChange[] } }
   /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
   "frames.clearStored": { params: undefined; result: undefined }
   /**

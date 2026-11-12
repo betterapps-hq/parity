@@ -36,8 +36,7 @@ const badge: ContainerSpec = {
     id: "badge-root",
     name: "Badge",
     children: [{ type: "text", id: "badge-label", text: "New", bind: { text: "label" } }]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 const context = (fields: Partial<InsertContext> = {}): InsertContext => ({

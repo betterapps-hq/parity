@@ -27,8 +27,7 @@ const sketch = {
   kind: "frame",
   position: { x: 40, y: 80 },
   size: { width: 400, height: 300 },
-  root: { type: "layout", id: "root", children: [{ type: "text", id: "note", text: "Idea" }] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "root", children: [{ type: "text", id: "note", text: "Idea" }] }
 }
 
 const parFile = (text: string) =>

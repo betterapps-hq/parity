@@ -161,7 +161,7 @@ describe("extractComponent", () => {
     })
     // The Without Sam state still hides Sam's row, now an instance.
     const library = componentLibrary([component])
-    const rendered = JSON.stringify(resolveDesign(extracted.root, extracted.states[1], "desktop", library))
+    const rendered = JSON.stringify(resolveDesign(extracted.root, extracted.states![1], "desktop", library))
     expect(rendered).not.toContain("Sam")
     expect(rendered).toContain('"nodeId":"row-j/')
   })
@@ -169,7 +169,7 @@ describe("extractComponent", () => {
   it("refuses when a state changes something inside the part", () => {
     const changed: ContainerSpec = {
       ...design,
-      states: [...design.states, { id: "renamed", name: "Renamed", overrides: { "a-name": { text: "Ava" } } }]
+      states: [...design.states!, { id: "renamed", name: "Renamed", overrides: { "a-name": { text: "Ava" } } }]
     }
 
     expect(() => extractComponent(changed, ["row-a", "row-j", "row-s"], options)).toThrow("Renamed state changes")

@@ -66,7 +66,7 @@ function entries(guestUrl: string): LoggedEntry[] {
       level: "error",
       where: "canvas",
       design: pricing,
-      state: "yearly",
+      state: "default",
       mode: "desktop-light",
       text: [
         "TypeError: Cannot read properties of undefined (reading 'price')",
@@ -89,7 +89,7 @@ function entries(guestUrl: string): LoggedEntry[] {
       level: "warning",
       where: "canvas",
       design: dashboard,
-      state: "loading",
+      state: "default",
       mode: "desktop-light",
       text: "Received NaN for the `value` attribute. If this is expected, cast the value to a string.",
       source: `${guest}/src/components/ui/input.tsx`,

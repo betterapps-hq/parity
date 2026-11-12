@@ -217,8 +217,7 @@ const statCard = {
     id: "card",
     style: { padding: { step: 4 }, gap: { step: 1 }, width: { step: 30 } },
     children: [text("label", "Revenue"), text("value", "$45,231")]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 const design = "app.par#dash"

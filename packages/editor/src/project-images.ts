@@ -539,7 +539,7 @@ function imageLayers(documents: ImagesInput["documents"]): ImageLayer[] {
         fromPatches(node.responsive, node.id)
       })
 
-      for (const state of design.states) {
+      for (const state of design.states ?? []) {
         fromPatches(state.overrides)
       }
 

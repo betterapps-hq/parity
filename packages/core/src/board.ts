@@ -1,4 +1,4 @@
-import type { ContainerSpec } from "./document.ts"
+import { type ContainerSpec, designStates } from "./document.ts"
 import type { ResolvedMode } from "./modes.ts"
 import { frameSize, frameViewport } from "./render.ts"
 
@@ -116,7 +116,7 @@ export function boardSize(
     frames.length > 1 ? divider.before + divider.line + divider.after + (frames.length - 2) * between : 0
 
   const width = frames.reduce((total, frame) => total + frame.width, 0) + companions + 2 * side
-  const rows = design.view?.allStates ? Math.max(1, design.states.length) : 1
+  const rows = design.view?.allStates ? designStates(design).length : 1
   const row = Math.max(0, ...frames.map((frame) => frame.height))
   const rowGap = rowDivider.before + rowDivider.line + rowDivider.after
   const height = caption + rows * row + (rows - 1) * rowGap + side

@@ -295,8 +295,7 @@ export function frameOfText(text: string, taken: Iterable<string>, at: Point): N
           color: { token: "foreground" }
         },
         children: [{ type: "text", id: node, text }]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     },
     node
   }

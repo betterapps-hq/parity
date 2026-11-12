@@ -52,8 +52,8 @@ function form(): ContainerSpec {
   }
 }
 
-const base = form().states[0]!
-const wide = form().states[1]!
+const base = form().states![0]!
+const wide = form().states![1]!
 
 /** The shared fixture's card, its board showing the variant options `variants`: Inline turns its body into a row. */
 function card(variants: Record<string, string> = {}): ContainerSpec {
@@ -264,7 +264,7 @@ describe("aligning layers", () => {
 
   it("reads the layout's direction with the variant options the board shows", () => {
     // Inline turns the card's body into a row, so Align right moves its children along it, in the variant shown.
-    const container = alignInLayouts(card({ layout: "inline" }), ["copy"], card().states[0]!, "right")
+    const container = alignInLayouts(card({ layout: "inline" }), ["copy"], card().states![0]!, "right")
     expect(findNode(container.root, "copy")?.style).toBeUndefined()
     expect(findNode(container.root, "body")?.style).not.toHaveProperty("justifyContent")
     const layout = container.params?.layout

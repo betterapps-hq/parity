@@ -35,8 +35,7 @@ function page(): ContainerSpec {
         { type: "layout", id: "actions", style: { flexDirection: "row" }, children: [text("save"), text("cancel")] },
         { type: "component", id: "card", component: "Card", slots: { header: [text("title")] } }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 }
 
@@ -52,8 +51,7 @@ const badge: ContainerSpec = {
     id: "badge-root",
     name: "Badge",
     children: [{ type: "text", id: "badge-label", text: "New", bind: { text: "label" } }]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 const button: ComponentInfo = {
@@ -303,8 +301,7 @@ describe("where a click inserts", () => {
       name: "Panel",
       kind: "component",
       position: { x: 0, y: 0 },
-      root: { type: "layout", id: "frame", children: [{ type: "layout", id: "body", slot: "body", children: [] }] },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", id: "frame", children: [{ type: "layout", id: "body", slot: "body", children: [] }] }
     }
 
     const placed: DesignNode = {

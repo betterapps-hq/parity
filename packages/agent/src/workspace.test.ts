@@ -173,7 +173,7 @@ describe("Get in a state and mode", () => {
       it(`reads what resolveDesign draws: ${name}, ${viewport}`, async () => {
         const shown = { ...design, view: variants ? { ...design.view, variants } : { ...design.view } }
         const containers = designs.map((candidate) => (candidate.id === design.id ? shown : candidate))
-        const context = { state: state ?? design.states[0], variants, viewport, library }
+        const context = { state: state ?? design.states![0], variants, viewport, library }
         const tree = effectiveTree(design, design.root.id, context)
 
         if (!tree) {
@@ -320,13 +320,13 @@ describe("Get reading the layers an instance fills its slots with (PAR-966)", ()
       type: "layout",
       id: "panel",
       children: [{ type: "layout", id: "body", slot: "content", children: [] }]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const page: ContainerSpec = {
     id: "page",
     name: "Page",
+    kind: "component",
     position: { x: 600, y: 0 },
     root: {
       type: "layout",
@@ -569,6 +569,7 @@ describe("Update taking a value away in a state", () => {
   const card: ContainerSpec = {
     id: "card",
     name: "Card",
+    kind: "component",
     position: { x: 0, y: 0 },
     root: { type: "layout", id: "body", style: { gap: { step: 2 }, padding: { step: 3 } }, children: [] },
     states: [
@@ -602,6 +603,7 @@ describe("Accessibility props on layout and text layers (PAR-913)", () => {
   const cell: ContainerSpec = {
     id: "cell",
     name: "Cell",
+    kind: "component",
     position: { x: 0, y: 0 },
     root: { type: "layout", id: "row", children: [{ type: "text", id: "dash", tag: "span", text: "–" }] },
     states: [
@@ -653,8 +655,7 @@ describe("Update taking a prop away with null, and paths that can't be right (PA
       id: "body",
       style: { gap: { step: 2 }, padding: { step: 3 } },
       children: [{ type: "component", id: "head", component: "TableHead", props: { "aria-sort": "ascending" } }]
-    },
-    states: [{ id: "base", name: "Base" }]
+    }
   }
 
   function withTableHead(): AgentSnapshot {

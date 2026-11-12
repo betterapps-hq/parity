@@ -577,8 +577,7 @@ const pricing: ContainerSpec = {
   id: "pricing",
   name: "Pricing",
   position: { x: 0, y: 0 },
-  root: { type: "layout", id: "root", children: [] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "root", children: [] }
 }
 
 const desktop = { viewport: "desktop", width: 1280 }
@@ -641,7 +640,7 @@ describe("double-clicking a frame's handle", () => {
 describe("what a resize starts from", () => {
   const found = effectiveFixture.designs.find((design) => design.id === "card")!
   const card = (variants: Record<string, string>): ContainerSpec => ({ ...found, view: { variants } })
-  const [base, compact] = found.states
+  const [base, compact] = found.states!
 
   it("reads the layout around the layer with the variant options the board shows", () => {
     expect(resizeStart(card({ layout: "inline" }), "copy", { state: base })?.parentDirection).toBe("row")
@@ -769,7 +768,7 @@ const order = (container: ContainerSpec, parent = "root") => {
 }
 
 describe("nudging a design's layers", () => {
-  const base = card().states[0]!
+  const base = card().states![0]!
 
   it("reorders a layer along its layout, and leaves it across", () => {
     const right = nudgeLayers(card(), ["save"], base, "right", false, 4, nothingDrawn).container
@@ -792,7 +791,7 @@ describe("nudging a design's layers", () => {
   })
 
   it("steps over a layer the state hides", () => {
-    const loading = card().states[1]!
+    const loading = card().states![1]!
     const moved = nudgeLayers(card(), ["title"], loading, "down", false, 4, nothingDrawn).container
     expect(order(moved)).toEqual(["actions", "stat", "badge", "body", "title"])
   })
@@ -829,7 +828,7 @@ describe("nudging a design's layers", () => {
   })
 
   it("moves an absolutely placed layer in the state being edited only", () => {
-    const loading = card().states[1]!
+    const loading = card().states![1]!
     const moved = nudgeLayers(card(), ["badge"], loading, "down", false, 4, nothingDrawn).container
     expect(findNode(moved.root, "badge")?.style?.top).toEqual({ step: 2 })
     expect(moved.states[1]?.overrides?.badge).toEqual({ style: { top: { step: 2.25 } } })

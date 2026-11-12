@@ -871,43 +871,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Monthly"
-        },
-        {
-          "id": "yearly",
-          "name": "Yearly",
-          "overrides": {
-            "bUBEe": {
-              "props": {
-                "defaultValue": [
-                  "yearly"
-                ]
-              }
-            },
-            "nGcY6": {
-              "props": {
-                "price": "$19",
-                "billing": "Billed yearly, $228 per user"
-              }
-            },
-            "u0Oqu": {
-              "props": {
-                "price": "$39",
-                "billing": "Billed yearly, $468 per user"
-              }
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -1773,8 +1741,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Revenue"
-                        },
-                        "state": "loading"
+                        }
                       },
                       {
                         "id": "tir9H",
@@ -1782,8 +1749,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Active users"
-                        },
-                        "state": "loading"
+                        }
                       },
                       {
                         "id": "hgR2x",
@@ -1791,8 +1757,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Open issues"
-                        },
-                        "state": "loading"
+                        }
                       },
                       {
                         "id": "Bz1hK",
@@ -1800,8 +1765,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Uptime"
-                        },
-                        "state": "loading"
+                        }
                       }
                     ]
                   },
@@ -4094,75 +4058,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "loading",
-          "name": "Loading",
-          "overrides": {
-            "i59Du": {
-              "hidden": true
-            },
-            "QM8lE": {
-              "hidden": false
-            },
-            "YZrpk": {
-              "hidden": true
-            },
-            "qccke": {
-              "hidden": false
-            },
-            "YfXXy": {
-              "hidden": true
-            },
-            "jc43e": {
-              "hidden": false
-            },
-            "LCOGI": {
-              "hidden": true
-            },
-            "C3aJs": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "empty-workspace",
-          "name": "Empty workspace",
-          "overrides": {
-            "FZvFw": {
-              "text": "Welcome to Acme, Avery"
-            },
-            "W4A9n": {
-              "text": "Set up your first project, and this is where its progress will show."
-            },
-            "i59Du": {
-              "hidden": true
-            },
-            "KmcuL": {
-              "hidden": true
-            },
-            "Yb3pG": {
-              "hidden": true
-            },
-            "DQRUg": {
-              "hidden": true
-            },
-            "B5ChG": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -6284,8 +6184,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "projects"
+            "design": "app-sidebar"
           },
           {
             "id": "zGoPv",
@@ -6977,38 +6876,32 @@
                       {
                         "id": "Aa05G",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       },
                       {
                         "id": "Y6sPI",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       },
                       {
                         "id": "O07JV",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       },
                       {
                         "id": "UNv7M",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       },
                       {
                         "id": "NqoVH",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       },
                       {
                         "id": "FlQIT",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       }
                     ]
                   },
@@ -7100,50 +6993,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "loading",
-          "name": "Loading",
-          "overrides": {
-            "H8tAB": {
-              "text": "Loading your projects"
-            },
-            "OAEPX": {
-              "hidden": true
-            },
-            "lgMfX": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "no-results",
-          "name": "No results",
-          "overrides": {
-            "waOw9": {
-              "props": {
-                "defaultValue": "zebra"
-              }
-            },
-            "OAEPX": {
-              "hidden": true
-            },
-            "Qmjjh": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -8487,78 +8341,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "signing-in",
-          "name": "Signing in",
-          "overrides": {
-            "aTRp8": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "ymD1s": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "HwgUe": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "sPNUt": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "nlDnJ": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "dEOVD": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "Uhqcj": {
-              "hidden": false
-            },
-            "zmiXp": {
-              "text": "Signing in"
-            }
-          }
-        },
-        {
-          "id": "wrong-password",
-          "name": "Wrong password",
-          "overrides": {
-            "VYdMD": {
-              "hidden": false
-            },
-            "sPNUt": {
-              "props": {
-                "aria-invalid": true,
-                "defaultValue": ""
-              }
-            },
-            "zhXjj": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -9681,77 +9468,17 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "saving",
-          "name": "Saving",
-          "overrides": {
-            "nCk7A": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "hJK9B": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "JRhoT": {
-              "hidden": false
-            },
-            "S0Mt8": {
-              "text": "Saving"
-            }
-          }
-        },
-        {
-          "id": "saved",
-          "name": "Saved",
-          "overrides": {
-            "mLjLw": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "invalid-email",
-          "name": "Invalid email",
-          "overrides": {
-            "CgHt3": {
-              "props": {
-                "defaultValue": "avery@acme",
-                "aria-invalid": true
-              }
-            },
-            "XkdNG": {
-              "hidden": true
-            },
-            "jPrYh": {
-              "hidden": false
-            },
-            "hJK9B": {
-              "props": {
-                "disabled": true
-              }
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
       "id": "button",
       "name": "Button",
+      "kind": "component",
       "frames": {
         "desktop": {
           "width": 743,

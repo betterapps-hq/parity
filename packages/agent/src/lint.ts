@@ -152,7 +152,7 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
 
     check(container.root, `${container.id}/${container.root.id}`)
 
-    for (const state of container.states) {
+    for (const state of container.states ?? []) {
       for (const [nodeId, patch] of Object.entries(state.overrides ?? {})) {
         checkStyle(patch.style, `${container.id} state ${state.id}/${nodeId}`)
       }

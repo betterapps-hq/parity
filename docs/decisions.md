@@ -8027,6 +8027,30 @@ skipped the sender check. My calls:
   stand-ins stories and tests give by namespace, so the page's side is left as it was. A new method is its entry in the
   map, its handler, and its line in the bridge, and the compiler holds the three together.
 
+## Only a component has states (PAR-1002)
+
+States were on every design. Screens used them for the data a page shows (Pricing's Monthly and Yearly, Dashboard's
+Loading), and an instance could pick which of its component's states to show. In code, a screen is a route, and what
+varies is the data its components get: a loading table is the table in its loading state, not a second page. You asked
+for states on component designs only, and for the schema to say so, so an agent never has to guess whether a design has
+any. My calls:
+
+- **The project file refuses `states` on a screen or a frame,** and `view.state` or `view.allStates` on one. A component
+  without `states` has its base state, Default, so a new component doesn't write one.
+- **An instance has no `state`.** It shows its component's base state, under its overrides. A screen that needs a
+  component another way sets its params, as code passes props, and a variant param picks the look.
+- **Existing screen states were dropped,** as stale prototype data. The example's Button screen became a component and
+  kept its four states.
+- **Inside the editor every design has a base state,** given by `designStates`, so selection, the canvas, the edit frame
+  and the agent's paths read a screen in "default" as before. Only adding, renaming, removing or showing another state
+  is refused.
+- **The agent sees the difference in `Designs()`,** which lists `states` and `showing.state` for components only, and
+  its contract is a union by `kind`. A state call on a screen fails with `invalid_input` on `design` and says to make
+  the part that varies a component. I considered keeping states on screens and refusing them only in the agent, which
+  would have left the file and the editor disagreeing with what the agent may do.
+- **Turning a component into a screen keeps its base state's look** and drops the rest, named in a notice with Undo, as
+  turning a design into a frame already does with what a frame can't have.
+
 ## The portal's pages are at `tryparity.dev`, blank for now (PAR-1003)
 
 - **`tryparity.dev` serves a blank page from the service's Worker** (your call, 2026-11-12), so the portal's screens
@@ -8066,3 +8090,24 @@ and split into PAR-1004 to PAR-1007:
 - **Keying caches on the project's id, with a "tab closed" event to clear them, was considered and dropped.** Each cache
   would wire its own clearing, effects would still run again on every copy unless each picked the right field, and a
   reopened project, which keeps its root, would pick up the last one's state.
+
+## What changed is answered in `@parity-app/change-detection` (PAR-997)
+
+A yellow outline for changed boards, tried by reading the bitmap cache's `stale` flag, stayed yellow after an edit was
+undone: `stale` means the picture isn't for the frame's key, and the key moves with every edit. You asked for an
+interface that gives each node's change status, so a consumer can't read the wrong thing. My calls:
+
+- **A package of its own, `@parity-app/change-detection`, pure:** the trace's schema, comparing traces, a status for a
+  frame, its nodes and a board, and baselines. It reads no files; traces are still taken in the service, over the
+  readers in `@parity-app/project`, so visual tests and the CLI can compare the same way.
+- **A status is unknown, unchanged or changed with the files.** Unknown keeps "no answer yet" apart from "unchanged", so
+  nothing is outlined or skipped on a guess.
+- **The baseline is the first trace taken of a frame while its project is open,** kept by project, design, state and
+  mode. It's what "since I opened it" means, and a later baseline, a git ref or an accepted visual test, is another
+  source of traces for the same comparison.
+- **A node's status comes from the files its component reads,** which traces now list per component, plus the files no
+  component reads and the nodes inside it. Bitmaps keep only the files and the digest, which is all a bitmap's validity
+  needs.
+- **The canvas reads changes through `useFrameChange` and `useDesignChange`,** and marks a changed board with
+  `data-changed`, which nothing styles. The yellow outline was only for testing, so it stays local; how changes show is
+  for Storybook first.

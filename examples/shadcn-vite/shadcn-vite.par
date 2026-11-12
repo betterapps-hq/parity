@@ -4,6 +4,7 @@
     {
       "id": "button",
       "name": "Button",
+      "kind": "component",
       "frames": {
         "desktop": {
           "width": 743,
@@ -401,8 +402,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "team"
+            "design": "app-sidebar"
           },
           {
             "id": "kJxnQ",
@@ -1094,74 +1094,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "empty",
-          "name": "No members",
-          "overrides": {
-            "members-table": {
-              "hidden": true
-            },
-            "empty": {
-              "hidden": false
-            },
-            "seats": {
-              "props": {
-                "children": "0 of 10 seats used"
-              }
-            },
-            "export": {
-              "props": {
-                "disabled": true
-              }
-            }
-          }
-        },
-        {
-          "id": "sending",
-          "name": "Sending invite",
-          "overrides": {
-            "email-input": {
-              "props": {
-                "defaultValue": "taylor@acme.com",
-                "disabled": true
-              }
-            },
-            "send-invite": {
-              "props": {
-                "disabled": true,
-                "children": "Sending…"
-              }
-            }
-          }
-        },
-        {
-          "id": "error",
-          "name": "Invite error",
-          "overrides": {
-            "email-input": {
-              "props": {
-                "defaultValue": "jordan@acme.com",
-                "aria-invalid": true
-              }
-            },
-            "invite-error": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "state": "default",
-        "allStates": false
+        ]
       }
     },
     {
@@ -1597,8 +1534,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Revenue"
-                        },
-                        "state": "loading"
+                        }
                       },
                       {
                         "id": "tir9H",
@@ -1606,8 +1542,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Active users"
-                        },
-                        "state": "loading"
+                        }
                       },
                       {
                         "id": "hgR2x",
@@ -1615,8 +1550,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Open issues"
-                        },
-                        "state": "loading"
+                        }
                       },
                       {
                         "id": "Bz1hK",
@@ -1624,8 +1558,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Uptime"
-                        },
-                        "state": "loading"
+                        }
                       }
                     ]
                   },
@@ -3918,75 +3851,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "loading",
-          "name": "Loading",
-          "overrides": {
-            "i59Du": {
-              "hidden": true
-            },
-            "QM8lE": {
-              "hidden": false
-            },
-            "YZrpk": {
-              "hidden": true
-            },
-            "qccke": {
-              "hidden": false
-            },
-            "YfXXy": {
-              "hidden": true
-            },
-            "jc43e": {
-              "hidden": false
-            },
-            "LCOGI": {
-              "hidden": true
-            },
-            "C3aJs": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "empty-workspace",
-          "name": "Empty workspace",
-          "overrides": {
-            "FZvFw": {
-              "text": "Welcome to Acme, Avery"
-            },
-            "W4A9n": {
-              "text": "Set up your first project, and this is where its progress will show."
-            },
-            "i59Du": {
-              "hidden": true
-            },
-            "KmcuL": {
-              "hidden": true
-            },
-            "Yb3pG": {
-              "hidden": true
-            },
-            "DQRUg": {
-              "hidden": true
-            },
-            "B5ChG": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -4961,78 +4830,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "signing-in",
-          "name": "Signing in",
-          "overrides": {
-            "aTRp8": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "ymD1s": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "HwgUe": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "sPNUt": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "nlDnJ": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "dEOVD": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "Uhqcj": {
-              "hidden": false
-            },
-            "zmiXp": {
-              "text": "Signing in"
-            }
-          }
-        },
-        {
-          "id": "wrong-password",
-          "name": "Wrong password",
-          "overrides": {
-            "VYdMD": {
-              "hidden": false
-            },
-            "sPNUt": {
-              "props": {
-                "aria-invalid": true,
-                "defaultValue": ""
-              }
-            },
-            "zhXjj": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -6155,72 +5957,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "saving",
-          "name": "Saving",
-          "overrides": {
-            "nCk7A": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "hJK9B": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "JRhoT": {
-              "hidden": false
-            },
-            "S0Mt8": {
-              "text": "Saving"
-            }
-          }
-        },
-        {
-          "id": "saved",
-          "name": "Saved",
-          "overrides": {
-            "mLjLw": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "invalid-email",
-          "name": "Invalid email",
-          "overrides": {
-            "CgHt3": {
-              "props": {
-                "defaultValue": "avery@acme",
-                "aria-invalid": true
-              }
-            },
-            "XkdNG": {
-              "hidden": true
-            },
-            "jPrYh": {
-              "hidden": false
-            },
-            "hJK9B": {
-              "props": {
-                "disabled": true
-              }
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -7093,43 +6834,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Monthly"
-        },
-        {
-          "id": "yearly",
-          "name": "Yearly",
-          "overrides": {
-            "bUBEe": {
-              "props": {
-                "defaultValue": [
-                  "yearly"
-                ]
-              }
-            },
-            "nGcY6": {
-              "props": {
-                "price": "$19",
-                "billing": "Billed yearly, $228 per user"
-              }
-            },
-            "u0Oqu": {
-              "props": {
-                "price": "$39",
-                "billing": "Billed yearly, $468 per user"
-              }
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -9843,110 +9552,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "creating-account",
-          "name": "Creating account",
-          "overrides": {
-            "w6hEr": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "qh0xI": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "FVYSu": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "DTLcg": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "wnlgq": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "nMZvj": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "FeUDO": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "p3SRL": {
-              "hidden": false
-            },
-            "lvOYU": {
-              "text": "Creating account"
-            }
-          }
-        },
-        {
-          "id": "email-taken",
-          "name": "Email taken",
-          "overrides": {
-            "DTLcg": {
-              "props": {
-                "aria-invalid": true
-              }
-            },
-            "KfHFR": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "weak-password",
-          "name": "Weak password",
-          "overrides": {
-            "wnlgq": {
-              "props": {
-                "defaultValue": "acme2026",
-                "aria-invalid": true
-              }
-            },
-            "n43AO": {
-              "props": {
-                "value": 20
-              }
-            },
-            "B8qs7": {
-              "text": "Weak"
-            },
-            "HioVR": {
-              "hidden": true
-            },
-            "BaviI": {
-              "hidden": false
-            },
-            "FeUDO": {
-              "props": {
-                "disabled": true
-              }
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -10611,84 +10221,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "wrong-code",
-          "name": "Wrong code",
-          "overrides": {
-            "l1cB8": {
-              "props": {
-                "value": "482931",
-                "aria-invalid": true
-              }
-            },
-            "wXLfB": {
-              "props": {
-                "aria-invalid": true
-              }
-            },
-            "Mi0UM": {
-              "props": {
-                "aria-invalid": true
-              }
-            },
-            "EDBqr": {
-              "props": {
-                "aria-invalid": true
-              }
-            },
-            "u6i43": {
-              "props": {
-                "aria-invalid": true
-              }
-            },
-            "LZnKz": {
-              "props": {
-                "aria-invalid": true
-              }
-            },
-            "TGT96": {
-              "props": {
-                "aria-invalid": true
-              }
-            },
-            "gsfxd": {
-              "hidden": false
-            },
-            "b0KWu": {
-              "text": "Resend a new code"
-            }
-          }
-        },
-        {
-          "id": "verified",
-          "name": "Verified",
-          "overrides": {
-            "BOq7p": {
-              "hidden": true
-            },
-            "O5aXv": {
-              "hidden": false
-            },
-            "j60gX": {
-              "hidden": true
-            },
-            "s2rrx": {
-              "hidden": true
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -11505,79 +11042,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "link-sent",
-          "name": "Link sent",
-          "overrides": {
-            "XwOTf": {
-              "hidden": true
-            },
-            "bbWuE": {
-              "hidden": true
-            },
-            "ye7AI": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "choose-new-password",
-          "name": "Choose new password",
-          "overrides": {
-            "eyxV0": {
-              "text": "Choose a new password"
-            },
-            "XwOTf": {
-              "props": {
-                "children": "For avery@acme.com. Pick something you haven't used on Acme before."
-              }
-            },
-            "bbWuE": {
-              "hidden": true
-            },
-            "Lx6d8": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "password-updated",
-          "name": "Password updated",
-          "overrides": {
-            "eyxV0": {
-              "text": "Password updated"
-            },
-            "XwOTf": {
-              "props": {
-                "children": "The password for avery@acme.com has been changed."
-              }
-            },
-            "xiygy": {
-              "hidden": true
-            },
-            "bbWuE": {
-              "hidden": true
-            },
-            "pV2xC": {
-              "hidden": false
-            },
-            "ozMmX": {
-              "hidden": true
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -11713,8 +11182,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "team"
+            "design": "app-sidebar"
           },
           {
             "id": "g0HS4",
@@ -13212,65 +12680,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "edit-role",
-          "name": "Edit role",
-          "overrides": {
-            "OjPAe": {
-              "hidden": false
-            },
-            "gMS5c": {
-              "props": {
-                "disabled": true
-              }
-            }
-          }
-        },
-        {
-          "id": "deactivated",
-          "name": "Deactivated",
-          "overrides": {
-            "t1qZa": {
-              "hidden": false
-            },
-            "ktPGy": {
-              "style": {
-                "opacity": 60
-              }
-            },
-            "yQE38": {
-              "hidden": true
-            },
-            "SvUzu": {
-              "hidden": false
-            },
-            "DwIpA": {
-              "hidden": true
-            },
-            "AYj0f": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "gMS5c": {
-              "props": {
-                "disabled": true
-              }
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -13557,8 +12971,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "projects"
+            "design": "app-sidebar"
           },
           {
             "id": "zGoPv",
@@ -14250,38 +13663,32 @@
                       {
                         "id": "Aa05G",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       },
                       {
                         "id": "Y6sPI",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       },
                       {
                         "id": "O07JV",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       },
                       {
                         "id": "UNv7M",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       },
                       {
                         "id": "NqoVH",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       },
                       {
                         "id": "FlQIT",
                         "type": "instance",
-                        "design": "project-card",
-                        "state": "loading"
+                        "design": "project-card"
                       }
                     ]
                   },
@@ -14373,50 +13780,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "loading",
-          "name": "Loading",
-          "overrides": {
-            "H8tAB": {
-              "text": "Loading your projects"
-            },
-            "OAEPX": {
-              "hidden": true
-            },
-            "lgMfX": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "no-results",
-          "name": "No results",
-          "overrides": {
-            "waOw9": {
-              "props": {
-                "defaultValue": "zebra"
-              }
-            },
-            "OAEPX": {
-              "hidden": true
-            },
-            "Qmjjh": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -15231,8 +14599,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "billing"
+            "design": "app-sidebar"
           },
           {
             "id": "ELSW0",
@@ -16544,68 +15911,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "payment-failed",
-          "name": "Payment failed",
-          "overrides": {
-            "O4Wcy": {
-              "hidden": false
-            },
-            "jrm58": {
-              "props": {
-                "children": "Overdue",
-                "variant": "destructive"
-              }
-            },
-            "KEuUT": {
-              "text": "Expires 08/28, declined on October 28"
-            },
-            "sXZOn": {
-              "hidden": true
-            },
-            "P3F6p": {
-              "props": {
-                "status": "Overdue",
-                "statusVariant": "destructive"
-              }
-            }
-          }
-        },
-        {
-          "id": "cancelled",
-          "name": "Cancelled",
-          "overrides": {
-            "j9dQC": {
-              "hidden": false
-            },
-            "jrm58": {
-              "props": {
-                "children": "Cancelled",
-                "variant": "outline"
-              }
-            },
-            "gj3do": {
-              "props": {
-                "label": "Ends"
-              }
-            },
-            "mPj9z": {
-              "hidden": true
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -19077,45 +18387,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "signed-in",
-          "name": "Signed in",
-          "overrides": {
-            "GHY8S": {
-              "hidden": true
-            },
-            "KlNf0": {
-              "hidden": true
-            },
-            "yoG0h": {
-              "hidden": false
-            },
-            "Xx4CV": {
-              "text": "Go to your dashboard"
-            },
-            "nE85t": {
-              "hidden": true
-            },
-            "i73US": {
-              "text": "Signed in as avery@acme.com"
-            },
-            "I3II4": {
-              "text": "Go to your dashboard"
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -21653,134 +20929,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "processing",
-          "name": "Processing",
-          "overrides": {
-            "wJjSC": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "h7V43": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "vtT1e": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "obfQI": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "miwuB": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "pxjGN": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "n1PNF": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "xRVYP": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "VobJt": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "Ifg3E": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "i7uOV": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "b2jcu": {
-              "hidden": false
-            },
-            "t6bKX": {
-              "text": "Processing payment"
-            },
-            "OQSJF": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "wwLJ5": {
-              "hidden": false
-            },
-            "SdMXh": {
-              "text": "Processing payment"
-            }
-          }
-        },
-        {
-          "id": "payment-declined",
-          "name": "Payment declined",
-          "overrides": {
-            "Wm1de": {
-              "hidden": false
-            },
-            "miwuB": {
-              "props": {
-                "aria-invalid": true
-              }
-            },
-            "XMb11": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "upgraded",
-          "name": "Upgraded",
-          "overrides": {
-            "aZoQA": {
-              "text": "Welcome to Pro"
-            },
-            "O4fA9": {
-              "text": "Acme Inc is on Pro now, billed monthly for 7 seats. We've emailed a receipt to avery@acme.com."
-            },
-            "MuXsY": {
-              "hidden": true
-            },
-            "fqcvT": {
-              "hidden": true
-            },
-            "BR8ul": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -22032,8 +21185,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "settings"
+            "design": "app-sidebar"
           },
           {
             "id": "Yrc9R",
@@ -23695,77 +22847,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "set-up-two-factor",
-          "name": "Set up two-factor",
-          "overrides": {
-            "Ky0KK": {
-              "props": {
-                "children": "Setting up",
-                "variant": "outline"
-              }
-            },
-            "iyrfh": {
-              "text": "Finish the steps below to turn it on."
-            },
-            "sgYfS": {
-              "hidden": true
-            },
-            "e8CJD": {
-              "hidden": true
-            },
-            "C26Xq": {
-              "hidden": true
-            },
-            "qDppb": {
-              "hidden": true
-            },
-            "eZrSz": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "signed-out-elsewhere",
-          "name": "Signed out elsewhere",
-          "overrides": {
-            "uDuoj": {
-              "hidden": false
-            },
-            "m32jk": {
-              "props": {
-                "children": "Only this device is signed in to your account"
-              }
-            },
-            "iQcAl": {
-              "hidden": true
-            },
-            "JJjMA": {
-              "hidden": true
-            },
-            "eIRDe": {
-              "hidden": true
-            },
-            "UbJic": {
-              "hidden": true
-            },
-            "L67gM": {
-              "hidden": true
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -24036,8 +23122,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "integrations"
+            "design": "app-sidebar"
           },
           {
             "id": "uia3Q",
@@ -24935,72 +24020,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "connecting",
-          "name": "Connecting",
-          "overrides": {
-            "iZQd0": {
-              "props": {
-                "connecting": true,
-                "connectLabel": "Connecting"
-              }
-            }
-          }
-        },
-        {
-          "id": "developer",
-          "name": "Developer",
-          "overrides": {
-            "YkasG": {
-              "props": {
-                "defaultValue": [
-                  "developer"
-                ]
-              }
-            },
-            "JtUe3": {
-              "props": {
-                "defaultValue": "Developer"
-              }
-            },
-            "PsC0S": {
-              "text": "1 connected"
-            },
-            "vxWDR": {
-              "text": "2 available"
-            },
-            "x9Zs3": {
-              "hidden": true
-            },
-            "PkphE": {
-              "hidden": true
-            },
-            "jS39x": {
-              "hidden": true
-            },
-            "CM5fm": {
-              "hidden": true
-            },
-            "omVtO": {
-              "hidden": true
-            },
-            "rd3ip": {
-              "hidden": true
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -25499,8 +24523,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "projects"
+            "design": "app-sidebar"
           },
           {
             "id": "D9bzG",
@@ -26948,92 +25971,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "posting-comment",
-          "name": "Posting comment",
-          "overrides": {
-            "F4JTt": {
-              "props": {
-                "defaultValue": "The dark version is up as hero-dark-mode.png. Taylor, it's ready for the build.",
-                "disabled": true
-              }
-            },
-            "GVmoe": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "OznZE": {
-              "hidden": false
-            },
-            "ouU1K": {
-              "text": "Posting"
-            }
-          }
-        },
-        {
-          "id": "completed",
-          "name": "Completed",
-          "overrides": {
-            "Z7nc1": {
-              "props": {
-                "children": "Done",
-                "variant": "default"
-              }
-            },
-            "UKU0B": {
-              "props": {
-                "children": "Done",
-                "variant": "default"
-              }
-            },
-            "AHpdB": {
-              "hidden": false
-            },
-            "wk2yW": {
-              "hidden": true
-            },
-            "JRN8K": {
-              "hidden": false
-            },
-            "KxpVx": {
-              "text": "Reopen task"
-            },
-            "Pao7c": {
-              "text": "5 of 5 done"
-            },
-            "aKZRv": {
-              "props": {
-                "value": 100
-              }
-            },
-            "fb2eM": {
-              "props": {
-                "done": true
-              }
-            },
-            "b73Sh": {
-              "props": {
-                "done": true
-              }
-            },
-            "kkEIY": {
-              "text": "Created Oct 19. Completed today at 2:40 PM."
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -28207,8 +27149,7 @@
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -29236,85 +28177,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "url-taken",
-          "name": "URL taken",
-          "overrides": {
-            "zmGKF": {
-              "props": {
-                "aria-invalid": true
-              }
-            },
-            "HmCIE": {
-              "hidden": true
-            },
-            "dJaam": {
-              "hidden": false
-            },
-            "Ofs8R": {
-              "hidden": false
-            },
-            "Qjjwl": {
-              "props": {
-                "disabled": true
-              }
-            }
-          }
-        },
-        {
-          "id": "creating",
-          "name": "Creating",
-          "overrides": {
-            "pLY8V": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "zmGKF": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "JIAPO": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "k8uwp": {
-              "style": {
-                "opacity": 50
-              }
-            },
-            "VXaJR": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "Qjjwl": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "aRtz1": {
-              "hidden": false
-            },
-            "aIMtz": {
-              "text": "Creating workspace"
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -29481,8 +28348,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "messages"
+            "design": "app-sidebar"
           },
           {
             "id": "v8zvi",
@@ -31785,104 +30651,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "typing",
-          "name": "Typing",
-          "overrides": {
-            "A09QT": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "empty-channel",
-          "name": "Empty channel",
-          "overrides": {
-            "At4v2": {
-              "props": {
-                "page": "#brand-refresh"
-              }
-            },
-            "Xrhg5": {
-              "props": {
-                "variant": "ghost"
-              }
-            },
-            "uaG4T": {
-              "props": {
-                "variant": "secondary"
-              }
-            },
-            "xUMzR": {
-              "text": "#brand-refresh"
-            },
-            "bYraB": {
-              "text": "Logo, type and colour work for the 2027 brand"
-            },
-            "otCQu": {
-              "props": {
-                "aria-label": "2 members"
-              }
-            },
-            "OuXYf": {
-              "text": "2"
-            },
-            "sikIi": {
-              "hidden": true
-            },
-            "NRMnw": {
-              "hidden": false
-            },
-            "ooznN": {
-              "props": {
-                "children": "Message #brand-refresh"
-              }
-            },
-            "T8RYo": {
-              "props": {
-                "placeholder": "Message #brand-refresh"
-              }
-            },
-            "iJNhx": {
-              "text": "Logo, type and colour work for the 2027 brand. Riley shares drafts here first."
-            },
-            "Rt3Yk": {
-              "text": "Created by Riley Park today"
-            },
-            "jtZCl": {
-              "props": {
-                "children": "2"
-              }
-            },
-            "opnlU": {
-              "hidden": true
-            },
-            "HMJvk": {
-              "hidden": true
-            },
-            "FEjQm": {
-              "hidden": true
-            },
-            "xY4nW": {
-              "hidden": true
-            },
-            "rKHXF": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -32386,8 +31159,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "inbox"
+            "design": "app-sidebar"
           },
           {
             "id": "uigeQ",
@@ -33111,63 +31883,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "unread",
-          "name": "Unread",
-          "overrides": {
-            "Oa7Ah": {
-              "props": {
-                "value": "unread"
-              }
-            },
-            "vMNmu": {
-              "hidden": true
-            }
-          }
-        },
-        {
-          "id": "all-caught-up",
-          "name": "All caught up",
-          "overrides": {
-            "YPiLD": {
-              "text": "Mentions, assignments and reviews from across Acme. Nothing is unread."
-            },
-            "Oa7Ah": {
-              "props": {
-                "value": "unread"
-              }
-            },
-            "j4emG": {
-              "hidden": true
-            },
-            "URp6P": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "PG7s1": {
-              "hidden": true
-            },
-            "vMNmu": {
-              "hidden": true
-            },
-            "LHxn7": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -33603,8 +32323,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "calendar"
+            "design": "app-sidebar"
           },
           {
             "id": "qmGOW",
@@ -35059,8 +33778,7 @@
                                           "time": "9 to 10 AM",
                                           "place": "meet.acme.com/sprint",
                                           "people": "Jordan Lee, Sam Rivera and you"
-                                        },
-                                        "state": "tone-3"
+                                        }
                                       }
                                     ]
                                   },
@@ -35099,8 +33817,7 @@
                                           "time": "10:30 to 11:30 AM",
                                           "place": "Studio 4B",
                                           "people": "Riley Park, Jordan Lee and you"
-                                        },
-                                        "state": "tone-4"
+                                        }
                                       }
                                     ]
                                   },
@@ -35178,8 +33895,7 @@
                                           "time": "1:30 to 3 PM",
                                           "place": "zoom.us/j/4418",
                                           "people": "Casey Nguyen, 3 customers and you"
-                                        },
-                                        "state": "tone-5"
+                                        }
                                       }
                                     ]
                                   },
@@ -35218,8 +33934,7 @@
                                           "time": "3:15 to 4:15 PM",
                                           "place": "meet.acme.com/billing",
                                           "people": "Sam Rivera, Morgan Diaz and you"
-                                        },
-                                        "state": "tone-5"
+                                        }
                                       }
                                     ]
                                   },
@@ -36157,68 +34872,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "new-event",
-          "name": "New event",
-          "overrides": {
-            "tOJ7n": {
-              "hidden": true
-            },
-            "pfhpZ": {
-              "hidden": true
-            },
-            "a7KVj": {
-              "hidden": false
-            },
-            "F4Jn4": {
-              "hidden": false
-            },
-            "q4A4H": {
-              "props": {
-                "disabled": true
-              }
-            }
-          }
-        },
-        {
-          "id": "free-day",
-          "name": "Free day",
-          "overrides": {
-            "aAaEs": {
-              "hidden": true
-            },
-            "wcc8T": {
-              "hidden": true
-            },
-            "bCcDJ": {
-              "hidden": true
-            },
-            "cOUto": {
-              "hidden": true
-            },
-            "cC7Ar": {
-              "hidden": true
-            },
-            "HGlpW": {
-              "hidden": true
-            },
-            "XgZrh": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -36715,8 +35373,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "files"
+            "design": "app-sidebar"
           },
           {
             "id": "uq5Ub",
@@ -40426,67 +39083,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "uploading",
-          "name": "Uploading",
-          "overrides": {
-            "iJAIm": {
-              "props": {
-                "disabled": true
-              }
-            },
-            "PQpu3": {
-              "hidden": true
-            },
-            "X7Eu2": {
-              "hidden": false
-            },
-            "bla4k": {
-              "text": "Uploading 2 files"
-            },
-            "ci0DV": {
-              "hidden": false
-            },
-            "lS7wM": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "empty-folder",
-          "name": "Empty folder",
-          "overrides": {
-            "W5Eip": {
-              "props": {
-                "children": "Retail partners"
-              }
-            },
-            "UpPyi": {
-              "hidden": true
-            },
-            "WYfSX": {
-              "hidden": true
-            },
-            "cC5dK": {
-              "hidden": true
-            },
-            "xrFWK": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -40725,8 +39326,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "default"
+            "design": "app-sidebar"
           },
           {
             "id": "jy6KF",
@@ -42963,74 +41563,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "searching",
-          "name": "Searching",
-          "overrides": {
-            "Bico9": {
-              "text": "Searching for “billing”"
-            },
-            "mwtiN": {
-              "hidden": true
-            },
-            "uqqJy": {
-              "hidden": true
-            },
-            "EfG0b": {
-              "hidden": true
-            },
-            "yg2OE": {
-              "hidden": true
-            },
-            "kjQoM": {
-              "hidden": true
-            },
-            "zDJMZ": {
-              "hidden": true
-            },
-            "OowYr": {
-              "hidden": true
-            },
-            "QRfbn": {
-              "hidden": false
-            }
-          }
-        },
-        {
-          "id": "no-results",
-          "name": "No results",
-          "overrides": {
-            "urp4B": {
-              "props": {
-                "defaultValue": "quarterly invoice archive"
-              }
-            },
-            "Bico9": {
-              "text": "No results in the past 30 days"
-            },
-            "l8WmH": {
-              "hidden": true
-            },
-            "OowYr": {
-              "hidden": true
-            },
-            "W0Ciy": {
-              "hidden": false
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -43236,8 +41773,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "projects"
+            "design": "app-sidebar"
           },
           {
             "id": "WAgS2",
@@ -44564,94 +43100,11 @@
           }
         ]
       },
-      "states": [
-        {
-          "id": "default",
-          "name": "Default"
-        },
-        {
-          "id": "assigned-to-me",
-          "name": "Assigned to me",
-          "overrides": {
-            "rBA81": {
-              "hidden": true
-            },
-            "Z44SB": {
-              "hidden": false
-            },
-            "xa1VI": {
-              "text": "4 of 11 tasks, assigned to you"
-            },
-            "uhWIb": {
-              "hidden": true
-            },
-            "B0mFY": {
-              "hidden": true
-            },
-            "DIjio": {
-              "hidden": true
-            },
-            "lVKFC": {
-              "hidden": true
-            },
-            "qJDCE": {
-              "hidden": true
-            },
-            "NYxjT": {
-              "hidden": true
-            },
-            "Mb7d1": {
-              "hidden": true
-            },
-            "awXlb": {
-              "props": {
-                "children": "1"
-              }
-            },
-            "tFbbC": {
-              "props": {
-                "children": "1"
-              }
-            },
-            "aVXKC": {
-              "props": {
-                "children": "1"
-              }
-            },
-            "OycOs": {
-              "props": {
-                "children": "1"
-              }
-            }
-          }
-        },
-        {
-          "id": "empty-column",
-          "name": "Empty column",
-          "overrides": {
-            "xa1VI": {
-              "text": "8 tasks, sorted by due date"
-            },
-            "emxFx": {
-              "hidden": true
-            },
-            "h5Rwx": {
-              "hidden": false
-            },
-            "OycOs": {
-              "props": {
-                "children": "0"
-              }
-            }
-          }
-        }
-      ],
       "view": {
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {
@@ -45031,8 +43484,7 @@
               }
             },
             "type": "instance",
-            "design": "app-sidebar",
-            "state": "reports"
+            "design": "app-sidebar"
           },
           {
             "id": "WUheC",
@@ -45467,8 +43919,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Tasks completed"
-                        },
-                        "state": "loading"
+                        }
                       },
                       {
                         "id": "GUmMU",
@@ -45476,8 +43927,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Cycle time"
-                        },
-                        "state": "loading"
+                        }
                       },
                       {
                         "id": "nTWFL",
@@ -45485,8 +43935,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "On-time delivery"
-                        },
-                        "state": "loading"
+                        }
                       },
                       {
                         "id": "e7xol",
@@ -45494,8 +43943,7 @@
                         "design": "stat-card",
                         "args": {
                           "label": "Active projects"
-                        },
-                        "state": "loading"
+                        }
                       }
                     ]
                   },
@@ -48010,8 +46458,7 @@
         "modes": [
           "desktop-dark",
           "mobile-light"
-        ],
-        "allStates": false
+        ]
       }
     },
     {

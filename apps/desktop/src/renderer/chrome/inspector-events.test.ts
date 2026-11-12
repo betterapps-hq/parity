@@ -94,8 +94,7 @@ describe("rowChanged", () => {
       id: "home",
       name: "home",
       position: { x: 0, y: 0 },
-      root: { type: "layout", id: "root", children: layers },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", id: "root", children: layers }
     }
 
     return styleSelection(
@@ -171,8 +170,7 @@ describe("a component prop previewed by being made", () => {
         type: "layout",
         id: "root",
         children: [{ type: "component", id: "icon", component: "lucide/Hexagon", props: { size: 16 } }]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     }
 
     const store = new DesignStore(
@@ -363,7 +361,7 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
       nodeOnBoard(
         current,
         findNode(current.root, "title")!,
-        current.states.find((state) => state.id === "closed")!
+        current.states!.find((state) => state.id === "closed")!
       )
 
     updateAndRecord(store, key, "Reset change", (current) => resetOverride(current, "closed", "title", field), {

@@ -192,8 +192,7 @@ describe("libraries", () => {
       name: "Settings row",
       kind: "component",
       position: { x: 0, y: 0 },
-      root: { type: "component", id: "switch", component: "acme/Switch" },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "component", id: "switch", component: "acme/Switch" }
     }
 
     const screen = { ...row, id: "showcase", name: "Showcase", kind: "screen" }

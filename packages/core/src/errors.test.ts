@@ -59,6 +59,7 @@ describe("coded errors", () => {
     const container = {
       id: "home",
       name: "Home",
+      kind: "component" as const,
       position: { x: 0, y: 0 },
       root: { type: "layout" as const, id: "root", name: "Root", children: [] },
       states: [
@@ -83,6 +84,7 @@ describe("coded errors", () => {
     const container = {
       id: "home",
       name: "Home",
+      kind: "component" as const,
       position: { x: 0, y: 0 },
       root: { type: "layout" as const, id: "root", name: "Root", children: [] },
       states: [

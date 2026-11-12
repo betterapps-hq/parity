@@ -3,11 +3,12 @@ import { describe, expect, it } from "vite-plus/test"
 import { activeState, editFrame, editingState, modeViewport } from "./edit-frame.ts"
 import { designsSelection, layersSelection, type Selection } from "./selection.ts"
 
-/** A sign-in screen showing its Error state, with a Loading state too, and a pricing screen with only its default. */
+/** A sign-in component showing its Error state, with a Loading state too, and a pricing screen, which has none. */
 function signIn(): ContainerSpec {
   return {
     id: "sign-in",
     name: "Sign in",
+    kind: "component",
     position: { x: 0, y: 0 },
     root: { type: "layout", id: "root", children: [{ type: "text", id: "title", text: "Sign in" }] },
     states: [
@@ -24,8 +25,7 @@ function pricing(): ContainerSpec {
     id: "pricing",
     name: "Pricing",
     position: { x: 2000, y: 0 },
-    root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [] }
   }
 }
 
@@ -88,6 +88,11 @@ describe("the state edits go to", () => {
   it("is the base state when the board shows none, or one that's gone", () => {
     expect(editingState({ ...signIn(), view: {} }, undefined).id).toBe("default")
     expect(activeState({ ...signIn(), view: { state: "deleted" } }).id).toBe("default")
+  })
+
+  it("is always a screen's base state, since only a component has states (PAR-1002)", () => {
+    expect(editingState(pricing(), "error")).toEqual({ id: "default", name: "Default" })
+    expect(activeState(pricing())).toEqual({ id: "default", name: "Default" })
   })
 })
 

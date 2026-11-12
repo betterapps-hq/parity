@@ -15,7 +15,7 @@ it.
 | `document.md`               | Before any change: designs, nodes, styles, states and responsive patches. Required.    |
 | `reference.md`              | Before calling a function you haven't used: its exact arguments and result.            |
 | `guide/components.md`       | Using the project's components, making component designs, instances and params, icons. |
-| `guide/states-and-modes.md` | Loading, empty, error and other states; themes, viewports and locales.                 |
+| `guide/states-and-modes.md` | A component's loading, empty, error and other states; themes, viewports and locales.   |
 | `guide/checking.md`         | Screenshots, layout problems, accessibility, the console, and trying a design.         |
 | `guide/design-system.md`    | Composing screens from the project's components and tokens.                            |
 | `guide/web-app.md`          | Designing web app screens: dashboards, settings, lists, forms.                         |
@@ -121,8 +121,8 @@ keeping the designs there, so ask before running that in someone's project.
 4. **Change it in one snippet.** Build or edit the design with `Insert`, `Update`, `Replace`, `Move` and the rest. A
    snippet either applies whole, as one step the person can undo, or changes nothing. Name the layouts you make. If it
    fails because the person changed a design it changes, run it again by its `editId`.
-5. **Cover every state.** A screen that loads has a loading state, a list has an empty one, a form has an error one. Add
-   them with `AddState`, as changes to the base design, not as copies.
+5. **Cover every state.** A component that loads has a loading state, a list has an empty one, a form has an error one.
+   Add them with `AddState`, as changes to the base design, not as copies. Only a component has states.
 6. **Check every frame.** Screenshot the design in all its states and the modes it shows as one sheet (`state: "all"`,
    `mode: "shown"`, `sheet: true`), then screenshot any frame that needs a closer look on its own. Run `find_problems`
    and `check_accessibility` too, and read the warnings `execute` returns: they're usually a token that doesn't exist or

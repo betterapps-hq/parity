@@ -29,8 +29,7 @@ function pricing(): ContainerSpec {
         },
         { type: "text", id: "footer", text: "Questions?" }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 }
 

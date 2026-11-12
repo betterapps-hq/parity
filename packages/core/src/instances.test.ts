@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type ContainerSpec, parseCanvasDocument } from "./document.ts"
+import { type ContainerSpec, designStates, parseCanvasDocument } from "./document.ts"
 import {
   addVariant,
   addVariantOption,
@@ -52,8 +52,7 @@ const badge: ContainerSpec = {
     id: "badge",
     style: { fills: [{ type: "solid", color: { token: "muted" } }], padding: { step: 1 } },
     children: [{ type: "text", id: "label", text: "Badge", bind: { text: "label" } }]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 const card: ContainerSpec = {
@@ -81,6 +80,7 @@ const card: ContainerSpec = {
 const team: ContainerSpec = {
   id: "team",
   name: "Team",
+  kind: "component",
   position: { x: 0, y: 0 },
   root: {
     type: "layout",
@@ -135,7 +135,7 @@ function textOf(tree: RenderNode[], id: string): string | undefined {
   return node?.kind === "element" && node.children[0]?.kind === "text" ? node.children[0].text : undefined
 }
 
-function render(design: ContainerSpec, state = design.states[0], lib = library) {
+function render(design: ContainerSpec, state = designStates(design)[0], lib = library) {
   return resolveDesign(design.root, state, "desktop", lib, { params: design.params, choices: design.view?.variants })
 }
 
@@ -245,26 +245,30 @@ describe("instance overrides", () => {
   })
 
   it("keeps a state's changes inside an instance in that state", () => {
-    const busy = team.states[1]!
+    const busy = designStates(team)[1]!
     const edited = editInner(team, "busy", "second/body", { hidden: true }, library)
-    expect(edited.states[1]?.overrides).toEqual({ "second/body": { hidden: true } })
-    expect(rendered(render(edited, edited.states[1]), "second/body")).toBeUndefined()
+    expect(designStates(edited)[1]?.overrides).toEqual({ "second/body": { hidden: true } })
+    expect(rendered(render(edited, designStates(edited)[1]), "second/body")).toBeUndefined()
     expect(rendered(render(edited), "second/body")).toBeDefined()
     expect(innerChanges(edited, "busy", "second/body", library)).toEqual({ hidden: true })
-    expect(resetInner(edited, busy.id, "second/body", library).states[1]?.overrides).toBeUndefined()
+    expect(resetInner(edited, busy.id, "second/body", library).states![1]?.overrides).toBeUndefined()
   })
 
-  it("shows the component's state, under the copy's overrides", () => {
+  it("shows the component's base state, under the copy's overrides (PAR-1002)", () => {
     const screen: ContainerSpec = {
-      ...team,
+      id: "home",
+      name: "Home",
+      position: { x: 0, y: 0 },
       root: {
         type: "layout",
         id: "page",
-        children: [{ type: "instance", id: "first", design: "card", args: { title: "Ada" }, state: "empty" }]
+        children: [{ type: "instance", id: "first", design: "card", args: { title: "Ada" } }]
       }
     }
 
-    expect(textOf(render(screen), "first/body")).toBe("Nothing yet")
+    // The card's Empty state stress-tests the card on its own board; a copy never shows it.
+    expect(textOf(render(card), "body")).not.toBe("Nothing yet")
+    expect(textOf(render(screen), "first/body")).toBe(textOf(render(card), "body"))
     const edited = editInner(screen, "default", "first/body", { text: "Mine" }, library)
     expect(textOf(render(edited), "first/body")).toBe("Mine")
   })
@@ -285,14 +289,14 @@ describe("instance overrides", () => {
     expect(pushed.component.root.type === "layout" && pushed.component.root.children[2]).toMatchObject({
       args: { label: "Away" }
     })
-    const tree = render(pushed.container, team.states[0], componentLibrary([badge, pushed.component]))
+    const tree = render(pushed.container, designStates(team)[0], componentLibrary([badge, pushed.component]))
     expect(textOf(tree, "second/body")).toBe("Leads design")
     expect(textOf(tree, "second/status/label")).toBe("Away")
   })
 
   it("drops the patches that reach inside a deleted instance", () => {
     const edited = editInner(team, "busy", "second/body", { hidden: true }, library)
-    expect(deleteNode(edited, "second").states[1]?.overrides).toBeUndefined()
+    expect(deleteNode(edited, "second").states![1]?.overrides).toBeUndefined()
   })
 })
 
@@ -310,7 +314,7 @@ describe("detach and swap", () => {
     expect(texts(after)).toEqual(texts(before))
     // The state's change follows the body to its new id.
     const body = first?.type === "layout" ? first.children[1]! : undefined
-    expect(detached.states[1]?.overrides).toEqual({ [body!.id]: { hidden: true } })
+    expect(designStates(detached)[1]?.overrides).toEqual({ [body!.id]: { hidden: true } })
   })
 
   it("swaps a copy to another component, keeping what still applies", () => {
@@ -326,8 +330,7 @@ describe("detach and swap", () => {
           { type: "text", id: "heading", text: "Name", bind: { text: "title" } },
           { type: "text", id: "about", name: "Body", text: "About" }
         ]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     }
 
     const lib = componentLibrary([badge, card, profile])
@@ -342,7 +345,7 @@ describe("detach and swap", () => {
       args: { title: "Ada" },
       overrides: { about: { text: "Leads design" } }
     })
-    expect(textOf(render(swapped, swapped.states[0], lib), "first/about")).toBe("Leads design")
+    expect(textOf(render(swapped, designStates(swapped)[0], lib), "first/about")).toBe("Leads design")
     expect(() => swapInstance(team, "first", "team", library)).toThrow(/contain itself/)
   })
 })
@@ -387,15 +390,14 @@ describe("a component's board", () => {
         { type: "instance", id: "revenue", design: "stat-card" },
         { type: "instance", id: "churn", design: "stat-card", args: { showRising: false, showFalling: true } }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   it("shows the trend icon its params select, as its instances do", () => {
-    const board = render(statCard, statCard.states[0], stats)
+    const board = render(statCard, designStates(statCard)[0], stats)
     expect(rendered(board, "rising")).toBeDefined()
     expect(rendered(board, "falling")).toBeUndefined()
-    const screen = render(dashboard, dashboard.states[0], stats)
+    const screen = render(dashboard, designStates(dashboard)[0], stats)
     expect(rendered(screen, "revenue/falling")).toBeUndefined()
     expect(rendered(screen, "churn/falling")).toBeDefined()
     expect(rendered(screen, "churn/rising")).toBeUndefined()
@@ -408,7 +410,7 @@ describe("a component's board", () => {
     expect(textOf(render(edited), "label")).toBe("Fresh")
     const lib = componentLibrary([edited, card, team])
     const screen: ContainerSpec = { ...team, root: { type: "instance", id: "tag", design: "badge" } }
-    expect(textOf(render(screen, screen.states[0], lib), "tag/label")).toBe("Fresh")
+    expect(textOf(render(screen, designStates(screen)[0], lib), "tag/label")).toBe("Fresh")
   })
 
   it("leaves a param without a default, and variants, to the design's own values", () => {
@@ -418,10 +420,10 @@ describe("a component's board", () => {
   })
 
   it("says what the board shows in a state for one of its own layers and for a layer inside an instance", () => {
-    expect(nodeOnBoard(statCard, findNode(statCard.root, "falling")!, statCard.states[0])).toMatchObject({
+    expect(nodeOnBoard(statCard, findNode(statCard.root, "falling")!, designStates(statCard)[0])).toMatchObject({
       hidden: true
     })
-    const empty = card.states[1]
+    const empty = designStates(card)[1]
     expect(layerOnBoard(card, "body", library, empty)).toMatchObject({ text: "Nothing yet" })
     expect(layerOnBoard(card, "title", library, empty)).toMatchObject({ text: "Title" })
     expect(layerOnBoard(card, "status/label", library, empty)).toMatchObject({ text: "Active" })
@@ -436,16 +438,16 @@ describe("hiding a layer in a state", () => {
     // Falling shows nothing on the board, since showFalling is off: Hide or show shows it, and turns the default on.
     const shown = toggleHidden(statCard, "default", ["falling"])
     expect(shown.params?.showFalling).toEqual({ type: "boolean", default: true })
-    expect(rendered(render(shown, shown.states[0], componentLibrary([shown])), "falling")).toBeDefined()
+    expect(rendered(render(shown, designStates(shown)[0], componentLibrary([shown])), "falling")).toBeDefined()
     expect(toggleHidden(shown, "default", ["falling"]).params?.showFalling?.default).toBe(false)
   })
 
   it("shows in a state what the board hides there, and hides it again", () => {
     const shown = toggleHidden(statCard, "loading", ["falling"])
-    expect(shown.states[1]?.overrides).toEqual({ falling: { hidden: false } })
+    expect(designStates(shown)[1]?.overrides).toEqual({ falling: { hidden: false } })
     expect(shown.params).toEqual(statCard.params)
-    expect(rendered(render(shown, shown.states[1], componentLibrary([shown])), "falling")).toBeDefined()
-    expect(toggleHidden(shown, "loading", ["falling"]).states[1]?.overrides).toBeUndefined()
+    expect(rendered(render(shown, designStates(shown)[1], componentLibrary([shown])), "falling")).toBeDefined()
+    expect(toggleHidden(shown, "loading", ["falling"]).states![1]?.overrides).toBeUndefined()
   })
 
   // The badge with its Quiet tone shown, which hides its label.
@@ -464,19 +466,19 @@ describe("hiding a layer in a state", () => {
     view: { variants: { tone: "quiet" } }
   }
 
-  const pressed = { ...quiet, states: [quiet.states[0]!, { id: "pressed", name: "Pressed" }] }
+  const pressed = { ...quiet, states: [designStates(quiet)[0]!, { id: "pressed", name: "Pressed" }] }
 
   it("reads what the state and the variant shown hide", () => {
     const loading = {
       ...card,
-      states: [card.states[0]!, { id: "loading", name: "Loading", overrides: { body: { hidden: true } } }]
+      states: [designStates(card)[0]!, { id: "loading", name: "Loading", overrides: { body: { hidden: true } } }]
     }
 
-    expect(toggleHidden(loading, "loading", ["body"]).states[1]?.overrides).toBeUndefined()
+    expect(toggleHidden(loading, "loading", ["body"]).states![1]?.overrides).toBeUndefined()
     const shown = toggleHidden(quiet, "default", ["label"])
     expect(shown.params?.tone?.options?.[1]?.overrides).toBeUndefined()
     // Another state shows it over the variant, so its change is kept.
-    expect(toggleHidden(pressed, "pressed", ["label"]).states[1]?.overrides).toEqual({ label: { hidden: false } })
+    expect(toggleHidden(pressed, "pressed", ["label"]).states![1]?.overrides).toEqual({ label: { hidden: false } })
   })
 
   it("names where Show and Hide land: the variant option shown, or the state", () => {
@@ -486,6 +488,6 @@ describe("hiding a layer in a state", () => {
     expect(editTargetName(pressed, boardTarget(pressed, "pressed"))).toBe("Pressed")
     // With the default option shown, the base state takes it.
     const neutral = { ...quiet, view: { variants: { tone: "neutral" } } }
-    expect(editTargetName(neutral, boardTarget(neutral, "default"))).toBe(quiet.states[0]!.name)
+    expect(editTargetName(neutral, boardTarget(neutral, "default"))).toBe(designStates(quiet)[0]!.name)
   })
 })

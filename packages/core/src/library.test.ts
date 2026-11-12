@@ -56,8 +56,7 @@ describe("parseLibraryManifest", () => {
           name: "Button",
           kind: "component",
           position: { x: 120, y: 40 },
-          root: { type: "layout", id: "root", children: [] },
-          states: [{ id: "default", name: "Default" }]
+          root: { type: "layout", id: "root", children: [] }
         }
       ]
     }
@@ -104,8 +103,7 @@ describe("libraryDesigns", () => {
         { type: "text", id: "label", text: "Label", bind: { text: "label" } },
         { type: "component", id: "switch", component: "nova/Switch" }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const settingsList: ContainerSpec = {
@@ -118,8 +116,7 @@ describe("libraryDesigns", () => {
       id: "card",
       component: "nova/Card",
       slots: { children: [{ type: "instance", id: "first", design: "settings-row", args: { label: "Email" } }] }
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const screen: ContainerSpec = {
@@ -152,8 +149,7 @@ describe("libraryDesigns", () => {
         type: "layout",
         id: "section",
         children: [{ type: "layout", id: "rows", slot: "rows", children: [] }]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     }
 
     const account: ContainerSpec = {
@@ -177,8 +173,7 @@ describe("libraryDesigns", () => {
             }
           }
         ]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     }
 
     const canvas = { version: 4 as const, containers: [settingsRow, section, account] }

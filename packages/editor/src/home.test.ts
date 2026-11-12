@@ -54,7 +54,6 @@ describe("the Home screen", () => {
         style: { fills: [{ type: "solid", color: { token: "background" } }], color: { token: "foreground" } },
         children: [{ type: "component", component: "App" }]
       },
-      states: [{ id: "default", name: "Default" }],
       view: { modes: ["mobile-light"] }
     })
     const [child] = screen.root.type === "layout" ? screen.root.children : []

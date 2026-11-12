@@ -43,8 +43,7 @@ function screen(kind: ContainerSpec["kind"] = "screen"): ContainerSpec {
           children: kinds("grid")
         }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 }
 

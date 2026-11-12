@@ -181,7 +181,7 @@ describe("effectiveNode", () => {
   const card = design("card")
   const profile = design("profile")
 
-  const body = (variants: Record<string, string>, viewport?: string, state = card.states[0]) =>
+  const body = (variants: Record<string, string>, viewport?: string, state = card.states![0]) =>
     effectiveNode(card, "body", { variants, viewport, state })?.style
 
   it("shows a bound param's default over the node's own value", () => {
@@ -227,12 +227,12 @@ describe("effectiveNode", () => {
   })
 
   it("applies an instance's args, overrides, responsive patch and the outer state inside it", () => {
-    const title = (viewport: string, state = profile.states[0]) =>
+    const title = (viewport: string, state = profile.states![0]) =>
       effectiveNode(profile, "person/title", { library, viewport, state })
 
     expect(title("desktop")).toMatchObject({ text: "Ada Lovelace" })
-    expect(title("desktop", profile.states[1])).toMatchObject({ text: "Selected" })
-    // The instance's responsive patch picks Stacked on mobile; its Compact state still changes the gap.
+    expect(title("desktop", profile.states![1])).toMatchObject({ text: "Selected" })
+    // The instance's responsive patch picks Stacked on mobile. It shows the card's base state, not its Compact one.
     expect(effectiveNode(profile, "person/body", { library, viewport: "mobile" })?.style).toMatchObject({
       flexDirection: "column",
       gap: { step: 2 }
@@ -241,6 +241,7 @@ describe("effectiveNode", () => {
       flexDirection: "row",
       gap: { step: 2 }
     })
+    expect(effectiveNode(profile, "person/body", { library })?.style?.gap).not.toBe(2)
   })
 
   it("reaches through nested instances", () => {
@@ -253,7 +254,7 @@ describe("effectiveNode", () => {
   })
 
   it("is what the board helpers give with no viewport", () => {
-    for (const state of card.states) {
+    for (const state of card.states!) {
       for (const id of ["body", "title", "meta"]) {
         const node = findNode(card.root, id)!
         expect(nodeOnBoard(card, node, state)).toEqual(effectiveNode(card, id, { state }))
@@ -263,8 +264,8 @@ describe("effectiveNode", () => {
 
     const path = "person/avatar/initials"
     expect(locateInner(profile, path, library)?.shown).toEqual(effectiveNode(profile, path, { library }))
-    expect(layerOnBoard(profile, path, library, profile.states[1])).toEqual(
-      effectiveNode(profile, path, { library, state: profile.states[1] })
+    expect(layerOnBoard(profile, path, library, profile.states![1])).toEqual(
+      effectiveNode(profile, path, { library, state: profile.states![1] })
     )
   })
 })
@@ -303,7 +304,7 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
     ]
   }
 
-  const [closed, open] = header.states
+  const [closed, open] = header.states!
 
   const shown = (id: string, viewport: string, state = closed) =>
     !effectiveNode(header, id, { state, viewport })?.hidden
@@ -358,7 +359,7 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
 
     const headers = componentLibrary([header])
 
-    const at = (path: string, viewport: string, state = screen.states[0]) =>
+    const at = (path: string, viewport: string, state = screen.states![0]) =>
       effectiveNode(screen, path, { library: headers, viewport, state })
 
     expect(at("top/bar", "mobile")?.style).toMatchObject({ gap: { step: 2 } })
@@ -382,8 +383,8 @@ describe("a viewport's patch over states, variants and instances (PAR-902)", () 
 describe("scopeOf", () => {
   it("gives the variant options in param order under the state, and the params' defaults and choices", () => {
     const card = design("card")
-    const scope = scopeOf(card, { variants: { layout: "inline" }, state: card.states[1] })
-    expect(scope.layers).toEqual([card.params!.layout!.options![1]!.overrides, card.states[1]!.overrides])
+    const scope = scopeOf(card, { variants: { layout: "inline" }, state: card.states![1] })
+    expect(scope.layers).toEqual([card.params!.layout!.options![1]!.overrides, card.states![1]!.overrides])
     expect(scope.args).toEqual({ title: "Card title", layout: "inline" })
   })
 })

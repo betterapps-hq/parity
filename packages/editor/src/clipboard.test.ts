@@ -26,6 +26,7 @@ function form(): ContainerSpec {
   return {
     id: "form",
     name: "Form",
+    kind: "component",
     position: { x: 0, y: 0 },
     root: {
       type: "layout",
@@ -57,7 +58,7 @@ function form(): ContainerSpec {
   }
 }
 
-const [base, error] = form().states
+const [base, error] = form().states!
 
 /** The shared fixture's card, its board showing the variant options `variants`: Inline turns its body into a row. */
 function card(variants: Record<string, string> = {}): ContainerSpec {
@@ -243,7 +244,7 @@ describe("copying layers", () => {
 
   it("copies what the board shows: the variant options, the frame's viewport and the bound values", () => {
     const inline = card({ layout: "inline" })
-    const payload = copyLayers(inline, ["body"], inline.states[1], "mobile")
+    const payload = copyLayers(inline, ["body"], inline.states![1], "mobile")
     const [body] = payload?.kind === "layers" ? payload.nodes : []
     // The Inline option's row, the Compact state's gap over it, and the mobile padding.
     expect(body?.style).toEqual({ flexDirection: "row", gap: { step: 2 }, padding: { step: 2 } })
@@ -255,7 +256,7 @@ describe("copying layers", () => {
   })
 
   it("copies the layers an instance fills its slots with as the state shows them too (PAR-966)", () => {
-    const payload = copyLayers(welcome(), ["panel"], welcome().states[1])
+    const payload = copyLayers(welcome(), ["panel"], welcome().states![1])
     const [panel] = payload?.kind === "layers" ? payload.nodes : []
     expect(fillOf(panel, "content")).toEqual([
       {
@@ -273,7 +274,7 @@ describe("copying layers", () => {
 
 describe("pasting a bound layer", () => {
   const title = () => {
-    const payload = copyLayers(card(), ["title"], card().states[0])
+    const payload = copyLayers(card(), ["title"], card().states![0])
 
     return payload?.kind === "layers" ? payload.nodes : []
   }
@@ -327,7 +328,7 @@ describe("pasting a bound layer", () => {
   })
 
   it("pastes an instance's fill showing what it showed, unbound in a design without the param (PAR-966)", () => {
-    const payload = copyLayers(welcome(), ["panel"], welcome().states[0])
+    const payload = copyLayers(welcome(), ["panel"], welcome().states![0])
     const nodes = payload?.kind === "layers" ? payload.nodes : []
     const { container, copies } = pasteLayers(form(), { parent: "root" }, nodes)
     const heading = fillHeading(findNode(container.root, copies[0]!))

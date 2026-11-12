@@ -1,4 +1,4 @@
-import { type ContainerSpec, defaultModeSettings, resolveModes } from "@parity-app/core"
+import { type ContainerSpec, defaultModeSettings, designStates, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { accessibilityFindings, addContrastFixes, frameProblems, nodeNames } from "./frames.ts"
 import type { FrameContrast, FrameResult } from "./types.ts"
@@ -16,11 +16,10 @@ const design: ContainerSpec = {
       { type: "component", id: "pay", name: "Pay", component: "Button" },
       { type: "instance", id: "nav", design: "navbar" }
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
-const state = design.states[0]!
+const state = designStates(design)[0]!
 const mode = resolveModes(defaultModeSettings)[0]!
 
 function frame(result: Partial<FrameResult>): FrameResult {

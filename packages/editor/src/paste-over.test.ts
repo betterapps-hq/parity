@@ -41,7 +41,7 @@ const icon: DesignNode = {
   children: [text("glyph")]
 }
 
-const base = form().states[0]!
+const base = form().states![0]!
 
 const children = (container: ContainerSpec, id = "root") => {
   const node = findNode(container.root, id)!
@@ -61,7 +61,7 @@ describe("paste over selection", () => {
     const { container, copies } = placeOver(form(), ["placeholder"], [button, text("note")], base)
     expect(children(container)).toEqual(["label", "placeholder", "ui/Button", copies[1], "hint", "badge", "ui/Card"])
     expect(nodeIds(form().root).has(copies[0]!)).toBe(false)
-    expect(container.states[1]!.overrides).toEqual({ placeholder: { text: "Required" } })
+    expect(container.states![1]!.overrides).toEqual({ placeholder: { text: "Required" } })
   })
 
   it("puts them after the last of several selected layers, once", () => {
@@ -153,7 +153,7 @@ describe("paste to replace", () => {
     const { container, copies } = replaceLayers(original, ["placeholder"], [button], base)
     expect(nodeIds(original.root).has(copies[0]!)).toBe(false)
     expect(copies[0]).not.toBe("button")
-    expect(container.states[1]!.overrides).toBeUndefined()
+    expect(container.states![1]!.overrides).toBeUndefined()
   })
 
   it("replaces each selected layer with its own copy, as Figma does", () => {

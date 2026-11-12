@@ -62,8 +62,7 @@ function design(id: string, kind?: "component" | "screen"): ContainerSpec {
     id,
     name: id,
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "root", children: [text("a"), text("b"), text("c")] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [text("a"), text("b"), text("c")] }
   }
 
   if (kind) {
@@ -124,7 +123,7 @@ describe("select inverse", () => {
 })
 
 describe("select matching layers", () => {
-  const base = list().states[0]!
+  const base = list().states![0]!
 
   it("matches a card's title to the other cards' titles, however they're placed", () => {
     expect(matchingLayers(list(), ["title-1"], base)).toEqual(["title-1", "title-2", "title-3"])
@@ -140,7 +139,7 @@ describe("select matching layers", () => {
   })
 
   it("matches layers as the state being edited shows them", () => {
-    const bold = list().states[1]!
+    const bold = list().states![1]!
     expect(matchingLayers(list(), ["title-1"], bold)).toEqual(["title-1", "title-2"])
   })
 

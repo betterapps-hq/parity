@@ -45,8 +45,7 @@ const card: ContainerSpec = {
       },
       { type: "layout", id: "footer", name: "Footer", children: [] }
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 /** Marks a layout as a slot without `setSlot`'s checks, as an agent editing the file might. */
@@ -188,8 +187,7 @@ describe("filling an instance's slots", () => {
     id: "page",
     name: "Page",
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] }
   }
 
   const filled = (container: ContainerSpec): ContainerSpec => ({
@@ -281,8 +279,7 @@ describe("filling an instance's slots", () => {
             slots: { content: [{ type: "text", id: "lead", text: "Lead", bind: { text: "heading" } }] }
           }
         ]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     }
 
     const both = componentLibrary([component, panel])
@@ -353,8 +350,7 @@ describe("a copy of a slot", () => {
       id: "page",
       name: "Page",
       position: { x: 0, y: 0 },
-      root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", id: "page", children: [{ type: "instance", id: "copy", design: "card" }] }
     }
 
     const detached = detachInstance(screen, "copy", componentLibrary([marked]))

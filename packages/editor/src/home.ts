@@ -80,8 +80,7 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
             color: { token: "foreground" }
           },
       children: [content]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   if (beside) {

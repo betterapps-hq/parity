@@ -65,6 +65,6 @@ describe("several nodes at once", () => {
   it("unwraps a layout into its parent and drops its overrides", () => {
     const next = unwrapNode(design, "row")
     expect(ids(next.root)).toEqual(["a", "b", "c", "d", "e"])
-    expect(next.states[1]?.overrides).toEqual({ d: { text: "Dee" } })
+    expect(next.states![1]?.overrides).toEqual({ d: { text: "Dee" } })
   })
 })

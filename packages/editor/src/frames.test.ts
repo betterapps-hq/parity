@@ -146,8 +146,7 @@ describe("instances of a component that becomes a frame", () => {
       type: "layout",
       id: "badge-root",
       children: [{ type: "text", id: "badge-label", text: "New", bind: { text: "label" } }]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const home: ContainerSpec = {
@@ -161,8 +160,7 @@ describe("instances of a component that becomes a frame", () => {
         { type: "instance", id: "first", design: "badge", args: { label: "Sale" } },
         { type: "layout", id: "row", children: [{ type: "instance", id: "second", design: "badge" }] }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   it("counts them, wherever they are", () => {

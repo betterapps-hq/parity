@@ -33,7 +33,7 @@ export function frameDrops(
   const placing = design.kind === "component" ? designs.filter((other) => other.id !== design.id) : []
 
   return {
-    kept: design.states[0]?.name ?? "Default",
+    kept: design.states?.[0]?.name ?? "Default",
     primary: modes[0]?.name ?? "the primary mode",
     states: dropped.states.map((state) => state.name),
     previews: modes.filter((mode) => dropped.modes.includes(mode.id)).map((mode) => mode.name),
@@ -57,6 +57,11 @@ function listed(items: readonly string[]): string {
 
 function counted(count: number, one: string): string {
   return `${count} ${count === 1 ? one : `${one}s`}`
+}
+
+/** What a component made a screen lost, since only a component has states: "Removed 2 states: Hover and Pressed". */
+export function droppedStatesLine(states: readonly string[]): string {
+  return `Removed ${counted(states.length, "state")}: ${listed(states)}`
 }
 
 /** The message's lines, one for each kind of thing that goes, saying what goes. None means nothing goes. */

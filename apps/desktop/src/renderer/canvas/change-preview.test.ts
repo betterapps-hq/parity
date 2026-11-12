@@ -15,8 +15,7 @@ function setup() {
       type: "layout",
       id: "root",
       children: [{ type: "component", id: "icon", component: "lucide/Hexagon", props: { size: 16 } }]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   const store = new DesignStore(

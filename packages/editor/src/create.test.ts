@@ -68,7 +68,6 @@ describe("a new design", () => {
         },
         children: []
       },
-      states: [{ id: "default", name: "Default" }],
       size: { width: 400, height: 300 }
     })
     expect(parseCanvasDocument({ version: 4, containers: [frame] }).containers[0]).toEqual(frame)

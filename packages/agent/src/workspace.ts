@@ -4,6 +4,8 @@ import {
   type ArgChange,
   addState,
   alternativeLimit,
+  designStates,
+  refuseUnlessComponent,
   bindingProblem,
   bindNode,
   changeArgs,
@@ -162,7 +164,7 @@ import {
 import { accessibilityFindings, addContrastFixes, frameProblems, layoutNode, nodeNames } from "./frames.ts"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import { lintDocument, propWarnings } from "./lint.ts"
-import type { ReadNode, SnippetApi, Visit } from "./snippet-api.ts"
+import type { DesignSummary, ReadNode, SnippetApi, Visit } from "./snippet-api.ts"
 import type {
   AccessibilityFinding,
   AgentChangeSet,
@@ -227,8 +229,8 @@ function discardedPatches(before: ContainerSpec, removed: DesignNode, after: Con
 
   visit(removed)
 
-  for (const state of before.states) {
-    const kept = after.states.find((candidate) => candidate.id === state.id)?.overrides ?? {}
+  for (const state of before.states ?? []) {
+    const kept = after.states?.find((candidate) => candidate.id === state.id)?.overrides ?? {}
 
     for (const key of Object.keys(state.overrides ?? {})) {
       if (!(key in kept)) {
@@ -504,32 +506,49 @@ export class AgentWorkspace {
   private designName = (id: string): string | undefined =>
     this.all().find(({ container }) => container.id === id)?.container.name
 
-  private listDesigns() {
+  private listDesigns(): DesignSummary[] {
     return this.all().map(({ path, container }) => {
       const bounds = this.snapshot.bounds[key(path, container.id)]
+      const shown = shownModes(this.modes, container)
 
       const placed = {
         id: container.id,
         name: container.name,
-        kind: container.kind ?? "screen",
         file: path,
         x: container.position.x,
         y: container.position.y
       }
 
       const where = bounds ? { ...placed, width: Math.round(bounds.width), height: Math.round(bounds.height) } : placed
+      const showing = { mode: shown.main.id, beside: shown.beside.map((mode) => mode.id) }
+      const nodes = nodeIds(container.root).size
+
+      if (container.kind !== "component") {
+        return { ...where, kind: container.kind ?? "screen", showing, nodes }
+      }
+
+      const states = designStates(container)
 
       return {
         ...where,
-        states: container.states.map((state) => ({ id: state.id, name: state.name })),
-        showing: {
-          state: container.view?.state ?? container.states[0]!.id,
-          mode: shownModes(this.modes, container).main.id,
-          beside: shownModes(this.modes, container).beside.map((mode) => mode.id)
-        },
-        nodes: nodeIds(container.root).size
+        kind: "component",
+        states: states.map((state) => ({ id: state.id, name: state.name })),
+        showing: { state: container.view?.state ?? states[0]!.id, ...showing },
+        nodes
       }
     })
+  }
+
+  /**
+   * A state a call names. Every design is drawn in its base state, but only a component has others, so naming another
+   * on a screen or a frame says so.
+   */
+  private namedState(container: ContainerSpec, id: string): StateSpec {
+    if (id !== designStates(container)[0]!.id) {
+      refuseUnlessComponent(container)
+    }
+
+    return findState(container, id)
   }
 
   private getDesign(reference: string): ContainerSpec {
@@ -726,9 +745,11 @@ export class AgentWorkspace {
 
   /** The state a frame shows: the one named, or the one the design's board shows. */
   private shownState(container: ContainerSpec, id: string | undefined): StateSpec {
+    const states = designStates(container)
+
     return id
-      ? findState(container, id)
-      : (container.states.find((candidate) => candidate.id === container.view?.state) ?? container.states[0]!)
+      ? this.namedState(container, id)
+      : (states.find((candidate) => candidate.id === container.view?.state) ?? states[0]!)
   }
 
   /**
@@ -850,8 +871,12 @@ export class AgentWorkspace {
       name: spec.name,
       kind,
       position: { x: spec.x ?? 0, y: spec.y ?? 0 },
-      root,
-      states: [{ id: "default", name: spec.baseState ?? "Default" }]
+      root
+    }
+
+    if (spec.baseState !== undefined) {
+      refuseUnlessComponent(design)
+      design.states = [{ id: "default", name: spec.baseState }]
     }
 
     if (size) {
@@ -892,7 +917,7 @@ export class AgentWorkspace {
     const viewKeys = (["mode", "showModes", "state", "allStates"] as const).filter((name) => update[name] !== undefined)
 
     if (frame && viewKeys.length > 0) {
-      const message = `${container.name} is a frame, shown only in the primary mode and its one state`
+      const message = `${container.name} is a frame, shown only in the primary mode`
       throw new CodedError(`${message}, so it takes no ${viewKeys.join(" or ")}.`, {
         code: "invalid_input",
         field: viewKeys[0]
@@ -908,6 +933,10 @@ export class AgentWorkspace {
           ...modeIds
         ])
       }
+    }
+
+    if (update.state !== undefined || update.allStates !== undefined) {
+      refuseUnlessComponent(container)
     }
 
     if (update.state) {
@@ -1012,8 +1041,9 @@ export class AgentWorkspace {
       change.props = { ...change.props, ...args }
     }
 
-    const stateId = options.state === undefined ? container.states[0]!.id : findState(container, options.state).id
-    const base = stateId === container.states[0]!.id
+    const baseId = designStates(container)[0]!.id
+    const stateId = options.state === undefined ? baseId : this.namedState(container, options.state).id
+    const base = stateId === baseId
 
     const renames = (["name", "tag", "component", "src", "alt", "credit"] as const).filter(
       (name) => change[name] !== undefined
@@ -1107,7 +1137,8 @@ export class AgentWorkspace {
     }
 
     const library = this.library()
-    const stateId = options.state === undefined ? container.states[0]!.id : findState(container, options.state).id
+    const baseId = designStates(container)[0]!.id
+    const stateId = options.state === undefined ? baseId : this.namedState(container, options.state).id
     const inner = locateInner(container, layer, library)!
 
     checkLayerProps(inner.node, change.props)
@@ -1117,8 +1148,7 @@ export class AgentWorkspace {
     }
 
     const next = editInner(container, stateId, layer, toChange(change), library, kept)
-    const base = stateId === container.states[0]!.id
-    this.setContainer(file, next, layer.split("/")[0], base ? undefined : stateId)
+    this.setContainer(file, next, layer.split("/")[0], stateId === baseId ? undefined : stateId)
   }
 
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the snippet API's edge: the node as a snippet passed it, which `prepareNode` checks
@@ -1138,8 +1168,11 @@ export class AgentWorkspace {
     } else {
       next = {
         ...dropPatches(container, nodeIds(node)),
-        root: replacement,
-        states: container.states.map((state) => ({ id: state.id, name: state.name }))
+        root: replacement
+      }
+
+      if (container.states) {
+        next.states = container.states.map((state) => ({ id: state.id, name: state.name }))
       }
     }
 
@@ -1262,7 +1295,7 @@ export class AgentWorkspace {
 
   private updateState(reference: string, stateId: string, spec: z.infer<typeof stateUpdate>): void {
     const { path, container } = this.findDesign(reference)
-    findState(container, stateId)
+    this.namedState(container, stateId)
     let next = spec.name ? renameState(container, stateId, spec.name) : container
     next = this.applyChanges(next, stateId, spec.changes)
     this.setContainer(path, next, undefined, stateId)
@@ -1270,6 +1303,7 @@ export class AgentWorkspace {
 
   private deleteState(reference: string, stateId: string): void {
     const { path, container } = this.findDesign(reference)
+    refuseUnlessComponent(container)
     this.setContainer(path, removeState(container, stateId))
   }
 
@@ -1358,7 +1392,7 @@ export class AgentWorkspace {
   }
 
   private applyOptionChanges(container: ContainerSpec, param: string, list: OptionChanges[]): ContainerSpec {
-    const state = container.states[0]!.id
+    const state = designStates(container)[0]!.id
 
     return list.reduce(
       (next, option) =>
@@ -1669,8 +1703,10 @@ export class AgentWorkspace {
 
     const choices = {
       state: {
-        ids: container.states.map((state) => state.id),
-        listed: `States in ${container.name}: ${container.states.map((state) => `${state.id} (${state.name})`).join(", ")}.`,
+        ids: designStates(container).map((state) => state.id),
+        listed: `States in ${container.name}: ${designStates(container)
+          .map((state) => `${state.id} (${state.name})`)
+          .join(", ")}.`,
         matrix: 'a list or "all"'
       },
       mode: {
@@ -1823,12 +1859,14 @@ export class AgentWorkspace {
 
   private statesFor(container: ContainerSpec, option: string | string[] | undefined): StateSpec[] {
     if (option === "all") {
-      return container.states
+      return [...designStates(container)]
     }
 
-    const ids = option === undefined ? [container.view?.state ?? container.states[0]!.id] : [option].flat()
+    if (option === undefined) {
+      return [this.shownState(container, undefined)]
+    }
 
-    return ids.map((id) => findState(container, id))
+    return [option].flat().map((id) => this.namedState(container, id))
   }
 
   private modesFor(container: ContainerSpec, option: string | string[] | undefined): ResolvedMode[] {
@@ -2689,7 +2727,7 @@ function withStateOverrides(
 ): ContainerSpec {
   return {
     ...container,
-    states: container.states.map((candidate) =>
+    states: designStates(container).map((candidate) =>
       candidate.id === stateId ? withOverrides(candidate, overrides) : candidate
     )
   }

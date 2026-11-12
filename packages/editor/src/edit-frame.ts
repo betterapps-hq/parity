@@ -1,4 +1,4 @@
-import { type ContainerSpec, type ModeSettings, resolveModes, type StateSpec } from "@parity-app/core"
+import { type ContainerSpec, designStates, type ModeSettings, resolveModes, type StateSpec } from "@parity-app/core"
 
 /**
  * Which design, state and viewport an edit lands on (PAR-570). Every edit to a selection, and everything placed at a
@@ -26,14 +26,19 @@ export interface EditFrame {
   viewport?: string
 }
 
-/** The state the board shows: its own pick, else the first. */
+/** The state the board shows: a component's own pick, else the first. A screen or a frame shows its base state. */
 export function activeState(container: ContainerSpec): StateSpec {
-  return container.states.find((state) => state.id === container.view?.state) ?? container.states[0]!
+  const states = designStates(container)
+
+  return states.find((state) => state.id === container.view?.state) ?? states[0]!
 }
 
-/** The state edits go to: the one picked, else the one the board shows, as when the picked state is gone. */
+/**
+ * The state edits go to: the one picked, else the one the board shows, as when the picked state is gone. On a screen
+ * or a frame it's always the base state, so edits change the design itself.
+ */
 export function editingState(container: ContainerSpec, picked: string | undefined): StateSpec {
-  return container.states.find((state) => state.id === picked) ?? activeState(container)
+  return designStates(container).find((state) => state.id === picked) ?? activeState(container)
 }
 
 /**
