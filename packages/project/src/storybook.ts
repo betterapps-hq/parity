@@ -3,6 +3,7 @@ import { join, posix, relative } from "node:path"
 import {
   commandOption,
   type ComponentSource,
+  scriptConfigExtensions,
   type PackageManifest,
   scriptRunning,
   type StorybookInfo,
@@ -11,7 +12,7 @@ import {
 import { findConfig } from "./configs.ts"
 
 /** Storybook's own config: `main` in its config folder, with any extension Storybook accepts. */
-const mainConfig = { files: ["main"], extensions: ["ts", "mts", "cts", "js", "mjs", "cjs"], here: true }
+const mainConfig = { files: ["main"], extensions: [...scriptConfigExtensions], here: true }
 const storyFile = /\.stories\.(?:[cm]?[jt]sx?)$/
 const skipped = new Set(["node_modules", ".git", "dist", "build", "out", "coverage", "storybook-static", ".turbo"])
 const moduleExtensions = [".tsx", ".ts", ".jsx", ".js", "/index.tsx", "/index.ts", "/index.jsx", "/index.js"]

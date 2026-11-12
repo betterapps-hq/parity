@@ -1,4 +1,5 @@
 import { Checkbox, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { validate } from "@parity-app/style"
 import { Minus, Plus } from "lucide-react"
 import { type ChangeEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -331,7 +332,7 @@ export function sortIn(text: string, model: CssModel) {
 
       const [, property, value] = declaration
 
-      if (CSS.supports(property.toLowerCase(), fillTokens(value))) {
+      if (takes(property.toLowerCase(), fillTokens(value))) {
         take(property.toLowerCase(), value)
       } else {
         unreadable.push(`${property}: ${value}`)
@@ -408,6 +409,14 @@ export function cssWrites(model: CssModel): Writes {
   }
 }
 
+/**
+ * Whether a property takes a value: by its grammar in the ledger, then by the browser, which can refuse what a grammar
+ * allows.
+ */
+function takes(property: string, value: string): boolean {
+  return validate(property, value).valid && CSS.supports(property, value)
+}
+
 /** Why a row can't be written: an unknown property, or a value it doesn't take. */
 function rowReason(row: CssRow): string | undefined {
   if (row.property === "") {
@@ -416,7 +425,7 @@ function rowReason(row: CssRow): string | undefined {
 
   const custom = row.property.startsWith("--")
 
-  if (!custom && !CSS.supports(row.property, "initial")) {
+  if (!custom && !takes(row.property, "initial")) {
     return `${row.property} isn't a CSS property this browser knows`
   }
 
@@ -424,7 +433,7 @@ function rowReason(row: CssRow): string | undefined {
     return `Give ${row.property} a value`
   }
 
-  if (!CSS.supports(row.property, fillTokens(row.value))) {
+  if (!takes(row.property, fillTokens(row.value))) {
     return `${row.property} can't be ${row.value}`
   }
 

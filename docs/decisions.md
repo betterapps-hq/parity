@@ -1,5 +1,29 @@
 # Decisions
 
+- **The ledger's grammars are the W3C's, matched by css-tree, and both packages are used (PAR-940).** You approved
+  `@webref/css` or `css-tree`, with `web-features`, on 2026-11-11 and left the pick to this step. Neither is enough
+  alone:
+  - **css-tree alone is out of date.** Its dictionary (3.2.1, from March 2026) has no grammar for 52 of the properties
+    Chromium 156 draws.
+  - **webref alone can't check a value.** It's the spec data, with every one of those properties, and no matcher.
+  - **So webref gives the grammars and css-tree matches against them.** `validate` builds css-tree's lexer from the
+    ledger's grammars. The values in `validate.test.ts`, from plain lengths to gradients, shadows and `color-mix()`, are
+    each read as a browser reads them.
+  - **Only css-tree ships.** `spec.test.ts` reads webref and web-features and writes `spec.json`, so they're development
+    dependencies. web-features gives both the Baseline status and which properties Chromium draws, so the browser compat
+    data the hand-made ledger used isn't needed.
+  - **The ledger is `placements.ts` joined with `spec.json`.** The placing (section, concept, control or More or CSS
+    row, token kinds) is [design-options-css.md](proposals/design-options-css.md)'s tables as data, written by hand; the
+    property list, grammars and Baseline status are generated. Tests fail when a property isn't placed exactly once,
+    when two keys own one property, and when a key writes a property it neither owns nor is listed as setting for its
+    owner (`setsForOthers`, that page's Properties set by another control).
+  - **`validate` leaves three things to the browser:** a value holding `var()`, which CSS checks only once it's filled
+    in; `cursor`, whose grammar names a type the spec data gives no grammar; and anything a grammar allows that Chromium
+    doesn't draw. The CSS rows ask `CSS.supports` after it, as before.
+  - **The agent's `SetTokens` checks a value's kind by grammar as it runs,** where it used to wait for the window's
+    browser and check nothing without one. A refusal now names the line of the snippet, and the browser is still asked
+    after.
+
 - **`@parity-app/style` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
   [style-package.md](proposals/style-package.md) moved `nodeStyle` out of `core/document.ts` and the style-to-CSS out of
   `core/render.ts`, with nothing drawn differently: render's tests pass as they were. Three calls made along the way:
@@ -7434,3 +7458,19 @@ My calls:
 - **It deploys through the shared pipelines,** with the `cloudflare-web` Terraform module and the web templates, so
   Parity writes no deploy workflow of its own.
 - **Mobbin's API terms are read before its route ships,** since its key belongs to a paid Team plan.
+
+## Each builder adapter names the config files detection follows (PAR-826, PAR-908)
+
+PAR-908 asked that changing a project's setup not need a restart. PAR-820 already detects an open project again when a
+file detection reads changes what it finds, and `parity open` asks first, but the config files it followed were Vite's
+names, written into `detectionInputs`. You asked on 2026-11-09 for build-system support to be pluggable. My calls:
+
+- **`BuilderAdapter.configFiles` lists the files that say whether a builder serves the project,** relative to the root.
+  The service passes every registered builder's into `detectionInputs`, so a Next.js, Rspack or Rsbuild adapter needs no
+  change to detection or the service.
+- **Only whether each config file is there is compared, not its contents.** The project's own Vite restarts its server
+  when its config changes, so comparing contents would open the tab again for no gain.
+- **`scriptConfigExtensions` in core is the one list of a JavaScript tool's config extensions** (`ts`, `mts`, `cts`,
+  `js`, `mjs`, `cjs`), used by builder-vite and Storybook's config search. `preview-key.ts`'s list isn't it: that's the
+  extensions an import may leave out, with `.tsx` and `.jsx`, in the order bundlers try them.
+- **No `parity reload` command.** Detecting again on a change and on `parity open` covers what it would do.

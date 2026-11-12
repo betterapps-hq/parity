@@ -301,6 +301,8 @@ const bitmapFormat = 2
 export function openProjects(adapters: ProjectAdapters): OpenProjects {
   const { checker, detections, listeners, ports } = adapters
   const watch: WatchFolder = adapters.watch ?? watchFolder
+  // The config files every builder looks for, which detection follows (PAR-826).
+  const builderConfigs = [...new Set(adapters.builders.flatMap((builder) => builder.configFiles))]
   const env = adapters.environment ?? environment()
   const allowedOrigins = env.PARITY_ALLOWED_ORIGINS ?? []
   const startedWith = env.PARITY_PROJECT
@@ -345,7 +347,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function detect(root: string, opening: Opening) {
     // Read first, so a change made while the project opens is a change from what it opened with.
-    const inputs = await detectionInputs(root).catch(() => undefined)
+    const inputs = await detectionInputs(root, builderConfigs).catch(() => undefined)
     const pkg = (await readPackage(root))?.manifest
 
     if (!pkg) {
@@ -1042,7 +1044,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function detectionChanged(project: Project): Promise<boolean> {
     const { root } = project.info
-    const inputs = await detectionInputs(root).catch(() => undefined)
+    const inputs = await detectionInputs(root, builderConfigs).catch(() => undefined)
 
     if (!inputs || projects.get(root) !== project) {
       return false
@@ -1055,7 +1057,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       return false
     }
 
-    logNote(`[service] ${project.info.name}'s stylesheets, dependencies or Vite config changed since it opened`)
+    logNote(`[service] ${project.info.name}'s stylesheets, dependencies or builder config changed since it opened`)
 
     return true
   }

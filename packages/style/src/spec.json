@@ -1,0 +1,2900 @@
+{
+  "chromium": 156,
+  "properties": {
+    "-webkit-app-region": {
+      "syntax": "drag | no-drag",
+      "baseline": "limited"
+    },
+    "-webkit-box-orient": {
+      "syntax": "horizontal | vertical | inline-axis | block-axis",
+      "baseline": "limited"
+    },
+    "-webkit-box-reflect": {
+      "syntax": "[ above | below | right | left ]? <length>? <image>?",
+      "baseline": "limited"
+    },
+    "-webkit-font-smoothing": {
+      "syntax": "auto | none | antialiased | subpixel-antialiased",
+      "baseline": "limited"
+    },
+    "-webkit-line-clamp": {
+      "syntax": "none | <integer [1,∞]>",
+      "baseline": "limited"
+    },
+    "-webkit-tap-highlight-color": {
+      "syntax": "<color>",
+      "baseline": "limited"
+    },
+    "-webkit-text-fill-color": {
+      "syntax": "<color>",
+      "baseline": "widely"
+    },
+    "-webkit-text-stroke": {
+      "syntax": "<line-width> || <color>",
+      "baseline": "widely"
+    },
+    "-webkit-text-stroke-color": {
+      "syntax": "<color>",
+      "baseline": "widely"
+    },
+    "-webkit-text-stroke-width": {
+      "syntax": "<line-width>",
+      "baseline": "widely"
+    },
+    "accent-color": {
+      "syntax": "auto | <color>",
+      "baseline": "limited"
+    },
+    "align-content": {
+      "syntax": "normal | <baseline-position> | <content-distribution> | <overflow-position>? <content-position>",
+      "baseline": "widely"
+    },
+    "align-items": {
+      "syntax": "normal | stretch | <baseline-position> | <overflow-position>? <self-position>",
+      "baseline": "widely"
+    },
+    "align-self": {
+      "syntax": "auto | <overflow-position>? [ normal | <self-position> ]| stretch | <baseline-position> | anchor-center",
+      "baseline": "widely"
+    },
+    "alignment-baseline": {
+      "syntax": "baseline | <baseline-metric>",
+      "baseline": "newly"
+    },
+    "all": {
+      "syntax": "initial | inherit | unset | revert | revert-layer | revert-rule",
+      "baseline": "widely"
+    },
+    "anchor-name": {
+      "syntax": "none | <anchor-name>#",
+      "baseline": "newly"
+    },
+    "anchor-scope": {
+      "syntax": "none | all | <anchor-name>#",
+      "baseline": "newly"
+    },
+    "animation": {
+      "syntax": "<single-animation>#",
+      "baseline": "widely"
+    },
+    "animation-composition": {
+      "syntax": "<single-animation-composition>#",
+      "baseline": "widely"
+    },
+    "animation-delay": {
+      "syntax": "[ <'animation-delay-start'> <'animation-delay-end'>? ]#",
+      "baseline": "widely"
+    },
+    "animation-direction": {
+      "syntax": "<single-animation-direction>#",
+      "baseline": "widely"
+    },
+    "animation-duration": {
+      "syntax": "[ auto | <time [0s,∞]> ]#",
+      "baseline": "widely"
+    },
+    "animation-fill-mode": {
+      "syntax": "<single-animation-fill-mode>#",
+      "baseline": "widely"
+    },
+    "animation-iteration-count": {
+      "syntax": "<single-animation-iteration-count>#",
+      "baseline": "widely"
+    },
+    "animation-name": {
+      "syntax": "[ none | <keyframes-name> ]#",
+      "baseline": "widely"
+    },
+    "animation-play-state": {
+      "syntax": "<single-animation-play-state>#",
+      "baseline": "widely"
+    },
+    "animation-range": {
+      "syntax": "[ <'animation-range-start'> <'animation-range-end'>? ]#",
+      "baseline": "newly"
+    },
+    "animation-range-end": {
+      "syntax": "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#",
+      "baseline": "newly"
+    },
+    "animation-range-start": {
+      "syntax": "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#",
+      "baseline": "newly"
+    },
+    "animation-timeline": {
+      "syntax": "<single-animation-timeline>#",
+      "baseline": "newly"
+    },
+    "animation-timing-function": {
+      "syntax": "<easing-function>#",
+      "baseline": "widely"
+    },
+    "animation-trigger": {
+      "syntax": "[ none | [ <dashed-ident> <animation-action>+ ]+ ]#",
+      "baseline": "limited"
+    },
+    "appearance": {
+      "syntax": "none | auto | base | base-select | <compat-auto> | <compat-special>",
+      "baseline": "widely"
+    },
+    "aspect-ratio": {
+      "syntax": "auto || <ratio>",
+      "baseline": "widely"
+    },
+    "backdrop-filter": {
+      "syntax": "none | <filter-value-list>",
+      "baseline": "newly"
+    },
+    "backface-visibility": {
+      "syntax": "visible | hidden",
+      "baseline": "widely"
+    },
+    "background": {
+      "syntax": "<bg-layer>#? , <final-bg-layer>",
+      "baseline": "widely"
+    },
+    "background-attachment": {
+      "syntax": "<attachment>#",
+      "baseline": "widely"
+    },
+    "background-blend-mode": {
+      "syntax": "<'mix-blend-mode'>#",
+      "baseline": "widely"
+    },
+    "background-clip": {
+      "syntax": "<bg-clip>#",
+      "baseline": "widely"
+    },
+    "background-color": {
+      "syntax": "<color>",
+      "baseline": "widely"
+    },
+    "background-image": {
+      "syntax": "<bg-image>#",
+      "baseline": "widely"
+    },
+    "background-origin": {
+      "syntax": "<visual-box>#",
+      "baseline": "widely"
+    },
+    "background-position": {
+      "syntax": "<bg-position>#",
+      "baseline": "widely"
+    },
+    "background-position-x": {
+      "syntax": "[ center | [ [ left | right | x-start | x-end ]? <length-percentage>? ]! ]#",
+      "baseline": "widely"
+    },
+    "background-position-y": {
+      "syntax": "[ center | [ [ top | bottom | y-start | y-end ]? <length-percentage>? ]! ]#",
+      "baseline": "widely"
+    },
+    "background-repeat": {
+      "syntax": "<repeat-style>#",
+      "baseline": "widely"
+    },
+    "background-repeat-x": {
+      "syntax": "<repetition>#",
+      "baseline": "limited"
+    },
+    "background-repeat-y": {
+      "syntax": "<repetition>#",
+      "baseline": "limited"
+    },
+    "background-size": {
+      "syntax": "<bg-size>#",
+      "baseline": "widely"
+    },
+    "baseline-shift": {
+      "syntax": "<length-percentage> | sub | super | top | center | bottom",
+      "baseline": "newly"
+    },
+    "baseline-source": {
+      "syntax": "auto | first | last",
+      "baseline": "limited"
+    },
+    "block-size": {
+      "syntax": "auto | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "border": {
+      "syntax": "<line-width> || <line-style> || <color>",
+      "baseline": "widely"
+    },
+    "border-block": {
+      "syntax": "<'border-block-start'>",
+      "baseline": "widely"
+    },
+    "border-block-color": {
+      "syntax": "<'border-top-color'>{1,2}",
+      "baseline": "widely"
+    },
+    "border-block-end": {
+      "syntax": "<line-width> || <line-style> || <color>",
+      "baseline": "widely"
+    },
+    "border-block-end-color": {
+      "syntax": "<color> | <image-1D>",
+      "baseline": "widely"
+    },
+    "border-block-end-style": {
+      "syntax": "<line-style>",
+      "baseline": "widely"
+    },
+    "border-block-end-width": {
+      "syntax": "<line-width>",
+      "baseline": "widely"
+    },
+    "border-block-start": {
+      "syntax": "<line-width> || <line-style> || <color>",
+      "baseline": "widely"
+    },
+    "border-block-start-color": {
+      "syntax": "<color> | <image-1D>",
+      "baseline": "widely"
+    },
+    "border-block-start-style": {
+      "syntax": "<line-style>",
+      "baseline": "widely"
+    },
+    "border-block-start-width": {
+      "syntax": "<line-width>",
+      "baseline": "widely"
+    },
+    "border-block-style": {
+      "syntax": "<'border-top-style'>{1,2}",
+      "baseline": "widely"
+    },
+    "border-block-width": {
+      "syntax": "<'border-top-width'>{1,2}",
+      "baseline": "widely"
+    },
+    "border-bottom": {
+      "syntax": "<line-width> || <line-style> || <color>",
+      "baseline": "widely"
+    },
+    "border-bottom-color": {
+      "syntax": "<color> | <image-1D>",
+      "baseline": "widely"
+    },
+    "border-bottom-left-radius": {
+      "syntax": "<border-radius>",
+      "baseline": "widely"
+    },
+    "border-bottom-right-radius": {
+      "syntax": "<border-radius>",
+      "baseline": "widely"
+    },
+    "border-bottom-style": {
+      "syntax": "<line-style>",
+      "baseline": "widely"
+    },
+    "border-bottom-width": {
+      "syntax": "<line-width>",
+      "baseline": "widely"
+    },
+    "border-collapse": {
+      "syntax": "separate | collapse",
+      "baseline": "widely"
+    },
+    "border-color": {
+      "syntax": "[ <color> | <image-1D> ]{1,4}",
+      "baseline": "widely"
+    },
+    "border-end-end-radius": {
+      "syntax": "<border-radius>",
+      "baseline": "widely"
+    },
+    "border-end-start-radius": {
+      "syntax": "<border-radius>",
+      "baseline": "widely"
+    },
+    "border-image": {
+      "syntax": "<'border-image-source'> || <'border-image-slice'> [ / <'border-image-width'> | / <'border-image-width'>? / <'border-image-outset'> ]? || <'border-image-repeat'>",
+      "baseline": "widely"
+    },
+    "border-image-outset": {
+      "syntax": "[ <length [0,∞]> | <number [0,∞]> ]{1,4}",
+      "baseline": "widely"
+    },
+    "border-image-repeat": {
+      "syntax": "[ stretch | repeat | round | space ]{1,2}",
+      "baseline": "widely"
+    },
+    "border-image-slice": {
+      "syntax": "[<number [0,∞]> | <percentage [0,∞]>]{1,4} && fill?",
+      "baseline": "widely"
+    },
+    "border-image-source": {
+      "syntax": "none | <image>",
+      "baseline": "widely"
+    },
+    "border-image-width": {
+      "syntax": "[ <length-percentage [0,∞]> | <number [0,∞]> | auto ]{1,4}",
+      "baseline": "widely"
+    },
+    "border-inline": {
+      "syntax": "<'border-block-start'>",
+      "baseline": "widely"
+    },
+    "border-inline-color": {
+      "syntax": "<'border-top-color'>{1,2}",
+      "baseline": "widely"
+    },
+    "border-inline-end": {
+      "syntax": "<line-width> || <line-style> || <color>",
+      "baseline": "widely"
+    },
+    "border-inline-end-color": {
+      "syntax": "<color> | <image-1D>",
+      "baseline": "widely"
+    },
+    "border-inline-end-style": {
+      "syntax": "<line-style>",
+      "baseline": "widely"
+    },
+    "border-inline-end-width": {
+      "syntax": "<line-width>",
+      "baseline": "widely"
+    },
+    "border-inline-start": {
+      "syntax": "<line-width> || <line-style> || <color>",
+      "baseline": "widely"
+    },
+    "border-inline-start-color": {
+      "syntax": "<color> | <image-1D>",
+      "baseline": "widely"
+    },
+    "border-inline-start-style": {
+      "syntax": "<line-style>",
+      "baseline": "widely"
+    },
+    "border-inline-start-width": {
+      "syntax": "<line-width>",
+      "baseline": "widely"
+    },
+    "border-inline-style": {
+      "syntax": "<'border-top-style'>{1,2}",
+      "baseline": "widely"
+    },
+    "border-inline-width": {
+      "syntax": "<'border-top-width'>{1,2}",
+      "baseline": "widely"
+    },
+    "border-left": {
+      "syntax": "<line-width> || <line-style> || <color>",
+      "baseline": "widely"
+    },
+    "border-left-color": {
+      "syntax": "<color> | <image-1D>",
+      "baseline": "widely"
+    },
+    "border-left-style": {
+      "syntax": "<line-style>",
+      "baseline": "widely"
+    },
+    "border-left-width": {
+      "syntax": "<line-width>",
+      "baseline": "widely"
+    },
+    "border-radius": {
+      "syntax": "<length-percentage [0,∞]>{1,4} [ / <length-percentage [0,∞]>{1,4} ]?",
+      "baseline": "widely"
+    },
+    "border-right": {
+      "syntax": "<line-width> || <line-style> || <color>",
+      "baseline": "widely"
+    },
+    "border-right-color": {
+      "syntax": "<color> | <image-1D>",
+      "baseline": "widely"
+    },
+    "border-right-style": {
+      "syntax": "<line-style>",
+      "baseline": "widely"
+    },
+    "border-right-width": {
+      "syntax": "<line-width>",
+      "baseline": "widely"
+    },
+    "border-shape": {
+      "syntax": "none | [ <basic-shape> <geometry-box>?]{1,2}",
+      "baseline": "limited"
+    },
+    "border-spacing": {
+      "syntax": "<length [0,∞]>{1,2}",
+      "baseline": "widely"
+    },
+    "border-start-end-radius": {
+      "syntax": "<border-radius>",
+      "baseline": "widely"
+    },
+    "border-start-start-radius": {
+      "syntax": "<border-radius>",
+      "baseline": "widely"
+    },
+    "border-style": {
+      "syntax": "<'border-top-style'>{1,4}",
+      "baseline": "widely"
+    },
+    "border-top": {
+      "syntax": "<line-width> || <line-style> || <color>",
+      "baseline": "widely"
+    },
+    "border-top-color": {
+      "syntax": "<color> | <image-1D>",
+      "baseline": "widely"
+    },
+    "border-top-left-radius": {
+      "syntax": "<border-radius>",
+      "baseline": "widely"
+    },
+    "border-top-right-radius": {
+      "syntax": "<border-radius>",
+      "baseline": "widely"
+    },
+    "border-top-style": {
+      "syntax": "<line-style>",
+      "baseline": "widely"
+    },
+    "border-top-width": {
+      "syntax": "<line-width>",
+      "baseline": "widely"
+    },
+    "border-width": {
+      "syntax": "<'border-top-width'>{1,4}",
+      "baseline": "widely"
+    },
+    "bottom": {
+      "syntax": "auto | <length-percentage> | <anchor()> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "box-decoration-break": {
+      "syntax": "slice | clone",
+      "baseline": "limited"
+    },
+    "box-shadow": {
+      "syntax": "<spread-shadow>#",
+      "baseline": "widely"
+    },
+    "box-sizing": {
+      "syntax": "content-box | border-box",
+      "baseline": "widely"
+    },
+    "break-after": {
+      "syntax": "auto | avoid | always | all | avoid-page | page | left | right | recto | verso | avoid-column | column | avoid-region | region",
+      "baseline": "widely"
+    },
+    "break-before": {
+      "syntax": "auto | avoid | always | all | avoid-page | page | left | right | recto | verso | avoid-column | column | avoid-region | region",
+      "baseline": "widely"
+    },
+    "break-inside": {
+      "syntax": "auto | avoid | avoid-page | avoid-column | avoid-region",
+      "baseline": "widely"
+    },
+    "caption-side": {
+      "syntax": "top | bottom",
+      "baseline": "widely"
+    },
+    "caret-animation": {
+      "syntax": "auto | manual",
+      "baseline": "limited"
+    },
+    "caret-color": {
+      "syntax": "auto | <color> [auto | <color>]?",
+      "baseline": "widely"
+    },
+    "caret-shape": {
+      "syntax": "auto | bar | block | underscore",
+      "baseline": "limited"
+    },
+    "clear": {
+      "syntax": "inline-start | inline-end | block-start | block-end | left | right | top | bottom | both-inline | both-block | both | none",
+      "baseline": "widely"
+    },
+    "clip-path": {
+      "syntax": "<clip-source> | [ <basic-shape> || <geometry-box> ] | none",
+      "baseline": "widely"
+    },
+    "clip-rule": {
+      "syntax": "nonzero | evenodd",
+      "baseline": "widely"
+    },
+    "color": {
+      "syntax": "<color>",
+      "baseline": "widely"
+    },
+    "color-interpolation": {
+      "syntax": "auto | sRGB | linearRGB",
+      "baseline": "widely"
+    },
+    "color-interpolation-filters": {
+      "syntax": "auto | sRGB | linearRGB",
+      "baseline": "widely"
+    },
+    "color-scheme": {
+      "syntax": "normal | [ light | dark | <custom-ident> ]+ && only?",
+      "baseline": "widely"
+    },
+    "column-count": {
+      "syntax": "auto | <integer [1,∞]>",
+      "baseline": "widely"
+    },
+    "column-fill": {
+      "syntax": "auto | balance | balance-all",
+      "baseline": "widely"
+    },
+    "column-gap": {
+      "syntax": "normal | <length-percentage [0,∞]> | <line-width>",
+      "baseline": "widely"
+    },
+    "column-height": {
+      "syntax": "auto | <length [0,∞]>",
+      "baseline": "limited"
+    },
+    "column-rule": {
+      "syntax": "<gap-rule-list> | <gap-auto-rule-list>",
+      "baseline": "widely"
+    },
+    "column-rule-break": {
+      "syntax": "none | normal | intersection",
+      "baseline": "limited"
+    },
+    "column-rule-color": {
+      "syntax": "<line-color-list> | <auto-line-color-list>",
+      "baseline": "widely"
+    },
+    "column-rule-inset": {
+      "syntax": "<'column-rule-inset-cap'> [ / <'column-rule-inset-junction'> ]?",
+      "baseline": "limited"
+    },
+    "column-rule-inset-cap": {
+      "syntax": "<inset-value> <inset-value>?",
+      "baseline": "limited"
+    },
+    "column-rule-inset-cap-end": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "column-rule-inset-cap-start": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "column-rule-inset-end": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "column-rule-inset-junction": {
+      "syntax": "<inset-value> <inset-value>?",
+      "baseline": "limited"
+    },
+    "column-rule-inset-junction-end": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "column-rule-inset-junction-start": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "column-rule-inset-start": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "column-rule-style": {
+      "syntax": "<line-style-list> | <auto-line-style-list>",
+      "baseline": "widely"
+    },
+    "column-rule-visibility-items": {
+      "syntax": "all | around | between | normal",
+      "baseline": "limited"
+    },
+    "column-rule-width": {
+      "syntax": "<line-width-list> | <auto-line-width-list>",
+      "baseline": "widely"
+    },
+    "column-span": {
+      "syntax": "none | <integer [1,∞]> | all | auto",
+      "baseline": "widely"
+    },
+    "column-width": {
+      "syntax": "auto | <box-size> | auto | <box-size>",
+      "baseline": "widely"
+    },
+    "column-wrap": {
+      "syntax": "auto | nowrap | wrap",
+      "baseline": "limited"
+    },
+    "columns": {
+      "syntax": "[ <'column-width'> || <'column-count'> ] [ / <'column-height'> ]?",
+      "baseline": "widely"
+    },
+    "contain": {
+      "syntax": "none | strict | content | [ [size | inline-size] || layout || style || paint ]",
+      "baseline": "widely"
+    },
+    "contain-intrinsic-block-size": {
+      "syntax": "auto? [ none | <length [0,∞]> ]",
+      "baseline": "widely"
+    },
+    "contain-intrinsic-height": {
+      "syntax": "auto? [ none | <length [0,∞]> ]",
+      "baseline": "widely"
+    },
+    "contain-intrinsic-inline-size": {
+      "syntax": "auto? [ none | <length [0,∞]> ]",
+      "baseline": "widely"
+    },
+    "contain-intrinsic-size": {
+      "syntax": "[ auto? [ none | <length [0,∞]> ] ]{1,2}",
+      "baseline": "widely"
+    },
+    "contain-intrinsic-width": {
+      "syntax": "auto? [ none | <length [0,∞]> ]",
+      "baseline": "widely"
+    },
+    "container": {
+      "syntax": "<'container-name'> [ / <'container-type'> ]?",
+      "baseline": "widely"
+    },
+    "container-name": {
+      "syntax": "none | <custom-ident>+",
+      "baseline": "widely"
+    },
+    "container-type": {
+      "syntax": "normal | [ [ size | inline-size ] || scroll-state ]",
+      "baseline": "widely"
+    },
+    "content": {
+      "syntax": "normal | none | [ <content-replacement> | <content-list> ] [/ <alt-text> ]? | <element()>",
+      "baseline": "widely"
+    },
+    "content-visibility": {
+      "syntax": "visible | auto | hidden",
+      "baseline": "newly"
+    },
+    "corner-block-end-shape": {
+      "syntax": "<'corner-top-left-shape'>{1,2}",
+      "baseline": "limited"
+    },
+    "corner-block-start-shape": {
+      "syntax": "<'corner-top-left-shape'>{1,2}",
+      "baseline": "limited"
+    },
+    "corner-bottom-left-shape": {
+      "syntax": "<corner-shape-value>",
+      "baseline": "limited"
+    },
+    "corner-bottom-right-shape": {
+      "syntax": "<corner-shape-value>",
+      "baseline": "limited"
+    },
+    "corner-bottom-shape": {
+      "syntax": "<'corner-top-left-shape'>{1,2}",
+      "baseline": "limited"
+    },
+    "corner-end-end-shape": {
+      "syntax": "<corner-shape-value>",
+      "baseline": "limited"
+    },
+    "corner-end-start-shape": {
+      "syntax": "<corner-shape-value>",
+      "baseline": "limited"
+    },
+    "corner-inline-end-shape": {
+      "syntax": "<'corner-top-left-shape'>{1,2}",
+      "baseline": "limited"
+    },
+    "corner-inline-start-shape": {
+      "syntax": "<'corner-top-left-shape'>{1,2}",
+      "baseline": "limited"
+    },
+    "corner-left-shape": {
+      "syntax": "<'corner-top-left-shape'>{1,2}",
+      "baseline": "limited"
+    },
+    "corner-right-shape": {
+      "syntax": "<'corner-top-left-shape'>{1,2}",
+      "baseline": "limited"
+    },
+    "corner-shape": {
+      "syntax": "<'corner-top-left-shape'>{1,4}",
+      "baseline": "limited"
+    },
+    "corner-start-end-shape": {
+      "syntax": "<corner-shape-value>",
+      "baseline": "limited"
+    },
+    "corner-start-start-shape": {
+      "syntax": "<corner-shape-value>",
+      "baseline": "limited"
+    },
+    "corner-top-left-shape": {
+      "syntax": "<corner-shape-value>",
+      "baseline": "limited"
+    },
+    "corner-top-right-shape": {
+      "syntax": "<corner-shape-value>",
+      "baseline": "limited"
+    },
+    "corner-top-shape": {
+      "syntax": "<'corner-top-left-shape'>{1,2}",
+      "baseline": "limited"
+    },
+    "counter-increment": {
+      "syntax": "[ <counter-name> <integer>? ]+ | none",
+      "baseline": "widely"
+    },
+    "counter-reset": {
+      "syntax": "[ <counter-name> <integer>? | <reversed-counter-name> <integer>? ]+ | none",
+      "baseline": "widely"
+    },
+    "counter-set": {
+      "syntax": "[ <counter-name> <integer>? ]+ | none",
+      "baseline": "widely"
+    },
+    "cursor": {
+      "syntax": "[<cursor-image>,]* <cursor-predefined>",
+      "baseline": "widely"
+    },
+    "custom-property": {
+      "baseline": "widely"
+    },
+    "cx": {
+      "syntax": "<length-percentage>",
+      "baseline": "widely"
+    },
+    "cy": {
+      "syntax": "<length-percentage>",
+      "baseline": "widely"
+    },
+    "d": {
+      "syntax": "none | <string>",
+      "baseline": "limited"
+    },
+    "direction": {
+      "syntax": "ltr | rtl",
+      "baseline": "widely"
+    },
+    "display": {
+      "syntax": "[ <display-outside> || <display-inside> ] | <display-listitem> | <display-internal> | <display-box> | <display-legacy> | grid-lanes | inline-grid-lanes | <display-outside> || [ <display-inside> | math ]",
+      "baseline": "widely"
+    },
+    "dominant-baseline": {
+      "syntax": "auto | <baseline-metric>",
+      "baseline": "widely"
+    },
+    "dynamic-range-limit": {
+      "syntax": "standard | no-limit | constrained | <dynamic-range-limit-mix()>",
+      "baseline": "limited"
+    },
+    "empty-cells": {
+      "syntax": "show | hide",
+      "baseline": "widely"
+    },
+    "field-sizing": {
+      "syntax": "fixed | content",
+      "baseline": "newly"
+    },
+    "fill": {
+      "syntax": "<paint>",
+      "baseline": "widely"
+    },
+    "fill-opacity": {
+      "syntax": "<'opacity'>",
+      "baseline": "widely"
+    },
+    "fill-rule": {
+      "syntax": "nonzero | evenodd",
+      "baseline": "widely"
+    },
+    "filter": {
+      "syntax": "none | <filter-value-list>",
+      "baseline": "widely"
+    },
+    "flex": {
+      "syntax": "none | [ <'flex-grow'> <'flex-shrink'>? || <'flex-basis'> ]",
+      "baseline": "widely"
+    },
+    "flex-basis": {
+      "syntax": "content | <'width'>",
+      "baseline": "widely"
+    },
+    "flex-direction": {
+      "syntax": "row | row-reverse | column | column-reverse",
+      "baseline": "widely"
+    },
+    "flex-flow": {
+      "syntax": "<'flex-direction'> || <'flex-wrap'>",
+      "baseline": "widely"
+    },
+    "flex-grow": {
+      "syntax": "<number [0,∞]>",
+      "baseline": "widely"
+    },
+    "flex-line-count": {
+      "syntax": "<integer [1,∞]>",
+      "baseline": "limited"
+    },
+    "flex-shrink": {
+      "syntax": "<number [0,∞]>",
+      "baseline": "widely"
+    },
+    "flex-wrap": {
+      "syntax": "nowrap | [ wrap | wrap-reverse ] || balance",
+      "baseline": "widely"
+    },
+    "float": {
+      "syntax": "block-start | block-end | inline-start | inline-end | snap-block | <snap-block()> | snap-inline | <snap-inline()> | left | right | top | bottom | none | footnote",
+      "baseline": "widely"
+    },
+    "flood-color": {
+      "syntax": "<color>",
+      "baseline": "widely"
+    },
+    "flood-opacity": {
+      "syntax": "<'opacity'>",
+      "baseline": "widely"
+    },
+    "font": {
+      "syntax": "[ [ <'font-style'> || <font-variant-css2> || <'font-weight'> || <font-width-css3> ]? <'font-size'> [ / <'line-height'> ]? <'font-family'># ] | <system-font-family-name>",
+      "baseline": "widely"
+    },
+    "font-family": {
+      "syntax": "[ <font-family-name> | <generic-font-family> ]#",
+      "baseline": "widely"
+    },
+    "font-feature-settings": {
+      "syntax": "normal | <feature-tag-value>#",
+      "baseline": "widely"
+    },
+    "font-kerning": {
+      "syntax": "auto | normal | none",
+      "baseline": "widely"
+    },
+    "font-language-override": {
+      "syntax": "normal | <string>",
+      "baseline": "limited"
+    },
+    "font-optical-sizing": {
+      "syntax": "auto | none",
+      "baseline": "widely"
+    },
+    "font-palette": {
+      "syntax": "normal | light | dark | <palette-identifier> | <palette-mix()>",
+      "baseline": "widely"
+    },
+    "font-size": {
+      "syntax": "<absolute-size> | <relative-size> | <length-percentage [0,∞]> | math",
+      "baseline": "widely"
+    },
+    "font-size-adjust": {
+      "syntax": "none | [ ex-height | cap-height | ch-width | ic-width | ic-height ]? [ from-font | <number [0,∞]> ]",
+      "baseline": "newly"
+    },
+    "font-stretch": {
+      "syntax": "normal | <percentage [0,∞]> | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded",
+      "baseline": "widely"
+    },
+    "font-style": {
+      "syntax": "normal | italic | left | right | oblique <angle [-90deg,90deg]>?",
+      "baseline": "widely"
+    },
+    "font-synthesis": {
+      "syntax": "none | [ weight || style || small-caps || position]",
+      "baseline": "widely"
+    },
+    "font-synthesis-small-caps": {
+      "syntax": "auto | none",
+      "baseline": "widely"
+    },
+    "font-synthesis-style": {
+      "syntax": "auto | none | oblique-only",
+      "baseline": "widely"
+    },
+    "font-synthesis-weight": {
+      "syntax": "auto | none",
+      "baseline": "widely"
+    },
+    "font-variant": {
+      "syntax": "normal | none | [ [ <common-lig-values> || <discretionary-lig-values> || <historical-lig-values> || <contextual-alt-values> ] || [ small-caps | all-small-caps | petite-caps | all-petite-caps | unicase | titling-caps ] || [ stylistic(<font-feature-value-name>) || historical-forms || styleset(<font-feature-value-name>#) || character-variant(<font-feature-value-name>#) || swash(<font-feature-value-name>) || ornaments(<font-feature-value-name>) || annotation(<font-feature-value-name>) ] || [ <numeric-figure-values> || <numeric-spacing-values> || <numeric-fraction-values> || ordinal || slashed-zero ] || [ <east-asian-variant-values> || <east-asian-width-values> || ruby ] || [ sub | super ] || [ text | emoji | unicode ] ]",
+      "baseline": "widely"
+    },
+    "font-variant-alternates": {
+      "syntax": "normal | [ stylistic(<font-feature-value-name>) || historical-forms || styleset(<font-feature-value-name>#) || character-variant(<font-feature-value-name>#) || swash(<font-feature-value-name>) || ornaments(<font-feature-value-name>) || annotation(<font-feature-value-name>) ]",
+      "baseline": "widely"
+    },
+    "font-variant-caps": {
+      "syntax": "normal | small-caps | all-small-caps | petite-caps | all-petite-caps | unicase | titling-caps",
+      "baseline": "widely"
+    },
+    "font-variant-east-asian": {
+      "syntax": "normal | [ <east-asian-variant-values> || <east-asian-width-values> || ruby ]",
+      "baseline": "widely"
+    },
+    "font-variant-emoji": {
+      "syntax": "normal | text | emoji | unicode",
+      "baseline": "limited"
+    },
+    "font-variant-ligatures": {
+      "syntax": "normal | none | [ <common-lig-values> || <discretionary-lig-values> || <historical-lig-values> || <contextual-alt-values> ]",
+      "baseline": "widely"
+    },
+    "font-variant-numeric": {
+      "syntax": "normal | [ <numeric-figure-values> || <numeric-spacing-values> || <numeric-fraction-values> || ordinal || slashed-zero ]",
+      "baseline": "widely"
+    },
+    "font-variant-position": {
+      "syntax": "normal | sub | super",
+      "baseline": "widely"
+    },
+    "font-variation-settings": {
+      "syntax": "normal | [ <opentype-tag> <number> ]#",
+      "baseline": "widely"
+    },
+    "font-weight": {
+      "syntax": "<font-weight-absolute> | bolder | lighter",
+      "baseline": "widely"
+    },
+    "forced-color-adjust": {
+      "syntax": "auto | none | preserve-parent-color",
+      "baseline": "limited"
+    },
+    "frame-sizing": {
+      "syntax": "auto | content-width | content-height | content-block-size | content-inline-size",
+      "baseline": "limited"
+    },
+    "gap": {
+      "syntax": "<'row-gap'> <'column-gap'>?",
+      "baseline": "widely"
+    },
+    "grid": {
+      "syntax": "<'grid-template'> | <'grid-template-rows'> / [ auto-flow && dense? ] <'grid-auto-columns'>? | [ auto-flow && dense? ] <'grid-auto-rows'>? / <'grid-template-columns'>",
+      "baseline": "widely"
+    },
+    "grid-area": {
+      "syntax": "<grid-line> [ / <grid-line> ]{0,3}",
+      "baseline": "widely"
+    },
+    "grid-auto-columns": {
+      "syntax": "<track-size>+",
+      "baseline": "widely"
+    },
+    "grid-auto-flow": {
+      "syntax": "[ row | column ] || dense",
+      "baseline": "widely"
+    },
+    "grid-auto-rows": {
+      "syntax": "<track-size>+",
+      "baseline": "widely"
+    },
+    "grid-column": {
+      "syntax": "<grid-line> [ / <grid-line> ]?",
+      "baseline": "widely"
+    },
+    "grid-column-end": {
+      "syntax": "<grid-line>",
+      "baseline": "widely"
+    },
+    "grid-column-start": {
+      "syntax": "<grid-line>",
+      "baseline": "widely"
+    },
+    "grid-row": {
+      "syntax": "<grid-line> [ / <grid-line> ]?",
+      "baseline": "widely"
+    },
+    "grid-row-end": {
+      "syntax": "<grid-line>",
+      "baseline": "widely"
+    },
+    "grid-row-start": {
+      "syntax": "<grid-line>",
+      "baseline": "widely"
+    },
+    "grid-template": {
+      "syntax": "none | [ <'grid-template-rows'> / <'grid-template-columns'> ] | [ <line-names>? <string> <track-size>? <line-names>? ]+ [ / <explicit-track-list> ]?",
+      "baseline": "widely"
+    },
+    "grid-template-areas": {
+      "syntax": "none | <string>+",
+      "baseline": "widely"
+    },
+    "grid-template-columns": {
+      "syntax": "none | <track-list> | <auto-track-list> | subgrid <line-name-list>?",
+      "baseline": "widely"
+    },
+    "grid-template-rows": {
+      "syntax": "none | <track-list> | <auto-track-list> | subgrid <line-name-list>?",
+      "baseline": "widely"
+    },
+    "height": {
+      "syntax": "auto | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "hyphenate-character": {
+      "syntax": "auto | <string>",
+      "baseline": "widely"
+    },
+    "hyphenate-limit-chars": {
+      "syntax": "[ auto | <integer [0,∞]> ]{1,3}",
+      "baseline": "limited"
+    },
+    "hyphens": {
+      "syntax": "none | manual | auto",
+      "baseline": "widely"
+    },
+    "image-orientation": {
+      "syntax": "from-image | none | [ <angle> || flip ]",
+      "baseline": "widely"
+    },
+    "image-rendering": {
+      "syntax": "auto | smooth | high-quality | pixelated | crisp-edges",
+      "baseline": "widely"
+    },
+    "initial-letter": {
+      "syntax": "normal | <number [1,∞]> <integer [1,∞]> | <number [1,∞]> && [ drop | raise ]?",
+      "baseline": "limited"
+    },
+    "inline-size": {
+      "syntax": "auto | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "inset": {
+      "syntax": "<'top'>{1,4}",
+      "baseline": "widely"
+    },
+    "inset-block": {
+      "syntax": "<'top'>{1,2}",
+      "baseline": "widely"
+    },
+    "inset-block-end": {
+      "syntax": "auto | <length-percentage>",
+      "baseline": "widely"
+    },
+    "inset-block-start": {
+      "syntax": "auto | <length-percentage>",
+      "baseline": "widely"
+    },
+    "inset-inline": {
+      "syntax": "<'top'>{1,2}",
+      "baseline": "widely"
+    },
+    "inset-inline-end": {
+      "syntax": "auto | <length-percentage>",
+      "baseline": "widely"
+    },
+    "inset-inline-start": {
+      "syntax": "auto | <length-percentage>",
+      "baseline": "widely"
+    },
+    "interactivity": {
+      "syntax": "auto | inert",
+      "baseline": "limited"
+    },
+    "interest-delay": {
+      "syntax": "<'interest-delay-start'>{1,2}",
+      "baseline": "limited"
+    },
+    "interest-delay-end": {
+      "syntax": "normal | <time>",
+      "baseline": "limited"
+    },
+    "interest-delay-start": {
+      "syntax": "normal | <time>",
+      "baseline": "limited"
+    },
+    "interpolate-size": {
+      "syntax": "numeric-only | allow-keywords",
+      "baseline": "limited"
+    },
+    "isolation": {
+      "syntax": "<isolation-mode>",
+      "baseline": "widely"
+    },
+    "justify-content": {
+      "syntax": "normal | <content-distribution> | <overflow-position>? [ <content-position> | left | right ]",
+      "baseline": "widely"
+    },
+    "justify-items": {
+      "syntax": "normal | stretch | <baseline-position> | <overflow-position>? [ <self-position> | left | right ] | legacy | legacy && [ left | right | center ]",
+      "baseline": "widely"
+    },
+    "justify-self": {
+      "syntax": "auto | <overflow-position>? [ normal | <self-position> | left | right ] | stretch | <baseline-position> | anchor-center",
+      "baseline": "widely"
+    },
+    "left": {
+      "syntax": "auto | <length-percentage> | <anchor()> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "letter-spacing": {
+      "syntax": "normal | <length-percentage>",
+      "baseline": "widely"
+    },
+    "lighting-color": {
+      "syntax": "<color>",
+      "baseline": "widely"
+    },
+    "line-break": {
+      "syntax": "auto | loose | normal | strict | anywhere",
+      "baseline": "widely"
+    },
+    "line-clamp": {
+      "syntax": "none | [<'max-lines'> || <'block-ellipsis'>] -webkit-legacy?",
+      "baseline": "limited"
+    },
+    "line-height": {
+      "syntax": "normal | <number [0,∞]> | <length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "list-style": {
+      "syntax": "<'list-style-position'> || <'list-style-image'> || <'list-style-type'>",
+      "baseline": "widely"
+    },
+    "list-style-image": {
+      "syntax": "<image> | none",
+      "baseline": "widely"
+    },
+    "list-style-position": {
+      "syntax": "inside | outside",
+      "baseline": "widely"
+    },
+    "list-style-type": {
+      "syntax": "<counter-style> | <string> | none",
+      "baseline": "widely"
+    },
+    "margin": {
+      "syntax": "<'margin-top'>{1,4}",
+      "baseline": "widely"
+    },
+    "margin-block": {
+      "syntax": "<'margin-top'>{1,2}",
+      "baseline": "widely"
+    },
+    "margin-block-end": {
+      "syntax": "<'margin-top'>",
+      "baseline": "widely"
+    },
+    "margin-block-start": {
+      "syntax": "<'margin-top'>",
+      "baseline": "widely"
+    },
+    "margin-bottom": {
+      "syntax": "<length-percentage> | auto | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "margin-inline": {
+      "syntax": "<'margin-top'>{1,2}",
+      "baseline": "widely"
+    },
+    "margin-inline-end": {
+      "syntax": "<'margin-top'>",
+      "baseline": "widely"
+    },
+    "margin-inline-start": {
+      "syntax": "<'margin-top'>",
+      "baseline": "widely"
+    },
+    "margin-left": {
+      "syntax": "<length-percentage> | auto | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "margin-right": {
+      "syntax": "<length-percentage> | auto | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "margin-top": {
+      "syntax": "<length-percentage> | auto | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "margin-trim": {
+      "syntax": "none | block | [ block-start || block-end ]",
+      "baseline": "limited"
+    },
+    "marker": {
+      "syntax": "none | <marker-ref>",
+      "baseline": "widely"
+    },
+    "marker-end": {
+      "syntax": "none | <marker-ref>",
+      "baseline": "widely"
+    },
+    "marker-mid": {
+      "syntax": "none | <marker-ref>",
+      "baseline": "widely"
+    },
+    "marker-start": {
+      "syntax": "none | <marker-ref>",
+      "baseline": "widely"
+    },
+    "mask": {
+      "syntax": "<mask-layer>#",
+      "baseline": "widely"
+    },
+    "mask-border": {
+      "syntax": "<'mask-border-source'> || <'mask-border-slice'> [ / <'mask-border-width'>? [ / <'mask-border-outset'> ]? ]? || <'mask-border-repeat'> || <'mask-border-mode'>",
+      "baseline": "limited"
+    },
+    "mask-border-outset": {
+      "syntax": "<'border-image-outset'>",
+      "baseline": "limited"
+    },
+    "mask-border-repeat": {
+      "syntax": "<'border-image-repeat'>",
+      "baseline": "limited"
+    },
+    "mask-border-slice": {
+      "syntax": "<'border-image-slice'>",
+      "baseline": "limited"
+    },
+    "mask-border-source": {
+      "syntax": "<'border-image-source'>",
+      "baseline": "limited"
+    },
+    "mask-border-width": {
+      "syntax": "<'border-image-width'>",
+      "baseline": "limited"
+    },
+    "mask-clip": {
+      "syntax": "[ <coord-box> | no-clip ]#",
+      "baseline": "widely"
+    },
+    "mask-composite": {
+      "syntax": "<compositing-operator>#",
+      "baseline": "widely"
+    },
+    "mask-image": {
+      "syntax": "<mask-reference>#",
+      "baseline": "widely"
+    },
+    "mask-mode": {
+      "syntax": "<masking-mode>#",
+      "baseline": "limited"
+    },
+    "mask-origin": {
+      "syntax": "<coord-box>#",
+      "baseline": "widely"
+    },
+    "mask-position": {
+      "syntax": "<position>#",
+      "baseline": "widely"
+    },
+    "mask-repeat": {
+      "syntax": "<repeat-style>#",
+      "baseline": "widely"
+    },
+    "mask-size": {
+      "syntax": "<bg-size>#",
+      "baseline": "widely"
+    },
+    "mask-type": {
+      "syntax": "luminance | alpha",
+      "baseline": "widely"
+    },
+    "math-depth": {
+      "syntax": "auto-add | add(<integer>) | <integer>",
+      "baseline": "newly"
+    },
+    "math-shift": {
+      "syntax": "normal | compact",
+      "baseline": "newly"
+    },
+    "math-style": {
+      "syntax": "normal | compact",
+      "baseline": "widely"
+    },
+    "max-block-size": {
+      "syntax": "none | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "max-height": {
+      "syntax": "none | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "max-inline-size": {
+      "syntax": "none | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "max-width": {
+      "syntax": "none | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "min-block-size": {
+      "syntax": "auto | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "min-height": {
+      "syntax": "auto | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "min-inline-size": {
+      "syntax": "auto | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "min-width": {
+      "syntax": "auto | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "mix-blend-mode": {
+      "syntax": "<blend-mode> | plus-lighter",
+      "baseline": "widely"
+    },
+    "object-fit": {
+      "syntax": "fill | none | [contain | cover] || scale-down",
+      "baseline": "widely"
+    },
+    "object-position": {
+      "syntax": "<position>",
+      "baseline": "widely"
+    },
+    "object-view-box": {
+      "syntax": "none | <basic-shape-rect>",
+      "baseline": "limited"
+    },
+    "offset": {
+      "syntax": "[ <'offset-position'>? [ <'offset-path'> [ <'offset-distance'> || <'offset-rotate'> ]? ]? ]! [ / <'offset-anchor'> ]?",
+      "baseline": "widely"
+    },
+    "offset-anchor": {
+      "syntax": "auto | <position>",
+      "baseline": "widely"
+    },
+    "offset-distance": {
+      "syntax": "<length-percentage>",
+      "baseline": "widely"
+    },
+    "offset-path": {
+      "syntax": "none | <offset-path> || <coord-box>",
+      "baseline": "widely"
+    },
+    "offset-position": {
+      "syntax": "normal | auto | <position>",
+      "baseline": "widely"
+    },
+    "offset-rotate": {
+      "syntax": "[ auto | reverse ] || <angle>",
+      "baseline": "widely"
+    },
+    "opacity": {
+      "syntax": "<opacity-value>",
+      "baseline": "widely"
+    },
+    "order": {
+      "syntax": "<integer>",
+      "baseline": "widely"
+    },
+    "orphans": {
+      "syntax": "<integer [1,∞]>",
+      "baseline": "limited"
+    },
+    "outline": {
+      "syntax": "<'outline-width'> || <'outline-style'> || <'outline-color'>",
+      "baseline": "widely"
+    },
+    "outline-color": {
+      "syntax": "auto | <'border-top-color'>",
+      "baseline": "widely"
+    },
+    "outline-offset": {
+      "syntax": "<length>",
+      "baseline": "widely"
+    },
+    "outline-style": {
+      "syntax": "auto | <outline-line-style>",
+      "baseline": "widely"
+    },
+    "outline-width": {
+      "syntax": "<line-width>",
+      "baseline": "widely"
+    },
+    "overflow": {
+      "syntax": "<'overflow-block'>{1,2}",
+      "baseline": "widely"
+    },
+    "overflow-anchor": {
+      "syntax": "auto | none",
+      "baseline": "newly"
+    },
+    "overflow-block": {
+      "syntax": "visible | hidden | clip | scroll | auto",
+      "baseline": "newly"
+    },
+    "overflow-clip-margin": {
+      "syntax": "<visual-box> || <length>",
+      "baseline": "limited"
+    },
+    "overflow-inline": {
+      "syntax": "visible | hidden | clip | scroll | auto",
+      "baseline": "newly"
+    },
+    "overflow-wrap": {
+      "syntax": "normal | break-word | anywhere",
+      "baseline": "widely"
+    },
+    "overflow-x": {
+      "syntax": "visible | hidden | clip | scroll | auto",
+      "baseline": "widely"
+    },
+    "overflow-y": {
+      "syntax": "visible | hidden | clip | scroll | auto",
+      "baseline": "widely"
+    },
+    "overlay": {
+      "syntax": "none | auto",
+      "baseline": "limited"
+    },
+    "overscroll-behavior": {
+      "syntax": "[ contain | none | auto | chain ]{1,2}",
+      "baseline": "limited"
+    },
+    "overscroll-behavior-block": {
+      "syntax": "contain | none | auto | chain",
+      "baseline": "limited"
+    },
+    "overscroll-behavior-inline": {
+      "syntax": "contain | none | auto | chain",
+      "baseline": "limited"
+    },
+    "overscroll-behavior-x": {
+      "syntax": "contain | none | auto | chain",
+      "baseline": "limited"
+    },
+    "overscroll-behavior-y": {
+      "syntax": "contain | none | auto | chain",
+      "baseline": "limited"
+    },
+    "padding": {
+      "syntax": "<'padding-top'>{1,4}",
+      "baseline": "widely"
+    },
+    "padding-block": {
+      "syntax": "<'padding-top'>{1,2}",
+      "baseline": "widely"
+    },
+    "padding-block-end": {
+      "syntax": "<'padding-top'>",
+      "baseline": "widely"
+    },
+    "padding-block-start": {
+      "syntax": "<'padding-top'>",
+      "baseline": "widely"
+    },
+    "padding-bottom": {
+      "syntax": "<length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "padding-inline": {
+      "syntax": "<'padding-top'>{1,2}",
+      "baseline": "widely"
+    },
+    "padding-inline-end": {
+      "syntax": "<'padding-top'>",
+      "baseline": "widely"
+    },
+    "padding-inline-start": {
+      "syntax": "<'padding-top'>",
+      "baseline": "widely"
+    },
+    "padding-left": {
+      "syntax": "<length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "padding-right": {
+      "syntax": "<length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "padding-top": {
+      "syntax": "<length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "page": {
+      "syntax": "auto | <custom-ident>",
+      "baseline": "widely"
+    },
+    "paint-order": {
+      "syntax": "normal | [ fill || stroke || markers ]",
+      "baseline": "widely"
+    },
+    "perspective": {
+      "syntax": "none | <length [0,∞]>",
+      "baseline": "widely"
+    },
+    "perspective-origin": {
+      "syntax": "<position>",
+      "baseline": "widely"
+    },
+    "place-content": {
+      "syntax": "<'align-content'> <'justify-content'>?",
+      "baseline": "widely"
+    },
+    "place-items": {
+      "syntax": "<'align-items'> <'justify-items'>?",
+      "baseline": "widely"
+    },
+    "place-self": {
+      "syntax": "<'align-self'> <'justify-self'>?",
+      "baseline": "widely"
+    },
+    "pointer-events": {
+      "syntax": "auto | bounding-box | visiblePainted | visibleFill | visibleStroke | visible | painted | fill | stroke | all | none",
+      "baseline": "widely"
+    },
+    "position": {
+      "syntax": "static | relative | absolute | sticky | fixed | <running()>",
+      "baseline": "widely"
+    },
+    "position-anchor": {
+      "syntax": "normal | none | auto | <anchor-name> | match-parent",
+      "baseline": "newly"
+    },
+    "position-area": {
+      "syntax": "none | <position-area>",
+      "baseline": "newly"
+    },
+    "position-try": {
+      "syntax": "<'position-try-order'>? <'position-try-fallbacks'>",
+      "baseline": "newly"
+    },
+    "position-try-fallbacks": {
+      "syntax": "none | [ [<dashed-ident> || <try-tactic>] | <position-area> ]#",
+      "baseline": "newly"
+    },
+    "position-try-order": {
+      "syntax": "normal | <try-size>",
+      "baseline": "newly"
+    },
+    "position-visibility": {
+      "syntax": "always | [ anchor-valid || anchor-visible || no-overflow ]",
+      "baseline": "newly"
+    },
+    "print-color-adjust": {
+      "syntax": "economy | exact",
+      "baseline": "newly"
+    },
+    "quotes": {
+      "syntax": "auto | none | bikeshed-this | [ <string> <string> ]+",
+      "baseline": "widely"
+    },
+    "r": {
+      "syntax": "<length-percentage>",
+      "baseline": "widely"
+    },
+    "reading-flow": {
+      "syntax": "normal | source-order | flex-visual | flex-flow | grid-rows | grid-columns | grid-order",
+      "baseline": "limited"
+    },
+    "reading-order": {
+      "syntax": "<integer>",
+      "baseline": "limited"
+    },
+    "resize": {
+      "syntax": "none | both | horizontal | vertical | block | inline",
+      "baseline": "limited"
+    },
+    "right": {
+      "syntax": "auto | <length-percentage> | <anchor()> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "rotate": {
+      "syntax": "none | <angle> | [ x | y | z | <number>{3} ] && <angle>",
+      "baseline": "widely"
+    },
+    "row-gap": {
+      "syntax": "normal | <length-percentage [0,∞]> | <line-width>",
+      "baseline": "widely"
+    },
+    "row-rule": {
+      "syntax": "<gap-rule-list> | <gap-auto-rule-list>",
+      "baseline": "limited"
+    },
+    "row-rule-break": {
+      "syntax": "none | normal | intersection",
+      "baseline": "limited"
+    },
+    "row-rule-color": {
+      "syntax": "<line-color-list> | <auto-line-color-list>",
+      "baseline": "limited"
+    },
+    "row-rule-inset": {
+      "syntax": "<'column-rule-inset-cap'> [ / <'column-rule-inset-junction'> ]?",
+      "baseline": "limited"
+    },
+    "row-rule-inset-cap": {
+      "syntax": "<inset-value> <inset-value>?",
+      "baseline": "limited"
+    },
+    "row-rule-inset-cap-end": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "row-rule-inset-cap-start": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "row-rule-inset-end": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "row-rule-inset-junction": {
+      "syntax": "<inset-value> <inset-value>?",
+      "baseline": "limited"
+    },
+    "row-rule-inset-junction-end": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "row-rule-inset-junction-start": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "row-rule-inset-start": {
+      "syntax": "<inset-value>",
+      "baseline": "limited"
+    },
+    "row-rule-style": {
+      "syntax": "<line-style-list> | <auto-line-style-list>",
+      "baseline": "limited"
+    },
+    "row-rule-visibility-items": {
+      "syntax": "all | around | between | normal",
+      "baseline": "limited"
+    },
+    "row-rule-width": {
+      "syntax": "<line-width-list> | <auto-line-width-list>",
+      "baseline": "limited"
+    },
+    "ruby-align": {
+      "syntax": "start | center | space-between | space-around",
+      "baseline": "newly"
+    },
+    "ruby-overhang": {
+      "syntax": "auto | spaces",
+      "baseline": "limited"
+    },
+    "ruby-position": {
+      "syntax": "[ alternate || [ over | under ] ] | inter-character",
+      "baseline": "newly"
+    },
+    "rule": {
+      "syntax": "<'column-rule'>",
+      "baseline": "limited"
+    },
+    "rule-break": {
+      "syntax": "<'column-rule-break'>",
+      "baseline": "limited"
+    },
+    "rule-color": {
+      "syntax": "<'column-rule-color'>",
+      "baseline": "limited"
+    },
+    "rule-inset": {
+      "syntax": "<'column-rule-inset'>",
+      "baseline": "limited"
+    },
+    "rule-inset-cap": {
+      "syntax": "<'column-rule-inset-cap'>",
+      "baseline": "limited"
+    },
+    "rule-inset-end": {
+      "syntax": "<'column-rule-inset-end'>",
+      "baseline": "limited"
+    },
+    "rule-inset-junction": {
+      "syntax": "<'column-rule-inset-junction'>",
+      "baseline": "limited"
+    },
+    "rule-inset-start": {
+      "syntax": "<'column-rule-inset-start'>",
+      "baseline": "limited"
+    },
+    "rule-overlap": {
+      "syntax": "row-over-column | column-over-row",
+      "baseline": "limited"
+    },
+    "rule-style": {
+      "syntax": "<'column-rule-style'>",
+      "baseline": "limited"
+    },
+    "rule-visibility-items": {
+      "syntax": "<'column-rule-visibility-items'>",
+      "baseline": "limited"
+    },
+    "rule-width": {
+      "syntax": "<'column-rule-width'>",
+      "baseline": "limited"
+    },
+    "rx": {
+      "syntax": "<length-percentage> | auto",
+      "baseline": "widely"
+    },
+    "ry": {
+      "syntax": "<length-percentage> | auto",
+      "baseline": "widely"
+    },
+    "scale": {
+      "syntax": "none | [ <number> | <percentage> ]{1,3}",
+      "baseline": "widely"
+    },
+    "scroll-axis-lock": {
+      "syntax": "auto | none",
+      "baseline": "limited"
+    },
+    "scroll-behavior": {
+      "syntax": "auto | smooth",
+      "baseline": "widely"
+    },
+    "scroll-initial-target": {
+      "syntax": "none | nearest",
+      "baseline": "limited"
+    },
+    "scroll-margin": {
+      "syntax": "<length>{1,4}",
+      "baseline": "widely"
+    },
+    "scroll-margin-block": {
+      "syntax": "<length>{1,2}",
+      "baseline": "widely"
+    },
+    "scroll-margin-block-end": {
+      "syntax": "<length>",
+      "baseline": "widely"
+    },
+    "scroll-margin-block-start": {
+      "syntax": "<length>",
+      "baseline": "widely"
+    },
+    "scroll-margin-bottom": {
+      "syntax": "<length>",
+      "baseline": "widely"
+    },
+    "scroll-margin-inline": {
+      "syntax": "<length>{1,2}",
+      "baseline": "widely"
+    },
+    "scroll-margin-inline-end": {
+      "syntax": "<length>",
+      "baseline": "widely"
+    },
+    "scroll-margin-inline-start": {
+      "syntax": "<length>",
+      "baseline": "widely"
+    },
+    "scroll-margin-left": {
+      "syntax": "<length>",
+      "baseline": "widely"
+    },
+    "scroll-margin-right": {
+      "syntax": "<length>",
+      "baseline": "widely"
+    },
+    "scroll-margin-top": {
+      "syntax": "<length>",
+      "baseline": "widely"
+    },
+    "scroll-marker-group": {
+      "syntax": "none | [ [ before | after ] || [ links | tabs ] ]",
+      "baseline": "limited"
+    },
+    "scroll-padding": {
+      "syntax": "[ auto | <length-percentage [0,∞]> ]{1,4}",
+      "baseline": "widely"
+    },
+    "scroll-padding-block": {
+      "syntax": "[ auto | <length-percentage [0,∞]> ]{1,2}",
+      "baseline": "widely"
+    },
+    "scroll-padding-block-end": {
+      "syntax": "auto | <length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "scroll-padding-block-start": {
+      "syntax": "auto | <length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "scroll-padding-bottom": {
+      "syntax": "auto | <length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "scroll-padding-inline": {
+      "syntax": "[ auto | <length-percentage [0,∞]> ]{1,2}",
+      "baseline": "widely"
+    },
+    "scroll-padding-inline-end": {
+      "syntax": "auto | <length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "scroll-padding-inline-start": {
+      "syntax": "auto | <length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "scroll-padding-left": {
+      "syntax": "auto | <length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "scroll-padding-right": {
+      "syntax": "auto | <length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "scroll-padding-top": {
+      "syntax": "auto | <length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "scroll-snap-align": {
+      "syntax": "[ none | start | end | center ]{1,2}",
+      "baseline": "widely"
+    },
+    "scroll-snap-stop": {
+      "syntax": "normal | always",
+      "baseline": "widely"
+    },
+    "scroll-snap-type": {
+      "syntax": "none | [ x | y | block | inline | both | pair ] [ mandatory | proximity ]?",
+      "baseline": "widely"
+    },
+    "scroll-target-group": {
+      "syntax": "none | auto",
+      "baseline": "limited"
+    },
+    "scroll-timeline": {
+      "syntax": "[ <'scroll-timeline-name'> <'scroll-timeline-axis'>? ]#",
+      "baseline": "newly"
+    },
+    "scroll-timeline-axis": {
+      "syntax": "[ block | inline | x | y ]#",
+      "baseline": "newly"
+    },
+    "scroll-timeline-name": {
+      "syntax": "[ none | <dashed-ident> ]#",
+      "baseline": "newly"
+    },
+    "scrollbar-color": {
+      "syntax": "auto | <color>{2}",
+      "baseline": "newly"
+    },
+    "scrollbar-gutter": {
+      "syntax": "auto | stable && both-edges?",
+      "baseline": "newly"
+    },
+    "scrollbar-width": {
+      "syntax": "auto | thin | none",
+      "baseline": "newly"
+    },
+    "shape-image-threshold": {
+      "syntax": "<opacity-value>",
+      "baseline": "widely"
+    },
+    "shape-margin": {
+      "syntax": "<length-percentage [0,∞]>",
+      "baseline": "widely"
+    },
+    "shape-outside": {
+      "syntax": "none | [ <basic-shape> || <shape-box> ] | <image>",
+      "baseline": "widely"
+    },
+    "shape-rendering": {
+      "syntax": "auto | optimizeSpeed | crispEdges | geometricPrecision",
+      "baseline": "widely"
+    },
+    "speak": {
+      "syntax": "auto | never | always",
+      "baseline": "limited"
+    },
+    "stop-color": {
+      "syntax": "<'color'>",
+      "baseline": "widely"
+    },
+    "stop-opacity": {
+      "syntax": "<'opacity'>",
+      "baseline": "widely"
+    },
+    "stroke": {
+      "syntax": "<paint>",
+      "baseline": "widely"
+    },
+    "stroke-dasharray": {
+      "syntax": "none | [<length-percentage> | <number>]+#",
+      "baseline": "widely"
+    },
+    "stroke-dashoffset": {
+      "syntax": "<length-percentage> | <number>",
+      "baseline": "widely"
+    },
+    "stroke-linecap": {
+      "syntax": "butt | round | square",
+      "baseline": "widely"
+    },
+    "stroke-linejoin": {
+      "syntax": "[ crop | arcs | miter ] || [ bevel | round | fallback ]",
+      "baseline": "widely"
+    },
+    "stroke-miterlimit": {
+      "syntax": "<number>",
+      "baseline": "widely"
+    },
+    "stroke-opacity": {
+      "syntax": "<'opacity'>",
+      "baseline": "widely"
+    },
+    "stroke-width": {
+      "syntax": "[ <length-percentage> | <line-width> | <number> ]#",
+      "baseline": "widely"
+    },
+    "tab-size": {
+      "syntax": "<number [0,∞]> | <length [0,∞]>",
+      "baseline": "widely"
+    },
+    "table-layout": {
+      "syntax": "auto | fixed",
+      "baseline": "widely"
+    },
+    "text-align": {
+      "syntax": "start | end | left | right | center | <string> | justify | match-parent | justify-all",
+      "baseline": "widely"
+    },
+    "text-align-last": {
+      "syntax": "auto | start | end | left | right | center | justify | match-parent",
+      "baseline": "widely"
+    },
+    "text-anchor": {
+      "syntax": "start | middle | end",
+      "baseline": "widely"
+    },
+    "text-autospace": {
+      "syntax": "normal | <autospace> | auto",
+      "baseline": "newly"
+    },
+    "text-box": {
+      "syntax": "normal | <'text-box-trim'> || <'text-box-edge'>",
+      "baseline": "newly"
+    },
+    "text-box-edge": {
+      "syntax": "auto | <text-edge>",
+      "baseline": "newly"
+    },
+    "text-box-trim": {
+      "syntax": "none | trim-start | trim-end | trim-both",
+      "baseline": "newly"
+    },
+    "text-combine-upright": {
+      "syntax": "none | all | [ digits <integer [2,4]>? ]",
+      "baseline": "widely"
+    },
+    "text-decoration": {
+      "syntax": "<'text-decoration-line'> || <'text-decoration-thickness'> || <'text-decoration-style'> || <'text-decoration-color'>",
+      "baseline": "widely"
+    },
+    "text-decoration-color": {
+      "syntax": "<color>",
+      "baseline": "widely"
+    },
+    "text-decoration-inset": {
+      "syntax": "<length-percentage>{1,2} | auto",
+      "baseline": "limited"
+    },
+    "text-decoration-line": {
+      "syntax": "none | [ underline || overline || line-through || blink ] | spelling-error | grammar-error",
+      "baseline": "widely"
+    },
+    "text-decoration-skip-ink": {
+      "syntax": "auto | none | all",
+      "baseline": "widely"
+    },
+    "text-decoration-skip-spaces": {
+      "syntax": "none | all | [ start || end ]",
+      "baseline": "limited"
+    },
+    "text-decoration-style": {
+      "syntax": "solid | double | dotted | dashed | wavy",
+      "baseline": "widely"
+    },
+    "text-decoration-thickness": {
+      "syntax": "auto | from-font | <length-percentage> | <line-width>",
+      "baseline": "widely"
+    },
+    "text-emphasis": {
+      "syntax": "<'text-emphasis-style'> || <'text-emphasis-color'>",
+      "baseline": "widely"
+    },
+    "text-emphasis-color": {
+      "syntax": "<color>",
+      "baseline": "widely"
+    },
+    "text-emphasis-position": {
+      "syntax": "[ over | under ] && [ right | left ]?",
+      "baseline": "widely"
+    },
+    "text-emphasis-style": {
+      "syntax": "none | [ [ filled | open ] || [ dot | circle | double-circle | triangle | sesame ] ] | <string>",
+      "baseline": "widely"
+    },
+    "text-fit": {
+      "syntax": "[ none | grow | shrink ] [consistent | per-line | per-line-all]? <percentage>?",
+      "baseline": "limited"
+    },
+    "text-indent": {
+      "syntax": "[ <length-percentage> ] && hanging? && each-line?",
+      "baseline": "widely"
+    },
+    "text-justify": {
+      "syntax": "[ auto | none | inter-word | inter-character | ruby ] || no-compress",
+      "baseline": "limited"
+    },
+    "text-orientation": {
+      "syntax": "mixed | upright | sideways",
+      "baseline": "widely"
+    },
+    "text-overflow": {
+      "syntax": "[ clip | ellipsis | <string> | fade | <fade()> ]{1,2}",
+      "baseline": "widely"
+    },
+    "text-rendering": {
+      "syntax": "auto | optimizeSpeed | optimizeLegibility | geometricPrecision",
+      "baseline": "widely"
+    },
+    "text-shadow": {
+      "syntax": "none | <shadow>#",
+      "baseline": "widely"
+    },
+    "text-size-adjust": {
+      "syntax": "auto | none | <percentage [0,∞]>",
+      "baseline": "limited"
+    },
+    "text-spacing-trim": {
+      "syntax": "<spacing-trim> | auto",
+      "baseline": "limited"
+    },
+    "text-transform": {
+      "syntax": "none | [capitalize | uppercase | lowercase ] || full-width || full-size-kana | math-auto",
+      "baseline": "widely"
+    },
+    "text-underline-offset": {
+      "syntax": "auto | <length-percentage>",
+      "baseline": "widely"
+    },
+    "text-underline-position": {
+      "syntax": "auto | [ from-font | under ] || [ left | right ]",
+      "baseline": "widely"
+    },
+    "text-wrap": {
+      "syntax": "<'text-wrap-mode'> || <'text-wrap-style'>",
+      "baseline": "widely"
+    },
+    "text-wrap-mode": {
+      "syntax": "wrap | nowrap",
+      "baseline": "newly"
+    },
+    "text-wrap-style": {
+      "syntax": "auto | balance | stable | pretty | avoid-short-last-line",
+      "baseline": "newly"
+    },
+    "timeline-scope": {
+      "syntax": "none | all | <dashed-ident>#",
+      "baseline": "newly"
+    },
+    "timeline-trigger": {
+      "syntax": "none | [ <'timeline-trigger-name'> <'timeline-trigger-source'> [ <'timeline-trigger-range'> ]? ]#",
+      "baseline": "limited"
+    },
+    "timeline-trigger-activation-range": {
+      "syntax": "[ <'timeline-trigger-activation-range-start'> <'timeline-trigger-activation-range-end'>? ]#",
+      "baseline": "limited"
+    },
+    "timeline-trigger-activation-range-end": {
+      "syntax": "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#",
+      "baseline": "limited"
+    },
+    "timeline-trigger-activation-range-start": {
+      "syntax": "[ normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#",
+      "baseline": "limited"
+    },
+    "timeline-trigger-active-range": {
+      "syntax": "[ <'timeline-trigger-active-range-start'> <'timeline-trigger-active-range-end'>? ]#",
+      "baseline": "limited"
+    },
+    "timeline-trigger-active-range-end": {
+      "syntax": "[ auto | normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#",
+      "baseline": "limited"
+    },
+    "timeline-trigger-active-range-start": {
+      "syntax": "[ auto | normal | <length-percentage> | <timeline-range-name> <length-percentage>? ]#",
+      "baseline": "limited"
+    },
+    "timeline-trigger-name": {
+      "syntax": "none | <dashed-ident>#",
+      "baseline": "limited"
+    },
+    "timeline-trigger-source": {
+      "syntax": "[ none | auto | [ <dashed-ident> | <scroll()> | <view()> ]+ ]#",
+      "baseline": "limited"
+    },
+    "top": {
+      "syntax": "auto | <length-percentage> | <anchor()> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "touch-action": {
+      "syntax": "auto | none | [ [ pan-x | pan-left | pan-right ] || [ pan-y | pan-up | pan-down ] || pinch-zoom ] | manipulation",
+      "baseline": "widely"
+    },
+    "transform": {
+      "syntax": "none | <transform-list>",
+      "baseline": "widely"
+    },
+    "transform-box": {
+      "syntax": "content-box | border-box | fill-box | stroke-box | view-box",
+      "baseline": "widely"
+    },
+    "transform-origin": {
+      "syntax": "[ left | center | right | top | bottom | <length-percentage> ] | [ left | center | right | <length-percentage> ] [ top | center | bottom | <length-percentage> ] <length>? | [ [ center | left | right ] && [ center | top | bottom ] ] <length>?",
+      "baseline": "widely"
+    },
+    "transform-style": {
+      "syntax": "flat | preserve-3d",
+      "baseline": "widely"
+    },
+    "transition": {
+      "syntax": "<single-transition>#",
+      "baseline": "widely"
+    },
+    "transition-behavior": {
+      "syntax": "<transition-behavior-value>#",
+      "baseline": "limited"
+    },
+    "transition-delay": {
+      "syntax": "<time>#",
+      "baseline": "widely"
+    },
+    "transition-duration": {
+      "syntax": "<time [0s,∞]>#",
+      "baseline": "widely"
+    },
+    "transition-property": {
+      "syntax": "none | <single-transition-property>#",
+      "baseline": "widely"
+    },
+    "transition-timing-function": {
+      "syntax": "<easing-function>#",
+      "baseline": "widely"
+    },
+    "translate": {
+      "syntax": "none | <length-percentage> [ <length-percentage> <length>? ]?",
+      "baseline": "widely"
+    },
+    "trigger-scope": {
+      "syntax": "none | all | <dashed-ident>#",
+      "baseline": "limited"
+    },
+    "unicode-bidi": {
+      "syntax": "normal | embed | isolate | bidi-override | isolate-override | plaintext",
+      "baseline": "widely"
+    },
+    "user-select": {
+      "syntax": "auto | text | none | contain | all",
+      "baseline": "limited"
+    },
+    "vector-effect": {
+      "syntax": "none | non-scaling-stroke | non-scaling-size | non-rotation | fixed-position",
+      "baseline": "widely"
+    },
+    "vertical-align": {
+      "syntax": "[ first | last] || <'alignment-baseline'> || <'baseline-shift'>",
+      "baseline": "widely"
+    },
+    "view-timeline": {
+      "syntax": "[ <'view-timeline-name'> [ <'view-timeline-axis'> || <'view-timeline-inset'> ]? ]#",
+      "baseline": "newly"
+    },
+    "view-timeline-axis": {
+      "syntax": "[ block | inline | x | y ]#",
+      "baseline": "newly"
+    },
+    "view-timeline-inset": {
+      "syntax": "[ [ auto | <length-percentage> ]{1,2} ]#",
+      "baseline": "newly"
+    },
+    "view-timeline-name": {
+      "syntax": "[ none | <dashed-ident> ]#",
+      "baseline": "newly"
+    },
+    "view-transition-class": {
+      "syntax": "none | <custom-ident>+",
+      "baseline": "newly"
+    },
+    "view-transition-group": {
+      "syntax": "normal | contain | nearest | <custom-ident>",
+      "baseline": "limited"
+    },
+    "view-transition-name": {
+      "syntax": "none | <custom-ident>",
+      "baseline": "newly"
+    },
+    "view-transition-scope": {
+      "syntax": "none | all",
+      "baseline": "limited"
+    },
+    "visibility": {
+      "syntax": "visible | hidden | force-hidden | collapse",
+      "baseline": "widely"
+    },
+    "white-space": {
+      "syntax": "normal | pre | pre-wrap | pre-line | <'white-space-collapse'> || <'text-wrap-mode'> || <'white-space-trim'>",
+      "baseline": "widely"
+    },
+    "white-space-collapse": {
+      "syntax": "collapse | discard | preserve | preserve-breaks | preserve-spaces | break-spaces",
+      "baseline": "widely"
+    },
+    "widows": {
+      "syntax": "<integer [1,∞]>",
+      "baseline": "limited"
+    },
+    "width": {
+      "syntax": "auto | <box-size> | <anchor-size()>",
+      "baseline": "widely"
+    },
+    "will-change": {
+      "syntax": "auto | <animateable-feature>#",
+      "baseline": "widely"
+    },
+    "window-drag": {
+      "syntax": "none | move",
+      "baseline": "limited"
+    },
+    "word-break": {
+      "syntax": "normal | break-all | keep-all | manual | auto-phrase | break-word",
+      "baseline": "widely"
+    },
+    "word-spacing": {
+      "syntax": "normal | <length-percentage>",
+      "baseline": "widely"
+    },
+    "writing-mode": {
+      "syntax": "horizontal-tb | vertical-rl | vertical-lr | sideways-rl | sideways-lr",
+      "baseline": "widely"
+    },
+    "x": {
+      "syntax": "<length-percentage>",
+      "baseline": "widely"
+    },
+    "y": {
+      "syntax": "<length-percentage>",
+      "baseline": "widely"
+    },
+    "z-index": {
+      "syntax": "auto | <integer> | inherit",
+      "baseline": "widely"
+    },
+    "zoom": {
+      "syntax": "<number [0,∞]> | <percentage [0,∞]>",
+      "baseline": "newly"
+    }
+  },
+  "referenced": {
+    "animation-delay-end": "<time [0s,∞]>#",
+    "animation-delay-start": "<time>#",
+    "block-ellipsis": "no-ellipsis | ellipsis | <string>",
+    "box-shadow-blur": "<length [0,∞]>#",
+    "box-shadow-color": "<color>#",
+    "box-shadow-position": "[ outset | inset ]#",
+    "box-shadow-spread": "<length>#",
+    "mask-border-mode": "luminance | alpha",
+    "max-lines": "auto || <integer [1,∞]>",
+    "timeline-trigger-range": "[ <'timeline-trigger-activation-range'> [ / <'timeline-trigger-active-range'> ]? ]#",
+    "white-space-trim": "none | discard-before || discard-after || discard-inner"
+  },
+  "types": {
+    "a-n-plus-b": "odd | even | <integer> | <n-dimension> | '+'? n | -n | <ndashdigit-dimension> | '+'? <ndashdigit-ident> | <dashndashdigit-ident> | <n-dimension> <signed-integer> | '+'? n <signed-integer> | -n <signed-integer> | <ndash-dimension> <signless-integer> | '+'? n- <signless-integer> | -n- <signless-integer> | <n-dimension> ['+' | '-'] <signless-integer> | '+'? n ['+' | '-'] <signless-integer> | -n ['+' | '-'] <signless-integer>",
+    "abs()": "abs( <calc-sum> )",
+    "absolute-size": "[ xx-small | x-small | small | medium | large | x-large | xx-large | xxx-large ]",
+    "acos()": "acos( <calc-sum> )",
+    "alpha()": "alpha(from <color> / [<alpha-value> | none])",
+    "alpha-value": "<number> | <percentage>",
+    "alt-text": "[ <string> | <counter> | <attr()> ]+",
+    "anchor()": "anchor( <anchor-name>? && <anchor-side>, <length-percentage>? )",
+    "anchor-name": "<dashed-ident>",
+    "anchor-side": "inside | outside | top | left | right | bottom | start | end | self-start | self-end | <percentage> | center",
+    "anchor-size": "width | height | block | inline | self-block | self-inline",
+    "anchor-size()": "anchor-size( [ <anchor-name> || <anchor-size> ]? , <length-percentage>? )",
+    "anchored-in-parens": "( <anchored-query> ) | ( <anchored-feature> ) | <general-enclosed>",
+    "anchored-query": "not <anchored-in-parens> | <anchored-in-parens> [ [ and <anchored-in-parens> ]* | [ or <anchored-in-parens> ]* ] | <anchored-feature>",
+    "angle-percentage": "[ <angle> | <percentage> ]",
+    "angular-color-hint": "<angle-percentage> | <zero>",
+    "angular-color-stop": "<color> <color-stop-angle>?",
+    "angular-color-stop-list": "<angular-color-stop> , [ <angular-color-hint>? , <angular-color-stop> ]#?",
+    "animateable-feature": "scroll-position | contents | <custom-ident>",
+    "arc-command": "arc <command-end-point> [ [ of <length-percentage>{1,2} ] && <arc-sweep>? && <arc-size>? && [rotate <angle>]? ]",
+    "arc-size": "large | small",
+    "arc-sweep": "cw | ccw",
+    "asin()": "asin( <calc-sum> )",
+    "atan()": "atan( <calc-sum> )",
+    "atan2()": "atan2( <calc-sum>, <calc-sum> )",
+    "attachment": "scroll | fixed | local",
+    "attr()": "attr( <attr-name> <attr-type>? , <declaration-value>?)",
+    "attr-args": "attr( <declaration-value>, <declaration-value>? )",
+    "attr-matcher": "[ '~' | '|' | '^' | '$' | '*' ]? '='",
+    "attr-modifier": "i | s",
+    "attr-name": "[ <ident-token>? '|' ]? <ident-token>",
+    "attr-type": "type( <syntax> ) | raw-string | number | <attr-unit>",
+    "attr-unit": "<custom-ident>",
+    "attribute-selector": "'[' <wq-name> ']' | '[' <wq-name> <attr-matcher> [ <string-token> | <ident-token> ] <attr-modifier>? ']'",
+    "auto-line-color-list": "<line-color-or-repeat>#? , <auto-repeat-line-color> , <line-color-or-repeat>#?",
+    "auto-line-style-list": "<line-style-or-repeat>#? , <auto-repeat-line-style> , <line-style-or-repeat>#?",
+    "auto-line-width-list": "<line-width-or-repeat>#? , <auto-repeat-line-width> , <line-width-or-repeat>#?",
+    "auto-repeat": "repeat( [ auto-fill | auto-fit ] , [ <line-names>? <track-size> ]+ <line-names>? )",
+    "auto-repeat-line-color": "repeat( auto , [ <color> ]# )",
+    "auto-repeat-line-style": "repeat( auto , [ <line-style> ]# )",
+    "auto-repeat-line-width": "repeat( auto , [ <line-width> ]# )",
+    "auto-track-list": "[ <line-names>? [ <fixed-size> | <fixed-repeat> ] ]* <line-names>? <auto-repeat> [ <line-names>? [ <fixed-size> | <fixed-repeat> ] ]* <line-names>?",
+    "autospace": "no-autospace | [ ideograph-alpha || ideograph-numeric || punctuation ] || [ insert | replace ]",
+    "axis": "block | inline | x | y",
+    "base-descriptor": "base-url : stylesheet | document | <url>",
+    "baseline-metric": "text-bottom | alphabetic | ideographic | middle | central | mathematical | hanging | text-top",
+    "baseline-position": "[ first | last ]? && baseline",
+    "basic-shape": "<basic-shape-rect> | <circle()> | <ellipse()> | <polygon()> | <path()> | <shape()>",
+    "basic-shape-rect": "<inset()> | <rect()> | <xywh()>",
+    "bg-clip": "<visual-box> | [ border-area || text ]",
+    "bg-image": "<image> | none",
+    "bg-layer": "<bg-image> || <bg-position> [ / <bg-size> ]? || <repeat-style> || <attachment> || <visual-box> || <bg-clip>",
+    "bg-position": "<position> | <position-three>",
+    "bg-size": "[ <length-percentage [0,∞]> | auto ]{1,2} | cover | contain",
+    "blend-mode": "normal | darken | multiply | color-burn | lighten | screen | color-dodge | overlay | soft-light | hard-light | difference | exclusion | hue | saturation | color | luminosity",
+    "blur()": "blur( <length>? )",
+    "boolean-expr": "not <boolean-expr-group> | <boolean-expr-group> [ [ and <boolean-expr-group> ]* | [ or <boolean-expr-group> ]* ]",
+    "border-radius": "<slash-separated-border-radius-syntax> | <legacy-border-radius-syntax>",
+    "box-size": "<length-percentage [0,∞]> | stretch | contain | min-content | max-content | fit-content | stretch(<length-percentage [0,∞]>) | fit-content(<length-percentage [0,∞]>) | <calc-size()>",
+    "brightness()": "brightness( [ <number> | <percentage> ]? )",
+    "calc()": "calc( <calc-sum> )",
+    "calc-interpolate()": "calc-interpolate( [ <progress-source> && [ by <easing-function> ]? && <easing-function>? ] , <input-position>{1,2} : <calc-sum> , [ <easing-function>? , <input-position>{1,2} : <calc-sum> ]#? )",
+    "calc-keyword": "e | pi | infinity | -infinity | NaN",
+    "calc-mix()": "calc-mix( [ <calc-sum> <percentage [0,100]>? ]# )",
+    "calc-product": "<calc-value> [ [ '*' | / ] <calc-value> ]*",
+    "calc-size()": "calc-size( <calc-size-basis>, <calc-sum> )",
+    "calc-size-basis": "[ <size-keyword> | <calc-sum> | <calc-size()> | any ]",
+    "calc-sum": "<calc-product> [ [ '+' | '-' ] <calc-product> ]*",
+    "calc-value": "<number> | <dimension> | <percentage> | <calc-keyword> | ( <calc-sum> )",
+    "cf-image": "[ <image> | <color> ] && <percentage [0,100]>?",
+    "change()": "change()",
+    "circle()": "circle( <radial-size>? [ at <position> ]? )",
+    "clamp()": "clamp( [ <calc-sum> | none ], <calc-sum>, [ <calc-sum> | none ] )",
+    "class-selector": "'.' <ident-token> '*'?",
+    "click()": "click()",
+    "clip-source": "<url>",
+    "cmyk-component": "<number> | <percentage> | none",
+    "color": "<color-base> | currentColor | <system-color> | <contrast-color()> | <device-cmyk()> | <light-dark-color>",
+    "color()": "color( [from <color>]? <colorspace-params> [ / [ <alpha-value> | none ] ]? )",
+    "color-base": "<hex-color> | <color-function> | <named-color> | <color-mix()> | transparent",
+    "color-font-tech": "[color-COLRv0 | color-COLRv1 | color-SVG | color-sbix | color-CBDT ]",
+    "color-function": "<rgb()> | <rgba()> | <hsl()> | <hsla()> | <hwb()> | <lab()> | <lch()> | <oklab()> | <oklch()> | <ictcp()> | <jzazbz()> | <jzczhz()> | <alpha()> | <color()> | <hdr-color()>",
+    "color-interpolate()": "color-interpolate( [ <progress-source> && [ by <easing-function> ]? && <easing-function>? && <color-interpolation-method>? ] , <input-position>{1,2} : <color>, [ [ <easing-function> || <color-interpolation-method> ]?, <input-position>{1,2} : <color> ]#? )",
+    "color-interpolation-method": "in [ <rectangular-color-space> | <polar-color-space> <hue-interpolation-method>? | <custom-color-space> ]",
+    "color-layers()": "color-layers([ <blend-mode>, ]? <color># )",
+    "color-mix()": "color-mix( <color-interpolation-method>? , [ <color> && <percentage [0,100]>? ]#)",
+    "color-space": "<rectangular-color-space> | <polar-color-space> | <custom-color-space>",
+    "color-stop": "<color-stop-length> | <color-stop-angle>",
+    "color-stop-angle": "[ <angle-percentage> | <zero> ]{1,2}",
+    "color-stop-length": "<length-percentage>{1,2}",
+    "color-stop-list": "<linear-color-stop> , [ <linear-color-hint>? , <linear-color-stop> ]#?",
+    "color-stripe": "<color> && [ <length-percentage> | <flex> ]?",
+    "colorspace-params": "[<custom-params> | <predefined-rgb-params> | <xyz-params>]",
+    "combinator": "'>' | '+' | '~' | [ '|' '|' ] | [ / <wq-name> / ]",
+    "command-end-point": "[ to <position> | by <coordinate-pair> ]",
+    "common-lig-values": "[ common-ligatures | no-common-ligatures ]",
+    "compat-auto": "searchfield | textarea | checkbox | radio | menulist | listbox | meter | progress-bar | button",
+    "compat-special": "textfield | menulist-button",
+    "complex-real-selector": "<compound-selector> [ <combinator>? <compound-selector> ]*",
+    "complex-real-selector-list": "<complex-real-selector>#",
+    "complex-selector": "<complex-selector-unit> [ <combinator>? <complex-selector-unit> ]*",
+    "complex-selector-list": "<complex-selector>#",
+    "complex-selector-unit": "[ <compound-selector>? <pseudo-compound-selector>* ]!",
+    "composite-mode": "clear | copy | source-over | destination-over | source-in | destination-in | source-out | destination-out | source-atop | destination-atop | xor | lighter | plus-darker | plus-lighter",
+    "compositing-operator": "add | subtract | intersect | exclude",
+    "compound-selector": "[ <type-selector>? <subclass-selector>* ]!",
+    "compound-selector-list": "<compound-selector>#",
+    "conic-gradient()": "conic-gradient( [ <conic-gradient-syntax> ] )",
+    "conic-gradient-syntax": "[ [ [ from [ <angle> | <zero> ] ]? [ at <position> ]? ] || <color-interpolation-method> ]? , <angular-color-stop-list>",
+    "container-condition": "[ <container-name>? <container-query>? ]!",
+    "container-name": "<custom-ident>",
+    "container-query": "not <query-in-parens> | <query-in-parens> [ [ and <query-in-parens> ]* | [ or <query-in-parens> ]* ]",
+    "content()": "content( [ text | before | after | first-letter | marker ]? )",
+    "content-distribution": "space-between | space-around | space-evenly | stretch",
+    "content-level": "element | content | text | <attr()> | <counter>",
+    "content-list": "[ <string> | <image> | <attr()> | contents | <quote> | <leader()> | <target> | <string()> | <content()> | <counter> | <symbolic-glyph> ]+",
+    "content-position": "center | start | end | flow-start | flow-end | flex-start | flex-end",
+    "content-replacement": "<image>",
+    "contextual-alt-values": "[ contextual | no-contextual ]",
+    "contrast()": "contrast( [ <number> | <percentage> ]? )",
+    "contrast-color()": "contrast-color( [ [ <color> && [ tbd-fg | tbd-bg ] && <target-contrast>? ] | [ <color> && [ tbd-fg | tbd-bg ] && <target-contrast>, <color># ] ] )",
+    "control-point": "[ <position> | <relative-control-point> ]",
+    "control-value()": "control-value( <type>? )",
+    "coord-box": "<paint-box> | view-box",
+    "coordinate-pair": "<length-percentage>{2}",
+    "corner-shape-value": "round | scoop | bevel | notch | square | squircle | <superellipse()>",
+    "cos()": "cos( <calc-sum> )",
+    "counter": "<counter()> | <counters()>",
+    "counter()": "counter( <counter-name>, <counter-style>? )",
+    "counter-name": "<custom-ident>",
+    "counter-style": "<counter-style-name> | <symbols()>",
+    "counter-style-name": "<custom-ident>",
+    "counters()": "counters( <counter-name>, <string>, <counter-style>? )",
+    "cross-fade()": "cross-fade( <cf-image># )",
+    "cross-origin-modifier": "cross-origin(anonymous | use-credentials)",
+    "css-type": "<syntax-component> | <type()>",
+    "cubic-bezier()": "cubic-bezier( [ <number [0,1]>, <number> ]#{2} )",
+    "cubic-bezier-easing-function": "ease | ease-in | ease-out | ease-in-out | <cubic-bezier()>",
+    "cursor-image": "[ <url> | <url-set> ] <number>{2}?",
+    "cursor-predefined": "auto | default | none | context-menu | help | pointer | progress | wait | cell | crosshair | text | vertical-text | alias | copy | move | no-drop | not-allowed | grab | grabbing | e-resize | n-resize | ne-resize | nw-resize | s-resize | se-resize | sw-resize | w-resize | ew-resize | ns-resize | nesw-resize | nwse-resize | col-resize | row-resize | all-scroll | zoom-in | zoom-out",
+    "curve-command": "curve [ [ to <position> with <control-point> [ / <control-point> ]? ] | [ by <coordinate-pair> with <relative-control-point> [ / <relative-control-point> ]? ] ]",
+    "custom-arg": "'$' <ident-token>",
+    "custom-color-space": "<dashed-ident>",
+    "custom-params": "<dashed-ident> [ <number> | <percentage> | none ]+",
+    "custom-selector": "<custom-arg>? : <extension-name> [ ( <custom-arg>+#? ) ]?",
+    "cycle()": "cycle( <whole-value># )",
+    "dasharray": "[ [ <length-percentage> | <number> ]+ ]#",
+    "dashndashdigit-ident": "<ident-token>",
+    "dblclick()": "dblclick()",
+    "default-value": "<declaration-value>",
+    "deprecated-color": "ActiveBorder | ActiveCaption | AppWorkspace | Background | ButtonHighlight | ButtonShadow | CaptionText | InactiveBorder | InactiveCaption | InactiveCaptionText | InfoBackground | InfoText | Menu | MenuText | Scrollbar | ThreeDDarkShadow | ThreeDFace | ThreeDHighlight | ThreeDLightShadow | ThreeDShadow | Window | WindowFrame | WindowText",
+    "device-cmyk()": "<legacy-device-cmyk-syntax> | <modern-device-cmyk-syntax>",
+    "discretionary-lig-values": "[ discretionary-ligatures | no-discretionary-ligatures ]",
+    "display-box": "contents | none",
+    "display-inside": "flow | flow-root | table | flex | grid | ruby",
+    "display-internal": "table-row-group | table-header-group | table-footer-group | table-row | table-cell | table-column-group | table-column | table-caption | ruby-base | ruby-text | ruby-base-container | ruby-text-container",
+    "display-legacy": "inline-block | inline-table | inline-flex | inline-grid",
+    "display-listitem": "<display-outside>? && [ flow | flow-root ]? && list-item",
+    "display-outside": "block | inline | run-in",
+    "drop-shadow()": "drop-shadow( [ <color>? && <length>{2,3} ] )",
+    "dynamic-range-limit-mix()": "dynamic-range-limit-mix( [ <'dynamic-range-limit'> && <percentage [0,100]> ]# )",
+    "easing-function": "<linear-easing-function> | <cubic-bezier-easing-function> | <step-easing-function>",
+    "east-asian-variant-values": "[ jis78 | jis83 | jis90 | jis04 | simplified | traditional ]",
+    "east-asian-width-values": "[ full-width | proportional-width ]",
+    "element()": "element( <id-selector> )",
+    "ellipse()": "ellipse( <radial-size>? [ at <position> ]? )",
+    "env()": "env( <custom-ident> <integer [0,∞]>*, <declaration-value>? )",
+    "env-args": "env( <declaration-value>, <declaration-value>? )",
+    "event-function": "<click()> | <dblclick()> | <pointerenter()> | <pointerleave()> | <pointerup()> | <pointerdown()> | <keypress()> | <focusin()> | <focusout()> | <input()> | <change()>",
+    "exp()": "exp( <calc-sum> )",
+    "explicit-track-list": "[ <line-names>? <track-size> ]+ <line-names>?",
+    "fade()": "fade( [ <length-percentage> ] )",
+    "feature-tag-value": "<opentype-tag> [ <integer [0,∞]> | on | off ]?",
+    "filter()": "filter( [ <image> | <string> ], <filter-value-list> )",
+    "filter-function": "<blur()> | <brightness()> | <contrast()> | <drop-shadow()> | <grayscale()> | <hue-rotate()> | <invert()> | <opacity()> | <sepia()> | <saturate()>",
+    "filter-value-list": "[ <filter-function> | <url> ]+",
+    "final-bg-layer": "<bg-image> || <bg-position> [ / <bg-size> ]? || <repeat-style> || <attachment> || <visual-box> || <bg-clip> || <'background-color'>",
+    "first-valid()": "first-valid( <declaration-value># )",
+    "fit-content()": "fit-content( <length-percentage> )",
+    "fixed-breadth": "<length-percentage [0,∞]>",
+    "fixed-repeat": "repeat( [ <integer [1,∞]> ] , [ <line-names>? <fixed-size> ]+ <line-names>? )",
+    "fixed-size": "<fixed-breadth> | minmax( <fixed-breadth> , <track-breadth> ) | minmax( <inflexible-breadth> , <fixed-breadth> )",
+    "focusin()": "focusin()",
+    "focusout()": "focusout()",
+    "font-family-name": "<string> | <custom-ident>+",
+    "font-feature-index": "<integer>",
+    "font-feature-value-name": "<ident>",
+    "font-features-tech": "[features-opentype | features-aat | features-graphite]",
+    "font-format": "[<string> | collection | embedded-opentype | opentype | svg | truetype | woff | woff2 ]",
+    "font-src": "<url> [ format( <font-format> ) ]? [ tech( <font-tech># ) ]? | local( <font-family-name> )",
+    "font-tech": "[<font-features-tech> | <color-font-tech> | variations | palettes | incremental ]",
+    "font-variant-css2": "normal | small-caps",
+    "font-weight-absolute": "[ normal | bold | <number [1,1000]> ]",
+    "font-width-css3": "normal | ultra-condensed | extra-condensed | condensed | semi-condensed | semi-expanded | expanded | extra-expanded | ultra-expanded",
+    "form-control-identifier": "select",
+    "frequency-percentage": "[ <frequency> | <percentage> ]",
+    "function-parameter": "<custom-property-name> <css-type>? [ : <default-value> ]?",
+    "gap-auto-repeat-rule": "repeat( auto , <gap-rule># )",
+    "gap-auto-rule-list": "<gap-rule-or-repeat>#? , <gap-auto-repeat-rule> , <gap-rule-or-repeat>#?",
+    "gap-repeat-rule": "repeat( <integer [1,∞]> , <gap-rule># )",
+    "gap-rule": "<line-width> || <line-style> || <color>",
+    "gap-rule-list": "<gap-rule-or-repeat>#",
+    "gap-rule-or-repeat": "<gap-rule> | <gap-repeat-rule>",
+    "general-enclosed": "[ <function-token> <any-value>? ) ] | [ ( <any-value>? ) ]",
+    "generic-font-complete": "serif | sans-serif | system-ui | cursive | fantasy | math | monospace",
+    "generic-font-family": "<generic-font-script-specific>| <generic-font-complete> | <generic-font-incomplete>",
+    "generic-font-incomplete": "ui-serif | ui-sans-serif | ui-monospace | ui-rounded",
+    "generic-font-script-specific": "generic(fangsong) | generic(kai) | generic(khmer-mul) | generic(nastaliq)",
+    "generic-voice": "<age>? <gender> <integer [1,∞]>?",
+    "geometry-box": "<shape-box> | fill-box | stroke-box | view-box",
+    "gradient": "[ <linear-gradient()> | <repeating-linear-gradient()> | <radial-gradient()> | <repeating-radial-gradient()> | <conic-gradient()> | <repeating-conic-gradient()> ]",
+    "grayscale()": "grayscale( [ <number> | <percentage> ]? )",
+    "grid-line": "auto | <custom-ident> | [ [ <integer [-∞,-1]> | <integer [1,∞]> ] && <custom-ident>? ] | [ span && [ <integer [1,∞]> || <custom-ident> ] ]",
+    "hdr-color()": "color-hdr([ <color> && <number [0,∞]>? ]#{2})",
+    "highlight-name-selector": "'*' | <custom-ident>",
+    "historical-lig-values": "[ historical-ligatures | no-historical-ligatures ]",
+    "horizontal-line-command": "hline [ to [ <length-percentage> | left | center | right | x-start | x-end ] | by <length-percentage> ]",
+    "hsl()": "[ <legacy-hsl-syntax> | <modern-hsl-syntax> ]",
+    "hsla()": "[ <legacy-hsla-syntax> | <modern-hsla-syntax> ]",
+    "hue": "<number> | <angle>",
+    "hue-interpolation-method": "[ shorter | longer | increasing | decreasing ] hue",
+    "hue-rotate()": "hue-rotate( [ <angle> | <zero> ]? )",
+    "hwb()": "hwb([from <color>]? [<hue> | none] [<percentage> | <number> | none] [<percentage> | <number> | none] [ / [<alpha-value> | none] ]? )",
+    "hypot()": "hypot( <calc-sum># )",
+    "ictcp()": "ictcp([from <color>]? [<percentage> | <number> | none] [<percentage> | <number> | none] [<percentage> | <number> | none] [ / [<alpha-value> | none] ]? )",
+    "id-selector": "<hash-token>",
+    "ident()": "ident( <ident-arg>+ )",
+    "ident-arg": "<string> | <integer> | <ident>",
+    "ident-args": "ident( <declaration-value> )",
+    "if()": "if( [ <if-branch> ; ]* <if-branch> ;? )",
+    "if-args": "if( [ <if-args-branch> ; ]* <if-args-branch> ;? )",
+    "if-args-branch": "<declaration-value> : <declaration-value>?",
+    "if-branch": "<if-condition> : <declaration-value>?",
+    "if-condition": "<boolean-expr[ <if-test> ]> | else",
+    "if-test": "supports( [ <ident> : <declaration-value> ] | <supports-condition> ) | media( <media-feature> | <media-condition> ) | style( <style-query> )",
+    "image": "<url> | <image()> | <image-set()> | <cross-fade()> | <element()> | <gradient>",
+    "image()": "image( <image-tags>? [ <image-src>? , <color>? ]! )",
+    "image-1D": "<stripes()>",
+    "image-set()": "image-set( <image-set-option># )",
+    "image-set-option": "[ <image> | <string> ] [ <resolution> || type(<string>) ]?",
+    "image-src": "[ <url> | <string> ]",
+    "image-tags": "[ ltr | rtl ]",
+    "import-conditions": "[ supports( [ <supports-condition> | <declaration> ] ) ]? <media-query-list>?",
+    "inflexible-breadth": "<length-percentage [0,∞]> | min-content | max-content | auto",
+    "inherit()": "inherit( <custom-property-name>, <declaration-value>? )",
+    "inherit-args": "inherit( <declaration-value>, <declaration-value>? )",
+    "init-descriptor": "<init-descriptor-name> : <string>",
+    "init-descriptor-name": "protocol | hostname | port | pathname | search | hash",
+    "input()": "input()",
+    "input-position": "<percentage> | <number> | <dimension>",
+    "inset()": "inset( <length-percentage>{1,4} [ round <'border-radius'> ]? )",
+    "inset-value": "<length-percentage> | overlap-join",
+    "integer": "<number-token>",
+    "integrity-modifier": "integrity(<string>)",
+    "interpolate()": "interpolate( [ <progress-source> && [ by <easing-function> ]? && <easing-function>? ] , <input-position>{1,2} : <whole-value>, [ <easing-function>?, <input-position>{1,2} : <whole-value> ]#? ) | interpolate( <progress-source> && [ by <easing-function> ]? && <easing-function>? of <keyframes-name> )",
+    "invert()": "invert( [ <number> | <percentage> ]? )",
+    "isolation-mode": "auto | isolate",
+    "jzazbz()": "jzazbz([from <color>]? [<percentage> | <number> | none] [<percentage> | <number> | none] [<percentage> | <number> | none] [ / [<alpha-value> | none] ]? )",
+    "jzczhz()": "jzczhz([from <color>]? [<percentage> | <number> | none] [<percentage> | <number> | none] [<hue> | none] [ / [<alpha-value> | none] ]? )",
+    "keyframe-block": "<keyframe-selector># { <declaration-list> }",
+    "keyframe-selector": "from | to | <percentage [0,100]>",
+    "keyframes-name": "<custom-ident> | <string>",
+    "keypress()": "keypress( <string>? )",
+    "lab()": "lab([from <color>]? [<percentage> | <number> | none] [<percentage> | <number> | none] [<percentage> | <number> | none] [ / [<alpha-value> | none] ]? )",
+    "layer-name": "<ident> [ '.' <ident> ]*",
+    "layout-box": "<visual-box> | margin-box",
+    "lch()": "lch([from <color>]? [<percentage> | <number> | none] [<percentage> | <number> | none] [<hue> | none] [ / [<alpha-value> | none] ]? )",
+    "leader()": "leader( <leader-type> )",
+    "leader-type": "dotted | solid | space | <string>",
+    "legacy-border-radius-syntax": "<length-percentage [0,∞]>{1,2}",
+    "legacy-device-cmyk-syntax": "device-cmyk( <number>#{4} )",
+    "legacy-hsl-syntax": "hsl( <hue>, <percentage>, <percentage>, <alpha-value>? )",
+    "legacy-hsla-syntax": "hsla( <hue>, <percentage>, <percentage>, <alpha-value>? )",
+    "legacy-pseudo-element-selector": ": [before | after | first-line | first-letter]",
+    "legacy-rgb-syntax": "rgb( <percentage>#{3} , <alpha-value>? ) | rgb( <number>#{3} , <alpha-value>? )",
+    "legacy-rgba-syntax": "rgba( <percentage>#{3} , <alpha-value>? ) | rgba( <number>#{3} , <alpha-value>? )",
+    "length-percentage": "[ <length> | <percentage> ]",
+    "light-dark()": "<light-dark-color> | <light-dark-image>",
+    "light-dark-color": "light-dark(<color>, <color>)",
+    "light-dark-image": "light-dark( [ <image> | none ] , [ <image> | none ] )",
+    "line-color-list": "<line-color-or-repeat>#",
+    "line-color-or-repeat": "[ <color> | <repeat-line-color> ]",
+    "line-command": "line <command-end-point>",
+    "line-name-list": "[ <line-names> | <name-repeat> ]+",
+    "line-names": "'[' <custom-ident>* ']'",
+    "line-style": "none | hidden | dotted | dashed | solid | double | groove | ridge | inset | outset",
+    "line-style-list": "<line-style-or-repeat>#",
+    "line-style-or-repeat": "[ <line-style> | <repeat-line-style> ]",
+    "line-width": "<length [0,∞]> | hairline | thin | medium | thick",
+    "line-width-list": "<line-width-or-repeat>#",
+    "line-width-or-repeat": "[ <line-width> | <repeat-line-width> ]",
+    "linear()": "linear( [ <number> && <percentage>{0,2} ]# )",
+    "linear-color-hint": "<length-percentage>",
+    "linear-color-stop": "<color> <color-stop-length>?",
+    "linear-easing-function": "linear | <linear()>",
+    "linear-gradient()": "linear-gradient( [ <linear-gradient-syntax> ] )",
+    "linear-gradient-syntax": "[ [ <angle> | <zero> | to <side-or-corner> ] || <color-interpolation-method> ]? , <color-stop-list>",
+    "location-descriptor": "<pattern-descriptor> | <init-descriptor> | <base-descriptor>",
+    "location-name": "<dashed-ident>",
+    "location-rule": "@location <dashed-ident> { <declaration-list> }",
+    "log()": "log( <calc-sum>, <calc-sum>? )",
+    "marker-ref": "<url>",
+    "mask-layer": "<mask-reference> || <position> [ / <bg-size> ]? || <repeat-style> || <geometry-box> || [ <geometry-box> | no-clip ] || <compositing-operator> || <masking-mode>",
+    "mask-reference": "none | <image> | <mask-source>",
+    "mask-source": "<url>",
+    "masking-mode": "alpha | luminance | match-source",
+    "matrix()": "matrix( <number>#{6} )",
+    "matrix3d()": "matrix3d( <number>#{16} )",
+    "max()": "max( <calc-sum># )",
+    "media()": "media( [ <mf-plain> | <mf-boolean> | <mf-range> ] )",
+    "media-and": "and <media-in-parens>",
+    "media-condition": "<media-not> | <media-in-parens> [ <media-and>* | <media-or>* ]",
+    "media-condition-without-or": "<media-not> | <media-in-parens> <media-and>*",
+    "media-feature": "[ <mf-plain> | <mf-boolean> | <mf-range> ]",
+    "media-import-condition": "<media-query-list>",
+    "media-in-parens": "( <media-condition> ) | ( <media-feature> ) | <general-enclosed>",
+    "media-not": "not <media-in-parens>",
+    "media-or": "or <media-in-parens>",
+    "media-query": "<media-condition> | [ not | only ]? <media-type> [ and <media-condition-without-or> ]?",
+    "media-type": "<ident>",
+    "mf-boolean": "<mf-name>",
+    "mf-comparison": "<mf-lt> | <mf-gt> | <mf-eq>",
+    "mf-eq": "'='",
+    "mf-gt": "'>' '='?",
+    "mf-lt": "'<' '='?",
+    "mf-name": "<ident>",
+    "mf-plain": "<mf-name> : <mf-value>",
+    "mf-range": "<mf-name> <mf-comparison> <mf-value> | <mf-value> <mf-comparison> <mf-name> | <mf-value> <mf-lt> <mf-name> <mf-lt> <mf-value> | <mf-value> <mf-gt> <mf-name> <mf-gt> <mf-value>",
+    "mf-value": "<number> | <dimension> | <ident> | <ratio>",
+    "min()": "min( <calc-sum># )",
+    "minmax()": "minmax(min, max)",
+    "mod()": "mod( <calc-sum>, <calc-sum> )",
+    "modern-device-cmyk-syntax": "device-cmyk( <cmyk-component>{4} [ / [ <alpha-value> | none ] ]? )",
+    "modern-hsl-syntax": "hsl([from <color>]? [<hue> | none] [<percentage> | <number> | none] [<percentage> | <number> | none] [ / [<alpha-value> | none] ]? )",
+    "modern-hsla-syntax": "hsla([from <color>]? [<hue> | none] [<percentage> | <number> | none] [<percentage> | <number> | none] [ / [<alpha-value> | none] ]? )",
+    "modern-rgb-syntax": "rgb( [ from <color> ]? [ <number> | <percentage> | none]{3} [ / [<alpha-value> | none] ]? )",
+    "modern-rgba-syntax": "rgba( [ from <color> ]? [ <number> | <percentage> | none]{3} [ / [<alpha-value> | none] ]? )",
+    "move-command": "move <command-end-point>",
+    "mq-boolean": "<integer [0,1]>",
+    "n-dimension": "<dimension-token>",
+    "name-repeat": "repeat( [ <integer [1,∞]> | auto-fill ], <line-names>+)",
+    "named-color": "aliceblue | antiquewhite | aqua | aquamarine | azure | beige | bisque | black | blanchedalmond | blue | blueviolet | brown | burlywood | cadetblue | chartreuse | chocolate | coral | cornflowerblue | cornsilk | crimson | cyan | darkblue | darkcyan | darkgoldenrod | darkgray | darkgreen | darkgrey | darkkhaki | darkmagenta | darkolivegreen | darkorange | darkorchid | darkred | darksalmon | darkseagreen | darkslateblue | darkslategray | darkslategrey | darkturquoise | darkviolet | deeppink | deepskyblue | dimgray | dimgrey | dodgerblue | firebrick | floralwhite | forestgreen | fuchsia | gainsboro | ghostwhite | gold | goldenrod | gray | green | greenyellow | grey | honeydew | hotpink | indianred | indigo | ivory | khaki | lavender | lavenderblush | lawngreen | lemonchiffon | lightblue | lightcoral | lightcyan | lightgoldenrodyellow | lightgray | lightgreen | lightgrey | lightpink | lightsalmon | lightseagreen | lightskyblue | lightslategray | lightslategrey | lightsteelblue | lightyellow | lime | limegreen | linen | magenta | maroon | mediumaquamarine | mediumblue | mediumorchid | mediumpurple | mediumseagreen | mediumslateblue | mediumspringgreen | mediumturquoise | mediumvioletred | midnightblue | mintcream | mistyrose | moccasin | navajowhite | navy | oldlace | olive | olivedrab | orange | orangered | orchid | palegoldenrod | palegreen | paleturquoise | palevioletred | papayawhip | peachpuff | peru | pink | plum | powderblue | purple | rebeccapurple | red | rosybrown | royalblue | saddlebrown | salmon | sandybrown | seagreen | seashell | sienna | silver | skyblue | slateblue | slategray | slategrey | snow | springgreen | steelblue | tan | teal | thistle | tomato | turquoise | violet | wheat | white | whitesmoke | yellow | yellowgreen | transparent",
+    "namespace-prefix": "<ident>",
+    "navigation-condition": "not <navigation-in-parens> | <navigation-in-parens> [ and <navigation-in-parens> ]* | <navigation-in-parens> [ or <navigation-in-parens> ]*",
+    "navigation-in-parens": "( <navigation-condition> ) | ( <navigation-test> ) | <general-enclosed>",
+    "navigation-location": "<url> | [ <location-name> | <url-pattern()> ]",
+    "navigation-location-between-test": "between : <navigation-location> and <navigation-location>",
+    "navigation-location-test": "<navigation-relation> : <navigation-location>",
+    "navigation-phase-keyword": "loading | ready | committed",
+    "navigation-phase-test": "phase : <navigation-phase-keyword>",
+    "navigation-relation": "at | from | to",
+    "navigation-test": "<navigation-location-test> | <navigation-location-between-test> | <navigation-type-test> | <navigation-phase-test>",
+    "navigation-type-keyword": "traverse | back | forward | reload",
+    "navigation-type-test": "history : <navigation-type-keyword>",
+    "ndash-dimension": "<dimension-token>",
+    "ndashdigit-dimension": "<dimension-token>",
+    "ndashdigit-ident": "<ident-token>",
+    "ns-prefix": "[ <ident-token> | '*' ]? '|'",
+    "number-optional-number": "<number> <number>?",
+    "numeric-figure-values": "[ lining-nums | oldstyle-nums ]",
+    "numeric-fraction-values": "[ diagonal-fractions | stacked-fractions ]",
+    "numeric-spacing-values": "[ proportional-nums | tabular-nums ]",
+    "offset-path": "<ray()> | <url> | <basic-shape>",
+    "oklab()": "oklab([from <color>]? [<percentage> | <number> | none] [<percentage> | <number> | none] [<percentage> | <number> | none] [ / [<alpha-value> | none] ]? )",
+    "oklch()": "oklch([from <color>]? [<percentage> | <number> | none] [<percentage> | <number> | none] [<hue> | none] [ / [<alpha-value> | none] ]? )",
+    "opacity()": "opacity( [ <number> | <percentage> ]? )",
+    "opacity-value": "<number> | <percentage>",
+    "opentype-tag": "<string>",
+    "outline-line-style": "none | auto | dotted | dashed | solid | double | groove | ridge | inset | outset",
+    "overflow-position": "unsafe | safe",
+    "page-selector": "[ <ident-token>? <pseudo-page>* ]!",
+    "page-selector-list": "<page-selector>#",
+    "page-size": "A5 | A4 | A3 | B5 | B4 | JIS-B5 | JIS-B4 | letter | legal | ledger",
+    "paint": "none | <image> | <svg-paint>",
+    "paint()": "paint( <ident>, <declaration-value>? )",
+    "paint-box": "<visual-box> | fill-box | stroke-box",
+    "palette-identifier": "<dashed-ident>",
+    "palette-mix()": "palette-mix( <color-interpolation-method>? , [ <'font-palette'> && <percentage [0,100]>? ]# )",
+    "param()": "param( <param-spec> , <declaration-value>? )",
+    "param-spec": "color | accent-color | [ <dashed-ident> <css-type>? ]",
+    "path()": "path( <'fill-rule'>? , <string> )",
+    "pattern-descriptor": "pattern : <url-pattern()>",
+    "perspective()": "perspective( [ <length [0,∞]> | none ] )",
+    "pointer()": "pointer( [ <pointer-source> || <pointer-axis> ]? )",
+    "pointer-axis": "block | inline | x | y",
+    "pointer-source": "root | nearest | self",
+    "pointerdown()": "pointerdown()",
+    "pointerenter()": "pointerenter()",
+    "pointerleave()": "pointerleave()",
+    "pointerup()": "pointerup()",
+    "points": "[ <number>+ ]#",
+    "polar-color-space": "hsl | hwb | lch | oklch",
+    "polygon()": "polygon( <'fill-rule'>? [ round <length> ]? , [<length-percentage> <length-percentage>]# )",
+    "position": "<position-one> | <position-two> | <position-four>",
+    "position-area": "[ [ left | center | right | span-left | span-right | x-start | x-end | span-x-start | span-x-end | self-x-start | self-x-end | span-self-x-start | span-self-x-end | span-all ] || [ top | center | bottom | span-top | span-bottom | y-start | y-end | span-y-start | span-y-end | self-y-start | self-y-end | span-self-y-start | span-self-y-end | span-all ] | [ block-start | center | block-end | span-block-start | span-block-end | span-all ] || [ inline-start | center | inline-end | span-inline-start | span-inline-end | span-all ] | [ self-block-start | center | self-block-end | span-self-block-start | span-self-block-end | span-all ] || [ self-inline-start | center | self-inline-end | span-self-inline-start | span-self-inline-end | span-all ] | [ start | center | end | span-start | span-end | span-all ]{1,2} | [ self-start | center | self-end | span-self-start | span-self-end | span-all ]{1,2} ]",
+    "position-area-query": "[ [ left | center | right | span-left | span-right | x-start | x-end | span-x-start | span-x-end | self-x-start | self-x-end | span-self-x-start | span-self-x-end | span-all | any ] || [ top | center | bottom | span-top | span-bottom | y-start | y-end | span-y-start | span-y-end | self-y-start | self-y-end | span-self-y-start | span-self-y-end | span-all | any ] | [ block-start | center | block-end | span-block-start | span-block-end | span-all | any ] || [ inline-start | center | inline-end | span-inline-start | span-inline-end | span-all | any ] | [ self-block-start | center | self-block-end | span-self-block-start | span-self-block-end | span-all | any ] || [ self-inline-start | center | self-inline-end | span-self-inline-start | span-self-inline-end | span-all | any ] | [ start | center | end | span-start | span-end | span-all | any ]{1,2} | [ self-start | center | self-end | span-self-start | span-self-end | span-all | any ]{1,2} ]",
+    "position-four": "[ [ [ left | right | x-start | x-end ] <length-percentage> ] && [ [ top | bottom | y-start | y-end ] <length-percentage> ] | [ [ block-start | block-end ] <length-percentage> ] && [ [ inline-start | inline-end ] <length-percentage> ] | [ [ start | end ] <length-percentage> ]{2} ]",
+    "position-one": "[ left | center | right | top | bottom | x-start | x-end | y-start | y-end | block-start | block-end | inline-start | inline-end | <length-percentage> ]",
+    "position-three": "[ [ left | center | right ] && [ [ top | bottom ] <length-percentage> ] | [ [ left | right ] <length-percentage> ] && [ top | center | bottom ] ]",
+    "position-two": "[ [ left | center | right | x-start | x-end ] && [ top | center | bottom | y-start | y-end ] | [ left | center | right | x-start | x-end | <length-percentage> ] [ top | center | bottom | y-start | y-end | <length-percentage> ] | [ block-start | center | block-end ] && [ inline-start | center | inline-end ] | [ start | center | end ]{2} ]",
+    "pow()": "pow( <calc-sum>, <calc-sum> )",
+    "predefined-rgb": "srgb | srgb-linear | display-p3 | display-p3-linear | a98-rgb | prophoto-rgb | rec2020 | rec2100-pq | rec2100-hlg | rec2100-linear",
+    "predefined-rgb-params": "<predefined-rgb> [ <number> | <percentage> | none ]{3}",
+    "progress()": "progress(no-clamp? <calc-sum>, <calc-sum>, <calc-sum>)",
+    "progress-source": "<percentage> | <number> | <dimension> | <'animation-timeline'>",
+    "pseudo-class-selector": ": <ident-token> | : <function-token> <any-value> )",
+    "pseudo-compound-selector": "<pseudo-element-selector> <pseudo-class-selector>*",
+    "pseudo-element-selector": ": <pseudo-class-selector> | <legacy-pseudo-element-selector>",
+    "pseudo-page": ": [ left | right | first | blank ]",
+    "pt-class-selector": "['.' <custom-ident>]+",
+    "pt-name-and-class-selector": "<pt-name-selector> <pt-class-selector>? | <pt-class-selector>",
+    "pt-name-selector": "'*' | <custom-ident>",
+    "query-in-parens": "( <container-query> ) | ( <size-feature> ) | style( <style-query> ) | scroll-state( <scroll-state-query> ) | <general-enclosed>",
+    "quote": "open-quote | close-quote | no-open-quote | no-close-quote",
+    "radial-extent": "closest-corner | closest-side | farthest-corner | farthest-side",
+    "radial-gradient()": "radial-gradient( [ <radial-gradient-syntax> ] )",
+    "radial-gradient-syntax": "[ [ [ <radial-shape> || <radial-size> ]? [ at <position> ]? ] || <color-interpolation-method>]? , <color-stop-list>",
+    "radial-shape": "circle | ellipse",
+    "radial-size": "<radial-extent> | <length [0,∞]> | <length-percentage [0,∞]>{2}",
+    "random()": "random( <random-key>? , <calc-sum>, <calc-sum>, <calc-sum>? )",
+    "random-cache-key": "<dashed-ident> || element-scoped || [ property-scoped | property-index-scoped | <random-ua-ident> ]",
+    "random-item()": "random-item( <random-key> , [ <declaration-value>? ]# )",
+    "random-item-args": "random-item( <declaration-value>, [ <declaration-value>? ]# )",
+    "random-key": "auto | <random-cache-key> | fixed <number [0,1]>",
+    "random-ua-ident": "<custom-ident>",
+    "ratio": "<number [0,∞]> [ / <number [0,∞]> ]?",
+    "ray()": "ray( <angle> && <ray-size>? && contain? && [at <position>]? )",
+    "ray-size": "<radial-extent> | sides",
+    "rect()": "rect( <top>, <right>, <bottom>, <left> )",
+    "rectangular-color-space": "srgb | srgb-linear | display-p3 | display-p3-linear | a98-rgb | prophoto-rgb | rec2020 | lab | oklab | <xyz-space>",
+    "referrer-policy-modifier": "referrer-policy(no-referrer | no-referrer-when-downgrade | same-origin | origin | strict-origin | origin-when-cross-origin | strict-origin-when-cross-origin | unsafe-url)",
+    "relative-control-point": "<coordinate-pair> [ from [ start | end | origin ] ]?",
+    "relative-real-selector": "<combinator>? <complex-real-selector>",
+    "relative-real-selector-list": "<relative-real-selector>#",
+    "relative-selector": "<combinator>? <complex-selector>",
+    "relative-selector-list": "<relative-selector>#",
+    "relative-size": "[ larger | smaller ]",
+    "rem()": "rem( <calc-sum>, <calc-sum> )",
+    "repeat-line-color": "repeat( [ <integer [1,∞]> ] , [ <color> ]# )",
+    "repeat-line-style": "repeat( [ <integer [1,∞]> ] , [ <line-style> ]# )",
+    "repeat-line-width": "repeat( [ <integer [1,∞]> ] , [ <line-width> ]# )",
+    "repeat-style": "repeat-x | repeat-y | repeat-block | repeat-inline | <repetition>{1,2}",
+    "repeating-conic-gradient()": "repeating-conic-gradient( [ <conic-gradient-syntax> ] )",
+    "repeating-linear-gradient()": "repeating-linear-gradient( [ <linear-gradient-syntax> ] )",
+    "repeating-radial-gradient()": "repeating-radial-gradient( [ <radial-gradient-syntax> ] )",
+    "repetition": "repeat | space | round | no-repeat",
+    "request-url-modifier": "<cross-origin-modifier> | <integrity-modifier> | <referrer-policy-modifier>",
+    "reversed-counter-name": "reversed( <counter-name> )",
+    "rgb()": "[ <legacy-rgb-syntax> | <modern-rgb-syntax> ]",
+    "rgba()": "[ <legacy-rgba-syntax> | <modern-rgba-syntax> ]",
+    "rotate()": "rotate( [ <angle> | <zero> ] )",
+    "rotate3d()": "rotate3d( <number> , <number> , <number> , [ <angle> | <zero> ] )",
+    "rotateX()": "rotateX( [ <angle> | <zero> ] )",
+    "rotateY()": "rotateY( [ <angle> | <zero> ] )",
+    "rotateZ()": "rotateZ( [ <angle> | <zero> ] )",
+    "round()": "round( <rounding-strategy>?, <calc-sum>, <calc-sum>? )",
+    "rounding-strategy": "nearest | up | down | to-zero | line-width",
+    "running()": "running( <custom-ident> )",
+    "saturate()": "saturate( [ <number> | <percentage> ]? )",
+    "scale()": "scale( <number> , <number>? )",
+    "scale3d()": "scale3d( [ <number> | <percentage> ]#{3} )",
+    "scaleX()": "scaleX( <number> )",
+    "scaleY()": "scaleY( <number> )",
+    "scaleZ()": "scaleZ( [ <number> | <percentage> ] )",
+    "scope-boundaries": "[ [ ( <scope-start> ) ]? [ to ( <scope-end> ) ]? ]!",
+    "scope-end": "<selector-list>",
+    "scope-start": "<selector-list>",
+    "scroll()": "scroll( [ <scroller> || <axis> ]? )",
+    "scroll-button-direction": "up | down | left | right | block-start | block-end | inline-start | inline-end | prev | next",
+    "scroll-state-in-parens": "( <scroll-state-query> ) | ( <scroll-state-feature> ) | <general-enclosed>",
+    "scroll-state-query": "not <scroll-state-in-parens> | <scroll-state-in-parens> [ [ and <scroll-state-in-parens> ]* | [ or <scroll-state-in-parens> ]* ] | <scroll-state-feature>",
+    "scroller": "root | nearest | self",
+    "selector-list": "<complex-selector-list>",
+    "self-position": "center | start | end | self-start | self-end | flow-start | flow-end | flex-start | flex-end",
+    "sepia()": "sepia( [ <number> | <percentage> ]? )",
+    "shadow": "<color>? && [ <length>{2} [ <length [0,∞]> <length>? ]? ] && inset?",
+    "shape": "rect(<top>, <right>, <bottom>, <left>)",
+    "shape()": "shape( <'fill-rule'>? from <position> , <shape-command># )",
+    "shape-box": "<visual-box> | margin-box | half-border-box",
+    "shape-command": "<move-command> | <line-command> | close | <horizontal-line-command> | <vertical-line-command> | <curve-command> | <smooth-command> | <arc-command>",
+    "sibling-count()": "sibling-count()",
+    "sibling-index()": "sibling-index()",
+    "side-or-corner": "[left | right] || [top | bottom]",
+    "sign()": "sign( <calc-sum> )",
+    "signed-integer": "<number-token>",
+    "signless-integer": "<number-token>",
+    "simple-selector": "<type-selector> | <subclass-selector>",
+    "simple-selector-list": "<simple-selector>#",
+    "sin()": "sin( <calc-sum> )",
+    "single-animation": "<'animation-duration'> || <easing-function> || <'animation-delay-start'> || <single-animation-iteration-count> || <single-animation-direction> || <single-animation-fill-mode> || <single-animation-play-state> || [ none | <keyframes-name> ] || <single-animation-timeline>",
+    "single-animation-composition": "replace | add | accumulate",
+    "single-animation-direction": "normal | reverse | alternate | alternate-reverse",
+    "single-animation-fill-mode": "none | forwards | backwards | both",
+    "single-animation-iteration-count": "infinite | <number [0,∞]>",
+    "single-animation-play-state": "running | paused",
+    "single-animation-timeline": "auto | none | <dashed-ident> | <scroll()> | <view()>",
+    "single-transition": "[ none | <single-transition-property> ] || <time> || <easing-function> || <time> || <transition-behavior-value>",
+    "single-transition-property": "all | <custom-ident>",
+    "skew()": "skew( [ <angle> | <zero> ] , [ <angle> | <zero> ]? )",
+    "skewX()": "skewX( [ <angle> | <zero> ] )",
+    "skewY()": "skewY( [ <angle> | <zero> ] )",
+    "slash-separated-border-radius-syntax": "<length-percentage [0,∞]> [ / <length-percentage [0,∞]> ]?",
+    "smooth-command": "smooth [ [ to <position> [ with <control-point> ]? ] | [ by <coordinate-pair> [ with <relative-control-point> ]? ] ]",
+    "snap-block()": "snap-block( <length> , [ start | end | near ]? )",
+    "snap-inline()": "snap-inline( <length> , [ left | right | near ]? )",
+    "source-size": "<media-condition> <source-size-value> | auto",
+    "source-size-list": "<source-size>#? , <source-size-value>",
+    "source-size-value": "<length> | auto",
+    "spacing-trim": "space-all | normal | space-first | trim-start | trim-both | trim-all",
+    "spread-shadow": "<'box-shadow-color'>? && [ [ none | <length>{2} ] [ <'box-shadow-blur'> <'box-shadow-spread'>? ]? ] && <'box-shadow-position'>?",
+    "sqrt()": "sqrt( <calc-sum> )",
+    "src()": "src( <string> <url-modifier>* )",
+    "step-easing-function": "step-start | step-end | <steps()>",
+    "step-position": "jump-start | jump-end | jump-none | jump-both | start | end",
+    "steps()": "steps( <integer>, <step-position>?)",
+    "string()": "string( <custom-ident> , [ first | start | last | first-except ]? )",
+    "stripes()": "stripes( <color-stripe># )",
+    "style-feature": "<style-feature-plain> | <style-feature-boolean> | <style-range>",
+    "style-feature-boolean": "<style-feature-name>",
+    "style-feature-plain": "<style-feature-name> : <style-feature-value>",
+    "style-in-parens": "( <style-query> ) | ( <style-feature> ) | <general-enclosed>",
+    "style-query": "not <style-in-parens> | <style-in-parens> [ [ and <style-in-parens> ]* | [ or <style-in-parens> ]* ] | <style-feature>",
+    "style-range": "<style-range-value> <mf-comparison> <style-range-value> | <style-range-value> <mf-lt> <style-range-value> <mf-lt> <style-range-value> | <style-range-value> <mf-gt> <style-range-value> <mf-gt> <style-range-value>",
+    "style-range-value": "<custom-property-name> | <style-feature-value>",
+    "subclass-selector": "<id-selector> | <class-selector> | <attribute-selector> | <pseudo-class-selector>",
+    "superellipse()": "superellipse(<number> | infinity | -infinity)",
+    "supports()": "supports( <declaration> )",
+    "supports-at-rule-fn": "at-rule( <at-keyword-token> )",
+    "supports-condition": "not <supports-in-parens> | <supports-in-parens> [ and <supports-in-parens> ]* | <supports-in-parens> [ or <supports-in-parens> ]*",
+    "supports-decl": "( [ <declaration> | <supports-condition-name> ] )",
+    "supports-env-fn": "env( <ident> )",
+    "supports-feature": "<supports-selector-fn> | <supports-font-tech-fn> | <supports-font-format-fn> | <supports-at-rule-fn> | <supports-named-feature-fn> | <supports-env-fn> | <supports-decl>",
+    "supports-font-format-fn": "font-format( <font-format> )",
+    "supports-font-tech-fn": "font-tech( <font-tech> )",
+    "supports-import-condition": "supports( [ <supports-condition> | <declaration> ] )",
+    "supports-in-parens": "( <supports-condition> ) | <supports-feature> | <general-enclosed>",
+    "supports-named-feature-fn": "named-feature( <ident> )",
+    "supports-selector-fn": "selector( <complex-selector> )",
+    "svg-paint": "child | child( <integer> )",
+    "symbol": "<string> | <image> | <custom-ident>",
+    "symbolic-glyph": "disc | circle | square | disclosure-open | disclosure-closed",
+    "symbols()": "symbols( <symbols-type>? [ <string> | <image> ]+ )",
+    "symbols-type": "cyclic | numeric | alphabetic | symbolic | fixed",
+    "syntax": "'*' | <syntax-component> [ <syntax-combinator> <syntax-component> ]* | <syntax-string>",
+    "syntax-combinator": "'|'",
+    "syntax-component": "<syntax-single-component> <syntax-multiplier>? | '<' transform-list '>'",
+    "syntax-multiplier": "[ '#' | '+' ]",
+    "syntax-single-component": "'<' <syntax-type-name> '>' | <ident>",
+    "syntax-string": "<string>",
+    "syntax-type-name": "angle | color | custom-ident | image | integer | length | length-percentage | number | percentage | resolution | string | time | url | transform-function",
+    "system-color": "AccentColor | AccentColorText | ActiveText | ButtonBorder | ButtonFace | ButtonText | Canvas | CanvasText | Field | FieldText | GrayText | Highlight | HighlightText | LinkText | Mark | MarkText | SelectedItem | SelectedItemText | VisitedText | <deprecated-color>",
+    "system-font-family-name": "caption | icon | menu | message-box | small-caption | status-bar",
+    "tan()": "tan( <calc-sum> )",
+    "target": "<target-counter()> | <target-counters()> | <target-text()>",
+    "target-contrast": "<wcag2>",
+    "target-counter()": "target-counter( [ <string> | <url> ] , <custom-ident> , <counter-style>? )",
+    "target-counters()": "target-counters( [ <string> | <url> ] , <custom-ident> , <string> , <counter-style>? )",
+    "target-text()": "target-text( [ <string> | <url> ] , [ content | before | after | first-letter ]? )",
+    "text-edge": "[ text | ideographic | ideographic-ink ] | [ text | ideographic | ideographic-ink | cap | ex ] [ text | ideographic | ideographic-ink | alphabetic ]",
+    "time-percentage": "[ <time> | <percentage> ]",
+    "track-breadth": "<length-percentage [0,∞]> | <flex [0,∞]> | min-content | max-content | auto",
+    "track-list": "[ <line-names>? [ <track-size> | <track-repeat> ] ]+ <line-names>?",
+    "track-repeat": "repeat( [ <integer [1,∞]> ] , [ <line-names>? <track-size> ]+ <line-names>? )",
+    "track-size": "<track-breadth> | minmax( <inflexible-breadth> , <track-breadth> ) | fit-content( <length-percentage [0,∞]> )",
+    "transform-function": "<scale3d()> | <scale()> | <scaleX()> | <scaleY()> | <scaleZ()> | <translate3d()> | <translate()> | <translateX()> | <translateY()> | <translateZ()> | <rotate3d()> | <rotate()> | <rotateX()> | <rotateY()> | <rotateZ()> | <skew()> | <skewX()> | <skewY()> | <matrix3d()> | <matrix()> | <perspective()>",
+    "transform-interpolate()": "transform-interpolate( [ <progress-source> && [ by <easing-function> ]? && <easing-function>? ], <input-position>{1,2} : <transform-list>, [ <easing-function>?, <input-position>{1,2} : <transform-list> ]#? )",
+    "transform-list": "<transform-function>+",
+    "transform-mix()": "transform-mix( [ <transform-list> && <percentage [0,100]> ]# )",
+    "transition-behavior-value": "normal | allow-discrete",
+    "translate()": "translate( <length-percentage> , <length-percentage>? )",
+    "translate3d()": "translate3d( <length-percentage> , <length-percentage> , <length> )",
+    "translateX()": "translateX( <length-percentage> )",
+    "translateY()": "translateY( <length-percentage> )",
+    "translateZ()": "translateZ( <length> )",
+    "try-size": "most-width | most-height | most-block-size | most-inline-size",
+    "try-tactic": "flip-block || flip-inline || flip-start || flip-x || flip-y",
+    "type": "'<' [ number | string ] '>'",
+    "type()": "type( <string> )",
+    "type-selector": "<wq-name> | <ns-prefix>? '*'",
+    "url": "<url()> | <src()>",
+    "url()": "url( <string> <url-modifier>* ) | <url-token>",
+    "url-pattern()": "url-pattern( <string> )",
+    "var()": "var( <custom-property-name> , <declaration-value>? )",
+    "var-args": "var( <declaration-value> , <declaration-value>? )",
+    "vertical-line-command": "vline [ to [ <length-percentage> | top | center | bottom | y-start | y-end ] | by <length-percentage> ]",
+    "view()": "view( [ <axis> || <'view-timeline-inset'> ]? )",
+    "view-transition-type": "<custom-ident>",
+    "visual-box": "content-box | padding-box | border-box",
+    "wcag2": "wcag2 | wcag2([<number> | [ aa | aaa ] && large? ])",
+    "wq-name": "<ns-prefix>? <ident-token>",
+    "xywh()": "xywh( <length-percentage>{2} <length-percentage [0,∞]>{2} [ round <'border-radius'> ]? )",
+    "xyz-params": "<xyz-space> [ <number> | <percentage> | none ]{3}",
+    "xyz-space": "xyz | xyz-d50 | xyz-d65"
+  }
+}

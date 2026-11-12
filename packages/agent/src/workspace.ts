@@ -92,6 +92,7 @@ import {
   referenceSize,
   turnInto
 } from "@parity-app/editor"
+import { validate } from "@parity-app/style"
 import {
   builtOn,
   categorize,
@@ -682,19 +683,39 @@ export class AgentWorkspace {
       return { ...design, layer: design.container.root.id }
     }
 
-    for (let slash = reference.indexOf("/"); slash > 0; slash = reference.indexOf("/", slash + 1)) {
-      const found = this.tryDesign(reference.slice(0, slash))
+    checkPathParts(reference)
+    const split = this.splitPath(reference)
 
-      if (!found) {
-        continue
+    if (split) {
+      const [first = "", ...inner] = split.rest.split("/")
+      const node = resolveInDesign(split.design.container, first)
+
+      if (inner.length > 0 && node.type !== "instance") {
+        throw tooManyParts(reference, split.design.container.id, inner.at(-1)!, node.id)
       }
 
-      return { ...found, layer: layerPath(found.container, reference.slice(slash + 1), this.library()) }
+      return { ...split.design, layer: layerPath(split.design.container, split.rest, this.library()) }
     }
 
     const found = this.findNode(reference)
 
     return { ...found, layer: found.node.id }
+  }
+
+  /**
+   * The design a path starts with and what follows it, trying each `/` in turn, since a design's file or name can hold
+   * one; nothing when no part before a `/` names a design.
+   */
+  private splitPath(reference: string): { design: Located; rest: string } | undefined {
+    for (let slash = reference.indexOf("/"); slash > 0; slash = reference.indexOf("/", slash + 1)) {
+      const design = this.tryDesign(reference.slice(0, slash))
+
+      if (design) {
+        return { design, rest: reference.slice(slash + 1) }
+      }
+    }
+
+    return undefined
   }
 
   /** The state a frame shows: the one named, or the one the design's board shows. */
@@ -1385,8 +1406,9 @@ export class AgentWorkspace {
 
   /**
    * Sets token values, refusing any the token detail would: a bracket or quote left open, a reference to no token, or
-   * a token built on itself. Nothing in the call is kept when one is refused. Whether each value is its kind's (a color
-   * a color) needs the browser, so `checkTokenKinds` asks once the snippet has finished, before anything is applied.
+   * a token built on itself, or a value that isn't its kind's (a color a color) by the kind's CSS grammar. Nothing in the
+   * call is kept when one is refused. The browser can still refuse what the grammar allows, so `checkTokenKinds` asks it
+   * once the snippet has finished, before anything is applied.
    */
   private setTokens(values: z.infer<typeof tokenValues>): void {
     const changes: TokenChange[] = []
@@ -1403,7 +1425,7 @@ export class AgentWorkspace {
     const reading = this.tokenReading([...this.tokenChanges, ...changes])
 
     for (const change of changes) {
-      const problem = reading.problem(change, () => true)
+      const problem = reading.problem(change, (property, value) => validate(property, value).valid)
 
       if (problem) {
         throw refusedToken(change, problem)
@@ -1414,8 +1436,9 @@ export class AgentWorkspace {
   }
 
   /**
-   * Refuses the call when a value it sets isn't its token's kind, as the token detail does, asking `hooks.supports`
-   * (the browser's `CSS.supports`) about every value at once. Without the hook, kinds aren't checked.
+   * Refuses the call when the browser doesn't take a value it sets for its token's kind, as the token detail does,
+   * asking `hooks.supports` (the browser's `CSS.supports`) about every value at once. Without the hook, the grammar's
+   * check in `setTokens` stands alone.
    */
   async checkTokenKinds(): Promise<void> {
     const hooks = this.hooks
@@ -2014,19 +2037,24 @@ export class AgentWorkspace {
     const found = this.tryDesign(reference)
 
     if (!found) {
-      const all = this.all()
-      throw unknownReference(
-        "unknown_design",
-        `No design "${reference}". Designs: ${
-          all.map(({ container }) => `${container.id} (${container.name})`).join(", ") || "none"
-        }`,
-        reference,
-        all.map(({ container }) => container.id),
-        "design"
-      )
+      throw this.unknownDesign(reference)
     }
 
     return found
+  }
+
+  private unknownDesign(reference: string): CodedError {
+    const all = this.all()
+
+    return unknownReference(
+      "unknown_design",
+      `No design "${reference}". Designs: ${
+        all.map(({ container }) => `${container.id} (${container.name})`).join(", ") || "none"
+      }`,
+      reference,
+      all.map(({ container }) => container.id),
+      "design"
+    )
   }
 
   /** Where a walk of `reference` starts: a design's root, or the node it names. */
@@ -2068,13 +2096,22 @@ export class AgentWorkspace {
 
   /** A node by `designId/nodeId`, or by node id alone when only one design has it. */
   private findNode(reference: string): Located & { node: DesignNode } {
-    const slash = reference.lastIndexOf("/")
+    if (reference.includes("/")) {
+      checkPathParts(reference)
+      const split = this.splitPath(reference)
 
-    if (slash > 0) {
-      const design = this.findDesign(reference.slice(0, slash))
-      const node = resolveInDesign(design.container, reference.slice(slash + 1))
+      if (!split) {
+        // The design is what comes before the first `/`, or before the first `/` after a file's `#`.
+        throw this.unknownDesign(reference.slice(0, reference.indexOf("/", reference.indexOf("#") + 1)))
+      }
 
-      return { ...design, node }
+      const steps = split.rest.split("/")
+
+      if (steps.length > 1) {
+        throw tooManyParts(reference, split.design.container.id, steps.at(-1)!)
+      }
+
+      return { ...split.design, node: resolveInDesign(split.design.container, split.rest) }
     }
 
     const matches = this.all().flatMap((entry) => {
@@ -2291,6 +2328,31 @@ function placedReference(
 
 function key(path: string, id: string): string {
   return `${path}#${id}`
+}
+
+/** Refuses a path with an empty part, from a leading, trailing or doubled `/` (PAR-885). */
+function checkPathParts(reference: string): void {
+  if (reference.includes("/") && reference.split("/").includes("")) {
+    throw new CodedError(
+      `Path "${reference}" has an empty part. Write a node path as design/node, without a leading, trailing or doubled "/".`,
+      { code: "invalid_input", field: "path" }
+    )
+  }
+}
+
+/**
+ * The error for a path with more parts than design/node, naming the node it most likely meant. `through` is the node
+ * the path tried to go inside, when that's the trouble: only an instance has layers to reach that way (PAR-885).
+ */
+function tooManyParts(reference: string, design: string, last: string, through?: string): CodedError {
+  const parts = reference.split("/").length
+
+  const message =
+    through === undefined
+      ? `Path "${reference}" has ${parts} parts. A node path is design/node, without the node's parents, such as "${design}/${last}".`
+      : `Path "${reference}" goes inside ${through}, which isn't an instance. A node path is design/node, such as "${design}/${last}", or design/instance/layer for a layer inside an instance.`
+
+  return new CodedError(message, { code: "invalid_input", field: "path" })
 }
 
 /**

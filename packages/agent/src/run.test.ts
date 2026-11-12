@@ -1215,12 +1215,24 @@ describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
     ).toMatch(/^SetTokens\/primary\/default: background is built on primary, so this would loop\. /)
   })
 
-  it("refuses a value that isn't its token's kind, asking the browser once", async () => {
+  it("refuses a value that isn't its token's kind by CSS's grammar, without a browser", async () => {
     const asked: { property: string; value: string }[] = []
-    expect((await refusal(`SetTokens({ primary: { dark: "bluish" } })`, checking(asked))).error).toBe(
+
+    for (const ask of [hooks(), checking(asked)]) {
+      expect((await refusal(`SetTokens({ primary: { dark: "bluish" } })`, ask)).error).toBe(
+        "SetTokens/primary/dark: That isn't a color. Try oklch(0.6 0.2 250) or #2563eb. (line 1, column 1)"
+      )
+    }
+
+    expect(asked).toEqual([])
+  })
+
+  it("refuses a value the grammar allows and the browser doesn't, asking the browser once", async () => {
+    const asked: { property: string; value: string }[] = []
+    expect((await refusal(`SetTokens({ primary: { dark: "rebeccapurple" } })`, checking(asked))).error).toBe(
       "SetTokens/primary/dark: That isn't a color. Try oklch(0.6 0.2 250) or #2563eb."
     )
-    expect(asked).toEqual([{ property: "color", value: "bluish" }])
+    expect(asked).toEqual([{ property: "color", value: "rebeccapurple" }])
   })
 
   it("accepts good values, references filled in, and applies them", async () => {

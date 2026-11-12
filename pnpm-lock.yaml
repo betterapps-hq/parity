@@ -182,9 +182,15 @@ catalogs:
     '@sentry/node':
       specifier: 11.8.0
       version: 11.8.0
+    '@webref/css':
+      specifier: 8.7.8
+      version: 8.7.8
     beachball:
       specifier: 2.66.0
       version: 2.66.0
+    css-tree:
+      specifier: 3.2.1
+      version: 3.2.1
     electron-builder:
       specifier: 26.18.0
       version: 26.18.0
@@ -209,6 +215,9 @@ catalogs:
     vitest:
       specifier: 5.0.5
       version: 5.0.5
+    web-features:
+      specifier: 3.45.0
+      version: 3.45.0
     zod:
       specifier: 4.6.7
       version: 4.6.7
@@ -282,6 +291,9 @@ importers:
       cn:
         specifier: ^0.5.1
         version: 0.5.1
+      css-tree:
+        specifier: 'catalog:'
+        version: 3.2.1
       lucide-react:
         specifier: ^1.66.0
         version: 1.66.0(@types/react@19.3.0)(react@19.3.1)
@@ -349,6 +361,9 @@ importers:
       '@parity-app/renderer-react':
         specifier: workspace:*
         version: link:../../packages/renderer-react
+      '@parity-app/style':
+        specifier: workspace:*
+        version: link:../../packages/style
       '@parity-app/styles-tailwind':
         specifier: workspace:*
         version: link:../../packages/styles-tailwind
@@ -521,6 +536,9 @@ importers:
       '@parity-app/icons':
         specifier: workspace:*
         version: link:../icons
+      '@parity-app/style':
+        specifier: workspace:*
+        version: link:../style
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
@@ -763,9 +781,19 @@ importers:
 
   packages/style:
     dependencies:
+      css-tree:
+        specifier: 'catalog:'
+        version: 3.2.1
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+    devDependencies:
+      '@webref/css':
+        specifier: 'catalog:'
+        version: 8.7.8(css-tree@3.2.1)
+      web-features:
+        specifier: 'catalog:'
+        version: 3.45.0
 
   packages/styles-tailwind:
     dependencies:
@@ -4478,6 +4506,11 @@ packages:
   '@webcontainer/env@1.1.1':
     resolution: {integrity: sha512-6aN99yL695Hi9SuIk1oC88l9o0gmxL1nGWWQ/kNy81HigJ0FoaoTXpytCj6ItzgyCEwA9kF1wixsTuv5cjsgng==}
 
+  '@webref/css@8.7.8':
+    resolution: {integrity: sha512-g7+P+hhhQRjCeNWRexVnX5GnAfOLxUG0gZrZgcnZ5S3q6GynMxgMuCTPy28UZ6bE85zebXs3ETEhf9bytIS8aw==}
+    peerDependencies:
+      css-tree: ^3.2.1
+
   '@xmldom/xmldom@0.8.15':
     resolution: {integrity: sha512-/5NV/vDALVFDXgLmfsy9TRCBlKwO2LNBFzpzvb9iIj+jR+eSc6DLYYvVOdivT/jm7MtU6TebYuRmzEOI7w40UA==}
     engines: {node: '>=10.0.0'}
@@ -4964,6 +4997,10 @@ packages:
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
+
+  css-tree@3.2.1:
+    resolution: {integrity: sha512-X7sjQzceUhu1u7Y/ylrRZFU2FS6LRiFVp6rKLPg23y3x3c3DOKAwuXGDp+PAGjh6CSnCjYeAul8pcT8bAl+lSA==}
+    engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0}
 
   css.escape@1.5.1:
     resolution: {integrity: sha512-YUifsXXuknHlUsmlgyY0PKzgPOr7/FjCePfHNt0jxm83wHZi44VDMQ7/fGNkjY3/jV1MC+1CmZbaHzugyeRtpg==}
@@ -6230,6 +6267,9 @@ packages:
 
   mdast-util-to-hast@13.2.1:
     resolution: {integrity: sha512-cctsq2wp5vTsLIcaymblUriiTcZd0CwWtCbLvrOzYCDZoWyMNV8sZ7krj09FSnsiJi3WVsHLM4k6Dq/yaPyCXA==}
+
+  mdn-data@2.27.1:
+    resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
 
   media-typer@1.1.1:
     resolution: {integrity: sha512-yz3xRaG20c6/BOzvYoDaGtPmGscs7YivItZEEqe6GbwNfHuxu9YNmvnEkMzKldAGY4/80pRcQRZSEnhquk9XuQ==}
@@ -7738,6 +7778,9 @@ packages:
   walk-up-path@4.0.0:
     resolution: {integrity: sha512-3hu+tD8YzSLGuFYtPRb48vdhKMi0KQV5sn+uWr8+7dMEq/2G/dtLrdDinkLjqq5TIbIBjYJ4Ax/n3YiaW7QM8A==}
     engines: {node: 20 || >=22}
+
+  web-features@3.45.0:
+    resolution: {integrity: sha512-Atp/v77aPEuVIPsw7tYz9IrID8CztDcIleh8n/Z8r7HEkvNt7eYWHF8s4hlWQ0QskFzTPDjq81vjubXXCnBMSg==}
 
   web-vitals@6.2.3:
     resolution: {integrity: sha512-Dmy+vdO1UPMqXiAtZSNayhl4f794Bxfd94W4HIj2HlYtczEQfEOon969memlcpcHrTuOKLa5baFjX7WbgmOq+A==}
@@ -11488,6 +11531,10 @@ snapshots:
 
   '@webcontainer/env@1.1.1': {}
 
+  '@webref/css@8.7.8(css-tree@3.2.1)':
+    dependencies:
+      css-tree: 3.2.1
+
   '@xmldom/xmldom@0.8.15': {}
 
   '@yarnpkg/lockfile@1.1.0': {}
@@ -11969,6 +12016,11 @@ snapshots:
       path-key: 3.1.1
       shebang-command: 2.0.0
       which: 2.0.2
+
+  css-tree@3.2.1:
+    dependencies:
+      mdn-data: 2.27.1
+      source-map-js: 1.2.2
 
   css.escape@1.5.1: {}
 
@@ -13252,6 +13304,8 @@ snapshots:
       unist-util-position: 5.0.0
       unist-util-visit: 5.2.0
       vfile: 6.0.3
+
+  mdn-data@2.27.1: {}
 
   media-typer@1.1.1: {}
 
@@ -15216,6 +15270,8 @@ snapshots:
   w3c-keyname@2.2.8: {}
 
   walk-up-path@4.0.0: {}
+
+  web-features@3.45.0: {}
 
   web-vitals@6.2.3: {}
 

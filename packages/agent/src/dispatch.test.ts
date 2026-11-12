@@ -409,9 +409,13 @@ describe("dispatch", () => {
       return asking.map(() => false)
     }
 
-    const answer = await dispatch("exec", { label: "Recolor", code: 'SetTokens({ background: "bluish" })' }, host)
+    const answer = await dispatch(
+      "exec",
+      { label: "Recolor", code: 'SetTokens({ background: "rebeccapurple" })' },
+      host
+    )
 
-    expect(queries.map((query) => query.value)).toContain("bluish")
+    expect(queries.map((query) => query.value)).toContain("rebeccapurple")
     expect(answer).toMatchObject({ ok: false })
     expect(asked.applied).toEqual([])
   })
