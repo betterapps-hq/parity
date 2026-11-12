@@ -9,6 +9,7 @@ import {
   generateId,
   insertNode,
   locateNode,
+  mapNodes,
   nodeIds,
   type NodeStyle,
   jsonText,
@@ -113,8 +114,8 @@ export function copyLayers(
 /**
  * One of a design's nodes and everything in it as the board shows them in a state and viewport, for copying it or
  * moving it to another design: with the state's changes, the variant options shown, the viewport's responsive patches,
- * and each bound value as it shows. The bindings stay, for `fitBindings` to keep where the design they go into has the
- * param.
+ * and each bound value as it shows. That goes for the layers an instance fills its slots with, which are the design's
+ * own. The bindings stay, for `fitBindings` to keep where the design they go into has the param.
  */
 export function asShown(
   container: ContainerSpec,
@@ -122,25 +123,7 @@ export function asShown(
   state: StateSpec | undefined,
   viewport?: string
 ): DesignNode {
-  const read = boardReader(container, { state, viewport })
-
-  const shown = (layer: DesignNode): DesignNode => {
-    const drawn = read(layer)
-
-    if (drawn.type === "layout") {
-      return { ...drawn, children: drawn.children.map(shown) }
-    }
-
-    if (drawn.type === "component" && drawn.slots) {
-      const slots = Object.fromEntries(childEntries(drawn).map(({ slot, nodes }) => [slot!, nodes.map(shown)]))
-
-      return { ...drawn, slots }
-    }
-
-    return drawn
-  }
-
-  return shown(node)
+  return mapNodes(node, boardReader(container, { state, viewport }))
 }
 
 /**
@@ -149,10 +132,13 @@ export function asShown(
  */
 export function fitBindings(node: DesignNode, destination: ContainerSpec): DesignNode {
   const has = (param: string) => destination.params !== undefined && Object.hasOwn(destination.params, param)
-  let next = node
 
-  if (node.bind) {
-    const { text, visible, props } = node.bind
+  return mapNodes(node, (layer) => {
+    if (!layer.bind) {
+      return layer
+    }
+
+    const { text, visible, props } = layer.bind
     const keptProps = Object.fromEntries(Object.entries(props ?? {}).filter(([, param]) => has(param)))
 
     const bind: NonNullable<DesignNode["bind"]> = {}
@@ -169,28 +155,16 @@ export function fitBindings(node: DesignNode, destination: ContainerSpec): Desig
       bind.props = keptProps
     }
 
-    next = { ...node }
+    const next = { ...layer }
 
     if (Object.keys(bind).length > 0) {
       next.bind = bind
     } else {
       delete next.bind
     }
-  }
 
-  if (next.type === "layout") {
-    return { ...next, children: next.children.map((child) => fitBindings(child, destination)) }
-  }
-
-  if (next.type === "component" && next.slots) {
-    const slots = Object.fromEntries(
-      childEntries(next).map(({ slot, nodes }) => [slot!, nodes.map((child) => fitBindings(child, destination))])
-    )
-
-    return { ...next, slots }
-  }
-
-  return next
+    return next
+  })
 }
 
 /** Where pasted layers go in a design: the layout they go into, and their index and slot there, or last when unset. */

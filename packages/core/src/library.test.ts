@@ -142,6 +142,60 @@ describe("libraryDesigns", () => {
     expect(libraryDesigns({}, "nova")).toEqual([])
   })
 
+  it("names the instances an instance fills its slots with by the library too (PAR-966)", () => {
+    const section: ContainerSpec = {
+      id: "settings-section",
+      name: "Settings section",
+      kind: "component",
+      position: { x: 0, y: 400 },
+      root: {
+        type: "layout",
+        id: "section",
+        children: [{ type: "layout", id: "rows", slot: "rows", children: [] }]
+      },
+      states: [{ id: "default", name: "Default" }]
+    }
+
+    const account: ContainerSpec = {
+      id: "account-settings",
+      name: "Account settings",
+      kind: "component",
+      position: { x: 0, y: 600 },
+      root: {
+        type: "layout",
+        id: "account",
+        children: [
+          {
+            type: "instance",
+            id: "privacy",
+            design: "settings-section",
+            slots: {
+              rows: [
+                { type: "instance", id: "sharing", design: "settings-row", args: { label: "Sharing" } },
+                { type: "instance", id: "theirs", design: "acme/banner" }
+              ]
+            }
+          }
+        ]
+      },
+      states: [{ id: "default", name: "Default" }]
+    }
+
+    const canvas = { version: 3 as const, containers: [settingsRow, section, account] }
+    const designs = libraryDesigns({ canvas }, "nova")
+    const placed = designs[2]?.root.type === "layout" ? designs[2].root.children[0] : undefined
+    expect(placed).toMatchObject({ type: "instance", design: "nova/settings-section" })
+    expect(
+      placed?.type === "instance" && placed.slots?.rows?.map((row) => row.type === "instance" && row.design)
+    ).toEqual(["nova/settings-row", "acme/banner"])
+
+    // The row draws where an app places the design, rather than naming a design the app doesn't have.
+    const page: ContainerSpec["root"] = { type: "instance", id: "account", design: "nova/account-settings" }
+    const drawn = JSON.stringify(resolveDesign(page, undefined, "desktop", componentLibrary(designs)))
+    expect(drawn).toContain("Sharing")
+    expect(drawn).not.toContain('No component design \\"settings-row\\"')
+  })
+
   it("renders where an app places one, linked or detached", () => {
     const library = componentLibrary(libraryDesigns(manifest, "nova"))
 
