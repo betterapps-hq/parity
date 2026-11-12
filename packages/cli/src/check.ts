@@ -5,6 +5,7 @@ import type { ComponentSource, DesignNode, LibraryManifest } from "@parity-app/c
 import { checkData, jsonText } from "@parity-app/core/schema"
 import { z } from "zod"
 import { call } from "./client.ts"
+import { invalidInput } from "./errors.ts"
 import { executeOperation } from "./execute.ts"
 import { stderr, stdout } from "./output.ts"
 
@@ -48,7 +49,7 @@ export interface CheckReport {
  */
 export async function runCheck(library: string | undefined, options: CheckOptions): Promise<void> {
   if (!library) {
-    throw new Error("parity lib check <library> [--tab t] [--mode m]")
+    throw invalidInput("library", "Name a library to check: parity lib check <library> [--tab t] [--mode m]")
   }
 
   const { componentNode, generateId, librarySource, withLibraryContext } = await import("@parity-app/core")
@@ -57,7 +58,7 @@ export async function runCheck(library: string | undefined, options: CheckOption
   const entry = (await newestEntries()).find((item) => item.manifest.id === library)
 
   if (!entry) {
-    throw new Error(`The registry has no library "${library}"`)
+    throw invalidInput("library", `The registry has no library "${library}"`)
   }
 
   const manifest: LibraryManifest = entry.manifest
@@ -112,7 +113,7 @@ Print(JSON.stringify(Object.fromEntries(ids.filter((id) => known.has(id)).map((i
   const missing = names.filter((name) => !infos[id(name)])
 
   if (missing.length === names.length) {
-    throw new Error(`The tab's project doesn't have ${library} installed`)
+    throw invalidInput("library", `The tab's project doesn't have ${library} installed`)
   }
 
   const taken = new Set<string>()

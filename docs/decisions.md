@@ -5088,7 +5088,9 @@ the rules for when each is sent. My calls:
   the native module. Windows' hangs come from their `unresponsive` and `responsive` events.
 - **Exits:** a window or child process that exits abnormally, fails to launch or runs out of memory is reported, along
   with crashes' minidumps. The service's restarts are breadcrumbs. A builder that stops by itself is reported with its
-  last 50 lines of output, and the props worker's failures from the service.
+  last 50 lines of output, and the props worker's failures from the service. One a stop signal ended (SIGHUP, SIGINT,
+  SIGTERM, or Vite's 129, 130 or 143 after handling one) isn't sent as an error, since something outside stopped it:
+  `pnpm perf` quitting its copy filed one a run (PAR-755). It's still logged as `builder.crashed`.
 
 ## Every build is a Sentry release, with its source maps (PAR-625)
 

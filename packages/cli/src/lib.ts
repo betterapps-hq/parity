@@ -3,6 +3,7 @@ import { dirname, join, relative, resolve } from "node:path"
 import type { GenerateOptions, Live, GenerateReport as Report } from "@parity-app/libgen"
 import { z } from "zod"
 import { readAppErrors } from "./check.ts"
+import { invalidInput } from "./errors.ts"
 import { stderr, stdout } from "./output.ts"
 
 export interface LibOptions {
@@ -45,7 +46,10 @@ export async function runLib(packageName: string | undefined, options: LibOption
     const listed = (await registryEntries()).filter((entry) => entry.manifest.package?.name === spec.name)
 
     if (spec.version === undefined && listed.length > 1) {
-      throw new Error(`The registry has ${listed.length} files for ${spec.name}; name a version, as ${spec.name}@1.2.3`)
+      throw invalidInput(
+        "package",
+        `The registry has ${listed.length} files for ${spec.name}; name a version, as ${spec.name}@1.2.3`
+      )
     }
 
     const version = await publishedVersion(spec.name, spec.version ?? listed[0]?.manifest.package?.version ?? "latest")
