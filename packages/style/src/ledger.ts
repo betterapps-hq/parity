@@ -159,6 +159,7 @@ export const owned: Readonly<Record<StyleKey, readonly string[]>> = {
   filter: ["filter"],
   backdropFilter: ["backdrop-filter"],
   transform: ["translate", "rotate", "scale", "transform", "transform-origin"],
+  transitions: ["transition"],
   font: ["font-family"],
   size: ["font-size"],
   weight: ["font-weight"],
