@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Design tab: regrouped sections, the approved Component instance and props rows, measured sizes, and field errors that stay as typed",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

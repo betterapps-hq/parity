@@ -1,12 +1,14 @@
 import { mapNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { userEvent, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
+import { answering } from "../stories/host.ts"
 import { DesignTab } from "./DesignPanel.tsx"
-import { inspecting } from "./inspector-stories.tsx"
+import { inspecting, slowly } from "./inspector-stories.tsx"
 import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
-/** An instance of a component design selected: each of its params. It always shows its component's base state. */
+/** Instances beyond the two in Kinds: a code component's content and style, and a design instance's edge cases. */
 const meta = {
   title: "Parity/Inspector/Layer/Instances",
   component: DesignTab,
@@ -18,8 +20,33 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** An instance of a component design, Pricing's Pro plan: each of Plan card's params, and no State row (PAR-1002). */
-export const InstanceLayer: Story = { loaders: [pick("Pricing", "Pro plan")] }
+/** A component whose content is layers in its slot rather than a label: Sign in's submit button. */
+export const ComponentWithLayersInside: Story = { loaders: [pick("Sign in", "Sign in button")] }
+
+/**
+ * A component whose props have no `style`, as an app's `MemberRow({ member })` hasn't, shown here as Pricing's badge:
+ * the panel says the size and styles don't change it, and Wrap in layout puts a layout around it to size instead.
+ */
+export const ComponentWithoutStyle: Story = {
+  loaders: [
+    async () => {
+      answering({
+        "project.components": async (_params, usual) => {
+          const components = await usual()
+
+          return { ...components, Badge: { ...components.Badge!, takesStyle: false } }
+        }
+      })
+      await pick("Pricing", "Badge")()
+    }
+  ],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    await panel.findByText(/doesn't take a/, undefined, slowly)
+    await userEvent.click(panel.getByRole("button", { name: /Wrap in layout/ }))
+    await panel.findByText(/^(Horizontal|Vertical) layout$/, undefined, slowly)
+  }
+}
 
 /** An instance whose component design was deleted: the panel says it doesn't exist. */
 export const InstanceOfMissingComponent: Story = {

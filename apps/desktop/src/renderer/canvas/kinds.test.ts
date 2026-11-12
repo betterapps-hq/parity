@@ -39,14 +39,14 @@ describe("an icon layer's icon", () => {
   const inProject = (node: DesignNode) =>
     renderToStaticMarkup(h(ProjectContext, { value: project }, h(NodeIcon, { node })))
 
-  it("is Smile in a project's tab, where a library's other components keep the Box", () => {
+  it("is Smile in a project's tab, where a library's other components are instances, with the Diamond", () => {
     expect(inProject(check)).toContain("lucide-smile")
-    expect(inProject(card)).toContain("lucide-box")
+    expect(inProject(card)).toContain("lucide-diamond")
   })
 
   it("is Smile outside a tab when it's given the project's libraries, as Search actions gives them", () => {
     expect(renderToStaticMarkup(h(NodeIcon, { node: check, libraries }))).toContain("lucide-smile")
-    expect(renderToStaticMarkup(h(NodeIcon, { node: check }))).toContain("lucide-box")
+    expect(renderToStaticMarkup(h(NodeIcon, { node: check }))).toContain("lucide-diamond")
   })
 })
 

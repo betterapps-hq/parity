@@ -1,12 +1,16 @@
-import { Button, Label, RadioGroup, RadioGroupItem, Switch } from "@buildkitgg/shadcn-baseui-kit"
-import { kindName, kindTitle, selectionKey } from "@parity-app/editor"
-import { Crown, MousePointerClick } from "lucide-react"
+import { Switch } from "@buildkitgg/shadcn-baseui-kit"
+import type { ResolvedMode } from "@parity-app/core"
+import { kindTitle, selectionKey } from "@parity-app/editor"
+import { Crown, GripVertical, MousePointerClick } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
-import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
+import { containerModes, withModeOrder } from "../canvas/view.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
+import { moved } from "../inspector/controls/list-parts.tsx"
+import { useSortable } from "../inspector/controls/sortable.ts"
 import { useSelection } from "../selection.ts"
-import { ComponentsSection, InCodeSection, ParamsSection } from "./ComponentsSection.tsx"
+import { openSource } from "./code-editor.ts"
+import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
 import { FieldTarget, FirstStateName } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
@@ -16,7 +20,7 @@ import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { ReferencePanel } from "./ReferencePanel.tsx"
-import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
+import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { StatesSection } from "./StatesSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
@@ -81,7 +85,8 @@ function SelectedPanel() {
 }
 
 function DesignPanel({ entry }: { entry: ContainerEntry }) {
-  const { store } = useProject()
+  const session = useProject()
+  const { store } = session
   const settings = useModeSettings(store)
   const { container, key } = entry
   const { primary } = containerModes(settings, container)
@@ -112,6 +117,12 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
                   event.currentTarget.blur()
                 }
               }}
+            />
+          }
+          action={
+            <HeaderActions
+              actions={["open-in-editor"]}
+              onAction={() => void openSource(session, { path: entry.path, line: 1, column: 1 })}
             />
           }
         />
@@ -148,103 +159,136 @@ function FrameStyles({ entry }: { entry: ContainerEntry }) {
   return editor ? <StyleSections editor={editor} container={entry.container} /> : null
 }
 
-/** A screen's or component's states, params or components, the modes it shows, and a component's code. */
+/** A screen's or component's states, params or components, and the modes it shows. */
 function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
-  const { store, selection } = useProject()
-  const settings = useModeSettings(store)
-  const selected = useSelection(selection)
-  const { container, key } = entry
-  const { primary, all } = containerModes(settings, container)
-  const shown = new Set(container.view?.modes ?? [])
-  const kind = kindName(container.kind)
-
-  const setModes = (modes: string[]) =>
-    store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
+  const { container } = entry
 
   return (
     <>
       {container.kind === "component" && <StatesSection entry={entry} />}
       {container.kind === "component" ? <ParamsSection entry={entry} /> : <ComponentsSection entry={entry} />}
 
-      <PanelSection
-        title="Modes"
-        description={`Pick the mode this ${kind} shows first. Turn others on to see them beside it. Edit modes in the Modes tab.`}
-      >
-        <RadioGroup
-          value={primary.id}
-          onValueChange={(mode) =>
-            store.updateView(key, `Show ${modeNames(all, [mode])} first`, (view) => withMainMode(view, mode, all))
-          }
-          className="gap-0.5"
-          aria-label="Shown first"
-        >
-          {all.map((mode, index) => {
-            const isMain = mode.id === primary.id
-            const isSelected = selected.mode === mode.id
-
-            return (
-              <div
-                key={mode.id}
-                className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-accent/50 ${
-                  isSelected ? "bg-accent/60" : ""
-                }`}
-              >
-                <RadioGroupItem value={mode.id} id={`main-${mode.id}`} aria-label={`Show in ${mode.name}`} />
-                <Label
-                  htmlFor={`main-${mode.id}`}
-                  className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0 font-normal"
-                >
-                  <span className="flex items-center gap-1.5 text-sm">
-                    <ModeViewportIcon of={mode} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                    <Name>{mode.name}</Name>
-                    {index === 0 && <Crown className="size-3 shrink-0 text-amber-400" aria-label="Project primary" />}
-                  </span>
-                  <span className="flex flex-wrap gap-1 pt-0.5">
-                    <OptionChip>{mode.width}px</OptionChip>
-                    {mode.options.slice(1).map(({ variable, option }) => (
-                      <OptionChip key={variable.id}>{option.name}</OptionChip>
-                    ))}
-                  </span>
-                </Label>
-                {isMain ? (
-                  <span className="text-xs whitespace-nowrap text-muted-foreground">Shown first</span>
-                ) : (
-                  <Hint label="Show beside the first preview">
-                    <span className="inline-flex">
-                      <Switch
-                        size="sm"
-                        aria-label={`Show ${mode.name} beside it`}
-                        checked={shown.has(mode.id)}
-                        onCheckedChange={(on) =>
-                          setModes(
-                            all
-                              .filter((m) => !(m.id === primary.id) && (m.id === mode.id ? on : shown.has(m.id)))
-                              .map((m) => m.id)
-                          )
-                        }
-                      />
-                    </span>
-                  </Hint>
-                )}
-              </div>
-            )
-          })}
-        </RadioGroup>
-        <div className="mt-3 flex gap-2 px-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setModes(all.filter((mode) => mode.id !== primary.id).map((mode) => mode.id))}
-          >
-            Show all
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setModes([])}>
-            Only {primary.name}
-          </Button>
-        </div>
-      </PanelSection>
-      {container.kind === "component" && <InCodeSection entry={entry} />}
+      <ModesSection entry={entry} />
     </>
+  )
+}
+
+/**
+ * A screen's or component's modes in its own order, each put in place by its handle. The first is the one it shows
+ * first, so it always shows; each other's switch shows it beside the first.
+ */
+function ModesSection({ entry }: { entry: ContainerEntry }) {
+  const { store, selection } = useProject()
+  const settings = useModeSettings(store)
+  const selected = useSelection(selection)
+  const { container, key } = entry
+  const { all, ordered } = containerModes(settings, container)
+  const shown = new Set(container.view?.modes ?? [])
+
+  const move = (from: number, to: number) => {
+    const order = moved(ordered, from, to)
+    const label = order[0] === ordered[0] ? `Move ${ordered[from]!.name}` : `Show ${order[0]!.name} first`
+
+    store.updateView(key, label, (view) =>
+      withModeOrder(
+        view,
+        order.map((mode) => mode.id),
+        all
+      )
+    )
+  }
+
+  const show = (mode: ResolvedMode, on: boolean) => {
+    const modes = ordered.filter((each, index) => index > 0 && (each === mode ? on : shown.has(each.id)))
+
+    store.updateView(key, on ? `Show ${mode.name}` : `Hide ${mode.name}`, (view) => ({
+      ...view,
+      modes: modes.map((each) => each.id)
+    }))
+  }
+
+  return (
+    <PanelSection title="Modes" count={ordered.length}>
+      <div className="flex flex-col">
+        {ordered.map((mode, index) => (
+          <ModeRow
+            key={mode.id}
+            mode={mode}
+            first={index === 0}
+            shown={index === 0 || shown.has(mode.id)}
+            selected={selected.mode === mode.id}
+            onMove={ordered.length > 1 ? move : undefined}
+            onShow={(on) => show(mode, on)}
+          />
+        ))}
+      </div>
+    </PanelSection>
+  )
+}
+
+/** One mode: its handle, its viewport and name with what it's set to, and whether it shows beside the first. */
+function ModeRow({
+  mode,
+  first,
+  shown,
+  selected,
+  onMove,
+  onShow
+}: {
+  mode: ResolvedMode
+  first: boolean
+  shown: boolean
+  /** Selected on the canvas. */
+  selected: boolean
+  onMove: ((from: number, to: number) => void) | undefined
+  onShow: (on: boolean) => void
+}) {
+  const sort = useSortable({ group: "modes", label: mode.name, onMove })
+
+  return (
+    <div
+      {...sort.item}
+      className={`flex min-h-11 items-center gap-1.5 rounded-md py-1 pr-3 ${selected ? "bg-accent/60" : ""}`}
+    >
+      {onMove ? (
+        // No hint: the grip and its grab cursor say what it does, as a list's handle does (list-parts.tsx).
+        <button
+          type="button"
+          aria-label={`Move ${mode.name}`}
+          aria-keyshortcuts="ArrowUp ArrowDown"
+          onPointerDown={sort.handle.onPointerDown}
+          onKeyDown={sort.handle.onKeyDown}
+          className="grid h-7 w-3 shrink-0 cursor-grab touch-none place-items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <GripVertical className="size-3" />
+        </button>
+      ) : (
+        <span className="w-3 shrink-0" />
+      )}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex min-w-0 items-center gap-1.5 text-xs">
+          <ModeViewportIcon of={mode} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <Name>{mode.name}</Name>
+        </span>
+        <span className="flex flex-wrap gap-1">
+          <OptionChip>{mode.width}px</OptionChip>
+          {mode.options.slice(1).map(({ variable, option }) => (
+            <OptionChip key={variable.id}>{option.name}</OptionChip>
+          ))}
+        </span>
+      </div>
+      <Hint label={first ? "The first mode always shows" : `Show ${mode.name} beside the first`}>
+        <span className="inline-flex">
+          <Switch
+            size="sm"
+            aria-label={`Show ${mode.name}`}
+            checked={shown}
+            disabled={first}
+            onCheckedChange={onShow}
+          />
+        </span>
+      </Hint>
+    </div>
   )
 }
 

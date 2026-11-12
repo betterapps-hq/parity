@@ -1,20 +1,22 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
-import { Num } from "./controls.tsx"
+import { PixelField } from "./controls.tsx"
 import { Field } from "./field-row.tsx"
+import { NumberField } from "./number-field.tsx"
 import { Playground } from "./playground.tsx"
 import { type Side, sideClass, sideCss, sideRules, sideStored } from "./sides-writes.ts"
 import { SideField } from "./sides.tsx"
 import { lengthWrites, type Writes } from "./writes.ts"
 
 /**
- * The plain number field (PAR-186), for lengths and counts without words, and the side field that offers tokens: committed on Enter or on leaving,
+ * The plain number fields (PAR-186): `NumberField` for counts and numbers without words, `PixelField` for lengths, and the
+ * side field that offers tokens: committed on Enter or on leaving,
  * with a short label inside that scrubs when dragged, and a unit after it that stays while typing, until what's typed
  * brings its own. A length takes the app's maths and units (`+8`, `*2`, `1.5rem`, `spacing-4`) and is kept in pixels,
  * shown in px or rem as chosen from its unit's menu. A spacing length steps a whole spacing step (4px) on Up and Down;
  * others step by 1, or 10 with Shift. A narrow field keeps its unit too. What it can't read stays, outlined, with the
- * reason under it; Escape puts the value back; leaving does too, and says why.
+ * reason under it, whether Enter is pressed or the field is left; Escape puts the value back.
  */
 const meta = {
   title: "Parity/Inspector/Controls/Fields/Number field",
@@ -25,7 +27,7 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-function NumberField({
+function StoryField({
   label,
   inner,
   start,
@@ -52,17 +54,29 @@ function NumberField({
     <Playground writes={writes(value)}>
       <Field label={label}>
         <div className={narrow ? "w-20" : undefined}>
-          <Num
-            label={label}
-            inner={inner}
-            pixels={pixels}
-            spacing={spacing}
-            narrow={narrow}
-            value={value}
-            placeholder={placeholder}
-            min={min}
-            onChange={setValue}
-          />
+          {pixels ? (
+            <PixelField
+              label={label}
+              inner={inner}
+              spacing={spacing}
+              narrow={narrow}
+              value={value}
+              placeholder={placeholder}
+              min={min}
+              onChange={setValue}
+            />
+          ) : (
+            <NumberField
+              label={label}
+              inner={inner}
+              whole
+              min={min}
+              narrow={narrow}
+              value={value}
+              placeholder={placeholder}
+              onChange={setValue}
+            />
+          )}
         </div>
       </Field>
     </Playground>
@@ -118,7 +132,7 @@ const columnsWrites = (count: number | undefined): Writes =>
 
 /** A length a property takes in pixels alone, with no tokens: Outline offset at 2. Up makes it 3, Shift+Up 12. */
 export const Plain: Story = {
-  render: () => <NumberField label="Outline offset" start={2} pixels writes={outlineOffsetWrites} />
+  render: () => <StoryField label="Outline offset" start={2} pixels writes={outlineOffsetWrites} />
 }
 
 /**
@@ -142,7 +156,7 @@ export const Mixed: Story = {
   render: () => (
     <Playground writes={{ stored: undefined, css: [], tailwind: [] }}>
       <Field label="Outline offset">
-        <Num label="Outline offset" pixels mixed value={undefined} onChange={() => undefined} />
+        <PixelField label="Outline offset" mixed value={undefined} onChange={() => undefined} />
       </Field>
     </Playground>
   )
@@ -151,7 +165,7 @@ export const Mixed: Story = {
 /** Shown in rem, 40rem: rem chosen from the unit's menu, and the value kept in pixels either way. */
 export const InRem: Story = {
   render: () => (
-    <NumberField label="Max width" start={640} pixels writes={(px) => lengthWrites("max-width", "max-w", px)} />
+    <StoryField label="Max width" start={640} pixels writes={(px) => lengthWrites("max-width", "max-w", px)} />
   ),
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Max width unit: px" }))
@@ -163,7 +177,7 @@ export const InRem: Story = {
 /** A narrow field, as a corner's or a stroke side's is: the unit still shows, and its message spans the row. */
 export const Narrow: Story = {
   render: () => (
-    <NumberField
+    <StoryField
       label="Top stroke width"
       inner="T"
       start={2}
@@ -180,13 +194,13 @@ export const Narrow: Story = {
 
 /** A count, Columns: whole numbers only, at least 1, stepping by 1. */
 export const Count: Story = {
-  render: () => <NumberField label="Columns" start={3} min={1} writes={columnsWrites} />
+  render: () => <StoryField label="Columns" start={3} min={1} writes={columnsWrites} />
 }
 
 /** Unset, with what it is unset in its placeholder: a max height that isn't set, None. */
 export const Unset: Story = {
   render: () => (
-    <NumberField
+    <StoryField
       label="Max height"
       start={undefined}
       pixels
@@ -198,7 +212,7 @@ export const Unset: Story = {
 
 /** `wide` typed and Enter pressed: it isn't a length, so it stays, outlined, with the reason under it. */
 export const InvalidAsTyped: Story = {
-  render: () => <NumberField label="Outline offset" start={2} pixels writes={outlineOffsetWrites} />,
+  render: () => <StoryField label="Outline offset" start={2} pixels writes={outlineOffsetWrites} />,
   play: async ({ canvasElement }) => {
     const field = within(canvasElement).getByRole("textbox", { name: "Outline offset" })
     await userEvent.clear(field)

@@ -12,12 +12,10 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   addValueProp,
-  childrenSlot,
   type ContainerSpec,
   type DesignSlot,
   freeSlotName,
   type LayoutNode,
-  type ParamSpec,
   propNameProblem,
   setSlot,
   slotName,
@@ -35,7 +33,7 @@ import type { ContainerEntry } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
 import { paramValue, updateAndRecord } from "./inspector-events.ts"
 import { refuseNewProp, startNewProp, useNewProp } from "./new-prop.ts"
-import { booleanValue, textValue, type ValueKind } from "./prop-values.ts"
+import type { ValueKind } from "./prop-values.ts"
 import { revealSelection } from "./reveal.ts"
 import { focusSlot, refuseSlotName, slotFocused, useSlotFocus } from "./slot-focus.ts"
 
@@ -353,100 +351,6 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
 }
 
 /** The component's name as code calls it: "App top bar" is AppTopBar. */
-function codeName(name: string): string {
-  const pascal = name
-    .split(/[^A-Za-z0-9]+/)
-    .filter(Boolean)
-    .map((word) => word[0]!.toUpperCase() + word.slice(1))
-    .join("")
-
-  return /^[A-Za-z]/.test(pascal) ? pascal : `Component${pascal}`
-}
-
-interface CodeLine {
-  text: string
-  slot?: DesignSlot
-  muted?: boolean
-}
-
-/** A slot's line in the component color, the tags muted, and params as text. */
-function lineColor(line: CodeLine): string | undefined {
-  if (line.slot) {
-    return slotColor
-  }
-
-  return line.muted ? "var(--muted-foreground)" : undefined
-}
-
-function paramCode(name: string, param: ParamSpec): string {
-  const value = param.default
-  const flag = booleanValue.safeParse(value)
-
-  if (flag.success) {
-    return flag.data ? name : `${name}={false}`
-  }
-
-  const text = textValue.safeParse(value)
-
-  if (text.success) {
-    return `${name}="${text.data}"`
-  }
-
-  if (value === undefined) {
-    return `${name}={…}`
-  }
-
-  return `${name}={${JSON.stringify(value)}}`
-}
-
-/**
- * How an instance of the component reads in code, with each param's default and each slot: the one `childrenSlot`
- * picks between the tags, the others as props that take layers. Hovering a slot's line outlines its layout.
- */
-export function CodeLines({ entry, slots }: { entry: ContainerEntry; slots: DesignSlot[] }) {
-  const session = useProject()
-  const tag = codeName(entry.container.name)
-  const params = Object.entries(entry.container.params ?? {})
-  const children = childrenSlot(slots)
-  const lines: CodeLine[] = [{ text: `<${tag}`, muted: true }]
-
-  for (const [name, param] of params) {
-    lines.push({ text: `  ${paramCode(name, param)}` })
-  }
-
-  for (const slot of slots) {
-    if (slot !== children) {
-      lines.push({ text: `  ${slot.name}={<>…</>}`, slot })
-    }
-  }
-
-  if (children) {
-    lines.push({ text: ">", muted: true })
-    lines.push({ text: `  {/* ${children.name} */}`, slot: children })
-    lines.push({ text: `</${tag}>`, muted: true })
-  } else {
-    lines.push({ text: "/>", muted: true })
-  }
-
-  return (
-    <pre className="type-code overflow-x-auto rounded-md border bg-muted/40 py-2 font-mono">
-      {lines.map((line, index) => (
-        <div
-          key={index}
-          className="px-2"
-          onPointerEnter={
-            line.slot ? () => session.selection.setHover({ design: entry.key, node: line.slot!.node.id }) : undefined
-          }
-          onPointerLeave={line.slot ? () => session.selection.setHover(undefined) : undefined}
-          style={{ color: lineColor(line) }}
-        >
-          {line.text}
-        </div>
-      ))}
-    </pre>
-  )
-}
-
 /**
  * A layout of a component design, in its layer panel's header: Make slot beside Make component, the other thing a
  * layer can become. Once it's a slot, its name goes to it in the component's Props, and × makes it a plain layout. A

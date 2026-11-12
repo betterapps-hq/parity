@@ -28,6 +28,7 @@ type Story = StoryObj<typeof meta>
 
 function PresetStory({ start, open, unlocked }: { start: PresetLayer; open?: boolean; unlocked?: TypeField[] }) {
   const [layer, setLayer] = useState(start)
+  const [color, setColor] = useState<string | undefined>("foreground")
   const type = measured(typeOf(layer))
 
   return (
@@ -52,6 +53,8 @@ function PresetStory({ start, open, unlocked }: { start: PresetLayer; open?: boo
         layer={layer}
         inheritsFrom="Pricing"
         onChange={setLayer}
+        color={color}
+        onColor={setColor}
         initiallyOpen={open}
         initiallyUnlocked={unlocked}
       />
@@ -105,7 +108,10 @@ export const MatchesAPreset: Story = {
   )
 }
 
-/** No preset, at 21px: "Not a preset. One is near." and Use heading, with what it changes in its hint. */
+/**
+ * No preset, at 21px with no letter spacing: "Not a preset. One is near." and Use heading, the nearest over every row
+ * it sets, with what it changes in its hint.
+ */
 export const NearAPreset: Story = {
   render: () => (
     <PresetStory
@@ -121,12 +127,15 @@ export const NearAPreset: Story = {
   )
 }
 
+/** No preset and no type of its own: it has the type it inherits, so no preset is offered. */
+export const NoTypeOfItsOwn: Story = { render: () => <PresetStory start={{ own: {} }} /> }
+
 /** Typing searches the presets: each with its Ag and its name in its own type, smallest first, and what it comes to. */
 export const Picking: Story = {
   render: () => <PresetStory start={{ preset: "heading", own: {} }} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.type(canvas.getByRole("combobox", { name: "Typography preset" }), "bo")
+    await userEvent.type(canvas.getByRole("combobox", { name: "Preset" }), "bo")
     await expect(await canvas.findByRole("option", { name: /body/ })).toBeVisible()
   }
 }

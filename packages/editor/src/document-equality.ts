@@ -24,6 +24,10 @@ export function tidyView(
     delete next.modes
   }
 
+  if (next.order?.length === 0) {
+    delete next.order
+  }
+
   if (next.variants && Object.keys(next.variants).length === 0) {
     delete next.variants
   }

@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight } from "lucide-react"
 import { useState } from "react"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { ColorInput } from "./color-picker.tsx"
-import { Num } from "./controls.tsx"
+import { PixelField } from "./controls.tsx"
 import { shadowCss } from "./css-values.ts"
 import { usedColors } from "./data.ts"
 import {
@@ -345,7 +345,8 @@ function ShadowTokenSummary({ entry }: { entry: ShadowEntry }) {
   const token = useShadowTokens().all.find((option) => option.name === name)
 
   return (
-    <span className="flex min-w-0 text-foreground">
+    // Room for the chip's dot, which sits over its corner: the row clips what spills out of it.
+    <span className="flex min-w-0 pt-1 pr-1 text-foreground">
       <TokenChip
         name={name}
         token={token}
@@ -479,9 +480,8 @@ export function ShadowEditor({
     return (
       <FieldGrid>
         <Field label="Width" half>
-          <Num
+          <PixelField
             label="Ring width"
-            pixels
             value={entry.width ?? 1}
             min={0}
             onChange={(width) => onChange({ width: Math.round(width ?? 1) })}
@@ -524,18 +524,16 @@ export function ShadowEditor({
             <div className="flex items-center gap-2">
               <OffsetPad x={layer.x} y={layer.y} onChange={(x, y) => setLayer({ x, y })} />
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <Num
+                <PixelField
                   label="X offset"
                   inner="X"
-                  pixels
                   min={-999}
                   value={layer.x}
                   onChange={(x) => setLayer({ x: x ?? 0 })}
                 />
-                <Num
+                <PixelField
                   label="Y offset"
                   inner="Y"
-                  pixels
                   min={-999}
                   value={layer.y}
                   onChange={(y) => setLayer({ y: y ?? 0 })}
@@ -544,13 +542,12 @@ export function ShadowEditor({
             </div>
           </Field>
           <Field label="Blur" half={spread}>
-            <Num label="Blur" pixels value={layer.blur} onChange={(blur) => setLayer({ blur: blur ?? 0 })} />
+            <PixelField label="Blur" value={layer.blur} onChange={(blur) => setLayer({ blur: blur ?? 0 })} />
           </Field>
           {spread && (
             <Field label="Spread" half>
-              <Num
+              <PixelField
                 label="Spread"
-                pixels
                 min={-999}
                 value={layer.spread}
                 onChange={(next) => setLayer({ spread: next ?? 0 })}

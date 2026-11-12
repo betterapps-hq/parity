@@ -8248,6 +8248,40 @@ and the canvas and Layers menus all read it through `commandsFor` in `chrome/act
   state and mode. Export all, Snap, Performance stats, Clear bitmap cache and About still have no command, so they
   aren't recorded, as before.
 
+## The Design tab's field edits through one session (PAR-968)
+
+The rebuilt sections' field (`ValueField`) could preview while typing, but sections wired it each their own way, Fill,
+Effects and Motion not at all, Escape didn't cancel a scrub or a run, and a mixed selection got one value for every
+layer. My calls:
+
+- **The session is data in, data out,** `reduceSession` in `inspector/controls/edit-session.ts`: what happened in a
+  field and the edits its change came to go in, and what to do with them comes out. `useEditSession` runs it against the
+  style editor, once for every section, and a section makes every edit through its `edit`.
+- **A run of Up and Down presses is made as it goes, in one gesture, and Escape reverts it to a checkpoint.** We dropped
+  previewing the run and making it at the end: the controls step from the value they're given, so steps not yet made
+  would never advance, and the field would show a stale value.
+- **Escape keeps a run once something else has changed its design,** such as an agent editing the same file
+  (`changedBesides`), rather than reverting it: reverting would take that change back too. The run stays one step.
+- **A scrub previews and makes its last value on release,** as before, and Escape or the pointer being cancelled takes
+  it back.
+- **A drag inside a control is a run too,** made as it goes so the control follows the pointer: a color's square and
+  strips, a gradient's stops and midpoints, an angle's dial, an easing's curve, a shadow's offset and the position
+  spots. A stop dragged off its bar is removed in the same step.
+- **A change that works from the value there is worked out for each layer only where the panel shows Mixed numbers,** W,
+  H and padding's and margin's sides, through `ValueField`'s `each`. A layer with no pixels there (Hug, Fill) keeps its
+  value, and each keeps the field's own limits and spreads: margin below 0, padding to 0, sizes to 1px, Alt and
+  Alt+Shift reaching more sides. Type sizes and radii land on tokens, so they take one value for every layer. The note
+  over several layers names the rows where `Mixed+8` works.
+- **A number field is `ValueField` with rules, not a reader of its own.** `NumberField` takes what a number takes as
+  `NumberRules` (range, whole, what empty and a number past either end do, unit, words) and builds its reading, steps
+  and reasons from them, so every number says what it takes in one form ("Weight takes a whole number from 1 to 1000").
+  `PercentField` and the number props sit on it, and a prop's default moved from the old field to `NumberProp`, so the
+  old field, its reducer and `number-field.ts` are gone. Numbers past either end stop there unless a field needs
+  refusing (Weight, Steps, a curve's handles), as before. A field that mixes numbers with words or chips, a grid's lines
+  and a track's count, keeps its own reader.
+- **`Num` is `PixelField`:** every use was a length in pixels, so it's named for that and lost its unused count mode. It
+  sits beside `NumberField` as the length layer, since a length reads `rem`, `spacing-4` and a unit menu.
+
 ## Far frames show bitmaps from 10% zoom, on every screen (PAR-954)
 
 Frames switched to their bitmaps once they were drawn no larger than the bitmaps: the zoom times the screen's pixel
@@ -8264,6 +8298,18 @@ asked on 2026-11-11 for 10%, about where a design's details stop showing. My cal
   forth.
 - **Between 10% and the old line, frames draw their designs.** At 1.5x that's 10% to 17%. More frames are live at those
   zooms, so `pnpm perf`'s zoom run and `canvas.restedFar` (PAR-949) show what it costs and whether the bitmaps arrive.
+
+## A design keeps its own mode order, and the crown is gone (PAR-923)
+
+You approved a Modes section with a handle on each mode and no radio, Show all, Only or crown, and asked on 2026-11-12
+for the crown to leave the canvas too. My calls:
+
+- **The order belongs to the design,** not the project. Each design already picked the mode it shows first, so the order
+  is the same choice taken further, and dragging in one design's panel doesn't reorder every other board. The Modes
+  tab's order and Make primary still set the project's.
+- **The first mode is the one shown first,** so moving a mode to the top is how a design picks it. The mode that was
+  first stays shown beside the new one, rather than disappearing because something moved above it.
+- **The board's modes menu keeps Show first, Show all and Only,** since only the panel's design was approved.
 
 ## A design file that can't be read stops the project opening (PAR-1011)
 

@@ -38,7 +38,7 @@ import {
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
-import { ChevronDown, Crown, Rows3 } from "lucide-react"
+import { ChevronDown, Rows3 } from "lucide-react"
 import {
   type CSSProperties,
   memo,
@@ -152,7 +152,6 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
         state={state}
         mode={primary}
         primary
-        projectPrimary
         scale={1}
         caption={false}
         tabbable={isSelected}
@@ -394,7 +393,6 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
                 state={state}
                 mode={mode}
                 primary={column === 0}
-                projectPrimary={mode.id === all[0]?.id}
                 scale={column === 0 ? 1 : companionScale(frameSize(container, mode).width)}
                 caption={index === 0}
                 tabbable={isSelected}
@@ -919,8 +917,6 @@ interface FrameTileProps {
   mode: ResolvedMode
   /** The board's main frame. */
   primary: boolean
-  /** The project's primary mode, marked with a crown. */
-  projectPrimary: boolean
   scale: number
   /** Column headers show on the first row only; the columns line up below it. */
   caption: boolean
@@ -943,7 +939,6 @@ const FrameTile = memo(function FrameTile({
   state,
   mode,
   primary,
-  projectPrimary,
   scale,
   caption,
   tabbable,
@@ -1083,7 +1078,6 @@ const FrameTile = memo(function FrameTile({
             className="pointer-events-auto flex min-w-0 items-center gap-1.5 font-medium hover:underline"
             style={selected ? { color: kindColors.mode } : undefined}
           >
-            {projectPrimary && <Crown className="size-3.5 shrink-0 text-amber-400" aria-label="Primary mode" />}
             <ModeViewportIcon of={mode} className="size-3.5 shrink-0 opacity-70" aria-hidden />
             <Name>{mode.name}</Name>
           </button>

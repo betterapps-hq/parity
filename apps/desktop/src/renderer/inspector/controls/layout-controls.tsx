@@ -22,12 +22,20 @@ import {
   Plus,
   Rows3
 } from "lucide-react"
-import { type KeyboardEvent, type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from "react"
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState
+} from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
 import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { Num, type SectionProps } from "./controls.tsx"
+import { PixelField, type SectionProps } from "./controls.tsx"
 import { clamp, formatNumber, remPx, sameValue, stepCount, tint } from "./css-values.ts"
 import {
   type Columns,
@@ -38,7 +46,7 @@ import {
   type Track,
   typedContentSizes
 } from "./data.ts"
-import { arrowMoves, type Reading, useTokenSets, ValueField } from "./field-parts.tsx"
+import { arrowMoves, type Reading, StoresContext, Unstored, useTokenSets, ValueField } from "./field-parts.tsx"
 import { EachToggle, Field, IconSegments, nameMenuButton, TitleMenu } from "./field-row.tsx"
 import { useHighlight } from "./highlight.tsx"
 import { moved, RemoveButton, useOrderKeys } from "./list-parts.tsx"
@@ -70,7 +78,7 @@ const isBaseline = (align: Draft["align"]) => align === "baseline" || align === 
 /** The layout's type, as Type offers it: Figma's four, a wrapping row being one of them. */
 type LayoutMode = "column" | "row" | "wrap" | "grid"
 
-const layoutTypes = [
+export const layoutTypes = [
   { value: "column", label: "Vertical", detail: "Children stack top to bottom", icon: <ArrowDown /> },
   { value: "row", label: "Horizontal", detail: "Children sit side by side, left to right", icon: <ArrowRight /> },
   {
@@ -83,7 +91,7 @@ const layoutTypes = [
 ] as const
 
 /** A More menu item's name, with what it does under it. */
-function MenuItemText({ name, detail }: { name: string; detail: string }) {
+export function MenuItemText({ name, detail }: { name: string; detail: string }) {
   return (
     <span className="flex flex-col">
       {name}
@@ -100,8 +108,16 @@ function MenuItemText({ name, detail }: { name: string; detail: string }) {
  * layout into columns, and lining up text on its baseline. Switching Type keeps the grid's tracks, so going back to
  * Grid finds them as they were.
  */
-export function LayoutSection({ draft, set }: SectionProps) {
+export function LayoutSection({
+  draft,
+  set,
+  rowsMade
+}: SectionProps & {
+  /** How many rows a grid's children make while Rows is Auto; unset, Plans' children in the story. */
+  rowsMade?: number
+}) {
   const spacing = useTokenSets().spacing
+  const stores = useContext(StoresContext)
   const grid = draft.columns !== undefined
   const direction = draft.direction ?? "column"
   const row = !grid && direction === "row"
@@ -179,6 +195,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
 
   const more = grid ? (
     <DropdownMenuCheckboxItem
+      disabled={!stores("dense")}
       checked={draft.dense ?? false}
       onCheckedChange={(dense) => set({ dense: dense || undefined })}
     >
@@ -201,6 +218,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
       {(row || baseline) && (
         <>
           <DropdownMenuCheckboxItem
+            disabled={!stores("baseline")}
             checked={baseline}
             onCheckedChange={(on) => set({ align: on ? "baseline" : undefined })}
           >
@@ -215,6 +233,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
           </DropdownMenuCheckboxItem>
           {baseline && row && (
             <DropdownMenuCheckboxItem
+              disabled={!stores("baseline")}
               checked={draft.align === "last baseline"}
               onCheckedChange={(last) => set({ align: last ? "last baseline" : "baseline" })}
             >
@@ -240,21 +259,23 @@ export function LayoutSection({ draft, set }: SectionProps) {
                 <IconSegments label="Type" value={mode} options={layoutTypes} onChange={toMode} />
                 {/* A grid places its children by cell, so it has no direction to reverse. */}
                 {!grid && (
-                  <Hint
-                    label="Reverse direction"
-                    detail="Lays the children out last to first, so the reading order no longer matches what's seen"
-                  >
-                    <Toggle
-                      variant="outline"
-                      size="sm"
-                      className="h-7 px-2"
-                      aria-label="Reverse direction"
-                      pressed={draft.reverse ?? false}
-                      onPressedChange={(reverse) => set({ reverse: reverse || undefined })}
+                  <Unstored part="reverse">
+                    <Hint
+                      label="Reverse direction"
+                      detail="Lays the children out last to first, so the reading order no longer matches what's seen"
                     >
-                      {row ? <ArrowRightLeft /> : <ArrowDownUp />}
-                    </Toggle>
-                  </Hint>
+                      <Toggle
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2"
+                        aria-label="Reverse direction"
+                        pressed={draft.reverse ?? false}
+                        onPressedChange={(reverse) => set({ reverse: reverse || undefined })}
+                      >
+                        {row ? <ArrowRightLeft /> : <ArrowDownUp />}
+                      </Toggle>
+                    </Hint>
+                  </Unstored>
                 )}
               </div>
             </Field>
@@ -285,28 +306,30 @@ export function LayoutSection({ draft, set }: SectionProps) {
             </Field>
             {wraps && (
               <Field half label="Lines" hint="Where the wrapped lines sit when there's room left over">
-                <Select
-                  items={lineItems}
-                  value={draft.lines ?? "start"}
-                  onValueChange={(next) => {
-                    const chosen = lineItems.find((item) => item.value === next)?.value
+                <Unstored part="lines">
+                  <Select
+                    items={lineItems}
+                    value={draft.lines ?? "start"}
+                    onValueChange={(next) => {
+                      const chosen = lineItems.find((item) => item.value === next)?.value
 
-                    if (chosen) {
-                      set({ lines: chosen === "start" ? undefined : chosen })
-                    }
-                  }}
-                >
-                  <SelectTrigger size="sm" aria-label="Lines" className="h-7 w-full text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <PanelSelectContent>
-                    {lineItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </PanelSelectContent>
-                </Select>
+                      if (chosen) {
+                        set({ lines: chosen === "start" ? undefined : chosen })
+                      }
+                    }}
+                  >
+                    <SelectTrigger size="sm" aria-label="Lines" className="h-7 w-full text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <PanelSelectContent>
+                      {lineItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </PanelSelectContent>
+                  </Select>
+                </Unstored>
               </Field>
             )}
           </div>
@@ -315,7 +338,7 @@ export function LayoutSection({ draft, set }: SectionProps) {
         {grid && (
           <div className="mt-2 flex flex-col gap-2.5">
             <TracksField one="column" draft={draft} set={set} />
-            <TracksField one="row" draft={draft} set={set} />
+            <TracksField one="row" draft={draft} set={set} rowsMade={rowsMade} />
           </div>
         )}
       </div>
@@ -342,7 +365,7 @@ function gapName(grid: boolean, row: boolean, wraps: boolean) {
 }
 
 /** Gap's fields, which highlight the gaps on the canvas while they're hovered or focused, as Penpot's do. */
-function GapHighlight({ rows, children }: { rows?: RefObject<HTMLDivElement | null>; children: ReactNode }) {
+export function GapHighlight({ rows, children }: { rows?: RefObject<HTMLDivElement | null>; children: ReactNode }) {
   const { setHighlight } = useHighlight()
 
   return (
@@ -773,7 +796,7 @@ const spreads = [
  * (Space between, around or evenly), and set, it's a chip that says how. Backspace takes it off, back to the gap it had
  * before, and typing a length replaces it. A negative gap overlaps the children, where it's taken.
  */
-function GapField({
+export function GapField({
   label,
   across,
   value,
@@ -935,8 +958,14 @@ const mostTracks = 24
  * remove it, with Add at the name's end. Hovering or focusing a track's row highlights it on the canvas. The grid
  * picker at the end of Columns sets both counts at once, as Figma's does.
  */
-function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<SectionProps, "draft" | "set">) {
+function TracksField({
+  one,
+  draft,
+  set,
+  rowsMade
+}: { one: "column" | "row"; rowsMade?: number } & Pick<SectionProps, "draft" | "set">) {
   const spacing = useTokenSets().spacing
+  const stores = useContext(StoresContext)
   const columns = one === "column"
   const fit = columns && draft.columns !== undefined && !Array.isArray(draft.columns)
   let tracks: Track[] = draft.rows ?? []
@@ -953,7 +982,7 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
   const title = columns ? "Column" : "Row"
   const setTracks = (next: Track[]) => set(columns ? { columns: next } : { rows: next, autoRows: undefined })
   const fitLeast = fit && !Array.isArray(draft.columns) ? draft.columns!.fit : 160
-  const made = columns ? fitCount(fitLeast, gapPx(draft.gap, spacing)) : childRows(draft, spacing)
+  const made = columns ? fitCount(fitLeast, gapPx(draft.gap, spacing)) : (rowsMade ?? childRows(draft, spacing))
   const widths = trackWeights(tracks, columns ? contentWidth : 240)
   const order = useOrderKeys(tracks.length)
 
@@ -995,7 +1024,9 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
           onPick={(across, down) => set({ columns: resize(tracks, across), rows: resize(draft.rows ?? [], down) })}
         />
       )}
-      <EachToggle label={`Each ${one}`} parts={columns ? "columns" : "rows"} pressed={listed} onClick={toggleEach} />
+      <Unstored part="trackSizes">
+        <EachToggle label={`Each ${one}`} parts={columns ? "columns" : "rows"} pressed={listed} onClick={toggleEach} />
+      </Unstored>
       {listed && (
         <Hint label={`Add a ${one}`}>
           <button
@@ -1046,10 +1077,9 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
 
   if (fit) {
     size = (
-      <Num
+      <PixelField
         label="Least column width"
         inner="≥"
-        pixels
         value={fitLeast}
         min={1}
         onChange={(least) => set({ columns: { fit: least ?? 160 } })}
@@ -1086,11 +1116,15 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
             one={one}
             count={fit || auto ? made : tracks.length}
             word={fit || auto}
+            // Fit sizes its columns, which the document can't store yet; Auto rows it can.
+            takesWord={!columns || stores("trackSizes")}
             onCount={toCount}
             onWord={toWord}
           />
         </div>
-        <div className="min-w-0">{size}</div>
+        <div className="min-w-0">
+          <Unstored part="trackSizes">{size}</Unstored>
+        </div>
       </div>
     </Field>
   )
@@ -1101,10 +1135,11 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
  * How many columns or rows: a whole number, a step at a time, or Fit for columns and Auto for rows, each a chip that
  * says how many it makes now. Its menu offers the word; Backspace on the chip takes it off, for the count it made.
  */
-function TrackCount({
+export function TrackCount({
   one,
   count,
   word,
+  takesWord = true,
   onCount,
   onWord
 }: {
@@ -1113,6 +1148,8 @@ function TrackCount({
   count: number
   /** It's Fit, or Auto. */
   word: boolean
+  /** Whether it offers Fit or Auto, where the style holds it. */
+  takesWord?: boolean
   onCount: (count: number) => void
   onWord: () => void
 }) {
@@ -1131,7 +1168,7 @@ function TrackCount({
       return { value: count }
     }
 
-    if (words.typed.includes(typed)) {
+    if (takesWord && words.typed.includes(typed)) {
       return { value: "word" }
     }
 
@@ -1141,7 +1178,7 @@ function TrackCount({
       return { value: number }
     }
 
-    return { reason: `Enter a whole number from 1 to ${mostTracks}, or ${name}` }
+    return { reason: `Enter a whole number from 1 to ${mostTracks}${takesWord ? `, or ${name}` : ""}` }
   }
 
   return (
@@ -1164,14 +1201,18 @@ function TrackCount({
             }
           : undefined
       }
-      tokens={{
-        list: [],
-        keywords: {
-          heading: columns ? "Columns" : "Rows",
-          rows: [{ key: "word", name, detail: words.detail, current: word, onPick: onWord }]
-        },
-        onPick: () => undefined
-      }}
+      tokens={
+        takesWord
+          ? {
+              list: [],
+              keywords: {
+                heading: columns ? "Columns" : "Rows",
+                rows: [{ key: "word", name, detail: words.detail, current: word, onPick: onWord }]
+              },
+              onPick: () => undefined
+            }
+          : undefined
+      }
       read={read}
       onCommit={(next) => (next === "word" ? onWord() : onCount(next))}
       onStep={(up, { shift }) => onCount(clamp(count + stepCount(up, shift), 1, mostTracks))}

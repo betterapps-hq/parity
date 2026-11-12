@@ -10,66 +10,33 @@ let page: Page
 const errors: string[] = []
 
 /**
- * What the page loads: a Width row holding 8 steps (32px) of a 4px spacing scale, and a Mixed row standing for two
- * selected layers of 8 and 75 steps, each number field named by its row's label. What the fields ask for is logged;
- * commits change the values, as the store would. The project's store gives the fields their gestures, logged as they
- * begin and end, with the gesture of each commit. What the fields edit can change under them, as the selection does in
- * the inspector. Below them are token pickers for a fill set to primary, an unset text color and radii that differ
+ * What the page loads: a Seats row holding a number prop of 70, whose preview is made in the design while it shows,
+ * with what it asks for logged, and token pickers for a fill set to primary, an unset text color and radii that differ
  * across the selection.
  */
 const entry = `
 import { createElement as h, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
-import { ProjectContext } from "../canvas/context.ts"
-import { Field, FieldTarget, NumberField, NumberValueInput, TokenInput } from "./fields.tsx"
+import { Field, TokenInput } from "./fields.tsx"
+import { Field as Row } from "../inspector/controls/field-row.tsx"
+import { NumberProp } from "../inspector/controls/number-field.tsx"
 
-const rules = { kind: "length", unit: 4, min: 0, label: "Width" }
 const tokens = [
   { name: "primary", category: "color", source: "semantic", values: { default: "oklch(0.5 0.2 260)" } },
   { name: "muted", category: "color", source: "semantic", values: { default: "oklch(0.95 0 0)" } },
   { name: "radius-lg", category: "radius", source: "theme", values: { default: "10px" } }
 ]
 window.log = []
-window.gestures = []
-let gestures = 0
-const store = {
-  beginGesture: () => {
-    gestures += 1
-    window.gestures.push(["begin", "g" + gestures])
-    return "g" + gestures
-  },
-  endGesture: (gesture) => window.gestures.push(["end", gesture])
-}
 
 function Harness() {
-  const [value, setValue] = useState(8)
-  const [layers, setLayers] = useState([8, 75])
-  const [target, setTarget] = useState("first layer")
   // A number prop of 70, whose preview is made in the design while it shows, as ChangePreview makes it.
   const [prop, setProp] = useState(70)
   const [textColor, setTextColor] = useState(undefined)
-  window.setOutside = setValue
-  window.setTarget = setTarget
-  window.layers = layers
   window.prop = prop
-  return h(ProjectContext.Provider, { value: { store } }, h(FieldTarget.Provider, { value: target }, h(TooltipProvider, null,
-    h(Field, { label: "Width" }, h(NumberField, {
-      value, rules, blank: () => 0,
-      onPreview: (update) => window.log.push(["preview", update(value)]),
-      onCancel: () => window.log.push(["cancel"]),
-      onCommit: (update, gesture) => {
-        const next = update(value)
-        window.log.push(["commit", next])
-        window.gestures.push(["commit", gesture ?? null])
-        setValue(next)
-      }
-    })),
-    h(Field, { label: "Both", mixed: true }, h(NumberField, {
-      value: undefined, rules, blank: () => 0,
-      onCommit: (update) => setLayers(layers.map((layer) => update(layer)))
-    })),
-    h(Field, { label: "value" }, h(NumberValueInput, {
+  return h(TooltipProvider, null,
+    h(Row, { label: "Seats" }, h(NumberProp, {
+      label: "Seats",
       value: prop,
       preview: {
         onPreview: (next) => {
@@ -81,8 +48,8 @@ function Harness() {
           setProp(70)
         }
       },
-      onCommit: (next) => {
-        window.log.push(["prop commit", next])
+      onChange: (next, gesture) => {
+        window.log.push(gesture ? ["prop commit", next, "in a run"] : ["prop commit", next])
         setProp(next)
       }
     })),
@@ -96,7 +63,7 @@ function Harness() {
     h(Field, { label: "Radius", mixed: true }, h(TokenInput, {
       label: "Radius", value: undefined, tokens, categories: ["radius"], onChange: () => {}
     }))
-  )))
+  )
 }
 
 export function start() {
@@ -146,30 +113,15 @@ beforeEach(async () => {
   await page.reload()
   // @ts-expect-error The bundle's global.
   await page.evaluate(() => fields.start())
-  await page.getByRole("textbox", { name: "Width" }).waitFor()
+  await page.getByRole("textbox", { name: "Seats" }).waitFor()
 })
 
-const width = () => page.getByRole("textbox", { name: "Width" })
-
-// The page's log and gestures, parsed, since the page's globals come back untyped.
+// The page's log, parsed, since the page's globals come back untyped.
 const entries = z.array(z.array(z.unknown()))
 
 const log = async () =>
   // @ts-expect-error The page's log.
   entries.parse(await page.evaluate(() => window.log))
-
-const gestures = async () =>
-  // @ts-expect-error The page's gestures.
-  entries.parse(await page.evaluate(() => window.gestures))
-
-// The focused field's name: its own, or its row's label.
-const focused = () =>
-  page.evaluate(() => {
-    const active = document.activeElement
-    const label = document.getElementById(active?.getAttribute("aria-labelledby") ?? "")
-
-    return active?.getAttribute("aria-label") ?? label?.textContent ?? null
-  })
 
 async function typeInto(name: string, text: string) {
   const input = page.getByRole("textbox", { name })
@@ -179,174 +131,6 @@ async function typeInto(name: string, text: string) {
   await input.pressSequentially(text)
 }
 
-describe("typing", () => {
-  it("reads 320 as pixels, previewing each step as it's typed", async () => {
-    await typeInto("Width", "320")
-    // 3px isn't on the scale, so it previews the step it lands on.
-    expect(await log()).toEqual([
-      ["preview", 1],
-      ["preview", 8],
-      ["preview", 80]
-    ])
-  })
-
-  it("commits on Enter, keeping the field with its text selected", async () => {
-    await typeInto("Width", "320")
-    await width().press("Enter")
-    expect((await log()).at(-1)).toEqual(["commit", 80])
-    expect(await width().inputValue()).toBe("320")
-    expect(await focused()).toBe("Width")
-    expect(await width().evaluate((input: HTMLInputElement) => [input.selectionStart, input.selectionEnd])).toEqual([
-      0, 3
-    ])
-  })
-
-  it("keeps input it can't read, with the reason, and takes the preview back", async () => {
-    await typeInto("Width", "16")
-    await width().pressSequentially("em")
-    await width().press("Enter")
-    expect(await width().inputValue()).toBe("16em")
-    expect(await width().getAttribute("aria-invalid")).toBe("true")
-    expect(await page.getByRole("alert").textContent()).toBe(
-      `"em" isn't a unit Width takes: type a number, px, rem or %`
-    )
-    // 1px lands on 2px, the nearest half step; 16e and 16em can't be read, so they keep the last preview.
-    expect(await log()).toEqual([["preview", 0.5], ["preview", 4], ["cancel"]])
-    // Leaving the field keeps it too.
-    await page.mouse.click(500, 350)
-    expect(await width().inputValue()).toBe("16em")
-  })
-
-  it("keeps what's typed when the value changes underneath, until Escape puts the value back", async () => {
-    await typeInto("Width", "12")
-    // @ts-expect-error The page's setter.
-    await page.evaluate(() => window.setOutside(10))
-    expect(await width().inputValue()).toBe("12")
-    await width().press("Escape")
-    expect(await width().inputValue()).toBe("40")
-    expect(await focused()).toBeNull()
-  })
-
-  it("says when a length snaps to the spacing scale", async () => {
-    await typeInto("Width", "281")
-    await width().press("Enter")
-    expect((await log()).at(-1)).toEqual(["commit", 70.5])
-    expect(await page.getByRole("status").textContent()).toBe("Snapped to 282px, the nearest step on the spacing scale")
-  })
-})
-
-describe("stepping and scrubbing", () => {
-  it("moves a step with Up and Down, ten with Shift", async () => {
-    await width().click()
-    await width().press("ArrowUp")
-    await width().press("Shift+ArrowUp")
-    await width().press("ArrowDown")
-    expect((await log()).filter(([kind]) => kind === "commit")).toEqual([
-      ["commit", 9],
-      ["commit", 19],
-      ["commit", 18]
-    ])
-    expect(await width().inputValue()).toBe("72")
-  })
-
-  it("makes a run of Up and Down one gesture, which Enter or leaving the field ends, and typing commits apart", async () => {
-    await width().click()
-    await width().press("ArrowUp")
-    await page.waitForTimeout(1200)
-    await width().press("ArrowUp")
-    await width().press("Enter")
-    await width().press("ArrowDown")
-    await page.mouse.click(500, 350)
-    await typeInto("Width", "40")
-    await width().press("Enter")
-    expect(await gestures()).toEqual([
-      ["begin", "g1"],
-      ["commit", "g1"],
-      ["commit", "g1"],
-      ["end", "g1"],
-      ["begin", "g2"],
-      ["commit", "g2"],
-      ["end", "g2"],
-      ["commit", null]
-    ])
-  })
-
-  it("ends a run when what the field edits changes while it keeps focus", async () => {
-    await width().click()
-    await width().press("ArrowUp")
-    // Another layer selected from the canvas, the field still focused: its presses are a step of their own.
-    // @ts-expect-error The page's setter.
-    await page.evaluate(() => window.setTarget("second layer"))
-    // The run ends as the change draws, before another press.
-    await expect.poll(gestures).toContainEqual(["end", "g1"])
-    await width().press("ArrowUp")
-    expect(await focused()).toBe("Width")
-    expect(await gestures()).toEqual([
-      ["begin", "g1"],
-      ["commit", "g1"],
-      ["end", "g1"],
-      ["begin", "g2"],
-      ["commit", "g2"]
-    ])
-  })
-
-  it("scrubs by dragging the row's label, previewing, then commits once", async () => {
-    const label = await page.getByText("Width", { exact: true }).boundingBox()
-    await page.mouse.move(label!.x + 5, label!.y + 5)
-    await page.mouse.down()
-    await page.mouse.move(label!.x + 25, label!.y + 5)
-    expect(await width().inputValue()).toBe("72")
-    await page.mouse.up()
-    const entries = await log()
-    expect(entries.filter(([kind]) => kind === "commit")).toEqual([["commit", 18]])
-    expect(entries).toContainEqual(["preview", 18])
-    // Its one commit is an undo step of its own, with no gesture around it (PAR-551).
-    expect(await gestures()).toEqual([["commit", null]])
-  })
-
-  it("ends a run of Up and Down presses when the label is scrubbed", async () => {
-    await width().click()
-    await width().press("ArrowUp")
-    const label = await page.getByText("Width", { exact: true }).boundingBox()
-    await page.mouse.move(label!.x + 5, label!.y + 5)
-    await page.mouse.down()
-    await page.mouse.move(label!.x + 25, label!.y + 5)
-    await page.mouse.up()
-    expect(await gestures()).toEqual([
-      ["begin", "g1"],
-      ["commit", "g1"],
-      ["end", "g1"],
-      ["commit", null]
-    ])
-  })
-
-  it("takes a scrub back on Escape", async () => {
-    const label = await page.getByText("Width", { exact: true }).boundingBox()
-    await page.mouse.move(label!.x + 5, label!.y + 5)
-    await page.mouse.down()
-    await page.mouse.move(label!.x + 25, label!.y + 5)
-    await page.keyboard.press("Escape")
-    await page.mouse.up()
-    expect((await log()).filter(([kind]) => kind === "commit")).toEqual([])
-    expect((await log()).at(-1)).toEqual(["cancel"])
-    expect(await width().inputValue()).toBe("32")
-  })
-})
-
-describe("mixed values", () => {
-  it("shows Mixed, and Mixed+8 adds 8px to each layer's own value", async () => {
-    const both = page.getByRole("textbox", { name: "Both" })
-    expect(await both.inputValue()).toBe("Mixed")
-    await both.click()
-    await both.press("End")
-    await both.pressSequentially("+8")
-    await both.press("Enter")
-    // @ts-expect-error The page's layers.
-    expect(await page.evaluate(() => window.layers)).toEqual([10, 77])
-    expect(errors).toEqual([])
-  })
-})
-
 describe("number props (PAR-203)", () => {
   const props = async () => (await log()).filter(([kind]) => String(kind).startsWith("prop"))
 
@@ -355,9 +139,23 @@ describe("number props (PAR-203)", () => {
     // @ts-expect-error The page's prop.
     z.number().parse(await page.evaluate(() => window.prop))
 
+  it("makes a run of Up and Down presses in one gesture, and Escape takes it back", async () => {
+    const field = page.getByRole("textbox", { name: "Seats" })
+    await field.click()
+    await field.press("ArrowUp")
+    await field.press("ArrowUp")
+    await field.press("Escape")
+    expect(await props()).toEqual([
+      ["prop commit", 71, "in a run"],
+      ["prop commit", 72, "in a run"],
+      ["prop commit", 70, "in a run"]
+    ])
+    expect(await prop()).toBe(70)
+  })
+
   it("previews from the value as it was, though the design holds the preview, and commits from it", async () => {
-    await typeInto("value", "/20")
-    await page.getByRole("textbox", { name: "value" }).press("Enter")
+    await typeInto("Seats", "/20")
+    await page.getByRole("textbox", { name: "Seats" }).press("Enter")
     // "/" can't be read; "/2" halves 70, and "/20" divides 70, not the 35 shown.
     expect(await props()).toEqual([
       ["prop preview", 35],
@@ -367,32 +165,32 @@ describe("number props (PAR-203)", () => {
     expect(await prop()).toBe(3.5)
   })
 
-  it("takes the preview back on Escape, and on Enter when it comes back to the value", async () => {
-    const field = page.getByRole("textbox", { name: "value" })
-    await typeInto("value", "5")
+  it("takes the preview back on Escape, and makes what Enter comes back to", async () => {
+    const field = page.getByRole("textbox", { name: "Seats" })
+    await typeInto("Seats", "5")
     await field.press("Escape")
     expect(await field.inputValue()).toBe("70")
-    await typeInto("value", "70")
+    await typeInto("Seats", "70")
     await field.press("Enter")
     expect(await props()).toEqual([
       ["prop preview", 5],
       ["prop cancel"],
       ["prop preview", 7],
       ["prop preview", 70],
-      ["prop cancel"]
+      ["prop commit", 70]
     ])
     expect(await prop()).toBe(70)
   })
 
-  it("scrubs from the value as it was", async () => {
-    const label = await page.getByText("value", { exact: true }).boundingBox()
+  it("scrubs from the value as it was, a step per screen pixel", async () => {
+    const label = await page.getByText("Seats", { exact: true }).boundingBox()
     await page.mouse.move(label!.x + 5, label!.y + 5)
     await page.mouse.down()
     await page.mouse.move(label!.x + 25, label!.y + 5)
     await page.mouse.up()
     expect(await props()).toEqual([
-      ["prop preview", 80],
-      ["prop commit", 80]
+      ["prop preview", 90],
+      ["prop commit", 90]
     ])
   })
 })

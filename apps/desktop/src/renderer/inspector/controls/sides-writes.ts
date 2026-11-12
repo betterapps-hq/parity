@@ -245,9 +245,7 @@ function readOne(
     }
 
     if ("reason" in reading) {
-      return reading.reason.startsWith("Can't read")
-        ? { reason: `Enter a whole number, such as 10, or a token` }
-        : reading
+      return reading
     }
 
     if (!Number.isInteger(reading.value)) {
@@ -264,13 +262,7 @@ function readOne(
   }
 
   if ("reason" in reading) {
-    if (!reading.reason.startsWith("Can't read")) {
-      return reading
-    }
-
-    const auto = rules.auto ? ", auto" : ""
-
-    return { reason: `Enter a length, such as 16 or 1rem${auto}, or a token` }
+    return reading
   }
 
   if ("percent" in reading) {

@@ -60,16 +60,18 @@ function partsOf(container: ContainerSpec, ids: string[]) {
 
 const last: StyleSection[] = ["fill", "stroke", "effects", "motion", "rawCss"]
 
-/** A layer's sections around its own: placement, layer order and size before, and the rest after. */
-function nested(between: StyleSection[], text: boolean): StyleSection[] {
+/** A layer's sections around its own: placement, layer order, transform and size before, and the rest after. */
+function nested(between: StyleSection[], text: boolean, layout = false): StyleSection[] {
   return [
     "placement",
     "layerOrder",
+    "transform",
     "size",
     ...between,
     "spacing",
-    "appearance",
+    ...(layout ? ["layout" as const] : []),
     ...(text ? ["text" as const] : []),
+    "appearance",
     ...last
   ]
 }
@@ -116,7 +118,7 @@ describe("a layer's capabilities", () => {
 describe("the sections and controls each kind of layer gets", () => {
   it("give a screen's or component's root its size, layout and text inside, without placement or margin", () => {
     const expected = {
-      sections: ["size", "layout", "spacing", "appearance", "text", ...last],
+      sections: ["size", "spacing", "layout", "text", "appearance", ...last],
       controls: ["sizeFill"]
     }
 
@@ -126,7 +128,7 @@ describe("the sections and controls each kind of layer gets", () => {
 
   it("give a frame's root the frame's size in place of Size", () => {
     expect(partsOf(screen("frame"), ["root"])).toEqual({
-      sections: ["frameSize", "layout", "spacing", "appearance", "text", ...last],
+      sections: ["frameSize", "spacing", "layout", "text", "appearance", ...last],
       controls: ["sizeFill"]
     })
   })
@@ -136,7 +138,7 @@ describe("the sections and controls each kind of layer gets", () => {
     ["grid", ["gridPlacement"], sorted(["sizeFill", "span", "margin"])]
   ] as const)("give a layout in a %s parent its layout and text inside", (parent, placement, controls) => {
     expect(partsOf(screen(), [`${parent}-layout`])).toEqual({
-      sections: nested([...placement, "layout"], true),
+      sections: nested([...placement], true, true),
       controls
     })
   })

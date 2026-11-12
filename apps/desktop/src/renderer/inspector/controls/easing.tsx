@@ -20,14 +20,14 @@ import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { EasingArt, easingRange, easingScale, useReducedMotion } from "../../chrome/token-previews.tsx"
-import { clamp, formatNumber, sameValue, stepCount } from "./css-values.ts"
+import { clamp, formatNumber, sameValue } from "./css-values.ts"
 import {
   arrowMoves,
   drag,
+  useLiveEdits,
   MissingMark,
   moveThroughRows,
   type Reading,
-  readUnitNumber,
   type ScrubKeys,
   stepToken,
   tokenNamed,
@@ -53,6 +53,7 @@ import {
   springSettle
 } from "./motion-data.ts"
 import { easingClass, easingIsLong } from "./motion-writes.ts"
+import { NumberField } from "./number-field.tsx"
 import { Card, PreviewStage } from "./playground.tsx"
 import { type EasingToken, easingToken, type FieldToken, hexOf } from "./tokens.ts"
 import { optionNamed } from "./typing.ts"
@@ -523,6 +524,7 @@ function CurveEditor({
   faint?: boolean
   onChange: (curve: Bezier) => void
 }) {
+  const live = useLiveEdits()
   const box = useRef<SVGSVGElement>(null)
   const plot: EasingPlot = { kind: "bezier", curve }
   // The handles go on the scale the graph draws the curve on, so they land on it.
@@ -543,6 +545,7 @@ function CurveEditor({
 
     event.preventDefault()
     drag(event, {
+      runs: live,
       move: ({ clientX, clientY }) => {
         const rect = box.current!.getBoundingClientRect()
         const scale = graphSize / rect.width
@@ -626,20 +629,7 @@ function StepsEditor({
   const write = (count: number, jump: "start" | "end") =>
     onChange({ value: jump === "end" ? `steps(${count})` : `steps(${count}, jump-start)` })
 
-  const takes = "Steps takes a whole number from 1"
-
-  // A count, read with the app's maths, on Enter or leaving; Escape puts it back.
-  const read = (text: string): Reading<number> => {
-    const reading = readUnitNumber(text, { units: {}, current: shown.count, label: "Steps", takes })
-
-    if ("reason" in reading) {
-      return reading
-    }
-
-    return Number.isInteger(reading.value) && reading.value >= 1 ? { value: reading.value } : { reason: takes }
-  }
-
-  const count = (next: number) => write(Math.max(1, Math.round(next)), shown.jump)
+  const count = (next: number | undefined) => next !== undefined && write(next, shown.jump)
 
   return (
     <div className="flex flex-col gap-2">
@@ -649,14 +639,7 @@ function StepsEditor({
       </GraphCaption>
       <FieldGrid>
         <Field label="Steps" half>
-          <ValueField
-            label="Steps"
-            shown={String(shown.count)}
-            scrub={{ from: () => shown.count, apply: count, by: { step: 1, shiftStep: 10, min: 1 } }}
-            read={read}
-            onCommit={count}
-            onStep={(up, { shift }) => count(shown.count + stepCount(up, shift))}
-          />
+          <NumberField label="Steps" whole min={1} past="refuse" required value={shown.count} onChange={count} />
         </Field>
         <Field label="Jump at" half>
           <Segments label="Jump at" value={shown.jump} options={jumps} onChange={(jump) => write(shown.count, jump)} />
@@ -782,28 +765,24 @@ function SpringNumber({
   const id = useId()
   const set = (next: number) => onChange(clamp(Number(formatNumber(Math.round(next / step) * step)), min, max))
 
-  const read = (text: string): Reading<number> =>
-    readUnitNumber(text, {
-      units: unit ? { [unit]: 1 } : {},
-      current: value,
-      label,
-      takes: `${label} takes a number from ${min} to ${max}`
-    })
-
   return (
     <div className="grid grid-cols-[60px_72px_minmax(0,1fr)] items-center gap-2">
       <span id={id} className="text-xs text-muted-foreground">
         {label}
       </span>
-      <ValueField
+      <NumberField
         label={label}
-        shown={formatNumber(value, 2)}
-        placeholder={String(min)}
+        min={min}
+        max={max}
+        places={2}
+        required
         unit={unit}
+        step={step}
+        scrubs={false}
+        value={value}
+        placeholder={String(min)}
         narrow
-        read={read}
-        onCommit={set}
-        onStep={(up, { shift }) => set(value + stepCount(up, shift) * step)}
+        onChange={(next) => next !== undefined && set(next)}
       />
       <Slider
         aria-labelledby={id}

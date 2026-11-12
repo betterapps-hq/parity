@@ -1,6 +1,6 @@
 import { scrubSteps } from "@parity-app/core"
 import { type ReactNode, useState } from "react"
-import { formatNumber, sameValue, stepSpacing } from "./css-values.ts"
+import { formatNumber, sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import {
   asToken,
   type MenuKeywords,
@@ -15,6 +15,8 @@ import {
   tokenStatus,
   usePercentUnit,
   useTokens,
+  type Unstorable,
+  Unstored,
   ValueField
 } from "./field-parts.tsx"
 import { EachToggle, Field, PairGlyph, SideGlyph } from "./field-row.tsx"
@@ -92,6 +94,11 @@ type SideEntry = { side: Side } | { shorthand: Sides }
 export interface SideFieldProps {
   /** The accessible name, which says which side: Top padding. */
   label: string
+  /**
+   * Where the layers differ, works out what uses the value there from each one's own pixels (`ValueField`'s), on the
+   * sides `spread` reaches.
+   */
+  each?: (update: (px: number) => number, spread: Spread) => void
   /** A short label inside, which scrubs: T, or an icon. */
   inner?: ReactNode
   rules: SideRules
@@ -141,6 +148,7 @@ export function SideField({
   rules,
   value,
   mixed = false,
+  each,
   mixedNote = "Mixed: the selected layers differ",
   placeholder = "0",
   measured,
@@ -272,6 +280,13 @@ export function SideField({
       shown={shown}
       placeholder={placeholder}
       mixed={mixed}
+      each={each && ((update, keys) => each(update, keys ? spreadFrom(keys) : "side"))}
+      stepEach={(own, up, keys) => {
+        const by = stepCount(up, keys.shift && !(spreads && keys.alt))
+        const next = rules.stepBy === "spacing" ? stepSpacing(own, by) : own + by
+
+        return rules.negatives ? next : Math.max(0, next)
+      }}
       chip={chip}
       unit={shownUnit}
       unitName={rules.percent ? unitNow : undefined}
@@ -390,6 +405,7 @@ export function FourSidesField({
   hint,
   doesNothing,
   tokensOnly,
+  eachSide,
   onChange,
   onHover
 }: {
@@ -408,6 +424,8 @@ export function FourSidesField({
   /** Why the row does nothing here, which dims it. */
   doesNothing?: string
   tokensOnly?: boolean
+  /** Where a side of its own is something the document may not store yet, as a stroke's width per side. */
+  eachSide?: Unstorable
   onChange: (sides: Sides, cleared: number[]) => void
   onHover?: (sides: number[] | undefined) => void
 }) {
@@ -497,7 +515,15 @@ export function FourSidesField({
       <Field
         label={label}
         hint={[doesNothing, hint].filter(Boolean).join("\n") || undefined}
-        action={<EachToggle label="Each side" parts="sides" pressed={each} onClick={() => setEach(!each)} />}
+        action={
+          eachSide ? (
+            <Unstored part={eachSide}>
+              <EachToggle label="Each side" parts="sides" pressed={each} onClick={() => setEach(!each)} />
+            </Unstored>
+          ) : (
+            <EachToggle label="Each side" parts="sides" pressed={each} onClick={() => setEach(!each)} />
+          )
+        }
       >
         <div className={`grid min-w-0 gap-x-2 gap-y-1 ${together === "one" && !each ? "grid-cols-1" : "grid-cols-2"}`}>
           {fields}

@@ -49,3 +49,17 @@ export function storedColors(known: readonly Color[]): (entry: ListColor) => Col
     return entry.alpha === undefined ? { value: entry.color } : { value: entry.color, alpha: { step: entry.alpha } }
   }
 }
+
+/**
+ * A color field's text as the document stores it, keeping the alpha the layer's color had: a plain color as written,
+ * or a token by name. The color it was comes back as it was stored when the text didn't change. Cleared, it's unset.
+ */
+export function fieldColor(text: string | undefined, was: Color | undefined): Color | undefined {
+  if (text === undefined) {
+    return undefined
+  }
+
+  const alpha = alphaPercent(was)
+
+  return storedColors(was === undefined ? [] : [was])(alpha === undefined ? { color: text } : { color: text, alpha })
+}

@@ -428,7 +428,7 @@ function lex(text: string, rules: FieldRules): Lexeme[] | { reason: string } {
 
     if (word && word.toLowerCase() !== "x") {
       if (word.toLowerCase() !== "mixed") {
-        return { reason: `Can't read "${word}": ${expects(rules)}` }
+        return unreadable(text, rules)
       }
 
       lexemes.push({ type: "current", text: word })
@@ -451,7 +451,7 @@ function lex(text: string, rules: FieldRules): Lexeme[] | { reason: string } {
     } else if (char === "%") {
       return { reason: `A % needs a number before it, as in 50%` }
     } else {
-      return { reason: `Can't read "${char}": ${expects(rules)}` }
+      return unreadable(text, rules)
     }
 
     at++
@@ -491,6 +491,21 @@ function noun(rules: FieldRules): string {
   }
 
   return rules.kind === "count" ? "a whole number" : "a number"
+}
+
+/**
+ * What's typed, whole, as what the field takes it can't be: `"16#" isn't a valid number`. A length is a number to whoever
+ * types it, with px, rem or % after it or not, so it's called one.
+ */
+function unreadable(text: string, rules: FieldRules) {
+  const what: Record<FieldKind, string> = {
+    length: "a valid number",
+    percent: "a valid percentage",
+    count: "a whole number",
+    number: "a valid number"
+  }
+
+  return { reason: `"${text.trim()}" isn't ${what[rules.kind]}` }
 }
 
 function expects(rules: FieldRules): string {
