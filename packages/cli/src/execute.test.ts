@@ -180,6 +180,64 @@ describe("execute transport contract", processTests, () => {
     )
   })
 
+  it("leaves the named nodes out of a quiet result in both adapters, keeping the designs created (PAR-909)", async () => {
+    const built: ExecReply = {
+      ...success,
+      created: { Plans: "plans-id", Page: "page-id", Title: "title-id" },
+      createdDesigns: { Plans: "plans-id" }
+    }
+
+    fixture.response = { result: built }
+    const code = 'CreateDesign({ name: "Plans" })'
+
+    const [cli, json, protocol] = await Promise.all([
+      run(["exec", "--quiet"], code),
+      run(["exec", "--quiet", "--json"], code),
+      mcp({ input: code, quiet: true })
+    ])
+
+    // Quiet shapes the answer, so the app is never sent it.
+    for (const request of requests) {
+      expect(request).toEqual(expect.objectContaining({ params: { tab: fixtureTab.id, code, label: "Edit designs" } }))
+    }
+
+    expect(cli.code).toBe(0)
+    expect(cli.stdout).toContain("Designs created:\n  Plans = plans-id")
+    expect(cli.stdout).not.toContain("title-id")
+    expect(cli.stdout).toContain("Example warning")
+    const { created: _created, ...quiet } = structuredExec(execResponse(built))
+    expect(JSON.parse(json.stdout)).toEqual(quiet)
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          content: [{ type: "text", text: cli.stdout.trim() }, expect.objectContaining({ type: "image" })],
+          structuredContent: quiet
+        })
+      })
+    )
+  })
+
+  it("lists every named node without quiet, and refuses a quiet that isn't a boolean", async () => {
+    fixture.response = {
+      result: { ...success, created: { Plans: "plans-id", Title: "title-id" }, createdDesigns: { Plans: "plans-id" } }
+    }
+
+    const [cli, protocol] = await Promise.all([run(["exec"], "Print(1)"), mcp({ input: "Print(1)", quiet: "yes" })])
+
+    expect(cli.stdout).toContain("Created:\n  Plans = plans-id\n  Title = title-id")
+    expect(cli.stdout).not.toContain("Designs created:")
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          structuredContent: {
+            error: { code: "invalid_input", message: "quiet must be a boolean", retryable: false, path: "/quiet" }
+          },
+          isError: true
+        })
+      })
+    )
+  })
+
   it("maps retry patches identically, preserving empty replacement strings and all", async () => {
     const edits = [{ find: " old ", replace: "", all: true }]
 

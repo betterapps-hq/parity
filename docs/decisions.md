@@ -6182,7 +6182,8 @@ the zip hold the same things. My calls:
 - **The person never sees Sentry:** no link, no Sentry wording, and a failure says to check the connection. The
   feedback's ID goes into the local log as `report.sent`, for the team.
 - **A crash is a run that didn't quit:** main records `app.quit` as it quits, so a run of main's with none crashed or
-  was killed. It's offered only in installed builds, since agents and CI stop development copies all the time.
+  was killed. It's offered only in installed builds, since agents and CI stop development copies all the time. PAR-956
+  narrowed this: see "A run that was stopped isn't a crash" below.
 - **`parity diagnostics` takes the latest run that didn't quit,** which is the one open now if Parity is running, and
   says so. It writes the zip with Node's own zlib, with no dependency.
 
@@ -7494,6 +7495,25 @@ My calls, standing up what [proposals/service.md](proposals/service.md) agreed:
 - **The service's preview comments its own URL,** apart from the one comment the other previews share.
 - **TanStack Router's generated route tree is committed,** since types are checked against it, and kept from the
   formatter and the linter, as it asks.
+
+## A run that was stopped isn't a crash (PAR-956)
+
+Agents drive installed builds through the CLI and MCP and stop them, so the next start kept offering to report a crash
+that never happened. My calls, replacing "A crash is a run that didn't quit" under PAR-635:
+
+- **A run that ended without quitting crashed only if it left a sign:** a minidump Crashpad wrote while it ran, a hang
+  still open as it exited (main's or a window's open-hang file), or a `fatal` event in its local copy. Without one,
+  something stopped it on purpose: an agent, the CLI, `taskkill`, a signal, Task Manager or a dev runner. Windows ends a
+  process with no event to tell those apart, so the signs are what's left to go by.
+- **The signs count only from while the run ran,** by their files' times against its first event, so one an older run
+  left doesn't count against this one.
+- **Minidumps are read before Sentry starts,** since it sends and deletes the ones it finds.
+- **The editor window's renderer going counts even when the run then quit,** recorded as `window.gone`. The person could
+  only close the dead window, so the run quit, and it was never offered before. An offscreen window drawing frames is
+  opened again by itself, so it doesn't count.
+- **An uncaught error in main isn't a sign.** Electron shows its dialog and keeps running, so it doesn't end the run.
+- **`parity diagnostics` still takes the latest run that didn't quit,** now `lastUnfinishedRun`, since a zip filed by
+  hand wants that run whatever ended it.
 
 ## A breakpoint wins over a state (PAR-902)
 
