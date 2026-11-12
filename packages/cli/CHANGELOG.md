@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 12:10:47 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 12:29:28 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.57.0
+
+Thu, 12 Nov 2026 12:29:28 GMT
+
+### Minor changes
+
+- Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)
+  (ajcraswell@gmail.com)
 
 ## 0.56.1
 
