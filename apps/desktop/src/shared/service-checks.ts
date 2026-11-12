@@ -1,5 +1,6 @@
 import type { Checks } from "@parity-app/channel"
 import { CodedError, canvasDocument, detectionCorrections, finiteNumber, jsonText, parseInput } from "@parity-app/core"
+import { recoveryCopySchema } from "@parity-app/editor"
 import { z } from "zod"
 import type { ServiceMethods } from "./protocol.ts"
 
@@ -67,6 +68,8 @@ const serviceParams = {
   "library.add": project.extend({ library: z.string() }),
   "library.importStyles": project.extend({ library: z.string() }),
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
+  "recovery.keep": project.extend({ copy: recoveryCopySchema.optional() }),
+  "recovery.read": project,
   "images.import": project.extend({ name: z.string(), type: z.string(), data: z.string() }),
   "images.scan": project,
   "images.saveFrom": project.extend({ url: z.url({ protocol: /^https$/ }), name: z.string().min(1) }),

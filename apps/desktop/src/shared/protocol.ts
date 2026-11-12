@@ -24,7 +24,7 @@ import type {
   ThemeVariable,
   UpdateState
 } from "@parity-app/core"
-import type { CodeReference, EditStatus, ExportSize, ImageFile, ReferenceAdded } from "@parity-app/editor"
+import type { CodeReference, EditStatus, ExportSize, ImageFile, RecoveryCopy, ReferenceAdded } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
 import type { TokenChange, TokenWrite } from "@parity-app/tokens"
@@ -80,6 +80,13 @@ export interface ServiceMethods {
   /** Imports an installed library's styles into the project's stylesheet; nothing to do when it imports them already. */
   "library.importStyles": { params: { projectId: string; library: string }; result: ProjectEditResult | undefined }
   "document.save": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
+  /**
+   * Keeps a recovery copy of the project's unsaved changes in Parity's app data, or removes it when there's none, so a
+   * crash or a forced quit doesn't lose them (PAR-905).
+   */
+  "recovery.keep": { params: { projectId: string; copy?: RecoveryCopy }; result: undefined }
+  /** The recovery copy kept for the project when Parity last closed with its changes unsaved, if there is one. */
+  "recovery.read": { params: { projectId: string }; result: RecoveryCopy | undefined }
   /**
    * Saves an image pasted onto the canvas into the project's public folder, where the dev server serves it. `data` is
    * the file, base64 encoded; `type` its media type. No edit when the same image was saved before.
