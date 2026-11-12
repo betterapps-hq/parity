@@ -67,6 +67,9 @@ import {
 } from "lucide-react"
 import { type ComponentType, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
+import { EffectsSection } from "../inspector/sections/effects.tsx"
+import { FillSection } from "../inspector/sections/FillSection.tsx"
+import { LayerOrderSection } from "../inspector/sections/LayerOrderSection.tsx"
 import { MotionSection } from "../inspector/sections/MotionSection.tsx"
 import {
   ChoiceInput,
@@ -153,19 +156,22 @@ interface SectionProps {
 }
 
 /**
- * Each section the app draws, by the table's name for it. The table's other sections (Layer order, Grid placement,
- * Fill, Effects, Motion, Raw CSS) aren't built yet, and draw nothing.
+ * Each section the app draws, by the table's name for it. The table's other sections (Grid placement, Raw CSS) aren't
+ * built yet, and draw nothing.
  */
 const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> = {
   // Until Frame size is built, a frame's root's Size is the frame's own size (see `useStyleEditor`).
   frameSize: SizeSection,
   placement: PositionSection,
+  layerOrder: LayerOrderSection,
   size: SizeSection,
   layout: LayoutSection,
   spacing: SpacingSection,
   appearance: AppearanceSection,
   text: TextSection,
+  fill: FillSection,
   stroke: StrokeSection,
+  effects: EffectsSection,
   motion: MotionSection
 }
 
@@ -789,15 +795,6 @@ function AppearanceSection({ editor }: SectionProps) {
   return (
     <PanelSection title="Appearance">
       <div className="flex flex-col gap-1">
-        <Field label="Fill" {...rowOf(editor, "fill")}>
-          <TokenInput
-            label="Fill"
-            value={style.background}
-            tokens={tokens}
-            categories={["color"]}
-            onChange={(background) => set("fill", { background }, "Change fill")}
-          />
-        </Field>
         <Field label="Radius" {...rowOf(editor, "radius")}>
           <TokenInput
             label="Radius"
@@ -805,15 +802,6 @@ function AppearanceSection({ editor }: SectionProps) {
             tokens={tokens}
             categories={["radius"]}
             onChange={(radius) => set("radius", { radius }, "Change radius")}
-          />
-        </Field>
-        <Field label="Shadow" {...rowOf(editor, "shadow")}>
-          <TokenInput
-            label="Shadow"
-            value={style.shadow}
-            tokens={tokens}
-            categories={["shadow"]}
-            onChange={(shadow) => set("shadow", { shadow }, "Change shadow")}
           />
         </Field>
         <Field label="Opacity" {...rowOf(editor, "opacity")}>
@@ -1058,10 +1046,10 @@ function TextSection({ editor, can, shows }: SectionProps) {
         </Field>
         <Field label="Case" {...rowOf(editor, "case")}>
           <ChoiceInput
-            value={style.transform}
+            value={style.textTransform}
             options={transformOptions}
             placeholder="As typed"
-            onChange={(transform) => set("case", { transform }, "Change case")}
+            onChange={(textTransform) => set("case", { textTransform }, "Change case")}
           />
         </Field>
         {shows("maxLines") && (

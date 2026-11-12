@@ -379,6 +379,27 @@ describe("dispatch", () => {
     expect(asked.applied[0]!.changes.designs).toHaveLength(1)
   })
 
+  it("takes a layer's effects: shadows, filters, the transform and text case (PAR-933)", async () => {
+    const effects = {
+      shadow: [
+        { kind: "drop", token: "shadow-md" },
+        { kind: "ring", width: 1, color: { color: "border" } }
+      ],
+      filter: [{ kind: "adjust", values: { grayscale: 100 } }],
+      backdropFilter: [{ kind: "blur", value: "blur-md" }],
+      transform: { y: { percent: -50 }, rotate: 45, skewX: 10 },
+      textTransform: "uppercase"
+    }
+
+    const { answer, asked } = await ask("exec", {
+      label: "Add effects",
+      code: `Update("submit", {style: ${JSON.stringify(effects)}})`
+    })
+
+    expect(answer.applied).toBe(true)
+    expect(JSON.stringify(asked.applied[0]!.changes.designs[0]!.after)).toContain(JSON.stringify(effects))
+  })
+
   it("asks the host whether a token value is its token's kind, and applies nothing it refuses", async () => {
     const { host, asked } = fixtureHost()
     const queries: { property: string; value: string }[] = []

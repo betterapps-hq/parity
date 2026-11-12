@@ -50,6 +50,8 @@ export * from "./motion.ts"
 
 export * from "./preview-order.ts"
 
+export * from "./paint.ts"
+
 export * from "./project.ts"
 
 export * from "./prop-binding.ts"

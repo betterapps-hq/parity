@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 00:08:16 GMT",
+      "version": "0.46.0",
+      "tag": "@parity-app/cli_v0.46.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a5743de9214af39184c3ff37e667ac40703865fc",
+            "comment": "Effects: a stack of shadows, layer and background filters, and a transform, edited in the Design tab's Effects section and by the agent. Text case is now textTransform."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "cd85387b63981f70006e4547053d54ac2b9e4634",
+            "comment": "Set a layer's order (z-index): a whole number or a z-index token, in the document, the render, the agent's tools and the Design panel's Layer order section"
+          }
+        ]
+      }
+    },
+    {
       "date": "Wed, 11 Nov 2026 11:07:57 GMT",
       "version": "0.45.0",
       "tag": "@parity-app/cli_v0.45.0",

@@ -39,12 +39,49 @@ describe("lintDocument", () => {
     expect(lintDocument(design(root), context)).toEqual([])
   })
 
+  it("checks every color and gradient token in a stack of paints, in the design and its states", () => {
+    const root = {
+      type: "layout" as const,
+      id: "page",
+      style: {
+        background: [
+          { kind: "gradient" as const, token: "gradient-sunset" },
+          {
+            kind: "linear" as const,
+            stops: [
+              { color: "primary", position: 0 },
+              { color: "#ff00aa", position: 100 }
+            ]
+          },
+          { kind: "image" as const, src: "/images/hero.jpg", fit: "fill" as const },
+          { kind: "solid" as const, color: "primary" }
+        ]
+      },
+      children: []
+    }
+
+    const states = [
+      { id: "default", name: "Default" },
+      {
+        id: "dark",
+        name: "Dark",
+        overrides: { page: { style: { background: [{ kind: "solid" as const, color: "ink" }] } } }
+      }
+    ]
+
+    expect(lintDocument(design(root, states), context).map((warning) => warning.message)).toEqual([
+      `background "#ff00aa" isn't a token. Use a name from GetTokens({ nearest: "#ff00aa", category: "color" }), which lists the nearest first.`,
+      `background "gradient-sunset" isn't a token. Use a name from GetTokens().`,
+      `background "ink" isn't a token`
+    ])
+  })
+
   it("names components, component designs, tokens and length tokens the project doesn't have, where they are", () => {
     const root = {
       type: "layout" as const,
       id: "page",
       name: "Page",
-      style: { background: "pink", width: "wide" },
+      style: { background: "pink", width: "wide", zIndex: "front" },
       responsive: { mobile: { style: { foreground: "teal" } } },
       children: [
         { type: "component" as const, id: "card", component: "Card" },
@@ -61,6 +98,11 @@ describe("lintDocument", () => {
       {
         category: "not_a_token",
         message: `background "pink" isn't a token. Use a name from GetTokens().`,
+        at: "home/page"
+      },
+      {
+        category: "not_a_token",
+        message: `zIndex "front" isn't a token. Use a whole number instead.`,
         at: "home/page"
       },
       {
@@ -83,7 +125,7 @@ describe("lintDocument", () => {
     ])
   })
 
-  it("names the duration and easing tokens a transition uses that the project doesn't have", () => {
+  it("names the duration and easing tokens a transition uses that the project doesn't have (PAR-934)", () => {
     const root = {
       type: "layout" as const,
       id: "page",
@@ -114,6 +156,31 @@ describe("lintDocument", () => {
         at: "home/page"
       },
       { category: "not_a_token", message: `transitions[0].duration "slow" isn't a token`, at: "home state hover/page" }
+    ])
+  })
+
+  it("names tokens inside shadows, filters and the transform that the project doesn't have (PAR-933)", () => {
+    const root = {
+      type: "layout" as const,
+      id: "page",
+      style: {
+        shadow: [
+          { kind: "drop" as const, token: "shadow-huge", color: { color: "primary" } },
+          { kind: "ring" as const, width: 1, color: { color: "#ff0000" } }
+        ],
+        filter: [{ kind: "dropShadow" as const, shadow: { kind: "drop" as const, token: "drop-shadow-xl" } }],
+        backdropFilter: [{ kind: "blur" as const, value: "blur-max" }],
+        transform: { x: "gutter", y: "far" }
+      },
+      children: []
+    }
+
+    expect(lintDocument(design(root), context).map(({ message }) => message)).toEqual([
+      `shadow[0].token "shadow-huge" isn't a token. Use a name from GetTokens().`,
+      `shadow[1].color "#ff0000" isn't a token. Use a name from GetTokens({ nearest: "#ff0000", category: "color" }), which lists the nearest first.`,
+      `filter[0].shadow.token "drop-shadow-xl" isn't a token. Use a name from GetTokens().`,
+      `backdropFilter[0].value "blur-max" isn't a token. Use a name from GetTokens().`,
+      `transform.y "far" isn't a length token. Use a spacing step (a number) instead.`
     ])
   })
 
