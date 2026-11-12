@@ -5,9 +5,9 @@ import { slowly } from "./inspector-stories.tsx"
 import { inspectorStage, pick, renderPart } from "./layer-stories.tsx"
 
 /**
- * A component design's own layer whose text or visibility can use one of the component's props: the field is the prop's
- * name, which goes to it in Props, or the field with a button beside it to use a prop or make one from it. Each shows
- * the one part of the panel it's about: the text's Content, or the header's eye (PAR-1022).
+ * A component design's own text layer, whose text can use one of the component's props: the field is the prop's name,
+ * which goes to it in Props, or the field with a button beside it to use a prop or make one from it. Each shows the
+ * text's Content alone (PAR-1022).
  */
 const meta = {
   title: "Parity/Inspector/Layer/Props",
@@ -22,9 +22,6 @@ type Story = StoryObj<typeof meta>
 
 /** Plan card's price, which uses the `price` prop: its text field is the prop's name, with × to stop using it. */
 export const TextUsingAProp: Story = { loaders: [pick("Plan card", "Price")] }
-
-/** Plan card's Popular badge, shown only when `showPopular` is on: its Visible switch is the prop's name. */
-export const VisibilityUsingAProp: Story = { loaders: [pick("Plan card", "Popular")], render: renderPart("header") }
 
 /**
  * Plan card's period, its own text: the button beside it offers the component's text props, and making a new one from
