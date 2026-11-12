@@ -3423,6 +3423,8 @@ Tests:
   Preset, Overriding A Preset and Changes With The Viewport, for review.
 - `chrome/LayerPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
+- `inspector/controls/SlotPicker.stories.tsx` (Controls › Fields › Slot picker): Filled selects the layer from its chip
+  and clears the slot with its ×, without selecting the layer; Empty, Long Name and Changed for review.
 
 ### Each field's label names its control (PAR-892)
 
@@ -3951,10 +3953,11 @@ An instance fills its component's slots with layers of the design it sits in, sh
 A slot it leaves empty shows the placeholder.
 
 - **The instance's panel** lists each slot after its params, as a prop: the Slot tile and its name with a capital first
-  letter, over a solid tile and how many layers fill it, or a dashed tile and Empty. Resting on one, or the left arrow
-  key, opens a card beside it with a picture of what shows there, drawn by itself so a large component's slot is as easy
-  to see as a small one's; an empty one's placeholder is faded inside a dashed edge. Clicking one selects the slot. An ×
-  inside a filled one's field clears it, deleting its layers.
+  letter, over its Slot picker: the layer that fills it as a chip, by the name Layers gives it, or an empty box.
+  Clicking the chip selects the layer, so it can be renamed, and its × clears the slot, deleting the layer. Resting on
+  one, or the left arrow key, opens a card beside it with a picture of what shows there, drawn by itself so a large
+  component's slot is as easy to see as a small one's; an empty one's placeholder is faded inside a dashed edge.
+  Clicking the box selects the slot.
 - **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
   Clear. A click in Components adds into it, at its end.
 - **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
@@ -3972,9 +3975,9 @@ The file keeps a fill as `slots` on the instance, by slot name, as a code compon
 `render.ts`, and Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the
 picture's tree `slotPreviewTree`.
 
-Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `InstanceSection` and `LayerPanel` in
-`chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in
-`canvas/insert.ts`.
+Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `SlotPickerField` in
+`inspector/controls/slot-picker.tsx`, `InstanceSection` and `LayerPanel` in `chrome/LayerPanel.tsx`, `treePreviewJob`
+and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in `canvas/insert.ts`.
 
 Tests:
 
