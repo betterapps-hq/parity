@@ -1,15 +1,17 @@
 import { type ChildProcess, spawn } from "node:child_process"
 import { createServer } from "node:net"
 import { isText } from "@parity-app/core/values/evaluate"
+import { killTree } from "../shared/process-tree.ts"
 import type { ProjectProcess, ServerKind } from "../shared/protocol.ts"
 import { track } from "../shared/tracing.ts"
-import { forgetProject, killTree, type ProcessEntry, type ProcessHandle, trackProcess } from "./processes.ts"
+import { forgetProject, type ProcessEntry, type ProcessHandle, trackProcess } from "./processes.ts"
 
 /**
  * The one place Parity starts, watches and stops the servers a project needs: Storybook now, and dev servers, `wrangler
  * dev` and test runners next. It keeps each server's port and what it printed, so a lens can find a server and show why
- * one failed, and it stops everything it started for a project when the project closes, and everything when Parity
- * quits. A server that was already running is listed and its port known, but never stopped.
+ * one failed, and it stops everything it started for a project when the project closes, and everything when the service
+ * exits. A server that was already running is listed and its port known, but never stopped. When main ends or replaces
+ * the service, it kills the service's whole process tree, servers included, since a killed process runs no exit handler.
  */
 
 /** Who a server runs for, and how it's listed. */
@@ -295,6 +297,8 @@ export function stopProject(projectId: string): void {
   forgetProject(projectId)
 }
 
+// A service that exits by itself stops its servers here. One that main kills runs no handler, so main ends its servers
+// with it (PAR-980).
 process.on("exit", () => {
   for (const id of managed.keys()) {
     stopServer(id)

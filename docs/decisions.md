@@ -4202,6 +4202,16 @@ stops the servers a project needs. Storybook is the first to use it; dev servers
   the project only takes it off the list. Only what Parity started is ever stopped.
 - **Closing a project stops everything Parity started for it** (`stopProject`), and quitting stops everything. Starting
   a server again under the same id stops the last one first, so a project never has two of one server.
+- **Stopping a server ends its whole process tree** (PAR-980). `killTree` in
+  [process-tree.ts](../apps/desktop/src/shared/process-tree.ts) runs `taskkill /T /F` on Windows. On macOS and Linux it
+  reads the tree from `ps`, then sends each process SIGTERM, parents first, so a dev server's workers go with it. It
+  walks the tree rather than killing a process group, so servers aren't spawned detached and nothing they start in a
+  group of its own is missed.
+- **Main ends the project service with its servers** (PAR-980). The service stops its servers from an exit handler, but
+  a process that's killed runs none, so when main quits or replaces the service it calls `killTree` on the service's
+  process, which takes the servers it started with it. On Windows `taskkill /F` ends the service with code 1, so a
+  service ended as the app quits isn't taken for a crash, and a replaced one's `service.exited` says code 1. A service
+  that crashes is already gone, so its servers are left running until PAR-1019 stops them.
 - **Builders and tasks stay as they are.** A project's builder has its own process and closing rules (CAN-81), and tasks
   such as installs and type checks run once and report a result; both still list themselves in the same processes, and
   either could move onto the manager when there's a reason to.

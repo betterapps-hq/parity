@@ -22,6 +22,7 @@ export interface ServiceProcess {
   onOutput(listener: (text: string) => void): void
   onSpawn(listener: () => void): void
   onExit(listener: (exitCode: number) => void): void
+  /** Ends it and every process it started, as a project's Storybook, which would otherwise outlive it (PAR-980). */
   kill(): void
 }
 
@@ -97,6 +98,11 @@ export function createProjectService<Process extends ServiceProcess, Window>({
   let running: Running<Process> | undefined
   /** Services replaced by a fresh one; their exit is expected. */
   const retired = new WeakSet<Process>()
+  /**
+   * The service main ended as the app quits. Its exit is expected too, whatever its code: Windows ends it with code 1,
+   * since main ends its whole process tree (PAR-980).
+   */
+  let stopped: Process | undefined
   /** How many services have started, so a second is reported as a restart. */
   let starts = 0
   /** A crashed service's restart waiting out its back-off, which any service that starts first cancels. */
@@ -138,7 +144,7 @@ export function createProjectService<Process extends ServiceProcess, Window>({
         quitting: stopping
       })
 
-      if (exitCode === 0 || retired.has(service)) {
+      if (exitCode === 0 || retired.has(service) || stopped === service) {
         return
       }
 
@@ -199,6 +205,9 @@ export function createProjectService<Process extends ServiceProcess, Window>({
     start,
     connect,
     channel: () => running?.channel,
-    stop: () => running?.service.kill()
+    stop: () => {
+      stopped = running?.service
+      stopped?.kill()
+    }
   }
 }

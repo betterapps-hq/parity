@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process"
 import type { ProcessStatus, ProjectProcess } from "../shared/protocol.ts"
 import { readPortless } from "./portless.ts"
 
@@ -156,17 +155,4 @@ export function dismissProcess({ id }: { id: string }): Promise<undefined> {
   }
 
   return Promise.resolve(undefined)
-}
-
-/** Stops a process and every process it started, as a dev server's own workers. */
-export function killTree(pid: number): void {
-  if (process.platform === "win32") {
-    spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], { stdio: "ignore" })
-  } else {
-    try {
-      process.kill(pid)
-    } catch {
-      // Already gone.
-    }
-  }
 }

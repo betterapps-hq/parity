@@ -268,4 +268,13 @@ describe("createProjectService", () => {
     service.stop()
     expect(forked[0]?.killed).toBe(true)
   })
+
+  it("doesn't take the service it ended as the app quits for a crash, though Windows ends it with code 1", () => {
+    const { service, forked, telemetry } = setup()
+    service.start()
+    service.stop()
+    forked[0]?.exit(1)
+    expect(telemetry.crashed).not.toHaveBeenCalled()
+    expect(console.error).not.toHaveBeenCalled()
+  })
 })
