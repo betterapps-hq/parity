@@ -7904,4 +7904,5 @@ interface that gives each node's change status, so a consumer can't read the wro
 - **A node's status comes from the files its component reads,** which traces now list per component, plus the files no
   component reads and the nodes inside it. Bitmaps keep only the files and the digest, which is all a bitmap's validity
   needs.
-- **The outline shows in development builds only,** to see change detection working; its design is for Storybook first.
+- **Nothing on the canvas shows changes yet.** The yellow outline was tried locally only, as you asked; how changes show
+  is for Storybook first.

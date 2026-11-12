@@ -66,7 +66,6 @@ import { type BoardPart, useGutterStyle } from "./board-gutter.ts"
 import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
-import { useDesignChange, useFrameChange } from "./frame-changes.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
 import { type BoardRest, useAwake } from "./frame-sleep.ts"
 import { useFrameOnScreen } from "./frames-on-screen.ts"
@@ -107,10 +106,9 @@ export function ContainerView(props: ContainerViewProps) {
 function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: ContainerViewProps) {
   const own = useRef<HTMLDivElement>(null)
   const board = ref ?? own
-  const { id: project, store, loaded, selection } = useProject()
+  const { store, loaded, selection } = useProject()
   const settings = useModeSettings(store)
   const { selected: isSelected } = useDesignSelection(selection, entry.key)
-  const changed = useDesignChange(project, entry.key).state === "changed" && outlineChanges
   const library = useLibrary(store, entry.key)
   const { container, key } = entry
   const { primary } = useMemo(() => containerModes(settings, container), [settings, container])
@@ -131,13 +129,7 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   )
 
   return (
-    <div
-      ref={board}
-      className="container-view frame-view relative w-max font-sans"
-      style={changed ? changedOutline : undefined}
-      data-design={key}
-      data-changed={changed ? "" : undefined}
-    >
+    <div ref={board} className="container-view frame-view relative w-max font-sans" data-design={key}>
       {title
         ? createPortal(
             <div className="absolute" style={{ left: title.x, top: title.y, width: title.width }}>
@@ -283,8 +275,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   const own = useRef<HTMLDivElement>(null)
   const board = ref ?? own
   useGutterStyle(board, "board")
-  const { id: project, store, loaded, selection } = useProject()
-  const changed = useDesignChange(project, entry.key).state === "changed" && outlineChanges
+  const { store, loaded, selection } = useProject()
   const settings = useModeSettings(store)
   const { selected: isSelected, mode: selectedMode } = useDesignSelection(selection, entry.key)
   const library = useLibrary(store, entry.key)
@@ -351,9 +342,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
     <div
       ref={board}
       className="container-view relative w-max bg-card font-sans text-card-foreground shadow-2xl"
-      style={changed ? changedOutline : undefined}
       data-design={key}
-      data-changed={changed ? "" : undefined}
     >
       <BoardEdge />
       {title
@@ -409,18 +398,6 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
 }
 
 /** Where a frame is in its row, by its column: the main frame, then the first companion, after the dashed line. */
-/** Whether boards whose frames changed are outlined: in development builds only, until the outline's design is settled. */
-const outlineChanges = import.meta.env.DEV
-
-/**
- * The outline round a board whose frames changed since they were first looked at (PAR-997): yellow, and as thick on
- * screen at any zoom.
- */
-const changedOutline: CSSProperties = {
-  outline: "calc(3px / var(--tl-zoom, 1)) solid var(--color-yellow-400, oklch(85.2% 0.199 91.936))",
-  outlineOffset: "calc(4px / var(--tl-zoom, 1))"
-}
-
 function framePlace(column: number): FrameTileProps["place"] {
   if (column === 0) {
     return "firstFrame"
@@ -984,8 +961,6 @@ const FrameTile = memo(function FrameTile({
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
   const shows = useFrameShows(session, tree, mode, frame, scale, { key: entry.key, state: state.id })
   const { key } = shows
-  // Whether the frame changed since it was first looked at, which its board's outline shows (PAR-997).
-  useFrameChange({ project: session.id, design: entry.key, state: state.id, mode: mode.id }, shows.job, key)
   // The first row's frames are what the project's picture shows (PAR-607).
   useFirstRowFrame(session.id, entry.key, mode.id, shows, caption)
   // Whether the frame is holding off drawing its design for its bitmap, which then needn't wait to be captured.
