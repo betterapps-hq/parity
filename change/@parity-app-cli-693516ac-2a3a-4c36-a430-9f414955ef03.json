@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Agents get reference.md, a snippet API reference generated from the code: every function's signature, arguments and result, and every type they name, with their doc comments",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

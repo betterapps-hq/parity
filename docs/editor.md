@@ -353,6 +353,69 @@ Tests:
 Gaps: the frame rate is measured by `pnpm perf`, not by a test. Wheel zooming over a layer in the real window was
 checked through `pnpm perf`'s runs, which dispatch Ctrl and the wheel to the canvas.
 
+### One reading of a frame for every gesture (PAR-967)
+
+Whatever the canvas measures in a frame comes from one place: the outlines' sizes, resizing, dragging and nudging a
+layer, what it snaps to, padding and gap handles, Alt's redlines, the text editor, Paste here, the panel's sizes and the
+corners of an agent's scan. Frame skeletons still work theirs out (PAR-996). How many screen pixels make one of the
+design's had been worked out three ways in thirteen places: the camera's zoom times the frame's own scale, an element's
+drawn width over its offset width, and the frame's drawn width over the width it was given. Nothing checked they agreed,
+and dragging an absolutely placed layer took its scale from the camera and its insets from the page, which agree only
+once tldraw has drawn the camera's latest move.
+
+- **The scale is read from where the frame is drawn,** its width on screen over its width as laid out, so it always
+  agrees with the boxes beside it, whatever the camera, a companion mode's smaller frame or anything else multiplies
+  into it. No gesture asks the camera for it.
+- **A transformed layer has its own scale.** Its border, padding and text are drawn at the frame's scale times its
+  transform, so the text editor sizes its font, and padding handles their bars, from that. A layer turned on its side
+  has no one scale, and the frame's stands in.
+- **Insets are counted in the containing block's pixels,** so a badge in a component drawn a quarter bigger still gives
+  the insets its style writes. A layer with no positioned element around it in the design counts from the frame's own
+  outline, outside the frame, which is measured at the frame's scale, so its insets are still the design's in a
+  companion mode's smaller frame.
+- **Nothing is read until it's asked for, and nothing is kept.** A gesture reads the frame when it begins, and the
+  overlay reads only what it draws, so nothing is cached in the page's units to go stale while the camera moves
+  (PAR-653).
+- **Where a frame draws a border a fraction of a pixel wide,** as a companion frame at two fifths does, Chrome rounds it
+  to whole screen pixels, so the inside of that border is wider than the design says. Insets are read from what's drawn,
+  so an absolutely placed layer moves from where it's seen.
+
+Code: `apps/desktop/src/renderer/canvas/frame-geometry.ts`: `frameGeometry` reads a frame's host (its `scale`, `rect`,
+`node` and `element`), and a node's `box`, `hasElement`, `scale`, `border`, `padding`, `paddingBox`, `contentBox`,
+`parentContentBox`, `offsetBox` and `insets`; `toFrame`, `toScreen` and `frameSize` go between screen pixels and the
+frame's, and `areaSpace` takes screen pixels to the overlay's. `canvas/layer-measure.ts` turns that into what
+`@parity-app/editor`'s rules take: `insetSteps`, `resizeBoxes`, `snapScene` and `spacingMeasure`. The host's
+`data-scale` attribute and `frameScale` in `hit.ts` are gone. The calls are in decisions.md, One reading of a frame for
+every gesture.
+
+Tests:
+
+- `canvas/frame-geometry-drawn.test.ts` (124), in Chrome: a frame inside a layer the camera scales and pans, as tldraw's
+  is, at zooms from 5% to 260%, by itself and at half its own size. At each, the frame's scale is the zoom times its
+  own, its box is 832 of its pixels wide and counted from the area's corner on the overlay, a layer's box, size, border,
+  padding and the boxes inside them come out in the design's pixels, an absolutely placed layer's insets are what its
+  style says, a layer drawn a quarter bigger has that scale and a badge in it its insets in the layer's pixels, a layer
+  on its side takes the frame's scale, text in a line reads its own, and a layer the frame doesn't draw has nothing. A
+  frame read again after the camera moves gives the new scale and boxes; a frame that isn't drawn has a scale of 1; a
+  frame at two fifths, whose borders Chrome rounds, gives insets from where they're drawn; and a layer whose containing
+  block is the outline around a half-size frame gives the design's insets, where reading that outline at its own scale
+  gave half of them.
+- `canvas/frame-geometry.test.ts` (15), from numbers: the scale from two sizes, by the longer side, at any zoom times a
+  frame's scale, and none for a box that isn't drawn, is turned or stretched; a box inside its sides, never inside out;
+  insets between two boxes at any scale; between screen pixels and the frame's; and the overlay's pixels.
+- `canvas/layer-measure.test.ts` (10), from a frame written out as plain boxes, at four scales: an absolutely placed
+  layer's sides in half steps; what it snaps to, leaving out a sibling that isn't drawn; the same steps dragged and
+  snapped at every scale; what resizing starts from, with and without insets and with no parent; the same steps resized
+  at every scale; and a layout's padding and gap handles at their own scale, with a child placed absolutely kept out of
+  the flow.
+
+Checked in the app on 2026-11-12 with `scripts/drive.ts` at 25%, 40%, 50%, 100% and 175%: Calendar's Review slot showed
+634 × 64 at each, with its outline on it to a hundredth of a pixel, dragged 12 and 24 of the design's pixels to left 3,
+right -3 and top 46, nudged to top 40.25, resized 16 pixels taller to height 20; Dashboard's Users card showed 227.8 ×
+140.7 and resized 40 narrower to width 47; Alt's redlines read 32px at 60% and 130%; dragged in the half-size Desktop
+Dark frame, the slot moved 6 steps for 24 of the design's pixels; the text editor sat on the day's title with its font
+at the zoom's size; and through a wheel zoom with the slot selected its outline stayed within 0.02 px.
+
 ### Distance labels beside the line (PAR-558)
 
 Holding Alt over a layer, or snapping one as it's moved or resized, draws the distances to what it measures against as
@@ -458,10 +521,11 @@ under the pointer with `hitTest` and `pickLayer`, outlines Select layer's entrie
 `actions.ts`, and opens again on a right-click outside it (`reopensOnCanvas`, from `onOpenChange`). Paste here is
 `pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
 through `canvas/paste-here.ts`, where `measureHere` measures the layout or component's slot under the pointer in its
-frame, and `pasteHere` in `packages/editor/src/paste-here.ts` places the copies (`placedAt` at the pointer). Which keys
-an open menu keeps is `inMenu` in `canvas/shortcuts.ts`. The Layers row's menu is `layersMenu` in
-`chrome/layers-menu.ts`, which reuses `canvasMenu`'s items and `layerCommands`, and `rowSelection` there is what a
-right-click on a row selects; `chrome/LayerTree.tsx` selects on opening and runs the items through `actions.ts`.
+frame, with the frame's scale and the inside of the border from `canvas/frame-geometry.ts` (PAR-967), and `pasteHere` in
+`packages/editor/src/paste-here.ts` places the copies (`placedAt` at the pointer). Which keys an open menu keeps is
+`inMenu` in `canvas/shortcuts.ts`. The Layers row's menu is `layersMenu` in `chrome/layers-menu.ts`, which reuses
+`canvasMenu`'s items and `layerCommands`, and `rowSelection` there is what a right-click on a row selects;
+`chrome/LayerTree.tsx` selects on opening and runs the items through `actions.ts`.
 
 Tests:
 
@@ -785,7 +849,7 @@ says so.
   another, the file opens at its top. A part named through its family, as `Dialog.Root`, opens at the family's export.
 
 Code: `codeEditors`, `editorsFor`, `commandPaths` and `exportLine` in `packages/core/src/code-editors.ts`;
-`openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `canvas:open-in-editor`, whose request
+`openInEditor` in `apps/desktop/src/main/code-editor.ts`, behind `hostMethods`' `openInEditor`, whose request
 `openInEditorRequest` in `shared/ipc-checks.ts` checks first (PAR-592); `componentFile` and `viewCode` in
 `renderer/chrome/code-editor.ts`; the menu's items in `chrome/ComponentMenu.tsx`, used by `chrome/AssetsPanel.tsx`; the
 setting in `chrome/SettingsDialog.tsx` and `chrome/preferences.ts`.
@@ -795,13 +859,14 @@ paths on PATH on Windows and elsewhere; and the export's line for a function, co
 names, a list over several lines, a longer name that isn't it, a default export, a declared one, a missing one, and
 Windows line endings). `apps/desktop/src/renderer/chrome/code-editor.test.ts` (2: the project's own component's file
 from a Windows or POSIX root, and a library component's declarations, or none).
-`apps/desktop/src/shared/ipc-checks.test.ts` (3: a good request reaches `openInEditor`; a path that isn't absolute, an
-editor Settings doesn't list, an unknown field or a request that isn't an object is refused before it; every listed
-editor is taken). `chrome/ComponentMenu.stories.tsx`: WithStories, ChoosingViewCode, StorybookNotRunning,
-WithoutStories, NoCodeInTheProject and LibraryDesign; and ComponentMenu, ListedByHand and FailingToDraw in
-`chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and the system's default app in `main/code-editor.ts`
-have no test of their own. They were tried in a debug copy: View code on Button opened VS Code at `button.tsx:43`, its
-`function Button`, and Badge's menu said "Starts Storybook" with none running.
+`apps/desktop/src/shared/ipc-checks.test.ts` (2: a request is a file's absolute path and an editor Settings lists, and
+nothing more; every listed editor is taken) and `apps/desktop/src/main/host-methods.test.ts` (a good request reaches its
+handler; a path that isn't absolute, an editor Settings doesn't list, an unknown field or a request that isn't an object
+is refused before it, with the field at fault). `chrome/ComponentMenu.stories.tsx`: WithStories, ChoosingViewCode,
+StorybookNotRunning, WithoutStories, NoCodeInTheProject and LibraryDesign; and ComponentMenu, ListedByHand and
+FailingToDraw in `chrome/ComponentsPanel.stories.tsx`. Gaps: launching the editor and the system's default app in
+`main/code-editor.ts` have no test of their own. They were tried in a debug copy: View code on Button opened VS Code at
+`button.tsx:43`, its `function Button`, and Badge's menu said "Starts Storybook" with none running.
 
 ## Reading the code
 
@@ -912,14 +977,15 @@ layout.
   and the text says `from design pricing (yearly, desktop-light)`. Agents' frames name the state they draw.
 
 Code: `createConsoleLog`, `announcedContexts`, `recordConsole` and `batchedChanges` in
-`apps/desktop/src/main/console-log.ts`, wired in `main/index.ts` with `canvas:console-*` in `shared/channels.ts`,
-checked by `consoleAnnouncement` and `consoleOrigin` in `shared/ipc-checks.ts`, and `window.canvasHost.console` in the
-preload script; the job's `design` in `shared/render-job.ts` and `shared/protocol.ts`; `captureConsole` and
-`frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`, `projectPlace`, `routeConsoleChange`, `tally`
-and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in `renderer/console-feed.ts`; the panel in
-`chrome/ConsolePanel.tsx`, the count in `chrome/StatusBar.tsx` and the board's in `canvas/ConsoleBadge.tsx`; the
-layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry` and `FrameRequest.state` in
-`packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
+`apps/desktop/src/main/console-log.ts`, wired in `main/index.ts` behind `hostMethods`' `consoleAnnounce`, `consoleRead`
+and `consoleClear`, checked by `consoleAnnouncement` and `consoleOrigin` in `shared/ipc-checks.ts`, and
+`window.canvasHost.console` in the preload script; the job's `design` in `shared/render-job.ts` and
+`shared/protocol.ts`; `captureConsole` and `frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`,
+`projectPlace`, `routeConsoleChange`, `tally` and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in
+`renderer/console-feed.ts`; the panel in `chrome/ConsolePanel.tsx`, the count in `chrome/StatusBar.tsx` and the board's
+in `canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents:
+`ConsoleEntry` and `FrameRequest.state` in `packages/agent/src/types.ts` and `describeConsole` in
+`packages/cli/src/client.ts`.
 
 Tests: `apps/desktop/src/main/console-log.test.ts` (8: an id each and a repeat in the same frame counted, another
 frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
@@ -1085,15 +1151,17 @@ This is the same rule nudging uses, one function for both. Code: `packages/edito
 (`@parity-app/editor`): `shiftInsets` moves the insets, and `absoluteDrag` follows one drag, taking the layer's style as
 the board shows it, where its sides are drawn and what it snaps to, and giving the insets for each pointer move, in half
 steps or, where it snapped, to the half pixel. `apps/desktop/src/renderer/canvas/layer-drag.ts` (`followAbsolute`)
-measures those, where the sides are drawn with `frameDrawn` (`canvas/nudge.ts`), and writes each move in the drag's
-gesture, one undo step (PAR-441), taking them back to the drag's checkpoint (`Drag.revert`, from `canvas/gesture.ts`'s
-`followPress`) on Escape or when the layer comes back to where it began.
+measures those from one reading of the frame (`frameGeometry`, PAR-967), its scale and where the sides are drawn
+(`insetSteps` in `canvas/layer-measure.ts`), and writes each move in the drag's gesture, one undo step (PAR-441), taking
+them back to the drag's checkpoint (`Drag.revert`, from `canvas/gesture.ts`'s `followPress`) on Escape or when the layer
+comes back to where it began.
 
 Tests: `packages/editor/src/move-resize.test.ts`, moving: by the side it's placed from, both sides of a stretched layer
 (the Review slot), negative insets kept and going negative, half steps, tokens and unset sides from where they're drawn
 (a negative side with a token on the other), and an axis with a token that isn't drawn staying put; and dragging the
 Review slot, in half steps where nothing is near, exactly where its bottom locks to Lunch's top, 8.25 steps to a line
-off the scale, and by the pointer when it isn't drawn. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (2) drags
+off the scale, and by the pointer when it isn't drawn. `canvas/layer-measure.test.ts`: the same steps dragged and
+snapped from what a frame measured at four scales. End to end (PAR-202), `apps/desktop/e2e/moving.e2e.ts` (2) drags
 Calendar's Review slot 24px right to left 6 and right -6, and, with left -2 and both right and top set to the `spacing`
 token, 16px right with Ctrl held to left 2 and right -3, with top still `spacing` and the width unchanged. Moving live
 and Escape are covered under "Snapping layers while moving and resizing".
@@ -1192,6 +1260,8 @@ Tests:
   reset, and no entry kept for a viewport that takes its own size. With the shared fixture's card (PAR-464),
   `resizeStart` reads its layout as the row its Inline option makes it, and the layer's style in a viewport and state,
   the Compact state's gap over the mobile patch.
+- `canvas/layer-measure.test.ts`: what resizing starts from, its box, its parent's content box and, placed absolutely,
+  its sides in steps, from a frame written out as boxes, and the same steps resized at four scales (PAR-967).
 - `canvas/ResizeHandles.test.ts`, in Chrome: the hint opens on hover, closes on press and stays closed through a drag
   into the hint itself and after release (this fails as the handles were before), opens again on the next hover, and a
   double-click still resets.
@@ -1290,10 +1360,11 @@ the bars, their hatching (`Hatching`, one shape per color), labels and sliders a
 `sidesHeld` reading the keys, and each bar's hint through `chrome/Hint.tsx` with `passThrough`, which takes the hint out
 of hit testing (Base UI's `disableHoverablePopup`); `canvas/spacing-colors.ts` is the one place the colors and hatching
 are defined (`spacingColors` for padding, gaps and margin, `spacingChip` pairing a value's chip through `chipFor`,
-`spacingHatch`); `canvas/spacing-edit.ts` measures a layout (`measureSpacing`), lists its length tokens (`lengthTokens`)
-and writes each edit in the state the frame shows, a drag through `followPress`; `canvas/CanvasOverlay.tsx` shows them
-for a single selected layout, puts handles around several layers (`resizeLayers`) and passes `centre` and fill. The keys
-are `gestures` in `chrome/keymap.ts`, read through `holds` in `chrome/keys.ts`, and shown by `canvas/KeyHints.tsx`.
+`spacingHatch`); `canvas/spacing-edit.ts` measures a layout (`measureSpacing`, through `frameGeometry` and
+`spacingMeasure` in `canvas/layer-measure.ts`, PAR-967), lists its length tokens (`lengthTokens`) and writes each edit
+in the state the frame shows, a drag through `followPress`; `canvas/CanvasOverlay.tsx` shows them for a single selected
+layout, puts handles around several layers (`resizeLayers`) and passes `centre` and fill. The keys are `gestures` in
+`chrome/keymap.ts`, read through `holds` in `chrome/keys.ts`, and shown by `canvas/KeyHints.tsx`.
 
 Tests:
 
@@ -1321,6 +1392,8 @@ Tests:
   colors; and every chip over the canvas, padding's and gaps' included, at 4.5:1 or better, so a color changed in
   `spacing-colors.ts` without a safe chip fails here.
 - `canvas/ResizeHandles.test.ts`, in Chrome: a double-click still reaching the handle's reset.
+- `canvas/layer-measure.test.ts`: a layout's border and padding drawn at its own scale in the overlay's pixels, what
+  they're written as kept, and a child placed absolutely covered but out of the flow (PAR-967).
 
 Gaps: there's no end-to-end test yet; `moving.e2e.ts` would take the drags above. Checked in the app on 2026-11-05, on a
 copy of the example on its own ports, with the pointer and keyboard over the DevTools protocol: on Content at 100%, the
@@ -1520,11 +1593,11 @@ marks; `lockedEdgeMoves` says how far a resize's locked edges moved. `packages/e
 them: `absoluteDrag` moves the layer exactly where it locked, and `layerResize` passes a resize's locked edges to
 `resizeGesture`, which `resizeInsets` takes exactly; both give back where it locked.
 `apps/desktop/src/renderer/canvas/layer-snap.ts` (`LayerSnapping`) measures the boxes in the frame when the gesture
-begins, the parent's as the layer's `offsetParent`, which is its containing block, and shows where the layer locked, the
-guides and marks as tldraw's snap indicators, keeping the distances for `canvas/CanvasOverlay.tsx` to draw; the gesture
-clears them when it ends. `canvas/layer-drag.ts` (`followAbsolute`) and `CanvasOverlay.tsx`'s `startResize` pass it in
-and show what comes back. Both gestures end through `canvas/gesture.ts` (`followPress`), which tells them whichever way
-they end.
+begins (`snapScene` in `canvas/layer-measure.ts`, from `frameGeometry`, PAR-967), the parent's as the layer's
+`offsetParent`, which is its containing block, and shows where the layer locked, the guides and marks as tldraw's snap
+indicators, keeping the distances for `canvas/CanvasOverlay.tsx` to draw; the gesture clears them when it ends.
+`canvas/layer-drag.ts` (`followAbsolute`) and `CanvasOverlay.tsx`'s `startResize` pass it in and show what comes back.
+Both gestures end through `canvas/gesture.ts` (`followPress`), which tells them whichever way they end.
 
 Tests:
 
@@ -1542,6 +1615,8 @@ Tests:
   layer snapping to the inside of its parent's border, in the frame's own pixels; a badge in a transformed component's
   slot snapping to the component's box; and one in a slot of a component that isn't positioned snapping to the root its
   insets count from, not to the component's edge.
+- `canvas/layer-measure.test.ts`: what a layer snaps to from a frame written out as boxes, at four scales, leaving out a
+  sibling that isn't drawn, and nothing for a layer without a containing block (PAR-967).
 - `canvas/gesture.test.ts`: how a gesture ends, under "Cursors and Escape during a gesture", above.
 - `apps/desktop/e2e/moving.e2e.ts` (5), end to end, on the Review slot at 100%: dragged 6px down it stays, with spacing
   marks over three gaps, a guide and the 32px distance during the drag, and nothing to undo or shown after; dragged 36px
@@ -2165,10 +2240,11 @@ Code: the rules are `packages/editor/src/move-resize.ts` (`@parity-app/editor`):
 it's given, and `nudgedPosition` for designs and notes. `apps/desktop/src/renderer/canvas/nudge.ts` has
 `nudgeSelection`, which nudges what's selected in the store, and `frameDrawn`, which reads a layout's flow, through
 `@parity-app/editor`'s `flowOf` with its children's boxes from `frame.ts`'s `flowingBoxes`, and a layer's drawn insets
-from its frame. Then `chrome/commands.ts` (`nudge`), `chrome/actions.ts` (`byKey` keeps it out of Search actions),
-`chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which
-passes the key event to the action and keeps the other arrows from tldraw. A run's gesture is `runGesture` in
-`nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed by the selection's `selectionKey` (`selection.ts`).
+from its frame (`frameGeometry`'s `insets`, in half steps by `insetSteps`, PAR-967). Then `chrome/commands.ts`
+(`nudge`), `chrome/actions.ts` (`byKey` keeps it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the
+arrows are written `←`, `→`, `↑` and `↓`), and `canvas/shortcuts.ts`, which passes the key event to the action and keeps
+the other arrows from tldraw. A run's gesture is `runGesture` in `nudge.ts`, a `GestureRun` (`canvas/gesture.ts`) keyed
+by the selection's `selectionKey` (`selection.ts`).
 
 Tests:
 
@@ -2256,11 +2332,13 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
 
 - **What's copied is what the frame shows.** A layer copied in a state other than the base carries that state's changes,
   all the way down, slots included, and so do the variant options the board shows, the frame's viewport patches and the
-  values bound params show there (PAR-464). Only the outermost selected layers are copied.
+  values bound params show there (PAR-464). The layers an instance fills its slots with are copied the same way
+  (PAR-966). Only the outermost selected layers are copied.
 - **A binding goes only where its param is** (PAR-464). A copied layer bound to a param keeps the binding when it's
   pasted into a design with a param of that name, and follows it there; anywhere else the binding is dropped and the
-  layer keeps the value it showed. A new screen has no params, so it keeps none. Pastes, Paste over, Paste to replace,
-  Paste here and dragging to another design all do this.
+  layer keeps the value it showed. That holds all the way down, in an instance's filled slots too (PAR-966). A new
+  screen has no params, so it keeps none. Pastes, Paste over, Paste to replace, Paste here and dragging to another
+  design all do this.
 - **The copy is an envelope** (`{"parity":"clipboard","version":1,"project":…,"payload":…}`) holding layers, designs or
   notes, and the project they came from. Text that starts like a Parity copy but isn't a complete envelope of a known
   kind, such as cut-off JSON or an unknown version, pastes nothing and shows a message. So does an envelope whose
@@ -2284,7 +2362,9 @@ text. Copy style (Ctrl+Alt+C) and Paste style keep their own clipboard inside th
   inspector marks each value taken away as changed in that state, with Reset.
 - **Layers naming components the project doesn't have** still paste, with a warning naming them.
 
-Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`).
+Code: the rules are in `packages/editor/src/clipboard.ts` (`@parity-app/editor`). Copying as shown and fitting bindings
+go through every layer with core's `mapNodes` (`packages/core/src/edit.ts`), which knows each place a node holds nodes:
+a layout's children, a code component's slots and an instance's filled slots.
 `apps/desktop/src/renderer/canvas/clipboard.ts` reads and writes the system clipboard, saves images, places designs by
 their boxes on the canvas, applies the rules to the selection and the store, and shows the messages.
 
@@ -2296,16 +2376,21 @@ SVG markup, and text that only looks like it; copying the outermost layers as a 
 lone selected layout, after the last selected layer, in a slot, the root, and a root that isn't a layout); fresh ids in
 order, last, inside copies and in a slot; with the shared fixture's card, copying in a variant, state and viewport, the
 bound title as it shows, and pasting it into a design with and without the param, and bindings fitted all the way down;
-designs' ids, kept when free even when not made from the name, and whole-pixel moves; notes beside where they were and
-at a place; copying style in a state, and in a variant and viewport, and pasting it in the base and in another state,
-where the state shows only the copied style, taking away the design's values and keeping nothing for what the design
-doesn't set; and missing components at any depth, and none while the project's aren't known. The new screen layers make,
-its name and the bindings it keeps none of, are in `packages/editor/src/new-screen.test.ts` (PAR-546). What a state
-takes away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a prop taken away in one state, a value
-the state set taken away with nothing kept, setting it again and Reset, and removal in the base; `render.test.ts`, a
-state taking style and props away over the design and the viewport's patch, layered patches, an instance's param back to
-its default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update` taking the base's gap
-away in one state and refusing an unknown key.
+an instance whose slot is filled (3, PAR-966), copied as a state shows its fill, its fill's bindings fitted to a design
+with and without the param, and pasted showing what it showed, unbound; designs' ids, kept when free even when not made
+from the name, and whole-pixel moves; notes beside where they were and at a place; copying style in a state, and in a
+variant and viewport, and pasting it in the base and in another state, where the state shows only the copied style,
+taking away the design's values and keeping nothing for what the design doesn't set; and missing components at any
+depth, and none while the project's aren't known. `mapNodes` and `mapChildLists` are tested in
+`packages/core/src/edit.test.ts` ("mapping every node", 6): every place a node holds nodes reached in order, a
+replacement's own layers gone into, the same tree back when nothing changes, each list mapped by its slot, one node
+replaced and one removed inside a filled slot, and fresh ids for a copy's filled slots. The new screen layers make, its
+name and the bindings it keeps none of, are in `packages/editor/src/new-screen.test.ts` (PAR-546). What a state takes
+away is tested in `packages/core`: `edit.test.ts` ("taking a value away"), a prop taken away in one state, a value the
+state set taken away with nothing kept, setting it again and Reset, and removal in the base; `render.test.ts`, a state
+taking style and props away over the design and the viewport's patch, layered patches, an instance's param back to its
+default, and reading `unset` from a file; `packages/agent/src/workspace.test.ts`, `Update` taking the base's gap away in
+one state and refusing an unknown key.
 
 Gaps: reading and writing the system clipboard, images and the messages have no automated test. The inspector's mark on
 a value a state takes away has no automated DOM test.
@@ -3652,7 +3737,13 @@ A slot it leaves empty shows the placeholder.
   Clear. A click in Components adds into it, at its end.
 - **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
   selecting them works as for any other. Layers doesn't list them under the instance.
-- **Detach** bakes the fill in where the placeholder was, keeping its layers' ids.
+- **Detach** bakes the fill in where the placeholder was, keeping its layers' ids. A component can place an instance of
+  its own and fill that one's slots; those layers are the component's, so Detach bakes them like its others, with the
+  values they show, no bindings and fresh ids (PAR-966).
+- **Repeated parts** count what fills an instance's slots as its structure, so two instances of one component are the
+  same part only when their fills are built alike, and what differs between the fills becomes params (PAR-966).
+- **Agents read the fill on the instance.** `Get` in a state or mode gives it as that state draws it, and `depth` leaves
+  it out as `"…"` past the level asked for, as it does a layout's children (PAR-966).
 
 The file keeps a fill as `slots` on the instance, by slot name, as a code component keeps its slots. Its rules are in
 `@parity-app/core`: `instanceSlots`, `slotAtPath` and `clearSlot` in `slots.ts`, the fill drawn by `resolveDesign` in
@@ -3665,9 +3756,14 @@ Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `In
 
 Tests:
 
-- `packages/core/src/slots.test.ts`, filling an instance's slots (6): a fill kept in its slot and listed, a fill drawn
-  with its own ids in place of the placeholder, the path that points at a slot, clearing, Detach, and the file refusing
-  a fill that reuses an id.
+- `packages/core/src/slots.test.ts`, filling an instance's slots (7): a fill kept in its slot and listed, a fill drawn
+  with its own ids in place of the placeholder, the path that points at a slot, clearing, Detach, Detach twice of a
+  component whose own instance fills a slot (PAR-966), and the file refusing a fill that reuses an id.
+- `packages/core/src/decompose.test.ts`, "findRepeats among instances filling a slot" (2, PAR-966): instances told apart
+  by their fills with the values that differ found, and a shorter fill beside a longer one.
+- `packages/agent/src/workspace.test.ts`, "Get reading the layers an instance fills its slots with" (2, PAR-966): the
+  fill as a state and a mode draw it, and left out past the depth asked for, an empty layout reading as empty and an
+  empty fill as `"…"`.
 - `packages/editor/src/insert.test.ts`: a click inserting into a selected slot.
 - Stories: Parity/Inspector/Layer/Slots (Instance Slots and Slot Selected) and Parity/Canvas/Selection › Filled Slot.
 
@@ -3772,7 +3868,8 @@ Code: what the editor edits, what it selects, the modes and switching between th
 in one state, `wordAt`, `openingSelection`, `textSizing`, `withTextSizing`, and `textSizingKeys`, the properties a
 switch writes and a reset clears). Drawing hug text as `max-content` is `textCss` in `packages/core/src/render.ts`. The
 editor is `apps/desktop/src/renderer/canvas/TextEditor.tsx`: it finds the character under the double-click from the
-text's own ranges, measures the text each frame, and handles the keys. The double-click passes its point through
+text's own ranges, measures the text each frame, its content box and its own scale through `frameGeometry`
+(`canvas/frame-geometry.ts`, PAR-967), and handles the keys. The double-click passes its point through
 `SelectionStore.setEditing` (`selection.ts`), from `canvas/CanvasOverlay.tsx`. A switch's edit is `textSizingEdit` in
 `packages/editor/src/style-editing.ts`, rounding each layer's measure up with `stepUp`. The agent's skill says how text
 sizes in `packages/cli/skills/document.md`.
@@ -3995,9 +4092,9 @@ Tests:
   `apps/desktop/src/renderer/frame.test.ts` (4, PAR-896), in Chrome: `:root.dark`, `html.dark`, `:root[data-theme=dark]`
   and `html[data-theme='dark']` drawn dark in the default Dark mode, with the attributes the app sets, and light in
   Light.
-- `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
-  wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
-  get (PAR-465).
+- `packages/editor/src/token-edits.test.ts` (7): the first edit's original kept, what Save writes, a theme value that
+  wasn't there written without a value once it's undone, the token list with edits and with a token an edit adds
+  (PAR-911), and the overrides offscreen frames get (PAR-465).
 - `apps/desktop/src/renderer/tokens-store.test.ts` (3), in Chrome: an edit previewed in the stylesheet in both themes,
   undo and redo taking it back and forth, Save writing it; a theme value taken out again on undo, with no preview left
   for frames drawn elsewhere; and a guest loaded again showing, then saving, an unsaved edit.
@@ -4471,6 +4568,55 @@ printed order, and `--nearest` reaching the app as MCP's `nearest` does); the sk
 `packages/cli/src/skill-examples.test.ts`. Gaps: `rgb()`, `hsl()` and named colors aren't read, so a project that writes
 its colors that way gets no nearest color; colors are compared in the default theme only.
 
+### Adding a token, and a name that isn't one (PAR-911)
+
+An agent's `SetTokens` adds a token as well as changing one, and a design that names a token the project doesn't have is
+told what the project does have. Tokens come in through the styles adapter that read the stylesheet and go out through
+the same one; nothing between knows the framework.
+
+- **A new name is a new token.** `SetTokens({ "text-2xl": "1.5rem" })`, or `{ default: "…", dark: "…" }` for a value per
+  theme, makes a token the project doesn't have, in the category its name and value say (`categorize`) and as one of the
+  project's own (`source: "semantic"`). The rest of the call lists it in `GetTokens` and takes it in a style without a
+  warning. It's an ordinary token edit: every frame draws it at once, the Tokens tab lists it before it's saved, Save
+  writes it and Undo takes it back, out of the stylesheet too once it was saved.
+- **Where Save writes it is the adapter's call.** `StylesAdapter.writeTokens(source, writes, theme)` writes values into
+  a stylesheet's source where its framework keeps them. A project no adapter reads has plain custom properties, which
+  `writeTokenChanges` writes: a default value in the first `:root` under no condition, a theme's in the block the
+  stylesheet gives that theme (`.dark`, `[data-theme="dark"]` or a `prefers-color-scheme` root), each made at the end of
+  the file when there's none. Tailwind's adapter puts a default value in `@theme` when the variable is in Tailwind's
+  theme already or its name is in one of Tailwind's namespaces (`text-*`, `shadow-*`, `radius-*`, `color-*` and the
+  rest), so the class exists, and hands every other value to the plain writer. A declaration that exists is edited where
+  it is, whichever block that is.
+- **The warning says what the project has.** A style key takes one category of token: `size` a font size, `shadow` a
+  shadow, `background` a color. A name there that isn't a token gets one of these, in a design, a viewport's patch or a
+  state alike:
+  - `size "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
+    The tokens are listed smallest first while there are eight or fewer; past that it's
+    `Use a name from GetTokens({ category: "color" }), or add pink with SetTokens.`
+  - `shadow "shadow-md" isn't a token, and the project has no shadow tokens. Add shadow-md with SetTokens.`
+  - A raw color or length keeps PAR-833's hint, the call that lists the nearest tokens, and a value that couldn't be a
+    token's name (`0 1px 2px black`) isn't offered to `SetTokens` by name.
+  - A place that takes more than one category (a gradient, a blur, a transition's duration or easing) keeps
+    `Use a name from GetTokens().`
+
+Code: `writeTokenChanges` and `writeCustomProperty` in `packages/tokens/src/stylesheet.ts`; `withTokenChanges` in
+`packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `packages/styles-tailwind/src/tokens.ts`; `StylesAdapter` in
+`packages/core/src/adapters.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
+`packages/agent/src/workspace.ts` and `notAToken` in `packages/agent/src/lint.ts`; `tokensWithEdits` in
+`packages/editor/src/token-edits.ts`.
+
+Tests: `packages/styles-tailwind/src/tokens.test.ts` (5: a theme variable edited in its `@theme` block or a new one, a
+new namespaced token in `@theme`, any other in the root and a theme's value in its block, a namespaced variable edited
+where the root declares it, a value taken back out); `packages/tokens/src/stylesheet.test.ts` (a token the stylesheet
+doesn't declare added to the root, whatever its name, and read back in its category);
+`packages/tokens/src/tokens.test.ts` (`withTokenChanges`, 2); `packages/editor/src/token-edits.test.ts` (the token list
+with a token an edit adds); `packages/agent/src/lint.test.ts` ("lists the project's tokens of the kind a style takes, or
+says it has none"); `packages/agent/src/run.test.ts` (3: a token added, listed and used in the same call without a
+warning, the warning until then, and a changed value in `GetTokens`); the skill's example in `execute.md`, run by
+`packages/cli/src/skill-examples.test.ts`. Gaps: a new token's value isn't checked against the kind its name says, as a
+change to an existing token is; Tailwind's namespaces are a list in the adapter, not asked of the project's Tailwind;
+and the Tokens tab has no control for adding a token, so people add one in the stylesheet.
+
 ## Accessibility
 
 How the Accessibility tab checks a design and helps fix what it finds.
@@ -4577,8 +4723,8 @@ The component designs in a dependency's `.lib.par` canvas show in that library's
 showcase.
 
 - **They're named by the library:** `settings-row` is `nova/settings-row`, so it never clashes with the project's own
-  designs, and instances inside it that place the library's other designs point at their new names. A project design
-  with the same id wins, and the library's isn't listed.
+  designs, and instances inside it that place the library's other designs point at their new names, the ones an instance
+  fills its slots with included (PAR-966). A project design with the same id wins, and the library's isn't listed.
 - **They aren't the project's.** They don't show on the canvas or in the Layers panel, and Save never writes them; they
   change when the library does. A design that places one draws it the way it draws the project's own instances.
 - **Search** finds them by name, as it does components.
@@ -4588,8 +4734,9 @@ puts them on the library (`LibraryInfo.designs`); `DesignStore` in `apps/desktop
 adds them to the designs instances can place (`getComponentLibrary`); `componentSources` in
 `apps/desktop/src/renderer/chrome/AssetsPanel.tsx`.
 
-Tests: `packages/core/src/library.test.ts` (1: component designs named by the library, their instances following,
-screens left out). `packages/project/src/index.test.ts` (1: a dependency's canvas designs on its library).
+Tests: `packages/core/src/library.test.ts` (2: component designs named by the library, their instances following,
+screens left out; and the instances another instance fills its slots with named by the library too, PAR-966).
+`packages/project/src/index.test.ts` (1: a dependency's canvas designs on its library).
 `apps/desktop/src/renderer/design-store.test.ts` (1: a project design reaches a library design it places, which isn't an
 entry and isn't saved). Gaps: the panel's section has no automated test. It was checked in an isolated copy of the app
 on 2026-10-29, with a dependency whose `.lib.par` canvas held a component design and a screen: the library's section
@@ -4689,7 +4836,10 @@ Code: `useAwake` in `apps/desktop/src/renderer/canvas/frame-sleep.ts`; `FrameTil
 decides from its bitmap and passes `asleep` to `ModeView.tsx`, which unmounts the guest and holds the frame's height,
 and shows the placeholder, with the `.frame-placeholder` rule in `styles.css`; the board's `near` and `dormant` signals
 in `canvas/ContainerUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`; the `[data-asleep]` rules in `styles.css`;
-`capture` in `canvas/frame-bitmaps.ts`, which drops a failed capture.
+`capture` in `canvas/frame-bitmaps.ts`, which drops a failed capture; `captureWindow` in
+`apps/desktop/src/main/index.ts`, which takes a capture up to three times, after the offscreen window paints again, when
+Chromium had no frame to copy (`retryingCapture` in `main/capture-retry.ts`, PAR-880). Bitmaps, component previews and
+exports all capture through it.
 
 Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
 by at least the elements the awake frames held, and no frame changes size (its board grows on the canvas, as its gutter
@@ -4708,7 +4858,10 @@ by reading `useFrameBitmap`, and the full suite passed four times under extra lo
 `e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design into view before finding a layer in it,
 so the other files' tests work on frames that slept. Gaps: the order frames wake in has no test of its own; it was
 checked by reading `wakeNext`. The memory it gives back and the time waking takes were measured by hand in a debug copy
-(see [decisions.md](decisions.md), Canvas), not by the suite.
+(see [decisions.md](decisions.md), Canvas), not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a
+capture failing with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and
+any other failure is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the
+failure came from about one capture in each CI run, and Sentry's count from CI after the change is the check.
 
 ### A hidden tab's frames sleep (PAR-153)
 
@@ -4945,17 +5098,37 @@ Frame bitmaps are kept on disk, so a project opened again, or Parity started aga
 they're read rather than capturing every one again, one at a time, before frames can sleep. They're kept in Parity's app
 data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
 
-- **A bitmap is named by what it shows:** the project's code as the guest drawing it was loaded, and `bitmapName`'s name
-  for the job: the project, the theme, the tree, the mode, the scale and the tokens previewed, field by field, and where
-  each component the frame draws comes from, whether the guest was served it or given it since, as when the type checker
-  finds one (PAR-179). It leaves out the guest's address, which is new each time a project opens, and a frame's check,
-  which changes nothing drawn. Since PAR-575 the name lists the fields it's made of rather than taking all but the
-  address, so a field added to the job is in no name until `shared/render-job.ts` says so; bitmaps kept before it have
-  the same names. The code is a fingerprint of the path, size and modification time of every file in the project and of
-  the lockfiles above it, skipping dependencies, build output, dot-folders and designs, with the guest module Parity
-  draws it with and a format number. It's taken when each address is first served and kept for that address, since the
-  page never loads a module twice: a builder started again on the same port keeps it. Any edit to code, CSS or config
-  gives a new name, so a bitmap of old code is never shown for new.
+- **A bitmap is named by the frame it's of:** `bitmapName`'s name for the job: the project, the theme, the tree, the
+  mode, the scale and the tokens previewed, field by field, and where each component the frame draws comes from, whether
+  the guest was served it or given it since, as when the type checker finds one (PAR-179). It leaves out the guest's
+  address, which is new each time a project opens, and a frame's check, which changes nothing drawn. Since PAR-575 the
+  name lists the fields it's made of rather than taking all but the address, so a field added to the job is in no name
+  until `shared/render-job.ts` says so. Files are `latest-<name>.webp`; bitmaps kept before PAR-994, named by the whole
+  project's code, age out.
+- **Each bitmap carries its trace, which says whether it's of the code there now (PAR-994).** Just before a frame is
+  captured, the service lists the project files it reads, each with a hash of its contents, and the digest of them all
+  with Parity's renderer and a format number, and keeps that inside the bitmap. The files are the components the frame
+  draws and everything they import, found two ways and listed together, since a file listed that the frame doesn't read
+  costs a capture at most, where one left out could show old code as current: what the builder says they load
+  (`BuilderSession.loadedFiles`, from Vite's module graph, following the imports the browser fetches rather than every
+  file Tailwind scans), and Parity's own scan of their imports, as component previews find theirs, which also follows
+  the stylesheets' `@import`s. Then the files every frame depends on: the root's package.json, tsconfigs and tool
+  configs, and the lockfiles, which stand for the packages, library components included. Looking a bitmap up hashes the
+  files its trace lists again, reading a file only once its size or modification time has moved, and it's current when
+  the digest matches. A touch, a checkout, a branch switch that leaves a frame's files alone, or a worktree of the same
+  code keeps every bitmap; an edit recaptures only the frames that read the file. Measured on the example project in a
+  development build: started again after touching two files, no frame was captured, where every one of the 119 was
+  before; after editing `badge.tsx`, 63 were, the 63 whose traces list it. A trace adds about 0.5 to 1 KB to a bitmap.
+  The repository's own lockfile is one of the example's files, so a dependency update in Parity recaptures it whole;
+  listing only the packages a frame imports, by version, is left for later.
+- **A bitmap whose trace doesn't hold stands in while the frame is captured again (PAR-993).** `frames.stored` answers
+  with it marked `stale`: the frame shows it at once, at the height kept with it, without drawing its design, and is
+  captured straight away, the new bitmap replacing it when it comes, so boards keep their sizes and no frame waits on a
+  placeholder. A bitmap kept without a trace is stale too. A stale bitmap never stands for the frame's key: the canvas
+  doesn't sleep on it, exports and the project's picture capture the frame as it is now, and `bitmapCache.used` counts
+  it as a miss. Measured after touching one file, before traces: every one of the 119 frames showed a bitmap 25 ms after
+  the canvas mounted, with no board changing height, where a profile with nothing kept showed placeholders for 10.4
+  seconds.
 - **Kept as lossless WebP (PAR-535).** The offscreen window captures a PNG, and the project service encodes it again as
   a lossless WebP with sharp's libwebp before keeping it, the same pixels in about 40% less: the example project's 119
   bitmaps came to 569 KB in the app, 4.8 KB each and 21 KB at most, where their PNGs took 908 KB, 7.6 and 33, encoding
@@ -4983,15 +5156,19 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
   page and the project's modules, and all close a minute after the last job. A capture takes about 150 ms in its window:
   drawing the frame (the 30 ms wait, components loading on demand, two animation frames), the window made as tall as the
   frame and two more animation frames, then the capture and its PNG.
-- **What's kept is cleaned up** when the service starts and after every 50 writes: partial files a write left behind
-  over a minute ago, every bitmap of a project none of whose bitmaps was shown in 30 days, and then the least recently
-  shown past 200 MB, down to 180 MB. Showing a bitmap counts as using it. **View > Clear bitmap cache**, also in the
-  actions search, removes them all; bitmaps on the canvas now are taken again when their frames next change.
+- **What's kept is cleaned up** when the service starts and after every 50 writes, latest bitmaps with the rest: partial
+  files a write left behind over a minute ago, every bitmap of a project none of whose bitmaps was shown in 30 days, and
+  then the least recently shown past 200 MB, down to 180 MB. Showing a bitmap counts as using it. **View > Clear bitmap
+  cache**, also in the actions search, removes them all; bitmaps on the canvas now are taken again when their frames
+  next change.
 
 Code: `cacheRemovals` in `packages/core/src/bitmap-cache.ts`; `renderQueue` and `offscreenWindows` in
 `packages/core/src/preview-order.ts`, and `turns` in `packages/core/src/turns.ts`; `renderOffscreen`,
 `ensureRenderWindow` and `closeRenderWindows` in `apps/desktop/src/main/index.ts`; `codeSnapshot` in
-`packages/project/src/code-fingerprint.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt` and the
+`packages/project/src/code-fingerprint.ts`; `contentReader` and `traceDigest` in `packages/project/src/frame-trace.ts`;
+`frameTraces` in `apps/desktop/src/utility/frame-traces.ts`; `loadedFiles` in
+`packages/builder-vite/src/loaded-files.ts`, and `BuilderSession.loadedFiles` in `packages/core/src/adapters.ts`,
+carried by `builder-process.ts`; `apps/desktop/src/utility/bitmap-store.ts`, and `codeServedAt`, `loadedFiles` and the
 `fingerprints` kept per address in `utility/projects.ts`, with the components each address served; `bitmapName`,
 `drawnComponents`, `devicePixels` and `frameHeight` in `apps/desktop/src/shared/render-job.ts`; `withWebpText`,
 `webpText` and `webpSize` in `packages/core/src/webp-text.ts`; `losslessWebp` in `apps/desktop/src/utility/webp.ts`, and
@@ -5007,9 +5184,18 @@ and one with a recent bitmap keeps its older ones, the least recently used go pa
 limit counts before the cap, an old partial file goes and a new one stays, and a partial file doesn't keep its project).
 `packages/project/src/code-fingerprint.test.ts` (6: the same for the same files and salt, new with the salt, new for an
 edited component, stylesheet or config, and the same with dependencies, build output, dot-folders and designs added).
-`apps/desktop/src/utility/bitmap-store.test.ts` (6: a bitmap kept from one address is found from another with its
-frame's height, none for a file without a height, none for other code, no partial file left behind, an old project and
-an old partial file swept, and nothing once cleared). `apps/desktop/src/shared/render-job.test.ts` (2 for
+`apps/desktop/src/utility/bitmap-store.test.ts` (8: a bitmap kept from one address is found from another with its
+frame's height while its trace holds, stale once a file it read changed, stale when kept without a trace, none for a
+file without a height, none for a frame never kept, no partial file left behind, an old project and an old partial file
+swept, and nothing once cleared). `apps/desktop/src/utility/frame-traces.test.ts` (5: a trace lists the files the
+components import, the stylesheets and theirs, and the shared config; adds what the builder says they load; holds after
+a touch or a change to a file the frame doesn't read; doesn't hold once a file it reads changes, an import or a
+stylesheet's import; nor for another renderer). `packages/project/src/frame-trace.test.ts` (4: the same hash for the
+same bytes whenever written, a new one once they change, a large file hashed without its text and a missing one marked,
+and a digest that ignores order but not a hash, a file or the salt). `packages/builder-vite/src/loaded-files.test.ts`
+(4: every project file a component loads, once each; packages and files outside the project left out; a cycle; none for
+a file Vite hasn't built). `packages/core/src/builder-process.test.ts` asks the builder's process what files modules
+load, and gets none from a builder that can't say. `apps/desktop/src/shared/render-job.test.ts` (2 for
 `drawnComponents`: the components a tree draws, nested in slots and props, by where they come from, and the same whether
 served or given; for `bitmapName`, among the names' 9: the same from another address, for a field the job or its mode
 gains and for a check, new with the tree, the mode, the size, the window, the scale and the tokens previewed, the same
@@ -5019,19 +5205,20 @@ crop covering its box, and boxes and heights measured back in CSS pixels). `pack
 text kept after the image behind the extended header a plain WebP needs, with its size and alpha, for lossless and lossy
 images; replaced under the same keyword and kept under others; none without it, and what isn't a WebP left alone; and
 the size read from either header). `apps/desktop/src/utility/webp.test.ts` (1: the WebP has the PNG's pixels exactly).
-`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (6: a kept bitmap stands in for its key, with its height, so no
-capture is asked for, frames with the same key share a read, frames asking together share one request and each gets its
-own bitmap, none when the service couldn't say, none when none was kept, and a capture taken during the read wins).
-Gaps: that a frame waits for the read before its capture, and the fingerprint kept per address, have no test of their
-own; both were checked by reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on
-`examples/shadcn-vite`: the first session kept 119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were
-shown from disk with no capture, about 2 seconds after the window loaded, the service answering each read in about a
-millisecond once it reached it; Clear bitmap cache emptied the folder and showed its toast. Before the fix to wait for
-the read, the service answered after the 1-second wait, so every frame was captured again anyway. The four windows were
-checked against one in debug copies on fresh profiles: of the 119 bitmaps both kept, 117 were the same file byte for
-byte, and 2 differed by at most 6 of 255 in a channel around a card's shadow, which is how they rasterize; a third
-differs between two runs with the same number of windows. That captures go to separate windows has no automated test;
-the end-to-end suite starts each copy on a fresh profile, so it captures its frames this way.
+`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (7: a kept bitmap stands in for its key, with its height, so no
+capture is asked for, the frame's latest from other code comes as stale and the frame is still captured (PAR-993),
+frames with the same key share a read, frames asking together share one request and each gets its own bitmap, none when
+the service couldn't say, none when none was kept, and a capture taken during the read wins). Gaps: that a frame waits
+for the read before its capture, and the fingerprint kept per address, have no test of their own; both were checked by
+reading `useFrameBitmap` and `restartBuilder`. Tried in a debug copy on `examples/shadcn-vite`: the first session kept
+119 bitmaps (1.1 MB) for 238 frames; started again, all 238 frames were shown from disk with no capture, about 2 seconds
+after the window loaded, the service answering each read in about a millisecond once it reached it; Clear bitmap cache
+emptied the folder and showed its toast. Before the fix to wait for the read, the service answered after the 1-second
+wait, so every frame was captured again anyway. The four windows were checked against one in debug copies on fresh
+profiles: of the 119 bitmaps both kept, 117 were the same file byte for byte, and 2 differed by at most 6 of 255 in a
+channel around a card's shadow, which is how they rasterize; a third differs between two runs with the same number of
+windows. That captures go to separate windows has no automated test; the end-to-end suite starts each copy on a fresh
+profile, so it captures its frames this way.
 
 ### Component previews, made offscreen and kept on disk (PAR-207)
 
@@ -5933,9 +6120,13 @@ interrupting work (PAR-490). Startup checks remain quiet when no update is avail
 also restores a previously dismissed download or restart notice. About stays available separately through Help.
 
 Settings > Get beta updates is off by default and remembered between runs. It includes GitHub pre-releases without
-allowing downgrades. About labels installed beta builds with `(Beta)` independently of the selected Update channel; the
-preference describes which future releases to accept. It also shows the available version. Development builds and
-extracted Linux folders do not download or install updates.
+allowing downgrades. A beta check names electron-updater's beta channel, so it takes the newest version tag in GitHub's
+releases feed and passes over the `@parity-app/*` tags the release workflows push without release files; taking the
+feed's first entry made every beta check fail while one of those came first (PAR-825). A failure records its first line
+and electron-updater's error code, as Sentry redacts the whole message when its HTTP headers follow. About labels
+installed beta builds with `(Beta)` independently of the selected Update channel; the preference describes which future
+releases to accept. It also shows the available version. Development builds and extracted Linux folders do not download
+or install updates.
 
 The release workflow embeds the initial Beta identity, including for a first offline launch. The installed tag's public
 release metadata observes promotion to stable. A version-keyed cache preserves confirmed identity offline and refreshes
@@ -5950,17 +6141,20 @@ the beta setting and beta/stable installed builds independently of the preferenc
 toast designs and the PAR-490 check-feedback and build-label stories before app integration.
 
 Code: `packages/core/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts` serializes
-operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement and IPC,
-through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and
-`SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
+operations and `main/updates.ts` adapts electron-updater. `main/index.ts` owns the close acknowledgement, and
+`main/host-handlers.ts` answers the window's update methods, through `preload/index.ts`. `renderer/chrome/updates.tsx`
+shares state between `UpdateToast.tsx`, `AboutDialog.tsx` and `SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
 
 Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
-progress; `main/update-session.test.ts` covers serialized checks, retry, installation failure resetting the close
-decision, disabled development builds and the Mac fallback. `preload/index.test.ts` covers a native menu action arriving
-before React subscribes and replacing its listener without losing the next action. `chrome/updates.test.ts` covers
-manual checks without a dialog, quiet startup results, repeated checks, retry and dismissed progress becoming a ready
-notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions, checksum rejection, Later,
-unsaved-work cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
+progress; `main/update-session.test.ts` covers serialized checks, a failure's first line and code, retry, installation
+failure resetting the close decision, disabled development builds and the Mac fallback. `main/update-channel.test.ts`
+runs electron-updater's GitHub provider over a feed led by a package tag, finding the newest beta past it and keeping
+stable on the latest release; `main/updates.test.ts` covers the channel each check names and downgrades staying off.
+`preload/index.test.ts` covers a native menu action arriving before React subscribes and replacing its listener without
+losing the next action. `chrome/updates.test.ts` covers manual checks without a dialog, quiet startup results, repeated
+checks, retry and dismissed progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two
+real packaged versions, checksum rejection, Later, unsaved-work cancellation, Save, installation and relaunch as the
+newer version. It refuses to run outside CI.
 
 ### Sharing diagnostics (PAR-626)
 
@@ -6001,9 +6195,9 @@ time reads. The CLI's `diagnostics.test.ts` covers the zip and its files. `chrom
 the dialog empty, written, after a crash, from a fallback, sending, sent and failed, with Send moving from one to the
 next.
 
-### Install the parity command (PAR-906)
+### Install the Parity CLI (PAR-906)
 
-Help > Install the parity command puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
+Help > Install the Parity CLI puts a `parity` command on the person's PATH that runs the CLI shipped inside the app,
 with the app's own Electron as Node. It needs no Node or npm, it's always the app's version, and a call starts about a
 second and a half sooner than `npx @parity-app/cli`, which resolves the package each time. A toast says it's installed,
 and on Windows to open a new terminal; on Linux, when `~/.local/bin` isn't on PATH, it names the folder to add. A
@@ -6307,10 +6501,10 @@ Code: `packages/core/src/render.ts` resolves each element with its `declarations
 project's and the classes' (`showFrameRules`, `previewFrameRules`); `guest.ts` there writes a tree's rules in the
 project's layer (`frameCss`, `rulesLayer`). `frame-classes.ts` keeps the classes written for a guest's frames and asks
 the service for the rest, naming the ones it has, so the stylesheet that comes back is whole even from a service started
-again since (`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles
-adapter's `loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an
-offscreen one from the rules. The React guest (`packages/renderer-react/src/guest.ts`) gives an element its classes and
-no style.
+again since. It asks once the last ask is answered, since an answer's stylesheet replaces the one before
+(`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles adapter's
+`loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an offscreen
+one from the rules. The React guest (`packages/renderer-react/src/guest.ts`) gives an element its classes and no style.
 
 Tests:
 
@@ -6324,6 +6518,8 @@ Tests:
 - `packages/styles-tailwind/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
   its `utilities` layer, a variant inside its own conditions, nothing for an unknown class. `design-system.test.ts` pins
   `candidatesToCss`.
+- `apps/desktop/src/renderer/frame-classes.test.ts`: classes asked for while an ask is unanswered wait for it, so the
+  stylesheet keeps the classes the first answer wrote (PAR-962).
 - `apps/desktop/src/renderer/ModeView.test.ts`, a frame in a project whose styling framework writes classes (2), in
   Chrome: a layer drawn from its rule, then from its classes once the service answers, the same size and with no inline
   style; and a layer with a declaration the framework can't write keeping its rule.
@@ -6671,6 +6867,38 @@ name the badge showed Terminal; with `PARITY_AGENT_NAME=DeepSeek Harness` it sho
 without design edits, and the badges were checked in screenshots. Concurrent long-name MCP cursors have not been checked
 visually; their id truncation regression is covered by `caller.test.ts`.
 
+### A cursor for each subagent (PAR-960)
+
+A session's subagents share its MCP connection, so their calls carry one name and one id and move one cursor. A call
+that passes `subagent`, a short name the subagent gives itself, gets a cursor and a strip of its own, shown as
+`Header (Claude Code)`: the subagent first, since that's what tells them apart, then the session. The same name on a
+later call picks up the same cursor, and a call that names no subagent is the session's own, as before. The server's
+instructions and the skill ask an agent to give each subagent that works at once a name to pass. In a terminal each
+subagent sets its own `PARITY_AGENT_NAME`.
+
+- **Every MCP tool that reaches the app takes it,** as a bare string beside the tool's own fields. `get_logs` and
+  `read_skill` answer without the app and show no cursor, so they don't.
+- **A name that's blank or isn't text is left out,** not refused. One is kept to a line and 40 characters.
+- **Telemetry still names the session.** The subagent travels beside the caller in the request, and only the canvas
+  joins them.
+- **An older app ignores it,** and shows one cursor as it did.
+
+Implementation: `withSubagent` and `splitSubagent` in `packages/cli/src/mcp.ts` publish it and take it out of a call's
+arguments; `callAs` in `client.ts` sends it in the body; `callerIdentity` and `presenceIdentity` in
+`packages/agent/src/caller.ts` read it and name the cursor, which `dispatch` puts on each presence event.
+
+Tests: `packages/agent/src/caller.test.ts` (3: a subagent kept on one line and 40 characters, and left out when blank or
+not text; the session's name and id without one; three subagents named and keyed apart, the same one keeping its id, and
+another session's of the same name apart). `packages/agent/src/dispatch.test.ts` (1: a body's subagent shown as its own
+caller under the session's id, with telemetry told the session each time). `packages/cli/src/execute.test.ts` (2,
+through the real MCP server: a named subagent reaching the app beside the caller and out of the params, with blank and
+numeric ones left out; `subagent` on every listed tool but the two that answer alone).
+`packages/cli/src/operations.test.ts` (2: each listed tool's schema is its contract's with `subagent` beside its fields;
+the tool list stays within 21.5 KB).
+
+Gap: not tried with real subagents. Claude Code's CLI wasn't signed in where this was built, so nothing here shows that
+subagents pass the name. The story Agent/Behavior, Three subagents, plays what the canvas shows when they do.
+
 ### Shared execute contract (PAR-451)
 
 CLI `exec` and MCP `execute` use the same operation in `packages/cli/src/execute.ts`. Both default the task label to
@@ -6938,6 +7166,19 @@ Tests: `packages/agent/src/run.test.ts` ("explains that Measure draws one frame"
 for state and mode, with nothing rendered; one state and mode still measuring; a frame listing only its primary mode).
 `packages/cli/src/execute.test.ts` ("explains Measure's single frame the same way in both transports": the agent's error
 as CLI text, `--json` and MCP). `packages/cli/src/skill-examples.test.ts` runs the skill's loop.
+
+### Checks draw their frames at once (PAR-816)
+
+`Screenshot`, `Problems` and `Accessibility` ask for every state and mode they check at once, so the four offscreen
+windows draw them side by side, where they used to draw one after another. The answer keeps the order asked for: each
+state, and each mode within it. A snippet's own loop of `Measure` calls still draws one frame at a time unless it awaits
+them together.
+
+Implementation: `renderEach` in `packages/agent/src/workspace.ts`, called by `problems`, `screenshot` and
+`accessibility`.
+
+Tests: `packages/agent/src/run.test.ts` ("draws every frame a check asks for at once, and answers in the order asked":
+three modes drawing together, finished last first, still answered and screenshotted in the order asked).
 
 ### Warnings grouped by what they found (PAR-460)
 

@@ -847,6 +847,9 @@ importers:
       '@parity-app/style':
         specifier: workspace:*
         version: link:../style
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../tokens
 
   packages/telemetry:
     dependencies:

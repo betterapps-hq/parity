@@ -1,5 +1,19 @@
 # Decisions
 
+- **Tokens come in and go out through the styles adapter, and nothing between knows the framework (PAR-911).** You asked
+  for this on 2026-11-11, instead of special cases per library. `StylesAdapter` already read a framework's theme
+  (`loadTheme`); it now writes token values too (`writeTokens`), and `@parity-app/tokens` keeps only the plain writer
+  for custom properties, which a project no adapter reads gets. `@theme` moved out of it into Tailwind's adapter. In
+  between, `SetTokens`, `GetTokens`, the warnings and the frames work on names and values alone.
+  - **`SetTokens` adds a token.** A name the project doesn't have is a new token, written on Save like any edit: by the
+    plain writer in `:root` and the theme's block, by Tailwind's in `@theme` when its name is in one of Tailwind's
+    namespaces, so the class exists.
+  - **The warning lists what the project has,** by the category the style key takes, or says it has none. It doesn't
+    offer a framework's defaults: we dropped offering Tailwind's scale to a project that only imports a kit Tailwind
+    compiled, the one piece that would have known a framework. If it's wanted later it's a method on the adapter.
+  - **My call: a new token shows in the Tokens tab before it's saved,** since it's an unsaved edit like any other and
+    the pickers should offer it.
+
 - **A date prop is `{ "$date": ... }`, made as `new Date(...)` (PAR-912).** Props are JSON, so a `Date` needs a form.
   `$date` joins the value grammar beside `$call`, in samples and decorators, and a component node's props now follow the
   sample grammar, which the decision on the value module said they did. The component gets exactly what
@@ -3663,6 +3677,37 @@ longer wake the measuring PAR-522 set up; the overlay follows the camera on its 
   measures every animation frame, and read that box each frame even with nothing to mark, laying the page out mid-frame
   through every zoom.
 
+## One reading of a frame for every gesture (PAR-967)
+
+The architecture review of 2026-11-11 found screen pixels per design pixel worked out three ways in thirteen places, and
+one drag mixing two of them (see editor.md, One reading of a frame for every gesture). `canvas/frame-geometry.ts` now
+answers for a frame host. My calls:
+
+- **Read from the DOM, not the camera.** The scale is the frame's drawn width over its laid out width. The camera's zoom
+  times `data-scale` was cheaper but disagrees with the boxes it's used beside until tldraw has drawn the camera, and
+  tldraw writes the camera rounded, so it's off at far zooms too. `editor.getZoomLevel()` stays only where there's no
+  frame to read: drawing a new frame on the canvas, boards, labels and the zoom control. The host's `data-scale` is
+  gone.
+- **Screen pixels throughout, converted once.** Boxes come back in screen pixels, as pointer events, hit testing and
+  tldraw's `screenToPage` speak, and `areaSpace` takes them to the overlay's pixels where it draws. Answering in the
+  overlay's pixels with the area passed in was rejected: every gesture would mix two spaces.
+- **Lazy and kept by nobody.** A `FrameGeometry` reads only what's asked of it, when it's asked, and keeps nothing, so
+  the overlay still chooses what to measure (PAR-577) and nothing is cached in page units (PAR-653). A gesture that
+  wants the frame as it began keeps the numbers it read.
+- **An app module, with its arithmetic apart.** It reads the DOM, so it's the app's. The sums are exported functions
+  tested from numbers, and what gestures make of it, `layer-measure.ts`, takes the geometry as plain boxes, so the
+  consumers are tested in Node. One Chrome suite reads a real frame across zoom, frame scale and a transform.
+- **A node's own scale includes its transforms,** read as its border box on screen over its computed size, which is
+  exact. The text editor and padding handles used `rect.width / offsetWidth`, which rounds to the pixel and ignored a
+  layer turned on its side; one turned or stretched unevenly now takes the frame's scale.
+- **A containing block outside the frame is measured at the frame's scale.** A layer placed absolutely with nothing
+  positioned around it in the design has the frame's outline, `.mode-frame`, as its `offsetParent`, and the frame's
+  `zoom` doesn't scale that outline. Read at its own scale, a companion frame at half size gave half the insets. A
+  review of this change found it before it merged.
+- **Frame skeletons keep their own ratio for now.** `measureFrame` in `canvas/frame-skeletons.ts` divides the frame's
+  drawn width by its width too, but PAR-954 and PAR-955, in progress, work on frames' bitmaps and skeletons, so it moves
+  over in PAR-996 once they land.
+
 ## Parity's window runs React's production build on request (PAR-519, PAR-550)
 
 The speed audit of 2026-11-04 found most of what still felt slow under `pnpm dev` was React's development build in
@@ -4299,9 +4344,10 @@ below. My calls on how they move:
     gives no contrast detail, and axe-core's own message shows instead.
 - **The main process checks its inputs (PAR-592).** My calls:
   - Each `ipcMain.handle` argument has a schema in `shared/ipc-checks.ts`, and `checked(schema, handler)` refuses a bad
-    one with `TypeError` and the pointer before the handler runs. Open in editor's request is a strict object whose
-    `file` must be an absolute path, so it can't reach the editor's command as an option such as `--goto`. The window's
-    types for these come from the schemas, through `import type`, so the window doesn't load zod for them.
+    one with `TypeError` and the pointer before the handler runs. (Since PAR-965, below, `hostMethods` gives each method
+    its schema and main's one registration does the check.) Open in editor's request is a strict object whose `file`
+    must be an absolute path, so it can't reach the editor's command as an option such as `--goto`. The window's types
+    for these come from the schemas, through `import type`, so the window doesn't load zod for them.
   - Main's environment variables are one schema in `main/environment.ts`, read once as main starts. A bad value stops
     main there, naming the variable, since only scripts, tests and the AppImage runtime set them. An empty variable
     counts as unset. `PARITY_WINDOW_SIZE` is read as a width and height, the ports and process ids as numbers.
@@ -5088,7 +5134,9 @@ the rules for when each is sent. My calls:
   the native module. Windows' hangs come from their `unresponsive` and `responsive` events.
 - **Exits:** a window or child process that exits abnormally, fails to launch or runs out of memory is reported, along
   with crashes' minidumps. The service's restarts are breadcrumbs. A builder that stops by itself is reported with its
-  last 50 lines of output, and the props worker's failures from the service.
+  last 50 lines of output, and the props worker's failures from the service. One a stop signal ended (SIGHUP, SIGINT,
+  SIGTERM, or Vite's 129, 130 or 143 after handling one) isn't sent as an error, since something outside stopped it:
+  `pnpm perf` quitting its copy filed one a run (PAR-755). It's still logged as `builder.crashed`.
 
 ## Every build is a Sentry release, with its source maps (PAR-625)
 
@@ -5240,7 +5288,7 @@ requests, the worker client and main, and the copies disagreed. Now `@parity-app
   its tree took 0.2 ms, and `previews.lookup` with 300 such previews 23 ms. A save waits on it, which the person doesn't
   see, so it stays.
 - **The `canvas:*` IPC names are declared once,** in `shared/channels.ts`, for the preload script and main. Checking
-  main's IPC arguments is PAR-592.
+  main's IPC arguments is PAR-592. (What a window asks main got its own method map in PAR-965, below.)
 - **The window's answers keep their details on the way to the service,** since the preload passes them through. The
   service's answers keep them on the way to the page too (PAR-580, below).
 
@@ -7038,6 +7086,26 @@ The plan attached the last log file to a crash, and main's hangs said how long b
   from main, so Sentry maps them to the uploaded source maps and no one's home folder is sent.
 - **`where` is the innermost of Parity's own frames,** not the innermost frame, which is often Node's own code.
 
+## A main hang outside JavaScript says where main resumed (PAR-890)
+
+The watchdog's main hangs were filed as bugs named after a frame: `processTimers`, `emit`, `isPackaged`, `write`, the
+heartbeat's own `postMessage` (PAR-890, PAR-828, PAR-876). 82 of the 89 `hang:main` events in the 30 days to 2026-11-11
+came from CI, most 2.0 to 2.2 seconds long, and their frames were wherever main next ran JavaScript: the inspector can't
+pause main while it's in native code or idle under Chromium's own work, so the pause lands once it's back. Tried in
+Electron 45, a JavaScript loop paused in 6 to 9 ms with its own function on the stack; a 2.9-second `execSync` paused
+1,421 ms after asking, in an unrelated stream write. My calls:
+
+- **How long the pause takes tells them apart,** under 100 ms for JavaScript (`pausesInJavaScriptMs`). Running
+  JavaScript, main pauses at its next call or loop, 5 to 30 ms measured. A pause that never lands counts as native too.
+- **The event says which, and keeps the stack either way:** a `stuck_in` tag, `pausedAfterMs` in its extra data, and,
+  outside JavaScript, the title "Main stopped answering outside JavaScript, then resumed in …". The stack still shows
+  what ran first, which can be the caller of a slow native call.
+- **`main.blocked` gets `where` only from JavaScript,** since a resume point isn't where main was stuck.
+- **Main's own "Main was blocked for …" gets a fingerprint,** `main-was-blocked`, as the watchdog's did in PAR-879: it
+  had been three Sentry issues, one per build's line (PAR-673).
+- **No blocking work was moved off main here.** No first-party frame repeats across the events, and the CI hangs barely
+  pass the 2-second threshold on 4-core runners drawing in software. The next hangs say whether main was in JavaScript.
+
 ## Connectors search outside services from main (PAR-829)
 
 You asked on 2026-11-09 to build the Mobbin integration with patterns that make Unsplash and later sources easier. My
@@ -7490,10 +7558,10 @@ CLI's modules 0.25 s, reaching the app 10 ms, and the app running `exec` of `Pri
   always the app's version, so nothing keeps it in step, and it needs no Node or npm. Electron as Node started the CLI
   about 0.1 s slower than Node itself, and `--prefer-offline` and Node's compile cache didn't speed up npx or loading.
   Pen's item only opens a docs page.
-- **Help > Install the parity command** writes launchers to a folder on PATH: on Windows `parity.cmd` and a `parity`
-  shell script, for Git Bash, in `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH; `/usr/local/bin` on
-  macOS, asking for an administrator when needed; `~/.local/bin` on Linux. Each installed app's start rewrites launchers
-  it wrote, which carry a marker line, so moving the app keeps the command working.
+- **Help > Install the Parity CLI** writes launchers to a folder on PATH: on Windows `parity.cmd` and a `parity` shell
+  script, for Git Bash, in `%LOCALAPPDATA%\Parity\bin`, which joins the person's own PATH; `/usr/local/bin` on macOS,
+  asking for an administrator when needed; `~/.local/bin` on Linux. Each installed app's start rewrites launchers it
+  wrote, which carry a marker line, so moving the app keeps the command working.
 - **The build ships the CLI npm publishes,** with its registry files, in `cli/` beside the service, its sender's Sentry
   bundled in rather than `@sentry/node`'s 80 MB tree, and zod and semver beside the service's packages. It fails unless
   the CLI and its sender load in Parity's Electron.
@@ -7725,3 +7793,177 @@ Storybook on 2026-11-11, with its copy as editor.md gives it. My calls:
 - **The prompt waits for an answer.** Escape and clicking away do nothing, since either choice is one the person makes,
   and nothing is kept for the project until it's answered. A prompt that fails restores, unsaved, so nothing is lost.
 - **The title doesn't name the project,** as you asked; projects that open together are asked about in turn.
+
+## Builds people run file Sentry's bugs, and a crashed service says why (PAR-950, PAR-951)
+
+Two Linear bugs filed on 2026-11-12 weren't bugs anyone could hit. PAR-951 was a `ReferenceError` from a dev copy hot
+reloading a half-saved file. PAR-950, titled `emit`, was a pull request's CI run whose packaged project service couldn't
+find a module; the pull request fixed it before merging. You decided on 2026-11-12 to clean up the noise they showed.
+
+- **Only `preview`, `beta` and `production` file Linear bugs,** one Sentry alert each, so an issue counts as new in each
+  environment. `development` and `ci` still send to Sentry. How it's set up is in [sentry.md](sentry.md#alerts).
+- **`release` is now `beta`,** since it's the published version before promotion, which only the beta update channel and
+  npm's `next` get. Beside `production` it read as the same thing. Events sent before keep `release`.
+- **A project service that exits unexpectedly is reported as an error named by what it printed,** such as
+  `The project service exited with code 1: Error: Cannot find module '../data/patch.json'`, with its last 50 lines of
+  output, and grouped by that error. Its output is piped through main rather than inherited, and still printed there.
+  Sentry's own `'Utility' process exited with 'abnormal-exit'` is dropped: it carried no cause, and its stack made
+  Sentry title it `emit`. The service is the only utility process Parity starts.
+
+## A subagent names itself on each call (PAR-960)
+
+One Claude session that handed work to three subagents showed one cursor: subagents share their parent's MCP connection,
+and a cursor is keyed by the id the server makes once, at `initialize`. My calls:
+
+- **The client doesn't say which subagent is calling.** Claude Code 2.1.294 puts `claudecode/agentId` and
+  `claudecode/agentType` in a call's `_meta` only for its own `claude-code-remote` server; every other server gets
+  `claudecode/toolUseId`, which changes with each call. Read from its binary on 2026-11-11, not seen on the wire: its
+  CLI wasn't signed in here, so a session with real subagents couldn't be run against a logging server.
+- **So a call says it itself,** with an optional `subagent` on every MCP tool that reaches the app. Nothing else about a
+  call tells callers apart: a label changes with the task, and calls that overlap can be one agent's.
+- **It's bare in each tool's schema, and explained once** in the server's instructions and the skill. A description on
+  each of 20 tools would cost the tool list about 1 KB (PAR-510); bare, it costs 0.5 KB, and the budget goes from 21 KB
+  to 21.5. Whether subagents fill it in without a description is unmeasured; a description on each tool is the next step
+  if they don't.
+- **It travels beside the caller, not in it.** `/rpc`'s body carries `subagent` next to `agent` and `agentId`, so
+  telemetry still tags the session by its declared name and id, and words an agent made up stay out of its tags. Only
+  the canvas joins them: `Header (Claude Code)`, with the id `<session id>/Header`.
+- **Read leniently,** as the caller's name is: a name that's blank or isn't text is left out rather than failing the
+  call. It's kept to one line and 40 characters.
+- **The CLI has no flag for it.** A terminal's calls are separate processes that already name themselves with
+  `PARITY_AGENT_NAME`, so each subagent sets its own.
+
+## Session Replay records the window's canvases (PAR-964)
+
+Replays showed Sentry's "This replay contains a canvas element" banner, with each `<canvas>` drawn as an empty box,
+though PAR-624 added `replayCanvasIntegration`. `followTelemetry` added Replay first and the canvas recorder after it.
+An integration added after `init` is set up at once, and Replay looks for `ReplayCanvas` only then
+(`_maybeLoadFromReplayCanvasIntegration` in `@sentry/replay` 11.8.0), so it never found it and recorded without
+`recordCanvas`. My calls:
+
+- **The canvas recorder is added first,** and a test in `renderer/replay.test.ts` fails if Replay is set up without it.
+  A development copy's replay on 2026-11-12 (`9c29cb08…`) has no banner and shows the selection overlay.
+- **It records at Sentry's medium quality:** a WebP of each canvas that changed, twice a second at most, at quality 0.4
+  and 1,280 pixels at most a side. The window has one canvas at rest, tldraw's overlay; agents' scan effect adds a WebGL
+  one while it runs. Ten seconds of moving the pointer over the canvas recorded 13 pictures, 83 KB, and taking each
+  bitmap took under 0.1 ms.
+- **The holds from PAR-758 and PAR-957 cover it.** Replay's canvas manager stops with the page recorder while it's
+  paused, so a canvas isn't recorded while a project mounts or the canvas zooms either.
+
+## A frame's latest bitmap stands in while it's captured for new code (PAR-993)
+
+Kept bitmaps are named by a fingerprint of the whole project, so a branch switch, a new worktree, an edit to one
+component or a dependency update misses every one, and the canvas showed placeholders at the mode's window height, then
+filled them in one by one as they were captured, about 8.5 seconds on the example project, boards jumping as each took
+its height. In Sentry, most development sessions on 2026-11-11 and 12 started at 0 hits and 119 misses. You said to show
+the old pictures, "that's the point of the cache", with the screens' sizes. My calls:
+
+- **The latest is a second file, written with each capture,** named by `bitmapName` without the code, rather than an
+  index of the latest name for each frame. It needs no index kept in step across concurrent writes, the sweep already
+  ages and removes it like any bitmap, and the example's 119 bitmaps are about 570 KB, so keeping them twice costs
+  little.
+- **It's given only when there's none for the code,** marked `stale`, and the window treats it as it already treated the
+  bitmap of what a frame showed before an edit (PAR-165): shown, at its kept height, but never slept on or stored as the
+  key's bitmap. The frame is captured at once, without the 1-second wait, since nothing is being edited.
+- **Exports and the project's picture never take a stale bitmap,** since they need the frame as it's drawn now.
+- **Naming bitmaps by only what each frame draws is left for its own issue.** It would turn most of these misses into
+  hits, where this only hides them.
+
+## One function maps every node (PAR-966)
+
+Core had `walkNodes` and `childEntries` to visit a tree but nothing to rebuild one, so each caller descended by a node's
+type, and eight of them checked `type === "component"` and stopped at an instance. The layers an instance fills its
+slots with (PAR-84) were skipped. My calls:
+
+- **`mapChildLists` is where a node is known to hold nodes when a tree is rebuilt,** and `childEntries` where it's read:
+  a layout's children, a code component's slots, an instance's filled slots. `mapNodes` rebuilds a whole tree on it, a
+  node before what it holds, and `mapNode`, `withFreshIds`, Detach, the clipboard's `asShown` and `fitBindings`,
+  `libraryDesigns`, the composition example's numbering and the agent's `drawnLayer` all go through it. They sit in
+  `edit.ts` beside `mapNode` and `childEntries`.
+- **`walkNodes` is left as a second place that knows,** checking types itself. It's in `document.ts`, and calling
+  `childEntries` from there would import `edit.ts`, which imports `render.ts`, which imports `document.ts` back.
+- **What isn't a node tree reads `childEntries` instead.** `structure` in `decompose.ts` makes a string to compare, and
+  the agent's `elide` makes a tree that holds `"…"`, so neither maps nodes to nodes. Both now ask `childEntries` where
+  the layers are rather than checking the node's type.
+- **Seven of the eight were wrong, each shown by a test that failed first.** Six as the review reasoned: a copy left an
+  instance's fill as the base state has it; a paste kept the fill's bindings to params the design lacks; a library's
+  design left an instance in a fill pointing at `settings-row` rather than `nova/settings-row`, which the app drew as a
+  missing design; Detach left a nested instance's fill bound, with the component's ids, so detaching two copies gave one
+  design the same id twice; and an agent's `Get` in a state read the fill as stored (`drawnLayer`) and ignored `depth`
+  for it (`elide`).
+- **The seventh, `structure`, broke `findRepeats` in a way the review didn't name.** It took two instances of one
+  component for the same part whatever filled their slots, then read the values that differ by position, so a shorter
+  fill after a longer one threw a `TypeError`. A fill now counts as structure.
+- **The composition example's `numbered` was never wrong.** It's built from a code component's sample, which has no
+  instances. It moved onto `mapNodes` so no walker is left that would skip one.
+- **`elide` keeps one difference:** past the depth a layout with nothing in it reads as `[]`, and a slot as `["…"]`
+  whatever it holds. That's how code components' slots already read, and changing it belongs with PAR-974.
+
+## A frame's bitmap is current while the files it read hash the same (PAR-994)
+
+Kept bitmaps were named by a fingerprint of the whole project, every file's path, size and modification time, so a
+touch, a branch switch, a worktree, an edit to one component or a dependency update recaptured all 119 of the example's
+frames. You asked for it to be shown that nothing changed instead, through the builder adapter so other builders work
+too, and for the hashes to serve change detection, highlighting and affected tests later. My calls:
+
+- **A trace is taken when a frame is captured and kept inside its bitmap,** as a second text chunk beside its height:
+  each file it read with 16 hex digits of its SHA-256, and a digest of them all. One file per bitmap needs nothing kept
+  in step, and the per-file hashes say which files changed, not just that one did. The trace is hashed before the
+  capture, so a file changed during it leaves the bitmap stale rather than wrongly current.
+- **Files are hashed by content, read again only when their size or modification time moves,** so a lookup costs a
+  `stat` per listed file and a touch keeps the bitmap.
+- **The builder says what modules load, and Parity's scan adds what it finds.** `BuilderSession.loadedFiles` is
+  optional, so a builder without a graph still gets traces from the scan. Vite's walks its module graph by the imports
+  the browser fetches (`staticImportedUrls`), not `importedModules`, which adds every file Tailwind scans and would tie
+  every frame to every file. A frame's Tailwind rules depend on its own classes, so another file adding a class doesn't
+  touch it. The union is the safe side: an extra file costs a capture, a missing one would show old code as current.
+- **The whole lockfile stays in every trace for now.** Reading each package a frame imports by version needs a reader
+  per lockfile format; until then a dependency update recaptures everything, as before.
+- **Traces are built in the service, in `utility/frame-traces.ts`, over `contentReader` and `traceDigest` in
+  `@parity-app/project`,** so visual tests and change highlighting can take traces of their own from the same parts.
+
+## What a window asks main is one method map (PAR-965)
+
+The window's requests to main were the one link without a method map. Each of 37 handlers was wired by hand in five
+places: its channel's name, its argument's schema, its type in `CanvasHost`, its `invoke` in the preload with the result
+cast, and its `handle` in `main/index.ts` with the check and the sender check, when someone remembered. 16 handlers
+skipped the sender check. My calls:
+
+- **`hostMethods` in `shared/host-methods.ts` declares each method once:** its name, the schema its params are checked
+  with, the type it answers, and who may ask. The types the preload and main use are derived from it. The schemas stay
+  in `shared/ipc-checks.ts`, `shared/account.ts` and `shared/connectors.ts`.
+- **The preload imports the map's types only.** It's sandboxed and can't load zod, so main still does every check, and
+  `preload/index.test.ts` fails if the preload's bundle takes in zod. `ask` and `tell` in `preload/main.ts` send a
+  method by name, typed by the map, so a line of the bridge that sends the wrong thing or promises the page something
+  main doesn't answer doesn't compile. The `InvokeArgument` union and the result casts are gone.
+- **Two IPC channels carry everything,** `canvas:ask` for what the window waits on and `canvas:tell` for what it
+  doesn't, with the method's name first. `shared/channels.ts` keeps those and what main sends a window.
+- **`answerWindows` in `main/host-methods.ts` is the one registration.** It finds the method, checks who's asking,
+  checks the params, then runs the handler in its `request.handled` span. A method main doesn't have is refused before
+  any span, so a made-up name never names one. A method that takes nothing refuses anything sent with it.
+- **The sender check is on unless a method says `from: "any"`.** By default only the Parity window's own page may ask:
+  its main frame, at Parity's address, never a guest or an offscreen render window. `fromParityPage` decides it, and
+  compares the page by its scheme, host and path, so a query or hash can't silently drop the window's close replies and
+  skip its unsaved-changes prompt. A handler is given that window. An open method's handler is given the sender instead,
+  so it can't assume a window. `main/host-methods.test.ts` lists the open methods and refuses every other one from a
+  guest and a render window, so opening one is a choice made twice.
+- **Two methods stay open, since the render windows' preload uses them:** `record`, what a page's telemetry sends main,
+  and `telemetrySecrets`. Who gets the `.env` values is PAR-983's to decide. The other 14 that skipped the check now
+  have it: the three pickers, `showItem`, `copiedFiles`, `openInEditor`, `installCli`, `consoleAnnounce`, `consoleRead`,
+  `consoleClear`, `quit`, `toggleDevTools`, `setTheme` and `metrics`.
+- **One refusal for every method:** "Only the Parity window can ask for `<method>`." The five worded ones went with the
+  checks they belonged to; only a page that isn't Parity's ever gets one.
+- **What a window tells is dropped without a word when it's refused,** whether for its sender or its params, as a
+  console announcement that isn't one already was. What it asks fails with why.
+- **The window's close replies are methods too** (`closePending`, `closeReady`, `closeCancel`), so nothing a window
+  sends is registered outside the map. Each window keeps its close's state as before, and the replies reach it by the
+  window that sent them. `closePending` gets a span now, as the other two had.
+- **The page's telemetry is `record`,** as the service's is, so `handleInSpan` leaves both out of spans by the one name,
+  and `handlerInSpan` is gone. The other methods keep the names their spans had.
+- **Handlers are plain functions.** `hostHandlers` in `main/host-handlers.ts` takes what they need of the app
+  (`HostNeeds`: the account, the connectors, the dialogs, the theme and so on) and `main/index.ts` passes Electron's.
+  Neither module imports Electron, and their tests run without it. `main/ipc-handlers.ts` and `checked` are gone.
+- **`window.canvasHost` keeps its shape.** I considered one `canvasHost.main(method, params)` for the page, as `ask` is
+  for the service, which would need no line in the preload for each method. It would rewrite about 45 call sites and the
+  stand-ins stories and tests give by namespace, so the page's side is left as it was. A new method is its entry in the
+  map, its handler, and its line in the bridge, and the compiler holds the three together.

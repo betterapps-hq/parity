@@ -137,7 +137,7 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             component's --prop, as one undoable edit, saving the file when the
                                             source's link doesn't last;
                                             Parity tells the source it was used. Exits with 1 when it wasn't placed
-  parity open <folder>                      open a project in a new tab
+  parity open <folder>                      open a project in a new tab, or detect an open one again
   parity skill [file]                       print the design skill, or one of its files
   parity mcp                                serve these as MCP tools on stdio
 

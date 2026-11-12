@@ -2,6 +2,173 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 08:27:06 GMT",
+      "version": "0.69.0",
+      "tag": "@parity-app/desktop_v0.69.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "88e402ad8e66c17330c70d31e54b46822e8b3514",
+            "comment": "Kept frame pictures are reused while the files each frame reads are unchanged, so a branch switch, a new worktree or an edit to one component no longer recaptures every frame"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 08:08:09 GMT",
+      "version": "0.68.3",
+      "tag": "@parity-app/desktop_v0.68.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "73084b479a2dfdd45e9eef95b0007beefbf31693",
+            "comment": "An instance's filled slots are copied as shown, keep only the bindings a paste has params for, follow a library's design names, bake in on Detach, count as structure in repeated parts, and read as drawn in agents' Get"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 07:49:23 GMT",
+      "version": "0.68.2",
+      "tag": "@parity-app/desktop_v0.68.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "228e3cdb3064d435b7630a3bd905bf73960ca2de",
+            "comment": "A frame in a Tailwind project no longer loses classes when it asks for more before the last ask is answered, which could put a layer in the wrong place."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7c14d636e910b72f54393b710c07c804fb51be4b",
+            "comment": "A frame shows its last picture, at its size, while it's captured again after the project's code changes, rather than a placeholder"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 07:22:15 GMT",
+      "version": "0.68.1",
+      "tag": "@parity-app/desktop_v0.68.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7dfe775b6c6056f757b6b3608b99f30866f786ae",
+            "comment": "Session Replay records the window's canvases, such as the selection overlay, which replays showed as empty boxes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "47c6da3f08643df36e9943595276e3a8e3a51fe2",
+            "comment": "Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 05:54:28 GMT",
+      "version": "0.68.0",
+      "tag": "@parity-app/desktop_v0.68.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "22637499fd40c33f85b748efc0cc11227a34e4af",
+            "comment": "Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 05:19:08 GMT",
+      "version": "0.67.0",
+      "tag": "@parity-app/desktop_v0.67.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b1e205d84bfe03cc38935d761218957e7d943667",
+            "comment": "Report a crashed project service with what it printed, and name the pre-promotion environment beta"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "813b4f59d974e40062bd743eaa76f79703b0ea24",
+            "comment": "Offscreen captures for frame bitmaps, previews and exports are taken again after a repaint when Chromium had no frame to copy"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2f195d6458b86b936a08882caff1a50493e827d3",
+            "comment": "Beta update checks no longer fail while a package tag leads GitHub's releases feed, and a failed update reports electron-updater's error code"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b853ed3bb3fdc8472e0d3de85bb52ec10294792f",
+            "comment": "parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a builder stopped by a signal isn't sent to Sentry as an error"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e217bce57fc9396e90021bd766041447e212a78e",
+            "comment": "Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a minimized window"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c27fe3a0fb7525786a06b3a2241808a6776d9ab4",
+            "comment": "Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's own blocked reports group as one Sentry issue."
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "49bc4fa69c015b3205a875ce89ee61f546becf21",
+            "comment": "SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 04:24:53 GMT",
+      "version": "0.66.0",
+      "tag": "@parity-app/desktop_v0.66.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5c5b1ba4d6d7a74663300c8ef431c4929e30e875",
+            "comment": "Agents get reference.md, a snippet API reference generated from the code: every function's signature, arguments and result, and every type they name, with their doc comments"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "48e4559704bdaa06c614ff6b471edf140d01cc5b",
+            "comment": "Keep a recovery copy of unsaved changes and offer to restore it after a crash or forced quit"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "09961c3a3ee4663830d34f9c9e80eff5b3559baf",
+            "comment": "Frames draw layers from CSS rules, and from the project's own compiled Tailwind classes, instead of inline styles; a layout is relative only when a child is placed in it"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 04:02:26 GMT",
       "version": "0.65.0",
       "tag": "@parity-app/desktop_v0.65.0",

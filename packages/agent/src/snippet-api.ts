@@ -221,7 +221,8 @@ export interface SnippetApi {
   SetModes: (settings: ModeSettings) => void
 
   /**
-   * Sets token values by name: one value for the default theme, or one per theme.
+   * Sets token values by name: one value for the default theme, or one per theme. A name the project doesn't have
+   * adds a token.
    * @category Modes and tokens
    */
   SetTokens: (values: TokenValues) => void

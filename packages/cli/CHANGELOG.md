@@ -1,8 +1,69 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 04:02:39 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 08:08:28 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.53.2
+
+Thu, 12 Nov 2026 08:08:28 GMT
+
+### Patches
+
+- An instance's filled slots are copied as shown, keep only the bindings a paste has params for, follow a library's
+  design names, bake in on Detach, count as structure in repeated parts, and read as drawn in agents' Get
+  (ajcraswell@gmail.com)
+
+## 0.53.1
+
+Thu, 12 Nov 2026 07:22:39 GMT
+
+### Patches
+
+- Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI
+  (ajcraswell@gmail.com)
+
+## 0.53.0
+
+Thu, 12 Nov 2026 05:54:47 GMT
+
+### Minor changes
+
+- Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name (ajcraswell@gmail.com)
+
+## 0.52.0
+
+Thu, 12 Nov 2026 05:19:24 GMT
+
+### Minor changes
+
+- SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Report a crashed project service with what it printed, and name the pre-promotion environment beta
+  (ajcraswell@gmail.com)
+- Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a
+  minimized window (ajcraswell@gmail.com)
+- Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's
+  own blocked reports group as one Sentry issue. (ajcraswell@gmail.com)
+- parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a
+  builder stopped by a signal isn't sent to Sentry as an error (ajcraswell@gmail.com)
+- `open_project` and `parity open` now say that opening an open project detects it again, and ask agents not to kill
+  Parity to pick up changes (PAR-817, PAR-818). (ajcraswell@gmail.com)
+
+## 0.51.0
+
+Thu, 12 Nov 2026 04:25:08 GMT
+
+### Minor changes
+
+- Frames draw layers from CSS rules, and from the project's own compiled Tailwind classes, instead of inline styles; a
+  layout is relative only when a child is placed in it (ajcraswell@gmail.com)
+- Agents get reference.md, a snippet API reference generated from the code: every function's signature, arguments and
+  result, and every type they name, with their doc comments (ajcraswell@gmail.com)
+- Keep a recovery copy of unsaved changes and offer to restore it after a crash or forced quit (ajcraswell@gmail.com)
 
 ## 0.50.0
 

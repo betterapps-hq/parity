@@ -232,6 +232,9 @@ Electron, with no tests.
   method map: the preload script the window's `MessagePort`, the service each window's `MessagePortMain` and its
   `parentPort`, main the service's `UtilityProcess`, and the type checker's client its `Worker`. The method maps and the
   service's param checks are in `shared/`, and the `canvas:*` IPC names in `shared/channels.ts`.
+- **What a window asks main over IPC** (PAR-965). `shared/host-methods.ts` declares each method with its params' schema,
+  its answer and who may ask. `main/host-methods.ts` checks each request against it and `main/host-handlers.ts` answers,
+  both without Electron; `main/index.ts` passes them what they need of the app.
 - **Agent calls' desktop half** (PAR-564): `utility/agent.ts` is the HTTP endpoint and `desktopHost`, which reaches the
   window, the offscreen renderer and the console, and writes PNG files. Which method does what is `@parity-app/agent`'s.
 - **The renderer:** views, tldraw wiring, hooks, and DOM measuring.

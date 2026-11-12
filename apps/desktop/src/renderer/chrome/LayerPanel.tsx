@@ -35,7 +35,8 @@ import { BookOpen, Diamond, Group, Info, Sparkles, Unlink } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
 import { useChangePreview } from "../canvas/change-preview.ts"
 import { useProject } from "../canvas/context.ts"
-import { frameScale, nodeInFrames, selectionFrame } from "../canvas/hit.ts"
+import { frameGeometry, frameSize } from "../canvas/frame-geometry.ts"
+import { nodeInFrames, selectionFrame } from "../canvas/hit.ts"
 import { designNamer, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
@@ -878,13 +879,7 @@ export function measureNode(
   const host = area ? selectionFrame(area, design, picked) : undefined
   const rect = host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.rect : undefined
 
-  if (!host || !rect || !session.editor) {
-    return undefined
-  }
-
-  const scale = session.editor.getZoomLevel() * frameScale(host)
-
-  return { width: rect.width / scale, height: rect.height / scale }
+  return host && rect ? frameSize(frameGeometry(host), rect) : undefined
 }
 
 /**

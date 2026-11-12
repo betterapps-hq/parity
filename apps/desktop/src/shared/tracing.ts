@@ -83,9 +83,10 @@ export function track<Name extends EventName<Events>>(
 }
 
 /**
- * A channel's `around`: each request's handler runs in a `request.handled` span that continues the trace the request
- * came with, or starts one when it came with none, as an older sender's does. Telemetry sent on to main isn't a span,
- * since each would record another.
+ * A channel's `around`, and the one for what a window asks main over IPC (PAR-810): each request's handler runs in a
+ * `request.handled` span that continues the trace the request came with, or starts one when it came with none, as an
+ * older sender's does. What the handler returns or throws passes through, and a failure's code is on the span.
+ * Telemetry sent on to main, as `record`, isn't a span, since each would record another.
  */
 export function handleInSpan<Result>(
   { method, trace }: { method: string; trace: unknown },
@@ -96,19 +97,4 @@ export function handleInSpan<Result>(
   }
 
   return inSpan("request.handled", { method }, answer, readTraceHeaders(trace))
-}
-
-/**
- * One of main's IPC handlers, run in a `request.handled` span named `method` that continues the trace the window sent
- * after the handler's argument, or starts one when it sent none (PAR-810). What the handler returns or throws passes
- * through, and a failure's code is on the span.
- */
-export function handlerInSpan<Event, Result>(
-  method: string,
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent over IPC, which the handler checks
-  handler: (event: Event, argument: unknown) => Result | Promise<Result>
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent over IPC
-): (event: Event, argument?: unknown, trace?: unknown) => Promise<Result> {
-  return (event, argument, trace) =>
-    inSpan("request.handled", { method }, () => handler(event, argument), readTraceHeaders(trace))
 }

@@ -181,7 +181,8 @@ export interface ServiceMethods {
    * the window's thread (PAR-759). `height` is the frame's height as it was captured, in its own CSS pixels, which a
    * frame that hasn't drawn yet takes while it shows the bitmap (PAR-179).
    */
-  "frames.stored": { params: { jobs: string }; result: { kept: { src?: string; height?: number }[] } }
+  /** Each job's kept bitmap and its frame's height, `stale` when it's the frame's latest from other code (PAR-993). */
+  "frames.stored": { params: { jobs: string }; result: { kept: { src?: string; height?: number; stale?: true }[] } }
   /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
   "frames.clearStored": { params: undefined; result: undefined }
   /**
@@ -446,7 +447,7 @@ export interface ProblemReportRequest {
 
 /** Exposed on `window.canvasHost` by the preload script. */
 /** A file copied in Explorer or Finder, with its bytes unless it's too large for any type Parity takes. */
-/** Where Help > Install the parity command put it (PAR-906). */
+/** Where Help > Install the Parity CLI put it (PAR-906). */
 export interface CliInstall {
   folder: string
   /** Whether a terminal finds the folder on PATH; on Linux, `~/.local/bin` is only there when the person's shell adds it. */

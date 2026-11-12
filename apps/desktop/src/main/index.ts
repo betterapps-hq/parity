@@ -19,7 +19,7 @@ import {
   serviceRestarts
 } from "@parity-app/core"
 import { isText } from "@parity-app/core/values/evaluate"
-import { type Span, telemetryFileName } from "@parity-app/telemetry"
+import { outputTail, type Span, telemetryFileName } from "@parity-app/telemetry"
 import {
   app,
   BrowserWindow,
@@ -28,9 +28,11 @@ import {
   ipcMain,
   Menu,
   MessageChannelMain,
+  type NativeImage,
   nativeTheme,
   net,
   protocol,
+  type Rectangle,
   safeStorage,
   screen,
   shell,
@@ -38,23 +40,10 @@ import {
   utilityProcess,
   webContents
 } from "electron"
-import { type AccountState, accountEmail, organizationId, signInRequest } from "../shared/account.ts"
+import type { AccountState } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
 import { codedErrors } from "../shared/coded-errors.ts"
-import { connectorFind, connectorPlaced, connectorSearch } from "../shared/connectors.ts"
-import {
-  betaSetting,
-  checked,
-  consoleAnnouncement,
-  consoleOrigin,
-  folderPickerTitle,
-  openInEditorRequest,
-  saveDialogOptions,
-  shownItem,
-  problemReport,
-  telemetrySetting as telemetryLevelCheck,
-  themeSource
-} from "../shared/ipc-checks.ts"
+import { connectorFind, connectorPlaced } from "../shared/connectors.ts"
 import { logNote } from "../shared/log.ts"
 import type { ConsoleContext, ProcessUsage, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { deviceBox, devicePixels } from "../shared/render-job.ts"
@@ -71,6 +60,7 @@ import { currentTrace, currentTraceHeaders, handleInSpan, inSpan, traceWith } fr
 import { createAccount, schemeRedirect, workosClientId } from "./account.ts"
 import { recordAppLife } from "./app-life.ts"
 import { builtRelease, InstalledBuild } from "./build-info.ts"
+import { retryingCapture } from "./capture-retry.ts"
 import { cliTarget, installCli, refreshCli } from "./cli-command.ts"
 import { copiedFiles, rawFormat } from "./clipboard-files.ts"
 import { openInEditor } from "./code-editor.ts"
@@ -78,8 +68,9 @@ import { createConnectorHub } from "./connectors.ts"
 import { announcedContexts, batchedChanges, createConsoleLog, recordConsole } from "./console-log.ts"
 import { readEnvironment } from "./environment.ts"
 import { watchFrame } from "./frame-telemetry.ts"
+import { type CloseReplies, hostHandlers } from "./host-handlers.ts"
+import { answerWindows, fromParityPage } from "./host-methods.ts"
 import { idleClose } from "./idle-close.ts"
-import { handle, listen } from "./ipc-handlers.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
@@ -99,6 +90,7 @@ import {
   personActed,
   recordForwarded,
   scrubber,
+  serviceCrashed,
   serviceExited,
   serviceStarted,
   startEvents,
@@ -225,6 +217,9 @@ let service: UtilityProcess | undefined
 let updates: UpdateSession | undefined
 const updateRestarts = new Set<number>()
 
+/** Each window's close, which its page's replies settle, by the window's id. */
+const closeReplies = new Map<number, CloseReplies>()
+
 /** Services replaced by a fresh one; their exit is expected. */
 const retired = new WeakSet<UtilityProcess>()
 
@@ -297,7 +292,8 @@ function startService(): UtilityProcess {
 
   const child = utilityProcess.fork(serviceEntry, [], {
     serviceName,
-    stdio: "inherit",
+    // Piped, not inherited, so a crash is reported with what it printed. It's still passed on to main's own output.
+    stdio: "pipe",
     env: {
       // Connectors' keys stay in main: the service runs projects' builders, whose code mustn't see them.
       ...withoutKeys(process.env),
@@ -379,6 +375,18 @@ function startService(): UtilityProcess {
     around: handleInSpan
   })
 
+  const output = outputTail()
+
+  for (const [stream, out] of [
+    [child.stdout, process.stdout],
+    [child.stderr, process.stderr]
+  ] as const) {
+    stream?.on("data", (chunk: Buffer) => {
+      out.write(chunk)
+      output.add(chunk.toString())
+    })
+  }
+
   channel.connect(nodePort(child, { closedBy: { exit: () => undefined } }))
   serviceChannels.set(child, channel)
   child.once("spawn", () => appLife.mark("serviceReady"))
@@ -401,6 +409,12 @@ function startService(): UtilityProcess {
     // so the path it was given is named (PAR-489).
     const missing = existsSync(serviceEntry) ? "" : `, since ${serviceEntry} doesn't exist`
     console.error(`Project service exited with code ${code}${missing}`)
+    serviceCrashed({
+      exitCode: code,
+      output: output.text(),
+      expected: quitting,
+      missing: missing ? serviceEntry : undefined
+    })
 
     // A crashed service is started again through the same path a code change takes, so open windows reconnect without
     // reloading. A service that starts first, such as one a window's load starts, cancels it (PAR-788).
@@ -499,6 +513,8 @@ function createWindow(): void {
   watchWindowGone(window, "renderer")
   appLife.mark("windowShown")
   window.once("ready-to-show", () => appLife.mark("firstPaint"))
+  // A window minimized before it paints isn't painted until it's restored (PAR-831).
+  window.once("minimize", () => appLife.interrupted())
   // A key pressed in the window is the person's, so what follows is tagged as theirs, not an agent's (PAR-630).
   window.webContents.on("before-input-event", () => personActed())
   // A message is the design's whose frame the page said was handling an event as it was written (PAR-147).
@@ -512,6 +528,8 @@ function createWindow(): void {
   // at once that it's deciding; a page that doesn't (hung or still loading) doesn't keep the window open.
   let ready = false
   let deciding = false
+  /** Notes that the page answered the close it's being asked about now. */
+  let acknowledge: (() => void) | undefined
   window.on("close", (event) => {
     if (ready || window.webContents.isCrashed()) {
       return
@@ -525,9 +543,10 @@ function createWindow(): void {
 
     deciding = true
     let acknowledged = false
-    ipcMain.once(ipc.closePending, () => {
+    acknowledge = () => {
       acknowledged = true
-    })
+    }
+
     window.webContents.send(ipc.closing)
     setTimeout(() => {
       if (acknowledged || ready || window.isDestroyed()) {
@@ -549,46 +568,46 @@ function createWindow(): void {
       }
     }, 3000)
   })
-  ipcMain.removeAllListeners(ipc.closeCancel)
-  listen("closeCancel", (event) => {
-    if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) {
-      return
-    }
-
-    updateRestarts.delete(window.id)
-    deciding = false
-    quitting = false
-    quitCancelled()
-  })
-  ipcMain.removeAllListeners(ipc.closeReady)
-  listen("closeReady", (event) => {
-    if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || ready) {
-      return
-    }
-
-    ready = true
-
-    if (updateRestarts.delete(window.id)) {
-      const resetClose = () => {
-        ready = false
-        deciding = false
-        quitting = false
-        quitCancelled()
+  // The page's replies come as `hostMethods`' close methods, which only this window's own page may send.
+  const windowId = window.id
+  closeReplies.set(windowId, {
+    pending: () => acknowledge?.(),
+    cancel: () => {
+      updateRestarts.delete(window.id)
+      deciding = false
+      quitting = false
+      quitCancelled()
+    },
+    ready: () => {
+      if (ready) {
+        return
       }
 
-      if (!updates?.install(resetClose)) {
-        resetClose()
+      ready = true
+
+      if (updateRestarts.delete(window.id)) {
+        const resetClose = () => {
+          ready = false
+          deciding = false
+          quitting = false
+          quitCancelled()
+        }
+
+        if (!updates?.install(resetClose)) {
+          resetClose()
+        }
+
+        return
       }
 
-      return
-    }
+      window.close()
 
-    window.close()
-
-    if (quitting) {
-      app.quit()
+      if (quitting) {
+        app.quit()
+      }
     }
   })
+  window.on("closed", () => closeReplies.delete(windowId))
   // Links open in the person's browser, never in a new app window.
   window.webContents.setWindowOpenHandler(({ url }) => {
     // Web pages, and dev servers on this machine such as the project's Storybook.
@@ -682,29 +701,27 @@ function applicationMenu(): Menu {
   ])
 }
 
-function ownerOf(event: Electron.IpcMainInvokeEvent): BrowserWindow | undefined {
-  return BrowserWindow.fromWebContents(event.sender) ?? undefined
-}
+/** What a window sends main: a request it waits on, or word it doesn't. */
+type HostEvent = Electron.IpcMainInvokeEvent | Electron.IpcMainEvent
 
-/** The Parity window a request came from, refused from a guest, an offscreen renderer or anything else. */
-function appWindowOf(event: Electron.IpcMainInvokeEvent, refusal: string): BrowserWindow {
-  const window = ownerOf(event)
+/**
+ * The Parity window a request came from, when its own page sent it: nothing for a guest, an offscreen renderer or any
+ * other page, which `answerWindows` then refuses.
+ */
+function appWindowOf(event: HostEvent): BrowserWindow | undefined {
+  const window = BrowserWindow.fromWebContents(event.sender)
 
-  if (
-    !window ||
-    isRenderWindow(window) ||
-    event.senderFrame !== event.sender.mainFrame ||
-    event.sender.getURL() !== rendererUrl
-  ) {
-    throw new Error(refusal)
+  if (!window) {
+    return undefined
   }
 
-  return window
-}
+  const page = {
+    render: isRenderWindow(window),
+    mainFrame: event.senderFrame === event.sender.mainFrame,
+    url: event.sender.getURL()
+  }
 
-/** Updater commands come only from the app's own main frame, never a guest or offscreen renderer. */
-function updateOwner(event: Electron.IpcMainInvokeEvent): BrowserWindow {
-  return appWindowOf(event, "Only the Parity window can control updates.")
+  return fromParityPage(page, rendererUrl) ? window : undefined
 }
 
 /** The app's windows, as against the offscreen renderers. */
@@ -832,127 +849,8 @@ const connectorHub = createConnectorHub({
 /** Connectors' keys, scrubbed from what main sends to Sentry. Windows never have them, so they aren't sent there. */
 let connectorSecrets: string[] = []
 
-const connectorRefusal = "Only the Parity window can use connectors."
-
-handle("connectorsState", (event) => {
-  appWindowOf(event, connectorRefusal)
-
-  return connectorHub.states()
-})
-
-handle(
-  "connectorsSearch",
-  checked(connectorSearch, (event: Electron.IpcMainInvokeEvent, { connector, request }) => {
-    appWindowOf(event, connectorRefusal)
-
-    return connectorHub.search(connector, request, "window")
-  })
-)
-
-handle("connectorsRecent", (event) => {
-  appWindowOf(event, connectorRefusal)
-
-  return connectorHub.recent()
-})
-
-handle(
-  "connectorsPlaced",
-  checked(connectorPlaced, (event: Electron.IpcMainInvokeEvent, { connector, id, ...where }) => {
-    appWindowOf(event, connectorRefusal)
-    const placed = connectorHub.result(connector, id)
-
-    // Reporting a placement is the source's count, not something the person waits on.
-    if (placed) {
-      void connectorHub.placed(placed, { ...where, from: "window" })
-    }
-  })
-)
-
-const signInRefusal = "Only the Parity window can sign in."
-
-handle("accountState", (event) => {
-  appWindowOf(event, signInRefusal)
-
-  return account.state()
-})
-
-handle(
-  "accountSignIn",
-  checked(signInRequest, (event: Electron.IpcMainInvokeEvent, request) => {
-    appWindowOf(event, signInRefusal)
-
-    return account.signIn(request)
-  })
-)
-
-handle("accountReopen", (event) => {
-  appWindowOf(event, signInRefusal)
-
-  return account.reopen()
-})
-
-handle("accountCancel", (event) => {
-  appWindowOf(event, signInRefusal)
-  account.cancel()
-})
-
-handle(
-  "accountSwitch",
-  checked(organizationId, (event: Electron.IpcMainInvokeEvent, id) => {
-    appWindowOf(event, signInRefusal)
-
-    return account.switchOrganization(id)
-  })
-)
-
-handle(
-  "accountSignOut",
-  checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
-    appWindowOf(event, signInRefusal)
-
-    return account.signOut(email)
-  })
-)
-
-handle(
-  "accountUse",
-  checked(accountEmail, (event: Electron.IpcMainInvokeEvent, email) => {
-    appWindowOf(event, signInRefusal)
-
-    return account.use(email)
-  })
-)
-
-handle("buildInfo", (event) => {
-  updateOwner(event)
-
-  return installedBuild.get()
-})
-
 /** The open projects' `.env` values the service last sent, which a window asks for as its telemetry starts (PAR-672). */
 let projectSecrets: string[] = []
-
-handle("telemetrySecrets", () => projectSecrets)
-
-/** The setting is the person's, so only the Parity window may read or change it. */
-const telemetryRefusal = "Only the Parity window can change the Telemetry setting."
-
-handle("telemetryState", (event) => {
-  appWindowOf(event, telemetryRefusal)
-
-  return telemetrySetting.get()
-})
-
-handle(
-  "telemetryLevel",
-  checked(telemetryLevelCheck, (event: Electron.IpcMainInvokeEvent, level) => {
-    appWindowOf(event, telemetryRefusal)
-    const state = telemetrySetting.setLevel(level)
-    applyTelemetry(state)
-
-    return state
-  })
-)
 
 // Help > Report a problem, and the last run's crash (PAR-635).
 const reports = createReports({
@@ -964,159 +862,6 @@ const reports = createReports({
   telemetry: events.telemetry,
   level: () => telemetrySetting.get().level
 })
-
-const reportRefusal = "Only the Parity window can send a report."
-
-handle("reportPrepare", (event) => reports.prepare(appWindowOf(event, reportRefusal)))
-
-handle(
-  "reportSend",
-  checked(problemReport, (event: Electron.IpcMainInvokeEvent, report) =>
-    reports.send(appWindowOf(event, reportRefusal), report)
-  )
-)
-
-handle("reportLastCrash", (event) => {
-  appWindowOf(event, reportRefusal)
-
-  return reports.takeLastCrash()
-})
-
-handle("updateState", (event) => {
-  updateOwner(event)
-
-  return updates?.get() ?? { phase: "disabled", beta: false }
-})
-
-handle("updateCheck", async (event) => {
-  updateOwner(event)
-  await updates?.check()
-})
-
-handle(
-  "updateBeta",
-  checked(betaSetting, (event: Electron.IpcMainInvokeEvent, beta) => {
-    updateOwner(event)
-    updates?.setBeta(beta)
-  })
-)
-
-handle("updateAct", async (event) => {
-  const window = updateOwner(event)
-  const state = updates?.get()
-
-  if (state?.phase === "manual") {
-    await shell.openExternal(
-      `https://github.com/betterapps-hq/parity/releases/tag/v${encodeURIComponent(state.version)}`
-    )
-  } else if (state?.phase === "ready") {
-    updateRestarts.add(window.id)
-    window.close()
-  }
-})
-
-async function showOpen(event: Electron.IpcMainInvokeEvent, options: Electron.OpenDialogOptions) {
-  const owner = ownerOf(event)
-  const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options)
-
-  return result.canceled ? undefined : result.filePaths[0]
-}
-
-handle(
-  "pickFolder",
-  checked(folderPickerTitle, (event: Electron.IpcMainInvokeEvent, title) =>
-    showOpen(event, { title: title ?? "Open project", properties: ["openDirectory", "createDirectory"] })
-  )
-)
-
-handle("pickProjectFile", (event) =>
-  showOpen(event, {
-    title: "Open project file",
-    properties: ["openFile"],
-    filters: [{ name: "Parity project", extensions: ["par"] }]
-  })
-)
-
-handle(
-  "saveDialog",
-  checked(saveDialogOptions, async (event: Electron.IpcMainInvokeEvent, settings) => {
-    const owner = ownerOf(event)
-    const result = owner ? await dialog.showSaveDialog(owner, settings) : await dialog.showSaveDialog(settings)
-
-    return result.canceled ? undefined : result.filePath
-  })
-)
-
-handle(
-  "showItem",
-  checked(shownItem, (_event, path) => shell.showItemInFolder(path))
-)
-
-handle("copiedFiles", () => copiedFiles({ platform: process.platform, raw: (format) => rawFormat(clipboard, format) }))
-
-handle(
-  "openInEditor",
-  checked(openInEditorRequest, (_event, request) => openInEditor(request))
-)
-
-handle("installCli", () => installCli(cliTarget(packaged)))
-
-// Windows and render windows send the events they record, named by the window that sent them (PAR-627).
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent, which `recordForwarded` parses
-ipcMain.on(ipc.telemetry, (event, sent: unknown) => {
-  const window = BrowserWindow.fromWebContents(event.sender)
-  const render = window && isRenderWindow(window)
-  const envelope = recordForwarded(sent, render ? "render" : "renderer")
-
-  if (envelope && !render) {
-    appLife.forwarded(envelope)
-  }
-})
-
-// The editor says which frame's event it's handling just before a console message is written there (PAR-147). Word
-// that isn't one is ignored, and the message is kept as the project's.
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a window sent, parsed here
-listen("consoleAnnounce", (event, announcement: unknown) => {
-  const read = consoleAnnouncement.safeParse(announcement)
-
-  if (!read.success) {
-    return
-  }
-
-  const { level, ...context } = read.data
-  announced.announce(event.sender.id, level, context)
-})
-
-handle(
-  "consoleRead",
-  checked(consoleOrigin, (_event, origin) => consoleLog.read(origin))
-)
-
-handle(
-  "consoleClear",
-  checked(consoleOrigin, (_event, origin) => consoleLog.clear(origin))
-)
-
-handle("quit", () => app.quit())
-
-handle("toggleDevTools", (event) => event.sender.toggleDevTools())
-
-handle(
-  "setTheme",
-  checked(themeSource, (_event, theme) => {
-    if (nativeTheme.themeSource === theme) {
-      return
-    }
-
-    nativeTheme.themeSource = theme
-
-    try {
-      writeFileSync(themeFile, JSON.stringify({ theme }))
-    } catch (error) {
-      console.error("The theme couldn't be remembered", error)
-    }
-  })
-)
 
 /** The service's last answer, for when it's too busy to answer in time. */
 let lastBuilders: BuilderReading[] = []
@@ -1147,8 +892,6 @@ function builderReadings(): Promise<BuilderReading[]> {
 // project service starts run outside the app, so they aren't counted, apart from each project's builder, which runs
 // in a process of its own the service starts. Memory is what each process uses on its own, as the system's monitor
 // counts it (see private-memory.ts), and its working set where the system won't say.
-handle("metrics", (event) => processUsage(event.sender))
-
 /** Each process's CPU and memory, with `asker` named as this window. */
 async function processUsage(asker?: Electron.WebContents): Promise<ProcessUsage[]> {
   const cores = availableParallelism()
@@ -1322,6 +1065,20 @@ function ensureRenderWindow(index: number): Promise<BrowserWindow> {
 }
 
 /**
+ * The part of an offscreen window in `box`, taken again once the window has painted when Chromium had no frame to copy
+ * (PAR-880).
+ */
+function captureWindow(window: BrowserWindow, box: Rectangle): Promise<NativeImage> {
+  return retryingCapture(
+    () => window.webContents.capturePage(box),
+    async () => {
+      window.webContents.invalidate()
+      await callPage(window, "window.canvasSettle()", () => undefined)
+    }
+  )
+}
+
+/**
  * Calls into the render page and parses what it gave with `read`, throwing what the page threw as a `PageError` with
  * its own message and stack.
  */
@@ -1351,7 +1108,7 @@ function renderFrame(job: RenderJob, capture: boolean): Promise<{ frame?: Render
       return { frame }
     }
 
-    const image = await window.webContents.capturePage({ x: 0, y: 0, width, height })
+    const image = await captureWindow(window, { x: 0, y: 0, width, height })
 
     // A frame that grows with its content keeps the height the canvas lays it out at, measured after the capture
     // (PAR-525).
@@ -1386,7 +1143,7 @@ async function renderPreview(
       return { frame: drawn }
     }
 
-    const image = await window.webContents.capturePage(deviceBox(box, job.scale))
+    const image = await captureWindow(window, deviceBox(box, job.scale))
     const { width, height } = image.getSize()
 
     if (drawsNothing(image.toBitmap())) {
@@ -1548,6 +1305,79 @@ async function servePreview(request: Request): Promise<Response> {
     return new Response(null, { status: 404 })
   }
 }
+
+// Everything a window asks main, as `hostMethods` declares it (PAR-965): the registration checks who's asking and what
+// they sent, and the handlers get what they need of the app from here.
+answerWindows<HostEvent, BrowserWindow>({
+  ipc: ipcMain,
+  appWindow: appWindowOf,
+  around: handleInSpan,
+  handlers: hostHandlers({
+    account,
+    connectors: connectorHub,
+    buildInfo: () => installedBuild.get(),
+    telemetry: {
+      get: () => telemetrySetting.get(),
+      setLevel: (level) => telemetrySetting.setLevel(level),
+      apply: applyTelemetry,
+      secrets: () => projectSecrets,
+      // Windows and render windows send the events they record, named by the window that sent them (PAR-627).
+      record: (sent, event) => {
+        const window = BrowserWindow.fromWebContents(event.sender)
+        const render = window && isRenderWindow(window)
+        const envelope = recordForwarded(sent, render ? "render" : "renderer")
+
+        if (envelope && !render) {
+          appLife.forwarded(envelope)
+        }
+      }
+    },
+    reports,
+    updates: {
+      state: () => updates?.get(),
+      check: async () => {
+        await updates?.check()
+      },
+      setBeta: (beta) => updates?.setBeta(beta),
+      restart: (window) => {
+        updateRestarts.add(window.id)
+        window.close()
+      }
+    },
+    pickPath: async (window, options) => {
+      const result = await dialog.showOpenDialog(window, options)
+
+      return result.canceled ? undefined : result.filePaths[0]
+    },
+    savePath: async (window, settings) => {
+      const result = await dialog.showSaveDialog(window, settings)
+
+      return result.canceled ? undefined : result.filePath
+    },
+    showItem: (path) => shell.showItemInFolder(path),
+    openExternal: (url) => shell.openExternal(url),
+    copiedFiles: () => copiedFiles({ platform: process.platform, raw: (format) => rawFormat(clipboard, format) }),
+    openInEditor,
+    installCli: () => installCli(cliTarget(packaged)),
+    quit: () => app.quit(),
+    toggleDevTools: (window) => window.webContents.toggleDevTools(),
+    theme: {
+      get: () => nativeTheme.themeSource,
+      set: (theme) => {
+        nativeTheme.themeSource = theme
+      },
+      remember: (theme) => writeFileSync(themeFile, JSON.stringify({ theme }))
+    },
+    metrics: (window) => processUsage(window.webContents),
+    // The editor says which frame's event it's handling just before a console message is written there (PAR-147).
+    console: {
+      announce: (window, level, context) => announced.announce(window.webContents.id, level, context),
+      read: (origin) => consoleLog.read(origin),
+      clear: (origin) => consoleLog.clear(origin)
+    },
+    closing: (window) => closeReplies.get(window.id)
+  })
+})
 
 void app.whenReady().then(() => {
   appLife.mark("mainReady")

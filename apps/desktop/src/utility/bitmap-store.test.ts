@@ -30,51 +30,75 @@ const job = (guestUrl: string): RenderJob => ({
 })
 
 /** What a guest's address was served: its code, and the components it was served with. */
-const code = (fingerprint: string, sources: Record<string, { path: string; export: string }> = {}) => ({
-  code: Promise.resolve({ fingerprint, files: new Map<string, string>(), salt: "" }),
-  fingerprint: Promise.resolve(fingerprint),
+const code = (salt: string, sources: Record<string, { path: string; export: string }> = {}) => ({
+  code: Promise.resolve({ fingerprint: salt, files: new Map<string, string>(), salt }),
   sources
 })
 
 /** A lossless WebP of 3x2 pixels, as sharp encodes one. */
 const webp = Buffer.from("UklGRh4AAABXRUJQVlA4TBEAAAAvAkAAAAdQvFIUuf+BiOh/AAA=", "base64")
 
+/** A trace of one file whose contents are version `id`, two hex digits, as a trace keeps its hashes. */
+const trace = (id: string) => ({ files: { "src/button.tsx": id.repeat(8) }, digest: id.repeat(20) })
+
+/** Says a trace holds when its digest is version `now`'s, as when its files hash the same. */
+const holdsFor = (now: string) => (kept: { digest: string }) => Promise.resolve(kept.digest === trace(now).digest)
+
 describe("the frame bitmap store", () => {
-  it("gives back a kept bitmap and its frame's height for the same job and code, from another address", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 812.5)
+  it("gives back a kept bitmap and its frame's height while its trace holds, from another address", async () => {
+    await store.storeBitmap(code("1:guest"), job("http://localhost:5001"), webp, 812.5, trace("a1"))
     // A project opened again serves its guest at a new address, which isn't what the bitmap shows.
-    const kept = await store.storedBitmap(code("code-1"), job("http://localhost:5002"))
+    const kept = await store.storedBitmap(code("1:guest"), job("http://localhost:5002"), holdsFor("a1"))
     expect(kept?.height).toBe(812.5)
+    expect(kept).not.toHaveProperty("stale")
     // The height is kept inside the WebP, beside the same image.
     const read = Buffer.from(kept!.webp, "base64")
     expect(read.subarray(0, 4).toString("latin1")).toBe("RIFF")
     expect(read.includes(webp.subarray(12))).toBe(true)
   })
 
+  it("gives it as stale, with its height, once a file its frame read has changed (PAR-993, PAR-994)", async () => {
+    await store.storeBitmap(code("1:guest"), job("http://localhost:5001"), webp, 140, trace("a1"))
+    expect(await store.storedBitmap(code("1:guest"), job("http://localhost:5001"), holdsFor("b2"))).toMatchObject({
+      height: 140,
+      stale: true
+    })
+  })
+
+  it("gives one kept without a trace as stale, since nothing says what it read", async () => {
+    await store.storeBitmap(code("1:guest"), job("http://localhost:5001"), webp, 140, undefined)
+    const holds = vi.fn<() => Promise<boolean>>(() => Promise.resolve(true))
+    expect(await store.storedBitmap(code("1:guest"), job("http://localhost:5001"), holds)).toMatchObject({
+      stale: true
+    })
+    expect(holds).not.toHaveBeenCalled()
+  })
+
   it("has none for a file without its frame's height, as an earlier version kept", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
+    await store.storeBitmap(code("1:guest"), job("http://localhost:5001"), webp, 100, trace("a1"))
     const [project] = await readdir(folder)
     const [name] = await readdir(join(folder, project!))
     await writeFile(join(folder, project!, name!), webp)
-    expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001"))).toBeUndefined()
+    expect(await store.storedBitmap(code("1:guest"), job("http://localhost:5001"), holdsFor("a1"))).toBeUndefined()
   })
 
   // What else names a bitmap, `bitmapName` says, and its tests check.
-  it("has none for other code", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
-    expect(await store.storedBitmap(code("code-2"), job("http://localhost:5001"))).toBeUndefined()
+  it("has none for a frame never kept", async () => {
+    await store.storeBitmap(code("1:guest"), job("http://localhost:5001"), webp, 100, trace("a1"))
+    const other = { ...job("http://localhost:5001"), tree: [{ nodeId: "b", type: "text", text: "Sign up" }] }
+    expect(await store.storedBitmap(code("1:guest"), other, holdsFor("a1"))).toBeUndefined()
   })
 
   it("leaves no partial file behind a write", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
+    await store.storeBitmap(code("1:guest"), job("http://localhost:5001"), webp, 100, trace("a1"))
     const [project] = await readdir(folder)
     const names = await readdir(join(folder, project!))
     expect(names).toHaveLength(1)
-    expect(names[0]).toMatch(/^[0-9a-f]{40}\.webp$/)
+    expect(names[0]).toMatch(/^latest-[0-9a-f]{40}\.webp$/)
   })
 
   it("sweeps away a project not used for over 30 days, and a partial file a write left", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
+    await store.storeBitmap(code("1:guest"), job("http://localhost:5001"), webp, 100, trace("a1"))
     const [project] = await readdir(folder)
     const [name] = await readdir(join(folder, project!))
     const old = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000)
@@ -86,9 +110,9 @@ describe("the frame bitmap store", () => {
   })
 
   it("keeps nothing once cleared", async () => {
-    await store.storeBitmap(code("code-1"), job("http://localhost:5001"), webp, 100)
+    await store.storeBitmap(code("1:guest"), job("http://localhost:5001"), webp, 100, trace("a1"))
     await store.clearBitmaps()
-    expect(await store.storedBitmap(code("code-1"), job("http://localhost:5001"))).toBeUndefined()
+    expect(await store.storedBitmap(code("1:guest"), job("http://localhost:5001"), holdsFor("a1"))).toBeUndefined()
   })
 })
 

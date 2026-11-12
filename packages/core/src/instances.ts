@@ -6,6 +6,7 @@ import {
   editsDesign,
   findNode,
   generateId,
+  mapChildLists,
   mapNode,
   mapPatches,
   type NodeChange,
@@ -554,17 +555,13 @@ export function detachInstance(container: ContainerSpec, instanceId: string, lib
     // A slot the instance fills takes its fill, which is already the design's own layers, ids and all.
     const fill = node.type === "layout" && node.slot !== undefined ? instance.slots?.[node.slot] : undefined
 
-    if (next.type === "layout") {
-      next.children = fill?.length ? fill : next.children.map((child) => bake(child, false))
+    if (next.type === "layout" && fill?.length) {
+      return { ...next, children: fill }
     }
 
-    if (next.type === "component" && next.slots) {
-      next.slots = Object.fromEntries(
-        childEntries(next).map((entry) => [entry.slot!, entry.nodes.map((child) => bake(child, false))])
-      )
-    }
-
-    return next
+    // Everything else it holds is the component's, baked the same way: a layout's children, a code component's slots,
+    // and what an instance inside the component fills its own slots with.
+    return mapChildLists(next, (nodes) => nodes.map((child) => bake(child, false)))
   }
 
   const baked = bake(component.root, true)

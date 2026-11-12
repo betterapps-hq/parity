@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Read a frame's scale and its layers' boxes from where they're drawn, so resizing, dragging, nudging, snapping, padding handles, the text editor and Paste here agree at every zoom",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

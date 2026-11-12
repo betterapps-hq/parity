@@ -1,10 +1,10 @@
 import { createInterface } from "node:readline"
 import { requestJsonSchema } from "@parity-app/agent/contracts"
-import { checkData, jsonText, jsonValue, plainObject } from "@parity-app/core/schema"
+import { checkData, jsonText, jsonValue, nonBlankString, plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
 import { mcpCallerName, mcpClientName, mcpClientVersion } from "./caller.ts"
 import {
-  call,
+  callAs,
   describeAccessibility,
   describeComponents,
   describeConsole,
@@ -32,6 +32,7 @@ import {
   type Operation,
   type OperationInput,
   operations,
+  type Send,
   skillOperation
 } from "./operations.ts"
 import { readSkill } from "./skills.ts"
@@ -45,8 +46,10 @@ interface Tool {
   fields: readonly string[]
   /** Renames the contract's fields to this tool's, in error paths. */
   names?: Record<string, string>
-  /** Runs the tool on its arguments, which its contract checks. */
-  run(input: OperationInput): Promise<Reply>
+  /** Answers on its own, without the app, so it shows no cursor and takes no `subagent`. */
+  local?: boolean
+  /** Runs the tool on its arguments, which its contract checks, asking the app through `send`. */
+  run(input: OperationInput, send: Send): Promise<Reply>
 }
 
 interface Reply {
@@ -79,8 +82,8 @@ function operationTool<Result>(
     description,
     inputSchema: operation.inputSchema,
     fields: operation.fields,
-    async run(input) {
-      const result = await operation.run(input, call)
+    async run(input, send) {
+      const result = await operation.run(input, send)
 
       return {
         content: format(result),
@@ -155,8 +158,8 @@ const tools: Tool[] = [
     inputSchema: executeOperation.inputSchema(executeNames),
     fields: executeOperation.fields,
     names: executeNames,
-    async run(input) {
-      const result = await executeOperation.run(contractNames(input), call)
+    async run(input, send) {
+      const result = await executeOperation.run(contractNames(input), send)
       const structured = executeOperation.structured(result)
 
       return {
@@ -196,7 +199,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "open_project",
-    "Open a project folder in a new Parity tab, or switch to it if it's already open.",
+    "Open a project folder in a new Parity tab, or switch to it if it's already open. For a project that's already open, it detects the project again when its components.json, stylesheet setup, builder config or dependencies changed. Don't quit, restart or kill Parity to pick up changes: that loses the person's unsaved work.",
     operations.open,
     json
   ),
@@ -266,6 +269,7 @@ const tools: Tool[] = [
       "Read Parity's own events (errors, spans, traces) from its local log, for when Parity misbehaves; works with the app closed. The last run, oldest first, newest limit (100). level is the lowest shown; trace (or its start) and testRun search all runs; since is ISO or '10m'; session is an ID or 'all'.",
     inputSchema: requestJsonSchema(logsInputSchema),
     fields: logsFields,
+    local: true,
     run: async (input) => {
       const result = readLogs(input)
 
@@ -277,12 +281,38 @@ const tools: Tool[] = [
     description: "Read the Parity design skill or a file it references.",
     inputSchema: skillOperation.inputSchema,
     fields: skillOperation.fields,
+    local: true,
     run: async (input) => ({ content: [text(await skillOperation.run(input, readSkill))] })
   }
 ]
 
 const instructions =
-  "Parity renders a project's real components on a canvas. Designs are trees of the project's own components, layouts and text, styled only with its tokens, with states (like stories) and modes (viewport, theme, locale). Read the skill (read_skill) before designing, start with get_app_state, change designs with execute, check every state and mode with screenshot and find_problems, check accessibility with check_accessibility, and read what the components log with get_console."
+  "Parity renders a project's real components on a canvas. Designs are trees of the project's own components, layouts and text, styled only with its tokens, with states (like stories) and modes (viewport, theme, locale). Read the skill (read_skill) before designing, start with get_app_state, change designs with execute, check every state and mode with screenshot and find_problems, check accessibility with check_accessibility, and read what the components log with get_console. When subagents work at the same time, have each pass its own short name as subagent on every call, so the canvas shows a cursor for each."
+
+/**
+ * A tool's input with `subagent` beside its own fields (PAR-960): which of a session's subagents a call is from. It's
+ * left bare, and explained once in `instructions`, since a description on every tool would cost the list 1 KB.
+ */
+function withSubagent(schema: InputSchema): InputSchema {
+  return { ...schema, properties: { ...schema.properties, subagent: { type: "string" } } }
+}
+
+/**
+ * A call's arguments apart from the subagent it names. The name is read leniently, as the caller's is: one that's
+ * blank or isn't text is left out rather than failing the call, since it's only shown on the canvas.
+ */
+function splitSubagent(input: OperationInput) {
+  const fields = inputFields.safeParse(input).data
+
+  if (!fields || !("subagent" in fields)) {
+    return { input }
+  }
+
+  const { subagent, ...rest } = fields
+  const name = nonBlankString.safeParse(subagent).data
+
+  return name === undefined ? { input: rest } : { input: rest, subagent: name }
+}
 
 /**
  * One JSON-RPC message from the client, as far as the server reads it. `params` stays open, since each method reads
@@ -385,7 +415,11 @@ async function respond(method: string, params: Params = {}) {
     case "tools/list":
       return {
         result: {
-          tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
+          tools: tools.map(({ name, description, inputSchema, local }) => ({
+            name,
+            description,
+            inputSchema: local ? inputSchema : withSubagent(inputSchema)
+          }))
         }
       }
     case "tools/call": {
@@ -404,7 +438,10 @@ async function respond(method: string, params: Params = {}) {
       }
 
       try {
-        return { result: await tool.run(called.data.arguments ?? {}) }
+        const given = called.data.arguments ?? {}
+        const { input, subagent } = tool.local ? { input: given } : splitSubagent(given)
+
+        return { result: await tool.run(input, callAs(subagent)) }
       } catch (error) {
         const failure = renamePath(operationError(error, tool.fields), tool.names ?? {})
 

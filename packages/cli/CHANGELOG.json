@@ -2,6 +2,133 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 08:08:28 GMT",
+      "version": "0.53.2",
+      "tag": "@parity-app/cli_v0.53.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "73084b479a2dfdd45e9eef95b0007beefbf31693",
+            "comment": "An instance's filled slots are copied as shown, keep only the bindings a paste has params for, follow a library's design names, bake in on Detach, count as structure in repeated parts, and read as drawn in agents' Get"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 07:22:39 GMT",
+      "version": "0.53.1",
+      "tag": "@parity-app/cli_v0.53.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "47c6da3f08643df36e9943595276e3a8e3a51fe2",
+            "comment": "Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 05:54:47 GMT",
+      "version": "0.53.0",
+      "tag": "@parity-app/cli_v0.53.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "22637499fd40c33f85b748efc0cc11227a34e4af",
+            "comment": "Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 05:19:24 GMT",
+      "version": "0.52.0",
+      "tag": "@parity-app/cli_v0.52.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2f195d6458b86b936a08882caff1a50493e827d3",
+            "comment": "Core's update state and the update.failed event carry the updater's error code; the CLI doesn't change"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b1e205d84bfe03cc38935d761218957e7d943667",
+            "comment": "Report a crashed project service with what it printed, and name the pre-promotion environment beta"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e217bce57fc9396e90021bd766041447e212a78e",
+            "comment": "Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a minimized window"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c27fe3a0fb7525786a06b3a2241808a6776d9ab4",
+            "comment": "Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's own blocked reports group as one Sentry issue."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b853ed3bb3fdc8472e0d3de85bb52ec10294792f",
+            "comment": "parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a builder stopped by a signal isn't sent to Sentry as an error"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c4b40904f11b32762815aa681b4e931287250278",
+            "comment": "`open_project` and `parity open` now say that opening an open project detects it again, and ask agents not to kill Parity to pick up changes (PAR-817, PAR-818)."
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "49bc4fa69c015b3205a875ce89ee61f546becf21",
+            "comment": "SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 04:25:08 GMT",
+      "version": "0.51.0",
+      "tag": "@parity-app/cli_v0.51.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "09961c3a3ee4663830d34f9c9e80eff5b3559baf",
+            "comment": "Frames draw layers from CSS rules, and from the project's own compiled Tailwind classes, instead of inline styles; a layout is relative only when a child is placed in it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5c5b1ba4d6d7a74663300c8ef431c4929e30e875",
+            "comment": "Agents get reference.md, a snippet API reference generated from the code: every function's signature, arguments and result, and every type they name, with their doc comments"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "48e4559704bdaa06c614ff6b471edf140d01cc5b",
+            "comment": "Keep a recovery copy of unsaved changes and offer to restore it after a crash or forced quit"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 04:02:39 GMT",
       "version": "0.50.0",
       "tag": "@parity-app/cli_v0.50.0",

@@ -8,6 +8,7 @@ import type { MainEnvironment } from "./environment.ts"
 import { noStableRelease } from "./github-releases.ts"
 import { isPackaged } from "./packaged.ts"
 import { tagUpdateChannel } from "./telemetry.ts"
+import { updateChannel } from "./update-channel.ts"
 import { UpdateSession } from "./update-session.ts"
 
 /** The update preference, as `updates.json` keeps it. A missing or malformed file is the stable channel. */
@@ -74,7 +75,10 @@ export function createUpdates(
     },
     driver: {
       check: async (next) => {
-        updater().allowPrerelease = next
+        const { channel, allowPrerelease } = updateChannel(next)
+        updater().channel = channel
+        updater().allowPrerelease = allowPrerelease
+        // Setting a channel allows downgrades, and an older release must never replace this one.
         updater().allowDowngrade = false
 
         try {

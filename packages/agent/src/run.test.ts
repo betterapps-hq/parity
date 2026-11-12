@@ -918,6 +918,46 @@ Print(JSON.stringify({ measured: { box: title.box, clip: title.clip }, problem: 
     }
   })
 
+  it("draws every frame a check asks for at once, and answers in the order asked", async () => {
+    const modes = ["desktop-light", "tablet-light", "mobile-light"]
+    const waiting: (() => void)[] = []
+    let drawing = 0
+    let mostAtOnce = 0
+
+    // Each frame is held until none starts for a moment, then they finish last first.
+    const render: AgentHooks["render"] = async (request) => {
+      drawing++
+      mostAtOnce = Math.max(mostAtOnce, drawing)
+      await new Promise<void>((resolve) => {
+        waiting.push(resolve)
+        setTimeout(() => {
+          for (const finish of waiting.splice(0).reverse()) {
+            finish()
+          }
+        }, 20)
+      })
+      drawing--
+
+      return hooks().render(request)
+    }
+
+    const result = await execute(
+      {
+        label: "Check",
+        code: `const found = await Accessibility("signup", {mode: ${JSON.stringify(modes)}})
+Print(JSON.stringify(found.map((finding) => finding.mode)))
+Print(await Screenshot("signup", {mode: ${JSON.stringify(modes)}}))`
+      },
+      snapshot(),
+      { ...hooks(), render }
+    )
+
+    expect(result.ok).toBe(true)
+    expect(mostAtOnce).toBe(modes.length)
+    expect([...new Set(printed(result.output[0], z.array(z.string())))]).toEqual(modes)
+    expect(result.screenshots.map((shot) => shot.mode)).toEqual(modes)
+  })
+
   it("checks accessibility in each mode, naming the layers", async () => {
     const events: AgentEvent[] = []
 
@@ -1205,6 +1245,77 @@ await Measure("signup")`
     const requests: FrameRequest[] = []
     await execute({ label: "Look", code: `await Measure("signup")` }, snapshot(), recording(requests))
     expect(requests[0]!.tokens).toEqual([])
+  })
+})
+
+describe("SetTokens adds a token the project doesn't have (PAR-911)", () => {
+  it("lists the new token and takes it in a style without a warning, in the same call", async () => {
+    let applied: unknown
+
+    const result = await execute(
+      {
+        label: "Page titles",
+        code: [
+          `Update("title", {style: {size: "text-display"}})`,
+          `SetTokens({ "text-display": "4rem", "shadow-popup": { default: "0 8px 24px black", dark: "none" } })`,
+          `Update("page", {style: {shadow: "shadow-popup"}})`,
+          `Print(JSON.stringify(GetTokens({ search: "text-display" })))`,
+          `Print(JSON.stringify(GetTokens({ category: "shadow" })))`
+        ].join("\n")
+      },
+      snapshot(),
+      {
+        ...hooks(),
+        apply: async (changes) => {
+          applied = changes.tokens
+
+          return []
+        }
+      }
+    )
+
+    expect(result.ok).toBe(true)
+    expect(result.warnings).toEqual([])
+    expect(JSON.parse(result.output[0]!)).toEqual([
+      { name: "text-display", category: "font-size", source: "semantic", values: { default: "4rem" } }
+    ])
+    expect(JSON.parse(result.output[1]!)).toEqual([
+      {
+        name: "shadow-popup",
+        category: "shadow",
+        source: "semantic",
+        values: { default: "0 8px 24px black", dark: "none" }
+      }
+    ])
+    expect(applied).toEqual([
+      { name: "text-display", theme: "default", value: "4rem" },
+      { name: "shadow-popup", theme: "default", value: "0 8px 24px black" },
+      { name: "shadow-popup", theme: "dark", value: "none" }
+    ])
+  })
+
+  it("warns about the name until a call adds it, saying how", async () => {
+    const before = await execute(
+      { label: "Page titles", code: `Update("title", {style: {size: "text-display"}})` },
+      snapshot(),
+      hooks()
+    )
+
+    expect(before.warnings.join("\n")).toContain(`size "text-display" isn't a token`)
+    expect(before.warnings.join("\n")).toContain(`add text-display with SetTokens`)
+  })
+
+  it("shows a changed token's new value in GetTokens", async () => {
+    const result = await execute(
+      {
+        label: "Tokens",
+        code: `SetTokens({ primary: "blue" })\nPrint(GetTokens({ search: "primary" })[0].values.default)`
+      },
+      snapshot(),
+      hooks()
+    )
+
+    expect(result.output).toEqual(["blue"])
   })
 })
 

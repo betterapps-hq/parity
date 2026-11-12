@@ -1,8 +1,93 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 04:02:26 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 08:27:06 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.69.0
+
+Thu, 12 Nov 2026 08:27:06 GMT
+
+### Minor changes
+
+- Kept frame pictures are reused while the files each frame reads are unchanged, so a branch switch, a new worktree or
+  an edit to one component no longer recaptures every frame (ajcraswell@gmail.com)
+
+## 0.68.3
+
+Thu, 12 Nov 2026 08:08:09 GMT
+
+### Patches
+
+- An instance's filled slots are copied as shown, keep only the bindings a paste has params for, follow a library's
+  design names, bake in on Detach, count as structure in repeated parts, and read as drawn in agents' Get
+  (ajcraswell@gmail.com)
+
+## 0.68.2
+
+Thu, 12 Nov 2026 07:49:23 GMT
+
+### Patches
+
+- A frame in a Tailwind project no longer loses classes when it asks for more before the last ask is answered, which
+  could put a layer in the wrong place. (ajcraswell@gmail.com)
+- A frame shows its last picture, at its size, while it's captured again after the project's code changes, rather than a
+  placeholder (ajcraswell@gmail.com)
+
+## 0.68.1
+
+Thu, 12 Nov 2026 07:22:15 GMT
+
+### Patches
+
+- Session Replay records the window's canvases, such as the selection overlay, which replays showed as empty boxes
+  (ajcraswell@gmail.com)
+- Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI
+  (ajcraswell@gmail.com)
+
+## 0.68.0
+
+Thu, 12 Nov 2026 05:54:28 GMT
+
+### Minor changes
+
+- Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name (ajcraswell@gmail.com)
+
+## 0.67.0
+
+Thu, 12 Nov 2026 05:19:08 GMT
+
+### Minor changes
+
+- SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Report a crashed project service with what it printed, and name the pre-promotion environment beta
+  (ajcraswell@gmail.com)
+- Offscreen captures for frame bitmaps, previews and exports are taken again after a repaint when Chromium had no frame
+  to copy (ajcraswell@gmail.com)
+- Beta update checks no longer fail while a package tag leads GitHub's releases feed, and a failed update reports
+  electron-updater's error code (ajcraswell@gmail.com)
+- parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a
+  builder stopped by a signal isn't sent to Sentry as an error (ajcraswell@gmail.com)
+- Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a
+  minimized window (ajcraswell@gmail.com)
+- Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's
+  own blocked reports group as one Sentry issue. (ajcraswell@gmail.com)
+
+## 0.66.0
+
+Thu, 12 Nov 2026 04:24:53 GMT
+
+### Minor changes
+
+- Agents get reference.md, a snippet API reference generated from the code: every function's signature, arguments and
+  result, and every type they name, with their doc comments (ajcraswell@gmail.com)
+- Keep a recovery copy of unsaved changes and offer to restore it after a crash or forced quit (ajcraswell@gmail.com)
+- Frames draw layers from CSS rules, and from the project's own compiled Tailwind classes, instead of inline styles; a
+  layout is relative only when a child is placed in it (ajcraswell@gmail.com)
 
 ## 0.65.0
 

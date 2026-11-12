@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Keep a recovery copy of unsaved changes and offer to restore it after a crash or forced quit",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -182,6 +182,14 @@ export interface BuilderSession {
    * builder without it is started again on a new port when its stylesheets change instead.
    */
   restyledGuestUrl?(stamp: number): string
+  /**
+   * The project files the modules of `files` load, themselves included, however deep, as the build tool resolved their
+   * imports (PAR-994): what a frame's trace lists, beside what Parity's own import scan finds. Paths are relative to the
+   * root, with forward slashes. Packages are left out, since the lockfile stands for them, and so are files a plugin only
+   * watches, as Tailwind does every file it scans for class names. Nothing when the tool can't say for one of `files`,
+   * as for a module it hasn't built yet.
+   */
+  loadedFiles?(files: string[]): Promise<string[] | undefined>
   close(): Promise<void>
 }
 
@@ -391,6 +399,12 @@ export interface StylesAdapter {
    * means it. Its code is a list of classes.
    */
   loadPrinter(root: string, stylesheet: string): Promise<ClassPrinter>
+  /**
+   * Writes token values into the stylesheet's source where the framework keeps them, and takes out those without a
+   * value, keeping everything else as written. `theme` is what `loadTheme` read. A project no adapter reads has plain
+   * custom properties, which `writeTokenChanges` in `@parity-app/tokens` writes.
+   */
+  writeTokens(source: string, writes: readonly TokenWrite[], theme: readonly ThemeVariable[]): string
 }
 
 /** A styling framework that writes a layer's declarations as classes, and compiles classes as the project's build does. */
@@ -407,4 +421,16 @@ export interface ClassPrinter extends StylePrinter<string[]> {
 export interface ThemeVariable {
   name: string
   value: string
+}
+
+/**
+ * A token value Save writes in one theme (`default` for the root, otherwise the theme it names, such as `dark`), or
+ * `value` undefined to take the token's declaration out of that theme: a value the theme didn't have, undone after it
+ * was saved.
+ */
+export interface TokenWrite {
+  /** Without `--`. */
+  name: string
+  theme: string
+  value: string | undefined
 }
