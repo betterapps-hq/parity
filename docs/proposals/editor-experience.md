@@ -3,7 +3,7 @@
 Status: an audit and plan from the Design Editor session, 2026-10-29. You asked for "an award winning editor experience"
 that surpasses Figma, Canva and Pen.dev for people going from design to implementation, and to look at how designers and
 engineers each work for gaps. The tasks are in Linear as PAR-161 to PAR-189, ranked here by impact. Nothing here is
-decided until it's in [decisions.md](../decisions.md).
+decided until the user agrees to it.
 
 ## In one line
 
@@ -241,8 +241,8 @@ its Linear issue.
    by 10, scrubbing by dragging the label, a live preview while typing, focus kept on Enter, and nothing cleared or
    silently dropped. Lengths off the spacing scale are kept and flagged "off scale", with the nearest step one click
    away, for sizes and insets only; colours, type, radius and shadows stay tokens. A sidebar 280px wide is a fact of
-   real apps, and engineers already write `w-[280px]`. This loosens the tokens-only model for lengths, so it goes in
-   decisions.md when built.
+   real apps, and engineers already write `w-[280px]`. This loosens the tokens-only model for lengths, so it needs the
+   user's agreement before it's built.
 7. **Put every change through Save and Undo, in the state being edited** (PAR-164; M). Token edits are undoable and
    saved with everything else; edits that can't be per state say so first; the text editor opens on the state's text;
    values keep their types; turning Show every state off again leaves the file clean.
@@ -257,7 +257,8 @@ its Linear issue.
    answer has no file and no code. The inspector's Code tab, which PAR-167 started: the component's file and line with
    Open in editor, its import, the instance as JSX with its props, the JSX and Tailwind classes Parity would write for a
    layout or text layer (PAR-265's output, in the UI), every token with its value in the mode showing, and Copy as JSX.
-   The Components panel shows each component's file. No other tool can do this without a hand-written mapping.
+   The Components panel shows each component's file. No other tool can do this without a hand-written mapping. Deferred
+   on 2026-11-12 with the rest of the code side; the Code tab was set aside as an exploration (PAR-1027).
 10. **Know the source line of every element** (PAR-167; M). A development-only Vite transform in builder-vite tags each
     JSX element with its file, line and column, so anything inside a real component can show and open its source, and
     agents get the same in `parity components` and snapshots. This is Onlook's approach, and it keeps agents from

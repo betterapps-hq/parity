@@ -1,8 +1,7 @@
 # Typography
 
 How Parity's interface sets its type: the roles text plays, the classes each role uses, and what keeps new UI on them.
-Why each call was made is in the [interface type proposal](proposals/interface-type.md) and
-[decisions.md](decisions.md#the-interface-is-set-in-inter-par-709).
+Why each call was made is in the [interface type proposal](proposals/interface-type.md).
 
 Status: built (PAR-710). The weights are provisional until they're checked on a Mac and on Windows at 150%, and the lint
 rule under [What holds it](#what-holds-it) is to come (PAR-729); until then, review holds new UI to the roles.
@@ -59,7 +58,7 @@ Pick the role, not a size. Each role's classes are all it needs; the theme sets 
 | Control, chip       | the kit's `ToggleGroup` and `Toggle` at `size="sm"`, `Kbd`, a `Badge` holding a value | 12/16, 450                       | Segmented controls in panels such as Placement, key chips; at the default size a toggle is 13px, for dialogs                      |
 | Field label         | the kit's `Label` with `text-xs` in a panel; its `FieldLabel` in a dialog             | 12/16 or 13/18, 450              | A label tied to its control, such as a switch's, a checkbox's or a dialog's field; the kit's own are regular                      |
 | Compact row         | `text-xs`, with a Caption under it                                                    | 12/16, 450                       | A list whose names are code or status: Tokens, Processes (names regular); every other list row is 13px                            |
-| Select in a panel   | `PanelSelectContent` (`fields.tsx`)                                                   | 12/16, 450                       | A panel's select opens at its field's size                                                                                        |
+| Select in a panel   | `AppSelect` with `variant="panel"` (`AppSelect.tsx`)                                  | 12/16, 450                       | A panel's select opens at its field's size                                                                                        |
 | Small button        | the kit's `Button size="sm"`                                                          | 12/16, 550                       | Buttons in panels                                                                                                                 |
 | Button              | the kit's `Button`                                                                    | 13/18, 550                       | Dialogs' actions, such as Cancel and Save                                                                                         |
 | Empty panel         | `type-empty text-muted-foreground text-center`                                        | 13/20, 450, gray, balanced       | What a panel says when there's nothing to show; a title in it is `font-medium text-foreground`, 550                               |
@@ -72,7 +71,7 @@ Pick the role, not a size. Each role's classes are all it needs; the theme sets 
 | Page title          | `text-2xl font-semibold tracking-tight`                                               | 24/32, 650, -0.01em              | The heading of a screen that fills the window: sign-in at every step, the app's crash screen                                      |
 | Heading             | `text-lg font-semibold tracking-tight`                                                | 18/24, 650, -0.01em              | A heading within a page: the start page, Couldn't open, a part's error; `text-xl` isn't used                                      |
 | Code                | `font-mono text-xs`                                                                   | 12/16, 400                       | Classes, token names, code                                                                                                        |
-| Code block          | `type-code font-mono`                                                                 | 12/18, 400                       | Code over many lines: the Code tab, stack traces, console messages                                                                |
+| Code block          | `type-code font-mono`                                                                 | 12/18, 400                       | Code over many lines: stack traces, console messages                                                                              |
 | Secondary code      | `font-mono text-2xs`, `text-2xs/4` where it wraps                                     | 11/14 or 11/16, 400, no tracking | A file name, a token's path, a stack trace                                                                                        |
 
 Weights are `font-normal` (450), `font-medium` (550) and `font-semibold` (650). Code is 400, and never medium: Menlo and
@@ -131,11 +130,10 @@ The three 12px titles differ only by weight and color, so they're components, no
 - **The lint rule (PAR-729, to come).** A rule in the vite-plus oxlint plugin config fails `className` strings with
   one-off type values in `apps/desktop/src/renderer`, outside explorations and the exempt parts above, gathering every
   static class string in an expression (both branches of a ternary, `cn` and `clsx` arguments, same-file constants)
-  before it checks a combination, and names the role to use. It also fails the kit's `SelectContent` in the panels
-  outside `fields.tsx` (use `PanelSelectContent`), `name-text` outside `<Name>` and `NameInput`, a `type-*` class beside
-  a `text-{size}` class, `font-mono` with `font-medium`, `font-medium` on the kit's `TabsTrigger`, `Toggle`,
-  `ToggleGroupItem`, `Badge`, `Kbd`, `Label` and `FieldLabel`, `text-xl`, and `text-xs` with `font-medium` or
-  `font-semibold` and `text-muted-foreground` outside the title components.
+  before it checks a combination, and names the role to use. It also fails `name-text` outside `<Name>` and `NameInput`,
+  a `type-*` class beside a `text-{size}` class, `font-mono` with `font-medium`, `font-medium` on the kit's
+  `TabsTrigger`, `Toggle`, `ToggleGroupItem`, `Badge`, `Kbd`, `Label` and `FieldLabel`, `text-xl`, and `text-xs` with
+  `font-medium` or `font-semibold` and `text-muted-foreground` outside the title components.
 - **The Scale story.** Parity/Type/Scale draws every role above that isn't a popup (a panel's select is checked by
   opening one in the panel stories) with the classes listed here, measured underneath, so a change to a role shows in
   Storybook, where it's reviewed.

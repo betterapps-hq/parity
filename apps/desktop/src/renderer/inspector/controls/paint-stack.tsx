@@ -5,16 +5,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Select,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch
 } from "@buildkitgg/shadcn-baseui-kit"
 import { ArrowLeftRight, Plus } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { PanelSelectContent, Swatch } from "../../chrome/fields.tsx"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
+import { Swatch } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel, PanelSection } from "../../chrome/PanelSection.tsx"
 import { AngleField } from "./angle.tsx"
@@ -570,7 +567,10 @@ export function GradientEditor({
           </Field>
         )}
         <Field label="Blend" hint="How the colors mix between stops: in oklab, Tailwind's own" half>
-          <Select
+          <AppSelect
+            variant="panel"
+            aria-label="Blend colors in"
+            className="w-full px-2"
             items={blends}
             value={resolved.interpolation ?? "oklab"}
             onValueChange={(interpolation) => {
@@ -580,18 +580,7 @@ export function GradientEditor({
                 edit({ interpolation: picked.value })
               }
             }}
-          >
-            <SelectTrigger size="sm" aria-label="Blend colors in" className="h-7 w-full px-2 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <PanelSelectContent>
-              {blends.map((blend) => (
-                <SelectItem key={blend.value} value={blend.value}>
-                  {blend.label}
-                </SelectItem>
-              ))}
-            </PanelSelectContent>
-          </Select>
+          />
         </Field>
         <Field label="Repeat" hint="Repeats the stops past the last: repeating-linear-gradient and its kin" half>
           <div className="flex h-7 items-center">

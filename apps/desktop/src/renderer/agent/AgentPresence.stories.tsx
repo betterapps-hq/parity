@@ -1,8 +1,13 @@
+import { defaultModeSettings } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { ProjectContext } from "../canvas/context.ts"
+import { ComponentStore } from "../components-store.ts"
+import { DesignStore } from "../design-store.ts"
 import { registerFrame } from "../frame.ts"
+import { keepRecovery } from "../recovery.ts"
+import { SelectionStore } from "../selection.ts"
 import { ProjectSession, type SessionParts } from "../workspace.ts"
 import { AgentPresence } from "./AgentPresence.tsx"
 import { heldBoards } from "./held-boards.ts"
@@ -129,12 +134,26 @@ function Frame({ board }: { board: MockBoard }) {
 function Stage({ calls, note }: { calls: Call[]; note: string }) {
   const tab = `story-${useId()}`
 
-  const session = useMemo(
-    () =>
-      // SAFETY: AgentPresence reads only the session's id, and its editor, which a story without tldraw leaves out.
-      new ProjectSession({ id: tab } as ConstructorParameters<typeof ProjectSession>[0], {} as SessionParts),
-    [tab]
-  )
+  const session = useMemo(() => {
+    const store = new DesignStore(
+      [{ path: "app.par", document: { version: 4, containers: [] } }],
+      defaultModeSettings,
+      "app.par",
+      { saveDocument: async () => undefined, autosave: () => false }
+    )
+
+    return new ProjectSession(
+      {
+        id: tab,
+        store,
+        selection: new SelectionStore(),
+        components: new ComponentStore(),
+        recovery: keepRecovery(store, async () => undefined)
+      },
+      // SAFETY: AgentPresence reads the session's id, and its editor, which a story without tldraw leaves out.
+      {} as SessionParts
+    )
+  }, [tab])
 
   const [positions, setPositions] = useState(() => new Map(boards.map((board) => [board.key, board])))
   const [run, replay] = useReducer((count: number) => count + 1, 0)

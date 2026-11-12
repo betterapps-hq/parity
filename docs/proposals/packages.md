@@ -9,8 +9,7 @@ models (PAR-15), `@parity-app/editor` moving, resizing and nudging (PAR-577) and
 `@parity-app/account` holds signing in with WorkOS (PAR-613), and `@parity-app/telemetry` telemetry's event model
 (PAR-618), on 2026-11-05. `@parity-app/style-schema` holds the stored style and its CSS declarations (PAR-939), and the
 ledger of CSS properties and `validate` (PAR-940), and the adapter contract that `@parity-app/styles-tailwind` prints
-and reads classes through (PAR-943), on 2026-11-11. The rule and the first items are in [decisions.md](../decisions.md)
-and in Linear's Package boundaries stream.
+and reads classes through (PAR-943), on 2026-11-11. The first items are in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -260,7 +259,7 @@ Electron, with no tests.
 
 ## Calls made here
 
-These are in decisions.md as my calls. Change any of them.
+These are my calls. Change any of them.
 
 - The rule above, and its lint guard.
 - `@parity/props` merges into `@parity-app/code`, since both need the same program.

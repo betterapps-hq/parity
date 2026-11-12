@@ -195,10 +195,10 @@ cases that never loaded it don't. A library upgrade works the same way, since th
 
 ### Linked component designs
 
-A linked component design is the source, linked to a file Parity wrote ("Option C" in decisions.md). The canvas draws
-the design from the `.par`. A hand edit to `member-row.tsx` therefore changes the app, but not the canvas, until someone
-opens the design's drift review and approves the edit into the design. In CI nobody does that, so the run does the
-sync's reading itself:
+A linked component design is the source, linked to a file Parity wrote ("Option C"). The canvas draws the design from
+the `.par`. A hand edit to `member-row.tsx` therefore changes the app, but not the canvas, until someone opens the
+design's drift review and approves the edit into the design. In CI nobody does that, so the run does the sync's reading
+itself:
 
 - **Read back what can be read.** For each linked file whose hash differs from the one Parity last wrote, Parity reads
   back what it can: text, token classes, props and known components, through PAR-90's read-back in `@parity-app/code`,
@@ -489,7 +489,7 @@ canvas-against-page layout check.
 
 ## Calls made here
 
-These are my calls, open to change. They go into decisions.md once you agree with this proposal.
+These are my calls, open to change. They're settled once you agree with this proposal.
 
 - **Where baselines come from:** CI makes every committed baseline. Developers' machines compare with their own renders
   of HEAD or the merge base, and nobody needs Docker. Eventually, Parity's own runners make them (your direction,

@@ -302,7 +302,7 @@ describe("pasting a bound layer", () => {
           id: "button",
           component: "ui/Button",
           props: { children: "Go", disabled: false },
-          bind: { props: { children: "label", disabled: "busy" }, visible: "shown" }
+          bind: { props: { children: "label", disabled: "busy" } }
         }
       ]
     }

@@ -1,6 +1,6 @@
 import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { designsAt, placeOver, replaceLayers } from "./paste-over.ts"
+import { designsAt, placeOver, replaceLayers, selectionToPasteOn } from "./paste-over.ts"
 
 const text = (id: string, extra: { style?: NodeStyle } = {}): DesignNode => ({ type: "text", id, text: id, ...extra })
 
@@ -182,5 +182,31 @@ describe("paste to replace", () => {
     const { container, copies } = replaceLayers(original, ["root", "stat/value"], [button], base)
     expect(container).toBe(original)
     expect(copies).toEqual([])
+  })
+})
+
+describe("the selection a paste lands on once the image is saved", () => {
+  const label = { design: "form", node: "label", state: "default" }
+  const hint = { design: "form", node: "hint", state: "default" }
+
+  it("lets Paste over go over the layers selected by then", () => {
+    expect(selectionToPasteOn("over", label, hint)).toBe(hint)
+  })
+
+  it("lets Paste to replace go ahead while the same layers are selected, however they were picked", () => {
+    const both = { design: "form", node: "hint", nodes: ["label", "hint"] }
+    const again = { design: "form", node: "label", nodes: ["hint", "label"] }
+    expect(selectionToPasteOn("replace", both, again)).toBe(again)
+  })
+
+  it("stops Paste to replace when other layers, or the same in another state, were selected meanwhile", () => {
+    expect(selectionToPasteOn("replace", label, hint)).toBeUndefined()
+    expect(selectionToPasteOn("replace", label, { ...label, state: "error" })).toBeUndefined()
+  })
+
+  it("stops both when no layers are selected by then", () => {
+    expect(selectionToPasteOn("over", label, { design: "form" })).toBeUndefined()
+    expect(selectionToPasteOn("over", label, {})).toBeUndefined()
+    expect(selectionToPasteOn("replace", label, { designs: ["form", "card"] })).toBeUndefined()
   })
 })

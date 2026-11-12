@@ -5,7 +5,8 @@ import { useProject } from "../canvas/context.ts"
 import { PixelField } from "../inspector/controls/controls.tsx"
 import { NumberField } from "../inspector/controls/number-field.tsx"
 import { useTokenList } from "../tokens-store.ts"
-import { ChoiceInput, Field, Swatch, SwitchInput, TextInput, TokenInput, ValueInput } from "./fields.tsx"
+import { AppSelect } from "./AppSelect.tsx"
+import { Field, Swatch, SwitchInput, TextInput, TokenInput, ValueInput } from "./fields.tsx"
 import { InspectorStage, openInspector, PanelColumn, search, slowly, typing } from "./inspector-stories.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { booleanValue, numberValue, type PropValue, textValue } from "./prop-values.ts"
@@ -179,14 +180,15 @@ function EveryField({ look, labels }: { look: Look; labels?: Partial<Record<keyo
         {row(
           "variant",
           "Choice",
-          <ChoiceInput
+          <AppSelect
+            variant="panel"
             value={values.variant}
-            placeholder="default (default)"
-            options={["default", "outline", "secondary", "ghost", "destructive", "link"].map((value) => ({
+            none="default (default)"
+            items={["default", "outline", "secondary", "ghost", "destructive", "link"].map((value) => ({
               value,
               label: value
             }))}
-            onChange={(variant) => set({ variant })}
+            onValueChange={(variant) => set({ variant: variant ?? undefined })}
           />
         )}
         {row("visible", "Switch", <SwitchInput value={values.visible} onChange={(visible) => set({ visible })} />)}

@@ -26,20 +26,20 @@ import { type DesignNode, type ElementSource, isInnerPath, locateInner, locateNo
 import { editingState } from "@parity-app/editor"
 import { CodeXml, Crosshair, FileCode2, Package, SquareArrowOutUpRight } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
-import { useProject } from "../canvas/context.ts"
-import { fileName, type SourcedElement, shortSource, sourcedElements } from "../canvas/element-sources.ts"
-import { hoverElement, pickElement, setPicking, useInspecting } from "../canvas/inspect.ts"
-import { kindColors, layerLabel, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
-import { projectLibrary } from "../canvas/layers.ts"
-import { type ContainerEntry, useContainerEntries, useContainerEntry } from "../design-store.ts"
-import { findFrames, findNodeElements, subscribeFrames } from "../frame.ts"
-import { useSelection } from "../selection.ts"
-import { request } from "../service.ts"
-import type { ProjectSession } from "../workspace.ts"
-import { openSource, viewCode } from "./code-editor.ts"
-import { Hint } from "./Hint.tsx"
-import { Name } from "./Name.tsx"
-import { PanelSection } from "./PanelSection.tsx"
+import { useProject } from "../../canvas/context.ts"
+import { fileName, type SourcedElement, shortSource } from "../../canvas/element-sources.ts"
+import { kindColors, layerLabel, NodeIcon, nodeColor } from "../../canvas/kinds.tsx"
+import { projectLibrary } from "../../canvas/layers.ts"
+import { openSource, viewCode } from "../../chrome/code-editor.ts"
+import { Hint } from "../../chrome/Hint.tsx"
+import { Name } from "../../chrome/Name.tsx"
+import { PanelSection } from "../../chrome/PanelSection.tsx"
+import { type ContainerEntry, useContainerEntries, useContainerEntry } from "../../design-store.ts"
+import { findFrames, findNodeElements, subscribeFrames } from "../../frame.ts"
+import { useSelection } from "../../selection.ts"
+import type { ProjectDesigns, ProjectSession } from "../../workspace.ts"
+import { sourcedElements } from "./element-list.ts"
+import { hoverElement, pickElement, setPicking, useInspecting } from "./inspect.ts"
 
 /** How many lines show around the picked element's line: before it, and after. */
 const around = { before: 5, after: 12 }
@@ -47,11 +47,12 @@ const around = { before: 5, after: 12 }
 type ComponentLayer = Extract<DesignNode, { type: "component" }>
 
 /**
- * The Code tab (PAR-167): where the selected component layer's code is. Its component and file, the elements it draws
- * that the project's files wrote, each with its file and line, and the picked one's lines. Inspect picks an element on
- * the canvas instead, as a browser's developer tools do, selecting the layer it's in; it works with nothing selected.
- * A library's component says so, since its elements are written in the library, and Parity's own layers, text, images
- * and layouts, have no line in the project.
+ * The inspector's Code tab as it was (PAR-167), set aside on 2026-11-12 with the rest of the code side (PAR-1027):
+ * where the selected component layer's code is. Its component and file, the elements it draws that the project's files
+ * wrote, each with its file and line, and the picked one's lines. Inspect picks an element on the canvas instead, as a
+ * browser's developer tools do, selecting the layer it's in; it works with nothing selected. A library's component
+ * says so, since its elements are written in the library, and Parity's own layers, text, images and layouts, have no
+ * line in the project.
  */
 export function CodePanel() {
   const session = useProject()
@@ -88,7 +89,7 @@ export function CodePanel() {
 }
 
 /** The selected layer as the board shows it, whether it's the design's own or inside an instance. */
-function selectedLayer(session: ProjectSession, entry: ContainerEntry, nodeId: string): DesignNode | undefined {
+function selectedLayer(session: ProjectDesigns, entry: ContainerEntry, nodeId: string): DesignNode | undefined {
   const { container } = entry
 
   if (!isInnerPath(nodeId)) {
@@ -182,7 +183,7 @@ function ComponentCode({
                     variant="ghost"
                     size="icon-xs"
                     aria-label={`Open ${name} in your editor`}
-                    onClick={() => void viewCode(session, node.component)}
+                    onClick={() => void viewCode(session.info, node.component)}
                   >
                     <SquareArrowOutUpRight />
                   </Button>
@@ -269,7 +270,7 @@ function ElementList({
 
 /** The lines an element is written on, its own highlighted, from the project's file as it is on disk. */
 function SourceLines({ session, source }: { session: ProjectSession; source: ElementSource }) {
-  const file = useProjectFile(session, source.path)
+  const file = useProjectFile(source.path)
   const first = Math.max(1, source.line - around.before)
   const shown = file.state === "read" ? file.text.split("\n").slice(first - 1, source.line + around.after) : []
   const lines = useHighlightedCode(shown.join("\n"), source.path.endsWith(".jsx") ? "jsx" : "tsx")
@@ -288,7 +289,7 @@ function SourceLines({ session, source }: { session: ProjectSession; source: Ele
               variant="ghost"
               size="icon-xs"
               aria-label={`Open ${fileName(source.path)} at line ${source.line}`}
-              onClick={() => void openSource(session, source)}
+              onClick={() => void openSource(session.info, source)}
             >
               <SquareArrowOutUpRight />
             </Button>
@@ -357,27 +358,33 @@ function sameElements(a: SourcedElement[], b: SourcedElement[]): boolean {
 }
 
 /**
- * A project file's text, an error saying why it couldn't be read, or that it's still being read. It's read each time
- * the element or the tab changes, so an edit made in the editor shows.
+ * One of the example's files as text, from the copy Storybook serves, an error saying why it couldn't be read, or that
+ * it's still being read. The app's service read the project's file from disk, so an edit made in the editor showed.
  */
-function useProjectFile(session: ProjectSession, path: string): ProjectFile {
-  const key = `${session.id}\n${path}`
-  const [read, setRead] = useState<{ key: string; file: ProjectFile }>()
+function useProjectFile(path: string): ProjectFile {
+  const [read, setRead] = useState<{ path: string; file: ProjectFile }>()
   useEffect(() => {
     let cancelled = false
-    request("code.read", { projectId: session.id, path }).then(
-      ({ text }) => !cancelled && setRead({ key, file: { state: "read", text } }),
-      (cause: unknown) =>
-        !cancelled &&
-        setRead({ key, file: { state: "failed", error: cause instanceof Error ? cause : new Error(String(cause)) } })
-    )
+    void import("virtual:parity/example-sources").then(({ default: files }) => {
+      const text = files[path]
+
+      if (!cancelled) {
+        setRead({
+          path,
+          file:
+            text === undefined
+              ? { state: "failed", error: new Error(`${path} isn't in the project's folder`) }
+              : { state: "read", text }
+        })
+      }
+    })
 
     return () => {
       cancelled = true
     }
-  }, [key, path, session.id])
+  }, [path])
 
-  return read?.key === key ? read.file : { state: "reading" }
+  return read?.path === path ? read.file : { state: "reading" }
 }
 
 type ProjectFile = { state: "reading" } | { state: "read"; text: string } | { state: "failed"; error: Error }

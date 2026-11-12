@@ -3,10 +3,10 @@
 Status: an audit and plan from the New design experience session, 2026-11-04 (PAR-529). You asked how someone is meant
 to build a new app from scratch, whether it matches what a person coming from Figma expects, and said the words Design,
 Screen, View and Layer don't say what they are. You also said the start page was designed but never built, because its
-templates waited on the Buildkit scaffolder, which is ready now. You took all six recommendations below on 2026-11-04;
-they're in [decisions.md](../decisions.md), "Starting from scratch, and what things are called (PAR-537)", and the tasks
-are in Linear. Each change people see is designed in Storybook for your approval before it's built in the app. On
-2026-11-05 you dropped the start in the middle of an empty canvas, since every project opens on a screen (PAR-560).
+templates waited on the Buildkit scaffolder, which is ready now. You took all six recommendations below on 2026-11-04,
+and the tasks are in Linear. Each change people see is designed in Storybook for your approval before it's built in the
+app. On 2026-11-05 you dropped the start in the middle of an empty canvas, since every project opens on a screen
+(PAR-560).
 
 ## In one line
 
@@ -173,13 +173,13 @@ design, as Figma lists a frame's, so "Page" no longer sits between a screen and 
   templates for each stack, a blank app, an existing folder, and the example.
 - **The first run starts on something,** a template or the example, never an empty canvas (PAR-188 says the example).
 - **A blank app opens with a Home screen** for its `/` route, in its desktop and mobile modes, not an empty canvas.
-- **An app new to Parity is offered its pages.** Component detection already finds pages (decisions.md, "Pages get their
-  own section in the Components panel"). Opening an app with no `.par` offers to put each on the canvas as a screen, so
-  a person sees their own app first and edits from there. This wasn't tried on the example.
+- **An app new to Parity is offered its pages.** Component detection already finds pages, in their own section of the
+  Components panel. Opening an app with no `.par` offers to put each on the canvas as a screen, so a person sees their
+  own app first and edits from there. This wasn't tried on the example.
 
 ### One set of words
 
-One word for each thing, Figma's where it means the same. Once decided, it goes in decisions.md, and the strings follow.
+One word for each thing, Figma's where it means the same. Once decided, the strings follow.
 
 | Word           | Means                                                                            | Instead of                                |
 | -------------- | -------------------------------------------------------------------------------- | ----------------------------------------- |
@@ -230,7 +230,7 @@ which ends with your approval, and a build issue it blocks.
 
 ## Decisions
 
-You took each recommendation on 2026-11-04; decisions.md has them as decided.
+You took each recommendation on 2026-11-04.
 
 1. **A light third kind on the canvas, and its name.** My recommendation: yes, called a frame, the word Figma users
    reach for and F's key. The alternatives are a sketch or a draft.

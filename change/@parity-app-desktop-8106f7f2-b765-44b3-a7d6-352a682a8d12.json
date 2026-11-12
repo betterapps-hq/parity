@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Canvas functions take the parts of the project they read instead of the whole session",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

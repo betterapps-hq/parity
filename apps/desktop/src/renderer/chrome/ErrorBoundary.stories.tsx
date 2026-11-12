@@ -11,7 +11,6 @@ import { setLayout } from "./layout.ts"
 /** The parts of the window a story can break, by boundary name. */
 const parts = [
   "inspector.design",
-  "inspector.code",
   "left.layers",
   "left.tokens",
   "canvas",
@@ -75,8 +74,7 @@ const meta = {
       await openProjects("example")
       setLayout({
         console: args.part === "console",
-        leftTab: args.part === "left.tokens" ? "tokens" : undefined,
-        rightTab: args.part === "inspector.code" ? "code" : undefined
+        leftTab: args.part === "left.tokens" ? "tokens" : undefined
       })
       // Set before the window draws, since the part fails on its first draw.
       setBoundaryReporter(

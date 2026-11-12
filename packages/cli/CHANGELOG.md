@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Thu, 12 Nov 2026 12:53:23 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 22:11:04 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.59.0
+
+Thu, 12 Nov 2026 22:11:04 GMT
+
+### Minor changes
+
+- Remove binding a layer's visibility to a component prop: bind.visible is gone from the file format, the agent API and
+  the inspector. Text and props still bind. (ajcraswell@gmail.com)
 
 ## 0.58.0
 

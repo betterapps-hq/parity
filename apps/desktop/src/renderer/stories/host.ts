@@ -778,17 +778,6 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
         files: request.params.designs.map((design) => `D:/exports/${design.split("#").at(-1)}.png`),
         warnings: []
       }
-    case "code.read": {
-      const { default: files } = await import("virtual:parity/example-sources")
-      const text = files[String(request.params.path)]
-
-      if (text === undefined) {
-        throw new Error(`${String(request.params.path)} isn't in the project's folder`)
-      }
-
-      return { text }
-    }
-
     case "accessibility.check":
       return { findings: findingsFor(String(request.params.design)), frames: 4, warnings: [] }
     case "frames.changes":

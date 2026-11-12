@@ -1,8 +1,34 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 19:27:29 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 21:49:43 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.74.4
+
+Thu, 12 Nov 2026 21:49:43 GMT
+
+### Patches
+
+- Select popups inset their items by 4px, like the app's other menus (ajcraswell@gmail.com)
+
+## 0.74.3
+
+Thu, 12 Nov 2026 20:51:03 GMT
+
+### Patches
+
+- A tab closed while the project service restarts no longer leaves its project open in the new service or its guest
+  loaded (PAR-978) (ajcraswell@gmail.com)
+
+## 0.74.2
+
+Thu, 12 Nov 2026 19:51:56 GMT
+
+### Patches
+
+- Stop a project's Storybook and its workers when Parity quits or restarts its project service, on Windows, macOS and
+  Linux (ajcraswell@gmail.com)
 
 ## 0.74.1
 

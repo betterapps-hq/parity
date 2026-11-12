@@ -12,7 +12,7 @@ import { notify, prepare, refusal, sendSearch } from "./request.ts"
 
 /*
  * Unsplash's API (unsplash.com/documentation), with an app's Access Key and its public scope only. Its terms ask three
- * things of an app (decisions.md, "Unsplash is the first stock source"): photos load from Unsplash's own links, each one
+ * things of an app: photos load from Unsplash's own links, each one
  * someone uses is reported to its download endpoint, which `placed` does, and every photo credits its photographer and
  * Unsplash, linked with Parity's referral. A new app gets 50 requests an hour until Unsplash approves it for production.
  */

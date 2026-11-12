@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerSpec } from "./document.ts"
 import { findNode } from "./edit.ts"
-import { addValueProp, bindableProps, bindField, freePropName, propFromField, propNameProblem } from "./prop-binding.ts"
+import { addValueProp, bindText, freePropName, propFromText, propNameProblem, textProps } from "./prop-binding.ts"
 import { setSlot } from "./slots.ts"
 
 const card: ContainerSpec = {
@@ -49,36 +49,26 @@ describe("adding a value prop", () => {
   })
 })
 
-describe("a layer's field using a prop", () => {
-  it("lists the props a field can use: text props for text, toggles for visibility", () => {
-    expect(bindableProps(card, "text")).toEqual(["title"])
-    expect(bindableProps(card, "visible")).toEqual(["featured"])
+describe("a text layer's text using a prop", () => {
+  it("lists the text props", () => {
+    expect(textProps(card)).toEqual(["title"])
   })
 
-  it("uses a prop, and goes back to the value the prop showed, so the layer looks the same", () => {
-    const bound = bindField(card, "note", "visible", "featured")
-    expect(findNode(bound.root, "note")?.bind).toEqual({ visible: "featured" })
-    const unbound = bindField(card, "title", "text", undefined)
+  it("uses a prop, and goes back to the text the prop showed, so the layer looks the same", () => {
+    expect(findNode(bindText(card, "note", "title").root, "note")?.bind).toEqual({ text: "title" })
+    const unbound = bindText(card, "title", undefined)
     expect(findNode(unbound.root, "title")).toEqual({ type: "text", id: "title", name: "Title", text: "Title" })
-    const hiding = { ...card, params: { ...card.params, featured: { type: "boolean" as const, default: false } } }
-    expect(
-      findNode(bindField(bindField(hiding, "note", "visible", "featured"), "note", "visible", undefined).root, "note")
-        ?.hidden
-    ).toBe(true)
   })
 
-  it("refuses a prop of the wrong kind, and text on a layer that isn't text", () => {
-    expect(() => bindField(card, "note", "text", "featured")).toThrow("Card has no text prop called featured")
-    expect(() => bindField(card, "body", "text", "title")).toThrow("Only a text layer's text")
+  it("refuses a prop that isn't text, and a layer that isn't text", () => {
+    expect(() => bindText(card, "note", "featured")).toThrow("Card has no text prop called featured")
+    expect(() => bindText(card, "body", "title")).toThrow("Only a text layer's text")
   })
 
-  it("makes a prop from a field, named after the layer, with what it shows as the default", () => {
-    const made = propFromField(card, "note", "text")
+  it("makes a prop from a layer's text, named after the layer, with its text as the default", () => {
+    const made = propFromText(card, "note")
     expect(made.name).toBe("note")
     expect(made.container.params?.note).toEqual({ type: "text", default: "Cancel any time" })
     expect(findNode(made.container.root, "note")?.bind).toEqual({ text: "note" })
-    const shown = propFromField(card, "note", "visible")
-    expect(shown.name).toBe("showNote")
-    expect(shown.container.params?.showNote).toEqual({ type: "boolean", default: true })
   })
 })

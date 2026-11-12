@@ -106,7 +106,7 @@ flex or grid layout, where `z-index` works without `position`; only a child of a
 A layer with a Layer order paints above its parent's Inside or Center stroke, and the row says so. The row names the
 stacking context it orders within and what makes it one.
 
-Fixed and Sticky outline the frame's window and are previewed by scrolling in Play (decisions.md, CAN-25).
+Fixed and Sticky outline the frame's window and are previewed by scrolling in Play (CAN-25).
 
 **More:** Relative placement, shown as a fifth toggle once set, Layer order on a layer In layout or Relative, Anchor
 (name this layer as an anchor, or place it against one with a nine-spot `position-area` picker and fallbacks) and Float.
@@ -293,8 +293,7 @@ fold into its row as a summary ("Inter 20/28 Semibold"), as Figma's Typography d
 disclosure to show them. Shown, they're locked to the preset's values, each with an Unlock button, and changing an
 unlocked row overrides the preset there. An overridden row stays shown while the summary is closed, marked, with its
 reset arrow, and picking the preset again takes back every override. Detach is an icon button beside the picker. A layer
-with no preset whose type matches one, or nearly does, says so under the row, with Use one click away (call 6, in
-[decisions.md](../decisions.md#the-design-panels-calls-par-652)).
+with no preset whose type matches one, or nearly does, says so under the row, with Use one click away (call 6).
 
 | Row                 | Control                                                                                                                 | Writes                                                                              | Figma                                                      |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |

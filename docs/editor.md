@@ -7,8 +7,8 @@ project in that installed app and checks that the canvas and project service con
 What Parity's canvas editor does, how each part of it works, and the tests that keep it working. You asked on 2026-10-29
 for every piece of editor work to land with tests and a description here, so nothing gets lost or quietly breaks.
 Shortcuts are listed once, in the keymap ([chrome/keymap.ts](../apps/desktop/src/renderer/chrome/keymap.ts)) and the
-Keyboard shortcuts dialog; this page says what they do. What's decided and why is in [decisions.md](decisions.md).
-Features built before 2026-10-29 are being added under PAR-392 in Linear.
+Keyboard shortcuts dialog; this page says what they do. Features built before 2026-10-29 are being added under PAR-392
+in Linear.
 
 ## How to keep it
 
@@ -287,7 +287,7 @@ as the rest of the canvas. Now it rests while nothing moves, and still follows e
 Code: the index is `registerFrame`, `findFrames` and `allFrames` in `apps/desktop/src/renderer/frame.ts`, registered by
 `ModeView.tsx`. When to measure is `packages/editor/src/overlay-measuring.ts` (`overlayDesigns`, `drawsOver`,
 `settleUntil`, `measuresNext`), and what wakes it is the measuring effect in `canvas/CanvasOverlay.tsx`, with its
-`animates`. The calls are in decisions.md, The selection overlay measures when what it shows can change.
+`animates`.
 
 Tests:
 
@@ -318,8 +318,9 @@ work kept the machine busy.
 - **Zooming doesn't wake measuring every frame.** A change to tldraw's store that only moves the camera or the pointer,
   or starts or stops the camera, doesn't wake it, and neither does the wheel. Boards moving or resizing once the camera
   stops still do.
-- **The element inspector's overlay (PAR-167) reads nothing with nothing to mark.** It had read the canvas area's box in
-  every animation frame, laying the page out partway through each frame of a zoom.
+- **The element inspector's overlay (PAR-167) read nothing with nothing to mark.** It had read the canvas area's box in
+  every animation frame, laying the page out partway through each frame of a zoom. It left the app with the Code tab
+  (PAR-1027).
 - **Measured** on 2026-11-05 with `pnpm perf --runs "zoom at 100%,zoom hovering a layer,zoom with a layer selected"` on
   the example project (119 frames), React's production build, in two rounds of before and after one after another. Each
   run zooms with Ctrl and the wheel over a layer of the first design, from 100% to about 300% and back, then to about
@@ -337,10 +338,9 @@ in the profile. Earlier the same day, with other sessions using the machine, the
 second before.
 
 Code: the measuring effect in `apps/desktop/src/renderer/canvas/CanvasOverlay.tsx` (`followCamera` and its
-ResizeObserver), `movesOnlyTheView` in `packages/editor/src/overlay-measuring.ts`, and the inspector's `tick` in
-`canvas/InspectOverlay.tsx`. `pnpm perf`'s `zoom at 100%`, `zoom hovering a layer` and `zoom with a layer selected` runs
-(`apps/desktop/scripts/perf.ts`) report `outline off`, and `--runs` measures only the runs named. The calls are in
-decisions.md, The selection overlay follows the camera in the frame it moves.
+ResizeObserver), `movesOnlyTheView` in `packages/editor/src/overlay-measuring.ts`. `pnpm perf`'s `zoom at 100%`,
+`zoom hovering a layer` and `zoom with a layer selected` runs (`apps/desktop/scripts/perf.ts`) report `outline off`, and
+`--runs` measures only the runs named.
 
 Tests:
 
@@ -384,11 +384,10 @@ Code: `apps/desktop/src/renderer/canvas/frame-geometry.ts`: `frameGeometry` read
 `node` and `element`), and a node's `box`, `hasElement`, `scale`, `border`, `padding`, `paddingBox`, `contentBox`,
 `parentContentBox`, `offsetBox` and `insets`; `toFrame`, `toScreen` and `frameSize` go between screen pixels and the
 frame's, and `areaSpace` takes screen pixels to the overlay's. `measureFrame` in `canvas/frame-skeletons.ts` takes a
-skeleton's boxes to the frame's pixels with `toFrame`, and `canvas/InspectOverlay.tsx` and `canvas/TabOrderOverlay.tsx`
-place their marks with `areaSpace`; the inspector reads the area's box only once it has a mark to place (PAR-653).
-`canvas/layer-measure.ts` turns that into what `@parity-app/editor`'s rules take: `insetSteps`, `resizeBoxes`,
-`snapScene` and `spacingMeasure`. The host's `data-scale` attribute and `frameScale` in `hit.ts` are gone. The calls are
-in decisions.md, One reading of a frame for every gesture.
+skeleton's boxes to the frame's pixels with `toFrame`, and `canvas/TabOrderOverlay.tsx` places its marks with
+`areaSpace`. `canvas/layer-measure.ts` turns that into what `@parity-app/editor`'s rules take: `insetSteps`,
+`resizeBoxes`, `snapScene` and `spacingMeasure`. The host's `data-scale` attribute and `frameScale` in `hit.ts` are
+gone.
 
 Tests:
 
@@ -681,7 +680,7 @@ Code: which rows show, search, and what opens and closes as the selection moves 
 `siblingIds` and `toggleRows` for Alt+click and `*`). Reordering a design is `reorderDesign` in
 `packages/editor/src/design-changes.ts`, applied by `DesignStore.reorderContainer`. The panel is
 `apps/desktop/src/renderer/chrome/LayerTree.tsx`, and the board's outline for a hovered row is in
-`canvas/CanvasEditor.tsx`. The calls are in decisions.md, The Layers panel draws only the rows in view.
+`canvas/CanvasEditor.tsx`.
 
 Tests:
 
@@ -725,7 +724,7 @@ and a layer selected inside one, by Ctrl-click on the canvas, had no row to high
 Code: `layersInside`, used by `treeRows`, `searchRows` and `branchIds`, and `revealIds`, in
 `packages/editor/src/layers-tree.ts`. Each row has the layer's `path` (`card/title`, as the selection names it) and the
 components it's inside (`within`). The rows are in `apps/desktop/src/renderer/chrome/LayerTree.tsx`, and the menu's
-Rename in `chrome/layers-menu.ts`. The calls are in decisions.md, Main components and instances.
+Rename in `chrome/layers-menu.ts`.
 
 Tests:
 
@@ -876,21 +875,14 @@ FailingToDraw in `chrome/ComponentsPanel.stories.tsx`. Gaps: launching the edito
 
 ## Reading the code
 
-### Where each element is written: the Code tab (PAR-167)
+### Where each element is written (PAR-167)
 
-The inspector's Code tab, after Modes and before Accessibility, shows where the selected component layer is written.
-**Component** names its export and file, with a button that opens it in the person's editor at the export, as View code
-does. **Elements** lists the elements the layer draws that the project's own files wrote, nested as the code nests them,
-each with its tag and its file's name and line, `button.tsx:44`. Pointing at one outlines it on the canvas, with a chip
-naming its tag, file and line, and clicking one picks it. **Source** shows the picked element's lines, 5 before and 12
-after with its own highlighted, from the file as it is on disk, coloured by Shiki through the kit's code block. Its
-header copies `path:line:column` and opens the file in the editor at the line. The first element is shown until another
-is picked.
+Right-clicking an element a project file wrote ends the canvas menu with **Open in editor**, which shows its `file:line`
+and opens it in the person's editor at that line. Agents get the same places.
 
-**Inspect**, in the tab's header and its empty states, picks an element on the canvas, as a browser's developer tools
-do. The pointer becomes a crosshair, the element under it is outlined with its chip, and clicking selects the layer it's
-in and picks the element. Escape, or a pick, stops it. It works with nothing selected. Right-clicking an element a
-project file wrote ends the canvas menu with **Open in editor**, which shows its `file:line` and opens it there.
+The inspector's Code tab, which listed a component layer's elements with their lines and picked one on the canvas with
+Inspect, was set aside with the rest of the code side (PAR-1027). It's kept as the `Parity/Explorations/Code panel`
+stories, beside the window, reading the example's files from Storybook's copy.
 
 - **Where the lines come from:** the project's development server. builder-vite's guest plugin gives each lowercase JSX
   element in the project's own `.tsx` and `.jsx` files, as `<button>` or `<div>`, a `data-parity-source` attribute: its
@@ -898,14 +890,9 @@ project file wrote ends the canvas menu with **Open in editor**, which shows its
   file, with a source map, so stacks keep their columns. A component's own element, as `<Button>`, gets none: it passes
   props on, so the element it draws would take its caller's line over its own. Installed packages, virtual modules and
   production builds carry nothing.
-- **What has no line:** a library's component says it's written in its package, and lists no elements. Parity's own
-  layers (text, images and layouts) say they're drawn from the design file. With several layers selected, the tab asks
-  for one.
-- **Picking by box:** frames don't take the pointer outside Interact, so the element under the pointer is found from
+- **Finding it by box:** frames don't take the pointer outside Interact, so the element under the pointer is found from
   boxes: the innermost element a project file wrote, looking through elements with no box, as `display: contents` ones.
   A library's element inside a project's element counts as the project's.
-- **Reading the file:** the service's `code.read` reads a project file by its path from the root. It refuses a path
-  outside the project's folder and a file over 1 MB.
 - **For agents:** `parity components` and MCP's `get_components` give `files`, the file each of the project's own
   components is written in, and the text lists them by file. `Measure` gives each node's `source`, where the project's
   code writes the element the node draws outermost, as `src/components/ui/button.tsx:44:5`. Parity's own layers have
@@ -913,14 +900,12 @@ project file wrote ends the canvas menu with **Open in editor**, which shows its
 
 Code: `tagElementSources` and `hasElementSources` in `packages/code/src/element-sources.ts`; `elementSourceAttribute`,
 `formatElementSource` and `parseElementSource` in `packages/core/src/element-source.ts`; `taggedModule`, the guest
-plugin's transform, in `packages/builder-vite/src/index.ts`. In the app: `CodePanel` in `renderer/chrome/CodePanel.tsx`;
-`sourcedElements`, `sourcedElementAt` and `frameAt` in `renderer/canvas/element-sources.ts`; the picking store in
-`canvas/inspect.ts` and its outlines in `canvas/InspectOverlay.tsx`; the menu's `open-source` entry in
-`chrome/canvas-menu.ts`, drawn by `chrome/CanvasMenu.tsx`; `openSource` in `chrome/code-editor.ts`, with `line` in
-`main/code-editor.ts`'s `openInEditor` and its check in `shared/ipc-checks.ts`; `readProjectFile` in `utility/code.ts`.
-For agents: `componentsReport` in `packages/agent/src/dispatch.ts`, `describeComponents` in
-`packages/cli/src/client.ts`, and each measured node's `source` in `renderer/render.ts`, passed on by the check in
-`main/render-results.ts`.
+plugin's transform, in `packages/builder-vite/src/index.ts`. In the app: `sourcedElementAt` and `frameAt` in
+`renderer/canvas/element-sources.ts`; the menu's `open-source` entry in `chrome/canvas-menu.ts`, drawn by
+`chrome/CanvasMenu.tsx`; `openSource` in `chrome/code-editor.ts`, with `line` in `main/code-editor.ts`'s `openInEditor`
+and its check in `shared/ipc-checks.ts`. For agents: `componentsReport` in `packages/agent/src/dispatch.ts`,
+`describeComponents` in `packages/cli/src/client.ts`, and each measured node's `source` in `renderer/render.ts`, passed
+on by the check in `main/render-results.ts`. The exploration is in `renderer/explorations/code-panel/`.
 
 Tests: `packages/code/src/element-sources.test.ts` (6: each element written for the page gets its file, line and column;
 a component's own elements, fragments and closing tags are left alone; nothing for a file with nothing to tag or one
@@ -928,19 +913,16 @@ tagged already; plain JSX in a `.jsx` file; each line of the tagged code maps ba
 for, whatever the query). `packages/core/src/element-source.test.ts` (3: writing and reading a place, a path with colons
 in it, and anything else reads as none). `packages/builder-vite/src/index.test.ts` (4: the project's own JSX tagged and
 named from the root; a workspace package's file outside the root named from the root; installed packages, virtual
-modules and files without JSX left alone; development server only). `apps/desktop/src/utility/code.test.ts` (3: a file
-read by its path, one outside the project or the folder itself refused, one too big refused).
-`apps/desktop/src/shared/ipc-checks.test.ts` (a line from an element's source is taken; one that isn't a positive whole
-number is refused). `chrome/canvas-menu.test.ts` (Open in editor ends the menu over an element a project file wrote),
-and in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at `member-row.tsx`).
+modules and files without JSX left alone; development server only). `apps/desktop/src/shared/ipc-checks.test.ts` (a line
+from an element's source is taken; one that isn't a positive whole number is refused). `chrome/canvas-menu.test.ts`
+(Open in editor ends the menu over an element a project file wrote), the OpenInEditor story in
+`chrome/CanvasMenu.stories.tsx`, drawn from Storybook's copy of the example project, which the same transform tags, and
+in the running app `e2e/menus.e2e.ts` (the Members row's menu ends with Open in editor at `member-row.tsx`).
 `packages/agent/src/dispatch.test.ts` (the file each project component is written in), `packages/agent/src/run.test.ts`
 (`Measure` gives each node's source, and none for Parity's own layers), `packages/cli/src/client.test.ts` (the project's
-own components listed by file) and `apps/desktop/src/main/render-results.test.ts` (a node's source passed on).
-`chrome/CodePanel.stories.tsx`: ComponentLayer, ElementPicked, Inspecting, PickedOnCanvas, LibraryComponent,
-ParityLayer, NothingSelected and OpenFromCanvasMenu, drawn from Storybook's copy of the example project, which the same
-transform tags. Gaps: reading the attribute in the offscreen page (`renderer/render.ts`) has no test of its own; the
-Measure and render-result tests pass a source through, and the canvas's reading of the same attribute is covered by the
-stories.
+own components listed by file) and `apps/desktop/src/main/render-results.test.ts` (a node's source passed on). Gaps:
+reading the attribute in the offscreen page (`renderer/render.ts`) has no test of its own; the Measure and render-result
+tests pass a source through.
 
 ### The designs' console (PAR-147)
 
@@ -1062,8 +1044,8 @@ Dragging layers and designs, where they land, resize handles and duplicates.
 
 ### Where a dragged layer lands (CAN-47)
 
-Dragging a selected layer shows a faded copy where it would land, and the layouts around it reflow around the copy, as
-decisions.md describes. Where it lands follows the pointer:
+Dragging a selected layer shows a faded copy where it would land, and the layouts around it reflow around the copy.
+Where it lands follows the pointer:
 
 - **The slot under the pointer.** In a grid or a wrapping row, the line of children the pointer is on comes first (the
   row it's over, or the nearer one in the gap between rows), then, along that line, the layer goes before the first
@@ -1299,7 +1281,7 @@ button as it was.
 
 A selected layout's padding and gaps are handles, as in Figma: a short bar in the middle of each side's padding and of
 each gap between its children, which hatches the space it changes while it's in use. Resize handles also take several
-layers at once, resize from the middle with Alt, and hug or fill on a double-click. Decisions.md has the calls.
+layers at once, resize from the middle with Alt, and hug or fill on a double-click.
 
 - **Where the bars are.** Each side has one, even at padding 0, so padding can be dragged out of nothing. A side's press
   target runs from 4px inside the layout's edge, clear of the resize strip there, to the padding's inside, at least 8px
@@ -1543,10 +1525,10 @@ too.
 
 ### Snapping a dragged design (PAR-33)
 
-A design dragged on the canvas locks to the designs and notes around it, as decisions.md describes: along each axis, the
-nearest of its left, centre and right (or top, middle and bottom) to any of theirs, within 8 screen pixels at the
-current zoom. Of lines just as near, the first design's wins. A line shows where it locks, spanning both. Ctrl (Cmd on a
-Mac) moves freely, and so does turning snapping off under View; designs dragged together don't snap to each other.
+A design dragged on the canvas locks to the designs and notes around it: along each axis, the nearest of its left,
+centre and right (or top, middle and bottom) to any of theirs, within 8 screen pixels at the current zoom. Of lines just
+as near, the first design's wins. A line shows where it locks, spanning both. Ctrl (Cmd on a Mac) moves freely, and so
+does turning snapping off under View; designs dragged together don't snap to each other.
 
 Code: `snapBox` in `packages/editor/src/snap.ts` takes the boxes and the zoom and returns where the design goes and the
 guides to draw, and `snaps` says whether a drag snaps, from the preference and Ctrl, for designs and layers alike;
@@ -1827,17 +1809,19 @@ core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences
 a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
 variant option that changes the part, whether the board shows it or not (PAR-493), but not one that changes what's
 outside it; each option of two variant params checked in turn, refused for one the board doesn't show; and refused when
-a layer in the part shows a param's default. Under "repeated parts whose props are written in another order" (2,
-PAR-998), `findRepeats` and `extractComponent` pair a component's props by name, not by the order each part writes them
-in. `packages/core/src/library-insert.test.ts`, with three for names that fit (PAR-518): none for a component that sets
-its own size, unless given; none for a part whose sample gives no children; and a part without a sample taking the
-children its library's other samples give it (none for an icon's box or one used without any, their text), else its
-name. `packages/code/src/props.test.ts` has two for `fixedSize`: the example's Avatar, AvatarGroupCount, CardHeader and
-Separator but not Card, Badge or Button, and a library's compiled parts, leaving out classes for what's inside or taken
-from a parent. The extraction and its check are core's `extractComponent`, in `packages/core/src/decompose.test.ts`:
-occurrences become instances that render the same, a state changing the part refused, a single part's texts as params,
-and the check against the board, refused under a variant option that changes the part but not one that changes what's
-outside it or isn't shown, and refused when a layer in the part shows a param's default.
+a layer in the part shows a param's default. Which layers inside a part show is part of its structure: rows where one
+layer shows in some and not in others aren't found as repeats, and extracting them is refused (PAR-1025). Under
+"repeated parts whose props are written in another order" (2, PAR-998), `findRepeats` and `extractComponent` pair a
+component's props by name, not by the order each part writes them in. `packages/core/src/library-insert.test.ts`, with
+three for names that fit (PAR-518): none for a component that sets its own size, unless given; none for a part whose
+sample gives no children; and a part without a sample taking the children its library's other samples give it (none for
+an icon's box or one used without any, their text), else its name. `packages/code/src/props.test.ts` has two for
+`fixedSize`: the example's Avatar, AvatarGroupCount, CardHeader and Separator but not Card, Badge or Button, and a
+library's compiled parts, leaving out classes for what's inside or taken from a parent. The extraction and its check are
+core's `extractComponent`, in `packages/core/src/decompose.test.ts`: occurrences become instances that render the same,
+a state changing the part refused, a single part's texts as params, and the check against the board, refused under a
+variant option that changes the part but not one that changes what's outside it or isn't shown, and refused when a layer
+in the part shows a param's default.
 
 End to end, `apps/desktop/e2e/dropping.e2e.ts` drags Badge from the Components panel onto the left of the fifth card in
 Projects' grid: the grid is outlined and the line stands beside that card while dragging, Badge lands fifth, selected,
@@ -2481,13 +2465,17 @@ nothing.
   with it.
 - **It needs layers selected,** and replaces only with layers: copied designs or text notes get a message. Layers inside
   an instance can't be replaced, and a message says so.
+- **An image takes a while to save,** so both read the selection again once it's saved (PAR-981). Paste over goes over
+  the layers selected by then. Paste to replace removes layers, so it replaces only the layers selected when it was
+  asked for: with others selected by then, it replaces nothing and says so. Either pastes nothing, with a message, when
+  no layers are selected by then. The saved image stays in `public/images/`.
 - **The key is free.** Ctrl+R renames, and nothing else in Parity takes Ctrl+Shift+R: the keymap's test fails if two
   commands share keys, and the main process's menu adds no keys of its own (its Developer items, including Reload, are
   built with `registerAccelerator: false`, and Electron's default menu, whose Force Reload took it, is replaced).
 
-Code: `packages/editor/src/paste-over.ts` (`placeOver`, `designsAt` and `replaceLayers`) and, in
+Code: `packages/editor/src/paste-over.ts` (`placeOver`, `designsAt`, `replaceLayers` and `selectionToPasteOn`) and, in
 `apps/desktop/src/renderer/canvas/clipboard.ts`, `pasteOverSelection` and `pasteToReplace`, with reading the clipboard
-(`readClipboard`) and saving an image (`importImage`) shared with Paste.
+(`readClipboard`) and saving an image (`importMedia`) shared with Paste.
 
 Tests: `packages/editor/src/paste-over.test.ts`. Paste over selection: after the selected layer with nothing removed,
 once after the last of several, beside a selected component, on top of an absolutely placed layer at its insets, at the
@@ -2495,7 +2483,13 @@ insets a viewport's patch gives and not elsewhere, a binding kept only for a par
 slot, leaving the root and instances' layers alone, designs at the selection's corner as they sat, and new ids for
 designs whose ids are taken. Paste to replace: in place of one layer, fresh ids and states' changes dropped, each of
 several layers, in a component's slot, at an absolutely placed layer's insets, and leaving the root and instances'
-layers alone. `apps/desktop/src/renderer/chrome/keymap.test.ts` checks both keys, and that Ctrl+R still renames.
+layers alone. The selection once the image is saved (`selectionToPasteOn`): Paste over goes over what's selected by
+then, Paste to replace goes ahead while the same layers are selected however they were picked, and stops when others or
+the same in another state are, and neither goes ahead with no layers selected.
+`apps/desktop/src/renderer/canvas/clipboard.test.ts`, changing the selection while the image saves: Paste over lands
+over the layer selected by then, and pastes nothing with no layers selected; Paste to replace replaces the layer still
+selected, and replaces nothing, with a message and no undo step, when another was selected meanwhile.
+`apps/desktop/src/renderer/chrome/keymap.test.ts` checks both keys, and that Ctrl+R still renames.
 
 End to end (PAR-202), with a stand-in for the clipboard on the page, `apps/desktop/e2e/keyboard.e2e.ts` (6):
 Ctrl+Shift+V after a link in Pricing's footer, removing nothing, and one undo; Ctrl+Shift+R in the link's place, without
@@ -2778,8 +2772,8 @@ Tests:
 ### The video layer (PAR-841)
 
 A video is a layer of its own, beside the image layer: `video` in the design file, with `src`, `alt`, `fit`, `controls`
-and `credit` (decisions.md). It's written to the frame as a `<video>`, with its path resolved against the project's
-builder, as an image's is.
+and `credit`. It's written to the frame as a `<video>`, with its path resolved against the project's builder, as an
+image's is.
 
 - **How it plays:** by itself, without sound, round and round, in its place rather than full screen on a phone
   (`autoplay muted loop playsinline`), as a video behind a page's heading does. A browser plays a video by itself only
@@ -2819,8 +2813,8 @@ test drops or plays a video yet.
 
 ### Importing and finding video files (PAR-841)
 
-MP4 and WebM files import as images do, into `public/videos/` beside `public/images/` (decisions.md), named after the
-file with a short hash of its content, so the same file twice reuses one.
+MP4 and WebM files import as images do, into `public/videos/` beside `public/images/`, named after the file with a short
+hash of its content, so the same file twice reuses one.
 
 - **Dropping** them on the canvas, from Explorer or Finder, lands them as dropped images land (above), up to 100 MB
   each; images stay at 20 MB. The label while dragging counts them as videos ("Add the video here", "New frame with 3
@@ -2870,10 +2864,10 @@ saved: a tile shows the video's own first picture.
 ### Screens from real apps beside a design (PAR-840)
 
 A reference is a screen from a real app, placed on the canvas beside a design to look at, never in it. It's kept in the
-project's `.par` file, in its `references` list beside its notes (decisions.md), with what the search gave: the
-connector and the source's id, the app, its platform, its link, its picture with its size and when its link stops
-working, where it sits, the description that found it, a note, and the agent that placed it. It isn't a design: it has
-no board, states, modes or layers, it isn't in Layers, and code and exports leave it out.
+project's `.par` file, in its `references` list beside its notes, with what the search gave: the connector and the
+source's id, the app, its platform, its link, its picture with its size and when its link stops working, where it sits,
+the description that found it, a note, and the agent that placed it. It isn't a design: it has no board, states, modes
+or layers, it isn't in Layers, and code and exports leave it out.
 
 - **Find references** is one command: R, the toolbar after the review button, Object in the menu bar, the right-click
   menu around designs and on designs, and Search actions. It opens the library browser on the offered connector that
@@ -2983,9 +2977,9 @@ or design selected. The sizes are remembered for every export, not per layer.
 - **What can't be written:** a layer the shown state doesn't draw, one with no size, or a design that didn't draw is
   left out with a warning toast, and the rest are written. A toast says how many files were written, with Show for the
   first.
-- **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05 (decisions.md); the icon set's dialog
-  is kept as an exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state
-  and mode it shows, at Settings' export scale. Copy as PNG is below.
+- **Not here:** SVG and exporting an icon set in bulk were dropped on 2026-11-05; the icon set's dialog is kept as an
+  exploration, Parity/Explorations/Icon export. File > Export all still writes every design in every state and mode it
+  shows, at Settings' export scale. Copy as PNG is below.
 
 Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
 section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
@@ -3420,9 +3414,9 @@ keeps it: one of a row's several fields, such as Min's Minimum width and Minimum
 as a variant's default in the Components section ("size default"). Controls that name themselves keep their names too: a
 token picker ("Fill, primary"), a slot's button, and the buttons that bind a field to a prop.
 
-Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/chrome/fields.tsx`; `TextInput`, `ChoiceInput`,
-`SwitchInput` and `ValueInput` take a name only where the row's label doesn't say it. A number field (`NumberField`) is
-named by its own `label`.
+Code: `Field` and `useFieldName` in `apps/desktop/src/renderer/chrome/fields.tsx`; `TextInput`, `SwitchInput` and
+`ValueInput`, and `AppSelect` in `chrome/AppSelect.tsx`, take a name only where the row's label doesn't say it. A number
+field (`NumberField`) is named by its own `label`.
 
 Tests:
 
@@ -3450,6 +3444,25 @@ Code: `ChangeMark`, `Changed` and `useChanged` in `apps/desktop/src/renderer/ins
 Tests: none; it's checked in each control's Changed story in `inspector/controls`: Number field, Color field, Token
 length, Angle, Time, Keyword sets (Align Changed, Cursor Changed), Switch, Icon segments, Component instance, and
 Padding's One Side Changed.
+
+### Selects (PAR-1023)
+
+Every select in the app is one component, `AppSelect`, so they all look and behave alike. Its items sit 4px in from the
+popup's edge, as the app's menus do. A panel's select reads at its field's 12px and opens with the chosen item where the
+value was; a dialog's reads at 13px. A select that can be left unset lists that choice first, in gray, such as Visible
+for Overflow; a select in a row whose layers differ reads Mixed. Keyboard use, focus and names are Base UI's.
+
+Selects built by hand kept missing a part of the kit's Select. Without its `SelectGroup`, for one, the items ran edge to
+edge. So `AppSelect` puts the parts together as shadcn does, and lint stops any other file importing them.
+
+Code: `AppSelect` in `apps/desktop/src/renderer/chrome/AppSelect.tsx`, with `variant` `panel` or `dialog` and `none` for
+the unset item; the `no-restricted-imports` entry for `apps/**` in `vite.config.ts`.
+
+Tests:
+
+- `chrome/AppSelect.stories.tsx` InAPanel and InADialog: each opens its select and checks its items sit in a group
+  padded 4px, at 12px and 13px.
+- `chrome/LayerStates.stories.tsx` ChoosingTheState and `chrome/fields.stories.tsx` ChoiceOpen open a panel's select.
 
 ### One right edge in the inspector (PAR-552)
 
@@ -3496,15 +3509,15 @@ The actions at the end of the row are icon buttons named by their hints, without
 An icon and a layer that isn't a component have only the eye.
 
 A text layer's color is green, its own (PAR-792), where other layers are the layer blue: its T in Layers, this heading,
-the Code and Accessibility panels, states, search and the canvas menu, and its outline, chip and text-editing outline on
-the canvas. It's a leaf green, darker and yellower than modes' teal, at the same contrast steps as the other kinds
+the Accessibility panel, states, search and the canvas menu, and its outline, chip and text-editing outline on the
+canvas. It's a leaf green, darker and yellower than modes' teal, at the same contrast steps as the other kinds
 (`--canvas-text`, `--canvas-text-chip` and `--canvas-text-text` in `styles.css`). On the canvas, a text layer inside an
 instance is still drawn in the component color.
 
 An icon layer, a component from one of the project's icon sets, shows Smile, the Icons tab's icon, whatever it draws
-(PAR-793, PAR-794), in the component purple: in Layers, this heading, the Code, Accessibility and States panels, search
-and the canvas menu. Its own glyph could be a kind's icon, such as Type or AppWindow, or look like a button in its row,
-such as X or Plus; its name says which icon it is. A library's other components are instances, with the Diamond. Search
+(PAR-793, PAR-794), in the component purple: in Layers, this heading, the Accessibility and States panels, search and
+the canvas menu. Its own glyph could be a kind's icon, such as Type or AppWindow, or look like a button in its row, such
+as X or Plus; its name says which icon it is. A library's other components are instances, with the Diamond. Search
 actions is drawn outside the project's tab, so it hands `NodeIcon` the project's libraries; everywhere else they come
 from the tab.
 
@@ -3609,13 +3622,12 @@ from the project's gradient tokens, read from their CSS; editing a token's stops
 image's editor lists the project's pictures and takes one uploaded, dropped or pasted, saving it into `public/images/`,
 then its fit and position. An image dropped on the section adds an image fill.
 
-The document keeps the stack in `fills`, always a list of paints, each with its `type` ([decisions.md](decisions.md)).
-One color token is a list of one solid paint: `[{ type: "solid", color: { token: "card" } }]`. The bottom color is drawn
-as `background-color` and the rest as `background-image` layers. Frames draw a fill's images from the project's dev
-server, as an image layer's, and so does a preview while a paint is dragged. The Media tab counts an image a fill paints
-as used, so it isn't offered for removal. Agents set the same list through `Update` and `Insert`, and the lint names any
-color or gradient in it that isn't a token. With several layers selected and fills that differ, the section says so
-and + replaces them all.
+The document keeps the stack in `fills`, always a list of paints, each with its `type`. One color token is a list of one
+solid paint: `[{ type: "solid", color: { token: "card" } }]`. The bottom color is drawn as `background-color` and the
+rest as `background-image` layers. Frames draw a fill's images from the project's dev server, as an image layer's, and
+so does a preview while a paint is dragged. The Media tab counts an image a fill paints as used, so it isn't offered for
+removal. Agents set the same list through `Update` and `Insert`, and the lint names any color or gradient in it that
+isn't a token. With several layers selected and fills that differ, the section says so and + replaces them all.
 
 Gaps: the image editor offers no stock photos yet, since its Unsplash results are stand-ins; the Media tab adds them.
 
@@ -3852,29 +3864,30 @@ kind (`Text`, `0`, off) to change in the row it becomes; Escape, or leaving it e
 is reserved, or is another prop's or slot's stays typed, with why under the row. Slots come after, as "Slot from a
 layout", while a layout can be one.
 
-A layer of the component design can use a prop for its text, if it's text, and for whether it shows:
+A text layer of the component design can use a text prop for its text:
 
-- **Unbound,** the field has a button beside it, Use a prop for this text (or whether it shows), offering the
-  component's props of the right kind, text props or toggles, and New prop from this text, which adds one named after
-  the layer, with what the field shows as its default, so nothing changes until an instance sets it.
+- **Unbound,** the Text field has a button beside it, Use a prop for this text, offering the component's text props, and
+  New prop from this text, which adds one named after the layer, with its text as the default, so nothing changes until
+  an instance sets it.
 - **Bound,** the field is the prop's name in the component color, which goes to the component's Props, with an × inside
-  to stop using it, keeping what it showed as the layer's own value.
+  to stop using it, keeping what it showed as the layer's own text.
 
-A copy's layers, inside an instance, don't offer it: they belong to their component.
+A copy's layers, inside an instance, don't offer it: they belong to their component. Whether a layer shows can't use a
+prop (PAR-1025): hide it in a state or a variant option, or in one copy.
 
-Rules in `@parity-app/core`, `prop-binding.ts`: `addValueProp`, `propNameProblem`, `freePropName`, `bindableProps`,
-`bindField` and `propFromField`. Code: `AddProp` and `NewPropRow` in `chrome/slot-props.tsx`, `chrome/new-prop.ts` (the
-row being typed and a refused name, kept for each tab until it closes), and `chrome/field-prop.tsx` with `LayerSections`
+Rules in `@parity-app/core`, `prop-binding.ts`: `addValueProp`, `propNameProblem`, `freePropName`, `textProps`,
+`bindText` and `propFromText`. Code: `AddProp` and `NewPropRow` in `chrome/slot-props.tsx`, `chrome/new-prop.ts` (the
+row being typed and a refused name, kept for each tab until it closes), and `chrome/text-prop.tsx` with `LayerSections`
 in `chrome/LayerPanel.tsx`.
 
 Tests:
 
 - `packages/core/src/prop-binding.test.ts` (6): adding each kind with its default; names refused as unusable, another
-  prop's or a slot's, and a free one numbered; the props a field can use; using one and going back to its value; a prop
-  of the wrong kind, and text on a layer that isn't text; and a prop made from a field.
+  prop's or a slot's, and a free one numbered; the text props; using one and going back to its text; a prop that isn't
+  text, and a layer that isn't text; and a prop made from a layer's text.
 - `apps/desktop/src/renderer/project-part.test.ts`: the prop being added forgotten when the tab closes.
-- Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop, Visibility
-  Using A Prop, and Making A Prop From Text, which makes `period` from Plan card's period).
+- Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop and Making
+  A Prop From Text, which makes `period` from Plan card's period).
 
 Gaps: a prop can't be renamed or removed from Props yet, and a component's label (a code component's `children`) can't
 use one from its field.
@@ -3883,7 +3896,7 @@ use one from its field.
 
 An agent can give a component design params without extracting it from copies. `CreateDesign` takes `params` in the
 `.par` shape, with nodes in its `root` binding them, and `AddParam`, `UpdateParam` and `DeleteParam` in `execute` change
-them later. `Update(path, { bind })` binds or unbinds a node's text, visibility or a code component's props, in the base
+them later. `Update(path, { bind })` binds or unbinds a text node's text or a code component's props, in the base
 design. Props shows what an agent adds, as it shows what Add makes.
 
 - **Variant options** take an id made from the name unless given, and their changes keyed by node id or name. A default
@@ -4136,8 +4149,7 @@ What goes through Save and Undo, and where an edit lands when the board shows a 
 
 ### One history, saved together (PAR-164)
 
-Every change people or agents make goes into one history per project, and stays unsaved until Save (Ctrl+S), as
-decisions.md's "Saving is explicit" sets out.
+Every change people or agents make goes into one history per project, and stays unsaved until Save (Ctrl+S).
 
 - **What's undoable:** every edit to a design or a text note, the modes, and token values. An agent's call is one step,
   its designs, modes and tokens together, and undoing it leaves edits made while it ran. What a board shows (the state,
@@ -4400,13 +4412,12 @@ states, so it has no Editing control and its edits always change the design (PAR
   they sit in as the board shows them, with the variant shown, and its edits and resets land in the state or variant
   option the Editing control names. A row's reset takes back every key its edit writes: resetting Placement in a state
   drops the insets it set, and resetting Width drops the `grow` it replaced.
-- **A component's board shows its params' defaults,** as an instance that sets none of them does. The Stat card's board
-  shows only the rising trend icon, since `showFalling` is off, where it showed both. Changing a bound text, prop or
-  visibility on the board, in the base state, changes the param's default too, so the board and the instances that don't
+- **A component's board shows its params' defaults,** as an instance that sets none of them does. Changing a bound text
+  or prop on the board, in the base state, changes the param's default too, so the board and the instances that don't
   set the param follow it: renaming the Stat card's Revenue label to Sales on the board makes `label` default to Sales.
   A param without a default follows the layer's own value, as before, and variants are picked in the title bar.
-- **A state's change is kept against the board,** with the params bound: showing the Stat card's Falling icon in Loading
-  keeps `hidden: false` for Loading, which used to be dropped as matching the design.
+- **A state's change is kept against the board:** showing the Stat card's hidden Falling icon in Loading keeps
+  `hidden: false` for Loading, which used to be dropped as matching the design.
 - **Edits that always change the design say so first.** An image's file, alt text and fit, and an instance's Reset all,
   Swap and Detach can't differ by state. While the Editing control points at another state or a variant, a note above
   them, tinted as the Editing control is, says so: "File, alt text and fit change the design in every state, not only
@@ -4440,11 +4451,10 @@ design up for it. In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`tog
 
 Tests:
 
-- `packages/core/src/instances.test.ts` (7): the Stat card's board showing one trend icon as its instances do; a bound
-  text's default on the board, and an edit to it changing the default; a param without a default left to the layer's own
-  value; the board's layer in a state, inside an instance and with a variant shown; and hiding through a bound param, in
-  a state the param hides, and through the state's and the variant's changes. The five about the board and Hide fail
-  against the code before PAR-164.
+- `packages/core/src/instances.test.ts` (6): a bound text's default on the board, and an edit to it changing the
+  default; a param without a default left to the layer's own value; the board's layer in a state, inside an instance and
+  with a variant shown; and showing and hiding on the board, in a state the design hides it, and through the state's and
+  the variant's changes.
 - `packages/core/src/instances.test.ts`, "names where Show and Hide land" (PAR-497): the variant option shown in the
   base state, another state over the variant, and the base state with the default option shown.
 - `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Plan card's Compact option hides Feature 4, and its row's
@@ -5045,9 +5055,8 @@ from what the design shows, with fresh ids, to change freely.
   Detach. It can't go to its main component or push overrides to it, as that's in the library; the section names the
   design, and its hint says which library it's linked to. Layers, the canvas's labels and the inspector call it by the
   design's name, as they do the project's own.
-- **A detached copy** is what Detach makes of a linked instance (see "Main components and instances" in
-  [decisions.md](decisions.md)): the root keeps the instance's id, so it's selected the same way, and it's one undo
-  step, "Add copy". A library design nested inside stays a linked instance.
+- **A detached copy** is what Detach makes of a linked instance: the root keeps the instance's id, so it's selected the
+  same way, and it's one undo step, "Add copy". A library design nested inside stays a linked instance.
 
 Code: `insertIntoDesign` in `packages/editor/src/insert.ts` (an `instance` item with `detached`), applied by
 `insertItem` in `apps/desktop/src/renderer/canvas/insert.ts`; the library rows' menu in `AssetsPanel.tsx`;
@@ -5132,11 +5141,11 @@ delays, and that a frame which leaves the canvas or changes stops retrying, have
 by reading `useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in
 `e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design into view before finding a layer in it,
 so the other files' tests work on frames that slept. Gaps: the order frames wake in has no test of its own; it was
-checked by reading `wakeNext`. The memory it gives back and the time waking takes were measured by hand in a debug copy
-(see [decisions.md](decisions.md), Canvas), not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a
-capture failing with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and
-any other failure is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the
-failure came from about one capture in each CI run, and Sentry's count from CI after the change is the check.
+checked by reading `wakeNext`. The memory it gives back and the time waking takes were measured by hand in a debug copy,
+not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing with `UnknownVizError` is taken
+again after a repaint until it works, gives up after three tries, and any other failure is thrown at once). That a
+repaint is what lets the next try work wasn't reproduced on demand; the failure came from about one capture in each CI
+run, and Sentry's count from CI after the change is the check.
 
 ### Frame skeletons (PAR-996)
 
@@ -5230,8 +5239,8 @@ and nothing else, so frames and bitmaps kept what they had drawn until their des
   last had, the offscreen renderer's from what each guest's last job carried, so it gives only what changed since. Edits
   to a component's code or CSS don't need a new bitmap key: the guest's dev server runs without HMR, so neither the
   canvas nor the offscreen window picks them up until the project's guest loads again at a new address, which changes
-  every key (see decisions.md on PAR-422). Since PAR-165 a save gives the components it touches again with a new version
-  instead, which changes the keys of the frames drawing them (see Failing components, below).
+  every key (PAR-422). Since PAR-165 a save gives the components it touches again with a new version instead, which
+  changes the keys of the frames drawing them (see Failing components, below).
 
 Code: `useFrameShows` and `useFrameBitmap` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`; `renderJob` and
 `frameKeys` in `apps/desktop/src/shared/render-job.ts`; `FrameTile` in `canvas/ContainerView.tsx`, which passes `drawn`
@@ -5673,7 +5682,7 @@ shadcn's tooltip reads, set in `styles.css`.
   without its name, as it's inserted (see Inserting, Make component and new designs). On `examples/shadcn-vite`, Avatar,
   AvatarGroupCount, CardHeader and Separator, and nova's MarkerIcon, AttachmentAction, AttachmentMedia, AlertAction and
   Separator, no longer show "Avata", "C" or the like; their new trees give them new keys. ItemSeparator and
-  SidebarSeparator still do, and nova's Card is still a narrow column (see decisions.md).
+  SidebarSeparator still do, and nova's Card is still a narrow column.
 
 Code: `componentPreviewTree` and `drawnOpen` in `packages/editor/src/component-preview.ts`; `openProps` and
 `librarySource` in `packages/core/src/project.ts` and `library-insert.ts`; `renderQueue`, `nextPreview`, `fitInside` and
@@ -5755,9 +5764,8 @@ far zoom: text, edges and the board's own captions blurry, even seconds after th
 somewhere new, the layer goes without the hint for two animation frames (`data-redrawing`), so it's drawn at its scale,
 then composited again from that.
 
-- **Panning is unchanged.** Only a change of zoom redraws, once it has settled, as `--tl-zoom` changes (see "The canvas
-  doesn't restyle its elements while the camera moves" in [decisions.md](decisions.md)). During a zoom the layer is
-  scaled as before.
+- **Panning is unchanged.** Only a change of zoom redraws, once it has settled, as `--tl-zoom` changes. During a zoom
+  the layer is scaled as before.
 - **One redraw at a time.** A zoom settling again while the layer is being drawn again starts the redraw over, and
   closing the canvas ends it.
 
@@ -5881,7 +5889,7 @@ window holds less.
   published, so a stack trace through tldraw reads as before once DevTools maps it.
 - **Measured** on the example project, against an isolated copy of the app: the window's scripts went from 19.3 M
   characters to 14.9 M, lucide-react's from 1.73 M to 0.28 M across 149 files, tldraw's from 3.53 M to 1.68 M, and the
-  heap after a collection from 151 to about 141 MB. [decisions.md](decisions.md) has the calls.
+  heap after a collection from 151 to about 141 MB.
 
 Code: `iconImports` and `iconImportsPlugin` in `apps/desktop/scripts/icon-imports.ts`, and `optimizeDeps` in
 `apps/desktop/vite.config.ts`.
@@ -5920,7 +5928,7 @@ Started again after a full run's measuring, both builds took about 4.7 s.
   production build leaves out, so `react/jsx-dev-runtime` is aliased to `scripts/jsx-dev-runtime.ts`, React's `jsx`.
 - **Fast Refresh is off,** since it reaches React only through the development build: a change to a component reloads
   the page, as a change to any other module already did.
-- **The dev script prints which build it runs.** [decisions.md](decisions.md) has why development is the default.
+- **The dev script prints which build it runs.** Development is the default.
 - **tldraw still draws,** since the window is on localhost, where tldraw needs no licence key.
 - **Switching builds rebuilds the prebundle:** Vite keys it by the optimizer's options and the aliases, so the other
   build's is never served.
@@ -5949,7 +5957,7 @@ was. Development can request an initial project through its runner. `workspace.t
 
 Home is pinned first in the tab strip, an icon that can't be closed, and shows whenever no tab is chosen. Alt+Home or
 View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
-at the end of the strip. Both are the start page from the explorations (decisions.md, "The start page is built"):
+at the end of the strip. Both are the start page from the explorations:
 
 - **Home** has the account menu (see Signing in), then Search, Open and New project along the top. Below them, the
   Continue where you left off section offers the project opened last, which its picture, Resume or Enter opens, with For
@@ -6035,14 +6043,13 @@ it was with Remove.
 
 Opening a folder or project that has no `.par` file yet opens on a screen named Home, for the app's `/` route. It draws
 the component that renders the app there, live, in the project's primary mode with a phone's mode beside it: Desktop
-Light and Mobile Light with the default modes. There's no empty canvas to start from (decisions.md, "The empty-canvas
-start is dropped").
+Light and Mobile Light with the default modes. There's no empty canvas to start from.
 
-- **What renders `/`:** the page for it, by its router's file names (decisions.md, "Pages get their own section in the
-  Components panel"): Next's `app/page`, also inside a route group such as `app/(marketing)/page`, or an `index` in a
-  `pages` or `routes` folder, a route file's default export over its other parts. Without one, it's the `App` component
-  that Vite's and Create React App's templates mount, by its export name or as `App.tsx`'s default export. When there
-  are several, the one in the fewest folders wins. A library's component is never it.
+- **What renders `/`:** the page for it, by its router's file names: Next's `app/page`, also inside a route group such
+  as `app/(marketing)/page`, or an `index` in a `pages` or `routes` folder, a route file's default export over its other
+  parts. Without one, it's the `App` component that Vite's and Create React App's templates mount, by its export name or
+  as `App.tsx`'s default export. When there are several, the one in the fewest folders wins. A library's component is
+  never it.
 - **Without either,** the screen is a padded page headed Home, as New screen starts one.
 - **The page fills the screen:** the component sits in the screen's root layout, unpadded, on the theme's background.
 - **The mode beside the primary one** is the first mode on a phone, preferring one whose theme and other options match
@@ -6199,8 +6206,7 @@ painted: 8 layouts.
 | Second round                                          | 0.86 to 1.68 s | 0.81 to 0.95 s |
 
 Four reopens each, before and after taking turns, each in a fresh `pnpm perf --open-only --keep` copy on React's
-production build, with other sessions using the machine. What's left of the task, and the issues for it, is in
-decisions.md, Boards measure together as the canvas opens.
+production build, with other sessions using the machine.
 
 Code: `measureTogether` in `apps/desktop/src/renderer/canvas/measure-together.ts`, and the board's measure in
 `canvas/ContainerUtil.tsx`.
@@ -6366,18 +6372,25 @@ to load after its tab closed. Each open is tracked on its own, so an earlier ope
 a newer tab for the same project. While another tab's open hasn't heard which project it is, as one opening the default
 project or a `.par` file hasn't, the close waits for it, since it may be the same project.
 
-Code: `closeNow`, `open` and `reload` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts` and
-`settleDrops`.
+When the project service starts again, after a crash or a change to its code, each tab opens its project in the new
+service and loads its guest from there (`reconnect`). A tab closed meanwhile closes what the new service opened for it
+and lets go of the guest it loaded, so no builder runs on for it (PAR-978). One closed and opened again keeps the one
+project and draws the guest its new open loaded. When the service starts again during a reconnect, the tab draws from
+the latest one.
+
+Code: `closeNow`, `open`, `reload` and `reconnect` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts`
+and `settleDrops`.
 
 A reopen asked for while the tab is already opening or reopening is left to the one in flight, so closing the tab
 cancels it.
 
-Tests: `apps/desktop/src/renderer/workspace.test.ts` (13: closed before the service answers, closed while the guest
+Tests: `apps/desktop/src/renderer/workspace.test.ts` (18: closed before the service answers, closed while the guest
 loads, opened again before the first open finished, the reopened tab closed too before either open finished, the default
 project opened again in a tab that doesn't know it yet, and closed once that tab turns out to be another project, the
 guest failing after its tab closed, closed while a reopen closes the project, while it opens it again and while it loads
-the guest, a reopen's guest failing after its tab closed, a second reopen asked for during one, and a project that
-finished opening, closed with its tab).
+the guest, a reopen's guest failing after its tab closed, a second reopen asked for during one, closed while a reconnect
+opens the project and while it loads the guest, a reconnect's guest failing after its tab closed, closed and opened
+again during a reconnect, a second reconnect during one, and a project that finished opening, closed with its tab).
 
 Not tested: a tab changed or closed while a reopen saves its unsaved changes, and a reopen's `project.open` failing
 after its tab closed. Both were checked by reading `reload`: after saving it reads the tab again and stops only when
@@ -6385,13 +6398,13 @@ it's gone or already reopening, and a failed `project.open` leaves no project to
 
 ### The project service starts under Parity's copy of Electron (PAR-489)
 
-`pnpm dev` runs Electron as `Parity.exe` on Windows (decisions.md, "The app is named Parity"), and that copy starts the
-project service and opens a project just as Electron under its own name does. Electron counts any program not named
-`electron` as packaged, so the copy once looked for the service in `resources\app.asar.unpacked\utility.mjs` beside
-`Parity.exe`, which isn't there: the utility process exited with code 1 before any of the service's code ran, again for
-every window load, and printed nothing, even with `ELECTRON_ENABLE_LOGGING=1`. The dev runner sets `PARITY_DEV_RUNNER`,
-and the main process counts the app as packaged only without it, so the service starts from `out\utility.mjs` beside the
-bundles and update checks stay off. If the service's script is ever missing again, the main process says so: it logs
+`pnpm dev` runs Electron as `Parity.exe` on Windows, and that copy starts the project service and opens a project just
+as Electron under its own name does. Electron counts any program not named `electron` as packaged, so the copy once
+looked for the service in `resources\app.asar.unpacked\utility.mjs` beside `Parity.exe`, which isn't there: the utility
+process exited with code 1 before any of the service's code ran, again for every window load, and printed nothing, even
+with `ELECTRON_ENABLE_LOGGING=1`. The dev runner sets `PARITY_DEV_RUNNER`, and the main process counts the app as
+packaged only without it, so the service starts from `out\utility.mjs` beside the bundles and update checks stay off. If
+the service's script is ever missing again, the main process says so: it logs
 `Project service exited with code 1, since <path> doesn't exist`, naming the path it was given.
 
 Smoke check, on Windows, from a fresh worktree:
@@ -6426,8 +6439,7 @@ How the app's window holds the canvas and the panels around it.
 
 ### One word for each thing (PAR-538)
 
-The editor's labels, menus, hints, toasts and undo labels use the glossary in [decisions.md](decisions.md), "Starting
-from scratch, and what things are called (PAR-537)":
+The editor's labels, menus, hints, toasts and undo labels use one glossary (PAR-537):
 
 - **A thing on the canvas is a screen or a component,** never a design. A label that knows which says so ("Rename
   screen", "Delete 2 components", "Move 3 screens and components"); one that can't says both ("Select a screen or
@@ -7001,10 +7013,10 @@ Parity's 16px. Without a root font size of its own, a frame counts a browser's 1
   size is split, so the body's own `62.5%` stays relative to the root.
 - **Tokens show the values the project wrote,** `0.25rem` rather than the `calc()` frames draw it with. A token's
   previewed value and the theme values the compiled CSS left out are rewritten for frames like the rest.
-- **Not covered** (see [decisions.md](decisions.md), "`rem` measures the project's root font"): a root font size inside
-  a width media query, which applies in no frame, since the root is the container those queries ask; `larger`, `smaller`
-  and the `font` shorthand on the root; a root font size from a variable holding a percentage or `rem`; and a root font
-  set by CSS-in-JS. Fields and spacing steps in the inspector still count 16px to the rem.
+- **Not covered:** a root font size inside a width media query, which applies in no frame, since the root is the
+  container those queries ask; `larger`, `smaller` and the `font` shorthand on the root; a root font size from a
+  variable holding a percentage or `rem`; and a root font set by CSS-in-JS. Fields and spacing steps in the inspector
+  still count 16px to the rem.
 
 Code: `rewriteFrameUnits`, `rewriteSheetFrameUnits`, `rewriteRootFontSize` and `serialize` in
 `packages/core/src/css.ts`, with `remProperty` and `rootFontSizeProperty`; `frameRootSheet` and `registerRootFontSize`
@@ -7043,8 +7055,7 @@ to get Parity's values, since shadcn's names are Parity's too. Now it gets its f
 - **The canvas's own `--frame-height` stays,** set around the host for the canvas's rules on the host itself: it holds a
   sleeping frame at the height it was drawn at, so its board doesn't shrink to its caption zoomed far out.
 - **Registered properties stay the document's.** A name Parity registers with `@property` keeps its initial value in
-  frames, since shadow roots ignore `@property` (see [decisions.md](decisions.md), "Parity's own custom properties stay
-  out of frames").
+  frames, since shadow roots ignore `@property`.
 
 Code: `resetCustomProperties` in `packages/core/src/css.ts`; `keepOutInherited` and `frameRootCss` in
 `apps/desktop/src/renderer/frame.ts`, called by `prepareFrame`.
@@ -7094,8 +7105,7 @@ one's more). Gap: the thumb's color was checked by hand, in Chrome and in the ap
 
 Frames draw with the production builds of the project's dependencies, React's among them, so the window doesn't keep a
 stack for every element React makes: on the example project its JS heap is 33 MB smaller, 117 MB rather than 150 MB. The
-project's own modules are still served as in development, and its own dev server isn't touched. What's lost, and the
-numbers, are in [decisions.md](decisions.md) under "Frames run the production builds".
+project's own modules are still served as in development, and its own dev server isn't touched.
 
 - **Dependencies are prebundled as production:** the builder sets `process.env.NODE_ENV` to `production` in the
   dependency optimizer's own `define`, Rolldown's from Vite 8 and esbuild's before. The project's modules keep its mode.
@@ -7195,9 +7205,7 @@ the frame, is described under Popups draw inside their frame.
   scrolls sideways aren't clipped, past the frame or spilling out of the row. `hidden` and `clip` still cut off, and the
   row itself is checked like any node.
 
-The CLI puts the layer's name before its id. See [decisions.md](decisions.md), "Problems reports where a node
-overflows", "Problems reports a squeezed node and content spilling out of its parent" and "What a container scrolls to
-isn't a problem".
+The CLI puts the layer's name before its id.
 
 Code: `layoutFindings`, `describeLayoutFinding` and `describeSqueeze` in `packages/agent/src/overflow.ts`, used by
 `frameProblems` in `packages/agent/src/frames.ts`; `clipper`, `nodeParent` and `addSqueezes` in
@@ -7239,8 +7247,8 @@ worked out its own height from the width alone, the 800 of the device nearest 12
 
 - **Two heights, kept apart.** A frame's own height is fixed or not: a fixed one clips the frame, and without one the
   frame grows with its content. Its window always has a height: the frame's fixed height, else the viewport's screen,
-  else the device nearest its width (see [decisions.md](decisions.md), "A frame stands for a browser window"). Core's
-  `frameGeometry` gives both, `{ width, height?, viewport }`, and every path draws from it.
+  else the device nearest its width. Core's `frameGeometry` gives both, `{ width, height?, viewport }`, and every path
+  draws from it.
 - **The offscreen job carries the window.** `RenderJob.mode` has the frame's `width` and optional `height` beside its
   `viewport`, and the offscreen page mounts the frame in that viewport rather than working one out. An agent's
   `FrameRequest` carries the viewport too, so a frame an agent asks for is drawn at what the canvas shows.
@@ -7528,7 +7536,7 @@ one:
 
 - In a state, it's that state's patch for the path, so the base and the other states stay as they were.
 - In the base state, `Update` changes that copy alone, as the instance's override.
-- A text, prop or visibility the component binds to a param gives the instance around it a value for the param instead.
+- A text or prop the component binds to a param gives the instance around it a value for the param instead.
 - `null` in `changes` takes the state's change to that layer back, with the param values its bound fields took.
 
 Inside an instance only `hidden`, `text`, `props`, `style` and `unset` change. A path through a layer that isn't an

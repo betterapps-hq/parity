@@ -293,7 +293,7 @@ function importNovaStyles(): Promise<void> {
   const session = example()
   const nova = session.info.libraries.find((library) => library.id === "nova") ?? session.info.libraries[0]!
 
-  return importStyles(session, nova)
+  return importStyles(session.id, nova)
 }
 
 /** A button on the notification showing, since the window has an Undo of its own. */

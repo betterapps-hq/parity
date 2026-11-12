@@ -39,7 +39,7 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
   `renderer/canvas/tldraw-names.ts` re-exports them under the canvas's names (`CanvasId`, `CanvasUtil`) with the one
   disable. Names a library's API fixes, such as tldraw's `shapeUtils` prop, keep a one-line disable where they're
   written.
-- **String-literal unions, not enums,** which Node can't strip anyway (see decisions.md, "Developing Parity").
+- **String-literal unions, not enums,** which Node can't strip anyway.
 - **Named exports.** Default exports are for what a tool requires, such as a story file's `meta`.
 - **No barrel files,** apart from a package's own entry, `src/index.ts`.
 - **Components are function declarations,** not arrow functions or `React.FC`.
@@ -59,7 +59,7 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
 - **Test code is held to the same bar** as the code it tests.
 - **Tests sit beside their source** as `*.test.ts`.
 - **Mock the least you can.** Prefer tests that use the real collaborators.
-- **Prose isn't tested.** Issues, decisions and docs are checked by reading them, not by tests or validators.
+- **Prose isn't tested.** Issues and docs are checked by reading them, not by tests or validators.
 
 ## Checking a change in the app
 

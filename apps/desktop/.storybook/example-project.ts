@@ -22,7 +22,7 @@ const projectId = "virtual:parity/example-project"
 const guestId = "virtual:parity/example-guest"
 const rendererId = "virtual:canvas/renderer"
 
-/** The example's source files as text by their path from its root, as the service's `code.read` reads them. */
+/** The example's source files as text by their path from its root, for the Code panel exploration to show. */
 const sourcesId = "virtual:parity/example-sources"
 const require = createRequire(import.meta.url)
 

@@ -3,27 +3,30 @@ import { designGap, detachInstancesOf, freeSpotBeside, instanceCount, kindName, 
 import { toast } from "sonner"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { bringIntoView, takenBounds } from "../canvas/free-space.ts"
-import type { ContainerEntry } from "../design-store.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { ContainerEntry, DesignStore } from "../design-store.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { droppedStatesLine, dropLines, frameDrops } from "./convert-to-frame.ts"
 import { askToConvertToFrame } from "./ConvertToFrameDialog.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
 
-export function renameDesign(session: ProjectSession, entry: ContainerEntry, name: string): void {
+export function renameDesign(store: DesignStore, entry: ContainerEntry, name: string): void {
   const trimmed = name.trim()
 
   if (!trimmed || trimmed === entry.container.name) {
     return
   }
 
-  renameAndRecord(session.store, entry.key, trimmed)
+  renameAndRecord(store, entry.key, trimmed)
 }
 
 /**
  * Copies a design, states and all, into the same file, to the right of the original in the first free space along its
  * row, selects the copy, and brings it into view when it lands off screen.
  */
-export function duplicateDesign(session: ProjectSession, entry: ContainerEntry): string {
+export function duplicateDesign(
+  session: ProjectDesigns & Pick<ProjectSession, "editor">,
+  entry: ContainerEntry
+): string {
   const { store, editor } = session
   const taken = store.getEntries().map((candidate) => candidate.container.id)
   const name = `${entry.container.name} copy`
@@ -69,7 +72,7 @@ const convertedHints: Record<Exclude<ContainerKind, "frame">, string> = {
  * toast whose Undo makes it a frame again. Becoming a frame asks first when the design would drop anything (see
  * `ConvertToFrameDialog`). Each is one undo step.
  */
-export function setDesignKind(session: ProjectSession, entry: ContainerEntry, kind: ContainerKind): void {
+export function setDesignKind(session: ProjectDesigns, entry: ContainerEntry, kind: ContainerKind): void {
   const { store } = session
   const from = entry.container.kind ?? "screen"
 
@@ -124,7 +127,7 @@ export function setDesignKind(session: ProjectSession, entry: ContainerEntry, ki
  * instance of it the project's other designs place becomes plain layers, as Detach instance makes them, since nothing
  * can place a frame.
  */
-function convertToFrame(session: ProjectSession, key: string): void {
+function convertToFrame(session: ProjectDesigns, key: string): void {
   const { store, selection } = session
   const entry = store.getEntry(key)
 
@@ -146,7 +149,7 @@ function convertToFrame(session: ProjectSession, key: string): void {
   selection.set({ design: key })
 }
 
-export function deleteDesign(session: ProjectSession, entry: ContainerEntry): void {
+export function deleteDesign(session: ProjectDesigns, entry: ContainerEntry): void {
   session.store.removeContainer(entry.key)
   session.selection.set({})
 }

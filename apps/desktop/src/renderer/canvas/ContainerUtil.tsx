@@ -388,7 +388,7 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
           })
         )
 
-        moveDesigns(session, positions, `Move ${session.store.designsLabel(positions.keys())}`)
+        moveDesigns(session.store, positions, `Move ${session.store.designsLabel(positions.keys())}`)
       }
     })
   }

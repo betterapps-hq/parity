@@ -122,7 +122,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
           action={
             <HeaderActions
               actions={["open-in-editor"]}
-              onAction={() => void openSource(session, { path: entry.path, line: 1, column: 1 })}
+              onAction={() => void openSource(session.info, { path: entry.path, line: 1, column: 1 })}
             />
           }
         />
