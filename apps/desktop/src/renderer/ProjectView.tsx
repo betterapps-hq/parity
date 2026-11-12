@@ -31,7 +31,7 @@ import { useTabs, workspace } from "./workspace.ts"
 export function ProjectView({ id, active }: { id: string; active: boolean }) {
   const tab = useTabs().find((candidate) => candidate.id === id)
   const session = tab?.session
-  useShortcuts(session, active)
+  useShortcuts(session?.selection, active)
 
   if (!tab) {
     return null

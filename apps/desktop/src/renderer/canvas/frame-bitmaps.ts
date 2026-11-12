@@ -88,7 +88,7 @@ export interface FrameShows extends FrameKeys {
  * draws them too.
  */
 export function useFrameShows(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "added" | "id" | "info" | "loaded" | "tokens">,
   tree: RenderNode[],
   mode: ResolvedMode,
   frame: FrameGeometry,

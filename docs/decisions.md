@@ -8155,6 +8155,12 @@ and split into PAR-1004 to PAR-1007:
 - **Functions take the part of the project they use,** a `DesignStore`, a `ProjectInfo` or a
   `Pick<ProjectSession, "store" | "selection">`, so tests build that part without a cast. Opening, closing and the
   workspace still take the whole session.
+- **Only the designs and the selection have a name, `ProjectDesigns`** (PAR-1006), since most canvas and panel edits
+  read both. A function that reads one part, and reads it straight away, takes that part: a `DesignStore`, a
+  `SelectionStore`, the `Editor`, a `ProjectInfo` or the project's id. One that reads more takes
+  `ProjectDesigns & Pick<ProjectSession, ...>` or a `Pick`, which names what it reads where a type of its own would hide
+  it, and reads a changing part, such as the editor, when it uses it. Component previews keep the whole session, since
+  they follow its changes and end with it.
 - **Keying caches on the project's id, with a "tab closed" event to clear them, was considered and dropped.** Each cache
   would wire its own clearing, effects would still run again on every copy unless each picked the right field, and a
   reopened project, which keeps its root, would pick up the last one's state.

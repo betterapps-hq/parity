@@ -49,7 +49,7 @@ export type PreviewState =
  * kept. Unsaved token previews aren't drawn, so trying a token re-makes nothing.
  */
 export function previewJob(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "added" | "components" | "id" | "info" | "store">,
   component: string,
   appearance: ResolvedTheme = getResolvedTheme(),
   variant?: Variant
@@ -85,7 +85,7 @@ export function previewJob(
  * in a window the mode's width, at `previewScale`. `tree` is given the mode's viewport option.
  */
 export function treePreviewJob(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "added" | "id" | "info" | "store">,
   id: string,
   tree: (viewport: string) => RenderNode[],
   appearance: ResolvedTheme = getResolvedTheme()

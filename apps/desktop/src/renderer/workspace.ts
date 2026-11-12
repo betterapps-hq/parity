@@ -155,6 +155,12 @@ export class ProjectSession {
   }
 }
 
+/**
+ * A project's designs and what's selected in them, which most edits read and change. A function that reads these takes
+ * them, with a `Pick` of any other part it reads, rather than the whole session, so its tests build only that (PAR-1006).
+ */
+export type ProjectDesigns = Pick<ProjectSession, "store" | "selection">
+
 export interface Tab {
   /** The project's root once known; a placeholder while it opens. */
   id: string

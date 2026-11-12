@@ -1,23 +1,17 @@
 import type { DesignNode } from "@parity-app/core"
 import { mediumOfType, nodeForItem } from "@parity-app/editor"
 import { request } from "../service.ts"
-import type { ProjectSession } from "../workspace.ts"
 
 /**
  * Saves an image or a video pasted or dropped into the project, and gives the layer that shows it at its own
  * proportions (PAR-841). `type` is its media type, for a file the system gave none.
  */
-export async function importMedia(
-  session: ProjectSession,
-  blob: Blob,
-  name: string,
-  type = blob.type
-): Promise<DesignNode> {
+export async function importMedia(projectId: string, blob: Blob, name: string, type = blob.type): Promise<DesignNode> {
   const kind = mediumOfType(type) === "video" ? "video" : "image"
   const [size, data] = await Promise.all([kind === "video" ? videoSize(blob) : imageSize(blob, type), base64(blob)])
 
   const { src } = await request("images.import", {
-    projectId: session.id,
+    projectId,
     name,
     type,
     data

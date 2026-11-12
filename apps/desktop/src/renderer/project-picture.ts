@@ -27,7 +27,7 @@ interface ScreenFrames {
  * saved yet are never pictured: a picture that would show them waits for the next save. Stops when the function it
  * gives is called.
  */
-export function keepProjectPicture(session: ProjectSession): () => void {
+export function keepProjectPicture(session: Pick<ProjectSession, "id" | "info" | "store">): () => void {
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let taking = false
@@ -80,7 +80,10 @@ export function keepProjectPicture(session: ProjectSession): () => void {
   }
 }
 
-async function takePicture(session: ProjectSession, stopped: () => boolean): Promise<void> {
+async function takePicture(
+  session: Pick<ProjectSession, "id" | "info" | "store">,
+  stopped: () => boolean
+): Promise<void> {
   const screens = await framesDrawn(session, stopped)
 
   if (stopped() || session.store.hasUnsaved()) {
@@ -108,7 +111,10 @@ async function takePicture(session: ProjectSession, stopped: () => boolean): Pro
  * The screens to picture and what their frames show, once the canvas has drawn them all and has every frame's bitmap
  * it's waiting for, so the picture comes after the canvas's own; or what there is after waiting at most 30 seconds.
  */
-async function framesDrawn(session: ProjectSession, stopped: () => boolean): Promise<ScreenFrames[]> {
+async function framesDrawn(
+  session: Pick<ProjectSession, "id" | "store">,
+  stopped: () => boolean
+): Promise<ScreenFrames[]> {
   const started = performance.now()
 
   for (;;) {

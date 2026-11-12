@@ -87,7 +87,7 @@ export type PointPlace =
  * layout under the pointer is measured once while it stays over it.
  */
 export function placeAtPoint(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "editor" | "store" | "tokens">,
   area: ParentNode,
   point: Point,
   measures?: HereMeasures

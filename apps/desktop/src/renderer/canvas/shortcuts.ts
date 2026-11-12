@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import { actions, commandsFor } from "../chrome/actions.ts"
 import { type Command, keymap, shortcutFor } from "../chrome/keymap.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { SelectionStore } from "../selection.ts"
 
 // SAFETY: `keymap` has a key for each command and no others.
 const commands = Object.keys(keymap) as Command[]
@@ -37,9 +37,9 @@ export function useAppShortcuts(): void {
  * Keyboard shortcuts for the active tab, from the keymap. They're handled before tldraw sees them, because the design
  * store, not tldraw, owns undo, deletion and the selection inside designs; tldraw's own shortcuts are off.
  */
-export function useShortcuts(session: ProjectSession | undefined, active: boolean): void {
+export function useShortcuts(selection: SelectionStore | undefined, active: boolean): void {
   useEffect(() => {
-    if (!active || !session) {
+    if (!active || !selection) {
       return undefined
     }
 
@@ -129,7 +129,7 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
       }
       // Nudging is the keymap's: tldraw would move the selected design with the arrows the keymap doesn't bind.
       else if (event.key.startsWith("Arrow")) {
-        const { design, note, reference } = session.selection.get()
+        const { design, note, reference } = selection.get()
 
         if (design || note || reference) {
           handled()
@@ -170,5 +170,5 @@ export function useShortcuts(session: ProjectSession | undefined, active: boolea
       window.removeEventListener("pointerup", onPointerUp, { capture: true })
       window.removeEventListener("pointercancel", onPointerUp, { capture: true })
     }
-  }, [session, active])
+  }, [selection, active])
 }
