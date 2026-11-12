@@ -1,5 +1,18 @@
 # Decisions
 
+- **Plain CSS is printed and read in `@parity-app/style`, with css-tree's parser, not Lightning CSS (PAR-944).** Step 6
+  of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for each
+  place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
+  `@media (width >= 48rem)` around it, a theme as `:where(.dark, .dark *)`, which adds no specificity. It reads back the
+  rules it would have written and keeps the rest as text.
+  - **The proposal said Lightning CSS, which is a native Node addon.** The package is pure and runs in the window, so it
+    can't load one. css-tree, already there for `validate`, parses a stylesheet in plain JavaScript, so reading needed
+    no new dependency. This is yours to overrule: the reader is the only part that would change.
+  - **One printer for code and for the canvas.** The selector is whatever the rules are for, a class in a project's code
+    or a layer's `[data-node]` in a frame, so PAR-942's canvas rules are this printer.
+  - **A project with no styling framework gets it with PAR-942,** the first thing to ask a project how its styles are
+    written. Until then nothing in the app calls a printer, so there's nowhere for the fallback to be chosen.
+
 - **The Tailwind adapter writes a class by asking Tailwind, and keeps it only if it reads back the same (PAR-943).**
   Step 5 of [style-package.md](proposals/style-package.md), which you moved ahead of step 4 on 2026-11-11 since frames
   draw the classes it writes. `@parity-app/styles-tailwind` has no table of utilities:
