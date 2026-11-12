@@ -3628,8 +3628,8 @@ decisions.md's "Saving is explicit" sets out.
   an attribute, such as the default Dark option's `dark` with `[data-theme="dark"]`, sets that attribute on the frame's
   body too (`themeAttributes` and `frameAttributes` in `packages/tokens/src/policy.ts`, used by
   `apps/desktop/src/renderer/ModeView.tsx` and `render.ts`). An attribute the mode sets itself wins. A theme's attribute
-  on the root (`:root[data-theme="dark"]`) isn't set this way: it applies only where the mode or a decorator sets it, as
-  below.
+  on the root (`:root[data-theme="dark"]`) is set this way too (PAR-896), since frames draw that rule on their body as
+  well, as below.
 - **A frame draws the root with a class or attribute on it** (PAR-819): `:root.dark`, `html[data-theme=dark]` and
   `:root:not(.dark)` apply in frames as in a page. The frame's root is its shadow host, which matches nothing written
   after `:host`, only inside `:host()`, so `prepareCanvasCss` draws such a rule as two selectors: the host with it
@@ -3706,8 +3706,9 @@ Tests:
 - `packages/tokens/src/policy.test.ts` and `packages/libgen/src/tokens.test.ts`: which selector is which theme, a
   `prefers-color-scheme` block's included, as written and as frames draw it, and the same CSS read alike by libgen and
   the app; and the attributes a frame gets for an attribute theme (PAR-22, 5 tests: vite7-js's `[data-theme='dark']`, an
-  attribute beside a class, none for a class theme, the light theme, the root, a conditional rule, a colour-scheme block
-  or a component's own attribute, and a mode's own attribute winning) and its colour scheme (PAR-138).
+  attribute beside a class, an attribute on the root (PAR-896), none for a class theme, the light theme, a conditional
+  rule, a colour-scheme block or a component's own attribute, and a mode's own attribute winning) and its colour scheme
+  (PAR-138).
 - `prefers-color-scheme` blocks (PAR-138): `packages/tokens/src/tokens.test.ts`, mantine's stylesheet read as a dark
   theme with its light defaults, and a `.dark` value beating the block; `packages/tokens/src/stylesheet.test.ts`, a dark
   value written into the block, added to it and taken out again, and a new default value going to the root outside it;
@@ -3718,6 +3719,9 @@ Tests:
   `html[data-theme=dark] .card` and `:root:not(.dark), .x` drawn as the frame's host and body, a plain `:root` left as
   `:host` ("draws the root with a class or attribute on it as the frame's host and body"); a qualified root's font size
   setting the frame's `rem` where only the body has the qualifier; and the rule kept as written for reading tokens.
+  `apps/desktop/src/renderer/frame.test.ts` (4, PAR-896), in Chrome: `:root.dark`, `html.dark`, `:root[data-theme=dark]`
+  and `html[data-theme='dark']` drawn dark in the default Dark mode, with the attributes the app sets, and light in
+  Light.
 - `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
   wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
   get (PAR-465).

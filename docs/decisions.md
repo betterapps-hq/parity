@@ -3151,8 +3151,8 @@ undo. Reading the stylesheet each time a guest loads keeps both as they are.
 - `frameAttributes` adds them for each class the mode has, then the mode's own attributes, which win, so an option that
   sets `data-theme` itself keeps its value.
 - An attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) isn't listed. Frames get it on
-  their body, and the root is the frame's shadow host, which the mode's attributes don't reach; that's still in
-  `docs/support.md`.
+  their body, and the root is the frame's shadow host, which the mode's attributes don't reach. PAR-896, below, lists
+  it.
 
 ## Agent calls merge per design (PAR-278)
 
@@ -7295,3 +7295,14 @@ and `transform` was text case. Your calls on 2026-11-11:
   called it a miss in the UX work, and PAR-937 adds them to the Transform control.
 - **Text case is renamed `textTransform`, and a file with the old key is rejected,** by the Fix forward rule. Stale
   prototype data is disposable.
+
+## A mode sets a theme's attribute written on the root (PAR-896)
+
+My call: `themeAttributes` lists an attribute on the root (`:root[data-theme="dark"]`, `:host([data-theme="dark"])`) as
+it lists one on its own, so the default Dark option's `dark` class sets `data-theme="dark"` on the frame's body. PAR-819
+already draws `:root[data-theme="dark"]` on the body as well as on the host, but nothing set the attribute there, so a
+project that switches its dark theme by attribute on the root still drew light values in a Dark frame. `:root.dark` and
+`html.dark` needed nothing more: the mode's `dark` class reaches the body already.
+
+Gap, as before: a token the root builds from another (`:root { --card: var(--surface) }`) is worked out on the host, so
+a theme that sets only `--surface` leaves `--card` light in the frame. It's in `docs/support.md`.
