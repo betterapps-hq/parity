@@ -202,7 +202,7 @@ describe("several layers", () => {
     await selectBrand()
     await app.toggleInLayers("Pricing", plans)
     await expect.poll(() => width().getAttribute("placeholder")).toBe("Mixed")
-    const plansWidth = async () => (await app.style("Pricing", plans)).width
+    const plansWidth = () => app.steps("Pricing", plans, "width")
     const before = await plansWidth()
     await typeOver(width(), "+8")
     await width().press("Enter")
