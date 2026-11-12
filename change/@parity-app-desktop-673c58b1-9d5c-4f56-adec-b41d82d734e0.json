@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "A design file that isn't JSON or doesn't match its format stops the project opening, and the Couldn't open page says which file and why, with one Close button",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
