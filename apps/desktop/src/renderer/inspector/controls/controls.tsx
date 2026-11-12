@@ -398,7 +398,7 @@ export function SizeField({
     const reading = readLength(input, { label: axis, current: length ?? measured, takesPercent })
 
     if ("reason" in reading) {
-      return { reason: reading.reason.startsWith("Can't read") ? reason : reading.reason }
+      return { reason: reading.reason }
     }
 
     if ("clear" in reading) {
@@ -999,12 +999,6 @@ function LengthField({
     // The app's maths and units: `6`, `6px`, `0.5rem`, `+2`, `*2`, and `50%` where it takes one.
     const reading = readLength(trimmed, { label, current: own?.px ?? token?.px, takesPercent })
 
-    if ("reason" in reading && reading.reason.startsWith("Can't read")) {
-      const example = takesPercent ? "6px or 50%" : "6px"
-
-      return { reason: `Enter a length, such as ${example}, or a ${kind} token` }
-    }
-
     if ("reason" in reading) {
       return reading
     }
@@ -1473,7 +1467,7 @@ function FrameWidthField({ width, onChange }: { width: FrameWidth; onChange: (wi
       return { value: Math.max(1, Math.round(reading.px)) }
     }
 
-    return { reason: "reason" in reading && !reading.reason.startsWith("Can't read") ? reading.reason : reason }
+    return { reason: "reason" in reading ? reading.reason : reason }
   }
 
   const step = (up: boolean, { shift }: ScrubKeys) => {

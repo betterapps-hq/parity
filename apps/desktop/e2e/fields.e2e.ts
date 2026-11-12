@@ -78,7 +78,7 @@ describe("typing in a length field", () => {
     await expect.poll(() => width().getAttribute("aria-invalid")).toBe("true")
     expect(await width().inputValue()).toBe("abc")
     expect(await width().evaluate((input) => input.getAttribute("aria-describedby"))).toBeTruthy()
-    await expect.poll(() => app.page.getByText("Enter a length, Hug or Fill").count()).toBe(1)
+    await expect.poll(() => app.page.getByText(`"abc" isn't a valid number`).count()).toBe(1)
     expect(await brandWidth()).toBe(8)
     await width().press("Escape")
     await expect.poll(() => width().inputValue()).toBe("32")
