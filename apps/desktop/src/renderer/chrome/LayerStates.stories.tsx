@@ -60,3 +60,17 @@ export const TurningAPropOffInAState: Story = {
     await expect(panel.queryByRole("button", { name: "Reset Disabled to Default" })).toBeNull()
   }
 }
+
+/**
+ * Choosing which state edits go to, on the component itself, Stat card: its States section, where clicking Loading
+ * shows it on the canvas and sends edits there.
+ */
+export const ChoosingTheState: Story = {
+  render: renderPart("states"),
+  loaders: [inspecting("design", () => ({ design: design("Stat card") }))],
+  play: async ({ canvasElement }) => {
+    const panel = within(canvasElement)
+    await userEvent.click(await panel.findByRole("button", { name: "Loading" }, slowly))
+    await expect(await panel.findByRole("button", { name: "Loading", pressed: true }, slowly)).toBeVisible()
+  }
+}

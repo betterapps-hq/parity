@@ -3,10 +3,9 @@ import { layersSelection } from "@parity-app/editor"
 import type { Decorator } from "@storybook/react-vite"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answerPreviews } from "../stories/previews.ts"
-import { DesignTab } from "./DesignPanel.tsx"
+import { DesignTab, type PanelPart } from "./DesignPanel.tsx"
 import { inspecting, InspectorStage, PanelColumn } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
-import type { LayerPart } from "./LayerPanel.tsx"
 
 /*
  * What the Parity/Inspector/Layer stories share: the Design tab with one layer selected, drawn as the inspector draws
@@ -19,7 +18,7 @@ export const renderInspector = () => <Inspector />
  * One part of the selected layer's panel alone, as the Design tab draws it, at the inspector's width (PAR-1022): what a
  * story demos, without the sections it isn't about.
  */
-export const renderPart = (part: LayerPart) =>
+export const renderPart = (part: PanelPart) =>
   function Part() {
     return (
       <PanelColumn>

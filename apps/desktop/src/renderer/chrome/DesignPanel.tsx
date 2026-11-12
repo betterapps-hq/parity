@@ -30,7 +30,10 @@ import { ModeViewportIcon } from "./viewports.tsx"
  * The Design tab: whatever is selected, a design, one of its layers or modes, or text on the canvas. Its number fields
  * edit the selection, so a run of Up and Down presses in one ends when the selection changes.
  */
-export function DesignTab({ only }: { only?: LayerPart }) {
+/** One part of the Design tab, which a story shows on its own: part of a layer's panel, or a component's States. */
+export type PanelPart = LayerPart | "states"
+
+export function DesignTab({ only }: { only?: PanelPart }) {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
@@ -44,7 +47,7 @@ export function DesignTab({ only }: { only?: LayerPart }) {
   )
 }
 
-function SelectedPanel({ only }: { only?: LayerPart }) {
+function SelectedPanel({ only }: { only?: PanelPart }) {
   const { store, selection } = useProject()
   const selected = useSelection(selection)
   const entry = useContainerEntry(store, selected.design)
@@ -78,7 +81,18 @@ function SelectedPanel({ only }: { only?: LayerPart }) {
   }
 
   if (selected.node) {
-    return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} only={only} />
+    return (
+      <LayerPanel
+        key={selected.node}
+        entry={entry}
+        nodeId={selected.node}
+        only={only === "states" ? undefined : only}
+      />
+    )
+  }
+
+  if (only === "states") {
+    return entry.container.kind === "component" ? <StatesSection entry={entry} /> : null
   }
 
   return <DesignPanel entry={entry} />
