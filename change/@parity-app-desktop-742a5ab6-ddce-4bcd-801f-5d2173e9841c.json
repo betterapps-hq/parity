@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Beta update checks no longer fail while a package tag leads GitHub's releases feed, and a failed update reports electron-updater's error code",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

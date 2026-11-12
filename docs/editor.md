@@ -5900,9 +5900,13 @@ interrupting work (PAR-490). Startup checks remain quiet when no update is avail
 also restores a previously dismissed download or restart notice. About stays available separately through Help.
 
 Settings > Get beta updates is off by default and remembered between runs. It includes GitHub pre-releases without
-allowing downgrades. About labels installed beta builds with `(Beta)` independently of the selected Update channel; the
-preference describes which future releases to accept. It also shows the available version. Development builds and
-extracted Linux folders do not download or install updates.
+allowing downgrades. A beta check names electron-updater's beta channel, so it takes the newest version tag in GitHub's
+releases feed and passes over the `@parity-app/*` tags the release workflows push without release files; taking the
+feed's first entry made every beta check fail while one of those came first (PAR-825). A failure records its first line
+and electron-updater's error code, as Sentry redacts the whole message when its HTTP headers follow. About labels
+installed beta builds with `(Beta)` independently of the selected Update channel; the preference describes which future
+releases to accept. It also shows the available version. Development builds and extracted Linux folders do not download
+or install updates.
 
 The release workflow embeds the initial Beta identity, including for a first offline launch. The installed tag's public
 release metadata observes promotion to stable. A version-keyed cache preserves confirmed identity offline and refreshes
@@ -5922,12 +5926,15 @@ through `preload/index.ts`. `renderer/chrome/updates.tsx` shares state between `
 `SettingsDialog.tsx`; `AppMenu.tsx` exposes the check.
 
 Tests: `packages/core/src/updates.test.ts` covers guarded transitions, late progress, channel changes and invalid
-progress; `main/update-session.test.ts` covers serialized checks, retry, installation failure resetting the close
-decision, disabled development builds and the Mac fallback. `preload/index.test.ts` covers a native menu action arriving
-before React subscribes and replacing its listener without losing the next action. `chrome/updates.test.ts` covers
-manual checks without a dialog, quiet startup results, repeated checks, retry and dismissed progress becoming a ready
-notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions, checksum rejection, Later,
-unsaved-work cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
+progress; `main/update-session.test.ts` covers serialized checks, a failure's first line and code, retry, installation
+failure resetting the close decision, disabled development builds and the Mac fallback. `main/update-channel.test.ts`
+runs electron-updater's GitHub provider over a feed led by a package tag, finding the newest beta past it and keeping
+stable on the latest release; `main/updates.test.ts` covers the channel each check names and downgrades staying off.
+`preload/index.test.ts` covers a native menu action arriving before React subscribes and replacing its listener without
+losing the next action. `chrome/updates.test.ts` covers manual checks without a dialog, quiet startup results, repeated
+checks, retry and dismissed progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two
+real packaged versions, checksum rejection, Later, unsaved-work cancellation, Save, installation and relaunch as the
+newer version. It refuses to run outside CI.
 
 ### Sharing diagnostics (PAR-626)
 

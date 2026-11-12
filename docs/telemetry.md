@@ -1298,12 +1298,13 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `update.failed`
 
-| Attribute | Type                                 | Meaning                               |
-| --------- | ------------------------------------ | ------------------------------------- |
-| `channel` | `"stable" \| "beta"`                 | The update channel this install takes |
-| `version` | `string`                             | The version running now               |
-| `stage`   | `"check" \| "download" \| "install"` | What was under way when it failed     |
-| `message` | `string`                             | What went wrong                       |
+| Attribute | Type                                 | Meaning                                                                   |
+| --------- | ------------------------------------ | ------------------------------------------------------------------------- |
+| `channel` | `"stable" \| "beta"`                 | The update channel this install takes                                     |
+| `version` | `string`                             | The version running now                                                   |
+| `stage`   | `"check" \| "download" \| "install"` | What was under way when it failed                                         |
+| `message` | `string`                             | What went wrong, its first line                                           |
+| `code`    | `string`, optional                   | electron-updater's error code, such as ERR_UPDATER_CHANNEL_FILE_NOT_FOUND |
 
 ### `update.installed`
 
