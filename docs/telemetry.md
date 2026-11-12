@@ -242,6 +242,10 @@ Storybook or the CLI.
 - **While a project's canvas mounts, the page isn't recorded,** from the tab being ready until its first frame shows, or
   5 seconds at most. The replay keeps the page as it was before, then a snapshot of the canvas once the frame shows, in
   the same replay. Clicks and requests are still recorded meanwhile.
+- **While the canvas zooms, the page isn't recorded either,** from the zoom moving until a second after it settles and
+  the window is idle, or a minute at most. Each frame of a zoom restyles every board's gutters, captions and labels, and
+  recording those was the largest share of the window's JavaScript while zooming. The replay jumps from the canvas
+  before the zoom to a snapshot after it. Panning is still recorded, as are clicks and requests during a zoom.
 - **Recording doesn't grow the window's memory over a session.** Over an hour of zooming, selecting and editing, the JS
   heap and the window's private memory stayed level with Replay on, as with it off. The page counts about 21,000 more
   DOM nodes while recording: one for each attribute of each element the recorder reads, which go with their elements.

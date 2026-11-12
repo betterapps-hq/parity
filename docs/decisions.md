@@ -1,5 +1,17 @@
 # Decisions
 
+- **A date prop is `{ "$date": ... }`, made as `new Date(...)` (PAR-912).** Props are JSON, so a `Date` needs a form.
+  `$date` joins the value grammar beside `$call`, in samples and decorators, and a component node's props now follow the
+  sample grammar, which the decision on the value module said they did. The component gets exactly what
+  `new Date(value)` makes in the project's code, a date-only string at midnight UTC included, rather than a reading of
+  our own that code wouldn't match; the agent docs say to give a day as a date and time without a zone. A string
+  `new Date` can't read is refused when the file loads. The guest makes each date once per host, like a `$call`.
+
+- **A layout or text layer takes accessibility props, written as its element's attributes (PAR-913).** `role`, `id` and
+  `aria-*` alone, under `props`, so `Update`, states, overrides and `unset` work as they do for a component. `id` is
+  there so `aria-labelledby` and `aria-describedby` can point at a layer. Other attributes and screen-reader-only text
+  are left out: a visually hidden text needs a class or style of its own, which is a separate decision.
+
 - **Frames draw layers from rules, and from the project's compiled Tailwind classes where it has them (PAR-942).** Step
   4 of [style-package.md](proposals/style-package.md), with Frames draw rules and Frames add only what code writes from
   [design-options-code.md](proposals/design-options-code.md). You chose the compiled classes for a Tailwind project on
@@ -2049,6 +2061,13 @@ recommended answer to each of its questions.
     into `auto`, so that axis scrolls too, as the browser draws it.
   - **The scrolling container is still checked** as any node is. A row that scrolls but is itself wider than the frame
     sticks out of it, and that's reported on the row; its days go no further, so they're left out.
+- **Measure and Problems give a box in one shape** (PAR-915). Measure put `x`, `y`, `width` and `height` flat on each
+  node and its clipping ancestor's on `clip`, while Problems nests a node's under `box` and gives what it overflows as
+  `container: { node, name, box }`, so code reading one broke on the other. Measure now follows Problems: each node has
+  `box`, and `clip` is `{ node, name, box }`. `inView` was already a box. Problems' shape won because it's the one in
+  the CLI's and MCP's output schema and keeps a box apart from the node it belongs to. The renderer still measures flat
+  boxes; `layoutNode` in `packages/agent/src/frames.ts` reshapes them for Measure, and screenshots keep theirs, which
+  don't leave the agent.
 
 - **The offscreen renderer closes when it's idle,** a minute after its last job, and the next job opens it again
   (CAN-83). Its page holds every module graph the project's guest imported, which a page can't unload, so it held 115 to
@@ -7631,3 +7650,46 @@ it" are hidden on phones now, as their mobile patches say.
 Editing is unchanged: an edit in a viewport's frame still lands in the base design or the state. So where the viewport's
 patch sets a style key, editing that key in its frame shows no change in any state, as it already did in the base
 design. `nodePatch` in `packages/core/src/render.ts` holds the order, and every reader goes through it.
+
+## Session Replay doesn't record the page while the canvas zooms (PAR-957)
+
+Called on 2026-11-11. Profiling `pnpm perf`'s zoom runs found Session Replay's recorder the largest share of the
+window's JavaScript while zooming: `processMutation` and the `getPropertyValue`, `replaceSync` and
+`parseWithConstructableStylesheet` under it took about 800 ms of each 4-second run, ahead of `board-gutter.ts`'s `apply`
+at 120 to 210 ms. Each frame of a zoom restyles every board's gutters, captions and labels (`useZoomStyle`), and for
+each inline style that changes, rrweb parses the old value into a stylesheet and compares it with the new one, property
+by property. Replay now pauses from the zoom moving until a second after it settles and the window is idle, and goes on
+with the same replay after. My calls:
+
+- **Pause the recorder, rather than block the boards or ignore their mutations.** rrweb checks `block` on a changed
+  element alone, not its ancestors, so blocking the canvas would save the cost only by listing every part that moves,
+  and would leave boards, captions and labels out of every replay. Replay's experimental `ignoreMutations` drops a whole
+  batch when any mutation in it matches, so it would drop the toolbar's and the frames' changes made in the same frame,
+  and leave the replay wrong from then on. Moving the zoom styles into one stylesheet the recorder sees as a few rule
+  changes would keep zooms in replays but changes how boards are drawn, which `useZoomStyle` chose for style
+  recalculation; that's a change of its own if replays of zooms turn out to matter.
+- **It holds through `pageHolds`, as the canvas mounting does (PAR-758),** from `settleZoom` in `CanvasEditor.tsx`,
+  which already knows when the zoom moves and settles. Only a change from the settled zoom takes a hold, so a pan, which
+  restyles only the camera's layer, is still recorded, and so is the canvas mounting's own first settle.
+- **It lets go a second after the zoom settles, once the window is idle** (`zoomHold` in `renderer/replay.ts`, up to 2
+  more seconds). Resuming takes a full snapshot, 100 to 135 ms on the example project; a zoom that starts again within
+  the second keeps the hold and takes no snapshot. Resuming straight after the second put that snapshot among the frames
+  a settled zoom wakes: `pnpm perf`'s layer runs, which wait 1.5 seconds for the design to draw, found no layer in 2 of
+  7 runs, and none in 6 after it waited for idle time. A zoom holds a minute at most.
+- **What a replay loses is the zoom itself.** It shows the canvas before, then a snapshot after; clicks, requests and
+  breadcrumbs during the zoom are still recorded, and Replay resumes on its own if someone clicks.
+
+Measured on `examples/shadcn-vite` (61 designs, 119 frames), React's production build,
+`pnpm perf --runs "zoom, zoom at 100%, zoom hovering a layer, zoom with a layer selected"`, three alternating rounds of
+main with Replay on, main with `PARITY_TELEMETRY=off`, and this change with Replay on, on a machine running other copies
+of the app. Medians:
+
+| Run                        | Main, Replay on       | Main, Replay off | This change, Replay on |
+| -------------------------- | --------------------- | ---------------- | ---------------------- |
+| zoom                       | 31 fps, 16.7 ms/frame | 41.5 fps, 7.2 ms | 41 fps, 7.4 ms         |
+| zoom at 100%               | 15.5 fps, 30.7 ms     | 35.5 fps, 5.3 ms | 45 fps, 4.4 ms         |
+| zoom hovering a layer      | 15.5 fps, 32.7 ms     | 34 fps, 5.5 ms   | 32 fps, 6 ms           |
+| zoom with a layer selected | 18.3 fps, 28.9 ms     | 30.8 fps, 6.9 ms | 40.3 fps, 5.7 ms       |
+
+The milliseconds are the page's JavaScript per frame. Sampled with `--profile`, none of Sentry's functions are among a
+zoom run's twelve slowest with this change; `board-gutter.ts`'s `apply` and `labels.ts` lead.

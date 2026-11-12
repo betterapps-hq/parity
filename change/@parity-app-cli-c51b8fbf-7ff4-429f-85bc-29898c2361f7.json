@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Say which package Vite came in when a project installs Vite+ as vite, in the detection summary: Vite 8.3.5, shipped by Vite+ 1.4.0",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

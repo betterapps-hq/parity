@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { JsonValue } from "@parity-app/core/schema"
@@ -287,10 +287,48 @@ describe("detectProject", () => {
         version: "8.3.5",
         from: "node_modules/vite",
         status: "supported",
-        summary: "Vite 8.3.5 from node_modules/vite (@voidzero-dev/vite-plus-core 1.4.0)"
+        summary: "Vite 8.3.5 from node_modules/vite, shipped by Vite+ 1.4.0 (@voidzero-dev/vite-plus-core)"
       }
     ])
     expect(detection.notice).toBeUndefined()
+  })
+
+  it("reads Vite+ that pnpm links in from a workspace catalog", async () => {
+    // As the better-apps monorepo has it: `vite: catalog:` in package.json, the catalog aliasing it to Vite+'s core,
+    // and pnpm linking `node_modules/vite` to its store.
+    const pkg = { devDependencies: { vite: "catalog:" } }
+    const store = "node_modules/.pnpm/@voidzero-dev+vite-plus-core@1.4.0/node_modules/@voidzero-dev/vite-plus-core"
+    await fixture({
+      "package.json": pkg,
+      "pnpm-workspace.yaml": "catalog:\n  vite: npm:@voidzero-dev/vite-plus-core@1.4.0\n",
+      [`${store}/package.json`]: {
+        name: "@voidzero-dev/vite-plus-core",
+        version: "1.4.0",
+        bundledVersions: { vite: "8.3.5" }
+      }
+    })
+    await symlink(join(root, store), join(root, "node_modules/vite"), "junction")
+
+    const [vite] = (await detectProject(root, pkg, undefined, today)).tools
+    expect(vite).toMatchObject({
+      version: "8.3.5",
+      status: "supported",
+      summary: "Vite 8.3.5 from node_modules/vite, shipped by Vite+ 1.4.0 (@voidzero-dev/vite-plus-core)"
+    })
+  })
+
+  it("names an alias Parity doesn't know by its package", async () => {
+    const pkg = { devDependencies: { vite: "npm:some-vite-fork@2.0.0" } }
+    await fixture({
+      "package.json": pkg,
+      "node_modules/vite/package.json": { name: "some-vite-fork", version: "2.0.0", bundledVersions: { vite: "8.3.5" } }
+    })
+
+    const [vite] = (await detectProject(root, pkg, undefined, today)).tools
+    expect(vite).toMatchObject({
+      version: "8.3.5",
+      summary: "Vite 8.3.5 from node_modules/vite, shipped by some-vite-fork 2.0.0"
+    })
   })
 
   it("never takes an alias's own version for the tool's", async () => {

@@ -57,6 +57,7 @@ import {
   nodeIds,
   type InstanceNode,
   type NodePatch,
+  isAccessibilityProp,
   nodeTree,
   parseCanvasDocument,
   plainObject,
@@ -156,7 +157,7 @@ import {
   overlapWarnings,
   type SpaceOptions
 } from "./boards.ts"
-import { accessibilityFindings, addContrastFixes, frameProblems, nodeNames } from "./frames.ts"
+import { accessibilityFindings, addContrastFixes, frameProblems, layoutNode, nodeNames } from "./frames.ts"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import { lintDocument, propWarnings } from "./lint.ts"
 import type {
@@ -1013,6 +1014,8 @@ export class AgentWorkspace {
       })
     }
 
+    checkLayerProps(node, change.props)
+
     if (node.type === "component" && change.props) {
       this.checkProps(change.component ?? node.component, change.props, `${container.id}/${node.id}`)
     }
@@ -1085,6 +1088,8 @@ export class AgentWorkspace {
     const library = this.library()
     const stateId = options.state === undefined ? container.states[0]!.id : findState(container, options.state).id
     const inner = locateInner(container, layer, library)!
+
+    checkLayerProps(inner.node, change.props)
 
     if (inner.node.type === "component" && change.props) {
       this.checkProps(inner.node.component, change.props, `${container.id}/${layer}`)
@@ -1644,7 +1649,7 @@ export class AgentWorkspace {
       width: frame.width,
       height: frame.height,
       overflowsX: frame.overflowsX,
-      nodes: frame.nodes.map((node) => ({ ...node, name: names.get(node.id) }))
+      nodes: frame.nodes.map((node) => layoutNode(node, names))
     }
   }
 
@@ -2541,6 +2546,25 @@ function elide(node: DesignNode, depth: number | undefined, level = 0): ElidedNo
 const kept = { keepEqual: true } as const
 
 /** A patch as `editNode` takes it, where `undefined` takes away what `null` did. */
+/**
+ * Refuses props a layout or text layer can't take: only accessibility attributes land on its element (PAR-913). The
+ * document's schema checks the design's own props when it's saved; a state's patch is checked here.
+ */
+function checkLayerProps(node: DesignNode, props: PatchInput["props"]): void {
+  if (node.type !== "layout" && node.type !== "text") {
+    return
+  }
+
+  const other = Object.keys(props ?? {}).find((name) => !isAccessibilityProp(name))
+
+  if (other !== undefined) {
+    throw new CodedError(`A layout or text layer takes role, id and aria-* props, not "${other}"`, {
+      code: "invalid_input",
+      field: "props"
+    })
+  }
+}
+
 function toChange(change: PatchInput): NodeChange {
   const result: NodeChange = {}
 
