@@ -520,6 +520,28 @@ describe("an open project's files", () => {
     await projects.saveDocument({ projectId: root, path: "more.par", document })
     expect((await projects.open(root)).documents.map((entry) => entry.path)).toContain("more.par")
   })
+
+  it("are saved in the order they were made, each known as the canvas's own once it's on disk", async () => {
+    const { projects, watcher, fileChanged } = setUp()
+    await projects.open(root)
+
+    await Promise.all(
+      ["First", "Second", "Third"].map((name) =>
+        projects.saveDocument({ projectId: root, path: "shop.par", document: designs(name) })
+      )
+    )
+    watcher.change("shop.par")
+    // Longer than the watcher waits after a change.
+    await new Promise((done) => setTimeout(done, 500))
+    expect(fileChanged).toHaveLength(0)
+    expect(await readFile(join(root, "shop.par"), "utf8")).toContain("Third")
+
+    // shop.par is a file, so nothing can be saved inside it, and what wasn't written isn't known.
+    await expect(
+      projects.saveDocument({ projectId: root, path: "shop.par/more.par", document: designs("Lost") })
+    ).rejects.toThrow(/EEXIST|ENOTDIR/)
+    expect(projects.get(root).known.has("shop.par/more.par")).toBe(false)
+  })
 })
 
 describe("closing and reopening a project", () => {

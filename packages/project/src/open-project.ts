@@ -1,4 +1,3 @@
-import { isAbsolute, relative, resolve } from "node:path"
 import type { ComponentList } from "@parity-app/code"
 import {
   type CanvasDocument,
@@ -17,6 +16,7 @@ import {
   type ThemeVariable
 } from "@parity-app/core"
 import type { DiscoveredProject } from "./index.ts"
+import { insideProject } from "./inside-project.ts"
 
 /** An open project, as the windows are told about it. */
 export interface ProjectInfo {
@@ -148,19 +148,9 @@ export function readDesigns(path: string, text: string): CanvasDocument {
     : parseCanvasDocument(value)
 }
 
-/**
- * Where a project file saved at `path` goes: the absolute file, when it's a `.par` inside the root. A sibling folder
- * whose name starts with the root's, as `D:\shop-old` for `D:\shop`, isn't inside it.
- */
+/** Where a project file saved at `path` goes: the absolute file, when it's a `.par` inside the root. */
 export function documentTarget(root: string, path: string): string | undefined {
-  if (!path.endsWith(".par")) {
-    return undefined
-  }
-
-  const target = resolve(root, path)
-  const inside = relative(root, target)
-
-  return inside && !inside.startsWith("..") && !isAbsolute(inside) ? target : undefined
+  return path.endsWith(".par") ? insideProject(root, path) : undefined
 }
 
 /**
