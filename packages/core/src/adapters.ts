@@ -1,3 +1,4 @@
+import type { StylePrinter } from "@parity-app/style"
 import { z } from "zod"
 import type { GuestComponentSource } from "./guest-changes.ts"
 import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
@@ -385,6 +386,11 @@ export interface StylesAdapter {
   detect(source: string): boolean
   /** Every theme variable, resolved by the project's own copy of the framework. */
   loadTheme(root: string, stylesheet: string): Promise<ThemeVariable[]>
+  /**
+   * The framework's way of writing a layer's declarations, and of reading its code back, as the project's own copy
+   * means it. Its code is a list of classes.
+   */
+  loadPrinter(root: string, stylesheet: string): Promise<StylePrinter<string[]>>
 }
 
 /** A theme variable without its `--`, as the framework defines it. */

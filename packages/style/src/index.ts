@@ -1,3 +1,5 @@
+export * from "./adapter.ts"
+
 export * from "./declare.ts"
 
 export * from "./effects.ts"
