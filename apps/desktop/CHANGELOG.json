@@ -2,6 +2,80 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 12:53:06 GMT",
+      "version": "0.73.0",
+      "tag": "@parity-app/desktop_v0.73.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "23b45b3b0b49a017b1f053b82e1e9870760115fa",
+            "comment": "A design file that isn't JSON or doesn't match its format stops the project opening, and the Couldn't open page says which file and why, with one Close button"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c8b6e459553861709e9d51ed3ece0e9537ed1c75",
+            "comment": "Write project files whole, so a save cut off partway leaves the file as it was, and decide what's inside a project with one check (PAR-973)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 12:29:14 GMT",
+      "version": "0.72.0",
+      "tag": "@parity-app/desktop_v0.72.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b897319e647682322827005a7fe26079e1964ded",
+            "comment": "Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 12:10:21 GMT",
+      "version": "0.71.1",
+      "tag": "@parity-app/desktop_v0.71.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0a3e44222eda2d7eb68ba9630462bc63c7d8da22",
+            "comment": "Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 11:51:21 GMT",
+      "version": "0.71.0",
+      "tag": "@parity-app/desktop_v0.71.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a5016c0ce76c1a73cbdc3c66de8df44e02ebdb52",
+            "comment": "Search Mobbin and Pixabay from an installed copy through Parity's service, once you're signed in"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "aa05d0d08107779a10f37d601177d1621b3e03bc",
+            "comment": "Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize, fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: \"primary\" }, { size: \"fill\" }). A version 3 file no longer opens"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 10:56:04 GMT",
       "version": "0.70.1",
       "tag": "@parity-app/desktop_v0.70.1",

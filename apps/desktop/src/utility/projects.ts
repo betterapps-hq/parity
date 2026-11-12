@@ -69,12 +69,13 @@ import type { ServedCode } from "./bitmap-store.ts"
 import type { BuilderExit, StartedBuilder } from "./builders.ts"
 import { degraded } from "./degraded.ts"
 import type { SavedDetection } from "./detection-cache.ts"
-import { applyProjectEdit } from "./edits.ts"
+import { applyProjectEdit, queued } from "./edits.ts"
 import { environment, type ServiceEnvironment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
 import { followGuest, type GuestMoved, newGuestPort, type PortFinder, restartPort } from "./guest-ports.ts"
 import { stopProject } from "./process-manager.ts"
 import { forgetProcess, trackProcess } from "./processes.ts"
+import { writeProjectFile } from "./project-files.ts"
 import type { TypeChecker } from "./props.ts"
 
 const require = createRequire(import.meta.url)
@@ -403,19 +404,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     opening.builder = builder.id
     opening.name = name
     const config = await discoverProject(root, renderer, pkg)
-    // One broken project file shouldn't hide the others; its error is shown instead.
+    // A project file that can't be read stops the project opening, with an error naming it (PAR-1011).
     const known = new Map<string, string>()
 
     const documents = await Promise.all(
       config.documents.map(async (path) => {
-        try {
-          const text = await readFile(join(root, path), "utf8")
-          known.set(path, text)
+        const text = await readFile(join(root, path), "utf8")
+        known.set(path, text)
 
-          return { path, document: readDesigns(path, text) }
-        } catch (error) {
-          return { path, error: message(error) }
-        }
+        return { path, document: readDesigns(path, text) }
       })
     )
 
@@ -495,7 +492,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         ...common(),
         cached: opening.cached,
         components: Object.keys(info.sources).length,
-        designs: info.documents.reduce((sum, entry) => sum + (entry.document?.containers.length ?? 0), 0),
+        designs: info.documents.reduce((sum, entry) => sum + entry.document.containers.length, 0),
         tokens: info.theme.length,
         libraries: info.libraries.length
       })
@@ -954,7 +951,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         const entry = project.info.documents.find((candidate) => candidate.path === path)
 
         if (entry) {
-          Object.assign(entry, { document, error: undefined })
+          entry.document = document
         } else {
           project.info.documents.push({ path, document })
         }
@@ -1433,16 +1430,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     },
 
     /**
-     * Writes a project file. Existing ones can be rewritten, and new ones created under the project as long as they
-     * end in `.par`.
+     * Writes a project file whole, after the project's edits and saves before it. Existing ones can be rewritten, and
+     * new ones created under the project as long as they end in `.par`. What it wrote is known once it has landed, so
+     * the watcher takes the change as the service's own.
      */
     async saveDocument({ projectId, path, document }) {
       const project = getProject(projectId)
       const entry = project.info.documents.find((candidate) => candidate.path === path)
-
-      if (entry && !entry.document) {
-        throw new Error(`${path} couldn't be read, so it isn't overwritten`)
-      }
 
       const target = documentTarget(project.info.root, path)
 
@@ -1452,14 +1446,16 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
       const parsed = parseCanvasDocument(document)
 
-      // A `.lib.par` keeps its designs in `canvas`, beside what its author wrote about the library.
-      const value = path.endsWith(libraryManifestExtension)
-        ? withLibraryCanvas(JSON.parse(await readFile(target, "utf8")), parsed)
-        : parsed
+      await queued(project, async () => {
+        // A `.lib.par` keeps its designs in `canvas`, beside what its author wrote about the library.
+        const value = path.endsWith(libraryManifestExtension)
+          ? withLibraryCanvas(JSON.parse(await readFile(target, "utf8")), parsed)
+          : parsed
 
-      const text = `${JSON.stringify(value, null, 2)}\n`
-      project.known.set(path, text)
-      await writeFile(target, text)
+        const text = `${JSON.stringify(value, null, 2)}\n`
+        await writeProjectFile(project.info.root, path, text)
+        project.known.set(path, text)
+      })
 
       if (entry) {
         entry.document = parsed

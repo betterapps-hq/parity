@@ -200,11 +200,7 @@ async function discover(): Promise<{
   return { config, info, components: inferProps(root, config.components) }
 }
 
-/** Storybook's designs under the example's file name, or why they couldn't be read. */
+/** Storybook's designs under the example's file name. */
 async function readDocument(path: string): Promise<ProjectInfo["documents"][number]> {
-  try {
-    return { path, document: parseCanvasDocument(JSON.parse(await readFile(designs, "utf8"))) }
-  } catch (error) {
-    return { path, error: error instanceof Error ? error.message : String(error) }
-  }
+  return { path, document: parseCanvasDocument(JSON.parse(await readFile(designs, "utf8"))) }
 }

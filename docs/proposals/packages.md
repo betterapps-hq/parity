@@ -155,6 +155,10 @@ itself with Beachball.
   the ones written if a write fails, and records what it wrote so the watcher ignores it, as `.par` saves do. It keeps a
   project's latest 50 edits to undo by id, through `project.undoEdit`, as long as their files still hold what was
   written.
+- **Each file is written whole** by `writeProjectFile` in
+  [utility/project-files.ts](../../apps/desktop/src/utility/project-files.ts), beside the file and renamed over it.
+  Whether a path is inside the project is `insideProject` in
+  [inside-project.ts](../../packages/project/src/inside-project.ts) (PAR-973). Edits and `.par` saves both use them.
 - **Token writes, library style imports and pasted images go through it.** Importing a library's styles says which file
   changed, with its diff and Undo. Token edits take their undo from the design's history, which PAR-164 is building, and
   a pasted image's file stays when its layer is undone, as before.

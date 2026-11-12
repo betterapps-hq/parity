@@ -13,17 +13,16 @@ import {
   resolveModes
 } from "@parity-app/core"
 
-/** A project file as the project service reads it: its designs, or why it couldn't be read. */
+/** A project file as the project service reads it, with its designs. */
 export interface OpenedFile {
   path: string
-  document?: CanvasDocument
-  error?: string
+  document: CanvasDocument
 }
 
 /**
  * The designs a project opens with: its files' own, or, when it has no project file yet, the main one holding a Home
- * screen (see `homeScreen`). A file that couldn't be read still counts, so a broken file is never written over. The Home
- * screen is opened as if the file held it, so nothing is written until the person changes something.
+ * screen (see `homeScreen`). The Home screen is opened as if the file held it, so nothing is written until the person
+ * changes something.
  */
 export function openingDesigns(
   files: readonly OpenedFile[],
@@ -35,7 +34,7 @@ export function openingDesigns(
     return [{ path: mainPath, document: { version: 4, containers: [homeScreen(components, modes)] } }]
   }
 
-  return files.flatMap(({ path, document }) => (document ? [{ path, document }] : []))
+  return [...files]
 }
 
 /**

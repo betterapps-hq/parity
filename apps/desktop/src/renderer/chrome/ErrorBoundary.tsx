@@ -10,8 +10,8 @@ import {
 import { CircleAlert, RotateCcw, RotateCw, TriangleAlert, X } from "lucide-react"
 import { Component, type CSSProperties, type ReactNode, type Ref, useRef } from "react"
 import parityIcon from "../../../../../brand/parity-icon.svg?url"
-import { ErrorDetails } from "../ProjectStatus.tsx"
 import { CopyButton } from "./Copy.tsx"
+import { ErrorPage } from "./ErrorPage.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
 
@@ -329,10 +329,10 @@ function ConsoleFallback(props: FallbackProps) {
 
 /**
  * All of a tab, such as a project or Home, as the page for a project that couldn't open: what stopped, what to do,
- * the error in full to read or copy, and the buttons, the way on first.
+ * the error in full to read or copy, and the buttons.
  */
 function TabFallback(props: FallbackProps) {
-  const { label, error, again, onReopen, onReport, hidden, className } = props
+  const { label, error, again, onReopen, hidden, className } = props
   const reopen = again && onReopen
   let description = "Your changes are kept. Try again to draw it afresh."
 
@@ -345,29 +345,14 @@ function TabFallback(props: FallbackProps) {
   }
 
   return (
-    <div hidden={hidden} className={`flex min-h-0 flex-1 overflow-y-auto p-6 ${className ?? ""}`}>
-      <div role="alert" className="m-auto flex w-full max-w-2xl flex-col gap-5">
-        <span className="grid size-10 place-items-center rounded-full bg-destructive/10 text-destructive">
-          <TriangleAlert className="size-5" />
-        </span>
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-lg font-semibold tracking-tight">{title(label, again)}</h1>
-          <p className="type-body text-muted-foreground">{description}</p>
-        </div>
-        <ErrorDetails message={errorText(error)} />
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={reopen ? onReopen : props.onRetry}>
-            {!reopen && <RotateCw />}
-            {wayOn(props)}
-          </Button>
-          {onReport && (
-            <Button variant="outline" onClick={onReport}>
-              Report a problem
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
+    <ErrorPage
+      title={title(label, again)}
+      subtitle={<p className="type-body text-muted-foreground">{description}</p>}
+      details={errorText(error)}
+      actions={<Actions {...props} size="default" />}
+      hidden={hidden}
+      className={className}
+    />
   )
 }
 

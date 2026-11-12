@@ -1,10 +1,6 @@
 import { type FramesShowing, watchRestedFar } from "@parity-app/telemetry"
 import { type Atom, type Editor, react } from "tldraw"
 import { track } from "../report-error.ts"
-import { bitmapScale } from "./frame-bitmaps.ts"
-
-/** Where `data-far` comes off zooming back in (see `markZoomedOut`), as the zoom times the device pixel ratio. */
-const farLine = bitmapScale * 1.15
 
 /** How often the frames in view are looked at while the camera rests far out, until the rest ends. */
 const lookEveryMs = 250
@@ -18,9 +14,7 @@ export function recordRestedFar(editor: Editor, area: Element, resting: Atom<boo
   let looking: Looking | undefined
 
   const stop = react("rested far", () => {
-    // `resting` goes by tldraw's efficient zoom, which lags the camera: the zoom itself has to be past the line too, or
-    // a camera zoomed back in would be looked at, its frames still asleep on their bitmaps.
-    const far = resting.get() && editor.getZoomLevel() * window.devicePixelRatio <= farLine
+    const far = resting.get()
 
     if (looking?.ended) {
       looking = undefined
