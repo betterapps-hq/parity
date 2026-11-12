@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 23:04:50 GMT",
+      "version": "0.76.0",
+      "tag": "@parity-app/desktop_v0.76.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "fc0309ae56ac88dbc41366ba75eeb03a581c6088",
+            "comment": "The Design panel lists only the project's own tokens, converted once, and new shadows name only tokens the project has"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6f5b9222e3a5df1cfc23ff3e843d1007651808bd",
+            "comment": "Edit a className prop as tags"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 22:45:53 GMT",
       "version": "0.75.0",
       "tag": "@parity-app/desktop_v0.75.0",
