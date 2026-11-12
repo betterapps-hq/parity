@@ -30,6 +30,7 @@ import { PanelSelectContent } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { type PropValue, readValue, textValue } from "../../chrome/prop-values.ts"
+import { ClassTagsField, classesIn } from "./class-tags.tsx"
 import { ChangeMark, MessageLine, useChanged, wrappingText } from "./field-parts.tsx"
 import { Field, FieldGrid, SwitchRow, TitleMenu } from "./field-row.tsx"
 import { NumberProp, type PropPreview } from "./number-field.tsx"
@@ -107,8 +108,23 @@ export type InstanceProp = PropRow
 type PropChange = (name: string, value: PropValue | undefined, gesture?: string) => void
 
 /**
+ * A `className` prop's classes, where it holds text or nothing, which are drawn as tags rather than in a box of text
+ * (PAR-1021); undefined for any other prop.
+ */
+function classNames(row: PropRow): string[] | undefined {
+  if (row.name !== "className" || (row.type !== "text" && row.type !== "value")) {
+    return undefined
+  }
+
+  const text = textValue.safeParse(row.value ?? "")
+
+  return text.success ? classesIn(text.data) : undefined
+}
+
+/**
  * Props' rows, drawn as the style sections draw theirs: the type's tile and the name above the control, a switch row for
- * one that's on or off, a field's box for text and numbers, JSON for objects and lists, and Tag's select for options.
+ * one that's on or off, a field's box for text and numbers, tags for `className`, JSON for objects and lists, and Tag's
+ * select for options.
  * An instance's and a component's props are drawn alike.
  */
 export function PropRows({ rows, onChange }: { rows: readonly PropRow[]; onChange: PropChange }) {
@@ -133,6 +149,7 @@ export function PropRows({ rows, onChange }: { rows: readonly PropRow[]; onChang
     }
 
     let control: ReactNode
+    const classes = classNames(row)
 
     if (row.type === "shown") {
       control = <div className="flex h-7 items-center text-xs text-muted-foreground">{row.shown}</div>
@@ -154,6 +171,14 @@ export function PropRows({ rows, onChange }: { rows: readonly PropRow[]; onChang
           placeholder={row.default}
           preview={row.preview}
           onChange={(next, gesture) => onChange(row.name, next, gesture)}
+        />
+      )
+    } else if (classes !== undefined) {
+      control = (
+        <ClassTagsField
+          label={label}
+          classes={classes}
+          onChange={(next) => onChange(row.name, next.length === 0 ? undefined : next.join(" "))}
         />
       )
     } else if (row.type === "value") {
