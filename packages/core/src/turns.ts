@@ -56,10 +56,33 @@ export function turns(limit: number): Turns {
   }
 }
 
+/** Where something is against the view, as an `IntersectionObserver` last reported it. */
+export interface PlaceInView {
+  /** Whether any of it is in the view. */
+  inView: boolean
+  /** Whether any of it is in or around the view, within the margin it's watched with. */
+  near: boolean
+  /** How far its middle is from the view's, in pixels (`distanceFromView`). */
+  distance: number
+}
+
 /**
- * How far something on screen is from the middle of the view, in pixels, to rank work on it: what's in the middle comes
- * first, then the rest of the view, then what's around it, and what's far away last.
+ * How urgent work on something is from where it is, lowest first, for `turns`: anything in the view before anything
+ * around it, and that before anything farther away; within each, the nearest the middle of the view first.
  */
+export function viewRank({ inView, near, distance }: PlaceInView): number {
+  let tier = 2
+
+  if (inView) {
+    tier = 0
+  } else if (near) {
+    tier = 1
+  }
+
+  return tier * 1e9 + Math.min(distance, 1e9 - 1)
+}
+
+/** How far the middle of a box is from the middle of the view, in pixels. */
 export function distanceFromView(
   box: { left: number; top: number; width: number; height: number },
   view: { left: number; top: number; width: number; height: number }

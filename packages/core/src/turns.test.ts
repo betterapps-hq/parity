@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { distanceFromView, turns } from "./turns.ts"
+import { distanceFromView, turns, viewRank } from "./turns.ts"
 
 /** A task that records when it starts and finishes only when `release` is called. */
 function held(log: string[], name: string) {
@@ -93,5 +93,26 @@ describe("distanceFromView", () => {
     expect(middle).toBe(0)
     expect(corner).toBeGreaterThan(middle)
     expect(outside).toBeGreaterThan(corner)
+  })
+})
+
+describe("viewRank", () => {
+  it("puts anything in view before anything around it, and that before what's far away, however big", () => {
+    // A tall frame with its middle well off screen, but part of it in view.
+    const tallInView = viewRank({ inView: true, near: true, distance: 5000 })
+    const smallAround = viewRank({ inView: false, near: true, distance: 600 })
+    const far = viewRank({ inView: false, near: false, distance: 700 })
+
+    expect(tallInView).toBeLessThan(smallAround)
+    expect(smallAround).toBeLessThan(far)
+  })
+
+  it("takes what's nearer the middle first within each", () => {
+    expect(viewRank({ inView: true, near: true, distance: 10 })).toBeLessThan(
+      viewRank({ inView: true, near: true, distance: 300 })
+    )
+    expect(viewRank({ inView: false, near: false, distance: 900 })).toBeLessThan(
+      viewRank({ inView: false, near: false, distance: 4000 })
+    )
   })
 })

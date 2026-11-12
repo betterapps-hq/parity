@@ -176,7 +176,7 @@ export interface FrameBitmap {
  * is kept with the bitmap; nothing while it isn't drawn. `holding` says whether the frame is holding off drawing its
  * design for the bitmap (`useFirstDrawWaits`): then nothing is being edited, so what it first shows is captured without
  * the wait (PAR-525). `rank` says how near the frame is to the middle of the view, so frames in view are captured first
- * (`viewRank`, PAR-955).
+ * (`useFrameView`, PAR-955).
  */
 export function useFrameBitmap(
   { key, job }: FrameShows,

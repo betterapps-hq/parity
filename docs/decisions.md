@@ -7486,9 +7486,16 @@ view to swap for designs while still zooming. My calls:
 - **Waking goes by the zoom, sleep by the settled zoom.** A board's frames stop being dormant as soon as the zoom is
   back above the line's margin (`isFarZoom`), even mid-zoom. Falling asleep still waits for the zoom to settle, so a
   zoom passing through the line doesn't take frames apart.
-- **Nearest the middle of the view first, for waking and captures,** by `distanceFromView` from the frame's place on
-  screen, read when each turn comes, so a camera still moving gets what's in view now. Frames with no place, as a
-  project's picture asks for, go last.
+- **In view, then around it, then far away, for waking and captures,** and within each the nearest the middle first
+  (`viewRank` in core), read when each turn comes, so a camera still moving gets what's in view now. Frames with no
+  place, as a project's picture asks for, go last.
+- **`IntersectionObserver`, not measuring.** The first version measured every waiting frame's box at each turn, which
+  makes the browser lay the page out to answer. Two observers each canvas shares, one for the view and one with a
+  quarter-view margin, report each frame as it crosses an edge, with its box; ranking reads what they last reported. The
+  in-view observer also reports at half and wholly in view, so the order within the view keeps up.
+- **Each frame is near or not on its own.** A board with many states and modes is large, and any edge of it near the
+  view woke every frame on it. A frame now wakes only once its board and the frame itself are near, so frames a screen
+  or more away on a near board stay asleep.
 - **Still one frame each animation frame.** Waking more at once is what kept the page busy for seconds (PAR-197);
   choosing which one is what changed.
 - **The zoom is read once, not by every board.** Whether the camera rests far (`isRestingFar`) now also needs the zoom

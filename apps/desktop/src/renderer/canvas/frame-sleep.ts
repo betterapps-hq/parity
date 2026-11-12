@@ -45,12 +45,19 @@ export function viewRank(element: HTMLElement | null): number {
 /**
  * Whether a frame's design is drawn. Zoomed far out, a frame showing its bitmap (`canSleep`) sleeps: it lets go of its
  * design's React root and elements, most of what each frame holds, and keeps its size and its bitmap. It wakes once
- * it's no longer to sleep and its board is near the view, one frame each animation frame, since waking a whole
- * project's frames at once kept the page busy for seconds, the one nearest the middle of the view first (`rank`). One out of view stays asleep, showing its bitmap, until it
- * comes near, unless what it shows changes (`shows`, as its bitmap is keyed): then it wakes wherever it is, so its
- * board takes the new size, which agents read. Without `rest`, as outside a canvas, a frame never sleeps.
+ * it's no longer to sleep and it's near the view, both its board and the frame itself (`view.near`, since a board with
+ * many states and modes is large), one frame each animation frame, since waking a whole project's frames at once kept
+ * the page busy for seconds, the one most in view first (`view.rank`, PAR-955). One away from the view stays asleep,
+ * showing its bitmap, until it comes near, unless what it shows changes (`shows`, as its bitmap is keyed): then it wakes
+ * wherever it is, so its board takes the new size, which agents read. Without `rest`, as outside a canvas, a frame never
+ * sleeps.
  */
-export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: string, rank?: () => number): boolean {
+export function useAwake(
+  canSleep: boolean,
+  rest: BoardRest | undefined,
+  shows: string,
+  view?: { rank: () => number; near: Signal<boolean> }
+): boolean {
   // What the frame showed when it fell asleep; nothing while it's awake.
   const [slept, setSlept] = useState<string>()
   const awake = slept === undefined
@@ -91,8 +98,10 @@ export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: 
     let cancel: (() => void) | undefined
 
     const stop = react("frame wakes", () => {
-      if (changed || (rest.near.get() && !(canSleep && rest.dormant.get()))) {
-        cancel ??= wakeSoon(() => setSlept(undefined), rank)
+      const near = rest.near.get() && (view?.near.get() ?? true)
+
+      if (changed || (near && !(canSleep && rest.dormant.get()))) {
+        cancel ??= wakeSoon(() => setSlept(undefined), view?.rank)
       } else {
         cancel?.()
         cancel = undefined
@@ -103,7 +112,7 @@ export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: 
       stop()
       cancel?.()
     }
-  }, [awake, canSleep, rest, shows, changed, rank])
+  }, [awake, canSleep, rest, shows, changed, view])
 
   return awake
 }
