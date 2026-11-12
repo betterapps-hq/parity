@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Edit a className prop as tags",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
