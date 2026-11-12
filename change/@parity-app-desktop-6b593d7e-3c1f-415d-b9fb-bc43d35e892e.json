@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Every menu, the keys, search and the toolbar now agree on whether a command can run and what it's called; File > Export selected runs the same export as Ctrl+Shift+E.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
