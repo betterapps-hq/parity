@@ -28,6 +28,18 @@ jobs:
     # The preview environment's token reaches the template's job only when secrets are inherited (PAR-512).
     secrets: inherit
 
+  # The service's preview, and its own comment (PAR-947).
+  portal:
+    name: Service
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: betterapps-hq/pipelines/.github/workflows/preview-web-cleanup.yml@main
+    with:
+      app-directory: apps/portal
+    secrets: inherit
+
   # Replaces the Storybook's URL in the comment, keeping the rest. A comment without one is left as it is.
   comment:
     name: Comment

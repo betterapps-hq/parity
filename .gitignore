@@ -17,3 +17,6 @@ storybook-static/
 # Parity's bundles and source maps for Sentry, which apps/desktop/scripts/build.ts writes (PAR-625).
 apps/desktop/sourcemaps/
 packages/cli/sourcemaps/
+
+# Wrangler's local state and the deploy config a build writes.
+.wrangler/

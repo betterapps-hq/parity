@@ -7336,3 +7336,20 @@ project that switches its dark theme by attribute on the root still drew light v
 
 Gap, as before: a token the root builds from another (`:root { --card: var(--surface) }`) is worked out on the host, so
 a theme that sets only `--surface` leaves `--card` light in the frame. It's in `docs/support.md`.
+
+## The service's app is `apps/portal`, deployed through the shared web templates (PAR-947)
+
+My calls, standing up what [proposals/service.md](proposals/service.md) agreed:
+
+- **An app with no pages builds and runs.** `apps/portal` has a root route that draws nothing and one server route,
+  `GET /v1/health`. Any other path answers 404.
+- **It has no `package.json` scripts.** The workflows build it with `pnpm --filter @parity-app/portal exec vp build`,
+  and `vp dev` and `vp preview` run it locally, in Workers' own runtime.
+- **The Workers are `parity-portal` and `parity-portal-staging`.** Production is served at `api.tryparity.dev` only, and
+  staging on workers.dev, where each pull request's preview is a preview of it.
+- **The zone's ID is looked up by name in Terraform,** so it's written nowhere. The Terraform token has to be able to
+  read the zone and set a Worker's custom domain on it.
+- **Production follows staging and waits on the production environment's reviewers,** as the desktop's does.
+- **The service's preview comments its own URL,** apart from the one comment the other previews share.
+- **TanStack Router's generated route tree is committed,** since types are checked against it, and kept from the
+  formatter and the linter, as it asks.

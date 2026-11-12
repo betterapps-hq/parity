@@ -92,7 +92,9 @@ export default defineConfig({
       "pnpm-lock.yaml",
       "examples/**",
       "fixtures/**",
-      "packages/fixtures/overlays/**"
+      "packages/fixtures/overlays/**",
+      // TanStack Router writes each app's route tree, and says to keep it from the formatter and the linter.
+      "**/routeTree.gen.ts"
     ]
   },
   lint: {
@@ -113,6 +115,7 @@ export default defineConfig({
       "examples/**",
       "fixtures/**",
       "packages/fixtures/overlays/**",
+      "**/routeTree.gen.ts",
       "*.md"
     ],
     rules: {
