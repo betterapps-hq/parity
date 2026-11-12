@@ -30,6 +30,7 @@ import { redrawLayer } from "./layer-redraw.ts"
 import { NoteUtil } from "./NoteUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
 import { ReferenceUtil } from "./ReferenceUtil.tsx"
+import { recordRestedFar } from "./rested-far.ts"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutPatternFills } from "./tldraw-fills.ts"
 import { type CanvasId, createCanvasId, IndicatorOverlayUtil } from "./tldraw-names.ts"
@@ -268,9 +269,12 @@ function markZoomedOut(editor: Editor): () => void {
     resting.set(far(editor.getEfficientZoomLevel(), resting.__unsafe__getWithoutCapture()))
   })
 
+  const stopRecording = recordRestedFar(editor, area, resting)
+
   return () => {
     stop()
     stopResting()
+    stopRecording()
     restingFar.delete(editor)
 
     for (const [mark] of marks) {
