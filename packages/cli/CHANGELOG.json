@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 00:27:08 GMT",
+      "version": "0.47.0",
+      "tag": "@parity-app/cli_v0.47.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "8392d25aa3ba929e28e9e23b951b538dacfed22e",
+            "comment": "Fill a layer with a stack of colors, gradients and images: `background` takes a list of paints as well as one color token"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 00:08:16 GMT",
       "version": "0.46.0",
       "tag": "@parity-app/cli_v0.46.0",
