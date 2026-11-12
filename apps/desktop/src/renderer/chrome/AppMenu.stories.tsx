@@ -13,6 +13,7 @@ import {
   openProjects,
   preferring
 } from "../stories/fixtures.tsx"
+import { pickingWith } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
@@ -135,6 +136,30 @@ export const FileWithNothingSelected: Story = {
   play: async () => {
     await frameDesigns("Pricing", "Dashboard", "Sign in", "Settings")
     await openMenu("File")
+  }
+}
+
+/**
+ * File > Export selected runs what Ctrl+Shift+E runs (PAR-976): both export the selected design at the Export section's
+ * sizes, so both ask for the folder that export asks for.
+ */
+export const ExportSelectedAsItsShortcutDoes: Story = {
+  loaders: [pricingSelected],
+  play: async () => {
+    const asked: (string | undefined)[] = []
+    pickingWith({
+      pickFolder: (title) => {
+        asked.push(title)
+
+        return Promise.resolve(undefined)
+      }
+    })
+    await frameDesigns("Pricing")
+    await openMenu("File")
+    await userEvent.click(body().getByRole("menuitem", { name: /^Export selected…/ }))
+    await waitFor(() => expect(asked).toEqual(["Export to"]))
+    await userEvent.keyboard("{Control>}{Shift>}E{/Shift}{/Control}")
+    await waitFor(() => expect(asked).toEqual(["Export to", "Export to"]))
   }
 }
 

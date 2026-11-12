@@ -23,9 +23,9 @@ import {
   useTabs,
   workspace
 } from "../workspace.ts"
-import { type ActionResult, actions } from "./actions.ts"
+import { type ActionResult, actions, commandsFor } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
-import { activeSession, clearBitmapCache, exportImages, selectedDesign } from "./commands.ts"
+import { activeSession, clearBitmapCache, exportAllImages, selectedDesign } from "./commands.ts"
 import { type Command as KeyCommand, type Group, groups, keymap } from "./keymap.ts"
 import { formatKeys } from "./keys.ts"
 import { setLayout } from "./layout.ts"
@@ -56,7 +56,7 @@ const limits = { Layers: 8, Components: 6, Tokens: 6, Designs: 6 }
 
 /** What the menus and panels offer that has no shortcut, so the search finds those too. */
 const extras: Item[] = [
-  { id: "action:exportAll", group: "File", label: "Export all", run: () => exportImages("all") },
+  { id: "action:exportAll", group: "File", label: "Export all", run: () => exportAllImages() },
   {
     id: "action:snapping",
     group: "View",
@@ -180,19 +180,24 @@ function saveRecent(recent: readonly string[]): void {
   }
 }
 
-/** Every action in the keymap that the search can run, with its first keys. */
+/**
+ * Every action in the keymap that the search can run, with its first keys, named and available as the menus have them
+ * now. The keymap's name finds it too, so Hide or show is found as Show.
+ */
 function commandItems(): Item[] {
+  const states = commandsFor()
+
   // SAFETY: the keymap has an entry for every command, so its own keys are the commands.
   return (Object.keys(keymap) as KeyCommand[])
     .filter((id) => id !== "actions" && !actions[id].byKey)
     .map((id) => ({
       id: `action:${id}`,
       group: keymap[id].group,
-      label: keymap[id].label,
-      keywords: keymap[id].group,
+      label: states[id].label,
+      keywords: `${keymap[id].group} ${keymap[id].label}`,
       keys: keymap[id].keys[0],
       run: () => actions[id].run("search"),
-      available: () => actions[id].available?.() !== false
+      available: () => states[id].enabled
     }))
 }
 

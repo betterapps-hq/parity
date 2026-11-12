@@ -74,17 +74,17 @@ import {
   ZoomOut,
   MessageSquareWarning
 } from "lucide-react"
-import type { ReactNode } from "react"
+import { createContext, type ReactNode, useContext } from "react"
 import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
-import { actions } from "./actions.ts"
+import { actions, commandsFor } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { installCliCommand } from "./cli-command.ts"
-import { activeSession, clearBitmapCache, exit, exportImages, selectedDesign, selectedInstance } from "./commands.ts"
+import type { CommandState } from "./command-state.ts"
+import { activeSession, clearBitmapCache, exit, exportAllImages } from "./commands.ts"
 import { type Command, keymap } from "./keymap.ts"
 import { formatKeys, isMac } from "./keys.ts"
 import { setLayout, useLayout } from "./layout.ts"
 import { setPreferences, usePreferences } from "./preferences.ts"
-import { lastAction } from "./repeat.ts"
 import { openReport } from "./ReportProblemDialog.tsx"
 import { checkForUpdates } from "./updates.tsx"
 
@@ -93,7 +93,7 @@ const mac = isMac()
 /**
  * File, Edit, View, Object, Arrange and Help, in the title bar, like a desktop app's menus, named and ordered as
  * Figma's are. Each menu reads the active tab when it opens, so what it offers matches what's selected. Every item's
- * keys, and whether it applies, come from the keymap and its actions, the same ones the shortcuts run.
+ * keys come from the keymap, and whether it applies and what it's called from `commandsFor`, as the shortcuts read them.
  */
 export function AppMenu() {
   // Re-renders the bar when the active tab changes; the menus read the rest when they open.
@@ -115,7 +115,7 @@ export function AppMenu() {
           <MenubarTrigger className="font-normal">{name}</MenubarTrigger>
           {/* As wide as what it holds; the kit's are as wide as their trigger, which wraps the items. */}
           <MenubarContent className="w-auto">
-            <Items />
+            <MenuItems items={Items} />
           </MenubarContent>
         </MenubarMenu>
       ))}
@@ -123,7 +123,27 @@ export function AppMenu() {
   )
 }
 
-/** A command's menu item: its action, its keys, and unavailable when the action doesn't apply. */
+/** Each command's state in the active tab, as the open menu read it. */
+const States = createContext<Record<Command, CommandState> | undefined>(undefined)
+
+/** A menu's items, with every command's state read once as it opens. */
+function MenuItems({ items: Items }: { items: () => ReactNode }) {
+  return (
+    <States.Provider value={commandsFor()}>
+      <Items />
+    </States.Provider>
+  )
+}
+
+/** Each command's state, as the open menu read it. */
+function useStates(): Record<Command, CommandState> {
+  return useContext(States) ?? commandsFor()
+}
+
+/**
+ * A command's menu item: its action, its keys, and its name and whether it applies from `commandsFor`. `children` is
+ * for a menu's own fixed wording, as Save a copy… says it asks where, only for a command whose name never changes.
+ */
 function Item({
   command,
   icon: Icon,
@@ -135,16 +155,16 @@ function Item({
   variant?: "destructive"
   children?: ReactNode
 }) {
-  const action = actions[command]
+  const state = useStates()[command]
 
   return (
     <MenubarItem
       variant={variant}
       inset={Icon ? undefined : true}
-      disabled={action.available?.() === false}
-      onClick={() => void action.run("menu")}
+      disabled={!state.enabled}
+      onClick={() => void actions[command].run("menu")}
     >
-      {Icon && <Icon />} {children ?? keymap[command].label}
+      {Icon && <Icon />} {children ?? state.label}
       <MenubarShortcut>{formatKeys(keymap[command].keys[0])}</MenubarShortcut>
     </MenubarItem>
   )
@@ -207,11 +227,10 @@ function FileItems() {
         Save a copy…
       </Item>
       <MenubarSeparator />
-      <MenubarItem disabled={!session?.selection.get().design} onClick={() => void exportImages("selection")}>
-        <Images /> Export selected…
-        <MenubarShortcut>{formatKeys(keymap.exportSelection.keys[0])}</MenubarShortcut>
-      </MenubarItem>
-      <MenubarItem disabled={designs === 0} onClick={() => void exportImages("all")}>
+      <Item command="exportSelection" icon={Images}>
+        Export selected…
+      </Item>
+      <MenubarItem disabled={designs === 0} onClick={() => void exportAllImages()}>
         <Images /> Export all…
       </MenubarItem>
       <MenubarSeparator />
@@ -227,20 +246,11 @@ function FileItems() {
 }
 
 function EditItems() {
-  const history = activeSession()?.store.getHistory()
-  const repeated = lastAction()
-
   return (
     <>
-      <Item command="undo" icon={Undo2}>
-        {history?.undoLabel ? `Undo ${history.undoLabel.toLowerCase()}` : "Undo"}
-      </Item>
-      <Item command="redo" icon={Redo2}>
-        {history?.redoLabel ? `Redo ${history.redoLabel.toLowerCase()}` : "Redo"}
-      </Item>
-      <Item command="repeat" icon={Repeat2}>
-        {repeated ? `Repeat ${repeated.label[0]!.toLowerCase()}${repeated.label.slice(1)}` : keymap.repeat.label}
-      </Item>
+      <Item command="undo" icon={Undo2} />
+      <Item command="redo" icon={Redo2} />
+      <Item command="repeat" icon={Repeat2} />
       <MenubarSeparator />
       <Item command="cut" icon={Scissors} />
       <Item command="copy" icon={Copy} />
@@ -313,16 +323,7 @@ function ViewItems() {
 }
 
 function ObjectItems() {
-  const design = selectedDesign()
-  const instance = selectedInstance()
   const current = activeSession()?.selection.get() ?? {}
-  let makeComponent = "Make component"
-
-  if (design?.container.kind === "component") {
-    makeComponent = "Convert to screen"
-  } else if (design) {
-    makeComponent = "Convert to component"
-  }
 
   return (
     <>
@@ -337,12 +338,8 @@ function ObjectItems() {
       <Item command="wrap" icon={Group} />
       <Item command="unwrap" icon={Ungroup} />
       <MenubarSeparator />
-      <Item command="makeComponent" icon={Diamond}>
-        {makeComponent}
-      </Item>
-      <Item command="goToMain" icon={Diamond}>
-        {instance ? `Go to ${mainName(instance.node.design)}` : "Go to the main component"}
-      </Item>
+      <Item command="makeComponent" icon={Diamond} />
+      <Item command="goToMain" icon={Diamond} />
       <Item command="detach" icon={Unlink} />
       <MenubarSeparator />
       <Item command="bringForward" />
@@ -369,7 +366,7 @@ const alignCommands: { command: Command; icon: typeof AlignStartVertical }[] = [
 ]
 
 function ArrangeItems() {
-  const unavailable = actions.alignLeft.available?.() === false
+  const unavailable = !useStates().alignLeft.enabled
 
   return (
     <>
@@ -421,15 +418,6 @@ function SelectionHint({ children }: { children: ReactNode }) {
         <SquareDashed className="size-3.5" /> {children}
       </MenubarLabel>
     </MenubarGroup>
-  )
-}
-
-/** The name of the component design an instance copies. */
-function mainName(design: string): string {
-  return (
-    activeSession()
-      ?.store.getEntries()
-      .find((entry) => entry.container.id === design)?.container.name ?? "the main component"
   )
 }
 

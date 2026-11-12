@@ -513,33 +513,33 @@ menubar's command. A row in the Layers panel has a menu of its own, built the sa
   This holds for the menubar's and the title's menus, and dialogs, too.
 
 Code: the menu's contents are `canvasMenu` in `apps/desktop/src/renderer/chrome/canvas-menu.ts`, which takes the
-selection and the design under the pointer and returns the items, available or not, in order, with Select layer's list;
-`rightClickSelection` there is what a right-click selects, and `layerCommands` which of Copy, Duplicate, the order, Wrap
-in layout and Hide can act on the selected layers, which the menubar's `actions.ts` reads too. `chrome/CanvasMenu.tsx`
-is the context menu around the canvas area in `ProjectView.tsx`: it records the right button's press, finds the design
-under the pointer with `hitTest` and `pickLayer`, outlines Select layer's entries through the hover, runs items through
-`actions.ts`, and opens again on a right-click outside it (`reopensOnCanvas`, from `onOpenChange`). Paste here is
-`pasteAtPointer` in `canvas/clipboard.ts`, which reads the clipboard and places designs, notes and text; layers go
-through `canvas/paste-here.ts`, where `measureHere` measures the layout or component's slot under the pointer in its
-frame, with the frame's scale and the inside of the border from `canvas/frame-geometry.ts` (PAR-967), and `pasteHere` in
-`packages/editor/src/paste-here.ts` places the copies (`placedAt` at the pointer). Which keys an open menu keeps is
-`inMenu` in `canvas/shortcuts.ts`. The Layers row's menu is `layersMenu` in `chrome/layers-menu.ts`, which reuses
-`canvasMenu`'s items and `layerCommands`, and `rowSelection` there is what a right-click on a row selects;
-`chrome/LayerTree.tsx` selects on opening and runs the items through `actions.ts`.
+selection, the design under the pointer and every command's state, and returns the items in order, with Select layer's
+list. Whether an item can act, and what it's called, is `commandStates`', as the menubar and the keys have it (see
+Whether a command applies, and what it's called); the menu decides only which items to show. `rightClickSelection` there
+is what a right-click selects. `chrome/CanvasMenu.tsx` is the context menu around the canvas area in `ProjectView.tsx`:
+it records the right button's press, finds the design under the pointer with `hitTest` and `pickLayer`, outlines Select
+layer's entries through the hover, runs items through `actions.ts`, and opens again on a right-click outside it
+(`reopensOnCanvas`, from `onOpenChange`). Paste here is `pasteAtPointer` in `canvas/clipboard.ts`, which reads the
+clipboard and places designs, notes and text; layers go through `canvas/paste-here.ts`, where `measureHere` measures the
+layout or component's slot under the pointer in its frame, with the frame's scale and the inside of the border from
+`canvas/frame-geometry.ts` (PAR-967), and `pasteHere` in `packages/editor/src/paste-here.ts` places the copies
+(`placedAt` at the pointer). Which keys an open menu keeps is `inMenu` in `canvas/shortcuts.ts`. The Layers row's menu
+is `layersMenu` in `chrome/layers-menu.ts`, which reuses `canvasMenu`'s items and the same states, and `rowSelection`
+there is what a right-click on a row selects; `chrome/LayerTree.tsx` selects on opening and runs the items through
+`actions.ts`.
 
 Tests:
 
-- `chrome/canvas-menu.test.ts` (21): one layer's menu in order with its keys, an instance's Go to, several layers, Show
+- `chrome/canvas-menu.test.ts` (19): one layer's menu in order with its keys, an instance's Go to, several layers, Show
   and Hide in two states, Show for a layer the variant shown hides and Hide after Hide shows it, a design's menu and its
   Make component label, several designs, a layer inside an instance, the menu around the designs and on a canvas with
-  nothing on it; Select layer's list, names, checks and the design's kind; what a right-click selects on a layer, a
-  frame's background, around the frames, the root, inside the selection, outside it, and in a selected design; and
-  `layerCommands`, which the menubar shares, for the design's own layers, one or several, and for a layer inside an
-  instance, the root, and one of each.
+  nothing on it; Select layer's list, names, checks and the design's kind; and what a right-click selects on a layer, a
+  frame's background, around the frames, the root, inside the selection, outside it, and in a selected design. Each menu
+  is built from `commandStates`, as the window builds it.
 - `chrome/layers-menu.test.ts` (7, PAR-571): a layer's row menu in order with the keymap's labels and keys, a design's,
-  the root's with only Rename available, Hide reading every selected layer, Hide in the state the selection was picked
-  in rather than the one the board shows (PAR-586, which the menu before got wrong), and what a right-click on a row
-  selects, inside the selection and outside it.
+  the root's with Rename and Delete available, Hide reading every selected layer, Hide in the state the selection was
+  picked in rather than the one the board shows (PAR-586, which the menu before got wrong), and what a right-click on a
+  row selects, inside the selection and outside it.
 - `chrome/LayerTree.stories.tsx`, LayerMenu and DesignMenu (under Parity/Left panel/Layers): a right-click on a row
   selects it and opens its menu.
 - `packages/editor/src/paste-here.test.ts` (23): the dashboard's stats row, at the slot under the pointer, first and
@@ -727,8 +727,8 @@ Tests:
   their paths, into a nested instance; no layers for a missing component or one it's inside; search inside instances;
   the instances revealed above a layer inside them, and a selected instance left closed; Alt+click through instances;
   and a filled slot showing its fills, revealed and opened by Alt+click, beside an empty one's placeholder.
-- `chrome/layers-menu.test.ts`, the instance test: Rename, Duplicate, Hide, Lock and Delete unavailable for a layer
-  inside an instance.
+- `chrome/layers-menu.test.ts`, the instance test: Rename, Duplicate, Hide and Lock unavailable for a layer inside an
+  instance. Delete stays available, as the Del key has it (PAR-971).
 - `chrome/LayerTree.stories.tsx` (under Parity/Left panel/Layers): InsideAnInstance, a layer selected inside the Users
   card highlighted with the instance open; HiddenInsideAnInstance, Trend hidden from its eye, not draggable, not renamed
   by a double-click, and its menu's Rename unavailable. Their play functions passed in Storybook on 2026-11-07.
@@ -2052,7 +2052,9 @@ and `isReviewTool`). In the app, `renderer/selection.ts` keeps each tab's review
 `stepBack` in `chrome/commands.ts` puts the review tool down on Esc. `chrome/FloatingToolbar/` has the toolbar:
 `FloatingToolbar.tsx`, `Tools.tsx`, `MoveMenu.tsx`, `FrameMenu.tsx`, `ReviewButton.tsx` and `tool-details.ts`, with the
 warp in `Warp.tsx` (the bar and its two sides), `useWarp.ts` (widths, focus) and `warp-motion.ts` (the choreography).
-`chrome/toolbar-parts.tsx` has the parts the floating bars share, and `chrome/ZoomControls.tsx` is Zoom.
+`chrome/toolbar-parts.tsx` has the parts the floating bars share, and `chrome/ZoomControls.tsx` is Zoom. Insert, Find
+references, Search actions and Zoom's buttons are unavailable when `commandsFor` says their command can't run, as Find
+references without a reference library, or Zoom to fit on a canvas with nothing on it (PAR-971).
 `collaboration/annotations/` has the review tools' bars: `annotation-kinds.ts` names and colors each review tool,
 `annotation-options.ts` lists each kind's options, and `ReviewToolBar.tsx` shows `KindBar.tsx` or `CommentBar.tsx`, with
 `DoneButton.tsx`. `ReviewBar.tsx`, a bar for a review tool beside the toolbar rather than in it, is kept for later.
@@ -2068,7 +2070,8 @@ Tests:
   only Comment and the kinds are review tools.
 - `apps/desktop/src/renderer/springs.test.ts` (5): a spring starts at 0 and settles on 1, overshoots only when it's
   loose, settles later the less it's damped, and makes a `linear()` easing and keyframes.
-- `chrome/record-actions.test.ts`: Zoom's buttons run through the action list.
+- `chrome/record-actions.test.ts`: an action runs on the tab it's given, as Zoom's buttons give theirs, and only when
+  its state says it applies (PAR-971).
 - Stories, Parity / Chrome / Toolbar: SelectTool; Groups, which checks Frame, Text and Comment are the tools' group and
   Insert and Find references sit outside it; HandTool, TextTool, InteractTool, ToolTooltip, Annotating and Commenting;
   AnnotateAndBack picks Behaviour from the review menu, with the canvas on Move and select, and Esc goes back to Text;
@@ -2112,6 +2115,49 @@ Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `
 and every key in the keymap showing as one chord off a Mac. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2)
 reads the Edit and View menus' items as plain text joined by `+`, and the nudges and the new keys in the Keyboard
 shortcuts dialog as keycaps; `e2e/menus.e2e.ts` reads the canvas menu's.
+
+### Whether a command applies, and what it's called (PAR-971)
+
+Every place that offers a command agrees on whether it can run now and what it's called: its keys, the menubar, Search
+actions, the toolbar, Zoom, and the canvas and Layers menus.
+
+- **A command that can't run is greyed** in the menus, Search actions and the toolbar, and its keys don't run it: a Ctrl
+  shortcut is recorded as cancelled, and a plain key does what it would anyway, as Tab moving focus.
+- **Names follow what's selected:** Undo and Redo name the step, Repeat what it repeats, Make component reads Convert to
+  component or Convert to screen for a design on its own, Go to the main component names it, Hide reads Show when every
+  selected layer is hidden, and Lock reads Unlock when every selected layer or design is locked. With nothing they could
+  act on, Hide and Lock read "Hide or show" and "Lock or unlock". Search actions finds a command by the keymap's name
+  too, so "hide" finds Show.
+- **Layer commands need layers of the design's own:** Copy, Duplicate, Wrap in layout, Hide and Lock are unavailable for
+  only a design's root or layers inside an instance, and the order and Make component take one such layer alone. Rename
+  is unavailable for a layer inside an instance. Cut and Delete apply to anything selected.
+- **Some need something on the canvas or selected:** Select all and Zoom to fit need a design or a note on the canvas,
+  Find references a connected reference library, and Export selected and Copy as PNG a layer or design selected.
+- **A menu's own wording,** such as Insert… or Export…, is kept only for commands whose name doesn't change.
+
+Code: `commandStates` in `apps/desktop/src/renderer/chrome/command-state.ts` takes the tab's selection, designs, notes,
+canvas, history, what Repeat would run and whether a reference library is connected, and returns every command's
+`{ enabled, label }`. `commandsFor` in `chrome/actions.ts` reads a tab into it; `AppMenu.tsx` reads it once for each
+open menu, `canvasMenu` and `layersMenu` take it, `ActionsSearch.tsx` and `IconButton.tsx` (`CommandButton`) read it,
+and `canvas/shortcuts.ts` asks it before a key runs a command. `recordActions` in `chrome/record-actions.ts` asks it
+again before running, for the tab passed as `session` or the active one. What each command runs is private to
+`actions.ts`, which exports only `actions` and `commandsFor`.
+
+Tests:
+
+- `chrome/command-state.test.ts` (98): a table of situations (no project, an empty canvas, a note on it, nothing
+  selected, one or two layers, a hidden or locked layer, an instance, a layer inside an instance, the root, a screen, a
+  component, a locked screen, two and three designs, a note, a reference, no reference library, no canvas, history and
+  Repeat) and the state and name each command has in them; and a state for every command in the keymap.
+- `chrome/record-actions.test.ts` (6): the wrapper records each run with where it came from, records one that doesn't
+  apply as cancelled without running it, runs `instead` and records a failure's code, and runs on the tab it's given;
+  the registry runs every keymap command, exports only `actions` and `commandsFor`, and runs Duplicate only once there's
+  something to duplicate, recorded both times.
+- Stories, Parity / Chrome / App menu: EditLayerInInstance and ObjectLayerInInstance (greyed items and the keymap's
+  names for a layer inside an instance), and ExportSelectedAsItsShortcutDoes (PAR-976).
+- Tried in the app on 2026-11-12 with `scripts/drive.ts`: the menubar, canvas menu and Layers menu with nothing, a
+  screen, a component, a layer and every design selected; Hide from Object, then Show in Object and Layers, and Undo
+  naming the step; the canvas menu from Shift+F10; and each item's accessible name, its label and its keys.
 
 ### Search actions finds anything, and Repeat last action (PAR-180)
 
@@ -2906,8 +2952,9 @@ The Design tab ends with an **Export** section for whatever is selected: a desig
 design, or several designs. It lists the sizes to write, each a PNG or a JPG at 1x, 2x or 3x, with **+** to add the next
 size not asked for (PNGs from 1x up, then JPGs) and **−** to remove one, down to the last. Under them it names the files
 that makes, the first three and how many more, and **Export** asks for a folder and writes them. The canvas menu ends
-with **Export…** and the Layers row menu has it before Delete; both, like Ctrl+Shift+E and File > Export selected,
-export the selection at the same sizes. The sizes are remembered for every export, not per layer.
+with **Export…** and the Layers row menu has it before Delete; both, like Ctrl+Shift+E and File > Export selected, run
+the one Export selected command, which exports the selection at the same sizes (PAR-976). It's unavailable with no layer
+or design selected. The sizes are remembered for every export, not per layer.
 
 - **Names:** each file is its layer's name as the Layers panel shows it, with `@2x` or `@3x` for those scales and none
   at 1x, as iOS and Android name theirs: `Headline@2x.png`. Characters a file name can't hold on Windows, macOS or Linux
@@ -2926,10 +2973,10 @@ export the selection at the same sizes. The sizes are remembered for every expor
 
 Code: `exportFiles`, `nextExportSize`, `planExport` and `pictureCrop` in `packages/editor/src/export-files.ts`; the
 section in `apps/desktop/src/renderer/chrome/ExportSection.tsx`, in `DesignPanel.tsx`, `LayerPanel.tsx` and
-`MultiPanel.tsx`; `exportLayers` and `exportSelected` in `chrome/commands.ts`; the menus' items in
-`chrome/canvas-menu.ts` and `chrome/layers-menu.ts`; the sizes in `chrome/preferences.ts`; `framePictures` in
-`packages/agent/src/dispatch.ts`, which keeps each layer's box with a screenshot; and `exportLayers` in
-`utility/agent.ts` with `cutPicture` in `utility/webp.ts`, behind the service's `layers.export`.
+`MultiPanel.tsx`; `exportLayers` in `chrome/commands.ts` and the command's `exportSelected` in `chrome/actions.ts`; the
+menus' items in `chrome/canvas-menu.ts` and `chrome/layers-menu.ts`; the sizes in `chrome/preferences.ts`;
+`framePictures` in `packages/agent/src/dispatch.ts`, which keeps each layer's box with a screenshot; and `exportLayers`
+in `utility/agent.ts` with `cutPicture` in `utility/webp.ts`, behind the service's `layers.export`.
 
 Tests: `packages/editor/src/export-files.test.ts` (10: names with each size's suffix and format, numbering alike names,
 a size once, the next size offered, safe names, the short list, a layer's crop at 2x, a design's whole frame, the three
@@ -2937,8 +2984,10 @@ reasons a file can't be written, and a crop kept inside the picture). `apps/desk
 PNG cut with its pixels, and a JPG's see-through parts white). `chrome/canvas-menu.test.ts` and
 `chrome/layers-menu.test.ts` list Export… where it goes, and `chrome/preferences.test.ts` reads the sizes back.
 `chrome/ExportSection.stories.tsx`: Layer, SeveralSizes, AddingASize, SeveralLayers and WholeDesign; Layer and Design in
-`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys. Gaps: drawing offscreen and writing the files run in
-the desktop app's service, which no test opens; the e2e suite covers the window's export, not this.
+`chrome/CanvasMenu.stories.tsx` check the menu's item and its keys, and ExportSelectedAsItsShortcutDoes in
+`chrome/AppMenu.stories.tsx` checks File > Export selected and Ctrl+Shift+E ask for the same export's folder. Gaps:
+drawing offscreen and writing the files run in the desktop app's service, which no test opens; the e2e suite covers the
+window's export, not this.
 
 ### Copy as PNG (PAR-190)
 

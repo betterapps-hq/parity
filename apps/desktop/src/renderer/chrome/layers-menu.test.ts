@@ -3,6 +3,7 @@ import { designsSelection, layersSelection, type Selection } from "@parity-app/e
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
 import type { MenuEntry } from "./canvas-menu.ts"
+import { commandStates } from "./command-state.ts"
 import { keymap } from "./keymap.ts"
 import { layersMenu, type LayersRow, rowSelection } from "./layers-menu.ts"
 
@@ -50,9 +51,20 @@ function labelOf(menu: MenuEntry[], action: string): string | undefined {
   return found?.kind === "item" ? found.label : undefined
 }
 
-/** The menu a right-click on `row` opens, with `current` selected before it. */
+/** The menu a right-click on `row` opens, with `current` selected before it, its items' states as the window has them. */
 function rightClick(row: LayersRow, current: Selection = {}): MenuEntry[] {
-  return layersMenu(row, rowSelection(current, row), entries)
+  const selection = rowSelection(current, row)
+
+  const states = commandStates({
+    selection,
+    entries,
+    notes: 0,
+    canvas: true,
+    history: { canUndo: false, canRedo: false },
+    references: true
+  })
+
+  return layersMenu(row, states, selection)
 }
 
 describe("the Layers row menu", () => {
@@ -88,7 +100,7 @@ describe("the Layers row menu", () => {
     expect(outline(menu)).toEqual(["rename", "duplicate", "---", "lock", "---", "exportSelection", "---", "delete"])
   })
 
-  it("can't duplicate, hide or delete the design's root", () => {
+  it("can't duplicate, hide or lock the design's root, and leaves Delete to the Del key's rule", () => {
     expect(outline(rightClick({ design, node: "root" }))).toEqual([
       "rename",
       "duplicate (unavailable)",
@@ -98,11 +110,11 @@ describe("the Layers row menu", () => {
       "---",
       "exportSelection",
       "---",
-      "delete (unavailable)"
+      "delete"
     ])
   })
 
-  it("can't rename, duplicate, hide, lock or delete a layer inside an instance (PAR-92)", () => {
+  it("can't rename, duplicate, hide or lock a layer inside an instance (PAR-92)", () => {
     expect(outline(rightClick({ design, node: "users/value" }))).toEqual([
       "rename (unavailable)",
       "duplicate (unavailable)",
@@ -112,7 +124,7 @@ describe("the Layers row menu", () => {
       "---",
       "exportSelection",
       "---",
-      "delete (unavailable)"
+      "delete"
     ])
   })
 

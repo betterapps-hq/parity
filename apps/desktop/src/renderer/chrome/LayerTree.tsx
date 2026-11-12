@@ -75,10 +75,9 @@ import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import { useLayerFailure } from "../failures-store.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
-import { actions } from "./actions.ts"
+import { actions, commandsFor } from "./actions.ts"
 import { SearchField } from "./AssetsPanel.tsx"
 import { showConsole } from "./ConsolePanel.tsx"
-import { createDesign } from "./create.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
@@ -718,10 +717,9 @@ export function LayerTree() {
 /** The + for frames picks the frame tool, to draw one; the others make a design. */
 function addDesign(session: Session, kind: ContainerKind): void {
   if (kind === "frame") {
-    void actions.frame.run("panel")
+    void actions.frame.run("panel", { session })
   } else {
-    const command = kind === "screen" ? "newScreen" : "newComponent"
-    void actions[command].run("panel", { instead: () => void createDesign(session, kind) })
+    void actions[kind === "screen" ? "newScreen" : "newComponent"].run("panel", { session })
   }
 }
 
@@ -1157,9 +1155,10 @@ function rowTarget(row: Row): LayersRow {
 function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   const session = useProject()
   const selection = useSelection(session.selection)
-  const entries = useContainerEntries(session.store)
+  // What the commands can do changes with the designs as well as the selection.
+  useContainerEntries(session.store)
 
-  return layersMenu(rowTarget(row), selection, entries).map((entry, index) => {
+  return layersMenu(rowTarget(row), commandsFor(session), selection).map((entry, index) => {
     if (entry.kind === "separator") {
       return <ContextMenuSeparator key={`line-${index}`} />
     }
@@ -1175,7 +1174,9 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
         key={action}
         disabled={!entry.enabled}
         variant={action === "delete" ? "destructive" : undefined}
-        onClick={() => void actions[action].run("layersMenu", action === "rename" ? { instead: onRename } : {})}
+        onClick={() =>
+          void actions[action].run("layersMenu", action === "rename" ? { session, instead: onRename } : { session })
+        }
       >
         {entry.label}
         {entry.keys && <ContextMenuShortcut>{formatKeys(entry.keys)}</ContextMenuShortcut>}

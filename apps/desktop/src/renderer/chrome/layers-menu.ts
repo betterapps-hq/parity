@@ -1,14 +1,5 @@
-import { hiddenOnBoard, isInnerPath } from "@parity-app/core"
-import {
-  designsLocked,
-  editingState,
-  layersLocked,
-  selectedDesigns,
-  selectedNodes,
-  type Selection
-} from "@parity-app/editor"
-import type { ContainerEntry } from "../design-store.ts"
-import { item, layerCommands, type MenuEntry, ownLayers, sections } from "./canvas-menu.ts"
+import { selectedDesigns, selectedNodes, type Selection } from "@parity-app/editor"
+import { type CommandStates, type MenuEntry, menuItem, sections } from "./canvas-menu.ts"
 
 /**
  * What a row's right-click menu in the Layers panel shows, and what the right-click selects first. These take data and
@@ -38,37 +29,20 @@ export function rowSelection(current: Selection, row: LayersRow): Selection {
 
 /**
  * The menu for a row, for the selection the right-click has made (see `rowSelection`): Rename and Duplicate; for a
- * layer, Hide or Show, as the canvas menu's Hide reads it, and for a layer or a design Lock or Unlock, as the canvas menu's Lock reads it; then Export, at the Export section's
- * sizes (PAR-185); then Delete. Each has the keymap's
- * label and keys, and is unavailable when the menubar's would be: the design's root, and layers inside an instance,
- * can't be duplicated, hidden or deleted. A layer inside an instance keeps its component's name, so it can't be renamed
- * either (PAR-92).
+ * layer, Hide or Show, and for a layer or a design Lock or Unlock; then Export, at the Export section's sizes (PAR-185);
+ * then Delete. Each has the keymap's keys, and is enabled and named as `states` has it, as the menubar and the keys
+ * have them: the design's root, and layers inside an instance, can't be duplicated or hidden, and a layer inside an
+ * instance keeps its component's name, so it can't be renamed either (PAR-92).
  */
-export function layersMenu(row: LayersRow, selection: Selection, entries: readonly ContainerEntry[]): MenuEntry[] {
-  const entry = entries.find((candidate) => candidate.key === row.design)
-
-  if (!entry || selection.design !== row.design) {
+export function layersMenu(row: LayersRow, states: CommandStates, selection: Selection): MenuEntry[] {
+  if (selection.design !== row.design) {
     return []
   }
 
-  const { container } = entry
-  const layers = selectedNodes(selection).length > 0
-  const can = layerCommands(selection, container.root)
-  const own = ownLayers(selection, container.root).map((node) => node.id)
-  const state = editingState(container, selection.state)
-  const hidden = own.length > 0 && hiddenOnBoard(container, state.id, own)
-
-  const locked = layers
-    ? layersLocked(container, own)
-    : designsLocked(selectedDesigns(selection).flatMap((key) => entries.find((e) => e.key === key)?.container ?? []))
-
   return sections([
-    [item("rename", !row.node || !isInnerPath(row.node)), item("duplicate", layers ? can.duplicate : true)],
-    [
-      ...(row.node ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : []),
-      item("lock", layers ? can.lock : true, locked ? "Unlock" : "Lock")
-    ],
-    [item("exportSelection", true, "Export…")],
-    [item("delete", layers ? own.length > 0 : true)]
+    [menuItem("rename", states), menuItem("duplicate", states)],
+    [...(row.node ? [menuItem("hide", states)] : []), menuItem("lock", states)],
+    [menuItem("exportSelection", states, "Export…")],
+    [menuItem("delete", states)]
   ])
 }
