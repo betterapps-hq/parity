@@ -17,7 +17,7 @@ afterAll(() => app?.close())
 const brand = "aP9rK"
 const plans = "Wre7g"
 
-const width = () => app.page.locator('input[aria-label="Width"]')
+const width = () => app.page.locator('input[aria-label="Width"]').first()
 const brandWidth = async () => (await app.style("Pricing", brand)).width
 const drawnWidth = async () => (await app.size("Pricing", brand))?.width
 
@@ -35,7 +35,7 @@ async function typeOver(field: ReturnType<typeof width>, text: string): Promise<
 }
 
 describe("typing in a length field", () => {
-  it("previews each keystroke on the canvas, and Enter makes it one undo step, keeping the field", async () => {
+  it("previews each keystroke on the canvas, and Enter makes it one undo step, leaving the field", async () => {
     await selectBrand()
     await width().click()
     await width().press("ControlOrMeta+a")
@@ -55,19 +55,12 @@ describe("typing in a length field", () => {
     await expect.poll(brandWidth).toBe(80)
     expect(await drawnWidth()).toBe(320)
     expect(await width().inputValue()).toBe("320")
-    expect(await width().evaluate((input) => input === document.activeElement)).toBe(true)
-    expect(
-      await width().evaluate(
-        (input) =>
-          input instanceof HTMLInputElement && input.selectionStart === 0 && input.selectionEnd === input.value.length
-      )
-    ).toBe(true)
-    await width().press("Escape")
+    expect(await width().evaluate((input) => input === document.activeElement)).toBe(false)
     await app.page.keyboard.press("Control+z")
     await expect.poll(brandWidth).toBe(8)
   })
 
-  it("reads px, and keeps a width off the scale, flagged, with the nearest step one click away (PAR-194)", async () => {
+  it("reads px, and keeps a width off the spacing scale as it is", async () => {
     await selectBrand()
     await typeOver(width(), "16px")
     await width().press("Enter")
@@ -76,22 +69,21 @@ describe("typing in a length field", () => {
     await width().press("Enter")
     await expect.poll(brandWidth).toBe(70.25)
     expect(await width().inputValue()).toBe("281")
-    await expect.poll(() => app.page.getByRole("status").filter({ hasText: "281px is off the scale" }).count()).toBe(1)
-    await app.page.getByRole("button", { name: "Use 280px for width" }).click()
-    await expect.poll(brandWidth).toBe(70)
-    await expect.poll(() => app.page.getByRole("status").filter({ hasText: "off the scale" }).count()).toBe(0)
   })
 
-  it("keeps what it can't read, with the reason, and Escape puts the value back", async () => {
+  it("keeps what it can't read, with the reason, and Escape puts the value back, then leaves", async () => {
     await selectBrand()
     await typeOver(width(), "abc")
     await width().press("Enter")
     await expect.poll(() => width().getAttribute("aria-invalid")).toBe("true")
     expect(await width().inputValue()).toBe("abc")
-    await expect.poll(() => app.page.getByRole("alert").filter({ hasText: `Can't read "abc"` }).count()).toBe(1)
+    expect(await width().evaluate((input) => input.getAttribute("aria-describedby"))).toBeTruthy()
+    await expect.poll(() => app.page.getByText("Enter a length, Hug or Fill").count()).toBe(1)
     expect(await brandWidth()).toBe(8)
     await width().press("Escape")
     await expect.poll(() => width().inputValue()).toBe("32")
+    expect(await width().evaluate((input) => input === document.activeElement)).toBe(true)
+    await width().press("Escape")
     expect(await width().evaluate((input) => input === document.activeElement)).toBe(false)
   })
 
@@ -138,6 +130,7 @@ describe("stepping and scrubbing", () => {
 
     expect(await width().inputValue()).toBe("72")
     await width().press("Escape")
+    await width().press("Escape")
     await app.page.keyboard.press("Control+z")
     await expect.poll(brandWidth).toBe(8)
   })
@@ -150,7 +143,7 @@ describe("stepping and scrubbing", () => {
     await expect.poll(async () => (await app.style("Pricing", brand)).opacity).toBe(40)
   })
 
-  it("scrubs the Width label a step per 2px, previewing, and makes one undo step on release", async () => {
+  it("scrubs the Width label a pixel at a time, previewing on the canvas, and makes one undo step on release", async () => {
     await selectBrand()
     const label = app.page.getByText("Width", { exact: true }).first()
     const box = (await label.boundingBox())!
@@ -158,12 +151,11 @@ describe("stepping and scrubbing", () => {
 
     const during = await app.drag(from, { x: from.x + 20, y: from.y }, async () => ({
       drawn: await drawnWidth(),
-      stored: await brandWidth(),
-      shown: await width().inputValue()
+      stored: await brandWidth()
     }))
 
-    // Ten steps further, on the canvas and in the field, with the design unchanged until the release.
-    expect(during).toEqual({ drawn: 72, stored: 8, shown: "72" })
+    // Ten steps further on the canvas, with the design unchanged until the release.
+    expect(during).toEqual({ drawn: 72, stored: 8 })
     await expect.poll(brandWidth).toBe(18)
     await app.page.keyboard.press("Control+z")
     await expect.poll(brandWidth).toBe(8)
@@ -171,21 +163,19 @@ describe("stepping and scrubbing", () => {
 })
 
 describe("several layers", () => {
-  it("adds 8px to each with Mixed+8", async () => {
+  it("shows Mixed, and gives each the value typed", async () => {
     await selectBrand()
     await app.toggleInLayers("Pricing", plans)
     await expect.poll(async () => (await app.selection()).nodes).toEqual([brand, plans])
-    await expect.poll(() => width().inputValue()).toBe("Mixed")
-    // The note on what differs says how to change each from its own value (PAR-203).
+    await expect.poll(() => width().getAttribute("placeholder")).toBe("Mixed")
+    expect(await width().inputValue()).toBe("")
     expect(await app.page.getByText("Different across these layers").textContent()).toContain(
-      "Mixed+8 adds 8 to each layer's own value"
+      "What you set goes to every layer"
     )
-    await width().click()
-    await width().press("End")
-    await width().pressSequentially("+8", { delay: 20 })
+    await typeOver(width(), "48")
     await width().press("Enter")
-    await expect.poll(brandWidth).toBe(10)
-    expect((await app.style("Pricing", plans)).width).toBe(302)
+    await expect.poll(brandWidth).toBe(12)
+    expect((await app.style("Pricing", plans)).width).toBe(12)
   })
 })
 

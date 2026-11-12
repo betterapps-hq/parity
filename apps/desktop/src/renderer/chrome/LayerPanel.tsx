@@ -898,6 +898,46 @@ export function measureNode(
 }
 
 /**
+ * Where a layer sits in its parent's box, in the design's pixels: the parent's size, its own, and its offset from the
+ * parent's top left, as Position's inset box measures pinned sides against. Undefined when it isn't drawn.
+ */
+export function placeNode(
+  session: ProjectSession,
+  design: string,
+  nodeId: string,
+  picked: { mode?: string; state?: string }
+):
+  | {
+      parent: { width: number; height: number }
+      size: { width: number; height: number }
+      inFlow: { x: number; y: number }
+    }
+  | undefined {
+  const area = session.editor?.getContainer().closest(".canvas-area")
+  const host = area ? selectionFrame(area, design, picked) : undefined
+  const found = host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked) : undefined
+  // Insets count from the containing block inside its border, which `offsetParent` gives (see `LayerSnapping`).
+  const around = found?.element?.offsetParent
+
+  if (!host || !found || !(around instanceof HTMLElement) || !session.editor) {
+    return undefined
+  }
+
+  const scale = session.editor.getZoomLevel() * frameScale(host)
+  const border = getComputedStyle(around)
+  const outer = around.getBoundingClientRect()
+  const left = outer.left / scale + parseFloat(border.borderLeftWidth)
+  const top = outer.top / scale + parseFloat(border.borderTopWidth)
+  const { rect } = found
+
+  return {
+    parent: { width: around.clientWidth, height: around.clientHeight },
+    size: { width: rect.width / scale, height: rect.height / scale },
+    inFlow: { x: rect.left / scale - left, y: rect.top / scale - top }
+  }
+}
+
+/**
  * Says, before anything is changed, that the controls it heads change the design itself, when the Editing control
  * above sends other edits to a state or a variant: `what` can't differ from one state to another. It's tinted as that
  * control is, so the two read together. Nothing shows while edits change the design anyway.

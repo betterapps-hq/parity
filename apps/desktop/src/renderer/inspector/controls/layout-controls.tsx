@@ -70,7 +70,7 @@ const isBaseline = (align: Draft["align"]) => align === "baseline" || align === 
 /** The layout's type, as Type offers it: Figma's four, a wrapping row being one of them. */
 type LayoutMode = "column" | "row" | "wrap" | "grid"
 
-const layoutTypes = [
+export const layoutTypes = [
   { value: "column", label: "Vertical", detail: "Children stack top to bottom", icon: <ArrowDown /> },
   { value: "row", label: "Horizontal", detail: "Children sit side by side, left to right", icon: <ArrowRight /> },
   {
@@ -83,7 +83,7 @@ const layoutTypes = [
 ] as const
 
 /** A More menu item's name, with what it does under it. */
-function MenuItemText({ name, detail }: { name: string; detail: string }) {
+export function MenuItemText({ name, detail }: { name: string; detail: string }) {
   return (
     <span className="flex flex-col">
       {name}
@@ -342,7 +342,7 @@ function gapName(grid: boolean, row: boolean, wraps: boolean) {
 }
 
 /** Gap's fields, which highlight the gaps on the canvas while they're hovered or focused, as Penpot's do. */
-function GapHighlight({ rows, children }: { rows?: RefObject<HTMLDivElement | null>; children: ReactNode }) {
+export function GapHighlight({ rows, children }: { rows?: RefObject<HTMLDivElement | null>; children: ReactNode }) {
   const { setHighlight } = useHighlight()
 
   return (
@@ -773,7 +773,7 @@ const spreads = [
  * (Space between, around or evenly), and set, it's a chip that says how. Backspace takes it off, back to the gap it had
  * before, and typing a length replaces it. A negative gap overlaps the children, where it's taken.
  */
-function GapField({
+export function GapField({
   label,
   across,
   value,
@@ -1101,10 +1101,11 @@ function TracksField({ one, draft, set }: { one: "column" | "row" } & Pick<Secti
  * How many columns or rows: a whole number, a step at a time, or Fit for columns and Auto for rows, each a chip that
  * says how many it makes now. Its menu offers the word; Backspace on the chip takes it off, for the count it made.
  */
-function TrackCount({
+export function TrackCount({
   one,
   count,
   word,
+  takesWord = true,
   onCount,
   onWord
 }: {
@@ -1113,6 +1114,8 @@ function TrackCount({
   count: number
   /** It's Fit, or Auto. */
   word: boolean
+  /** Whether it offers Fit or Auto, where the style holds it. */
+  takesWord?: boolean
   onCount: (count: number) => void
   onWord: () => void
 }) {
@@ -1131,7 +1134,7 @@ function TrackCount({
       return { value: count }
     }
 
-    if (words.typed.includes(typed)) {
+    if (takesWord && words.typed.includes(typed)) {
       return { value: "word" }
     }
 
@@ -1141,7 +1144,7 @@ function TrackCount({
       return { value: number }
     }
 
-    return { reason: `Enter a whole number from 1 to ${mostTracks}, or ${name}` }
+    return { reason: `Enter a whole number from 1 to ${mostTracks}${takesWord ? `, or ${name}` : ""}` }
   }
 
   return (
@@ -1164,14 +1167,18 @@ function TrackCount({
             }
           : undefined
       }
-      tokens={{
-        list: [],
-        keywords: {
-          heading: columns ? "Columns" : "Rows",
-          rows: [{ key: "word", name, detail: words.detail, current: word, onPick: onWord }]
-        },
-        onPick: () => undefined
-      }}
+      tokens={
+        takesWord
+          ? {
+              list: [],
+              keywords: {
+                heading: columns ? "Columns" : "Rows",
+                rows: [{ key: "word", name, detail: words.detail, current: word, onPick: onWord }]
+              },
+              onPick: () => undefined
+            }
+          : undefined
+      }
       read={read}
       onCommit={(next) => (next === "word" ? onWord() : onCount(next))}
       onStep={(up, { shift }) => onCount(clamp(count + stepCount(up, shift), 1, mostTracks))}

@@ -681,10 +681,13 @@ export const clipChoices: KeywordChoice[] = [
 export function ClipContentField({
   value,
   mixed = false,
+  choices = clipChoices,
   onChange
 }: {
   value: KeywordValue | undefined
   mixed?: boolean
+  /** The ways it clips, in its menu: all three, or those the style holds. */
+  choices?: readonly KeywordChoice[]
   onChange: (value: KeywordValue | undefined) => void
 }) {
   const on = value !== undefined
@@ -710,7 +713,7 @@ export function ClipContentField({
         <KeywordMenu
           label="Clip content"
           property="overflow"
-          choices={clipChoices}
+          choices={choices}
           value={value}
           placeholder="Visible"
           mixed={mixed}

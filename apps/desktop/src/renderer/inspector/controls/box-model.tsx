@@ -5,7 +5,16 @@ import { spacingColors } from "../../canvas/spacing-colors.ts"
 import { gestures as held } from "../../chrome/keymap.ts"
 import { sameValue, tint } from "./css-values.ts"
 import { useTokens } from "./field-parts.tsx"
-import { type Side, type SideRules, type Sides, sideInline, sideNames, sideRules, sideShown } from "./sides-writes.ts"
+import {
+  type Side,
+  type SideKind,
+  type SideRules,
+  type Sides,
+  sideInline,
+  sideNames,
+  sideRules,
+  sideShown
+} from "./sides-writes.ts"
 import { setSides, SideField, type Spread, spreadTo } from "./sides.tsx"
 import type { LengthToken } from "./tokens.ts"
 
@@ -226,31 +235,35 @@ export function BoxModel({
   marginMixed = [],
   measuredMargin,
   size,
+  rules = sideRules,
   onPadding,
   onMargin,
   onHover
 }: {
   padding: Sides
-  margin: Sides
+  /** Unset where the layer takes no margin, as a design's root doesn't: the box is padding's alone. */
+  margin?: Sides
   paddingMixed?: readonly boolean[]
   marginMixed?: readonly boolean[]
   /** What each margin side comes to, for Auto. */
   measuredMargin?: readonly (number | undefined)[]
-  /** The layer's size inside its padding. */
-  size: { width: number; height: number }
+  /** The layer's size inside its padding; unset where there's no one size to show, as for several layers. */
+  size?: { width: number; height: number }
+  /** What padding's and margin's sides take, where the style holds less than every form. */
+  rules?: Pick<Record<SideKind, SideRules>, "padding" | "margin">
   onPadding: (sides: Sides, cleared: number[]) => void
-  onMargin: (sides: Sides, cleared: number[]) => void
+  onMargin?: (sides: Sides, cleared: number[]) => void
   onHover?: (hover: SpacingHover | undefined) => void
 }) {
   const side = (box: "padding" | "margin", index: number) => (
     <BoxSide
       box={box}
       index={index}
-      sides={box === "padding" ? padding : margin}
-      rules={box === "padding" ? sideRules.padding : sideRules.margin}
+      sides={box === "padding" ? padding : (margin ?? noSides)}
+      rules={box === "padding" ? rules.padding : rules.margin}
       mixed={(box === "padding" ? paddingMixed : marginMixed)[index] ?? false}
       measured={box === "margin" ? measuredMargin?.[index] : undefined}
-      onChange={box === "padding" ? onPadding : onMargin}
+      onChange={box === "padding" ? onPadding : (onMargin ?? noChange)}
       onHover={onHover}
     />
   )
@@ -258,6 +271,33 @@ export function BoxModel({
   const name = (text: string) => (
     <span className="absolute top-1 left-1.5 text-2xs text-muted-foreground select-none">{text}</span>
   )
+
+  // On the background, so margin's pink behind it doesn't muddy padding's green.
+  const paddingBox = (
+    <div
+      className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border bg-background p-1"
+      style={{ backgroundImage: hatched(colors.padding), borderColor: tint(colors.padding, 60) }}
+    >
+      {name("Padding")}
+      {side("padding", 0)}
+      <div className="flex w-full items-center gap-1">
+        {side("padding", 3)}
+        <div className="grid h-8 min-w-0 flex-1 place-items-center rounded-sm border bg-background text-2xs whitespace-nowrap text-muted-foreground tabular-nums">
+          {size && `${size.width} × ${size.height}`}
+        </div>
+        {side("padding", 1)}
+      </div>
+      {side("padding", 2)}
+    </div>
+  )
+
+  if (margin === undefined) {
+    return (
+      <fieldset className="m-0 flex min-w-0 p-0" aria-label="Box model">
+        {paddingBox}
+      </fieldset>
+    )
+  }
 
   return (
     <fieldset
@@ -269,28 +309,16 @@ export function BoxModel({
       {side("margin", 0)}
       <div className="flex w-full items-center gap-1">
         {side("margin", 3)}
-        {/* On the background, so margin's pink behind it doesn't muddy padding's green. */}
-        <div
-          className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border bg-background p-1"
-          style={{ backgroundImage: hatched(colors.padding), borderColor: tint(colors.padding, 60) }}
-        >
-          {name("Padding")}
-          {side("padding", 0)}
-          <div className="flex w-full items-center gap-1">
-            {side("padding", 3)}
-            <div className="grid h-8 min-w-0 flex-1 place-items-center rounded-sm border bg-background text-2xs whitespace-nowrap text-muted-foreground tabular-nums">
-              {size.width} × {size.height}
-            </div>
-            {side("padding", 1)}
-          </div>
-          {side("padding", 2)}
-        </div>
+        {paddingBox}
         {side("margin", 1)}
       </div>
       {side("margin", 2)}
     </fieldset>
   )
 }
+
+const noSides: Sides = [undefined, undefined, undefined, undefined]
+const noChange = () => undefined
 
 /** What the preview measures on its layer: each side's margin, padding and border, and its size, in pixels. */
 export interface Measured {

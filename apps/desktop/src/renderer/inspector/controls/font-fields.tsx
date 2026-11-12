@@ -239,7 +239,8 @@ export function FontFamilyField({
         mixed={mixed}
         chip={tokenChip(held, heldToken, {
           pick: (name) => change(asToken(name)),
-          detach: (token) => change({ stack: token.stack })
+          detach: (token) => change({ stack: token.stack }),
+          namespace: "font-"
         })}
         comesTo={comesTo}
         status={{ missing }}
@@ -558,7 +559,8 @@ export function WeightField({
             mixed={mixed}
             chip={tokenChip(held, heldToken, {
               pick: (name) => onChange(asToken(name)),
-              detach: (token) => onChange({ value: token.weight })
+              detach: (token) => onChange({ value: token.weight }),
+              namespace: "font-weight-"
             })}
             picker={{ content: picker, open, onOpenChange: choose, className: "w-60 gap-0 p-0" }}
             hint={{
@@ -832,7 +834,8 @@ export function LineHeightField({
       mixed={mixed}
       chip={tokenChip(held, token, {
         pick: (name) => onChange(asToken(name)),
-        detach: (each) => onChange({ multiple: each.multiple })
+        detach: (each) => onChange({ multiple: each.multiple }),
+        namespace: "leading-"
       })}
       unit={
         auto ? undefined : (
@@ -970,7 +973,8 @@ export function FontSizeField({
       mixed={mixed}
       chip={tokenChip(held, token, {
         pick: (name) => onChange(asToken(name)),
-        detach: (each) => onChange({ px: each.px })
+        detach: (each) => onChange({ px: each.px }),
+        namespace: "text-"
       })}
       unit="px"
       comesTo={token ? `${formatNumber(token.px)}px` : undefined}
@@ -1135,7 +1139,8 @@ export function LetterSpacingField({
       mixed={mixed}
       chip={tokenChip(held, token, {
         pick: (name) => onChange(asToken(name)),
-        detach: (each) => onChange({ em: each.em })
+        detach: (each) => onChange({ em: each.em }),
+        namespace: "tracking-"
       })}
       unit={
         <UnitMenu

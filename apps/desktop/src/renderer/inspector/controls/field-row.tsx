@@ -344,7 +344,8 @@ export function IconSegments<V extends string>({
   onChange
 }: {
   label: string
-  value: V
+  /** Unset presses none, as for selected layers that differ. */
+  value: V | undefined
   options: readonly (Segment<V> & { icon: ReactNode })[]
   onChange: (value: V) => void
 }) {
@@ -354,7 +355,7 @@ export function IconSegments<V extends string>({
       size="sm"
       spacing={0}
       aria-label={label}
-      value={[value]}
+      value={value === undefined ? [] : [value]}
       onValueChange={([next]) => {
         const chosen = options.find((option) => option.value === next)
 

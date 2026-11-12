@@ -23,7 +23,7 @@ import {
   rowChanged,
   rowValues
 } from "./inspector-events.ts"
-import { measureNode } from "./LayerPanel.tsx"
+import { measureNode, placeNode } from "./LayerPanel.tsx"
 
 /** Edits the selected layers' style through the style rows, in the state and variant being edited. */
 export interface StyleEditor {
@@ -49,6 +49,18 @@ export interface StyleEditor {
    * is: the nearest step, or the one above with `Math.ceil`, so text fixed at it doesn't wrap again.
    */
   measure: (axis: "width" | "height", round?: (steps: number) => number) => number | undefined
+  /**
+   * With one layer selected, where it sits in the box its insets count from, in pixels: that box's size inside its
+   * border, the layer's own size, and its offset from that box's top left, for Position's inset box.
+   */
+  place?: () => LayerPlace | undefined
+}
+
+/** Where a layer sits in the box its insets count from, in pixels. */
+export interface LayerPlace {
+  parent: { width: number; height: number }
+  size: { width: number; height: number }
+  inFlow: { x: number; y: number }
 }
 
 /**
@@ -127,6 +139,7 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
     endPreview: () => preview.cancel(),
     tokens,
     unit,
-    measure: (axis, round = Math.round) => (only ? measure(only, axis, round) : undefined)
+    measure: (axis, round = Math.round) => (only ? measure(only, axis, round) : undefined),
+    place: () => (only ? placeNode(session, entry.key, only, selected) : undefined)
   }
 }

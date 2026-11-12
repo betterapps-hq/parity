@@ -23,7 +23,7 @@ import { setSides, SideField, spreadTo } from "./sides.tsx"
 /** The layer's color, which the canvas draws a selected layer's outline and measurements in. */
 const layerColor = kindColors.layer
 
-const placements = [
+export const placements = [
   { value: "static", label: "In layout", detail: "Placed by its layout, as its children are", Icon: Rows3 },
   { value: "absolute", label: "Absolute", detail: "Placed against its parent, out of the layout", Icon: Crosshair },
   {
@@ -186,17 +186,26 @@ const bandCells = [
  * layer's center lines center it on that axis, Absolute or Fixed, keeping its offset from the center, which the start
  * side holds. Fill and Scale, in the header, pin every side at 0, or at its share of what it's placed against.
  */
-function InsetBox({
+export function InsetBox({
   position,
   placement,
   stage,
   stopped,
+  centers = true,
+  scales = true,
+  rules = sideRules.inset,
   set
 }: {
   position: Position
   placement: Exclude<Placement, "static">
   stage: Stage
   stopped?: string
+  /** Whether the layer's center lines center it, where the style holds an offset from the center. */
+  centers?: boolean
+  /** Whether Scale pins each side at its share, where the style holds a percentage. */
+  scales?: boolean
+  /** What each inset takes. */
+  rules?: SideRules
   set: (position: Position) => void
 }) {
   const spacing = useTokens("spacing").tokens
@@ -306,7 +315,7 @@ function InsetBox({
       <SideValue
         label={`${name} inset`}
         value={position.insets[index]}
-        rules={sideRules.inset}
+        rules={rules}
         placeholder="Auto"
         unset={{ number: "Auto", name: "Auto" }}
         measured={offsets ? undefined : measured[index]}
@@ -398,9 +407,11 @@ function InsetBox({
             <NameToggle label={`Fill ${of}`} pressed={filled} onClick={fill}>
               <Maximize />
             </NameToggle>
-            <NameToggle label={`Scale with ${of}`} pressed={scaled} onClick={scale}>
-              <MoveDiagonal2 />
-            </NameToggle>
+            {scales && (
+              <NameToggle label={`Scale with ${of}`} pressed={scaled} onClick={scale}>
+                <MoveDiagonal2 />
+              </NameToggle>
+            )}
           </>
         )
       }
@@ -415,8 +426,8 @@ function InsetBox({
           className="relative col-start-2 row-start-2 rounded-sm border bg-background"
           style={{ borderColor: tint(layerColor, 70) }}
         >
-          {!offsets && centerLine(true)}
-          {!offsets && centerLine(false)}
+          {!offsets && centers && centerLine(true)}
+          {!offsets && centers && centerLine(false)}
         </div>
         {band(1)}
         {band(2)}

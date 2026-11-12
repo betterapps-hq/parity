@@ -542,11 +542,14 @@ export function ColorInput({
   tab: tabAtStart,
   model,
   mixed = false,
-  theme
+  theme,
+  withAlpha = true
 }: {
   label: string
   value: string | undefined
   alpha: number | undefined
+  /** Whether its alpha shows beside it, as its own % field, where the style holds one. */
+  withAlpha?: boolean
   onChange: (value: string | undefined, alpha: number | undefined) => void
   /** The selected layers have different colors here: it shows Mixed, and typing replaces every one. */
   mixed?: boolean
@@ -780,7 +783,7 @@ export function ColorInput({
 
   return (
     // The alpha sits beside the color, and what either says goes on the line under both.
-    <div className="grid grid-cols-[minmax(0,1fr)_3.5rem] gap-x-1">
+    <div className={`grid gap-x-1 ${withAlpha ? "grid-cols-[minmax(0,1fr)_3.5rem]" : "grid-cols-1"}`}>
       <ValueField
         label={label}
         shown={plain ? shortForm(value) : undefined}
@@ -840,19 +843,21 @@ export function ColorInput({
           }
         }}
       />
-      <PercentField
-        label={`${label} opacity`}
-        value={alpha}
-        places={0}
-        disabled={!value}
-        hint={{
-          label: `${label} opacity`,
-          detail: plain ? "Part of the color, written as #2f6fed80" : "Written after the token, as bg-primary/50"
-        }}
-        rowClassName="col-start-2 row-start-1"
-        // Opaque is unset, so 100% writes nothing after the color.
-        onChange={(next) => onChange(value, next === undefined || next >= 100 ? undefined : next)}
-      />
+      {withAlpha && (
+        <PercentField
+          label={`${label} opacity`}
+          value={alpha}
+          places={0}
+          disabled={!value}
+          hint={{
+            label: `${label} opacity`,
+            detail: plain ? "Part of the color, written as #2f6fed80" : "Written after the token, as bg-primary/50"
+          }}
+          rowClassName="col-start-2 row-start-1"
+          // Opaque is unset, so 100% writes nothing after the color.
+          onChange={(next) => onChange(value, next === undefined || next >= 100 ? undefined : next)}
+        />
+      )}
     </div>
   )
 }

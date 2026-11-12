@@ -280,6 +280,9 @@ export function SizeField({
   limits,
   onAddLimit,
   tokensShown,
+  modes = sizeModes,
+  takesPercent = true,
+  mixed = false,
   onChange
 }: {
   axis: "Width" | "Height"
@@ -295,6 +298,12 @@ export function SizeField({
   onAddLimit?: (which: "min" | "max") => void
   /** How Sizing shows the tokens under the words. */
   tokensShown?: TokensShown
+  /** The words it takes, in Sizing and typed: all four, or fewer where the layer can't fill or the style can't hold one. */
+  modes?: readonly SizeMode[]
+  /** Whether it takes a percentage of its parent, typed or from the unit's menu. */
+  takesPercent?: boolean
+  /** The selected layers differ here: it says Mixed, and typing sets them all. */
+  mixed?: boolean
   onChange: (size: Size) => void
 }) {
   const [unit, setUnit] = useState<"px" | "rem">("px")
@@ -346,7 +355,7 @@ export function SizeField({
 
     const word = typedSizes.get(typed)
 
-    if (word !== undefined) {
+    if (word !== undefined && modes.includes(word)) {
       return { value: word }
     }
 
@@ -365,7 +374,7 @@ export function SizeField({
       input = `${typed}rem`
     }
 
-    const reading = readLength(input, { label: axis, current: length ?? measured, takesPercent: true })
+    const reading = readLength(input, { label: axis, current: length ?? measured, takesPercent })
 
     if ("reason" in reading) {
       return { reason: reading.reason.startsWith("Can't read") ? reason : reading.reason }
@@ -438,6 +447,11 @@ export function SizeField({
     }
   }
 
+  if (mixed) {
+    shown = undefined
+    chip = undefined
+  }
+
   let hint: { label?: string; detail?: string } | undefined
 
   if (setBy) {
@@ -454,7 +468,8 @@ export function SizeField({
         // Dragging W or H scrubs the size a spacing step per 2 screen pixels, making a word Fixed first.
         scrub={{ from: () => length ?? measured ?? 0, apply: (px) => onChange(px), by: { spacing: true, min: 1 } }}
         shown={shown}
-        muted={setBy !== undefined}
+        mixed={mixed}
+        muted={setBy !== undefined && !mixed}
         chip={chip}
         unit={
           fixed === undefined && percent === undefined ? undefined : (
@@ -463,7 +478,7 @@ export function SizeField({
               unit={percent === undefined ? unit : "%"}
               units={[
                 { unit: "px", label: "Pixels" },
-                { unit: "%", label: `Of its ${within}'s ${of}` },
+                ...(takesPercent ? [{ unit: "%" as const, label: `Of its ${within}'s ${of}` }] : []),
                 { unit: "rem", label: "Root em, 16px" }
               ]}
               onUnit={toUnit}
@@ -508,7 +523,7 @@ export function SizeField({
                   }
                 }
               },
-              ...(["hug", "fill", "min", "max"] as const).map((each) => ({
+              ...modes.map((each) => ({
                 key: each,
                 name: words[each].name,
                 detail: words[each].detail,
@@ -539,6 +554,9 @@ export function SizeField({
     </div>
   )
 }
+
+/** Every word W and H take, in Sizing's order. */
+const sizeModes: readonly SizeMode[] = ["hug", "fill", "min", "max"]
 
 /** Named ratios, as Tailwind names two of them (`aspect-square`, `aspect-video`). */
 const namedRatios = [
@@ -781,6 +799,7 @@ export function RadiusChoice({
   tokensOnly,
   mixed,
   mixedNote,
+  takesPercent = true,
   onChange
 }: {
   mixed?: boolean
@@ -790,13 +809,15 @@ export function RadiusChoice({
   corner?: 0 | 1 | 2 | 3
   value: Radius | undefined
   tokensOnly?: boolean
+  /** Whether it takes a percentage of the layer's size, as a radius of its own can be. */
+  takesPercent?: boolean
   onChange: (value: Radius | undefined) => void
 }) {
   return (
     <LengthField
       label={label}
       kind="radius"
-      takesPercent
+      takesPercent={takesPercent}
       // Past 50%, the corners meet and the shape stops changing.
       percentMax={50}
       icon={corner === undefined ? undefined : <CornerGlyph corner={corner} />}

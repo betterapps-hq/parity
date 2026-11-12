@@ -100,6 +100,24 @@ export const arrowMoves = new Map<string, [number, number]>([
   ["ArrowDown", [0, 1]]
 ])
 
+/**
+ * How a field's changes reach what it edits while they're under way, where that can show a change before making it, as
+ * the Design tab's style editor can. Without it, each change is made as it comes, as the stories' drafts take them.
+ */
+export interface LiveEdits {
+  /** Runs `change` as a preview: what it changes shows at once, without being made. */
+  preview: (change: () => void) => void
+  /** Takes back a preview. */
+  cancel: () => void
+  /** Runs `change` as one of a run of steps, Up and Down presses, which are one undo step together. */
+  step: (change: () => void) => void
+  /** Ends a run of steps, so the next change is a step of its own. */
+  endRun: () => void
+}
+
+/** The live edits the fields inside make their changes through, as the Design tab's sections provide them. */
+export const LiveEditsContext = createContext<LiveEdits | undefined>(undefined)
+
 /** A reason as a sentence of its own, ending in a full stop unless it ends in one already or leads into an answer. */
 const sentence = (text: string) => (/[.:?!]$/.test(text) ? text : `${text}.`)
 
@@ -136,6 +154,46 @@ export function useTyped<T>({
   // What's typed as of now, not as of the last render: Enter commits and leaves the field at once, and leaving reads
   // what's typed again, so it finds it already taken rather than committing it twice.
   const typedNow = useRef<string>(undefined)
+  const live = useContext(LiveEditsContext)
+  // Whether what's typed shows as a preview, which Escape, text it can't read, or the field going takes back.
+  const previewing = useRef(false)
+  const liveNow = useRef(live)
+  useEffect(() => {
+    liveNow.current = live
+  })
+  useEffect(
+    () => () => {
+      if (previewing.current) {
+        liveNow.current?.cancel()
+      }
+    },
+    []
+  )
+
+  const cancelPreview = () => {
+    if (previewing.current) {
+      previewing.current = false
+      live?.cancel()
+    }
+  }
+
+  // Each keystroke that reads shows on the canvas at once, as the app's fields always have (CAN-48).
+  const previewTyped = (text: string) => {
+    if (!live) {
+      return
+    }
+
+    live.endRun()
+    const outcome = read(text)
+
+    if ("value" in outcome) {
+      previewing.current = true
+      live.preview(() => onCommit(outcome.value))
+    } else {
+      cancelPreview()
+    }
+  }
+
   const [focused, setFocused] = useState(false)
   const [ownMessage, setOwnMessage] = useState<Message>()
   const [failed, setFailed] = useState(false)
@@ -184,6 +242,8 @@ export function useTyped<T>({
     const outcome = read(text)
 
     if ("value" in outcome) {
+      // Made, the edit takes the preview's place.
+      previewing.current = false
       onCommit(outcome.value)
       setMessage(outcome.message)
     } else if (leaving && quiet) {
@@ -195,11 +255,13 @@ export function useTyped<T>({
         action: outcome.action
       })
     } else {
+      cancelPreview()
       setMessage({ tone: "error", text: outcome.reason, action: outcome.action })
 
       return false
     }
 
+    cancelPreview()
     setTyped(undefined)
 
     return true
@@ -216,7 +278,10 @@ export function useTyped<T>({
     input: {
       value: typed ?? shown,
       "aria-invalid": error || undefined,
-      onChange: (event: { target: { value: string } }) => setTyped(event.target.value),
+      onChange: (event: { target: { value: string } }) => {
+        setTyped(event.target.value)
+        previewTyped(event.target.value)
+      },
       onFocus: () => {
         setFocused(true)
 
@@ -227,6 +292,7 @@ export function useTyped<T>({
       onBlur: () => {
         setFocused(false)
         commit(true)
+        live?.endRun()
       },
       onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key === "Enter" && commit(false)) {
@@ -235,16 +301,28 @@ export function useTyped<T>({
 
         if (event.key === "Escape" && typed !== undefined) {
           event.stopPropagation()
+          cancelPreview()
           setTyped(undefined)
           // Escape is asked for, so putting the value back says nothing; it clears what was said.
           setMessage(undefined)
+        } else if (event.key === "Escape" && !event.defaultPrevented) {
+          // With nothing typed, Escape leaves the field, so the canvas's keys, Undo among them, reach the app again.
+          event.currentTarget.blur()
         }
 
         if (onStep && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
           event.preventDefault()
+          cancelPreview()
           setTyped(undefined)
           setMessage(undefined)
-          onStep(event.key === "ArrowUp", event.shiftKey, event.altKey)
+          const up = event.key === "ArrowUp"
+          const { shiftKey, altKey } = event
+
+          if (live) {
+            live.step(() => onStep(up, shiftKey, altKey))
+          } else {
+            onStep(up, shiftKey, altKey)
+          }
         }
       }
     }
@@ -410,7 +488,8 @@ function scrubbed(start: number, dx: number, keys: ScrubKeys, by: ScrubBy): numb
 export function scrub(
   from: () => number,
   apply: (value: number, keys: ScrubKeys) => void,
-  by: ScrubBy
+  by: ScrubBy,
+  live?: LiveEdits
 ): (event: ReactPointerEvent<Element>) => void {
   return (event) => {
     if (event.button !== 0) {
@@ -419,11 +498,32 @@ export function scrub(
 
     event.preventDefault()
     const start = from()
+    // With live edits, the drag previews as it goes and makes its last value once, on release: one undo step.
+    let last: { value: number; keys: ScrubKeys } | undefined
+    live?.endRun()
     drag(event, {
       move: ({ dx, shift, alt }) => {
         const keys = { shift, alt }
         const next = clamp(scrubbed(start, dx, keys, by), by.min ?? -Infinity, by.max ?? Infinity)
-        apply(Math.round(next * 10_000) / 10_000, keys)
+        const value = Math.round(next * 10_000) / 10_000
+
+        if (live) {
+          last = { value, keys }
+          live.preview(() => apply(value, keys))
+        } else {
+          apply(value, keys)
+        }
+      },
+      end: (_point, cancelled) => {
+        if (!live || !last) {
+          return
+        }
+
+        if (cancelled) {
+          live.cancel()
+        } else {
+          apply(last.value, last.keys)
+        }
       }
     })
   }
@@ -1732,21 +1832,26 @@ export function nearestToken<T extends FieldToken>(tokens: readonly T[], measure
 
 interface ProjectTokensValue {
   sets: TokenSets
-  create: <K extends TokenSetName>(set: K, token: TokenSets[K][number]) => void
+  /** Adds a token made with Create token; unset where the tokens are the project's own, which it doesn't make here. */
+  create?: <K extends TokenSetName>(set: K, token: TokenSets[K][number]) => void
 }
 
 const TokensContext = createContext<ProjectTokensValue | undefined>(undefined)
 
 /**
  * The project's tokens for what's inside: tokens.ts's stand-ins, and those made with Create token, held in state so
- * every field and preview inside sees a new one, and nothing outside does. Playground holds one for each story.
+ * every field and preview inside sees a new one, and nothing outside does. Playground holds one for each story. Given
+ * `sets`, the fields offer those as they are, and none offers Create token: the Design tab passes the project's own.
  */
 export function ProjectTokens({
   tokens,
+  sets: given,
   children
 }: {
   /** Sets the project starts with in place of the stand-ins, as `{ duration: [] }` for a project with no durations. */
   tokens?: Partial<TokenSets>
+  /** Every set, as the project has them now, in place of the stand-ins and Create token. */
+  sets?: TokenSets
   children: ReactNode
 }) {
   const [sets, setSets] = useState<TokenSets>(() => ({ ...tokenSets, ...tokens }))
@@ -1754,7 +1859,7 @@ export function ProjectTokens({
   const create = <K extends TokenSetName>(set: K, token: TokenSets[K][number]) =>
     setSets((current) => ({ ...current, [set]: [...current[set], token] }))
 
-  return <TokensContext value={{ sets, create }}>{children}</TokensContext>
+  return <TokensContext value={given ? { sets: given } : { sets, create }}>{children}</TokensContext>
 }
 
 /** One set of the project's tokens, and how to add to it (Create token) where the project can. */
@@ -1774,7 +1879,9 @@ export function useTokens<K extends TokenSetName>(set: K): ProjectTokenSet<K> {
     return { tokens: tokenSets[set] }
   }
 
-  return { tokens: context.sets[set], create: (token) => context.create(set, token) }
+  const { create } = context
+
+  return { tokens: context.sets[set], create: create && ((token) => create(set, token)) }
 }
 
 /** Every set of the project's tokens, for a preview that draws what the fields hold. */
@@ -2348,6 +2455,7 @@ export function ValueField<T>({
   locked,
   expression
 }: ValueFieldProps<T>) {
+  const live = useContext(LiveEditsContext)
   const [listOpen, setListOpen] = useState(false)
   const [searching, setSearching] = useState(false)
   const [highlight, setHighlight] = useState(0)
@@ -2449,7 +2557,7 @@ export function ValueField<T>({
     scrubbing && !disabled
       ? (event) => {
           clearTyping()
-          scrub(scrubbing.from, scrubbing.apply, scrubbing.by)(event)
+          scrub(scrubbing.from, scrubbing.apply, scrubbing.by, live)(event)
         }
       : undefined
   )
@@ -2457,7 +2565,7 @@ export function ValueField<T>({
   let labelSlot: ReactNode
 
   if (inner !== undefined && scrubbing) {
-    const handler = scrub(scrubbing.from, scrubbing.apply, scrubbing.by)
+    const handler = scrub(scrubbing.from, scrubbing.apply, scrubbing.by, live)
     labelSlot = (
       <span
         onPointerDown={(event) => {
@@ -2774,6 +2882,11 @@ export function ValueField<T>({
 
             if (search && event.key === "Escape" && searching) {
               closeSearch()
+
+              // Escape closes the list first; the next one leaves the field.
+              if (!typing) {
+                return
+              }
             }
 
             if (offers && !altSteps && event.key === "ArrowDown" && event.altKey) {
