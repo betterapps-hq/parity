@@ -35,13 +35,20 @@ function preload() {
   const ipc = new EventEmitter()
 
   const invoke = vi.fn<
-    (channel: string, argument?: string, trace?: TraceHeaders) => Promise<Partial<BuildInfo> | string[] | undefined>
+    (
+      channel: string,
+      method: string,
+      params?: string,
+      trace?: TraceHeaders
+    ) => Promise<Partial<BuildInfo> | string[] | undefined>
   >(async () => ({
     version: "0.3.0",
     channel: "beta"
   }))
 
-  const send = vi.fn<(channel: string, value?: Envelope | ConsoleAnnouncement, trace?: TraceHeaders) => void>()
+  const send =
+    vi.fn<(channel: string, method: string, params?: Envelope | ConsoleAnnouncement, trace?: TraceHeaders) => void>()
+
   let host: CanvasHost | undefined
   let telemetry: TelemetryHost | undefined
   runInNewContext(code, {
@@ -91,7 +98,7 @@ it("scrubs a value from the open project's .env from what a window sends", async
 
   // Main answers the window's ask with what the service read, and tells it of changes.
   const { ipc, invoke, telemetry } = preload()
-  invoke.mockImplementation(async (channel) => (channel === "canvas:telemetry-secrets" ? [] : undefined))
+  invoke.mockImplementation(async (_channel, method) => (method === "telemetrySecrets" ? [] : undefined))
   const scrubber = secretScrubbing()
   const recorded = { setSecrets: vi.fn<(secrets: Iterable<string>) => void>() }
   scrubber.follow(recorded)
@@ -125,13 +132,13 @@ it("gives the page main's run and sends main what it records", () => {
   } as const
 
   telemetry.record(envelope)
-  expect(send).toHaveBeenCalledExactlyOnceWith("canvas:telemetry", envelope)
+  expect(send).toHaveBeenCalledExactlyOnceWith("canvas:tell", "record", envelope)
 })
 
-it("exposes installed build identity through its own IPC request", async () => {
+it("asks main for the installed build's identity by its method", async () => {
   const { host, invoke } = preload()
   expect(await host.getBuildInfo()).toEqual({ version: "0.3.0", channel: "beta" })
-  expect(invoke).toHaveBeenCalledExactlyOnceWith("canvas:build-info")
+  expect(invoke).toHaveBeenCalledExactlyOnceWith("canvas:ask", "buildInfo")
 })
 
 it("sends main the page's trace after what each request sends", async () => {
@@ -144,15 +151,34 @@ it("sends main the page's trace after what each request sends", async () => {
   await host.metrics()
   host.console.announce("warning", { design: "Card" })
   expect(invoke.mock.calls).toEqual([
-    ["canvas:pick-folder", "Export to", trace],
-    ["canvas:metrics", undefined, trace]
+    ["canvas:ask", "pickFolder", "Export to", trace],
+    ["canvas:ask", "metrics", undefined, trace]
   ])
-  expect(send).toHaveBeenCalledExactlyOnceWith("canvas:console-announce", { level: "warning", design: "Card" }, trace)
+  expect(send).toHaveBeenCalledExactlyOnceWith(
+    "canvas:tell",
+    "consoleAnnounce",
+    { level: "warning", design: "Card" },
+    trace
+  )
+
+  // What the page records isn't a span in main, so it goes without the trace.
+  const envelope = {
+    installId: "install",
+    sessionId: "session",
+    process: "renderer",
+    name: "app.started",
+    time: "2026-11-06T17:00:00.000Z",
+    level: "info",
+    attributes: {}
+  } as const
+
+  telemetry.record(envelope)
+  expect(send).toHaveBeenLastCalledWith("canvas:tell", "record", envelope)
 
   // Outside an action, a request sends only what it did.
   current = undefined
   await host.pickFolder("Open project")
-  expect(invoke).toHaveBeenLastCalledWith("canvas:pick-folder", "Open project")
+  expect(invoke).toHaveBeenLastCalledWith("canvas:ask", "pickFolder", "Open project")
 })
 
 describe("native update menu handoff", () => {
@@ -262,6 +288,29 @@ describe("the window's channel to the project service", () => {
     expect(sent.slice(1)).toEqual([
       { type: "response", id: 8, result: [] },
       { type: "response", id: 9, error: "No tab is open", details: { code: "unknown_tab", retryable: false } }
+    ])
+  })
+})
+
+describe("what the window asks main", () => {
+  it("carries none of main's checks, since the sandboxed preload can't load zod", () => {
+    expect(code).not.toContain("node_modules/zod")
+  })
+
+  it("answers main's question about closing as one-way methods", async () => {
+    const { ipc, host, send } = preload()
+    let close = true
+    host.onClosing(() => Promise.resolve(close))
+    ipc.emit("canvas:closing")
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2))
+    close = false
+    ipc.emit("canvas:closing")
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(4))
+    expect(send.mock.calls).toEqual([
+      ["canvas:tell", "closePending"],
+      ["canvas:tell", "closeReady"],
+      ["canvas:tell", "closePending"],
+      ["canvas:tell", "closeCancel"]
     ])
   })
 })
