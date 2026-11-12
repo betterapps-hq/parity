@@ -2719,7 +2719,9 @@ it.
   results before it closes the dialog.
 - **When a search fails:** nothing matching says what to change, with Clear filters, or the other platform on Mobbin
   (`otherSide`). Too many searches counts down the wait the source asked for before Try again; a source that didn't
-  answer offers Try again; a library this copy has no key for says it isn't available, with nothing to set up.
+  answer offers Try again; a library this copy has no key for says it isn't available, with nothing to set up; and one
+  Parity's service searches, with nobody signed in, offers Sign in, which opens the sign-in dialog over the browser, and
+  searches again once someone's in (PAR-948).
 
 Code: `packages/connectors/src/browse.ts`; `apps/desktop/src/renderer/library/`: `library-browser.ts` (which library is
 open and what picking does), `use-library-search.ts` (the search, its pages and its state), `LibraryBrowser.tsx`,
@@ -2733,9 +2735,9 @@ Tests:
   narrowed a recent search, the other platform, the depth's names, a result's label, what can be picked, a video's
   length, and a picture's credit.
 - The browser's stories, grouped by library under Parity/Library browser, each with its check except Searching and the
-  two Live ones, sharing their setup in `library/browser-stories.tsx`: `LibraryBrowser.Pixabay.stories.tsx` (16): just
+  two Live ones, sharing their setup in `library/browser-stories.tsx`: `LibraryBrowser.Pixabay.stories.tsx` (17): just
   opened, recent searches, results, a typed search, choosing a type, filters behind Filters, picking, larger, more as
-  you scroll, videos, nothing found, too many searches, no answer, no key, searching and Live;
+  you scroll, videos, nothing found, too many searches, no answer, no key, signed out, searching and Live;
   `LibraryBrowser.Mobbin.stories.tsx` (5): screens, phones, nothing found, deep search and Live; and
   `LibraryBrowser.Unsplash.stories.tsx` (1). The Live stories search Pixabay and Mobbin with the keys in
   `apps/desktop/.env.local`.
@@ -6496,11 +6498,13 @@ new token kept, trying again when WorkOS doesn't answer, Session ended, another 
 another copy, signing back in as Parity starts, signing out; and with several accounts: adding one with the provider
 asked which, the same account again in its place, switching without asking WorkOS, signing out of another and staying,
 moving to the account used last, an ended account kept and signed in to again by name, removing it, moving on when the
-account you're in ends, restoring every account in the one Parity was last in), `main/session-store.test.ts` (7: kept
-encrypted and forgotten, the file removed with the last account, nothing kept without a keyring or encryption, an
-unreadable or one-account file forgotten, an account replaced in place or added, which account you're in forgotten only
-with it), `main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one
-takes it, none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
+account you're in ends, restoring every account in the one Parity was last in; and the access token main gives Parity's
+service (PAR-948): the one kept, none when signed out, a fresh one when the service turned the last down, one refresh
+shared between askers, and none once the session ends), `main/session-store.test.ts` (7: kept encrypted and forgotten,
+the file removed with the last account, nothing kept without a keyring or encryption, an unreadable or one-account file
+forgotten, an account replaced in place or added, which account you're in forgotten only with it),
+`main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one takes it,
+none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
 sign-in's). `packages/account` covers the URL with an organization and with parameters for the provider, PKCE, the link
 and WorkOS's answers, including the organizations a refusal names. Stories: Parity/Sign in (the first launch, waiting
 and still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add

@@ -882,7 +882,7 @@ const foundReply = z.looseObject({
       code: z
         .string()
         .describe(
-          "no-key, key-refused, no-access, rate-limited, invalid or unavailable. Only invalid is yours to fix."
+          "no-key, signed-out, key-refused, no-access, rate-limited, invalid or unavailable. Only invalid is yours to fix."
         ),
       message: z.string(),
       retryAfter: number.optional().describe("Seconds to wait before searching again.")

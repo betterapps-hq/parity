@@ -7680,6 +7680,33 @@ My calls:
   Parity writes no deploy workflow of its own.
 - **Mobbin's API terms are read before its route ships,** since its key belongs to a paid Team plan.
 
+## The service searches for signed-in people, and installed copies search through it (PAR-131, PAR-948)
+
+Built as [proposals/service.md](proposals/service.md) agreed. My calls where building it showed more:
+
+- **The token check is Better Apps' WorkOS identity** (`@better-apps/identity-workos`, PAR-615), with a WorkOS client
+  that has the client ID and no API key. The API reads bearer tokens only: a request's cookies are never passed on, so
+  the adapter's cookie password is never used.
+- **`@workos-inc/node` is added, at 12,** which the adapter needs for `verifyAccessToken`. Its published range said 11,
+  which lacks it; Better Apps' range is corrected there.
+- **Each source is held to 50 searches a minute by a rate limiting binding,** not by reading `X-RateLimit-Remaining`: a
+  Worker keeps nothing between requests, Mobbin sends no such header, and 50 is under both sources' limits. The binding
+  counts in each Cloudflare location, so a source can still refuse, which is passed on.
+- **How many searches the key has left is never passed on,** since it's the service's to mind, not one person's.
+- **A connector the service has no key for answers 404 with `no-key`,** and a key or plan the source turns down answers
+  503 with `unavailable`, logged for the owner with the source's name and never the search.
+- **The sources' keys are Worker secrets the owner sets by hand** with `wrangler secret put`, which deploys keep. They
+  aren't in Terraform, so no key passes through a workflow.
+- **The KV namespaces are made in Terraform,** one for production and one that staging and its previews share, and the
+  Worker's config names them by ID. A deploy could make one from a binding with no ID, but a pull request's preview
+  can't. The deploy token gets Workers KV Storage Write to bind them.
+- **Main keeps each account's access token in memory** and hands the current one to the service's client. Refreshes are
+  shared between askers, since a refresh token works once and a second use would end the session.
+- **A development copy with no key asks staging's Worker,** and an installed copy production's. Both take the same
+  sign-in, since every build uses WorkOS's Staging client for now.
+- **Signed out, the library browser shows Sign in where its results would be,** with no other text, and searches again
+  once someone's in. Agents are told to carry on without the source, as with `no-key`.
+
 ## Each builder adapter names the config files detection follows (PAR-826, PAR-908)
 
 PAR-908 asked that changing a project's setup not need a restart. PAR-820 already detects an open project again when a
