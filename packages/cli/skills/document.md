@@ -140,6 +140,7 @@ type name a token from `GetTokens()`, without the `--`.
 | `textAlign`                                      | `start`, `center`, `end` or `justify`                                     |
 | `textTransform`, `decoration`, `italic`          | `uppercase` and the like, `underline` or `line-through`, `true`           |
 | `lines`                                          | Lines of text before an ellipsis                                          |
+| `transitions`                                    | How the layer moves when its style changes; see Transitions below         |
 
 Effects stack. `shadow` as a list is drawn top first. Colors there are a color token with an optional `alpha` from 0 to
 100:
@@ -212,6 +213,26 @@ Any paint takes `hidden: true` to keep it without drawing it. Prefer a gradient 
 
 Type set on a layout applies to the text inside it. A component's own look comes from its props, so reach for a variant
 (`variant: "secondary"`) before styling a component from outside.
+
+### Transitions
+
+`transitions` is a list, each entry how some properties change when the layer's style does. A board switching to a state
+plays them, so put them on the base and let the state change the look:
+
+```json
+{ "style": { "transitions": [{ "property": "colors", "duration": 200, "easing": "ease-out" }] } }
+```
+
+| Field      | Takes                                                                                                          |
+| ---------- | -------------------------------------------------------------------------------------------------------------- |
+| `property` | `all`, `colors`, `opacity`, `transform` or `shadow`, as Tailwind's `transition-*`, or a CSS property (`width`) |
+| `duration` | Milliseconds, or a duration token; Tailwind's 150ms when unset                                                 |
+| `delay`    | Milliseconds, or a duration token                                                                              |
+| `easing`   | `linear`, `ease-in`, `ease-out`, `ease-in-out`, an easing token, `cubic-bezier(…)` or `steps(…)`               |
+| `hidden`   | `true` keeps the entry without playing it                                                                      |
+
+`easing` can also be a spring, `{ "spring": { "duration": 400, "bounce": 0.3 } }` or
+`{ "spring": { "stiffness": 300, "damping": 20, "mass": 1 } }`, whose settle time is the transition's duration.
 
 ## States
 

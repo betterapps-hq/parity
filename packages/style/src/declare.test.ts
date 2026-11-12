@@ -435,7 +435,18 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
       ["overflow", "hidden", "lines"]
     ]
   ],
-  ["lines on anything but text write nothing", { lines: 2 }, component, []]
+  ["lines on anything but text write nothing", { lines: 2 }, component, []],
+  [
+    "transitions, leaving out a hidden one",
+    {
+      transitions: [
+        { property: "opacity", duration: 200, easing: "linear" },
+        { property: "width", hidden: true }
+      ]
+    },
+    component,
+    [["transition", "opacity 200ms linear", "transitions"]]
+  ]
 ]
 
 describe("declarations", () => {

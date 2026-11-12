@@ -3167,9 +3167,9 @@ them. It's the agreed table in [proposals/design-panel-sections.md](proposals/de
   Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
   Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is called Text when a layer is text, and Text inside otherwise.
-- Grid placement, Motion and Raw CSS aren't built yet, so they show nothing; Span stays in Size until they are. A
-  frame's Frame size is today's Size, whose width and height are the frame's. Align self in a flex parent isn't in the
-  agreed table, which has it only in Grid placement; it stays as it was.
+- Grid placement and Raw CSS aren't built yet, so they show nothing; Span stays in Size until they are. A frame's Frame
+  size is today's Size, whose width and height are the frame's. Align self in a flex parent isn't in the agreed table,
+  which has it only in Grid placement; it stays as it was.
 - `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
   `className` still shows its sections, under the note that says they don't change it.
 
@@ -3304,6 +3304,41 @@ adding a drop shadow, a background blur, a move of 16px and a flip by keyboard d
 `blur(var(--blur-md))` and the move on the layer in its frame and saved them to the file, and the shadow token's editor
 listed the project's two layers of `shadow-sm` with their color. A color set over a shadow token isn't drawn in frames,
 as above.
+
+### Transitions (PAR-934)
+
+Motion lists the selected layers' transitions, on the approved Transition list. **+** adds Colors at Tailwind's defaults
+(150ms and its default curve), shown faintly. Each entry opens its details: Changes (a set or a property), Duration,
+Easing (Tailwind's, the project's, a curve, steps or a spring) and Delay. The eye turns an entry off without removing
+it, and an entry can be dragged to another place.
+
+- **What it writes.** The list goes into the layer's style in the state being edited, as `transitions`. A state can give
+  a layer transitions of its own, and resetting the state's change takes them back.
+- **Tokens.** Duration and Easing offer the project's duration and easing tokens. Tailwind's own easings are presets,
+  not tokens, and Tailwind's defaults are what an unset field shows. Neither field offers Create token yet.
+- **On the canvas.** Each frame draws the transitions as inline CSS, so an edit that changes a frame's look plays them.
+  Opacity changed in a state fades over that state's frame, for example. The board draws each state as its own frame, so
+  there's no single frame going from one state to the next.
+- **Several layers.** Layers whose lists differ show an empty list, and a list made then replaces each layer's own.
+- **Agents.** `Update` and `AddState` take `transitions` in `style`, and `Get` reads them back. The lint warns about a
+  duration, delay or easing that names a token the project doesn't have. `packages/cli/skills/document.md` describes the
+  forms.
+
+Code: the `transition` schema, `transitionCss` and the spring solver in `packages/style/src/motion.ts`, with
+`NodeStyle.transitions` in `model.ts` and its declaration in `declare.ts`; the `transitions` row in
+`packages/editor/src/style-editing.ts`; `transitionTokens` in `packages/agent/src/lint.ts`; and in the app,
+`inspector/sections/MotionSection.tsx` on the Transition list (`inspector/controls/transitions.tsx`), with
+`inspector/motion-values.ts` turning the document's forms into the list's.
+
+Tests: `packages/style/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables, a
+curve of its own and a delay, a spring's settle time and `linear()`, hidden entries, every form through the schema, and
+what the schema refuses. `packages/style/src/declare.test.ts`: the `transition` declaration, leaving out a hidden entry.
+`packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
+`packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
+`packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
+`packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.
+`apps/desktop/src/renderer/inspector/motion-values.test.ts` (3): every form through the list's entries and back, seconds
+stored as milliseconds, and the project's tokens the fields offer.
 
 ## Component props
 

@@ -368,6 +368,33 @@ describe("layering patches that take values away", () => {
   })
 })
 
+describe("transitions", () => {
+  it("draws the transition the state shows, so switching to it animates the change (PAR-934)", () => {
+    const card: DesignNode = {
+      type: "layout",
+      id: "card",
+      style: { background: "card", transitions: [{ property: "colors", duration: 200 }] },
+      children: []
+    }
+
+    const hover = {
+      id: "hover",
+      name: "Hover",
+      overrides: { card: { style: { background: "accent", transitions: [{ property: "all", duration: 300 }] } } }
+    }
+
+    const style = (state?: typeof hover) => {
+      const [drawn] = resolveDesign(card, state, "desktop")
+
+      return drawn?.kind === "element" ? drawn.style : undefined
+    }
+
+    expect(style()?.transition).toMatch(/^color 200ms /)
+    expect(style(hover)).toMatchObject({ background: "var(--accent)" })
+    expect(style(hover)?.transition).toMatch(/^all 300ms /)
+  })
+})
+
 describe("parseCanvasDocument", () => {
   // Fields laid over a valid design, which may make it invalid on purpose.
   const document = <Fields extends object>(overrides?: Fields) => ({

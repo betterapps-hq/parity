@@ -1,5 +1,6 @@
 import { filterCss, shadowCss, spacing, token, transformCss } from "./effects.ts"
 import { isNamedLength, type NodeStyle, type Padding, type StyleKey } from "./model.ts"
+import { transitionCss } from "./motion.ts"
 import { fillCss } from "./paint.ts"
 
 /** One CSS declaration a style comes to. */
@@ -273,6 +274,12 @@ function box(css: Sheet, style: NodeStyle, parent: Direction | undefined): void 
 
   effects(css, style)
   type(css, style)
+
+  const transition = transitionCss(style.transitions)
+
+  if (transition) {
+    css.set("transition", transition, "transitions")
+  }
 }
 
 /** Filters, the backdrop's filters and the transform. */

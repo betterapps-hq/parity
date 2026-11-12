@@ -28,7 +28,7 @@ describe("nodeStyle", () => {
 
   it("lists its keys in the order panels show them", () => {
     expect(styleKeys.slice(0, 3)).toEqual(["display", "direction", "columns"])
-    expect(styleKeys.at(-1)).toBe("lines")
+    expect(styleKeys.at(-1)).toBe("transitions")
   })
 })
 
