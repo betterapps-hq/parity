@@ -6274,10 +6274,10 @@ Code: `packages/core/src/render.ts` resolves each element with its `declarations
 project's and the classes' (`showFrameRules`, `previewFrameRules`); `guest.ts` there writes a tree's rules in the
 project's layer (`frameCss`, `rulesLayer`). `frame-classes.ts` keeps the classes written for a guest's frames and asks
 the service for the rest, naming the ones it has, so the stylesheet that comes back is whole even from a service started
-again since (`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles
-adapter's `loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an
-offscreen one from the rules. The React guest (`packages/renderer-react/src/guest.ts`) gives an element its classes and
-no style.
+again since. It asks once the last ask is answered, since an answer's stylesheet replaces the one before
+(`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles adapter's
+`loadPrinter`, whose `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an offscreen
+one from the rules. The React guest (`packages/renderer-react/src/guest.ts`) gives an element its classes and no style.
 
 Tests:
 
@@ -6291,6 +6291,8 @@ Tests:
 - `packages/styles-tailwind/src/printer.test.ts`, compiling classes for a frame (3): the rules in Tailwind's order in
   its `utilities` layer, a variant inside its own conditions, nothing for an unknown class. `design-system.test.ts` pins
   `candidatesToCss`.
+- `apps/desktop/src/renderer/frame-classes.test.ts`: classes asked for while an ask is unanswered wait for it, so the
+  stylesheet keeps the classes the first answer wrote (PAR-962).
 - `apps/desktop/src/renderer/ModeView.test.ts`, a frame in a project whose styling framework writes classes (2), in
   Chrome: a layer drawn from its rule, then from its classes once the service answers, the same size and with no inline
   style; and a layer with a declaration the framework can't write keeping its rule.
