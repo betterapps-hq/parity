@@ -6,6 +6,7 @@ import {
   type TokenCategory
 } from "@parity-app/core"
 import { categorize, isTokenName, themedProperties } from "./policy.ts"
+import type { TokenChange } from "./stylesheet.ts"
 
 export interface Token {
   /** Custom property name without `--`; what a design references. */
@@ -85,6 +86,36 @@ export function extractTokens(
   }
 
   return [...tokens.values()].sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }))
+}
+
+/**
+ * Tokens with new values laid over them, the latest winning. A value for a token that isn't among them adds it, after
+ * the rest, in the category its name and value say and as one of the project's own: a token `SetTokens` added that the
+ * stylesheet doesn't hold until it's saved. A token no value is for is the same object as before.
+ */
+export function withTokenChanges(tokens: readonly Token[], changes: readonly TokenChange[]): Token[] {
+  if (changes.length === 0) {
+    return [...tokens]
+  }
+
+  const next = new Map(tokens.map((token) => [token.name, token]))
+  const copied = new Set<string>()
+
+  for (const { name, theme, value } of changes) {
+    const token = next.get(name)
+
+    if (!token) {
+      next.set(name, { name, category: categorize(name, value), source: "semantic", values: { [theme]: value } })
+      copied.add(name)
+    } else if (copied.has(name)) {
+      token.values[theme] = value
+    } else {
+      next.set(name, { ...token, values: { ...token.values, [theme]: value } })
+      copied.add(name)
+    }
+  }
+
+  return [...next.values()]
 }
 
 /**

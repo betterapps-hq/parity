@@ -3907,9 +3907,9 @@ Tests:
   `apps/desktop/src/renderer/frame.test.ts` (4, PAR-896), in Chrome: `:root.dark`, `html.dark`, `:root[data-theme=dark]`
   and `html[data-theme='dark']` drawn dark in the default Dark mode, with the attributes the app sets, and light in
   Light.
-- `packages/editor/src/token-edits.test.ts` (6): the first edit's original kept, what Save writes, a theme value that
-  wasn't there written without a value once it's undone, the token list with edits, and the overrides offscreen frames
-  get (PAR-465).
+- `packages/editor/src/token-edits.test.ts` (7): the first edit's original kept, what Save writes, a theme value that
+  wasn't there written without a value once it's undone, the token list with edits and with a token an edit adds
+  (PAR-911), and the overrides offscreen frames get (PAR-465).
 - `apps/desktop/src/renderer/tokens-store.test.ts` (3), in Chrome: an edit previewed in the stylesheet in both themes,
   undo and redo taking it back and forth, Save writing it; a theme value taken out again on undo, with no preview left
   for frames drawn elsewhere; and a guest loaded again showing, then saving, an unsaved edit.
@@ -4382,6 +4382,55 @@ lists the tokens nearest a raw color or length"); `packages/cli/src/client.test.
 printed order, and `--nearest` reaching the app as MCP's `nearest` does); the skill's example in `execute.md`, run by
 `packages/cli/src/skill-examples.test.ts`. Gaps: `rgb()`, `hsl()` and named colors aren't read, so a project that writes
 its colors that way gets no nearest color; colors are compared in the default theme only.
+
+### Adding a token, and a name that isn't one (PAR-911)
+
+An agent's `SetTokens` adds a token as well as changing one, and a design that names a token the project doesn't have is
+told what the project does have. Tokens come in through the styles adapter that read the stylesheet and go out through
+the same one; nothing between knows the framework.
+
+- **A new name is a new token.** `SetTokens({ "text-2xl": "1.5rem" })`, or `{ default: "…", dark: "…" }` for a value per
+  theme, makes a token the project doesn't have, in the category its name and value say (`categorize`) and as one of the
+  project's own (`source: "semantic"`). The rest of the call lists it in `GetTokens` and takes it in a style without a
+  warning. It's an ordinary token edit: every frame draws it at once, the Tokens tab lists it before it's saved, Save
+  writes it and Undo takes it back, out of the stylesheet too once it was saved.
+- **Where Save writes it is the adapter's call.** `StylesAdapter.writeTokens(source, writes, theme)` writes values into
+  a stylesheet's source where its framework keeps them. A project no adapter reads has plain custom properties, which
+  `writeTokenChanges` writes: a default value in the first `:root` under no condition, a theme's in the block the
+  stylesheet gives that theme (`.dark`, `[data-theme="dark"]` or a `prefers-color-scheme` root), each made at the end of
+  the file when there's none. Tailwind's adapter puts a default value in `@theme` when the variable is in Tailwind's
+  theme already or its name is in one of Tailwind's namespaces (`text-*`, `shadow-*`, `radius-*`, `color-*` and the
+  rest), so the class exists, and hands every other value to the plain writer. A declaration that exists is edited where
+  it is, whichever block that is.
+- **The warning says what the project has.** A style key takes one category of token: `size` a font size, `shadow` a
+  shadow, `background` a color. A name there that isn't a token gets one of these, in a design, a viewport's patch or a
+  state alike:
+  - `size "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
+    The tokens are listed smallest first while there are eight or fewer; past that it's
+    `Use a name from GetTokens({ category: "color" }), or add pink with SetTokens.`
+  - `shadow "shadow-md" isn't a token, and the project has no shadow tokens. Add shadow-md with SetTokens.`
+  - A raw color or length keeps PAR-833's hint, the call that lists the nearest tokens, and a value that couldn't be a
+    token's name (`0 1px 2px black`) isn't offered to `SetTokens` by name.
+  - A place that takes more than one category (a gradient, a blur, a transition's duration or easing) keeps
+    `Use a name from GetTokens().`
+
+Code: `writeTokenChanges` and `writeCustomProperty` in `packages/tokens/src/stylesheet.ts`; `withTokenChanges` in
+`packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `packages/styles-tailwind/src/tokens.ts`; `StylesAdapter` in
+`packages/core/src/adapters.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
+`packages/agent/src/workspace.ts` and `notAToken` in `packages/agent/src/lint.ts`; `tokensWithEdits` in
+`packages/editor/src/token-edits.ts`.
+
+Tests: `packages/styles-tailwind/src/tokens.test.ts` (5: a theme variable edited in its `@theme` block or a new one, a
+new namespaced token in `@theme`, any other in the root and a theme's value in its block, a namespaced variable edited
+where the root declares it, a value taken back out); `packages/tokens/src/stylesheet.test.ts` (a token the stylesheet
+doesn't declare added to the root, whatever its name, and read back in its category);
+`packages/tokens/src/tokens.test.ts` (`withTokenChanges`, 2); `packages/editor/src/token-edits.test.ts` (the token list
+with a token an edit adds); `packages/agent/src/lint.test.ts` ("lists the project's tokens of the kind a style takes, or
+says it has none"); `packages/agent/src/run.test.ts` (3: a token added, listed and used in the same call without a
+warning, the warning until then, and a changed value in `GetTokens`); the skill's example in `execute.md`, run by
+`packages/cli/src/skill-examples.test.ts`. Gaps: a new token's value isn't checked against the kind its name says, as a
+change to an existing token is; Tailwind's namespaces are a list in the adapter, not asked of the project's Tailwind;
+and the Tokens tab has no control for adding a token, so people add one in the stylesheet.
 
 ## Accessibility
 

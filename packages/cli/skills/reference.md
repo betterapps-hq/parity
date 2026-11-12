@@ -127,7 +127,10 @@ DeleteParam(design: string, name: string): void
 /** Replaces the project's modes. */
 SetModes(settings: ModeSettings): void
 
-/** Sets token values by name: one value for the default theme, or one per theme. */
+/**
+ * Sets token values by name: one value for the default theme, or one per theme. A name the project doesn't have
+ * adds a token.
+ */
 SetTokens(values: TokenValues): void
 ```
 

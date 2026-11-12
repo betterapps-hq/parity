@@ -1208,6 +1208,77 @@ await Measure("signup")`
   })
 })
 
+describe("SetTokens adds a token the project doesn't have (PAR-911)", () => {
+  it("lists the new token and takes it in a style without a warning, in the same call", async () => {
+    let applied: unknown
+
+    const result = await execute(
+      {
+        label: "Page titles",
+        code: [
+          `Update("title", {style: {size: "text-display"}})`,
+          `SetTokens({ "text-display": "4rem", "shadow-popup": { default: "0 8px 24px black", dark: "none" } })`,
+          `Update("page", {style: {shadow: "shadow-popup"}})`,
+          `Print(JSON.stringify(GetTokens({ search: "text-display" })))`,
+          `Print(JSON.stringify(GetTokens({ category: "shadow" })))`
+        ].join("\n")
+      },
+      snapshot(),
+      {
+        ...hooks(),
+        apply: async (changes) => {
+          applied = changes.tokens
+
+          return []
+        }
+      }
+    )
+
+    expect(result.ok).toBe(true)
+    expect(result.warnings).toEqual([])
+    expect(JSON.parse(result.output[0]!)).toEqual([
+      { name: "text-display", category: "font-size", source: "semantic", values: { default: "4rem" } }
+    ])
+    expect(JSON.parse(result.output[1]!)).toEqual([
+      {
+        name: "shadow-popup",
+        category: "shadow",
+        source: "semantic",
+        values: { default: "0 8px 24px black", dark: "none" }
+      }
+    ])
+    expect(applied).toEqual([
+      { name: "text-display", theme: "default", value: "4rem" },
+      { name: "shadow-popup", theme: "default", value: "0 8px 24px black" },
+      { name: "shadow-popup", theme: "dark", value: "none" }
+    ])
+  })
+
+  it("warns about the name until a call adds it, saying how", async () => {
+    const before = await execute(
+      { label: "Page titles", code: `Update("title", {style: {size: "text-display"}})` },
+      snapshot(),
+      hooks()
+    )
+
+    expect(before.warnings.join("\n")).toContain(`size "text-display" isn't a token`)
+    expect(before.warnings.join("\n")).toContain(`add text-display with SetTokens`)
+  })
+
+  it("shows a changed token's new value in GetTokens", async () => {
+    const result = await execute(
+      {
+        label: "Tokens",
+        code: `SetTokens({ primary: "blue" })\nPrint(GetTokens({ search: "primary" })[0].values.default)`
+      },
+      snapshot(),
+      hooks()
+    )
+
+    expect(result.output).toEqual(["blue"])
+  })
+})
+
 describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
   /** The browser's `CSS.supports`, as the app answers it: a color is a named one, a hex or `oklch()`. */
   function checking(asked: { property: string; value: string }[] = []): AgentHooks {

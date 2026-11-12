@@ -96,4 +96,13 @@ describe("token edits", () => {
     expect(edited[0]?.values).toEqual({ default: "red", dark: "white" })
     expect(edited[1]).toBe(tokens[1])
   })
+
+  it("list a token an edit adds, which the project doesn't have until it's saved (PAR-911)", () => {
+    const added = withTokenEdits(noTokenEdits, [{ name: "shadow-popup", theme: "default", value: "0 8px 24px black" }])
+
+    expect(tokensWithEdits([], added)).toEqual([
+      { name: "shadow-popup", category: "shadow", source: "semantic", values: { default: "0 8px 24px black" } }
+    ])
+    expect(tokensWithEdits([], noTokenEdits)).toEqual([])
+  })
 })

@@ -473,6 +473,24 @@ theme, or `SetTokens({ primary: { default: "…", dark: "…" } })` per theme. E
 saving writes them into the project's code, so do it only when the person asks to change the design system, not to style
 one design. They're undone with the call's other changes.
 
+A name the project doesn't have adds a token, in the category its name says: `text-2xl` is a font size, `shadow-popup` a
+shadow, and anything whose value is a color is a color. The rest of the call can use it, and `GetTokens` lists it.
+Saving writes it into the project's stylesheet as a custom property: the default value in `:root`, a theme's in that
+theme's block (`.dark` or `[data-theme="dark"]`, whichever the stylesheet uses). In a Tailwind project, a default value
+whose name is in one of Tailwind's namespaces (`text-*`, `shadow-*`, `radius-*`, `color-*` and the rest) goes in
+`@theme`, so its class exists too. Add a token when a design needs a step the project's scale doesn't have, such as a
+page title's size in a project with three sizes. Name it the way the project names the rest, and tell the person you
+added it.
+
+```js
+SetTokens({ "text-2xl": "1.5rem", "shadow-popup": { default: "0 8px 24px rgb(0 0 0 / 0.2)", dark: "none" } })
+Print(GetTokens({ search: "shadow-popup" })[0].category) // shadow
+```
+
+A style that names a token the project doesn't have gets a `not_a_token` warning. It lists the project's tokens of the
+category that goes there, or says the project has none:
+`size "text-2xl" isn't a token. The project's font-size tokens are text-xs, text-sm and text-base. Use one, or add text-2xl with SetTokens.`
+
 `SetTokens` refuses a value the Tokens panel would refuse, throwing an `invalid_input` error that names the token and
 theme and says what's wrong: a bracket or quote left open, a `var()` naming no token, or a token built on itself. None
 of that call's values are kept. A value that isn't its token's kind (`"bluish"` for a color) is refused when the call

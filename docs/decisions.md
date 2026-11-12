@@ -1,5 +1,19 @@
 # Decisions
 
+- **Tokens come in and go out through the styles adapter, and nothing between knows the framework (PAR-911).** You asked
+  for this on 2026-11-11, instead of special cases per library. `StylesAdapter` already read a framework's theme
+  (`loadTheme`); it now writes token values too (`writeTokens`), and `@parity-app/tokens` keeps only the plain writer
+  for custom properties, which a project no adapter reads gets. `@theme` moved out of it into Tailwind's adapter. In
+  between, `SetTokens`, `GetTokens`, the warnings and the frames work on names and values alone.
+  - **`SetTokens` adds a token.** A name the project doesn't have is a new token, written on Save like any edit: by the
+    plain writer in `:root` and the theme's block, by Tailwind's in `@theme` when its name is in one of Tailwind's
+    namespaces, so the class exists.
+  - **The warning lists what the project has,** by the category the style key takes, or says it has none. It doesn't
+    offer a framework's defaults: we dropped offering Tailwind's scale to a project that only imports a kit Tailwind
+    compiled, the one piece that would have known a framework. If it's wanted later it's a method on the adapter.
+  - **My call: a new token shows in the Tokens tab before it's saved,** since it's an unsaved edit like any other and
+    the pickers should offer it.
+
 - **A date prop is `{ "$date": ... }`, made as `new Date(...)` (PAR-912).** Props are JSON, so a `Date` needs a form.
   `$date` joins the value grammar beside `$call`, in samples and decorators, and a component node's props now follow the
   sample grammar, which the decision on the value module said they did. The component gets exactly what
