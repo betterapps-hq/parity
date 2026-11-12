@@ -107,6 +107,7 @@ export function LayoutSection({ editor, edit }: SectionProps) {
       )
     } else if ("direction" in change || "wrap" in change) {
       const wrapped = draft.wrap === true
+
       const next = {
         direction: change.direction ?? style.flexDirection,
         wrap: "wrap" in change ? change.wrap : wrapped
@@ -174,6 +175,7 @@ export function LayoutSection({ editor, edit }: SectionProps) {
   // A grid's rows unset are as many as its children need, in its columns.
   const only = editor.selection.layers.length === 1 ? editor.selection.layers[0]!.node : undefined
   const children = only?.type === "layout" ? only.children.length : undefined
+
   const rowsMade =
     children === undefined ? undefined : Math.max(1, Math.ceil(children / (style.gridTemplateColumns?.length ?? 2)))
 
