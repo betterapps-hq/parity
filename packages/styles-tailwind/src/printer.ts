@@ -12,7 +12,8 @@ import type { CssNode, DesignSystem } from "./design-system.ts"
 // Declarations as Tailwind classes, and classes back into declarations, by the rules in
 // docs/proposals/design-options-code.md. It keeps no table of utilities. Every class starts as an arbitrary property
 // (`[padding:calc(var(--spacing)*4)]`), which Tailwind always takes; the project's own Tailwind then spells it as its
-// tools would (`p-4`), and a class is only written once reading it back gives the declaration it came from.
+// tools would (`p-4`), and a class is only written once reading it back gives the declaration it came from, in the
+// same text or in text Tailwind takes for the same value.
 
 /** What the printer needs to know about a project beyond its Tailwind. */
 export interface PrinterOptions {
@@ -202,7 +203,19 @@ export function tailwindPrinter(systems: DesignSystems, options: PrinterOptions 
     )
   }
 
-  /** Whether a class reads back as exactly the declaration it's written for. */
+  /**
+   * Whether two values of a property are the same value. Tailwind writes some values another way than they're declared
+   * (`m-0` is `0px`, `gap-1` is `var(--spacing)`, `font-medium` is `var(--font-weight-medium)`), so where the text
+   * differs it's Tailwind that's asked: they're the same when it spells both as one class.
+   */
+  function sameValue(property: string, a: string, b: string): boolean {
+    return (
+      comparableValue(a) === comparableValue(b) ||
+      canonical(`[${property}:${arbitrary(a)}]`) === canonical(`[${property}:${arbitrary(b)}]`)
+    )
+  }
+
+  /** Whether a class reads back as the declaration it's written for, and nothing else. */
   function writes(name: string, declaration: CssDeclaration): boolean {
     const read = readClass(name)
     const [only] = read ?? []
@@ -210,7 +223,7 @@ export function tailwindPrinter(systems: DesignSystems, options: PrinterOptions 
     return (
       read?.length === 1 &&
       only?.property === declaration.property &&
-      comparableValue(only.value) === comparableValue(declaration.value) &&
+      sameValue(declaration.property, only.value, declaration.value) &&
       sameCondition(only.when, declaration.when)
     )
   }
@@ -301,7 +314,7 @@ export function tailwindPrinter(systems: DesignSystems, options: PrinterOptions 
     const spelled = canonical(plain)
     const tokens = tokenSpellings(declaration.property, declaration.value, spelled)
     const root = utilityRoot(declaration.property, spelled)
-    // Where Tailwind's own spelling says it another way (`min-w-0` is `calc(var(--spacing) * 0)`), the value as written.
+    // Where Tailwind's own spelling is another value here (`rounded-lg` for `0.25rem`), the value as written.
     const valued = root === undefined ? [] : [`${root}-[${arbitrary(declaration.value)}]`]
 
     for (const utility of [...tokens, spelled, ...valued, plain]) {

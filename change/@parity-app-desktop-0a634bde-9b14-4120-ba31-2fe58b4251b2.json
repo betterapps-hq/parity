@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "The Tailwind printer writes a value Tailwind writes another way as its own class (m-0, gap-1, font-medium)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
