@@ -224,7 +224,8 @@ const restingFar = new WeakMap<Editor, Atom<boolean>>()
 /**
  * Whether the camera has come to rest zoomed far enough out for frames to show their bitmaps. Frames showing theirs
  * then sleep (see frame-sleep.ts). It goes by the zoom once it's settled, so a zoom passing through doesn't put a
- * project's frames to sleep, and wake them, as it goes.
+ * project's frames to sleep, and wake them, as it goes; but it ends as soon as the zoom itself is back in, so frames in
+ * view swap their bitmaps for their designs while a zoom in is still going (PAR-955).
  */
 export function isRestingFar(editor: Editor): boolean {
   return restingFar.get(editor)?.get() ?? false
@@ -262,8 +263,11 @@ function markZoomedOut(editor: Editor): () => void {
   const resting = atom("resting far", isFarZoom(editor.getEfficientZoomLevel(), false))
   restingFar.set(editor, resting)
 
+  // One signal for every board, which changes only crossing the line: a board reading the zoom itself would be checked
+  // again on every frame of a zoom.
   const stopResting = react("resting far", () => {
-    resting.set(isFarZoom(editor.getEfficientZoomLevel(), resting.__unsafe__getWithoutCapture()))
+    const settled = isFarZoom(editor.getEfficientZoomLevel(), resting.__unsafe__getWithoutCapture())
+    resting.set(settled && isFarZoom(editor.getZoomLevel(), true))
   })
 
   const stopRecording = recordRestedFar(editor, area, resting)

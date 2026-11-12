@@ -1,3 +1,4 @@
+import { distanceFromView } from "@parity-app/core"
 import { useEffect, useState } from "react"
 import { react, type Signal } from "tldraw"
 
@@ -25,19 +26,31 @@ export function boardDormant(at: { hidden: boolean; drawn: boolean; far: boolean
   return (at.hidden && at.drawn) || (at.far && !at.selected)
 }
 
-/** Frames waiting to wake, in the order they asked. */
-const waking = new Set<() => void>()
+/** Frames waiting to wake, in the order they asked, each with how near it is to the middle of the view. */
+const waking = new Map<() => void, (() => number) | undefined>()
 let frame = 0
+
+/**
+ * How near a frame on the canvas is to the middle of the view, in screen pixels (`distanceFromView`), so what's in view
+ * is drawn and captured first, then what's around it (PAR-955). Infinite for one not on a canvas.
+ */
+export function viewRank(element: HTMLElement | null): number {
+  const area = element?.closest(".canvas-area")
+
+  return element && area
+    ? distanceFromView(element.getBoundingClientRect(), area.getBoundingClientRect())
+    : Number.POSITIVE_INFINITY
+}
 
 /**
  * Whether a frame's design is drawn. Zoomed far out, a frame showing its bitmap (`canSleep`) sleeps: it lets go of its
  * design's React root and elements, most of what each frame holds, and keeps its size and its bitmap. It wakes once
  * it's no longer to sleep and its board is near the view, one frame each animation frame, since waking a whole
- * project's frames at once kept the page busy for seconds. One out of view stays asleep, showing its bitmap, until it
+ * project's frames at once kept the page busy for seconds, the one nearest the middle of the view first (`rank`). One out of view stays asleep, showing its bitmap, until it
  * comes near, unless what it shows changes (`shows`, as its bitmap is keyed): then it wakes wherever it is, so its
  * board takes the new size, which agents read. Without `rest`, as outside a canvas, a frame never sleeps.
  */
-export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: string): boolean {
+export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: string, rank?: () => number): boolean {
   // What the frame showed when it fell asleep; nothing while it's awake.
   const [slept, setSlept] = useState<string>()
   const awake = slept === undefined
@@ -79,7 +92,7 @@ export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: 
 
     const stop = react("frame wakes", () => {
       if (changed || (rest.near.get() && !(canSleep && rest.dormant.get()))) {
-        cancel ??= wakeSoon(() => setSlept(undefined))
+        cancel ??= wakeSoon(() => setSlept(undefined), rank)
       } else {
         cancel?.()
         cancel = undefined
@@ -90,13 +103,13 @@ export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: 
       stop()
       cancel?.()
     }
-  }, [awake, canSleep, rest, shows, changed])
+  }, [awake, canSleep, rest, shows, changed, rank])
 
   return awake
 }
 
-function wakeSoon(wake: () => void): () => void {
-  waking.add(wake)
+function wakeSoon(wake: () => void, rank?: () => number): () => void {
+  waking.set(wake, rank)
   frame ||= requestAnimationFrame(wakeNext)
 
   return () => {
@@ -106,7 +119,18 @@ function wakeSoon(wake: () => void): () => void {
 
 function wakeNext(): void {
   frame = 0
-  const [next] = waking
+  let next: (() => void) | undefined
+  let nearest = Number.POSITIVE_INFINITY
+
+  // Ranked when its turn comes, so a camera still moving wakes what's in view now. Ties go to the earliest asked.
+  for (const [wake, rank] of waking) {
+    const distance = rank?.() ?? Number.POSITIVE_INFINITY
+
+    if (!next || distance < nearest) {
+      next = wake
+      nearest = distance
+    }
+  }
 
   if (!next) {
     return

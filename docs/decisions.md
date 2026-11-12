@@ -7475,3 +7475,28 @@ asked on 2026-11-11 for 10%, about where a design's details stop showing. My cal
   forth.
 - **Between 10% and the old line, frames draw their designs.** At 1.5x that's 10% to 17%. More frames are live at those
   zooms, so `pnpm perf`'s zoom run and `canvas.restedFar` (PAR-949) show what it costs and whether the bitmaps arrive.
+
+## Frames in view are drawn first, and swap their bitmaps while zooming in (PAR-955)
+
+Zooming back in from far out, frames that slept kept showing their bitmaps, blurry once enlarged, until the zoom
+settled, then woke one each animation frame in the order they asked. Bitmaps were captured in that order too, whatever
+was in view. You asked on 2026-11-11 for what's in view and around it to come before what's far away, and for bitmaps in
+view to swap for designs while still zooming. My calls:
+
+- **Waking goes by the zoom, sleep by the settled zoom.** A board's frames stop being dormant as soon as the zoom is
+  back above the line's margin (`isFarZoom`), even mid-zoom. Falling asleep still waits for the zoom to settle, so a
+  zoom passing through the line doesn't take frames apart.
+- **Nearest the middle of the view first, for waking and captures,** by `distanceFromView` from the frame's place on
+  screen, read when each turn comes, so a camera still moving gets what's in view now. Frames with no place, as a
+  project's picture asks for, go last.
+- **Still one frame each animation frame.** Waking more at once is what kept the page busy for seconds (PAR-197);
+  choosing which one is what changed.
+- **The zoom is read once, not by every board.** Whether the camera rests far (`isRestingFar`) now also needs the zoom
+  itself past the line's margin, worked out in one place, so boards still read a signal that changes only crossing the
+  line rather than each checking the zoom on every frame of a zoom.
+- **Measured against the changes before it,** as you asked, with `pnpm perf`'s four zoom runs three times each, taking
+  turns, on a 1.5x screen: before PAR-949, with it, with the 10% line (PAR-954), and with this. The medians were within
+  the runs' spread of each other (far zoom 46.5, 40.8, 35.8 and 45.8 fps; zoom at 100% 32.3, 27.3, 28.5 and 30.0), with
+  other copies of the app running on the machine. No run crosses the line, so the swap itself was timed apart: zooming
+  in from 5% to 40% over 1.5 seconds, frames in view started drawing at 14% and none showed a bitmap when the zoom
+  stopped, where before every one showed its bitmap until then, and two still did 1.3 seconds after.

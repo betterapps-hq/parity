@@ -67,7 +67,7 @@ import { ConsoleBadge } from "./ConsoleBadge.tsx"
 import { useProject } from "./context.ts"
 import { drawnHeight, useFirstDrawWaits, useFirstRowFrame, useFrameBitmap, useFrameShows } from "./frame-bitmaps.ts"
 import { useFrameSkeleton } from "./frame-skeletons.ts"
-import { type BoardRest, useAwake } from "./frame-sleep.ts"
+import { type BoardRest, useAwake, viewRank } from "./frame-sleep.ts"
 import { useFrameOnScreen } from "./frames-on-screen.ts"
 import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
@@ -967,10 +967,14 @@ const FrameTile = memo(function FrameTile({
   const holding = useRef(false)
 
   // The live frame's height as it's drawn when its bitmap is taken, which is kept with it.
+  // How near the frame is to the middle of the view, so what's in view is captured and woken first (PAR-955).
+  const rank = useCallback(() => viewRank(tile.current), [])
+
   const kept = useFrameBitmap(
     shows,
     () => drawnHeight(tile.current, frame.width),
-    () => holding.current
+    () => holding.current,
+    rank
   )
 
   const bitmap = kept.src
@@ -1024,7 +1028,7 @@ const FrameTile = memo(function FrameTile({
   const drawnLive = useCallback((drawn: HTMLElement) => session.firstFrame?.offer(drawn, "live"), [session])
   // Interacting, frames are the real thing at any zoom. A stale bitmap stands in while the frame draws what it shows now,
   // and its new bitmap is taken, so it doesn't sleep on it.
-  const awake = useAwake(shown && !kept.stale && !interactive, rest, key)
+  const awake = useAwake(shown && !kept.stale && !interactive, rest, key, rank)
   // Zoomed far out, a frame not drawn yet waits for its bitmap, kept from an earlier session or captured offscreen, and
   // sleeps on it, at the height kept with it, without drawing its design. Until it comes, a placeholder stands in at the
   // frame's own height or, for one that grows with its content, its window's (PAR-525).

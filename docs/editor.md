@@ -4440,8 +4440,11 @@ keeps showing its bitmap until it wakes, then draws its design again at the size
   can on a busy machine, isn't kept: the frame tries again 2 seconds later, then at doubling intervals up to 16, so it
   isn't left drawn for good.
 - **What wakes:** a sleeping frame wakes once it's no longer to sleep and its board is near the view (within a quarter
-  of the view's size, as boards out of view are), one frame each animation frame, in the order they asked. A frame out
-  of view stays asleep, still showing its bitmap, until it comes near. Selecting a board wakes its frames at any zoom.
+  of the view's size, as boards out of view are), one frame each animation frame, the one nearest the middle of the view
+  first, ranked as its turn comes so it follows a moving camera (PAR-955). Waking goes by the zoom itself, not the
+  settled zoom sleep waits for, so frames in view swap their bitmaps for their designs while a zoom in is still going,
+  rather than showing the bitmap enlarged and blurry until it stops. A frame out of view stays asleep, still showing its
+  bitmap, until it comes near. Selecting a board wakes its frames at any zoom.
 - **A frame whose design changes while it sleeps** (an agent's edit, a token, a reloaded project) wakes wherever it is,
   so its board lays out the new size, and sleeps again once its new bitmap is taken. A change to the project's code does
   this to every frame, each waking once and sleeping once. A frame falls asleep just after React has run its effects,
@@ -4755,10 +4758,11 @@ data, in `bitmaps`, one folder per project and one lossless WebP per bitmap.
 - **Four frames are captured at once (PAR-523),** each in an offscreen window of its own, so each is drawn, measured and
   captured exactly as it was when one window took them one at a time. The canvas asks for as many captures at once as
   there are windows (`offscreenWindows`, in `turns`), so an agent's render or export waits for at most the four under
-  way. A window opens only when a job finds the others busy, its first job taking about half a second more to load the
-  page and the project's modules, and all close a minute after the last job. A capture takes about 150 ms in its window:
-  drawing the frame (the 30 ms wait, components loading on demand, two animation frames), the window made as tall as the
-  frame and two more animation frames, then the capture and its PNG.
+  way. The frame nearest the middle of the view goes next, ranked as a window frees up, then the rest of the view, then
+  what's around it (PAR-955). A window opens only when a job finds the others busy, its first job taking about half a
+  second more to load the page and the project's modules, and all close a minute after the last job. A capture takes
+  about 150 ms in its window: drawing the frame (the 30 ms wait, components loading on demand, two animation frames),
+  the window made as tall as the frame and two more animation frames, then the capture and its PNG.
 - **What's kept is cleaned up** when the service starts and after every 50 writes: partial files a write left behind
   over a minute ago, every bitmap of a project none of whose bitmaps was shown in 30 days, and then the least recently
   shown past 200 MB, down to 180 MB. Showing a bitmap counts as using it. **View > Clear bitmap cache**, also in the
