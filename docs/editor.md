@@ -162,7 +162,7 @@ Tests:
   given a width is drawn in a div of that width which the whole field fills, its input left as the field lays it out,
   while a field with no style and a link that puts its style on its root are drawn as they are (PAR-201).
 - `packages/code/src/props.test.ts`: whether a component's props take a `style`.
-- `chrome/LayerPanel.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
+- `chrome/LayerInstances.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
 - `apps/desktop/e2e/selecting.e2e.ts` (6), end to end (PAR-202), on the Members screen the run adds: hovering a
   `MemberRow` outlines it; a click selects it, with its outline, its name and size, and the inspector's note; Wrap in
   layout from the note; dragging it to reorder, with the copy where it lands, and one undo; the email field outlined
@@ -2800,7 +2800,7 @@ Tests:
   attributes left alone.
 - `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
 - `chrome/layer-kind.test.ts`: an image is Image and a video Video.
-- `chrome/LayerPanel.stories.tsx` VideoLayer: its section's fields and Controls found by their labels (PAR-892).
+- `chrome/LayerPanel.stories.tsx` Video: its section's fields and Controls found by their labels (PAR-892).
 - `packages/agent/src/dispatch.test.ts`: a video saved and placed in a video node, and a picture and a video each
   refused by the other's node.
 
@@ -3417,8 +3417,8 @@ Tests:
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: a number prop's field found by its label.
 - `chrome/fields.stories.tsx` EveryKind: each kind of field found by its row's label, and the token pickers by their own
   names. ChoiceOpen and Typing find their controls by name.
-- `chrome/LayerPanel.stories.tsx` ImageLayer and VideoLayer: Visible, File, Alt text, Fit and, for a video, Controls
-  found by role and name.
+- `chrome/LayerPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
+  and name.
 - `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
 
 ### One right edge in the inspector (PAR-552)
@@ -4492,8 +4492,8 @@ Tests:
 - `packages/agent/src/run.test.ts`, "states, only a component's" (10): `Designs()` by kind, eight calls refused on a
   screen, and a screen edited and drawn in its base state.
 - `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts`, "converting a component to a screen": the notice's line.
-- Stories: `chrome/LayerStates.stories.tsx` LayerOfAScreen (no Editing control), `chrome/LayerInstances.stories.tsx`
-  InstanceLayer (no State row), and `chrome/StatesSection.stories.tsx` on components.
+- Stories: `chrome/LayerStates.stories.tsx` LayerOfAScreen (no Editing control), `chrome/LayerPanel.stories.tsx`
+  DesignInstance (no State row), and `chrome/StatesSection.stories.tsx` on components.
 
 ### Unsaved changes survive a crash (PAR-905)
 
