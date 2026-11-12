@@ -7886,3 +7886,22 @@ too, and for the hashes to serve change detection, highlighting and affected tes
   per lockfile format; until then a dependency update recaptures everything, as before.
 - **Traces are built in the service, in `utility/frame-traces.ts`, over `contentReader` and `traceDigest` in
   `@parity-app/project`,** so visual tests and change highlighting can take traces of their own from the same parts.
+
+## What changed is answered in `@parity-app/change-detection` (PAR-997)
+
+A yellow outline for changed boards, tried by reading the bitmap cache's `stale` flag, stayed yellow after an edit was
+undone: `stale` means the picture isn't for the frame's key, and the key moves with every edit. You asked for an
+interface that gives each node's change status, so a consumer can't read the wrong thing. My calls:
+
+- **A package of its own, `@parity-app/change-detection`, pure:** the trace's schema, comparing traces, a status for a
+  frame, its nodes and a board, and baselines. It reads no files; traces are still taken in the service, over the
+  readers in `@parity-app/project`, so visual tests and the CLI can compare the same way.
+- **A status is unknown, unchanged or changed with the files.** Unknown keeps "no answer yet" apart from "unchanged", so
+  nothing is outlined or skipped on a guess.
+- **The baseline is the first trace taken of a frame while its project is open,** kept by project, design, state and
+  mode. It's what "since I opened it" means, and a later baseline, a git ref or an accepted visual test, is another
+  source of traces for the same comparison.
+- **A node's status comes from the files its component reads,** which traces now list per component, plus the files no
+  component reads and the nodes inside it. Bitmaps keep only the files and the digest, which is all a bitmap's validity
+  needs.
+- **The outline shows in development builds only,** to see change detection working; its design is for Storybook first.

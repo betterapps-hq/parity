@@ -42,6 +42,7 @@
     "@parity-app/connectors": "workspace:*",
     "@parity-app/agent": "workspace:*",
     "@parity-app/builder-vite": "workspace:*",
+    "@parity-app/change-detection": "workspace:*",
     "@parity-app/channel": "workspace:*",
     "@parity-app/code": "workspace:*",
     "@parity-app/core": "workspace:*",
