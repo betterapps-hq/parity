@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Check a token value against its kind's CSS grammar as SetTokens runs, without waiting for the app's window",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
