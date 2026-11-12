@@ -131,7 +131,7 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
         <DropdownMenuGroup>
           <DropdownMenuLabel>Value</DropdownMenuLabel>
           {valueKinds.map(({ type, label, icon: Icon }) => (
-            <DropdownMenuItem key={type} onClick={() => startNewProp(key, type)}>
+            <DropdownMenuItem key={type} onClick={() => startNewProp(session, key, type)}>
               <Icon /> {label}
             </DropdownMenuItem>
           ))}
@@ -160,7 +160,7 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
                       (current) => setSlot(current, node.id, name),
                       slotField(node.id)
                     )
-                    focusSlot(key, node.id)
+                    focusSlot(session, key, node.id)
                   }}
                 >
                   <LayoutIcon node={node} /> {node.name ?? "Layout"}
@@ -180,8 +180,9 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
  * typed, with the reason under it.
  */
 export function NewPropRow({ entry }: { entry: ContainerEntry }) {
-  const { store } = useProject()
-  const adding = useNewProp(entry.key)
+  const session = useProject()
+  const { store } = session
+  const adding = useNewProp(session, entry.key)
 
   if (!adding) {
     return null
@@ -193,20 +194,20 @@ export function NewPropRow({ entry }: { entry: ContainerEntry }) {
     const name = slotName(text)
 
     if (!name) {
-      return startNewProp(entry.key, undefined)
+      return startNewProp(session, entry.key, undefined)
     }
 
     const problem = propNameProblem(entry.container, name)
 
     if (problem) {
-      return refuseNewProp(problem)
+      return refuseNewProp(session, problem)
     }
 
     updateAndRecord(store, entry.key, `Add ${name}`, (current) => addValueProp(current, name, adding.type), {
       field: `params.${name}`,
       read: (current) => paramValue(current, name)
     })
-    startNewProp(entry.key, undefined)
+    startNewProp(session, entry.key, undefined)
   }
 
   return (
@@ -227,7 +228,7 @@ export function NewPropRow({ entry }: { entry: ContainerEntry }) {
             }
 
             if (event.key === "Escape") {
-              startNewProp(entry.key, undefined)
+              startNewProp(session, entry.key, undefined)
             }
           }}
         />
@@ -251,7 +252,7 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
   const session = useProject()
   const { key, container } = entry
   const { node, name } = slot
-  const focus = useSlotFocus(key)
+  const focus = useSlotFocus(session, key)
   const mine = focus?.node === node.id
   const error = mine ? focus.error : undefined
   const errorId = `slot-error-${node.id}`
@@ -264,24 +265,24 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
 
     input.current?.scrollIntoView({ block: "nearest" })
     input.current?.select()
-    slotFocused()
-  }, [wantsFocus])
+    slotFocused(session)
+  }, [session, wantsFocus])
   const hover = (on: boolean) => session.selection.setHover(on ? { design: key, node: node.id } : undefined)
 
   const rename = (text: string) => {
     const next = slotName(text)
 
     if (!next || next === name) {
-      return refuseSlotName(key, node.id, undefined)
+      return refuseSlotName(session, key, node.id, undefined)
     }
 
     const problem = slotProblem(container, node.id, next)
 
     if (problem) {
-      return refuseSlotName(key, node.id, problem)
+      return refuseSlotName(session, key, node.id, problem)
     }
 
-    refuseSlotName(key, node.id, undefined)
+    refuseSlotName(session, key, node.id, undefined)
     updateAndRecord(session.store, key, "Rename slot", (current) => setSlot(current, node.id, next), slotField(node.id))
   }
 
@@ -508,7 +509,7 @@ export function MakeSlot({ entry, node }: { entry: ContainerEntry; node: LayoutN
         aria-label={`Edit the ${slot} slot in ${entry.container.name}'s props`}
         onClick={() => {
           session.selection.set({ design: entry.key })
-          focusSlot(entry.key, node.id)
+          focusSlot(session, entry.key, node.id)
         }}
       >
         <SquareDashed style={{ color: slotColor }} />

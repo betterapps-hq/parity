@@ -295,7 +295,7 @@ const undo: (() => void)[] = []
  * without the project's view.
  */
 export function makingPreviews(): void {
-  undo.push(startPreviews(example().id))
+  undo.push(startPreviews(example()))
 }
 
 /** Changes preferences until the story ends. */

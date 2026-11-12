@@ -951,9 +951,9 @@ file and line in the project it was written at, which opens in the person's edit
 it, with the project's files from the root and a library's by its file's name. The header filters by level and by words,
 and Clear empties the log for agents too. Since PAR-165 the levels are a menu, as Chrome's DevTools have them: its
 button says what shows ("All levels", "Errors only", "Custom levels") and it opens to a checkbox for each level with its
-count, any mix of them; the errors and warnings are counted on the header's right. There's no design filter, no time on
-a message and no button selecting a group's design. The panel's height is dragged at its top edge and kept with the
-layout.
+count, any mix of them; the errors and warnings are counted on the header's right. Each tab keeps its own levels and
+words, and they go when the tab closes (PAR-1005). There's no design filter, no time on a message and no button
+selecting a group's design. The panel's height is dragged at its top edge and kept with the layout.
 
 - **One log:** main keeps the last 500 messages from every window, as it did for `parity console`, now with an id each.
   It sends what's new or counted again to the editor windows in batches, 100 ms after the first, so a component logging
@@ -982,10 +982,10 @@ and `consoleClear`, checked by `consoleAnnouncement` and `consoleOrigin` in `sha
 `window.canvasHost.console` in the preload script; the job's `design` in `shared/render-job.ts` and
 `shared/protocol.ts`; `captureConsole` and `frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`,
 `projectPlace`, `routeConsoleChange`, `tally` and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in
-`renderer/console-feed.ts`; the panel in `chrome/ConsolePanel.tsx`, the count in `chrome/StatusBar.tsx` and the board's
-in `canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents:
-`ConsoleEntry` and `FrameRequest.state` in `packages/agent/src/types.ts` and `describeConsole` in
-`packages/cli/src/client.ts`.
+`renderer/console-feed.ts`; the panel in `chrome/ConsolePanel.tsx`, its filter in `chrome/console-filter.ts`, kept for
+each tab with `projectPart` in `renderer/project-part.ts`, the count in `chrome/StatusBar.tsx` and the board's in
+`canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry`
+and `FrameRequest.state` in `packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
 
 Tests: `apps/desktop/src/main/console-log.test.ts` (8: an id each and a repeat in the same frame counted, another
 frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
@@ -1001,12 +1001,13 @@ left alone outside frames, and a wrapper added since kept). `e2e/app.ts` clears 
 since a test's clicks would otherwise badge boards for the tests after it. `shared/render-job.test.ts` (the job's design
 passes the service's check, and no name has it), `shared/ipc-checks.test.ts` (an announcement and a builder's address
 checked), `chrome/layout.test.ts` (the console's open state and height kept, and their defaults),
-`packages/agent/src/run.test.ts` (each frame names its design and state) and `packages/cli/src/client.test.ts` (the
-design, state and mode in the text). `chrome/ConsolePanel.stories.tsx`: Counted, Open, ErrorStack, OneDesign,
-WarningsOnly and NothingLogged, fed main's entries through the same mapping. In the running app, `e2e/console.e2e.ts`
-clicks Ada's row on the Members screen in Interact, which warns, and finds the warning counted on Members' board and
-listed under Members in the panel, which covers the window's announcement reaching main ahead of Electron's
-`console-message` event. Gaps: no end-to-end test draws a design offscreen that writes to the console.
+`renderer/project-part.test.ts` (each tab's filter kept apart, forgotten when its tab closes, and none kept for a
+reopened project), `packages/agent/src/run.test.ts` (each frame names its design and state) and
+`packages/cli/src/client.test.ts` (the design, state and mode in the text). `chrome/ConsolePanel.stories.tsx`: Counted,
+Open, ErrorStack, OneDesign, WarningsOnly and NothingLogged, fed main's entries through the same mapping. In the running
+app, `e2e/console.e2e.ts` clicks Ada's row on the Members screen in Interact, which warns, and finds the warning counted
+on Members' board and listed under Members in the panel, which covers the window's announcement reaching main ahead of
+Electron's `console-message` event. Gaps: no end-to-end test draws a design offscreen that writes to the console.
 
 ### Previews in the Components panel and the insert picker (PAR-208)
 
@@ -2672,7 +2673,8 @@ Code: `packWall` and `tallnessOf` in `packages/editor/src/media-wall.ts`; `mediu
 the remove dialog's flow), `MediaWall.tsx` (the wall and its tiles), `MediaCard.tsx` (the card and its facts),
 `MediaUses.tsx` (where it's used on the card, every place, and the remove dialog's list), `RemoveMediaDialog.tsx`,
 `ProjectPicture.tsx` (a picture at the builder's address, noting its size in `picture-sizes.ts`, and the transparency
-grid), `project-media.ts` (the scan, kept per open project, through code changes and reconnects) and `remove-media.ts`.
+grid), `project-media.ts` (the scan, kept with the open project's session through code changes and reconnects, and
+dropped when its tab closes) and `remove-media.ts`.
 
 Tests:
 
@@ -2691,6 +2693,7 @@ Tests:
   offering Pixabay. The stories' pictures are drawn for them and served at `/images/`, as a builder serves
   `public/images/`.
 - `workspace.test.ts`, "an open project's session": the same media files through a code change and a reconnect.
+- `project-part.test.ts`, "when its tab closes": the scan forgotten, one under way let go, and no scan after.
 
 Gaps: Removing a component layer that takes the image as a prop removes the whole layer, as the dialog's count says.
 There are no thumbnails: every picture loads whole as the tab opens, so a project with hundreds of large images loads
@@ -3583,8 +3586,9 @@ The file keeps a slot as `slot` on the layout. Its rules are in `@parity-app/cor
 `slot-names.ts`. Filling a slot from an instance is PAR-84.
 
 Code: `chrome/slot-props.tsx` (a slot's row, Add, In code and Make slot), `chrome/slot-focus.ts` (the slot to focus and
-a refused name), `ParamsSection` and `InCodeSection` in `chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`,
-`chrome/LayerPanel.tsx`, the slot outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
+a refused name, kept for each tab until it closes), `ParamsSection` and `InCodeSection` in
+`chrome/ComponentsSection.tsx`, `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx`, the slot outlines in
+`canvas/CanvasOverlay.tsx`, and `NodeIcon` in `canvas/kinds.tsx`.
 
 Tests:
 
@@ -3592,6 +3596,7 @@ Tests:
   refused; a name that isn't usable, is reserved, is a param's or another slot's; a slot inside another, or around one;
   the free name a new slot takes; the slot code nests, by layers and on a tie; `designSlots` skipping screens and nested
   slots; the file refusing a bad or repeated name; and copies and detached instances losing the mark.
+- `apps/desktop/src/renderer/project-part.test.ts`: the slot to focus forgotten when the tab closes.
 - Stories: Parity/Inspector/Layer/Slots (Layout In A Component, which makes a slot, Second Slot, Slot Layout and Layout
   Inside A Slot), Parity/Inspector/Design (Component With Slots, Component With Several Slots, Adding A Slot, which adds
   one from Add, and Slot Name Taken, which renames one to a param's name), Parity/Left panel/Layers › Slots, and
@@ -3648,13 +3653,15 @@ A copy's layers, inside an instance, don't offer it: they belong to their compon
 
 Rules in `@parity-app/core`, `prop-binding.ts`: `addValueProp`, `propNameProblem`, `freePropName`, `bindableProps`,
 `bindField` and `propFromField`. Code: `AddProp` and `NewPropRow` in `chrome/slot-props.tsx`, `chrome/new-prop.ts` (the
-row being typed and a refused name), and `chrome/field-prop.tsx` with `LayerSections` in `chrome/LayerPanel.tsx`.
+row being typed and a refused name, kept for each tab until it closes), and `chrome/field-prop.tsx` with `LayerSections`
+in `chrome/LayerPanel.tsx`.
 
 Tests:
 
 - `packages/core/src/prop-binding.test.ts` (6): adding each kind with its default; names refused as unusable, another
   prop's or a slot's, and a free one numbered; the props a field can use; using one and going back to its value; a prop
   of the wrong kind, and text on a layer that isn't text; and a prop made from a field.
+- `apps/desktop/src/renderer/project-part.test.ts`: the prop being added forgotten when the tab closes.
 - Stories: Parity/Inspector/Design › Adding A Text Prop, and Parity/Inspector/Layer/Props (Text Using A Prop, Visibility
   Using A Prop, and Making A Prop From Text, which makes `period` from Plan card's period).
 
@@ -4660,21 +4667,24 @@ the style to set.
 - **Out of date, and checking again.** A check whose design changed since shows an amber warning with Check again, a dot
   on the refresh button, and its findings faded. Checking again keeps the last findings, faded, under "Checking again",
   rather than emptying the panel.
+- **Each tab's checks.** A tab keeps its designs' checks until it closes, when they go, and a check still running then
+  is let go (PAR-1005).
 
 Code: `contrastFix` and `contrastRatio` in `packages/tokens/src/contrast.ts`, `colorDistance` in
 `packages/tokens/src/color.ts`; the frame's readings (`contrastReadings`, `follows`, `tokenColors`) in
 `apps/desktop/src/renderer/render.ts`; `addContrastFixes` in `packages/agent/src/frames.ts`; `ContrastFixRow`,
-`ImpactTally` and `DesignCheck` in `apps/desktop/src/renderer/chrome/AccessibilityPanel.tsx`; `fixLine` in
-`packages/cli/src/client.ts`.
+`ImpactTally` and `DesignCheck` in `apps/desktop/src/renderer/chrome/AccessibilityPanel.tsx`; the checks kept for each
+tab, `checksOf` in `chrome/accessibility-checks.ts`; `fixLine` in `packages/cli/src/client.ts`.
 
 Tests: `packages/tokens/src/contrast.test.ts` (WCAG ratios, translucent colors, the closest passing token, passing
 frames, preferred tokens and the fallback, large text, no token); `packages/agent/src/run.test.ts` ("gives contrast
 failures the token that passes in every frame", "gives no contrast fix when coloring the layer wouldn't reach its
-text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as the style to set"); and
-`chrome/AccessibilityPanel.stories.tsx`: ContrastFix (Apply, the change, checking again), NoPassingToken, OutOfDate,
-CheckingAgain, ManyFindings (the tally) and LongNote, all played in Storybook on 2026-11-05. Gaps: the frame's readings
-in `render.ts` need the offscreen window, so they have no automated test; a fix sets the base style, so a state that
-sets its own `color` keeps it.
+text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as the style to set");
+`apps/desktop/src/renderer/project-part.test.ts` (the checks forgotten when the tab closes, and one running then let
+go); and `chrome/AccessibilityPanel.stories.tsx`: ContrastFix (Apply, the change, checking again), NoPassingToken,
+OutOfDate, CheckingAgain, ManyFindings (the tally) and LongNote, all played in Storybook on 2026-11-05. Gaps: the
+frame's readings in `render.ts` need the offscreen window, so they have no automated test; a fix sets the base style, so
+a state that sets its own `color` keeps it.
 
 ### Naming a layout or text layer (PAR-913)
 
@@ -5369,6 +5379,9 @@ shadcn's tooltip reads, set in `styles.css`.
   every open). One the offscreen window couldn't finish isn't kept and is tried again after the next lookup. The window
   looks every preview up again, 50 at a time, when the guest, its theme, the components, their props, the modes or the
   component designs change.
+- **Kept while the tab is open (PAR-1005).** The window keeps a tab's previews, and what it knows of each, with its
+  session: closing the tab stops making them and drops them, rather than keeping them until the window closes, and an
+  answer that arrives after is let go. Reopening the project looks them up again from the store on disk.
 - **Kept under PAR-158's cleanup:** previews count toward the same 200 MB and 30 days, showing a picture counts as using
   it, and Clear bitmap cache removes them too.
 - **A void element gets no children (PAR-513).** React declares `children` for every element, so a component whose props
@@ -5409,8 +5422,9 @@ and `previews.make` handlers and their checks in `apps/desktop/src/shared/servic
 `deviceBox` and `devicePixels` in `apps/desktop/src/shared/render-job.ts`; the render pool's `preview` in
 `apps/desktop/src/main/render-pool.ts`, and `servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`,
 `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`;
-`previewMode` and `modeAppearance` in `packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`;
-`ComponentCard` in `renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
+`previewsOf`, kept for each tab with `projectPart` in `renderer/project-part.ts`; `previewMode` and `modeAppearance` in
+`packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in
+`renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
 `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
 `shortenedText` in `packages/libgen/src/sample-text.ts`.
 
@@ -5454,9 +5468,10 @@ kept for other elements and for a component's own, and none for shadcn's Input).
 `packages/libgen/src/sample-text.test.ts` (6: short text whole, a long one ended at a sentence, at a whole word with
 "…", not at a too-short first sentence, text without spaces, and text cut before shortened as the whole would be).
 `packages/registry/src/index.test.ts` (1: no sample text in the registry cut mid-word, and nova's Accordion ending its
-sentence). Gaps: the window's store and scheduler (`component-previews.ts`), including looking previews up again when
-Parity's theme changes, the card's page color from the picture's corner, the queue's use in main and the protocol have
-no test of their own; they were tried in the app.
+sentence). `apps/desktop/src/renderer/project-part.test.ts` (1: closing the tab stops the window's pass, takes away its
+listeners, lets a lookup's answer go and keeps no preview). Gaps: the rest of the window's store and scheduler
+(`component-previews.ts`), including looking previews up again when Parity's theme changes, the card's page color from
+the picture's corner, the queue's use in main and the protocol have no test of their own; they were tried in the app.
 
 Tried in a debug copy on `examples/shadcn-vite`, with 587 components: the canvas's 119 bitmaps were taken in 16 seconds
 and the first preview was made a second after the last. The idle pass then made 555 previews and kept 13 failures (parts

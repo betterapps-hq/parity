@@ -785,7 +785,7 @@ export function useComponentCard(
   component: string | undefined,
   shown: boolean
 ): ComponentCard {
-  const preview = useComponentPreview(session.id, component ?? "")
+  const preview = useComponentPreview(session, component ?? "")
   const info = component ? session.components.get()[component] : undefined
   // Only one that failed or drew nothing is asked which props it lacks, as that's when it says.
   const lacking = preview?.state === "failed" || preview?.state === "empty"
@@ -802,7 +802,7 @@ export function useComponentCard(
     [component, variants]
   )
 
-  const variantPreviews = useVariantPreviews(session.id, component ?? "", options, shown)
+  const variantPreviews = useVariantPreviews(session, component ?? "", options, shown)
 
   if (!component) {
     return { pictured: previewStatus(undefined), about: { preview: undefined } }
@@ -842,7 +842,7 @@ export interface ComponentCard {
 /** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */
 function AssetRow({ component, children }: { component: string | undefined; children: ReactNode }) {
   const session = useProject()
-  const onScreen = usePreviewOnScreen(session.id, component)
+  const onScreen = usePreviewOnScreen(session, component)
 
   return (
     <div ref={onScreen} className="group/asset relative min-w-0">

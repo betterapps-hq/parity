@@ -978,7 +978,7 @@ const LayerRow = memo(function LayerRow({
                     className="grid size-4 place-items-center rounded-sm hover:bg-accent"
                     onClick={(event) => {
                       event.stopPropagation()
-                      showConsole(row.design.key)
+                      showConsole(session, row.design.key)
                     }}
                   >
                     <OctagonAlert className="size-3 text-destructive" />
