@@ -1,18 +1,9 @@
 import { createChannel, domPort, type Handlers, plainErrors } from "@parity-app/channel"
 import { contextBridge, ipcRenderer } from "electron"
-import type { SignInRequest } from "../shared/account.ts"
 import { ipc } from "../shared/channels.ts"
-import type { ConnectorPlaced, ConnectorSearch } from "../shared/connectors.ts"
 import {
   type CanvasHost,
-  type CliInstall,
   type ConsoleChange,
-  type CopiedFile,
-  type LoggedEntry,
-  type OpenInEditorRequest,
-  type ProblemReportRequest,
-  type ProcessUsage,
-  type SaveDialogOptions,
   type ServeAnswer,
   type ServiceMethods,
   type WindowMethod,
@@ -20,7 +11,8 @@ import {
   type WindowParams,
   windowMethods
 } from "../shared/protocol.ts"
-import { exposeTelemetry, withTrace } from "./telemetry.ts"
+import { ask, tell } from "./main.ts"
+import { exposeTelemetry } from "./telemetry.ts"
 
 /**
  * The window's channel to the project service. Requests wait until main gives the page its port, and a second port
@@ -88,57 +80,28 @@ function windowHandlers(
 }
 
 /**
- * Asks main over IPC, in the page's trace (PAR-810). Main's handler for each channel, in `main/index.ts`, returns what
- * the matching `CanvasHost` method promises, and main checks what it's sent; this script and main ship together.
+ * The bridge to the page. What it asks main is one line a method, each typed by `hostMethods` through `ask` and `tell`,
+ * so a line that sends the wrong thing, or promises the page something main doesn't answer, doesn't compile (PAR-965).
  */
-function invoke<Result>(channel: string, argument?: InvokeArgument): Promise<Result> {
-  // SAFETY: main's handler for `channel` answers with the `Result` its `CanvasHost` method names.
-  return ipcRenderer.invoke(channel, ...withTrace(argument)) as Promise<Result>
-}
-
-/** Tells main something over IPC, in the page's trace, without waiting for an answer. */
-function send(channel: string, argument?: ConsoleAnnouncement): void {
-  ipcRenderer.send(channel, ...withTrace(argument))
-}
-
-/**
- * What a window sends main with a request: text, such as an email, a path or a theme, a setting, or one of these
- * requests.
- */
-type InvokeArgument =
-  | string
-  | boolean
-  | SignInRequest
-  | SaveDialogOptions
-  | OpenInEditorRequest
-  | ProblemReportRequest
-  | ConnectorSearch
-  | ConnectorPlaced
-
-/** What a window says before a console message: its level and the frame it comes from. */
-type ConsoleAnnouncement = { level: Parameters<CanvasHost["console"]["announce"]>[0] } & Parameters<
-  CanvasHost["console"]["announce"]
->[1]
-
 const host: CanvasHost = {
   appVersion:
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
     "unknown",
-  getBuildInfo: () => invoke(ipc.buildInfo),
+  getBuildInfo: () => ask("buildInfo"),
   telemetry: {
-    get: () => invoke(ipc.telemetryState),
-    setLevel: (level) => invoke(ipc.telemetryLevel, level)
+    get: () => ask("telemetryState"),
+    setLevel: (level) => ask("telemetryLevel", level)
   },
   report: {
-    prepare: () => invoke(ipc.reportPrepare),
-    send: (report) => invoke(ipc.reportSend, report),
-    lastCrash: () => invoke(ipc.reportLastCrash)
+    prepare: () => ask("reportPrepare"),
+    send: (report) => ask("reportSend", report),
+    lastCrash: () => ask("reportLastCrash")
   },
   updates: {
-    get: () => invoke(ipc.updateState),
-    check: () => invoke(ipc.updateCheck),
-    setBeta: (beta) => invoke(ipc.updateBeta, beta),
-    act: () => invoke(ipc.updateAct),
+    get: () => ask("updateState"),
+    check: () => ask("updateCheck"),
+    setBeta: (beta) => ask("updateBeta", beta),
+    act: () => ask("updateAct"),
     subscribe: (listener) => {
       const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
       ipcRenderer.on(ipc.updateChanged, changed)
@@ -161,7 +124,7 @@ const host: CanvasHost = {
     }
   },
   account: {
-    get: () => invoke(ipc.accountState),
+    get: () => ask("accountState"),
     subscribe: (listener) => {
       // oxlint-disable-next-line anti-slop/no-unknown-parameters -- account state as main sends it, which the window checks against `accountState` as it arrives
       const changed = (_event: Electron.IpcRendererEvent, state: unknown) => listener(state)
@@ -171,18 +134,18 @@ const host: CanvasHost = {
         ipcRenderer.removeListener(ipc.accountChanged, changed)
       }
     },
-    signIn: (request) => invoke<void>(ipc.accountSignIn, request),
-    reopen: () => invoke<void>(ipc.accountReopen),
-    cancel: () => invoke<void>(ipc.accountCancel),
-    signOut: (email) => invoke<void>(ipc.accountSignOut, email),
-    switchOrganization: (organizationId) => invoke<void>(ipc.accountSwitch, organizationId),
-    use: (email) => invoke<void>(ipc.accountUse, email)
+    signIn: (request) => ask("accountSignIn", request),
+    reopen: () => ask("accountReopen"),
+    cancel: () => ask("accountCancel"),
+    signOut: (email) => ask("accountSignOut", email),
+    switchOrganization: (organizationId) => ask("accountSwitch", organizationId),
+    use: (email) => ask("accountUse", email)
   },
   connectors: {
-    get: () => invoke(ipc.connectorsState),
-    search: (search) => invoke(ipc.connectorsSearch, search),
-    recent: () => invoke(ipc.connectorsRecent),
-    placed: (placed) => invoke<void>(ipc.connectorsPlaced, placed)
+    get: () => ask("connectorsState"),
+    search: (search) => ask("connectorsSearch", search),
+    recent: () => ask("connectorsRecent"),
+    placed: (placed) => ask("connectorsPlaced", placed)
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
@@ -200,21 +163,21 @@ const host: CanvasHost = {
   onReconnect(listener) {
     reconnectListeners.add(listener)
   },
-  pickFolder: (title) => invoke<string | undefined>(ipc.pickFolder, title),
-  pickProjectFile: () => invoke<string | undefined>(ipc.pickProjectFile),
-  saveFile: (options) => invoke<string | undefined>(ipc.saveDialog, options),
-  showItem: (path) => invoke<void>(ipc.showItem, path),
-  copiedFiles: () => invoke<CopiedFile[]>(ipc.copiedFiles),
-  openInEditor: (request) => invoke<{ opened: string }>(ipc.openInEditor, request),
-  installCli: () => invoke<CliInstall>(ipc.installCli),
-  quit: () => invoke<void>(ipc.quit),
-  toggleDevTools: () => invoke<void>(ipc.toggleDevTools),
-  setTheme: (theme) => invoke<void>(ipc.setTheme, theme),
-  metrics: () => invoke<ProcessUsage[]>(ipc.metrics),
+  pickFolder: (title) => ask("pickFolder", title),
+  pickProjectFile: () => ask("pickProjectFile"),
+  saveFile: (options) => ask("saveDialog", options),
+  showItem: (path) => ask("showItem", path),
+  copiedFiles: () => ask("copiedFiles"),
+  openInEditor: (request) => ask("openInEditor", request),
+  installCli: () => ask("installCli"),
+  quit: () => ask("quit"),
+  toggleDevTools: () => ask("toggleDevTools"),
+  setTheme: (theme) => ask("setTheme", theme),
+  metrics: () => ask("metrics"),
   console: {
-    announce: (level, context) => send(ipc.consoleAnnounce, { level, ...context }),
-    read: (origin) => invoke<LoggedEntry[]>(ipc.consoleRead, origin),
-    clear: (origin) => invoke<void>(ipc.consoleClear, origin),
+    announce: (level, context) => tell("consoleAnnounce", { level, ...context }),
+    read: (origin) => ask("consoleRead", origin),
+    clear: (origin) => ask("consoleClear", origin),
     subscribe: (listener) => {
       const changed = (_event: Electron.IpcRendererEvent, change: ConsoleChange) => listener(change)
       ipcRenderer.on(ipc.consoleChanged, changed)
@@ -226,10 +189,10 @@ const host: CanvasHost = {
   },
   onClosing(listener) {
     ipcRenderer.on(ipc.closing, () => {
-      ipcRenderer.send(ipc.closePending)
+      tell("closePending")
       listener().then(
-        (close) => send(close ? ipc.closeReady : ipc.closeCancel),
-        () => send(ipc.closeCancel)
+        (close) => tell(close ? "closeReady" : "closeCancel"),
+        () => tell("closeCancel")
       )
     })
   }

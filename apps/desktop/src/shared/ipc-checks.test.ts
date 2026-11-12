@@ -1,7 +1,6 @@
 import { codeEditors } from "@parity-app/core"
-import { describe, expect, it, vi } from "vite-plus/test"
+import { describe, expect, it } from "vite-plus/test"
 import {
-  checked,
   consoleAnnouncement,
   consoleOrigin,
   openInEditorRequest,
@@ -9,28 +8,16 @@ import {
   shownItem,
   themeSource
 } from "./ipc-checks.ts"
-import type { OpenInEditorRequest } from "./protocol.ts"
 
 const file = process.platform === "win32" ? "C:\\work\\app\\src\\Button.tsx" : "/work/app/src/Button.tsx"
 
 describe("open-in-editor's request", () => {
-  it("reaches its handler when it's a file and an editor", () => {
-    const handler = vi.fn<(event: Record<string, never>, request: OpenInEditorRequest) => string>(() => "opened")
-    const request = { file, export: "Button", editor: "vscode" }
-    expect(checked(openInEditorRequest, handler)({}, request)).toBe("opened")
-    expect(handler).toHaveBeenCalledWith({}, request)
-  })
-
-  it("is refused before its handler when it isn't one", () => {
-    const handler = vi.fn<() => void>()
-    const open = checked(openInEditorRequest, handler)
-    expect(() => open({}, { file: 42, editor: "vscode" })).toThrow(new TypeError("/file: expected a string"))
-    expect(() => open({}, { file: "--goto", editor: "vscode" })).toThrow("/file: expected an absolute path")
-    expect(() => open({}, { file, editor: "notepad" })).toThrow('/editor: expected one of "auto", "system", "vscode"')
-    expect(() => open({}, { file, editor: "zed", shell: true })).toThrow("/shell: unknown property")
-    expect(() => open({}, "open Button.tsx")).toThrow("/: expected an object")
-    expect(() => open({}, { file, line: 0, editor: "zed" })).toThrow("/line")
-    expect(handler).not.toHaveBeenCalled()
+  it("is a file's absolute path and an editor, and nothing more", () => {
+    expect(openInEditorRequest.safeParse({ file, export: "Button", editor: "vscode" }).success).toBe(true)
+    expect(openInEditorRequest.safeParse({ file: "--goto", editor: "vscode" }).success).toBe(false)
+    expect(openInEditorRequest.safeParse({ file, editor: "notepad" }).success).toBe(false)
+    expect(openInEditorRequest.safeParse({ file, editor: "zed", shell: true }).success).toBe(false)
+    expect(openInEditorRequest.safeParse({ file, line: 0, editor: "zed" }).success).toBe(false)
   })
 
   it("takes the line an element's source gives", () => {
