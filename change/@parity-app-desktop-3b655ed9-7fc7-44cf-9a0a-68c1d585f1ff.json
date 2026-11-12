@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "An open project keeps one session from opening to closing its tab, so a code change or a reconnect no longer empties its media list or retakes its start page picture",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
