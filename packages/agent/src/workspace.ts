@@ -1,7 +1,19 @@
 import { isDeepStrictEqual } from "node:util"
 import {
+  addParam,
+  type ArgChange,
   addState,
   alternativeLimit,
+  bindingProblem,
+  bindNode,
+  changeArgs,
+  deleteParam,
+  type EditTarget,
+  type ParamSpec,
+  renameParam,
+  toEditTarget,
+  updateParam,
+  type VariantOption,
   boardRoot,
   type CanvasDocument,
   childEntries,
@@ -110,6 +122,11 @@ import {
   type MatrixOptions,
   newState,
   nodeReference,
+  type OptionInput,
+  type ParamInput,
+  paramInput,
+  type ParamUpdate,
+  paramUpdate,
   type PatchInput,
   patchInput,
   type PlaceOptions,
@@ -331,6 +348,11 @@ export class AgentWorkspace {
       UpdateState: (reference: string, state: string, spec: z.infer<typeof stateUpdate>) =>
         this.updateState(design(reference), text(state, "state"), readFields(stateUpdate, spec, "spec")),
       DeleteState: (reference: string, state: string) => this.deleteState(design(reference), text(state, "state")),
+      AddParam: (reference: string, name: string, spec: ParamInput) =>
+        this.addParam(design(reference), text(name, "name"), readFields(paramInput, spec, "spec")),
+      UpdateParam: (reference: string, name: string, change: ParamUpdate) =>
+        this.updateParam(design(reference), text(name, "name"), readFields(paramUpdate, change, "change")),
+      DeleteParam: (reference: string, name: string) => this.deleteParam(design(reference), text(name, "name")),
       SetModes: (settings: ModeSettings) => this.setModes(readFields(modeSettings, settings, "settings")),
       SetTokens: (values: z.input<typeof tokenValues>) =>
         this.setTokens(readArgument(tokenValues, values, "SetTokens")),
@@ -793,10 +815,13 @@ export class AgentWorkspace {
       design.size = size
     }
 
+    const built = this.withParams(design, spec.params)
+    checkBindings(built, built.root, "root")
+
     // A frame's board is as big as the frame; other designs get room for a page.
-    const room = kind === "frame" ? estimateSize(design, this.modes) : { width: 1400, height: 1000 }
+    const room = kind === "frame" ? estimateSize(built, this.modes) : { width: 1400, height: 1000 }
     const place = spec.x === undefined || spec.y === undefined ? this.findEmptySpace(room) : undefined
-    const container = place ? { ...design, position: { x: spec.x ?? place.x, y: spec.y ?? place.y } } : design
+    const container = place ? { ...built, position: { x: spec.x ?? place.x, y: spec.y ?? place.y } } : built
     const document = this.documents.get(path) ?? { version: 3, containers: [] }
     this.documents.set(path, { ...document, containers: [...document.containers, container] })
     this.changed.add(path)
@@ -921,6 +946,7 @@ export class AgentWorkspace {
     const found = target ? { ...target, node: target.container.root } : this.findNode(parent)
     const node = this.prepareNode(input, nodeIds(found.container.root), "node")
     const root = insertNode(found.container.root, found.node.id, node, options)
+    checkBindings(found.container, node, "node")
     this.setContainer(found.path, { ...found.container, root }, node.id)
 
     return node.id
@@ -937,7 +963,7 @@ export class AgentWorkspace {
 
     const { path: file, container } = found
     const node = findNode(container.root, found.layer)!
-    const { args, ...change } = input
+    const { args, bind, ...change } = input
 
     if (args) {
       change.props = { ...change.props, ...args }
@@ -959,10 +985,10 @@ export class AgentWorkspace {
       })
     }
 
-    if (!base && renames.length > 0) {
+    if (!base && (renames.length > 0 || bind)) {
       throw new CodedError("A state can only change hidden, text, props, style and unset", {
         code: "invalid_input",
-        field: renames[0]
+        field: renames[0] ?? "bind"
       })
     }
 
@@ -1003,6 +1029,10 @@ export class AgentWorkspace {
       }
     }
 
+    if (bind) {
+      next = bindNode(next, node.id, bind)
+    }
+
     this.setContainer(file, next, node.id, base ? undefined : stateId)
   }
 
@@ -1022,7 +1052,7 @@ export class AgentWorkspace {
       change.props = { ...change.props, ...args }
     }
 
-    const renamed = (["name", "tag", "component"] as const).find((name) => change[name] !== undefined)
+    const renamed = (["name", "tag", "component", "bind"] as const).find((name) => change[name] !== undefined)
 
     if (renamed) {
       throw new CodedError(
@@ -1051,6 +1081,7 @@ export class AgentWorkspace {
     const parent = location.ancestors.at(-1)
     const ids = nodeIds(container.root)
     const replacement = this.prepareNode(input, ids, "node")
+    checkBindings(container, replacement, "node")
     let next: ContainerSpec
 
     if (parent) {
@@ -1201,7 +1232,7 @@ export class AgentWorkspace {
    */
   private applyChanges(
     container: ContainerSpec,
-    stateId: string,
+    stateId: string | EditTarget,
     changes: Record<string, PatchInput | null> | undefined
   ): ContainerSpec {
     let next = container
@@ -1219,10 +1250,10 @@ export class AgentWorkspace {
       }
 
       if (value === null) {
-        const state = findState(next, stateId)
+        const state = findState(next, toEditTarget(stateId).state)
         const overrides = { ...state.overrides }
         delete overrides[path]
-        next = withStateOverrides(next, stateId, overrides)
+        next = withStateOverrides(next, state.id, overrides)
         continue
       }
 
@@ -1230,6 +1261,119 @@ export class AgentWorkspace {
     }
 
     return next
+  }
+
+  // Params ------------------------------------------------------------------------------------------------------------
+
+  private addParam(reference: string, name: string, spec: ParamInput): void {
+    const { path, container } = this.findDesign(reference)
+    this.setContainer(path, this.withParams(container, { [name]: spec }, "spec"))
+  }
+
+  /** A design with params added, each variant's options' changes applied as the editor applies them. */
+  private withParams(
+    container: ContainerSpec,
+    params: Record<string, ParamInput> | undefined,
+    field = "params"
+  ): ContainerSpec {
+    if (!params) {
+      return container
+    }
+
+    if (container.kind !== "component") {
+      throw new CodedError(`${container.name} isn't a component, so it takes no params`, {
+        code: "invalid_input",
+        field
+      })
+    }
+
+    let next = container
+
+    for (const [name, spec] of Object.entries(params)) {
+      const { options, default: value, ...rest } = spec
+      const param: ParamSpec = { ...rest }
+      const list = options && optionList(options, [])
+
+      if (list) {
+        param.options = list.map(({ id, name: label }) => ({ id, name: label }))
+      }
+
+      if (value !== undefined) {
+        const label = z.string().safeParse(value)
+        param.default = list && label.success ? optionId(list, label.data) : value
+      }
+
+      next = addParam(next, name, param)
+      next = this.applyOptionChanges(next, name, list ?? [])
+    }
+
+    return next
+  }
+
+  private applyOptionChanges(container: ContainerSpec, param: string, list: OptionChanges[]): ContainerSpec {
+    const state = container.states[0]!.id
+
+    return list.reduce(
+      (next, option) =>
+        option.overrides
+          ? this.applyChanges(next, { state, variant: { param, option: option.id } }, option.overrides)
+          : next,
+      container
+    )
+  }
+
+  private updateParam(reference: string, name: string, change: ParamUpdate): void {
+    const { path, container } = this.findDesign(reference)
+    const param = container.params?.[name]
+    const { name: renamed, options, default: value, description } = change
+    const was = param?.options ?? []
+    const list = options && optionList(options, was)
+
+    // A listed option without changes of its own keeps the ones it had.
+    const kept: VariantOption[] | undefined = list?.map(({ id, name: label, overrides }) => {
+      const before = was.find((option) => option.id === id)?.overrides
+
+      return !overrides && before ? { id, name: label, overrides: before } : { id, name: label }
+    })
+
+    const label = z.string().safeParse(value)
+    const resolved = label.success && param?.type === "variant" ? optionId(list ?? was, label.data) : value
+
+    const updated = updateParam(container, name, { options: kept, default: resolved, description })
+    let next = this.applyOptionChanges(updated.container, name, list ?? [])
+
+    if (renamed !== undefined) {
+      next = renameParam(next, name, renamed)
+    }
+
+    this.setContainer(path, next)
+
+    if (updated.dropped.length > 0) {
+      this.changeArgs(container.id, { param: name, options: updated.dropped })
+    }
+
+    if (renamed !== undefined && renamed !== name) {
+      this.changeArgs(container.id, { rename: name, to: renamed })
+    }
+  }
+
+  private deleteParam(reference: string, name: string): void {
+    const { path, container } = this.findDesign(reference)
+    this.setContainer(path, deleteParam(container, name))
+    this.changeArgs(container.id, { drop: name })
+  }
+
+  /** Every instance of `component` in the tab, passing args that follow its params. */
+  private changeArgs(component: string, change: ArgChange): void {
+    const library = this.library()
+
+    for (const { path, container } of this.all()) {
+      const next = changeArgs(container, component, change, library)
+
+      if (!isDeepStrictEqual(next, container)) {
+        this.setContainer(path, next, undefined, undefined, false)
+      }
+    }
   }
 
   // Modes and tokens --------------------------------------------------------------------------------------------------
@@ -2557,5 +2701,48 @@ function pictured(image: ImageNode | VideoNode, change: UpdateChange): void {
     delete image.credit
   } else if (change.credit !== undefined) {
     image.credit = change.credit
+  }
+}
+
+/** A variant's option as a call gives it, with its id settled. */
+interface OptionChanges {
+  id: string
+  name: string
+  overrides?: OptionInput["overrides"]
+}
+
+/**
+ * Options with ids: each one given, else the id of the option already named so, else one made from its name, unique in
+ * the list.
+ */
+function optionList(options: readonly OptionInput[], before: readonly VariantOption[]): OptionChanges[] {
+  const taken = options.flatMap((option) => (option.id ? [option.id] : []))
+
+  return options.map((option) => {
+    if (option.id) {
+      return { ...option, id: option.id }
+    }
+
+    const same = before.find((candidate) => candidate.name === option.name && !taken.includes(candidate.id))
+    const id = same?.id ?? uniqueId(option.name, taken)
+    taken.push(id)
+
+    return { ...option, id }
+  })
+}
+
+/** A variant's default by option id or name, as a call can give it. */
+function optionId(options: readonly { id: string; name: string }[], value: string): string {
+  return (
+    options.find((option) => option.id === value)?.id ?? options.find((option) => option.name === value)?.id ?? value
+  )
+}
+
+/** Refuses a node whose binds name params its design doesn't have, or that its design can't bind at all. */
+function checkBindings(container: ContainerSpec, node: DesignNode, field: string): void {
+  const problem = bindingProblem(container, node)
+
+  if (problem) {
+    throw new CodedError(problem.message, { code: "invalid_input", field })
   }
 }
