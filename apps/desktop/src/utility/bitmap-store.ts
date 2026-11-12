@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import { mkdir, open, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { type FrameTrace, frameTrace } from "@parity-app/change-detection"
 import {
   type CachedFile,
   type ComponentSource,
@@ -17,7 +18,6 @@ import type { PreviewImage, RenderJob } from "../shared/protocol.ts"
 import { bitmapName } from "../shared/render-job.ts"
 import { degraded } from "./degraded.ts"
 import { environment } from "./environment.ts"
-import { type FrameTrace, frameTrace } from "./frame-traces.ts"
 
 /**
  * Frame bitmaps and component previews kept on disk, so a project opened again shows them at once (PAR-158, PAR-207).
@@ -129,7 +129,12 @@ export async function storeBitmap(
 
   try {
     const sized = withWebpText(webp, heightKeyword, String(height))
-    const kept = trace ? withWebpText(sized, traceKeyword, JSON.stringify(trace)) : sized
+
+    // Only the files and their digest: which component reads which says what changed in it, not whether the bitmap holds.
+    const kept = trace
+      ? withWebpText(sized, traceKeyword, JSON.stringify({ files: trace.files, digest: trace.digest }))
+      : sized
+
     await writeWhole(bitmapFile(served, job), kept)
   } catch (error) {
     degraded("frame_bitmap", "couldn't keep a frame bitmap", error, job.projectId)

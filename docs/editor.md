@@ -5134,6 +5134,49 @@ channel around a card's shadow, which is how they rasterize; a third differs bet
 windows. That captures go to separate windows has no automated test; the end-to-end suite starts each copy on a fresh
 profile, so it captures its frames this way.
 
+### What changed since a frame was first looked at (PAR-997)
+
+Whether a frame, a node in it, or its board changed is answered by `@parity-app/change-detection`, never worked out from
+what a bitmap or a render key says. A first try at outlining changed boards read the bitmap cache's `stale` flag, which
+means "this picture isn't for this key", and stayed yellow after an edit was undone.
+
+- **A status is unknown, unchanged, or changed with the files that changed.** It compares the frame's trace now with its
+  baseline: the files it reads, each with a hash of its contents (see Bitmaps kept between sessions), so undoing an edit
+  gives the same digest and the frame is unchanged again. When only Parity's renderer changed, it's changed with no
+  files.
+- **The baseline is the frame's first trace while its project is open.** `ChangeBaselines` keeps it by the frame's id
+  (project, design, state and mode), so a new guest or render key doesn't make it another frame, and drops a project's
+  when it closes. A git ref or an accepted visual-test baseline would be compared the same way.
+- **Nodes.** A trace also lists the files each component the frame draws reads. A node changed when its component's
+  files did, or a file no component reads, such as a stylesheet, a tool's config or a lockfile, or a node inside it,
+  since it draws what's inside it. A trace without the list, as kept in a bitmap, gives every node the frame's status.
+- **A board adds its frames up:** changed when one is, unknown when none has said and one can't, else unchanged.
+- **The service answers, the canvas asks.** `frames.changes` takes frames by id with their jobs, traces each and
+  compares it with its baseline. Each frame asks again whenever its key changes, all the canvas's frames in one request,
+  and `useFrameChange` and `useDesignChange` read the answers. A board whose frames changed has `data-changed`, for
+  tools and tests to read; nothing shows it yet.
+
+Tried in a development build on the example project, with a yellow outline on `data-changed` added locally for testing:
+just opened, no board was outlined; after adding a comment to `badge.tsx`, the 30 boards whose frames draw a badge were;
+after undoing it, none was.
+
+Code: `packages/change-detection/src/` (`status.ts`, `baselines.ts`, `trace.ts`); `componentReads` and the `components`
+list in `apps/desktop/src/utility/frame-traces.ts`; `frames.changes` in `apps/desktop/src/utility/index.ts`;
+`apps/desktop/src/renderer/canvas/frame-changes.ts`, and `data-changed` in `ContainerView.tsx`.
+
+Tests: `packages/change-detection/src/status.test.ts` (9: unknown without a baseline or a trace; unchanged for the same
+digest and the files that differ, came or went otherwise; a board changed with every frame's files, unknown when one
+can't say and none changed or there are none, else unchanged; the node whose component's file changed and the nodes
+holding it, but not the rest; every component reading a shared file; every node for a stylesheet; a component that
+started reading a file; and the frame's status for every node when it's unchanged, unknown or traced without
+components). `packages/change-detection/src/baselines.test.ts` (3: counted from the first trace and unchanged once the
+files are back; unknown for a frame not traced, which takes no baseline; each frame's own baseline, started again once
+its project's forgotten). `apps/desktop/src/utility/frame-traces.test.ts` says which files each component reads.
+`apps/desktop/src/renderer/canvas/frame-changes.test.ts` (3: frames asking in the same task share one request and each
+gets its own answer; unknown when the service couldn't say; a design's frames added up as they change and go). Gaps:
+`frames.changes` itself, and that a frame asks again when its key changes, have no test of their own; both were tried in
+the app.
+
 ### Component previews, made offscreen and kept on disk (PAR-207)
 
 Each component has a picture of what inserting it would place, made in the offscreen window and kept on disk with the

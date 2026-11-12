@@ -790,6 +790,13 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
 
     case "accessibility.check":
       return { findings: findingsFor(String(request.params.design)), frames: 4, warnings: [] }
+    case "frames.changes":
+      // Nothing to compare in a story: every frame's change is unknown, so no board is outlined.
+      return {
+        changes: parseData(z.array(z.json()), JSON.parse(request.params.frames)).map(() => ({
+          status: { state: "unknown" }
+        }))
+      }
     case "frames.stored":
       // No bitmap kept, as on a first launch: a frame that sleeps draws first, or waits on its placeholder.
       return { kept: parseData(z.array(z.json()), JSON.parse(request.params.jobs)).map(() => ({})) }
