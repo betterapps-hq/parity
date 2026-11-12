@@ -85,17 +85,18 @@ at the end of this page are the plan for testing more. Four of them exist in `fi
 
 ### Build tool (builder adapter)
 
-| Tool                     | Status | Notes                                                                                                                                                     |
-| ------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Vite 8                   | ✅     | `packages/builder-vite`, with the project's own Vite and config.                                                                                          |
-| Vite 7                   | ❔     | Same adapter; untested. Drops in June 2027.                                                                                                               |
-| Vite 6                   | ❔     | Same adapter; untested. Drops in November 2026.                                                                                                           |
-| Vite 5 and earlier       | ❌     | Dropped: Vite 5 came out in November 2023. Untested, but not blocked.                                                                                     |
-| Vite+                    | ✅     | `vite` aliased to `@voidzero-dev/vite-plus-core` counts as the Vite it ships, from `bundledVersions` in its package.json, not as the alias's own version. |
-| `vite.config.cjs`/`.cts` | ✅     | Found by the project's own Vite (`loadConfigFromFile`), like `.js`, `.mjs`, `.ts` and `.mts`.                                                             |
-| Next.js                  | ⏳     | Likely the second builder; server components need thought.                                                                                                |
-| webpack, Rspack          | ⏳     |                                                                                                                                                           |
-| Rsbuild                  | ⏳     | Would share an Rspack-based adapter with Rspack, which it builds on.                                                                                      |
+| Tool                     | Status | Notes                                                                                                                                                       |
+| ------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vite 8                   | ✅     | `packages/builder-vite`, with the project's own Vite and config.                                                                                            |
+| Vite 7                   | ❔     | Same adapter; untested. Drops in June 2027.                                                                                                                 |
+| Vite 6                   | ❔     | Same adapter; untested. Drops in November 2026.                                                                                                             |
+| Vite 5 and earlier       | ❌     | Dropped: Vite 5 came out in November 2023. Untested, but not blocked.                                                                                       |
+| Vite+                    | ✅     | `vite` aliased to `@voidzero-dev/vite-plus-core` counts as the Vite it ships, from `bundledVersions` in its package.json, not as the alias's own version.   |
+| `vite.config.cjs`/`.cts` | ✅     | Found by the project's own Vite (`loadConfigFromFile`), like `.js`, `.mjs`, `.ts` and `.mts`.                                                               |
+| Config added or removed  | ✅     | Each adapter names the config files it looks for (`configFiles`), and adding or removing one in an open project detects it again. Vite restarts on an edit. |
+| Next.js                  | ⏳     | Likely the second builder; server components need thought.                                                                                                  |
+| webpack, Rspack          | ⏳     |                                                                                                                                                             |
+| Rsbuild                  | ⏳     | Would share an Rspack-based adapter with Rspack, which it builds on.                                                                                        |
 
 ### Styling (styles adapter)
 

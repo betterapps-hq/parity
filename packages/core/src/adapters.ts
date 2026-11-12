@@ -133,6 +133,9 @@ export interface BuilderStartOptions {
   port?: number
 }
 
+/** The extensions a JavaScript tool's config file may have: `vite.config.ts`, `.storybook/main.mjs`. */
+export const scriptConfigExtensions = ["ts", "mts", "cts", "js", "mjs", "cjs"] as const
+
 /**
  * Compiles a customer's components with the customer's own build setup (Vite, webpack, Next.js…) and serves them to the
  * canvas as a guest module.
@@ -140,6 +143,12 @@ export interface BuilderStartOptions {
 export interface BuilderAdapter {
   id: string
   name: string
+  /**
+   * The config files, relative to the project root, that say whether this builder serves the project (PAR-826).
+   * Detection follows them, so adding or taking one away detects an open project again; the build tool follows a
+   * change to one's contents itself.
+   */
+  configFiles: readonly string[]
   /** Whether this builder serves the project, asked of the project's own build tool where it can be. */
   detect(root: string): Promise<BuilderDetection>
   start(options: BuilderStartOptions): Promise<BuilderSession>
