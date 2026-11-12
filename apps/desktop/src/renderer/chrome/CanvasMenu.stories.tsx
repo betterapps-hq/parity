@@ -274,3 +274,17 @@ export const Interacting: Story = onCanvas(
     await expect(body().queryByRole("menu", { name: "Canvas" })).toBeNull()
   }
 )
+
+/** The email field of Sign in, right-clicked: the menu ends with Open in editor, at the line the input is written on. */
+export const OpenInEditor: Story = onCanvas(["Sign in"], undefined, async () => {
+  const input = layerElement("Sign in", "Sign in card").querySelector("input")
+
+  if (!input) {
+    throw new Error("The sign in card draws no input")
+  }
+
+  const box = input.getBoundingClientRect()
+  const menu = await rightClick({ x: box.left + box.width / 2, y: box.top + box.height / 2 })
+  const open = within(menu).getByRole("menuitem", { name: /^Open in editor/ })
+  await expect(open).toHaveTextContent(/input\.tsx:\d+$/)
+})

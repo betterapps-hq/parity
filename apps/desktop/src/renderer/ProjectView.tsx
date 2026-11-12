@@ -5,7 +5,6 @@ import { CanvasDrop } from "./canvas/CanvasDrop.tsx"
 import { CanvasEditor } from "./canvas/CanvasEditor.tsx"
 import { CanvasOverlay } from "./canvas/CanvasOverlay.tsx"
 import { ProjectContext } from "./canvas/context.ts"
-import { InspectOverlay } from "./canvas/InspectOverlay.tsx"
 import { useShortcuts } from "./canvas/shortcuts.ts"
 import { TabOrderOverlay } from "./canvas/TabOrderOverlay.tsx"
 import { CanvasMenu } from "./chrome/CanvasMenu.tsx"
@@ -134,9 +133,6 @@ function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
         </ErrorBoundary>
         <ErrorBoundary name="canvas.tab-order" label="Tab order" kind="silent">
           <TabOrderOverlay />
-        </ErrorBoundary>
-        <ErrorBoundary name="canvas.inspect" label="Inspect" kind="silent">
-          <InspectOverlay />
         </ErrorBoundary>
         <ErrorBoundary name="canvas.drop" label="Drop" kind="silent">
           <CanvasDrop />
