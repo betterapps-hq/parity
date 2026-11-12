@@ -9,8 +9,9 @@ import {
 import { type ComponentType, useMemo } from "react"
 import { LiveEditsContext, ProjectTokens } from "../inspector/controls/field-parts.tsx"
 import { AppearanceSection } from "../inspector/sections/AppearanceSection.tsx"
-import { EffectsSection } from "../inspector/sections/EffectsSection.tsx"
+import { EffectsSection } from "../inspector/sections/effects.tsx"
 import { FillSection } from "../inspector/sections/FillSection.tsx"
+import { LayerOrderSection } from "../inspector/sections/LayerOrderSection.tsx"
 import { LayoutSection } from "../inspector/sections/LayoutSection.tsx"
 import { PositionSection } from "../inspector/sections/PositionSection.tsx"
 import { type SectionProps, useSectionEdits } from "../inspector/sections/section-edits.ts"
@@ -22,13 +23,14 @@ import { projectTokenSets } from "../inspector/token-sets.ts"
 import type { StyleEditor } from "./style-editor.ts"
 
 /**
- * Each section the app draws, by the table's name for it. Layer order, Grid placement, Motion and Raw CSS aren't built
- * yet, and draw nothing: PAR-924 to PAR-935 add them, with what `NodeStyle` can't hold yet.
+ * Each section the app draws, by the table's name for it. Grid placement, Motion and Raw CSS aren't built yet, and draw
+ * nothing: PAR-924 to PAR-935 add them, with what `NodeStyle` can't hold yet.
  */
 const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> = {
   // Until Frame size is built, a frame's root's Size is the frame's own size (see `useStyleEditor`).
   frameSize: SizeSection,
   placement: PositionSection,
+  layerOrder: LayerOrderSection,
   size: SizeSection,
   layout: LayoutSection,
   spacing: SpacingSection,
@@ -38,6 +40,22 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
   stroke: StrokeSection,
   effects: EffectsSection
 }
+
+/**
+ * The sections whose controls make their edits through `SectionProps`' `edit`, and so preview as they're typed. Layer
+ * order and Effects make theirs through the style editor itself, as each edit comes.
+ */
+const liveSections = new Set<StyleSection>([
+  "frameSize",
+  "placement",
+  "size",
+  "layout",
+  "spacing",
+  "appearance",
+  "text",
+  "fill",
+  "stroke"
+])
 
 /** The layer panel leaves out the design, since it never shows a design's root: no layer's id is empty. */
 const noRoot: CapabilityDesign = { root: { id: "" } }
@@ -69,13 +87,17 @@ export function StyleSections({
 
   return (
     <ProjectTokens sets={sets}>
-      <LiveEditsContext value={live}>
-        {sections.map((section) => {
-          const View = sectionViews[section]
+      {sections.map((section) => {
+        const View = sectionViews[section]
 
-          return View && <View key={section} {...props} />
-        })}
-      </LiveEditsContext>
+        return (
+          View && (
+            <LiveEditsContext key={section} value={liveSections.has(section) ? live : undefined}>
+              <View {...props} />
+            </LiveEditsContext>
+          )
+        )
+      })}
     </ProjectTokens>
   )
 }

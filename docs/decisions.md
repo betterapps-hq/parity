@@ -1,5 +1,17 @@
 # Decisions
 
+- **A style package owns what a layer's style means, with CSS as the spec in the middle (PAR-938).** You agreed on
+  2026-11-11 to [style-package.md](proposals/style-package.md), after asking whether `NodeStyle` is a real spec (it
+  isn't: it mixes CSS, Tailwind and Figma names) and saying the translation layer should be a package of its own. A pure
+  package, `@parity-app/style`, holds the stored style, moved out of core, and turns it into CSS declarations and back;
+  each framework's adapter prints declarations as its own code and reads that code back, Tailwind's by compiling each
+  class with the project's own Tailwind and comparing. A ledger of every CSS property, generated from spec data, gives
+  each property one owning key and its grammar, which values are checked against. You accepted the four calls: the
+  package, with the schema leaving core; one format change that renames the keys after their CSS properties, after
+  PAR-925, PAR-931, PAR-933 and PAR-934 land; a Tailwind project's canvas draws its compiled classes, with Parity's own
+  rules as the fallback; and the new dependencies `@webref/css` or `css-tree`, and `web-features`. The steps are PAR-939
+  to PAR-944.
+
 - **One table picks a layer's sections and controls, and the controls move into the app in steps (PAR-892).** You agreed
   on 2026-11-11 to [design-panel-sections.md](proposals/design-panel-sections.md): the panel works out what a layer can
   do (`box`, `root`, `frame`, `text`, `textInside`, `media`, `inFlex`, `inGrid`, `styled`), and each section and
@@ -7267,3 +7279,19 @@ nothing clipped it, and PAR-456 left out overflow of a parent that doesn't clip.
   far past which edges of which parent it reaches. The skill says what usually fixes each (`min-w-0` on the content that
   won't shrink, or `shrink-0` on the squeezed node; letting a spilling node wrap or shrink, or clipping its parent with
   a scroll).
+
+## Effects widen `shadow`, and text case becomes `textTransform` (PAR-933)
+
+PAR-933 adds a stack of shadows, blurs and filters, and a real transform, to `NodeStyle`, where `shadow` held one token
+and `transform` was text case. Your calls on 2026-11-11:
+
+- **`shadow` widens rather than becoming a `boxShadow` list.** It stays one shadow token's name, or becomes a list of
+  drop shadows, inner shadows and rings, each a token's (its color optionally set over the token's) or its own px
+  numbers and color, so every document and agent call with `shadow: "shadow-sm"` keeps working. Colors are color tokens'
+  names with an alpha, and lint warns on a plain color, as Fill's do.
+- **New keys for the rest:** `filter` and `backdropFilter`, lists of blurs, adjustments and, on the layer, drop shadows;
+  and `transform`, a move, rotation, scale, skew and origin.
+- **Rotation and skew are in the schema and the agent's tools only.** The approved Transform control has neither; you
+  called it a miss in the UX work, and PAR-937 adds them to the Transform control.
+- **Text case is renamed `textTransform`, and a file with the old key is rejected,** by the Fix forward rule. Stale
+  prototype data is disposable.

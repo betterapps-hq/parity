@@ -493,6 +493,13 @@ describe("sizing", () => {
     })
   })
 
+  it("writes a layer order as z-index, from a whole number or a z-index token", () => {
+    expect(sized("row", { zIndex: 10 }).zIndex).toBe("10")
+    expect(sized("row", { zIndex: -5 }).zIndex).toBe("-5")
+    expect(sized("row", { zIndex: "z-overlay" }).zIndex).toBe("var(--z-overlay)")
+    expect(sized("row", {}).zIndex).toBeUndefined()
+  })
+
   it("sizes frames from the design's own size for a viewport", () => {
     const design = parseCanvasDocument({
       version: 3,

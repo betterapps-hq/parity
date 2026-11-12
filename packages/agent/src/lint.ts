@@ -6,7 +6,8 @@ import {
   type DesignNode,
   type NodeStyle,
   type PropValues,
-  radiusKeywords
+  radiusKeywords,
+  type Shadow
 } from "@parity-app/core"
 import { readNearValue } from "@parity-app/tokens"
 import { z } from "zod"
@@ -58,12 +59,17 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
       }
 
       for (const style of [node.style, ...Object.values(node.responsive ?? {}).map((patch) => patch.style)]) {
-        for (const name of tokenStyleKeys) {
-          const value = style?.[name]
-
-          if (value && !known(name, value)) {
-            warn("not_a_token", `${name} "${value}" isn't a token. ${nearestHint(name, value) ?? anyToken}`, where)
+        for (const { name, value, category } of styleTokens(style)) {
+          if (!known(name, value)) {
+            warn("not_a_token", `${name} "${value}" isn't a token. ${nearestHint(category, value) ?? anyToken}`, where)
           }
+        }
+
+        // A layer order is a whole number, or names a z-index token.
+        const zIndex = lengthName.safeParse(style?.zIndex).data
+
+        if (zIndex !== undefined && !tokens.has(zIndex)) {
+          warn("not_a_token", `zIndex "${zIndex}" isn't a token. Use a whole number instead.`, where)
         }
 
         for (const [name, value] of lengthTokens(style)) {
@@ -97,11 +103,9 @@ export function lintDocument(document: CanvasDocument, context: LintContext): Wa
 
     for (const state of container.states) {
       for (const [nodeId, patch] of Object.entries(state.overrides ?? {})) {
-        for (const name of tokenStyleKeys) {
-          const value = patch.style?.[name]
-
-          if (value && !known(name, value)) {
-            const hint = nearestHint(name, value)
+        for (const { name, value, category } of styleTokens(patch.style)) {
+          if (!known(name, value)) {
+            const hint = nearestHint(category, value)
             const message = `${name} "${value}" isn't a token${hint ? `. ${hint}` : ""}`
             warn("not_a_token", message, `${container.id} state ${state.id}/${nodeId}`)
           }
@@ -175,6 +179,14 @@ function lengthTokens(style: NodeStyle | undefined): [string, string][] {
     }
   }
 
+  for (const axis of ["x", "y"] as const) {
+    const token = lengthName.safeParse(style?.transform?.[axis]).data
+
+    if (token !== undefined) {
+      found.push([`transform.${axis}`, token])
+    }
+  }
+
   return found
 }
 
@@ -207,8 +219,11 @@ const tokenStyleKeys = [
   "tracking"
 ] as const
 
+/** The category of tokens a color or length is compared with, to find the nearest. */
+type NearestCategory = "color" | "radius" | "font-size" | "tracking"
+
 /** The category of tokens a color or length under each key is compared with, to find the nearest. */
-const nearestCategories: Partial<Record<(typeof tokenStyleKeys)[number], string>> = {
+const nearestCategories: Partial<Record<(typeof tokenStyleKeys)[number], NearestCategory>> = {
   background: "color",
   foreground: "color",
   border: "color",
@@ -217,14 +232,63 @@ const nearestCategories: Partial<Record<(typeof tokenStyleKeys)[number], string>
   tracking: "tracking"
 }
 
+/** A token a style names: where (`shadow[1].color`), its name, and the category to find the nearest in. */
+interface StyleToken {
+  name: string
+  value: string
+  category?: NearestCategory
+}
+
+/** The tokens a style names: under its token keys, and in its shadows' and filters' entries. */
+function styleTokens(style: NodeStyle | undefined): StyleToken[] {
+  if (!style) {
+    return []
+  }
+
+  const found: StyleToken[] = []
+
+  for (const name of tokenStyleKeys) {
+    const value = style[name]
+
+    if (value && !Array.isArray(value)) {
+      found.push({ name, value, category: nearestCategories[name] })
+    }
+  }
+
+  const shadowTokens = (entry: Shadow, at: string) => {
+    if ("token" in entry) {
+      found.push({ name: `${at}.token`, value: entry.token })
+    }
+
+    if (entry.color) {
+      found.push({ name: `${at}.color`, value: entry.color.color, category: "color" })
+    }
+  }
+
+  if (Array.isArray(style.shadow)) {
+    style.shadow.forEach((entry, index) => shadowTokens(entry, `shadow[${index}]`))
+  }
+
+  for (const key of ["filter", "backdropFilter"] as const) {
+    style[key]?.forEach((entry, index) => {
+      if (entry.kind === "blur") {
+        found.push({ name: `${key}[${index}].value`, value: entry.value })
+      } else if (entry.kind === "dropShadow") {
+        shadowTokens(entry.shadow, `${key}[${index}].shadow`)
+      }
+    })
+  }
+
+  return found
+}
+
 const anyToken = "Use a name from GetTokens()."
 
 /**
  * For a value that isn't a token but a color under a color's key or a length under a length's, the call that lists
  * the tokens nearest it, as `GetTokens({ nearest: "#2f6fed", category: "color" })`.
  */
-function nearestHint(name: (typeof tokenStyleKeys)[number], value: string): string | undefined {
-  const category = nearestCategories[name]
+function nearestHint(category: NearestCategory | undefined, value: string): string | undefined {
   const read = readNearValue(value)
 
   if (!category || !read || "color" in read !== (category === "color")) {

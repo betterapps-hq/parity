@@ -219,6 +219,94 @@ export type Padding = z.infer<typeof padding>
 
 const alignment = z.enum(["start", "center", "end", "stretch"])
 
+/** A color token's name, with its alpha from 0 to 100 when it's see-through. */
+const effectColor = fileObject({ color: z.string().min(1), alpha: finiteNumber.optional() })
+
+export type EffectColor = z.infer<typeof effectColor>
+
+/** Turned off with the eye: kept in the file, not drawn. */
+const off = z.boolean().optional()
+
+/**
+ * One shadow in a layer's stack. A token's shadow draws the token's layers, with only their color changed; a shadow of
+ * its own has offsets, blur and spread in px; a ring is a width in px, drawn outside the box or inside it. Drop and ring
+ * are drawn outside, inner inside.
+ */
+export const shadow = z.union([
+  fileObject({ kind: z.enum(["drop", "inner"]), token: z.string().min(1), color: effectColor.optional(), off }),
+  fileObject({
+    kind: z.enum(["drop", "inner"]),
+    x: finiteNumber,
+    y: finiteNumber,
+    blur: finiteNumber.nonnegative(),
+    spread: finiteNumber,
+    color: effectColor,
+    off
+  }),
+  fileObject({
+    kind: z.literal("ring"),
+    width: finiteNumber.nonnegative(),
+    inset: z.boolean().optional(),
+    color: effectColor,
+    off
+  })
+])
+
+export type Shadow = z.infer<typeof shadow>
+
+/** The filter adjustments, in the panel's order. Hue turns in degrees; the rest are percentages. */
+export const filterAdjustments = ["brightness", "contrast", "saturate", "hue", "grayscale", "sepia", "invert"] as const
+
+export type FilterAdjustment = (typeof filterAdjustments)[number]
+
+/**
+ * One entry of a layer's filters: a blur by a blur token's name, a set of adjustments (brightness, contrast and
+ * saturation as a change from 100%, so +25 is 125%; hue in degrees; grayscale, sepia and invert from 0 to 100), or a
+ * drop shadow that follows what's drawn rather than the box (the layer's own filters only).
+ */
+export const filter = z.union([
+  fileObject({ kind: z.literal("blur"), value: z.string().min(1), off }),
+  fileObject({
+    kind: z.literal("adjust"),
+    values: fileObject({
+      brightness: finiteNumber.optional(),
+      contrast: finiteNumber.optional(),
+      saturate: finiteNumber.optional(),
+      hue: finiteNumber.optional(),
+      grayscale: finiteNumber.optional(),
+      sepia: finiteNumber.optional(),
+      invert: finiteNumber.optional()
+    }),
+    off
+  }),
+  fileObject({ kind: z.literal("dropShadow"), shadow, off })
+])
+
+export type Filter = z.infer<typeof filter>
+
+/** A move: steps of the spacing scale, a length token's name, or a percentage of the layer's own size. */
+const move = z.union([length, fileObject({ percent: finiteNumber })])
+
+export type Move = z.infer<typeof move>
+
+/**
+ * How the layer is drawn moved, turned, scaled and skewed about its origin, without moving anything around it. Scale is
+ * a percentage, negative when flipped; rotation and skew are degrees; the origin is a point in the layer, in percent
+ * from its top left, its center when unset.
+ */
+export const transform = fileObject({
+  x: move.optional(),
+  y: move.optional(),
+  rotate: finiteNumber.optional(),
+  scaleX: finiteNumber.optional(),
+  scaleY: finiteNumber.optional(),
+  skewX: finiteNumber.optional(),
+  skewY: finiteNumber.optional(),
+  origin: fileObject({ x: finiteNumber, y: finiteNumber }).optional()
+})
+
+export type Transform = z.infer<typeof transform>
+
 export const nodeStyle = fileObject({
   // Layout (layouts only).
   /** Auto layout (flex, the default) or a grid. */
@@ -261,6 +349,11 @@ export const nodeStyle = fileObject({
   right: length.optional(),
   bottom: length.optional(),
   left: length.optional(),
+  /**
+   * Layer order (CSS `z-index`) among its siblings' stacking context: a whole number, higher in front, or a z-index
+   * token's name. Unset is auto, the order of the layers.
+   */
+  zIndex: z.union([finiteNumber.int(), z.string()]).optional(),
 
   // Appearance.
   background: z.string().optional(),
@@ -271,10 +364,18 @@ export const nodeStyle = fileObject({
   borderWidth: finiteNumber.optional(),
   borderStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
   radius: z.string().optional(),
-  shadow: z.string().optional(),
+  /** One shadow token's name, or the stack of shadows, top first. */
+  shadow: z.union([z.string(), z.array(shadow)]).optional(),
   /** Percent, 0 to 100. */
   opacity: finiteNumber.optional(),
   overflow: z.enum(["visible", "hidden", "scroll"]).optional(),
+
+  // Effects.
+  /** The layer's own filters, in the order they apply. */
+  filter: z.array(filter).optional(),
+  /** Filters on what's behind the layer, seen through it. */
+  backdropFilter: z.array(filter).optional(),
+  transform: transform.optional(),
 
   // Type. Set on a layout, it applies to the text inside.
   font: z.string().optional(),
@@ -283,7 +384,7 @@ export const nodeStyle = fileObject({
   leading: z.string().optional(),
   tracking: z.string().optional(),
   textAlign: z.enum(["start", "center", "end", "justify"]).optional(),
-  transform: z.enum(["uppercase", "lowercase", "capitalize"]).optional(),
+  textTransform: z.enum(["uppercase", "lowercase", "capitalize"]).optional(),
   decoration: z.enum(["underline", "line-through"]).optional(),
   italic: z.boolean().optional(),
   /** Lines of text before it's cut off with an ellipsis. */

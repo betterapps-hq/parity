@@ -448,6 +448,8 @@ export function LayerOrderField({
   context,
   mixed,
   half,
+  changed,
+  onReset,
   onChange
 }: {
   value: Side
@@ -456,10 +458,19 @@ export function LayerOrderField({
   mixed?: boolean
   /** Beside another field, as Position's is beside Placement. */
   half?: boolean
+  /** Whether the state being edited changes it, and how to take that back. */
+  changed?: boolean
+  onReset?: () => void
   onChange: (value: Side) => void
 }) {
   return (
-    <Field label="Layer order" hint={`Orders this layer within ${context}. Higher is in front.`} half={half}>
+    <Field
+      label="Layer order"
+      hint={`Orders this layer within ${context}. Higher is in front.`}
+      half={half}
+      changed={changed}
+      onReset={onReset}
+    >
       <SideField
         label="Layer order"
         inner={<Layers className="size-3.5" />}

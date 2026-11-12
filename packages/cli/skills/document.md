@@ -124,17 +124,48 @@ type name a token from `GetTokens()`, without the `--`.
 | `self`                                           | This node across its parent, overriding the parent's `align`              |
 | `colSpan`, `rowSpan`                             | Grid cells to span                                                        |
 | `position`, `top`, `right`, `bottom`, `left`     | `absolute`, placed against the parent's edges by lengths                  |
+| `zIndex`                                         | Layer order: a whole number, higher in front, or a z-index token          |
 | `background`, `foreground`, `border`             | A colour token                                                            |
 | `borderWidth`                                    | Pixels: 0, 1, 2, 4 or 8                                                   |
 | `borderStyle`                                    | `solid`, `dashed` or `dotted`                                             |
-| `radius`, `shadow`                               | A radius or shadow token, such as `radius-lg` or `shadow-sm`              |
+| `radius`                                         | A radius token, such as `radius-lg`                                       |
+| `shadow`                                         | A shadow token, such as `shadow-sm`, or a list of shadows (below)         |
 | `opacity`                                        | Percent, 0 to 100                                                         |
 | `overflow`                                       | `visible`, `hidden` or `scroll`                                           |
+| `filter`, `backdropFilter`                       | A list of filters on the layer, or on what's behind it (below)            |
+| `transform`                                      | Move, rotate, scale and skew how the layer is drawn (below)               |
 | `font`, `size`, `leading`, `tracking`            | A token, such as `font-mono`, `text-sm`, `leading-tight`, `tracking-wide` |
 | `weight`                                         | A number: 400, 500, 600, 700                                              |
 | `textAlign`                                      | `start`, `center`, `end` or `justify`                                     |
-| `transform`, `decoration`, `italic`              | `uppercase` and the like, `underline` or `line-through`, `true`           |
+| `textTransform`, `decoration`, `italic`          | `uppercase` and the like, `underline` or `line-through`, `true`           |
 | `lines`                                          | Lines of text before an ellipsis                                          |
+
+Effects stack. `shadow` as a list is drawn top first. Colors there are a color token with an optional `alpha` from 0 to
+100:
+
+```json
+{
+  "shadow": [
+    { "kind": "drop", "token": "shadow-md" },
+    { "kind": "drop", "x": 0, "y": 4, "blur": 12, "spread": -2, "color": { "color": "foreground", "alpha": 20 } },
+    { "kind": "inner", "x": 0, "y": 1, "blur": 2, "spread": 0, "color": { "color": "foreground", "alpha": 10 } },
+    { "kind": "ring", "width": 1, "color": { "color": "border" } }
+  ],
+  "filter": [
+    { "kind": "blur", "value": "blur-sm" },
+    { "kind": "adjust", "values": { "brightness": 10, "grayscale": 100 } },
+    { "kind": "dropShadow", "shadow": { "kind": "drop", "token": "drop-shadow-md" } }
+  ],
+  "backdropFilter": [{ "kind": "blur", "value": "blur-md" }],
+  "transform": { "x": 2, "y": { "percent": -50 }, "rotate": 45, "scaleX": -100, "origin": { "x": 50, "y": 0 } }
+}
+```
+
+Offsets, blur, spread and a ring's `width` are pixels. Brightness, contrast and saturate are a change from 100, so `10`
+is 110%; `hue` is degrees, and grayscale, sepia and invert go from 0 to 100. A transform's `x` and `y` are lengths or a
+percentage of the layer's own size; `rotate`, `skewX` and `skewY` are degrees; `scaleX` and `scaleY` are percentages,
+negative to flip; `origin` is a point in percent from the top left. Any entry takes `"off": true` to keep it without
+drawing it.
 
 A text layer sizes as Figma's text does, by its `width` and `height`: `width: "hug"` is auto width, one line as wide as
 its text, wrapped only by a `maxWidth`; any other width, or none, with no `height` is auto height, wrapping at its width

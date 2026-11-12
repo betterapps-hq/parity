@@ -34,7 +34,9 @@ const textAligns = ["start", "center", "end", "justify"] as const satisfies read
 >[]
 
 /** Case as `NodeStyle` holds it; Small caps is `font-variant-caps`, which it doesn't hold yet. */
-const cases = ["uppercase", "lowercase", "capitalize"] as const satisfies readonly NonNullable<NodeStyle["transform"]>[]
+const cases = ["uppercase", "lowercase", "capitalize"] as const satisfies readonly NonNullable<
+  NodeStyle["textTransform"]
+>[]
 
 const caseOptions = caseChoices.filter((choice) => choice.value !== "small-caps")
 
@@ -191,11 +193,11 @@ export function TextSection({ editor, edit, can, shows }: SectionProps) {
             label="Case"
             property="text-transform"
             choices={caseOptions}
-            value={optionShown(style.transform)}
+            value={optionShown(style.textTransform)}
             inherited="none"
-            mixed={mixed("transform")}
+            mixed={mixed("textTransform")}
             inherits={!can.text}
-            onChange={(value) => edit("case", { transform: optionOf(value, cases) }, "Change case")}
+            onChange={(value) => edit("case", { textTransform: optionOf(value, cases) }, "Change case")}
           />
         </Field>
         {shows("maxLines") && (
