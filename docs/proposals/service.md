@@ -70,6 +70,7 @@ It is the hub's `SearchService` over HTTP, in the shapes `@parity-app/connectors
   service's own refusals use the same body with a matching status: 400 for `invalid`, 429 with `Retry-After` for
   `rate-limited`, and 503 for `unavailable`. `no-key` and `key-refused` reach the app as `unavailable`, since only the
   owner can fix them, and the service reports them to Sentry.
+- **A request without a session gets 401** and a `signed-out` problem, a new code in `@parity-app/connectors`.
 - **Pictures and videos still load straight from the source.** The service passes on links and never the files.
 - **`placed` has no route yet.** Neither offered connector has one. Unsplash's would be
   `POST /v1/connectors/{id}/placed`, added if it's offered again.
@@ -92,26 +93,35 @@ It is the hub's `SearchService` over HTTP, in the shapes `@parity-app/connectors
 - **Pixabay allows 100 requests a minute for the key, shared by every user,** so the cache carries most of the load. The
   service reads `X-RateLimit-Remaining` and answers `rate-limited` itself before the source would. Pixabay raises the
   limit for apps that use its API well, and the app's owner asks once there's use to show.
-- **Each install is limited, and each address,** with the Workers rate limiting binding. The app sends its install id,
-  which telemetry already has. The binding counts in each Cloudflare location over 10 or 60 seconds and isn't exact,
-  which is enough to stop a loop. The numbers are set once there's real use: to start, 30 a minute for an install and 60
-  for an address.
-- **An install id can be made up,** which is why the address is limited too. If that isn't enough, searching can ask for
-  a signed-in person (below).
+- **Each person is limited,** by their WorkOS user id, with the Workers rate limiting binding. The binding counts in
+  each Cloudflare location over 10 or 60 seconds and isn't exact, which is enough to stop a loop. The number is set once
+  there's real use: to start, 30 searches a minute.
+- **Requests without a session are limited by address,** so guessing at the API costs the service nothing but a refusal.
 
 ## Who can call it
 
-- **Anyone, with no sign-in** (my recommendation; your call). Signing in is optional, and stock pictures shouldn't be
-  the first thing that asks for it.
-- **A signed-in copy sends its access token as well, later.** Better Apps' WorkOS identity already reads it (PAR-615).
-  That's how routes for organizations (PAR-616) will know who's asking, and it could give signed-in people more
-  searches.
+**Signed-in people only** (your call, 2026-11-11). A limit counted for each person is much harder to get round than one
+counted for an install id, which anyone can make up.
+
+- **Main sends its WorkOS access token** as `Authorization: Bearer`, and the window still never sees it.
+- **The service checks the token's signature, issuer and expiry** against WorkOS's published keys, as Better Apps'
+  WorkOS identity does (PAR-615). That needs WorkOS's client ids, which are public, and not its API key. The API key
+  comes with the routes for organizations (PAR-616).
+- **Signed out, the app doesn't ask the service.** Main answers `signed-out` itself, the library browser shows Sign in
+  where its results would be, and an agent is told to carry on without the source, as with `no-key`.
+- **Sign-in is heading towards required for the whole app** (your direction, 2026-11-11). Today it's optional
+  (decisions.md, "Signing in is optional"), so this route handles a signed-out copy. Once the app requires it, that
+  state goes away. Changing that decision is its own piece of work, not part of PAR-131.
+- **A token that expires mid-search is refreshed and the search sent once more.** WorkOS's tokens last 5 minutes and
+  main already refreshes them.
+- **An installed copy has to be able to sign in first.** PAR-612 left that untried, so it's the first thing to prove.
 
 ## Personal data
 
-The service keeps none. The install id and the address are only keys to a counter that expires in a minute. What was
-searched is kept only as the hash in the cache's key, beside the source's answer. Logs and Sentry get the connector, the
-kind, the filters, how it ended and how long it took, as `connectors.searched` does, and never the query.
+The service keeps none of its own. A person's WorkOS user id is only the key to a counter that expires in a minute, and
+an address the same for a refused request. What was searched is kept only as the hash in the cache's key, beside the
+source's answer, with nothing saying who asked. Logs and Sentry get the connector, the kind, the filters, how it ended
+and how long it took, as `connectors.searched` does, and never the query or who sent it.
 
 ## Mobbin
 
@@ -140,10 +150,12 @@ TanStack Start 1.0 is reported to need Vite 8; that's checked against this repos
   needs, but the figure wasn't confirmed.
 - Whether the rate limiting binding costs anything. Its page doesn't say.
 - Mobbin's API terms.
+- Whether Better Apps' WorkOS identity can be installed in this repository, or its check is written here on `fetch` and
+  zod as `@parity-app/account` was.
 
 ## Decisions needed from you
 
-1. **Who can call it:** anyone, limited by install and address (recommended), or signed-in people only.
+1. **Who can call it: decided, signed-in people only** (your call, 2026-11-11).
 2. **Mobbin:** after a check of its terms (recommended), from the start, or not at all.
 3. **The domain: decided, `api.tryparity.dev`** (your call, 2026-11-11), a custom domain on the Worker, on the zone
    Cloudflare already holds. The portal's pages get their own host on the same Worker later.
@@ -153,7 +165,10 @@ TanStack Start 1.0 is reported to need Vite 8; that's checked against this repos
 
 Each is its own issue and pull request:
 
-1. `apps/portal` with one health route, deployed by Terraform and a workflow.
-2. `@parity-app/service` and the two routes, with Pixabay's key as a secret.
-3. Main's `SearchService`, which is what makes an installed copy search.
-4. [connectors.md](../connectors.md), [support.md](../support.md) and [decisions.md](../decisions.md).
+1. Sign-in tried in an installed build (PAR-612's last step).
+2. `apps/portal` with one health route, deployed by Terraform and a workflow to `api.tryparity.dev`.
+3. `@parity-app/service` and the two routes, with the session check and Pixabay's key as a secret.
+4. Main's `SearchService` and the `signed-out` problem, with Sign in in the library browser, designed in Storybook
+   first. This is what makes an installed copy search.
+5. [connectors.md](../connectors.md), [editor.md](../editor.md), [support.md](../support.md) and
+   [decisions.md](../decisions.md).
