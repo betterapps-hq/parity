@@ -24,15 +24,26 @@ export async function readItems<T>(file: string, list: string, item: z.ZodType<T
   }
 }
 
-/**
- * Replaces a JSON file whole: written beside it under a name no other copy of Parity uses, then renamed over it, so a
- * reader never sees half a file. On Windows a rename fails while another process has the file open, so it's tried a
- * few times.
- */
+/** Replaces a JSON file whole, as `writeWhole` does. */
 export async function writeJson<Value>(file: string, value: Value): Promise<void> {
+  await writeWhole(file, JSON.stringify(value))
+}
+
+/**
+ * Replaces a file of main's whole: written beside it under a name no other copy of Parity uses, then renamed over it, so
+ * a reader never sees half a file and a write cut short leaves the last one. `mode` is the new file's, as for
+ * `writeFile`. On Windows a rename fails while another process has the file open, so it's tried a few times.
+ */
+export async function writeWhole(file: string, content: string | Uint8Array, mode?: number): Promise<void> {
   const partial = `${file}.${process.pid}-${randomUUID()}.tmp`
   await mkdir(dirname(file), { recursive: true })
-  await writeFile(partial, JSON.stringify(value))
+
+  try {
+    await writeFile(partial, content, mode === undefined ? {} : { mode })
+  } catch (error) {
+    await rm(partial, { force: true })
+    throw error
+  }
 
   for (let tried = 1; ; tried++) {
     try {

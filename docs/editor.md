@@ -6563,9 +6563,10 @@ client ID and never its API key, and the window never sees a token.
   `account` file, with who it signs in and how, and the file says which account Parity was last in, to start in it; the
   access tokens stay in main's memory. Main refreshes each account a minute before its access token expires, every 4
   minutes, using the newest token in the file, since other copies share it; a refresh with no answer is tried again
-  after 5 seconds, doubling to 5 minutes. A file from a build that kept one account isn't read, so you sign in once
-  more. On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit Parity", the accounts
-  panel keeps saying so, and both explain why.
+  after 5 seconds, doubling to 5 minutes. The file is written whole, beside it then renamed over it, so a write cut
+  short leaves the accounts it held; one that can't be decrypted, or from a build that kept one account, isn't read, so
+  you sign in once more. On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit
+  Parity", the accounts panel keeps saying so, and both explain why.
 - **Adding another account asks which one.** Google, GitHub and Microsoft get `prompt=select_account` through WorkOS's
   `provider_query_params`, so a browser signed in to one of your accounts still offers the others. The account it signs
   in joins the list and you're in it, with a toast, "Added" and its email; the same account again takes its own place.
@@ -6610,11 +6611,12 @@ asked which, the same account again in its place, switching without asking WorkO
 moving to the account used last, an ended account kept and signed in to again by name, removing it, moving on when the
 account you're in ends, restoring every account in the one Parity was last in; and the access token main gives Parity's
 service (PAR-948): the one kept, none when signed out, a fresh one when the service turned the last down, one refresh
-shared between askers, and none once the session ends), `main/session-store.test.ts` (7: kept encrypted and forgotten,
-the file removed with the last account, nothing kept without a keyring or encryption, an unreadable or one-account file
-forgotten, an account replaced in place or added, which account you're in forgotten only with it),
-`main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one takes it,
-none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
+shared between askers, and none once the session ends), `main/session-store.test.ts` (10: kept encrypted and forgotten,
+a write cut short leaving the last accounts readable, the file readable only by you, the file removed with the last
+account, nothing kept without a keyring or encryption, an unreadable or one-account file forgotten, a missing file quiet
+and one that can't be opened kept, an account replaced in place or added, which account you're in forgotten only with
+it), `main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one takes
+it, none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
 sign-in's). `packages/account` covers the URL with an organization and with parameters for the provider, PKCE, the link
 and WorkOS's answers, including the organizations a refusal names. Stories: Parity/Sign in (the first launch, waiting
 and still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
