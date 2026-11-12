@@ -8,7 +8,8 @@ import { kindColors, layerLabel } from "../canvas/kinds.tsx"
 import { projectLibrary } from "../canvas/layers.ts"
 import { treePreviewJob, useOneOffPreview } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
-import { Field } from "./fields.tsx"
+import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
+import { shownName, TypeTile } from "../inspector/controls/instance-section.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { updateAndRecord } from "./inspector-events.ts"
@@ -185,7 +186,11 @@ function SlotField({ entry, instance, slot }: { entry: ContainerEntry; instance:
   const filled = slot.fill.length > 0
 
   return (
-    <Field label={slot.name} hint="A slot: layers from this design, shown in place of its placeholder">
+    <Field
+      label={shownName(slot.name)}
+      icon={<TypeTile type="slot" />}
+      hint="Layers from this design, shown in place of its placeholder"
+    >
       <div className="group relative min-w-0">
         <SlotCard slot={slot} card={card}>
           <Button
@@ -230,10 +235,17 @@ function SlotField({ entry, instance, slot }: { entry: ContainerEntry; instance:
 /** One of the design's own instances' slots, after its params. Nothing for a component without slots. */
 export function InstanceSlotFields({ entry, instance }: { entry: ContainerEntry; instance: InstanceNode }) {
   const { store } = useProject()
+  const slots = instanceSlots(instance, projectLibrary(store))
 
-  return instanceSlots(instance, projectLibrary(store)).map((slot) => (
-    <SlotField key={slot.node.id} entry={entry} instance={instance} slot={slot} />
-  ))
+  return (
+    slots.length > 0 && (
+      <FieldGrid>
+        {slots.map((slot) => (
+          <SlotField key={slot.node.id} entry={entry} instance={instance} slot={slot} />
+        ))}
+      </FieldGrid>
+    )
+  )
 }
 
 /**

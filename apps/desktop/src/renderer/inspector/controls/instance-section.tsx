@@ -31,30 +31,38 @@ import { Field, FieldGrid, SwitchRow, TitleMenu } from "./field-row.tsx"
 import { NumberProp, type PropPreview } from "./number-field.tsx"
 
 /** A prop's name as its row shows it, with a capital first letter: `showRising` is ShowRising. */
-const shownName = (name: string) => name.charAt(0).toUpperCase() + name.slice(1)
+export const shownName = (name: string) => name.charAt(0).toUpperCase() + name.slice(1)
 
-/** Each kind of prop's mark, as the component's Props list draws it: text, a number, on or off, JSON, options, layers. */
-const typeIcons: Record<PropValueRow["type"], LucideIcon> = {
+/** A prop's type as its tile shows it: a row's, or a slot, which takes layers. */
+type TileType = PropValueRow["type"] | "slot"
+
+/**
+ * Each kind of prop's mark, as the component's Props list draws it: text, a number, on or off, JSON, options, layers,
+ * and a slot.
+ */
+const typeIcons: Record<TileType, LucideIcon> = {
   text: Type,
   number: Hash,
   boolean: ToggleRight,
   value: Braces,
   variant: List,
-  shown: SquareDashed
+  shown: SquareDashed,
+  slot: SquareDashed
 }
 
 /** Each kind of prop's name, in its tile's hint, as Props' Add names them. */
-const typeNames: Record<PropValueRow["type"], string> = {
+const typeNames: Record<TileType, string> = {
   text: "Text",
   number: "Number",
   boolean: "Toggle",
   value: "JSON",
   variant: "Options",
-  shown: "Layers"
+  shown: "Layers",
+  slot: "Slot"
 }
 
 /** A prop's type, as a small tile before its name, which names it on hover. */
-function TypeTile({ type }: { type: PropValueRow["type"] }) {
+export function TypeTile({ type }: { type: TileType }) {
   const Icon = typeIcons[type]
 
   return (

@@ -7,6 +7,7 @@ import {
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
+import { isSecretName } from "@parity-app/telemetry"
 import { Ellipsis, Lock, LockOpen, Minus, Plus, RotateCcw } from "lucide-react"
 import {
   type ComponentProps,
@@ -22,7 +23,6 @@ import {
   useRef,
   useState
 } from "react"
-import { FirstStateName } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { Changed, ChangeMark, StoresContext, type Unstorable, useChanged } from "./field-parts.tsx"
 
@@ -30,11 +30,41 @@ import { Changed, ChangeMark, StoresContext, type Unstorable, useChanged } from 
  * A property's row as the simpler fields lay it out (PAR-186): its name above the control in words, as Figma's with
  * property labels on and Plasmic's are, rather than in a column to its left. Two rows marked `half` sit side by side in
  * a section's grid (`FieldGrid`). Dragging the name scrubs the row's one draggable field, and a reset arrow at the end of
- * the name's row puts back a value a state changed. It takes the app's Field's props, so a control moves onto it by its
- * import; the app's own panel keeps its Field until this is approved. A row a typography preset sets (call 6) is locked
- * to it, with a lock toggle at the end of the name's row, and a row that overrides it has its name and value in the override
- * color with a reset arrow; a dot after the name says the value changes with the viewport.
+ * the name's row puts back a value a state changed. A row a typography preset sets (call 6) is
+ * locked to it, with a lock toggle at the end of the name's row, and a row that overrides it marks its control with the
+ * change dot and has a reset arrow; a dot after the name says the value changes with the viewport. A row's name names
+ * the inputs inside that have no name of their own (`useFieldName`).
  */
+
+/** The first state's name, which a field's reset goes back to: Default unless it's been renamed. */
+export const FirstStateName = createContext("Default")
+
+/**
+ * What the number fields inside edit, as a key that changes when that does: the selection, for the inspector (see
+ * `selectionKey`). A field keeps focus while the selection changes under it, so a run of its Up and Down presses ends
+ * when this changes rather than carrying on into the next layer's edits.
+ */
+export const FieldTarget = createContext<string | undefined>(undefined)
+
+const MixedContext = createContext(false)
+
+/** Whether the field an input sits in has different values across the selected layers. */
+export function useMixed(): boolean {
+  return useContext(MixedContext)
+}
+
+/** The id of the name of the row an input sits in, which names the input. */
+const FieldLabelContext = createContext<string | undefined>(undefined)
+
+/**
+ * How an input is named: by `name` when it's given one, for a row of several inputs or an input outside a row, and
+ * otherwise by the name of the row it sits in, so a call site doesn't repeat it.
+ */
+export function useFieldName(name: string | undefined): { "aria-label"?: string; "aria-labelledby"?: string } {
+  const labelId = useContext(FieldLabelContext)
+
+  return name ? { "aria-label": name } : { "aria-labelledby": labelId }
+}
 
 /** Starts dragging a field's value from a pointer pressed on its row's name. */
 type Scrub = (event: ReactPointerEvent<Element>) => void
@@ -165,7 +195,12 @@ export function Field({
 
   // The row is a fieldset its name labels, so a screen reader says Size before W and H, and the row's own buttons.
   return (
-    <fieldset aria-labelledby={labelId} className={`flex min-w-0 flex-col gap-1 ${half ? "" : "col-span-2"}`}>
+    // Replay shows a row named as a secret, such as `apiKey`, as stars (replay.ts, PAR-679).
+    <fieldset
+      aria-labelledby={labelId}
+      className={`flex min-w-0 flex-col gap-1 ${half ? "" : "col-span-2"}`}
+      data-sentry-mask={isSecretName(label) ? "" : undefined}
+    >
       <div className={nameRow}>
         <span className="flex min-w-0 items-center gap-1">
           {icon}
@@ -231,7 +266,11 @@ export function Field({
           none. Always wrapped, so a control isn't remade, losing its focus, as its value comes to be changed.
         */}
         <div className="min-w-0">
-          <Changed when={resetTo !== undefined || outerChange}>{children}</Changed>
+          <FieldLabelContext value={labelId}>
+            <MixedContext value={mixed}>
+              <Changed when={resetTo !== undefined || outerChange}>{children}</Changed>
+            </MixedContext>
+          </FieldLabelContext>
         </div>
       </RowScrub>
     </fieldset>

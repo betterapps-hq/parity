@@ -3,7 +3,6 @@ import type { Capabilities, RowKey, StyleControl, StyleEdit, StyleRow } from "@p
 import { useContext, useEffect, useMemo, useRef } from "react"
 import { ProjectContext } from "../../canvas/context.ts"
 import { GestureRun } from "../../canvas/gesture.ts"
-import { FieldTarget } from "../../chrome/fields.tsx"
 import type { StyleChange, StyleEditor } from "../../chrome/style-editor.ts"
 import {
   type FieldSessionEvent,
@@ -13,6 +12,7 @@ import {
   type SessionEvent
 } from "../controls/edit-session.ts"
 import type { LiveEdits } from "../controls/field-parts.tsx"
+import { FieldTarget } from "../controls/field-row.tsx"
 
 /** Makes a row's edit of every selected layer, with what Undo calls it. */
 export type SectionEdit = <R extends StyleRow>(row: R, edit: StyleEdit<RowKey<R>>, label: string) => void

@@ -18,8 +18,8 @@ const entry = `
 import { createElement as h, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
-import { Field, TokenInput } from "./fields.tsx"
-import { Field as Row } from "../inspector/controls/field-row.tsx"
+import { TokenInput } from "./fields.tsx"
+import { Field } from "../inspector/controls/field-row.tsx"
 import { NumberProp } from "../inspector/controls/number-field.tsx"
 
 const tokens = [
@@ -35,7 +35,7 @@ function Harness() {
   const [textColor, setTextColor] = useState(undefined)
   window.prop = prop
   return h(TooltipProvider, null,
-    h(Row, { label: "Seats" }, h(NumberProp, {
+    h(Field, { label: "Seats" }, h(NumberProp, {
       label: "Seats",
       value: prop,
       preview: {

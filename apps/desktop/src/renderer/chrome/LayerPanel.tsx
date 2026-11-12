@@ -44,6 +44,7 @@ import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
 import { ChangeMark } from "../inspector/controls/field-parts.tsx"
+import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
 import { InstanceSection as InstanceControls, type PropRow } from "../inspector/controls/instance-section.tsx"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
@@ -53,7 +54,7 @@ import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 import { ExportSection } from "./ExportSection.tsx"
-import { Field, SwitchInput, TextInput } from "./fields.tsx"
+import { TextInput } from "./fields.tsx"
 import { Hint } from "./Hint.tsx"
 import {
   fieldName,
@@ -1002,42 +1003,44 @@ function MediaSection({ entry, node }: { entry: ContainerEntry; node: MediaNode 
   }
 
   return (
-    <PanelSection title={kind === "video" ? "Video" : "Image"}>
+    <PanelSection title="Content">
       <BaseDesignNote
         entry={entry}
         what={kind === "video" ? "File, alt text, fit and controls" : "File, alt text and fit"}
       />
-      <Field label="File">
-        <TextInput
-          value={node.src}
-          onCommit={(src) => src && edit(`Change ${noun}`, "src", (media) => ({ ...media, src }))}
-        />
-      </Field>
-      <Field label="Alt text" hint="What it shows, for screen readers. Leave empty if it's decoration.">
-        <TextInput
-          multiline
-          value={node.alt ?? ""}
-          onCommit={(alt) => edit(`Describe ${noun}`, "alt", (media) => setting(media, "alt", alt))}
-        />
-      </Field>
-      <Field label="Fit">
-        <AppSelect<ImageFit>
-          variant="panel"
-          value={node.fit}
-          none="Cover"
-          items={[
-            { value: "cover", label: "Cover, cropped to fill" },
-            { value: "contain", label: "Contain, shown whole" },
-            { value: "fill", label: "Fill, stretched" }
-          ]}
-          onValueChange={(fit) => edit("Change fit", "fit", (media) => setting(media, "fit", fit ?? undefined))}
-        />
-      </Field>
-      {node.type === "video" && (
-        <Field label="Controls">
-          <SwitchInput
-            value={node.controls === true}
-            onChange={(controls) =>
+      <FieldGrid>
+        <Field label="File">
+          <TextInput
+            value={node.src}
+            onCommit={(src) => src && edit(`Change ${noun}`, "src", (media) => ({ ...media, src }))}
+          />
+        </Field>
+        <Field label="Alt text" hint="What it shows, for screen readers. Leave empty if it's decoration.">
+          <TextInput
+            multiline
+            value={node.alt ?? ""}
+            onCommit={(alt) => edit(`Describe ${noun}`, "alt", (media) => setting(media, "alt", alt))}
+          />
+        </Field>
+        <Field label="Fit">
+          <AppSelect<ImageFit>
+            variant="panel"
+            className="w-full"
+            value={node.fit}
+            none="Cover"
+            items={[
+              { value: "cover", label: "Cover, cropped to fill" },
+              { value: "contain", label: "Contain, shown whole" },
+              { value: "fill", label: "Fill, stretched" }
+            ]}
+            onValueChange={(fit) => edit("Change fit", "fit", (media) => setting(media, "fit", fit ?? undefined))}
+          />
+        </Field>
+        {node.type === "video" && (
+          <SwitchRow
+            label="Controls"
+            checked={node.controls === true}
+            onCheckedChange={(controls) =>
               edit(controls ? "Show controls" : "Hide controls", "controls", (media) => {
                 if (media.type !== "video") {
                   return media
@@ -1049,9 +1052,9 @@ function MediaSection({ entry, node }: { entry: ContainerEntry; node: MediaNode 
               })
             }
           />
-        </Field>
-      )}
-      {node.credit && <PhotoCredit credit={node.credit} className="-mt-1 ml-24" />}
+        )}
+      </FieldGrid>
+      {node.credit && <PhotoCredit credit={node.credit} className="mt-1" />}
     </PanelSection>
   )
 }

@@ -13,13 +13,11 @@ import {
   Switch
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type TokenCategory } from "@parity-app/core"
-import { isSecretName } from "@parity-app/telemetry"
 import { type Token } from "@parity-app/tokens"
-import { Check, ChevronsUpDown, RotateCcw } from "lucide-react"
-import { createContext, type ReactNode, useContext, useId, useState } from "react"
-import { Changed, useChanged } from "../inspector/controls/field-parts.tsx"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { useId, useState } from "react"
+import { useFieldName, useMixed } from "../inspector/controls/field-row.tsx"
 import { NumberProp, type PropPreview } from "../inspector/controls/number-field.tsx"
-import { Hint } from "./Hint.tsx"
 import { NameInput } from "./Name.tsx"
 import {
   numberValue,
@@ -31,100 +29,6 @@ import {
   valueKind
 } from "./prop-values.ts"
 import { swatch } from "./token-previews.tsx"
-
-interface FieldProps {
-  label: string
-  /** Says more about the property, on hover. */
-  hint?: string
-  /** The value differs from the base design in the state being edited. */
-  changed?: boolean
-  /** The selected layers have different values for it. */
-  mixed?: boolean
-  onReset?: () => void
-  children: ReactNode
-}
-
-const MixedContext = createContext(false)
-
-/** The first state's name, which a field's reset goes back to: Default unless it's been renamed. */
-export const FirstStateName = createContext("Default")
-
-/**
- * What the number fields inside edit, as a key that changes when that does: the selection, for the inspector (see
- * `selectionKey`). A field keeps focus while the selection changes under it, so a run of its Up and Down presses ends
- * when this changes rather than carrying on into the next layer's edits.
- */
-export const FieldTarget = createContext<string | undefined>(undefined)
-
-/** Whether the field an input sits in has different values across the selected layers. */
-export function useMixed(): boolean {
-  return useContext(MixedContext)
-}
-
-/** The id of the label of the field an input sits in, which names the input. */
-const FieldLabelContext = createContext<string | undefined>(undefined)
-
-/**
- * How an input is named: by `name` when it's given one, for a row of several inputs or an input outside a field, and
- * otherwise by the label of the field it sits in, so a call site doesn't repeat the label.
- */
-export function useFieldName(name: string | undefined): { "aria-label"?: string; "aria-labelledby"?: string } {
-  const labelId = useContext(FieldLabelContext)
-
-  return name ? { "aria-label": name } : { "aria-labelledby": labelId }
-}
-
-/**
- * One property row: label, control, and a reset button when a state overrides it, whose control then draws the change
- * mark (PAR-1020). The label names the inputs inside that aren't given a name of their own (see `useFieldName`);
- * controls with their own name, such as a button with text, keep it.
- */
-export function Field({ label, hint, changed = false, mixed = false, onReset, children }: FieldProps) {
-  const firstState = useContext(FirstStateName)
-  const outerChange = useChanged()
-  const labelId = useId()
-
-  return (
-    // Replay shows a field named as a secret, such as `apiKey`, as stars (replay.ts, PAR-679).
-    <div
-      className="grid min-h-8 grid-cols-[88px_1fr] items-center gap-2"
-      data-sentry-mask={isSecretName(label) ? "" : undefined}
-    >
-      <div className="flex min-w-0 items-center gap-0.5">
-        <Hint
-          label={changed ? `${label}: changed in this state` : label}
-          detail={[mixed && "Different across the selected layers", hint].filter(Boolean).join("\n")}
-          wait
-        >
-          <span id={labelId} className="truncate text-xs text-muted-foreground">
-            {label}
-          </span>
-        </Hint>
-        {/* The reset arrow sits beside the label, so the control keeps the row's full width whether or not it can be reset. */}
-        {changed && onReset && (
-          <Hint label={`Reset to ${firstState}`}>
-            <button
-              type="button"
-              onClick={onReset}
-              className="grid size-5 shrink-0 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-              aria-label={`Reset ${label} to ${firstState}`}
-            >
-              <RotateCcw className="size-3" />
-            </button>
-          </Hint>
-        )}
-      </div>
-      <div className="min-w-0">
-        <FieldLabelContext value={labelId}>
-          {/* Always wrapped, so a control isn't remade, losing its focus, as its value comes to be changed. */}
-          <MixedContext value={mixed}>
-            <Changed when={changed || outerChange}>{children}</Changed>
-          </MixedContext>
-        </FieldLabelContext>
-      </div>
-    </div>
-  )
-}
 
 /**
  * A text input that commits on blur or Enter, so typing doesn't write a file per keystroke. One that edits a name
@@ -160,7 +64,7 @@ export function TextInput({
         {...named}
         defaultValue={value}
         placeholder={mixed ? "Mixed" : placeholder}
-        rows={Math.min(6, Math.max(1, Math.ceil(value.length / 28)))}
+        rows={1}
         onBlur={(event) => event.currentTarget.value !== value && onCommit(event.currentTarget.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
@@ -168,7 +72,7 @@ export function TextInput({
             event.currentTarget.blur()
           }
         }}
-        className="w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5 text-xs shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+        className="field-sizing-content max-h-36 w-full resize-none rounded-md border border-input bg-transparent px-2 py-1.5 text-xs shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
       />
     )
   }
