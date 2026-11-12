@@ -286,7 +286,6 @@ describe("detectProject", () => {
         name: "Vite",
         version: "8.3.5",
         from: "node_modules/vite",
-        via: { name: "Vite+", version: "1.4.0" },
         status: "supported",
         summary: "Vite 8.3.5 from node_modules/vite, shipped by Vite+ 1.4.0 (@voidzero-dev/vite-plus-core)"
       }
@@ -311,7 +310,11 @@ describe("detectProject", () => {
     await symlink(join(root, store), join(root, "node_modules/vite"), "junction")
 
     const [vite] = (await detectProject(root, pkg, undefined, today)).tools
-    expect(vite).toMatchObject({ version: "8.3.5", via: { name: "Vite+", version: "1.4.0" }, status: "supported" })
+    expect(vite).toMatchObject({
+      version: "8.3.5",
+      status: "supported",
+      summary: "Vite 8.3.5 from node_modules/vite, shipped by Vite+ 1.4.0 (@voidzero-dev/vite-plus-core)"
+    })
   })
 
   it("names an alias Parity doesn't know by its package", async () => {
@@ -324,7 +327,6 @@ describe("detectProject", () => {
     const [vite] = (await detectProject(root, pkg, undefined, today)).tools
     expect(vite).toMatchObject({
       version: "8.3.5",
-      via: { name: "some-vite-fork", version: "2.0.0" },
       summary: "Vite 8.3.5 from node_modules/vite, shipped by some-vite-fork 2.0.0"
     })
   })
@@ -339,7 +341,6 @@ describe("detectProject", () => {
     const builder = { id: "vite", detection: { found: true, version: "8.3.5", config: "vite.config.ts", summary: "" } }
     expect((await detectProject(root, pkg, builder, today)).tools[0]).toMatchObject({
       version: "8.3.5",
-      via: { name: "some-vite-fork", version: "1.0.0" },
       status: "supported"
     })
 
@@ -348,7 +349,6 @@ describe("detectProject", () => {
       id: "vite",
       name: "Vite",
       from: "node_modules/vite",
-      via: { name: "some-vite-fork", version: "1.0.0" },
       summary:
         "Vite from node_modules/vite, installed as some-vite-fork 1.0.0, which doesn't say which Vite version it ships"
     })

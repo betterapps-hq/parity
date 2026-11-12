@@ -188,7 +188,6 @@ async function detectTool(
       name: tool.name,
       from: aliased.from,
       ...config,
-      via: publicVia(aliased.via),
       summary: `${tool.name} from ${aliased.from}, installed as ${described(aliased.via)}, which doesn't say which ${tool.name} version it ships`
     }
   }
@@ -209,10 +208,6 @@ interface Via {
   name: string
   package: string
   version?: string
-}
-
-function publicVia(via: Via): Detection["via"] {
-  return { name: via.name, version: via.version }
 }
 
 /** A package installed in a tool's place as a summary names it: `Vite+ 1.4.0 (@voidzero-dev/vite-plus-core)`. */
@@ -238,7 +233,7 @@ function toolDetection(
   ].join("")
 
   const support = cutoff(tool, version, today)
-  const base = { id: tool.id, name: tool.name, version, ...where, via: via && publicVia(via), status: support.status }
+  const base = { id: tool.id, name: tool.name, version, ...where, status: support.status }
 
   if (support.status === "dropped") {
     return { ...base, summary: `${found}; untested, Parity tests ${supported(tool, today)}` }

@@ -23,11 +23,6 @@ export interface Detection {
   status?: "supported" | "newer" | "dropped" | "missing"
   /** When a tested version stops being tested, as `YYYY-MM-DD`: two years after it came out. Unset for the newest. */
   drops?: string
-  /**
-   * The package installed in the tool's place, when it's another one that ships the tool, such as Vite+ installed as
-   * `vite`: its name for people, or its package name when Parity doesn't know it, and its own version.
-   */
-  via?: { name: string; version?: string }
   /** What was found and where, or what was looked for, in a sentence. */
   summary: string
 }

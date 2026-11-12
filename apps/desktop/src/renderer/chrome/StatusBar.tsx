@@ -23,7 +23,6 @@ export function StatusBar() {
   const openTab = (tab: string) => setLayout({ left: true, leftTab: tab })
   const stories = info.storybook ? Object.keys(info.storybook.stories).length : 0
   const themed = tokens.length - semantic
-  const via = info.detection.tools.find((tool) => tool.id === info.builder.id)?.via
 
   return (
     <footer className="@container/footer flex h-7 shrink-0 items-center gap-1 border-t bg-background px-1.5 text-xs text-muted-foreground">
@@ -38,24 +37,11 @@ export function StatusBar() {
       </Item>
       <Item
         icon={<Hammer className="size-3.5" />}
-        hint={
-          via
-            ? `${via.name}${via.version ? ` ${via.version}` : ""} with ${titled(info, info.builder.id, info.builder.name)}`
-            : titled(info, info.builder.id, info.builder.name)
-        }
+        hint={titled(info, info.builder.id, info.builder.name)}
         detail={withStatus(info, info.builder.id, `Builds the project, with ${info.detection.packageManager.name}`)}
       >
         <Words>
-          {via ? (
-            <>
-              <strong className="font-medium text-foreground">{via.name}</strong> with {info.builder.name}{" "}
-              {info.builder.toolVersion}
-            </>
-          ) : (
-            <>
-              <strong className="font-medium text-foreground">{info.builder.name}</strong> {info.builder.toolVersion}
-            </>
-          )}
+          <strong className="font-medium text-foreground">{info.builder.name}</strong> {info.builder.toolVersion}
         </Words>
       </Item>
       <Item

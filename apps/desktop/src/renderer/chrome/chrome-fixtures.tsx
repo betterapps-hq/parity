@@ -40,30 +40,6 @@ export function olderProjectAt(folder: string): ProjectInfo {
   }
 }
 
-/** A project in another folder that installs Vite+ as `vite`, with the Vite it ships, as detection would report it. */
-export function vitePlusProjectAt(folder: string): ProjectInfo {
-  const info = blankProjectAt(folder)
-
-  return {
-    ...info,
-    builder: { ...info.builder, toolVersion: "8.3.5" },
-    detection: {
-      ...info.detection,
-      tools: info.detection.tools.map((tool) =>
-        tool.id === "vite"
-          ? {
-              ...tool,
-              version: "8.3.5",
-              via: { name: "Vite+", version: "1.4.0" },
-              status: "supported" as const,
-              summary: "Vite 8.3.5 from node_modules/vite, shipped by Vite+ 1.4.0 (@voidzero-dev/vite-plus-core)"
-            }
-          : tool
-      )
-    }
-  }
-}
-
 /** Renames one of the example's designs as the Layers panel would: one undoable step that leaves it unsaved. */
 export function renameDesign(name: string, to: string): void {
   example().store.updateContainer(design(name), "Rename design", (container) => ({ ...container, name: to }))

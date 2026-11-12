@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "Name Vite+ when a project installs it as vite: detection gives the package it came in as via, and the status bar shows Vite+ with the Vite it ships",
+  "comment": "Say which package Vite came in when a project installs Vite+ as vite, in the detection summary: Vite 8.3.5, shipped by Vite+ 1.4.0",
   "packageName": "@parity-app/cli",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"
