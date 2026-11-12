@@ -994,7 +994,7 @@ const LayerRow = memo(function LayerRow({
               {changed && (
                 <PenLine
                   className="size-3"
-                  style={{ color: kindColors.agent }}
+                  style={{ color: kindColors.component }}
                   aria-label={`Changed in ${state.name}`}
                 />
               )}

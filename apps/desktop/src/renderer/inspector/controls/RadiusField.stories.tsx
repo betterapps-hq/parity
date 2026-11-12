@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { AppearanceSection } from "./controls.tsx"
 import type { Draft } from "./data.ts"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Playground, useDraft } from "./playground.tsx"
 import { CardPreview } from "./preview-card.tsx"
 import { inState, mixedWrites, radiusWrites } from "./writes.ts"
@@ -112,4 +113,13 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "-4{Enter}")
   }
+}
+
+/** Changed from what it comes from (PAR-1020): the dot on the box's corner. */
+export const Changed: Story = {
+  render: () => (
+    <MarkChanged>
+      <Radius start={{ radius: { px: 12 } }} />
+    </MarkChanged>
+  )
 }

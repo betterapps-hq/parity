@@ -7,6 +7,7 @@ import {
   SelectValue
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type ComponentProps, type ReactNode } from "react"
+import { ChangeMark, useChanged } from "../inspector/controls/field-parts.tsx"
 import { useFieldName, useMixed } from "./fields.tsx"
 
 /** One choice: what it's worth, how it reads, and a line under it saying more. */
@@ -70,6 +71,7 @@ export function AppSelect<T>({
   ...props
 }: AppSelectProps<T>) {
   const mixed = useMixed()
+  const changed = useChanged()
   const named = useFieldName(label)
   const panel = variant === "panel"
 
@@ -91,9 +93,11 @@ export function AppSelect<T>({
         size={size}
         id={id}
         {...(labelledBy ? { "aria-labelledby": labelledBy } : named)}
-        className={`${panel ? "text-xs" : ""} ${className ?? ""}`}
+        className={`relative ${panel ? "text-xs" : ""} ${className ?? ""}`}
       >
         <SelectValue placeholder={mixed ? "Mixed" : placeholder} />
+        {/* Changed in the state being edited, or set over a preset: the mark on its corner (PAR-1020). */}
+        {changed && <ChangeMark />}
       </SelectTrigger>
       <SelectContent align={align} alignItemWithTrigger={alignItemWithTrigger} className={popupClassName}>
         <SelectGroup>

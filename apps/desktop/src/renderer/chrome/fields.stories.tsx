@@ -242,7 +242,7 @@ export const EveryKind: Story = {
 /** Nothing set: each control shows its placeholder or default, None for tokens. */
 export const NothingSet: Story = { args: { look: "unset" } }
 
-/** Every value changed in the state being edited: labels in the agent color, each row with a reset button. */
+/** Every value changed in the state being edited: each control with the change dot, each row with a reset button. */
 export const ChangedInAState: Story = { args: { look: "changed" } }
 
 /** Several layers selected with different values: each control reads Mixed until one value is set for all. */

@@ -22,10 +22,9 @@ import {
   useRef,
   useState
 } from "react"
-import { kindColors } from "../../canvas/kinds.tsx"
 import { FirstStateName } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
-import { overrideColor, StoresContext, type Unstorable } from "./field-parts.tsx"
+import { Changed, ChangeMark, StoresContext, type Unstorable, useChanged } from "./field-parts.tsx"
 
 /*
  * A property's row as the simpler fields lay it out (PAR-186): its name above the control in words, as Figma's with
@@ -69,7 +68,10 @@ interface FieldProps {
   icon?: ReactNode
   /** Says more about the property, on hover. */
   hint?: string
-  /** The value differs from the base design in the state being edited. */
+  /**
+   * The value differs from the base design in the state being edited: its control draws the change mark
+   * (`ChangeMark`), and the reset arrow puts the base design's value back.
+   */
   changed?: boolean
   /** The selected layers have different values for it. */
   mixed?: boolean
@@ -79,8 +81,8 @@ interface FieldProps {
   /** Words or a button at the end of the name's row, as Each corner's toggle. */
   action?: ReactNode
   /**
-   * The preset or token the row's value overrides, here: the name and value in the override color, and the reset arrow
-   * (`onReset`) puts the preset's value back.
+   * The preset or token the row's value overrides, here: its control draws the change mark, as a changed state's does,
+   * and the reset arrow (`onReset`) puts the preset's value back.
    */
   overrides?: string
   /**
@@ -105,8 +107,8 @@ export const nameMenuButton = `${nameButton} data-popup-open:bg-muted data-popup
 
 /**
  * One property: its name above the control, with the reset arrow, or the row's action, at the end of the name's row.
- * A name in the agent color says a state changed the value, and one in the override color, with the value, that it
- * overrides a preset. Rows span a `FieldGrid`'s two columns unless `half`.
+ * A value changed in a state, or set over a preset, marks its control with the change dot (`Changed`, PAR-1020). Rows
+ * span a `FieldGrid`'s two columns unless `half`.
  */
 export function Field({
   label,
@@ -141,17 +143,15 @@ export function Field({
   // A locked row's value can't be dragged, so its name doesn't scrub.
   const locked = lock !== undefined && !lock.open
   const dragsBy = locked ? undefined : scrub
+  const outerChange = useChanged()
   let state: string | undefined
-  let tone: string | undefined
   let resetTo: string | undefined
 
   if (overrides !== undefined) {
     state = `overrides ${overrides}`
-    tone = overrideColor
     resetTo = overrides
   } else if (changed) {
     state = "changed in this state"
-    tone = kindColors.agent
     resetTo = firstState
   }
 
@@ -179,7 +179,6 @@ export function Field({
             <span
               id={labelId}
               className={`truncate text-xs text-muted-foreground ${dragsBy ? "cursor-ew-resize touch-none select-none" : ""}`}
-              style={tone ? { color: tone } : undefined}
               onPointerDown={dragsBy}
             >
               {label}
@@ -202,7 +201,6 @@ export function Field({
                 type="button"
                 onClick={onReset}
                 className={nameButton}
-                style={overrides === undefined ? undefined : { color: tone }}
                 aria-label={`Reset ${label} to ${resetTo}`}
               >
                 <RotateCcw className="size-3" />
@@ -228,9 +226,12 @@ export function Field({
         </span>
       </div>
       <RowScrub value={register}>
-        {/* An override's value is drawn in the override color too: the field's text and a token's pill inherit it. */}
-        <div className="min-w-0" style={tone && overrides !== undefined ? { color: tone } : undefined}>
-          {children}
+        {/*
+          A changed or overridden value marks its control (PAR-1020), and a mark from outside stays where this row has
+          none. Always wrapped, so a control isn't remade, losing its focus, as its value comes to be changed.
+        */}
+        <div className="min-w-0">
+          <Changed when={resetTo !== undefined || outerChange}>{children}</Changed>
         </div>
       </RowScrub>
     </fieldset>
@@ -280,6 +281,7 @@ export function Segments<V extends string>({
   onChange: (value: V) => void
 }) {
   const stores = useContext(StoresContext)
+  const changed = useChanged()
   // The Tab stop: the chosen option, or the one unset comes to, or the first.
   const stop = options.find((option) => option.value === value)?.value ?? faint ?? options[0]?.value
 
@@ -310,8 +312,9 @@ export function Segments<V extends string>({
     <fieldset
       aria-label={label}
       onKeyDown={move}
-      className={`m-0 flex h-7 items-center gap-px rounded-md border p-0.5 ${fit ? "" : "min-w-0"}`}
+      className={`relative m-0 flex h-7 items-center gap-px rounded-md border p-0.5 ${fit ? "" : "min-w-0"}`}
     >
+      {changed && <ChangeMark />}
       {options.map((option) => {
         const pressed = option.value === value
         let look = "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
@@ -358,35 +361,39 @@ export function IconSegments<V extends string>({
   onChange: (value: V) => void
 }) {
   const stores = useContext(StoresContext)
+  const changed = useChanged()
 
   return (
-    <ToggleGroup
-      variant="outline"
-      size="sm"
-      spacing={0}
-      aria-label={label}
-      value={value === undefined ? [] : [value]}
-      onValueChange={([next]) => {
-        const chosen = options.find((option) => option.value === next)
+    <span className="relative flex w-fit">
+      <ToggleGroup
+        variant="outline"
+        size="sm"
+        spacing={0}
+        aria-label={label}
+        value={value === undefined ? [] : [value]}
+        onValueChange={([next]) => {
+          const chosen = options.find((option) => option.value === next)
 
-        if (chosen) {
-          onChange(chosen.value)
-        }
-      }}
-    >
-      {options.map((option) => (
-        <Hint key={option.value} label={option.label} detail={option.detail}>
-          <ToggleGroupItem
-            value={option.value}
-            aria-label={option.label}
-            disabled={option.part !== undefined && !stores(option.part)}
-            className="h-7 px-2"
-          >
-            {option.icon}
-          </ToggleGroupItem>
-        </Hint>
-      ))}
-    </ToggleGroup>
+          if (chosen) {
+            onChange(chosen.value)
+          }
+        }}
+      >
+        {options.map((option) => (
+          <Hint key={option.value} label={option.label} detail={option.detail}>
+            <ToggleGroupItem
+              value={option.value}
+              aria-label={option.label}
+              disabled={option.part !== undefined && !stores(option.part)}
+              className="h-7 px-2"
+            >
+              {option.icon}
+            </ToggleGroupItem>
+          </Hint>
+        ))}
+      </ToggleGroup>
+      {changed && <ChangeMark />}
+    </span>
   )
 }
 
@@ -411,28 +418,29 @@ export function SwitchRow({
   action?: ReactNode
   /** What it does, in the switch's hint. */
   detail?: string
-  /** Changed in the state being edited: its name in the agent color, and the reset arrow after the switch. */
+  /** Changed in the state being edited: the change mark on the switch, and the reset arrow after it. */
   changed?: boolean
   onReset?: () => void
   checked: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
   const firstState = useContext(FirstStateName)
+  const marked = useChanged() || changed
 
   return (
     <div className="col-span-2 flex h-5 min-w-0 items-center justify-between gap-2">
       <label className="flex min-w-0 flex-1 cursor-pointer items-center justify-between gap-2">
         {icon && <span className="-mr-1 shrink-0">{icon}</span>}
-        <span
-          className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
-          style={changed ? { color: kindColors.agent } : undefined}
-        >
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
           {label}
           {changed && <span className="sr-only">, changed in this state</span>}
         </span>
-        <Hint label={label} detail={detail}>
-          <Switch size="sm" aria-label={label} checked={checked} onCheckedChange={onCheckedChange} />
-        </Hint>
+        <span className="relative flex">
+          <Hint label={label} detail={detail}>
+            <Switch size="sm" aria-label={label} checked={checked} onCheckedChange={onCheckedChange} />
+          </Hint>
+          {marked && <ChangeMark />}
+        </span>
       </label>
       {changed && onReset && (
         <Hint label={`Reset to ${firstState}`}>

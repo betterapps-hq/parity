@@ -52,7 +52,7 @@ import type { FieldToken, TokenSetName } from "./tokens.ts"
  * Typography, with its preset on the simpler fields (PAR-186, call 6), and the text's color last. The section's first
  * row, Preset, picks a preset, and the rows it sets fold into a summary under it, marked with a lock. Opened, they're
  * locked to the preset's values, each with Unlock at the end of its name's row; an unlocked row changed on the layer
- * overrides the preset there, in the override color with a reset arrow, stays shown while the summary is closed, and
+ * overrides the preset there, with the change dot and a reset arrow, stays shown while the summary is closed, and
  * puts a dot on the preset's pill. Detach is the button over the preset field's end, as on every token's pill. A layer
  * with no preset whose type matches one, or nearly does, says so under the row, with Use. Rows the preset doesn't set
  * stay ordinary rows.
@@ -413,7 +413,7 @@ function Summary({
 
 /**
  * A type row. With no preset, or one that doesn't set it, it's an ordinary row. With a preset that sets it, it's locked
- * to the preset until it's unlocked, and changing it overrides the preset there, in the override color with a reset
+ * to the preset until it's unlocked, and changing it overrides the preset there, with the change dot and a reset
  * arrow.
  */
 function TypeRow({

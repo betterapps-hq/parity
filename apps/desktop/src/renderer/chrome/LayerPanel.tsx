@@ -43,6 +43,7 @@ import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
+import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { InstanceSection as InstanceControls, type PropRow } from "../inspector/controls/instance-section.tsx"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
@@ -517,7 +518,7 @@ function LayerSections({
 
 /**
  * Whether the layer shows, as the eye at the end of its name's row, crossed out while it's hidden, as Layers draws it.
- * Changed in the state being edited, it's in the change color with a reset arrow before it.
+ * Changed in the state being edited, the eye has the change mark and a reset arrow before it.
  */
 function VisibleToggle({
   node,
@@ -534,18 +535,20 @@ function VisibleToggle({
   const label = node.hidden ? "Show layer" : "Hide layer"
 
   const eye = (
-    <Hint label={label}>
-      <Button
-        size="icon"
-        variant="ghost"
-        className="size-6 text-muted-foreground"
-        style={changed ? { color: kindColors.agent } : undefined}
-        aria-label={label}
-        onClick={() => change("Toggle visibility", { hidden: !node.hidden })}
-      >
-        {node.hidden ? <EyeOff /> : <Eye />}
-      </Button>
-    </Hint>
+    <span className="relative flex">
+      <Hint label={label}>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-6 text-muted-foreground"
+          aria-label={label}
+          onClick={() => change("Toggle visibility", { hidden: !node.hidden })}
+        >
+          {node.hidden ? <EyeOff /> : <Eye />}
+        </Button>
+      </Hint>
+      {changed && <ChangeMark />}
+    </span>
   )
 
   return (
@@ -833,7 +836,10 @@ function StateTarget({ entry, state, target }: { entry: ContainerEntry; state: S
       style={
         base
           ? undefined
-          : { borderColor: kindColors.agent, background: "color-mix(in oklch, var(--canvas-agent) 8%, transparent)" }
+          : {
+              borderColor: kindColors.component,
+              background: "color-mix(in oklch, var(--canvas-component) 8%, transparent)"
+            }
       }
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
@@ -931,9 +937,12 @@ function BaseDesignNote({ entry, what }: { entry: ContainerEntry; what: string }
   return (
     <p
       className="type-message mb-2 flex items-start gap-1.5 rounded-md border px-2.5 py-1.5"
-      style={{ borderColor: kindColors.agent, background: "color-mix(in oklch, var(--canvas-agent) 8%, transparent)" }}
+      style={{
+        borderColor: kindColors.component,
+        background: "color-mix(in oklch, var(--canvas-component) 8%, transparent)"
+      }}
     >
-      <Info className="mt-0.5 size-3.5 shrink-0" style={{ color: kindColors.agent }} aria-hidden />
+      <Info className="mt-0.5 size-3.5 shrink-0" style={{ color: kindColors.component }} aria-hidden />
       <span>{note}</span>
     </p>
   )

@@ -28,7 +28,17 @@ type Story = StoryObj<typeof meta>
 const px = (number: number) => ({ number })
 const all = (side: Sides[number]): Sides => [side, side, side, side]
 
-function Padding({ start, mixed = [], tokensOnly }: { start: Sides; mixed?: boolean[]; tokensOnly?: boolean }) {
+function Padding({
+  start,
+  mixed = [],
+  tokensOnly,
+  changedSides
+}: {
+  start: Sides
+  mixed?: boolean[]
+  tokensOnly?: boolean
+  changedSides?: readonly number[]
+}) {
   const [sides, setSides] = useState(start)
   const [mixedNow, setMixed] = useState(mixed)
   const [hover, setHover] = useState<number[]>()
@@ -45,6 +55,7 @@ function Padding({ start, mixed = [], tokensOnly }: { start: Sides; mixed?: bool
           sides={sides}
           mixed={mixedNow}
           tokensOnly={tokensOnly}
+          changedSides={changedSides}
           hint="Space inside the layer, between its edge and its content"
           onChange={(next, cleared) => {
             setSides(next)
@@ -173,4 +184,12 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "wide{Enter}")
   }
+}
+
+/**
+ * One side changed from what it comes from (PAR-1020), 24 at the bottom: the dot marks that side's field alone, so a
+ * row of several fields says which one changed.
+ */
+export const OneSideChanged: Story = {
+  render: () => <Padding start={[px(16), px(16), px(24), px(16)]} changedSides={[2]} />
 }

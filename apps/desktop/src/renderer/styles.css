@@ -531,11 +531,6 @@ textarea,
   cursor: text;
 }
 
-/* Picking an element to see its code, the canvas shows a crosshair, as a browser's developer tools do (PAR-167). */
-.canvas-area[data-inspecting] .tl-canvas {
-  cursor: crosshair;
-}
-
 /* With the frame tool, a crosshair, over the designs too, since a frame can be drawn over one. */
 .canvas-area[data-tool="frame"] :is(.tl-canvas, .container-view) {
   cursor: crosshair;

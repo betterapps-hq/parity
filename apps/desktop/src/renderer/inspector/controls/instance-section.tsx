@@ -26,7 +26,7 @@ import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import { type PropValue, readValue, textValue } from "../../chrome/prop-values.ts"
-import { MessageLine, wrappingText } from "./field-parts.tsx"
+import { ChangeMark, MessageLine, useChanged, wrappingText } from "./field-parts.tsx"
 import { Field, FieldGrid, SwitchRow, TitleMenu } from "./field-row.tsx"
 import { NumberProp, type PropPreview } from "./number-field.tsx"
 
@@ -373,25 +373,30 @@ function TextProp({
   placeholder?: string
   onCommit: (text: string) => void
 }) {
+  const changed = useChanged()
+
   return (
-    <textarea
-      key={value}
-      aria-label={label}
-      defaultValue={value}
-      placeholder={placeholder}
-      rows={1}
-      className={`${growingBox} ${boxRing(false)}`}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.currentTarget.value = value
-          event.currentTarget.blur()
-        } else if (event.key === "Enter" && !event.shiftKey) {
-          event.preventDefault()
-          event.currentTarget.blur()
-        }
-      }}
-      onBlur={(event) => event.currentTarget.value !== value && onCommit(event.currentTarget.value)}
-    />
+    <div className="relative flex min-w-0">
+      <textarea
+        key={value}
+        aria-label={label}
+        defaultValue={value}
+        placeholder={placeholder}
+        rows={1}
+        className={`${growingBox} ${boxRing(false)}`}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.currentTarget.value = value
+            event.currentTarget.blur()
+          } else if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault()
+            event.currentTarget.blur()
+          }
+        }}
+        onBlur={(event) => event.currentTarget.value !== value && onCommit(event.currentTarget.value)}
+      />
+      {changed && <ChangeMark />}
+    </div>
   )
 }
 
@@ -421,9 +426,11 @@ function JsonProp({
 
   const [reason, setReason] = useState<string>()
   const id = useId()
+  const changed = useChanged()
 
   return (
-    <div className="flex min-w-0 flex-col">
+    <div className="relative flex min-w-0 flex-col">
+      {changed && <ChangeMark />}
       <textarea
         key={shown}
         aria-label={label}

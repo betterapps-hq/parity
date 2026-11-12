@@ -20,8 +20,8 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 /**
- * A layer picked in another state, Stat card's value skeleton in Loading: the editing bar turns the agent color and says
- * edits change only this state, and what that state changes can be reset.
+ * A layer picked in another state, Stat card's value skeleton in Loading: the editing bar turns the component color and
+ * says edits change only this state, and what that state changes can be reset.
  */
 export const EditingAState: Story = { loaders: [pick("Stat card", "Value skeleton", "loading")] }
 

@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react"
 import { formatNumber, sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import {
   asToken,
+  Changed,
   type MenuKeywords,
   nearestToken,
   notAStep,
@@ -406,6 +407,7 @@ export function FourSidesField({
   doesNothing,
   tokensOnly,
   eachSide,
+  changedSides,
   onChange,
   onHover
 }: {
@@ -426,6 +428,8 @@ export function FourSidesField({
   tokensOnly?: boolean
   /** Where a side of its own is something the document may not store yet, as a stroke's width per side. */
   eachSide?: Unstorable
+  /** The sides changed from what they come from (PAR-1020): the fields that hold them draw the change mark. */
+  changedSides?: readonly number[]
   onChange: (sides: Sides, cleared: number[]) => void
   onHover?: (sides: number[] | undefined) => void
 }) {
@@ -469,6 +473,25 @@ export function FourSidesField({
     const alike = indexes.every((index) => sameValue(sides[index], sides[first]))
     const isMixed = !alike || indexes.some((index) => mixed[index])
 
+    const side = (
+      <SideField
+        label={fieldLabel}
+        inner={inner}
+        rules={rules}
+        value={alike ? sides[first] : undefined}
+        mixed={isMixed}
+        mixedNote={alike ? undefined : "Mixed: these sides differ. Each side shows them"}
+        narrow={cell !== undefined}
+        rowClassName={cell === undefined ? undefined : cells[cell]}
+        spreads
+        tokensOnly={tokensOnly}
+        placeholder={placeholders?.[first] ?? "0"}
+        measured={measured?.[first]}
+        onChange={(next, spread) => update(indexes, next, spread)}
+        onShorthand={shorthand}
+      />
+    )
+
     return (
       // `contents`, so the field's message line spans the grid's whole row rather than its own column.
       <div
@@ -477,22 +500,11 @@ export function FourSidesField({
         onPointerEnter={() => onHover?.(indexes)}
         onPointerLeave={() => onHover?.(undefined)}
       >
-        <SideField
-          label={fieldLabel}
-          inner={inner}
-          rules={rules}
-          value={alike ? sides[first] : undefined}
-          mixed={isMixed}
-          mixedNote={alike ? undefined : "Mixed: these sides differ. Each side shows them"}
-          narrow={cell !== undefined}
-          rowClassName={cell === undefined ? undefined : cells[cell]}
-          spreads
-          tokensOnly={tokensOnly}
-          placeholder={placeholders?.[first] ?? "0"}
-          measured={measured?.[first]}
-          onChange={(next, spread) => update(indexes, next, spread)}
-          onShorthand={shorthand}
-        />
+        {changedSides === undefined ? (
+          side
+        ) : (
+          <Changed when={indexes.some((index) => changedSides.includes(index))}>{side}</Changed>
+        )}
       </div>
     )
   }

@@ -81,23 +81,22 @@ run at 125–150% and Macs at 2x, so those are what the weights are tuned on. Ev
 floor, so approving this proposal approves its sizes, roles, case and code; its weights are approved by this check,
 whose results fill the table below before the build sets them.
 
-On each setup, the Design tab, Layers, Tokens, the Code tab and the console are screenshotted in both themes beside
-Figma's desktop inspector, also Inter at similar weights, at the same scaling, with the base tried at 425, 450 and 475
-and semibold at 600 and 650 on its own, not only as the base plus 200, since the inspector's titles lead their 13px rows
-by weight alone. The side-by-side decides. Ink per pixel of width (an 11px Caption gray on the dark panel and on the
-light theme's `--muted` fill, an 11px Canvas chip on its fill, a 12px label, a 13px row, a 12px section title, the 15px
-selection title) is recorded beside it as a diagnostic, not a gate, since it grows with size and shrinks with a wide
-face's sidebearings. The fixed-width boxes that hold 10px text today (a token's mode names and values in
-`TokenDetail.tsx`, the tab order's numbers, the console's count) are checked for clipping at 11px, and the Caption is
-judged on its own: if 450 reads thin there at the floor, the Caption takes its own weight rather than the whole base
-moving.
+On each setup, the Design tab, Layers, Tokens and the console are screenshotted in both themes beside Figma's desktop
+inspector, also Inter at similar weights, at the same scaling, with the base tried at 425, 450 and 475 and semibold at
+600 and 650 on its own, not only as the base plus 200, since the inspector's titles lead their 13px rows by weight
+alone. The side-by-side decides. Ink per pixel of width (an 11px Caption gray on the dark panel and on the light theme's
+`--muted` fill, an 11px Canvas chip on its fill, a 12px label, a 13px row, a 12px section title, the 15px selection
+title) is recorded beside it as a diagnostic, not a gate, since it grows with size and shrinks with a wide face's
+sidebearings. The fixed-width boxes that hold 10px text today (a token's mode names and values in `TokenDetail.tsx`, the
+tab order's numbers, the console's count) are checked for clipping at 11px, and the Caption is judged on its own: if 450
+reads thin there at the floor, the Caption takes its own weight rather than the whole base moving.
 
-| Setup            | Theme       | Screens                                   | Screenshot | Base | Semibold | Verdict |
-| ---------------- | ----------- | ----------------------------------------- | ---------- | ---- | -------- | ------- |
-| Windows 11, 100% | dark, light | Design, Layers, Tokens, Code tab, console | to do      |      |          |         |
-| Windows 11, 150% | dark, light | Design, Layers, Tokens, Code tab, console | to do      |      |          |         |
-| Windows 10, 150% | dark, light | Design, Layers, Tokens, Code tab, console | to do      |      |          |         |
-| macOS, 2x        | dark, light | Design, Layers, Tokens, Code tab, console | to do      |      |          |         |
+| Setup            | Theme       | Screens                         | Screenshot | Base | Semibold | Verdict |
+| ---------------- | ----------- | ------------------------------- | ---------- | ---- | -------- | ------- |
+| Windows 11, 100% | dark, light | Design, Layers, Tokens, console | to do      |      |          |         |
+| Windows 11, 150% | dark, light | Design, Layers, Tokens, console | to do      |      |          |         |
+| Windows 10, 150% | dark, light | Design, Layers, Tokens, console | to do      |      |          |         |
+| macOS, 2x        | dark, light | Design, Layers, Tokens, console | to do      |      |          |         |
 
 Windows gets one set at every scale, since a class can't tell 100% from 150%: if 450 reads heavy at 150%, Windows moves
 to 425/525/625 everywhere, as long as 100% still reads evenly. If 450 reads heavy on the Mac, where grayscale smoothing

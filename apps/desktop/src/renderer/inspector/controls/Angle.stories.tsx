@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { userEvent, within } from "storybook/test"
 import { AngleField } from "./angle.tsx"
+import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { gradientDirections } from "./lists-data.ts"
 import { type Angle, angleDegrees } from "./motion-data.ts"
@@ -137,4 +138,13 @@ export const InvalidAsTyped: Story = {
     await userEvent.clear(field)
     await userEvent.type(field, "sideways{Enter}")
   }
+}
+
+/** Changed from what it comes from (PAR-1020): the dot on the box's corner. */
+export const Changed: Story = {
+  render: () => (
+    <MarkChanged>
+      <Rotation start={{ step: 45 }} />
+    </MarkChanged>
+  )
 }

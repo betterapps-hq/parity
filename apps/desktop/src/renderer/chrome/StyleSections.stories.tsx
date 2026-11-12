@@ -151,7 +151,7 @@ export const TextDecorations: Story = {
 /** Text styles on a layout, Pricing's footer: they apply to the text inside, which says so. */
 export const TextInside: Story = { loaders: [pick("Pricing", "Footer")] }
 
-/** Styles a state changes, Stat card's label in Loading: their names in the agent color, each with a reset. */
+/** Styles a state changes, Stat card's label in Loading: each control with the change dot, and a reset. */
 export const ChangedInAState: Story = {
   loaders: [pick("Stat card", "Label", { color: { token: "primary" }, fontWeight: { value: 700 } }, "loading")]
 }
