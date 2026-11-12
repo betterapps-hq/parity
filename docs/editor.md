@@ -6538,6 +6538,25 @@ own layers and inside an instance, and `Update` in a state; "Responsive merging 
 and props merged, `null` taking a style key and `hidden` away; "instance overrides keyed by a layer's name": names and
 ids stored as ids through a nested instance, and a name the component doesn't have refused).
 
+### Agents taking a prop away with null, and node paths that can't be right (PAR-885)
+
+`null` for a prop in `Update`, `Responsive` or a state's changes takes the prop away without a warning, even for an enum
+prop or one the component no longer declares.
+
+A node path is `design/node`, never listing the node's parents. A path with more parts, where the node after the design
+isn't an instance, fails with `invalid_input` on `path`: the message counts the parts and shows `design/node` with the
+path's last part, such as `profile/heading` for `profile/page/heading`. `Update` and `Get` with a state or mode add that
+only an instance's layers are reached that way. A path with an empty part, from a leading, trailing or doubled `/`,
+fails the same way. When no part before a `/` names a design, the error names the first part as the missing design.
+
+Implementation: `propWarnings` in `packages/agent/src/lint.ts`; `findNode`, `findLayer`, `splitPath`, `checkPathParts`
+and `tooManyParts` in `packages/agent/src/workspace.ts`.
+
+Tests: `packages/agent/src/lint.test.ts` ("says nothing about a prop set to null");
+`packages/agent/src/workspace.test.ts` ("Update taking a prop away with null, and paths that can't be right": an enum
+prop and a style key taken away, a path with a part too many for `Delete` and `Update`, a missing design, and empty
+parts).
+
 ### Measure draws one frame (PAR-461)
 
 `Measure` takes one state id and one mode id. A list, `"all"` or `"shown"`, which `Screenshot`, `Problems` and

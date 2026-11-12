@@ -139,6 +139,11 @@ export function propWarnings(
   const found: Warning[] = []
 
   for (const [name, value] of Object.entries(props)) {
+    // `null` takes a prop away, which suits any prop, even one the component no longer has (PAR-885).
+    if (value === null) {
+      continue
+    }
+
     const prop = info.props.find((candidate) => candidate.name === name)
 
     if (!prop) {
