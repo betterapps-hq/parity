@@ -156,7 +156,7 @@ import {
   overlapWarnings,
   type SpaceOptions
 } from "./boards.ts"
-import { accessibilityFindings, addContrastFixes, frameProblems, nodeNames } from "./frames.ts"
+import { accessibilityFindings, addContrastFixes, frameProblems, layoutNode, nodeNames } from "./frames.ts"
 import { describeIconSets, findIcons, type IconMatch, type IconOptions, iconStyle, styleModule } from "./icons.ts"
 import { lintDocument, propWarnings } from "./lint.ts"
 import type {
@@ -1644,7 +1644,7 @@ export class AgentWorkspace {
       width: frame.width,
       height: frame.height,
       overflowsX: frame.overflowsX,
-      nodes: frame.nodes.map((node) => ({ ...node, name: names.get(node.id) }))
+      nodes: frame.nodes.map((node) => layoutNode(node, names))
     }
   }
 

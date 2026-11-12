@@ -44,8 +44,8 @@ its params from what differs, and replaces each occurrence with an instance carr
 - A component design can have variants: choices each instance makes, like a size or a tone. Each option patches the
   design the way a state does, and an instance picks one in its `args`: `Update(row, { args: { density: "compact" } })`.
 - An instance can override what's inside it, such as one copy's title or a hidden badge. `Get` shows these as the
-  instance's `overrides`. People make them on the canvas; `execute` can't edit overrides, so to change one copy, give
-  the component design a param for it.
+  instance's `overrides`. `Insert` and `Replace` take an instance with `overrides`; `Update` doesn't change them. When
+  copies differ in the same field, give the component design a param for it instead.
 - A component design that needs a parent to render properly, such as a table row, is drawn inside that parent on its own
   board. Rows extracted from a table get this automatically.
 - Place a new instance with `Insert(parent, { type: "instance", design: "member-row", args: { … } })`.
