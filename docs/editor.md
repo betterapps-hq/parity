@@ -2896,8 +2896,7 @@ style sections on the approved controls" below says otherwise. A component's num
 
 Every number and length field in the Design tab takes what people type, as Figma's do. The lengths are Gap (and its
 column and row gaps), Padding and Margin (both sides, or each side), Width and Height, Min and Max, and an absolutely
-placed layer's insets. Opacity is a percentage. A grid's Cols and Rows, a layer's Span and a text's Max lines are whole
-numbers. A component's number props take any number.
+placed layer's insets. A grid's Cols and Rows are whole numbers. A component's number props take any number.
 
 - **What a field shows.** A length shows in pixels: a gap of 4 steps shows 16, with `px` after it, hidden while the
   field has focus. Hovering it gives its step (`Gap, spacing-4`). A length token shows its name, in a code font. When
@@ -3052,14 +3051,14 @@ Tests:
 - `chrome/StyleSections.stories.tsx`, SizeAtNarrowest and LargeSize (PAR-496): a 96 by 48 brand mark at the narrowest
   inspector and a 1440 by 900 one at the usual width, each play function checking that Width and Height show the value
   whole. OffScaleSize and TypingOffScale: a 281px width shown as it is, and 281 typed in Width kept.
-- `apps/desktop/e2e/fields.e2e.ts` (10), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
-  the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
-  width, and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept
-  with its reason, Escape putting the value back and a second Escape leaving; a value set underneath leaving `12` in the
-  field; Up, Shift+Up and Down, more than a second apart, as one undo step; `50-10` in Opacity; scrubbing the Width
-  label, drawn while dragging and one undo step on release; and Brand mark and Plans showing Mixed, with 48 typed giving
-  both 12 steps (PAR-923). On App sidebar's Seats bar (PAR-203): 25 typed in its `value` drawn at each keystroke and
-  made as one undo step, and `/20` drawn as 3.5 from 70, then taken back by Escape with nothing to undo.
+- `apps/desktop/e2e/fields.e2e.ts` (9), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against the
+  real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its width,
+  and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept with its
+  reason, Escape putting the value back and a second Escape leaving; a value set underneath leaving `12` in the field;
+  Up, Shift+Up and Down, more than a second apart, as one undo step; scrubbing the Width label, drawn while dragging and
+  one undo step on release; and Brand mark and Plans showing Mixed, with 48 typed giving both 12 steps (PAR-923). On App
+  sidebar's Seats bar (PAR-203): 25 typed in its `value` drawn at each keystroke and made as one undo step, and `/20`
+  drawn as 3.5 from 70, then taken back by Escape with nothing to undo.
 
 Gaps: the timings were measured by hand in an isolated copy of the app on 2026-10-29: typing 320 in Width previewed at
 each keystroke in 25, 25 and 41 ms (a commit took 291 ms to show before), and scrubbing in 22 ms. The stories' play
@@ -3082,16 +3081,23 @@ dimmed, so each section matches its story; PAR-924 to PAR-935 turn them on as th
   a row of its own. Disabled: the aspect lock.
 - **Spacing:** the box model, padding inside margin, or padding alone for a design's root. Editing a side changes only
   that side of each selected layer.
-- **Position:** Placement, in its layout or absolute, beside Layer order once the layer is absolute or has one, and an
+- **Position:** Placement, in its layout or absolute, beside Layer order, always shown and Auto while unset, and an
   absolutely placed layer's inset box. Insets are measured in whole pixels from the layer's containing block, inside its
   border, as nudging measures them. Disabled: Fixed, Sticky, Relative, centering and Scale.
-- **Appearance:** Radius from the project's radius tokens, Opacity, and Clip content. Disabled: Corner shape, Each
-  corner, Blend mode, and Scroll always.
-- **Text** (Text inside on a layout, a component or an instance): color, font, weight with italic, line height, letter
-  spacing, align and case, with Tag for a text layer. Disabled: Typography preset, the color's opacity, Small caps and
-  Tag.
+- **Appearance:** Radius from the project's radius tokens. Disabled: Corner shape and Each corner.
+- **Typography** (on text, and on a layout, a component or an instance, whose text inherits it): Preset, then Font,
+  Size, Weight with italic, Line height and Letter spacing, from the project's type tokens. Disabled: Preset, and the
+  closest preset it would offer isn't shown.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Disabled: the color's
   opacity, Each side and Position.
+
+A text layer also gets **Content**, above Visibility, with its words and its Tag. The words wrap and the field grows
+with them, and its handle drags it taller. Enter or leaving makes the edit, Shift+Enter starts a line, and Escape puts
+the words back. In a component design, the button beside it uses one of the component's props for the text. Disabled:
+Tag. A component whose only content is text no longer shows a Label field: its text is edited in place on the canvas.
+
+Opacity, Clip content, text color, align and case left the panel with PAR-923, since no approved section holds them.
+Section headings line up with their fields' names (`PanelSection` lost its title's 4px indent).
 
 Layer order (PAR-925) has no section of its own: the table lists it with Position, for the same layers, and it draws
 inside Position. Fill (PAR-931) and Effects (PAR-933) make their edits through the style editor as each comes, so they
@@ -3271,7 +3277,8 @@ them. It's the agreed table in [proposals/design-panel-sections.md](proposals/de
   `inGrid` or `box`) and Align self (`inFlex`); Grid placement (`inGrid`), with Span; Layout (`box`); Spacing, with
   Margin (not `root`); Appearance; Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`); Fill,
   Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
-- The text section is called Text when a layer is text, and Text inside otherwise.
+- The text section is drawn as Typography, on text and on what its text inherits from. A text layer's tag is in its
+  Content section, outside the style sections.
 - Grid placement and Raw CSS aren't built yet, so they show nothing. A frame's Frame size is today's Size, whose width
   and height are the frame's. Since PAR-923 the panel draws only approved controls, so Align self, Span, Resizing and
   Max lines, which have none yet, aren't drawn though the table still lists them.
@@ -3291,11 +3298,12 @@ a grid parent together give neither's controls, and one layer that takes no styl
 
 ### Layer order (PAR-925)
 
-Layer order sets a layer's `z-index`, beside Placement in Position (PAR-923), on every layer but a design's root. It's
-PAR-186's approved field: a whole number or one of the project's z-index tokens, and Auto, muted, when unset. Up and
-Down step by one, Shift by ten, a token steps through the scale in order, and dragging the icon scrubs it. A fraction is
-refused, with the reason under the field. With several layers whose orders differ, it shows Mixed until one is set for
-them all. A state can change it, and the field marks that and resets it.
+Layer order sets a layer's `z-index`, beside Placement in Position (PAR-923), on every layer but a design's root, and
+always shows there, Auto while unset. It's PAR-186's approved field: a whole number or one of the project's z-index
+tokens, and Auto, muted, when unset. Up and Down step by one, Shift by ten, a token steps through the scale in order,
+and dragging the icon scrubs it. A fraction is refused, with the reason under the field. With several layers whose
+orders differ, it shows Mixed until one is set for them all. A state can change it, and the field marks that and resets
+it.
 
 Its hint names what it orders the layer within: the nearest layer around it that's a stacking context, because it has a
 layer order or is see-through, or else the design's root. Layers in different ones, or inside an instance, get "its

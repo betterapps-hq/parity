@@ -17,7 +17,7 @@ export function PanelSection({ title, count, description, action, children }: Pa
   return (
     <section className={`border-b py-4 pl-3 last:border-b-0 ${panelEnd}`}>
       <PanelSectionTitle title={title} count={count} action={action} />
-      {description && <p className="mb-3 px-1 type-description text-muted-foreground">{description}</p>}
+      {description && <p className="mb-3 type-description text-muted-foreground">{description}</p>}
       {children}
     </section>
   )
@@ -58,7 +58,7 @@ export function PanelSectionTitle({
   /** The heading's id, for a section labelled by its title. */
   id?: string
   /**
-   * Its spacing, in place of the indent and margin a title keeps over a panel's fields: `""` for a title in a header's
+   * Its spacing, in place of the margin a title keeps over a panel's fields, at their edge: `""` for a title in a header's
    * row (the console, the error screen), `-ml-1` for one at its rows' edge (the start page).
    */
   spacing?: string
@@ -73,7 +73,7 @@ export function PanelSectionTitle({
   )
 
   return (
-    <div className={`flex items-center justify-between gap-2 ${spacing ?? (onToggle ? "" : "mb-3 pl-1")}`}>
+    <div className={`flex items-center justify-between gap-2 ${spacing ?? (onToggle ? "" : "mb-3")}`}>
       <Heading id={id} className={`flex min-w-0 flex-1 items-center gap-1.5 text-xs ${tones[tone]}`}>
         {onToggle ? (
           <button

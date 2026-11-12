@@ -1,6 +1,7 @@
 import { ALargeSmall, CaseSensitive, ChevronRight, Lock, MoveHorizontal, MoveVertical } from "lucide-react"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type ReactNode, useContext, useEffect, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
+import { PanelSection } from "../../chrome/PanelSection.tsx"
 import {
   MessageLine,
   type Reading,
@@ -8,7 +9,9 @@ import {
   TokenChip,
   TokenMark,
   TokenName,
+  StoresContext,
   styleMark,
+  Unstored,
   useTokenSets,
   ValueField
 } from "./field-parts.tsx"
@@ -44,7 +47,7 @@ import { findFont, projectFonts } from "./text-data.ts"
 import type { FieldToken, TokenSetName } from "./tokens.ts"
 
 /*
- * Text's typography preset on the simpler fields (PAR-186, call 6): the section's first row picks a preset, and the
+ * Typography, with its preset on the simpler fields (PAR-186, call 6): the section's first row, Preset, picks one, and the
  * rows it sets fold into a summary under it, marked with a lock. Opened, they're locked to the preset's values, each
  * with Unlock at the end of its name's row; an unlocked row changed on the layer overrides the preset there, in the
  * override color with a reset arrow, stays shown while the summary is closed, and puts a dot on the preset's pill.
@@ -92,7 +95,7 @@ export function PresetTextSection({
     refocus.current = undefined
 
     if (pending === "preset") {
-      rows.current?.querySelector<HTMLElement>("[aria-label^='Typography preset']")?.focus()
+      rows.current?.querySelector<HTMLElement>("[aria-label^='Preset']")?.focus()
 
       return
     }
@@ -147,26 +150,28 @@ export function PresetTextSection({
   )
 
   return (
-    <div ref={rows}>
-      <FieldGrid>
-        <PresetRow
-          layer={layer}
-          onPick={(name) => {
-            setUnlocked(new Set())
-            refocus.current = "preset"
-            onChange(applyPreset(layer, name))
-          }}
-          onDetach={() => {
-            setUnlocked(new Set())
-            refocus.current = "preset"
-            onChange(detachPreset(layer))
-          }}
-        />
-        {preset && <Summary preset={preset} open={open} onOpenChange={setOpen} />}
-        {presetRows.map(row)}
-        {ordinaryRows.map(row)}
-      </FieldGrid>
-    </div>
+    <PanelSection title="Typography">
+      <div ref={rows}>
+        <FieldGrid>
+          <PresetRow
+            layer={layer}
+            onPick={(name) => {
+              setUnlocked(new Set())
+              refocus.current = "preset"
+              onChange(applyPreset(layer, name))
+            }}
+            onDetach={() => {
+              setUnlocked(new Set())
+              refocus.current = "preset"
+              onChange(detachPreset(layer))
+            }}
+          />
+          {preset && <Summary preset={preset} open={open} onOpenChange={setOpen} />}
+          {presetRows.map(row)}
+          {ordinaryRows.map(row)}
+        </FieldGrid>
+      </div>
+    </PanelSection>
   )
 }
 
@@ -196,10 +201,12 @@ function PresetRow({
   return (
     <>
       <Field
-        label="Typography preset"
+        label="Preset"
         viewports={preset?.wider && `${changes.join(" and ")} change from ${preset.wider.viewport} up`}
       >
-        <PresetPicker preset={preset} overrides={overridesOf(layer).length} onPick={onPick} onDetach={onDetach} />
+        <Unstored part="preset">
+          <PresetPicker preset={preset} overrides={overridesOf(layer).length} onPick={onPick} onDetach={onDetach} />
+        </Unstored>
       </Field>
       <ClosestPreset match={closestPreset(layer)} onUse={onPick} />
     </>
@@ -285,7 +292,7 @@ export function PresetPicker({
 
   return (
     <ValueField
-      label="Typography preset"
+      label="Preset"
       inner={<CaseSensitive aria-hidden className="size-3.5" />}
       shown={undefined}
       placeholder="None"
@@ -308,7 +315,7 @@ export function PresetPicker({
       }}
       search={{ label: "Presets", options, empty: () => "No preset matches", tall: true }}
       hint={{
-        label: preset ? `Typography preset: ${preset.name}` : "Typography preset: none",
+        label: preset ? `Preset: ${preset.name}` : "Preset: none",
         detail: preset ? `${summary(preset)}${overridden}` : undefined
       }}
       inputMode="text"
@@ -324,7 +331,10 @@ export function PresetPicker({
  * isn't a token offers the nearest token. What Use changes is in its hint.
  */
 function ClosestPreset({ match, onUse }: { match: PresetMatch | undefined; onUse: (name: string) => void }) {
-  if (!match) {
+  const stores = useContext(StoresContext)
+
+  // Where the document can't hold a preset yet, there's none to offer.
+  if (!match || !stores("preset")) {
     return null
   }
 

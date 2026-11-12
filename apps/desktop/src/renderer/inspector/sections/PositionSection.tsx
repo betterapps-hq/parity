@@ -9,11 +9,10 @@ import type { SectionProps } from "./section-edits.ts"
 const unmeasured: Stage = { parent: { width: 0, height: 0 }, size: { width: 0, height: 0 }, inFlow: { x: 0, y: 0 } }
 
 /**
- * Position, the approved section (PAR-186) as Storybook has it: Placement beside Layer order, then the inset box for a
- * layer out of the layout, each side pinned at its inset or unpinned, clicked to pin it at its distance from the
- * parent's edge. It edits the layers' `NodeStyle`, which holds In layout and Absolute; Fixed, Sticky and Relative,
- * centering and Scale are disabled until it holds them (PAR-924). Layer order (PAR-925) shows once the layer is out of
- * the layout or has one, or from More.
+ * Position, the approved section (PAR-186) as Storybook has it: Placement beside Layer order, Auto while unset, then the
+ * inset box for a layer out of the layout, each side pinned at its inset or unpinned, clicked to pin it at its distance
+ * from the parent's edge. It edits the layers' `NodeStyle`, which holds In layout, Absolute and a layer order (PAR-925);
+ * Fixed, Sticky and Relative, centering and Scale are disabled until it holds them (PAR-924).
  */
 export function PositionSection({ editor, edit }: SectionProps) {
   const { style } = editor.selection

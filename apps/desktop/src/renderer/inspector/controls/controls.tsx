@@ -58,7 +58,8 @@ import {
   usePercentUnit,
   useTokens,
   useTokenSets,
-  ValueField
+  ValueField,
+  wrappingText
 } from "./field-parts.tsx"
 import { CornerGlyph, EachToggle, Field, nameMenuButton, SectionButton } from "./field-row.tsx"
 import { HighlightOverlay } from "./highlight.tsx"
@@ -670,17 +671,7 @@ type CornerRadii = [Radius?, Radius?, Radius?, Radius?]
  * Closing it never loses a value: corners that match become one radius again, and corners that don't stay as they are,
  * the one field saying Mixed until something's typed for them all. Corner shape's button sits beside Each corner.
  */
-export function AppearanceSection({
-  draft,
-  set,
-  tokensOnly,
-  mixed,
-  changed,
-  children
-}: SectionProps & {
-  /** Rows under Radius, as the Design tab adds Opacity and Clip content. */
-  children?: ReactNode
-}) {
+export function AppearanceSection({ draft, set, tokensOnly, mixed, changed }: SectionProps) {
   const radii: CornerRadii = Array.isArray(draft.radius)
     ? draft.radius
     : [draft.radius, draft.radius, draft.radius, draft.radius]
@@ -748,7 +739,6 @@ export function AppearanceSection({
             />
           )}
         </Field>
-        {children}
       </div>
     </PanelSection>
   )
@@ -1323,10 +1313,72 @@ export function TagField({ tag, onChange }: { tag: string | undefined; onChange:
   )
 }
 
-export function TextSection({ draft, set }: SectionProps) {
+/**
+ * A text layer's words, in the field's box: they wrap and it grows with them, and its handle drags it taller. Enter or
+ * leaving keeps what's typed, Shift+Enter starts a line, and Escape puts the words back.
+ */
+export function TextContentField({
+  text,
+  onChange,
+  changed,
+  around = (field) => field
+}: {
+  text: string
+  onChange: (text: string) => void
+  /** Changed in the state being edited, with the reset arrow by its name. */
+  changed?: { onReset: () => void }
+  /** What the field sits in, as a component design's text sits beside its button to use a prop. */
+  around?: (field: ReactNode) => ReactNode
+}) {
   return (
-    <PanelSection title="Text" description="The headline inside Plans.">
-      <TagField tag={draft.tag} onChange={(tag) => set({ tag })} />
+    <Field label="Text" changed={changed !== undefined} onReset={changed?.onReset}>
+      {around(
+        <textarea
+          key={text}
+          aria-label="Text"
+          defaultValue={text}
+          rows={1}
+          onBlur={(event) => event.currentTarget.value !== text && onChange(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.currentTarget.value = text
+              event.currentTarget.blur()
+            } else if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault()
+              event.currentTarget.blur()
+            }
+          }}
+          className={`${wrappingText} min-h-7 w-full resize-y rounded-md bg-muted/50 px-2 py-1.5 text-xs leading-snug outline-none ring-inset hover:not-focus:ring-1 hover:not-focus:ring-border focus:ring-1 focus:ring-ring dark:bg-input/40`}
+        />
+      )}
+    </Field>
+  )
+}
+
+/** Content, a text layer's own section, shown only for one: its words, then its tag. */
+export function ContentSection({
+  text,
+  tag,
+  onText,
+  onTag,
+  textChanged,
+  aroundText
+}: {
+  text: string
+  tag: string | undefined
+  onText: (text: string) => void
+  onTag: (tag: string | undefined) => void
+  textChanged?: { onReset: () => void }
+  aroundText?: (field: ReactNode) => ReactNode
+}) {
+  return (
+    <PanelSection title="Content">
+      <div className="flex flex-col gap-2.5">
+        <TextContentField text={text} onChange={onText} changed={textChanged} around={aroundText} />
+        <Unstored part="tag">
+          <TagField tag={tag} onChange={onTag} />
+        </Unstored>
+      </div>
     </PanelSection>
   )
 }

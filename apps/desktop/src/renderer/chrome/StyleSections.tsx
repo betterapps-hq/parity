@@ -7,7 +7,7 @@ import {
   type TakesStyle
 } from "@parity-app/editor"
 import { type ComponentType, useMemo } from "react"
-import { LiveEditsContext, ProjectTokens, StoresContext } from "../inspector/controls/field-parts.tsx"
+import { LiveEditsContext, ProjectTokens, StoresContext, storesNothing } from "../inspector/controls/field-parts.tsx"
 import { AppearanceSection } from "../inspector/sections/AppearanceSection.tsx"
 import { EffectsSection } from "../inspector/sections/effects.tsx"
 import { FillSection } from "../inspector/sections/FillSection.tsx"
@@ -18,7 +18,7 @@ import { type SectionProps, useSectionEdits } from "../inspector/sections/sectio
 import { SizeSection } from "../inspector/sections/SizeSection.tsx"
 import { SpacingSection } from "../inspector/sections/SpacingSection.tsx"
 import { StrokeSection } from "../inspector/sections/StrokeSection.tsx"
-import { TextSection } from "../inspector/sections/TextSection.tsx"
+import { TypographySection } from "../inspector/sections/TypographySection.tsx"
 import { projectTokenSets } from "../inspector/token-sets.ts"
 import type { StyleEditor } from "./style-editor.ts"
 
@@ -35,7 +35,7 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
   layout: LayoutSection,
   spacing: SpacingSection,
   appearance: AppearanceSection,
-  text: TextSection,
+  text: TypographySection,
   fill: FillSection,
   stroke: StrokeSection,
   effects: EffectsSection,
@@ -56,12 +56,6 @@ const liveSections = new Set<StyleSection>([
   "text",
   "stroke"
 ])
-
-/**
- * Whether the panel can store a part of the approved controls that `NodeStyle` doesn't hold yet: none of them so far,
- * so they draw disabled until PAR-924 to PAR-935 add them.
- */
-const storesNothing = () => false
 
 /** The layer panel leaves out the design, since it never shows a design's root: no layer's id is empty. */
 const noRoot: CapabilityDesign = { root: { id: "" } }

@@ -65,15 +65,14 @@ const offsetRules: SideRules = { ...sideRules.inset, percent: false, auto: false
 
 /**
  * Position, for a layer that isn't a design's root: Placement's toggles (In layout, Absolute, Fixed, Sticky, and
- * Relative once set from More) beside Layer order, shown by default when Absolute, Fixed or Sticky, then the inset box
- * when it isn't In layout.
+ * Relative once set from More) beside Layer order, always shown and Auto while unset, then the inset box when it isn't
+ * In layout.
  */
 export function PositionSection({
   position,
   set,
   layerOrder,
   onLayerOrder,
-  showLayerOrder: layerOrderAdded = false,
   context,
   stage,
   stickyStopped,
@@ -83,8 +82,6 @@ export function PositionSection({
   set: (position: Position) => void
   layerOrder: Side
   onLayerOrder: (value: Side) => void
-  /** Layer order added from More on a layer In layout or Relative. */
-  showLayerOrder?: boolean
   /** The stacking context Layer order orders within, and what makes it one. */
   context: string
   stage: Stage
@@ -95,9 +92,6 @@ export function PositionSection({
   const placement = position.placement
   const stores = useContext(StoresContext)
   const shownPlacements = placements.filter((option) => option.value !== "relative" || placement === "relative")
-
-  const layerOrderShown =
-    layerOrderAdded || layerOrder !== undefined || ["absolute", "fixed", "sticky"].includes(placement)
 
   const choose = (next: Placement) => {
     if (next === placement) {
@@ -132,14 +126,6 @@ export function PositionSection({
           >
             Relative
           </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            className="text-xs"
-            checked={layerOrderShown}
-            disabled={["absolute", "fixed", "sticky"].includes(placement) || layerOrder !== undefined}
-            onCheckedChange={() => onLayerOrder({ number: 1 })}
-          >
-            Layer order
-          </DropdownMenuCheckboxItem>
         </TitleMenu>
       }
     >
@@ -154,7 +140,7 @@ export function PositionSection({
               onChange={choose}
             />
           </Field>
-          {layerOrderShown && <LayerOrderField value={layerOrder} context={context} half onChange={onLayerOrder} />}
+          <LayerOrderField value={layerOrder} context={context} half onChange={onLayerOrder} />
         </div>
         {placement !== "static" && (
           <InsetBox position={position} placement={placement} stage={stage} stopped={stickyStopped} set={set} />

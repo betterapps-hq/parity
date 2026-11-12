@@ -40,6 +40,8 @@ import { designNamer, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon 
 import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { ContentSection } from "../inspector/controls/controls.tsx"
+import { StoresContext, storesNothing } from "../inspector/controls/field-parts.tsx"
 import { useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions } from "./actions.ts"
@@ -418,29 +420,17 @@ function LayerSections({
 
   return (
     <>
-      {(node.type === "text" || (node.type === "component" && textValue.safeParse(node.props?.children).success)) && (
-        <PanelSection title="Content">
-          {node.type === "text" ? (
-            <Field label="Text" changed={override?.text !== undefined} onReset={() => reset({ kind: "text" })}>
-              {withProp(
-                "text",
-                <TextInput multiline value={node.text} onCommit={(text) => change("Edit text", { text })} />
-              )}
-            </Field>
-          ) : (
-            <Field
-              label="Label"
-              changed={changesField(override, { kind: "props", key: "children" })}
-              onReset={() => reset({ kind: "props", key: "children" })}
-            >
-              <TextInput
-                multiline
-                value={textValue.safeParse(node.props?.children).data ?? ""}
-                onCommit={(children) => change("Edit label", { props: { children } })}
-              />
-            </Field>
-          )}
-        </PanelSection>
+      {node.type === "text" && (
+        <StoresContext value={storesNothing}>
+          <ContentSection
+            text={node.text}
+            tag={undefined}
+            onText={(text) => change("Edit text", { text })}
+            onTag={() => undefined}
+            textChanged={override?.text === undefined ? undefined : { onReset: () => reset({ kind: "text" }) }}
+            aroundText={(field) => withProp("text", field)}
+          />
+        </StoresContext>
       )}
 
       {(node.type === "image" || node.type === "video") && !inner && <MediaSection entry={entry} node={node} />}

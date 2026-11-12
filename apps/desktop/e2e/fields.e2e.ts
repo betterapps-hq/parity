@@ -135,14 +135,6 @@ describe("stepping and scrubbing", () => {
     await expect.poll(brandWidth).toBe(8)
   })
 
-  it("works maths out in Opacity, where % is the unit", async () => {
-    await selectBrand()
-    const opacity = app.page.locator('input[aria-label="Opacity"]')
-    await typeOver(opacity, "50-10")
-    await opacity.press("Enter")
-    await expect.poll(async () => (await app.style("Pricing", brand)).opacity).toBe(40)
-  })
-
   it("scrubs W a spacing step per two pixels, previewing on the canvas, and makes one undo step on release", async () => {
     await selectBrand()
     const label = app.page.getByText("W", { exact: true }).first()

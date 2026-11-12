@@ -146,6 +146,9 @@ export type Unstorable =
 /** Whether the document stores a part's value; unset, as in the stories, it stores every part. */
 export const StoresContext = createContext<(part: Unstorable) => boolean>(() => true)
 
+/** The Design tab's: `NodeStyle` holds none of these parts yet, so they draw disabled until PAR-924 to PAR-935 add them. */
+export const storesNothing = () => false
+
 /**
  * A part of a control the document can't store yet, shown as the approved design has it but disabled and dimmed, so
  * the section matches its story while the property waits for its issue. Without a part, it's always stored.

@@ -126,7 +126,7 @@ export const Picking: Story = {
   render: () => <PresetStory start={{ preset: "heading", own: {} }} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
-    await userEvent.type(canvas.getByRole("combobox", { name: "Typography preset" }), "bo")
+    await userEvent.type(canvas.getByRole("combobox", { name: "Preset" }), "bo")
     await expect(await canvas.findByRole("option", { name: /body/ })).toBeVisible()
   }
 }
