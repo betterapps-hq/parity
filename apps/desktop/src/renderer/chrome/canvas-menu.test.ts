@@ -9,7 +9,8 @@ import {
 import { designsSelection, layersSelection, type Selection } from "@parity-app/editor"
 import { describe, expect, it } from "vite-plus/test"
 import type { ContainerEntry } from "../design-store.ts"
-import { canvasMenu, layerCommands, type MenuEntry, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
+import { canvasMenu, type MenuEntry, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
+import { commandStates } from "./command-state.ts"
 import { keymap } from "./keymap.ts"
 
 const text = (id: string, extra: { name?: string; hidden?: boolean } = {}): DesignNode => ({
@@ -75,6 +76,27 @@ const overUsers: MenuTarget = {
 
 const overTitle: MenuTarget = { design, path: ["root", "header", "title"], mode: "desktop", state: "default" }
 
+/** The menu a right-click opens with `selection` made, its items' states worked out as the window works them out. */
+function menu(
+  target: MenuTarget | undefined,
+  selection: Selection,
+  designs: readonly ContainerEntry[],
+  notes = 0,
+  libraries: readonly Pick<LibraryInfo, "id" | "kind">[] = []
+): MenuEntry[] {
+  const states = commandStates({
+    selection,
+    entries: designs,
+    notes,
+    placedReferences: 0,
+    canvas: true,
+    history: { canUndo: false, canRedo: false },
+    references: true
+  })
+
+  return canvasMenu(target, states, selection, designs, libraries)
+}
+
 /** Each entry as a line: an item's action and whether it's available, a line between sections, the submenu. */
 function outline(entries: MenuEntry[]): string[] {
   return entries.map((entry) => {
@@ -102,8 +124,8 @@ function labelOf(entries: MenuEntry[], action: string): string | undefined {
 
 describe("the canvas menu", () => {
   it("lists, for one layer, Figma's items in Figma's order, each with the keymap's keys", () => {
-    const menu = canvasMenu(overTitle, layersSelection(design, ["title"]), entries)
-    expect(outline(menu)).toEqual([
+    const opened = menu(overTitle, layersSelection(design, ["title"]), entries)
+    expect(outline(opened)).toEqual([
       "Select layer >",
       "---",
       "copy",
@@ -125,19 +147,19 @@ describe("the canvas menu", () => {
       "---",
       "exportSelection"
     ])
-    const items = menu.flatMap((entry) => (entry.kind === "item" ? [entry] : []))
+    const items = opened.flatMap((entry) => (entry.kind === "item" ? [entry] : []))
     expect(items.map((entry) => entry.keys)).toEqual(
       items.map((entry) => (entry.action === "pasteHere" ? undefined : keymap[entry.action].keys[0]))
     )
-    expect(labelOf(menu, "copy")).toBe(keymap.copy.label)
-    expect(labelOf(menu, "pasteHere")).toBe("Paste here")
-    expect(labelOf(menu, "hide")).toBe("Hide")
+    expect(labelOf(opened, "copy")).toBe(keymap.copy.label)
+    expect(labelOf(opened, "pasteHere")).toBe("Paste here")
+    expect(labelOf(opened, "hide")).toBe("Hide")
   })
 
   it("ends with Open in editor over an element a project file wrote, at its line", () => {
     const source = { path: "src/components/ui/card.tsx", line: 20, column: 5 }
-    const menu = canvasMenu({ ...overTitle, source }, layersSelection(design, ["title"]), entries)
-    expect(outline(menu).slice(-6)).toEqual([
+    const opened = menu({ ...overTitle, source }, layersSelection(design, ["title"]), entries)
+    expect(outline(opened).slice(-6)).toEqual([
       "hide",
       "lock",
       "---",
@@ -145,18 +167,18 @@ describe("the canvas menu", () => {
       "---",
       "open src/components/ui/card.tsx:20"
     ])
-    expect(menu.at(-1)).toMatchObject({ label: "Open in editor" })
+    expect(opened.at(-1)).toMatchObject({ label: "Open in editor" })
   })
 
   it("adds Go to the main component, named after it, for an instance", () => {
-    const menu = canvasMenu(overUsers, layersSelection(design, ["users"]), entries)
-    expect(outline(menu).slice(13, 16)).toEqual(["wrap", "makeComponent", "goToMain"])
-    expect(labelOf(menu, "goToMain")).toBe("Go to Stat card")
+    const opened = menu(overUsers, layersSelection(design, ["users"]), entries)
+    expect(outline(opened).slice(13, 16)).toEqual(["wrap", "makeComponent", "goToMain"])
+    expect(labelOf(opened, "goToMain")).toBe("Go to Stat card")
   })
 
   it("keeps the order and making a component to one layer, with several selected", () => {
-    const menu = canvasMenu(overTitle, layersSelection(design, ["title", "chart"]), entries)
-    expect(outline(menu)).toEqual([
+    const opened = menu(overTitle, layersSelection(design, ["title", "chart"]), entries)
+    expect(outline(opened)).toEqual([
       "Select layer >",
       "---",
       "copy",
@@ -181,10 +203,10 @@ describe("the canvas menu", () => {
   })
 
   it("says Show when every selected layer is hidden in the state being edited", () => {
-    expect(labelOf(canvasMenu(overTitle, layersSelection(design, ["subtitle"]), entries), "hide")).toBe("Show")
-    expect(labelOf(canvasMenu(overTitle, layersSelection(design, ["subtitle", "title"]), entries), "hide")).toBe("Hide")
+    expect(labelOf(menu(overTitle, layersSelection(design, ["subtitle"]), entries), "hide")).toBe("Show")
+    expect(labelOf(menu(overTitle, layersSelection(design, ["subtitle", "title"]), entries), "hide")).toBe("Hide")
     const loading = layersSelection(design, ["subtitle", "title"], { mode: "desktop", state: "loading" })
-    expect(labelOf(canvasMenu(overTitle, loading, entries), "hide")).toBe("Show")
+    expect(labelOf(menu(overTitle, loading, entries), "hide")).toBe("Show")
   })
 
   it("says Show for a layer the variant shown hides, as Hide reads it, and Hide then shows it", () => {
@@ -203,7 +225,7 @@ describe("the canvas menu", () => {
     }
 
     const menuFor = (container: ContainerSpec) =>
-      canvasMenu(overTitle, layersSelection(design, ["title"]), [{ ...entries[0]!, container }, entries[1]!])
+      menu(overTitle, layersSelection(design, ["title"]), [{ ...entries[0]!, container }, entries[1]!])
 
     expect(labelOf(menuFor(compact), "hide")).toBe("Show")
     const shown = toggleHidden(compact, "default", ["title"])
@@ -214,8 +236,8 @@ describe("the canvas menu", () => {
   })
 
   it("leaves what acts on layers out for a design, and offers to convert it to a component", () => {
-    const menu = canvasMenu(overTitle, { design }, entries)
-    expect(outline(menu)).toEqual([
+    const opened = menu(overTitle, { design }, entries)
+    expect(outline(opened)).toEqual([
       "Select layer >",
       "---",
       "copy",
@@ -230,15 +252,15 @@ describe("the canvas menu", () => {
       "findReferences",
       "exportSelection"
     ])
-    expect(labelOf(menu, "makeComponent")).toBe("Convert to component")
-    expect(labelOf(menu, "exportSelection")).toBe("Export…")
-    const card = canvasMenu({ design: component, path: ["card"] }, { design: component }, entries)
+    expect(labelOf(opened, "makeComponent")).toBe("Convert to component")
+    expect(labelOf(opened, "exportSelection")).toBe("Export…")
+    const card = menu({ design: component, path: ["card"] }, { design: component }, entries)
     expect(labelOf(card, "makeComponent")).toBe("Convert to screen")
   })
 
   it("makes no component of several designs", () => {
-    const menu = canvasMenu(overTitle, designsSelection([component, design]), entries)
-    expect(outline(menu).slice(2)).toEqual([
+    const opened = menu(overTitle, designsSelection([component, design]), entries)
+    expect(outline(opened).slice(2)).toEqual([
       "copy",
       "pasteHere",
       "pasteOver",
@@ -251,12 +273,12 @@ describe("the canvas menu", () => {
       "findReferences",
       "exportSelection"
     ])
-    expect(labelOf(menu, "makeComponent")).toBe(keymap.makeComponent.label)
+    expect(labelOf(opened, "makeComponent")).toBe(keymap.makeComponent.label)
   })
 
   it("leaves a layer inside an instance only what can act on it", () => {
-    const menu = canvasMenu(overUsers, layersSelection(design, ["users/value"]), entries)
-    expect(outline(menu).slice(2)).toEqual([
+    const opened = menu(overUsers, layersSelection(design, ["users/value"]), entries)
+    expect(outline(opened).slice(2)).toEqual([
       "copy (unavailable)",
       "pasteHere",
       "pasteOver",
@@ -279,8 +301,8 @@ describe("the canvas menu", () => {
   })
 
   it("offers New screen, New component, Insert, Find references, Paste here, Select all and Zoom to fit around designs", () => {
-    const menu = canvasMenu(undefined, layersSelection(design, ["title"]), entries)
-    expect(outline(menu)).toEqual([
+    const opened = menu(undefined, layersSelection(design, ["title"]), entries)
+    expect(outline(opened)).toEqual([
       "newScreen",
       "newComponent",
       "insert",
@@ -291,7 +313,7 @@ describe("the canvas menu", () => {
       "selectAll",
       "zoomToFit"
     ])
-    expect(menu.flatMap((entry) => (entry.kind === "item" ? [[entry.label, entry.keys]] : []))).toEqual([
+    expect(opened.flatMap((entry) => (entry.kind === "item" ? [[entry.label, entry.keys]] : []))).toEqual([
       ["New screen", keymap.newScreen.keys[0]],
       ["New component", keymap.newComponent.keys[0]],
       ["Insert…", keymap.insert.keys[0]],
@@ -303,46 +325,15 @@ describe("the canvas menu", () => {
   })
 
   it("has nothing to select or zoom to on a canvas with no designs or notes", () => {
-    const outlineOf = (notes: number) => outline(canvasMenu(undefined, {}, [], notes)).slice(-2)
+    const outlineOf = (notes: number) => outline(menu(undefined, {}, [], notes)).slice(-2)
     expect(outlineOf(0)).toEqual(["selectAll (unavailable)", "zoomToFit (unavailable)"])
     expect(outlineOf(1)).toEqual(["selectAll", "zoomToFit"])
   })
 })
 
-describe("the commands for layers, which the menubar shares", () => {
-  const can = (ids: string[]) => layerCommands(layersSelection(design, ids), dashboard.root)
-
-  it("act on the design's own layers, the order on one alone", () => {
-    expect(can(["title"])).toEqual({ copy: true, duplicate: true, order: true, wrap: true, hide: true, lock: true })
-    expect(can(["title", "chart"])).toEqual({
-      copy: true,
-      duplicate: true,
-      order: false,
-      wrap: true,
-      hide: true,
-      lock: true
-    })
-  })
-
-  it("don't act on a layer inside an instance, or the design's root", () => {
-    const none = { copy: false, duplicate: false, order: false, wrap: false, hide: false, lock: false }
-    expect(can(["users/value"])).toEqual(none)
-    expect(can(["root"])).toEqual(none)
-    // With one of the design's own beside it, all but the order act on that one.
-    expect(can(["users/value", "title"])).toEqual({
-      copy: true,
-      duplicate: true,
-      order: false,
-      wrap: true,
-      hide: true,
-      lock: true
-    })
-  })
-})
-
 describe("select layer", () => {
   const choices = (target: MenuTarget, selection: Selection) => {
-    const entry = canvasMenu(target, selection, entries)[0]
+    const entry = menu(target, selection, entries)[0]
 
     return entry?.kind === "select-layer" ? entry.choices : []
   }
@@ -373,7 +364,7 @@ describe("select layer", () => {
     const overChart: MenuTarget = { design, path: ["root", "chart"], mode: "desktop", state: "default" }
 
     const label = (libraries: readonly Pick<LibraryInfo, "id" | "kind">[]) => {
-      const entry = canvasMenu(overChart, {}, entries, 0, libraries)[0]
+      const entry = menu(overChart, {}, entries, 0, libraries)[0]
 
       return entry?.kind === "select-layer" ? entry.choices.at(-1)?.label : undefined
     }

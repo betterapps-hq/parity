@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Parity can tell whether each frame, the nodes in it and its board changed since the project opened, and undoing an edit counts as unchanged again",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

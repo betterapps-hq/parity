@@ -1,4 +1,5 @@
 import { type CommandAttributes, startTrace, tracedCommand } from "../tracing.ts"
+import type { ProjectSession } from "../workspace.ts"
 import type { Action, ActionResult } from "./actions.ts"
 
 /** What asked for an action, as `command.ran` records it. */
@@ -7,9 +8,11 @@ export type CommandSource = CommandAttributes["from"]
 export interface RunOptions {
   /** The key that ran it, for an action that acts on which of its keys was pressed. */
   event?: KeyboardEvent
+  /** The tab it acts on, for a panel or toolbar that belongs to one, such as the Tokens panel's Save; else the active tab. */
+  session?: ProjectSession
   /**
    * Runs this in the action's place, for the action bound to where it was asked for, such as New screen where the
-   * canvas menu opened or Save for a panel's own project.
+   * canvas menu opened or Rename in place in Layers.
    */
   instead?: () => ActionResult
 }
@@ -29,15 +32,24 @@ export interface SelectedCount {
   designs: number
 }
 
+/** What recording an action asks of the tab it acts on. */
+export interface Recording<Id extends string> {
+  /** The tab an action acts on when it isn't given one. */
+  session(): ProjectSession | undefined
+  /** Whether the action applies in `session` now. */
+  enabled(id: Id, session: ProjectSession | undefined): boolean
+  selected(session: ProjectSession | undefined): SelectedCount
+  /** Hears of each one that applies as it starts, however it's run, as Repeat last action remembers it. */
+  ran?(id: Id): void
+}
+
 /**
  * Wraps each action so it's recorded by its ID however it's run: the one place commands are recorded (PAR-639). What
- * an action returns or throws passes through unchanged. `ran` hears of each one that applies as it starts, however it's
- * run, as Repeat last action remembers it.
+ * an action returns or throws passes through unchanged.
  */
 export function recordActions<Id extends string>(
   definitions: Record<Id, Action>,
-  selected: () => SelectedCount,
-  ran?: (id: Id) => void
+  recording: Recording<Id>
 ): Record<Id, RecordedAction> {
   // SAFETY: the loop below gives it an entry for every ID before it's returned.
   const recorded = {} as Record<Id, RecordedAction>
@@ -47,9 +59,9 @@ export function recordActions<Id extends string>(
     const action = definitions[id]
     recorded[id] = {
       ...action,
-      run(from, { event, instead } = {}) {
-        const enabled = action.available?.() !== false
-        const attributes = { action: id, from, enabled, ...selected() }
+      run(from, { event, session = recording.session(), instead } = {}) {
+        const enabled = recording.enabled(id, session)
+        const attributes = { action: id, from, enabled, ...recording.selected(session) }
 
         if (!enabled) {
           startTrace("command.ran", attributes).end("cancelled")
@@ -58,9 +70,9 @@ export function recordActions<Id extends string>(
         }
 
         return tracedCommand(attributes, () => {
-          ran?.(id)
+          recording.ran?.(id)
 
-          return instead ? instead() : action.run(event)
+          return instead ? instead() : action.run(session, event)
         })
       }
     }

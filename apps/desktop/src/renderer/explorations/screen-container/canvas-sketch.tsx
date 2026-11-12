@@ -18,7 +18,7 @@ import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../../canvas/kinds.tsx"
 import { containerModes } from "../../canvas/view.ts"
-import { selectChildren, selectParent, stepBack } from "../../chrome/commands.ts"
+import { actions } from "../../chrome/actions.ts"
 import { formatKeys } from "../../chrome/keys.ts"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
 import { type ContainerEntry, useContainerEntries, useContainerEntry, useModeSettings } from "../../design-store.ts"
@@ -50,11 +50,11 @@ export function CanvasSketch() {
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Enter" && event.shiftKey) {
-      selectParent(session)
+      void actions.selectParent.run("key", { session })
     } else if (event.key === "Enter") {
-      selectChildren(session)
+      void actions.selectChildren.run("key", { session })
     } else if (event.key === "Escape") {
-      stepBack(session)
+      void actions.back.run("key", { session })
     } else {
       return
     }
