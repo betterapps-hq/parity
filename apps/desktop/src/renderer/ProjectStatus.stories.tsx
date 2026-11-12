@@ -6,7 +6,7 @@ import type { Tab } from "./workspace.ts"
 
 /**
  * What a project's tab shows before the project is ready: the steps of opening it over the editor's outline, or why it
- * couldn't open and what to do next. Parity / App shows them in the whole window.
+ * couldn't open. Parity / App shows them in the whole window.
  */
 const meta = {
   title: "Parity/Chrome/Opening a project",
@@ -56,6 +56,24 @@ export const Failed: Story = failed({
   message: "No renderer supports broken-app: its package.json depends on neither react nor react-dom"
 })
 
+/**
+ * A design file that doesn't match the design file format, as a screen saved with states before PAR-1002: the project
+ * doesn't open, and the details name the file and the value that's wrong (PAR-1011).
+ */
+export const FailedOnAnInvalidDesignFile: Story = failed({
+  id: roots.example,
+  title: "shadcn-vite",
+  message:
+    "shadcn-vite.par doesn't match the design file format:\n/containers/0/states: only a component has states; a screen is drawn as its layers are"
+})
+
+/** A design file that isn't JSON, as when a merge left a stray brace. */
+export const FailedOnABrokenDesignFile: Story = failed({
+  id: roots.example,
+  title: "shadcn-vite",
+  message: "designs/landing.par isn't valid JSON:\nUnexpected token '}' in JSON at position 2817 (line 96, column 5)"
+})
+
 /** A long error, such as a builder's output when it crashes: it scrolls, and copies whole. */
 export const FailedWithALongError: Story = failed({
   message: [
@@ -78,7 +96,7 @@ export const FailedWithALongError: Story = failed({
   ].join("\n")
 })
 
-/** The default project failed before the service said which it was: there's no folder to try again with. */
+/** The default project failed before the service said which it was, so there's no folder to show. */
 export const FailedBeforeItsFolderWasKnown: Story = failed({
   id: "opening-1",
   title: "Opening…",

@@ -4253,8 +4253,8 @@ same screen. My calls:
 - **Opening writes nothing.** The Home screen opens as if the project file held it, so opening a folder leaves it as it
   was, and the file is written with the first change. A Home screen made on open but never kept is no loss, since the
   next open makes the same one.
-- **A file that couldn't be read gets no Home screen,** so saving can't write over it. A file whose designs were all
-  deleted opens with none, as the person left it.
+- **A file whose designs were all deleted opens with none,** as the person left it. A file that can't be read stops the
+  project opening (PAR-1011), so there's no Home screen to write over it.
 
 ## Agents name states by id, and a name points to its id (PAR-459)
 
@@ -8211,3 +8211,23 @@ asked on 2026-11-11 for 10%, about where a design's details stop showing. My cal
   forth.
 - **Between 10% and the old line, frames draw their designs.** At 1.5x that's 10% to 17%. More frames are live at those
   zooms, so `pnpm perf`'s zoom run and `canvas.restedFar` (PAR-949) show what it costs and whether the bitmaps arrive.
+
+## A design file that can't be read stops the project opening (PAR-1011)
+
+Since PAR-1002, older project files with states on a screen fail the file's check. The project opened without that
+file's designs, and a card at the bottom of Layers gave the reason. You found that the wrong place, and asked for the
+project not to open at all, with the error saying why. My calls follow your answers:
+
+- **A `.par` that isn't JSON, or doesn't match the design file format, stops the project opening.** The page that says a
+  project couldn't open shows it, with the reason in Details: "shadcn-vite.par doesn't match the design file format:"
+  and the check's pointer and message under it, or "isn't valid JSON:" and the parser's message. A `.lib.par` is checked
+  against the library file format the same way. The format is still the zod schema `parseCanvasDocument` runs.
+- **The page has one button, Close** (your call). Try again and Open another project went, for every reason a project
+  can't open, since it's one page. Show in folder stays beside the folder.
+- **Its buttons sit at the right, the main one last, as in a dialog's footer** (your call), for every error page in a
+  tab, including a project or Home that stopped working. `ErrorPage` lays them out, so each page passes its buttons and
+  nothing else.
+- **No Open in editor.** You asked for the error alone. I considered a dialog over the project and a message on the
+  canvas, with a button to open the file at the bad line; both kept a project open that can't be saved.
+- **A file that changes on disk while the project is open and no longer reads** is left as before: the change is skipped
+  and logged, often a file caught mid-write.

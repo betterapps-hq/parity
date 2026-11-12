@@ -735,20 +735,3 @@ function largeScreen(taken: string[]): ContainerSpec {
 
   return { ...screen, name: "Large list", root }
 }
-
-/** A design file that couldn't be read, with the reason, after everything that could. */
-export const UnreadableFile: Story = {
-  loaders: [
-    async () => {
-      await openProjects("example")
-      example().errors.push({
-        path: "designs/marketing.par",
-        error: "Unexpected token '}' in JSON at position 18412 (line 640, column 3)"
-      })
-    }
-  ],
-  play: async ({ canvasElement }) => {
-    const file = await within(canvasElement).findByText("designs/marketing.par")
-    file.scrollIntoView({ block: "center" })
-  }
-}
