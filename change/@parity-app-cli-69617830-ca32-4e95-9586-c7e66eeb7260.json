@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a builder stopped by a signal isn't sent to Sentry as an error",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
