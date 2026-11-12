@@ -40,8 +40,11 @@ export const VerticalLayout: Story = { name: "Vertical layout", loaders: [pick("
 /** A grid, Pricing's plans: its header says Grid layout, with the grid icon the Layout section uses. */
 export const Grid: Story = { loaders: [pick("Pricing", "Plans")] }
 
-/** A component instance, Pricing's Pro plan: Plan card's props, Go to component in its header, and its style. */
-export const ComponentInstance: Story = { name: "Component instance", loaders: [pick("Pricing", "Pro plan")] }
+/**
+ * A component instance, Plan card's call to action: Button's props under its name, the attributes it passes on, its
+ * header's links, and its style.
+ */
+export const ComponentInstance: Story = { name: "Component instance", loaders: [pick("Plan card", "Call to action")] }
 
 /** An icon from Lucide: its props aren't read from source, so only the ones it sets show. */
 export const Icon: Story = { loaders: [pick("Plan card", "lucide/Check")] }

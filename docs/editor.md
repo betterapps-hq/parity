@@ -4466,8 +4466,6 @@ Tests:
 - `packages/core/src/edit.test.ts`, "clearing a prop, as the inspector does" (2, PAR-421): a prop the design turns on,
   cleared in one state, off there and still on in the design, and Reset taking it back; and clearing in the base state
   removing it, with a value set as before.
-- `chrome/LayerStates.stories.tsx`, TurningAPropOffInAState (PAR-421): Button's button disabled in the base, its
-  `disabled` switch turned off in Outline, then Reset, which turns it back on and leaves nothing to reset.
 
 Gaps: the wiring has no automated DOM test (the text editor reading `layerOnBoard`, the notes in the inspector, the
 typed fields) beyond the stories above, whose play functions run only in Storybook. All of it, and the history above,
