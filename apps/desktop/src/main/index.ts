@@ -750,8 +750,11 @@ const accountChanged = (state: AccountState) => {
   }
 }
 
-/** Who the tests and `pnpm perf` start signed in as, without WorkOS. An installed copy never takes one. */
-const standIn = packaged || !environment.PARITY_SIGNED_IN_AS ? undefined : readStandIn(environment.PARITY_SIGNED_IN_AS)
+/**
+ * Who the tests, `pnpm perf` and the checks of a built copy start signed in as, without WorkOS. It holds no token, so it
+ * opens nothing Parity's service guards.
+ */
+const standIn = environment.PARITY_SIGNED_IN_AS ? readStandIn(environment.PARITY_SIGNED_IN_AS) : undefined
 
 const account: Account = standIn
   ? standInAccount(standIn, accountChanged)

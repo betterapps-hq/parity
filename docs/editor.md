@@ -6372,7 +6372,8 @@ client ID and never its API key, and the window never sees a token.
   account. `PARITY_REQUIRE_SIGN_IN=1` makes one ask as an installed copy does. `pnpm dev` shares the installed app's
   kept accounts, so signing in once on a computer covers it; a copy with its own user data folder, as the tests have,
   starts signed in as a stand-in with `PARITY_SIGNED_IN_AS`, JSON naming an email, with no tokens and without WorkOS
-  (`main/stand-in-account.ts`, `launch({ signedInAs })`). An installed copy takes neither.
+  (`main/stand-in-account.ts`, `launch({ signedInAs })`). The checks that run a built copy (`try-built.ts`,
+  `try-update.ts`) start it as a stand-in too. An installed copy ignores `PARITY_REQUIRE_SIGN_IN`, since it always asks.
 - **Signing in later** is from the account spot at the end of the title bar, or Sign in at the top of Home. It opens the
   same screen in a dialog over Home, without the way to skip it, which only Cancel, Escape or its close button end.
   Signed in already, it's Add another account, which says the accounts you're in stay signed in.

@@ -8101,7 +8101,9 @@ My calls:
 - **A session that ends with another account still signed in** moves you to that account and says so in the dialog, as
   before. Only with nobody left does the screen show.
 - **Tests start signed in as a stand-in,** from `PARITY_SIGNED_IN_AS`, with no tokens and without WorkOS, so no real
-  account or token is in CI. An installed copy never takes one. Nothing that needs Parity's service works as a stand-in.
+  account or token is in CI. A built copy takes one too, since the checks that install and update a build have to get
+  past the screen; it's no way round signing in for anything that matters, since a stand-in has no token and Parity's
+  service checks every request.
 - **A first launch with no connection stays on the screen,** since there's no way to sign in without one. Someone who
   signed in before stays signed in offline, as before.
 - **It ships after signing in is proven in an installed build** (PAR-651), since nothing gets past the screen without

@@ -43,7 +43,7 @@ const mainEnvironment = z.object({
   PARITY_REQUIRE_SIGN_IN: z.literal("1").optional(),
   /**
    * Someone to start signed in as, as JSON, for the end-to-end tests and `pnpm perf`: `{"email":"ada@example.com"}`.
-   * A stand-in with no tokens, which never asks WorkOS. Only a copy run from source takes it.
+   * A stand-in with no tokens, which never asks WorkOS, so nothing Parity's service guards works as them.
    */
   PARITY_SIGNED_IN_AS: nonBlankString.optional(),
   /** The dev runner's process id, which it sets on the copy it runs. */

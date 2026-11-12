@@ -120,6 +120,9 @@ try {
   env.PARITY_USER_DATA = join(work, "user")
   env.PARITY_AGENT_FILE = agentFile
   env.PARITY_PROJECT = project
+  // A built copy needs someone signed in (PAR-1008), and a check can't sign in through a browser: a stand-in, without
+  // tokens or WorkOS.
+  env.PARITY_SIGNED_IN_AS = JSON.stringify({ email: "check@parity.test", name: "Check" })
   const launchEnv: Record<string, string> = {}
 
   for (const [key, value] of Object.entries(env)) {
