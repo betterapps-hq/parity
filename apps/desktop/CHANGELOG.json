@@ -2,6 +2,59 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Thu, 12 Nov 2026 05:19:08 GMT",
+      "version": "0.67.0",
+      "tag": "@parity-app/desktop_v0.67.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b1e205d84bfe03cc38935d761218957e7d943667",
+            "comment": "Report a crashed project service with what it printed, and name the pre-promotion environment beta"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "813b4f59d974e40062bd743eaa76f79703b0ea24",
+            "comment": "Offscreen captures for frame bitmaps, previews and exports are taken again after a repaint when Chromium had no frame to copy"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2f195d6458b86b936a08882caff1a50493e827d3",
+            "comment": "Beta update checks no longer fail while a package tag leads GitHub's releases feed, and a failed update reports electron-updater's error code"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b853ed3bb3fdc8472e0d3de85bb52ec10294792f",
+            "comment": "parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a builder stopped by a signal isn't sent to Sentry as an error"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e217bce57fc9396e90021bd766041447e212a78e",
+            "comment": "Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a minimized window"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c27fe3a0fb7525786a06b3a2241808a6776d9ab4",
+            "comment": "Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's own blocked reports group as one Sentry issue."
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "49bc4fa69c015b3205a875ce89ee61f546becf21",
+            "comment": "SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has"
+          }
+        ]
+      }
+    },
+    {
       "date": "Thu, 12 Nov 2026 04:24:53 GMT",
       "version": "0.66.0",
       "tag": "@parity-app/desktop_v0.66.0",

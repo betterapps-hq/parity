@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Report a crashed project service with what it printed, and name the pre-promotion environment beta",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
