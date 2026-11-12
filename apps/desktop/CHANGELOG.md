@@ -1,8 +1,32 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Thu, 12 Nov 2026 08:27:06 GMT and should not be manually modified. -->
+<!-- This log was last generated on Thu, 12 Nov 2026 10:38:14 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.70.0
+
+Thu, 12 Nov 2026 10:38:14 GMT
+
+### Minor changes
+
+- Parity can tell whether each frame, the nodes in it and its board changed since the project opened, and undoing an
+  edit counts as unchanged again (ajcraswell@gmail.com)
+- States belong to component designs only: screens, frames and instances no longer have them, and the agent's Designs()
+  lists states for components alone (ajcraswell@gmail.com)
+
+### Patches
+
+- Frames in a Tailwind project draw layers with the classes a person would write: m-0, gap-1 and font-medium in place of
+  m-[0], gap-[calc(var(--spacing)_*_1)] and font-[500] (ajcraswell@gmail.com)
+- Read a frame's scale and its layers' boxes from where they're drawn, so resizing, dragging, nudging, snapping, padding
+  handles, the text editor and Paste here agree at every zoom (ajcraswell@gmail.com)
+- An open project keeps one session from opening to closing its tab, so a code change or a reconnect no longer empties
+  its media list or retakes its start page picture (ajcraswell@gmail.com)
+- Repeated parts pair a component's props by name, so two parts writing the same props in another order get the right
+  values and extract cleanly (PAR-998) (ajcraswell@gmail.com)
+- Check that every request a window sends main comes from Parity's own window, unless the request is one the render
+  windows send too (ajcraswell@gmail.com)
 
 ## 0.69.0
 
