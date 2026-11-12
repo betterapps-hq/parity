@@ -1,4 +1,4 @@
-import type { CssDeclaration } from "@parity-app/style"
+import type { CssDeclaration } from "@parity-app/style-schema"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { askingFrameClasses } from "./frame-classes.ts"
 

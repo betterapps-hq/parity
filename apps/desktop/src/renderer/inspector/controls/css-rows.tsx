@@ -1,5 +1,5 @@
 import { Checkbox, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
-import { validate } from "@parity-app/style"
+import { validate } from "@parity-app/style-schema"
 import { Minus, Plus } from "lucide-react"
 import { type ChangeEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"

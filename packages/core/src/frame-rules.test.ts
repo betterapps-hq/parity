@@ -1,4 +1,4 @@
-import type { NodeStyle } from "@parity-app/style"
+import type { NodeStyle } from "@parity-app/style-schema"
 import { describe, expect, it } from "vite-plus/test"
 import type { ClassPrinter } from "./adapters.ts"
 import type { ContainerSpec, DesignNode } from "./document.ts"

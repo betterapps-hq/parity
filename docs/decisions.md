@@ -1,5 +1,9 @@
 # Decisions
 
+- **The style package is `@parity-app/style-schema` (PAR-999).** You found `@parity-app/style` too vague on 2026-11-12
+  and chose this name. Only the name and the folder (`packages/style-schema`) changed: the schema, the ledger,
+  `validate` and the adapter contract are as they were. Entries below written before the rename use the new name.
+
 - **Tokens come in and go out through the styles adapter, and nothing between knows the framework (PAR-911).** You asked
   for this on 2026-11-11, instead of special cases per library. `StylesAdapter` already read a framework's theme
   (`loadTheme`); it now writes token values too (`writeTokens`), and `@parity-app/tokens` keeps only the plain writer
@@ -51,9 +55,9 @@
     Today's model has one placement, Absolute, and no Block layout, so the proposal's rules for Sticky, Fixed and a
     Layer order in a Block layout wait for those.
 
-- **Plain CSS is printed and read in `@parity-app/style`, with css-tree's parser, not Lightning CSS (PAR-944).** Step 6
-  of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for each
-  place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
+- **Plain CSS is printed and read in `@parity-app/style-schema`, with css-tree's parser, not Lightning CSS (PAR-944).**
+  Step 6 of [style-package.md](proposals/style-package.md). `cssPrinter({ selector, themes })` writes one rule set for
+  each place a layer's declarations apply: a state at the end of the selector (`.card:hover`), a viewport as
   `@media (width >= 48rem)` around it, a theme as `:where(.dark, .dark *)`, which adds no specificity. It reads back the
   rules it would have written and keeps the rest as text.
   - **The proposal said Lightning CSS, which is a native Node addon.** The package is pure and runs in the window, so it
@@ -120,7 +124,7 @@
     browser and check nothing without one. A refusal now names the line of the snippet, and the browser is still asked
     after.
 
-- **`@parity-app/style` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
+- **`@parity-app/style-schema` holds the stored style and its CSS, and core reads both from it (PAR-939).** Step 1 of
   [style-package.md](proposals/style-package.md) moved `nodeStyle` out of `core/document.ts` and the style-to-CSS out of
   `core/render.ts`, with nothing drawn differently: render's tests pass as they were. Three calls made along the way:
   - **`declarations(style, { kind, parent })` gives one declaration for each property.** Where two keys write one
@@ -132,16 +136,16 @@
     replaces the inline styles with rules.
   - **Core re-exports the style names the rest of Parity already imports** (`NodeStyle`, `StyleKey`, `Length`,
     `isNamedLength`, `spacing`, `token` and the rest), so the editor, the agent and the app didn't change while PAR-931,
-    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports `@parity-app/style`
-    itself.
+    PAR-933 and PAR-934 were adding keys in the same files. Code that needs `declarations` imports
+    `@parity-app/style-schema` itself.
 
 - **A style package owns what a layer's style means, with CSS as the spec in the middle (PAR-938).** You agreed on
   2026-11-11 to [style-package.md](proposals/style-package.md), after asking whether `NodeStyle` is a real spec (it
   isn't: it mixes CSS, Tailwind and Figma names) and saying the translation layer should be a package of its own. A pure
-  package, `@parity-app/style`, holds the stored style, moved out of core, and turns it into CSS declarations and back;
-  each framework's adapter prints declarations as its own code and reads that code back, Tailwind's by compiling each
-  class with the project's own Tailwind and comparing. A ledger of every CSS property, generated from spec data, gives
-  each property one owning key and its grammar, which values are checked against. You accepted the four calls: the
+  package, `@parity-app/style-schema`, holds the stored style, moved out of core, and turns it into CSS declarations and
+  back; each framework's adapter prints declarations as its own code and reads that code back, Tailwind's by compiling
+  each class with the project's own Tailwind and comparing. A ledger of every CSS property, generated from spec data,
+  gives each property one owning key and its grammar, which values are checked against. You accepted the four calls: the
   package, with the schema leaving core; one format change that renames the keys after their CSS properties, after
   PAR-925, PAR-931, PAR-933 and PAR-934 land; a Tailwind project's canvas draws its compiled classes, with Parity's own
   rules as the fallback; and the new dependencies `@webref/css` or `css-tree`, and `web-features`. The steps are PAR-939
@@ -7618,9 +7622,9 @@ My calls:
   in its state. Showing one frame going from state to state is a feature of its own.
 - **Saving a list as a transition token waits,** since no token kind holds a whole transition yet. The list doesn't
   offer Create token, and the Design tab's other fields don't either.
-- **The schema, its CSS and the spring maths are in `@parity-app/style`** (`motion.ts`), beside the rest of the stored
-  style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import the
-  spring maths from there.
+- **The schema, its CSS and the spring maths are in `@parity-app/style-schema`** (`motion.ts`), beside the rest of the
+  stored style since PAR-939. Core re-exports what the app and the agent use, and the controls' stand-in models import
+  the spring maths from there.
 
 ## Parity's service is one TanStack Start app on a Cloudflare Worker (PAR-131)
 

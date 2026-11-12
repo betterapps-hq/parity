@@ -1,4 +1,4 @@
-import { nodeStyle, styleKey } from "@parity-app/style"
+import { nodeStyle, styleKey } from "@parity-app/style-schema"
 import { z } from "zod"
 import { modeSettings } from "./modes.ts"
 import { fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"

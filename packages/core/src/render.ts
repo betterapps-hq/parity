@@ -5,7 +5,7 @@ import {
   type LayerKind,
   type NodeStyle,
   type StyleContext
-} from "@parity-app/style"
+} from "@parity-app/style-schema"
 import { z } from "zod"
 import type { FrameViewport } from "./adapters.ts"
 import { screenHeightForWidth } from "./devices.ts"

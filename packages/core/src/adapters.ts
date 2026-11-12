@@ -1,4 +1,4 @@
-import type { StylePrinter } from "@parity-app/style"
+import type { StylePrinter } from "@parity-app/style-schema"
 import { z } from "zod"
 import type { GuestComponentSource } from "./guest-changes.ts"
 import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
