@@ -514,7 +514,7 @@ export function CenteredSlider({
     }
 
     if ("reason" in reading) {
-      return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
+      return { reason: reading.reason }
     }
 
     const number = Math.round(reading.value)

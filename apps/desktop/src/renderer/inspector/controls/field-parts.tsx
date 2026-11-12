@@ -3258,13 +3258,6 @@ export function PercentField({
   const held = tokens?.current === undefined ? undefined : tokens.list.find((token) => token.name === tokens.current)
   const from = value ?? held?.percent ?? unsetIs ?? (Number(placeholder) || 0)
   const settle = (number: number) => clamp(Number(formatNumber(number, places)), min, max)
-  const words = Object.keys(keywords ?? {})
-  const others = [...words, ...(tokens ? ["an opacity token"] : [])]
-
-  const takes =
-    others.length > 0
-      ? `Enter a percentage${others.length > 1 ? `, ${others.slice(0, -1).join(", ")}` : ""} or ${others.at(-1)}`
-      : "Enter a percentage, such as 50"
 
   // A token steps to the next in the list's order, Shift to the first or last, as every token does.
   const stepHeld = (up: boolean, { shift }: ScrubKeys) => {
@@ -3323,7 +3316,7 @@ export function PercentField({
         }
 
         if ("reason" in reading) {
-          return { reason: reading.reason.startsWith("Can't read") ? takes : reading.reason }
+          return { reason: reading.reason }
         }
 
         const kept = Number(formatNumber(reading.value, places))
