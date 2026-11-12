@@ -29,8 +29,8 @@ import {
 } from "@parity-app/editor"
 import { toast } from "sonner"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
-import type { ContainerEntry } from "../design-store.ts"
-import type { ProjectSession } from "../workspace.ts"
+import type { ContainerEntry, DesignStore } from "../design-store.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 
 /**
  * What acts on several layers or designs at once: deleting, duplicating, selecting all, wrapping in a layout, ordering,
@@ -40,7 +40,7 @@ import type { ProjectSession } from "../workspace.ts"
 
 /** The design the selected layers are in, with their ids, outermost first. Undefined unless layers are selected. */
 export function selectedLayers(
-  session: ProjectSession
+  session: ProjectDesigns
 ): { entry: ContainerEntry; ids: string[]; frame: EditFrame } | undefined {
   const current = session.selection.get()
   const entry = current.design ? session.store.getEntry(current.design) : undefined
@@ -56,7 +56,7 @@ export function selectedLayers(
   return top.length > 0 ? { entry, ids: top, frame } : undefined
 }
 
-export function deleteLayers(session: ProjectSession): boolean {
+export function deleteLayers(session: ProjectDesigns): boolean {
   const layers = selectedLayers(session)
 
   if (!layers) {
@@ -82,7 +82,7 @@ export function deleteLayers(session: ProjectSession): boolean {
 }
 
 /** Copies each selected layer in place, just after itself, and selects the copies. */
-export function duplicateLayers(session: ProjectSession): boolean {
+export function duplicateLayers(session: ProjectDesigns): boolean {
   const layers = selectedLayers(session)
 
   if (!layers) {
@@ -106,7 +106,7 @@ export function duplicateLayers(session: ProjectSession): boolean {
   return copies.length > 0
 }
 
-export function deleteDesigns(session: ProjectSession): boolean {
+export function deleteDesigns(session: ProjectDesigns): boolean {
   const keys = selectedDesigns(session.selection.get())
   const entries = keys.flatMap((key) => session.store.getEntry(key) ?? [])
 
@@ -127,7 +127,7 @@ export function deleteDesigns(session: ProjectSession): boolean {
 }
 
 /** Ctrl+A: the selected layer and its siblings, or every design. */
-export function selectAll(session: ProjectSession): void {
+export function selectAll(session: ProjectDesigns): void {
   const { store, selection } = session
   const current = selection.get()
   const entry = current.design ? store.getEntry(current.design) : undefined
@@ -146,7 +146,7 @@ export function selectAll(session: ProjectSession): void {
 }
 
 /** Puts the selected layers in a new layout, laid out the way their parent lays them out, and selects it. */
-export function wrapLayers(session: ProjectSession): boolean {
+export function wrapLayers(session: ProjectDesigns): boolean {
   const layers = selectedLayers(session)
 
   if (!layers) {
@@ -180,7 +180,7 @@ export function wrapLayers(session: ProjectSession): boolean {
 }
 
 /** Takes the selected layout away, leaving its layers where it was. */
-export function unwrapLayer(session: ProjectSession): boolean {
+export function unwrapLayer(session: ProjectDesigns): boolean {
   const layers = selectedLayers(session)
 
   if (!layers || layers.ids.length !== 1) {
@@ -215,7 +215,7 @@ const orderLabels: Record<Order, string> = {
 }
 
 /** Moves the selected layer among its siblings: forward is later in its layout, and down the Layers list. */
-export function orderLayer(session: ProjectSession, order: Order): boolean {
+export function orderLayer(session: ProjectDesigns, order: Order): boolean {
   const layers = selectedLayers(session)
 
   if (!layers || layers.ids.length !== 1) {
@@ -235,7 +235,7 @@ export function orderLayer(session: ProjectSession, order: Order): boolean {
 }
 
 /** Hides the selected layers in the state being edited, or shows them again when they're all hidden. */
-export function toggleHiddenLayers(session: ProjectSession): boolean {
+export function toggleHiddenLayers(session: ProjectDesigns): boolean {
   const layers = selectedLayers(session)
 
   if (!layers) {
@@ -254,7 +254,7 @@ export function toggleHiddenLayers(session: ProjectSession): boolean {
  * Locks the selected layers, or the selected designs, or unlocks them when they're all locked (PAR-192). Layers inside
  * an instance and the design's root are left alone (see `lockableIds`); the selection stays, so it can be unlocked.
  */
-export function toggleLockedSelection(session: ProjectSession): boolean {
+export function toggleLockedSelection(session: ProjectDesigns): boolean {
   const layers = selectedLayers(session)
 
   if (layers) {
@@ -293,7 +293,7 @@ export function toggleLockedSelection(session: ProjectSession): boolean {
  * Aligns the selection. Designs line up on the canvas by their edges or centers. Layers in a layout align on their
  * parent's cross axis by themselves; along its main axis, the parent moves all its children together.
  */
-export function align(session: ProjectSession, alignment: Alignment): void {
+export function align(session: ProjectDesigns & Pick<ProjectSession, "editor">, alignment: Alignment): void {
   const layers = selectedLayers(session)
 
   if (layers) {
@@ -309,22 +309,25 @@ export function align(session: ProjectSession, alignment: Alignment): void {
   const selected = selectedDesigns(session.selection.get())
 
   if (moves.size > 0) {
-    moveDesigns(session, moves, `Align ${session.store.designsLabel(selected)}`)
+    moveDesigns(session.store, moves, `Align ${session.store.designsLabel(selected)}`)
   }
 }
 
 /** Spaces three or more designs evenly between the outermost two. */
-export function distribute(session: ProjectSession, axis: "horizontal" | "vertical"): void {
+export function distribute(
+  session: ProjectDesigns & Pick<ProjectSession, "editor">,
+  axis: "horizontal" | "vertical"
+): void {
   const moves = distributeBoxes(designBoxes(session), axis)
   const selected = selectedDesigns(session.selection.get())
 
   if (moves.size > 0) {
-    moveDesigns(session, moves, `Distribute ${session.store.designsLabel(selected)}`)
+    moveDesigns(session.store, moves, `Distribute ${session.store.designsLabel(selected)}`)
   }
 }
 
 /** The selected designs' boxes on the canvas. */
-function designBoxes(session: ProjectSession): DesignBox[] {
+function designBoxes(session: ProjectDesigns & Pick<ProjectSession, "editor">): DesignBox[] {
   return selectedDesigns(session.selection.get()).flatMap((key) => {
     const entry = session.store.getEntry(key)
     const bounds = entry ? session.editor?.getShapePageBounds(canvasIdFor(key)) : undefined
@@ -346,11 +349,10 @@ function designBoxes(session: ProjectSession): DesignBox[] {
 
 /** Moves designs to new positions as one undo step. */
 export function moveDesigns(
-  session: ProjectSession,
+  store: DesignStore,
   moves: ReadonlyMap<string, { x: number; y: number }>,
   label: string
 ): void {
-  const { store } = session
   store.change(label, (snapshot) => {
     const documents = repositionDesigns(
       snapshot.documents,

@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { layerLabel } from "../canvas/kinds.tsx"
 import { errorCode, errorMessage, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
-import { type ProjectSession, workspace } from "../workspace.ts"
+import { type ProjectDesigns, type ProjectSession, workspace } from "../workspace.ts"
 import { getPreferences } from "./preferences.ts"
 
 /**
@@ -42,7 +42,7 @@ export interface ExportTarget {
 }
 
 /** What exporting or copying as a PNG acts on: the selected layers, or else the selected designs, named as Layers names them. */
-export function selectedTargets(session: ProjectSession): ExportTarget[] {
+export function selectedTargets(session: ProjectDesigns & Pick<ProjectSession, "info">): ExportTarget[] {
   const { store } = session
   const selection = session.selection.get()
   const entry = selection.design ? store.getEntry(selection.design) : undefined
@@ -71,7 +71,7 @@ export function selectedTargets(session: ProjectSession): ExportTarget[] {
  * the first, and warns of any it couldn't draw.
  */
 export async function exportLayers(
-  session: ProjectSession,
+  projectId: string,
   targets: readonly ExportTarget[],
   sizes: readonly ExportSize[]
 ): Promise<void> {
@@ -105,7 +105,7 @@ export async function exportLayers(
 
   try {
     const { files: written, warnings } = await request("layers.export", {
-      projectId: session.id,
+      projectId,
       folder,
       layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
       files
@@ -163,7 +163,9 @@ function trackExportFailed(exported: Exported & { durationMs: number }, cause: u
  * File > Export all: renders every design, in each of its states and the modes shown beside it, to PNGs at the export
  * scale, in a folder the person picks.
  */
-export async function exportAllImages(session = activeSession()): Promise<void> {
+export async function exportAllImages(
+  session: Pick<ProjectSession, "id" | "store"> | undefined = activeSession()
+): Promise<void> {
   if (!session) {
     return
   }
@@ -228,7 +230,7 @@ export function exit(): void {
 }
 
 /** The selected design, when it's selected on its own rather than one of its layers. */
-export function selectedDesign(session = activeSession()) {
+export function selectedDesign(session: ProjectDesigns | undefined = activeSession()) {
   const current = session?.selection.get()
 
   return current?.design && !current.node && !current.designs?.length

@@ -78,7 +78,7 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
 
   // Each layer measured in the frame the selection was picked in, so a size worked out from it is its own.
   const measure: LayerMeasure = (id, axis, round) => {
-    const size = measureNode(session, entry.key, id, selected)
+    const size = measureNode(session.editor, entry.key, id, selected)
 
     return size && Math.max(1, round(size[axis] / unit))
   }
