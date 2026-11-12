@@ -264,6 +264,51 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
     [["border-radius", "var(--radius-full, calc(infinity * 1px))", "radius"]]
   ],
   ["shadow", { shadow: "shadow-md" }, component, [["box-shadow", "var(--shadow-md)", "shadow"]]],
+  [
+    "a stack of shadows, top first, without the ones that are off",
+    {
+      shadow: [
+        { kind: "drop", token: "shadow-md" },
+        { kind: "inner", x: 0, y: 1, blur: 2, spread: 0, color: { color: "foreground", alpha: 10 } },
+        { kind: "ring", width: 1, color: { color: "ring" }, off: true }
+      ]
+    },
+    component,
+    [
+      [
+        "box-shadow",
+        "var(--shadow-md), inset 0 1px 2px 0 color-mix(in oklab, var(--foreground) 10%, transparent)",
+        "shadow"
+      ]
+    ]
+  ],
+  [
+    "filters, and those on what's behind",
+    {
+      filter: [
+        { kind: "blur", value: "blur-sm" },
+        { kind: "adjust", values: { brightness: 25 } }
+      ],
+      backdropFilter: [{ kind: "blur", value: "blur-md" }]
+    },
+    component,
+    [
+      ["filter", "blur(var(--blur-sm)) brightness(125%)", "filter"],
+      ["backdrop-filter", "blur(var(--blur-md))", "backdropFilter"]
+    ]
+  ],
+  [
+    "a transform, each part its own property",
+    { transform: { x: 2, y: { percent: -50 }, rotate: 45, scaleX: -100, skewX: 10, origin: { x: 50, y: 0 } } },
+    component,
+    [
+      ["translate", "calc(var(--spacing) * 2) -50%", "transform"],
+      ["rotate", "45deg", "transform"],
+      ["scale", "-1 1", "transform"],
+      ["transform", "skewX(10deg)", "transform"],
+      ["transform-origin", "50% 0%", "transform"]
+    ]
+  ],
   ["opacity", { opacity: 50 }, component, [["opacity", "0.5", "opacity"]]],
   ["opacity of none", { opacity: 0 }, component, [["opacity", "0", "opacity"]]],
   ["overflow", { overflow: "hidden" }, component, [["overflow", "hidden", "overflow"]]],
@@ -297,7 +342,7 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ["weight", { weight: 600 }, component, [["font-weight", "600", "weight"]]],
   ["tracking", { tracking: "tracking-wide" }, component, [["letter-spacing", "var(--tracking-wide)", "tracking"]]],
   ["textAlign", { textAlign: "center" }, component, [["text-align", "center", "textAlign"]]],
-  ["transform", { transform: "uppercase" }, component, [["text-transform", "uppercase", "transform"]]],
+  ["textTransform", { textTransform: "uppercase" }, component, [["text-transform", "uppercase", "textTransform"]]],
   ["decoration", { decoration: "line-through" }, component, [["text-decoration-line", "line-through", "decoration"]]],
   ["italic", { italic: true }, component, [["font-style", "italic", "italic"]]],
   ["what's switched off writes nothing", { italic: false, wrap: false, grow: false }, layout, flexBox],

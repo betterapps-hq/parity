@@ -67,6 +67,7 @@ import {
 } from "lucide-react"
 import { type ComponentType, useState } from "react"
 import { kindColors } from "../canvas/kinds.tsx"
+import { EffectsSection } from "../inspector/sections/effects.tsx"
 import { LayerOrderSection } from "../inspector/sections/LayerOrderSection.tsx"
 import {
   ChoiceInput,
@@ -153,8 +154,8 @@ interface SectionProps {
 }
 
 /**
- * Each section the app draws, by the table's name for it. The table's other sections (Grid placement,
- * Fill, Effects, Motion, Raw CSS) aren't built yet, and draw nothing.
+ * Each section the app draws, by the table's name for it. The table's other sections (Grid placement, Fill, Motion,
+ * Raw CSS) aren't built yet, and draw nothing.
  */
 const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> = {
   // Until Frame size is built, a frame's root's Size is the frame's own size (see `useStyleEditor`).
@@ -166,7 +167,8 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
   spacing: SpacingSection,
   appearance: AppearanceSection,
   text: TextSection,
-  stroke: StrokeSection
+  stroke: StrokeSection,
+  effects: EffectsSection
 }
 
 /** The layer panel leaves out the design, since it never shows a design's root: no layer's id is empty. */
@@ -807,15 +809,6 @@ function AppearanceSection({ editor }: SectionProps) {
             onChange={(radius) => set("radius", { radius }, "Change radius")}
           />
         </Field>
-        <Field label="Shadow" {...rowOf(editor, "shadow")}>
-          <TokenInput
-            label="Shadow"
-            value={style.shadow}
-            tokens={tokens}
-            categories={["shadow"]}
-            onChange={(shadow) => set("shadow", { shadow }, "Change shadow")}
-          />
-        </Field>
         <Field label="Opacity" {...rowOf(editor, "opacity")}>
           <NumberInput
             value={style.opacity}
@@ -1058,10 +1051,10 @@ function TextSection({ editor, can, shows }: SectionProps) {
         </Field>
         <Field label="Case" {...rowOf(editor, "case")}>
           <ChoiceInput
-            value={style.transform}
+            value={style.textTransform}
             options={transformOptions}
             placeholder="As typed"
-            onChange={(transform) => set("case", { transform }, "Change case")}
+            onChange={(textTransform) => set("case", { textTransform }, "Change case")}
           />
         </Field>
         {shows("maxLines") && (

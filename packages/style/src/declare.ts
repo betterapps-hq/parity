@@ -1,4 +1,5 @@
-import { isNamedLength, type Length, type NodeStyle, type Padding, type StyleKey } from "./model.ts"
+import { filterCss, shadowCss, spacing, token, transformCss } from "./effects.ts"
+import { isNamedLength, type NodeStyle, type Padding, type StyleKey } from "./model.ts"
 
 /** One CSS declaration a style comes to. */
 export interface Declaration {
@@ -67,20 +68,6 @@ class Sheet {
   declarations(): Declaration[] {
     return [...this.#written.values()]
   }
-}
-
-/** A step of the spacing scale (a multiple of the project's spacing unit), or a length token. */
-export function spacing(value: Length): string {
-  if (isNamedLength(value)) {
-    return token(value)
-  }
-
-  return value === 0 ? "0" : `calc(var(--spacing) * ${value})`
-}
-
-/** A reference to one of the project's custom properties. */
-export function token(name: string): string {
-  return `var(--${name})`
 }
 
 /**
@@ -208,8 +195,10 @@ function surface(css: Sheet, style: NodeStyle): void {
     css.set("border-radius", radiusCss(style.radius), "radius")
   }
 
-  if (style.shadow) {
-    css.set("box-shadow", token(style.shadow), "shadow")
+  const boxShadow = shadowCss(style.shadow)
+
+  if (boxShadow) {
+    css.set("box-shadow", boxShadow, "shadow")
   }
 
   if (style.overflow) {
@@ -276,7 +265,26 @@ function box(css: Sheet, style: NodeStyle, parent: Direction | undefined): void 
     css.set("opacity", String(style.opacity / 100), "opacity")
   }
 
+  effects(css, style)
   type(css, style)
+}
+
+/** Filters, the backdrop's filters and the transform. */
+function effects(css: Sheet, style: NodeStyle): void {
+  for (const [property, value] of Object.entries(transformCss(style.transform))) {
+    css.set(property, value, "transform")
+  }
+
+  const filter = filterCss(style.filter)
+  const backdrop = filterCss(style.backdropFilter)
+
+  if (filter) {
+    css.set("filter", filter, "filter")
+  }
+
+  if (backdrop) {
+    css.set("backdrop-filter", backdrop, "backdropFilter")
+  }
 }
 
 /** Type, which the text inside a layout inherits. */
@@ -310,8 +318,8 @@ function type(css: Sheet, style: NodeStyle): void {
     css.set("text-align", style.textAlign, "textAlign")
   }
 
-  if (style.transform) {
-    css.set("text-transform", style.transform, "transform")
+  if (style.textTransform) {
+    css.set("text-transform", style.textTransform, "textTransform")
   }
 
   if (style.decoration) {
