@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Drop references to the deleted decisions record from comments",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

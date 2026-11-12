@@ -3,8 +3,7 @@
 Every piece of planned work for Parity is an issue in Linear, in the
 [Parity project](https://linear.app/agency-platform/project/parity-3179c1feb580) of the Parity team, whose issue IDs
 start with PAR. It moved there from `docs/backlog.md` on 2026-10-29. Sessions reach it through the Linear connector.
-What's decided goes in [decisions.md](decisions.md), designs in [proposals](proposals), and what works in
-[support.md](support.md).
+Designs go in [proposals](proposals), and what works in [support.md](support.md).
 
 ## How sessions use it
 
@@ -22,8 +21,8 @@ What's decided goes in [decisions.md](decisions.md), designs in [proposals](prop
    `Fixes PAR-16` in its description, one line per issue it finishes, so Linear links it and closes the issue when it
    merges.
 5. **Finish:** run `pnpm verify`, then do what the issue's "Update when done" says: the rows it changes in support.md
-   (and ask the Design Editor session to republish the support matrix), the feature's section in editor.md, and any
-   calls you made in decisions.md. Commit as [AGENTS.md](../AGENTS.md) says.
+   (and ask the Design Editor session to republish the support matrix) and the feature's section in editor.md. Commit as
+   [AGENTS.md](../AGENTS.md) says.
 6. **Close it once the work is on main,** with a comment saying what landed: the files, the tests, the doc section and
    the commit. Work lands through a pull request on GitHub (betterapps-hq/parity), as [AGENTS.md](../AGENTS.md) says;
    never commit to or push `main` itself. Once the work is verified, push its branch and open the pull request yourself,
@@ -33,8 +32,8 @@ What's decided goes in [decisions.md](decisions.md), designs in [proposals](prop
 7. **Found more work?** Create an issue in the Parity project, written as below. A bug Sentry filed is picked up as
    [Bugs from Sentry](#bugs-from-sentry) says.
 8. **Blocked by a decision?** Create an issue with the Decision label, assigned to the user, that blocks the issue it
-   holds up. Questions go to the user, not into the code. When the user answers, record the answer in decisions.md,
-   close the Decision issue, and update the issues it blocked.
+   holds up. Questions go to the user, not into the code. When the user answers, close the Decision issue and update the
+   issues it blocked.
 
 ## Bugs from Sentry
 
@@ -56,10 +55,10 @@ with the Bug label and its Sentry link, as [sentry.md](sentry.md#alerts) says.
 - **Title:** what the work does, starting with a verb: "Read SQLite and D1 schemas with PRAGMA".
 - **Description,** in this order:
   - **Done when:** what's true once it's finished, specific enough to check.
-  - **Source:** the proposal section, decisions.md section, audit or request it came from.
+  - **Source:** the proposal section, audit or request it came from.
   - **Update when done:** the docs it changes. Editor features get their section in editor.md with the tests that cover
-    them, adapters and lenses their rows in support.md, agent calls their line in the skill with an example that runs,
-    and every issue decisions.md for any calls made.
+    them, adapters and lenses their rows in support.md, and agent calls their line in the skill with an example that
+    runs.
 - **Stream:** one label from the Stream group, such as Data lens or Canvas and editor.
 - **Estimate:** 2 points is a short session, 3 a full one, 5 a full one with little slack (the backlog's S, M and L).
 - **Blocked by:** the issues it needs first.

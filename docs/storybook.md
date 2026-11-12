@@ -1,8 +1,7 @@
 # Storybook and Parity
 
 How Parity and a project's Storybook connect today, what's planned, and the rules that keep the two from getting tightly
-coupled. You asked for this because you expect the coupling to grow. Calls made here are also in
-[decisions.md](decisions.md).
+coupled. You asked for this because you expect the coupling to grow.
 
 ## In one line
 
@@ -125,7 +124,7 @@ components open on their docs page.
 - **Stories from component designs.** A component design's states become stories, written next to the component file
   Parity writes for it. See [components.md](proposals/components.md).
 - **One process manager.** Storybook starts and stops through it now (PAR-20), and dev servers and `wrangler dev` are to
-  follow. See [web-and-backend.md](proposals/web-and-backend.md) and [decisions.md](decisions.md).
+  follow. See [web-and-backend.md](proposals/web-and-backend.md).
 - **Mock data in stories.** MSW handlers built from the OpenAPI document are served to Storybook as well as to rendered
   routes. See [web-and-backend.md](proposals/web-and-backend.md).
 - **Stories as tests, later.** Running stories through Storybook's Vitest add-on, once the core works. See
@@ -135,8 +134,7 @@ components open on their docs page.
 
 ## The boundary
 
-These rules keep Storybook optional and replaceable. A change that breaks one needs a decision in
-[decisions.md](decisions.md) first.
+These rules keep Storybook optional and replaceable. A change that breaks one needs your agreement first.
 
 1. **Storybook is optional.** Every feature works without it. Where Storybook adds something, such as a project's
    decorators, Parity has its own way to get the same thing: `.parity/preview.tsx`, `.lib.par` decorators, modes. And
@@ -237,12 +235,6 @@ the canvas.
 
 ## Where the docs and the code disagree
 
-- **The detection rule.** [decisions.md](decisions.md) says a `.storybook/main.*` folder "or" a script that runs
-  `storybook dev`. The code always needs the `main` file; the script only moves the folder and sets the port. The code
-  is right, because Storybook can't run without `main`. decisions.md should say so.
-- **The port.** decisions.md says Parity starts Storybook "on a free port". The code tries the script's port, or 6006,
-  first, and picks a free one only when that's taken. The code is the better behaviour, since links people already use
-  keep working. decisions.md should say so.
 - **The decorator order.** Storybook nests decorators from the story outwards: the list is
   `[...story, ...component, ...project]`, and each decorator wraps everything before it. So in one list, **the first
   decorator is innermost and the last outermost**, and the project's wrap the component's, which wrap the story's. This
@@ -254,10 +246,10 @@ the canvas.
   - **Fix:** keep `.lib.par` lists outermost first, since that reads like the JSX it makes, but call it Parity's
     manifest order, not Storybook's. Reverse it when compiling into the decorator list, before any project decorators
     join, so a project's decorators nest exactly as in Storybook.
-- **The decorator context.** decisions.md and decorators.md say a decorator gets `args`, `globals`, `parameters` and
-  `loaded`. The guest passes only `globals`. That's enough for `.lib.par` decorators today, which read only the mode.
-  Before a project's own decorators run, the guest must pass the rest, plus `id`, and `viewMode` as `"story"`, because
-  Storybook decorators sometimes read it.
+- **The decorator context.** decorators.md says a decorator gets `args`, `globals`, `parameters` and `loaded`. The guest
+  passes only `globals`. That's enough for `.lib.par` decorators today, which read only the mode. Before a project's own
+  decorators run, the guest must pass the rest, plus `id`, and `viewMode` as `"story"`, because Storybook decorators
+  sometimes read it.
 
 ## Tests
 

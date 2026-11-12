@@ -222,8 +222,7 @@ function isPlainObject(value: unknown): value is PlainObject {
 
 /**
  * A scrubber for every event before it leaves a process: `createTelemetry` runs one on each event's attributes before
- * its sinks, and the app's and the CLI's Sentry hooks run one on what Sentry sends (decisions.md, "Secrets are scrubbed
- * before any event leaves a process").
+ * its sinks, and the app's and the CLI's Sentry hooks run one on what Sentry sends.
  */
 export function createScrubber(options: ScrubOptions = {}): Scrubber {
   const secrets = [...new Set(options.secrets ?? [])].filter((secret) => secret.length >= shortestSecret)

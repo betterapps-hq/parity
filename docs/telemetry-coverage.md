@@ -95,7 +95,7 @@ while it's off.
 
 ## Personal and project data
 
-[decisions.md](decisions.md) chose "send it as it is, except secrets" for testers. This is what that sends:
+Testers' builds send data as it is, except secrets. This is what that sends:
 
 | Data                                     | Where it goes                                                                                                          | Sent as written?                                                                                  |
 | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
