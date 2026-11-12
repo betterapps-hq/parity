@@ -25,7 +25,6 @@ function card(): ContainerSpec {
         }
       ]
     },
-    states: [{ id: "default", name: "Default" }],
     params: {
       label: { type: "text", default: "Revenue" },
       showTrend: { type: "boolean", default: false },
@@ -220,14 +219,14 @@ describe("changeArgs", () => {
       args: { title: "Sales", size: "small" },
       responsive: { mobile: { props: { title: "Sales (m)" }, unset: { props: ["size"] } } }
     })
-    expect(next.states[1]!.overrides).toEqual({ revenue: { props: { title: "None" } } })
+    expect(next.states![1]!.overrides).toEqual({ revenue: { props: { title: "None" } } })
   })
 
   it("drops an arg, and a patch left with nothing", () => {
     const next = changeArgs(screen(), "stat-card", { drop: "label" }, library)
 
     expect(findNode(next.root, "revenue")).toMatchObject({ args: { size: "small" } })
-    expect(next.states[1]).toEqual({ id: "empty", name: "Empty" })
+    expect(next.states![1]).toEqual({ id: "empty", name: "Empty" })
   })
 
   it("drops a variant's arg only where it picked an option that went", () => {

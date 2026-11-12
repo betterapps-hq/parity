@@ -331,6 +331,9 @@ importers:
       '@parity-app/builder-vite':
         specifier: workspace:*
         version: link:../../packages/builder-vite
+      '@parity-app/change-detection':
+        specifier: workspace:*
+        version: link:../../packages/change-detection
       '@parity-app/channel':
         specifier: workspace:*
         version: link:../../packages/channel
@@ -617,6 +620,15 @@ importers:
       vite:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
+
+  packages/change-detection:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/channel: {}
 

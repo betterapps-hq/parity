@@ -11,7 +11,6 @@ function design(extra: Partial<ContainerSpec> = {}): ContainerSpec {
     name: "Page",
     position: { x: 0, y: 0 },
     root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }],
     ...extra
   }
 }

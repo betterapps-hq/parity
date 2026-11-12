@@ -16,16 +16,14 @@ const projects: ContainerSpec = {
   id: "projects",
   name: "Projects",
   position: { x: 0, y: 0 },
-  root: { type: "layout", id: "page", children: [card("a", "Atlas"), card("b", "Beacon")] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "page", children: [card("a", "Atlas"), card("b", "Beacon")] }
 }
 
 const settings: ContainerSpec = {
   id: "settings",
   name: "Settings",
   position: { x: 1600, y: 0 },
-  root: { type: "layout", id: "settings-page", children: [] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "settings-page", children: [] }
 }
 
 const documents = (): Map<string, CanvasDocument> =>

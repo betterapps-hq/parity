@@ -62,8 +62,8 @@ export interface SnippetApi {
    */
   Get: {
     /**
-     * A design's root or a node. `depth` cuts children off with `"…"`; `state` and `mode` read it as that frame draws
-     * it.
+     * A design's root or a node. `depth` cuts children off with `"…"`; `state` (a component's) and `mode` read it as
+     * that frame draws it.
      */
     (path: string, options?: GetOptions): ReadNode
     /**
@@ -148,7 +148,7 @@ export interface SnippetApi {
   Insert: (parent: string, node: unknown, options?: PlaceOptions | DocumentPlacement) => string
 
   /**
-   * Changes a node in the base design, or in a state given `state`.
+   * Changes a node in the base design, or in a component's state given `state`.
    * @category Nodes
    */
   Update: (path: string, change: UpdateChange, options?: UpdateOptions) => void
@@ -182,16 +182,17 @@ export interface SnippetApi {
   Responsive: (path: string, viewport: string, patch: PatchInput | null) => void
 
   /**
-   * Adds a state and returns its id. `changes` are keyed by node id or name.
+   * Adds a state to a component and returns its id. `changes` are keyed by node id or name. Only a component has
+   * states, to show it in its variations; a screen or a frame has none.
    * @category States
    */
-  AddState: (design: string, spec: StateInput) => string
+  AddState: (component: string, spec: StateInput) => string
+
+  /** Renames a component's state or changes what it changes. @category States */
+  UpdateState: (component: string, state: string, spec: StateUpdate) => void
 
   /** @category States */
-  UpdateState: (design: string, state: string, spec: StateUpdate) => void
-
-  /** @category States */
-  DeleteState: (design: string, state: string) => void
+  DeleteState: (component: string, state: string) => void
 
   /**
    * Parts of a design that repeat with the same structure, to make a component of.
@@ -282,11 +283,13 @@ export interface SnippetApi {
   Print: (...values: unknown[]) => void
 }
 
-/** A design as `Designs()` lists it. */
-export interface DesignSummary {
+/** A design as `Designs()` lists it. Only a component has states, so only a component lists them. */
+export type DesignSummary = ScreenSummary | ComponentSummary
+
+/** What `Designs()` says about every design. */
+interface SummaryFields {
   id: string
   name: string
-  kind: "screen" | "component" | "frame"
   /** The project file it's in. */
   file: string
   /** Where it is on the canvas. */
@@ -295,12 +298,24 @@ export interface DesignSummary {
   /** Its board's size, as the canvas last drew it. Unset until it's drawn. */
   width?: number
   height?: number
-  /** Each state, by the id other functions take and the name it shows. */
+  /** How many nodes it has. */
+  nodes: number
+}
+
+/** A screen or a frame: drawn as its layers are, with no states. */
+export interface ScreenSummary extends SummaryFields {
+  kind: "screen" | "frame"
+  /** Its main frame's mode and the modes beside it. */
+  showing: { mode: string; beside: string[] }
+}
+
+/** A component, with the states it's shown in. */
+export interface ComponentSummary extends SummaryFields {
+  kind: "component"
+  /** Each state, the base first, by the id other functions take and the name it shows. */
   states: { id: string; name: string }[]
   /** The state its board shows, its main frame's mode and the modes beside it. */
   showing: { state: string; mode: string; beside: string[] }
-  /** How many nodes it has. */
-  nodes: number
 }
 
 /** A node as `Get` reads it, with children past `depth` cut off as `"…"`. */

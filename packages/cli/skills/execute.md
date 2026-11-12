@@ -77,8 +77,9 @@ with `unknown_state`, and the error names the id it belongs to.
 
 ### Designs
 
-Lists every design with its `id`, `name`, `kind` (`screen`, `component` or `frame`), `states`, and `showing`: the state
-on the canvas, the main mode and the modes beside it. Start here to find ids.
+Lists every design with its `id`, `name`, `kind` (`screen`, `component` or `frame`) and `showing`: the main mode and the
+modes beside it. A component also lists its `states`, the base first, and `showing.state`, the state on the canvas; a
+screen or a frame has no states, so it lists none. Start here to find ids.
 
 ### Get
 
@@ -223,13 +224,14 @@ selected one" usually mean it.
 
 ## How a design fits together
 
-Parity builds the real app, and each design is one component tree, as its code is. Its states are the data and props the
-tree is in, its modes are the screens and themes it's drawn at, and its responsive patches are its breakpoints. Build
-one tree and patch it; never copy a design per screen or per state. When you're unsure how something should draw, ask
-what the code would do.
+Parity builds the real app, and each design is one component tree, as its code is. A component's states are the data and
+props it's tested in, a design's modes are the screens and themes it's drawn at, and its responsive patches are its
+breakpoints. Build one tree and patch it; never copy a design per screen or per state. When you're unsure how something
+should draw, ask what the code would do.
 
 A desktop menu that opens, while phones have a menu of their own, is `isOpen && <Menu className="max-md:hidden" />` in
-code. Open is app state, and "not on phones" is a breakpoint that applies whatever the state is. In Parity:
+code. Open is app state, and "not on phones" is a breakpoint that applies whatever the state is. In Parity, the header
+is a component, since only a component has states:
 
 ```js
 Update("header/Menu", { hidden: true }) // closed in the base design
@@ -253,9 +255,10 @@ from those copies instead. A component built once, such as an app's sidebar, dec
 bind them (see Params below).
 
 `kind: "frame"` makes a frame, the light kind for sketching an idea before it's a screen or a component: an empty padded
-layout, drawn once at its own `width` and `height` in the project's primary mode. A frame has one state, no params and
+layout, drawn once at its own `width` and `height` in the project's primary mode. A frame has no states, no params and
 no modes beside it, and no code is written from it, so `AddState`, `showModes` or another `mode` on one fail with
-`invalid_input`. Turn it into a screen or a component when it needs them.
+`invalid_input`. Turn it into a screen or a component when it needs them. A screen has no states either; only a
+component does, so `baseState` names a component's first state.
 
 ```js
 const sketch = CreateDesign({ name: "Sketch", kind: "frame", width: 480, height: 320 })
@@ -267,12 +270,13 @@ UpdateDesign(sketch, { kind: "screen" }) // keeps its layers, and its size in th
 ### UpdateDesign
 
 Renames or moves a design, or changes how it's shown: `mode` sets the main frame's mode, `showModes` the modes beside
-it, `state` the state on the canvas, and `allStates: true` shows every state in its own row. None of these change the
-design itself. `width` and `height` resize a frame.
+it, and for a component, `state` the state on the canvas and `allStates: true` every state in its own row. None of these
+change the design itself. `width` and `height` resize a frame.
 
 `kind` turns a design into another kind. Turned into a frame, a design keeps its layers as its board drew them in the
 base state, with its params' values filled in, and drops its other states, the modes beside it, its params and its
-variants; the call's warnings say what went.
+variants; the call's warnings say what went. A component turned into a screen keeps its base state's look and drops its
+other states.
 
 ## Nodes
 
@@ -307,9 +311,9 @@ and `component`. `props`, `args` and `style` merge with what's there; set a key 
 video node also takes `src`, `alt` and `credit` (`[{ name, url? }]`), in the base design only. To put a photo or video a
 search found in one, use `place_result`, which tells the source it was used.
 
-With `{ state: "loading" }` the change belongs to that state instead of the base design, and `null` takes back the
-state's change to that key. A state can change only `hidden`, `text`, `props`, `style` and `unset`. To turn off in one
-state what the base sets, list it in `unset`:
+On a component, with `{ state: "loading" }` the change belongs to that state instead of the base design, and `null`
+takes back the state's change to that key. A state can change only `hidden`, `text`, `props`, `style` and `unset`. To
+turn off in one state what the base sets, list it in `unset`:
 `Update(button, { unset: { props: ["disabled"], style: ["gap"] } }, { state: "ready" })`. In the base design, `unset`
 removes the keys as `null` does.
 
@@ -352,18 +356,20 @@ remove it. `null` for the patch removes all of it. The patch applies in every st
 
 ## States
 
-A state is a situation the whole design is in, like a story: loading, empty, error, signed out. It stores only the
-changes you give it. `changes` maps node ids or names to patches (`hidden`, `text`, `props`, `style`); `null` clears a
-node's patch. Every value given is kept, even one the base already has, so the state keeps it if the base changes. The
+Only a component has states. A state is a variation the component is tested in, like a story: loading, empty, error,
+disabled. A screen or a frame has none, and `AddState`, `UpdateState` and `DeleteState` on one fail with
+`invalid_input`; give the part that varies a component, and the screen sets a variant on its copy. A state stores only
+the changes you give it. `changes` maps node ids or names to patches (`hidden`, `text`, `props`, `style`); `null` clears
+a node's patch. Every value given is kept, even one the base already has, so the state keeps it if the base changes. The
 first state is the base. A key can reach inside an instance: `instance/inner`, with nested instances between
 (`person/avatar/initials`), each step an id or a name. A text or prop the component binds to a param sets the instance's
 param in that state.
 
 ```js
-AddState("team-members", {
+AddState("members-table", {
   name: "Empty",
   changes: {
-    "Members table": { hidden: true },
+    Rows: { hidden: true },
     "Empty state": { hidden: false },
     seats: { props: { children: "1 of 10 seats used" } }
   }
@@ -371,7 +377,7 @@ AddState("team-members", {
 ```
 
 Put the parts only some states show into the base design with `hidden: true`, then show them in those states. A state
-can't show a node that a viewport's patch hides, so to keep a part off one screen, hide it there with `Responsive`
+can't show a node that a viewport's patch hides, so to keep a part off one screen size, hide it there with `Responsive`
 rather than in each state. A text node's words are its `text`; a component's are usually its `children` prop.
 
 ## Components
@@ -558,7 +564,7 @@ Print(
 
 `Measure` takes one state id and one mode id, because it returns one frame's layout. A list, `"all"` or `"shown"` fails
 with `invalid_input`, naming the ids it takes. To measure several frames, call it once for each; every layout says which
-state and mode it drew:
+state and mode it drew. Here `signup` is a component with states:
 
 ```js
 const signup = Designs().find((design) => design.id === "signup")
@@ -659,7 +665,7 @@ for (const { app, note, by } of References("dashboard")) {
 
 ## Examples
 
-A new screen, checked in every state and mode:
+A new screen, checked in every mode it shows:
 
 ```js
 const id = CreateDesign({ name: "Billing" })
@@ -683,13 +689,13 @@ Insert(id, {
     ]
   }
 })
-await Screenshot(id, { state: "all", mode: "shown" })
-Print(await Problems(id, { state: "all", mode: "shown" }))
+await Screenshot(id, { mode: "shown" })
+Print(await Problems(id, { mode: "shown" }))
 ```
 
-A loading state that swaps content for skeletons:
+A component's loading state that swaps its rows for skeletons:
 
 ```js
-Update("dashboard/Stats loading", { hidden: true })
-AddState("dashboard", { name: "Loading", changes: { Stats: { hidden: true }, "Stats loading": { hidden: false } } })
+Update("members-table/Skeleton", { hidden: true })
+AddState("members-table", { name: "Loading", changes: { Rows: { hidden: true }, Skeleton: { hidden: false } } })
 ```

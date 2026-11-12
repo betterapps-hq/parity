@@ -6,7 +6,7 @@ import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting } from "./inspector-stories.tsx"
 import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
-/** An instance of a component design selected: which state of its component it shows, and each of its params. */
+/** An instance of a component design selected: each of its params. It always shows its component's base state. */
 const meta = {
   title: "Parity/Inspector/Layer/Instances",
   component: DesignTab,
@@ -18,11 +18,8 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** An instance of a component design, Pricing's Pro plan: which state of Plan card it shows, and each of its params. */
+/** An instance of a component design, Pricing's Pro plan: each of Plan card's params, and no State row (PAR-1002). */
 export const InstanceLayer: Story = { loaders: [pick("Pricing", "Pro plan")] }
-
-/** The Pro plan picked in Pricing's Yearly state, which changes its price and billing: those params can be reset. */
-export const InstanceChangedInAState: Story = { loaders: [pick("Pricing", "Pro plan", "yearly")] }
 
 /** An instance whose component design was deleted: the panel says it doesn't exist. */
 export const InstanceOfMissingComponent: Story = {

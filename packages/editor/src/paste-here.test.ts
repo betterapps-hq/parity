@@ -78,8 +78,8 @@ function dashboard(): ContainerSpec {
   }
 }
 
-const base = dashboard().states[0]!
-const floating = dashboard().states[1]!
+const base = dashboard().states![0]!
+const floating = dashboard().states![1]!
 
 const card: DesignNode = {
   type: "layout",

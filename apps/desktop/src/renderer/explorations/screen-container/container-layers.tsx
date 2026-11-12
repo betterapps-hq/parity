@@ -1,4 +1,4 @@
-import { childNodes, type DesignNode, locateNode, nodeOnBoard } from "@parity-app/core"
+import { childNodes, type DesignNode, designStates, locateNode, nodeOnBoard } from "@parity-app/core"
 import { activeState, selectedNodes, type Selection } from "@parity-app/editor"
 import { ChevronRight, EyeOff, MonitorSmartphone, PenLine, Plus } from "lucide-react"
 import { type KeyboardEvent, useMemo, useState } from "react"
@@ -331,8 +331,11 @@ function LayerRow({
         )}
         {hidden && <EyeOff className="size-3" aria-label="Hidden" />}
         {row.depth === 0 && (
-          <Hint label={container.states.length === 1 ? "1 state" : `${container.states.length} states`} wait>
-            <span className="text-xs tabular-nums opacity-70">{container.states.length}</span>
+          <Hint
+            label={designStates(container).length === 1 ? "1 state" : `${designStates(container).length} states`}
+            wait
+          >
+            <span className="text-xs tabular-nums opacity-70">{designStates(container).length}</span>
           </Hint>
         )}
       </span>

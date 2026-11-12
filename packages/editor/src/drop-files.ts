@@ -279,7 +279,6 @@ export function designOfMedia(
       id: rootId,
       style: { ...landedStyle, direction: "row", align: "start" },
       children: nodes.map((node) => withFreshIds(node, ids))
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 }

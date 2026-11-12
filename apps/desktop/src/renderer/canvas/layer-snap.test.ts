@@ -46,8 +46,7 @@ const container = {
       badgeIn("panel"),
       badgeIn("plain")
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 beforeAll(async () => {

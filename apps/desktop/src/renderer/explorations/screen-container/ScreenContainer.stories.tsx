@@ -135,10 +135,10 @@ export const ShiftEnterSelectsTheScreen: Story = {
 export const EditingAnotherState: Story = {
   loaders: [
     inspecting("design", () => {
-      const key = design("Sign in")
-      example().store.updateView(key, "Show Wrong password", (view) => ({
+      const key = design("Stat card")
+      example().store.updateView(key, "Show Loading", (view) => ({
         ...view,
-        state: "wrong-password",
+        state: "loading",
         allStates: false
       }))
 

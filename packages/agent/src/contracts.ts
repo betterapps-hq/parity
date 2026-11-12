@@ -364,24 +364,36 @@ const tabSummary = z.looseObject({
   designs: z.int().describe("How many designs the project has.")
 })
 
-/** One design on the canvas, and where its board is. Its size is missing until its board has been drawn. */
-const designSummary = z.looseObject({
+/** What's said about every design on the canvas, and where its board is. Its size is missing until it's drawn. */
+const summaryFields = {
   id: z.string(),
   name: z.string(),
-  kind: z.string(),
   file: z.string(),
   x: number,
   y: number,
   width: number.optional(),
   height: number.optional(),
-  states: z.array(ref),
-  showing: z.looseObject({ state: z.string(), mode: z.string(), beside: strings }),
   nodes: z.int(),
   references: z
     .int()
     .optional()
     .describe("How many references are on the canvas for it, which get_references shows. Missing when none.")
-})
+}
+
+/** One design on the canvas. Only a component has states, so only a component lists them. */
+const designSummary = z.discriminatedUnion("kind", [
+  z.looseObject({
+    ...summaryFields,
+    kind: z.enum(["screen", "frame"]),
+    showing: z.looseObject({ mode: z.string(), beside: strings })
+  }),
+  z.looseObject({
+    ...summaryFields,
+    kind: z.literal("component"),
+    states: z.array(ref).describe("The component's states, the base first."),
+    showing: z.looseObject({ state: z.string(), mode: z.string(), beside: strings })
+  })
+])
 
 const overlap = z.looseObject({
   designs: strings,
