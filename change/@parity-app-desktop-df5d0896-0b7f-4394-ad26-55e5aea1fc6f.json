@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Name Vite+ when a project installs it as vite: detection gives the package it came in as via, and the status bar shows Vite+ with the Vite it ships",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

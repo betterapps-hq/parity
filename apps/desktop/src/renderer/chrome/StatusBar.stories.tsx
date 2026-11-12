@@ -14,7 +14,7 @@ import {
 } from "../stories/fixtures.tsx"
 import { answering, roots, running, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
-import { AtBottom, olderProjectAt, renameDesign, Window } from "./chrome-fixtures.tsx"
+import { AtBottom, olderProjectAt, renameDesign, vitePlusProjectAt, Window } from "./chrome-fixtures.tsx"
 import { save } from "./commands.ts"
 import { setLayout } from "./layout.ts"
 import { StatusBar } from "./StatusBar.tsx"
@@ -198,6 +198,25 @@ export const OlderProject: Story = {
     ).toBeInTheDocument()
     await userEvent.hover(statusBar().getByText("Vite"))
     await expect(await body().findByText("Vite 5.4.11")).toBeInTheDocument()
+  }
+}
+
+/**
+ * A project that installs Vite+ as `vite`, as the better-apps monorepo does: the builder says Vite+ with the Vite it
+ * ships, and its tooltip gives both versions.
+ */
+export const VitePlusProject: Story = {
+  loaders: [
+    async () => {
+      await openProjects()
+      preferring({ performanceStats: false })
+      await openAlso(vitePlusProjectAt("D:/projects/better-booking"))
+      workspace.activate("D:/projects/better-booking")
+    }
+  ],
+  play: async () => {
+    await userEvent.hover(await statusBar().findByText("Vite+"))
+    await expect(await body().findByText("Vite+ 1.4.0 with Vite 8.3.5")).toBeInTheDocument()
   }
 }
 

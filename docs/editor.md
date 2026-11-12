@@ -5968,6 +5968,9 @@ breathes almost all the time, and it mustn't cost the window anything while noth
   what it does or what a click does, such as "Storybook 10.6.5" over "3 components with stories. Click to open it". An
   untested version adds "Parity doesn't test this version". Paths, discovery notes and error messages stay out, since
   they can run long: a failed save's reason is in its notification.
+- **A builder installed through another package says so** (PAR-910). A project that installs Vite+ as `vite` shows
+  "Vite+ with Vite 8.3.5", and the tooltip "Vite+ 1.4.0 with Vite 8.3.5": detection's `via` names the package and its
+  version, and the Vite it ships is the version Parity checks.
 - **Notifications sit above the status bar** on a phone-sized window too: sonner places them by `mobileOffset` below
   600px, which is now 40px like `offset`, rather than its default 16px, which covered the bar's buttons.
 
@@ -5976,9 +5979,9 @@ and the `process-*` keyframes in `styles.css`.
 
 Tests: Storybook, `chrome/StatusBar.stories.tsx` Everything: every item the status bar can hold at once, with a running,
 a starting and a stopped light side by side; EverythingNarrow: the same at 480px, as icons and counts; OlderProject: the
-renderer's and builder's tooltips name the version and note it's untested; `chrome/ProcessIcons.stories.tsx` EveryKind
-and EveryKindLight: each light in every status, in both themes; and `chrome/Processes.stories.tsx` JustTheBuildServer:
-one light, breathing.
+renderer's and builder's tooltips name the version and note it's untested; VitePlusProject: Vite+ with the Vite it
+ships, both versions in the tooltip; `chrome/ProcessIcons.stories.tsx` EveryKind and EveryKindLight: each light in every
+status, in both themes; and `chrome/Processes.stories.tsx` JustTheBuildServer: one light, breathing.
 
 Gaps: nothing checks automatically that the lights stay on opacity and transform; the perf idle run shows it.
 
