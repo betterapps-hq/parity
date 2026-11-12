@@ -45,7 +45,7 @@
     "vitest": "catalog:",
     "zod": "catalog:",
     "@betterapps/playbook": "github:betterapps-hq/playbook",
-    "rulesync": "43.5.0",
+    "rulesync": "43.8.0",
     "skills": "1.7.6"
   }
 }
